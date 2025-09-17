@@ -1,0 +1,49 @@
+{
+  "feature_id": 338,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1108",
+      "text": "Verbs related to investigation, analysis, and examination, often used in formal or academic contexts, and prepositions indicating direction or relation, often used in phrases describing actions or states.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_284",
+      "text": "Verbs related to investigation, analysis, or examination of a subject, often followed by a prepositional phrase indicating the object of study, with high activation on the verb and surrounding prepositions.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1108",
+        "exp_284"
+      ],
+      "cosine_distance": 0.045910301451525415,
+      "euclidean_distance": 0.3030191433908072
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.85,
+      "score_detection": 0.55,
+      "score_simulation": 0.45445414169360343,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.84,
+      "score_detection": 0.59,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

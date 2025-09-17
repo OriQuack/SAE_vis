@@ -1,0 +1,49 @@
+{
+  "feature_id": 499,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1235",
+      "text": "Verbs or verb phrases indicating actions, states, or events that have occurred or will occur, often in relation to the subject's past or future experiences, and sometimes used in idiomatic expressions or to convey a sense of change or progression.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_411",
+      "text": "Common phrasal constructions involving temporal or modal expressions, often indicating past experiences, habitual actions, or hypothetical conditions, with high activation on function words like \\\"to\\\", \\\"never\\\", \\\"before\\\", \\\"ever\\\", \\\"up\\\", \\\"out\\\", and \\\"at\\\", and on key content words that complete idiomatic or grammatical structures.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1235",
+        "exp_411"
+      ],
+      "cosine_distance": 0.12022083835982378,
+      "euclidean_distance": 0.4903485140799453
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.6842105263157895,
+      "score_detection": 0.57,
+      "score_simulation": -0.007939582810635922,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.78,
+      "score_detection": 0.66,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

@@ -1,0 +1,49 @@
+{
+  "feature_id": 65,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_880",
+      "text": "Verbs or words that indicate actions, changes, or states, often used in formal or written contexts, and sometimes used to introduce or conclude a quotation or statement.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_056",
+      "text": "Common function words and particles (such as \\\"to\\\", \\\"in\\\", \\\"with\\\", \\\"of\\\", \\\"and\\\", \\\"than\\\", \\\"like\\\", \\\"er\\\") that serve grammatical or structural roles in sentences, often appearing in contextually significant phrases or constructions.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_880",
+        "exp_056"
+      ],
+      "cosine_distance": 0.15175135406517348,
+      "euclidean_distance": 0.5509107719782441
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.5,
+      "score_detection": 0.47,
+      "score_simulation": 0.08027421672354261,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.47,
+      "score_detection": 0.5,
+      "score_simulation": -0.03700957814384295,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

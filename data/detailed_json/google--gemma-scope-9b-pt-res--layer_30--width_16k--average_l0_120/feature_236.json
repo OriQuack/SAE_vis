@@ -1,0 +1,49 @@
+{
+  "feature_id": 236,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1022",
+      "text": "Various programming-related tokens, including variable names, function calls, and keywords, often in the context of code snippets or programming languages.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_198",
+      "text": "The token \\\"test\\\" frequently appears in contexts related to software development, particularly in identifiers, file paths, configuration, and code structure, often associated with testing frameworks, test cases, or test-related functionality.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1022",
+        "exp_198"
+      ],
+      "cosine_distance": 0.12050269939013358,
+      "euclidean_distance": 0.49092300129960703
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.49,
+      "score_detection": 0.52,
+      "score_simulation": 0.08160442391738941,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.45,
+      "score_detection": 0.45,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

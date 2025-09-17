@@ -1,0 +1,49 @@
+{
+  "feature_id": 70,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_884",
+      "text": "Articles, possessive pronouns, and adjectives often precede nouns, while prepositions often precede articles or nouns, and comparative or superlative adjectives often describe nouns.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_060",
+      "text": "Commonly activated tokens include possessive forms (e.g., \\\"its\\\", \\\"their\\\", \\\"s\\\"), definite articles (\\\"the\\\"), prepositions (\\\"of\\\", \\\"in\\\", \\\"regarding\\\"), and adjectives or adverbs that describe quality or extent, often appearing in evaluative or comparative contexts.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_884",
+        "exp_060"
+      ],
+      "cosine_distance": 0.11968183875701466,
+      "euclidean_distance": 0.48924805490963497
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.65,
+      "score_detection": 0.49,
+      "score_simulation": 0.21485529029245073,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.8,
+      "score_detection": 0.52,
+      "score_simulation": 0.11604827226283018,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

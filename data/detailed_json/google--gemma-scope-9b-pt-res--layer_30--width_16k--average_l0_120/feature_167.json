@@ -1,0 +1,49 @@
+{
+  "feature_id": 167,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_963",
+      "text": "Prepositions, conjunctions, and adverbs, often used to connect words or phrases, and sometimes nouns or adjectives that convey a sense of comparison, measurement, or evaluation.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_139",
+      "text": "Common multi-word phrases involving prepositions (e.g., \\\"to\\\", \\\"with\\\", \\\"on\\\", \\\"at\\\", \\\"in\\\") or comparative structures (e.g., \\\"than\\\", \\\"more\\\", \\\"less\\\") that function as grammatical connectors or modifiers in evaluative or descriptive contexts.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_963",
+        "exp_139"
+      ],
+      "cosine_distance": 0.08921654174652949,
+      "euclidean_distance": 0.4224134173232785
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.57,
+      "score_detection": 0.54,
+      "score_simulation": 0.1006848453615303,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.51,
+      "score_detection": 0.58,
+      "score_simulation": 0.025155535036942674,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

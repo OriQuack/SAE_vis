@@ -1,0 +1,49 @@
+{
+  "feature_id": 483,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1221",
+      "text": "Tokens often represent nouns, names, or words that are part of a larger phrase or sentence, sometimes denoting a specific object, location, or concept, and can be found in various contexts such as scientific, technical, or everyday language.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_397",
+      "text": "Common patterns include abbreviations, technical terms, proper nouns, and compound words often appearing in scientific, technical, or formal contexts, with frequent use of suffixes like \\\"er\\\", \\\"ing\\\", \\\"ed\\\", and \\\"re\\\" in morphological variations, and recurring tokens such as \\\"record\\\", \\\"results\\\", \\\"release\\\", \\\"range\\\", \\\"reservoir\\\", \\\"refurbished\\\", \\\"replaced\\\", \\\"recovered\\\", \\\"recreated\\\", \\\"retreated\\\", \\\"replaced\\\", \\\"received\\\", \\\"reporters\\\", \\\"around\\\", \\\"roles\\\", \\\"research\\\", \\\"region\\\", \\\"Russia\\\", \\\"recent\\\", \\\"rectangular\\\", \\\"recess\\\", \\\"resonance\\\", \\\"frequency\\\", \\\"RCE\\\", \\\"RPD\\\", \\\"rs\\\", \\\"Arg\\\", \\\"Rydberg\\\", \\\"ravel\\\", \\\"rm\\\", \\\"uf\\\", \\\"roa\\\", \\\"esta\\\", \\\"urant\\\", \\\"Request\\\", \\\"res\\\", \\\"disrupt\\\", \\\"result\\\", \\\"replace\\\", \\\"refurbished\\\", \\\"recovered\\\", \\\"recreated\\\", \\\"retreated\\\", \\\"replaced\\\", \\\"received\\\", \\\"reporters\\\", \\\"around\\\", \\\"roles\\\", \\\"research\\\", \\\"region\\\", \\\"Russia\\\", \\\"recent\\\", \\\"rectangular\\\", \\\"recess\\\", \\\"resonance\\\", \\\"frequency\\\", \\\"RCE\\\", \\\"RPD\\\", \\\"rs\\\", \\\"Arg\\\", \\\"Rydberg\\\", \\\"ravel\\\", \\\"rm\\\", \\\"uf\\\", \\\"roa\\\", \\\"esta\\\", \\\"urant\\\", \\\"Request\\\", \\\"res\\\", \\\"disrupt\\\", \\\"result\\\", \\\"replace\\\", \\\"refurbished\\\", \\\"recovered\\\", \\\"recreated\\\", \\\"retreated\\\", \\\"replaced\\\", \\\"received\\\", \\\"reporters\\\", \\\"around\\\", \\\"roles\\\", \\\"research\\\", \\\"region\\\", \\\"Russia\\\", \\\"recent\\\", \\\"rectangular\\\", \\\"recess\\\", \\\"resonance\\\", \\\"frequency\\\", \\\"RCE\\\", \\\"RPD\\\", \\\"rs\\\", \\\"Arg\\\", \\\"Rydberg\\\", \\\"ravel\\\", \\\"rm\\\", \\\"uf\\\", \\\"roa\\\", \\\"esta\\\", \\\"urant\\\", \\\"Request\\\", \\\"res\\\", \\\"disrupt\\\", \\\"result\\\", \\\"replace\\\", \\\"refurbished\\\", \\\"recovered\\\", \\\"recreated\\\", \\\"retreated\\\", \\\"replaced\\\", \\\"received\\\", \\\"reporters\\\", \\\"around\\\", \\\"roles\\\", \\\"research\\\", \\\"region\\\", \\\"Russia\\\", \\\"recent\\\", \\\"rectangular\\\", \\\"recess\\\", \\\"resonance\\\", \\\"frequency\\\", \\\"RCE",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1221",
+        "exp_397"
+      ],
+      "cosine_distance": 0.14608642497098112,
+      "euclidean_distance": 0.5405301280760992
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.55,
+      "score_detection": 0.42,
+      "score_simulation": 0.04676961634882393,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.56,
+      "score_detection": 0.23,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

@@ -1,0 +1,49 @@
+{
+  "feature_id": 518,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1248",
+      "text": "Proper nouns, technical terms, and common nouns representing concepts, objects, or actions, often in formal or specialized contexts.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_424",
+      "text": "Tokens that are part of compound words, proper nouns, or technical terms, often appearing in contexts involving specific domains like science, technology, or formal writing, with higher activation values when they form meaningful units within a larger term or concept.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1248",
+        "exp_424"
+      ],
+      "cosine_distance": 0.09745503415287404,
+      "euclidean_distance": 0.44148618336223727
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.64,
+      "score_detection": 0.42,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.58,
+      "score_detection": 0.42,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

@@ -1,0 +1,49 @@
+{
+  "feature_id": 105,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_911",
+      "text": "Special characters and symbols used in various contexts such as programming, mathematics, and formatting, often serving as operators, delimiters, or indicators of specific functions or relationships.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_087",
+      "text": "Specialized tokens or symbols (like underscores, hyphens, angle brackets, or punctuation) used to denote technical constructs, identifiers, or formatting in code, markup, or scientific notation.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_911",
+        "exp_087"
+      ],
+      "cosine_distance": 0.08689504008034377,
+      "euclidean_distance": 0.4168814201962956
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.64,
+      "score_detection": 0.55,
+      "score_simulation": 0.05526851209419853,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.57,
+      "score_detection": 0.5,
+      "score_simulation": 0.11029706211040909,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

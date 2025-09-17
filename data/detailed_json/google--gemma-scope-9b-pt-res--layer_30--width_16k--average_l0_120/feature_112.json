@@ -1,0 +1,49 @@
+{
+  "feature_id": 112,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_916",
+      "text": "Class, struct, and interface declarations in various programming languages.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_092",
+      "text": "The pattern involves identifiers that represent class, struct, or type definitions in code, often appearing with keywords like \\\"class\\\", \\\"struct\\\", or \\\"type\\\", and frequently followed by a capitalized name or compound identifier, with high activation on the name components and surrounding syntax.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_916",
+        "exp_092"
+      ],
+      "cosine_distance": 0.12234412869894162,
+      "euclidean_distance": 0.49465975013436364
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.84,
+      "score_detection": 0.73,
+      "score_simulation": 0.22834825950842907,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.73,
+      "score_detection": 0.75,
+      "score_simulation": 0.21831687954171275,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

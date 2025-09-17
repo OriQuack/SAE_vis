@@ -1,0 +1,49 @@
+{
+  "feature_id": 336,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1106",
+      "text": "Tokens related to ordering, sorting, or arranging items in a specific manner, often in ascending or descending order.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_282",
+      "text": "The word \\\"sort\\\" or \\\"sort\\\" variants (e.g., \\\"sorted\\\", \\\"sorting\\\") often appear in contexts related to ordering or organizing data, frequently paired with terms like \\\"by\\\", \\\"in\\\", or \\\"ascending/descending\\\", indicating a sorting operation or comparison.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1106",
+        "exp_282"
+      ],
+      "cosine_distance": 0.08065223145697664,
+      "euclidean_distance": 0.4016272822515516
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.71,
+      "score_detection": 0.73,
+      "score_simulation": 0.36471118353383153,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.69,
+      "score_detection": 0.73,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

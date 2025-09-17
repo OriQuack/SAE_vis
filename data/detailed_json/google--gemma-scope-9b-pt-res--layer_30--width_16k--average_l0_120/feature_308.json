@@ -1,0 +1,49 @@
+{
+  "feature_id": 308,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1082",
+      "text": "The verb \\\"to be\\\" in various forms, often used in phrases or idiomatic expressions, such as \\\"to be certain\\\", \\\"to be honest\\\", \\\"to be a\\\", or \\\"being\\\" in a state or condition, frequently indicating a state of existence, truth, or identity.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_258",
+      "text": "The verb \\\"be\\\" and its inflected forms (\\\"being\\\", \\\"been\\\") are frequently used in passive constructions, existential statements, or to express states of being, often in contexts involving identity, possibility, or condition.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1082",
+        "exp_258"
+      ],
+      "cosine_distance": 0.07496916783797192,
+      "euclidean_distance": 0.38721873612739954
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.92,
+      "score_detection": 0.78,
+      "score_simulation": 0.6743867845703069,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.94,
+      "score_detection": 0.72,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

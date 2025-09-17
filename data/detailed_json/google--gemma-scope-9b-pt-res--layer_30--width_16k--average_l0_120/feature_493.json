@@ -1,0 +1,49 @@
+{
+  "feature_id": 493,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1230",
+      "text": "Names of sports, leisure activities, and related nouns, often in the context of tourism, events, or establishments.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_406",
+      "text": "The word \\\"golf\\\" frequently appears in contexts related to sports, venues, equipment, or events, often as part of compound terms like \\\"golf course,\\\" \\\"golf cart,\\\" or \\\"golf club,\\\" and is typically associated with recreational or competitive activities.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1230",
+        "exp_406"
+      ],
+      "cosine_distance": 0.11936974224443297,
+      "euclidean_distance": 0.4886097430736011
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.8,
+      "score_detection": 0.8,
+      "score_simulation": -0.004203893222201039,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.67,
+      "score_detection": 0.67,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

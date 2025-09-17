@@ -1,0 +1,49 @@
+{
+  "feature_id": 682,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1388",
+      "text": "Proper nouns, titles, and specific names of entities, such as organizations, locations, books, and publications.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_564",
+      "text": "Common patterns include proper nouns, brand names, and technical terms, often appearing in contexts involving titles, locations, products, or specialized domains, with frequent use of punctuation and formatting markers around them.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1388",
+        "exp_564"
+      ],
+      "cosine_distance": 0.12160489524083928,
+      "euclidean_distance": 0.4931630698065402
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.75,
+      "score_detection": 0.67,
+      "score_simulation": 0.2866071699935344,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.6,
+      "score_detection": 0.53,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

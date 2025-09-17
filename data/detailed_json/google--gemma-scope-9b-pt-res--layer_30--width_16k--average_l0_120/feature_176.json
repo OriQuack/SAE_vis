@@ -1,0 +1,49 @@
+{
+  "feature_id": 176,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_972",
+      "text": "Special characters and symbols, often used as markers or indicators, such as hash signs, at signs, and greater-than or less-than symbols, which may serve various purposes like referencing, linking, or denoting specific sections or codes.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_148",
+      "text": "The symbol '#' and related patterns like '#', 'hash', 'HASH', '@#', and ' {#' are frequently used to denote identifiers, references, or metadata in code, documentation, or structured text, often indicating a location, label, or special token.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_972",
+        "exp_148"
+      ],
+      "cosine_distance": 0.08949926527145524,
+      "euclidean_distance": 0.42308220010031966
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.57,
+      "score_detection": 0.56,
+      "score_simulation": 0.17159262037544157,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.84,
+      "score_detection": 0.81,
+      "score_simulation": 0.4174200541304931,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

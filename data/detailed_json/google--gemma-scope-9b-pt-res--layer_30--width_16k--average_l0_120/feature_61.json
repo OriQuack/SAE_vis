@@ -1,0 +1,49 @@
+{
+  "feature_id": 61,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_877",
+      "text": "Negation words or phrases, often used to indicate the absence or opposite of something, typically preceding a clause or phrase.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_053",
+      "text": "Negation markers such as \\\"not\\\", \\\"ne...pas\\\", \\\"without\\\", \\\"non-\\\", and contractions like \\\"don't\\\" or \\\"doesn't\\\" are frequently activated when expressing denial, absence, or exclusion, often in contexts involving logical or factual negation.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_877",
+        "exp_053"
+      ],
+      "cosine_distance": 0.10196540577641211,
+      "euclidean_distance": 0.45158698247521006
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.96,
+      "score_detection": 0.75,
+      "score_simulation": 0.7148957979349807,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.94,
+      "score_detection": 0.87,
+      "score_simulation": 0.2381360355482743,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

@@ -1,0 +1,49 @@
+{
+  "feature_id": 79,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_891",
+      "text": "Verbs of perception, observation, or experience, often used to describe an action of gaining insight or awareness, frequently in the context of witnessing, seeing, or hearing something.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_067",
+      "text": "Verbs related to perception or observation (e.g., see, witness, observe, imagine, hear, admire) are frequently activated when describing experiences, actions, or visual access to people, places, or processes.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_891",
+        "exp_067"
+      ],
+      "cosine_distance": 0.0572557005236799,
+      "euclidean_distance": 0.33839532431072755
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.77,
+      "score_detection": 0.65,
+      "score_simulation": 0.4112878560960831,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.7789473684210526,
+      "score_detection": 0.63,
+      "score_simulation": 0.25722410191543466,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

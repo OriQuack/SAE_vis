@@ -1,0 +1,49 @@
+{
+  "feature_id": 89,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_899",
+      "text": "Terms related to medical and biological concepts, including diseases, conditions, tests, and biological processes, often represented by technical or scientific names.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_075",
+      "text": "Medical terminology involving anatomical locations, biological markers, or clinical conditions, often appearing as compound terms or abbreviations with high activation in biomedical contexts.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_899",
+        "exp_075"
+      ],
+      "cosine_distance": 0.08410489614797834,
+      "euclidean_distance": 0.4101338626356249
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.64,
+      "score_detection": 0.5,
+      "score_simulation": 0.19318106043013578,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.66,
+      "score_detection": 0.5,
+      "score_simulation": 0.02361497481472662,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

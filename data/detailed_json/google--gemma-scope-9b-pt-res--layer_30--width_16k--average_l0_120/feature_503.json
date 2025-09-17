@@ -1,0 +1,49 @@
+{
+  "feature_id": 503,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1237",
+      "text": "Prefixes or words that are part of a compound word or phrase, often indicating a relationship, direction, or characteristic.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_413",
+      "text": "Commonly activated tokens include suffixes like \\\"er\\\", \\\"ing\\\", \\\"ly\\\", and \\\"able\\\", as well as function words like \\\"the\\\", \\\"to\\\", \\\"this\\\", \\\"that\\\", and \\\"what\\\", often appearing in comparative, descriptive, or explanatory contexts. Many activations cluster around compound or multi-syllabic words where partial segments (e.g., \\\"mis\\\", \\\"stere\\\", \\\"endos\\\", \\\"cination\\\") are individually significant, suggesting that morphological subunits of complex words are important for semantic interpretation. Additionally, common phrases like \\\"according to\\\", \\\"contrary to\\\", \\\"in the\\\", and \\\"this sort of\\\" frequently appear, indicating that functional and idiomatic expressions are key to contextual understanding.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1237",
+        "exp_413"
+      ],
+      "cosine_distance": 0.13524951432712318,
+      "euclidean_distance": 0.5200952069963983
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.51,
+      "score_detection": 0.43,
+      "score_simulation": -0.005952180716671969,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.62,
+      "score_detection": 0.56,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

@@ -1,0 +1,49 @@
+{
+  "feature_id": 155,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_954",
+      "text": "Punctuation marks and common function words, often used to indicate negation, possession, or to begin a sentence.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_130",
+      "text": "The presence of negation markers (such as \\\"not\\\", \\\"n't\\\", \\\"non-\\\", \\\"no\\\") and pronouns (like \\\"I\\\", \\\"she\\\", \\\"it\\\") in close proximity to other grammatical or semantic elements, often signaling contrast, exclusion, or emphasis in context.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_954",
+        "exp_130"
+      ],
+      "cosine_distance": 0.1321894838813703,
+      "euclidean_distance": 0.5141779428191814
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.67,
+      "score_detection": 0.81,
+      "score_simulation": 0.048380520763750434,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.75,
+      "score_detection": 0.76,
+      "score_simulation": 0.17341754941978943,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

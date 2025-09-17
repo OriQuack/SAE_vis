@@ -1,0 +1,49 @@
+{
+  "feature_id": 489,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1227",
+      "text": "Nouns representing various concepts, including music, performance, news, magic, furniture, money, jewelry, and other objects or ideas, often in contexts where they are being highlighted or emphasized.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_403",
+      "text": "The word \\\"music\\\" and related terms (e.g., \\\"tune\\\", \\\"rhythm\\\", \\\"orchestra\\\", \\\"musical\\\") are frequently activated in contexts involving sound, performance, entertainment, or artistic expression, often indicating a central theme or focus in the described setting or activity.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1227",
+        "exp_403"
+      ],
+      "cosine_distance": 0.15231214578726304,
+      "euclidean_distance": 0.5519278269297977
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.64,
+      "score_detection": 0.29,
+      "score_simulation": -0.006057516103802243,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.67,
+      "score_detection": 0.57,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

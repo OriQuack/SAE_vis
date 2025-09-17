@@ -1,0 +1,49 @@
+{
+  "feature_id": 256,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1038",
+      "text": "Proper nouns, often representing names of places, organizations, or specific entities, and sometimes including words that are part of a title or a formal name.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_214",
+      "text": "Proper nouns or compound terms often consisting of two or more capitalized words, frequently representing geographical locations, organizations, technical terms, or branded entities, with high activation on the constituent parts, especially when forming a recognized name or label.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1038",
+        "exp_214"
+      ],
+      "cosine_distance": 0.0918485331780291,
+      "euclidean_distance": 0.42859892428269136
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.74,
+      "score_detection": 0.76,
+      "score_simulation": 0.20812528332121075,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.74,
+      "score_detection": 0.75,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

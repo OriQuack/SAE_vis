@@ -1,0 +1,13 @@
+{
+    "data_source": "gwen_e-llama_s",
+    "embedding_model": "models/gemini-embedding-001",
+    "task_type": "semantic_similarity",
+    "batch_size": 1,
+    "delay_between_requests": 0.1,
+    "output_filename": "embeddings.json",
+    "file_pattern": "layers.30_latent*.txt",
+    "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+    "explanation_method": "quantiles",
+    "description": "Configuration for generating embeddings from SAE feature explanations",
+    "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120"
+}

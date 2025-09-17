@@ -1,0 +1,49 @@
+{
+  "feature_id": 132,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_933",
+      "text": "Hexadecimal or numerical values embedded within a larger string or code, often representing memory addresses, data values, or indices.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_109",
+      "text": "The final character or token within a sequence of hexadecimal, numeric, or symbolic values, often indicating a specific identifier, address, or data field.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_933",
+        "exp_109"
+      ],
+      "cosine_distance": 0.11340033147602424,
+      "euclidean_distance": 0.4762359241173741
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.4,
+      "score_detection": 0.3,
+      "score_simulation": 0.18686490605920925,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.48,
+      "score_detection": 0.36,
+      "score_simulation": 0.1731717797279953,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

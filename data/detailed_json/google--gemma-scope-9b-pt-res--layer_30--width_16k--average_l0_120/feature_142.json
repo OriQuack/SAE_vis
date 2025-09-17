@@ -1,0 +1,49 @@
+{
+  "feature_id": 142,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_941",
+      "text": "The linking verbs \\\"is\\\" and \\\"are\\\" used to connect the subject of a sentence to additional information, often in formal or written contexts.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_117",
+      "text": "The words \\\"is\\\" and \\\"are\\\" are frequently used as linking verbs to connect subjects with descriptions, states, or attributes, often appearing in formal or scientific writing to assert identity, classification, or condition.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_941",
+        "exp_117"
+      ],
+      "cosine_distance": 0.05316681649211008,
+      "euclidean_distance": 0.3260883789547369
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.96,
+      "score_detection": 0.79,
+      "score_simulation": 0.7645418582636545,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.97,
+      "score_detection": 0.78,
+      "score_simulation": 0.28777643175809053,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

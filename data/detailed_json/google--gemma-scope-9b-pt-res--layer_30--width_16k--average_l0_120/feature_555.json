@@ -1,0 +1,49 @@
+{
+  "feature_id": 555,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1279",
+      "text": "Verbs of communication, often in the form of dialogue or reported speech, typically involving a subject and a recipient.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_455",
+      "text": "Verbs of speech or communication (e.g., said, told, told, added, yelled, says, stating) frequently co-occur with pronouns or nouns indicating the recipient or subject of the statement, often signaling direct or indirect dialogue.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1279",
+        "exp_455"
+      ],
+      "cosine_distance": 0.05617165977851346,
+      "euclidean_distance": 0.3351765403344663
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.86,
+      "score_detection": 0.71,
+      "score_simulation": -0.003948432152137345,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.91,
+      "score_detection": 0.83,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

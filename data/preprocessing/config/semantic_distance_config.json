@@ -1,0 +1,8 @@
+{
+  "data_source_1": "llama_e-llama_s",
+  "data_source_2": "gwen_e-llama_s",
+  "embedding_filename": "embeddings.json",
+  "distance_metrics": ["cosine", "euclidean"],
+  "output_filename": "semantic_distances.json",
+  "description": "Configuration for calculating semantic distances between embeddings from two data sources"
+}

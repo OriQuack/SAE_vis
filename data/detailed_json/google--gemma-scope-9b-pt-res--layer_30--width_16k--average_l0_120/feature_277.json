@@ -1,0 +1,49 @@
+{
+  "feature_id": 277,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1057",
+      "text": "LaTeX and programming syntax elements, including mathematical expressions, equations, and code snippets, often denoted by special symbols and formatting.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_233",
+      "text": "Patterns in mathematical and LaTeX-formatted text involving delimiters, alignment symbols, and structural markers used in equation environments.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1057",
+        "exp_233"
+      ],
+      "cosine_distance": 0.08812785212218843,
+      "euclidean_distance": 0.4198281791548259
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.57,
+      "score_detection": 0.51,
+      "score_simulation": 0.023421297395209567,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.76,
+      "score_detection": 0.69,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

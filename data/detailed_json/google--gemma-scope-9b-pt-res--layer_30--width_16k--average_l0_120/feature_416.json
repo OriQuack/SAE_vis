@@ -1,0 +1,49 @@
+{
+  "feature_id": 416,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1166",
+      "text": "Punctuation marks, often used to denote the end of a sentence or to separate items in a list, and sometimes used in conjunction with other symbols or formatting to indicate specific types of content, such as code or citations.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_342",
+      "text": "Punctuation and delimiter tokens such as parentheses, brackets, quotation marks, and commas are frequently activated in structured or formatted text, often surrounding or separating syntactic elements like citations, code blocks, or metadata.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1166",
+        "exp_342"
+      ],
+      "cosine_distance": 0.10461806066863044,
+      "euclidean_distance": 0.4574233454439209
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.81,
+      "score_detection": 0.52,
+      "score_simulation": 0.13389942709336844,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.85,
+      "score_detection": 0.72,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

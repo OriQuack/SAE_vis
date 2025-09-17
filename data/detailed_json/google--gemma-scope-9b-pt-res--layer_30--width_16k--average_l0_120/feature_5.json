@@ -1,0 +1,49 @@
+{
+  "feature_id": 5,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_830",
+      "text": "Punctuation marks, particularly commas, periods, and occasionally other symbols, often used to separate items in lists, set off clauses, or indicate the end of a sentence, and sometimes linking clauses or phrases.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_006",
+      "text": "Common function words and punctuation marks (such as \\\"is\\\", \\\"was\\\", \\\",\\\", \\\".\\\", \\\"er\\\", \\\"especially\\\") that serve grammatical or syntactic roles in sentences, often appearing in contexts involving description, evaluation, or structural formatting.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_830",
+        "exp_006"
+      ],
+      "cosine_distance": 0.12220907200686881,
+      "euclidean_distance": 0.4943866500679334
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.74,
+      "score_detection": 0.47,
+      "score_simulation": 0.2257458998793326,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.74,
+      "score_detection": 0.4,
+      "score_simulation": 0.08330979909243051,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

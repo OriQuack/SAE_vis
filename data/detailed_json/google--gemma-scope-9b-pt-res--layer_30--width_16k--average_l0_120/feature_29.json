@@ -1,0 +1,49 @@
+{
+  "feature_id": 29,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_849",
+      "text": "Punctuation marks and special characters, often used to denote formatting, mathematical operations, or citations, and sometimes preceding or following numbers or codes.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_025",
+      "text": "Common punctuation, numerical, and symbolic tokens that appear in structured or technical text, often surrounding or within identifiers, mathematical expressions, or formatting markers.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_849",
+        "exp_025"
+      ],
+      "cosine_distance": 0.0854593054952465,
+      "euclidean_distance": 0.41342305321189904
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.78,
+      "score_detection": 0.77,
+      "score_simulation": 0.02554001786070261,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.77,
+      "score_detection": 0.76,
+      "score_simulation": -0.03142531849849339,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

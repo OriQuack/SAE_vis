@@ -1,0 +1,49 @@
+{
+  "feature_id": 148,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_947",
+      "text": "Prepositions, articles, and adjectives often precede nouns, and sometimes verbs or adverbs, in various contexts, including descriptive phrases, comparisons, and explanations.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_123",
+      "text": "Prepositions and determiners (such as \\\"of\\\", \\\"the\\\", \\\"in\\\", \\\"on\\\") frequently appear in context with nouns or phrases that specify spatial, temporal, or relational connections, often forming part of common collocations or grammatical structures.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_947",
+        "exp_123"
+      ],
+      "cosine_distance": 0.08662918664218955,
+      "euclidean_distance": 0.4162431541134791
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.67,
+      "score_detection": 0.49,
+      "score_simulation": 0.11550305433825954,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.63,
+      "score_detection": 0.54,
+      "score_simulation": -0.002027799838336675,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

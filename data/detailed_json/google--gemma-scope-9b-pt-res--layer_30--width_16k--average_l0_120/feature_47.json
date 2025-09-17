@@ -1,0 +1,49 @@
+{
+  "feature_id": 47,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_863",
+      "text": "Prepositions indicating location, direction, or manner, often used to establish relationships between entities or actions in a sentence.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_039",
+      "text": "Prepositional phrases indicating spatial, temporal, or causal relationships, often used to specify conditions, locations, or contexts.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_863",
+        "exp_039"
+      ],
+      "cosine_distance": 0.06299039029500364,
+      "euclidean_distance": 0.3549376926408065
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.88,
+      "score_detection": 0.43,
+      "score_simulation": 0.4587948709285792,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.86,
+      "score_detection": 0.48,
+      "score_simulation": 0.22447681252636542,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

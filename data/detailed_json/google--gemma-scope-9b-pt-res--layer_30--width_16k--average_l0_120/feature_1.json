@@ -1,0 +1,49 @@
+{
+  "feature_id": 1,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_826",
+      "text": "The token \\\"define\\\" or its variants, often used in formal or technical contexts, such as mathematics, programming, or legal documents, to introduce or specify a concept, term, or entity.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_002",
+      "text": "The word \\\"defined\\\" and its variants (e.g., \\\"defining\\\", \\\"undefined\\\", \\\"deficient\\\", \\\"defensive\\\") frequently appear in contexts involving formal definitions, technical specifications, or logical conditions, often in academic, programming, or legal texts.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_826",
+        "exp_002"
+      ],
+      "cosine_distance": 0.08613607510403587,
+      "euclidean_distance": 0.4150568066765438
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.71,
+      "score_detection": 0.68,
+      "score_simulation": 0.4614927080400195,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.7,
+      "score_detection": 0.66,
+      "score_simulation": 0.3747886866576101,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

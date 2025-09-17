@@ -1,0 +1,49 @@
+{
+  "feature_id": 72,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_886",
+      "text": "Truncated words or word parts, often suffixes or prefixes, that are part of a larger word or phrase.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_062",
+      "text": "Partial word fragments at the end of tokens, often representing suffixes or root forms of words, particularly in contexts involving technical terms, proper names, or morphological variations.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_886",
+        "exp_062"
+      ],
+      "cosine_distance": 0.06830467887917324,
+      "euclidean_distance": 0.3696070546233777
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.5,
+      "score_detection": 0.47,
+      "score_simulation": 0.1184104933244068,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.54,
+      "score_detection": 0.5,
+      "score_simulation": 0.04521079059404215,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

@@ -1,0 +1,49 @@
+{
+  "feature_id": 456,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1199",
+      "text": "Nouns, adjectives, and adverbs often function as important tokens, typically representing objects, concepts, or ideas, and are frequently used to convey specific information or context.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_375",
+      "text": "Common multi-word phrases or compound nouns that function as specific locations, entities, or technical terms, often appearing in contextually precise or named references.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1199",
+        "exp_375"
+      ],
+      "cosine_distance": 0.15208644130127136,
+      "euclidean_distance": 0.5515187113308605
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.59,
+      "score_detection": 0.42,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.54,
+      "score_detection": 0.4,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

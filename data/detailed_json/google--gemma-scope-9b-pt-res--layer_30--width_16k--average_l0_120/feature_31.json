@@ -1,0 +1,49 @@
+{
+  "feature_id": 31,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_851",
+      "text": "Numerical values, often decimal numbers, and sometimes hexadecimal values, that appear to be part of mathematical expressions, data, or measurements.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_027",
+      "text": "Individual digits and punctuation marks within numerical or symbolic sequences, particularly in mathematical expressions, timestamps, or formatted data, often carry significant activation, with digits like '8', '9', '6', and '.' being frequently highlighted in contextually precise positions.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_851",
+        "exp_027"
+      ],
+      "cosine_distance": 0.12493802171827884,
+      "euclidean_distance": 0.49987606620628994
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.75,
+      "score_detection": 0.67,
+      "score_simulation": 0.17014999337681683,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.84,
+      "score_detection": 0.71,
+      "score_simulation": 0.0362157550946122,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

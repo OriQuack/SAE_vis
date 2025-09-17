@@ -1,0 +1,49 @@
+{
+  "feature_id": 355,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1121",
+      "text": "Citations, references, and legal terminology, often including numbers, abbreviations, and specific formatting.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_297",
+      "text": "The text contains legal citations and references with structured formatting, including numerical codes, abbreviations (e.g., \\\"F.3d\\\", \\\"S. Ct.\\\"), section symbols (§), parentheses, and spacing patterns, often surrounding specific legal provisions, case names, or statutory references.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1121",
+        "exp_297"
+      ],
+      "cosine_distance": 0.05692657321453898,
+      "euclidean_distance": 0.3374213235255626
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.65,
+      "score_detection": 0.57,
+      "score_simulation": 0.05704843872205977,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.66,
+      "score_detection": 0.6,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

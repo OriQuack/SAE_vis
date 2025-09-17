@@ -1,0 +1,49 @@
+{
+  "feature_id": 170,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_966",
+      "text": "Proper nouns and specialized terms, often related to military, government, or technical fields, and sometimes indicating a formal or official context.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_142",
+      "text": "Compound military or organizational terms, often consisting of two or more words, where the second word is a key identifier (e.g., \\\"Signal Regiment\\\", \\\"Air Force\\\", \\\"Intelligence\\\"), and frequently appear in contexts involving defense, security, or structured institutions.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_966",
+        "exp_142"
+      ],
+      "cosine_distance": 0.10176663397967012,
+      "euclidean_distance": 0.4511465854479684
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.68,
+      "score_detection": 0.52,
+      "score_simulation": 0.20065740230770807,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.67,
+      "score_detection": 0.65,
+      "score_simulation": 0.22813718954451997,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

@@ -1,0 +1,49 @@
+{
+  "feature_id": 515,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1245",
+      "text": "Verbs and nouns related to construction, architecture, and infrastructure development, often describing the creation or expansion of buildings, facilities, and public spaces.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_421",
+      "text": "The token \\\"build\\\" and its inflected forms (e.g., \\\"building\\\", \\\"built\\\", \\\"build a\\\") are frequently activated when describing the construction or development of physical structures, often in contexts involving infrastructure, buildings, or urban planning.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1245",
+        "exp_421"
+      ],
+      "cosine_distance": 0.08697597527860879,
+      "euclidean_distance": 0.4170755081280689
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.71,
+      "score_detection": 0.69,
+      "score_simulation": 0.11104102467856965,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.64,
+      "score_detection": 0.69,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

@@ -1,0 +1,49 @@
+{
+  "feature_id": 168,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_964",
+      "text": "Verbs in various languages, often in the context of a sentence or phrase, sometimes with a focus on the verb's conjugation or tense.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_140",
+      "text": "Common suffixes and function words in multi-lingual text, often part of verb conjugations, prepositions, or grammatical markers, with low individual token importance but high contextual relevance in morphological patterns.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_964",
+        "exp_140"
+      ],
+      "cosine_distance": 0.12534196441626066,
+      "euclidean_distance": 0.5006834471873122
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.73,
+      "score_detection": 0.68,
+      "score_simulation": 0.21990710695494675,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.68,
+      "score_detection": 0.62,
+      "score_simulation": 0.018354109882441974,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

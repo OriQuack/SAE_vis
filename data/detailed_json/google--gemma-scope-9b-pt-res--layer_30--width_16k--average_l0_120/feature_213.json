@@ -1,0 +1,49 @@
+{
+  "feature_id": 213,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1003",
+      "text": "Tokens that are part of a larger code or programming syntax, often including symbols, operators, and keywords, and sometimes numerical values or mathematical expressions.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_179",
+      "text": "The token sequences often represent grammatical or syntactic elements, numerical values, or identifiers in code, mathematical expressions, or structured text, with high activation on words that serve as connectors, modifiers, or markers of structure, such as prepositions, conjunctions, punctuation, or parts of compound terms.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1003",
+        "exp_179"
+      ],
+      "cosine_distance": 0.09200210881379933,
+      "euclidean_distance": 0.42895713716910255
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.76,
+      "score_detection": 0.81,
+      "score_simulation": 0.03409398964003287,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.69,
+      "score_detection": 0.71,
+      "score_simulation": -0.05179277754490285,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

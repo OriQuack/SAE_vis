@@ -1,0 +1,49 @@
+{
+  "feature_id": 3,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_828",
+      "text": "Various tokens including numbers, mathematical symbols, and common function words, often used in formal or technical writing, such as academic or scientific texts, and sometimes in news articles or other informative content.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_004",
+      "text": "The token sequences often represent grammatical or syntactic elements, numerical values, or parts of compound terms, with activations frequently occurring at morphological suffixes, punctuation, or boundary markers in structured or technical text.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_828",
+        "exp_004"
+      ],
+      "cosine_distance": 0.09916315450444746,
+      "euclidean_distance": 0.44533841608751373
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.56,
+      "score_detection": 0.46,
+      "score_simulation": 0.008561035241716494,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.51,
+      "score_detection": 0.6,
+      "score_simulation": 0.007437000238543227,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

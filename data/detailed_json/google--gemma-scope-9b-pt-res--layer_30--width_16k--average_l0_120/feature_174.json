@@ -1,0 +1,49 @@
+{
+  "feature_id": 174,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_970",
+      "text": "Adjectives describing the inherent characteristics of something, often related to its natural state, origin, or composition.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_146",
+      "text": "The term \\\"natural\\\" and its variants (e.g., \\\"natural\\\", \\\"nature\\\", \\\"naturally\\\") are frequently used to describe inherent, unaltered, or authentic qualities, often in contrast to artificial or human-made elements, and appear in contexts related to environment, biology, authenticity, and intrinsic properties.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_970",
+        "exp_146"
+      ],
+      "cosine_distance": 0.10104053464972329,
+      "euclidean_distance": 0.44953430383850096
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.83,
+      "score_detection": 0.59,
+      "score_simulation": 0.3755962812084819,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.78,
+      "score_detection": 0.76,
+      "score_simulation": 0.5460990364254024,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

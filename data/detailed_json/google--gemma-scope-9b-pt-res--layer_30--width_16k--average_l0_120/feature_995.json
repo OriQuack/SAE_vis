@@ -1,0 +1,49 @@
+{
+  "feature_id": 995,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1644",
+      "text": "Adjectives and adverbs describing positive qualities, often used to describe services, staff, or experiences, as well as nouns and verbs related to hospitality and customer interactions.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_820",
+      "text": "Adjectives and adverbs describing positive qualities, often used to describe services, staff, or experiences, as well as nouns and verbs related to hospitality and customer interactions.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1644",
+        "exp_820"
+      ],
+      "cosine_distance": 2.220446049250313e-16,
+      "euclidean_distance": 0.0
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.36,
+      "score_detection": 0.26,
+      "score_simulation": 0.062071161346698114,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.275,
+      "score_detection": 0.175,
+      "score_simulation": -0.033304065487162554,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

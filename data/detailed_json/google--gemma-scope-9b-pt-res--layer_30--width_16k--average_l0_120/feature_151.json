@@ -1,0 +1,49 @@
+{
+  "feature_id": 151,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_950",
+      "text": "Verbs or nouns representing actions, processes, or states that are often formal or technical in nature, and may be related to research, law, business, or other specialized domains.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_126",
+      "text": "Words ending in common suffixes like -ed, -ing, -tion, -ance, -ment, -ity, -ism, -or, -er, -al, -ive, -able, -ible, -ous, -ful, -less, -ly, -ness, -ship, -hood, -ism, -ist, -ity, -ance, -ence, -ancy, -ency, -ancy, -ency, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition, -ation, -ition",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_950",
+        "exp_126"
+      ],
+      "cosine_distance": 0.19108875642401568,
+      "euclidean_distance": 0.6182050729521152
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.5,
+      "score_detection": 0.32,
+      "score_simulation": 0.23815761535863061,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.67,
+      "score_detection": 0.38,
+      "score_simulation": 0.10504858911929106,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

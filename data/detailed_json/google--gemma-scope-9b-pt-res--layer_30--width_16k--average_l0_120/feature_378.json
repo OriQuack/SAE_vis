@@ -1,0 +1,49 @@
+{
+  "feature_id": 378,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1139",
+      "text": "Tokens that are part of a larger unit, such as a word, phrase, or sentence, often with a specific grammatical or semantic function, and sometimes indicating a transition or connection between ideas.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_315",
+      "text": "Fragments of words, abbreviations, or technical terms that appear in isolation or are split across tokens, often representing parts of compound words, identifiers, or symbolic notation.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1139",
+        "exp_315"
+      ],
+      "cosine_distance": 0.13676326530498872,
+      "euclidean_distance": 0.5229976282448802
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.57,
+      "score_detection": 0.84,
+      "score_simulation": -0.04588098787021144,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.18,
+      "score_detection": 0.17,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

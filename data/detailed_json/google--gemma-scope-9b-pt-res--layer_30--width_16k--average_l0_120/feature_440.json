@@ -1,0 +1,49 @@
+{
+  "feature_id": 440,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1184",
+      "text": "Prepositions and conjunctions, often used to indicate location, direction, or relationship, as well as adjectives and nouns that describe or modify a place, object, or concept.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_360",
+      "text": "Prepositions and related words (such as \\\"at\\\", \\\"in\\\", \\\"on\\\", \\\"of\\\", \\\"to\\\", \\\"from\\\", \\\"into\\\", \\\"within\\\", \\\"for\\\", \\\"via\\\", \\\"and\\\", \\\",\\\") frequently appear in context with spatial, directional, or relational descriptions, often linking locations, actions, or entities in a structured way.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1184",
+        "exp_360"
+      ],
+      "cosine_distance": 0.07920606580316347,
+      "euclidean_distance": 0.39801019793083287
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.6,
+      "score_detection": 0.5,
+      "score_simulation": -0.007918131365025031,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.57,
+      "score_detection": 0.48,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

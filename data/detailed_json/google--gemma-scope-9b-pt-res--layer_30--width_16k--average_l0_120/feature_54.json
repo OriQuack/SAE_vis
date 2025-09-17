@@ -1,0 +1,49 @@
+{
+  "feature_id": 54,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_870",
+      "text": "Prepositions, articles, and nouns related to location, distance, and elevation, often used in descriptive phrases or sentences about geography, travel, and spatial relationships.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_046",
+      "text": "Commonly activated tokens include prepositions, numerical values, units of measurement, and words related to geographic or physical attributes, often appearing in contexts involving spatial, elevation, or distance descriptions.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_870",
+        "exp_046"
+      ],
+      "cosine_distance": 0.09347195138084352,
+      "euclidean_distance": 0.43237008824658923
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.74,
+      "score_detection": 0.69,
+      "score_simulation": 0.18048340960284281,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.7,
+      "score_detection": 0.67,
+      "score_simulation": 0.09685132518289785,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

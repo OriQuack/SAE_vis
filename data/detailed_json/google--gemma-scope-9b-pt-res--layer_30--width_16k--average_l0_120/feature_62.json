@@ -1,0 +1,49 @@
+{
+  "feature_id": 62,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_878",
+      "text": "Various tokens including articles, prepositions, conjunctions, and adjectives that provide context and structure to sentences, often used in formal or technical writing.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_054",
+      "text": "Common function, variable, or structural tokens in programming, mathematical, or technical contexts, often appearing in sequences related to syntax, operations, or logical constructs.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_878",
+        "exp_054"
+      ],
+      "cosine_distance": 0.11696812864241046,
+      "euclidean_distance": 0.48366955344006207
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.72,
+      "score_detection": 0.76,
+      "score_simulation": 0.04620916133064725,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.32,
+      "score_detection": 0.24,
+      "score_simulation": -0.03408156666687896,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

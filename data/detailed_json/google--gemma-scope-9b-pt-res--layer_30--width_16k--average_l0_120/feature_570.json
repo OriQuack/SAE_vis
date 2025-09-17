@@ -1,0 +1,49 @@
+{
+  "feature_id": 570,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1294",
+      "text": "Various tokens including numbers, symbols, and words that appear to be part of a larger text, often denoting specific entities, quantities, or concepts, and sometimes serving as references or citations.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_470",
+      "text": "The presence of specific lexical items related to biological, genetic, or scientific terminology, often in the context of plant breeding, genetic modification, or experimental procedures, with frequent use of comparative, descriptive, or technical phrasing.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1294",
+        "exp_470"
+      ],
+      "cosine_distance": 0.1649844618751518,
+      "euclidean_distance": 0.5744292016884474
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.56,
+      "score_detection": 0.52,
+      "score_simulation": 0.005765191046920037,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.59,
+      "score_detection": 0.6,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

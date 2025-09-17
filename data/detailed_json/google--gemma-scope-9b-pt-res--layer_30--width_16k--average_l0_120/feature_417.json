@@ -1,0 +1,49 @@
+{
+  "feature_id": 417,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1167",
+      "text": "Mathematical expressions, equations, and operations, often involving variables, constants, and arithmetic operators, and sometimes including function definitions, derivatives, and simplifications.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_343",
+      "text": "Mathematical operations and symbols, particularly those involving comparison, arithmetic, and symbolic notation, are frequently highlighted in contexts involving algebraic expressions, equations, and formal mathematical reasoning.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1167",
+        "exp_343"
+      ],
+      "cosine_distance": 0.08770006702651967,
+      "euclidean_distance": 0.4188080164835232
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.27,
+      "score_detection": 0.38,
+      "score_simulation": -0.03258974619967649,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.46,
+      "score_detection": 0.43,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

@@ -1,0 +1,49 @@
+{
+  "feature_id": 243,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1028",
+      "text": "Various suffixes and prefixes, often indicating a change in state, location, or time, and sometimes used in technical or scientific contexts, or as part of a citation or reference.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_204",
+      "text": "The suffix \\\"-ate\\\" commonly appears in scientific and technical terms, often forming nouns or adjectives related to processes or states, and is frequently associated with chemical, biological, or engineering contexts.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1028",
+        "exp_204"
+      ],
+      "cosine_distance": 0.10945320841927264,
+      "euclidean_distance": 0.46787435199671334
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.5157894736842106,
+      "score_detection": 0.26,
+      "score_simulation": 0.03913905335572855,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.42,
+      "score_detection": 0.16,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

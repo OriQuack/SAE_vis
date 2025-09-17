@@ -1,0 +1,49 @@
+{
+  "feature_id": 193,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_987",
+      "text": "Nouns representing concepts, objects, or processes, often in technical or scientific contexts, and sometimes part of a formal or specific terminology.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_163",
+      "text": "Common noun phrases or terms used in technical, medical, or academic contexts, often following prepositions like \\\"in the\\\" or \\\"during the,\\\" and frequently associated with specific domains such as biology, engineering, or social sciences.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_987",
+        "exp_163"
+      ],
+      "cosine_distance": 0.08873724158960006,
+      "euclidean_distance": 0.4212772046083532
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.75,
+      "score_detection": 0.76,
+      "score_simulation": 0.12960334892826417,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.76,
+      "score_detection": 0.58,
+      "score_simulation": 0.17648170550088177,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

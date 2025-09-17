@@ -1,0 +1,49 @@
+{
+  "feature_id": 91,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_901",
+      "text": "Nouns and phrases related to food, often describing dishes or ingredients, and sometimes including conjunctions or prepositions connecting them.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_077",
+      "text": "The word \\\"and\\\" frequently appears in lists of food items or ingredients, often connecting two or more components of a dish, particularly in culinary descriptions.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_901",
+        "exp_077"
+      ],
+      "cosine_distance": 0.08751465958693161,
+      "euclidean_distance": 0.41836507894662917
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.53,
+      "score_detection": 0.44,
+      "score_simulation": 0.22530574634928324,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.41,
+      "score_detection": 0.43,
+      "score_simulation": 0.12390190061311543,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

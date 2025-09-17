@@ -1,0 +1,49 @@
+{
+  "feature_id": 318,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1090",
+      "text": "Suffixes of words that form nouns, often representing concepts, actions, or states, and sometimes indicating a process or a condition.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_266",
+      "text": "Suffixes and root forms of words related to abstract concepts, transformations, or technical processes, often appearing in academic or formal contexts, with high activation on morphological endings like -ize, -ation, -tion, -al, -ing, and -ism.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1090",
+        "exp_266"
+      ],
+      "cosine_distance": 0.09827387762322637,
+      "euclidean_distance": 0.44333706960950825
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.72,
+      "score_detection": 0.59,
+      "score_simulation": 0.16995243529473952,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.8,
+      "score_detection": 0.64,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

@@ -1,0 +1,49 @@
+{
+  "feature_id": 371,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1134",
+      "text": "Tokens related to revision, review, and reform, often in academic or formal contexts, as well as words associated with rivers, evolution, and revelation.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_310",
+      "text": "The text contains a recurring pattern of morphological variants of root words (e.g., \\\"revise\\\", \\\"revelation\\\", \\\"revolution\\\", \\\"reform\\\", \\\"revenue\\\", \\\"reversible\\\", \\\"relevance\\\", \\\"river\\\", \\\"reward\\\", \\\"recovery\\\", \\\"renewal\\\", \\\"reversal\\\", \\\"revolver\\\", \\\"revisit\\\", \\\"renew\\\", \\\"reinforce\\\", \\\"reinstate\\\", \\\"reiterate\\\", \\\"reinvent\\\", \\\"rein\\\", \\\"reinforce\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"rein\\\", \\\"re",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1134",
+        "exp_310"
+      ],
+      "cosine_distance": 0.12791984827930947,
+      "euclidean_distance": 0.5058060253039872
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.72,
+      "score_detection": 0.69,
+      "score_simulation": 0.2789594806593319,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.76,
+      "score_detection": 0.66,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

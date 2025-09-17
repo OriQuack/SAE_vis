@@ -1,0 +1,49 @@
+{
+  "feature_id": 290,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1068",
+      "text": "Special characters, abbreviations, and short words or phrases often used in technical, scientific, or programming contexts.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_244",
+      "text": "Short, often capitalized or hyphenated sequences of characters (e.g., acronyms, code identifiers, chemical symbols, or technical abbreviations) frequently appear in technical or scientific text, especially within code, mathematical notation, or specialized domains, and are typically highlighted by high activation values due to their structural or semantic specificity.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1068",
+        "exp_244"
+      ],
+      "cosine_distance": 0.07935892487046481,
+      "euclidean_distance": 0.39839407750119177
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.55,
+      "score_detection": 0.48,
+      "score_simulation": 0.11128358029290139,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.54,
+      "score_detection": 0.46,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

@@ -1,0 +1,49 @@
+{
+  "feature_id": 200,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_993",
+      "text": "Tokens that are often used to indicate the beginning of a new section, quotation, or piece of information, including words that signal publication, posting, or redirection, as well as certain punctuation marks and special characters.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_169",
+      "text": "Common function words, punctuation, and proper nouns used in contextual markers for metadata, formatting, or grammatical structure.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_993",
+        "exp_169"
+      ],
+      "cosine_distance": 0.10953202214890145,
+      "euclidean_distance": 0.4680428077223381
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.5,
+      "score_detection": 0.28,
+      "score_simulation": 0.1484079036743812,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.49,
+      "score_detection": 0.33,
+      "score_simulation": 0.02647502959877195,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

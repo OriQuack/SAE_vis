@@ -1,0 +1,49 @@
+{
+  "feature_id": 973,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1622",
+      "text": "Common nouns, pronouns, and verbs, often in phrases or sentences, that provide context or describe everyday situations, objects, or people.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_798",
+      "text": "Common nouns, pronouns, and verbs, often in phrases or sentences, that provide context or describe everyday situations, objects, or people.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1622",
+        "exp_798"
+      ],
+      "cosine_distance": 2.220446049250313e-16,
+      "euclidean_distance": 0.0
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.59,
+      "score_detection": 0.79,
+      "score_simulation": 0.02826290872911607,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.5,
+      "score_detection": 0.775,
+      "score_simulation": 0.02378263198823538,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

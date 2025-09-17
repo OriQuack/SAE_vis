@@ -1,0 +1,49 @@
+{
+  "feature_id": 683,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1389",
+      "text": "First-person pronouns, auxiliary verbs, and other short function words often used in informal writing and speech, such as in blogs, reviews, and social media posts.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_565",
+      "text": "Pronouns such as \\\"I\\\", \\\"you\\\", \\\"we\\\", and \\\"they\\\" frequently appear in personal narratives and direct address, often signaling subjective experience or engagement with the reader.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1389",
+        "exp_565"
+      ],
+      "cosine_distance": 0.14298687373034658,
+      "euclidean_distance": 0.5347651523767092
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.62,
+      "score_detection": 0.58,
+      "score_simulation": -0.00870210550369171,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.72,
+      "score_detection": 0.62,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

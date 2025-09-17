@@ -1,0 +1,13 @@
+{
+  "data_source_1": "llama_e-llama_s",
+  "data_source_2": "gwen_e-llama_s",
+  "embedding_filename": "embeddings.json",
+  "distance_metrics": [
+    "cosine",
+    "euclidean"
+  ],
+  "output_filename": "semantic_distances.json",
+  "description": "Configuration for calculating semantic distances between embeddings from two data sources",
+  "sae_id_1": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "sae_id_2": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120"
+}

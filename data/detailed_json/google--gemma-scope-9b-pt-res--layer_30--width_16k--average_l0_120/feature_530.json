@@ -1,0 +1,49 @@
+{
+  "feature_id": 530,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1257",
+      "text": "Verbs that express a relationship, action, or state, often in formal or technical contexts, and tend to be used in a neutral or objective tone.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_433",
+      "text": "Verbs and adjectives indicating a relationship, action, or state, often used in formal or technical contexts to describe processes, outcomes, or conditions.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1257",
+        "exp_433"
+      ],
+      "cosine_distance": 0.05818588337618291,
+      "euclidean_distance": 0.3411330652344268
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.9,
+      "score_detection": 0.47,
+      "score_simulation": 0.20511711686121062,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.81,
+      "score_detection": 0.45,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

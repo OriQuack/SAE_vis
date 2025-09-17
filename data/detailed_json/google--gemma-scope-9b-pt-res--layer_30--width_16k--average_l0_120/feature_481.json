@@ -1,0 +1,49 @@
+{
+  "feature_id": 481,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1220",
+      "text": "Words expressing respect, gratitude, or recognition, often in formal or professional contexts, including nouns and adjectives describing honor, praise, or esteem.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_396",
+      "text": "Words related to recognition, evaluation, or social value—such as honor, respect, appreciation, gratitude, and distinction—are frequently activated in contexts involving praise, acknowledgment, or moral judgment.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1220",
+        "exp_396"
+      ],
+      "cosine_distance": 0.07663322264914352,
+      "euclidean_distance": 0.391492593887276
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.75,
+      "score_detection": 0.67,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.77,
+      "score_detection": 0.66,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

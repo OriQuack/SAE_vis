@@ -1,0 +1,49 @@
+{
+  "feature_id": 664,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1374",
+      "text": "Verbs and verb contractions used in informal expressions, often in the form of a phrase or a sentence fragment, typically indicating a casual tone or a conversational style.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_550",
+      "text": "The token \\\"s\\\" is frequently activated in contractions of \\\"is\\\" or \\\"has\\\", and \\\"is\\\", \\\"was\\\", \\\"be\\\", and \\\"that\\\" are commonly activated in clauses that establish identity, state, or equivalence, often in explanatory or definitional contexts.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1374",
+        "exp_550"
+      ],
+      "cosine_distance": 0.15878831194597776,
+      "euclidean_distance": 0.5635393862819033
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.6,
+      "score_detection": 0.4,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.84,
+      "score_detection": 0.57,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

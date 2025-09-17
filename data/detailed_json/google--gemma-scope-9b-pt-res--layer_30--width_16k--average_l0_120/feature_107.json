@@ -1,0 +1,49 @@
+{
+  "feature_id": 107,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_913",
+      "text": "Prepositions and articles, often preceding nouns, especially those referring to geographical locations, historical periods, or social classes.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_089",
+      "text": "Common use of the word \\\"the\\\" preceding nouns in historical, geographical, or cultural contexts, often in compound terms or descriptive phrases.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_913",
+        "exp_089"
+      ],
+      "cosine_distance": 0.10216383300090481,
+      "euclidean_distance": 0.4520261955528327
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.45,
+      "score_detection": 0.43,
+      "score_simulation": 0.14337157390145938,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.48,
+      "score_detection": 0.45,
+      "score_simulation": 0.26797451453806453,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

@@ -1,0 +1,49 @@
+{
+  "feature_id": 129,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_930",
+      "text": "CSS properties, HTML attributes, and programming keywords.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_106",
+      "text": "Tokens related to CSS, HTML, or programming language syntax, particularly property names and identifiers, often appear in contexts involving styling, layout, or configuration, with higher activation values for more specific or structurally significant terms.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_930",
+        "exp_106"
+      ],
+      "cosine_distance": 0.10045077949210413,
+      "euclidean_distance": 0.4482204490607897
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.71,
+      "score_detection": 0.52,
+      "score_simulation": 0.2879586142658897,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.56,
+      "score_detection": 0.44,
+      "score_simulation": 0.1418450437157547,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

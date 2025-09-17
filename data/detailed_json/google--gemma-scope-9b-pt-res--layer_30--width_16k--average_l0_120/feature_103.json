@@ -1,0 +1,49 @@
+{
+  "feature_id": 103,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_909",
+      "text": "A variety of words and word parts, often including proper nouns, prefixes, and suffixes, that appear to be randomly selected from a wide range of texts, including technical, scientific, and everyday language.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_085",
+      "text": "Substrings of proper nouns or technical terms, often appearing as partial or fragmented forms of names, acronyms, or specialized vocabulary, with activation patterns indicating recognition of morphological components within longer identifiers.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_909",
+        "exp_085"
+      ],
+      "cosine_distance": 0.1132282047515456,
+      "euclidean_distance": 0.4758743372321719
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.6210526315789474,
+      "score_detection": 0.59,
+      "score_simulation": 0.11782012941379173,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.56,
+      "score_detection": 0.43157894736842106,
+      "score_simulation": 0.23015245993682623,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

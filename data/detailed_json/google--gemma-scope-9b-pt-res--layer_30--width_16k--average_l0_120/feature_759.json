@@ -1,0 +1,49 @@
+{
+  "feature_id": 759,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1453",
+      "text": "A single word or short sequence of words that is often a noun, sometimes a verb or adjective, and occasionally a proper noun, that appears to be a key term or concept in a sentence or phrase.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_629",
+      "text": "Proper nouns and common nouns, often representing names of places, people, objects, and concepts, sometimes being part of titles or specific terms.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1453",
+        "exp_629"
+      ],
+      "cosine_distance": 0.12712923402980048,
+      "euclidean_distance": 0.5042404703349416
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.6736842105263158,
+      "score_detection": 0.33,
+      "score_simulation": -0.008710439041640303,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.575,
+      "score_detection": 0.5,
+      "score_simulation": -0.022432960380408887,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

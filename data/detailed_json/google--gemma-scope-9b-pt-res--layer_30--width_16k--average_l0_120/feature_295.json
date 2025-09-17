@@ -1,0 +1,49 @@
+{
+  "feature_id": 295,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1072",
+      "text": "Punctuation marks, often used to denote separation, grouping, or special formatting in text, such as periods, commas, parentheses, and colons.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_248",
+      "text": "The token sequences often represent punctuation marks, delimiters, or syntactic elements used in code, markup, or formatting, such as parentheses, brackets, dots, quotes, and special symbols, which are frequently used to structure or separate components in technical or structured text.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1072",
+        "exp_248"
+      ],
+      "cosine_distance": 0.09314669746259874,
+      "euclidean_distance": 0.431617162506838
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.73,
+      "score_detection": 0.51,
+      "score_simulation": 0.12220789499061595,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.75,
+      "score_detection": 0.71,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

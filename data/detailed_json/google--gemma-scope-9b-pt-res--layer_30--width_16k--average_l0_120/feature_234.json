@@ -1,0 +1,49 @@
+{
+  "feature_id": 234,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1021",
+      "text": "Abstract nouns representing concepts that describe the influence, importance, or result of something, often used in academic or technical contexts to discuss the outcomes or consequences of a particular action, event, or situation.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_197",
+      "text": "Abstract nouns denoting measurable or theoretical outcomes, influences, or relationships in scientific contexts, often used to describe effects, roles, significance, or contributions of variables, interventions, or phenomena.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1021",
+        "exp_197"
+      ],
+      "cosine_distance": 0.06665548888445594,
+      "euclidean_distance": 0.36511775765159366
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.94,
+      "score_detection": 0.94,
+      "score_simulation": 0.5831907155998595,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.96,
+      "score_detection": 0.96,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

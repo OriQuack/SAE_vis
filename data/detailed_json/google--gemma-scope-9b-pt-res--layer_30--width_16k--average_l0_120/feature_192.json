@@ -1,0 +1,49 @@
+{
+  "feature_id": 192,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_986",
+      "text": "Holiday-related terms and nouns, often including the names of holidays such as Christmas, Thanksgiving, and Halloween, as well as words associated with these holidays, like decorations, festivities, and traditions.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_162",
+      "text": "The word \\\"Christmas\\\" frequently appears in contexts related to holidays, celebrations, seasonal activities, and associated traditions, often linked to cultural, emotional, or commercial themes.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_986",
+        "exp_162"
+      ],
+      "cosine_distance": 0.09801647092582721,
+      "euclidean_distance": 0.44275606923873323
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.65,
+      "score_detection": 0.6,
+      "score_simulation": 0.4885597345759846,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.66,
+      "score_detection": 0.59,
+      "score_simulation": 0.23435551028663978,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

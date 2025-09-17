@@ -1,0 +1,49 @@
+{
+  "feature_id": 26,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_846",
+      "text": "Prepositions, conjunctions, and articles, as well as names and titles, often function as important tokens in text, sometimes indicating relationships or possession, and other times serving as part of proper nouns or honorifics.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_022",
+      "text": "Common function words and proper nouns that appear in contextually specific grammatical or semantic roles, often marking relationships such as possession, attribution, or reference.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_846",
+        "exp_022"
+      ],
+      "cosine_distance": 0.08514860554810044,
+      "euclidean_distance": 0.41267083066965443
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.6,
+      "score_detection": 0.44,
+      "score_simulation": 0.06152010133883879,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.49,
+      "score_detection": 0.37,
+      "score_simulation": 0.011870299061273565,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

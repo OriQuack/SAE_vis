@@ -1,0 +1,49 @@
+{
+  "feature_id": 517,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1247",
+      "text": "Ordinal numbers, sequence indicators, and other terms denoting position or order, often used to specify a particular item or step in a series.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_423",
+      "text": "The token \\\"first\\\" is frequently used to denote initial occurrence or sequence, often in contexts involving order, timing, or progression, and is typically activated in phrases indicating primacy or beginning.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1247",
+        "exp_423"
+      ],
+      "cosine_distance": 0.14960469225166528,
+      "euclidean_distance": 0.5470003451290321
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.9,
+      "score_detection": 0.74,
+      "score_simulation": 0.32467353086149214,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.7,
+      "score_detection": 0.74,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

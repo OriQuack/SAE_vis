@@ -1,0 +1,49 @@
+{
+  "feature_id": 558,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1282",
+      "text": "Facial expressions, particularly smiling, often used to convey emotions, friendliness, or approachability in social interactions.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_458",
+      "text": "Facial expressions such as smiling, grinning, or frowning are used to convey emotional states, often in response to social or narrative context, with \\\"smile\\\" and its variants being the most frequent and contextually significant.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1282",
+        "exp_458"
+      ],
+      "cosine_distance": 0.07826825274154259,
+      "euclidean_distance": 0.3956469499417014
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.93,
+      "score_detection": 0.86,
+      "score_simulation": 0.45545843440787825,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.96,
+      "score_detection": 0.9,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

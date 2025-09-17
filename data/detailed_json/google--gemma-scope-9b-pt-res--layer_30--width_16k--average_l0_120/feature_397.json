@@ -1,0 +1,49 @@
+{
+  "feature_id": 397,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1153",
+      "text": "Punctuation marks, often commas or periods, used to separate clauses or sentences, sometimes indicating a pause or a shift in thought.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_329",
+      "text": "Commas and punctuation marks frequently appear in proximity to discourse markers, parenthetical expressions, or transitional phrases, often signaling pauses, interruptions, or shifts in thought, particularly in conversational or narrative text.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1153",
+        "exp_329"
+      ],
+      "cosine_distance": 0.0760184854797985,
+      "euclidean_distance": 0.38991918131589065
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.86,
+      "score_detection": 0.55,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.86,
+      "score_detection": 0.86,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

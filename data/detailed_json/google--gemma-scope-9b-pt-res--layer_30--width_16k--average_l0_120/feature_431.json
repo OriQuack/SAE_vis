@@ -1,0 +1,49 @@
+{
+  "feature_id": 431,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1176",
+      "text": "Various tokens that appear to be part of a programming or coding context, including keywords, symbols, and identifiers, often used in a specific syntax or structure.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_352",
+      "text": "Common linguistic patterns involving prepositions, possessives, and compound terms, often appearing in technical or descriptive contexts, with frequent emphasis on spatial, structural, or functional relationships.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1176",
+        "exp_352"
+      ],
+      "cosine_distance": 0.14709086435765517,
+      "euclidean_distance": 0.5423851964870354
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.28,
+      "score_detection": 0.35,
+      "score_simulation": -0.008944868606881765,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.65,
+      "score_detection": 0.66,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

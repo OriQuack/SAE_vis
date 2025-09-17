@@ -1,0 +1,49 @@
+{
+  "feature_id": 173,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_969",
+      "text": "Tokens often representing titles, versions, or labels in academic, technical, or formal contexts, frequently accompanied by numbers, abbreviations, or special characters.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_145",
+      "text": "Common patterns include identifiers for technical or formal entities such as software versions, document volumes, licenses, and file paths, often involving abbreviations, numerical suffixes, or structured naming conventions.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_969",
+        "exp_145"
+      ],
+      "cosine_distance": 0.09854375413910521,
+      "euclidean_distance": 0.443945376157552
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.67,
+      "score_detection": 0.77,
+      "score_simulation": 0.04309582407025013,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.6,
+      "score_detection": 0.7,
+      "score_simulation": 0.11266893144715805,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

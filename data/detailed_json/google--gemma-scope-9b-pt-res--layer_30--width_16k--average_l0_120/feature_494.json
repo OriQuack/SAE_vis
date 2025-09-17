@@ -1,0 +1,49 @@
+{
+  "feature_id": 494,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1231",
+      "text": "Function words and articles, as well as nouns representing organizations, companies, and individuals, often serving to introduce or connect clauses, and sometimes indicating possession or association.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_407",
+      "text": "Common function words and phrases such as \\\"to\\\", \\\"and\\\", \\\"that\\\", \\\"is\\\", \\\"from\\\", \\\"it\\\", \\\"they\\\", \\\"we\\\", \\\"she\\\", \\\"you\\\", \\\"er\\\", \\\"the\\\", \\\"a\\\", \\\"in\\\", \\\"on\\\", \\\"of\\\", \\\"with\\\", \\\"for\\\", \\\"as\\\", \\\"by\\\", \\\"at\\\", \\\"about\\\", \\\"into\\\", \\\"out\\\", \\\"up\\\", \\\"down\\\", \\\"over\\\", \\\"under\\\", \\\"between\\\", \\\"among\\\", \\\"through\\\", \\\"during\\\", \\\"before\\\", \\\"after\\\", \\\"since\\\", \\\"until\\\", \\\"while\\\", \\\"when\\\", \\\"where\\\", \\\"why\\\", \\\"how\\\", \\\"what\\\", \\\"who\\\", \\\"whom\\\", \\\"whose\\\", \\\"which\\\", \\\"whether\\\", \\\"if\\\", \\\"unless\\\", \\\"although\\\", \\\"though\\\", \\\"even though\\\", \\\"despite\\\", \\\"in spite of\\\", \\\"regardless of\\\", \\\"instead of\\\", \\\"rather than\\\", \\\"due to\\\", \\\"because of\\\", \\\"owing to\\\", \\\"thanks to\\\", \\\"in order to\\\", \\\"so that\\\", \\\"in case\\\", \\\"provided that\\\", \\\"as long as\\\", \\\"as soon as\\\", \\\"once\\\", \\\"after\\\", \\\"before\\\", \\\"until\\\", \\\"while\\\", \\\"since\\\", \\\"when\\\", \\\"where\\\", \\\"why\\\", \\\"how\\\", \\\"what\\\", \\\"who\\\", \\\"whom\\\", \\\"whose\\\", \\\"which\\\", \\\"whether\\\", \\\"if\\\", \\\"unless\\\", \\\"although\\\", \\\"though\\\", \\\"even though\\\", \\\"despite\\\", \\\"in spite of\\\", \\\"regardless of\\\", \\\"instead of\\\", \\\"rather than\\\", \\\"due to\\\", \\\"because of\\\", \\\"owing to\\\", \\\"thanks to\\\", \\\"in order to\\\", \\\"so that\\\", \\\"in case\\\", \\\"provided that\\\", \\\"as long as\\\", \\\"as soon as\\\", \\\"once\\\", \\\"after\\\", \\\"before\\\", \\\"until\\\", \\\"while\\\", \\\"since\\\", \\\"when\\\", \\\"where\\\", \\\"why\\\", \\\"how\\\", \\\"what\\\", \\\"who\\\", \\\"whom\\\", \\\"whose\\\", \\\"which\\\", \\\"whether\\\", \\\"if\\\", \\\"unless\\\", \\\"although\\\", \\\"though\\\", \\\"even though\\\", \\\"despite\\\", \\\"in spite of\\\", \\\"regardless of\\\", \\\"instead of\\\", \\\"rather than\\\", \\\"due to\\\", \\\"because of\\\", \\\"owing to\\\", \\\"thanks to\\\", \\\"in order to\\\", \\\"so that\\\", \\\"in case\\\", \\\"provided that\\\", \\\"as long as\\\", \\\"as soon as\\\", \\\"once\\\", \\\"after",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1231",
+        "exp_407"
+      ],
+      "cosine_distance": 0.138858069695179,
+      "euclidean_distance": 0.5269877978230579
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.47,
+      "score_detection": 0.46,
+      "score_simulation": -0.03151659342227814,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.6,
+      "score_detection": 0.52,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

@@ -1,0 +1,49 @@
+{
+  "feature_id": 188,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_983",
+      "text": "Proper nouns, names of people, places, and publications, as well as specific terms and phrases in academic and technical contexts.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_159",
+      "text": "Common grammatical and structural elements in academic and formal text, including possessive markers, prepositions, punctuation, and proper nouns, often appearing in contextually specific or citation-related phrases.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_983",
+        "exp_159"
+      ],
+      "cosine_distance": 0.10127633995010565,
+      "euclidean_distance": 0.4500585062098556
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.49,
+      "score_detection": 0.43,
+      "score_simulation": 0.023149583331834273,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.58,
+      "score_detection": 0.59,
+      "score_simulation": 0.18199164456753186,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

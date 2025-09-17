@@ -1,0 +1,49 @@
+{
+  "feature_id": 455,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1198",
+      "text": "Punctuation marks and special characters, often used to denote separation, continuation, or formatting in text, such as semicolons, commas, colons, parentheses, and slashes.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_374",
+      "text": "Punctuation and special symbols such as commas, semicolons, parentheses, and slashes are frequently activated when marking syntactic boundaries, formatting, or separating elements in structured text.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1198",
+        "exp_374"
+      ],
+      "cosine_distance": 0.060008813227887425,
+      "euclidean_distance": 0.34643558707980676
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.74,
+      "score_detection": 0.52,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.7578947368421053,
+      "score_detection": 0.55,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

@@ -1,0 +1,49 @@
+{
+  "feature_id": 764,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1457",
+      "text": "Punctuation marks, such as quotation marks, apostrophes, dashes, and commas, used to set off or separate elements in text, often indicating dialogue, possession, or ranges.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_633",
+      "text": "Punctuation marks, such as quotation marks, apostrophes, dashes, and commas, used to set off or separate elements in text, often indicating dialogue, possession, or ranges.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1457",
+        "exp_633"
+      ],
+      "cosine_distance": 0.0,
+      "euclidean_distance": 0.0
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.87,
+      "score_detection": 0.76,
+      "score_simulation": -0.028889215169358537,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.775,
+      "score_detection": 0.625,
+      "score_simulation": 0.2442442705297881,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

@@ -1,0 +1,49 @@
+{
+  "feature_id": 7,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_832",
+      "text": "Prepositions and conjunctions, often used to introduce or connect phrases, clauses, or ideas, and sometimes comparative or transitional words or phrases.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_008",
+      "text": "Common prepositions and conjunctions used in comparative or contextual phrases, often preceding or following specific nouns or clauses.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_832",
+        "exp_008"
+      ],
+      "cosine_distance": 0.053356747202281785,
+      "euclidean_distance": 0.32667030492790905
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.79,
+      "score_detection": 0.53,
+      "score_simulation": 0.21176290578810167,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.79,
+      "score_detection": 0.6,
+      "score_simulation": 0.052272423083980724,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

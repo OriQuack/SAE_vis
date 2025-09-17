@@ -1,0 +1,49 @@
+{
+  "feature_id": 183,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_979",
+      "text": "Verbs related to perception, appearance, or gaze, often in the form of present or past tense, sometimes used in idiomatic expressions.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_155",
+      "text": "The verb \\\"look\\\" and its inflections (e.g., \\\"looking\\\", \\\"looked\\\") are frequently activated when describing visual perception, appearance, or attention, often in contexts involving observation, evaluation, or anticipation.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_979",
+        "exp_155"
+      ],
+      "cosine_distance": 0.07634187295031936,
+      "euclidean_distance": 0.3907476587961652
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.88,
+      "score_detection": 0.77,
+      "score_simulation": 0.6389300619116602,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.72,
+      "score_detection": 0.74,
+      "score_simulation": 0.4657792639236624,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

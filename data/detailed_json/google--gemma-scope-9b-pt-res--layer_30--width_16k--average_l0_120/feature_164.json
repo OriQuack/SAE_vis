@@ -1,0 +1,49 @@
+{
+  "feature_id": 164,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_962",
+      "text": "Verbs that describe actions, often in a neutral or objective tone, and are frequently used in formal or informative writing.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_138",
+      "text": "Verbs indicating actions, states, or processes, often related to performing, causing, or experiencing an event, with high activation values when describing dynamic or causal relationships.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_962",
+        "exp_138"
+      ],
+      "cosine_distance": 0.11383704956157592,
+      "euclidean_distance": 0.4771520740334254
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.84,
+      "score_detection": 0.47,
+      "score_simulation": 0.49478609543645263,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.9,
+      "score_detection": 0.66,
+      "score_simulation": 0.18960839572425026,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

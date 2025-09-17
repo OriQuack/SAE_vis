@@ -1,0 +1,49 @@
+{
+  "feature_id": 95,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_904",
+      "text": "Function words and nouns that are part of common verb phrases, idiomatic expressions, or descriptive phrases, often indicating a relationship, action, or state.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_080",
+      "text": "Common pronouns, determiners, and auxiliary verbs that function as grammatical connectors or modals, often appearing in contexts involving conditionals, possibilities, or references to previously mentioned entities.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_904",
+        "exp_080"
+      ],
+      "cosine_distance": 0.1428840237507607,
+      "euclidean_distance": 0.534572775544942
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.44,
+      "score_detection": 0.44,
+      "score_simulation": 0.03784238922654803,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.44,
+      "score_detection": 0.36,
+      "score_simulation": 0.00883705238454969,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

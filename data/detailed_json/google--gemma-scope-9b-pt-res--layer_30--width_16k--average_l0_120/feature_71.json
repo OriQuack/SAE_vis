@@ -1,0 +1,49 @@
+{
+  "feature_id": 71,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_885",
+      "text": "Various programming language constructs, including function definitions, conditional statements, loops, assignments, and type definitions, often with a focus on syntax and structure.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_061",
+      "text": "The token sequences involving comparison, assignment, and control flow operators (like `=>`, `:=`, `=`, `if`, `then`, `else`, `return`, `in`, `do`, `with`, `case`, `for`, `while`, `match`, `when`, `finally`, `try`, `catch`, `throw`, `and`, `or`, `not`, `as`, `is`, `in`, `of`, `to`, `from`, `with`, `without`, `on`, `off`, `up`, `down`, `left`, `right`, `over`, `under`, `before`, `after`, `during`, `until`, `while`, `unless`, `provided`, `given`, `assuming`, `supposing`, `considering`, `regardless`, `despite`, `although`, `even though`, `since`, `because`, `so`, `thus`, `hence`, `therefore`, `accordingly`, `consequently`, `meanwhile`, `simultaneously`, `subsequently`, `eventually`, `finally`, `ultimately`, `in conclusion`, `to sum up`, `in summary`, `in short`, `in brief`, `in essence`, `in a nutshell`, `in other words`, `that is to say`, `namely`, `specifically`, `particularly`, `especially`, `especially`, `notably`, `significantly`, `remarkably`, `strikingly`, `interestingly`, `curiously`, `surprisingly`, `unexpectedly`, `astonishingly`, `incredibly`, `amazingly`, `incredibly`, `unbelievably`, `incredibly`, `incredibly`, `incredibly`, `incredibly`, `incredibly`, `incredibly`, `incredibly`, `incredibly`, `incredibly`, `incredibly`, `incredibly`, `incredibly`, `incredibly`, `incredibly`, `incredibly`, `incredibly`, `incredibly`, `incredibly`, `incredibly`, `incredibly`, `incredibly`, `incredibly`, `incredibly`, `incredibly`, `incredibly`, `incredibly`, `incredibly`, `incredibly`, `incredibly`, `incredibly",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_885",
+        "exp_061"
+      ],
+      "cosine_distance": 0.12652865802543878,
+      "euclidean_distance": 0.5030480289622065
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.52,
+      "score_detection": 0.4631578947368421,
+      "score_simulation": 0.1367720007890986,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.56,
+      "score_detection": 0.5052631578947369,
+      "score_simulation": 0.14338373285643247,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

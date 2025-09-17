@@ -1,0 +1,49 @@
+{
+  "feature_id": 6,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_831",
+      "text": "Special characters and symbols used in programming languages, such as operators, brackets, and semicolons, as well as keywords and identifiers in various programming contexts.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_007",
+      "text": "Specialized syntax and identifiers in code, often using uppercase tokens, underscores, and angle brackets to denote macros, templates, or preprocessor directives.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_831",
+        "exp_007"
+      ],
+      "cosine_distance": 0.10432444997840173,
+      "euclidean_distance": 0.4567810137227288
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.45,
+      "score_detection": 0.46,
+      "score_simulation": 0.023648383438715195,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.46,
+      "score_detection": 0.45,
+      "score_simulation": 0.14170517761821025,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

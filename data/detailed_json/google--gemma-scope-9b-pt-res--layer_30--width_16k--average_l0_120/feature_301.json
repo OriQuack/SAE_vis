@@ -1,0 +1,49 @@
+{
+  "feature_id": 301,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1077",
+      "text": "Punctuation marks and conjunctions that connect clauses or phrases, often used to introduce contrasting or additional information.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_253",
+      "text": "The tokens \\\"and\\\", \\\"but\\\", \\\",\\\", \\\".\\\", and \\\"not\\\" are frequently activated in contexts involving logical or contrastive conjunctions, punctuation marking sentence boundaries, or transitions between clauses, often signaling relationships such as addition, contrast, or temporal sequence.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1077",
+        "exp_253"
+      ],
+      "cosine_distance": 0.0946412455584924,
+      "euclidean_distance": 0.4350660966321925
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.83,
+      "score_detection": 0.68,
+      "score_simulation": 0.3481240241526963,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.79,
+      "score_detection": 0.7,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

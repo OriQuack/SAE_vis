@@ -1,0 +1,49 @@
+{
+  "feature_id": 93,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_903",
+      "text": "Conjunctions connecting words, phrases, or clauses in a sentence, often indicating addition, contrast, or choice.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_079",
+      "text": "The conjunctions \\\"y\\\", \\\"et\\\", \\\"und\\\", \\\"e\\\", \\\"and\\\", \\\"ou\\\", \\\"o\\\", \\\"a\\\", \\\"i\\\", \\\"és\\\", \\\"og\\\", \\\"ja\\\", \\\"to\\\", \\\"与\\\", \\\"と\\\", \\\"и\\\", \\\"или\\\", \\\"or\\\", \\\"nor\\\", \\\"but\\\", \\\"yet\\\", \\\"still\\\", \\\"however\\\", \\\"nevertheless\\\", \\\"nonetheless\\\", \\\"though\\\", \\\"although\\\", \\\"despite\\\", \\\"in spite of\\\", \\\"even though\\\", \\\"while\\\", \\\"whereas\\\", \\\"where\\\", \\\"when\\\", \\\"if\\\", \\\"unless\\\", \\\"provided that\\\", \\\"as long as\\\", \\\"so that\\\", \\\"in order that\\\", \\\"because\\\", \\\"since\\\", \\\"as\\\", \\\"due to\\\", \\\"owing to\\\", \\\"on account of\\\", \\\"for\\\", \\\"so\\\", \\\"therefore\\\", \\\"thus\\\", \\\"hence\\\", \\\"accordingly\\\", \\\"consequently\\\", \\\"then\\\", \\\"next\\\", \\\"finally\\\", \\\"meanwhile\\\", \\\"subsequently\\\", \\\"afterward\\\", \\\"later\\\", \\\"soon\\\", \\\"immediately\\\", \\\"promptly\\\", \\\"quickly\\\", \\\"rapidly\\\", \\\"swiftly\\\", \\\"fast\\\", \\\"quick\\\", \\\"fast-paced\\\", \\\"hurried\\\", \\\"rushed\\\", \\\"expeditious\\\", \\\"prompt\\\", \\\"timely\\\", \\\"on time\\\", \\\"late\\\", \\\"delayed\\\", \\\"behind schedule\\\", \\\"ahead of schedule\\\", \\\"early\\\", \\\"premature\\\", \\\"prematurely\\\", \\\"in advance\\\", \\\"ahead\\\", \\\"forward\\\", \\\"forward-looking\\\", \\\"proactive\\\", \\\"anticipatory\\\", \\\"predictive\\\", \\\"forecasting\\\", \\\"projecting\\\", \\\"planning\\\", \\\"strategizing\\\", \\\"organizing\\\", \\\"coordinating\\\", \\\"managing\\\", \\\"leading\\\", \\\"directing\\\", \\\"governing\\\", \\\"administering\\\", \\\"regulating\\\", \\\"controlling\\\", \\\"monitoring\\\", \\\"evaluating\\\", \\\"assessing\\\", \\\"measuring\\\", \\\"quantifying\\\", \\\"qualifying\\\", \\\"describing\\\", \\\"explaining\\\", \\\"clarifying\\\", \\\"elucidating\\\", \\\"interpreting\\\", \\\"analyzing\\\", \\\"examining\\\", \\\"investigating\\\", \\\"studying\\\", \\\"researching\\\", \\\"observing\\\", \\\"noticing\\\", \\\"perceiving\\\", \\\"sensing\\\", \\\"feeling\\\", \\\"experiencing\\\", \\\"living\\\", \\\"being\\\", \\\"existing\\\", \\\"occurring\\\", \\\"happening\\\", \\\"taking place\\\", \\\"coming about",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_903",
+        "exp_079"
+      ],
+      "cosine_distance": 0.13618005045506687,
+      "euclidean_distance": 0.5218812999352619
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.93,
+      "score_detection": 0.7,
+      "score_simulation": 0.6141229124517178,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.94,
+      "score_detection": 0.76,
+      "score_simulation": 0.3455366433106595,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

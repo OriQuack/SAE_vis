@@ -1,0 +1,49 @@
+{
+  "feature_id": 554,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1278",
+      "text": "Proper nouns, often representing names of people, places, or organizations, and sometimes words related to family, inheritance, or genetics.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_454",
+      "text": "Fragments of compound words or multi-word terms, often related to family, inheritance, or technical/medical concepts, where the activation is distributed across partial or split tokens, particularly at morpheme boundaries or within hyphenated/compound structures.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1278",
+        "exp_454"
+      ],
+      "cosine_distance": 0.1233058507683028,
+      "euclidean_distance": 0.4966001449638538
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.5,
+      "score_detection": 0.43,
+      "score_simulation": -0.024579792788939098,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.62,
+      "score_detection": 0.64,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

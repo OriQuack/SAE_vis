@@ -1,0 +1,49 @@
+{
+  "feature_id": 816,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1497",
+      "text": "Loop control statements, conditional statements, and function calls, often denoted by a keyword or symbol followed by a block of code or an expression, typically enclosed in brackets or parentheses.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_673",
+      "text": "Loop control statements, conditional statements, and function calls, often denoted by a keyword or symbol followed by a block of code or an expression, typically enclosed in brackets or parentheses.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1497",
+        "exp_673"
+      ],
+      "cosine_distance": 0.0,
+      "euclidean_distance": 0.0
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.55,
+      "score_detection": 0.48,
+      "score_simulation": -0.0207083654014274,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.5,
+      "score_detection": 0.45,
+      "score_simulation": -0.06513336596619819,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

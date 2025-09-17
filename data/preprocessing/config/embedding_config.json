@@ -1,0 +1,12 @@
+{
+  "data_source": "llama_e-llama_s",
+  "embedding_model": "models/gemini-embedding-001",
+  "task_type": "semantic_similarity",
+  "batch_size": 1,
+  "delay_between_requests": 0.1,
+  "output_filename": "embeddings.json",
+  "file_pattern": "layers.30_latent*.txt",
+  "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+  "explanation_method": "quantiles",
+  "description": "Configuration for generating embeddings from SAE feature explanations"
+}

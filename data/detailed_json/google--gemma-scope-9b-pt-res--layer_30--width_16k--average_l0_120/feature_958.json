@@ -1,0 +1,49 @@
+{
+  "feature_id": 958,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1609",
+      "text": "Punctuation marks, often used to end sentences or separate clauses, and sometimes preceding or following special tokens that provide additional context or serve a specific purpose.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_785",
+      "text": "Punctuation marks, often used to end sentences or separate clauses, and sometimes function words or common nouns that are part of a sentence's structure.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1609",
+        "exp_785"
+      ],
+      "cosine_distance": 0.05662737499354531,
+      "euclidean_distance": 0.3365334168193853
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.61,
+      "score_detection": 0.44,
+      "score_simulation": 0.17985374612103497,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.5714285714285714,
+      "score_detection": 0.4,
+      "score_simulation": -0.023484625665884065,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

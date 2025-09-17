@@ -1,0 +1,11 @@
+{
+    "data_source": "gwen_e-llama_s",
+    "scoring_methods": [
+        "fuzz",
+        "detection",
+        "simulation"
+    ],
+    "output_filename": "scores.json",
+    "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+    "description": "Configuration for processing latent scores from multiple scoring methods"
+}

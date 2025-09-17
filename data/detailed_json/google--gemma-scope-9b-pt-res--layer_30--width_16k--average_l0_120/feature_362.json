@@ -1,0 +1,49 @@
+{
+  "feature_id": 362,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1126",
+      "text": "Function words that connect clauses, phrases, or ideas, including prepositions, conjunctions, and auxiliary verbs, often used to introduce or link elements in a sentence.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_302",
+      "text": "Common function words and phrases used to connect clauses, express conditions, or introduce additional information, particularly in formal or technical contexts.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1126",
+        "exp_302"
+      ],
+      "cosine_distance": 0.07244589969012882,
+      "euclidean_distance": 0.3806465493375757
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.8,
+      "score_detection": 0.67,
+      "score_simulation": 0.15452722206356018,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.81,
+      "score_detection": 0.57,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

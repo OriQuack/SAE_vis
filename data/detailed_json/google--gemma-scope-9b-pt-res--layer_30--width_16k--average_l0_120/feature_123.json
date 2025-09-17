@@ -1,0 +1,49 @@
+{
+  "feature_id": 123,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_924",
+      "text": "Words related to maritime or nautical themes, such as boats, ships, harbors, and ports, as well as words associated with the sea or water.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_100",
+      "text": "Nouns and noun phrases related to maritime environments, vessels, ports, and coastal geography, often associated with water-based transportation, navigation, or seafaring activities.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_924",
+        "exp_100"
+      ],
+      "cosine_distance": 0.0412138290400752,
+      "euclidean_distance": 0.28710217041759173
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.63,
+      "score_detection": 0.38,
+      "score_simulation": 0.3091425090578084,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.55,
+      "score_detection": 0.39,
+      "score_simulation": 0.21372880079783388,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

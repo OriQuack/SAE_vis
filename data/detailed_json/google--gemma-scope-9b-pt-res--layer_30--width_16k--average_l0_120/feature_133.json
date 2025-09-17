@@ -1,0 +1,49 @@
+{
+  "feature_id": 133,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_934",
+      "text": "Proper nouns, technical terms, and specific words that provide context or clarity in a sentence, often denoting names, locations, concepts, or objects.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_110",
+      "text": "Repeated or recurring tokens, often part of compound words, proper nouns, or technical terms, that appear in contexts involving specific domains such as programming, scientific notation, or named entities, with activation values indicating their importance in context.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_934",
+        "exp_110"
+      ],
+      "cosine_distance": 0.13006498779795417,
+      "euclidean_distance": 0.5100294044925106
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.68,
+      "score_detection": 0.71,
+      "score_simulation": 0.10076954887437888,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.29,
+      "score_detection": 0.25,
+      "score_simulation": -0.03463710651403617,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

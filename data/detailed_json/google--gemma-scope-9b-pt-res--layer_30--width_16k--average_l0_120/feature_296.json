@@ -1,0 +1,49 @@
+{
+  "feature_id": 296,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_1073",
+      "text": "Nouns representing a setting, situation, or context, often describing a scene, atmosphere, or environment, and sometimes related to visual or artistic depictions.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_249",
+      "text": "Nouns denoting physical or abstract locations, settings, or environments, often associated with visual or experiential context, and frequently linked to perception or observation verbs like \\\"seen,\\\" \\\"depicted,\\\" or \\\"witnessed.\\\"",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_1073",
+        "exp_249"
+      ],
+      "cosine_distance": 0.06457796335420529,
+      "euclidean_distance": 0.359382699334001
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.5,
+      "score_detection": 0.33,
+      "score_simulation": 0.27994565423098305,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.43,
+      "score_detection": 0.42,
+      "score_simulation": null,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}

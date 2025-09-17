@@ -1,0 +1,49 @@
+{
+  "feature_id": 23,
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "explanations": [
+    {
+      "explanation_id": "exp_844",
+      "text": "Special characters used as word separators or connectors in technical, mathematical, and programming contexts, often denoting relationships between words or variables.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "data_source": "llama_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_020",
+      "text": "The underscore \\\"_\\\" and hyphen \\\"-\\\" characters are used as word separators in compound identifiers, often in programming, technical notation, or structured data, with underscores being more common in variable and function names, and hyphens in compound terms or URLs.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "data_source": "gwen_e-llama_s"
+    }
+  ],
+  "semantic_distance_pairs": [
+    {
+      "pair": [
+        "exp_844",
+        "exp_020"
+      ],
+      "cosine_distance": 0.09809737868727142,
+      "euclidean_distance": 0.44293875167906205
+    }
+  ],
+  "scores": [
+    {
+      "data_source": "llama_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.68,
+      "score_detection": 0.48,
+      "score_simulation": 0.3112916564488566,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.84,
+      "score_detection": 0.48,
+      "score_simulation": 0.2974912885538795,
+      "score_embedding": null
+    }
+  ],
+  "activating_examples": "TODO: Not implemented yet"
+}
