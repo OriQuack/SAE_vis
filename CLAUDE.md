@@ -65,6 +65,53 @@ Master Parquet file structure with pre-computed metrics:
 - **Data**: Parquet files for efficient columnar data storage
 - **Visualization**: Sankey and alluvial diagrams using d3-sankey
 
+## Development Status & Architecture
+
+### ✅ Current State (Completed)
+- **Data preprocessing pipeline**: Fully implemented with 824 features processed
+- **Detailed JSON generation**: Complete feature data available in `/data/detailed_json/`
+- **Data schema**: Established with explanations, scores, semantic distances per feature
+
+### 🏗️ Recommended Architecture
+
+**Three-tier scalable design for 16K+ features:**
+```
+Frontend (React + TypeScript + D3.js)
+    ↕ REST API (JSON with pre-computed aggregations)
+Backend (Python + FastAPI + Polars)
+    ↕ Lazy loading and filtering
+Data Storage (Master Parquet + Index files)
+```
+
+### 📊 Core API Endpoints (Planned)
+- `POST /api/sankey` - Generate Sankey diagram with configurable thresholds
+- `POST /api/comparison` - Generate alluvial diagrams between two Sankey configurations
+- `GET /api/feature/{feature_id}` - Detailed feature data for debug view
+- `GET /api/filters` - Available filter options (SAE IDs, LLM models)
+
+### 🎯 Development Sprints
+1. **Sprint 0**: Master parquet creation + FastAPI setup + React foundation
+2. **Sprint 1**: Single Sankey implementation with threshold controls
+3. **Sprint 2**: Dual Sankey + alluvial comparison view
+4. **Sprint 3**: Debug view with feature drilling and category management
+5. **Sprint 4**: Performance optimization and polish
+
+### 🔧 Key Technical Decisions
+- **Backend-heavy processing**: All aggregations server-side for scalability
+- **D3 for calculations, React for DOM**: Optimal performance pattern
+- **Polars lazy evaluation**: Handle large datasets efficiently
+- **Progressive loading**: Support 16K+ features without performance degradation
+
 ## Development Commands
 
-Currently no build/test/lint commands are configured. These will need to be established when implementing the backend and frontend.
+Backend commands (to be established):
+```bash
+cd backend && uvicorn main:app --reload  # Development server
+pytest tests/                            # Run API tests
+```
+
+Frontend commands (to be established):
+```bash
+cd frontend && npm run dev               # Development server
+npm run build && npm run test           # Build and test
+```
