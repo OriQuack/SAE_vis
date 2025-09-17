@@ -1,0 +1,44 @@
+{
+  "created_at": "2025-09-17T17:33:28.578822",
+  "total_rows": 1648,
+  "total_features": 824,
+  "schema_version": "1.0",
+  "source_directory": "data/detailed_json",
+  "config": {
+    "detailed_json_directory": "data/detailed_json",
+    "output_path": "data/master/feature_analysis.parquet",
+    "sae_id_filter": null,
+    "description": "Configuration for creating master parquet file from detailed JSON files",
+    "processing_notes": {
+      "expected_features": 824,
+      "expected_rows_per_feature": 2,
+      "total_expected_rows": 1648,
+      "primary_key_fields": [
+        "feature_id",
+        "sae_id",
+        "explanation_method",
+        "llm_explainer",
+        "llm_scorer"
+      ]
+    },
+    "schema_info": {
+      "table_name": "feature_analysis",
+      "version": "1.0",
+      "field_descriptions": {
+        "feature_id": "index of the feature",
+        "sae_id": "ID of SAE used (sparse model + hookpoint)",
+        "explanation_method": "method used to generate explanation",
+        "llm_explainer": "llm used to generate explanations",
+        "llm_scorer": "llm used to generate scores",
+        "feature_splitting": "If the feature is candidate of feature splitting or not",
+        "semdist_mean": "average embedding distance of each pair of explanations of the feature",
+        "semdist_max": "max embedding distance of each pair of explanations of the feature",
+        "score_fuzz": "fuzzing score of the feature",
+        "score_simulation": "simulation score of the feature",
+        "score_detection": "detection score of the feature",
+        "score_embedding": "embedding score of the feature",
+        "details_path": "path to detail information for debug"
+      }
+    }
+  }
+}
