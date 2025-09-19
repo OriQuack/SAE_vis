@@ -3,19 +3,11 @@ import SankeyView from './views/SankeyView'
 import { api } from './services/api'
 import './styles/globals.css'
 
-// ============================================================================
-// TYPES
-// ============================================================================
-
 interface AppState {
   isHealthy: boolean
   isChecking: boolean
   error: string | null
 }
-
-// ============================================================================
-// HEALTH CHECK COMPONENT
-// ============================================================================
 
 const HealthCheck: React.FC<{ onHealthy: () => void }> = ({ onHealthy }) => {
   const [state, setState] = useState<AppState>({
@@ -29,7 +21,6 @@ const HealthCheck: React.FC<{ onHealthy: () => void }> = ({ onHealthy }) => {
 
     try {
       const isHealthy = await api.healthCheck()
-
       if (isHealthy) {
         setState({ isHealthy: true, isChecking: false, error: null })
         onHealthy()
@@ -100,10 +91,6 @@ const HealthCheck: React.FC<{ onHealthy: () => void }> = ({ onHealthy }) => {
     </div>
   )
 }
-
-// ============================================================================
-// ERROR BOUNDARY
-// ============================================================================
 
 interface ErrorBoundaryState {
   hasError: boolean
@@ -176,10 +163,6 @@ class AppErrorBoundary extends React.Component<
     return this.props.children
   }
 }
-
-// ============================================================================
-// MAIN APP COMPONENT
-// ============================================================================
 
 function App() {
   const [isReady, setIsReady] = useState(false)
