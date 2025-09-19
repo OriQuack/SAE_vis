@@ -270,7 +270,7 @@ class APITester:
 def main():
     parser = argparse.ArgumentParser(description="Test SAE Feature Visualization API")
     parser.add_argument("--host", default="127.0.0.1", help="API host")
-    parser.add_argument("--port", type=int, default=8000, help="API port")
+    parser.add_argument("--port", type=int, default=8003, help="API port")
 
     args = parser.parse_args()
 

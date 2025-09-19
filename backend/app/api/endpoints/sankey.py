@@ -95,7 +95,9 @@ async def get_sankey_data(
             thresholds={
                 "semdist_mean": request.thresholds.semdist_mean,
                 "score_high": request.thresholds.score_high
-            }
+            },
+            nodeThresholds=request.nodeThresholds,
+            hierarchicalThresholds=request.hierarchicalThresholds
         )
 
     except ValueError as e:

@@ -8,7 +8,7 @@ import logging
 
 # Enable Polars string cache for categorical operations
 pl.enable_string_cache()
-from ..models.common import Filters, MetricType
+from ..models.common import Filters, MetricType, HierarchicalThresholds
 from ..models.responses import (
     FilterOptionsResponse, HistogramResponse, SankeyResponse,
     ComparisonResponse, FeatureResponse
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class DataService:
     """High-performance data service using Polars for Parquet operations"""
 
-    def __init__(self, data_path: str = "/home/dohyun/interface/data"):
+    def __init__(self, data_path: str = "../data"):
         self.data_path = Path(data_path)
         self.master_file = self.data_path / "master" / "feature_analysis.parquet"
         self.detailed_json_dir = self.data_path / "detailed_json"
@@ -174,41 +174,230 @@ class DataService:
             logger.error(f"Error generating histogram: {e}")
             raise
 
-    def _classify_score_agreement(self, df: pl.DataFrame, score_threshold: float) -> pl.DataFrame:
-        """Classify features based on score agreement"""
-        return df.with_columns([
-            # Count how many scores are above threshold
-            (
-                (pl.col("score_fuzz") >= score_threshold).cast(pl.Int32) +
-                (pl.col("score_simulation") >= score_threshold).cast(pl.Int32) +
-                (pl.col("score_detection") >= score_threshold).cast(pl.Int32)
-            ).alias("high_score_count"),
+    def _classify_score_agreement(self, df: pl.DataFrame, score_threshold: float, nodeThresholds: Optional[Dict[str, Dict[str, float]]] = None) -> pl.DataFrame:
+        """Classify features based on score agreement with parent-node-specific thresholds"""
 
-            # Create agreement category
-            pl.when(
-                (pl.col("score_fuzz") >= score_threshold) &
-                (pl.col("score_simulation") >= score_threshold) &
-                (pl.col("score_detection") >= score_threshold)
-            ).then(pl.lit("agree_all"))
-            .when(
+        # If no nodeThresholds provided, use global thresholds for all features
+        if not nodeThresholds:
+            return df.with_columns([
+                # Count how many scores are above their respective thresholds
                 (
                     (pl.col("score_fuzz") >= score_threshold).cast(pl.Int32) +
                     (pl.col("score_simulation") >= score_threshold).cast(pl.Int32) +
                     (pl.col("score_detection") >= score_threshold).cast(pl.Int32)
+                ).alias("high_score_count"),
+
+                # Create agreement category using global thresholds
+                pl.when(
+                    (pl.col("score_fuzz") >= score_threshold) &
+                    (pl.col("score_simulation") >= score_threshold) &
+                    (pl.col("score_detection") >= score_threshold)
+                ).then(pl.lit("agree_all"))
+                .when(
+                    (
+                        (pl.col("score_fuzz") >= score_threshold).cast(pl.Int32) +
+                        (pl.col("score_simulation") >= score_threshold).cast(pl.Int32) +
+                        (pl.col("score_detection") >= score_threshold).cast(pl.Int32)
+                    ) == 2
+                ).then(pl.lit("agree_2of3"))
+                .when(
+                    (
+                        (pl.col("score_fuzz") >= score_threshold).cast(pl.Int32) +
+                        (pl.col("score_simulation") >= score_threshold).cast(pl.Int32) +
+                        (pl.col("score_detection") >= score_threshold).cast(pl.Int32)
+                    ) == 1
+                ).then(pl.lit("agree_1of3"))
+                .otherwise(pl.lit("agree_none"))
+                .alias("score_agreement")
+            ])
+
+        # With nodeThresholds, apply parent-node-specific thresholds
+        # First, add parent node ID column based on splitting and semdist categories
+        df_with_parent = df.with_columns([
+            # Create parent node ID that matches the semantic distance node
+            (
+                pl.lit("split_") +
+                pl.when(pl.col("feature_splitting")).then(pl.lit("true")).otherwise(pl.lit("false")) +
+                pl.lit("_semdist_") +
+                pl.when(pl.col("semdist_category") == "high").then(pl.lit("high")).otherwise(pl.lit("low"))
+            ).alias("parent_node_id")
+        ])
+
+        # Initialize threshold columns with default values
+        df_with_thresholds = df_with_parent.with_columns([
+            pl.lit(score_threshold).alias("threshold_fuzz"),
+            pl.lit(score_threshold).alias("threshold_simulation"),
+            pl.lit(score_threshold).alias("threshold_detection")
+        ])
+
+        # Apply parent-node-specific thresholds if available
+        for parent_node_id, thresholds in nodeThresholds.items():
+            if parent_node_id.startswith("split_") and "_semdist_" in parent_node_id:
+                # Update thresholds for features matching this parent node
+                threshold_updates = {}
+                if "score_fuzz" in thresholds:
+                    threshold_updates["threshold_fuzz"] = pl.when(
+                        pl.col("parent_node_id") == parent_node_id
+                    ).then(pl.lit(thresholds["score_fuzz"])).otherwise(pl.col("threshold_fuzz"))
+
+                if "score_simulation" in thresholds:
+                    threshold_updates["threshold_simulation"] = pl.when(
+                        pl.col("parent_node_id") == parent_node_id
+                    ).then(pl.lit(thresholds["score_simulation"])).otherwise(pl.col("threshold_simulation"))
+
+                if "score_detection" in thresholds:
+                    threshold_updates["threshold_detection"] = pl.when(
+                        pl.col("parent_node_id") == parent_node_id
+                    ).then(pl.lit(thresholds["score_detection"])).otherwise(pl.col("threshold_detection"))
+
+                if threshold_updates:
+                    df_with_thresholds = df_with_thresholds.with_columns(threshold_updates)
+
+        # Now apply the parent-node-specific thresholds for classification
+        return df_with_thresholds.with_columns([
+            # Count how many scores are above their respective parent-node-specific thresholds
+            (
+                (pl.col("score_fuzz") >= pl.col("threshold_fuzz")).cast(pl.Int32) +
+                (pl.col("score_simulation") >= pl.col("threshold_simulation")).cast(pl.Int32) +
+                (pl.col("score_detection") >= pl.col("threshold_detection")).cast(pl.Int32)
+            ).alias("high_score_count"),
+
+            # Create agreement category using parent-node-specific thresholds
+            pl.when(
+                (pl.col("score_fuzz") >= pl.col("threshold_fuzz")) &
+                (pl.col("score_simulation") >= pl.col("threshold_simulation")) &
+                (pl.col("score_detection") >= pl.col("threshold_detection"))
+            ).then(pl.lit("agree_all"))
+            .when(
+                (
+                    (pl.col("score_fuzz") >= pl.col("threshold_fuzz")).cast(pl.Int32) +
+                    (pl.col("score_simulation") >= pl.col("threshold_simulation")).cast(pl.Int32) +
+                    (pl.col("score_detection") >= pl.col("threshold_detection")).cast(pl.Int32)
                 ) == 2
             ).then(pl.lit("agree_2of3"))
             .when(
                 (
-                    (pl.col("score_fuzz") >= score_threshold).cast(pl.Int32) +
-                    (pl.col("score_simulation") >= score_threshold).cast(pl.Int32) +
-                    (pl.col("score_detection") >= score_threshold).cast(pl.Int32)
+                    (pl.col("score_fuzz") >= pl.col("threshold_fuzz")).cast(pl.Int32) +
+                    (pl.col("score_simulation") >= pl.col("threshold_simulation")).cast(pl.Int32) +
+                    (pl.col("score_detection") >= pl.col("threshold_detection")).cast(pl.Int32)
                 ) == 1
             ).then(pl.lit("agree_1of3"))
             .otherwise(pl.lit("agree_none"))
             .alias("score_agreement")
+        ]).drop(["parent_node_id", "threshold_fuzz", "threshold_simulation", "threshold_detection"])
+
+    def _classify_with_hierarchical_thresholds(self, df: pl.DataFrame, hierarchical_thresholds: HierarchicalThresholds) -> pl.DataFrame:
+        """Classify features using hierarchical threshold system"""
+
+        # Add parent node IDs for threshold group resolution
+        df_with_parent = df.with_columns([
+            # Splitting parent ID for semantic distance grouping
+            (
+                pl.lit("split_") +
+                pl.when(pl.col("feature_splitting")).then(pl.lit("true")).otherwise(pl.lit("false"))
+            ).alias("splitting_parent_id"),
+
+            # Semantic distance parent ID for score agreement grouping
+            (
+                pl.lit("split_") +
+                pl.when(pl.col("feature_splitting")).then(pl.lit("true")).otherwise(pl.lit("false")) +
+                pl.lit("_semdist_") +
+                pl.when(pl.col("semdist_category") == "high").then(pl.lit("high")).otherwise(pl.lit("low"))
+            ).alias("semantic_parent_id")
         ])
 
-    async def get_sankey_data(self, filters: Filters, thresholds: Dict[str, float]) -> SankeyResponse:
+        # Apply hierarchical thresholds for semantic distance classification
+        df_with_semdist_thresholds = df_with_parent.with_columns([
+            pl.col("splitting_parent_id")
+            .map_elements(
+                lambda parent_id: hierarchical_thresholds.get_semdist_threshold_for_node(f"{parent_id}_semdist_dummy"),
+                return_dtype=pl.Float64
+            )
+            .alias("semdist_threshold")
+        ])
+
+        # Re-classify semantic distance based on hierarchical thresholds
+        df_reclassified = df_with_semdist_thresholds.with_columns([
+            pl.when(pl.col("semdist_mean") >= pl.col("semdist_threshold"))
+            .then(pl.lit("high"))
+            .otherwise(pl.lit("low"))
+            .alias("semdist_category")
+        ])
+
+        # Update semantic parent ID based on new classification
+        df_updated = df_reclassified.with_columns([
+            (
+                pl.lit("split_") +
+                pl.when(pl.col("feature_splitting")).then(pl.lit("true")).otherwise(pl.lit("false")) +
+                pl.lit("_semdist_") +
+                pl.col("semdist_category")
+            ).alias("semantic_parent_id")
+        ])
+
+        # Apply hierarchical score thresholds
+        df_with_score_thresholds = df_updated.with_columns([
+            # Get score thresholds for each row based on semantic parent
+            pl.col("semantic_parent_id")
+            .map_elements(
+                lambda parent_id: hierarchical_thresholds.get_score_thresholds_for_node(f"{parent_id}_agree_dummy")["score_fuzz"],
+                return_dtype=pl.Float64
+            )
+            .alias("threshold_fuzz"),
+
+            pl.col("semantic_parent_id")
+            .map_elements(
+                lambda parent_id: hierarchical_thresholds.get_score_thresholds_for_node(f"{parent_id}_agree_dummy")["score_simulation"],
+                return_dtype=pl.Float64
+            )
+            .alias("threshold_simulation"),
+
+            pl.col("semantic_parent_id")
+            .map_elements(
+                lambda parent_id: hierarchical_thresholds.get_score_thresholds_for_node(f"{parent_id}_agree_dummy")["score_detection"],
+                return_dtype=pl.Float64
+            )
+            .alias("threshold_detection")
+        ])
+
+        # Apply score agreement classification with hierarchical thresholds
+        final_df = df_with_score_thresholds.with_columns([
+            # Count how many scores are above their respective hierarchical thresholds
+            (
+                (pl.col("score_fuzz") >= pl.col("threshold_fuzz")).cast(pl.Int32) +
+                (pl.col("score_simulation") >= pl.col("threshold_simulation")).cast(pl.Int32) +
+                (pl.col("score_detection") >= pl.col("threshold_detection")).cast(pl.Int32)
+            ).alias("high_score_count"),
+
+            # Create agreement category using hierarchical thresholds
+            pl.when(
+                (pl.col("score_fuzz") >= pl.col("threshold_fuzz")) &
+                (pl.col("score_simulation") >= pl.col("threshold_simulation")) &
+                (pl.col("score_detection") >= pl.col("threshold_detection"))
+            ).then(pl.lit("agree_all"))
+            .when(
+                (
+                    (pl.col("score_fuzz") >= pl.col("threshold_fuzz")).cast(pl.Int32) +
+                    (pl.col("score_simulation") >= pl.col("threshold_simulation")).cast(pl.Int32) +
+                    (pl.col("score_detection") >= pl.col("threshold_detection")).cast(pl.Int32)
+                ) == 2
+            ).then(pl.lit("agree_2of3"))
+            .when(
+                (
+                    (pl.col("score_fuzz") >= pl.col("threshold_fuzz")).cast(pl.Int32) +
+                    (pl.col("score_simulation") >= pl.col("threshold_simulation")).cast(pl.Int32) +
+                    (pl.col("score_detection") >= pl.col("threshold_detection")).cast(pl.Int32)
+                ) == 1
+            ).then(pl.lit("agree_1of3"))
+            .otherwise(pl.lit("agree_none"))
+            .alias("score_agreement")
+        ]).drop([
+            "splitting_parent_id", "semantic_parent_id", "semdist_threshold",
+            "threshold_fuzz", "threshold_simulation", "threshold_detection"
+        ])
+
+        return final_df
+
+    async def get_sankey_data(self, filters: Filters, thresholds: Dict[str, float], nodeThresholds: Optional[Dict[str, Dict[str, float]]] = None, hierarchicalThresholds: Optional[HierarchicalThresholds] = None) -> SankeyResponse:
         """Generate Sankey diagram data with hierarchical categorization"""
         if not self.is_ready():
             raise RuntimeError("DataService not ready")
@@ -220,26 +409,55 @@ class DataService:
             if len(filtered_df) == 0:
                 raise ValueError("No data available after applying filters")
 
-            semdist_threshold = thresholds["semdist_mean"]
-            score_threshold = thresholds["score_high"]
+            # Use hierarchical thresholds if provided, otherwise fall back to legacy system
+            if hierarchicalThresholds:
+                # Use new hierarchical threshold system
+                # First add initial categorization columns required by hierarchical method
+                initial_df = filtered_df.with_columns([
+                    # Initial semantic distance category (will be re-classified by hierarchical method)
+                    pl.when(pl.col("semdist_mean") >= hierarchicalThresholds.global_thresholds.semdist_mean)
+                    .then(pl.lit("high"))
+                    .otherwise(pl.lit("low"))
+                    .alias("semdist_category"),
 
-            # Add categorization columns
-            categorized_df = filtered_df.with_columns([
-                # Semantic distance category
-                pl.when(pl.col("semdist_mean") >= semdist_threshold)
-                .then(pl.lit("high"))
-                .otherwise(pl.lit("low"))
-                .alias("semdist_category"),
+                    # Feature splitting category
+                    pl.when(pl.col("feature_splitting"))
+                    .then(pl.lit("true"))
+                    .otherwise(pl.lit("false"))
+                    .alias("splitting_category")
+                ])
 
-                # Feature splitting category
-                pl.when(pl.col("feature_splitting"))
-                .then(pl.lit("true"))
-                .otherwise(pl.lit("false"))
-                .alias("splitting_category")
-            ])
+                # Apply hierarchical threshold classification
+                categorized_df = self._classify_with_hierarchical_thresholds(initial_df, hierarchicalThresholds)
+            else:
+                # Fall back to legacy system for backward compatibility
+                semdist_threshold = thresholds["semdist_mean"]
+                score_threshold = thresholds["score_high"]
 
-            # Add score agreement classification
-            categorized_df = self._classify_score_agreement(categorized_df, score_threshold)
+                # Extract semdist threshold from nodeThresholds if available
+                if nodeThresholds:
+                    for node_id, node_thresholds in nodeThresholds.items():
+                        if "semdist_mean" in node_thresholds:
+                            semdist_threshold = node_thresholds["semdist_mean"]
+                            break  # Use first found override
+
+                # Add categorization columns
+                categorized_df = filtered_df.with_columns([
+                    # Semantic distance category
+                    pl.when(pl.col("semdist_mean") >= semdist_threshold)
+                    .then(pl.lit("high"))
+                    .otherwise(pl.lit("low"))
+                    .alias("semdist_category"),
+
+                    # Feature splitting category
+                    pl.when(pl.col("feature_splitting"))
+                    .then(pl.lit("true"))
+                    .otherwise(pl.lit("false"))
+                    .alias("splitting_category")
+                ])
+
+                # Add score agreement classification
+                categorized_df = self._classify_score_agreement(categorized_df, score_threshold, nodeThresholds)
 
             # Generate nodes and links
             nodes = []
