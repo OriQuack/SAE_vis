@@ -34,7 +34,7 @@ def setup_logging(log_level: str = "info"):
 
 def check_data_files():
     """Check if required data files exist"""
-    data_path = Path("/home/dohyun/interface/data")
+    data_path = Path("../data")
     master_file = data_path / "master" / "feature_analysis.parquet"
 
     if not master_file.exists():
@@ -48,8 +48,8 @@ def check_data_files():
 
 def main():
     parser = argparse.ArgumentParser(description="Start SAE Feature Visualization API")
-    parser.add_argument("--host", default="127.0.0.1", help="Host to bind to")
-    parser.add_argument("--port", type=int, default=8000, help="Port to bind to")
+    parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
+    parser.add_argument("--port", type=int, default=8003, help="Port to bind to")
     parser.add_argument("--reload", action="store_true", help="Enable auto-reload for development")
     parser.add_argument("--log-level", default="info", choices=["debug", "info", "warning", "error"],
                        help="Log level")

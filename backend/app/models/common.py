@@ -69,3 +69,71 @@ class Thresholds(BaseModel):
         description="Threshold for 'high' score classification",
         example=0.8
     )
+
+class ThresholdGroup(str, Enum):
+    """Types of threshold groups for hierarchical management"""
+    SEMANTIC_DISTANCE = "semantic_distance"  # Groups semantic distance nodes by splitting parent
+    SCORE_AGREEMENT = "score_agreement"      # Groups score agreement nodes by semantic distance parent
+
+class HierarchicalThresholds(BaseModel):
+    """Hierarchical threshold configuration supporting parent-based grouping"""
+    global_thresholds: Thresholds = Field(
+        ...,
+        description="Global threshold values used as defaults"
+    )
+
+    # Semantic distance threshold groups: grouped by splitting parent
+    # Key format: "split_{true/false}" -> all semantic distance nodes under this splitting parent
+    semantic_distance_groups: Optional[Dict[str, float]] = Field(
+        default=None,
+        description="Semantic distance thresholds grouped by splitting parent",
+        example={
+            "split_true": 0.15,
+            "split_false": 0.20
+        }
+    )
+
+    # Score agreement threshold groups: grouped by semantic distance parent
+    # Key format: "split_{true/false}_semdist_{high/low}" -> all score nodes under this semantic distance parent
+    score_agreement_groups: Optional[Dict[str, Dict[str, float]]] = Field(
+        default=None,
+        description="Score thresholds grouped by semantic distance parent",
+        example={
+            "split_true_semdist_high": {
+                "score_fuzz": 0.8,
+                "score_simulation": 0.8,
+                "score_detection": 0.8
+            },
+            "split_true_semdist_low": {
+                "score_fuzz": 0.7,
+                "score_simulation": 0.7,
+                "score_detection": 0.7
+            }
+        }
+    )
+
+    def get_semdist_threshold_for_node(self, node_id: str) -> float:
+        """Get semantic distance threshold for a node based on its parent grouping"""
+        # Extract splitting parent from node_id (e.g., "split_true_semdist_high" -> "split_true")
+        if "_semdist_" in node_id:
+            splitting_parent = node_id.split("_semdist_")[0]  # e.g., "split_true"
+            if self.semantic_distance_groups and splitting_parent in self.semantic_distance_groups:
+                return self.semantic_distance_groups[splitting_parent]
+
+        return self.global_thresholds.semdist_mean
+
+    def get_score_thresholds_for_node(self, node_id: str) -> Dict[str, float]:
+        """Get score thresholds for a node based on its parent grouping"""
+        # Extract semantic distance parent from node_id (e.g., "split_true_semdist_high_agree_all" -> "split_true_semdist_high")
+        if "_agree_" in node_id:
+            semantic_parent = "_".join(node_id.split("_")[:-2])  # Remove "_agree_{type}" suffix
+            if self.score_agreement_groups and semantic_parent in self.score_agreement_groups:
+                return self.score_agreement_groups[semantic_parent]
+
+        # Default to global score_high for all score types
+        default_score = self.global_thresholds.score_high
+        return {
+            "score_fuzz": default_score,
+            "score_simulation": default_score,
+            "score_detection": default_score
+        }
