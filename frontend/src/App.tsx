@@ -180,7 +180,6 @@ function App() {
           <main className="app__main">
             <SankeyView
               layout="vertical"
-              showControls={true}
               autoLoad={true}
             />
           </main>

@@ -12,19 +12,55 @@ Sprint 1 is complete with full React application, TypeScript, D3.js integration,
 ```
 frontend/
 ├── src/
-│   ├── components/          # Reusable UI components
+│   ├── components/          # Reusable UI components (Modular Architecture)
 │   │   ├── FilterPanel.tsx  # Multi-select filter dropdowns
 │   │   ├── HistogramSlider.tsx  # Histogram with threshold slider
-│   │   ├── HistogramPopover.tsx # 🆕 Advanced histogram popover with multi-histogram support
-│   │   ├── SankeyDiagram.tsx    # D3-powered Sankey visualization
+│   │   ├── HistogramPopover/    # 🆕 Advanced histogram popover (modular)
+│   │   │   ├── index.tsx
+│   │   │   ├── IndividualHistogram.tsx
+│   │   │   ├── MultiHistogramView.tsx
+│   │   │   ├── SingleHistogramView.tsx
+│   │   │   ├── PopoverFooter.tsx
+│   │   │   ├── PopoverHeader.tsx
+│   │   │   ├── hooks/
+│   │   │   └── utils/
+│   │   ├── SankeyDiagram/       # D3-powered Sankey visualization (modular)
+│   │   │   ├── SankeyHeader.tsx
+│   │   │   ├── SankeyLegend.tsx
+│   │   │   ├── SankeyLink.tsx
+│   │   │   ├── SankeyNode.tsx
+│   │   │   ├── SankeyStageLabels.tsx
+│   │   │   ├── hooks/
+│   │   │   └── utils/
+│   │   ├── shared/              # Shared reusable components
+│   │   │   ├── ErrorMessage.tsx
+│   │   │   ├── FilterDropdown.tsx
+│   │   │   ├── MetricSelector.tsx
+│   │   │   └── Tooltip.tsx
 │   │   └── LoadingSpinner.tsx   # Loading states
+│   ├── hooks/               # Custom hooks
+│   │   ├── index.ts
+│   │   ├── useClickOutside.ts
+│   │   ├── useDragHandler.ts
+│   │   └── useResizeObserver.ts
 │   ├── views/               # Page-level components
 │   │   └── SankeyView.tsx   # Single Sankey container (Phase 1)
 │   ├── services/            # API integration layer
 │   │   ├── api.ts           # API client with typed requests/responses
 │   │   └── types.ts         # TypeScript interfaces for API data
-│   ├── stores/              # Zustand state management
-│   │   └── visualizationStore.ts  # Global state for filters, thresholds, data
+│   ├── stores/              # Zustand state management (Slice-based Architecture)
+│   │   ├── visualizationStore.ts  # Main store re-exports
+│   │   └── visualization/     # Modular store structure
+│   │       ├── index.ts
+│   │       ├── selectors.ts
+│   │       ├── constants.ts
+│   │       ├── types.ts
+│   │       ├── utils.ts
+│   │       └── slices/
+│   │           ├── filterSlice.ts
+│   │           ├── thresholdSlice.ts
+│   │           ├── popoverSlice.ts
+│   │           └── apiSlice.ts
 │   ├── utils/               # Helper functions
 │   │   ├── d3-helpers.ts    # D3 calculation utilities
 │   │   └── formatters.ts    # Data formatting utilities
@@ -101,42 +137,41 @@ VITE_HEALTH_URL=http://localhost:8003    # Optional: separate health URL
 - **Custom**: Override with `VITE_API_BASE_URL` environment variable
 
 ### State Management
-The application uses Zustand for global state management with the following structure:
+The application uses a **slice-based Zustand architecture** for scalable and maintainable state management:
 
 ```typescript
-interface VisualizationState {
-  // Filter state
-  filters: {
-    sae_id: string[]
-    explanation_method: string[]
-    llm_explainer: string[]
-    llm_scorer: string[]
-  }
-
-  // Threshold state
-  thresholds: {
-    semdist_mean: number
-    score_high: number
-  }
-
-  // API data
-  filterOptions: FilterOptions | null
-  histogramData: HistogramData | null
-  sankeyData: SankeyData | null
-
-  // UI state
-  loading: {
-    filters: boolean
-    histogram: boolean
-    sankey: boolean
-  }
-
-  // Actions
-  setFilters: (filters: Partial<Filters>) => void
-  setThresholds: (thresholds: Partial<Thresholds>) => void
-  // ... other actions
-}
+// Main store combines all slices
+export const useVisualizationStore = create<VisualizationState>()(
+  devtools(
+    (...a) => ({
+      ...createFilterSlice(...a),
+      ...createThresholdSlice(...a),
+      ...createPopoverSlice(...a),
+      ...createApiSlice(...a)
+    }),
+    { name: 'visualization-store' }
+  )
+)
 ```
+
+**Modular Slice Architecture:**
+- **`filterSlice.ts`**: Manages filter state (sae_id, explanation_method, llm_explainer, llm_scorer)
+- **`thresholdSlice.ts`**: Handles threshold values (semdist_mean, score_high) with validation
+- **`popoverSlice.ts`**: Controls popover visibility and positioning state
+- **`apiSlice.ts`**: Manages API data (filterOptions, histogramData, sankeyData) and loading states
+
+**Supporting Infrastructure:**
+- **`selectors.ts`**: Centralized, memoized selector functions for efficient state access
+- **`constants.ts`**: Type-safe constants for default values and state keys
+- **`types.ts`**: Comprehensive TypeScript interfaces for all state shapes
+- **`utils.ts`**: Helper functions for state transformations and validations
+
+**Key Benefits:**
+- **Separation of Concerns**: Each slice handles a specific domain of state
+- **Type Safety**: Full TypeScript integration with modular type definitions
+- **Developer Experience**: Redux DevTools integration for debugging
+- **Maintainability**: Easy to extend and modify individual slices
+- **Performance**: Efficient re-rendering through precise selector usage
 
 ### Component Architecture
 
