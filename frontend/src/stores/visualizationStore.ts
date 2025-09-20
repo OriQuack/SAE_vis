@@ -95,9 +95,11 @@ const initialFilters: Filters = {
   llm_scorer: []
 }
 
+// Default thresholds - these will be automatically updated to the mean values
+// from the histogram data once it's fetched
 const initialThresholds: Thresholds = {
-  semdist_mean: 0.15,
-  score_high: 0.8
+  semdist_mean: 0.1,  // Default to middle of range (0-1), will be replaced with actual mean
+  score_high: 0.5     // Default to middle of range (0-1), will be replaced with actual mean
 }
 
 const initialNodeThresholds: NodeThresholds = {}
@@ -535,11 +537,25 @@ export const useVisualizationStore = create<VisualizationState>()(
             ? await api.getHistogramDataDebounced(request)
             : await api.getHistogramData(request)
 
+          // Automatically update the threshold to the mean value
+          const newThreshold = histogramData.statistics.mean
+
           set(
-            (state) => ({
-              histogramData: { [currentMetric]: histogramData } as Record<string, HistogramData>,
-              loading: { ...state.loading, histogram: false }
-            }),
+            (state) => {
+              const thresholdKey = currentMetric === 'semdist_mean'
+                ? 'semdist_mean'
+                : currentMetric.includes('score') ? 'score_high' : currentMetric
+
+              return {
+                histogramData: { [currentMetric]: histogramData } as Record<string, HistogramData>,
+                loading: { ...state.loading, histogram: false },
+                // Update the global threshold to the mean value
+                thresholds: {
+                  ...state.thresholds,
+                  ...(thresholdKey in state.thresholds && { [thresholdKey]: newThreshold })
+                }
+              }
+            },
             false,
             'fetchHistogramData:success'
           )
@@ -608,10 +624,32 @@ export const useVisualizationStore = create<VisualizationState>()(
             histogramDataMap[metric] = histogramResults[index]
           })
 
+          // Automatically update thresholds to the mean values
+          const newThresholds = { ...get().thresholds }
+
+          metrics.forEach((metric, index) => {
+            const meanValue = histogramResults[index].statistics.mean
+
+            if (metric === 'semdist_mean') {
+              newThresholds.semdist_mean = meanValue
+            } else if (metric.includes('score')) {
+              // For score metrics, update the score_high threshold
+              // We'll use the average of all score means if multiple scores are fetched
+              const scoreMetrics = metrics.filter(m => m.includes('score'))
+              if (scoreMetrics.length > 0) {
+                const scoreMeans = scoreMetrics.map((_, idx) =>
+                  metrics.indexOf(_) !== -1 ? histogramResults[metrics.indexOf(_)].statistics.mean : 0
+                ).filter(v => v > 0)
+                newThresholds.score_high = scoreMeans.reduce((a, b) => a + b, 0) / scoreMeans.length
+              }
+            }
+          })
+
           set(
             (state) => ({
               histogramData: histogramDataMap,
-              loading: { ...state.loading, histogram: false }
+              loading: { ...state.loading, histogram: false },
+              thresholds: newThresholds
             }),
             false,
             'fetchMultipleHistogramData:success'

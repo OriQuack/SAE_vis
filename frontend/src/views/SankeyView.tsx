@@ -211,6 +211,7 @@ export const SankeyView: React.FC<SankeyViewProps> = ({
     filterOptions,
     fetchFilterOptions,
     fetchSankeyData,
+    fetchMultipleHistogramData,
     resetAll,
     resetFilters,
     resetNodeThresholds
@@ -233,13 +234,20 @@ export const SankeyView: React.FC<SankeyViewProps> = ({
 
   // Watch for filter changes and fetch data
   useEffect(() => {
-    const hasActiveFilters = Object.values(filters).some(
-      filterArray => filterArray && filterArray.length > 0
-    )
+    const loadData = async () => {
+      const hasActiveFilters = Object.values(filters).some(
+        filterArray => filterArray && filterArray.length > 0
+      )
 
-    if (hasActiveFilters) {
-      fetchSankeyData()
+      if (hasActiveFilters) {
+        // Wait for histogram data to complete and set thresholds
+        await fetchMultipleHistogramData(['semdist_mean', 'score_fuzz'])
+        // Then fetch Sankey with updated thresholds
+        fetchSankeyData()
+      }
     }
+
+    loadData()
   }, [filters])
 
   // Note: Node threshold changes now trigger Sankey refresh directly from setNodeThreshold
