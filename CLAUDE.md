@@ -25,7 +25,7 @@ This is a visualization interface project for EuroVIS conference submission focu
 - **API testing**: Comprehensive test suite with all endpoints validated
 - **React Frontend**: Full TypeScript implementation with D3.js visualizations
 - **Single Sankey View**: Complete implementation with interactive filtering and thresholds
-- **UI Components**: FilterPanel, HistogramSlider, HistogramPopover, SankeyDiagram, LoadingSpinner
+- **UI Components**: Modular architecture with FilterPanel, HistogramSlider, HistogramPopover/, SankeyDiagram/, LoadingSpinner, shared/ components
 
 ### 🏗️ Architecture (Implemented)
 
@@ -48,15 +48,34 @@ Data Storage (Master Parquet + Index files) ✅
 ### 🎯 Development Progress
 1. **✅ Sprint 0 Complete**: Master parquet creation + FastAPI setup + comprehensive testing
 2. **✅ Sprint 1 Complete**: Frontend React foundation + Single Sankey implementation
-3. **🔜 Sprint 2**: Dual Sankey + alluvial comparison view implementation
-4. **🔜 Sprint 3**: Debug view with feature drilling and category management
-5. **🔜 Sprint 4**: Performance optimization and polish
+3. **🔄 Sprint 2 In Progress**: Component refactoring + modular architecture + advanced histogram interactions
+4. **🔜 Sprint 3**: Dual Sankey + alluvial comparison view implementation
+5. **🔜 Sprint 4**: Debug view with feature drilling and category management
+6. **🔜 Sprint 5**: Performance optimization and polish
 
 ### 🔧 Key Technical Decisions
 - **Backend-heavy processing**: All aggregations server-side for scalability
 - **D3 for calculations, React for DOM**: Optimal performance pattern
 - **Polars lazy evaluation**: Handle large datasets efficiently
 - **Progressive loading**: Support 16K+ features without performance degradation
+
+### 🏗️ Sprint 2 Architectural Improvements (🔄 In Progress)
+- **Modular Component Design**: Refactored complex components into organized subdirectories
+  - HistogramPopover split into specialized sub-components for better maintainability
+  - SankeyDiagram decomposed into logical UI pieces (Header, Legend, Node, Link, StageLabels)
+  - Shared component library for common UI patterns
+- **Slice-based State Management**: Migrated from monolithic to modular Zustand architecture
+  - Separate slices for filters, thresholds, popover, and API state
+  - Centralized selectors for efficient state access patterns
+  - Type-safe constants and utilities for consistent state operations
+- **Custom Hook Library**: Added specialized hooks for advanced user interactions
+  - useClickOutside for modal/popover outside-click handling
+  - useDragHandler for drag-based UI interactions
+  - useResizeObserver for responsive component behavior
+- **Enhanced Development Experience**: Improved code organization and maintainability
+  - Clear separation of concerns between UI, state, and business logic
+  - Better TypeScript integration with modular type definitions
+  - Foundation for Phase 2 dual visualization implementation
 
 ## Development Commands
 
@@ -93,9 +112,15 @@ npm run build && npm run test           # Build and test
 ```
 
 ### Frontend Implementation Details
-- **Components**: FilterPanel, HistogramSlider, HistogramPopover, SankeyDiagram, LoadingSpinner
+- **Modular Components**: FilterPanel, HistogramSlider, LoadingSpinner + modular components in subdirectories
+  - `HistogramPopover/`: Advanced popover with IndividualHistogram, MultiHistogramView, SingleHistogramView, PopoverFooter, PopoverHeader
+  - `SankeyDiagram/`: Modular Sankey with SankeyHeader, SankeyLegend, SankeyLink, SankeyNode, SankeyStageLabels
+  - `shared/`: Reusable components (ErrorMessage, FilterDropdown, MetricSelector, Tooltip)
 - **Views**: SankeyView (Phase 1 complete)
-- **State Management**: Zustand store with filters, thresholds, and API data
+- **State Management**: Slice-based Zustand architecture with modular stores
+  - `visualization/slices/`: filterSlice, thresholdSlice, popoverSlice, apiSlice
+  - `visualization/`: selectors, constants, types, utils for organized state management
+- **Custom Hooks**: useClickOutside, useDragHandler, useResizeObserver for advanced interactions
 - **API Integration**: Full integration with all backend endpoints
 - **Health Checking**: Automatic backend connectivity validation
 - **Error Handling**: Comprehensive error states and user feedback
