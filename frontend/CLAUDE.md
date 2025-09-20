@@ -2,10 +2,11 @@
 
 This file provides guidance to Claude Code when working with the React frontend for the SAE Feature Visualization project.
 
-## Sprint 1: Single Sankey Visualization (Current Implementation)
+## Sprint 1: Single Sankey Visualization (✅ COMPLETED)
+## Sprint 2: Advanced Histogram Interactions (🔄 IN PROGRESS)
 
 ### Overview
-Sprint 1 implements the core React application with TypeScript, D3.js integration, and single Sankey diagram functionality. This provides the foundation for Phase 1 of the SAE feature visualization tool.
+Sprint 1 is complete with full React application, TypeScript, D3.js integration, and single Sankey diagram functionality. Sprint 2 development has begun with advanced histogram popover interactions and multi-histogram support, laying groundwork for Phase 2 dual Sankey comparisons.
 
 ### Project Structure
 ```
@@ -14,6 +15,7 @@ frontend/
 │   ├── components/          # Reusable UI components
 │   │   ├── FilterPanel.tsx  # Multi-select filter dropdowns
 │   │   ├── HistogramSlider.tsx  # Histogram with threshold slider
+│   │   ├── HistogramPopover.tsx # 🆕 Advanced histogram popover with multi-histogram support
 │   │   ├── SankeyDiagram.tsx    # D3-powered Sankey visualization
 │   │   └── LoadingSpinner.tsx   # Loading states
 │   ├── views/               # Page-level components
@@ -26,8 +28,10 @@ frontend/
 │   ├── utils/               # Helper functions
 │   │   ├── d3-helpers.ts    # D3 calculation utilities
 │   │   └── formatters.ts    # Data formatting utilities
-│   ├── styles/              # CSS modules and global styles
+│   ├── styles/              # CSS and styling
 │   │   └── globals.css      # Global styles
+│   ├── App.css              # Application-specific styles
+│   ├── index.css            # Base styles
 │   ├── App.tsx              # Main application component
 │   ├── main.tsx             # Application entry point
 │   └── vite-env.d.ts        # Vite type declarations
@@ -38,12 +42,13 @@ frontend/
 ```
 
 ### Technologies Used
-- **React 18** with TypeScript for component development
-- **Vite** for fast development and building
-- **D3.js ecosystem** (d3-sankey, d3-scale, d3-array) for data visualization
-- **Zustand** for lightweight state management
-- **Axios** for HTTP client with interceptors
-- **CSS Modules** for component-scoped styling
+- **React 19.1.1** with TypeScript for component development
+- **Vite 7.1.6** for fast development and building
+- **D3.js ecosystem** (d3-sankey, d3-scale, d3-array, d3-selection, d3-transition, d3-interpolate) for data visualization
+- **Zustand 5.0.8** for lightweight state management
+- **Axios 1.12.2** for HTTP client with interceptors
+- **Portal-based tooltips** for advanced UI interactions
+- **Custom CSS** with responsive design patterns
 
 ### Development Commands
 ```bash
@@ -54,6 +59,9 @@ npm install
 
 # Start development server (runs on http://localhost:3000)
 npm run dev
+
+# Start on specific port (currently running on 3003)
+npm run dev -- --port 3003
 
 # Build for production
 npm run build
@@ -152,8 +160,16 @@ interface VisualizationState {
 - Includes hover states and tooltips
 - Handles both loading and error states
 
+#### HistogramPopover Component (🆕 NEW - Sprint 2)
+- **Advanced popover system** with portal-based rendering for histogram interactions
+- **Multi-histogram support** enabling comparison visualizations
+- **Sophisticated tooltip system** with dynamic positioning and rich content formatting
+- **Complex layout calculations** using multiple D3 helper functions
+- **Threshold interaction** with visual feedback and real-time updates
+- **Performance optimized** with proper cleanup and event management
+
 #### SankeyView Container
-- Orchestrates FilterPanel, HistogramSlider, and SankeyDiagram
+- Orchestrates FilterPanel, HistogramSlider, HistogramPopover, and SankeyDiagram
 - Manages API calls and data flow
 - Handles error states and loading indicators
 - Coordinates filter changes with visualization updates
@@ -177,23 +193,34 @@ The application handles all API error codes defined in the backend:
 4. **Responsive Design**: Mobile-friendly layout with CSS Grid/Flexbox
 5. **Code Organization**: Clear separation of concerns between components, services, and stores
 
-### Sprint 1 Deliverables (Completed)
-- ✅ React application setup with Vite and TypeScript
+### Sprint 1 Deliverables (✅ COMPLETED)
+- ✅ React 19.1.1 application setup with Vite 7.1.6 and TypeScript
 - ✅ Complete project structure and dependency installation
 - ✅ TypeScript interfaces for all API data types
-- ✅ HTTP client with error handling and loading states
-- ✅ Zustand store for global state management
+- ✅ HTTP client with error handling and loading states (Axios 1.12.2)
+- ✅ Zustand 5.0.8 store for global state management
 - ✅ FilterPanel with multi-select dropdowns
 - ✅ HistogramSlider with D3 visualization and interactive threshold
 - ✅ SankeyDiagram with D3-sankey integration and animations
 - ✅ SankeyView container with full API orchestration
-- ✅ App component with basic routing and error boundaries
+- ✅ App component with health checking and error boundaries
 - ✅ Responsive styling and clean research-focused design
 
+### Sprint 2 Deliverables (🔄 IN PROGRESS)
+- ✅ **HistogramPopover component** with advanced interaction capabilities
+- ✅ **Portal-based tooltip system** for rich data display
+- ✅ **Multi-histogram layout support** (foundation for Phase 2)
+- 🔄 **Dual Sankey comparison view** (planned)
+- 🔄 **Alluvial flow diagrams** (planned)
+
 ### Next Steps (Future Sprints)
-- **Sprint 2**: Implement Phase 2 comparison view with dual Sankey diagrams and alluvial flows
+- **Sprint 2 (Current)**: Complete Phase 2 comparison view with dual Sankey diagrams and alluvial flows
 - **Sprint 3**: Add debug view with feature drilling and advanced interactions
 - **Sprint 4**: Performance optimization and final polish
+
+### 🚨 Current Development Issues
+- **Dependency Sync**: Axios is installed (package-lock.json) but missing from package.json
+- **Recommendation**: Run `npm install axios@^1.12.2` to sync package.json
 
 ### Important Notes for Development
 - Backend must be running on port 8003 before starting frontend development
