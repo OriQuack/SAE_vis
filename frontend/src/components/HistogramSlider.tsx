@@ -9,6 +9,7 @@ import {
   validateHistogramData,
   validateDimensions,
   HISTOGRAM_COLORS,
+  SLIDER_TRACK,
   DEFAULT_ANIMATION
 } from '../utils/d3-helpers'
 import type { MetricType, TooltipData } from '../services/types'
@@ -402,7 +403,7 @@ export const HistogramSlider: React.FC<HistogramSliderProps> = ({
                 })}
               </g>
 
-              {/* Threshold line */}
+              {/* Threshold line in histogram */}
               {thresholdLine && (
                 <g className="histogram-slider__threshold">
                   <line
@@ -412,24 +413,82 @@ export const HistogramSlider: React.FC<HistogramSliderProps> = ({
                     y2={layout.height}
                     stroke={HISTOGRAM_COLORS.threshold}
                     strokeWidth={3}
-                    strokeDasharray="5,5"
-                    style={{ cursor: 'grab' }}
-                    onMouseEnter={handleThresholdHover}
-                    onMouseLeave={handleBarLeave}
-                  />
-                  <circle
-                    cx={thresholdLine.x}
-                    cy={layout.height + 10}
-                    r={8}
-                    fill={HISTOGRAM_COLORS.threshold}
-                    stroke="white"
-                    strokeWidth={2}
-                    style={{ cursor: 'grab' }}
-                    onMouseDown={handleSliderMouseDown}
+                    style={{ cursor: 'pointer' }}
                     onMouseEnter={handleThresholdHover}
                     onMouseLeave={handleBarLeave}
                   />
                 </g>
+              )}
+
+              {/* Slider track below histogram */}
+              {thresholdLine && (
+                <g className="histogram-slider__slider-track" transform={`translate(0, ${layout.height + SLIDER_TRACK.yOffset})`}>
+                  {/* Unfilled track portion (right side) */}
+                  <rect
+                    x={thresholdLine.x}
+                    y={0}
+                    width={layout.width - thresholdLine.x}
+                    height={SLIDER_TRACK.height}
+                    fill={HISTOGRAM_COLORS.sliderTrackUnfilled}
+                    rx={SLIDER_TRACK.cornerRadius}
+                  />
+                  {/* Filled track portion (left side) */}
+                  <rect
+                    x={0}
+                    y={0}
+                    width={thresholdLine.x}
+                    height={SLIDER_TRACK.height}
+                    fill={HISTOGRAM_COLORS.sliderTrackFilled}
+                    rx={SLIDER_TRACK.cornerRadius}
+                  />
+                  {/* Invisible wider hit area for easier dragging */}
+                  <rect
+                    x={0}
+                    y={-10}
+                    width={layout.width}
+                    height={SLIDER_TRACK.height + 20}
+                    fill="transparent"
+                    style={{ cursor: 'pointer' }}
+                    onMouseDown={handleSliderMouseDown}
+                  />
+                  {/* Circle handle */}
+                  <circle
+                    cx={thresholdLine.x}
+                    cy={SLIDER_TRACK.height / 2}
+                    r={10}
+                    fill={HISTOGRAM_COLORS.sliderHandle}
+                    stroke="white"
+                    strokeWidth={2}
+                    style={{ cursor: 'pointer' }}
+                    onMouseDown={handleSliderMouseDown}
+                    onMouseEnter={handleThresholdHover}
+                    onMouseLeave={handleBarLeave}
+                  />
+                  {/* Connecting line from histogram to slider */}
+                  <line
+                    x1={thresholdLine.x}
+                    x2={thresholdLine.x}
+                    y1={-SLIDER_TRACK.yOffset}
+                    y2={0}
+                    stroke={HISTOGRAM_COLORS.threshold}
+                    strokeWidth={2}
+                    opacity={0.5}
+                  />
+                </g>
+              )}
+
+              {/* Threshold value display at bottom right */}
+              {thresholdLine && (
+                <text
+                  x={layout.width}
+                  y={layout.height + 28}
+                  textAnchor="end"
+                  fontSize={10}
+                  fill="#6b7280"
+                  fontFamily="monospace"
+                >
+                  Threshold: {threshold.toFixed(3)}
+                </text>
               )}
 
               {/* X-axis */}
@@ -510,18 +569,6 @@ export const HistogramSlider: React.FC<HistogramSliderProps> = ({
         </div>
       )}
 
-      {/* Threshold value display */}
-      {data && (
-        <div className="histogram-slider__threshold-display">
-          <span className="histogram-slider__threshold-label">Threshold:</span>
-          <span className="histogram-slider__threshold-value">
-            {threshold.toFixed(3)}
-          </span>
-          <span className="histogram-slider__threshold-range">
-            (Range: {data.statistics.min.toFixed(3)} - {data.statistics.max.toFixed(3)})
-          </span>
-        </div>
-      )}
 
       {/* Tooltip */}
       <Tooltip data={tooltip} visible={showTooltip} />

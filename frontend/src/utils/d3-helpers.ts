@@ -49,7 +49,7 @@ export function calculateHistogramLayout(
   const margin = {
     top: 20,
     right: 30,
-    bottom: 40,
+    bottom: 70,  // Increased to accommodate separate slider track
     left: 50
   }
 
@@ -190,18 +190,31 @@ export function snapToNearestTick(
 }
 
 // ============================================================================
+// SLIDER TRACK CONSTANTS
+// ============================================================================
+
+export const SLIDER_TRACK = {
+  height: 6,
+  yOffset: 30,  // Distance below x-axis labels
+  cornerRadius: 3
+} as const
+
+// ============================================================================
 // COLOR UTILITIES
 // ============================================================================
 
 export const HISTOGRAM_COLORS = {
-  bars: '#3b82f6',          // Blue
-  barsHover: '#2563eb',     // Darker blue
-  threshold: '#ef4444',     // Red
-  thresholdHover: '#dc2626', // Darker red
+  bars: '#94a3b8',          // Neutral slate-400 for below threshold
+  barsHover: '#64748b',     // Darker slate-500
+  threshold: '#10b981',     // Green (emerald-500) for above threshold
+  thresholdHover: '#059669', // Darker green (emerald-600)
   background: '#f8fafc',    // Light gray
   grid: '#e2e8f0',         // Gray
   text: '#374151',         // Dark gray
-  axis: '#6b7280'          // Medium gray
+  axis: '#6b7280',         // Medium gray
+  sliderHandle: '#3b82f6', // Primary blue for circle handle
+  sliderTrackFilled: '#3b82f6',    // Primary blue for filled portion
+  sliderTrackUnfilled: '#cbd5e1'   // Light gray for unfilled portion
 } as const
 
 export function getBarColor(binValue: number, threshold: number): string {

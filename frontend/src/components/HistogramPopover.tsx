@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { useVisualizationStore, useNodeThreshold } from '../stores/visualizationStore'
+import { useVisualizationStore } from '../stores/visualizationStore'
 import {
   calculateHistogramLayout,
   calculateMultiHistogramLayout,
@@ -11,6 +11,7 @@ import {
   validateHistogramData,
   validateDimensions,
   HISTOGRAM_COLORS,
+  SLIDER_TRACK,
   DEFAULT_ANIMATION
 } from '../utils/d3-helpers'
 import type {
@@ -261,7 +262,7 @@ const IndividualHistogram: React.FC<IndividualHistogramProps> = ({
           })}
         </g>
 
-        {/* Threshold line */}
+        {/* Threshold line in histogram */}
         {thresholdLine && (
           <g className="individual-histogram__threshold">
             <line
@@ -270,23 +271,67 @@ const IndividualHistogram: React.FC<IndividualHistogramProps> = ({
               y1={0}
               y2={layout.height}
               stroke={HISTOGRAM_COLORS.threshold}
-              strokeWidth={2}
-              strokeDasharray="3,3"
-              style={{ cursor: 'grab' }}
+              strokeWidth={3}
+              style={{ cursor: 'pointer' }}
               onMouseEnter={handleThresholdHover}
               onMouseLeave={handleBarLeave}
             />
+          </g>
+        )}
+
+        {/* Slider track below histogram */}
+        {thresholdLine && (
+          <g className="individual-histogram__slider-track" transform={`translate(0, ${layout.height + SLIDER_TRACK.yOffset})`}>
+            {/* Unfilled track portion (right side) */}
+            <rect
+              x={thresholdLine.x}
+              y={0}
+              width={layout.width - thresholdLine.x}
+              height={SLIDER_TRACK.height}
+              fill={HISTOGRAM_COLORS.sliderTrackUnfilled}
+              rx={SLIDER_TRACK.cornerRadius}
+            />
+            {/* Filled track portion (left side) */}
+            <rect
+              x={0}
+              y={0}
+              width={thresholdLine.x}
+              height={SLIDER_TRACK.height}
+              fill={HISTOGRAM_COLORS.sliderTrackFilled}
+              rx={SLIDER_TRACK.cornerRadius}
+            />
+            {/* Invisible wider hit area for easier dragging */}
+            <rect
+              x={0}
+              y={-10}
+              width={layout.width}
+              height={SLIDER_TRACK.height + 20}
+              fill="transparent"
+              style={{ cursor: 'pointer' }}
+              onMouseDown={handleSliderMouseDown}
+            />
+            {/* Circle handle */}
             <circle
               cx={thresholdLine.x}
-              cy={layout.height + 8}
-              r={5}
-              fill={HISTOGRAM_COLORS.threshold}
+              cy={SLIDER_TRACK.height / 2}
+              r={10}
+              fill={HISTOGRAM_COLORS.sliderHandle}
               stroke="white"
               strokeWidth={2}
-              style={{ cursor: 'grab' }}
+              style={{ cursor: 'pointer' }}
               onMouseDown={handleSliderMouseDown}
               onMouseEnter={handleThresholdHover}
               onMouseLeave={handleBarLeave}
+            />
+            {/* Connecting line from histogram to slider */}
+            <line
+              x1={thresholdLine.x}
+              x2={thresholdLine.x}
+              y1={-SLIDER_TRACK.yOffset}
+              y2={0}
+              stroke={HISTOGRAM_COLORS.threshold}
+              strokeWidth={2}
+              opacity={0.5}
             />
           </g>
         )}
@@ -494,11 +539,18 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
   // For score agreement nodes, use parent node ID; for other nodes, use node ID directly
   const thresholdNodeId = popoverData?.parentNodeId || popoverData?.nodeId || ''
 
-  const scoreDetectionThreshold = useNodeThreshold(thresholdNodeId, 'score_detection')
-  const scoreFuzzThreshold = useNodeThreshold(thresholdNodeId, 'score_fuzz')
-  const scoreSimulationThreshold = useNodeThreshold(thresholdNodeId, 'score_simulation')
-  const semdistMeanThreshold = useNodeThreshold(thresholdNodeId, 'semdist_mean')
-  const semdistMaxThreshold = useNodeThreshold(thresholdNodeId, 'semdist_max')
+  // Get all threshold systems - both legacy and hierarchical
+  const allNodeThresholds = useVisualizationStore((state) => state.nodeThresholds)
+  const hierarchicalThresholds = useVisualizationStore((state) => state.hierarchicalThresholds)
+  const getEffectiveThresholdForNode = useVisualizationStore((state) => state.getEffectiveThresholdForNode)
+
+  // We'll use these to extract the current values (not used directly anymore)
+  const nodeThresholds = allNodeThresholds[thresholdNodeId] || {}
+  const scoreDetectionThreshold = nodeThresholds.score_detection
+  const scoreFuzzThreshold = nodeThresholds.score_fuzz
+  const scoreSimulationThreshold = nodeThresholds.score_simulation
+  const semdistMeanThreshold = nodeThresholds.semdist_mean
+  const semdistMaxThreshold = nodeThresholds.semdist_max
 
   // Calculate threshold group information for current node and metrics
   const thresholdGroupInfo = useMemo(() => {
@@ -537,34 +589,27 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     return { groups, hasAnyGroups }
   }, [popoverData?.nodeId, popoverData?.metrics, getNodesInSameThresholdGroup])
 
-  // Build threshold map for current metrics
+  // Build threshold map for current metrics - check both hierarchical and legacy systems
   const currentThresholds = useMemo(() => {
     const thresholds: Record<string, number | undefined> = {} as Record<string, number | undefined>
 
-    if (popoverData?.metrics) {
+    if (popoverData?.metrics && popoverData?.nodeId) {
       popoverData.metrics.forEach(metric => {
-        switch (metric) {
-          case 'score_detection':
-            thresholds[metric] = scoreDetectionThreshold
-            break
-          case 'score_fuzz':
-            thresholds[metric] = scoreFuzzThreshold
-            break
-          case 'score_simulation':
-            thresholds[metric] = scoreSimulationThreshold
-            break
-          case 'semdist_mean':
-            thresholds[metric] = semdistMeanThreshold
-            break
-          case 'semdist_max':
-            thresholds[metric] = semdistMaxThreshold
-            break
+        // Use getEffectiveThresholdForNode which handles both hierarchical and legacy
+        const effectiveValue = getEffectiveThresholdForNode(popoverData.nodeId, metric as MetricType)
+
+        // If we get a valid threshold from the function, use it
+        if (effectiveValue !== undefined && effectiveValue !== null) {
+          thresholds[metric] = effectiveValue
+        } else {
+          // Fallback to legacy node thresholds if available
+          thresholds[metric] = allNodeThresholds[thresholdNodeId]?.[metric]
         }
       })
     }
 
     return thresholds
-  }, [popoverData?.metrics, scoreDetectionThreshold, scoreFuzzThreshold, scoreSimulationThreshold, semdistMeanThreshold, semdistMaxThreshold])
+  }, [popoverData?.metrics, popoverData?.nodeId, allNodeThresholds, thresholdNodeId, getEffectiveThresholdForNode, hierarchicalThresholds])
 
   // Refs
   const containerRef = useRef<HTMLDivElement>(null)
@@ -958,32 +1003,6 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
                 Thresholds for: {popoverData.parentNodeName}
               </span>
             )}
-            {thresholdGroupInfo.hasAnyGroups && (
-              <div
-                className="histogram-popover__group-info"
-                style={{
-                  fontSize: '10px',
-                  color: '#3b82f6',
-                  fontWeight: '500',
-                  lineHeight: '1.2',
-                  marginTop: '2px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-              >
-                <span
-                  style={{
-                    display: 'inline-block',
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
-                    backgroundColor: '#3b82f6'
-                  }}
-                />
-                Shared thresholds - affects multiple nodes
-              </div>
-            )}
             <span
               className="histogram-popover__metric"
               style={{
@@ -1099,6 +1118,9 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
                   const metricData = histogramData[metric as MetricType]
                   const threshold = currentThresholds[metric] || metricData?.statistics.mean || 0.5
 
+                  // Debug logging
+                  console.log(`Rendering ${metric}: threshold=${threshold}, from currentThresholds=${currentThresholds[metric]}, nodeThresholds=`, allNodeThresholds[thresholdNodeId])
+
                   if (!metricData) return null
 
                   return (
@@ -1163,6 +1185,7 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
                         ? HISTOGRAM_COLORS.threshold
                         : HISTOGRAM_COLORS.bars
 
+
                       return (
                         <rect
                           key={index}
@@ -1185,39 +1208,83 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
                     })}
                   </g>
 
-                  {/* Threshold line */}
-                  {thresholdLine && (() => {
-                    return (
-                      <g className="histogram-popover__threshold">
-                        <line
-                          x1={thresholdLine.x}
-                          x2={thresholdLine.x}
-                          y1={0}
-                          y2={(layout as any).height}
-                          stroke={HISTOGRAM_COLORS.threshold}
-                          strokeWidth={2}
-                          strokeDasharray="3,3"
-                          style={{ cursor: 'grab' }}
-                          onMouseEnter={handleThresholdHover}
-                          onMouseLeave={handleBarLeave}
-                        />
-                        <circle
-                          cx={thresholdLine.x}
-                          cy={(layout as any).height + 8}
-                          r={6}
-                          fill={HISTOGRAM_COLORS.threshold}
-                          stroke="white"
-                          strokeWidth={2}
-                          style={{ cursor: 'grab' }}
-                          onMouseDown={(e) => {
-                            handleSliderMouseDown(e)
-                          }}
-                          onMouseEnter={handleThresholdHover}
-                          onMouseLeave={handleBarLeave}
-                        />
-                      </g>
-                    )
-                  })()}
+                  {/* Threshold line in histogram */}
+                  {thresholdLine && (
+                    <g className="histogram-popover__threshold">
+                      <line
+                        x1={thresholdLine.x}
+                        x2={thresholdLine.x}
+                        y1={0}
+                        y2={(layout as any).height}
+                        stroke={HISTOGRAM_COLORS.threshold}
+                        strokeWidth={3}
+                        style={{ cursor: 'pointer' }}
+                        onMouseEnter={handleThresholdHover}
+                        onMouseLeave={handleBarLeave}
+                      />
+                    </g>
+                  )}
+
+                  {/* Slider track below histogram */}
+                  {thresholdLine && (
+                    <g className="histogram-popover__slider-track" transform={`translate(0, ${(layout as any).height + SLIDER_TRACK.yOffset})`}>
+                      {/* Unfilled track portion (right side) */}
+                      <rect
+                        x={thresholdLine.x}
+                        y={0}
+                        width={(layout as any).width - thresholdLine.x}
+                        height={SLIDER_TRACK.height}
+                        fill={HISTOGRAM_COLORS.sliderTrackUnfilled}
+                        rx={SLIDER_TRACK.cornerRadius}
+                      />
+                      {/* Filled track portion (left side) */}
+                      <rect
+                        x={0}
+                        y={0}
+                        width={thresholdLine.x}
+                        height={SLIDER_TRACK.height}
+                        fill={HISTOGRAM_COLORS.sliderTrackFilled}
+                        rx={SLIDER_TRACK.cornerRadius}
+                      />
+                      {/* Invisible wider hit area for easier dragging */}
+                      <rect
+                        x={0}
+                        y={-10}
+                        width={(layout as any).width}
+                        height={SLIDER_TRACK.height + 20}
+                        fill="transparent"
+                        style={{ cursor: 'pointer' }}
+                        onMouseDown={(e) => {
+                          handleSliderMouseDown(e)
+                        }}
+                      />
+                      {/* Circle handle */}
+                      <circle
+                        cx={thresholdLine.x}
+                        cy={SLIDER_TRACK.height / 2}
+                        r={10}
+                        fill={HISTOGRAM_COLORS.sliderHandle}
+                        stroke="white"
+                        strokeWidth={2}
+                        style={{ cursor: 'pointer' }}
+                        onMouseDown={(e) => {
+                          handleSliderMouseDown(e)
+                        }}
+                        onMouseEnter={handleThresholdHover}
+                        onMouseLeave={handleBarLeave}
+                      />
+                      {/* Connecting line from histogram to slider */}
+                      <line
+                        x1={thresholdLine.x}
+                        x2={thresholdLine.x}
+                        y1={-SLIDER_TRACK.yOffset}
+                        y2={0}
+                        stroke={HISTOGRAM_COLORS.threshold}
+                        strokeWidth={2}
+                        opacity={0.5}
+                      />
+                    </g>
+                  )}
 
                   {/* X-axis */}
                   <g className="histogram-popover__x-axis" transform={`translate(0,${(layout as any).height})`}>
@@ -1269,14 +1336,26 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
                       </g>
                     ))}
                   </g>
+
+                  {/* Threshold value display at bottom right */}
+                  <text
+                    x={(layout as any).width}
+                    y={(layout as any).height + 28}
+                    textAnchor="end"
+                    fontSize={10}
+                    fill="#6b7280"
+                    fontFamily="monospace"
+                  >
+                    Threshold: {effectiveThreshold.toFixed(3)}
+                  </text>
                 </g>
               </svg>
             )}
           </div>
         )}
 
-        {/* Footer with threshold value - only show for single histograms */}
-        {histogramData && popoverData?.metrics && popoverData.metrics.length === 1 && (
+        {/* Footer with threshold value - removed for single histograms as value is now shown in chart */}
+        {false && histogramData && popoverData?.metrics && popoverData.metrics.length === 1 && (
           <div
             className="histogram-popover__footer"
             style={{
@@ -1386,41 +1465,6 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
           </div>
         )}
 
-        {/* Threshold Group Details */}
-        {thresholdGroupInfo.hasAnyGroups && (
-          <div
-            className="histogram-popover__group-details"
-            style={{
-              padding: '12px 16px',
-              borderTop: '1px solid #e2e8f0',
-              backgroundColor: '#f8fafc',
-              fontSize: '11px',
-              color: '#4b5563'
-            }}
-          >
-            <div style={{ fontWeight: '600', marginBottom: '6px', color: '#3b82f6' }}>
-              📊 Shared Threshold Impact
-            </div>
-            {Object.entries(thresholdGroupInfo.groups).map(([metric, groupInfo]) => {
-              if (!groupInfo || !groupInfo.isGrouped) return null
-              return (
-                <div key={metric} style={{ marginBottom: '4px', lineHeight: '1.4' }}>
-                  <span style={{ fontWeight: '500', color: '#1f2937' }}>
-                    {metric.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}:
-                  </span>
-                  <span style={{ marginLeft: '4px' }}>
-                    Changes affect {groupInfo.affectedNodes.length} nodes
-                  </span>
-                  {groupInfo.affectedNodes.length <= 3 && (
-                    <div style={{ fontSize: '10px', color: '#6b7280', marginLeft: '12px', marginTop: '2px' }}>
-                      {groupInfo.affectedNodes.map(nodeId => nodeId.split('_').pop()).join(', ')}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
 
         {/* Tooltip */}
         <PopoverTooltip data={tooltip} visible={showTooltip} />
