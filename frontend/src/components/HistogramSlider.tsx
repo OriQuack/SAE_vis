@@ -1,5 +1,10 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import { useVisualizationStore } from '../stores/visualizationStore'
+import Tooltip from './shared/Tooltip'
+import MetricSelector from './shared/MetricSelector'
+import ErrorMessage from './shared/ErrorMessage'
+import LoadingSpinner from './LoadingSpinner'
+import { useDragHandler, useResizeObserver } from '../hooks'
 import {
   calculateHistogramLayout,
   calculateThresholdLine,
@@ -26,87 +31,11 @@ interface HistogramSliderProps {
   animationDuration?: number
 }
 
-interface TooltipProps {
-  data: TooltipData | null
-  visible: boolean
-}
-
-// ============================================================================
-// TOOLTIP COMPONENT
-// ============================================================================
-
-const Tooltip: React.FC<TooltipProps> = ({ data, visible }) => {
-  if (!visible || !data) return null
-
-  return (
-    <div
-      className="histogram-tooltip"
-      style={{
-        position: 'absolute',
-        left: data.x + 10,
-        top: data.y - 10,
-        transform: 'translateY(-100%)',
-        pointerEvents: 'none',
-        zIndex: 1000
-      }}
-    >
-      <div className="histogram-tooltip__content">
-        <div className="histogram-tooltip__title">{data.title}</div>
-        <div className="histogram-tooltip__body">
-          {data.content.map((item: { label: string; value: string | number }, index: number) => (
-            <div key={index} className="histogram-tooltip__row">
-              <span className="histogram-tooltip__label">{item.label}:</span>
-              <span className="histogram-tooltip__value">{item.value}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ============================================================================
-// METRIC SELECTOR COMPONENT
-// ============================================================================
-
-const MetricSelector: React.FC<{
-  currentMetric: MetricType
-  onChange: (metric: MetricType) => void
-  disabled?: boolean
-}> = ({ currentMetric, onChange, disabled = false }) => {
-  const metrics: Array<{ value: MetricType; label: string }> = [
-    { value: 'semdist_mean', label: 'Semantic Distance (Mean)' },
-    { value: 'semdist_max', label: 'Semantic Distance (Max)' },
-    { value: 'score_fuzz', label: 'Fuzz Score' },
-    { value: 'score_simulation', label: 'Simulation Score' },
-    { value: 'score_detection', label: 'Detection Score' },
-    { value: 'score_embedding', label: 'Embedding Score' }
-  ]
-
-  return (
-    <div className="metric-selector">
-      <label className="metric-selector__label">Metric:</label>
-      <select
-        className="metric-selector__select"
-        value={currentMetric}
-        onChange={(e) => onChange(e.target.value as MetricType)}
-        disabled={disabled}
-      >
-        {metrics.map(({ value, label }) => (
-          <option key={value} value={value}>
-            {label}
-          </option>
-        ))}
-      </select>
-    </div>
-  )
-}
-
 // ============================================================================
 // MAIN HISTOGRAM SLIDER COMPONENT
 // ============================================================================
 
-export const HistogramSlider: React.FC<HistogramSliderProps> = ({
+export const HistogramSlider: React.FC<HistogramSliderProps> = React.memo(({
   width = 600,
   height = 300,
   className = '',
@@ -120,15 +49,18 @@ export const HistogramSlider: React.FC<HistogramSliderProps> = ({
   const error = useVisualizationStore(state => state.errors.histogram)
   const { setThresholds, setCurrentMetric, fetchHistogramData, clearError } = useVisualizationStore()
 
+  // Custom hooks
+  const { ref: containerRef, size: containerSize } = useResizeObserver({
+    defaultWidth: width,
+    defaultHeight: height
+  })
+
   // Refs
-  const containerRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
-  const isDraggingRef = useRef(false)
 
   // Local state
   const [tooltip, setTooltip] = useState<TooltipData | null>(null)
   const [showTooltip, setShowTooltip] = useState(false)
-  const [containerSize, setContainerSize] = useState({ width, height })
 
   // Validation
   const validationErrors = useMemo(() => {
@@ -155,29 +87,6 @@ export const HistogramSlider: React.FC<HistogramSliderProps> = ({
     return calculateThresholdLine(threshold, layout)
   }, [layout, threshold])
 
-  // Handle container resize
-  const handleResize = useCallback(() => {
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect()
-      setContainerSize({
-        width: rect.width || width,
-        height: rect.height || height
-      })
-    }
-  }, [width, height])
-
-  // Set up resize observer
-  useEffect(() => {
-    handleResize()
-
-    const resizeObserver = new ResizeObserver(handleResize)
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current)
-    }
-
-    return () => resizeObserver.disconnect()
-  }, [handleResize])
-
   // Handle threshold change
   const handleThresholdChange = useCallback((newThreshold: number) => {
     if (!data) return
@@ -188,61 +97,39 @@ export const HistogramSlider: React.FC<HistogramSliderProps> = ({
     )
 
     setThresholds({ semdist_mean: clampedThreshold })
-    // Sankey data will be fetched by useEffect in parent component
   }, [data, setThresholds])
 
-  // Handle slider mouse events
-  const handleSliderMouseDown = useCallback((event: React.MouseEvent) => {
-    if (!layout || !data) return
-
-    event.preventDefault()
-    isDraggingRef.current = true
+  // Calculate new threshold value from mouse position
+  const calculateThresholdFromEvent = useCallback((event: React.MouseEvent | MouseEvent) => {
+    if (!layout || !data) return null
 
     const rect = svgRef.current?.getBoundingClientRect()
-    if (!rect) return
+    if (!rect) return null
 
     const x = event.clientX - rect.left - layout.margin.left
-    const newValue = positionToValue(
+    return positionToValue(
       x,
       data.statistics.min,
       data.statistics.max,
       layout.width
     )
+  }, [layout, data])
 
-    handleThresholdChange(newValue)
-  }, [layout, data, handleThresholdChange])
-
-  const handleSliderMouseMove = useCallback((event: MouseEvent) => {
-    if (!isDraggingRef.current || !layout || !data) return
-
-    const rect = svgRef.current?.getBoundingClientRect()
-    if (!rect) return
-
-    const x = event.clientX - rect.left - layout.margin.left
-    const newValue = positionToValue(
-      x,
-      data.statistics.min,
-      data.statistics.max,
-      layout.width
-    )
-
-    handleThresholdChange(newValue)
-  }, [layout, data, handleThresholdChange])
-
-  const handleSliderMouseUp = useCallback(() => {
-    isDraggingRef.current = false
-  }, [])
-
-  // Set up global mouse events for dragging
-  useEffect(() => {
-    document.addEventListener('mousemove', handleSliderMouseMove)
-    document.addEventListener('mouseup', handleSliderMouseUp)
-
-    return () => {
-      document.removeEventListener('mousemove', handleSliderMouseMove)
-      document.removeEventListener('mouseup', handleSliderMouseUp)
+  // Drag handler hook
+  const { handleMouseDown: handleSliderMouseDown } = useDragHandler({
+    onDragStart: (event) => {
+      const newValue = calculateThresholdFromEvent(event as React.MouseEvent)
+      if (newValue !== null) {
+        handleThresholdChange(newValue)
+      }
+    },
+    onDragMove: (event) => {
+      const newValue = calculateThresholdFromEvent(event as MouseEvent)
+      if (newValue !== null) {
+        handleThresholdChange(newValue)
+      }
     }
-  }, [handleSliderMouseMove, handleSliderMouseUp])
+  })
 
   // Handle bar hover
   const handleBarHover = useCallback((event: React.MouseEvent, binIndex: number) => {
@@ -307,32 +194,21 @@ export const HistogramSlider: React.FC<HistogramSliderProps> = ({
 
       {/* Error display */}
       {error && (
-        <div className="histogram-slider__error">
-          <span className="histogram-slider__error-icon">⚠️</span>
-          <span className="histogram-slider__error-text">{error}</span>
-          <button className="histogram-slider__retry" onClick={handleRetry}>
-            Retry
-          </button>
-        </div>
+        <ErrorMessage message={error} onRetry={handleRetry} />
       )}
 
       {/* Validation errors */}
       {validationErrors.length > 0 && (
         <div className="histogram-slider__validation-errors">
           {validationErrors.map((error, index) => (
-            <div key={index} className="histogram-slider__validation-error">
-              {error}
-            </div>
+            <ErrorMessage key={index} message={error} showIcon={false} />
           ))}
         </div>
       )}
 
       {/* Loading state */}
       {loading && (
-        <div className="histogram-slider__loading">
-          <div className="histogram-slider__loading-spinner" />
-          <span>Loading histogram data...</span>
-        </div>
+        <LoadingSpinner message="Loading histogram data..." />
       )}
 
       {/* Main visualization */}
@@ -571,9 +447,15 @@ export const HistogramSlider: React.FC<HistogramSliderProps> = ({
 
 
       {/* Tooltip */}
-      <Tooltip data={tooltip} visible={showTooltip} />
+      <Tooltip
+        data={tooltip}
+        visible={showTooltip}
+        className="histogram-tooltip"
+      />
     </div>
   )
-}
+})
+
+HistogramSlider.displayName = 'HistogramSlider'
 
 export default HistogramSlider
