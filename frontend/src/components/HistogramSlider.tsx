@@ -136,11 +136,10 @@ export const HistogramSlider: React.FC<HistogramSliderProps> = React.memo(({
     if (!layout || !data) return
 
     const bin = layout.bins[binIndex]
-    const rect = event.currentTarget.getBoundingClientRect()
 
     setTooltip({
-      x: rect.left + rect.width / 2,
-      y: rect.top,
+      x: event.clientX,
+      y: event.clientY,
       title: `Bin ${binIndex + 1}`,
       content: formatTooltipContent(bin, threshold)
     })
@@ -155,11 +154,9 @@ export const HistogramSlider: React.FC<HistogramSliderProps> = React.memo(({
   const handleThresholdHover = useCallback((event: React.MouseEvent) => {
     if (!data) return
 
-    const rect = event.currentTarget.getBoundingClientRect()
-
     setTooltip({
-      x: rect.left,
-      y: rect.top,
+      x: event.clientX,
+      y: event.clientY,
       title: 'Threshold',
       content: formatThresholdTooltip(threshold, data.statistics)
     })
@@ -326,6 +323,7 @@ export const HistogramSlider: React.FC<HistogramSliderProps> = React.memo(({
                     fill="transparent"
                     style={{ cursor: 'pointer' }}
                     onMouseDown={handleSliderMouseDown}
+                    tabIndex={-1}
                   />
                   {/* Circle handle */}
                   <circle
@@ -339,6 +337,7 @@ export const HistogramSlider: React.FC<HistogramSliderProps> = React.memo(({
                     onMouseDown={handleSliderMouseDown}
                     onMouseEnter={handleThresholdHover}
                     onMouseLeave={handleBarLeave}
+                    tabIndex={-1}
                   />
                   {/* Connecting line from histogram to slider */}
                   <line

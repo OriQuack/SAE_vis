@@ -17,14 +17,30 @@ export const createThresholdSlice: StateCreator<
   [],
   [],
   ThresholdSlice
-> = (set, get) => ({
-  // ============================================================================
-  // THRESHOLD STATE
-  // ============================================================================
+> = (set, get) => {
+  // Debounce timeout reference for Sankey updates
+  let debouncedSankeyTimeout: NodeJS.Timeout | null = null
+  const SANKEY_DEBOUNCE_DELAY = 300 // ms
 
-  thresholds: INITIAL_THRESHOLDS,
-  nodeThresholds: INITIAL_NODE_THRESHOLDS,
-  hierarchicalThresholds: INITIAL_HIERARCHICAL_THRESHOLDS,
+  const debouncedSankeyUpdate = (nodeThresholds?: any) => {
+    if (debouncedSankeyTimeout) {
+      clearTimeout(debouncedSankeyTimeout)
+    }
+
+    debouncedSankeyTimeout = setTimeout(() => {
+      get().fetchSankeyData(false, nodeThresholds)
+      debouncedSankeyTimeout = null
+    }, SANKEY_DEBOUNCE_DELAY)
+  }
+
+  return {
+    // ============================================================================
+    // THRESHOLD STATE
+    // ============================================================================
+
+    thresholds: INITIAL_THRESHOLDS,
+    nodeThresholds: INITIAL_NODE_THRESHOLDS,
+    hierarchicalThresholds: INITIAL_HIERARCHICAL_THRESHOLDS,
 
   // ============================================================================
   // BASIC THRESHOLD ACTIONS
@@ -32,10 +48,18 @@ export const createThresholdSlice: StateCreator<
 
   setThresholds: (newThresholds) => {
     set(
-      (state) => ({
-        thresholds: { ...state.thresholds, ...newThresholds },
-        errors: { ...state.errors, sankey: null }
-      }),
+      (state) => {
+        // Schedule debounced Sankey refresh if filters are active
+        const isFiltersActive = hasActiveFilters(state.filters)
+        if (isFiltersActive) {
+          debouncedSankeyUpdate()
+        }
+
+        return {
+          thresholds: { ...state.thresholds, ...newThresholds },
+          errors: { ...state.errors, sankey: null }
+        }
+      },
       false,
       'setThresholds'
     )
@@ -73,13 +97,10 @@ export const createThresholdSlice: StateCreator<
 
         logThresholdState(newNodeThresholds, 'nodeThresholds')
 
-        // Schedule Sankey refresh if filters are active
+        // Schedule debounced Sankey refresh if filters are active
         const isFiltersActive = hasActiveFilters(state.filters)
         if (isFiltersActive) {
-          // Use a more reliable approach than setTimeout
-          Promise.resolve().then(() => {
-            get().fetchSankeyData(false, newNodeThresholds)
-          })
+          debouncedSankeyUpdate(newNodeThresholds)
         }
 
         return {
@@ -175,12 +196,10 @@ export const createThresholdSlice: StateCreator<
 
         logThresholdState(newHierarchical, 'hierarchicalThresholds')
 
-        // Schedule Sankey refresh if filters are active
+        // Schedule debounced Sankey refresh if filters are active
         const isFiltersActive = hasActiveFilters(state.filters)
         if (isFiltersActive) {
-          Promise.resolve().then(() => {
-            get().fetchSankeyData(false)
-          })
+          debouncedSankeyUpdate()
         }
 
         return {
@@ -258,4 +277,5 @@ export const createThresholdSlice: StateCreator<
 
     return getNodesInThresholdGroup(groupId, sankeyData.nodes, metric)
   }
-})
+  }
+}

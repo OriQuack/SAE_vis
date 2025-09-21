@@ -82,12 +82,13 @@ export const SankeyNode: React.FC<SankeyNodeComponentProps> = React.memo(({
 
       {/* Node label */}
       <text
-        x={node.x1 + 6}
+        x={node.x0 - 6}
         y={(node.y0 + node.y1) / 2}
         dy="0.35em"
         fontSize={12}
         fill="#374151"
         fontWeight={isHovered ? 600 : 400}
+        textAnchor="end"
         style={{
           transition: `font-weight ${animationDuration}ms ease-out`,
           pointerEvents: 'none'
@@ -98,11 +99,12 @@ export const SankeyNode: React.FC<SankeyNodeComponentProps> = React.memo(({
 
       {/* Feature count */}
       <text
-        x={node.x1 + 6}
+        x={node.x0 - 6}
         y={(node.y0 + node.y1) / 2 + 14}
         dy="0.35em"
         fontSize={10}
         fill="#6b7280"
+        textAnchor="end"
         style={{ pointerEvents: 'none' }}
       >
         ({node.feature_count.toLocaleString()})

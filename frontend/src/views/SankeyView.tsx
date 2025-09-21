@@ -174,7 +174,6 @@ export const SankeyView: React.FC<SankeyViewProps> = ({
                 <SankeyDiagram
                   width={1000}
                   height={600}
-                  showTooltips={true}
                   showHistogramOnClick={true}
                 />
               </div>
@@ -195,7 +194,6 @@ export const SankeyView: React.FC<SankeyViewProps> = ({
                 <SankeyDiagram
                   width={800}
                   height={700}
-                  showTooltips={true}
                   showHistogramOnClick={true}
                 />
               </div>
