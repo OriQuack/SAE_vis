@@ -1,0 +1,5037 @@
+{
+  "n_features": 1000,
+  "feature_range": {
+    "start": 0,
+    "end": 1000,
+    "total_features": 1000
+  },
+  "description": "Nearest (minimum magnitude) cosine similarity for each SAE feature - closest to 0",
+  "model_info": {
+    "model_name_or_path": "google/gemma-scope-9b-pt-res",
+    "position": "layer_30/width_16k/average_l0_120"
+  },
+  "feature_mappings": [
+    {
+      "source_feature_id": 0,
+      "closest_feature_id": 368,
+      "cosine_similarity": -2.3543834686279297e-05
+    },
+    {
+      "source_feature_id": 1,
+      "closest_feature_id": 562,
+      "cosine_similarity": -3.606081008911133e-05
+    },
+    {
+      "source_feature_id": 2,
+      "closest_feature_id": 899,
+      "cosine_similarity": -1.2695789337158203e-05
+    },
+    {
+      "source_feature_id": 3,
+      "closest_feature_id": 264,
+      "cosine_similarity": 4.464387893676758e-05
+    },
+    {
+      "source_feature_id": 4,
+      "closest_feature_id": 130,
+      "cosine_similarity": -3.7550926208496094e-06
+    },
+    {
+      "source_feature_id": 5,
+      "closest_feature_id": 991,
+      "cosine_similarity": -6.717443466186523e-05
+    },
+    {
+      "source_feature_id": 6,
+      "closest_feature_id": 113,
+      "cosine_similarity": 1.5079975128173828e-05
+    },
+    {
+      "source_feature_id": 7,
+      "closest_feature_id": 970,
+      "cosine_similarity": -3.039836883544922e-06
+    },
+    {
+      "source_feature_id": 8,
+      "closest_feature_id": 764,
+      "cosine_similarity": 4.279613494873047e-05
+    },
+    {
+      "source_feature_id": 9,
+      "closest_feature_id": 659,
+      "cosine_similarity": 1.0251998901367188e-05
+    },
+    {
+      "source_feature_id": 10,
+      "closest_feature_id": 333,
+      "cosine_similarity": 3.409385681152344e-05
+    },
+    {
+      "source_feature_id": 11,
+      "closest_feature_id": 155,
+      "cosine_similarity": -1.436471939086914e-05
+    },
+    {
+      "source_feature_id": 12,
+      "closest_feature_id": 155,
+      "cosine_similarity": 3.224611282348633e-05
+    },
+    {
+      "source_feature_id": 13,
+      "closest_feature_id": 719,
+      "cosine_similarity": 4.76837158203125e-07
+    },
+    {
+      "source_feature_id": 14,
+      "closest_feature_id": 491,
+      "cosine_similarity": 1.430511474609375e-06
+    },
+    {
+      "source_feature_id": 15,
+      "closest_feature_id": 373,
+      "cosine_similarity": -4.4286251068115234e-05
+    },
+    {
+      "source_feature_id": 16,
+      "closest_feature_id": 618,
+      "cosine_similarity": 3.343820571899414e-05
+    },
+    {
+      "source_feature_id": 17,
+      "closest_feature_id": 216,
+      "cosine_similarity": 2.4437904357910156e-06
+    },
+    {
+      "source_feature_id": 18,
+      "closest_feature_id": 774,
+      "cosine_similarity": -3.4809112548828125e-05
+    },
+    {
+      "source_feature_id": 19,
+      "closest_feature_id": 698,
+      "cosine_similarity": -4.279613494873047e-05
+    },
+    {
+      "source_feature_id": 20,
+      "closest_feature_id": 322,
+      "cosine_similarity": -2.4259090423583984e-05
+    },
+    {
+      "source_feature_id": 21,
+      "closest_feature_id": 453,
+      "cosine_similarity": -1.1086463928222656e-05
+    },
+    {
+      "source_feature_id": 22,
+      "closest_feature_id": 354,
+      "cosine_similarity": 1.8596649169921875e-05
+    },
+    {
+      "source_feature_id": 23,
+      "closest_feature_id": 954,
+      "cosine_similarity": 4.4345855712890625e-05
+    },
+    {
+      "source_feature_id": 24,
+      "closest_feature_id": 120,
+      "cosine_similarity": 4.827976226806641e-06
+    },
+    {
+      "source_feature_id": 25,
+      "closest_feature_id": 752,
+      "cosine_similarity": -3.0040740966796875e-05
+    },
+    {
+      "source_feature_id": 26,
+      "closest_feature_id": 422,
+      "cosine_similarity": -3.0279159545898438e-05
+    },
+    {
+      "source_feature_id": 27,
+      "closest_feature_id": 565,
+      "cosine_similarity": -6.878376007080078e-05
+    },
+    {
+      "source_feature_id": 28,
+      "closest_feature_id": 597,
+      "cosine_similarity": 7.927417755126953e-06
+    },
+    {
+      "source_feature_id": 29,
+      "closest_feature_id": 584,
+      "cosine_similarity": -1.6570091247558594e-05
+    },
+    {
+      "source_feature_id": 30,
+      "closest_feature_id": 679,
+      "cosine_similarity": 1.5854835510253906e-05
+    },
+    {
+      "source_feature_id": 31,
+      "closest_feature_id": 976,
+      "cosine_similarity": -1.8775463104248047e-05
+    },
+    {
+      "source_feature_id": 32,
+      "closest_feature_id": 958,
+      "cosine_similarity": -2.0265579223632812e-05
+    },
+    {
+      "source_feature_id": 33,
+      "closest_feature_id": 431,
+      "cosine_similarity": -1.8477439880371094e-06
+    },
+    {
+      "source_feature_id": 34,
+      "closest_feature_id": 446,
+      "cosine_similarity": 1.1920928955078125e-06
+    },
+    {
+      "source_feature_id": 35,
+      "closest_feature_id": 481,
+      "cosine_similarity": 6.079673767089844e-05
+    },
+    {
+      "source_feature_id": 36,
+      "closest_feature_id": 577,
+      "cosine_similarity": -1.3530254364013672e-05
+    },
+    {
+      "source_feature_id": 37,
+      "closest_feature_id": 785,
+      "cosine_similarity": 5.781650543212891e-06
+    },
+    {
+      "source_feature_id": 38,
+      "closest_feature_id": 837,
+      "cosine_similarity": 0.0
+    },
+    {
+      "source_feature_id": 39,
+      "closest_feature_id": 257,
+      "cosine_similarity": 8.64267349243164e-06
+    },
+    {
+      "source_feature_id": 40,
+      "closest_feature_id": 995,
+      "cosine_similarity": 3.0994415283203125e-06
+    },
+    {
+      "source_feature_id": 41,
+      "closest_feature_id": 473,
+      "cosine_similarity": -9.655952453613281e-06
+    },
+    {
+      "source_feature_id": 42,
+      "closest_feature_id": 693,
+      "cosine_similarity": -2.5033950805664062e-05
+    },
+    {
+      "source_feature_id": 43,
+      "closest_feature_id": 296,
+      "cosine_similarity": 6.556510925292969e-07
+    },
+    {
+      "source_feature_id": 44,
+      "closest_feature_id": 586,
+      "cosine_similarity": 1.9490718841552734e-05
+    },
+    {
+      "source_feature_id": 45,
+      "closest_feature_id": 476,
+      "cosine_similarity": 6.4373016357421875e-06
+    },
+    {
+      "source_feature_id": 46,
+      "closest_feature_id": 602,
+      "cosine_similarity": 3.0279159545898438e-05
+    },
+    {
+      "source_feature_id": 47,
+      "closest_feature_id": 605,
+      "cosine_similarity": 1.2814998626708984e-05
+    },
+    {
+      "source_feature_id": 48,
+      "closest_feature_id": 463,
+      "cosine_similarity": 9.417533874511719e-06
+    },
+    {
+      "source_feature_id": 49,
+      "closest_feature_id": 304,
+      "cosine_similarity": 6.622076034545898e-05
+    },
+    {
+      "source_feature_id": 50,
+      "closest_feature_id": 929,
+      "cosine_similarity": 1.3709068298339844e-05
+    },
+    {
+      "source_feature_id": 51,
+      "closest_feature_id": 97,
+      "cosine_similarity": 4.780292510986328e-05
+    },
+    {
+      "source_feature_id": 52,
+      "closest_feature_id": 612,
+      "cosine_similarity": -1.4007091522216797e-05
+    },
+    {
+      "source_feature_id": 53,
+      "closest_feature_id": 154,
+      "cosine_similarity": 2.8789043426513672e-05
+    },
+    {
+      "source_feature_id": 54,
+      "closest_feature_id": 70,
+      "cosine_similarity": -1.436471939086914e-05
+    },
+    {
+      "source_feature_id": 55,
+      "closest_feature_id": 197,
+      "cosine_similarity": 1.4066696166992188e-05
+    },
+    {
+      "source_feature_id": 56,
+      "closest_feature_id": 729,
+      "cosine_similarity": -4.76837158203125e-06
+    },
+    {
+      "source_feature_id": 57,
+      "closest_feature_id": 579,
+      "cosine_similarity": -1.0669231414794922e-05
+    },
+    {
+      "source_feature_id": 58,
+      "closest_feature_id": 887,
+      "cosine_similarity": -1.7881393432617188e-06
+    },
+    {
+      "source_feature_id": 59,
+      "closest_feature_id": 457,
+      "cosine_similarity": -3.349781036376953e-05
+    },
+    {
+      "source_feature_id": 60,
+      "closest_feature_id": 608,
+      "cosine_similarity": -1.0848045349121094e-05
+    },
+    {
+      "source_feature_id": 61,
+      "closest_feature_id": 153,
+      "cosine_similarity": 4.4405460357666016e-05
+    },
+    {
+      "source_feature_id": 62,
+      "closest_feature_id": 602,
+      "cosine_similarity": 1.7344951629638672e-05
+    },
+    {
+      "source_feature_id": 63,
+      "closest_feature_id": 125,
+      "cosine_similarity": -5.936622619628906e-05
+    },
+    {
+      "source_feature_id": 64,
+      "closest_feature_id": 184,
+      "cosine_similarity": 9.5367431640625e-06
+    },
+    {
+      "source_feature_id": 65,
+      "closest_feature_id": 507,
+      "cosine_similarity": 3.6776065826416016e-05
+    },
+    {
+      "source_feature_id": 66,
+      "closest_feature_id": 381,
+      "cosine_similarity": 7.748603820800781e-06
+    },
+    {
+      "source_feature_id": 67,
+      "closest_feature_id": 161,
+      "cosine_similarity": 4.231929779052734e-06
+    },
+    {
+      "source_feature_id": 68,
+      "closest_feature_id": 435,
+      "cosine_similarity": 2.6226043701171875e-06
+    },
+    {
+      "source_feature_id": 69,
+      "closest_feature_id": 246,
+      "cosine_similarity": -8.046627044677734e-06
+    },
+    {
+      "source_feature_id": 70,
+      "closest_feature_id": 54,
+      "cosine_similarity": -1.436471939086914e-05
+    },
+    {
+      "source_feature_id": 71,
+      "closest_feature_id": 43,
+      "cosine_similarity": 1.0609626770019531e-05
+    },
+    {
+      "source_feature_id": 72,
+      "closest_feature_id": 550,
+      "cosine_similarity": 4.029273986816406e-05
+    },
+    {
+      "source_feature_id": 73,
+      "closest_feature_id": 802,
+      "cosine_similarity": -2.187490463256836e-05
+    },
+    {
+      "source_feature_id": 74,
+      "closest_feature_id": 493,
+      "cosine_similarity": -1.0788440704345703e-05
+    },
+    {
+      "source_feature_id": 75,
+      "closest_feature_id": 512,
+      "cosine_similarity": -9.715557098388672e-06
+    },
+    {
+      "source_feature_id": 76,
+      "closest_feature_id": 954,
+      "cosine_similarity": 1.4066696166992188e-05
+    },
+    {
+      "source_feature_id": 77,
+      "closest_feature_id": 944,
+      "cosine_similarity": 1.0311603546142578e-05
+    },
+    {
+      "source_feature_id": 78,
+      "closest_feature_id": 239,
+      "cosine_similarity": -1.0609626770019531e-05
+    },
+    {
+      "source_feature_id": 79,
+      "closest_feature_id": 411,
+      "cosine_similarity": -1.3172626495361328e-05
+    },
+    {
+      "source_feature_id": 80,
+      "closest_feature_id": 943,
+      "cosine_similarity": 5.125999450683594e-06
+    },
+    {
+      "source_feature_id": 81,
+      "closest_feature_id": 320,
+      "cosine_similarity": 3.314018249511719e-05
+    },
+    {
+      "source_feature_id": 82,
+      "closest_feature_id": 964,
+      "cosine_similarity": -1.6748905181884766e-05
+    },
+    {
+      "source_feature_id": 83,
+      "closest_feature_id": 91,
+      "cosine_similarity": 1.2695789337158203e-05
+    },
+    {
+      "source_feature_id": 84,
+      "closest_feature_id": 766,
+      "cosine_similarity": -1.6570091247558594e-05
+    },
+    {
+      "source_feature_id": 85,
+      "closest_feature_id": 748,
+      "cosine_similarity": -3.349781036376953e-05
+    },
+    {
+      "source_feature_id": 86,
+      "closest_feature_id": 797,
+      "cosine_similarity": -1.9669532775878906e-06
+    },
+    {
+      "source_feature_id": 87,
+      "closest_feature_id": 229,
+      "cosine_similarity": -1.1444091796875e-05
+    },
+    {
+      "source_feature_id": 88,
+      "closest_feature_id": 934,
+      "cosine_similarity": 8.404254913330078e-06
+    },
+    {
+      "source_feature_id": 89,
+      "closest_feature_id": 242,
+      "cosine_similarity": 1.4126300811767578e-05
+    },
+    {
+      "source_feature_id": 90,
+      "closest_feature_id": 840,
+      "cosine_similarity": -4.827976226806641e-06
+    },
+    {
+      "source_feature_id": 91,
+      "closest_feature_id": 83,
+      "cosine_similarity": 1.2695789337158203e-05
+    },
+    {
+      "source_feature_id": 92,
+      "closest_feature_id": 592,
+      "cosine_similarity": 4.827976226806641e-06
+    },
+    {
+      "source_feature_id": 93,
+      "closest_feature_id": 710,
+      "cosine_similarity": 5.072355270385742e-05
+    },
+    {
+      "source_feature_id": 94,
+      "closest_feature_id": 635,
+      "cosine_similarity": -2.2709369659423828e-05
+    },
+    {
+      "source_feature_id": 95,
+      "closest_feature_id": 766,
+      "cosine_similarity": 3.933906555175781e-06
+    },
+    {
+      "source_feature_id": 96,
+      "closest_feature_id": 729,
+      "cosine_similarity": -3.355741500854492e-05
+    },
+    {
+      "source_feature_id": 97,
+      "closest_feature_id": 219,
+      "cosine_similarity": 1.3649463653564453e-05
+    },
+    {
+      "source_feature_id": 98,
+      "closest_feature_id": 570,
+      "cosine_similarity": -3.6954879760742188e-06
+    },
+    {
+      "source_feature_id": 99,
+      "closest_feature_id": 212,
+      "cosine_similarity": -3.081560134887695e-05
+    },
+    {
+      "source_feature_id": 100,
+      "closest_feature_id": 92,
+      "cosine_similarity": -2.1576881408691406e-05
+    },
+    {
+      "source_feature_id": 101,
+      "closest_feature_id": 472,
+      "cosine_similarity": 4.947185516357422e-06
+    },
+    {
+      "source_feature_id": 102,
+      "closest_feature_id": 895,
+      "cosine_similarity": 7.659196853637695e-05
+    },
+    {
+      "source_feature_id": 103,
+      "closest_feature_id": 619,
+      "cosine_similarity": 2.5570392608642578e-05
+    },
+    {
+      "source_feature_id": 104,
+      "closest_feature_id": 810,
+      "cosine_similarity": 2.5153160095214844e-05
+    },
+    {
+      "source_feature_id": 105,
+      "closest_feature_id": 435,
+      "cosine_similarity": 9.5367431640625e-07
+    },
+    {
+      "source_feature_id": 106,
+      "closest_feature_id": 604,
+      "cosine_similarity": -4.4345855712890625e-05
+    },
+    {
+      "source_feature_id": 107,
+      "closest_feature_id": 612,
+      "cosine_similarity": 1.4901161193847656e-05
+    },
+    {
+      "source_feature_id": 108,
+      "closest_feature_id": 535,
+      "cosine_similarity": 5.233287811279297e-05
+    },
+    {
+      "source_feature_id": 109,
+      "closest_feature_id": 763,
+      "cosine_similarity": 1.138448715209961e-05
+    },
+    {
+      "source_feature_id": 110,
+      "closest_feature_id": 602,
+      "cosine_similarity": -9.059906005859375e-06
+    },
+    {
+      "source_feature_id": 111,
+      "closest_feature_id": 508,
+      "cosine_similarity": 1.1563301086425781e-05
+    },
+    {
+      "source_feature_id": 112,
+      "closest_feature_id": 111,
+      "cosine_similarity": -1.233816146850586e-05
+    },
+    {
+      "source_feature_id": 113,
+      "closest_feature_id": 723,
+      "cosine_similarity": -5.543231964111328e-06
+    },
+    {
+      "source_feature_id": 114,
+      "closest_feature_id": 134,
+      "cosine_similarity": 4.0411949157714844e-05
+    },
+    {
+      "source_feature_id": 115,
+      "closest_feature_id": 974,
+      "cosine_similarity": 2.0265579223632812e-05
+    },
+    {
+      "source_feature_id": 116,
+      "closest_feature_id": 827,
+      "cosine_similarity": 5.9723854064941406e-05
+    },
+    {
+      "source_feature_id": 117,
+      "closest_feature_id": 459,
+      "cosine_similarity": -1.7881393432617188e-07
+    },
+    {
+      "source_feature_id": 118,
+      "closest_feature_id": 531,
+      "cosine_similarity": 2.4497509002685547e-05
+    },
+    {
+      "source_feature_id": 119,
+      "closest_feature_id": 712,
+      "cosine_similarity": -2.7477741241455078e-05
+    },
+    {
+      "source_feature_id": 120,
+      "closest_feature_id": 602,
+      "cosine_similarity": 4.76837158203125e-07
+    },
+    {
+      "source_feature_id": 121,
+      "closest_feature_id": 803,
+      "cosine_similarity": -2.5033950805664062e-06
+    },
+    {
+      "source_feature_id": 122,
+      "closest_feature_id": 95,
+      "cosine_similarity": 2.2411346435546875e-05
+    },
+    {
+      "source_feature_id": 123,
+      "closest_feature_id": 895,
+      "cosine_similarity": 7.867813110351562e-06
+    },
+    {
+      "source_feature_id": 124,
+      "closest_feature_id": 991,
+      "cosine_similarity": 1.5437602996826172e-05
+    },
+    {
+      "source_feature_id": 125,
+      "closest_feature_id": 869,
+      "cosine_similarity": -3.933906555175781e-06
+    },
+    {
+      "source_feature_id": 126,
+      "closest_feature_id": 682,
+      "cosine_similarity": 5.125999450683594e-05
+    },
+    {
+      "source_feature_id": 127,
+      "closest_feature_id": 673,
+      "cosine_similarity": -8.499622344970703e-05
+    },
+    {
+      "source_feature_id": 128,
+      "closest_feature_id": 717,
+      "cosine_similarity": 1.7642974853515625e-05
+    },
+    {
+      "source_feature_id": 129,
+      "closest_feature_id": 401,
+      "cosine_similarity": 7.927417755126953e-06
+    },
+    {
+      "source_feature_id": 130,
+      "closest_feature_id": 4,
+      "cosine_similarity": -3.7550926208496094e-06
+    },
+    {
+      "source_feature_id": 131,
+      "closest_feature_id": 383,
+      "cosine_similarity": 2.0325183868408203e-05
+    },
+    {
+      "source_feature_id": 132,
+      "closest_feature_id": 480,
+      "cosine_similarity": 2.1338462829589844e-05
+    },
+    {
+      "source_feature_id": 133,
+      "closest_feature_id": 139,
+      "cosine_similarity": -1.0371208190917969e-05
+    },
+    {
+      "source_feature_id": 134,
+      "closest_feature_id": 504,
+      "cosine_similarity": 1.0907649993896484e-05
+    },
+    {
+      "source_feature_id": 135,
+      "closest_feature_id": 125,
+      "cosine_similarity": -3.993511199951172e-06
+    },
+    {
+      "source_feature_id": 136,
+      "closest_feature_id": 133,
+      "cosine_similarity": -3.933906555175781e-05
+    },
+    {
+      "source_feature_id": 137,
+      "closest_feature_id": 430,
+      "cosine_similarity": -2.568960189819336e-05
+    },
+    {
+      "source_feature_id": 138,
+      "closest_feature_id": 176,
+      "cosine_similarity": -3.2782554626464844e-06
+    },
+    {
+      "source_feature_id": 139,
+      "closest_feature_id": 133,
+      "cosine_similarity": -1.0371208190917969e-05
+    },
+    {
+      "source_feature_id": 140,
+      "closest_feature_id": 389,
+      "cosine_similarity": 2.1696090698242188e-05
+    },
+    {
+      "source_feature_id": 141,
+      "closest_feature_id": 68,
+      "cosine_similarity": 1.7821788787841797e-05
+    },
+    {
+      "source_feature_id": 142,
+      "closest_feature_id": 556,
+      "cosine_similarity": 4.0650367736816406e-05
+    },
+    {
+      "source_feature_id": 143,
+      "closest_feature_id": 684,
+      "cosine_similarity": 1.4901161193847656e-05
+    },
+    {
+      "source_feature_id": 144,
+      "closest_feature_id": 651,
+      "cosine_similarity": 1.9311904907226562e-05
+    },
+    {
+      "source_feature_id": 145,
+      "closest_feature_id": 868,
+      "cosine_similarity": 2.9206275939941406e-06
+    },
+    {
+      "source_feature_id": 146,
+      "closest_feature_id": 413,
+      "cosine_similarity": -2.2590160369873047e-05
+    },
+    {
+      "source_feature_id": 147,
+      "closest_feature_id": 499,
+      "cosine_similarity": 1.9669532775878906e-05
+    },
+    {
+      "source_feature_id": 148,
+      "closest_feature_id": 380,
+      "cosine_similarity": -4.172325134277344e-06
+    },
+    {
+      "source_feature_id": 149,
+      "closest_feature_id": 430,
+      "cosine_similarity": -2.2232532501220703e-05
+    },
+    {
+      "source_feature_id": 150,
+      "closest_feature_id": 976,
+      "cosine_similarity": 5.888938903808594e-05
+    },
+    {
+      "source_feature_id": 151,
+      "closest_feature_id": 87,
+      "cosine_similarity": 3.6597251892089844e-05
+    },
+    {
+      "source_feature_id": 152,
+      "closest_feature_id": 230,
+      "cosine_similarity": 2.1636486053466797e-05
+    },
+    {
+      "source_feature_id": 153,
+      "closest_feature_id": 189,
+      "cosine_similarity": -1.138448715209961e-05
+    },
+    {
+      "source_feature_id": 154,
+      "closest_feature_id": 53,
+      "cosine_similarity": 2.8789043426513672e-05
+    },
+    {
+      "source_feature_id": 155,
+      "closest_feature_id": 11,
+      "cosine_similarity": -1.436471939086914e-05
+    },
+    {
+      "source_feature_id": 156,
+      "closest_feature_id": 416,
+      "cosine_similarity": -5.9664249420166016e-05
+    },
+    {
+      "source_feature_id": 157,
+      "closest_feature_id": 754,
+      "cosine_similarity": 4.6193599700927734e-05
+    },
+    {
+      "source_feature_id": 158,
+      "closest_feature_id": 333,
+      "cosine_similarity": -8.20159912109375e-05
+    },
+    {
+      "source_feature_id": 159,
+      "closest_feature_id": 805,
+      "cosine_similarity": 1.1324882507324219e-06
+    },
+    {
+      "source_feature_id": 160,
+      "closest_feature_id": 580,
+      "cosine_similarity": -1.2755393981933594e-05
+    },
+    {
+      "source_feature_id": 161,
+      "closest_feature_id": 67,
+      "cosine_similarity": 4.231929779052734e-06
+    },
+    {
+      "source_feature_id": 162,
+      "closest_feature_id": 163,
+      "cosine_similarity": 3.2007694244384766e-05
+    },
+    {
+      "source_feature_id": 163,
+      "closest_feature_id": 667,
+      "cosine_similarity": -1.913309097290039e-05
+    },
+    {
+      "source_feature_id": 164,
+      "closest_feature_id": 846,
+      "cosine_similarity": -4.887580871582031e-06
+    },
+    {
+      "source_feature_id": 165,
+      "closest_feature_id": 121,
+      "cosine_similarity": -4.470348358154297e-06
+    },
+    {
+      "source_feature_id": 166,
+      "closest_feature_id": 690,
+      "cosine_similarity": 2.682209014892578e-06
+    },
+    {
+      "source_feature_id": 167,
+      "closest_feature_id": 346,
+      "cosine_similarity": -1.7523765563964844e-05
+    },
+    {
+      "source_feature_id": 168,
+      "closest_feature_id": 723,
+      "cosine_similarity": -1.8298625946044922e-05
+    },
+    {
+      "source_feature_id": 169,
+      "closest_feature_id": 737,
+      "cosine_similarity": 1.823902130126953e-05
+    },
+    {
+      "source_feature_id": 170,
+      "closest_feature_id": 512,
+      "cosine_similarity": 3.3974647521972656e-06
+    },
+    {
+      "source_feature_id": 171,
+      "closest_feature_id": 804,
+      "cosine_similarity": -4.881620407104492e-05
+    },
+    {
+      "source_feature_id": 172,
+      "closest_feature_id": 980,
+      "cosine_similarity": 2.384185791015625e-06
+    },
+    {
+      "source_feature_id": 173,
+      "closest_feature_id": 671,
+      "cosine_similarity": -2.1517276763916016e-05
+    },
+    {
+      "source_feature_id": 174,
+      "closest_feature_id": 998,
+      "cosine_similarity": 4.404783248901367e-05
+    },
+    {
+      "source_feature_id": 175,
+      "closest_feature_id": 485,
+      "cosine_similarity": -3.039836883544922e-06
+    },
+    {
+      "source_feature_id": 176,
+      "closest_feature_id": 138,
+      "cosine_similarity": -3.2782554626464844e-06
+    },
+    {
+      "source_feature_id": 177,
+      "closest_feature_id": 410,
+      "cosine_similarity": 2.8848648071289062e-05
+    },
+    {
+      "source_feature_id": 178,
+      "closest_feature_id": 195,
+      "cosine_similarity": 6.556510925292969e-07
+    },
+    {
+      "source_feature_id": 179,
+      "closest_feature_id": 583,
+      "cosine_similarity": -4.0531158447265625e-05
+    },
+    {
+      "source_feature_id": 180,
+      "closest_feature_id": 517,
+      "cosine_similarity": 1.4126300811767578e-05
+    },
+    {
+      "source_feature_id": 181,
+      "closest_feature_id": 378,
+      "cosine_similarity": -7.241964340209961e-05
+    },
+    {
+      "source_feature_id": 182,
+      "closest_feature_id": 525,
+      "cosine_similarity": 6.973743438720703e-06
+    },
+    {
+      "source_feature_id": 183,
+      "closest_feature_id": 552,
+      "cosine_similarity": 1.5497207641601562e-06
+    },
+    {
+      "source_feature_id": 184,
+      "closest_feature_id": 64,
+      "cosine_similarity": 9.5367431640625e-06
+    },
+    {
+      "source_feature_id": 185,
+      "closest_feature_id": 80,
+      "cosine_similarity": -2.4378299713134766e-05
+    },
+    {
+      "source_feature_id": 186,
+      "closest_feature_id": 611,
+      "cosine_similarity": -1.1205673217773438e-05
+    },
+    {
+      "source_feature_id": 187,
+      "closest_feature_id": 664,
+      "cosine_similarity": -1.0251998901367188e-05
+    },
+    {
+      "source_feature_id": 188,
+      "closest_feature_id": 350,
+      "cosine_similarity": 1.2814998626708984e-05
+    },
+    {
+      "source_feature_id": 189,
+      "closest_feature_id": 153,
+      "cosine_similarity": -1.138448715209961e-05
+    },
+    {
+      "source_feature_id": 190,
+      "closest_feature_id": 581,
+      "cosine_similarity": -1.5079975128173828e-05
+    },
+    {
+      "source_feature_id": 191,
+      "closest_feature_id": 377,
+      "cosine_similarity": -5.841255187988281e-06
+    },
+    {
+      "source_feature_id": 192,
+      "closest_feature_id": 924,
+      "cosine_similarity": -3.2961368560791016e-05
+    },
+    {
+      "source_feature_id": 193,
+      "closest_feature_id": 730,
+      "cosine_similarity": -9.894371032714844e-06
+    },
+    {
+      "source_feature_id": 194,
+      "closest_feature_id": 64,
+      "cosine_similarity": 3.743171691894531e-05
+    },
+    {
+      "source_feature_id": 195,
+      "closest_feature_id": 178,
+      "cosine_similarity": 6.556510925292969e-07
+    },
+    {
+      "source_feature_id": 196,
+      "closest_feature_id": 701,
+      "cosine_similarity": -1.3113021850585938e-06
+    },
+    {
+      "source_feature_id": 197,
+      "closest_feature_id": 473,
+      "cosine_similarity": -1.4901161193847656e-06
+    },
+    {
+      "source_feature_id": 198,
+      "closest_feature_id": 481,
+      "cosine_similarity": 2.300739288330078e-05
+    },
+    {
+      "source_feature_id": 199,
+      "closest_feature_id": 349,
+      "cosine_similarity": -5.352497100830078e-05
+    },
+    {
+      "source_feature_id": 200,
+      "closest_feature_id": 870,
+      "cosine_similarity": -3.314018249511719e-05
+    },
+    {
+      "source_feature_id": 201,
+      "closest_feature_id": 930,
+      "cosine_similarity": -6.264448165893555e-05
+    },
+    {
+      "source_feature_id": 202,
+      "closest_feature_id": 546,
+      "cosine_similarity": -1.1026859283447266e-05
+    },
+    {
+      "source_feature_id": 203,
+      "closest_feature_id": 341,
+      "cosine_similarity": 4.124641418457031e-05
+    },
+    {
+      "source_feature_id": 204,
+      "closest_feature_id": 920,
+      "cosine_similarity": -7.152557373046875e-07
+    },
+    {
+      "source_feature_id": 205,
+      "closest_feature_id": 342,
+      "cosine_similarity": -1.8835067749023438e-05
+    },
+    {
+      "source_feature_id": 206,
+      "closest_feature_id": 933,
+      "cosine_similarity": -3.0279159545898438e-05
+    },
+    {
+      "source_feature_id": 207,
+      "closest_feature_id": 589,
+      "cosine_similarity": 1.138448715209961e-05
+    },
+    {
+      "source_feature_id": 208,
+      "closest_feature_id": 736,
+      "cosine_similarity": 1.5020370483398438e-05
+    },
+    {
+      "source_feature_id": 209,
+      "closest_feature_id": 798,
+      "cosine_similarity": 4.470348358154297e-05
+    },
+    {
+      "source_feature_id": 210,
+      "closest_feature_id": 940,
+      "cosine_similarity": 2.092123031616211e-05
+    },
+    {
+      "source_feature_id": 211,
+      "closest_feature_id": 580,
+      "cosine_similarity": 1.2636184692382812e-05
+    },
+    {
+      "source_feature_id": 212,
+      "closest_feature_id": 99,
+      "cosine_similarity": -3.081560134887695e-05
+    },
+    {
+      "source_feature_id": 213,
+      "closest_feature_id": 629,
+      "cosine_similarity": 9.357929229736328e-06
+    },
+    {
+      "source_feature_id": 214,
+      "closest_feature_id": 168,
+      "cosine_similarity": -3.260374069213867e-05
+    },
+    {
+      "source_feature_id": 215,
+      "closest_feature_id": 892,
+      "cosine_similarity": 1.627206802368164e-05
+    },
+    {
+      "source_feature_id": 216,
+      "closest_feature_id": 17,
+      "cosine_similarity": 2.4437904357910156e-06
+    },
+    {
+      "source_feature_id": 217,
+      "closest_feature_id": 489,
+      "cosine_similarity": 5.960464477539062e-07
+    },
+    {
+      "source_feature_id": 218,
+      "closest_feature_id": 350,
+      "cosine_similarity": 7.092952728271484e-06
+    },
+    {
+      "source_feature_id": 219,
+      "closest_feature_id": 97,
+      "cosine_similarity": 1.3649463653564453e-05
+    },
+    {
+      "source_feature_id": 220,
+      "closest_feature_id": 943,
+      "cosine_similarity": -2.2649765014648438e-05
+    },
+    {
+      "source_feature_id": 221,
+      "closest_feature_id": 357,
+      "cosine_similarity": -3.17692756652832e-05
+    },
+    {
+      "source_feature_id": 222,
+      "closest_feature_id": 322,
+      "cosine_similarity": 6.973743438720703e-06
+    },
+    {
+      "source_feature_id": 223,
+      "closest_feature_id": 587,
+      "cosine_similarity": -3.814697265625e-06
+    },
+    {
+      "source_feature_id": 224,
+      "closest_feature_id": 79,
+      "cosine_similarity": -2.5093555450439453e-05
+    },
+    {
+      "source_feature_id": 225,
+      "closest_feature_id": 959,
+      "cosine_similarity": 4.410743713378906e-06
+    },
+    {
+      "source_feature_id": 226,
+      "closest_feature_id": 950,
+      "cosine_similarity": 4.351139068603516e-06
+    },
+    {
+      "source_feature_id": 227,
+      "closest_feature_id": 543,
+      "cosine_similarity": -9.953975677490234e-06
+    },
+    {
+      "source_feature_id": 228,
+      "closest_feature_id": 654,
+      "cosine_similarity": -1.728534698486328e-05
+    },
+    {
+      "source_feature_id": 229,
+      "closest_feature_id": 425,
+      "cosine_similarity": -1.8477439880371094e-06
+    },
+    {
+      "source_feature_id": 230,
+      "closest_feature_id": 152,
+      "cosine_similarity": 2.1636486053466797e-05
+    },
+    {
+      "source_feature_id": 231,
+      "closest_feature_id": 866,
+      "cosine_similarity": -3.129243850708008e-05
+    },
+    {
+      "source_feature_id": 232,
+      "closest_feature_id": 955,
+      "cosine_similarity": -1.3709068298339844e-06
+    },
+    {
+      "source_feature_id": 233,
+      "closest_feature_id": 724,
+      "cosine_similarity": 1.0848045349121094e-05
+    },
+    {
+      "source_feature_id": 234,
+      "closest_feature_id": 335,
+      "cosine_similarity": 1.7881393432617188e-06
+    },
+    {
+      "source_feature_id": 235,
+      "closest_feature_id": 393,
+      "cosine_similarity": 2.104043960571289e-05
+    },
+    {
+      "source_feature_id": 236,
+      "closest_feature_id": 646,
+      "cosine_similarity": 5.364418029785156e-05
+    },
+    {
+      "source_feature_id": 237,
+      "closest_feature_id": 278,
+      "cosine_similarity": 9.655952453613281e-06
+    },
+    {
+      "source_feature_id": 238,
+      "closest_feature_id": 937,
+      "cosine_similarity": -1.7762184143066406e-05
+    },
+    {
+      "source_feature_id": 239,
+      "closest_feature_id": 590,
+      "cosine_similarity": 3.933906555175781e-06
+    },
+    {
+      "source_feature_id": 240,
+      "closest_feature_id": 956,
+      "cosine_similarity": 4.649162292480469e-06
+    },
+    {
+      "source_feature_id": 241,
+      "closest_feature_id": 101,
+      "cosine_similarity": 7.450580596923828e-06
+    },
+    {
+      "source_feature_id": 242,
+      "closest_feature_id": 739,
+      "cosine_similarity": -8.285045623779297e-06
+    },
+    {
+      "source_feature_id": 243,
+      "closest_feature_id": 635,
+      "cosine_similarity": -4.231929779052734e-06
+    },
+    {
+      "source_feature_id": 244,
+      "closest_feature_id": 973,
+      "cosine_similarity": -9.59634780883789e-06
+    },
+    {
+      "source_feature_id": 245,
+      "closest_feature_id": 347,
+      "cosine_similarity": 8.881092071533203e-06
+    },
+    {
+      "source_feature_id": 246,
+      "closest_feature_id": 69,
+      "cosine_similarity": -8.046627044677734e-06
+    },
+    {
+      "source_feature_id": 247,
+      "closest_feature_id": 330,
+      "cosine_similarity": -3.3855438232421875e-05
+    },
+    {
+      "source_feature_id": 248,
+      "closest_feature_id": 334,
+      "cosine_similarity": -6.854534149169922e-06
+    },
+    {
+      "source_feature_id": 249,
+      "closest_feature_id": 440,
+      "cosine_similarity": -2.7418136596679688e-06
+    },
+    {
+      "source_feature_id": 250,
+      "closest_feature_id": 950,
+      "cosine_similarity": 1.0907649993896484e-05
+    },
+    {
+      "source_feature_id": 251,
+      "closest_feature_id": 836,
+      "cosine_similarity": -3.30805778503418e-05
+    },
+    {
+      "source_feature_id": 252,
+      "closest_feature_id": 618,
+      "cosine_similarity": 1.519918441772461e-05
+    },
+    {
+      "source_feature_id": 253,
+      "closest_feature_id": 161,
+      "cosine_similarity": 2.2113323211669922e-05
+    },
+    {
+      "source_feature_id": 254,
+      "closest_feature_id": 658,
+      "cosine_similarity": 4.8100948333740234e-05
+    },
+    {
+      "source_feature_id": 255,
+      "closest_feature_id": 44,
+      "cosine_similarity": -3.796815872192383e-05
+    },
+    {
+      "source_feature_id": 256,
+      "closest_feature_id": 612,
+      "cosine_similarity": 7.808208465576172e-06
+    },
+    {
+      "source_feature_id": 257,
+      "closest_feature_id": 39,
+      "cosine_similarity": 8.64267349243164e-06
+    },
+    {
+      "source_feature_id": 258,
+      "closest_feature_id": 97,
+      "cosine_similarity": 3.3915042877197266e-05
+    },
+    {
+      "source_feature_id": 259,
+      "closest_feature_id": 419,
+      "cosine_similarity": 7.68899917602539e-06
+    },
+    {
+      "source_feature_id": 260,
+      "closest_feature_id": 327,
+      "cosine_similarity": -7.510185241699219e-06
+    },
+    {
+      "source_feature_id": 261,
+      "closest_feature_id": 717,
+      "cosine_similarity": 6.371736526489258e-05
+    },
+    {
+      "source_feature_id": 262,
+      "closest_feature_id": 241,
+      "cosine_similarity": -1.4424324035644531e-05
+    },
+    {
+      "source_feature_id": 263,
+      "closest_feature_id": 668,
+      "cosine_similarity": 9.179115295410156e-06
+    },
+    {
+      "source_feature_id": 264,
+      "closest_feature_id": 660,
+      "cosine_similarity": 2.086162567138672e-06
+    },
+    {
+      "source_feature_id": 265,
+      "closest_feature_id": 747,
+      "cosine_similarity": 3.159046173095703e-06
+    },
+    {
+      "source_feature_id": 266,
+      "closest_feature_id": 836,
+      "cosine_similarity": 1.7285346984863281e-06
+    },
+    {
+      "source_feature_id": 267,
+      "closest_feature_id": 489,
+      "cosine_similarity": 2.1457672119140625e-06
+    },
+    {
+      "source_feature_id": 268,
+      "closest_feature_id": 291,
+      "cosine_similarity": 4.708766937255859e-06
+    },
+    {
+      "source_feature_id": 269,
+      "closest_feature_id": 915,
+      "cosine_similarity": 2.205371856689453e-05
+    },
+    {
+      "source_feature_id": 270,
+      "closest_feature_id": 753,
+      "cosine_similarity": 1.6689300537109375e-05
+    },
+    {
+      "source_feature_id": 271,
+      "closest_feature_id": 444,
+      "cosine_similarity": 9.5367431640625e-06
+    },
+    {
+      "source_feature_id": 272,
+      "closest_feature_id": 851,
+      "cosine_similarity": -1.049041748046875e-05
+    },
+    {
+      "source_feature_id": 273,
+      "closest_feature_id": 476,
+      "cosine_similarity": -2.1219253540039062e-05
+    },
+    {
+      "source_feature_id": 274,
+      "closest_feature_id": 922,
+      "cosine_similarity": 1.3113021850585938e-05
+    },
+    {
+      "source_feature_id": 275,
+      "closest_feature_id": 734,
+      "cosine_similarity": 3.88026237487793e-05
+    },
+    {
+      "source_feature_id": 276,
+      "closest_feature_id": 76,
+      "cosine_similarity": -1.6450881958007812e-05
+    },
+    {
+      "source_feature_id": 277,
+      "closest_feature_id": 663,
+      "cosine_similarity": 1.7642974853515625e-05
+    },
+    {
+      "source_feature_id": 278,
+      "closest_feature_id": 237,
+      "cosine_similarity": 9.655952453613281e-06
+    },
+    {
+      "source_feature_id": 279,
+      "closest_feature_id": 381,
+      "cosine_similarity": 6.139278411865234e-06
+    },
+    {
+      "source_feature_id": 280,
+      "closest_feature_id": 818,
+      "cosine_similarity": 3.8564205169677734e-05
+    },
+    {
+      "source_feature_id": 281,
+      "closest_feature_id": 623,
+      "cosine_similarity": -2.5928020477294922e-05
+    },
+    {
+      "source_feature_id": 282,
+      "closest_feature_id": 56,
+      "cosine_similarity": -1.1920928955078125e-05
+    },
+    {
+      "source_feature_id": 283,
+      "closest_feature_id": 939,
+      "cosine_similarity": -3.5762786865234375e-07
+    },
+    {
+      "source_feature_id": 284,
+      "closest_feature_id": 330,
+      "cosine_similarity": -2.2649765014648438e-06
+    },
+    {
+      "source_feature_id": 285,
+      "closest_feature_id": 614,
+      "cosine_similarity": 2.0682811737060547e-05
+    },
+    {
+      "source_feature_id": 286,
+      "closest_feature_id": 101,
+      "cosine_similarity": -3.6656856536865234e-05
+    },
+    {
+      "source_feature_id": 287,
+      "closest_feature_id": 290,
+      "cosine_similarity": -1.3470649719238281e-05
+    },
+    {
+      "source_feature_id": 288,
+      "closest_feature_id": 619,
+      "cosine_similarity": 1.8835067749023438e-05
+    },
+    {
+      "source_feature_id": 289,
+      "closest_feature_id": 936,
+      "cosine_similarity": 1.2516975402832031e-06
+    },
+    {
+      "source_feature_id": 290,
+      "closest_feature_id": 287,
+      "cosine_similarity": -1.3470649719238281e-05
+    },
+    {
+      "source_feature_id": 291,
+      "closest_feature_id": 268,
+      "cosine_similarity": 4.708766937255859e-06
+    },
+    {
+      "source_feature_id": 292,
+      "closest_feature_id": 426,
+      "cosine_similarity": -4.500150680541992e-05
+    },
+    {
+      "source_feature_id": 293,
+      "closest_feature_id": 886,
+      "cosine_similarity": 2.682209014892578e-05
+    },
+    {
+      "source_feature_id": 294,
+      "closest_feature_id": 675,
+      "cosine_similarity": 2.8014183044433594e-05
+    },
+    {
+      "source_feature_id": 295,
+      "closest_feature_id": 533,
+      "cosine_similarity": 3.0934810638427734e-05
+    },
+    {
+      "source_feature_id": 296,
+      "closest_feature_id": 43,
+      "cosine_similarity": 6.556510925292969e-07
+    },
+    {
+      "source_feature_id": 297,
+      "closest_feature_id": 774,
+      "cosine_similarity": 3.7729740142822266e-05
+    },
+    {
+      "source_feature_id": 298,
+      "closest_feature_id": 863,
+      "cosine_similarity": 1.0371208190917969e-05
+    },
+    {
+      "source_feature_id": 299,
+      "closest_feature_id": 941,
+      "cosine_similarity": 1.7881393432617188e-06
+    },
+    {
+      "source_feature_id": 300,
+      "closest_feature_id": 344,
+      "cosine_similarity": -6.133317947387695e-05
+    },
+    {
+      "source_feature_id": 301,
+      "closest_feature_id": 539,
+      "cosine_similarity": 5.561113357543945e-05
+    },
+    {
+      "source_feature_id": 302,
+      "closest_feature_id": 506,
+      "cosine_similarity": 3.2782554626464844e-05
+    },
+    {
+      "source_feature_id": 303,
+      "closest_feature_id": 413,
+      "cosine_similarity": -2.3365020751953125e-05
+    },
+    {
+      "source_feature_id": 304,
+      "closest_feature_id": 480,
+      "cosine_similarity": -2.0503997802734375e-05
+    },
+    {
+      "source_feature_id": 305,
+      "closest_feature_id": 930,
+      "cosine_similarity": -7.331371307373047e-06
+    },
+    {
+      "source_feature_id": 306,
+      "closest_feature_id": 940,
+      "cosine_similarity": 4.553794860839844e-05
+    },
+    {
+      "source_feature_id": 307,
+      "closest_feature_id": 814,
+      "cosine_similarity": 1.8775463104248047e-05
+    },
+    {
+      "source_feature_id": 308,
+      "closest_feature_id": 838,
+      "cosine_similarity": 4.887580871582031e-06
+    },
+    {
+      "source_feature_id": 309,
+      "closest_feature_id": 401,
+      "cosine_similarity": 3.4928321838378906e-05
+    },
+    {
+      "source_feature_id": 310,
+      "closest_feature_id": 161,
+      "cosine_similarity": -2.7239322662353516e-05
+    },
+    {
+      "source_feature_id": 311,
+      "closest_feature_id": 970,
+      "cosine_similarity": 3.159046173095703e-06
+    },
+    {
+      "source_feature_id": 312,
+      "closest_feature_id": 792,
+      "cosine_similarity": -5.602836608886719e-06
+    },
+    {
+      "source_feature_id": 313,
+      "closest_feature_id": 932,
+      "cosine_similarity": -4.881620407104492e-05
+    },
+    {
+      "source_feature_id": 314,
+      "closest_feature_id": 337,
+      "cosine_similarity": -1.8358230590820312e-05
+    },
+    {
+      "source_feature_id": 315,
+      "closest_feature_id": 207,
+      "cosine_similarity": 1.6808509826660156e-05
+    },
+    {
+      "source_feature_id": 316,
+      "closest_feature_id": 166,
+      "cosine_similarity": -1.5020370483398438e-05
+    },
+    {
+      "source_feature_id": 317,
+      "closest_feature_id": 757,
+      "cosine_similarity": 1.3709068298339844e-06
+    },
+    {
+      "source_feature_id": 318,
+      "closest_feature_id": 562,
+      "cosine_similarity": 9.000301361083984e-06
+    },
+    {
+      "source_feature_id": 319,
+      "closest_feature_id": 343,
+      "cosine_similarity": 9.119510650634766e-06
+    },
+    {
+      "source_feature_id": 320,
+      "closest_feature_id": 479,
+      "cosine_similarity": -8.463859558105469e-06
+    },
+    {
+      "source_feature_id": 321,
+      "closest_feature_id": 721,
+      "cosine_similarity": 1.2814998626708984e-05
+    },
+    {
+      "source_feature_id": 322,
+      "closest_feature_id": 165,
+      "cosine_similarity": -5.781650543212891e-06
+    },
+    {
+      "source_feature_id": 323,
+      "closest_feature_id": 243,
+      "cosine_similarity": -1.5079975128173828e-05
+    },
+    {
+      "source_feature_id": 324,
+      "closest_feature_id": 601,
+      "cosine_similarity": -3.814697265625e-06
+    },
+    {
+      "source_feature_id": 325,
+      "closest_feature_id": 773,
+      "cosine_similarity": -1.7523765563964844e-05
+    },
+    {
+      "source_feature_id": 326,
+      "closest_feature_id": 654,
+      "cosine_similarity": 1.341104507446289e-05
+    },
+    {
+      "source_feature_id": 327,
+      "closest_feature_id": 637,
+      "cosine_similarity": -4.291534423828125e-06
+    },
+    {
+      "source_feature_id": 328,
+      "closest_feature_id": 907,
+      "cosine_similarity": -3.1948089599609375e-05
+    },
+    {
+      "source_feature_id": 329,
+      "closest_feature_id": 909,
+      "cosine_similarity": -9.775161743164062e-06
+    },
+    {
+      "source_feature_id": 330,
+      "closest_feature_id": 284,
+      "cosine_similarity": -2.2649765014648438e-06
+    },
+    {
+      "source_feature_id": 331,
+      "closest_feature_id": 591,
+      "cosine_similarity": 1.8596649169921875e-05
+    },
+    {
+      "source_feature_id": 332,
+      "closest_feature_id": 926,
+      "cosine_similarity": 6.377696990966797e-06
+    },
+    {
+      "source_feature_id": 333,
+      "closest_feature_id": 949,
+      "cosine_similarity": -2.086162567138672e-06
+    },
+    {
+      "source_feature_id": 334,
+      "closest_feature_id": 656,
+      "cosine_similarity": -2.0265579223632812e-06
+    },
+    {
+      "source_feature_id": 335,
+      "closest_feature_id": 234,
+      "cosine_similarity": 1.7881393432617188e-06
+    },
+    {
+      "source_feature_id": 336,
+      "closest_feature_id": 392,
+      "cosine_similarity": 2.0503997802734375e-05
+    },
+    {
+      "source_feature_id": 337,
+      "closest_feature_id": 792,
+      "cosine_similarity": -1.1026859283447266e-05
+    },
+    {
+      "source_feature_id": 338,
+      "closest_feature_id": 524,
+      "cosine_similarity": 5.424022674560547e-06
+    },
+    {
+      "source_feature_id": 339,
+      "closest_feature_id": 578,
+      "cosine_similarity": -6.347894668579102e-05
+    },
+    {
+      "source_feature_id": 340,
+      "closest_feature_id": 356,
+      "cosine_similarity": -2.485513687133789e-05
+    },
+    {
+      "source_feature_id": 341,
+      "closest_feature_id": 358,
+      "cosine_similarity": 9.357929229736328e-06
+    },
+    {
+      "source_feature_id": 342,
+      "closest_feature_id": 125,
+      "cosine_similarity": -7.152557373046875e-06
+    },
+    {
+      "source_feature_id": 343,
+      "closest_feature_id": 319,
+      "cosine_similarity": 9.119510650634766e-06
+    },
+    {
+      "source_feature_id": 344,
+      "closest_feature_id": 669,
+      "cosine_similarity": -1.0251998901367188e-05
+    },
+    {
+      "source_feature_id": 345,
+      "closest_feature_id": 328,
+      "cosine_similarity": -3.6835670471191406e-05
+    },
+    {
+      "source_feature_id": 346,
+      "closest_feature_id": 243,
+      "cosine_similarity": 7.808208465576172e-06
+    },
+    {
+      "source_feature_id": 347,
+      "closest_feature_id": 245,
+      "cosine_similarity": 8.881092071533203e-06
+    },
+    {
+      "source_feature_id": 348,
+      "closest_feature_id": 723,
+      "cosine_similarity": 3.993511199951172e-05
+    },
+    {
+      "source_feature_id": 349,
+      "closest_feature_id": 124,
+      "cosine_similarity": -2.5451183319091797e-05
+    },
+    {
+      "source_feature_id": 350,
+      "closest_feature_id": 218,
+      "cosine_similarity": 7.092952728271484e-06
+    },
+    {
+      "source_feature_id": 351,
+      "closest_feature_id": 911,
+      "cosine_similarity": -6.139278411865234e-06
+    },
+    {
+      "source_feature_id": 352,
+      "closest_feature_id": 64,
+      "cosine_similarity": 4.5180320739746094e-05
+    },
+    {
+      "source_feature_id": 353,
+      "closest_feature_id": 649,
+      "cosine_similarity": 1.800060272216797e-05
+    },
+    {
+      "source_feature_id": 354,
+      "closest_feature_id": 873,
+      "cosine_similarity": -3.814697265625e-06
+    },
+    {
+      "source_feature_id": 355,
+      "closest_feature_id": 240,
+      "cosine_similarity": -1.0907649993896484e-05
+    },
+    {
+      "source_feature_id": 356,
+      "closest_feature_id": 186,
+      "cosine_similarity": 2.4259090423583984e-05
+    },
+    {
+      "source_feature_id": 357,
+      "closest_feature_id": 488,
+      "cosine_similarity": 3.2186508178710938e-06
+    },
+    {
+      "source_feature_id": 358,
+      "closest_feature_id": 279,
+      "cosine_similarity": 9.000301361083984e-06
+    },
+    {
+      "source_feature_id": 359,
+      "closest_feature_id": 690,
+      "cosine_similarity": 2.86102294921875e-06
+    },
+    {
+      "source_feature_id": 360,
+      "closest_feature_id": 660,
+      "cosine_similarity": 1.3053417205810547e-05
+    },
+    {
+      "source_feature_id": 361,
+      "closest_feature_id": 442,
+      "cosine_similarity": -7.748603820800781e-07
+    },
+    {
+      "source_feature_id": 362,
+      "closest_feature_id": 931,
+      "cosine_similarity": 3.731250762939453e-05
+    },
+    {
+      "source_feature_id": 363,
+      "closest_feature_id": 169,
+      "cosine_similarity": 3.409385681152344e-05
+    },
+    {
+      "source_feature_id": 364,
+      "closest_feature_id": 520,
+      "cosine_similarity": -1.2099742889404297e-05
+    },
+    {
+      "source_feature_id": 365,
+      "closest_feature_id": 552,
+      "cosine_similarity": -2.9206275939941406e-05
+    },
+    {
+      "source_feature_id": 366,
+      "closest_feature_id": 853,
+      "cosine_similarity": -2.8312206268310547e-05
+    },
+    {
+      "source_feature_id": 367,
+      "closest_feature_id": 968,
+      "cosine_similarity": -1.1920928955078125e-05
+    },
+    {
+      "source_feature_id": 368,
+      "closest_feature_id": 135,
+      "cosine_similarity": 5.364418029785156e-06
+    },
+    {
+      "source_feature_id": 369,
+      "closest_feature_id": 855,
+      "cosine_similarity": 2.3245811462402344e-06
+    },
+    {
+      "source_feature_id": 370,
+      "closest_feature_id": 771,
+      "cosine_similarity": 4.595518112182617e-05
+    },
+    {
+      "source_feature_id": 371,
+      "closest_feature_id": 207,
+      "cosine_similarity": 1.4483928680419922e-05
+    },
+    {
+      "source_feature_id": 372,
+      "closest_feature_id": 908,
+      "cosine_similarity": -2.664327621459961e-05
+    },
+    {
+      "source_feature_id": 373,
+      "closest_feature_id": 389,
+      "cosine_similarity": -2.5451183319091797e-05
+    },
+    {
+      "source_feature_id": 374,
+      "closest_feature_id": 329,
+      "cosine_similarity": 3.045797348022461e-05
+    },
+    {
+      "source_feature_id": 375,
+      "closest_feature_id": 796,
+      "cosine_similarity": 5.364418029785156e-07
+    },
+    {
+      "source_feature_id": 376,
+      "closest_feature_id": 876,
+      "cosine_similarity": 2.5570392608642578e-05
+    },
+    {
+      "source_feature_id": 377,
+      "closest_feature_id": 191,
+      "cosine_similarity": -5.841255187988281e-06
+    },
+    {
+      "source_feature_id": 378,
+      "closest_feature_id": 878,
+      "cosine_similarity": 1.7285346984863281e-06
+    },
+    {
+      "source_feature_id": 379,
+      "closest_feature_id": 782,
+      "cosine_similarity": -1.996755599975586e-05
+    },
+    {
+      "source_feature_id": 380,
+      "closest_feature_id": 148,
+      "cosine_similarity": -4.172325134277344e-06
+    },
+    {
+      "source_feature_id": 381,
+      "closest_feature_id": 279,
+      "cosine_similarity": 6.139278411865234e-06
+    },
+    {
+      "source_feature_id": 382,
+      "closest_feature_id": 923,
+      "cosine_similarity": -7.68899917602539e-06
+    },
+    {
+      "source_feature_id": 383,
+      "closest_feature_id": 131,
+      "cosine_similarity": 2.0325183868408203e-05
+    },
+    {
+      "source_feature_id": 384,
+      "closest_feature_id": 867,
+      "cosine_similarity": -5.614757537841797e-05
+    },
+    {
+      "source_feature_id": 385,
+      "closest_feature_id": 725,
+      "cosine_similarity": 1.239776611328125e-05
+    },
+    {
+      "source_feature_id": 386,
+      "closest_feature_id": 693,
+      "cosine_similarity": -9.655952453613281e-06
+    },
+    {
+      "source_feature_id": 387,
+      "closest_feature_id": 123,
+      "cosine_similarity": 3.439188003540039e-05
+    },
+    {
+      "source_feature_id": 388,
+      "closest_feature_id": 407,
+      "cosine_similarity": 1.3530254364013672e-05
+    },
+    {
+      "source_feature_id": 389,
+      "closest_feature_id": 473,
+      "cosine_similarity": 1.806020736694336e-05
+    },
+    {
+      "source_feature_id": 390,
+      "closest_feature_id": 533,
+      "cosine_similarity": -2.4974346160888672e-05
+    },
+    {
+      "source_feature_id": 391,
+      "closest_feature_id": 400,
+      "cosine_similarity": -2.086162567138672e-06
+    },
+    {
+      "source_feature_id": 392,
+      "closest_feature_id": 145,
+      "cosine_similarity": 5.7220458984375e-06
+    },
+    {
+      "source_feature_id": 393,
+      "closest_feature_id": 235,
+      "cosine_similarity": 2.104043960571289e-05
+    },
+    {
+      "source_feature_id": 394,
+      "closest_feature_id": 419,
+      "cosine_similarity": -9.179115295410156e-06
+    },
+    {
+      "source_feature_id": 395,
+      "closest_feature_id": 43,
+      "cosine_similarity": 6.67572021484375e-06
+    },
+    {
+      "source_feature_id": 396,
+      "closest_feature_id": 725,
+      "cosine_similarity": -2.9087066650390625e-05
+    },
+    {
+      "source_feature_id": 397,
+      "closest_feature_id": 714,
+      "cosine_similarity": 1.6748905181884766e-05
+    },
+    {
+      "source_feature_id": 398,
+      "closest_feature_id": 772,
+      "cosine_similarity": 7.510185241699219e-06
+    },
+    {
+      "source_feature_id": 399,
+      "closest_feature_id": 481,
+      "cosine_similarity": 5.960464477539062e-07
+    },
+    {
+      "source_feature_id": 400,
+      "closest_feature_id": 391,
+      "cosine_similarity": -2.086162567138672e-06
+    },
+    {
+      "source_feature_id": 401,
+      "closest_feature_id": 129,
+      "cosine_similarity": 7.927417755126953e-06
+    },
+    {
+      "source_feature_id": 402,
+      "closest_feature_id": 55,
+      "cosine_similarity": -2.181529998779297e-05
+    },
+    {
+      "source_feature_id": 403,
+      "closest_feature_id": 167,
+      "cosine_similarity": 2.0265579223632812e-05
+    },
+    {
+      "source_feature_id": 404,
+      "closest_feature_id": 613,
+      "cosine_similarity": -1.9311904907226562e-05
+    },
+    {
+      "source_feature_id": 405,
+      "closest_feature_id": 407,
+      "cosine_similarity": 6.377696990966797e-06
+    },
+    {
+      "source_feature_id": 406,
+      "closest_feature_id": 581,
+      "cosine_similarity": -6.258487701416016e-06
+    },
+    {
+      "source_feature_id": 407,
+      "closest_feature_id": 405,
+      "cosine_similarity": 6.377696990966797e-06
+    },
+    {
+      "source_feature_id": 408,
+      "closest_feature_id": 718,
+      "cosine_similarity": -7.021427154541016e-05
+    },
+    {
+      "source_feature_id": 409,
+      "closest_feature_id": 851,
+      "cosine_similarity": -1.3709068298339844e-05
+    },
+    {
+      "source_feature_id": 410,
+      "closest_feature_id": 966,
+      "cosine_similarity": -2.0325183868408203e-05
+    },
+    {
+      "source_feature_id": 411,
+      "closest_feature_id": 79,
+      "cosine_similarity": -1.3172626495361328e-05
+    },
+    {
+      "source_feature_id": 412,
+      "closest_feature_id": 839,
+      "cosine_similarity": 9.357929229736328e-06
+    },
+    {
+      "source_feature_id": 413,
+      "closest_feature_id": 146,
+      "cosine_similarity": -2.2590160369873047e-05
+    },
+    {
+      "source_feature_id": 414,
+      "closest_feature_id": 33,
+      "cosine_similarity": -1.728534698486328e-05
+    },
+    {
+      "source_feature_id": 415,
+      "closest_feature_id": 912,
+      "cosine_similarity": 3.451108932495117e-05
+    },
+    {
+      "source_feature_id": 416,
+      "closest_feature_id": 332,
+      "cosine_similarity": 2.0205974578857422e-05
+    },
+    {
+      "source_feature_id": 417,
+      "closest_feature_id": 298,
+      "cosine_similarity": 6.99758529663086e-05
+    },
+    {
+      "source_feature_id": 418,
+      "closest_feature_id": 523,
+      "cosine_similarity": -2.0265579223632812e-06
+    },
+    {
+      "source_feature_id": 419,
+      "closest_feature_id": 259,
+      "cosine_similarity": 7.68899917602539e-06
+    },
+    {
+      "source_feature_id": 420,
+      "closest_feature_id": 528,
+      "cosine_similarity": 1.4066696166992188e-05
+    },
+    {
+      "source_feature_id": 421,
+      "closest_feature_id": 773,
+      "cosine_similarity": -2.968311309814453e-05
+    },
+    {
+      "source_feature_id": 422,
+      "closest_feature_id": 768,
+      "cosine_similarity": -5.7220458984375e-06
+    },
+    {
+      "source_feature_id": 423,
+      "closest_feature_id": 307,
+      "cosine_similarity": 1.919269561767578e-05
+    },
+    {
+      "source_feature_id": 424,
+      "closest_feature_id": 903,
+      "cosine_similarity": 6.139278411865234e-06
+    },
+    {
+      "source_feature_id": 425,
+      "closest_feature_id": 229,
+      "cosine_similarity": -1.8477439880371094e-06
+    },
+    {
+      "source_feature_id": 426,
+      "closest_feature_id": 292,
+      "cosine_similarity": -4.500150680541992e-05
+    },
+    {
+      "source_feature_id": 427,
+      "closest_feature_id": 919,
+      "cosine_similarity": 8.463859558105469e-06
+    },
+    {
+      "source_feature_id": 428,
+      "closest_feature_id": 525,
+      "cosine_similarity": -1.901388168334961e-05
+    },
+    {
+      "source_feature_id": 429,
+      "closest_feature_id": 718,
+      "cosine_similarity": -1.1444091796875e-05
+    },
+    {
+      "source_feature_id": 430,
+      "closest_feature_id": 149,
+      "cosine_similarity": -2.2232532501220703e-05
+    },
+    {
+      "source_feature_id": 431,
+      "closest_feature_id": 33,
+      "cosine_similarity": -1.8477439880371094e-06
+    },
+    {
+      "source_feature_id": 432,
+      "closest_feature_id": 203,
+      "cosine_similarity": 4.6253204345703125e-05
+    },
+    {
+      "source_feature_id": 433,
+      "closest_feature_id": 883,
+      "cosine_similarity": 5.936622619628906e-05
+    },
+    {
+      "source_feature_id": 434,
+      "closest_feature_id": 540,
+      "cosine_similarity": -1.7642974853515625e-05
+    },
+    {
+      "source_feature_id": 435,
+      "closest_feature_id": 611,
+      "cosine_similarity": -4.76837158203125e-07
+    },
+    {
+      "source_feature_id": 436,
+      "closest_feature_id": 957,
+      "cosine_similarity": 2.0503997802734375e-05
+    },
+    {
+      "source_feature_id": 437,
+      "closest_feature_id": 307,
+      "cosine_similarity": 3.0219554901123047e-05
+    },
+    {
+      "source_feature_id": 438,
+      "closest_feature_id": 803,
+      "cosine_similarity": -4.887580871582031e-06
+    },
+    {
+      "source_feature_id": 439,
+      "closest_feature_id": 583,
+      "cosine_similarity": -7.569789886474609e-06
+    },
+    {
+      "source_feature_id": 440,
+      "closest_feature_id": 249,
+      "cosine_similarity": -2.7418136596679688e-06
+    },
+    {
+      "source_feature_id": 441,
+      "closest_feature_id": 364,
+      "cosine_similarity": 1.722574234008789e-05
+    },
+    {
+      "source_feature_id": 442,
+      "closest_feature_id": 361,
+      "cosine_similarity": -7.748603820800781e-07
+    },
+    {
+      "source_feature_id": 443,
+      "closest_feature_id": 506,
+      "cosine_similarity": 3.0100345611572266e-05
+    },
+    {
+      "source_feature_id": 444,
+      "closest_feature_id": 271,
+      "cosine_similarity": 9.5367431640625e-06
+    },
+    {
+      "source_feature_id": 445,
+      "closest_feature_id": 888,
+      "cosine_similarity": 3.910064697265625e-05
+    },
+    {
+      "source_feature_id": 446,
+      "closest_feature_id": 34,
+      "cosine_similarity": 1.1920928955078125e-06
+    },
+    {
+      "source_feature_id": 447,
+      "closest_feature_id": 661,
+      "cosine_similarity": -2.2292137145996094e-05
+    },
+    {
+      "source_feature_id": 448,
+      "closest_feature_id": 377,
+      "cosine_similarity": -8.404254913330078e-06
+    },
+    {
+      "source_feature_id": 449,
+      "closest_feature_id": 3,
+      "cosine_similarity": -5.561113357543945e-05
+    },
+    {
+      "source_feature_id": 450,
+      "closest_feature_id": 204,
+      "cosine_similarity": -1.9669532775878906e-06
+    },
+    {
+      "source_feature_id": 451,
+      "closest_feature_id": 57,
+      "cosine_similarity": -1.0907649993896484e-05
+    },
+    {
+      "source_feature_id": 452,
+      "closest_feature_id": 597,
+      "cosine_similarity": 5.424022674560547e-06
+    },
+    {
+      "source_feature_id": 453,
+      "closest_feature_id": 688,
+      "cosine_similarity": -5.304813385009766e-06
+    },
+    {
+      "source_feature_id": 454,
+      "closest_feature_id": 573,
+      "cosine_similarity": 6.377696990966797e-06
+    },
+    {
+      "source_feature_id": 455,
+      "closest_feature_id": 291,
+      "cosine_similarity": -1.7940998077392578e-05
+    },
+    {
+      "source_feature_id": 456,
+      "closest_feature_id": 785,
+      "cosine_similarity": 1.1324882507324219e-05
+    },
+    {
+      "source_feature_id": 457,
+      "closest_feature_id": 59,
+      "cosine_similarity": -3.349781036376953e-05
+    },
+    {
+      "source_feature_id": 458,
+      "closest_feature_id": 466,
+      "cosine_similarity": -1.0192394256591797e-05
+    },
+    {
+      "source_feature_id": 459,
+      "closest_feature_id": 117,
+      "cosine_similarity": -1.7881393432617188e-07
+    },
+    {
+      "source_feature_id": 460,
+      "closest_feature_id": 362,
+      "cosine_similarity": 8.189678192138672e-05
+    },
+    {
+      "source_feature_id": 461,
+      "closest_feature_id": 671,
+      "cosine_similarity": 5.900859832763672e-06
+    },
+    {
+      "source_feature_id": 462,
+      "closest_feature_id": 378,
+      "cosine_similarity": -2.682209014892578e-06
+    },
+    {
+      "source_feature_id": 463,
+      "closest_feature_id": 48,
+      "cosine_similarity": 9.417533874511719e-06
+    },
+    {
+      "source_feature_id": 464,
+      "closest_feature_id": 184,
+      "cosine_similarity": 1.2218952178955078e-05
+    },
+    {
+      "source_feature_id": 465,
+      "closest_feature_id": 806,
+      "cosine_similarity": 9.5367431640625e-06
+    },
+    {
+      "source_feature_id": 466,
+      "closest_feature_id": 458,
+      "cosine_similarity": -1.0192394256591797e-05
+    },
+    {
+      "source_feature_id": 467,
+      "closest_feature_id": 519,
+      "cosine_similarity": 5.245208740234375e-06
+    },
+    {
+      "source_feature_id": 468,
+      "closest_feature_id": 944,
+      "cosine_similarity": 5.6624412536621094e-05
+    },
+    {
+      "source_feature_id": 469,
+      "closest_feature_id": 837,
+      "cosine_similarity": -2.5272369384765625e-05
+    },
+    {
+      "source_feature_id": 470,
+      "closest_feature_id": 125,
+      "cosine_similarity": -2.7060508728027344e-05
+    },
+    {
+      "source_feature_id": 471,
+      "closest_feature_id": 897,
+      "cosine_similarity": -2.1755695343017578e-05
+    },
+    {
+      "source_feature_id": 472,
+      "closest_feature_id": 101,
+      "cosine_similarity": 4.947185516357422e-06
+    },
+    {
+      "source_feature_id": 473,
+      "closest_feature_id": 197,
+      "cosine_similarity": -1.4901161193847656e-06
+    },
+    {
+      "source_feature_id": 474,
+      "closest_feature_id": 658,
+      "cosine_similarity": 1.1265277862548828e-05
+    },
+    {
+      "source_feature_id": 475,
+      "closest_feature_id": 982,
+      "cosine_similarity": -1.1265277862548828e-05
+    },
+    {
+      "source_feature_id": 476,
+      "closest_feature_id": 45,
+      "cosine_similarity": 6.4373016357421875e-06
+    },
+    {
+      "source_feature_id": 477,
+      "closest_feature_id": 343,
+      "cosine_similarity": 1.1026859283447266e-05
+    },
+    {
+      "source_feature_id": 478,
+      "closest_feature_id": 732,
+      "cosine_similarity": 1.728534698486328e-05
+    },
+    {
+      "source_feature_id": 479,
+      "closest_feature_id": 942,
+      "cosine_similarity": -2.4437904357910156e-06
+    },
+    {
+      "source_feature_id": 480,
+      "closest_feature_id": 17,
+      "cosine_similarity": 1.043081283569336e-05
+    },
+    {
+      "source_feature_id": 481,
+      "closest_feature_id": 399,
+      "cosine_similarity": 5.960464477539062e-07
+    },
+    {
+      "source_feature_id": 482,
+      "closest_feature_id": 346,
+      "cosine_similarity": 9.85860824584961e-05
+    },
+    {
+      "source_feature_id": 483,
+      "closest_feature_id": 85,
+      "cosine_similarity": 4.774332046508789e-05
+    },
+    {
+      "source_feature_id": 484,
+      "closest_feature_id": 719,
+      "cosine_similarity": 3.6656856536865234e-05
+    },
+    {
+      "source_feature_id": 485,
+      "closest_feature_id": 175,
+      "cosine_similarity": -3.039836883544922e-06
+    },
+    {
+      "source_feature_id": 486,
+      "closest_feature_id": 773,
+      "cosine_similarity": 1.4960765838623047e-05
+    },
+    {
+      "source_feature_id": 487,
+      "closest_feature_id": 109,
+      "cosine_similarity": -2.1457672119140625e-05
+    },
+    {
+      "source_feature_id": 488,
+      "closest_feature_id": 888,
+      "cosine_similarity": -5.364418029785156e-07
+    },
+    {
+      "source_feature_id": 489,
+      "closest_feature_id": 217,
+      "cosine_similarity": 5.960464477539062e-07
+    },
+    {
+      "source_feature_id": 490,
+      "closest_feature_id": 229,
+      "cosine_similarity": 3.4570693969726562e-06
+    },
+    {
+      "source_feature_id": 491,
+      "closest_feature_id": 14,
+      "cosine_similarity": 1.430511474609375e-06
+    },
+    {
+      "source_feature_id": 492,
+      "closest_feature_id": 223,
+      "cosine_similarity": 1.5079975128173828e-05
+    },
+    {
+      "source_feature_id": 493,
+      "closest_feature_id": 74,
+      "cosine_similarity": -1.0788440704345703e-05
+    },
+    {
+      "source_feature_id": 494,
+      "closest_feature_id": 795,
+      "cosine_similarity": -5.3942203521728516e-05
+    },
+    {
+      "source_feature_id": 495,
+      "closest_feature_id": 406,
+      "cosine_similarity": -1.0848045349121094e-05
+    },
+    {
+      "source_feature_id": 496,
+      "closest_feature_id": 155,
+      "cosine_similarity": 1.6868114471435547e-05
+    },
+    {
+      "source_feature_id": 497,
+      "closest_feature_id": 341,
+      "cosine_similarity": -3.8743019104003906e-05
+    },
+    {
+      "source_feature_id": 498,
+      "closest_feature_id": 806,
+      "cosine_similarity": -1.6033649444580078e-05
+    },
+    {
+      "source_feature_id": 499,
+      "closest_feature_id": 121,
+      "cosine_similarity": -1.4543533325195312e-05
+    },
+    {
+      "source_feature_id": 500,
+      "closest_feature_id": 34,
+      "cosine_similarity": -2.5391578674316406e-05
+    },
+    {
+      "source_feature_id": 501,
+      "closest_feature_id": 911,
+      "cosine_similarity": -7.176399230957031e-05
+    },
+    {
+      "source_feature_id": 502,
+      "closest_feature_id": 735,
+      "cosine_similarity": -2.5033950805664062e-06
+    },
+    {
+      "source_feature_id": 503,
+      "closest_feature_id": 409,
+      "cosine_similarity": -1.6927719116210938e-05
+    },
+    {
+      "source_feature_id": 504,
+      "closest_feature_id": 641,
+      "cosine_similarity": -7.271766662597656e-06
+    },
+    {
+      "source_feature_id": 505,
+      "closest_feature_id": 629,
+      "cosine_similarity": -1.1444091796875e-05
+    },
+    {
+      "source_feature_id": 506,
+      "closest_feature_id": 994,
+      "cosine_similarity": -6.854534149169922e-06
+    },
+    {
+      "source_feature_id": 507,
+      "closest_feature_id": 793,
+      "cosine_similarity": -2.396106719970703e-05
+    },
+    {
+      "source_feature_id": 508,
+      "closest_feature_id": 111,
+      "cosine_similarity": 1.1563301086425781e-05
+    },
+    {
+      "source_feature_id": 509,
+      "closest_feature_id": 9,
+      "cosine_similarity": 1.4662742614746094e-05
+    },
+    {
+      "source_feature_id": 510,
+      "closest_feature_id": 698,
+      "cosine_similarity": 7.212162017822266e-06
+    },
+    {
+      "source_feature_id": 511,
+      "closest_feature_id": 988,
+      "cosine_similarity": -3.2186508178710938e-06
+    },
+    {
+      "source_feature_id": 512,
+      "closest_feature_id": 170,
+      "cosine_similarity": 3.3974647521972656e-06
+    },
+    {
+      "source_feature_id": 513,
+      "closest_feature_id": 229,
+      "cosine_similarity": 7.212162017822266e-06
+    },
+    {
+      "source_feature_id": 514,
+      "closest_feature_id": 674,
+      "cosine_similarity": 2.7239322662353516e-05
+    },
+    {
+      "source_feature_id": 515,
+      "closest_feature_id": 68,
+      "cosine_similarity": -1.8477439880371094e-05
+    },
+    {
+      "source_feature_id": 516,
+      "closest_feature_id": 870,
+      "cosine_similarity": 2.276897430419922e-05
+    },
+    {
+      "source_feature_id": 517,
+      "closest_feature_id": 180,
+      "cosine_similarity": 1.4126300811767578e-05
+    },
+    {
+      "source_feature_id": 518,
+      "closest_feature_id": 906,
+      "cosine_similarity": -3.814697265625e-06
+    },
+    {
+      "source_feature_id": 519,
+      "closest_feature_id": 467,
+      "cosine_similarity": 5.245208740234375e-06
+    },
+    {
+      "source_feature_id": 520,
+      "closest_feature_id": 548,
+      "cosine_similarity": 8.64267349243164e-06
+    },
+    {
+      "source_feature_id": 521,
+      "closest_feature_id": 377,
+      "cosine_similarity": -2.759695053100586e-05
+    },
+    {
+      "source_feature_id": 522,
+      "closest_feature_id": 299,
+      "cosine_similarity": 5.066394805908203e-06
+    },
+    {
+      "source_feature_id": 523,
+      "closest_feature_id": 915,
+      "cosine_similarity": 1.7285346984863281e-06
+    },
+    {
+      "source_feature_id": 524,
+      "closest_feature_id": 338,
+      "cosine_similarity": 5.424022674560547e-06
+    },
+    {
+      "source_feature_id": 525,
+      "closest_feature_id": 182,
+      "cosine_similarity": 6.973743438720703e-06
+    },
+    {
+      "source_feature_id": 526,
+      "closest_feature_id": 568,
+      "cosine_similarity": -1.615285873413086e-05
+    },
+    {
+      "source_feature_id": 527,
+      "closest_feature_id": 15,
+      "cosine_similarity": -7.474422454833984e-05
+    },
+    {
+      "source_feature_id": 528,
+      "closest_feature_id": 420,
+      "cosine_similarity": 1.4066696166992188e-05
+    },
+    {
+      "source_feature_id": 529,
+      "closest_feature_id": 616,
+      "cosine_similarity": 1.52587890625e-05
+    },
+    {
+      "source_feature_id": 530,
+      "closest_feature_id": 984,
+      "cosine_similarity": -1.806020736694336e-05
+    },
+    {
+      "source_feature_id": 531,
+      "closest_feature_id": 118,
+      "cosine_similarity": 2.4497509002685547e-05
+    },
+    {
+      "source_feature_id": 532,
+      "closest_feature_id": 443,
+      "cosine_similarity": 3.629922866821289e-05
+    },
+    {
+      "source_feature_id": 533,
+      "closest_feature_id": 197,
+      "cosine_similarity": 1.0251998901367188e-05
+    },
+    {
+      "source_feature_id": 534,
+      "closest_feature_id": 571,
+      "cosine_similarity": 4.3511390686035156e-05
+    },
+    {
+      "source_feature_id": 535,
+      "closest_feature_id": 808,
+      "cosine_similarity": 1.5914440155029297e-05
+    },
+    {
+      "source_feature_id": 536,
+      "closest_feature_id": 272,
+      "cosine_similarity": -2.2530555725097656e-05
+    },
+    {
+      "source_feature_id": 537,
+      "closest_feature_id": 584,
+      "cosine_similarity": -1.1920928955078125e-06
+    },
+    {
+      "source_feature_id": 538,
+      "closest_feature_id": 229,
+      "cosine_similarity": -1.1324882507324219e-05
+    },
+    {
+      "source_feature_id": 539,
+      "closest_feature_id": 941,
+      "cosine_similarity": -2.2530555725097656e-05
+    },
+    {
+      "source_feature_id": 540,
+      "closest_feature_id": 990,
+      "cosine_similarity": 1.245737075805664e-05
+    },
+    {
+      "source_feature_id": 541,
+      "closest_feature_id": 905,
+      "cosine_similarity": 3.707408905029297e-05
+    },
+    {
+      "source_feature_id": 542,
+      "closest_feature_id": 877,
+      "cosine_similarity": 4.8279762268066406e-05
+    },
+    {
+      "source_feature_id": 543,
+      "closest_feature_id": 227,
+      "cosine_similarity": -9.953975677490234e-06
+    },
+    {
+      "source_feature_id": 544,
+      "closest_feature_id": 910,
+      "cosine_similarity": -4.279613494873047e-05
+    },
+    {
+      "source_feature_id": 545,
+      "closest_feature_id": 608,
+      "cosine_similarity": 5.924701690673828e-05
+    },
+    {
+      "source_feature_id": 546,
+      "closest_feature_id": 202,
+      "cosine_similarity": -1.1026859283447266e-05
+    },
+    {
+      "source_feature_id": 547,
+      "closest_feature_id": 502,
+      "cosine_similarity": 2.765655517578125e-05
+    },
+    {
+      "source_feature_id": 548,
+      "closest_feature_id": 520,
+      "cosine_similarity": 8.64267349243164e-06
+    },
+    {
+      "source_feature_id": 549,
+      "closest_feature_id": 916,
+      "cosine_similarity": -3.653764724731445e-05
+    },
+    {
+      "source_feature_id": 550,
+      "closest_feature_id": 474,
+      "cosine_similarity": 2.3365020751953125e-05
+    },
+    {
+      "source_feature_id": 551,
+      "closest_feature_id": 234,
+      "cosine_similarity": -1.4543533325195312e-05
+    },
+    {
+      "source_feature_id": 552,
+      "closest_feature_id": 183,
+      "cosine_similarity": 1.5497207641601562e-06
+    },
+    {
+      "source_feature_id": 553,
+      "closest_feature_id": 134,
+      "cosine_similarity": -8.815526962280273e-05
+    },
+    {
+      "source_feature_id": 554,
+      "closest_feature_id": 639,
+      "cosine_similarity": -6.133317947387695e-05
+    },
+    {
+      "source_feature_id": 555,
+      "closest_feature_id": 685,
+      "cosine_similarity": -4.082918167114258e-05
+    },
+    {
+      "source_feature_id": 556,
+      "closest_feature_id": 964,
+      "cosine_similarity": -7.748603820800781e-07
+    },
+    {
+      "source_feature_id": 557,
+      "closest_feature_id": 982,
+      "cosine_similarity": -1.6093254089355469e-06
+    },
+    {
+      "source_feature_id": 558,
+      "closest_feature_id": 442,
+      "cosine_similarity": -5.125999450683594e-06
+    },
+    {
+      "source_feature_id": 559,
+      "closest_feature_id": 991,
+      "cosine_similarity": 8.940696716308594e-07
+    },
+    {
+      "source_feature_id": 560,
+      "closest_feature_id": 956,
+      "cosine_similarity": 3.4570693969726562e-06
+    },
+    {
+      "source_feature_id": 561,
+      "closest_feature_id": 824,
+      "cosine_similarity": -6.735324859619141e-06
+    },
+    {
+      "source_feature_id": 562,
+      "closest_feature_id": 557,
+      "cosine_similarity": 7.510185241699219e-06
+    },
+    {
+      "source_feature_id": 563,
+      "closest_feature_id": 829,
+      "cosine_similarity": -3.993511199951172e-06
+    },
+    {
+      "source_feature_id": 564,
+      "closest_feature_id": 854,
+      "cosine_similarity": 2.1457672119140625e-06
+    },
+    {
+      "source_feature_id": 565,
+      "closest_feature_id": 78,
+      "cosine_similarity": -1.615285873413086e-05
+    },
+    {
+      "source_feature_id": 566,
+      "closest_feature_id": 953,
+      "cosine_similarity": 9.179115295410156e-06
+    },
+    {
+      "source_feature_id": 567,
+      "closest_feature_id": 684,
+      "cosine_similarity": -2.7239322662353516e-05
+    },
+    {
+      "source_feature_id": 568,
+      "closest_feature_id": 526,
+      "cosine_similarity": -1.615285873413086e-05
+    },
+    {
+      "source_feature_id": 569,
+      "closest_feature_id": 951,
+      "cosine_similarity": 1.2278556823730469e-05
+    },
+    {
+      "source_feature_id": 570,
+      "closest_feature_id": 98,
+      "cosine_similarity": -3.6954879760742188e-06
+    },
+    {
+      "source_feature_id": 571,
+      "closest_feature_id": 557,
+      "cosine_similarity": 3.987550735473633e-05
+    },
+    {
+      "source_feature_id": 572,
+      "closest_feature_id": 899,
+      "cosine_similarity": 1.2814998626708984e-05
+    },
+    {
+      "source_feature_id": 573,
+      "closest_feature_id": 454,
+      "cosine_similarity": 6.377696990966797e-06
+    },
+    {
+      "source_feature_id": 574,
+      "closest_feature_id": 442,
+      "cosine_similarity": 1.5616416931152344e-05
+    },
+    {
+      "source_feature_id": 575,
+      "closest_feature_id": 718,
+      "cosine_similarity": 1.6689300537109375e-06
+    },
+    {
+      "source_feature_id": 576,
+      "closest_feature_id": 97,
+      "cosine_similarity": 6.723403930664062e-05
+    },
+    {
+      "source_feature_id": 577,
+      "closest_feature_id": 913,
+      "cosine_similarity": -2.980232238769531e-07
+    },
+    {
+      "source_feature_id": 578,
+      "closest_feature_id": 833,
+      "cosine_similarity": 3.445148468017578e-05
+    },
+    {
+      "source_feature_id": 579,
+      "closest_feature_id": 57,
+      "cosine_similarity": -1.0669231414794922e-05
+    },
+    {
+      "source_feature_id": 580,
+      "closest_feature_id": 211,
+      "cosine_similarity": 1.2636184692382812e-05
+    },
+    {
+      "source_feature_id": 581,
+      "closest_feature_id": 406,
+      "cosine_similarity": -6.258487701416016e-06
+    },
+    {
+      "source_feature_id": 582,
+      "closest_feature_id": 990,
+      "cosine_similarity": 1.4007091522216797e-05
+    },
+    {
+      "source_feature_id": 583,
+      "closest_feature_id": 439,
+      "cosine_similarity": -7.569789886474609e-06
+    },
+    {
+      "source_feature_id": 584,
+      "closest_feature_id": 537,
+      "cosine_similarity": -1.1920928955078125e-06
+    },
+    {
+      "source_feature_id": 585,
+      "closest_feature_id": 944,
+      "cosine_similarity": -1.9669532775878906e-05
+    },
+    {
+      "source_feature_id": 586,
+      "closest_feature_id": 44,
+      "cosine_similarity": 1.9490718841552734e-05
+    },
+    {
+      "source_feature_id": 587,
+      "closest_feature_id": 223,
+      "cosine_similarity": -3.814697265625e-06
+    },
+    {
+      "source_feature_id": 588,
+      "closest_feature_id": 338,
+      "cosine_similarity": 1.1324882507324219e-05
+    },
+    {
+      "source_feature_id": 589,
+      "closest_feature_id": 596,
+      "cosine_similarity": -5.125999450683594e-06
+    },
+    {
+      "source_feature_id": 590,
+      "closest_feature_id": 239,
+      "cosine_similarity": 3.933906555175781e-06
+    },
+    {
+      "source_feature_id": 591,
+      "closest_feature_id": 148,
+      "cosine_similarity": -1.0967254638671875e-05
+    },
+    {
+      "source_feature_id": 592,
+      "closest_feature_id": 92,
+      "cosine_similarity": 4.827976226806641e-06
+    },
+    {
+      "source_feature_id": 593,
+      "closest_feature_id": 120,
+      "cosine_similarity": -1.245737075805664e-05
+    },
+    {
+      "source_feature_id": 594,
+      "closest_feature_id": 960,
+      "cosine_similarity": 3.081560134887695e-05
+    },
+    {
+      "source_feature_id": 595,
+      "closest_feature_id": 959,
+      "cosine_similarity": -1.8775463104248047e-05
+    },
+    {
+      "source_feature_id": 596,
+      "closest_feature_id": 575,
+      "cosine_similarity": -2.0265579223632812e-06
+    },
+    {
+      "source_feature_id": 597,
+      "closest_feature_id": 652,
+      "cosine_similarity": -2.384185791015625e-07
+    },
+    {
+      "source_feature_id": 598,
+      "closest_feature_id": 904,
+      "cosine_similarity": 1.3172626495361328e-05
+    },
+    {
+      "source_feature_id": 599,
+      "closest_feature_id": 942,
+      "cosine_similarity": 1.233816146850586e-05
+    },
+    {
+      "source_feature_id": 600,
+      "closest_feature_id": 54,
+      "cosine_similarity": -2.682209014892578e-05
+    },
+    {
+      "source_feature_id": 601,
+      "closest_feature_id": 324,
+      "cosine_similarity": -3.814697265625e-06
+    },
+    {
+      "source_feature_id": 602,
+      "closest_feature_id": 120,
+      "cosine_similarity": 4.76837158203125e-07
+    },
+    {
+      "source_feature_id": 603,
+      "closest_feature_id": 611,
+      "cosine_similarity": -4.118680953979492e-05
+    },
+    {
+      "source_feature_id": 604,
+      "closest_feature_id": 917,
+      "cosine_similarity": -3.4749507904052734e-05
+    },
+    {
+      "source_feature_id": 605,
+      "closest_feature_id": 886,
+      "cosine_similarity": 9.655952453613281e-06
+    },
+    {
+      "source_feature_id": 606,
+      "closest_feature_id": 964,
+      "cosine_similarity": 4.649162292480469e-06
+    },
+    {
+      "source_feature_id": 607,
+      "closest_feature_id": 538,
+      "cosine_similarity": 6.026029586791992e-05
+    },
+    {
+      "source_feature_id": 608,
+      "closest_feature_id": 175,
+      "cosine_similarity": 9.298324584960938e-06
+    },
+    {
+      "source_feature_id": 609,
+      "closest_feature_id": 393,
+      "cosine_similarity": -3.248453140258789e-05
+    },
+    {
+      "source_feature_id": 610,
+      "closest_feature_id": 479,
+      "cosine_similarity": 5.745887756347656e-05
+    },
+    {
+      "source_feature_id": 611,
+      "closest_feature_id": 435,
+      "cosine_similarity": -4.76837158203125e-07
+    },
+    {
+      "source_feature_id": 612,
+      "closest_feature_id": 256,
+      "cosine_similarity": 7.808208465576172e-06
+    },
+    {
+      "source_feature_id": 613,
+      "closest_feature_id": 404,
+      "cosine_similarity": -1.9311904907226562e-05
+    },
+    {
+      "source_feature_id": 614,
+      "closest_feature_id": 285,
+      "cosine_similarity": 2.0682811737060547e-05
+    },
+    {
+      "source_feature_id": 615,
+      "closest_feature_id": 131,
+      "cosine_similarity": -3.790855407714844e-05
+    },
+    {
+      "source_feature_id": 616,
+      "closest_feature_id": 664,
+      "cosine_similarity": 1.3172626495361328e-05
+    },
+    {
+      "source_feature_id": 617,
+      "closest_feature_id": 606,
+      "cosine_similarity": 1.2278556823730469e-05
+    },
+    {
+      "source_feature_id": 618,
+      "closest_feature_id": 252,
+      "cosine_similarity": 1.519918441772461e-05
+    },
+    {
+      "source_feature_id": 619,
+      "closest_feature_id": 643,
+      "cosine_similarity": 9.298324584960938e-06
+    },
+    {
+      "source_feature_id": 620,
+      "closest_feature_id": 599,
+      "cosine_similarity": 5.143880844116211e-05
+    },
+    {
+      "source_feature_id": 621,
+      "closest_feature_id": 223,
+      "cosine_similarity": 6.139278411865234e-06
+    },
+    {
+      "source_feature_id": 622,
+      "closest_feature_id": 884,
+      "cosine_similarity": -5.0067901611328125e-06
+    },
+    {
+      "source_feature_id": 623,
+      "closest_feature_id": 281,
+      "cosine_similarity": -2.5928020477294922e-05
+    },
+    {
+      "source_feature_id": 624,
+      "closest_feature_id": 931,
+      "cosine_similarity": -6.562471389770508e-05
+    },
+    {
+      "source_feature_id": 625,
+      "closest_feature_id": 991,
+      "cosine_similarity": 1.0371208190917969e-05
+    },
+    {
+      "source_feature_id": 626,
+      "closest_feature_id": 189,
+      "cosine_similarity": -1.2934207916259766e-05
+    },
+    {
+      "source_feature_id": 627,
+      "closest_feature_id": 793,
+      "cosine_similarity": 2.9325485229492188e-05
+    },
+    {
+      "source_feature_id": 628,
+      "closest_feature_id": 486,
+      "cosine_similarity": 3.0517578125e-05
+    },
+    {
+      "source_feature_id": 629,
+      "closest_feature_id": 213,
+      "cosine_similarity": 9.357929229736328e-06
+    },
+    {
+      "source_feature_id": 630,
+      "closest_feature_id": 619,
+      "cosine_similarity": 6.121397018432617e-05
+    },
+    {
+      "source_feature_id": 631,
+      "closest_feature_id": 883,
+      "cosine_similarity": 1.3947486877441406e-05
+    },
+    {
+      "source_feature_id": 632,
+      "closest_feature_id": 243,
+      "cosine_similarity": 6.556510925292969e-06
+    },
+    {
+      "source_feature_id": 633,
+      "closest_feature_id": 985,
+      "cosine_similarity": 8.624792098999023e-05
+    },
+    {
+      "source_feature_id": 634,
+      "closest_feature_id": 54,
+      "cosine_similarity": -2.2292137145996094e-05
+    },
+    {
+      "source_feature_id": 635,
+      "closest_feature_id": 243,
+      "cosine_similarity": -4.231929779052734e-06
+    },
+    {
+      "source_feature_id": 636,
+      "closest_feature_id": 881,
+      "cosine_similarity": -3.516674041748047e-05
+    },
+    {
+      "source_feature_id": 637,
+      "closest_feature_id": 327,
+      "cosine_similarity": -4.291534423828125e-06
+    },
+    {
+      "source_feature_id": 638,
+      "closest_feature_id": 868,
+      "cosine_similarity": -5.960464477539063e-08
+    },
+    {
+      "source_feature_id": 639,
+      "closest_feature_id": 324,
+      "cosine_similarity": -5.227327346801758e-05
+    },
+    {
+      "source_feature_id": 640,
+      "closest_feature_id": 124,
+      "cosine_similarity": -1.6510486602783203e-05
+    },
+    {
+      "source_feature_id": 641,
+      "closest_feature_id": 504,
+      "cosine_similarity": -7.271766662597656e-06
+    },
+    {
+      "source_feature_id": 642,
+      "closest_feature_id": 296,
+      "cosine_similarity": 4.2378902435302734e-05
+    },
+    {
+      "source_feature_id": 643,
+      "closest_feature_id": 768,
+      "cosine_similarity": -2.384185791015625e-07
+    },
+    {
+      "source_feature_id": 644,
+      "closest_feature_id": 283,
+      "cosine_similarity": -9.238719940185547e-06
+    },
+    {
+      "source_feature_id": 645,
+      "closest_feature_id": 287,
+      "cosine_similarity": -1.901388168334961e-05
+    },
+    {
+      "source_feature_id": 646,
+      "closest_feature_id": 760,
+      "cosine_similarity": 1.043081283569336e-05
+    },
+    {
+      "source_feature_id": 647,
+      "closest_feature_id": 944,
+      "cosine_similarity": 3.2186508178710938e-06
+    },
+    {
+      "source_feature_id": 648,
+      "closest_feature_id": 701,
+      "cosine_similarity": -1.2099742889404297e-05
+    },
+    {
+      "source_feature_id": 649,
+      "closest_feature_id": 353,
+      "cosine_similarity": 1.800060272216797e-05
+    },
+    {
+      "source_feature_id": 650,
+      "closest_feature_id": 699,
+      "cosine_similarity": 1.4185905456542969e-05
+    },
+    {
+      "source_feature_id": 651,
+      "closest_feature_id": 144,
+      "cosine_similarity": 1.9311904907226562e-05
+    },
+    {
+      "source_feature_id": 652,
+      "closest_feature_id": 597,
+      "cosine_similarity": -2.384185791015625e-07
+    },
+    {
+      "source_feature_id": 653,
+      "closest_feature_id": 814,
+      "cosine_similarity": -3.4809112548828125e-05
+    },
+    {
+      "source_feature_id": 654,
+      "closest_feature_id": 326,
+      "cosine_similarity": 1.341104507446289e-05
+    },
+    {
+      "source_feature_id": 655,
+      "closest_feature_id": 770,
+      "cosine_similarity": -2.014636993408203e-05
+    },
+    {
+      "source_feature_id": 656,
+      "closest_feature_id": 334,
+      "cosine_similarity": -2.0265579223632812e-06
+    },
+    {
+      "source_feature_id": 657,
+      "closest_feature_id": 978,
+      "cosine_similarity": -3.993511199951172e-06
+    },
+    {
+      "source_feature_id": 658,
+      "closest_feature_id": 474,
+      "cosine_similarity": 1.1265277862548828e-05
+    },
+    {
+      "source_feature_id": 659,
+      "closest_feature_id": 9,
+      "cosine_similarity": 1.0251998901367188e-05
+    },
+    {
+      "source_feature_id": 660,
+      "closest_feature_id": 264,
+      "cosine_similarity": 2.086162567138672e-06
+    },
+    {
+      "source_feature_id": 661,
+      "closest_feature_id": 797,
+      "cosine_similarity": -4.291534423828125e-06
+    },
+    {
+      "source_feature_id": 662,
+      "closest_feature_id": 816,
+      "cosine_similarity": -2.4974346160888672e-05
+    },
+    {
+      "source_feature_id": 663,
+      "closest_feature_id": 277,
+      "cosine_similarity": 1.7642974853515625e-05
+    },
+    {
+      "source_feature_id": 664,
+      "closest_feature_id": 453,
+      "cosine_similarity": 6.4373016357421875e-06
+    },
+    {
+      "source_feature_id": 665,
+      "closest_feature_id": 985,
+      "cosine_similarity": -5.960464477539063e-08
+    },
+    {
+      "source_feature_id": 666,
+      "closest_feature_id": 849,
+      "cosine_similarity": -2.086162567138672e-06
+    },
+    {
+      "source_feature_id": 667,
+      "closest_feature_id": 163,
+      "cosine_similarity": -1.913309097290039e-05
+    },
+    {
+      "source_feature_id": 668,
+      "closest_feature_id": 263,
+      "cosine_similarity": 9.179115295410156e-06
+    },
+    {
+      "source_feature_id": 669,
+      "closest_feature_id": 344,
+      "cosine_similarity": -1.0251998901367188e-05
+    },
+    {
+      "source_feature_id": 670,
+      "closest_feature_id": 103,
+      "cosine_similarity": -5.805492401123047e-05
+    },
+    {
+      "source_feature_id": 671,
+      "closest_feature_id": 461,
+      "cosine_similarity": 5.900859832763672e-06
+    },
+    {
+      "source_feature_id": 672,
+      "closest_feature_id": 846,
+      "cosine_similarity": 2.2292137145996094e-05
+    },
+    {
+      "source_feature_id": 673,
+      "closest_feature_id": 503,
+      "cosine_similarity": 2.1457672119140625e-05
+    },
+    {
+      "source_feature_id": 674,
+      "closest_feature_id": 766,
+      "cosine_similarity": -1.609325408935547e-05
+    },
+    {
+      "source_feature_id": 675,
+      "closest_feature_id": 347,
+      "cosine_similarity": -1.7464160919189453e-05
+    },
+    {
+      "source_feature_id": 676,
+      "closest_feature_id": 395,
+      "cosine_similarity": -5.2869319915771484e-05
+    },
+    {
+      "source_feature_id": 677,
+      "closest_feature_id": 234,
+      "cosine_similarity": 9.119510650634766e-06
+    },
+    {
+      "source_feature_id": 678,
+      "closest_feature_id": 782,
+      "cosine_similarity": 3.6954879760742188e-06
+    },
+    {
+      "source_feature_id": 679,
+      "closest_feature_id": 30,
+      "cosine_similarity": 1.5854835510253906e-05
+    },
+    {
+      "source_feature_id": 680,
+      "closest_feature_id": 790,
+      "cosine_similarity": 1.4960765838623047e-05
+    },
+    {
+      "source_feature_id": 681,
+      "closest_feature_id": 985,
+      "cosine_similarity": -2.300739288330078e-05
+    },
+    {
+      "source_feature_id": 682,
+      "closest_feature_id": 425,
+      "cosine_similarity": 4.470348358154297e-06
+    },
+    {
+      "source_feature_id": 683,
+      "closest_feature_id": 135,
+      "cosine_similarity": -2.5153160095214844e-05
+    },
+    {
+      "source_feature_id": 684,
+      "closest_feature_id": 833,
+      "cosine_similarity": 4.410743713378906e-06
+    },
+    {
+      "source_feature_id": 685,
+      "closest_feature_id": 998,
+      "cosine_similarity": 1.901388168334961e-05
+    },
+    {
+      "source_feature_id": 686,
+      "closest_feature_id": 60,
+      "cosine_similarity": -8.589029312133789e-05
+    },
+    {
+      "source_feature_id": 687,
+      "closest_feature_id": 807,
+      "cosine_similarity": 2.86102294921875e-06
+    },
+    {
+      "source_feature_id": 688,
+      "closest_feature_id": 375,
+      "cosine_similarity": 2.205371856689453e-06
+    },
+    {
+      "source_feature_id": 689,
+      "closest_feature_id": 267,
+      "cosine_similarity": 7.927417755126953e-06
+    },
+    {
+      "source_feature_id": 690,
+      "closest_feature_id": 166,
+      "cosine_similarity": 2.682209014892578e-06
+    },
+    {
+      "source_feature_id": 691,
+      "closest_feature_id": 438,
+      "cosine_similarity": 1.0192394256591797e-05
+    },
+    {
+      "source_feature_id": 692,
+      "closest_feature_id": 455,
+      "cosine_similarity": 4.279613494873047e-05
+    },
+    {
+      "source_feature_id": 693,
+      "closest_feature_id": 386,
+      "cosine_similarity": -9.655952453613281e-06
+    },
+    {
+      "source_feature_id": 694,
+      "closest_feature_id": 759,
+      "cosine_similarity": 1.138448715209961e-05
+    },
+    {
+      "source_feature_id": 695,
+      "closest_feature_id": 493,
+      "cosine_similarity": 1.8596649169921875e-05
+    },
+    {
+      "source_feature_id": 696,
+      "closest_feature_id": 625,
+      "cosine_similarity": 1.329183578491211e-05
+    },
+    {
+      "source_feature_id": 697,
+      "closest_feature_id": 981,
+      "cosine_similarity": -2.777576446533203e-05
+    },
+    {
+      "source_feature_id": 698,
+      "closest_feature_id": 510,
+      "cosine_similarity": 7.212162017822266e-06
+    },
+    {
+      "source_feature_id": 699,
+      "closest_feature_id": 721,
+      "cosine_similarity": -9.298324584960938e-06
+    },
+    {
+      "source_feature_id": 700,
+      "closest_feature_id": 268,
+      "cosine_similarity": -4.309415817260742e-05
+    },
+    {
+      "source_feature_id": 701,
+      "closest_feature_id": 196,
+      "cosine_similarity": -1.3113021850585938e-06
+    },
+    {
+      "source_feature_id": 702,
+      "closest_feature_id": 677,
+      "cosine_similarity": 3.5703182220458984e-05
+    },
+    {
+      "source_feature_id": 703,
+      "closest_feature_id": 418,
+      "cosine_similarity": 3.4749507904052734e-05
+    },
+    {
+      "source_feature_id": 704,
+      "closest_feature_id": 233,
+      "cosine_similarity": 2.4020671844482422e-05
+    },
+    {
+      "source_feature_id": 705,
+      "closest_feature_id": 26,
+      "cosine_similarity": -3.463029861450195e-05
+    },
+    {
+      "source_feature_id": 706,
+      "closest_feature_id": 966,
+      "cosine_similarity": -3.921985626220703e-05
+    },
+    {
+      "source_feature_id": 707,
+      "closest_feature_id": 395,
+      "cosine_similarity": 1.9550323486328125e-05
+    },
+    {
+      "source_feature_id": 708,
+      "closest_feature_id": 462,
+      "cosine_similarity": -9.059906005859375e-06
+    },
+    {
+      "source_feature_id": 709,
+      "closest_feature_id": 835,
+      "cosine_similarity": -3.0159950256347656e-05
+    },
+    {
+      "source_feature_id": 710,
+      "closest_feature_id": 843,
+      "cosine_similarity": 3.314018249511719e-05
+    },
+    {
+      "source_feature_id": 711,
+      "closest_feature_id": 565,
+      "cosine_similarity": -2.0503997802734375e-05
+    },
+    {
+      "source_feature_id": 712,
+      "closest_feature_id": 733,
+      "cosine_similarity": 1.33514404296875e-05
+    },
+    {
+      "source_feature_id": 713,
+      "closest_feature_id": 421,
+      "cosine_similarity": 4.309415817260742e-05
+    },
+    {
+      "source_feature_id": 714,
+      "closest_feature_id": 602,
+      "cosine_similarity": -9.298324584960938e-06
+    },
+    {
+      "source_feature_id": 715,
+      "closest_feature_id": 492,
+      "cosine_similarity": -2.3424625396728516e-05
+    },
+    {
+      "source_feature_id": 716,
+      "closest_feature_id": 375,
+      "cosine_similarity": 2.199411392211914e-05
+    },
+    {
+      "source_feature_id": 717,
+      "closest_feature_id": 128,
+      "cosine_similarity": 1.7642974853515625e-05
+    },
+    {
+      "source_feature_id": 718,
+      "closest_feature_id": 575,
+      "cosine_similarity": 1.6689300537109375e-06
+    },
+    {
+      "source_feature_id": 719,
+      "closest_feature_id": 13,
+      "cosine_similarity": 4.76837158203125e-07
+    },
+    {
+      "source_feature_id": 720,
+      "closest_feature_id": 478,
+      "cosine_similarity": -1.8417835235595703e-05
+    },
+    {
+      "source_feature_id": 721,
+      "closest_feature_id": 699,
+      "cosine_similarity": -9.298324584960938e-06
+    },
+    {
+      "source_feature_id": 722,
+      "closest_feature_id": 21,
+      "cosine_similarity": 1.3768672943115234e-05
+    },
+    {
+      "source_feature_id": 723,
+      "closest_feature_id": 113,
+      "cosine_similarity": -5.543231964111328e-06
+    },
+    {
+      "source_feature_id": 724,
+      "closest_feature_id": 996,
+      "cosine_similarity": 6.794929504394531e-06
+    },
+    {
+      "source_feature_id": 725,
+      "closest_feature_id": 952,
+      "cosine_similarity": -1.2099742889404297e-05
+    },
+    {
+      "source_feature_id": 726,
+      "closest_feature_id": 34,
+      "cosine_similarity": -1.6808509826660156e-05
+    },
+    {
+      "source_feature_id": 727,
+      "closest_feature_id": 848,
+      "cosine_similarity": -7.510185241699219e-06
+    },
+    {
+      "source_feature_id": 728,
+      "closest_feature_id": 997,
+      "cosine_similarity": -2.4497509002685547e-05
+    },
+    {
+      "source_feature_id": 729,
+      "closest_feature_id": 56,
+      "cosine_similarity": -4.76837158203125e-06
+    },
+    {
+      "source_feature_id": 730,
+      "closest_feature_id": 193,
+      "cosine_similarity": -9.894371032714844e-06
+    },
+    {
+      "source_feature_id": 731,
+      "closest_feature_id": 593,
+      "cosine_similarity": 3.159046173095703e-05
+    },
+    {
+      "source_feature_id": 732,
+      "closest_feature_id": 478,
+      "cosine_similarity": 1.728534698486328e-05
+    },
+    {
+      "source_feature_id": 733,
+      "closest_feature_id": 800,
+      "cosine_similarity": -8.165836334228516e-06
+    },
+    {
+      "source_feature_id": 734,
+      "closest_feature_id": 275,
+      "cosine_similarity": 3.88026237487793e-05
+    },
+    {
+      "source_feature_id": 735,
+      "closest_feature_id": 502,
+      "cosine_similarity": -2.5033950805664062e-06
+    },
+    {
+      "source_feature_id": 736,
+      "closest_feature_id": 921,
+      "cosine_similarity": 3.7550926208496094e-06
+    },
+    {
+      "source_feature_id": 737,
+      "closest_feature_id": 284,
+      "cosine_similarity": 6.556510925292969e-06
+    },
+    {
+      "source_feature_id": 738,
+      "closest_feature_id": 524,
+      "cosine_similarity": 2.294778823852539e-05
+    },
+    {
+      "source_feature_id": 739,
+      "closest_feature_id": 242,
+      "cosine_similarity": -8.285045623779297e-06
+    },
+    {
+      "source_feature_id": 740,
+      "closest_feature_id": 956,
+      "cosine_similarity": -2.580881118774414e-05
+    },
+    {
+      "source_feature_id": 741,
+      "closest_feature_id": 46,
+      "cosine_similarity": 3.153085708618164e-05
+    },
+    {
+      "source_feature_id": 742,
+      "closest_feature_id": 701,
+      "cosine_similarity": -2.8789043426513672e-05
+    },
+    {
+      "source_feature_id": 743,
+      "closest_feature_id": 744,
+      "cosine_similarity": 2.396106719970703e-05
+    },
+    {
+      "source_feature_id": 744,
+      "closest_feature_id": 743,
+      "cosine_similarity": 2.396106719970703e-05
+    },
+    {
+      "source_feature_id": 745,
+      "closest_feature_id": 226,
+      "cosine_similarity": -4.3451786041259766e-05
+    },
+    {
+      "source_feature_id": 746,
+      "closest_feature_id": 490,
+      "cosine_similarity": -2.866983413696289e-05
+    },
+    {
+      "source_feature_id": 747,
+      "closest_feature_id": 265,
+      "cosine_similarity": 3.159046173095703e-06
+    },
+    {
+      "source_feature_id": 748,
+      "closest_feature_id": 506,
+      "cosine_similarity": -1.7464160919189453e-05
+    },
+    {
+      "source_feature_id": 749,
+      "closest_feature_id": 838,
+      "cosine_similarity": 1.6570091247558594e-05
+    },
+    {
+      "source_feature_id": 750,
+      "closest_feature_id": 662,
+      "cosine_similarity": 3.910064697265625e-05
+    },
+    {
+      "source_feature_id": 751,
+      "closest_feature_id": 379,
+      "cosine_similarity": -2.008676528930664e-05
+    },
+    {
+      "source_feature_id": 752,
+      "closest_feature_id": 34,
+      "cosine_similarity": 2.956390380859375e-05
+    },
+    {
+      "source_feature_id": 753,
+      "closest_feature_id": 270,
+      "cosine_similarity": 1.6689300537109375e-05
+    },
+    {
+      "source_feature_id": 754,
+      "closest_feature_id": 562,
+      "cosine_similarity": -1.0371208190917969e-05
+    },
+    {
+      "source_feature_id": 755,
+      "closest_feature_id": 763,
+      "cosine_similarity": 1.6808509826660156e-05
+    },
+    {
+      "source_feature_id": 756,
+      "closest_feature_id": 565,
+      "cosine_similarity": -6.461143493652344e-05
+    },
+    {
+      "source_feature_id": 757,
+      "closest_feature_id": 317,
+      "cosine_similarity": 1.3709068298339844e-06
+    },
+    {
+      "source_feature_id": 758,
+      "closest_feature_id": 840,
+      "cosine_similarity": -1.7881393432617188e-07
+    },
+    {
+      "source_feature_id": 759,
+      "closest_feature_id": 694,
+      "cosine_similarity": 1.138448715209961e-05
+    },
+    {
+      "source_feature_id": 760,
+      "closest_feature_id": 646,
+      "cosine_similarity": 1.043081283569336e-05
+    },
+    {
+      "source_feature_id": 761,
+      "closest_feature_id": 279,
+      "cosine_similarity": -3.8683414459228516e-05
+    },
+    {
+      "source_feature_id": 762,
+      "closest_feature_id": 183,
+      "cosine_similarity": -1.2040138244628906e-05
+    },
+    {
+      "source_feature_id": 763,
+      "closest_feature_id": 109,
+      "cosine_similarity": 1.138448715209961e-05
+    },
+    {
+      "source_feature_id": 764,
+      "closest_feature_id": 66,
+      "cosine_similarity": -1.2040138244628906e-05
+    },
+    {
+      "source_feature_id": 765,
+      "closest_feature_id": 794,
+      "cosine_similarity": -1.519918441772461e-05
+    },
+    {
+      "source_feature_id": 766,
+      "closest_feature_id": 95,
+      "cosine_similarity": 3.933906555175781e-06
+    },
+    {
+      "source_feature_id": 767,
+      "closest_feature_id": 272,
+      "cosine_similarity": -2.682209014892578e-05
+    },
+    {
+      "source_feature_id": 768,
+      "closest_feature_id": 643,
+      "cosine_similarity": -2.384185791015625e-07
+    },
+    {
+      "source_feature_id": 769,
+      "closest_feature_id": 984,
+      "cosine_similarity": 2.0265579223632812e-06
+    },
+    {
+      "source_feature_id": 770,
+      "closest_feature_id": 335,
+      "cosine_similarity": -2.002716064453125e-05
+    },
+    {
+      "source_feature_id": 771,
+      "closest_feature_id": 444,
+      "cosine_similarity": -4.357099533081055e-05
+    },
+    {
+      "source_feature_id": 772,
+      "closest_feature_id": 398,
+      "cosine_similarity": 7.510185241699219e-06
+    },
+    {
+      "source_feature_id": 773,
+      "closest_feature_id": 932,
+      "cosine_similarity": -1.049041748046875e-05
+    },
+    {
+      "source_feature_id": 774,
+      "closest_feature_id": 18,
+      "cosine_similarity": -3.4809112548828125e-05
+    },
+    {
+      "source_feature_id": 775,
+      "closest_feature_id": 375,
+      "cosine_similarity": -4.1604042053222656e-05
+    },
+    {
+      "source_feature_id": 776,
+      "closest_feature_id": 3,
+      "cosine_similarity": -6.03795051574707e-05
+    },
+    {
+      "source_feature_id": 777,
+      "closest_feature_id": 765,
+      "cosine_similarity": -2.09808349609375e-05
+    },
+    {
+      "source_feature_id": 778,
+      "closest_feature_id": 274,
+      "cosine_similarity": -3.4809112548828125e-05
+    },
+    {
+      "source_feature_id": 779,
+      "closest_feature_id": 767,
+      "cosine_similarity": 3.802776336669922e-05
+    },
+    {
+      "source_feature_id": 780,
+      "closest_feature_id": 856,
+      "cosine_similarity": -9.000301361083984e-06
+    },
+    {
+      "source_feature_id": 781,
+      "closest_feature_id": 431,
+      "cosine_similarity": 4.8220157623291016e-05
+    },
+    {
+      "source_feature_id": 782,
+      "closest_feature_id": 678,
+      "cosine_similarity": 3.6954879760742188e-06
+    },
+    {
+      "source_feature_id": 783,
+      "closest_feature_id": 814,
+      "cosine_similarity": -3.123283386230469e-05
+    },
+    {
+      "source_feature_id": 784,
+      "closest_feature_id": 103,
+      "cosine_similarity": 7.82012939453125e-05
+    },
+    {
+      "source_feature_id": 785,
+      "closest_feature_id": 928,
+      "cosine_similarity": 5.662441253662109e-06
+    },
+    {
+      "source_feature_id": 786,
+      "closest_feature_id": 226,
+      "cosine_similarity": 1.4960765838623047e-05
+    },
+    {
+      "source_feature_id": 787,
+      "closest_feature_id": 736,
+      "cosine_similarity": 5.2094459533691406e-05
+    },
+    {
+      "source_feature_id": 788,
+      "closest_feature_id": 165,
+      "cosine_similarity": 1.0728836059570312e-05
+    },
+    {
+      "source_feature_id": 789,
+      "closest_feature_id": 477,
+      "cosine_similarity": 1.1980533599853516e-05
+    },
+    {
+      "source_feature_id": 790,
+      "closest_feature_id": 381,
+      "cosine_similarity": 1.1146068572998047e-05
+    },
+    {
+      "source_feature_id": 791,
+      "closest_feature_id": 953,
+      "cosine_similarity": -1.6748905181884766e-05
+    },
+    {
+      "source_feature_id": 792,
+      "closest_feature_id": 312,
+      "cosine_similarity": -5.602836608886719e-06
+    },
+    {
+      "source_feature_id": 793,
+      "closest_feature_id": 846,
+      "cosine_similarity": -1.0848045349121094e-05
+    },
+    {
+      "source_feature_id": 794,
+      "closest_feature_id": 984,
+      "cosine_similarity": -3.814697265625e-06
+    },
+    {
+      "source_feature_id": 795,
+      "closest_feature_id": 183,
+      "cosine_similarity": 9.834766387939453e-06
+    },
+    {
+      "source_feature_id": 796,
+      "closest_feature_id": 375,
+      "cosine_similarity": 5.364418029785156e-07
+    },
+    {
+      "source_feature_id": 797,
+      "closest_feature_id": 86,
+      "cosine_similarity": -1.9669532775878906e-06
+    },
+    {
+      "source_feature_id": 798,
+      "closest_feature_id": 209,
+      "cosine_similarity": 4.470348358154297e-05
+    },
+    {
+      "source_feature_id": 799,
+      "closest_feature_id": 524,
+      "cosine_similarity": -5.060434341430664e-05
+    },
+    {
+      "source_feature_id": 800,
+      "closest_feature_id": 733,
+      "cosine_similarity": -8.165836334228516e-06
+    },
+    {
+      "source_feature_id": 801,
+      "closest_feature_id": 833,
+      "cosine_similarity": -2.4199485778808594e-05
+    },
+    {
+      "source_feature_id": 802,
+      "closest_feature_id": 73,
+      "cosine_similarity": -2.187490463256836e-05
+    },
+    {
+      "source_feature_id": 803,
+      "closest_feature_id": 959,
+      "cosine_similarity": -4.172325134277344e-07
+    },
+    {
+      "source_feature_id": 804,
+      "closest_feature_id": 246,
+      "cosine_similarity": 2.491474151611328e-05
+    },
+    {
+      "source_feature_id": 805,
+      "closest_feature_id": 159,
+      "cosine_similarity": 1.1324882507324219e-06
+    },
+    {
+      "source_feature_id": 806,
+      "closest_feature_id": 465,
+      "cosine_similarity": 9.5367431640625e-06
+    },
+    {
+      "source_feature_id": 807,
+      "closest_feature_id": 687,
+      "cosine_similarity": 2.86102294921875e-06
+    },
+    {
+      "source_feature_id": 808,
+      "closest_feature_id": 535,
+      "cosine_similarity": 1.5914440155029297e-05
+    },
+    {
+      "source_feature_id": 809,
+      "closest_feature_id": 724,
+      "cosine_similarity": 3.045797348022461e-05
+    },
+    {
+      "source_feature_id": 810,
+      "closest_feature_id": 581,
+      "cosine_similarity": 1.5974044799804688e-05
+    },
+    {
+      "source_feature_id": 811,
+      "closest_feature_id": 999,
+      "cosine_similarity": -8.821487426757812e-06
+    },
+    {
+      "source_feature_id": 812,
+      "closest_feature_id": 117,
+      "cosine_similarity": -3.2067298889160156e-05
+    },
+    {
+      "source_feature_id": 813,
+      "closest_feature_id": 346,
+      "cosine_similarity": -4.595518112182617e-05
+    },
+    {
+      "source_feature_id": 814,
+      "closest_feature_id": 307,
+      "cosine_similarity": 1.8775463104248047e-05
+    },
+    {
+      "source_feature_id": 815,
+      "closest_feature_id": 148,
+      "cosine_similarity": -7.271766662597656e-06
+    },
+    {
+      "source_feature_id": 816,
+      "closest_feature_id": 662,
+      "cosine_similarity": -2.4974346160888672e-05
+    },
+    {
+      "source_feature_id": 817,
+      "closest_feature_id": 215,
+      "cosine_similarity": 2.7000904083251953e-05
+    },
+    {
+      "source_feature_id": 818,
+      "closest_feature_id": 719,
+      "cosine_similarity": -6.556510925292969e-06
+    },
+    {
+      "source_feature_id": 819,
+      "closest_feature_id": 471,
+      "cosine_similarity": -3.1054019927978516e-05
+    },
+    {
+      "source_feature_id": 820,
+      "closest_feature_id": 165,
+      "cosine_similarity": -1.7762184143066406e-05
+    },
+    {
+      "source_feature_id": 821,
+      "closest_feature_id": 304,
+      "cosine_similarity": 2.2590160369873047e-05
+    },
+    {
+      "source_feature_id": 822,
+      "closest_feature_id": 976,
+      "cosine_similarity": -2.384185791015625e-07
+    },
+    {
+      "source_feature_id": 823,
+      "closest_feature_id": 428,
+      "cosine_similarity": -3.230571746826172e-05
+    },
+    {
+      "source_feature_id": 824,
+      "closest_feature_id": 561,
+      "cosine_similarity": -6.735324859619141e-06
+    },
+    {
+      "source_feature_id": 825,
+      "closest_feature_id": 840,
+      "cosine_similarity": -3.415346145629883e-05
+    },
+    {
+      "source_feature_id": 826,
+      "closest_feature_id": 593,
+      "cosine_similarity": 2.092123031616211e-05
+    },
+    {
+      "source_feature_id": 827,
+      "closest_feature_id": 472,
+      "cosine_similarity": 1.1146068572998047e-05
+    },
+    {
+      "source_feature_id": 828,
+      "closest_feature_id": 272,
+      "cosine_similarity": 3.9458274841308594e-05
+    },
+    {
+      "source_feature_id": 829,
+      "closest_feature_id": 563,
+      "cosine_similarity": -3.993511199951172e-06
+    },
+    {
+      "source_feature_id": 830,
+      "closest_feature_id": 473,
+      "cosine_similarity": -3.62396240234375e-05
+    },
+    {
+      "source_feature_id": 831,
+      "closest_feature_id": 989,
+      "cosine_similarity": -1.3947486877441406e-05
+    },
+    {
+      "source_feature_id": 832,
+      "closest_feature_id": 104,
+      "cosine_similarity": -3.6656856536865234e-05
+    },
+    {
+      "source_feature_id": 833,
+      "closest_feature_id": 684,
+      "cosine_similarity": 4.410743713378906e-06
+    },
+    {
+      "source_feature_id": 834,
+      "closest_feature_id": 331,
+      "cosine_similarity": 3.2007694244384766e-05
+    },
+    {
+      "source_feature_id": 835,
+      "closest_feature_id": 709,
+      "cosine_similarity": -3.0159950256347656e-05
+    },
+    {
+      "source_feature_id": 836,
+      "closest_feature_id": 266,
+      "cosine_similarity": 1.7285346984863281e-06
+    },
+    {
+      "source_feature_id": 837,
+      "closest_feature_id": 38,
+      "cosine_similarity": 0.0
+    },
+    {
+      "source_feature_id": 838,
+      "closest_feature_id": 308,
+      "cosine_similarity": 4.887580871582031e-06
+    },
+    {
+      "source_feature_id": 839,
+      "closest_feature_id": 412,
+      "cosine_similarity": 9.357929229736328e-06
+    },
+    {
+      "source_feature_id": 840,
+      "closest_feature_id": 758,
+      "cosine_similarity": -1.7881393432617188e-07
+    },
+    {
+      "source_feature_id": 841,
+      "closest_feature_id": 168,
+      "cosine_similarity": 4.881620407104492e-05
+    },
+    {
+      "source_feature_id": 842,
+      "closest_feature_id": 380,
+      "cosine_similarity": -3.057718276977539e-05
+    },
+    {
+      "source_feature_id": 843,
+      "closest_feature_id": 867,
+      "cosine_similarity": -2.4497509002685547e-05
+    },
+    {
+      "source_feature_id": 844,
+      "closest_feature_id": 375,
+      "cosine_similarity": -3.2961368560791016e-05
+    },
+    {
+      "source_feature_id": 845,
+      "closest_feature_id": 538,
+      "cosine_similarity": -1.2218952178955078e-05
+    },
+    {
+      "source_feature_id": 846,
+      "closest_feature_id": 164,
+      "cosine_similarity": -4.887580871582031e-06
+    },
+    {
+      "source_feature_id": 847,
+      "closest_feature_id": 535,
+      "cosine_similarity": -2.5033950805664062e-05
+    },
+    {
+      "source_feature_id": 848,
+      "closest_feature_id": 727,
+      "cosine_similarity": -7.510185241699219e-06
+    },
+    {
+      "source_feature_id": 849,
+      "closest_feature_id": 666,
+      "cosine_similarity": -2.086162567138672e-06
+    },
+    {
+      "source_feature_id": 850,
+      "closest_feature_id": 967,
+      "cosine_similarity": 2.0682811737060547e-05
+    },
+    {
+      "source_feature_id": 851,
+      "closest_feature_id": 878,
+      "cosine_similarity": 5.185604095458984e-06
+    },
+    {
+      "source_feature_id": 852,
+      "closest_feature_id": 908,
+      "cosine_similarity": -3.629922866821289e-05
+    },
+    {
+      "source_feature_id": 853,
+      "closest_feature_id": 366,
+      "cosine_similarity": -2.8312206268310547e-05
+    },
+    {
+      "source_feature_id": 854,
+      "closest_feature_id": 564,
+      "cosine_similarity": 2.1457672119140625e-06
+    },
+    {
+      "source_feature_id": 855,
+      "closest_feature_id": 369,
+      "cosine_similarity": 2.3245811462402344e-06
+    },
+    {
+      "source_feature_id": 856,
+      "closest_feature_id": 780,
+      "cosine_similarity": -9.000301361083984e-06
+    },
+    {
+      "source_feature_id": 857,
+      "closest_feature_id": 660,
+      "cosine_similarity": -2.6404857635498047e-05
+    },
+    {
+      "source_feature_id": 858,
+      "closest_feature_id": 89,
+      "cosine_similarity": -2.4616718292236328e-05
+    },
+    {
+      "source_feature_id": 859,
+      "closest_feature_id": 304,
+      "cosine_similarity": -3.838539123535156e-05
+    },
+    {
+      "source_feature_id": 860,
+      "closest_feature_id": 143,
+      "cosine_similarity": 5.841255187988281e-05
+    },
+    {
+      "source_feature_id": 861,
+      "closest_feature_id": 422,
+      "cosine_similarity": -7.808208465576172e-06
+    },
+    {
+      "source_feature_id": 862,
+      "closest_feature_id": 869,
+      "cosine_similarity": -1.8477439880371094e-06
+    },
+    {
+      "source_feature_id": 863,
+      "closest_feature_id": 298,
+      "cosine_similarity": 1.0371208190917969e-05
+    },
+    {
+      "source_feature_id": 864,
+      "closest_feature_id": 918,
+      "cosine_similarity": -2.2649765014648438e-06
+    },
+    {
+      "source_feature_id": 865,
+      "closest_feature_id": 425,
+      "cosine_similarity": 2.7418136596679688e-05
+    },
+    {
+      "source_feature_id": 866,
+      "closest_feature_id": 773,
+      "cosine_similarity": 2.473592758178711e-05
+    },
+    {
+      "source_feature_id": 867,
+      "closest_feature_id": 843,
+      "cosine_similarity": -2.4497509002685547e-05
+    },
+    {
+      "source_feature_id": 868,
+      "closest_feature_id": 638,
+      "cosine_similarity": -5.960464477539063e-08
+    },
+    {
+      "source_feature_id": 869,
+      "closest_feature_id": 862,
+      "cosine_similarity": -1.8477439880371094e-06
+    },
+    {
+      "source_feature_id": 870,
+      "closest_feature_id": 516,
+      "cosine_similarity": 2.276897430419922e-05
+    },
+    {
+      "source_feature_id": 871,
+      "closest_feature_id": 654,
+      "cosine_similarity": -1.5437602996826172e-05
+    },
+    {
+      "source_feature_id": 872,
+      "closest_feature_id": 600,
+      "cosine_similarity": 4.559755325317383e-05
+    },
+    {
+      "source_feature_id": 873,
+      "closest_feature_id": 912,
+      "cosine_similarity": -1.6093254089355469e-06
+    },
+    {
+      "source_feature_id": 874,
+      "closest_feature_id": 675,
+      "cosine_similarity": -2.008676528930664e-05
+    },
+    {
+      "source_feature_id": 875,
+      "closest_feature_id": 107,
+      "cosine_similarity": -4.416704177856445e-05
+    },
+    {
+      "source_feature_id": 876,
+      "closest_feature_id": 839,
+      "cosine_similarity": -1.3768672943115234e-05
+    },
+    {
+      "source_feature_id": 877,
+      "closest_feature_id": 542,
+      "cosine_similarity": 4.8279762268066406e-05
+    },
+    {
+      "source_feature_id": 878,
+      "closest_feature_id": 378,
+      "cosine_similarity": 1.7285346984863281e-06
+    },
+    {
+      "source_feature_id": 879,
+      "closest_feature_id": 615,
+      "cosine_similarity": 8.034706115722656e-05
+    },
+    {
+      "source_feature_id": 880,
+      "closest_feature_id": 321,
+      "cosine_similarity": 2.7179718017578125e-05
+    },
+    {
+      "source_feature_id": 881,
+      "closest_feature_id": 357,
+      "cosine_similarity": 3.421306610107422e-05
+    },
+    {
+      "source_feature_id": 882,
+      "closest_feature_id": 341,
+      "cosine_similarity": 6.020069122314453e-05
+    },
+    {
+      "source_feature_id": 883,
+      "closest_feature_id": 631,
+      "cosine_similarity": 1.3947486877441406e-05
+    },
+    {
+      "source_feature_id": 884,
+      "closest_feature_id": 622,
+      "cosine_similarity": -5.0067901611328125e-06
+    },
+    {
+      "source_feature_id": 885,
+      "closest_feature_id": 800,
+      "cosine_similarity": -5.7637691497802734e-05
+    },
+    {
+      "source_feature_id": 886,
+      "closest_feature_id": 605,
+      "cosine_similarity": 9.655952453613281e-06
+    },
+    {
+      "source_feature_id": 887,
+      "closest_feature_id": 58,
+      "cosine_similarity": -1.7881393432617188e-06
+    },
+    {
+      "source_feature_id": 888,
+      "closest_feature_id": 488,
+      "cosine_similarity": -5.364418029785156e-07
+    },
+    {
+      "source_feature_id": 889,
+      "closest_feature_id": 354,
+      "cosine_similarity": -1.430511474609375e-05
+    },
+    {
+      "source_feature_id": 890,
+      "closest_feature_id": 332,
+      "cosine_similarity": -3.260374069213867e-05
+    },
+    {
+      "source_feature_id": 891,
+      "closest_feature_id": 255,
+      "cosine_similarity": 3.904104232788086e-05
+    },
+    {
+      "source_feature_id": 892,
+      "closest_feature_id": 215,
+      "cosine_similarity": 1.627206802368164e-05
+    },
+    {
+      "source_feature_id": 893,
+      "closest_feature_id": 944,
+      "cosine_similarity": -2.1517276763916016e-05
+    },
+    {
+      "source_feature_id": 894,
+      "closest_feature_id": 963,
+      "cosine_similarity": -1.7344951629638672e-05
+    },
+    {
+      "source_feature_id": 895,
+      "closest_feature_id": 123,
+      "cosine_similarity": 7.867813110351562e-06
+    },
+    {
+      "source_feature_id": 896,
+      "closest_feature_id": 101,
+      "cosine_similarity": -7.271766662597656e-06
+    },
+    {
+      "source_feature_id": 897,
+      "closest_feature_id": 471,
+      "cosine_similarity": -2.1755695343017578e-05
+    },
+    {
+      "source_feature_id": 898,
+      "closest_feature_id": 466,
+      "cosine_similarity": 4.398822784423828e-05
+    },
+    {
+      "source_feature_id": 899,
+      "closest_feature_id": 2,
+      "cosine_similarity": -1.2695789337158203e-05
+    },
+    {
+      "source_feature_id": 900,
+      "closest_feature_id": 947,
+      "cosine_similarity": 5.4717063903808594e-05
+    },
+    {
+      "source_feature_id": 901,
+      "closest_feature_id": 960,
+      "cosine_similarity": -7.152557373046875e-06
+    },
+    {
+      "source_feature_id": 902,
+      "closest_feature_id": 223,
+      "cosine_similarity": 1.043081283569336e-05
+    },
+    {
+      "source_feature_id": 903,
+      "closest_feature_id": 424,
+      "cosine_similarity": 6.139278411865234e-06
+    },
+    {
+      "source_feature_id": 904,
+      "closest_feature_id": 92,
+      "cosine_similarity": 6.020069122314453e-06
+    },
+    {
+      "source_feature_id": 905,
+      "closest_feature_id": 926,
+      "cosine_similarity": -7.748603820800781e-06
+    },
+    {
+      "source_feature_id": 906,
+      "closest_feature_id": 518,
+      "cosine_similarity": -3.814697265625e-06
+    },
+    {
+      "source_feature_id": 907,
+      "closest_feature_id": 267,
+      "cosine_similarity": 9.417533874511719e-06
+    },
+    {
+      "source_feature_id": 908,
+      "closest_feature_id": 988,
+      "cosine_similarity": 7.271766662597656e-06
+    },
+    {
+      "source_feature_id": 909,
+      "closest_feature_id": 329,
+      "cosine_similarity": -9.775161743164062e-06
+    },
+    {
+      "source_feature_id": 910,
+      "closest_feature_id": 243,
+      "cosine_similarity": 9.238719940185547e-06
+    },
+    {
+      "source_feature_id": 911,
+      "closest_feature_id": 351,
+      "cosine_similarity": -6.139278411865234e-06
+    },
+    {
+      "source_feature_id": 912,
+      "closest_feature_id": 873,
+      "cosine_similarity": -1.6093254089355469e-06
+    },
+    {
+      "source_feature_id": 913,
+      "closest_feature_id": 577,
+      "cosine_similarity": -2.980232238769531e-07
+    },
+    {
+      "source_feature_id": 914,
+      "closest_feature_id": 794,
+      "cosine_similarity": 1.5079975128173828e-05
+    },
+    {
+      "source_feature_id": 915,
+      "closest_feature_id": 523,
+      "cosine_similarity": 1.7285346984863281e-06
+    },
+    {
+      "source_feature_id": 916,
+      "closest_feature_id": 719,
+      "cosine_similarity": 3.993511199951172e-06
+    },
+    {
+      "source_feature_id": 917,
+      "closest_feature_id": 604,
+      "cosine_similarity": -3.4749507904052734e-05
+    },
+    {
+      "source_feature_id": 918,
+      "closest_feature_id": 864,
+      "cosine_similarity": -2.2649765014648438e-06
+    },
+    {
+      "source_feature_id": 919,
+      "closest_feature_id": 427,
+      "cosine_similarity": 8.463859558105469e-06
+    },
+    {
+      "source_feature_id": 920,
+      "closest_feature_id": 204,
+      "cosine_similarity": -7.152557373046875e-07
+    },
+    {
+      "source_feature_id": 921,
+      "closest_feature_id": 736,
+      "cosine_similarity": 3.7550926208496094e-06
+    },
+    {
+      "source_feature_id": 922,
+      "closest_feature_id": 274,
+      "cosine_similarity": 1.3113021850585938e-05
+    },
+    {
+      "source_feature_id": 923,
+      "closest_feature_id": 382,
+      "cosine_similarity": -7.68899917602539e-06
+    },
+    {
+      "source_feature_id": 924,
+      "closest_feature_id": 192,
+      "cosine_similarity": -3.2961368560791016e-05
+    },
+    {
+      "source_feature_id": 925,
+      "closest_feature_id": 632,
+      "cosine_similarity": -3.814697265625e-05
+    },
+    {
+      "source_feature_id": 926,
+      "closest_feature_id": 332,
+      "cosine_similarity": 6.377696990966797e-06
+    },
+    {
+      "source_feature_id": 927,
+      "closest_feature_id": 170,
+      "cosine_similarity": 4.0471553802490234e-05
+    },
+    {
+      "source_feature_id": 928,
+      "closest_feature_id": 785,
+      "cosine_similarity": 5.662441253662109e-06
+    },
+    {
+      "source_feature_id": 929,
+      "closest_feature_id": 50,
+      "cosine_similarity": 1.3709068298339844e-05
+    },
+    {
+      "source_feature_id": 930,
+      "closest_feature_id": 305,
+      "cosine_similarity": -7.331371307373047e-06
+    },
+    {
+      "source_feature_id": 931,
+      "closest_feature_id": 664,
+      "cosine_similarity": 2.586841583251953e-05
+    },
+    {
+      "source_feature_id": 932,
+      "closest_feature_id": 773,
+      "cosine_similarity": -1.049041748046875e-05
+    },
+    {
+      "source_feature_id": 933,
+      "closest_feature_id": 982,
+      "cosine_similarity": -1.5974044799804688e-05
+    },
+    {
+      "source_feature_id": 934,
+      "closest_feature_id": 838,
+      "cosine_similarity": -5.185604095458984e-06
+    },
+    {
+      "source_feature_id": 935,
+      "closest_feature_id": 758,
+      "cosine_similarity": 7.212162017822266e-06
+    },
+    {
+      "source_feature_id": 936,
+      "closest_feature_id": 289,
+      "cosine_similarity": 1.2516975402832031e-06
+    },
+    {
+      "source_feature_id": 937,
+      "closest_feature_id": 238,
+      "cosine_similarity": -1.7762184143066406e-05
+    },
+    {
+      "source_feature_id": 938,
+      "closest_feature_id": 134,
+      "cosine_similarity": -1.1205673217773438e-05
+    },
+    {
+      "source_feature_id": 939,
+      "closest_feature_id": 283,
+      "cosine_similarity": -3.5762786865234375e-07
+    },
+    {
+      "source_feature_id": 940,
+      "closest_feature_id": 210,
+      "cosine_similarity": 2.092123031616211e-05
+    },
+    {
+      "source_feature_id": 941,
+      "closest_feature_id": 299,
+      "cosine_similarity": 1.7881393432617188e-06
+    },
+    {
+      "source_feature_id": 942,
+      "closest_feature_id": 479,
+      "cosine_similarity": -2.4437904357910156e-06
+    },
+    {
+      "source_feature_id": 943,
+      "closest_feature_id": 80,
+      "cosine_similarity": 5.125999450683594e-06
+    },
+    {
+      "source_feature_id": 944,
+      "closest_feature_id": 647,
+      "cosine_similarity": 3.2186508178710938e-06
+    },
+    {
+      "source_feature_id": 945,
+      "closest_feature_id": 754,
+      "cosine_similarity": 1.8298625946044922e-05
+    },
+    {
+      "source_feature_id": 946,
+      "closest_feature_id": 524,
+      "cosine_similarity": 1.33514404296875e-05
+    },
+    {
+      "source_feature_id": 947,
+      "closest_feature_id": 585,
+      "cosine_similarity": 2.1398067474365234e-05
+    },
+    {
+      "source_feature_id": 948,
+      "closest_feature_id": 189,
+      "cosine_similarity": 1.5079975128173828e-05
+    },
+    {
+      "source_feature_id": 949,
+      "closest_feature_id": 333,
+      "cosine_similarity": -2.086162567138672e-06
+    },
+    {
+      "source_feature_id": 950,
+      "closest_feature_id": 226,
+      "cosine_similarity": 4.351139068603516e-06
+    },
+    {
+      "source_feature_id": 951,
+      "closest_feature_id": 569,
+      "cosine_similarity": 1.2278556823730469e-05
+    },
+    {
+      "source_feature_id": 952,
+      "closest_feature_id": 725,
+      "cosine_similarity": -1.2099742889404297e-05
+    },
+    {
+      "source_feature_id": 953,
+      "closest_feature_id": 566,
+      "cosine_similarity": 9.179115295410156e-06
+    },
+    {
+      "source_feature_id": 954,
+      "closest_feature_id": 943,
+      "cosine_similarity": 5.4836273193359375e-06
+    },
+    {
+      "source_feature_id": 955,
+      "closest_feature_id": 232,
+      "cosine_similarity": -1.3709068298339844e-06
+    },
+    {
+      "source_feature_id": 956,
+      "closest_feature_id": 560,
+      "cosine_similarity": 3.4570693969726562e-06
+    },
+    {
+      "source_feature_id": 957,
+      "closest_feature_id": 436,
+      "cosine_similarity": 2.0503997802734375e-05
+    },
+    {
+      "source_feature_id": 958,
+      "closest_feature_id": 32,
+      "cosine_similarity": -2.0265579223632812e-05
+    },
+    {
+      "source_feature_id": 959,
+      "closest_feature_id": 803,
+      "cosine_similarity": -4.172325134277344e-07
+    },
+    {
+      "source_feature_id": 960,
+      "closest_feature_id": 901,
+      "cosine_similarity": -7.152557373046875e-06
+    },
+    {
+      "source_feature_id": 961,
+      "closest_feature_id": 687,
+      "cosine_similarity": -5.161762237548828e-05
+    },
+    {
+      "source_feature_id": 962,
+      "closest_feature_id": 256,
+      "cosine_similarity": -1.424551010131836e-05
+    },
+    {
+      "source_feature_id": 963,
+      "closest_feature_id": 317,
+      "cosine_similarity": -1.4007091522216797e-05
+    },
+    {
+      "source_feature_id": 964,
+      "closest_feature_id": 556,
+      "cosine_similarity": -7.748603820800781e-07
+    },
+    {
+      "source_feature_id": 965,
+      "closest_feature_id": 271,
+      "cosine_similarity": -1.5914440155029297e-05
+    },
+    {
+      "source_feature_id": 966,
+      "closest_feature_id": 410,
+      "cosine_similarity": -2.0325183868408203e-05
+    },
+    {
+      "source_feature_id": 967,
+      "closest_feature_id": 862,
+      "cosine_similarity": 1.3649463653564453e-05
+    },
+    {
+      "source_feature_id": 968,
+      "closest_feature_id": 367,
+      "cosine_similarity": -1.1920928955078125e-05
+    },
+    {
+      "source_feature_id": 969,
+      "closest_feature_id": 333,
+      "cosine_similarity": 2.1457672119140625e-05
+    },
+    {
+      "source_feature_id": 970,
+      "closest_feature_id": 7,
+      "cosine_similarity": -3.039836883544922e-06
+    },
+    {
+      "source_feature_id": 971,
+      "closest_feature_id": 512,
+      "cosine_similarity": 1.1920928955078125e-05
+    },
+    {
+      "source_feature_id": 972,
+      "closest_feature_id": 330,
+      "cosine_similarity": 1.3887882232666016e-05
+    },
+    {
+      "source_feature_id": 973,
+      "closest_feature_id": 244,
+      "cosine_similarity": -9.59634780883789e-06
+    },
+    {
+      "source_feature_id": 974,
+      "closest_feature_id": 115,
+      "cosine_similarity": 2.0265579223632812e-05
+    },
+    {
+      "source_feature_id": 975,
+      "closest_feature_id": 320,
+      "cosine_similarity": 1.7583370208740234e-05
+    },
+    {
+      "source_feature_id": 976,
+      "closest_feature_id": 822,
+      "cosine_similarity": -2.384185791015625e-07
+    },
+    {
+      "source_feature_id": 977,
+      "closest_feature_id": 183,
+      "cosine_similarity": 3.5703182220458984e-05
+    },
+    {
+      "source_feature_id": 978,
+      "closest_feature_id": 657,
+      "cosine_similarity": -3.993511199951172e-06
+    },
+    {
+      "source_feature_id": 979,
+      "closest_feature_id": 684,
+      "cosine_similarity": -1.0669231414794922e-05
+    },
+    {
+      "source_feature_id": 980,
+      "closest_feature_id": 172,
+      "cosine_similarity": 2.384185791015625e-06
+    },
+    {
+      "source_feature_id": 981,
+      "closest_feature_id": 697,
+      "cosine_similarity": -2.777576446533203e-05
+    },
+    {
+      "source_feature_id": 982,
+      "closest_feature_id": 557,
+      "cosine_similarity": -1.6093254089355469e-06
+    },
+    {
+      "source_feature_id": 983,
+      "closest_feature_id": 90,
+      "cosine_similarity": -4.017353057861328e-05
+    },
+    {
+      "source_feature_id": 984,
+      "closest_feature_id": 769,
+      "cosine_similarity": 2.0265579223632812e-06
+    },
+    {
+      "source_feature_id": 985,
+      "closest_feature_id": 665,
+      "cosine_similarity": -5.960464477539063e-08
+    },
+    {
+      "source_feature_id": 986,
+      "closest_feature_id": 364,
+      "cosine_similarity": 1.7464160919189453e-05
+    },
+    {
+      "source_feature_id": 987,
+      "closest_feature_id": 359,
+      "cosine_similarity": 3.039836883544922e-05
+    },
+    {
+      "source_feature_id": 988,
+      "closest_feature_id": 511,
+      "cosine_similarity": -3.2186508178710938e-06
+    },
+    {
+      "source_feature_id": 989,
+      "closest_feature_id": 831,
+      "cosine_similarity": -1.3947486877441406e-05
+    },
+    {
+      "source_feature_id": 990,
+      "closest_feature_id": 540,
+      "cosine_similarity": 1.245737075805664e-05
+    },
+    {
+      "source_feature_id": 991,
+      "closest_feature_id": 559,
+      "cosine_similarity": 8.940696716308594e-07
+    },
+    {
+      "source_feature_id": 992,
+      "closest_feature_id": 486,
+      "cosine_similarity": 2.5272369384765625e-05
+    },
+    {
+      "source_feature_id": 993,
+      "closest_feature_id": 821,
+      "cosine_similarity": 3.1054019927978516e-05
+    },
+    {
+      "source_feature_id": 994,
+      "closest_feature_id": 361,
+      "cosine_similarity": -6.4373016357421875e-06
+    },
+    {
+      "source_feature_id": 995,
+      "closest_feature_id": 40,
+      "cosine_similarity": 3.0994415283203125e-06
+    },
+    {
+      "source_feature_id": 996,
+      "closest_feature_id": 724,
+      "cosine_similarity": 6.794929504394531e-06
+    },
+    {
+      "source_feature_id": 997,
+      "closest_feature_id": 728,
+      "cosine_similarity": -2.4497509002685547e-05
+    },
+    {
+      "source_feature_id": 998,
+      "closest_feature_id": 682,
+      "cosine_similarity": -7.62939453125e-06
+    },
+    {
+      "source_feature_id": 999,
+      "closest_feature_id": 811,
+      "cosine_similarity": -8.821487426757812e-06
+    }
+  ],
+  "statistics": {
+    "min_magnitude": 0.0,
+    "max_magnitude": 9.85860824584961e-05,
+    "mean_magnitude": 1.811981201171875e-05,
+    "min_value": -8.815526962280273e-05,
+    "max_value": 9.85860824584961e-05,
+    "mean_value": 4.76837158203125e-07
+  },
+  "config_used": {
+    "model_name_or_path": "google/gemma-scope-9b-pt-res",
+    "position": "layer_30/width_16k/average_l0_120",
+    "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
+    "feature_range": {
+      "start": 0,
+      "end": 1000
+    },
+    "output_filename": "feature_similarities.json",
+    "device": "auto",
+    "use_float16": true,
+    "memory_warning_threshold_gb": 2.0,
+    "description": "Configuration for computing SAE feature cosine similarities and finding nearest features"
+  }
+}

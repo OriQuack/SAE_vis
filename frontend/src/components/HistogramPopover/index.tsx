@@ -9,10 +9,7 @@ import {
   validateDimensions,
   DEFAULT_ANIMATION
 } from '../../utils/d3-helpers'
-import type { TooltipData } from '../../services/types'
-
 // Components
-import Tooltip from '../shared/Tooltip'
 import ErrorMessage from '../shared/ErrorMessage'
 import LoadingSpinner from '../LoadingSpinner'
 import { PopoverHeader } from './PopoverHeader'
@@ -56,8 +53,6 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
   const svgRef = useRef<SVGSVGElement>(null)
 
   // Local state
-  const [tooltip, setTooltip] = useState<TooltipData | null>(null)
-  const [showTooltip, setShowTooltip] = useState(false)
 
   // Custom hooks
   const { containerSize, calculatedPosition } = usePopoverPosition({
@@ -146,11 +141,6 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     return 0.5
   }, [popoverData?.metrics, getEffectiveThreshold])
 
-  // Handle tooltip changes
-  const handleTooltipChange = useCallback((newTooltip: TooltipData | null, visible: boolean) => {
-    setTooltip(newTooltip)
-    setShowTooltip(visible)
-  }, [])
 
   // Handle close
   const handleClose = useCallback(() => {
@@ -238,7 +228,6 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
               animationDuration={animationDuration}
               containerSize={containerSize}
               onThresholdChange={handleMultiThresholdChange}
-              onTooltipChange={handleTooltipChange}
               svgRef={svgRef}
               allNodeThresholds={allNodeThresholds}
               thresholdNodeId={thresholdNodeId}
@@ -251,7 +240,6 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
               animationDuration={animationDuration}
               containerSize={containerSize}
               onThresholdChange={handleSingleThresholdChange}
-              onTooltipChange={handleTooltipChange}
               svgRef={svgRef}
             />
           )
@@ -263,13 +251,6 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
           currentThresholds={currentThresholds}
           histogramData={histogramData}
           isSingleMetric={popoverData?.metrics?.length === 1}
-        />
-
-        {/* Tooltip */}
-        <Tooltip
-          data={tooltip}
-          visible={showTooltip}
-          className="histogram-tooltip"
         />
       </div>
     </div>

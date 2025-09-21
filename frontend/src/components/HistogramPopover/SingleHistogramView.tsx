@@ -3,12 +3,10 @@ import { useDragHandler } from '../../hooks'
 import {
   calculateThresholdLine,
   positionToValue,
-  formatTooltipContent,
-  formatThresholdTooltip,
   HISTOGRAM_COLORS,
   SLIDER_TRACK
 } from '../../utils/d3-helpers'
-import type { TooltipData, HistogramData, HistogramLayout } from '../../services/types'
+import type { HistogramData, HistogramLayout } from '../../services/types'
 import { CHART_STYLES } from './utils/styles'
 
 interface SingleHistogramViewProps {
@@ -18,7 +16,6 @@ interface SingleHistogramViewProps {
   animationDuration: number
   containerSize: { width: number; height: number }
   onThresholdChange: (threshold: number) => void
-  onTooltipChange: (tooltip: TooltipData | null, visible: boolean) => void
   svgRef: React.RefObject<SVGSVGElement>
 }
 
@@ -29,7 +26,6 @@ export const SingleHistogramView: React.FC<SingleHistogramViewProps> = React.mem
   animationDuration,
   containerSize,
   onThresholdChange,
-  onTooltipChange,
   svgRef
 }) => {
   const thresholdLine = useMemo(() => {
@@ -72,29 +68,6 @@ export const SingleHistogramView: React.FC<SingleHistogramViewProps> = React.mem
     }
   })
 
-  const handleBarHover = useCallback((event: React.MouseEvent, binIndex: number) => {
-    const bin = layout.bins[binIndex]
-
-    onTooltipChange({
-      x: event.clientX,
-      y: event.clientY,
-      title: `Bin ${binIndex + 1}`,
-      content: formatTooltipContent(bin, threshold)
-    }, true)
-  }, [layout, threshold, onTooltipChange])
-
-  const handleBarLeave = useCallback(() => {
-    onTooltipChange(null, false)
-  }, [onTooltipChange])
-
-  const handleThresholdHover = useCallback((event: React.MouseEvent) => {
-    onTooltipChange({
-      x: event.clientX,
-      y: event.clientY,
-      title: 'Node Threshold',
-      content: formatThresholdTooltip(threshold, histogramData.statistics)
-    }, true)
-  }, [threshold, histogramData, onTooltipChange])
 
   return (
     <div className="histogram-popover__chart" style={CHART_STYLES.container}>
@@ -149,11 +122,8 @@ export const SingleHistogramView: React.FC<SingleHistogramViewProps> = React.mem
                   stroke="white"
                   strokeWidth={1}
                   style={{
-                    transition: `fill ${animationDuration}ms ease-out`,
-                    cursor: 'pointer'
+                    transition: `fill ${animationDuration}ms ease-out`
                   }}
-                  onMouseEnter={(e) => handleBarHover(e, index)}
-                  onMouseLeave={handleBarLeave}
                   aria-label={`Bin ${index + 1}: ${bin.count} features`}
                 />
               )
@@ -171,8 +141,6 @@ export const SingleHistogramView: React.FC<SingleHistogramViewProps> = React.mem
                 stroke={HISTOGRAM_COLORS.threshold}
                 strokeWidth={3}
                 style={{ cursor: 'pointer' }}
-                onMouseEnter={handleThresholdHover}
-                onMouseLeave={handleBarLeave}
               />
             </g>
           )}
@@ -218,8 +186,6 @@ export const SingleHistogramView: React.FC<SingleHistogramViewProps> = React.mem
                 strokeWidth={2}
                 style={{ cursor: 'pointer' }}
                 onMouseDown={handleSliderMouseDown}
-                onMouseEnter={handleThresholdHover}
-                onMouseLeave={handleBarLeave}
               />
               {/* Connecting line from histogram to slider */}
               <line
