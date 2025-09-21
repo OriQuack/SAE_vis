@@ -1,13 +1,11 @@
 import { useState, useCallback, useRef } from 'react'
 import { useResizeObserver } from '../../../hooks'
-import { formatNodeTooltip, formatLinkTooltip } from '../../../utils/d3-helpers'
 import { getMetricsForNode, getParentNodeName } from '../utils/nodeMetrics'
 import { getParentNodeId, isScoreAgreementNode } from '../../../services/types'
-import type { TooltipData, D3SankeyNode, D3SankeyLink, SankeyData } from '../../../services/types'
+import type { D3SankeyNode, D3SankeyLink, SankeyData } from '../../../services/types'
 
 interface UseSankeyInteractionsProps {
   data: SankeyData | null
-  showTooltips: boolean
   showHistogramOnClick: boolean
   showHistogramPopover: (
     nodeId: string,
@@ -23,8 +21,6 @@ interface UseSankeyInteractionsProps {
 
 interface UseSankeyInteractionsReturn {
   // State
-  tooltip: TooltipData | null
-  showTooltip: boolean
   containerSize: { width: number; height: number }
 
   // Refs
@@ -40,15 +36,25 @@ interface UseSankeyInteractionsReturn {
 
 export const useSankeyInteractions = ({
   data,
-  showTooltips,
   showHistogramOnClick,
   showHistogramPopover,
   defaultWidth,
   defaultHeight
 }: UseSankeyInteractionsProps): UseSankeyInteractionsReturn => {
   // Local state
-  const [tooltip, setTooltip] = useState<TooltipData | null>(null)
-  const [showTooltip, setShowTooltip] = useState(false)
+
+  // Empty hover handlers (visual effects handled in components, no tooltips)
+  const handleNodeHover = useCallback((event: React.MouseEvent, node: D3SankeyNode) => {
+    // No tooltip logic - visual effects are handled in the component itself
+  }, [])
+
+  const handleLinkHover = useCallback((event: React.MouseEvent, link: D3SankeyLink) => {
+    // No tooltip logic - visual effects are handled in the component itself
+  }, [])
+
+  const handleHoverLeave = useCallback(() => {
+    // No tooltip logic - visual effects are handled in the component itself
+  }, [])
 
   // Resize observer hook
   const { ref: containerRef, size: containerSize } = useResizeObserver({
@@ -56,37 +62,6 @@ export const useSankeyInteractions = ({
     defaultHeight
   })
 
-  // Handle node hover
-  const handleNodeHover = useCallback((event: React.MouseEvent, node: D3SankeyNode) => {
-    if (!showTooltips) return
-
-    const rect = event.currentTarget.getBoundingClientRect()
-
-    setTooltip({
-      x: rect.left + rect.width / 2,
-      y: rect.top,
-      title: node.name,
-      content: formatNodeTooltip(node)
-    })
-    setShowTooltip(true)
-  }, [showTooltips])
-
-  // Handle link hover
-  const handleLinkHover = useCallback((event: React.MouseEvent, link: D3SankeyLink) => {
-    if (!showTooltips) return
-
-    setTooltip({
-      x: event.clientX,
-      y: event.clientY,
-      title: 'Flow',
-      content: formatLinkTooltip(link)
-    })
-    setShowTooltip(true)
-  }, [showTooltips])
-
-  const handleHoverLeave = useCallback(() => {
-    setShowTooltip(false)
-  }, [])
 
   // Handle node histogram click with threshold group information
   const handleNodeHistogramClick = useCallback((event: React.MouseEvent, node: D3SankeyNode) => {
@@ -165,8 +140,6 @@ export const useSankeyInteractions = ({
 
   return {
     // State
-    tooltip,
-    showTooltip,
     containerSize,
 
     // Refs

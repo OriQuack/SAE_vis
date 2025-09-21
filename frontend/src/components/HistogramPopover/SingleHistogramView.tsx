@@ -74,11 +74,10 @@ export const SingleHistogramView: React.FC<SingleHistogramViewProps> = React.mem
 
   const handleBarHover = useCallback((event: React.MouseEvent, binIndex: number) => {
     const bin = layout.bins[binIndex]
-    const rect = event.currentTarget.getBoundingClientRect()
 
     onTooltipChange({
-      x: rect.left + rect.width / 2,
-      y: rect.top,
+      x: event.clientX,
+      y: event.clientY,
       title: `Bin ${binIndex + 1}`,
       content: formatTooltipContent(bin, threshold)
     }, true)
@@ -89,11 +88,9 @@ export const SingleHistogramView: React.FC<SingleHistogramViewProps> = React.mem
   }, [onTooltipChange])
 
   const handleThresholdHover = useCallback((event: React.MouseEvent) => {
-    const rect = event.currentTarget.getBoundingClientRect()
-
     onTooltipChange({
-      x: rect.left,
-      y: rect.top,
+      x: event.clientX,
+      y: event.clientY,
       title: 'Node Threshold',
       content: formatThresholdTooltip(threshold, histogramData.statistics)
     }, true)

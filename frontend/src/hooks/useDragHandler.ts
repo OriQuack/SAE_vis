@@ -10,6 +10,7 @@ interface DragHandlerOptions {
   onDragEnd?: (event: React.MouseEvent | MouseEvent) => void
   preventDefault?: boolean
   stopPropagation?: boolean
+  preventPageScroll?: boolean
 }
 
 interface DragHandlerReturn {
@@ -26,29 +27,58 @@ export const useDragHandler = ({
   onDragMove,
   onDragEnd,
   preventDefault = true,
-  stopPropagation = true
+  stopPropagation = true,
+  preventPageScroll = true
 }: DragHandlerOptions): DragHandlerReturn => {
   const isDraggingRef = useRef(false)
+  const scrollPositionRef = useRef<{ x: number; y: number } | null>(null)
 
   const handleMouseDown = useCallback((event: React.MouseEvent) => {
     if (preventDefault) event.preventDefault()
     if (stopPropagation) event.stopPropagation()
 
+    // Store scroll position to restore if needed
+    if (preventPageScroll) {
+      scrollPositionRef.current = {
+        x: window.scrollX,
+        y: window.scrollY
+      }
+    }
+
     isDraggingRef.current = true
     onDragStart?.(event)
-  }, [onDragStart, preventDefault, stopPropagation])
+  }, [onDragStart, preventDefault, stopPropagation, preventPageScroll])
 
   const handleMouseMove = useCallback((event: MouseEvent) => {
     if (!isDraggingRef.current) return
+
+    // Prevent any default behavior that might cause scrolling
+    event.preventDefault()
+
     onDragMove(event)
-  }, [onDragMove])
+
+    // Restore scroll position if it changed during drag
+    if (preventPageScroll && scrollPositionRef.current) {
+      const currentX = window.scrollX
+      const currentY = window.scrollY
+      if (currentX !== scrollPositionRef.current.x || currentY !== scrollPositionRef.current.y) {
+        window.scrollTo(scrollPositionRef.current.x, scrollPositionRef.current.y)
+      }
+    }
+  }, [onDragMove, preventPageScroll])
 
   const handleMouseUp = useCallback((event: MouseEvent) => {
     if (!isDraggingRef.current) return
 
     isDraggingRef.current = false
+
+    // Clear stored scroll position
+    if (preventPageScroll) {
+      scrollPositionRef.current = null
+    }
+
     onDragEnd?.(event)
-  }, [onDragEnd])
+  }, [onDragEnd, preventPageScroll])
 
   // Set up global mouse events for dragging
   useEffect(() => {

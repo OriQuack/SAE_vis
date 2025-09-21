@@ -369,9 +369,9 @@ export function calculateSankeyLayout(
 ): SankeyLayout {
   const margin = {
     top: 20,
-    right: 30,
+    right: 20,
     bottom: 20,
-    left: 30
+    left: 140
   }
 
   const width = containerWidth - margin.left - margin.right
@@ -499,26 +499,6 @@ export function getSankeyPath(link: D3SankeyLink): string {
   return d3Sankey.sankeyLinkHorizontal()(link) || ''
 }
 
-export function formatNodeTooltip(node: D3SankeyNode): TooltipData['content'] {
-  return [
-    { label: 'Category', value: node.category.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) },
-    { label: 'Stage', value: node.stage },
-    { label: 'Features', value: node.feature_count.toLocaleString() },
-    { label: 'Percentage', value: `${((node.feature_count / (node.value || 1)) * 100).toFixed(1)}%` }
-  ]
-}
-
-export function formatLinkTooltip(link: D3SankeyLink): TooltipData['content'] {
-  const sourceNode = typeof link.source === 'object' ? link.source : null
-  const targetNode = typeof link.target === 'object' ? link.target : null
-
-  return [
-    { label: 'From', value: sourceNode?.name || 'Unknown' },
-    { label: 'To', value: targetNode?.name || 'Unknown' },
-    { label: 'Features', value: link.value.toLocaleString() },
-    { label: 'Flow', value: `${sourceNode?.name || 'Source'} → ${targetNode?.name || 'Target'}` }
-  ]
-}
 
 export function validateSankeyData(data: SankeyData): string[] {
   const errors: string[] = []
