@@ -1,6 +1,6 @@
 import React from 'react'
 import { HISTOGRAM_COLORS } from '../../utils/d3-helpers'
-import type { TooltipData, HistogramData, MultiHistogramLayout, MetricType } from '../../services/types'
+import type { HistogramData, MultiHistogramLayout, MetricType } from '../../services/types'
 import { IndividualHistogram } from './IndividualHistogram'
 import { CHART_STYLES } from './utils/styles'
 
@@ -11,7 +11,6 @@ interface MultiHistogramViewProps {
   animationDuration: number
   containerSize: { width: number; height: number }
   onThresholdChange: (metric: string, threshold: number) => void
-  onTooltipChange: (tooltip: TooltipData | null, visible: boolean) => void
   svgRef: React.RefObject<SVGSVGElement>
   allNodeThresholds: Record<string, any>
   thresholdNodeId: string
@@ -24,7 +23,6 @@ export const MultiHistogramView: React.FC<MultiHistogramViewProps> = React.memo(
   animationDuration,
   containerSize,
   onThresholdChange,
-  onTooltipChange,
   svgRef,
   allNodeThresholds,
   thresholdNodeId
@@ -64,7 +62,6 @@ export const MultiHistogramView: React.FC<MultiHistogramViewProps> = React.memo(
               threshold={threshold}
               animationDuration={animationDuration}
               onThresholdChange={onThresholdChange}
-              onTooltipChange={onTooltipChange}
               parentSvgRef={svgRef}
             />
           )

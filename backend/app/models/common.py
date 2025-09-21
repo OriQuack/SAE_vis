@@ -124,16 +124,20 @@ class HierarchicalThresholds(BaseModel):
 
     def get_score_thresholds_for_node(self, node_id: str) -> Dict[str, float]:
         """Get score thresholds for a node based on its parent grouping"""
-        # Extract semantic distance parent from node_id (e.g., "split_true_semdist_high_agree_all" -> "split_true_semdist_high")
-        if "_agree_" in node_id:
-            semantic_parent = "_".join(node_id.split("_")[:-2])  # Remove "_agree_{type}" suffix
-            if self.score_agreement_groups and semantic_parent in self.score_agreement_groups:
-                return self.score_agreement_groups[semantic_parent]
-
         # Default to global score_high for all score types
         default_score = self.global_thresholds.score_high
-        return {
+        result = {
             "score_fuzz": default_score,
             "score_simulation": default_score,
             "score_detection": default_score
         }
+
+        # Extract semantic distance parent from node_id (e.g., "split_true_semdist_high_agree_all" -> "split_true_semdist_high")
+        if "_agree_" in node_id:
+            semantic_parent = "_".join(node_id.split("_")[:-2])  # Remove "_agree_{type}" suffix
+            if self.score_agreement_groups and semantic_parent in self.score_agreement_groups:
+                # Merge hierarchical thresholds with defaults, so missing metrics use defaults
+                group_thresholds = self.score_agreement_groups[semantic_parent]
+                result.update(group_thresholds)
+
+        return result

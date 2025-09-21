@@ -1,14 +1,12 @@
-import React, { useMemo, useCallback } from 'react'
+import React, { useMemo, useCallback, useRef } from 'react'
 import { useDragHandler } from '../../hooks'
 import {
   calculateThresholdLine,
   positionToValue,
-  formatTooltipContent,
-  formatThresholdTooltip,
   HISTOGRAM_COLORS,
   SLIDER_TRACK
 } from '../../utils/d3-helpers'
-import type { TooltipData, HistogramData, IndividualHistogramLayout } from '../../services/types'
+import type { HistogramData, IndividualHistogramLayout } from '../../services/types'
 
 interface IndividualHistogramProps {
   layout: IndividualHistogramLayout
@@ -16,7 +14,6 @@ interface IndividualHistogramProps {
   threshold: number
   animationDuration: number
   onThresholdChange: (metric: string, threshold: number) => void
-  onTooltipChange: (tooltip: TooltipData | null, visible: boolean) => void
   parentSvgRef: React.RefObject<SVGSVGElement>
 }
 
@@ -26,9 +23,10 @@ export const IndividualHistogram: React.FC<IndividualHistogramProps> = React.mem
   threshold,
   animationDuration,
   onThresholdChange,
-  onTooltipChange,
   parentSvgRef
 }) => {
+  // Create a ref for this specific histogram group
+  const histogramGroupRef = useRef<SVGGElement>(null)
   const thresholdLine = useMemo(() => {
     return calculateThresholdLine(threshold, layout)
   }, [threshold, layout])
@@ -42,17 +40,18 @@ export const IndividualHistogram: React.FC<IndividualHistogramProps> = React.mem
   }, [histogramData, layout.metric, onThresholdChange])
 
   const calculateThresholdFromEvent = useCallback((event: React.MouseEvent | MouseEvent) => {
-    const rect = parentSvgRef.current?.getBoundingClientRect()
-    if (!rect) return null
+    const histogramRect = histogramGroupRef.current?.getBoundingClientRect()
+    if (!histogramRect) return null
 
-    const x = event.clientX - rect.left - layout.margin.left
+    // Calculate x position relative to this specific histogram's chart area
+    const x = event.clientX - histogramRect.left - layout.margin.left
     return positionToValue(
       x,
       histogramData.statistics.min,
       histogramData.statistics.max,
       layout.width
     )
-  }, [layout, histogramData, parentSvgRef])
+  }, [layout, histogramData])
 
   const { handleMouseDown: handleSliderMouseDown } = useDragHandler({
     onDragStart: (event) => {
@@ -69,39 +68,9 @@ export const IndividualHistogram: React.FC<IndividualHistogramProps> = React.mem
     }
   })
 
-  const handleBarHover = useCallback((event: React.MouseEvent, binIndex: number) => {
-    const bin = layout.bins[binIndex]
-    const rect = event.currentTarget.getBoundingClientRect()
-
-    const tooltip = {
-      x: rect.left + rect.width / 2,
-      y: rect.top,
-      title: `${layout.chartTitle} - Bin ${binIndex + 1}`,
-      content: formatTooltipContent(bin, threshold)
-    }
-
-    onTooltipChange(tooltip, true)
-  }, [layout, threshold, onTooltipChange])
-
-  const handleBarLeave = useCallback(() => {
-    onTooltipChange(null, false)
-  }, [onTooltipChange])
-
-  const handleThresholdHover = useCallback((event: React.MouseEvent) => {
-    const rect = event.currentTarget.getBoundingClientRect()
-
-    const tooltip = {
-      x: rect.left,
-      y: rect.top,
-      title: `${layout.chartTitle} Threshold`,
-      content: formatThresholdTooltip(threshold, histogramData.statistics)
-    }
-
-    onTooltipChange(tooltip, true)
-  }, [layout, threshold, histogramData, onTooltipChange])
 
   return (
-    <g transform={`translate(0,${layout.yOffset})`} className="individual-histogram">
+    <g ref={histogramGroupRef} transform={`translate(0,${layout.yOffset})`} className="individual-histogram">
       {/* Chart title */}
       <text
         x={(layout.width + layout.margin.left + layout.margin.right) / 2}
@@ -155,8 +124,6 @@ export const IndividualHistogram: React.FC<IndividualHistogramProps> = React.mem
                   transition: `fill ${animationDuration}ms ease-out`,
                   cursor: 'pointer'
                 }}
-                onMouseEnter={(e) => handleBarHover(e, index)}
-                onMouseLeave={handleBarLeave}
                 aria-label={`${layout.chartTitle} bin ${index + 1}: ${bin.count} features`}
               />
             )
@@ -174,8 +141,6 @@ export const IndividualHistogram: React.FC<IndividualHistogramProps> = React.mem
               stroke={HISTOGRAM_COLORS.threshold}
               strokeWidth={3}
               style={{ cursor: 'pointer' }}
-              onMouseEnter={handleThresholdHover}
-              onMouseLeave={handleBarLeave}
             />
           </g>
         )}
@@ -221,8 +186,6 @@ export const IndividualHistogram: React.FC<IndividualHistogramProps> = React.mem
               strokeWidth={2}
               style={{ cursor: 'pointer' }}
               onMouseDown={handleSliderMouseDown}
-              onMouseEnter={handleThresholdHover}
-              onMouseLeave={handleBarLeave}
             />
             {/* Connecting line from histogram to slider */}
             <line

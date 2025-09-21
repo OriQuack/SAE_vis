@@ -177,18 +177,14 @@ export const createThresholdSlice: StateCreator<
         // Handle score agreement threshold groups
         else if ((metric === 'score_fuzz' || metric === 'score_simulation' || metric === 'score_detection') &&
                  groupId.includes('_semdist_')) {
-          // Get existing scores or use global defaults
+          // Get existing scores - only update the specific metric being changed
           const existingScores = newHierarchical.score_agreement_groups?.[groupId] || {}
-          const globalScore = state.thresholds.score_high
 
-          // Set all three scores - use existing values or global defaults
+          // Only update the specific metric that's being changed
           newHierarchical.score_agreement_groups = {
             ...newHierarchical.score_agreement_groups,
             [groupId]: {
-              score_fuzz: existingScores.score_fuzz ?? globalScore,
-              score_simulation: existingScores.score_simulation ?? globalScore,
-              score_detection: existingScores.score_detection ?? globalScore,
-              // Update the specific metric with the new threshold
+              ...existingScores,
               [metric]: threshold
             }
           }

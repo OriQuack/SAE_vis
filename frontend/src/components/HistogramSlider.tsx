@@ -1,6 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import { useVisualizationStore } from '../stores/visualizationStore'
-import Tooltip from './shared/Tooltip'
 import MetricSelector from './shared/MetricSelector'
 import ErrorMessage from './shared/ErrorMessage'
 import LoadingSpinner from './LoadingSpinner'
@@ -9,15 +8,13 @@ import {
   calculateHistogramLayout,
   calculateThresholdLine,
   positionToValue,
-  formatTooltipContent,
-  formatThresholdTooltip,
   validateHistogramData,
   validateDimensions,
   HISTOGRAM_COLORS,
   SLIDER_TRACK,
   DEFAULT_ANIMATION
 } from '../utils/d3-helpers'
-import type { MetricType, TooltipData } from '../services/types'
+import type { MetricType } from '../services/types'
 
 // ============================================================================
 // TYPES
@@ -57,10 +54,6 @@ export const HistogramSlider: React.FC<HistogramSliderProps> = React.memo(({
 
   // Refs
   const svgRef = useRef<SVGSVGElement>(null)
-
-  // Local state
-  const [tooltip, setTooltip] = useState<TooltipData | null>(null)
-  const [showTooltip, setShowTooltip] = useState(false)
 
   // Validation
   const validationErrors = useMemo(() => {
@@ -131,37 +124,6 @@ export const HistogramSlider: React.FC<HistogramSliderProps> = React.memo(({
     }
   })
 
-  // Handle bar hover
-  const handleBarHover = useCallback((event: React.MouseEvent, binIndex: number) => {
-    if (!layout || !data) return
-
-    const bin = layout.bins[binIndex]
-
-    setTooltip({
-      x: event.clientX,
-      y: event.clientY,
-      title: `Bin ${binIndex + 1}`,
-      content: formatTooltipContent(bin, threshold)
-    })
-    setShowTooltip(true)
-  }, [layout, data, threshold])
-
-  const handleBarLeave = useCallback(() => {
-    setShowTooltip(false)
-  }, [])
-
-  // Handle threshold line hover
-  const handleThresholdHover = useCallback((event: React.MouseEvent) => {
-    if (!data) return
-
-    setTooltip({
-      x: event.clientX,
-      y: event.clientY,
-      title: 'Threshold',
-      content: formatThresholdTooltip(threshold, data.statistics)
-    })
-    setShowTooltip(true)
-  }, [data, threshold])
 
   // Handle metric change
   const handleMetricChange = useCallback((newMetric: MetricType) => {
@@ -265,11 +227,8 @@ export const HistogramSlider: React.FC<HistogramSliderProps> = React.memo(({
                       stroke="white"
                       strokeWidth={1}
                       style={{
-                        transition: `fill ${animationDuration}ms ease-out`,
-                        cursor: 'pointer'
+                        transition: `fill ${animationDuration}ms ease-out`
                       }}
-                      onMouseEnter={(e) => handleBarHover(e, index)}
-                      onMouseLeave={handleBarLeave}
                       aria-label={`Bin ${index + 1}: ${bin.count} features`}
                     />
                   )
@@ -287,8 +246,6 @@ export const HistogramSlider: React.FC<HistogramSliderProps> = React.memo(({
                     stroke={HISTOGRAM_COLORS.threshold}
                     strokeWidth={3}
                     style={{ cursor: 'pointer' }}
-                    onMouseEnter={handleThresholdHover}
-                    onMouseLeave={handleBarLeave}
                   />
                 </g>
               )}
@@ -335,8 +292,6 @@ export const HistogramSlider: React.FC<HistogramSliderProps> = React.memo(({
                     strokeWidth={2}
                     style={{ cursor: 'pointer' }}
                     onMouseDown={handleSliderMouseDown}
-                    onMouseEnter={handleThresholdHover}
-                    onMouseLeave={handleBarLeave}
                     tabIndex={-1}
                   />
                   {/* Connecting line from histogram to slider */}
@@ -443,14 +398,6 @@ export const HistogramSlider: React.FC<HistogramSliderProps> = React.memo(({
           </svg>
         </div>
       )}
-
-
-      {/* Tooltip */}
-      <Tooltip
-        data={tooltip}
-        visible={showTooltip}
-        className="histogram-tooltip"
-      />
     </div>
   )
 })

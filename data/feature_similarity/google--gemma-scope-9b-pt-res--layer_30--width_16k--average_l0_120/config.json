@@ -1,0 +1,14 @@
+{
+  "model_name_or_path": "google/gemma-scope-9b-pt-res",
+  "position": "layer_30/width_16k/average_l0_120",
+  "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
+  "feature_range": {
+    "start": 0,
+    "end": 1000
+  },
+  "output_filename": "feature_similarities.json",
+  "device": "auto",
+  "use_float16": true,
+  "memory_warning_threshold_gb": 2.0,
+  "description": "Configuration for computing SAE feature cosine similarities and finding nearest features"
+}
