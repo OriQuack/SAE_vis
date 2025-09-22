@@ -294,13 +294,13 @@ class DataService:
             # Splitting parent ID for semantic distance grouping
             (
                 pl.lit("split_") +
-                pl.when(pl.col("feature_splitting") >= hierarchical_thresholds.get_feature_splitting_threshold()).then(pl.lit("false")).otherwise(pl.lit("true"))
+                pl.when(pl.col("feature_splitting") >= hierarchical_thresholds.get_feature_splitting_threshold()).then(pl.lit("true")).otherwise(pl.lit("false"))
             ).alias("splitting_parent_id"),
 
             # Semantic distance parent ID for score agreement grouping
             (
                 pl.lit("split_") +
-                pl.when(pl.col("feature_splitting") >= hierarchical_thresholds.get_feature_splitting_threshold()).then(pl.lit("false")).otherwise(pl.lit("true")) +
+                pl.when(pl.col("feature_splitting") >= hierarchical_thresholds.get_feature_splitting_threshold()).then(pl.lit("true")).otherwise(pl.lit("false")) +
                 pl.lit("_semdist_") +
                 pl.when(pl.col("semdist_category") == "high").then(pl.lit("high")).otherwise(pl.lit("low"))
             ).alias("semantic_parent_id")
@@ -328,7 +328,7 @@ class DataService:
         df_updated = df_reclassified.with_columns([
             (
                 pl.lit("split_") +
-                pl.when(pl.col("feature_splitting") >= hierarchical_thresholds.get_feature_splitting_threshold()).then(pl.lit("false")).otherwise(pl.lit("true")) +
+                pl.when(pl.col("feature_splitting") >= hierarchical_thresholds.get_feature_splitting_threshold()).then(pl.lit("true")).otherwise(pl.lit("false")) +
                 pl.lit("_semdist_") +
                 pl.col("semdist_category")
             ).alias("semantic_parent_id")
@@ -422,8 +422,8 @@ class DataService:
 
                     # Feature splitting category using threshold
                     pl.when(pl.col("feature_splitting") >= hierarchicalThresholds.get_feature_splitting_threshold())
-                    .then(pl.lit("false"))
-                    .otherwise(pl.lit("true"))
+                    .then(pl.lit("true"))
+                    .otherwise(pl.lit("false"))
                     .alias("splitting_category")
                 ])
 
@@ -451,8 +451,8 @@ class DataService:
 
                     # Feature splitting category using threshold (cosine similarity scale)
                     pl.when(pl.col("feature_splitting") >= thresholds.get("feature_splitting", 0.00002))
-                    .then(pl.lit("false"))
-                    .otherwise(pl.lit("true"))
+                    .then(pl.lit("true"))
+                    .otherwise(pl.lit("false"))
                     .alias("splitting_category")
                 ])
 

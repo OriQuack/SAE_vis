@@ -160,24 +160,22 @@ def compute_feature_similarities(config: Dict) -> Dict:
     cosine_similarity_matrix = normalized_weights @ normalized_weights.T
     print(f"Cosine similarity matrix shape: {cosine_similarity_matrix.shape}")
 
-    # 6. Find nearest (minimum magnitude) cosine similarity for each feature
-    print("Computing nearest cosine similarity for each feature...")
+    # 6. Find maximum cosine similarity for each feature
+    print("Computing maximum cosine similarity for each feature...")
 
-    # Set diagonal to a large value to exclude self-similarity (which is 1.0)
-    cosine_similarity_matrix.fill_diagonal_(float("inf"))
+    # Set diagonal to a very negative value to exclude self-similarity (which is 1.0)
+    cosine_similarity_matrix.fill_diagonal_(float("-inf"))
 
-    # Find minimum magnitude (closest to 0) cosine similarity for each feature
-    # Take absolute value to find minimum magnitude, then get original signed values
-    abs_similarities = torch.abs(cosine_similarity_matrix)
-    min_indices = torch.argmin(abs_similarities, dim=1)
+    # Find maximum cosine similarity for each feature
+    max_indices = torch.argmax(cosine_similarity_matrix, dim=1)
     nearest_similarities = cosine_similarity_matrix[
-        torch.arange(cosine_similarity_matrix.shape[0]), min_indices
+        torch.arange(cosine_similarity_matrix.shape[0]), max_indices
     ]
     print(f"Nearest similarities shape: {nearest_similarities.shape}")
 
     # Map indices back to original feature IDs (accounting for feature range filtering)
     source_feature_ids = list(feature_indices)
-    closest_feature_ids = [feature_indices[idx] for idx in min_indices.cpu().numpy()]
+    closest_feature_ids = [feature_indices[idx] for idx in max_indices.cpu().numpy()]
 
     print(f"Source feature IDs range: {min(source_feature_ids)} to {max(source_feature_ids)}")
     print(f"Closest feature IDs range: {min(closest_feature_ids)} to {max(closest_feature_ids)}")
@@ -219,7 +217,7 @@ def compute_feature_similarities(config: Dict) -> Dict:
             "end": int(max(source_feature_ids) + 1),
             "total_features": len(source_feature_ids)
         },
-        "description": "Nearest (minimum magnitude) cosine similarity for each SAE feature - closest to 0",
+        "description": "Maximum cosine similarity for each SAE feature",
         "model_info": {
             "model_name_or_path": model_name_or_path,
             "position": position
@@ -229,9 +227,9 @@ def compute_feature_similarities(config: Dict) -> Dict:
         "config_used": config
     }
 
-    print(f"Min magnitude: {statistics['min_magnitude']:.6f}")
-    print(f"Max magnitude: {statistics['max_magnitude']:.6f}")
-    print(f"Mean magnitude: {statistics['mean_magnitude']:.6f}")
+    print(f"Min similarity: {statistics['min_value']:.6f}")
+    print(f"Max similarity: {statistics['max_value']:.6f}")
+    print(f"Mean similarity: {statistics['mean_value']:.6f}")
     print(f"Value range: [{statistics['min_value']:.6f}, {statistics['max_value']:.6f}]")
 
     return results

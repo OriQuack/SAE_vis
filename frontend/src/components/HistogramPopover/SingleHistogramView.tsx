@@ -7,7 +7,8 @@ import {
   SLIDER_TRACK
 } from '../../utils/d3-helpers'
 import { formatSmartNumber } from '../../utils/formatters'
-import type { HistogramData, HistogramLayout } from '../../services/types'
+import type { HistogramData } from '../../services/types'
+import type { HistogramLayout } from '../../utils/d3-helpers'
 import { CHART_STYLES } from './utils/styles'
 
 interface SingleHistogramViewProps {
