@@ -43,7 +43,6 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
 
   const {
     hideHistogramPopover,
-    fetchHistogramData,
     fetchMultipleHistogramData,
     clearError
   } = useVisualizationStore()
@@ -149,26 +148,20 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
 
   // Handle retry
   const handleRetry = useCallback(() => {
-    if (popoverData?.nodeId) {
+    if (popoverData?.nodeId && popoverData?.metrics) {
       clearError('histogram')
-      if (popoverData.metrics?.length === 1) {
-        fetchHistogramData(false, popoverData.nodeId)
-      } else if (popoverData.metrics) {
-        fetchMultipleHistogramData(popoverData.metrics, false, popoverData.nodeId)
-      }
+      // Always use fetchMultipleHistogramData since it correctly handles the metric parameter
+      fetchMultipleHistogramData(popoverData.metrics, false, popoverData.nodeId)
     }
-  }, [popoverData?.nodeId, popoverData?.metrics, clearError, fetchHistogramData, fetchMultipleHistogramData])
+  }, [popoverData?.nodeId, popoverData?.metrics, clearError, fetchMultipleHistogramData])
 
   // Fetch histogram data when popover opens
   useEffect(() => {
     if (popoverData?.visible && popoverData.nodeId && popoverData.metrics?.length > 0) {
-      if (popoverData.metrics.length === 1) {
-        fetchHistogramData(false, popoverData.nodeId)
-      } else {
-        fetchMultipleHistogramData(popoverData.metrics, false, popoverData.nodeId)
-      }
+      // Always use fetchMultipleHistogramData since it correctly handles the metric parameter
+      fetchMultipleHistogramData(popoverData.metrics, false, popoverData.nodeId)
     }
-  }, [popoverData?.visible, popoverData?.nodeId, popoverData?.metrics, fetchHistogramData, fetchMultipleHistogramData])
+  }, [popoverData?.visible, popoverData?.nodeId, popoverData?.metrics, fetchMultipleHistogramData])
 
   // Don't render if popover is not visible
   if (!popoverData?.visible) {

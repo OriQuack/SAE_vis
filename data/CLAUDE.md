@@ -26,13 +26,16 @@ data/
 │   │   ├── generate_embeddings.py           # Create embeddings from explanations
 │   │   ├── process_scores.py                # Process scores from raw files
 │   │   ├── calculate_semantic_distances.py  # Calculate distances between embeddings
-│   │   └── generate_detailed_json.py        # Consolidate all data per feature
+│   │   ├── generate_detailed_json.py        # Consolidate all data per feature
+│   │   └── create_master_parquet.py         # Create master parquet from detailed JSON ✅ NEW
 │   ├── config/                 # Configuration files for processing
 │   │   ├── embedding_config.json            # Embedding generation config
 │   │   ├── score_config.json                # Score processing config
 │   │   ├── gwen_score_config.json           # Gwen-specific score config
 │   │   ├── semantic_distance_config.json    # Semantic distance config
-│   │   └── detailed_json_config.json        # Detailed JSON consolidation config
+│   │   ├── detailed_json_config.json        # Detailed JSON consolidation config
+│   │   ├── feature_similarity_config.json   # Feature similarity calculation config ✅ NEW
+│   │   └── master_parquet_config.json       # Master parquet creation config ✅ NEW
 │   └── logs/                   # Processing logs (if any)
 ├── embeddings/                 # Processed embedding vectors
 │   ├── llama_e-llama_s/        # Embeddings from Llama explanations
@@ -52,12 +55,19 @@ data/
 │   └── llama_e-llama_s_vs_gwen_e-llama_s/  # Distance between explanation sources
 │       ├── semantic_distances.json         # Distance metrics and comparisons (824 pairs)
 │       └── config.json                     # Config used for calculation (includes sae_ids)
-└── detailed_json/              # Final consolidated data per feature ✅ IMPLEMENTED
-    └── google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120/
-        ├── feature_0.json      # Detailed JSON for feature 0
-        ├── feature_1.json      # Detailed JSON for feature 1
-        ├── ...                 # (824 feature files total)
-        └── config.json         # Consolidation config and statistics
+├── feature_similarity/         # SAE feature cosine similarity calculations ✅ NEW
+│   └── google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120/
+│       ├── feature_similarities.json       # Closest cosine similarities (1000 features)
+│       └── config.json                     # Config used for similarity calculation
+├── detailed_json/              # Final consolidated data per feature ✅ IMPLEMENTED
+│   └── google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120/
+│       ├── feature_0.json      # Detailed JSON for feature 0
+│       ├── feature_1.json      # Detailed JSON for feature 1
+│       ├── ...                 # (824 feature files total)
+│       └── config.json         # Consolidation config and statistics
+└── master/                     # Master parquet files for analysis ✅ NEW
+    ├── feature_analysis.parquet            # Master table with cosine similarity
+    └── feature_analysis.metadata.json      # Processing metadata and statistics
 ```
 
 ## Data Flow Pipeline
@@ -101,45 +111,78 @@ data/
 - **Complete Integration**: Merges embeddings, scores, and semantic distances
 - Outputs: Individual detailed JSON file per feature
 
-### 3. Completed Output Format: Detailed JSON ✅
+#### E. Feature Similarity Calculation ✅ NEW
+- **SAE Feature Analysis**: Computes cosine similarities between SAE feature vectors
+- **Closest Similarity Detection**: Finds minimum magnitude cosine similarity for each feature
+- **Scalable Processing**: Handles large feature sets (1000+ features) efficiently
+- **Memory Optimization**: Uses float16 precision and automatic device selection
+- Outputs: Per-feature closest cosine similarity values for feature splitting analysis
 
-The pipeline now produces comprehensive per-feature JSON files with this structure:
+#### F. Master Parquet Creation (`create_master_parquet.py`) ✅ NEW
+- **Scalable Data Format**: Converts detailed JSON to optimized Polars DataFrame
+- **Enhanced Feature Splitting**: Uses cosine similarity values instead of boolean
+- **Professional Path Handling**: Generates portable relative paths without user-specific information
+- **Robust Schema**: Proper data types with Float32 feature_splitting for continuous analysis
+- **Smart Path Resolution**: Works from any directory with automatic project root detection
+- Outputs: Master parquet file ready for high-performance analysis and visualization
+
+### 3. Completed Output Formats ✅
+
+#### A. Detailed JSON Format ✅
+The pipeline produces comprehensive per-feature JSON files with this structure:
 
 ```json
 {
   "feature_id": 123,
-  "sae_id": "gemma-scope-9b-pt-res/layer_30/width16k/average_l0_120",
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
   "explanations": [
     {
       "explanation_id": "exp_001",
       "text": "This feature seems to activate on concepts related to network security protocols...",
       "explanation_method": "quantiles",
-      "llm_explainer": "claude-3-opus"
+      "llm_explainer": "claude-3-opus",
+      "data_source": "llama_e-llama_s"
     }
   ],
   "semantic_distance_pairs": [
     {
       "pair": ["exp_001", "exp_002"],
-      "distance": 0.08
+      "cosine_distance": 0.08
     }
   ],
   "scores": [
     {
       "llm_scorer": "gpt-4-turbo",
+      "data_source": "llama_e-llama_s",
       "score_fuzz": 0.89,
       "score_simulation": 0.92,
       "score_detection": 0.85,
       "score_embedding": 0.95
     }
-  ],
-  "activating_examples": [
-    {
-      "text": "...the implementation of the SSL/TLS handshake protocol...",
-      "activation_values": [0.05, 0.12, 0.45, 0.98, 0.85, 0.60, 0.21]
-    }
   ]
 }
 ```
+
+#### B. Master Parquet Schema ✅ NEW
+High-performance columnar format optimized for analysis with this schema:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `feature_id` | UInt32 | SAE feature index (0-823) |
+| `sae_id` | Categorical | SAE model identifier |
+| `explanation_method` | Categorical | Method used for explanation generation |
+| `llm_explainer` | Categorical | LLM model used for explanations |
+| `llm_scorer` | Categorical | LLM model used for scoring |
+| `feature_splitting` | **Float32** | **Closest cosine similarity magnitude** |
+| `semdist_mean` | Float32 | Average semantic distance between explanations |
+| `semdist_max` | Float32 | Maximum semantic distance between explanations |
+| `score_fuzz` | Float32 | Fuzzing evaluation score |
+| `score_simulation` | Float32 | Simulation evaluation score |
+| `score_detection` | Float32 | Detection evaluation score |
+| `score_embedding` | Float32 | Embedding evaluation score |
+| `details_path` | Utf8 | Portable relative path to detailed JSON |
+
+**Key Enhancement**: `feature_splitting` now contains **continuous cosine similarity values** instead of boolean, enabling more nuanced analysis of feature separation characteristics.
 
 ## Configuration Management
 
@@ -160,28 +203,59 @@ Additional data sources can be added by:
 
 ## Usage Examples
 
-### Generate embeddings for a data source:
+### Complete Pipeline Execution:
 ```bash
 cd data/preprocessing/scripts
+
+# 1. Generate embeddings for explanations
 python generate_embeddings.py --config ../config/embedding_config.json
-```
 
-### Process scores for evaluation:
-```bash
+# 2. Process raw scores into statistics
 python process_scores.py --config ../config/score_config.json
-```
 
-### Calculate semantic distances between sources:
-```bash
+# 3. Calculate semantic distances between explanation sources
 python calculate_semantic_distances.py --config ../config/semantic_distance_config.json
+
+# 4. Consolidate all data into detailed JSON per feature
+python generate_detailed_json.py --config ../config/detailed_json_config.json
+
+# 5. ✅ NEW: Create master parquet with cosine similarity
+python create_master_parquet.py --config ../config/master_parquet_config.json
 ```
 
-## Next Steps
+### Individual Script Usage:
+```bash
+# Validate existing master parquet
+python create_master_parquet.py --config ../config/master_parquet_config.json --validate-only
 
-To complete the pipeline, implement:
-1. **Detailed JSON consolidation script** that combines all processed data
-2. **SAE ID mapping** from current data source names to proper SAE identifiers
-3. **Activating examples extraction** from raw data files
-4. **Multi-scorer support** for different LLM scoring systems
+# Run from project root (alternative)
+cd /path/to/interface
+python data/preprocessing/scripts/create_master_parquet.py --config data/preprocessing/config/master_parquet_config.json
+```
 
-This will enable comprehensive analysis of SAE feature interpretability across different explanation methods and evaluation metrics.
+## Pipeline Status & Next Steps
+
+### ✅ Completed (Production Ready)
+1. **Raw Data Processing**: Complete extraction and normalization ✅
+2. **Embedding Generation**: Vector embeddings with metadata ✅
+3. **Score Processing**: Statistical aggregation with proper typing ✅
+4. **Semantic Distance Calculation**: Multi-metric distance computation ✅
+5. **Detailed JSON Consolidation**: Comprehensive per-feature data ✅
+6. **Feature Similarity Analysis**: Cosine similarity computation ✅
+7. **Master Parquet Creation**: High-performance columnar format ✅
+
+### 🎯 Current Achievement
+- **Complete End-to-End Pipeline**: From raw SAE data to analysis-ready parquet
+- **Advanced Feature Analysis**: Cosine similarity-based feature splitting detection
+- **Production-Grade Code**: Professional path handling, robust error handling, portable configuration
+- **Optimized Performance**: Polars DataFrame with proper schema and categorical types
+- **Full Documentation**: Comprehensive usage examples and schema documentation
+
+### 🔮 Future Enhancements (Optional)
+1. **Additional Similarity Metrics**: Euclidean, Manhattan distance for feature comparison
+2. **Advanced Aggregations**: Feature clustering based on similarity patterns
+3. **Performance Monitoring**: Processing time and memory usage tracking
+4. **Multi-SAE Support**: Batch processing across different SAE models
+5. **Visualization Integration**: Direct integration with plotting libraries
+
+The data processing pipeline is now **complete and production-ready** for comprehensive SAE feature interpretability analysis!

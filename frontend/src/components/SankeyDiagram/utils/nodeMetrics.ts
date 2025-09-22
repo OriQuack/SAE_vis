@@ -11,7 +11,7 @@ export function getMetricsForNode(node: D3SankeyNode): MetricType[] | null {
       return null // No histogram for "All Features" - nothing to threshold yet
 
     case 'feature_splitting':
-      return null // No histogram for feature splitting - it's a boolean field (true/false/null), not a continuous metric
+      return ['feature_splitting'] // Single histogram for feature splitting classification (cosine similarity metric)
 
     case 'semantic_distance':
       return ['semdist_mean'] // Single histogram for semantic distance classification

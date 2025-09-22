@@ -23,6 +23,7 @@ export const INITIAL_FILTERS: Filters = {
 // Default thresholds - these will be automatically updated to the mean values
 // from the histogram data once it's fetched
 export const INITIAL_THRESHOLDS: Thresholds = {
+  feature_splitting: 0.00002,  // Default for cosine similarity scale (1e-4 to 1e-6 range)
   semdist_mean: 0.1,  // Default to middle of range (0-1), will be replaced with actual mean
   score_high: 0.5     // Default to middle of range (0-1), will be replaced with actual mean
 }

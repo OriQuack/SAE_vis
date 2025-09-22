@@ -217,7 +217,7 @@ class DataService:
             # Create parent node ID that matches the semantic distance node
             (
                 pl.lit("split_") +
-                pl.when(pl.col("feature_splitting")).then(pl.lit("true")).otherwise(pl.lit("false")) +
+                pl.when(pl.col("splitting_category") == "true").then(pl.lit("true")).otherwise(pl.lit("false")) +
                 pl.lit("_semdist_") +
                 pl.when(pl.col("semdist_category") == "high").then(pl.lit("high")).otherwise(pl.lit("low"))
             ).alias("parent_node_id")
@@ -294,13 +294,13 @@ class DataService:
             # Splitting parent ID for semantic distance grouping
             (
                 pl.lit("split_") +
-                pl.when(pl.col("feature_splitting")).then(pl.lit("true")).otherwise(pl.lit("false"))
+                pl.when(pl.col("feature_splitting") >= hierarchical_thresholds.get_feature_splitting_threshold()).then(pl.lit("false")).otherwise(pl.lit("true"))
             ).alias("splitting_parent_id"),
 
             # Semantic distance parent ID for score agreement grouping
             (
                 pl.lit("split_") +
-                pl.when(pl.col("feature_splitting")).then(pl.lit("true")).otherwise(pl.lit("false")) +
+                pl.when(pl.col("feature_splitting") >= hierarchical_thresholds.get_feature_splitting_threshold()).then(pl.lit("false")).otherwise(pl.lit("true")) +
                 pl.lit("_semdist_") +
                 pl.when(pl.col("semdist_category") == "high").then(pl.lit("high")).otherwise(pl.lit("low"))
             ).alias("semantic_parent_id")
@@ -328,7 +328,7 @@ class DataService:
         df_updated = df_reclassified.with_columns([
             (
                 pl.lit("split_") +
-                pl.when(pl.col("feature_splitting")).then(pl.lit("true")).otherwise(pl.lit("false")) +
+                pl.when(pl.col("feature_splitting") >= hierarchical_thresholds.get_feature_splitting_threshold()).then(pl.lit("false")).otherwise(pl.lit("true")) +
                 pl.lit("_semdist_") +
                 pl.col("semdist_category")
             ).alias("semantic_parent_id")
@@ -420,10 +420,10 @@ class DataService:
                     .otherwise(pl.lit("low"))
                     .alias("semdist_category"),
 
-                    # Feature splitting category
-                    pl.when(pl.col("feature_splitting"))
-                    .then(pl.lit("true"))
-                    .otherwise(pl.lit("false"))
+                    # Feature splitting category using threshold
+                    pl.when(pl.col("feature_splitting") >= hierarchicalThresholds.get_feature_splitting_threshold())
+                    .then(pl.lit("false"))
+                    .otherwise(pl.lit("true"))
                     .alias("splitting_category")
                 ])
 
@@ -449,10 +449,10 @@ class DataService:
                     .otherwise(pl.lit("low"))
                     .alias("semdist_category"),
 
-                    # Feature splitting category
-                    pl.when(pl.col("feature_splitting"))
-                    .then(pl.lit("true"))
-                    .otherwise(pl.lit("false"))
+                    # Feature splitting category using threshold (cosine similarity scale)
+                    pl.when(pl.col("feature_splitting") >= thresholds.get("feature_splitting", 0.00002))
+                    .then(pl.lit("false"))
+                    .otherwise(pl.lit("true"))
                     .alias("splitting_category")
                 ])
 
