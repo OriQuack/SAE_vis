@@ -8,7 +8,7 @@
   },
   "output_filename": "feature_similarities.json",
   "device": "auto",
-  "use_float16": true,
+  "use_float16": false,
   "memory_warning_threshold_gb": 2.0,
   "description": "Configuration for computing SAE feature cosine similarities and finding nearest features"
 }
