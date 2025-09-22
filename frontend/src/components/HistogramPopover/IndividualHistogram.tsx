@@ -6,6 +6,7 @@ import {
   HISTOGRAM_COLORS,
   SLIDER_TRACK
 } from '../../utils/d3-helpers'
+import { formatSmartNumber } from '../../utils/formatters'
 import type { HistogramData, IndividualHistogramLayout } from '../../services/types'
 
 interface IndividualHistogramProps {
@@ -219,7 +220,7 @@ export const IndividualHistogram: React.FC<IndividualHistogramProps> = React.mem
                 fontSize={9}
                 fill={HISTOGRAM_COLORS.text}
               >
-                {tick.toFixed(2)}
+                {formatSmartNumber(tick)}
               </text>
             </g>
           ))}
@@ -261,7 +262,7 @@ export const IndividualHistogram: React.FC<IndividualHistogramProps> = React.mem
           fontFamily="monospace"
           className="individual-histogram__threshold-value"
         >
-          Threshold: {threshold.toFixed(3)}
+          Threshold: {formatSmartNumber(threshold)}
         </text>
       </g>
     </g>

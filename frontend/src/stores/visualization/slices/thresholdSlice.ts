@@ -55,8 +55,16 @@ export const createThresholdSlice: StateCreator<
           debouncedSankeyUpdate()
         }
 
+        // Update both legacy thresholds and hierarchical thresholds to keep them in sync
+        const updatedThresholds = { ...state.thresholds, ...newThresholds }
+        const updatedHierarchicalThresholds = {
+          ...state.hierarchicalThresholds,
+          global_thresholds: updatedThresholds
+        }
+
         return {
-          thresholds: { ...state.thresholds, ...newThresholds },
+          thresholds: updatedThresholds,
+          hierarchicalThresholds: updatedHierarchicalThresholds,
           errors: { ...state.errors, sankey: null }
         }
       },
@@ -167,8 +175,15 @@ export const createThresholdSlice: StateCreator<
       (state) => {
         const newHierarchical = { ...state.hierarchicalThresholds }
 
+        // Handle feature splitting threshold groups
+        if (metric === 'feature_splitting') {
+          newHierarchical.feature_splitting_groups = {
+            ...newHierarchical.feature_splitting_groups,
+            [groupId]: threshold
+          }
+        }
         // Handle semantic distance threshold groups
-        if (metric === 'semdist_mean' && groupId.startsWith('split_') && !groupId.includes('_semdist_')) {
+        else if (metric === 'semdist_mean' && groupId.startsWith('split_') && !groupId.includes('_semdist_')) {
           newHierarchical.semantic_distance_groups = {
             ...newHierarchical.semantic_distance_groups,
             [groupId]: threshold
@@ -215,7 +230,10 @@ export const createThresholdSlice: StateCreator<
 
         if (metric) {
           // Clear specific metric for the group
-          if (metric === 'semdist_mean' && newHierarchical.semantic_distance_groups?.[groupId]) {
+          if (metric === 'feature_splitting' && newHierarchical.feature_splitting_groups?.[groupId]) {
+            const { [groupId]: removed, ...rest } = newHierarchical.feature_splitting_groups
+            newHierarchical.feature_splitting_groups = rest
+          } else if (metric === 'semdist_mean' && newHierarchical.semantic_distance_groups?.[groupId]) {
             const { [groupId]: removed, ...rest } = newHierarchical.semantic_distance_groups
             newHierarchical.semantic_distance_groups = rest
           } else if ((metric === 'score_fuzz' || metric === 'score_simulation' || metric === 'score_detection') &&
@@ -235,6 +253,10 @@ export const createThresholdSlice: StateCreator<
           }
         } else {
           // Clear all thresholds for the group
+          if (newHierarchical.feature_splitting_groups?.[groupId]) {
+            const { [groupId]: removed, ...rest } = newHierarchical.feature_splitting_groups
+            newHierarchical.feature_splitting_groups = rest
+          }
           if (newHierarchical.semantic_distance_groups?.[groupId]) {
             const { [groupId]: removed, ...rest } = newHierarchical.semantic_distance_groups
             newHierarchical.semantic_distance_groups = rest

@@ -231,9 +231,9 @@ class FeatureResponse(BaseModel):
         ...,
         description="LLM scorer model"
     )
-    feature_splitting: bool = Field(
+    feature_splitting: float = Field(
         ...,
-        description="Whether feature is candidate for splitting"
+        description="Feature splitting cosine similarity score"
     )
     semdist_mean: float = Field(
         ...,

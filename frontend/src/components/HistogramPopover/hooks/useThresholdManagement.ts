@@ -36,7 +36,7 @@ export const useThresholdManagement = ({
   const allNodeThresholds = useVisualizationStore((state) => state.nodeThresholds)
   const hierarchicalThresholds = useVisualizationStore((state) => state.hierarchicalThresholds)
   const getEffectiveThresholdForNode = useVisualizationStore((state) => state.getEffectiveThresholdForNode)
-  const { setNodeThreshold, setThresholdGroup, getNodesInSameThresholdGroup } = useVisualizationStore()
+  const { setNodeThreshold, setThresholdGroup, setThresholds, getNodesInSameThresholdGroup } = useVisualizationStore()
 
   const thresholdNodeId = popoverData?.parentNodeId || popoverData?.nodeId || ''
 
@@ -103,13 +103,18 @@ export const useThresholdManagement = ({
 
     const groupInfo = thresholdGroupInfo.groups[metric as MetricType] || null
     if (groupInfo?.isGrouped && groupInfo.groupId) {
-      console.log(`🎯 Setting threshold group: ${groupInfo.groupId}.${metric} = ${clampedThreshold} (affects ${groupInfo.affectedNodes.length} nodes)`)
-      setThresholdGroup(groupInfo.groupId, metric as MetricType, clampedThreshold)
+      if (groupInfo.groupId === 'feature_splitting_global') {
+        console.log(`🎯 Setting global threshold: ${metric} = ${clampedThreshold}`)
+        setThresholds({ [metric]: clampedThreshold })
+      } else {
+        console.log(`🎯 Setting threshold group: ${groupInfo.groupId}.${metric} = ${clampedThreshold} (affects ${groupInfo.affectedNodes.length} nodes)`)
+        setThresholdGroup(groupInfo.groupId, metric as MetricType, clampedThreshold)
+      }
     } else {
       console.log(`🎯 Setting individual node threshold: ${thresholdNodeId}.${metric} = ${clampedThreshold}`)
       setNodeThreshold(thresholdNodeId, metric as MetricType, clampedThreshold)
     }
-  }, [histogramData, popoverData, thresholdGroupInfo, setNodeThreshold, setThresholdGroup, thresholdNodeId])
+  }, [histogramData, popoverData, thresholdGroupInfo, setNodeThreshold, setThresholdGroup, setThresholds, thresholdNodeId])
 
   const handleSingleThresholdChange = useCallback((newThreshold: number) => {
     if (!histogramData || !popoverData || !popoverData.metrics?.[0]) return
@@ -125,13 +130,18 @@ export const useThresholdManagement = ({
 
     const groupInfo = thresholdGroupInfo.groups[singleMetric as MetricType] || null
     if (groupInfo?.isGrouped && groupInfo.groupId) {
-      console.log(`🎯 Setting threshold group: ${groupInfo.groupId}.${singleMetric} = ${clampedThreshold} (affects ${groupInfo.affectedNodes.length} nodes)`)
-      setThresholdGroup(groupInfo.groupId, singleMetric as MetricType, clampedThreshold)
+      if (groupInfo.groupId === 'feature_splitting_global') {
+        console.log(`🎯 Setting global threshold: ${singleMetric} = ${clampedThreshold}`)
+        setThresholds({ [singleMetric]: clampedThreshold })
+      } else {
+        console.log(`🎯 Setting threshold group: ${groupInfo.groupId}.${singleMetric} = ${clampedThreshold} (affects ${groupInfo.affectedNodes.length} nodes)`)
+        setThresholdGroup(groupInfo.groupId, singleMetric as MetricType, clampedThreshold)
+      }
     } else {
       console.log(`🎯 Setting individual node threshold: ${thresholdNodeId}.${singleMetric} = ${clampedThreshold}`)
       setNodeThreshold(thresholdNodeId, singleMetric as MetricType, clampedThreshold)
     }
-  }, [histogramData, popoverData, thresholdGroupInfo, setNodeThreshold, setThresholdGroup, thresholdNodeId])
+  }, [histogramData, popoverData, thresholdGroupInfo, setNodeThreshold, setThresholdGroup, setThresholds, thresholdNodeId])
 
   const getEffectiveThreshold = useCallback((metric: string): number => {
     if (currentThresholds[metric] !== undefined) {

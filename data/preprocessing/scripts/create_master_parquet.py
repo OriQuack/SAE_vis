@@ -35,9 +35,32 @@ class MasterParquetCreator:
 
     def __init__(self, config: Dict):
         self.config = config
-        self.detailed_json_dir = Path(config["detailed_json_directory"])
-        self.output_path = Path(config["output_path"])
+
+        # Resolve paths relative to project root if not absolute
+        detailed_json_path = config["detailed_json_directory"]
+        output_path = config["output_path"]
+
+        if not Path(detailed_json_path).is_absolute():
+            # Find project root
+            project_root = Path.cwd()
+            while project_root.name != "interface" and project_root.parent != project_root:
+                project_root = project_root.parent
+
+            if project_root.name == "interface":
+                self.detailed_json_dir = project_root / detailed_json_path
+                self.output_path = project_root / output_path
+            else:
+                # Fallback to relative from current directory
+                self.detailed_json_dir = Path("../../..") / detailed_json_path
+                self.output_path = Path("../../..") / output_path
+        else:
+            self.detailed_json_dir = Path(detailed_json_path)
+            self.output_path = Path(output_path)
+
         self.sae_id_filter = config.get("sae_id_filter", None)
+
+        # Load feature similarities data
+        self.feature_similarities = self._load_feature_similarities()
 
         # Ensure output directory exists
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -85,18 +108,31 @@ class MasterParquetCreator:
             return []
 
         # Calculate feature-level metrics
-        feature_splitting = len(data["explanations"]) > 1
+        feature_splitting = self._get_feature_similarity(feature_id)
         semdist_mean, semdist_max = self._calculate_semantic_distances(
             data.get("semantic_distance_pairs", [])
         )
 
-        # Create relative path for details_path
+        # Create portable relative path for details_path
         try:
-            # Try to make relative to current working directory
-            details_path = str(json_file.relative_to(Path.cwd()))
+            # Try to make relative to project root first
+            project_root = Path.cwd()
+            while project_root.name != "interface" and project_root.parent != project_root:
+                project_root = project_root.parent
+
+            if project_root.name == "interface":
+                details_path = str(json_file.relative_to(project_root))
+            else:
+                # Fallback: make relative to detailed_json_dir
+                details_path = str(json_file.relative_to(self.detailed_json_dir.parent))
         except ValueError:
-            # If relative path fails, use absolute path
-            details_path = str(json_file.absolute())
+            # Final fallback: just use filename with directory structure
+            parts = json_file.parts
+            if "detailed_json" in parts:
+                idx = parts.index("detailed_json")
+                details_path = "/".join(parts[idx:])
+            else:
+                details_path = json_file.name
 
         rows = []
 
@@ -156,6 +192,60 @@ class MasterParquetCreator:
                 return score
         return None
 
+    def _load_feature_similarities(self) -> Dict[int, float]:
+        """Load feature similarities data and return mapping of feature_id to cosine_similarity."""
+        similarities = {}
+
+        # Look for similarity data based on SAE ID
+        if self.sae_id_filter:
+            # Try to resolve relative to project root first
+            project_root = Path.cwd()
+            while project_root.name != "interface" and project_root.parent != project_root:
+                project_root = project_root.parent
+
+            # Convert slashes to double dashes for directory name
+            sae_dir_name = self.sae_id_filter.replace("/", "--")
+            # If we found the interface directory, use it as base
+            if project_root.name == "interface":
+                similarity_dir = project_root / "data" / "feature_similarity" / sae_dir_name
+            else:
+                # Fallback to relative path from current directory
+                similarity_dir = Path("../../../feature_similarity") / sae_dir_name
+
+            similarity_file = similarity_dir / "feature_similarities.json"
+
+            if similarity_file.exists():
+                try:
+                    with open(similarity_file, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+
+                    # Extract feature mappings
+                    for mapping in data.get("feature_mappings", []):
+                        feature_id = mapping.get("source_feature_id")
+                        cosine_sim = mapping.get("cosine_similarity")
+                        if feature_id is not None and cosine_sim is not None:
+                            similarities[feature_id] = abs(float(cosine_sim))
+
+                    logger.info(f"Loaded {len(similarities)} feature similarities from {similarity_file}")
+
+                except Exception as e:
+                    logger.warning(f"Error loading feature similarities from {similarity_file}: {e}")
+            else:
+                logger.warning(f"Feature similarity file not found: {similarity_file}")
+        else:
+            logger.info("No SAE ID filter specified, skipping feature similarity loading")
+
+        return similarities
+
+    def _get_feature_similarity(self, feature_id: int) -> float:
+        """Get the closest cosine similarity value for a feature, with fallback."""
+        if feature_id in self.feature_similarities:
+            return self.feature_similarities[feature_id]
+        else:
+            # Fallback: use 0.0 for features without similarity data
+            logger.debug(f"No similarity data for feature {feature_id}, using fallback value 0.0")
+            return 0.0
+
     def _create_dataframe(self, rows: List[Dict]) -> pl.DataFrame:
         """Create Polars DataFrame with proper schema."""
         if not rows:
@@ -172,7 +262,7 @@ class MasterParquetCreator:
             pl.col("explanation_method").cast(pl.Categorical),
             pl.col("llm_explainer").cast(pl.Categorical),
             pl.col("llm_scorer").cast(pl.Categorical),
-            pl.col("feature_splitting").cast(pl.Boolean),
+            pl.col("feature_splitting").cast(pl.Float32),
             pl.col("semdist_mean").cast(pl.Float32),
             pl.col("semdist_max").cast(pl.Float32),
             pl.col("score_fuzz").cast(pl.Float32),
@@ -193,7 +283,7 @@ class MasterParquetCreator:
                 "explanation_method": pl.Categorical,
                 "llm_explainer": pl.Categorical,
                 "llm_scorer": pl.Categorical,
-                "feature_splitting": pl.Boolean,
+                "feature_splitting": pl.Float32,
                 "semdist_mean": pl.Float32,
                 "semdist_max": pl.Float32,
                 "score_fuzz": pl.Float32,

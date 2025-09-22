@@ -4,6 +4,7 @@ from enum import Enum
 
 class MetricType(str, Enum):
     """Supported metric types for histogram analysis"""
+    FEATURE_SPLITTING = "feature_splitting"
     SEMDIST_MEAN = "semdist_mean"
     SEMDIST_MAX = "semdist_max"
     SCORE_FUZZ = "score_fuzz"
@@ -55,6 +56,13 @@ class Filters(BaseModel):
 
 class Thresholds(BaseModel):
     """Threshold configuration for Sankey diagram generation"""
+    feature_splitting: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Threshold for feature splitting classification (cosine similarity magnitude, typically 1e-5 to 1e-4)",
+        example=0.00002
+    )
     semdist_mean: float = Field(
         ...,
         ge=0.0,
@@ -80,6 +88,17 @@ class HierarchicalThresholds(BaseModel):
     global_thresholds: Thresholds = Field(
         ...,
         description="Global threshold values used as defaults"
+    )
+
+    # Feature splitting threshold groups: can be customized by different conditions
+    # Key format: "condition" -> feature splitting threshold for that condition
+    feature_splitting_groups: Optional[Dict[str, float]] = Field(
+        default=None,
+        description="Feature splitting thresholds for different groupings",
+        example={
+            "default": 0.00002,
+            "high_confidence": 0.00001
+        }
     )
 
     # Semantic distance threshold groups: grouped by splitting parent
@@ -111,6 +130,12 @@ class HierarchicalThresholds(BaseModel):
             }
         }
     )
+
+    def get_feature_splitting_threshold(self, condition: str = "default") -> float:
+        """Get feature splitting threshold for a given condition (cosine similarity scale)"""
+        if self.feature_splitting_groups and condition in self.feature_splitting_groups:
+            return self.feature_splitting_groups[condition]
+        return self.global_thresholds.feature_splitting
 
     def get_semdist_threshold_for_node(self, node_id: str) -> float:
         """Get semantic distance threshold for a node based on its parent grouping"""

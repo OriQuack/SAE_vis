@@ -12,6 +12,7 @@ export interface Filters {
 }
 
 export interface Thresholds {
+  feature_splitting: number
   semdist_mean: number
   score_high: number
 }
@@ -26,6 +27,12 @@ export interface NodeThresholds {
 // New hierarchical threshold system
 export interface HierarchicalThresholds {
   global_thresholds: Thresholds
+
+  // Feature splitting threshold groups: can be customized by different conditions
+  // Key format: "condition" -> feature splitting threshold for that condition
+  feature_splitting_groups?: {
+    [condition: string]: number
+  }
 
   // Semantic distance thresholds grouped by splitting parent
   // Key format: "split_{true/false}" -> threshold value for all semantic distance nodes under this splitting parent
@@ -202,7 +209,7 @@ export interface FeatureDetail {
   explanation_method: string
   llm_explainer: string
   llm_scorer: string
-  feature_splitting: boolean
+  feature_splitting: number
   semdist_mean: number
   semdist_max: number
   scores: {
@@ -368,6 +375,7 @@ export interface TooltipData {
 // ============================================================================
 
 export type MetricType =
+  | 'feature_splitting'
   | 'semdist_mean'
   | 'semdist_max'
   | 'score_fuzz'
@@ -424,6 +432,15 @@ export function getSplittingParentId(nodeId: string): string | null {
 }
 
 /**
+ * Extract feature splitting parent ID from node ID
+ * Feature splitting is the top-level split, so we return null to use global thresholds
+ */
+export function getFeatureSplittingParentId(nodeId: string): string | null {
+  // Feature splitting nodes should use global thresholds
+  return null
+}
+
+/**
  * Extract semantic distance parent ID from score agreement node ID
  * e.g., "split_true_semdist_high_agree_all" -> "split_true_semdist_high"
  */
@@ -441,7 +458,10 @@ export function getSemanticDistanceParentId(nodeId: string): string | null {
  * Get threshold group ID for a node based on its type
  */
 export function getThresholdGroupId(nodeId: string, metric: MetricType): string | null {
-  if (isSemanticDistanceNode(nodeId) && metric === 'semdist_mean') {
+  if (metric === 'feature_splitting' && (nodeId === 'split_true' || nodeId === 'split_false')) {
+    // Feature splitting nodes share the same global threshold
+    return 'feature_splitting_global'
+  } else if (isSemanticDistanceNode(nodeId) && metric === 'semdist_mean') {
     // Semantic distance nodes share thresholds by splitting parent
     return getSplittingParentId(nodeId)
   } else if (isScoreAgreementNode(nodeId) && (metric === 'score_fuzz' || metric === 'score_simulation' || metric === 'score_detection')) {
@@ -468,6 +488,16 @@ export function getEffectiveThreshold(
   metric: MetricType,
   hierarchicalThresholds: HierarchicalThresholds
 ): number {
+  // For feature splitting metrics
+  if (metric === 'feature_splitting') {
+    // Check if there's a feature splitting group override for the parent node
+    const splittingParent = getFeatureSplittingParentId(nodeId)
+    if (splittingParent && hierarchicalThresholds.feature_splitting_groups?.[splittingParent]) {
+      return hierarchicalThresholds.feature_splitting_groups[splittingParent]
+    }
+    return hierarchicalThresholds.global_thresholds.feature_splitting
+  }
+
   // For semantic distance metrics
   if (metric === 'semdist_mean') {
     const splittingParent = getSplittingParentId(nodeId)

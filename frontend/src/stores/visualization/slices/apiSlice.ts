@@ -237,7 +237,9 @@ export const createApiSlice: StateCreator<
       metrics.forEach((metric, index) => {
         const meanValue = histogramResults[index].statistics.mean
 
-        if (metric === 'semdist_mean') {
+        if (metric === 'feature_splitting') {
+          newThresholds.feature_splitting = meanValue
+        } else if (metric === 'semdist_mean') {
           newThresholds.semdist_mean = meanValue
         } else if (metric.includes('score')) {
           // For score metrics, update the score_high threshold

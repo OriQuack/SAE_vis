@@ -122,7 +122,7 @@ export const SankeyView: React.FC<SankeyViewProps> = ({
 
       if (hasActiveFilters) {
         // Wait for histogram data to complete and set thresholds
-        await fetchMultipleHistogramData(['semdist_mean', 'score_fuzz'])
+        await fetchMultipleHistogramData(['feature_splitting', 'semdist_mean', 'score_fuzz'])
         // Then fetch Sankey with updated thresholds
         fetchSankeyData()
       }

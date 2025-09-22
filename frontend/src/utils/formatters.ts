@@ -31,6 +31,21 @@ export function formatCompact(value: number): string {
   return formatNumber(value, { notation: 'compact' })
 }
 
+export function formatSmartNumber(value: number): string {
+  // Use scientific notation for very small values
+  if (Math.abs(value) < 0.001 && value !== 0) {
+    return value.toExponential(2)
+  }
+
+  // Use fixed decimal places for normal values
+  if (Math.abs(value) < 1) {
+    return value.toFixed(3)
+  }
+
+  // Use fewer decimal places for larger values
+  return value.toFixed(2)
+}
+
 // ============================================================================
 // STRING FORMATTING
 // ============================================================================
@@ -199,6 +214,7 @@ export default {
   formatDecimal,
   formatPercentage,
   formatCompact,
+  formatSmartNumber,
   toTitleCase,
   toSentenceCase,
   truncateText,

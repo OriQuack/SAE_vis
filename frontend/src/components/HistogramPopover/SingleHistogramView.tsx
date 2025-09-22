@@ -6,6 +6,7 @@ import {
   HISTOGRAM_COLORS,
   SLIDER_TRACK
 } from '../../utils/d3-helpers'
+import { formatSmartNumber } from '../../utils/formatters'
 import type { HistogramData, HistogramLayout } from '../../services/types'
 import { CHART_STYLES } from './utils/styles'
 
@@ -219,7 +220,7 @@ export const SingleHistogramView: React.FC<SingleHistogramViewProps> = React.mem
                   fontSize={10}
                   fill={HISTOGRAM_COLORS.text}
                 >
-                  {tick.toFixed(2)}
+                  {formatSmartNumber(tick)}
                 </text>
               </g>
             ))}
@@ -260,7 +261,7 @@ export const SingleHistogramView: React.FC<SingleHistogramViewProps> = React.mem
             fill="#6b7280"
             fontFamily="monospace"
           >
-            Threshold: {threshold.toFixed(3)}
+            Threshold: {formatSmartNumber(threshold)}
           </text>
         </g>
       </svg>
