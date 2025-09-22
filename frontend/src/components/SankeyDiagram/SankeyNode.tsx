@@ -110,32 +110,6 @@ export const SankeyNode: React.FC<SankeyNodeComponentProps> = React.memo(({
         ({node.feature_count.toLocaleString()})
       </text>
 
-      {/* Threshold group indicator */}
-      {hasThresholdGroup && (
-        <g>
-          <circle
-            cx={node.x1 - 8}
-            cy={node.y0 + 8}
-            r={4}
-            fill="#3b82f6"
-            stroke="#ffffff"
-            strokeWidth={1}
-            style={{ pointerEvents: 'none' }}
-          />
-          <text
-            x={node.x1 - 8}
-            y={node.y0 + 8}
-            textAnchor="middle"
-            dy="0.35em"
-            fontSize={8}
-            fill="#ffffff"
-            fontWeight={600}
-            style={{ pointerEvents: 'none' }}
-          >
-            {thresholdGroupInfo.groupSize}
-          </text>
-        </g>
-      )}
     </g>
   )
 })

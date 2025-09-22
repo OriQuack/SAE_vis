@@ -100,35 +100,35 @@ export const FilterPanel: React.FC<FilterPanelProps> = React.memo(({
         {filterOptions && !loading && !error && (
           <div className="filter-panel__filters">
             <FilterDropdown
-              label="SAE Model"
+              label="SAE"
               options={filterOptions.sae_id}
               selectedValues={filters.sae_id || []}
               onChange={(values) => handleFilterChange('sae_id', values)}
-              placeholder="Select SAE models..."
+              placeholder="Select SAE..."
             />
 
             <FilterDropdown
-              label="Explanation Method"
+              label="Method"
               options={filterOptions.explanation_method}
               selectedValues={filters.explanation_method || []}
               onChange={(values) => handleFilterChange('explanation_method', values)}
-              placeholder="Select explanation methods..."
+              placeholder="Select method..."
             />
 
             <FilterDropdown
-              label="LLM Explainer"
+              label="Explainer"
               options={filterOptions.llm_explainer}
               selectedValues={filters.llm_explainer || []}
               onChange={(values) => handleFilterChange('llm_explainer', values)}
-              placeholder="Select LLM explainers..."
+              placeholder="Select explainer..."
             />
 
             <FilterDropdown
-              label="LLM Scorer"
+              label="Scorer"
               options={filterOptions.llm_scorer}
               selectedValues={filters.llm_scorer || []}
               onChange={(values) => handleFilterChange('llm_scorer', values)}
-              placeholder="Select LLM scorers..."
+              placeholder="Select scorer..."
             />
           </div>
         )}

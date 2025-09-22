@@ -134,10 +134,6 @@ export const SankeyView: React.FC<SankeyViewProps> = ({
   // Note: Node threshold changes now trigger Sankey refresh directly from setNodeThreshold
   // to avoid race conditions, so no useEffect needed here
 
-  // Check if filters are active
-  const hasActiveFilters = Object.values(filters).some(
-    filterArray => filterArray && filterArray.length > 0
-  )
 
 
   const containerClass = `sankey-view ${className} sankey-view--${layout}`
@@ -149,20 +145,16 @@ export const SankeyView: React.FC<SankeyViewProps> = ({
         <div className="sankey-view__header">
           <div className="sankey-view__title-section">
             <h1 className="sankey-view__title">
-              SAE Feature Visualization
+              SAE Feature Visualization - Reliability & Consistency Analysis
             </h1>
-            <p className="sankey-view__subtitle">
-              Analyze feature explanation reliability and consistency
-            </p>
           </div>
-
         </div>
 
         {/* Main content */}
         <div className={`sankey-view__content sankey-view__content--${layout}`}>
           {layout === 'vertical' ? (
             <>
-              {/* Vertical layout: stacked components */}
+              {/* Filter panel at top - full width */}
               <div className="sankey-view__section sankey-view__section--filters">
                 <FilterPanel
                   title="Data Filters"
@@ -170,12 +162,18 @@ export const SankeyView: React.FC<SankeyViewProps> = ({
                 />
               </div>
 
-              <div className="sankey-view__section sankey-view__section--sankey">
-                <SankeyDiagram
-                  width={1000}
-                  height={600}
-                  showHistogramOnClick={true}
-                />
+              {/* Two-column layout below filters */}
+              <div className="sankey-view__main-content">
+                <div className="sankey-view__left-half">
+                  <SankeyDiagram
+                    width={(window.innerWidth / 2) - 40}
+                    height={window.innerHeight - 170}
+                    showHistogramOnClick={true}
+                  />
+                </div>
+                <div className="sankey-view__right-half">
+                  {/* Empty space for future content */}
+                </div>
               </div>
             </>
           ) : (
@@ -192,8 +190,8 @@ export const SankeyView: React.FC<SankeyViewProps> = ({
 
               <div className="sankey-view__main">
                 <SankeyDiagram
-                  width={800}
-                  height={700}
+                  width={(window.innerWidth - 450)}
+                  height={window.innerHeight - 170}
                   showHistogramOnClick={true}
                 />
               </div>
@@ -201,30 +199,6 @@ export const SankeyView: React.FC<SankeyViewProps> = ({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="sankey-view__footer">
-          <div className="sankey-view__footer-content">
-            <div className="sankey-view__info">
-              <p className="sankey-view__description">
-                This visualization shows how SAE features flow through different
-                categorization stages based on your selected filters. Click on any node
-                or link in the diagram to view its histogram and set per-node thresholds.
-              </p>
-            </div>
-
-            {!hasActiveFilters && (
-              <div className="sankey-view__getting-started">
-                <h3>Getting Started</h3>
-                <ol>
-                  <li>Select one or more filters from the available options</li>
-                  <li>Click on nodes or links in the Sankey diagram</li>
-                  <li>Adjust per-node thresholds using the histogram popovers</li>
-                  <li>Explore how threshold changes affect the feature flow</li>
-                </ol>
-              </div>
-            )}
-          </div>
-        </div>
 
         {/* Histogram popover for node-specific threshold setting */}
         <HistogramPopover />

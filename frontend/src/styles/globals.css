@@ -9,9 +9,21 @@
   padding: 0;
 }
 
+/* Presentation mode - no scrolling anywhere */
+*, *::before, *::after {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+}
+
 html {
   font-size: 16px;
   line-height: 1.5;
+  height: 100vh;
+  overflow: hidden;
 }
 
 body {
@@ -22,11 +34,16 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-color: #f8fafc;
   color: #1f2937;
+  height: 100vh;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
 }
 
 #root {
-  width: 100%;
-  min-height: 100vh;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
 }
 
 /* ============================================================================
@@ -34,18 +51,19 @@ body {
    ============================================================================ */
 
 .app {
-  width: 100%;
-  min-height: 100vh;
+  width: 100vw;
+  height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .app__main {
   flex: 1;
   width: 100%;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 1rem;
+  height: 100%;
+  padding: 0.5rem;
+  overflow: hidden;
 }
 
 .app__dev-info {
@@ -271,17 +289,19 @@ body {
 
 .sankey-view {
   width: 100%;
-  max-width: 1400px;
-  margin: 0 auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .sankey-view__header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid #e5e7eb;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .sankey-view__title-section {
@@ -289,22 +309,21 @@ body {
 }
 
 .sankey-view__title {
-  font-size: 2rem;
-  font-weight: 700;
+  font-size: 1.125rem;
+  font-weight: 600;
   color: #1f2937;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0;
+  text-align: center;
 }
 
-.sankey-view__subtitle {
-  color: #6b7280;
-  font-size: 1.125rem;
-}
 
 
 .sankey-view__content {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 0.5rem;
+  flex: 1;
+  overflow: hidden;
 }
 
 .sankey-view__content--horizontal {
@@ -314,8 +333,49 @@ body {
 
 .sankey-view__section {
   background: white;
-  border-radius: 0.75rem;
-  padding: 1.5rem;
+  border-radius: 0.25rem;
+  padding: 0.5rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+.sankey-view__section--filters {
+  flex-shrink: 0;
+  height: auto;
+  padding: 0.25rem;
+}
+
+.sankey-view__section--sankey {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 0.25rem;
+}
+
+.sankey-view__main-content {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  gap: 0.5rem;
+  overflow: hidden;
+}
+
+.sankey-view__left-half {
+  width: 50%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: white;
+  border-radius: 0.25rem;
+  padding: 0.25rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+.sankey-view__right-half {
+  width: 50%;
+  background: white;
+  border-radius: 0.25rem;
+  padding: 0.5rem;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
 }
 
@@ -399,13 +459,13 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 0.5rem;
 }
 
 .filter-panel__title {
-  font-size: 1.125rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: #1f2937;
 }
@@ -447,9 +507,9 @@ body {
 }
 
 .filter-panel__filters {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .filter-panel__empty {
@@ -479,15 +539,16 @@ body {
 
 .filter-dropdown {
   position: relative;
-  width: 100%;
+  width: 180px;
+  flex-shrink: 0;
 }
 
 .filter-dropdown__label {
   display: block;
-  font-size: 0.875rem;
+  font-size: 0.7rem;
   font-weight: 600;
   color: #374151;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
 }
 
 .filter-dropdown__container {
@@ -496,11 +557,11 @@ body {
 
 .filter-dropdown__button {
   width: 100%;
-  padding: 0.75rem 1rem;
+  padding: 0.25rem 0.5rem;
   background: white;
-  border: 2px solid #d1d5db;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.25rem;
+  font-size: 0.7rem;
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
@@ -551,26 +612,26 @@ body {
   left: 0;
   right: 0;
   background: white;
-  border: 2px solid #3b82f6;
-  border-radius: 0.5rem;
+  border: 1px solid #3b82f6;
+  border-radius: 0.25rem;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
   z-index: 1000;
-  max-height: 250px;
+  max-height: 150px;
   overflow-y: auto;
-  margin-top: 0.25rem;
+  margin-top: 0.125rem;
 }
 
 .filter-dropdown__option {
   width: 100%;
-  padding: 0.75rem 1rem;
+  padding: 0.25rem 0.5rem;
   background: none;
   border: none;
-  font-size: 0.875rem;
+  font-size: 0.7rem;
   cursor: pointer;
   transition: background 0.2s;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.25rem;
   text-align: left;
 }
 
@@ -766,6 +827,9 @@ body {
 
 .sankey-diagram {
   width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .sankey-diagram__header {
@@ -807,8 +871,11 @@ body {
   position: relative;
   background: white;
   border: 1px solid #e5e7eb;
-  border-radius: 0.5rem;
+  border-radius: 0.25rem;
   overflow: hidden;
+  flex: 1;
+  width: 100%;
+  height: 100%;
 }
 
 .sankey-diagram__svg {
@@ -1039,66 +1106,7 @@ body {
 }
 
 /* ============================================================================
-   RESPONSIVE DESIGN
+   RESPONSIVE DESIGN - DISABLED FOR PRESENTATION MODE
    ============================================================================ */
 
-@media (max-width: 768px) {
-  .app__main {
-    padding: 0.5rem;
-  }
-
-  .sankey-view__header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-
-  .sankey-view__content--horizontal {
-    flex-direction: column;
-  }
-
-  .sankey-view__sidebar {
-    width: 100%;
-  }
-
-  .sankey-view__footer-content {
-    grid-template-columns: 1fr;
-  }
-
-  .filter-panel__filters {
-    grid-template-columns: 1fr;
-  }
-
-  .filter-panel__header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .sankey-diagram__header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .sankey-legend__items {
-    flex-direction: column;
-  }
-}
-
-@media (max-width: 480px) {
-  .sankey-view__title {
-    font-size: 1.5rem;
-  }
-
-  .sankey-view__subtitle {
-    font-size: 1rem;
-  }
-
-  .health-check__content,
-  .app-error__content {
-    padding: 2rem 1rem;
-  }
-
-  .filter-dropdown__menu {
-    max-height: 200px;
-  }
-}
+/* Presentation mode uses fixed 16:9 layout - responsive breakpoints disabled */

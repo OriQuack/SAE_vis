@@ -19,7 +19,7 @@ export const SankeyStageLabels: React.FC<SankeyStageLabelsProps> = React.memo(({
           <text
             key={stage}
             x={avgX}
-            y={-5}
+            y={15}
             textAnchor="middle"
             fontSize={12}
             fontWeight={600}

@@ -185,14 +185,6 @@ function App() {
           </main>
         )}
 
-        {/* Development info */}
-        {import.meta.env.DEV && (
-          <div className="app__dev-info">
-            <div className="app__dev-badge">
-              Development Mode
-            </div>
-          </div>
-        )}
       </div>
     </AppErrorBoundary>
   )
