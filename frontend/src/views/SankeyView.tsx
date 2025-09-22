@@ -1,6 +1,8 @@
 import React, { useEffect, useCallback, useState } from 'react'
 import { useVisualizationStore } from '../stores/visualizationStore'
-import FilterPanel from '../components/FilterPanel'
+import EmptyStateCard from '../components/EmptyStateCard'
+import FilterModal from '../components/FilterModal'
+import VisualizationActions from '../components/VisualizationActions'
 import SankeyDiagram from '../components/SankeyDiagram'
 import HistogramPopover from '../components/HistogramPopover'
 
@@ -88,39 +90,35 @@ export const SankeyView: React.FC<SankeyViewProps> = ({
 }) => {
   const {
     filters,
-    nodeThresholds,
+    viewState,
+    isFilterModalOpen,
     filterOptions,
     fetchFilterOptions,
     fetchSankeyData,
     fetchMultipleHistogramData,
-    resetAll,
-    resetFilters,
-    resetNodeThresholds
+    openFilterModal,
+    closeFilterModal,
+    showVisualization,
+    editFilters,
+    removeVisualization,
+    resetFilters
   } = useVisualizationStore()
 
-  // Local state for UI
-  const [isInitialized, setIsInitialized] = useState(false)
-
-  // Initialize the component
+  // Initialize filter options on mount
   useEffect(() => {
-    if (!isInitialized && autoLoad) {
-      setIsInitialized(true)
-
-      // Load filter options if not already loaded
-      if (!filterOptions) {
-        fetchFilterOptions()
-      }
+    if (!filterOptions && autoLoad) {
+      fetchFilterOptions()
     }
-  }, [isInitialized, autoLoad, filterOptions])
+  }, [filterOptions, autoLoad, fetchFilterOptions])
 
-  // Watch for filter changes and fetch data
+  // Watch for filter changes and fetch data when in visualization mode
   useEffect(() => {
     const loadData = async () => {
       const hasActiveFilters = Object.values(filters).some(
         filterArray => filterArray && filterArray.length > 0
       )
 
-      if (hasActiveFilters) {
+      if (hasActiveFilters && viewState === 'visualization') {
         // Wait for histogram data to complete and set thresholds
         await fetchMultipleHistogramData(['feature_splitting', 'semdist_mean', 'score_fuzz'])
         // Then fetch Sankey with updated thresholds
@@ -129,10 +127,29 @@ export const SankeyView: React.FC<SankeyViewProps> = ({
     }
 
     loadData()
-  }, [filters])
+  }, [filters, viewState])
 
-  // Note: Node threshold changes now trigger Sankey refresh directly from setNodeThreshold
-  // to avoid race conditions, so no useEffect needed here
+  // Handlers for modal and view state
+  const handleAddVisualization = useCallback(() => {
+    openFilterModal()
+  }, [openFilterModal])
+
+  const handleConfirmFilters = useCallback(() => {
+    showVisualization()
+  }, [showVisualization])
+
+  const handleCancelFilters = useCallback(() => {
+    closeFilterModal()
+  }, [closeFilterModal])
+
+  const handleEditFilters = useCallback(() => {
+    editFilters()
+  }, [editFilters])
+
+  const handleRemoveVisualization = useCallback(() => {
+    removeVisualization()
+    resetFilters()
+  }, [removeVisualization, resetFilters])
 
 
 
@@ -150,55 +167,48 @@ export const SankeyView: React.FC<SankeyViewProps> = ({
           </div>
         </div>
 
-        {/* Main content */}
+        {/* Main content - conditional rendering based on view state */}
         <div className={`sankey-view__content sankey-view__content--${layout}`}>
-          {layout === 'vertical' ? (
-            <>
-              {/* Filter panel at top - full width */}
-              <div className="sankey-view__section sankey-view__section--filters">
-                <FilterPanel
-                  title="Data Filters"
-                  showResetButton={false}
-                />
+          {viewState === 'empty' && (
+            <div className="sankey-view__main-content">
+              <div className="sankey-view__left-half">
+                <EmptyStateCard onAddVisualization={handleAddVisualization} />
               </div>
+              <div className="sankey-view__right-half">
+                {/* Empty space for future content */}
+              </div>
+            </div>
+          )}
 
-              {/* Two-column layout below filters */}
-              <div className="sankey-view__main-content">
-                <div className="sankey-view__left-half">
+          {viewState === 'visualization' && (
+            <div className="sankey-view__main-content">
+              <div className="sankey-view__left-half">
+                <div className="sankey-view__diagram-container">
+                  <VisualizationActions
+                    onEditFilters={handleEditFilters}
+                    onRemove={handleRemoveVisualization}
+                    className="sankey-view__floating-actions"
+                  />
                   <SankeyDiagram
                     width={(window.innerWidth / 2) - 40}
                     height={window.innerHeight - 170}
                     showHistogramOnClick={true}
                   />
                 </div>
-                <div className="sankey-view__right-half">
-                  {/* Empty space for future content */}
-                </div>
               </div>
-            </>
-          ) : (
-            <>
-              {/* Horizontal layout: side panel and main visualization */}
-              <div className="sankey-view__sidebar">
-                <div className="sankey-view__sidebar-section">
-                  <FilterPanel
-                    title="Filters"
-                    showResetButton={false}
-                  />
-                </div>
+              <div className="sankey-view__right-half">
+                {/* Empty space for future content */}
               </div>
-
-              <div className="sankey-view__main">
-                <SankeyDiagram
-                  width={(window.innerWidth - 450)}
-                  height={window.innerHeight - 170}
-                  showHistogramOnClick={true}
-                />
-              </div>
-            </>
+            </div>
           )}
         </div>
 
+        {/* Filter Modal */}
+        <FilterModal
+          isOpen={isFilterModalOpen}
+          onConfirm={handleConfirmFilters}
+          onCancel={handleCancelFilters}
+        />
 
         {/* Histogram popover for node-specific threshold setting */}
         <HistogramPopover />

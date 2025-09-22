@@ -78,11 +78,26 @@ export interface ApiSlice {
   clearAllErrors: () => void
 }
 
+export interface ViewSlice {
+  // State
+  viewState: 'empty' | 'filtering' | 'visualization'
+  isFilterModalOpen: boolean
+
+  // Actions
+  setViewState: (state: 'empty' | 'filtering' | 'visualization') => void
+  openFilterModal: () => void
+  closeFilterModal: () => void
+  showVisualization: () => void
+  editFilters: () => void
+  removeVisualization: () => void
+  resetView: () => void
+}
+
 // ============================================================================
 // COMBINED STATE INTERFACE
 // ============================================================================
 
-export interface VisualizationState extends FilterSlice, ThresholdSlice, PopoverSlice, ApiSlice {
+export interface VisualizationState extends FilterSlice, ThresholdSlice, PopoverSlice, ApiSlice, ViewSlice {
   // Reset action
   resetAll: () => void
 }
