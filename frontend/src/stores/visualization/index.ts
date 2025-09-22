@@ -5,14 +5,23 @@ import { createFilterSlice } from './slices/filterSlice'
 import { createThresholdSlice } from './slices/thresholdSlice'
 import { createPopoverSlice } from './slices/popoverSlice'
 import { createApiSlice } from './slices/apiSlice'
+import { createViewSlice } from './slices/viewSlice'
 
 export const useVisualizationStore = create<VisualizationState>()(
   devtools(
-    (...a) => ({
-      ...createFilterSlice(...a),
-      ...createThresholdSlice(...a),
-      ...createPopoverSlice(...a),
-      ...createApiSlice(...a)
+    (set, get, api) => ({
+      ...createFilterSlice(set, get, api),
+      ...createThresholdSlice(set, get, api),
+      ...createPopoverSlice(set, get, api),
+      ...createApiSlice(set, get, api),
+      ...createViewSlice(set, get, api),
+      resetAll: () => {
+        const state = get()
+        state.resetFilters()
+        state.resetThresholds()
+        state.clearAllErrors()
+        state.resetView()
+      }
     }),
     {
       name: 'visualization-store'
