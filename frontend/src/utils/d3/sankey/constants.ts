@@ -12,10 +12,10 @@ export const SANKEY_COLORS: Record<NodeCategory, string> = {
 
 // Default sankey layout margins
 export const DEFAULT_SANKEY_MARGIN = {
-  top: 20,
+  top: 50,
   right: 20,
   bottom: 20,
-  left: 140
+  left: 80
 } as const
 
 // Sankey layout parameters

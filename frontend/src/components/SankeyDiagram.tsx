@@ -2,10 +2,8 @@ import React, { useMemo } from 'react'
 import { useVisualizationStore } from '../stores/visualizationStore'
 import { DEFAULT_ANIMATION } from '../utils/d3-helpers'
 import { ErrorMessage } from '../components/shared/ErrorMessage'
-import { SankeyHeader } from './SankeyDiagram/SankeyHeader'
 import { SankeyNode } from './SankeyDiagram/SankeyNode'
 import { SankeyLink } from './SankeyDiagram/SankeyLink'
-import { SankeyStageLabels } from './SankeyDiagram/SankeyStageLabels'
 import { useSankeyLayout } from './SankeyDiagram/hooks/useSankeyLayout'
 import { useSankeyInteractions } from './SankeyDiagram/hooks/useSankeyInteractions'
 import { useThresholdGroups } from './SankeyDiagram/hooks/useThresholdGroups'
@@ -76,26 +74,9 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     getNodesInSameThresholdGroup
   })
 
-  // Calculate summary statistics
-  const summary = useMemo(() => {
-    if (!displayData) return null
-
-    const totalFeatures = displayData.metadata.total_features
-    const totalNodes = displayData.nodes.length
-    const totalLinks = displayData.links.length
-
-    return {
-      totalFeatures,
-      totalNodes,
-      totalLinks,
-      stages: Math.max(...displayData.nodes.map(node => node.stage)) + 1
-    }
-  }, [displayData])
 
   return (
     <div className={`sankey-diagram ${className}`}>
-      {/* Header */}
-      <SankeyHeader summary={summary} />
 
       {/* Error display */}
       {error && (
@@ -178,8 +159,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                 })}
               </g>
 
-              {/* Stage labels */}
-              <SankeyStageLabels nodes={layout.nodes} />
             </g>
           </svg>
 
