@@ -24,17 +24,42 @@ export const IndividualHistogram: React.FC<IndividualHistogramProps> = React.mem
   animationDuration,
   onThresholdChange
 }) => {
+  console.log('🎛️ [IndividualHistogram] Props received:', {
+    metric: layout.metric,
+    threshold,
+    min: histogramData.statistics.min,
+    max: histogramData.statistics.max,
+    mean: histogramData.statistics.mean
+  })
+
   // Create a ref for this specific histogram group
   const histogramGroupRef = useRef<SVGGElement>(null)
   const thresholdLine = useMemo(() => {
-    return calculateThresholdLine(threshold, layout)
+    const result = calculateThresholdLine(threshold, layout)
+    console.log('📏 [IndividualHistogram] Threshold line calculated:', {
+      metric: layout.metric,
+      threshold,
+      thresholdLine: result
+    })
+    return result
   }, [threshold, layout])
 
   const handleThresholdChange = useCallback((newThreshold: number) => {
+    console.log('🎚️ [IndividualHistogram] Threshold change:', { metric: layout.metric, newThreshold })
+
     const clampedThreshold = Math.max(
       histogramData.statistics.min,
       Math.min(histogramData.statistics.max, newThreshold)
     )
+
+    console.log('📏 [IndividualHistogram] Clamped threshold:', {
+      metric: layout.metric,
+      original: newThreshold,
+      clamped: clampedThreshold,
+      min: histogramData.statistics.min,
+      max: histogramData.statistics.max
+    })
+
     onThresholdChange(layout.metric, clampedThreshold)
   }, [histogramData, layout.metric, onThresholdChange])
 
