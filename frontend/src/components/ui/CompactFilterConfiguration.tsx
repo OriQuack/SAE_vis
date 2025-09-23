@@ -1,6 +1,5 @@
 import React from 'react'
-import { useVisualizationStore } from '../../stores/visualization'
-import FilterPanel from '../layout/FilterPanel'
+import { useVisualizationStore, useFilters, useFilterOptions } from '../../stores/visualization'
 
 interface CompactFilterConfigurationProps {
   onCreateVisualization: () => void
@@ -13,7 +12,9 @@ export const CompactFilterConfiguration: React.FC<CompactFilterConfigurationProp
   onCancel,
   className = ''
 }) => {
-  const filters = useVisualizationStore(state => state.filters)
+  const filters = useFilters()
+  const filterOptions = useFilterOptions()
+  const { setFilters, resetFilters } = useVisualizationStore()
 
   // Check if filters have been selected
   const hasActiveFilters = Object.values(filters).some(
@@ -39,13 +40,46 @@ export const CompactFilterConfiguration: React.FC<CompactFilterConfigurationProp
       </div>
 
       <div className="compact-filter-configuration__content">
-        <FilterPanel
-          title=""
-          showResetButton={true}
-        />
+        <div className="filter-section">
+          {filterOptions && Object.entries(filterOptions).map(([filterKey, options]) => (
+            <div key={filterKey} className="filter-group">
+              <label className="filter-label">
+                {filterKey.replace('_', ' ').toUpperCase()}
+              </label>
+              <select
+                className="filter-select"
+                value={filters[filterKey as keyof typeof filters]?.[0] || ''}
+                onChange={(e) => {
+                  const selected = e.target.value ? [e.target.value] : []
+                  setFilters({ [filterKey]: selected })
+                }}
+              >
+                <option value="">Select {filterKey.replace('_', ' ')}</option>
+                {options.map((option: string) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+              {filters[filterKey as keyof typeof filters]?.length > 0 && (
+                <div className="selected-filters">
+                  Selected: {filters[filterKey as keyof typeof filters]?.[0]}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="compact-filter-configuration__footer">
+        <button
+          className="compact-filter-configuration__reset-button"
+          onClick={resetFilters}
+          disabled={!hasActiveFilters}
+          title="Reset all filters to default values"
+        >
+          Reset Filters
+        </button>
         <button
           className="compact-filter-configuration__create-button"
           onClick={onCreateVisualization}

@@ -11,7 +11,6 @@ import {
 } from '../../../utils/d3-helpers'
 // Components
 import { ErrorMessage } from '../../shared/ErrorMessage'
-import LoadingSpinner from '../../LoadingSpinner'
 import { PopoverHeader } from './PopoverHeader'
 import { SingleHistogramView } from './SingleHistogramView'
 import { MultiHistogramView } from './MultiHistogramView'
@@ -244,7 +243,10 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
 
         {/* Loading state */}
         {loading && (
-          <LoadingSpinner message="Loading histogram..." />
+          <div className="histogram-popover__loading">
+            <div className="loading-spinner">⏳</div>
+            <span>Loading histogram...</span>
+          </div>
         )}
 
         {/* Main visualization */}
