@@ -20,26 +20,16 @@ export const createFilterSlice: StateCreator<
   // ============================================================================
 
   setFilters: (newFilters) => {
-    set(
-      (state) => ({
-        filters: { ...state.filters, ...newFilters },
-        errors: { ...state.errors, histogram: null, sankey: null }
-      }),
-      false,
-      'setFilters'
-    )
+    set((state) => ({
+      filters: { ...state.filters, ...newFilters }
+    }))
   },
 
   resetFilters: () => {
-    set(
-      (state) => ({
-        filters: INITIAL_FILTERS,
-        histogramData: null,
-        sankeyData: null,
-        errors: { ...state.errors, histogram: null, sankey: null }
-      }),
-      false,
-      'resetFilters'
-    )
+    set(() => ({
+      filters: INITIAL_FILTERS,
+      histogramData: null,
+      sankeyData: null
+    }))
   }
 })

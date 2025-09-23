@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import SankeyView from './views/SankeyView'
 import { api } from './services/api'
 import './styles/globals.css'
@@ -16,7 +16,7 @@ const HealthCheck: React.FC<{ onHealthy: () => void }> = ({ onHealthy }) => {
     error: null
   })
 
-  const checkHealth = async () => {
+  const checkHealth = useCallback(async () => {
     setState(prev => ({ ...prev, isChecking: true, error: null }))
 
     try {
@@ -31,18 +31,18 @@ const HealthCheck: React.FC<{ onHealthy: () => void }> = ({ onHealthy }) => {
           error: 'Backend server is not responding'
         })
       }
-    } catch (error) {
+    } catch {
       setState({
         isHealthy: false,
         isChecking: false,
         error: 'Failed to connect to backend server'
       })
     }
-  }
+  }, [onHealthy])
 
   useEffect(() => {
     checkHealth()
-  }, [])
+  }, [checkHealth])
 
   if (state.isHealthy) {
     return null
@@ -99,10 +99,10 @@ interface ErrorBoundaryState {
 }
 
 class AppErrorBoundary extends React.Component<
-  React.PropsWithChildren<{}>,
+  React.PropsWithChildren<Record<string, never>>,
   ErrorBoundaryState
 > {
-  constructor(props: React.PropsWithChildren<{}>) {
+  constructor(props: React.PropsWithChildren<Record<string, never>>) {
     super(props)
     this.state = { hasError: false, error: null, errorInfo: null }
   }

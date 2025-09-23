@@ -1,8 +1,9 @@
 // Sankey-specific types and interfaces
 
 import type { SankeyData, NodeCategory, LayoutMargin } from '../shared'
+import type { SankeyNode } from '../../../services/types'
 
-// Re-export the original SankeyNode from services/types.ts to maintain compatibility
+// Re-export the original SankeyNode from services/types/index.ts to maintain compatibility
 export type { SankeyNode } from '../../../services/types'
 
 // D3-enhanced sankey node (after d3-sankey processing)

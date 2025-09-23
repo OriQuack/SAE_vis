@@ -167,7 +167,7 @@ export function getUniqueValues<T>(array: T[]): T[] {
 
 export function groupBy<T, K extends string | number | symbol>(
   array: T[],
-  keyFn: (item: T) => K
+  keyFn: (_item: T) => K
 ): Record<K, T[]> {
   return array.reduce((groups, item) => {
     const key = keyFn(item)

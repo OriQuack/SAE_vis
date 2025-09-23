@@ -12,8 +12,8 @@ export default defineConfig({
         target: 'http://localhost:8003',
         changeOrigin: true,
         secure: false,
-        configure: (proxy, options) => {
-          proxy.on('error', (err, req, res) => {
+        configure: (proxy, _options) => {
+          proxy.on('error', (err, _req, _res) => {
             console.log('Proxy error:', err)
           })
         }

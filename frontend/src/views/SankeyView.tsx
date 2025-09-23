@@ -1,10 +1,10 @@
-import React, { useEffect, useCallback, useState } from 'react'
-import { useVisualizationStore } from '../stores/visualizationStore'
-import EmptyStateCard from '../components/EmptyStateCard'
-import FilterModal from '../components/FilterModal'
-import VisualizationActions from '../components/VisualizationActions'
-import SankeyDiagram from '../components/SankeyDiagram'
-import HistogramPopover from '../components/HistogramPopover'
+import React, { useEffect, useCallback } from 'react'
+import { useVisualizationStore } from '../stores/visualization'
+import { EmptyStateCard } from '../components/ui/EmptyStateCard'
+import CompactFilterConfiguration from '../components/ui/CompactFilterConfiguration'
+import VisualizationActions from '../components/ui/VisualizationActions'
+import SankeyDiagram from '../components/visualization/SankeyDiagram'
+import HistogramPopover from '../components/visualization/HistogramPopover/index'
 
 // ============================================================================
 // TYPES
@@ -29,10 +29,10 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends React.Component<
-  React.PropsWithChildren<{}>,
+  React.PropsWithChildren<Record<string, never>>,
   ErrorBoundaryState
 > {
-  constructor(props: React.PropsWithChildren<{}>) {
+  constructor(props: React.PropsWithChildren<Record<string, never>>) {
     super(props)
     this.state = { hasError: false, error: null }
   }
@@ -91,13 +91,11 @@ export const SankeyView: React.FC<SankeyViewProps> = ({
   const {
     filters,
     viewState,
-    isFilterModalOpen,
     filterOptions,
     fetchFilterOptions,
     fetchSankeyData,
     fetchMultipleHistogramData,
-    openFilterModal,
-    closeFilterModal,
+    setViewState,
     showVisualization,
     editFilters,
     removeVisualization,
@@ -127,20 +125,20 @@ export const SankeyView: React.FC<SankeyViewProps> = ({
     }
 
     loadData()
-  }, [filters, viewState])
+  }, [filters, viewState, fetchMultipleHistogramData, fetchSankeyData])
 
-  // Handlers for modal and view state
+  // Handlers for view state
   const handleAddVisualization = useCallback(() => {
-    openFilterModal()
-  }, [openFilterModal])
+    setViewState('filtering')
+  }, [setViewState])
 
-  const handleConfirmFilters = useCallback(() => {
+  const handleCancelFiltering = useCallback(() => {
+    setViewState('empty')
+  }, [setViewState])
+
+  const handleCreateVisualization = useCallback(() => {
     showVisualization()
   }, [showVisualization])
-
-  const handleCancelFilters = useCallback(() => {
-    closeFilterModal()
-  }, [closeFilterModal])
 
   const handleEditFilters = useCallback(() => {
     editFilters()
@@ -180,6 +178,20 @@ export const SankeyView: React.FC<SankeyViewProps> = ({
             </div>
           )}
 
+          {viewState === 'filtering' && (
+            <div className="sankey-view__main-content">
+              <div className="sankey-view__left-half">
+                <CompactFilterConfiguration
+                  onCreateVisualization={handleCreateVisualization}
+                  onCancel={handleCancelFiltering}
+                />
+              </div>
+              <div className="sankey-view__right-half">
+                {/* Empty space for future content */}
+              </div>
+            </div>
+          )}
+
           {viewState === 'visualization' && (
             <div className="sankey-view__main-content">
               <div className="sankey-view__left-half">
@@ -202,13 +214,6 @@ export const SankeyView: React.FC<SankeyViewProps> = ({
             </div>
           )}
         </div>
-
-        {/* Filter Modal */}
-        <FilterModal
-          isOpen={isFilterModalOpen}
-          onConfirm={handleConfirmFilters}
-          onCancel={handleCancelFilters}
-        />
 
         {/* Histogram popover for node-specific threshold setting */}
         <HistogramPopover />

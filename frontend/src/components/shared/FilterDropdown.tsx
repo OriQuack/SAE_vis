@@ -8,7 +8,7 @@ interface FilterDropdownProps {
   label: string
   options: string[]
   selectedValues: string[]
-  onChange: (values: string[]) => void
+  onChange: (_values: string[]) => void
   placeholder?: string
   disabled?: boolean
   className?: string
@@ -105,4 +105,3 @@ export const FilterDropdown: React.FC<FilterDropdownProps> = ({
   )
 }
 
-export default FilterDropdown
