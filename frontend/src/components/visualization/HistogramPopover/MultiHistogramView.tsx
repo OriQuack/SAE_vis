@@ -12,8 +12,6 @@ interface MultiHistogramViewProps {
   containerSize: { width: number; height: number }
   onThresholdChange: (metric: string, threshold: number) => void
   svgRef: React.RefObject<SVGSVGElement>
-  allNodeThresholds: Record<string, Record<string, number>>
-  thresholdNodeId: string
 }
 
 export const MultiHistogramView: React.FC<MultiHistogramViewProps> = React.memo(({
@@ -23,9 +21,7 @@ export const MultiHistogramView: React.FC<MultiHistogramViewProps> = React.memo(
   animationDuration,
   containerSize,
   onThresholdChange,
-  svgRef,
-  allNodeThresholds,
-  thresholdNodeId
+  svgRef
 }) => {
   return (
     <div className="histogram-popover__chart" style={CHART_STYLES.container}>
@@ -50,7 +46,7 @@ export const MultiHistogramView: React.FC<MultiHistogramViewProps> = React.memo(
           const threshold = currentThresholds[metric] || metricData?.statistics.mean || 0.5
 
           // Debug logging
-          console.log(`Rendering ${metric}: threshold=${threshold}, from currentThresholds=${currentThresholds[metric]}, nodeThresholds=`, allNodeThresholds[thresholdNodeId])
+          console.log(`Rendering ${metric}: threshold=${threshold}, from currentThresholds=${currentThresholds[metric]}`)
 
           if (!metricData) return null
 

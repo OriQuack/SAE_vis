@@ -51,7 +51,6 @@ export type {
 // THRESHOLD UTILITIES
 // ============================================================================
 export type {
-  NodeThresholds,
   HierarchicalThresholds,
   ThresholdGroupType,
   ThresholdGroup,

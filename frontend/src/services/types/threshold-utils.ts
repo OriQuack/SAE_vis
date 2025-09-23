@@ -5,12 +5,6 @@ import type { MetricType } from './ui'
 // THRESHOLD TYPES
 // ============================================================================
 
-// Legacy parent-node-based threshold system (for backward compatibility)
-export interface NodeThresholds {
-  [parentNodeId: string]: {
-    [metric in MetricType]?: number
-  }
-}
 
 // New hierarchical threshold system
 export interface HierarchicalThresholds {
@@ -35,6 +29,14 @@ export interface HierarchicalThresholds {
       score_fuzz?: number
       score_simulation?: number
       score_detection?: number
+    }
+  }
+
+  // Individual node threshold overrides
+  // Key format: "node_{nodeId}" -> threshold values for specific individual nodes
+  individual_node_groups?: {
+    [nodeGroupId: string]: {
+      [metric in MetricType]?: number
     }
   }
 }
@@ -121,18 +123,19 @@ export function getSemanticDistanceParentId(nodeId: string): string | null {
 /**
  * Get threshold group ID for a node based on its type
  */
-export function getThresholdGroupId(nodeId: string, metric: MetricType): string | null {
+export function getThresholdGroupId(nodeId: string, metric: MetricType): string {
   if (metric === 'feature_splitting' && (nodeId === 'split_true' || nodeId === 'split_false')) {
     // Feature splitting nodes share the same global threshold
     return 'feature_splitting_global'
   } else if (isSemanticDistanceNode(nodeId) && metric === 'semdist_mean') {
     // Semantic distance nodes share thresholds by splitting parent
-    return getSplittingParentId(nodeId)
+    return getSplittingParentId(nodeId) || `node_${nodeId}`
   } else if (isScoreAgreementNode(nodeId) && (metric === 'score_fuzz' || metric === 'score_simulation' || metric === 'score_detection')) {
     // Score agreement nodes share thresholds by semantic distance parent
-    return getSemanticDistanceParentId(nodeId)
+    return getSemanticDistanceParentId(nodeId) || `node_${nodeId}`
   }
-  return null
+  // Individual node threshold group for nodes that don't belong to natural groups
+  return `node_${nodeId}`
 }
 
 /**
@@ -152,6 +155,12 @@ export function getEffectiveThreshold(
   metric: MetricType,
   hierarchicalThresholds: HierarchicalThresholds
 ): number {
+  // First check if there's an individual node override
+  const individualGroupId = `node_${nodeId}`
+  if (hierarchicalThresholds.individual_node_groups?.[individualGroupId]?.[metric] !== undefined) {
+    return hierarchicalThresholds.individual_node_groups[individualGroupId][metric]!
+  }
+
   // For feature splitting metrics
   if (metric === 'feature_splitting') {
     // Check if there's a feature splitting group override for the parent node
@@ -189,60 +198,12 @@ export function getEffectiveThreshold(
 }
 
 /**
- * Create hierarchical thresholds from legacy node thresholds
+ * Create hierarchical thresholds with global thresholds
  */
 export function createHierarchicalThresholds(
-  globalThresholds: Thresholds,
-  nodeThresholds?: NodeThresholds
+  globalThresholds: Thresholds
 ): HierarchicalThresholds {
-  const hierarchical: HierarchicalThresholds = {
+  return {
     global_thresholds: globalThresholds
   }
-
-  if (!nodeThresholds) {
-    return hierarchical
-  }
-
-  const semanticGroups: { [key: string]: number } = {}
-  const scoreGroups: { [key: string]: { [key: string]: number } } = {}
-
-  // Convert legacy nodeThresholds to hierarchical format
-  for (const [nodeId, metrics] of Object.entries(nodeThresholds)) {
-    // Handle semantic distance nodes
-    if (isSemanticDistanceNode(nodeId) && metrics.semdist_mean !== undefined) {
-      const splittingParent = getSplittingParentId(nodeId)
-      if (splittingParent) {
-        semanticGroups[splittingParent] = metrics.semdist_mean
-      }
-    }
-
-    // Handle score agreement nodes
-    if (isScoreAgreementNode(nodeId)) {
-      const semanticParent = getSemanticDistanceParentId(nodeId)
-      if (semanticParent) {
-        if (!scoreGroups[semanticParent]) {
-          scoreGroups[semanticParent] = {}
-        }
-
-        if (metrics.score_fuzz !== undefined) {
-          scoreGroups[semanticParent].score_fuzz = metrics.score_fuzz
-        }
-        if (metrics.score_simulation !== undefined) {
-          scoreGroups[semanticParent].score_simulation = metrics.score_simulation
-        }
-        if (metrics.score_detection !== undefined) {
-          scoreGroups[semanticParent].score_detection = metrics.score_detection
-        }
-      }
-    }
-  }
-
-  if (Object.keys(semanticGroups).length > 0) {
-    hierarchical.semantic_distance_groups = semanticGroups
-  }
-  if (Object.keys(scoreGroups).length > 0) {
-    hierarchical.score_agreement_groups = scoreGroups
-  }
-
-  return hierarchical
 }

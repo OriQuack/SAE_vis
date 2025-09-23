@@ -1,7 +1,7 @@
-import React, { useRef, useEffect, useMemo, useCallback } from 'react'
+import React, { useRef, useEffect, useMemo, useCallback, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useVisualizationStore } from '../../../stores/visualization'
-import { useClickOutside } from '../../../hooks'
+import { useClickOutside, useDragHandler } from '../../../hooks'
 import {
   calculateHistogramLayout,
   calculateMultiHistogramLayout,
@@ -13,7 +13,6 @@ import {
 import { ErrorMessage } from '../../shared/ErrorMessage'
 import LoadingSpinner from '../../LoadingSpinner'
 import { PopoverHeader } from './PopoverHeader'
-import { PopoverFooter } from './PopoverFooter'
 import { SingleHistogramView } from './SingleHistogramView'
 import { MultiHistogramView } from './MultiHistogramView'
 
@@ -39,7 +38,6 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
   const histogramData = useVisualizationStore(state => state.histogramData)
   const loading = useVisualizationStore(state => state.loading.histogram)
   const error = useVisualizationStore(state => state.errors.histogram)
-  const allNodeThresholds = useVisualizationStore((state) => state.nodeThresholds)
 
   const {
     hideHistogramPopover,
@@ -51,7 +49,9 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
   const containerRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
 
-  // Local state
+  // Local state for dragging
+  const [draggedPosition, setDraggedPosition] = useState<{ x: number; y: number } | null>(null)
+  const [dragStartOffset, setDragStartOffset] = useState<{ x: number; y: number } | null>(null)
 
   // Custom hooks
   const { containerSize, calculatedPosition } = usePopoverPosition({
@@ -62,7 +62,6 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     metricsCount: popoverData?.metrics?.length || 1
   })
 
-  const thresholdNodeId = popoverData?.parentNodeId || popoverData?.nodeId || ''
 
   const {
     currentThresholds,
@@ -78,6 +77,33 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     () => hideHistogramPopover(),
     { enabled: popoverData?.visible || false }
   )
+
+  // Drag handler for making the popover movable
+  const { handleMouseDown: handleDragStart } = useDragHandler({
+    onDragStart: (event) => {
+      const currentPosition = draggedPosition || {
+        x: calculatedPosition?.x || popoverData?.position.x || 0,
+        y: calculatedPosition?.y || popoverData?.position.y || 0
+      }
+      // Store the offset from mouse to current position
+      setDragStartOffset({
+        x: event.clientX - currentPosition.x,
+        y: event.clientY - currentPosition.y
+      })
+    },
+    onDragMove: (event) => {
+      if (dragStartOffset) {
+        // Update position based on mouse position and initial offset
+        setDraggedPosition({
+          x: event.clientX - dragStartOffset.x,
+          y: event.clientY - dragStartOffset.y
+        })
+      }
+    },
+    onDragEnd: () => {
+      // Keep the final position
+    }
+  })
 
   // Merge refs for container
   const mergedContainerRef = useCallback((node: HTMLDivElement | null) => {
@@ -118,7 +144,7 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
       const chartHeight = containerSize.height - 64
       return calculateMultiHistogramLayout(histogramData, chartWidth, chartHeight)
     } else {
-      const chartHeight = containerSize.height - 100
+      const chartHeight = containerSize.height - 64
       const singleMetric = popoverData.metrics[0]
       const singleHistogramData = histogramData[singleMetric]
 
@@ -154,6 +180,14 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     }
   }, [popoverData?.nodeId, popoverData?.metrics, clearError, fetchMultipleHistogramData])
 
+  // Reset dragged position when popover opens/closes
+  useEffect(() => {
+    if (!popoverData?.visible) {
+      setDraggedPosition(null)
+      setDragStartOffset(null)
+    }
+  }, [popoverData?.visible])
+
   // Fetch histogram data when popover opens
   useEffect(() => {
     if (popoverData?.visible && popoverData.nodeId && popoverData.metrics?.length > 0) {
@@ -167,12 +201,14 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     return null
   }
 
+  const finalPosition = draggedPosition || {
+    x: calculatedPosition?.x || popoverData.position.x,
+    y: calculatedPosition?.y || popoverData.position.y
+  }
+
   const containerStyle = createDynamicContainerStyle(
-    {
-      x: calculatedPosition?.x || popoverData.position.x,
-      y: calculatedPosition?.y || popoverData.position.y
-    },
-    calculatedPosition?.transform || 'translate(-50%, -100%)',
+    finalPosition,
+    calculatedPosition?.transform || 'translate(0%, -50%)',
     animationDuration
   )
 
@@ -189,6 +225,7 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
           parentNodeName={popoverData.parentNodeName}
           metrics={popoverData.metrics}
           onClose={handleClose}
+          onMouseDown={handleDragStart}
         />
 
         {/* Error display */}
@@ -221,8 +258,6 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
               containerSize={containerSize}
               onThresholdChange={handleMultiThresholdChange}
               svgRef={svgRef}
-              allNodeThresholds={allNodeThresholds}
-              thresholdNodeId={thresholdNodeId}
             />
           ) : (
             <SingleHistogramView
@@ -237,13 +272,6 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
           )
         )}
 
-        {/* Footer */}
-        <PopoverFooter
-          metrics={popoverData?.metrics || []}
-          currentThresholds={currentThresholds}
-          histogramData={histogramData}
-          isSingleMetric={popoverData?.metrics?.length === 1}
-        />
       </div>
     </div>
   )

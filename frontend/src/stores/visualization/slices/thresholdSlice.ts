@@ -2,7 +2,6 @@ import type { StateCreator } from 'zustand'
 import type { ThresholdSlice, VisualizationState } from '../types'
 import {
   INITIAL_THRESHOLDS,
-  INITIAL_NODE_THRESHOLDS,
   INITIAL_HIERARCHICAL_THRESHOLDS,
   API_CONFIG
 } from '../constants'
@@ -22,11 +21,11 @@ export const createThresholdSlice: StateCreator<
   // Dedicated debounce manager for threshold-related operations
   const debounceManager = new DebounceManager()
 
-  const debouncedSankeyUpdate = (nodeThresholds?: any) => {
+  const debouncedSankeyUpdate = () => {
     debounceManager.debounce(
       'sankey-update',
       () => {
-        get().fetchSankeyData(false, nodeThresholds)
+        get().fetchSankeyData(false)
       },
       API_CONFIG.DEBOUNCE_DELAY
     )
@@ -38,7 +37,6 @@ export const createThresholdSlice: StateCreator<
     // ============================================================================
 
     thresholds: INITIAL_THRESHOLDS,
-    nodeThresholds: INITIAL_NODE_THRESHOLDS,
     hierarchicalThresholds: INITIAL_HIERARCHICAL_THRESHOLDS,
 
     // ============================================================================
@@ -71,7 +69,6 @@ export const createThresholdSlice: StateCreator<
     resetThresholds: () => {
       set((state) => ({
         thresholds: INITIAL_THRESHOLDS,
-        nodeThresholds: INITIAL_NODE_THRESHOLDS,
         hierarchicalThresholds: INITIAL_HIERARCHICAL_THRESHOLDS,
         errors: { ...state.errors, sankey: null }
       }))
@@ -81,66 +78,93 @@ export const createThresholdSlice: StateCreator<
     // NODE THRESHOLD ACTIONS
     // ============================================================================
 
-    setNodeThreshold: (parentNodeId, metric, threshold) => {
-      logThresholdUpdate('node', parentNodeId, metric, threshold)
+    setNodeThreshold: (nodeId, metric, threshold) => {
+      // Convert to group-based logic internally
+      const groupId = `node_${nodeId}`
+      logThresholdUpdate('node', groupId, metric, threshold)
 
       set((state) => {
-        const newNodeThresholds = {
-          ...state.nodeThresholds,
-          [parentNodeId]: {
-            ...state.nodeThresholds[parentNodeId],
+        const newHierarchical = { ...state.hierarchicalThresholds }
+
+        // Ensure individual_node_groups exists
+        if (!newHierarchical.individual_node_groups) {
+          newHierarchical.individual_node_groups = {}
+        }
+
+        // Update the individual node group
+        newHierarchical.individual_node_groups = {
+          ...newHierarchical.individual_node_groups,
+          [groupId]: {
+            ...newHierarchical.individual_node_groups[groupId],
             [metric]: threshold
           }
         }
 
-        logThresholdState(newNodeThresholds, 'nodeThresholds')
+        logThresholdState(newHierarchical, 'hierarchicalThresholds')
 
         // Schedule debounced Sankey refresh if filters are active
         const isFiltersActive = hasActiveFilters(state.filters)
         if (isFiltersActive) {
-          debouncedSankeyUpdate(newNodeThresholds)
+          debouncedSankeyUpdate()
         }
 
         return {
-          nodeThresholds: newNodeThresholds,
+          hierarchicalThresholds: newHierarchical,
           errors: { ...state.errors, sankey: null }
         }
       })
     },
 
-    clearNodeThreshold: (parentNodeId, metric) => {
+    clearNodeThreshold: (nodeId, metric) => {
+      // Convert to group-based logic internally
+      const groupId = `node_${nodeId}`
+
       set((state) => {
-        const nodeThresholds = { ...state.nodeThresholds }
+        const newHierarchical = { ...state.hierarchicalThresholds }
+
+        if (!newHierarchical.individual_node_groups) {
+          return state // Nothing to clear
+        }
+
+        const individualGroups = { ...newHierarchical.individual_node_groups }
 
         if (metric) {
-          // Clear specific metric for parent node
-          if (nodeThresholds[parentNodeId]) {
-            const updatedNode = { ...nodeThresholds[parentNodeId] }
-            delete updatedNode[metric]
+          // Clear specific metric for individual node
+          if (individualGroups[groupId]) {
+            const updatedGroup = { ...individualGroups[groupId] }
+            delete updatedGroup[metric]
 
-            if (Object.keys(updatedNode).length === 0) {
-              delete nodeThresholds[parentNodeId]
+            if (Object.keys(updatedGroup).length === 0) {
+              delete individualGroups[groupId]
             } else {
-              nodeThresholds[parentNodeId] = updatedNode
+              individualGroups[groupId] = updatedGroup
             }
           }
         } else {
-          // Clear all thresholds for parent node
-          delete nodeThresholds[parentNodeId]
+          // Clear all thresholds for individual node
+          delete individualGroups[groupId]
         }
 
+        newHierarchical.individual_node_groups = individualGroups
+
         return {
-          nodeThresholds,
+          hierarchicalThresholds: newHierarchical,
           errors: { ...state.errors, sankey: null }
         }
       })
     },
 
     resetNodeThresholds: () => {
-      set((state) => ({
-        nodeThresholds: INITIAL_NODE_THRESHOLDS,
-        errors: { ...state.errors, sankey: null }
-      }))
+      set((state) => {
+        const newHierarchical = { ...state.hierarchicalThresholds }
+        // Clear all individual node groups
+        newHierarchical.individual_node_groups = {}
+
+        return {
+          hierarchicalThresholds: newHierarchical,
+          errors: { ...state.errors, sankey: null }
+        }
+      })
     },
 
     // ============================================================================

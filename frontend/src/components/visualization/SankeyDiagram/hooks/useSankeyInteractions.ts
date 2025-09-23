@@ -75,20 +75,12 @@ export const useSankeyInteractions = ({
       return
     }
 
-    const rect = event.currentTarget.getBoundingClientRect()
     const containerRect = containerRef.current?.getBoundingClientRect()
 
-    // Calculate position relative to viewport for accurate placement
+    // Position popover on the right side of the Sankey diagram
     const position = {
-      x: rect.left + rect.width / 2,  // Center horizontally on the node
-      y: rect.top + window.scrollY     // Account for page scroll
-    }
-
-    // If container exists, ensure position is relative to the whole page
-    if (containerRect) {
-      // Adjust for container offset if needed
-      position.x = Math.max(position.x, containerRect.left + 50)  // Minimum offset from container edge
-      position.x = Math.min(position.x, containerRect.right - 50) // Maximum offset from container edge
+      x: containerRect ? containerRect.right + 20 : window.innerWidth - 600,
+      y: containerRect ? containerRect.top + containerRect.height / 2 : window.innerHeight / 2
     }
 
     // Check if this is a score agreement node to provide parent context
@@ -114,28 +106,20 @@ export const useSankeyInteractions = ({
 
     event.stopPropagation()
 
-    // Use click position relative to viewport with scroll compensation
+    const containerRect = containerRef.current?.getBoundingClientRect()
+
+    // Position popover on the right side of the Sankey diagram
     const position = {
-      x: event.clientX,                    // Mouse x position relative to viewport
-      y: event.clientY + window.scrollY    // Mouse y position with scroll offset
+      x: containerRect ? containerRect.right + 20 : window.innerWidth - 600,
+      y: containerRect ? containerRect.top + containerRect.height / 2 : window.innerHeight / 2
     }
-
-    // Ensure position is within reasonable bounds
-    const viewport = {
-      width: window.innerWidth,
-      height: window.innerHeight
-    }
-
-    // Keep position within viewport bounds with some padding
-    position.x = Math.max(50, Math.min(position.x, viewport.width - 50))
-    position.y = Math.max(50, Math.min(position.y + window.scrollY, viewport.height + window.scrollY - 50))
 
     // Check if this is a score agreement node to provide parent context
     const parentNodeId = isScoreAgreementNode(sourceNode.id) ? getParentNodeId(sourceNode.id) : undefined
     const parentNodeName = parentNodeId && data ? getParentNodeName(parentNodeId, data.nodes) : undefined
 
     showHistogramPopover(sourceNode.id, sourceNode.name, metrics, position, parentNodeId || undefined, parentNodeName || undefined)
-  }, [showHistogramOnClick, showHistogramPopover, data])
+  }, [showHistogramOnClick, showHistogramPopover, data, containerRef])
 
   return {
     // State

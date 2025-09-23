@@ -6,7 +6,6 @@ import type {
   MetricType,
   Filters,
   Thresholds,
-  NodeThresholds,
   HierarchicalThresholds
 } from '../../../services/types'
 import { API_CONFIG } from '../constants'
@@ -25,7 +24,6 @@ export interface HistogramRequest {
 export interface SankeyRequest {
   filters: Filters
   thresholds: Thresholds
-  nodeThresholds?: NodeThresholds
   hierarchicalThresholds: HierarchicalThresholds
 }
 
@@ -100,9 +98,6 @@ class VisualizationApiService {
     const sankeyRequest = {
       filters: request.filters,
       thresholds: request.thresholds,
-      ...(request.nodeThresholds && Object.keys(request.nodeThresholds).length > 0 && {
-        nodeThresholds: request.nodeThresholds
-      }),
       hierarchicalThresholds: request.hierarchicalThresholds
     }
 

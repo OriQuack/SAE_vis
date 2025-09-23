@@ -1,7 +1,6 @@
 import type {
   Filters,
   Thresholds,
-  NodeThresholds,
   HierarchicalThresholds,
   PopoverState,
   FilterOptions,
@@ -62,7 +61,6 @@ export interface FilterSlice {
 export interface ThresholdSlice {
   // State
   readonly thresholds: Thresholds
-  readonly nodeThresholds: NodeThresholds
   readonly hierarchicalThresholds: HierarchicalThresholds
 
   // Actions
@@ -106,7 +104,7 @@ export interface ApiSlice {
   fetchFilterOptions: () => Promise<void>
   fetchHistogramData: (_debounced?: boolean, _nodeId?: string) => Promise<void>
   fetchMultipleHistogramData: (_metrics: MetricType[], _debounced?: boolean, _nodeId?: string) => Promise<void>
-  fetchSankeyData: (_debounced?: boolean, _nodeThresholdsOverride?: NodeThresholds) => Promise<void>
+  fetchSankeyData: (_debounced?: boolean) => Promise<void>
   clearError: (_key: keyof ErrorStates) => void
   clearAllErrors: () => void
 }
@@ -194,7 +192,6 @@ export interface HistogramApiRequest extends ApiRequest {
 export interface SankeyApiRequest extends ApiRequest {
   readonly filters: Filters
   readonly thresholds: Thresholds
-  readonly nodeThresholds?: NodeThresholds
   readonly hierarchicalThresholds: HierarchicalThresholds
 }
 
