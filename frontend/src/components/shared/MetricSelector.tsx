@@ -59,4 +59,3 @@ export const MetricSelector: React.FC<MetricSelectorProps> = ({
   </div>
 )
 
-export default MetricSelector

@@ -12,76 +12,36 @@ export const createViewSlice: StateCreator<
   // ============================================================================
 
   viewState: 'empty',
-  isFilterModalOpen: false,
 
   // ============================================================================
   // VIEW ACTIONS
   // ============================================================================
 
   setViewState: (newState) => {
-    set(
-      { viewState: newState },
-      false,
-      'setViewState'
-    )
-  },
-
-  openFilterModal: () => {
-    set(
-      { isFilterModalOpen: true },
-      false,
-      'openFilterModal'
-    )
-  },
-
-  closeFilterModal: () => {
-    set(
-      { isFilterModalOpen: false },
-      false,
-      'closeFilterModal'
-    )
+    set({ viewState: newState })
   },
 
   showVisualization: () => {
-    set(
-      (state) => ({
-        viewState: 'visualization',
-        isFilterModalOpen: false
-      }),
-      false,
-      'showVisualization'
-    )
+    set({
+      viewState: 'visualization'
+    })
   },
 
   editFilters: () => {
-    set(
-      {
-        isFilterModalOpen: true
-      },
-      false,
-      'editFilters'
-    )
+    set({
+      viewState: 'filtering'
+    })
   },
 
   removeVisualization: () => {
-    set(
-      (state) => ({
-        viewState: 'empty',
-        isFilterModalOpen: false
-      }),
-      false,
-      'removeVisualization'
-    )
+    set({
+      viewState: 'empty'
+    })
   },
 
   resetView: () => {
-    set(
-      {
-        viewState: 'empty',
-        isFilterModalOpen: false
-      },
-      false,
-      'resetView'
-    )
+    set({
+      viewState: 'empty'
+    })
   }
 })

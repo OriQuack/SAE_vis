@@ -57,7 +57,7 @@ class Filters(BaseModel):
 class Thresholds(BaseModel):
     """Threshold configuration for Sankey diagram generation"""
     feature_splitting: float = Field(
-        ...,
+        default=0.3,
         ge=0.0,
         le=1.0,
         description="Threshold for feature splitting classification (cosine similarity magnitude, typically 1e-5 to 1e-4)",

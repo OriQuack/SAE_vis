@@ -6,6 +6,7 @@ import { createThresholdSlice } from './slices/thresholdSlice'
 import { createPopoverSlice } from './slices/popoverSlice'
 import { createApiSlice } from './slices/apiSlice'
 import { createViewSlice } from './slices/viewSlice'
+import { createCompositeActions } from './actions/compositeActions'
 
 export const useVisualizationStore = create<VisualizationState>()(
   devtools(
@@ -15,6 +16,7 @@ export const useVisualizationStore = create<VisualizationState>()(
       ...createPopoverSlice(set, get, api),
       ...createApiSlice(set, get, api),
       ...createViewSlice(set, get, api),
+      ...createCompositeActions(set, get),
       resetAll: () => {
         const state = get()
         state.resetFilters()

@@ -3,9 +3,10 @@ import type { ThresholdSlice, VisualizationState } from '../types'
 import {
   INITIAL_THRESHOLDS,
   INITIAL_NODE_THRESHOLDS,
-  INITIAL_HIERARCHICAL_THRESHOLDS
+  INITIAL_HIERARCHICAL_THRESHOLDS,
+  API_CONFIG
 } from '../constants'
-import { logThresholdUpdate, logThresholdState, hasActiveFilters } from '../utils'
+import { logThresholdUpdate, logThresholdState, hasActiveFilters, DebounceManager } from '../utils'
 import {
   getThresholdGroupId,
   getNodesInThresholdGroup,
@@ -18,19 +19,17 @@ export const createThresholdSlice: StateCreator<
   [],
   ThresholdSlice
 > = (set, get) => {
-  // Debounce timeout reference for Sankey updates
-  let debouncedSankeyTimeout: NodeJS.Timeout | null = null
-  const SANKEY_DEBOUNCE_DELAY = 300 // ms
+  // Dedicated debounce manager for threshold-related operations
+  const debounceManager = new DebounceManager()
 
   const debouncedSankeyUpdate = (nodeThresholds?: any) => {
-    if (debouncedSankeyTimeout) {
-      clearTimeout(debouncedSankeyTimeout)
-    }
-
-    debouncedSankeyTimeout = setTimeout(() => {
-      get().fetchSankeyData(false, nodeThresholds)
-      debouncedSankeyTimeout = null
-    }, SANKEY_DEBOUNCE_DELAY)
+    debounceManager.debounce(
+      'sankey-update',
+      () => {
+        get().fetchSankeyData(false, nodeThresholds)
+      },
+      API_CONFIG.DEBOUNCE_DELAY
+    )
   }
 
   return {
@@ -42,13 +41,12 @@ export const createThresholdSlice: StateCreator<
     nodeThresholds: INITIAL_NODE_THRESHOLDS,
     hierarchicalThresholds: INITIAL_HIERARCHICAL_THRESHOLDS,
 
-  // ============================================================================
-  // BASIC THRESHOLD ACTIONS
-  // ============================================================================
+    // ============================================================================
+    // BASIC THRESHOLD ACTIONS
+    // ============================================================================
 
-  setThresholds: (newThresholds) => {
-    set(
-      (state) => {
+    setThresholds: (newThresholds) => {
+      set((state) => {
         // Schedule debounced Sankey refresh if filters are active
         const isFiltersActive = hasActiveFilters(state.filters)
         if (isFiltersActive) {
@@ -67,34 +65,26 @@ export const createThresholdSlice: StateCreator<
           hierarchicalThresholds: updatedHierarchicalThresholds,
           errors: { ...state.errors, sankey: null }
         }
-      },
-      false,
-      'setThresholds'
-    )
-  },
+      })
+    },
 
-  resetThresholds: () => {
-    set(
-      (state) => ({
+    resetThresholds: () => {
+      set((state) => ({
         thresholds: INITIAL_THRESHOLDS,
         nodeThresholds: INITIAL_NODE_THRESHOLDS,
         hierarchicalThresholds: INITIAL_HIERARCHICAL_THRESHOLDS,
         errors: { ...state.errors, sankey: null }
-      }),
-      false,
-      'resetThresholds'
-    )
-  },
+      }))
+    },
 
-  // ============================================================================
-  // NODE THRESHOLD ACTIONS
-  // ============================================================================
+    // ============================================================================
+    // NODE THRESHOLD ACTIONS
+    // ============================================================================
 
-  setNodeThreshold: (parentNodeId, metric, threshold) => {
-    logThresholdUpdate('node', parentNodeId, metric, threshold)
+    setNodeThreshold: (parentNodeId, metric, threshold) => {
+      logThresholdUpdate('node', parentNodeId, metric, threshold)
 
-    set(
-      (state) => {
+      set((state) => {
         const newNodeThresholds = {
           ...state.nodeThresholds,
           [parentNodeId]: {
@@ -115,15 +105,11 @@ export const createThresholdSlice: StateCreator<
           nodeThresholds: newNodeThresholds,
           errors: { ...state.errors, sankey: null }
         }
-      },
-      false,
-      'setNodeThreshold'
-    )
-  },
+      })
+    },
 
-  clearNodeThreshold: (parentNodeId, metric) => {
-    set(
-      (state) => {
+    clearNodeThreshold: (parentNodeId, metric) => {
+      set((state) => {
         const nodeThresholds = { ...state.nodeThresholds }
 
         if (metric) {
@@ -147,32 +133,24 @@ export const createThresholdSlice: StateCreator<
           nodeThresholds,
           errors: { ...state.errors, sankey: null }
         }
-      },
-      false,
-      'clearNodeThreshold'
-    )
-  },
+      })
+    },
 
-  resetNodeThresholds: () => {
-    set(
-      (state) => ({
+    resetNodeThresholds: () => {
+      set((state) => ({
         nodeThresholds: INITIAL_NODE_THRESHOLDS,
         errors: { ...state.errors, sankey: null }
-      }),
-      false,
-      'resetNodeThresholds'
-    )
-  },
+      }))
+    },
 
-  // ============================================================================
-  // HIERARCHICAL THRESHOLD ACTIONS
-  // ============================================================================
+    // ============================================================================
+    // HIERARCHICAL THRESHOLD ACTIONS
+    // ============================================================================
 
-  setThresholdGroup: (groupId, metric, threshold) => {
-    logThresholdUpdate('group', groupId, metric, threshold)
+    setThresholdGroup: (groupId, metric, threshold) => {
+      logThresholdUpdate('group', groupId, metric, threshold)
 
-    set(
-      (state) => {
+      set((state) => {
         const newHierarchical = { ...state.hierarchicalThresholds }
 
         // Handle feature splitting threshold groups
@@ -217,24 +195,20 @@ export const createThresholdSlice: StateCreator<
           hierarchicalThresholds: newHierarchical,
           errors: { ...state.errors, sankey: null }
         }
-      },
-      false,
-      'setThresholdGroup'
-    )
-  },
+      })
+    },
 
-  clearThresholdGroup: (groupId, metric) => {
-    set(
-      (state) => {
+    clearThresholdGroup: (groupId, metric) => {
+      set((state) => {
         const newHierarchical = { ...state.hierarchicalThresholds }
 
         if (metric) {
           // Clear specific metric for the group
           if (metric === 'feature_splitting' && newHierarchical.feature_splitting_groups?.[groupId]) {
-            const { [groupId]: removed, ...rest } = newHierarchical.feature_splitting_groups
+            const { [groupId]: _removed, ...rest } = newHierarchical.feature_splitting_groups
             newHierarchical.feature_splitting_groups = rest
           } else if (metric === 'semdist_mean' && newHierarchical.semantic_distance_groups?.[groupId]) {
-            const { [groupId]: removed, ...rest } = newHierarchical.semantic_distance_groups
+            const { [groupId]: _removed, ...rest } = newHierarchical.semantic_distance_groups
             newHierarchical.semantic_distance_groups = rest
           } else if ((metric === 'score_fuzz' || metric === 'score_simulation' || metric === 'score_detection') &&
                      newHierarchical.score_agreement_groups?.[groupId]) {
@@ -242,7 +216,7 @@ export const createThresholdSlice: StateCreator<
             delete groupScores[metric]
 
             if (Object.keys(groupScores).length === 0) {
-              const { [groupId]: removed, ...rest } = newHierarchical.score_agreement_groups
+              const { [groupId]: _removed, ...rest } = newHierarchical.score_agreement_groups
               newHierarchical.score_agreement_groups = rest
             } else {
               newHierarchical.score_agreement_groups = {
@@ -254,15 +228,15 @@ export const createThresholdSlice: StateCreator<
         } else {
           // Clear all thresholds for the group
           if (newHierarchical.feature_splitting_groups?.[groupId]) {
-            const { [groupId]: removed, ...rest } = newHierarchical.feature_splitting_groups
+            const { [groupId]: _removed, ...rest } = newHierarchical.feature_splitting_groups
             newHierarchical.feature_splitting_groups = rest
           }
           if (newHierarchical.semantic_distance_groups?.[groupId]) {
-            const { [groupId]: removed, ...rest } = newHierarchical.semantic_distance_groups
+            const { [groupId]: _removed, ...rest } = newHierarchical.semantic_distance_groups
             newHierarchical.semantic_distance_groups = rest
           }
           if (newHierarchical.score_agreement_groups?.[groupId]) {
-            const { [groupId]: removed, ...rest } = newHierarchical.score_agreement_groups
+            const { [groupId]: _removed, ...rest } = newHierarchical.score_agreement_groups
             newHierarchical.score_agreement_groups = rest
           }
         }
@@ -271,29 +245,26 @@ export const createThresholdSlice: StateCreator<
           hierarchicalThresholds: newHierarchical,
           errors: { ...state.errors, sankey: null }
         }
-      },
-      false,
-      'clearThresholdGroup'
-    )
-  },
+      })
+    },
 
-  // ============================================================================
-  // THRESHOLD GETTERS
-  // ============================================================================
+    // ============================================================================
+    // THRESHOLD GETTERS
+    // ============================================================================
 
-  getEffectiveThresholdForNode: (nodeId, metric) => {
-    const { hierarchicalThresholds } = get()
-    return getEffectiveThreshold(nodeId, metric, hierarchicalThresholds)
-  },
+    getEffectiveThresholdForNode: (nodeId, metric) => {
+      const { hierarchicalThresholds } = get()
+      return getEffectiveThreshold(nodeId, metric, hierarchicalThresholds)
+    },
 
-  getNodesInSameThresholdGroup: (nodeId, metric) => {
-    const { sankeyData } = get()
-    if (!sankeyData) return []
+    getNodesInSameThresholdGroup: (nodeId, metric) => {
+      const { sankeyData } = get()
+      if (!sankeyData) return []
 
-    const groupId = getThresholdGroupId(nodeId, metric)
-    if (!groupId) return [nodeId] // Node doesn't belong to a group, only itself
+      const groupId = getThresholdGroupId(nodeId, metric)
+      if (!groupId) return [nodeId] // Node doesn't belong to a group, only itself
 
-    return getNodesInThresholdGroup(groupId, sankeyData.nodes, metric)
-  }
+      return getNodesInThresholdGroup(groupId, sankeyData.nodes, metric)
+    }
   }
 }

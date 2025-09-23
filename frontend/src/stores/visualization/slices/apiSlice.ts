@@ -1,14 +1,13 @@
 import type { StateCreator } from 'zustand'
-import { api } from '../../../services/api'
-import type { ApiSlice, VisualizationState, HistogramRequest, SankeyRequest } from '../types'
-import type { NodeThresholds, MetricType, HistogramData } from '../../../services/types'
+import { visualizationApiService } from '../services/apiService'
+import { thresholdCalculationService } from '../services/thresholdService'
+import type { ApiSlice, VisualizationState } from '../types'
 import {
   INITIAL_LOADING,
   INITIAL_ERRORS,
-  INITIAL_CURRENT_METRIC,
-  API_CONFIG
+  INITIAL_CURRENT_METRIC
 } from '../constants'
-import { getErrorMessage, hasActiveFilters, getThresholdKey, shouldUpdateThreshold, logApiRequest } from '../utils'
+import { getErrorMessage, hasActiveFilters, logApiRequest } from '../utils'
 
 export const createApiSlice: StateCreator<
   VisualizationState,
@@ -31,14 +30,10 @@ export const createApiSlice: StateCreator<
   // ============================================================================
 
   setCurrentMetric: (metric) => {
-    set(
-      (state) => ({
-        currentMetric: metric,
-        errors: { ...state.errors, histogram: null }
-      }),
-      false,
-      'setCurrentMetric'
-    )
+    set((state) => ({
+      currentMetric: metric,
+      errors: { ...state.errors, histogram: null }
+    }))
   },
 
   // ============================================================================
@@ -46,23 +41,15 @@ export const createApiSlice: StateCreator<
   // ============================================================================
 
   clearError: (key) => {
-    set(
-      (state) => ({
-        errors: { ...state.errors, [key]: null }
-      }),
-      false,
-      'clearError'
-    )
+    set((state) => ({
+      errors: { ...state.errors, [key]: null }
+    }))
   },
 
   clearAllErrors: () => {
-    set(
-      () => ({
-        errors: INITIAL_ERRORS
-      }),
-      false,
-      'clearAllErrors'
-    )
+    set(() => ({
+      errors: INITIAL_ERRORS
+    }))
   },
 
   // ============================================================================
@@ -70,37 +57,25 @@ export const createApiSlice: StateCreator<
   // ============================================================================
 
   fetchFilterOptions: async () => {
-    set(
-      (state) => ({
-        loading: { ...state.loading, filters: true },
-        errors: { ...state.errors, filters: null }
-      }),
-      false,
-      'fetchFilterOptions:start'
-    )
+    set((state) => ({
+      loading: { ...state.loading, filters: true },
+      errors: { ...state.errors, filters: null }
+    }))
 
     try {
-      const filterOptions = await api.getFilterOptions()
+      const filterOptions = await visualizationApiService.fetchFilterOptions()
 
-      set(
-        (state) => ({
-          filterOptions,
-          loading: { ...state.loading, filters: false }
-        }),
-        false,
-        'fetchFilterOptions:success'
-      )
+      set((state) => ({
+        filterOptions,
+        loading: { ...state.loading, filters: false }
+      }))
     } catch (error) {
       const errorMessage = getErrorMessage(error)
 
-      set(
-        (state) => ({
-          loading: { ...state.loading, filters: false },
-          errors: { ...state.errors, filters: errorMessage }
-        }),
-        false,
-        'fetchFilterOptions:error'
-      )
+      set((state) => ({
+        loading: { ...state.loading, filters: false },
+        errors: { ...state.errors, filters: errorMessage }
+      }))
 
       console.error('Failed to fetch filter options:', error)
     }
@@ -111,71 +86,44 @@ export const createApiSlice: StateCreator<
 
     // Don't fetch if no filters are active
     if (!hasActiveFilters(filters)) {
-      set(
-        (state) => ({
-          histogramData: null,
-          loading: { ...state.loading, histogram: false }
-        }),
-        false,
-        'fetchHistogramData:noFilters'
-      )
+      set((state) => ({
+        histogramData: null,
+        loading: { ...state.loading, histogram: false }
+      }))
       return
     }
 
-    set(
-      (state) => ({
-        loading: { ...state.loading, histogram: true },
-        errors: { ...state.errors, histogram: null }
-      }),
-      false,
-      'fetchHistogramData:start'
-    )
+    set((state) => ({
+      loading: { ...state.loading, histogram: true },
+      errors: { ...state.errors, histogram: null }
+    }))
 
     try {
-      const request: HistogramRequest = {
-        filters,
-        metric: currentMetric,
-        bins: API_CONFIG.DEFAULT_BINS,
-        ...(nodeId && { nodeId })
-      }
-
-      const histogramData = debounced
-        ? await api.getHistogramDataDebounced(request)
-        : await api.getHistogramData(request)
-
-      // Automatically update the threshold to the mean value
-      const newThreshold = histogramData.statistics.mean
-
-      set(
-        (state) => {
-          const thresholdKey = getThresholdKey(currentMetric)
-          const updatedThresholds = shouldUpdateThreshold(currentMetric, state.thresholds)
-            ? {
-                ...state.thresholds,
-                [thresholdKey]: newThreshold
-              }
-            : state.thresholds
-
-          return {
-            histogramData: { [currentMetric]: histogramData } as Record<string, HistogramData>,
-            loading: { ...state.loading, histogram: false },
-            thresholds: updatedThresholds
-          }
-        },
-        false,
-        'fetchHistogramData:success'
+      const histogramData = await visualizationApiService.fetchHistogramData(
+        { filters, metric: currentMetric, nodeId },
+        debounced
       )
+
+      // Calculate automatic threshold update
+      const currentThresholds = get().thresholds
+      const thresholdUpdate = thresholdCalculationService.calculateThresholdFromHistogram(
+        currentMetric,
+        histogramData,
+        currentThresholds
+      )
+
+      set((state) => ({
+        histogramData: { [currentMetric]: histogramData },
+        loading: { ...state.loading, histogram: false },
+        thresholds: { ...state.thresholds, ...thresholdUpdate }
+      }))
     } catch (error) {
       const errorMessage = getErrorMessage(error)
 
-      set(
-        (state) => ({
-          loading: { ...state.loading, histogram: false },
-          errors: { ...state.errors, histogram: errorMessage }
-        }),
-        false,
-        'fetchHistogramData:error'
-      )
+      set((state) => ({
+        loading: { ...state.loading, histogram: false },
+        errors: { ...state.errors, histogram: errorMessage }
+      }))
 
       console.error('Failed to fetch histogram data:', error)
     }
@@ -186,100 +134,45 @@ export const createApiSlice: StateCreator<
 
     // Don't fetch if no filters are active
     if (!hasActiveFilters(filters)) {
-      set(
-        (state) => ({
-          histogramData: null,
-          loading: { ...state.loading, histogram: false }
-        }),
-        false,
-        'fetchMultipleHistogramData:noFilters'
-      )
+      set((state) => ({
+        histogramData: null,
+        loading: { ...state.loading, histogram: false }
+      }))
       return
     }
 
-    set(
-      (state) => ({
-        loading: { ...state.loading, histogram: true },
-        errors: { ...state.errors, histogram: null }
-      }),
-      false,
-      'fetchMultipleHistogramData:start'
-    )
+    set((state) => ({
+      loading: { ...state.loading, histogram: true },
+      errors: { ...state.errors, histogram: null }
+    }))
 
     try {
-      // Create parallel API requests for all metrics
-      const requests = metrics.map(metric => {
-        const request: HistogramRequest = {
-          filters,
-          metric,
-          bins: API_CONFIG.DEFAULT_BINS,
-          ...(nodeId && { nodeId })
-        }
-
-        return debounced
-          ? api.getHistogramDataDebounced(request)
-          : api.getHistogramData(request)
-      })
-
-      // Execute all requests in parallel
-      const histogramResults = await Promise.all(requests)
-
-      // Build the histogram data map
-      const histogramDataMap: Record<string, HistogramData> = {}
-      metrics.forEach((metric, index) => {
-        histogramDataMap[metric] = histogramResults[index]
-      })
-
-      // Automatically update thresholds to the mean values
-      const currentThresholds = get().thresholds
-      const newThresholds = { ...currentThresholds }
-
-      metrics.forEach((metric, index) => {
-        const meanValue = histogramResults[index].statistics.mean
-
-        if (metric === 'feature_splitting') {
-          newThresholds.feature_splitting = meanValue
-        } else if (metric === 'semdist_mean') {
-          newThresholds.semdist_mean = meanValue
-        } else if (metric.includes('score')) {
-          // For score metrics, update the score_high threshold
-          // Use the average of all score means if multiple scores are fetched
-          const scoreMetrics = metrics.filter(m => m.includes('score'))
-          if (scoreMetrics.length > 0) {
-            const scoreMeans = scoreMetrics
-              .map(scoreMetric => {
-                const idx = metrics.indexOf(scoreMetric)
-                return idx !== -1 ? histogramResults[idx].statistics.mean : 0
-              })
-              .filter(v => v > 0)
-
-            if (scoreMeans.length > 0) {
-              newThresholds.score_high = scoreMeans.reduce((a, b) => a + b, 0) / scoreMeans.length
-            }
-          }
-        }
-      })
-
-      set(
-        (state) => ({
-          histogramData: histogramDataMap,
-          loading: { ...state.loading, histogram: false },
-          thresholds: newThresholds
-        }),
-        false,
-        'fetchMultipleHistogramData:success'
+      const histogramDataMap = await visualizationApiService.fetchMultipleHistogramData(
+        { filters, metrics, nodeId },
+        debounced
       )
+
+      // Calculate automatic threshold updates
+      const currentThresholds = get().thresholds
+      const histogramResults = Object.values(histogramDataMap)
+      const thresholdUpdates = thresholdCalculationService.calculateThresholdsFromMultipleHistograms(
+        metrics,
+        histogramResults,
+        currentThresholds
+      )
+
+      set((state) => ({
+        histogramData: histogramDataMap,
+        loading: { ...state.loading, histogram: false },
+        thresholds: { ...state.thresholds, ...thresholdUpdates }
+      }))
     } catch (error) {
       const errorMessage = getErrorMessage(error)
 
-      set(
-        (state) => ({
-          loading: { ...state.loading, histogram: false },
-          errors: { ...state.errors, histogram: errorMessage }
-        }),
-        false,
-        'fetchMultipleHistogramData:error'
-      )
+      set((state) => ({
+        loading: { ...state.loading, histogram: false },
+        errors: { ...state.errors, histogram: errorMessage }
+      }))
 
       console.error('Failed to fetch multiple histogram data:', error)
     }
@@ -291,61 +184,42 @@ export const createApiSlice: StateCreator<
 
     // Don't fetch if no filters are active
     if (!hasActiveFilters(filters)) {
-      set(
-        (state) => ({
-          sankeyData: null,
-          loading: { ...state.loading, sankey: false }
-        }),
-        false,
-        'fetchSankeyData:noFilters'
-      )
+      set((state) => ({
+        sankeyData: null,
+        loading: { ...state.loading, sankey: false }
+      }))
       return
     }
 
-    set(
-      (state) => ({
-        loading: { ...state.loading, sankey: true },
-        errors: { ...state.errors, sankey: null }
-      }),
-      false,
-      'fetchSankeyData:start'
-    )
+    set((state) => ({
+      loading: { ...state.loading, sankey: true },
+      errors: { ...state.errors, sankey: null }
+    }))
 
     try {
-      // Create request with hierarchical thresholds
-      const request: SankeyRequest = {
+      const request = {
         filters,
         thresholds,
-        ...(Object.keys(actualNodeThresholds).length > 0 && { nodeThresholds: actualNodeThresholds }),
+        nodeThresholds: actualNodeThresholds,
         hierarchicalThresholds
       }
 
       // Log the request for debugging
       logApiRequest(request, 'Sankey')
 
-      const sankeyData = debounced
-        ? await api.getSankeyDataDebounced(request)
-        : await api.getSankeyData(request)
+      const sankeyData = await visualizationApiService.fetchSankeyData(request, debounced)
 
-      set(
-        (state) => ({
-          sankeyData,
-          loading: { ...state.loading, sankey: false }
-        }),
-        false,
-        'fetchSankeyData:success'
-      )
+      set((state) => ({
+        sankeyData,
+        loading: { ...state.loading, sankey: false }
+      }))
     } catch (error) {
       const errorMessage = getErrorMessage(error)
 
-      set(
-        (state) => ({
-          loading: { ...state.loading, sankey: false },
-          errors: { ...state.errors, sankey: errorMessage }
-        }),
-        false,
-        'fetchSankeyData:error'
-      )
+      set((state) => ({
+        loading: { ...state.loading, sankey: false },
+        errors: { ...state.errors, sankey: errorMessage }
+      }))
 
       console.error('Failed to fetch Sankey data:', error)
     }
