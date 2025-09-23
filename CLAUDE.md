@@ -25,14 +25,14 @@ This is a visualization interface project for EuroVIS conference submission focu
 - **API testing**: Comprehensive test suite with all endpoints validated and active
 - **React Frontend**: Advanced TypeScript implementation with modular D3.js visualizations
 - **Phase 1 Complete**: Single Sankey visualization with interactive filtering and node-based thresholds
-- **Sprint 2 Complete**: Advanced modular architecture with sophisticated component system
+- **Sprint 2 Complete**: Advanced modular architecture with sophisticated component system and enhanced UX
 - **Advanced UI Components**:
-  - `HistogramPopover/` (6 subcomponents + hooks + utils)
+  - `HistogramPopover/` (6 subcomponents + hooks + utils) with right-side positioning and draggable functionality
   - `SankeyDiagram/` (5 subcomponents + hooks + utils)
   - `shared/` (4 reusable components)
   - Custom hooks library (useClickOutside, useDragHandler, useResizeObserver)
 - **Slice-based State Management**: 4 specialized Zustand slices with centralized selectors
-- **Portal-based Interactions**: Advanced popover system with multi-histogram support
+- **Portal-based Interactions**: Advanced popover system with multi-histogram support and enhanced positioning
 
 ### 🏗️ Architecture (Implemented)
 
@@ -55,8 +55,8 @@ Data Storage (Master Parquet + Index files) ✅
 ### 🎯 Development Progress
 1. **✅ Sprint 0 Complete**: Master parquet creation + FastAPI setup + comprehensive testing
 2. **✅ Sprint 1 Complete**: Frontend React foundation + Single Sankey implementation
-3. **✅ Sprint 2 Complete**: Advanced modular architecture + sophisticated histogram interactions + portal-based UI
-4. **🔄 Sprint 3 In Progress**: Dual Sankey + alluvial comparison view implementation (backend ready)
+3. **✅ Sprint 2 Complete**: Advanced modular architecture + sophisticated histogram interactions + portal-based UI + enhanced UX (right-side positioning, draggable popovers)
+4. **🔜 Sprint 3**: Dual Sankey + alluvial comparison view implementation (backend ready)
 5. **🔜 Sprint 4**: Debug view with feature drilling and category management
 6. **🔜 Sprint 5**: Performance optimization and production polish
 
@@ -114,11 +114,11 @@ pip install -r requirements.txt
 - **Backend**: Multiple active servers
   - Primary: Port 8003 (✅ Heavy traffic - hundreds of API requests)
   - Secondary: Port 8005 (✅ Development backup)
-- **Frontend**: Development server auto-migrated to http://localhost:3004 (port conflict resolved)
+- **Frontend**: Development server running on http://localhost:3003 (✅ Enhanced UX with draggable popovers)
 - **API Documentation**: http://127.0.0.1:8003/docs (✅ Interactive Swagger UI)
 - **Health Check**: http://127.0.0.1:8003/health (✅ Data service connected)
 - **API Performance**: ✅ All 5 endpoints operational with sub-second response times
-- **Application Status**: ✅ Production-quality Phase 1 + Sprint 2 complete (Advanced modular architecture)
+- **Application Status**: ✅ Production-quality Phase 1 + Sprint 2 complete (Advanced modular architecture with enhanced UX)
 - **Real-time Usage**: ✅ Active visualization sessions with live API interactions
 
 ### Frontend (✅ Implemented)
@@ -136,11 +136,12 @@ npm run build && npm run test           # Build and test
     - `HistogramSlider` with D3 integration and interactive thresholds
     - `LoadingSpinner` with contextual messaging
   - **HistogramPopover/**: Sophisticated portal-based system (6+ subcomponents)
-    - `PopoverHeader`, `PopoverFooter` for UI consistency
+    - `PopoverHeader` with draggable functionality, `PopoverFooter` (streamlined for better UX)
     - `SingleHistogramView`, `MultiHistogramView` for flexible visualization modes
     - `IndividualHistogram` for granular data display
+    - Right-side positioning logic for optimal workflow
     - Specialized hooks: `usePopoverPosition`, `useThresholdManagement`
-    - Utility modules: positioning, styles for advanced calculations
+    - Utility modules: positioning with collision detection, styles for advanced calculations
   - **SankeyDiagram/**: Fully modularized D3 visualization (5+ subcomponents)
     - `SankeyHeader`, `SankeyLegend` for metadata display
     - `SankeyNode`, `SankeyLink`, `SankeyStageLabels` for interactive elements
@@ -159,7 +160,8 @@ npm run build && npm run test           # Build and test
   - Specialized hooks for domain-specific interactions
 - **Portal-based UI Architecture**: Advanced rendering and positioning
   - Portal-based popover rendering for proper z-index management
-  - Dynamic collision detection and positioning calculations
+  - Right-side positioning with intelligent collision detection
+  - Draggable interface elements with smooth interaction patterns
   - Multi-histogram layout support for comparison visualizations
 - **Enterprise Integration Features**:
   - Complete API integration with all 5 backend endpoints
@@ -216,15 +218,15 @@ This project has evolved into a **production-quality research visualization plat
 
 ### 🔄 Active Development Status
 - **Phase 1**: ✅ Complete (Single Sankey visualization with interactive filtering)
-- **Sprint 2**: ✅ Complete (Advanced modular architecture)
+- **Sprint 2**: ✅ Complete (Advanced modular architecture with enhanced UX and draggable popovers)
 - **Phase 2 Readiness**: ✅ Backend structure complete, frontend architecture ready
-- **Current Focus**: Dual Sankey comparison implementation
+- **Next Focus**: Sprint 3 - Dual Sankey comparison implementation
 
 ### 🏆 Technical Achievements
 - **Scalability**: Designed to handle 16K+ features with efficient lazy loading
 - **Performance**: Sub-second API responses with optimized data processing
 - **Maintainability**: Modular architecture with clear separation of concerns
-- **User Experience**: Sophisticated interaction patterns with portal-based popovers
+- **User Experience**: Sophisticated interaction patterns with portal-based popovers, right-side positioning, and draggable interfaces
 - **Developer Experience**: Comprehensive TypeScript integration with excellent tooling
 
 This visualization platform represents a **research-grade tool** ready for academic conference presentation and capable of handling complex SAE feature analysis workflows.

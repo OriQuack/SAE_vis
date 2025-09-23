@@ -178,9 +178,8 @@ export const createApiSlice: StateCreator<
     }
   },
 
-  fetchSankeyData: async (debounced = false, nodeThresholdsOverride) => {
-    const { filters, thresholds, nodeThresholds, hierarchicalThresholds } = get()
-    const actualNodeThresholds = nodeThresholdsOverride || nodeThresholds
+  fetchSankeyData: async (debounced = false) => {
+    const { filters, thresholds, hierarchicalThresholds } = get()
 
     // Don't fetch if no filters are active
     if (!hasActiveFilters(filters)) {
@@ -200,7 +199,6 @@ export const createApiSlice: StateCreator<
       const request = {
         filters,
         thresholds,
-        nodeThresholds: actualNodeThresholds,
         hierarchicalThresholds
       }
 

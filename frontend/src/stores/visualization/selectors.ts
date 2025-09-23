@@ -9,7 +9,6 @@ import type { FilterStateSelector, HistogramStateSelector, SankeyStateSelector }
 // Simple state selectors
 export const useFilters = () => useVisualizationStore((state) => state.filters)
 export const useThresholds = () => useVisualizationStore((state) => state.thresholds)
-export const useNodeThresholds = () => useVisualizationStore((state) => state.nodeThresholds)
 export const useHierarchicalThresholds = () => useVisualizationStore((state) => state.hierarchicalThresholds)
 export const usePopoverState = () => useVisualizationStore((state) => state.popoverState)
 export const useFilterOptions = () => useVisualizationStore((state) => state.filterOptions)
@@ -55,9 +54,6 @@ export const useHistogramDataForMetric = (metric: MetricType) => useVisualizatio
   state.histogramData?.[metric] || null
 )
 
-// Threshold for specific node and metric
-export const useNodeThreshold = (parentNodeId: string, metric: MetricType) =>
-  useVisualizationStore((state) => state.nodeThresholds[parentNodeId]?.[metric])
 
 // ============================================================================
 // MEMOIZED SELECTORS (for performance)

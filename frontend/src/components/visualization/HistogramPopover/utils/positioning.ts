@@ -24,54 +24,26 @@ export function calculateOptimalPosition(
     height: window.innerHeight
   }
 
-  const spaceTop = clickPosition.y
-  const spaceBottom = viewport.height - clickPosition.y
-  const spaceLeft = clickPosition.x
-
-  let placement: PopoverPosition['placement'] = 'bottom'
+  // Use fixed right positioning for histogram popovers
+  let placement: PopoverPosition['placement'] = 'right'
   let x = clickPosition.x
   let y = clickPosition.y
-  let transform = ''
+  let transform = 'translate(0%, -50%)'
 
-  if (spaceTop >= popoverSize.height + margin) {
-    placement = 'top'
-    y = clickPosition.y - margin
-    transform = 'translate(-50%, -100%)'
-  }
-  else if (spaceBottom >= popoverSize.height + margin) {
-    placement = 'bottom'
-    y = clickPosition.y + margin
-    transform = 'translate(-50%, 0%)'
-  }
-  else if (spaceLeft >= popoverSize.width + margin) {
-    placement = 'left'
-    x = clickPosition.x - margin
-    y = clickPosition.y
-    transform = 'translate(-100%, -50%)'
-  }
-  else {
-    placement = 'right'
-    x = clickPosition.x + margin
-    y = clickPosition.y
+  // Ensure the popover fits vertically on screen
+  const halfHeight = popoverSize.height / 2
+  if (y - halfHeight < margin) {
+    y = halfHeight + margin
+    transform = 'translate(0%, -50%)'
+  } else if (y + halfHeight > viewport.height - margin) {
+    y = viewport.height - halfHeight - margin
     transform = 'translate(0%, -50%)'
   }
 
-  if (placement === 'top' || placement === 'bottom') {
-    const halfWidth = popoverSize.width / 2
-    if (x - halfWidth < margin) {
-      x = halfWidth + margin
-    } else if (x + halfWidth > viewport.width - margin) {
-      x = viewport.width - halfWidth - margin
-    }
-  }
-
-  if (placement === 'left' || placement === 'right') {
-    const halfHeight = popoverSize.height / 2
-    if (y - halfHeight < margin) {
-      y = halfHeight + margin
-    } else if (y + halfHeight > viewport.height - margin) {
-      y = viewport.height - halfHeight - margin
-    }
+  // Ensure the popover fits horizontally on screen
+  if (x + popoverSize.width > viewport.width - margin) {
+    x = viewport.width - popoverSize.width - margin
+    transform = 'translate(0%, -50%)'
   }
 
   return { x, y, transform, placement }

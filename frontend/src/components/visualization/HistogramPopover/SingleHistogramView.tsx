@@ -76,14 +76,14 @@ export const SingleHistogramView: React.FC<SingleHistogramViewProps> = React.mem
       <svg
         ref={svgRef}
         width={containerSize.width - 16}
-        height={containerSize.height - 100}
+        height={containerSize.height - 64}
         className="histogram-popover__svg"
         style={CHART_STYLES.svg}
       >
         {/* Background */}
         <rect
           width={containerSize.width - 16}
-          height={containerSize.height - 100}
+          height={containerSize.height - 64}
           fill={HISTOGRAM_COLORS.background}
         />
 

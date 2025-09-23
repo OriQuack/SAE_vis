@@ -1,7 +1,6 @@
 import type {
   Filters,
   Thresholds,
-  NodeThresholds,
   HierarchicalThresholds,
   PopoverState,
   LoadingState,
@@ -28,7 +27,6 @@ export const INITIAL_THRESHOLDS: Thresholds = {
   score_high: 0.5     // Default to middle of range (0-1), will be replaced with actual mean
 }
 
-export const INITIAL_NODE_THRESHOLDS: NodeThresholds = {}
 
 export const INITIAL_HIERARCHICAL_THRESHOLDS: HierarchicalThresholds = {
   global_thresholds: INITIAL_THRESHOLDS
@@ -85,7 +83,6 @@ export const STORE_CONFIG = {
   PERSIST_KEYS: [
     'filters',
     'thresholds',
-    'nodeThresholds',
     'hierarchicalThresholds',
     'currentMetric'
   ]
