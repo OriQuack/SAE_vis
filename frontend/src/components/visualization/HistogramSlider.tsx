@@ -1,8 +1,6 @@
 import React, { useRef, useCallback, useMemo } from 'react'
 import { useVisualizationStore } from '../../stores/visualization'
-import { MetricSelector } from '../shared/MetricSelector'
 import { ErrorMessage } from '../shared/ErrorMessage'
-import LoadingSpinner from '../LoadingSpinner'
 import { useDragHandler, useResizeObserver } from '../../hooks'
 import {
   calculateHistogramLayout,
@@ -143,11 +141,16 @@ export const HistogramSlider: React.FC<HistogramSliderProps> = React.memo(({
       <div className="histogram-slider__header">
         <h3 className="histogram-slider__title">Distribution & Threshold</h3>
         {showMetricSelector && (
-          <MetricSelector
-            currentMetric={metric}
-            onChange={handleMetricChange}
+          <select
+            value={metric}
+            onChange={(e) => handleMetricChange(e.target.value as any)}
             disabled={loading}
-          />
+            className="metric-selector"
+          >
+            <option value="semdist_mean">Semantic Distance</option>
+            <option value="score_fuzz">Score Fuzz</option>
+            <option value="feature_splitting">Feature Splitting</option>
+          </select>
         )}
       </div>
 
@@ -167,7 +170,10 @@ export const HistogramSlider: React.FC<HistogramSliderProps> = React.memo(({
 
       {/* Loading state */}
       {loading && (
-        <LoadingSpinner message="Loading histogram data..." />
+        <div className="histogram-slider__loading">
+          <div className="loading-spinner">⏳</div>
+          <span>Loading histogram data...</span>
+        </div>
       )}
 
       {/* Main visualization */}
