@@ -1,5 +1,5 @@
 import React from 'react'
-import { useVisualizationStore, useFilters, useFilterOptions } from '../../stores/visualization'
+import { useVisualizationStore } from '../../stores/store'
 
 interface CompactFilterConfigurationProps {
   onCreateVisualization: () => void
@@ -12,9 +12,7 @@ export const CompactFilterConfiguration: React.FC<CompactFilterConfigurationProp
   onCancel,
   className = ''
 }) => {
-  const filters = useFilters()
-  const filterOptions = useFilterOptions()
-  const { setFilters, resetFilters } = useVisualizationStore()
+  const { filters, filterOptions, setFilters, resetFilters } = useVisualizationStore()
 
   // Check if filters have been selected
   const hasActiveFilters = Object.values(filters).some(

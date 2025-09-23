@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback } from 'react'
-import { useVisualizationStore } from '../stores/visualization'
+import { useVisualizationStore } from '../stores/store'
 import { EmptyStateCard } from '../components/ui/EmptyStateCard'
 import CompactFilterConfiguration from '../components/ui/CompactFilterConfiguration'
 import VisualizationActions from '../components/ui/VisualizationActions'
@@ -90,6 +90,7 @@ export const SankeyView: React.FC<SankeyViewProps> = ({
 }) => {
   const {
     filters,
+    thresholds,
     viewState,
     filterOptions,
     fetchFilterOptions,
@@ -126,6 +127,27 @@ export const SankeyView: React.FC<SankeyViewProps> = ({
 
     loadData()
   }, [filters, viewState, fetchMultipleHistogramData, fetchSankeyData])
+
+  // Watch for threshold changes and re-fetch Sankey data
+  useEffect(() => {
+    console.log('🔍 [SankeyView] Threshold useEffect triggered:', {
+      thresholds,
+      viewState,
+      hasActiveFilters: Object.values(filters).some(filterArray => filterArray && filterArray.length > 0)
+    })
+
+    const hasActiveFilters = Object.values(filters).some(
+      filterArray => filterArray && filterArray.length > 0
+    )
+
+    if (hasActiveFilters && viewState === 'visualization') {
+      console.log('✅ [SankeyView] Conditions met, calling fetchSankeyData')
+      // Only fetch Sankey data when thresholds change (histogram data stays the same)
+      fetchSankeyData()
+    } else {
+      console.log('❌ [SankeyView] Conditions not met:', { hasActiveFilters, viewState })
+    }
+  }, [thresholds, filters, viewState, fetchSankeyData])
 
   // Handlers for view state
   const handleAddVisualization = useCallback(() => {

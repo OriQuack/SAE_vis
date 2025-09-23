@@ -45,10 +45,17 @@ export const MultiHistogramView: React.FC<MultiHistogramViewProps> = React.memo(
           const metricData = histogramData[metric as MetricType]
           const threshold = currentThresholds[metric] || metricData?.statistics.mean || 0.5
 
-          // Debug logging
-          console.log(`Rendering ${metric}: threshold=${threshold}, from currentThresholds=${currentThresholds[metric]}`)
+          console.log('📊 [MultiHistogramView] Rendering chart:', {
+            metric,
+            currentThresholds,
+            threshold,
+            hasMetricData: !!metricData,
+            meanFromData: metricData?.statistics.mean
+          })
 
           if (!metricData) return null
+
+          console.log('🚀 [MultiHistogramView] Passing threshold to IndividualHistogram:', { metric, threshold })
 
           return (
             <IndividualHistogram

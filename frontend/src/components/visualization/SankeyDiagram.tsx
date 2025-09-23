@@ -1,5 +1,5 @@
 import React from 'react'
-import { useVisualizationStore } from '../../stores/visualization'
+import { useVisualizationStore } from '../../stores/store'
 import { DEFAULT_ANIMATION } from '../../utils/d3-helpers'
 import { ErrorMessage } from '../shared/ErrorMessage'
 import { SankeyNode } from './SankeyDiagram/SankeyNode'

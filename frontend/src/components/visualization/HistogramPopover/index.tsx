@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useMemo, useCallback, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useVisualizationStore } from '../../../stores/visualization'
+import { useVisualizationStore } from '../../../stores/store'
 import { useClickOutside, useDragHandler } from '../../../hooks'
 import {
   calculateHistogramLayout,

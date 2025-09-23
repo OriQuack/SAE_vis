@@ -1,5 +1,5 @@
 import React, { useRef, useCallback, useMemo } from 'react'
-import { useVisualizationStore } from '../../stores/visualization'
+import { useVisualizationStore } from '../../stores/store'
 import { ErrorMessage } from '../shared/ErrorMessage'
 import { useDragHandler, useResizeObserver } from '../../hooks'
 import {

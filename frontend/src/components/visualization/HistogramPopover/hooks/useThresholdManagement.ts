@@ -1,5 +1,5 @@
 import { useMemo, useCallback } from 'react'
-import { useVisualizationStore } from '../../../../stores/visualization'
+import { useVisualizationStore } from '../../../../stores/store'
 import { getThresholdGroupId } from '../../../../services/types'
 import type { MetricType, HistogramData } from '../../../../services/types'
 
@@ -70,38 +70,59 @@ export const useThresholdManagement = ({
   }, [popoverData?.nodeId, popoverData?.metrics, getNodesInSameThresholdGroup])
 
   const currentThresholds = useMemo(() => {
+    console.log('📊 [useThresholdManagement] Calculating currentThresholds')
+
     const thresholds: Record<string, number | undefined> = {}
 
     if (popoverData?.metrics && popoverData?.nodeId) {
       popoverData.metrics.forEach(metric => {
         const effectiveValue = getEffectiveThresholdForNode(popoverData.nodeId, metric as MetricType)
         thresholds[metric] = effectiveValue
+        console.log('📈 [useThresholdManagement] Current threshold:', { metric, effectiveValue })
       })
     }
 
+    console.log('📋 [useThresholdManagement] Final currentThresholds:', thresholds)
     return thresholds
   }, [popoverData?.metrics, popoverData?.nodeId, getEffectiveThresholdForNode, hierarchicalThresholds])
 
   const handleMultiThresholdChange = useCallback((metric: string, newThreshold: number) => {
-    if (!histogramData || !popoverData) return
+    console.log('🔄 [MultiThreshold] Change detected:', { metric, newThreshold })
+
+    if (!histogramData || !popoverData) {
+      console.log('❌ [MultiThreshold] Missing data:', { histogramData: !!histogramData, popoverData: !!popoverData })
+      return
+    }
 
     const metricData = histogramData[metric as MetricType]
-    if (!metricData) return
+    if (!metricData) {
+      console.log('❌ [MultiThreshold] No metric data for:', metric)
+      return
+    }
 
     const clampedThreshold = Math.max(
       metricData.statistics.min,
       Math.min(metricData.statistics.max, newThreshold)
     )
 
+    // Keep original metric name - setThresholdGroup will handle score_high mapping internally
+    console.log('🔀 [MultiThreshold] Keeping original metric:', { metric, clampedThreshold })
+
     const groupInfo = thresholdGroupInfo.groups[metric as MetricType] || null
+    console.log('📊 [MultiThreshold] Group info:', { groupInfo })
+
     if (groupInfo?.groupId) {
+      console.log('🎯 [MultiThreshold] Using group threshold')
       if (groupInfo.groupId === 'feature_splitting_global') {
-        console.log(`🎯 Setting global threshold: ${metric} = ${clampedThreshold}`)
+        console.log('🌍 [MultiThreshold] Setting global threshold:', { [metric]: clampedThreshold })
         setThresholds({ [metric]: clampedThreshold })
       } else {
-        console.log(`🎯 Setting threshold group: ${groupInfo.groupId}.${metric} = ${clampedThreshold} (affects ${groupInfo.affectedNodes.length} nodes)`)
+        console.log('👥 [MultiThreshold] Setting group threshold:', { groupId: groupInfo.groupId, metric, threshold: clampedThreshold })
         setThresholdGroup(groupInfo.groupId, metric as MetricType, clampedThreshold)
       }
+    } else {
+      console.log('⚡ [MultiThreshold] Setting direct threshold (fallback):', { [metric]: clampedThreshold })
+      setThresholds({ [metric]: clampedThreshold })
     }
   }, [histogramData, popoverData, thresholdGroupInfo, setThresholdGroup, setThresholds])
 
@@ -117,22 +138,33 @@ export const useThresholdManagement = ({
       Math.min(metricData.statistics.max, newThreshold)
     )
 
+    // Keep original metric name - setThresholdGroup will handle score_high mapping internally
     const groupInfo = thresholdGroupInfo.groups[singleMetric as MetricType] || null
     if (groupInfo?.groupId) {
       if (groupInfo.groupId === 'feature_splitting_global') {
-        console.log(`🎯 Setting global threshold: ${singleMetric} = ${clampedThreshold}`)
         setThresholds({ [singleMetric]: clampedThreshold })
       } else {
-        console.log(`🎯 Setting threshold group: ${groupInfo.groupId}.${singleMetric} = ${clampedThreshold} (affects ${groupInfo.affectedNodes.length} nodes)`)
         setThresholdGroup(groupInfo.groupId, singleMetric as MetricType, clampedThreshold)
       }
+    } else {
+      // Fallback: directly set the threshold if no group info
+      setThresholds({ [singleMetric]: clampedThreshold })
     }
   }, [histogramData, popoverData, thresholdGroupInfo, setThresholdGroup, setThresholds])
 
   const getEffectiveThreshold = useCallback((metric: string): number => {
+    // Check if we have a direct threshold for this metric
     if (currentThresholds[metric] !== undefined) {
       return currentThresholds[metric]!
     }
+
+    // Map score_fuzz to score_high for threshold lookup
+    const thresholdMetric = metric === 'score_fuzz' ? 'score_high' : metric
+    if (currentThresholds[thresholdMetric] !== undefined) {
+      return currentThresholds[thresholdMetric]!
+    }
+
+    // Fallback to histogram mean
     if (histogramData && histogramData[metric]) {
       return histogramData[metric].statistics.mean
     }
