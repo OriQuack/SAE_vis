@@ -275,25 +275,73 @@ export const createDataSlice: DataSliceCreator = (set, get) => ({
     // Get the current state to access thresholds
     const state = get()
 
-    console.log('🔍 [DataSlice] getEffectiveThresholdForNode:', { nodeId, metric, thresholds: state.thresholds })
+    console.log('🔍 [DataSlice] getEffectiveThresholdForNode:', {
+      nodeId,
+      metric,
+      hierarchicalThresholds: state.hierarchicalThresholds
+    })
 
-    // Check direct metric first
-    if (state.thresholds[metric] !== undefined) {
-      console.log('✅ [DataSlice] Found direct threshold:', { metric, value: state.thresholds[metric] })
-      return state.thresholds[metric]
+    // First check for individual node threshold override
+    const individualGroupId = `node_${nodeId}`
+    if (state.hierarchicalThresholds.individual_node_groups?.[individualGroupId]?.[metric] !== undefined) {
+      const value = state.hierarchicalThresholds.individual_node_groups[individualGroupId][metric]!
+      console.log('🏷️ [DataSlice] Found individual node threshold:', { nodeId, metric, value })
+      return value
     }
 
-    // Handle score_fuzz ↔ score_high mapping for reading
+    // For semantic distance metrics, check parent group
+    if (metric === 'semdist_mean') {
+      // Extract splitting parent from node (e.g., "split_true_semdist_high" -> "split_true")
+      const splittingParent = nodeId.match(/^(split_(?:true|false))/)?.[1]
+      if (splittingParent && state.hierarchicalThresholds.semantic_distance_groups?.[splittingParent] !== undefined) {
+        const value = state.hierarchicalThresholds.semantic_distance_groups[splittingParent]
+        console.log('🌐 [DataSlice] Found semantic distance group threshold:', {
+          nodeId,
+          splittingParent,
+          value
+        })
+        return value
+      }
+    }
+
+    // For score metrics, check parent group
+    if (['score_fuzz', 'score_simulation', 'score_detection'].includes(metric)) {
+      // Extract semantic parent from score agreement node (e.g., "split_true_semdist_high_agree_all" -> "split_true_semdist_high")
+      const semanticParent = nodeId.includes('_agree_')
+        ? nodeId.split('_agree_')[0]
+        : null
+
+      if (semanticParent && state.hierarchicalThresholds.score_agreement_groups?.[semanticParent]?.[metric] !== undefined) {
+        const value = state.hierarchicalThresholds.score_agreement_groups[semanticParent][metric]!
+        console.log('📊 [DataSlice] Found score agreement group threshold:', {
+          nodeId,
+          semanticParent,
+          metric,
+          value
+        })
+        return value
+      }
+    }
+
+    // Fallback to global thresholds
+    if (state.hierarchicalThresholds.global_thresholds[metric] !== undefined) {
+      const value = state.hierarchicalThresholds.global_thresholds[metric]
+      console.log('🌍 [DataSlice] Found global threshold:', { metric, value })
+      return value
+    }
+
+    // Handle score_fuzz ↔ score_high mapping for reading (legacy support)
     const mappedMetric = metric === 'score_fuzz' ? 'score_high' :
                         metric === 'score_high' ? 'score_fuzz' : null
 
-    if (mappedMetric && state.thresholds[mappedMetric] !== undefined) {
+    if (mappedMetric && state.hierarchicalThresholds.global_thresholds[mappedMetric] !== undefined) {
+      const value = state.hierarchicalThresholds.global_thresholds[mappedMetric]
       console.log('🔄 [DataSlice] Found mapped threshold:', {
         originalMetric: metric,
         mappedMetric,
-        value: state.thresholds[mappedMetric]
+        value
       })
-      return state.thresholds[mappedMetric]
+      return value
     }
 
     console.log('❌ [DataSlice] No threshold found, using default:', { metric, default: 0.5 })
@@ -303,22 +351,75 @@ export const createDataSlice: DataSliceCreator = (set, get) => ({
   setThresholdGroup: (groupId, metric, threshold) => {
     console.log('🎯 [DataSlice] setThresholdGroup called:', { groupId, metric, threshold })
 
-    // For now, just update the global threshold since hierarchical grouping
-    // is complex functionality that may not be actively used
     const state = get()
 
-    // Handle mapping for individual score metrics (independent behavior)
-    const thresholdsToUpdate: Record<string, number> = { [metric]: threshold }
-    const isScoreMetric = ['score_fuzz', 'score_detection', 'score_simulation'].includes(metric)
+    // Check if this is an individual node (starts with 'node_')
+    const isIndividualNode = groupId.startsWith('node_')
 
-    if (isScoreMetric) {
-      // Individual score metrics → also update score_high for API, but keep metrics independent
-      thresholdsToUpdate['score_high'] = threshold
-      console.log('🔄 [DataSlice] Individual score metric mapping:', { [metric]: threshold, score_high: threshold })
+    if (isIndividualNode) {
+      // Individual node threshold - add to hierarchical individual_node_groups
+      const nodeId = groupId.replace('node_', '')
+
+      set((state) => {
+        const updatedHierarchical = {
+          ...state.hierarchicalThresholds,
+          individual_node_groups: {
+            ...state.hierarchicalThresholds.individual_node_groups,
+            [groupId]: {
+              ...state.hierarchicalThresholds.individual_node_groups?.[groupId],
+              [metric]: threshold
+            }
+          }
+        }
+
+        console.log('🏷️ [DataSlice] Setting individual node threshold:', {
+          nodeId,
+          groupId,
+          metric,
+          threshold,
+          updatedHierarchical
+        })
+
+        return {
+          hierarchicalThresholds: updatedHierarchical
+        }
+      })
+    } else {
+      // Parent group threshold - update appropriate group in hierarchical structure
+      set((state) => {
+        const updatedHierarchical = { ...state.hierarchicalThresholds }
+
+        if (metric === 'semdist_mean') {
+          // Semantic distance group threshold
+          updatedHierarchical.semantic_distance_groups = {
+            ...state.hierarchicalThresholds.semantic_distance_groups,
+            [groupId]: threshold
+          }
+          console.log('🌐 [DataSlice] Setting semantic distance group threshold:', {
+            groupId,
+            threshold
+          })
+        } else if (['score_fuzz', 'score_simulation', 'score_detection'].includes(metric)) {
+          // Score agreement group threshold
+          updatedHierarchical.score_agreement_groups = {
+            ...state.hierarchicalThresholds.score_agreement_groups,
+            [groupId]: {
+              ...state.hierarchicalThresholds.score_agreement_groups?.[groupId],
+              [metric]: threshold
+            }
+          }
+          console.log('📊 [DataSlice] Setting score agreement group threshold:', {
+            groupId,
+            metric,
+            threshold
+          })
+        }
+
+        return {
+          hierarchicalThresholds: updatedHierarchical
+        }
+      })
     }
-
-    console.log('💾 [DataSlice] Setting thresholds:', thresholdsToUpdate)
-    state.setThresholds(thresholdsToUpdate)
   },
 
   // ============================================================================

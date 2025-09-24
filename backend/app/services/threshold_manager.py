@@ -6,10 +6,13 @@ for both legacy and hierarchical threshold systems.
 """
 
 import polars as pl
+import logging
 from typing import Dict, Optional
 from ..models.common import HierarchicalThresholds
 from .data_constants import *
 from .feature_classifier import FeatureClassifier
+
+logger = logging.getLogger(__name__)
 
 
 class ThresholdManager:
@@ -37,9 +40,16 @@ class ThresholdManager:
         Returns:
             DataFrame with all classification columns added
         """
+        logger.info(f"🚀 ThresholdManager.apply_classification called for {len(df)} features")
+        logger.info(f"📝 Legacy thresholds: {thresholds}")
+        logger.info(f"🔧 Node thresholds: {node_thresholds}")
+        logger.info(f"🏗️ Hierarchical thresholds present: {hierarchical_thresholds is not None}")
+
         if hierarchical_thresholds:
+            logger.info("🎯 Using HIERARCHICAL classification strategy")
             return self._apply_hierarchical_classification(df, hierarchical_thresholds)
         else:
+            logger.info("🔄 Using LEGACY classification strategy")
             return self._apply_legacy_classification(df, thresholds, node_thresholds)
 
     def _apply_hierarchical_classification(

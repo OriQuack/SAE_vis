@@ -131,6 +131,22 @@ class HierarchicalThresholds(BaseModel):
         }
     )
 
+    # Individual node threshold overrides
+    # Key format: "node_{nodeId}" -> threshold values for specific individual nodes
+    individual_node_groups: Optional[Dict[str, Dict[str, float]]] = Field(
+        default=None,
+        description="Individual node threshold overrides",
+        example={
+            "node_split_true_semdist_high": {
+                "semdist_mean": 0.25
+            },
+            "node_split_true_semdist_high_agree_all": {
+                "score_fuzz": 0.9,
+                "score_simulation": 0.85
+            }
+        }
+    )
+
     def get_feature_splitting_threshold(self, condition: str = "default") -> float:
         """Get feature splitting threshold for a given condition (cosine similarity scale)"""
         if self.feature_splitting_groups and condition in self.feature_splitting_groups:
@@ -139,6 +155,13 @@ class HierarchicalThresholds(BaseModel):
 
     def get_semdist_threshold_for_node(self, node_id: str) -> float:
         """Get semantic distance threshold for a node based on its parent grouping"""
+        # First check for individual node override
+        individual_group_id = f"node_{node_id}"
+        if (self.individual_node_groups and
+            individual_group_id in self.individual_node_groups and
+            "semdist_mean" in self.individual_node_groups[individual_group_id]):
+            return self.individual_node_groups[individual_group_id]["semdist_mean"]
+
         # Extract splitting parent from node_id (e.g., "split_true_semdist_high" -> "split_true")
         if "_semdist_" in node_id:
             splitting_parent = node_id.split("_semdist_")[0]  # e.g., "split_true"
@@ -164,5 +187,14 @@ class HierarchicalThresholds(BaseModel):
                 # Merge hierarchical thresholds with defaults, so missing metrics use defaults
                 group_thresholds = self.score_agreement_groups[semantic_parent]
                 result.update(group_thresholds)
+
+        # Check for individual node overrides (highest priority)
+        individual_group_id = f"node_{node_id}"
+        if self.individual_node_groups and individual_group_id in self.individual_node_groups:
+            individual_thresholds = self.individual_node_groups[individual_group_id]
+            # Only update the metrics that are explicitly set in individual overrides
+            for score_type in ["score_fuzz", "score_simulation", "score_detection"]:
+                if score_type in individual_thresholds:
+                    result[score_type] = individual_thresholds[score_type]
 
         return result

@@ -63,6 +63,12 @@ async def get_sankey_data(
         HTTPException: For various error conditions including invalid filters,
                       invalid thresholds, insufficient data, or server errors
     """
+    logger.info("📡 === SANKEY API REQUEST ===")
+    logger.info(f"🔍 Filters: {request.filters}")
+    logger.info(f"📊 Basic thresholds: {request.thresholds}")
+    logger.info(f"🔧 Node thresholds: {request.nodeThresholds}")
+    logger.info(f"🏗️ Hierarchical thresholds: {request.hierarchicalThresholds}")
+
     try:
         # Validate threshold ranges
         if not (0.0 <= request.thresholds.semdist_mean <= 1.0):
