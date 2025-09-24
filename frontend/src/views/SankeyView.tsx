@@ -91,6 +91,7 @@ export const SankeyView: React.FC<SankeyViewProps> = ({
   const {
     filters,
     thresholds,
+    hierarchicalThresholds,
     viewState,
     filterOptions,
     fetchFilterOptions,
@@ -132,6 +133,7 @@ export const SankeyView: React.FC<SankeyViewProps> = ({
   useEffect(() => {
     console.log('🔍 [SankeyView] Threshold useEffect triggered:', {
       thresholds,
+      hierarchicalThresholds,
       viewState,
       hasActiveFilters: Object.values(filters).some(filterArray => filterArray && filterArray.length > 0)
     })
@@ -147,7 +149,7 @@ export const SankeyView: React.FC<SankeyViewProps> = ({
     } else {
       console.log('❌ [SankeyView] Conditions not met:', { hasActiveFilters, viewState })
     }
-  }, [thresholds, filters, viewState, fetchSankeyData])
+  }, [thresholds, hierarchicalThresholds, filters, viewState, fetchSankeyData])
 
   // Handlers for view state
   const handleAddVisualization = useCallback(() => {
