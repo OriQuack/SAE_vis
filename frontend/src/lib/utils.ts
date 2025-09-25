@@ -19,8 +19,8 @@ interface UseResizeObserverOptions {
   debounceMs?: number
 }
 
-interface UseResizeObserverReturn {
-  ref: React.RefObject<HTMLElement>
+interface UseResizeObserverReturn<T extends HTMLElement = HTMLElement> {
+  ref: React.RefObject<T>
   size: Size
 }
 
@@ -54,12 +54,12 @@ interface DragHandlerReturn {
 /**
  * Hook to observe element size changes with debouncing
  */
-export const useResizeObserver = ({
+export const useResizeObserver = <T extends HTMLElement = HTMLElement>({
   defaultWidth = 0,
   defaultHeight = 0,
   debounceMs = 100
-}: UseResizeObserverOptions = {}): UseResizeObserverReturn => {
-  const ref = useRef<HTMLElement>(null)
+}: UseResizeObserverOptions = {}): UseResizeObserverReturn<T> => {
+  const ref = useRef<T>(null)
   const [size, setSize] = useState<Size>({ width: defaultWidth, height: defaultHeight })
   const timeoutRef = useRef<number>()
 

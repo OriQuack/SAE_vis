@@ -82,7 +82,7 @@ export interface SankeyNode {
   name: string
   stage: number
   feature_count: number
-  category: string
+  category: NodeCategory
   parent_path?: string[]
 }
 
@@ -382,11 +382,11 @@ export const INITIAL_POPOVER_STATE: PopoverState = {
 /**
  * Utility function to extract parent node ID from score agreement node
  */
-export function getParentNodeId(scoreAgreementNodeId: string): string | null {
+export function getParentNodeId(scoreAgreementNodeId: string): string | undefined {
   // Score agreement nodes have format: split_{true/false}_semdist_{high/low}_{agreement}
   // We want to extract: split_{true/false}_semdist_{high/low}
   const match = scoreAgreementNodeId.match(/^(split_\w+_semdist_\w+)_agree_\w+$/)
-  return match ? match[1] : null
+  return match ? match[1] : undefined
 }
 
 /**

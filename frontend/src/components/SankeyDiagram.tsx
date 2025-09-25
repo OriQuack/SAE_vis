@@ -3,7 +3,7 @@ import { useVisualizationStore } from '../store'
 import { DEFAULT_ANIMATION, calculateSankeyLayout, validateSankeyData, validateDimensions, getNodeColor, getLinkColor, getSankeyPath, SANKEY_COLORS } from '../lib/d3-utils'
 import { useResizeObserver } from '../lib/utils'
 import { getParentNodeId, isScoreAgreementNode } from '../types'
-import type { D3SankeyNode, D3SankeyLink, SankeyData, NodeCategory, MetricType } from '../types'
+import type { D3SankeyNode, D3SankeyLink, MetricType } from '../types'
 
 // ==================== INLINE COMPONENTS ====================
 const ErrorMessage: React.FC<{ message: string; className?: string }> = ({ message, className }) => (
@@ -14,12 +14,6 @@ const ErrorMessage: React.FC<{ message: string; className?: string }> = ({ messa
 
 
 // ==================== CONSTANTS ====================
-const STAGE_LABELS = [
-  'All Features',
-  'Feature Splitting',
-  'Semantic Distance',
-  'Score Agreement'
-]
 
 const LEGEND_ITEMS = [
   { key: 'root', label: 'All Features' },
@@ -87,21 +81,8 @@ interface SankeyLinkComponentProps {
   onHistogramClick?: (event: React.MouseEvent, link: D3SankeyLink) => void
 }
 
-interface SankeyHeaderProps {
-  summary: {
-    totalFeatures: number
-    totalNodes: number
-    totalLinks: number
-    stages: number
-  } | null
-}
-
 interface SankeyLegendProps {
   colors: typeof SANKEY_COLORS
-}
-
-interface SankeyStageLabelsProps {
-  nodes: D3SankeyNode[]
 }
 
 // ==================== SUB-COMPONENTS ====================
@@ -269,63 +250,10 @@ const SankeyLegend: React.FC<SankeyLegendProps> = React.memo(({ colors }) => {
   )
 })
 
-const SankeyHeader: React.FC<SankeyHeaderProps> = React.memo(({ summary }) => {
-  return (
-    <div className="sankey-diagram__header">
-      <div className="sankey-diagram__title-section">
-        <h3 className="sankey-diagram__title">Feature Flow Analysis</h3>
-        {summary && (
-          <div className="sankey-diagram__summary">
-            <span className="sankey-diagram__stat">
-              {summary.totalFeatures.toLocaleString()} features
-            </span>
-            <span className="sankey-diagram__stat">
-              {summary.stages} stages
-            </span>
-            <span className="sankey-diagram__stat">
-              {summary.totalNodes} categories
-            </span>
-          </div>
-        )}
-      </div>
-      <SankeyLegend colors={SANKEY_COLORS} />
-    </div>
-  )
-})
-
-const SankeyStageLabels: React.FC<SankeyStageLabelsProps> = React.memo(({ nodes }) => {
-  const uniqueStages = Array.from(new Set(nodes.map(node => node.stage)))
-
-  return (
-    <g className="sankey-diagram__stage-labels">
-      {uniqueStages.map(stage => {
-        const stageNodes = nodes.filter(node => node.stage === stage)
-        const avgX = stageNodes.reduce((sum, node) => sum + ((node.x0 || 0) + (node.x1 || 0)) / 2, 0) / stageNodes.length
-
-        return (
-          <text
-            key={stage}
-            x={avgX}
-            y={15}
-            textAnchor="middle"
-            fontSize={12}
-            fontWeight={600}
-            fill="#374151"
-          >
-            Stage {stage + 1}: {STAGE_LABELS[stage] || `Stage ${stage + 1}`}
-          </text>
-        )
-      })}
-    </g>
-  )
-})
-
 // Set display names
 SankeyNode.displayName = 'SankeyNode'
 SankeyLink.displayName = 'SankeyLink'
 SankeyLegend.displayName = 'SankeyLegend'
-SankeyHeader.displayName = 'SankeyHeader'
-SankeyStageLabels.displayName = 'SankeyStageLabels'
 
 // ==================== MAIN COMPONENT ====================
 export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
@@ -341,15 +269,15 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
   // Use previous data when loading to prevent flickering
   const [displayData, setDisplayData] = React.useState(data)
-  const [isUpdating, setIsUpdating] = React.useState(false)
+//   const [isUpdating, setIsUpdating] = React.useState(false)
 
   React.useEffect(() => {
     if (!loading && data) {
       setDisplayData(data)
-      setIsUpdating(false)
+    //   setIsUpdating(false)
     } else if (loading && displayData) {
       // Only show updating state if we have previous data
-      setIsUpdating(true)
+    //   setIsUpdating(true)
     }
   }, [data, loading, displayData])
 
@@ -397,7 +325,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
   // ==================== INTERACTIONS LOGIC ====================
   // Resize observer hook
-  const { ref: containerRef, size: containerSize } = useResizeObserver({
+  const { ref: containerRef, size: containerSize } = useResizeObserver<HTMLDivElement>({
     defaultWidth: width,
     defaultHeight: height
   })
