@@ -9,6 +9,7 @@ This file provides guidance to Claude Code when working with the React frontend 
 Sprint 1 is complete with full React application, TypeScript, D3.js integration, and single Sankey diagram functionality. Sprint 2 is now complete with advanced histogram popover interactions, multi-histogram support, right-side positioning, and draggable functionality, providing a solid foundation for Phase 2 dual Sankey comparisons.
 
 ### Project Structure
+Currently refactoring so this file structure is outdated.
 ```
 frontend/
 ├── src/
