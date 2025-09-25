@@ -3,6 +3,7 @@ import * as api from './api'
 import type {
   Filters,
   Thresholds,
+  HierarchicalThresholds,
   FilterOptions,
   HistogramData,
   SankeyData,
@@ -17,8 +18,7 @@ interface AppState {
   // Data state
   filters: Filters
   filterOptions: FilterOptions | null
-  thresholds: Thresholds
-  hierarchicalThresholds: Record<string, Thresholds>  // Group-specific thresholds by parentNodeId
+  hierarchicalThresholds: HierarchicalThresholds
   currentMetric: MetricType
   histogramData: Record<string, HistogramData> | null
   sankeyData: SankeyData | null
@@ -31,7 +31,7 @@ interface AppState {
 
   // Data actions
   setFilters: (filters: Partial<Filters>) => void
-  setThresholds: (thresholds: Partial<Thresholds>) => void
+  setGlobalThresholds: (thresholds: Partial<Thresholds>) => void
   setHierarchicalThresholds: (thresholds: Partial<Thresholds>, parentNodeId?: string) => void
   setCurrentMetric: (metric: MetricType) => void
   setHistogramData: (data: Record<string, HistogramData> | null) => void
@@ -80,16 +80,13 @@ const initialState = {
     llm_scorer: []
   },
   filterOptions: null,
-  thresholds: {
-    feature_splitting: 0.1,
-    semdist_mean: 0.1,
-    score_high: 0.5
-  },
   hierarchicalThresholds: {
-    global: {
+    global_thresholds: {
       feature_splitting: 0.1,
       semdist_mean: 0.1,
-      score_high: 0.5
+      score_fuzz: 0.5,
+      score_detection: 0.5,
+      score_simulation: 0.2,
     }
   },
   currentMetric: 'semdist_mean' as MetricType,
@@ -127,22 +124,35 @@ export const useStore = create<AppState>((set, get) => ({
     }))
   },
 
-  setThresholds: (newThresholds) => {
-    set((state) => ({
-      thresholds: { ...state.thresholds, ...newThresholds }
-    }))
-  },
-
-  setHierarchicalThresholds: (newThresholds, parentNodeId = 'global') => {
+  setGlobalThresholds: (newThresholds) => {
     set((state) => ({
       hierarchicalThresholds: {
         ...state.hierarchicalThresholds,
-        [parentNodeId]: {
-          ...state.hierarchicalThresholds[parentNodeId],
-          ...newThresholds
-        }
+        global_thresholds: { ...state.hierarchicalThresholds.global_thresholds, ...newThresholds }
       }
     }))
+  },
+
+  setHierarchicalThresholds: (newThresholds, parentNodeId = 'global_thresholds') => {
+    if (parentNodeId === 'global_thresholds') {
+      set((state) => ({
+        hierarchicalThresholds: {
+          ...state.hierarchicalThresholds,
+          global_thresholds: { ...state.hierarchicalThresholds.global_thresholds, ...newThresholds }
+        }
+      }))
+    } else {
+      // Handle semantic distance groups or other hierarchical groups
+      set((state) => ({
+        hierarchicalThresholds: {
+          ...state.hierarchicalThresholds,
+          semantic_distance_groups: {
+            ...state.hierarchicalThresholds.semantic_distance_groups,
+            [parentNodeId]: newThresholds.semdist_mean || 0.1
+          }
+        }
+      }))
+    }
   },
 
   setCurrentMetric: (metric) => {
@@ -303,21 +313,21 @@ export const useStore = create<AppState>((set, get) => ({
         histogramData: combinedData
       }))
 
-      // Update thresholds with mean values from histogram data
+      // Update global thresholds with mean values from histogram data
       const newThresholds: Partial<Thresholds> = {}
       for (const metric of metrics) {
         const data = combinedData[metric]
         if (data && data.statistics && data.statistics.mean !== undefined) {
           if (metric === 'score_fuzz') {
-            newThresholds.score_high = data.statistics.mean
-          } else if (metric in state.thresholds) {
+            newThresholds.score_fuzz = data.statistics.mean
+          } else if (metric in state.hierarchicalThresholds.global_thresholds) {
             newThresholds[metric as keyof Thresholds] = data.statistics.mean
           }
         }
       }
 
       if (Object.keys(newThresholds).length > 0) {
-        state.setThresholds(newThresholds)
+        state.setGlobalThresholds(newThresholds)
       }
 
       state.setLoading('histogram', false)
@@ -344,20 +354,17 @@ export const useStore = create<AppState>((set, get) => ({
     state.clearError('sankey')
 
     try {
-      // Transform frontend hierarchical structure to backend-expected format
-      const globalThresholds = hierarchicalThresholds.global || {
+      // Ensure complete global thresholds with all required fields
+      const globalThresholds = hierarchicalThresholds.global_thresholds || {
         feature_splitting: 0.1,
         semdist_mean: 0.1,
-        score_high: 0.5
+        score_fuzz: 0.5,
+        score_detection: 0.5,
+        score_simulation: 0.2
       }
 
-      // Extract semantic distance groups (parent node IDs like "split_true", "split_false")
-      const semanticDistanceGroups: Record<string, number> = {}
-      Object.entries(hierarchicalThresholds).forEach(([parentNodeId, thresholds]) => {
-        if (parentNodeId !== 'global' && thresholds.semdist_mean !== undefined) {
-          semanticDistanceGroups[parentNodeId] = thresholds.semdist_mean
-        }
-      })
+      // Extract semantic distance groups from hierarchical thresholds
+      const semanticDistanceGroups = hierarchicalThresholds.semantic_distance_groups || {}
 
       // Create backend-compatible hierarchical thresholds structure
       const backendHierarchicalThresholds = {
@@ -367,9 +374,9 @@ export const useStore = create<AppState>((set, get) => ({
         })
       }
 
+      // Send only hierarchical thresholds (no legacy thresholds field)
       const request = {
         filters,
-        thresholds: globalThresholds,
         hierarchicalThresholds: backendHierarchicalThresholds
       }
 

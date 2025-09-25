@@ -155,13 +155,21 @@ export function calculateHistogramLayout(
       .domain([data.statistics.min, data.statistics.max])
       .range([0, width])
 
-    const maxCount = max(data.bins, d => d.count) || 1
+    const maxCount = max(data.histogram.counts) || 1
     const yScale = scaleLinear()
       .domain([0, maxCount])
       .range([height, 0])
 
+    // Transform API histogram format to expected HistogramBin format
+    const transformedBins = data.histogram.counts.map((count, i) => ({
+      x0: data.histogram.bin_edges[i],
+      x1: data.histogram.bin_edges[i + 1],
+      count: count,
+      density: count / (data.total_features || 1)
+    }))
+
     charts.push({
-      bins: data.bins,
+      bins: transformedBins,
       xScale,
       yScale,
       width,
@@ -189,13 +197,21 @@ export function calculateHistogramLayout(
         .domain([data.statistics.min, data.statistics.max])
         .range([0, chartWidth])
 
-      const maxCount = max(data.bins, d => d.count) || 1
+      const maxCount = max(data.histogram.counts) || 1
       const yScale = scaleLinear()
         .domain([0, maxCount])
         .range([chartHeight - chartMargin.top - chartMargin.bottom, 0])
 
+      // Transform API histogram format to expected HistogramBin format
+      const transformedBins = data.histogram.counts.map((count, i) => ({
+        x0: data.histogram.bin_edges[i],
+        x1: data.histogram.bin_edges[i + 1],
+        count: count,
+        density: count / (data.total_features || 1)
+      }))
+
       charts.push({
-        bins: data.bins,
+        bins: transformedBins,
         xScale,
         yScale,
         width: chartWidth,
@@ -234,13 +250,102 @@ export function calculateThresholdLine(threshold: number, chart: HistogramChart)
 // SANKEY UTILITIES
 // ============================================================================
 
-export function calculateSankeyLayout(sankeyData: any): SankeyLayout {
+export function calculateSankeyLayout(sankeyData: any, layoutWidth?: number, layoutHeight?: number): SankeyLayout {
   if (!sankeyData?.nodes || !sankeyData?.links) {
     throw new Error('Invalid sankey data: missing nodes or links')
   }
 
-  const width = 800 - DEFAULT_SANKEY_MARGIN.left - DEFAULT_SANKEY_MARGIN.right
-  const height = 600 - DEFAULT_SANKEY_MARGIN.top - DEFAULT_SANKEY_MARGIN.bottom
+  // Validate input data structure
+
+  const width = (layoutWidth || 800) - DEFAULT_SANKEY_MARGIN.left - DEFAULT_SANKEY_MARGIN.right
+  const height = (layoutHeight || 600) - DEFAULT_SANKEY_MARGIN.top - DEFAULT_SANKEY_MARGIN.bottom
+
+  // Create node ID to index mapping
+  const nodeIdMap = new Map<string, number>()
+  sankeyData.nodes.forEach((node: any, index: number) => {
+    nodeIdMap.set(String(node.id), index)
+  })
+
+  // Create node ID to index mapping complete
+
+  // Transform data for d3-sankey
+  const transformedLinks: any[] = []
+
+  sankeyData.links.forEach((link: any, linkIndex: number) => {
+    // Handle different link reference formats
+    let sourceIndex = -1
+    let targetIndex = -1
+
+    if (typeof link.source === 'number') {
+      sourceIndex = link.source
+    } else if (typeof link.source === 'string') {
+      sourceIndex = nodeIdMap.get(link.source) ?? -1
+    } else if (typeof link.source === 'object' && link.source?.id) {
+      sourceIndex = nodeIdMap.get(String(link.source.id)) ?? -1
+    }
+
+    if (typeof link.target === 'number') {
+      targetIndex = link.target
+    } else if (typeof link.target === 'string') {
+      targetIndex = nodeIdMap.get(link.target) ?? -1
+    } else if (typeof link.target === 'object' && link.target?.id) {
+      targetIndex = nodeIdMap.get(String(link.target.id)) ?? -1
+    }
+
+    if (sourceIndex === -1 || targetIndex === -1) {
+      console.error('calculateSankeyLayout: Invalid link reference (skipping):', {
+        linkIndex,
+        original: link,
+        sourceIndex,
+        targetIndex,
+        sourceId: typeof link.source === 'object' ? link.source?.id : link.source,
+        targetId: typeof link.target === 'object' ? link.target?.id : link.target,
+        availableNodeIds: Array.from(nodeIdMap.keys()).slice(0, 10)
+      })
+      return // Skip invalid links
+    }
+
+    // Validate indices are within bounds
+    if (sourceIndex >= sankeyData.nodes.length || targetIndex >= sankeyData.nodes.length || sourceIndex < 0 || targetIndex < 0) {
+      console.error('calculateSankeyLayout: Link index out of bounds (skipping):', {
+        linkIndex,
+        sourceIndex,
+        targetIndex,
+        nodeCount: sankeyData.nodes.length
+      })
+      return // Skip out-of-bounds links
+    }
+
+    transformedLinks.push({
+      ...link,
+      source: sourceIndex,
+      target: targetIndex
+    })
+  })
+
+  const transformedData = {
+    nodes: sankeyData.nodes.map((node: any, index: number) => {
+      // Preserve all original node properties to prevent d3-sankey from losing them
+      const transformedNode = {
+        ...node,
+        index // Add index for debugging
+      }
+      // Transform node data for d3-sankey
+      return transformedNode
+    }),
+    links: transformedLinks
+  }
+
+  // Validate transformed data
+
+  // Validate we have valid data for d3-sankey
+  if (transformedData.nodes.length === 0) {
+    throw new Error('No valid nodes found for Sankey diagram')
+  }
+
+  if (transformedData.links.length === 0) {
+    throw new Error('No valid links found for Sankey diagram')
+  }
 
   // Create D3 sankey generator
   const sankeyGenerator = sankey<D3SankeyNode, D3SankeyLink>()
@@ -248,11 +353,10 @@ export function calculateSankeyLayout(sankeyData: any): SankeyLayout {
     .nodePadding(10)
     .extent([[1, 1], [width - 1, height - 1]])
 
-  // Process the data
-  const sankeyLayout = sankeyGenerator({
-    nodes: sankeyData.nodes.map((d: any) => ({ ...d })),
-    links: sankeyData.links.map((d: any) => ({ ...d }))
-  })
+  // Process the data with d3-sankey
+  const sankeyLayout = sankeyGenerator(transformedData)
+
+  // Sankey layout calculation complete
 
   return {
     nodes: sankeyLayout.nodes,
@@ -268,11 +372,38 @@ export function getSankeyPath(link: D3SankeyLink): string {
 }
 
 export function getNodeColor(node: D3SankeyNode): string {
+  // Defensive check for node category
+  if (!node?.category) {
+    console.warn('getNodeColor: Node category is undefined:', {
+      node,
+      hasCategory: 'category' in node,
+      nodeKeys: Object.keys(node)
+    })
+    return '#6b7280' // Default gray
+  }
+
   return SANKEY_COLORS[node.category] || '#6b7280'
 }
 
 export function getLinkColor(link: D3SankeyLink): string {
+  // Defensive checks for d3-sankey processed data
+  if (!link?.source) {
+    console.warn('getLinkColor: Link source is undefined, using default color')
+    return '#6b728080'
+  }
+
   const sourceNode = link.source as D3SankeyNode
+
+  // Check if category exists on the source node
+  if (!sourceNode?.category) {
+    console.warn('getLinkColor: Source node category is undefined:', {
+      sourceNode,
+      hasCategory: 'category' in sourceNode,
+      nodeKeys: Object.keys(sourceNode)
+    })
+    return '#6b728080' // Default gray with transparency
+  }
+
   const baseColor = SANKEY_COLORS[sourceNode.category] || '#6b7280'
   return `${baseColor}80` // Add transparency
 }
@@ -326,7 +457,7 @@ export function validateHistogramData(data: HistogramData): string[] {
     return errors
   }
 
-  if (!data.bins || data.bins.length === 0) {
+  if (!data.histogram || !data.histogram.bins || data.histogram.bins.length === 0) {
     errors.push('Histogram data must contain bins')
   }
 
@@ -365,6 +496,13 @@ export function validateSankeyData(data: any): string[] {
   // Check that all link source/target IDs exist in nodes
   if (data.nodes.length > 0 && data.links.length > 0) {
     const nodeIds = new Set(data.nodes.map((node: any) => node.id))
+    const nodeIdToIndex = new Map<string, number>()
+    data.nodes.forEach((node: any, index: number) => {
+      nodeIdToIndex.set(String(node.id), index)
+    })
+
+    // Track which nodes are referenced by links
+    const referencedNodeIndices = new Set<number>()
 
     for (let i = 0; i < data.links.length; i++) {
       const link = data.links[i]
@@ -373,12 +511,96 @@ export function validateSankeyData(data: any): string[] {
       const sourceId = typeof link.source === 'object' ? link.source?.id : link.source
       const targetId = typeof link.target === 'object' ? link.target?.id : link.target
 
-      if (sourceId !== undefined && !nodeIds.has(sourceId)) {
-        errors.push(`Link ${i} references missing source node: "${sourceId}"`)
+      let sourceIndex = -1
+      let targetIndex = -1
+
+      // Convert source to index
+      if (typeof sourceId === 'number') {
+        sourceIndex = sourceId
+      } else if (typeof sourceId === 'string') {
+        sourceIndex = nodeIdToIndex.get(sourceId) ?? -1
       }
 
-      if (targetId !== undefined && !nodeIds.has(targetId)) {
+      // Convert target to index
+      if (typeof targetId === 'number') {
+        targetIndex = targetId
+      } else if (typeof targetId === 'string') {
+        targetIndex = nodeIdToIndex.get(targetId) ?? -1
+      }
+
+      if (sourceIndex === -1) {
+        errors.push(`Link ${i} references missing source node: "${sourceId}"`)
+      } else {
+        referencedNodeIndices.add(sourceIndex)
+      }
+
+      if (targetIndex === -1) {
         errors.push(`Link ${i} references missing target node: "${targetId}"`)
+      } else {
+        referencedNodeIndices.add(targetIndex)
+      }
+    }
+
+    // Check for disconnected nodes (not referenced by any links)
+    const disconnectedNodes: string[] = []
+    data.nodes.forEach((node: any, index: number) => {
+      if (!referencedNodeIndices.has(index)) {
+        disconnectedNodes.push(String(node.id))
+      }
+    })
+
+    if (disconnectedNodes.length > 0) {
+      console.warn('validateSankeyData: Found disconnected nodes:', disconnectedNodes)
+      // Don't add this as an error, just warn - d3-sankey can handle disconnected nodes
+    }
+
+    // Check for specific d3-sankey issues
+    if (errors.length === 0 && data.links.length > 0) {
+      // Simulate what d3-sankey will do to catch "missing: root" type errors early
+      const linksBySource = new Map<number, any[]>()
+      const linksByTarget = new Map<number, any[]>()
+
+      data.links.forEach((link: any) => {
+        let sourceIndex = -1
+        let targetIndex = -1
+
+        // Convert references to indices
+        const sourceId = typeof link.source === 'object' ? link.source?.id : link.source
+        const targetId = typeof link.target === 'object' ? link.target?.id : link.target
+
+        if (typeof sourceId === 'number') {
+          sourceIndex = sourceId
+        } else if (typeof sourceId === 'string') {
+          sourceIndex = nodeIdToIndex.get(sourceId) ?? -1
+        }
+
+        if (typeof targetId === 'number') {
+          targetIndex = targetId
+        } else if (typeof targetId === 'string') {
+          targetIndex = nodeIdToIndex.get(targetId) ?? -1
+        }
+
+        if (sourceIndex >= 0) {
+          if (!linksBySource.has(sourceIndex)) linksBySource.set(sourceIndex, [])
+          linksBySource.get(sourceIndex)!.push(link)
+        }
+
+        if (targetIndex >= 0) {
+          if (!linksByTarget.has(targetIndex)) linksByTarget.set(targetIndex, [])
+          linksByTarget.get(targetIndex)!.push(link)
+        }
+      })
+
+      // Look for root nodes (nodes with no incoming links)
+      const rootNodes: number[] = []
+      for (let i = 0; i < data.nodes.length; i++) {
+        if (!linksByTarget.has(i) && linksBySource.has(i)) {
+          rootNodes.push(i)
+        }
+      }
+
+      if (rootNodes.length === 0 && referencedNodeIndices.size > 0) {
+        errors.push('No root nodes found - all nodes have incoming links, creating circular dependencies')
       }
     }
   }

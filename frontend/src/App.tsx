@@ -124,7 +124,6 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
   // Store state
   const {
     filters,
-    thresholds,
     hierarchicalThresholds,
     viewState,
     filterOptions,
@@ -209,7 +208,7 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
         console.error('Failed to update Sankey data:', error)
       }
     }
-  }, [thresholds, hierarchicalThresholds, filters, viewState, healthState.isHealthy, fetchSankeyData])
+  }, [hierarchicalThresholds, filters, viewState, healthState.isHealthy, fetchSankeyData])
 
   // Event handlers
   const handleAddVisualization = useCallback(() => {

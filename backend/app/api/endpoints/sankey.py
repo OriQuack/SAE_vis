@@ -65,44 +65,12 @@ async def get_sankey_data(
     """
     logger.info("📡 === SANKEY API REQUEST ===")
     logger.info(f"🔍 Filters: {request.filters}")
-    logger.info(f"📊 Basic thresholds: {request.thresholds}")
-    logger.info(f"🔧 Node thresholds: {request.nodeThresholds}")
     logger.info(f"🏗️ Hierarchical thresholds: {request.hierarchicalThresholds}")
 
     try:
-        # Validate threshold ranges
-        if not (0.0 <= request.thresholds.semdist_mean <= 1.0):
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "error": {
-                        "code": "INVALID_THRESHOLDS",
-                        "message": "semdist_mean threshold must be between 0.0 and 1.0",
-                        "details": {"semdist_mean": request.thresholds.semdist_mean}
-                    }
-                }
-            )
-
-        if not (0.0 <= request.thresholds.score_high <= 1.0):
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "error": {
-                        "code": "INVALID_THRESHOLDS",
-                        "message": "score_high threshold must be between 0.0 and 1.0",
-                        "details": {"score_high": request.thresholds.score_high}
-                    }
-                }
-            )
-
         # Generate Sankey data
         return await data_service.get_sankey_data(
             filters=request.filters,
-            thresholds={
-                "semdist_mean": request.thresholds.semdist_mean,
-                "score_high": request.thresholds.score_high
-            },
-            nodeThresholds=request.nodeThresholds,
             hierarchicalThresholds=request.hierarchicalThresholds
         )
 
