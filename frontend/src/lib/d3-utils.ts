@@ -4,7 +4,7 @@
 import { scaleLinear } from 'd3-scale'
 import { max } from 'd3-array'
 import { sankey, sankeyLinkHorizontal } from 'd3-sankey'
-import type { HistogramData, MetricType, NodeCategory } from '../types'
+import type { HistogramData, NodeCategory, D3SankeyNode, D3SankeyLink } from '../types'
 
 // ============================================================================
 // TYPES
@@ -43,27 +43,6 @@ export interface ThresholdLineData {
   value: number
 }
 
-export interface D3SankeyNode {
-  id: string
-  name: string
-  category: NodeCategory
-  value?: number
-  x0?: number
-  x1?: number
-  y0?: number
-  y1?: number
-  sourceLinks?: D3SankeyLink[]
-  targetLinks?: D3SankeyLink[]
-}
-
-export interface D3SankeyLink {
-  source: D3SankeyNode | number
-  target: D3SankeyNode | number
-  value: number
-  y0?: number
-  y1?: number
-  width?: number
-}
 
 export interface SankeyLayout {
   nodes: D3SankeyNode[]
@@ -243,7 +222,9 @@ export function calculateHistogramLayout(
 export function calculateThresholdLine(threshold: number, chart: HistogramChart): ThresholdLineData | null {
   if (!chart || !chart.xScale) return null
 
-  const x = chart.xScale(threshold)
+  const x = chart.xScale(threshold) as number
+  if (typeof x !== 'number' || isNaN(x)) return null
+
   return {
     x,
     y1: 0,
@@ -501,7 +482,7 @@ export function validateSankeyData(data: any): string[] {
 
   // Check that all link source/target IDs exist in nodes
   if (data.nodes.length > 0 && data.links.length > 0) {
-    const nodeIds = new Set(data.nodes.map((node: any) => node.id))
+    // const nodeIds = new Set(data.nodes.map((node: any) => node.id))
     const nodeIdToIndex = new Map<string, number>()
     data.nodes.forEach((node: any, index: number) => {
       nodeIdToIndex.set(String(node.id), index)
