@@ -603,7 +603,7 @@ export const HistogramPopover = ({
         })}
       </svg>
     )
-  }, [containerSize, animationDuration, getEffectiveThreshold, formatSmartNumber, setHierarchicalThresholds, setIsDraggingSlider, draggingMetricRef])
+  }, [containerSize, animationDuration, getEffectiveThreshold, setHierarchicalThresholds, setIsDraggingSlider, draggingMetricRef, popoverData?.parentNodeId])
 
   // ============================================================================
   // THRESHOLD MANAGEMENT
