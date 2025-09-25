@@ -312,14 +312,142 @@ For future scaling beyond Parquet:
 ### 🟢 Production Deployments
 - **Primary**: Port 8003 (matches frontend expectations)
 - **Secondary**: Port 8001 (development/testing)
-- **Status**: Multiple servers running simultaneously
-- **Health**: All endpoints operational and tested
+- **Status**: Multiple servers running simultaneously with active API traffic
+- **Health**: All endpoints operational and tested with sub-second response times
+- **Performance**: Handling hundreds of concurrent API requests
 
 ### 🔍 Monitoring & Observability
-- **Health Endpoint**: `/health` shows data service connectivity
-- **Structured Logging**: Configurable levels (debug/info/warning/error)
-- **Error Tracking**: Full stack traces for debugging
-- **Request Logging**: Automatic access log generation
+- **Health Endpoint**: `/health` shows data service connectivity and master file status
+- **Structured Logging**: Configurable levels (debug/info/warning/error) with detailed classification logs
+- **Error Tracking**: Full stack traces for debugging with structured error responses
+- **Request Logging**: Automatic access log generation with API endpoint performance metrics
+- **Feature Classification Logging**: Detailed logs for hierarchical threshold application and feature distribution changes
+
+## Advanced Implementation Details
+
+### 🧠 Feature Classification System
+
+The backend implements a sophisticated **hierarchical feature classification system** with multiple stages:
+
+#### Classification Pipeline
+```
+Raw Features → Feature Splitting Classification → Semantic Distance Classification → Score Agreement Classification → Final Sankey Nodes
+```
+
+#### Stage 1: Feature Splitting Classification
+- **Metric**: `feature_splitting` (cosine similarity magnitude)
+- **Default Threshold**: 0.00002 (cosine similarity scale)
+- **Categories**: `true` (above threshold) or `false` (below threshold)
+- **Implementation**: `FeatureClassifier.classify_splitting()`
+
+#### Stage 2: Semantic Distance Classification
+- **Metric**: `semdist_mean` (semantic distance between explanations)
+- **Hierarchical Thresholds**: Parent-based thresholds with individual node overrides
+- **Categories**: `high` (above threshold) or `low` (below threshold)
+- **Advanced Features**:
+  - Parent-based threshold groups (e.g., `split_true` vs `split_false` can have different thresholds)
+  - Individual node threshold overrides for fine-grained control
+  - Dynamic threshold recalculation and feature reclassification
+
+#### Stage 3: Score Agreement Classification
+- **Metrics**: `score_fuzz`, `score_simulation`, `score_detection`
+- **Algorithm**: Count how many of the 3 scores exceed their respective thresholds
+- **Categories**:
+  - `agree_all`: All 3 scores ≥ threshold (high reliability)
+  - `agree_2of3`: Exactly 2 scores ≥ threshold (moderate reliability)
+  - `agree_1of3`: Exactly 1 score ≥ threshold (low reliability)
+  - `agree_none`: All scores < threshold (unreliable)
+
+### 🎯 Hierarchical Threshold System
+
+The backend supports a **three-level hierarchical threshold system**:
+
+1. **Global Thresholds**: Default values applied system-wide
+2. **Group-Based Thresholds**:
+   - `score_agreement_groups`: Thresholds by semantic distance parent
+   - `semantic_distance_groups`: Thresholds by splitting parent
+   - `feature_splitting_groups`: Conditional thresholds by grouping criteria
+3. **Individual Node Overrides**: Specific thresholds for individual nodes
+
+#### Threshold Resolution Priority
+```
+Individual Node Override > Group-Based Threshold > Global Threshold
+```
+
+#### Example Hierarchical Configuration
+```python
+hierarchical_thresholds = {
+    "global_thresholds": {
+        "semdist_mean": 0.15,
+        "score_fuzz": 0.8,
+        "score_detection": 0.8,
+        "score_simulation": 0.8
+    },
+    "semantic_distance_groups": {
+        "split_true": 0.12,   # Lower threshold for true splitting features
+        "split_false": 0.18   # Higher threshold for false splitting features
+    },
+    "score_agreement_groups": {
+        "split_true_semdist_high": {
+            "score_fuzz": 0.85,
+            "score_detection": 0.85,
+            "score_simulation": 0.75
+        }
+    },
+    "individual_node_groups": {
+        "node_split_true_semdist_high": {
+            "semdist_mean": 0.20  # Override for specific node
+        }
+    }
+}
+```
+
+### 🔧 Data Service Architecture
+
+#### Core Components
+1. **DataService**: Main orchestrator with async initialization and cleanup
+2. **ThresholdManager**: Handles threshold application and validation
+3. **SankeyBuilder**: Constructs Sankey diagram data structures
+4. **FeatureClassifier**: Implements classification algorithms
+
+#### Advanced Features
+- **Lazy DataFrame Operations**: All operations use Polars LazyFrame for memory efficiency
+- **String Cache Optimization**: Categorical data operations optimized with string cache
+- **Parent Node ID Resolution**: Dynamic parent ID calculation for hierarchical thresholds
+- **Classification State Logging**: Detailed logs of feature distribution changes at each stage
+- **Error Context Preservation**: Comprehensive error handling with context information
+
+### 📊 Performance Optimizations
+
+#### Memory Efficiency
+- **Lazy Evaluation**: Queries planned and optimized before execution
+- **Columnar Processing**: Polars columnar operations for vectorized computations
+- **Selective Column Loading**: Only required columns loaded for each operation
+- **Temporary Column Cleanup**: Intermediate classification columns dropped after use
+
+#### Query Optimization
+- **Filter Pushdown**: Filters applied at the LazyFrame level for early elimination
+- **Aggregation Optimization**: Group-by operations optimized for categorical data
+- **Index Utilization**: String cache enables efficient categorical operations
+- **Batch Processing**: Multiple histogram requests processed in batches
+
+### 🏗️ Modular Service Architecture
+
+#### Service Layer Separation
+```
+API Endpoints → DataService → Specialized Managers → Data Processing
+```
+
+- **Endpoint Layer**: Request validation, response formatting, error handling
+- **Service Layer**: Business logic orchestration, data transformation
+- **Manager Layer**: Specialized functionality (thresholds, classification, building)
+- **Data Layer**: Polars operations, file I/O, caching
+
+#### Key Design Patterns
+- **Dependency Injection**: DataService injected into endpoints via FastAPI dependencies
+- **Factory Pattern**: SankeyBuilder constructs complex data structures
+- **Strategy Pattern**: Different threshold application strategies
+- **Observer Pattern**: Logging and monitoring throughout classification pipeline
 
 ## Integration Points
 
