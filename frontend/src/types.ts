@@ -24,8 +24,6 @@ export interface Thresholds {
 
 export interface HierarchicalThresholds {
   global_thresholds: Thresholds
-  feature_splitting_groups?: Record<string, number>
-  semantic_distance_groups?: Record<string, number>
   score_agreement_groups?: Record<string, Record<string, number>>
   individual_node_groups?: Record<string, Record<string, number>>
 }

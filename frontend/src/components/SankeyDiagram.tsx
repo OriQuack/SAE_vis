@@ -105,14 +105,14 @@ interface SankeyStageLabelsProps {
 }
 
 // ==================== SUB-COMPONENTS ====================
-const SankeyNode: React.FC<SankeyNodeComponentProps> = React.memo(({
+const SankeyNode = React.memo(({
   node,
   animationDuration,
   onHover,
   onLeave,
   onHistogramClick,
   thresholdGroupInfo
-}) => {
+}: SankeyNodeComponentProps) => {
   const [isHovered, setIsHovered] = useState(false)
 
   const handleMouseEnter = useCallback((event: React.MouseEvent) => {
@@ -436,11 +436,26 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       y: containerRect ? containerRect.top + containerRect.height / 2 : window.innerHeight / 2
     }
 
-    // Check if this is a score agreement node to provide parent context
-    const parentNodeId = isScoreAgreementNode(node.id) ? getParentNodeId(node.id) : undefined
-    const parentNodeName = parentNodeId && displayData ? getParentNodeName(parentNodeId, displayData.nodes) : undefined
+    // Determine the parent node ID for hierarchical thresholds
+    let parentNodeId: string | undefined = undefined
+    let parentNodeName: string | undefined = undefined
 
-    showHistogramPopover(node.id, node.name, metrics, position, parentNodeId || undefined, parentNodeName || undefined)
+    // For score agreement nodes, use the semantic distance parent for grouping
+    // but the score node ID itself for storing thresholds
+    if (isScoreAgreementNode(node.id)) {
+      // For score metrics, we need to use the semantic parent for backend lookup
+      const semanticParent = getParentNodeId(node.id)
+      // But we pass the score node ID itself so thresholds are stored correctly
+      parentNodeId = semanticParent
+      parentNodeName = semanticParent && displayData ? getParentNodeName(semanticParent, displayData.nodes) : undefined
+    }
+    // For semantic distance nodes, use the node ID itself as the parent for threshold grouping
+    else if (node.category === 'semantic_distance') {
+      parentNodeId = node.id
+      parentNodeName = node.name
+    }
+
+    showHistogramPopover(node.id, node.name, metrics, position, parentNodeId, parentNodeName)
   }, [showHistogramOnClick, showHistogramPopover, displayData, containerRef])
 
   // Handle link histogram click (show histogram for source node) with threshold group information
@@ -467,11 +482,24 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       y: containerRect ? containerRect.top + containerRect.height / 2 : window.innerHeight / 2
     }
 
-    // Check if this is a score agreement node to provide parent context
-    const parentNodeId = isScoreAgreementNode(sourceNode.id) ? getParentNodeId(sourceNode.id) : undefined
-    const parentNodeName = parentNodeId && displayData ? getParentNodeName(parentNodeId, displayData.nodes) : undefined
+    // Determine the parent node ID for hierarchical thresholds
+    let parentNodeId: string | undefined = undefined
+    let parentNodeName: string | undefined = undefined
 
-    showHistogramPopover(sourceNode.id, sourceNode.name, metrics, position, parentNodeId || undefined, parentNodeName || undefined)
+    // For score agreement nodes, use the semantic distance parent for grouping
+    if (isScoreAgreementNode(sourceNode.id)) {
+      // For score metrics, we need the semantic parent for backend lookup
+      const semanticParent = getParentNodeId(sourceNode.id)
+      parentNodeId = semanticParent
+      parentNodeName = semanticParent && displayData ? getParentNodeName(semanticParent, displayData.nodes) : undefined
+    }
+    // For semantic distance nodes, use the node ID itself as the parent for threshold grouping
+    else if (sourceNode.category === 'semantic_distance') {
+      parentNodeId = sourceNode.id
+      parentNodeName = sourceNode.name
+    }
+
+    showHistogramPopover(sourceNode.id, sourceNode.name, metrics, position, parentNodeId, parentNodeName)
   }, [showHistogramOnClick, showHistogramPopover, displayData, containerRef])
 
   // ==================== THRESHOLD GROUPS LOGIC ====================
@@ -599,38 +627,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
             </g>
           </svg>
 
-          {/* Subtle loading overlay when updating */}
-          {isUpdating && (
-            <div
-              className="sankey-diagram__updating-overlay"
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: 'rgba(255, 255, 255, 0.7)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 10,
-                pointerEvents: 'none'
-              }}
-            >
-              <div
-                style={{
-                  backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                  color: 'white',
-                  padding: '8px 16px',
-                  borderRadius: '4px',
-                  fontSize: '14px',
-                  fontWeight: 500
-                }}
-              >
-                Updating...
-              </div>
-            </div>
-          )}
         </div>
       )}
 

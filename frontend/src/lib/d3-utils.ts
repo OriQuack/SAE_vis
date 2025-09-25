@@ -110,7 +110,7 @@ export const SLIDER_TRACK = {
 }
 
 const DEFAULT_HISTOGRAM_MARGIN = { top: 20, right: 30, bottom: 70, left: 50 }
-const MULTI_HISTOGRAM_LAYOUT = { spacing: 16, chartTitleHeight: 28, chartMarginTop: 12, minChartHeight: 120 }
+const MULTI_HISTOGRAM_LAYOUT = { spacing: 12, chartTitleHeight: 24, chartMarginTop: 12, minChartHeight: 80 }
 const DEFAULT_SANKEY_MARGIN = { top: 80, right: 20, bottom: 20, left: 80 }
 
 const METRIC_TITLES: Record<string, string> = {
@@ -141,6 +141,7 @@ export function calculateHistogramLayout(
 
   const charts: HistogramChart[] = []
   const spacing = MULTI_HISTOGRAM_LAYOUT.spacing
+  let currentYOffset = 0  // Declare at function level for both single and multi-histogram
 
   if (metricsCount === 1) {
     // Single histogram - use full container
@@ -185,10 +186,8 @@ export function calculateHistogramLayout(
     const availableHeight = containerHeight - (metricsCount - 1) * spacing
     const chartHeight = Math.max(MULTI_HISTOGRAM_LAYOUT.minChartHeight, availableHeight / metricsCount)
 
-    const chartMargin = { top: 20, right: 30, bottom: 50, left: 50 }
+    const chartMargin = { top: 15, right: 30, bottom: 40, left: 50 }
     const chartWidth = containerWidth - chartMargin.left - chartMargin.right
-
-    let currentYOffset = 0
 
     metrics.forEach((metric) => {
       const data = histogramDataMap[metric]
@@ -222,14 +221,21 @@ export function calculateHistogramLayout(
         chartTitle: METRIC_TITLES[metric] || metric
       })
 
-      currentYOffset += chartHeight + spacing
+      // Account for slider space: SLIDER_TRACK.yOffset (30) + handle radius (10) + padding (10) = 50px
+      const sliderSpace = 50
+      currentYOffset += chartHeight + spacing + sliderSpace
     })
   }
+
+  // For multi-histogram, add slider space to total height
+  const finalTotalHeight = metricsCount > 1
+    ? currentYOffset + 50  // Add slider space for the last chart
+    : containerHeight
 
   return {
     charts,
     totalWidth: containerWidth,
-    totalHeight: containerHeight,
+    totalHeight: finalTotalHeight,
     spacing
   }
 }
