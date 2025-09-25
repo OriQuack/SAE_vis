@@ -11,7 +11,7 @@ import {
   SLIDER_TRACK
 } from '../lib/d3-utils'
 import { formatSmartNumber } from '../lib/utils'
-import type { HistogramData, MetricType, HistogramLayout, HistogramChart } from '../types'
+import type { HistogramData, HistogramLayout, HistogramChart } from '../types'
 
 // ============================================================================
 // INLINE STYLE CONSTANTS (from utils/styles.ts)
@@ -145,29 +145,45 @@ function calculateResponsiveSize(
   let adjustedHeight = defaultHeight
 
   if (metricsCount > 1) {
-    // Calculate required height based on actual layout needs
-    // From MULTI_HISTOGRAM_LAYOUT constants: spacing=16, chartTitleHeight=28, chartMarginTop=12, minChartHeight=120
-    // From DEFAULT_HISTOGRAM_MARGIN: top=20, bottom=70
-    const spacing = 16
-    const chartTitleHeight = 28
-    const chartMarginTop = 12
-    const minChartHeight = 120
-    const chartMarginTopBottom = 20 + 70  // margin.top + margin.bottom
+    // Match the exact logic from d3-utils calculateHistogramLayout
+    // Constants from d3-utils (updated with smaller sizes):
+    const spacing = 12  // MULTI_HISTOGRAM_LAYOUT.spacing (reduced from 16)
+    const chartTitleHeight = 24  // MULTI_HISTOGRAM_LAYOUT.chartTitleHeight (reduced from 28)
+    const minChartHeight = 80  // MULTI_HISTOGRAM_LAYOUT.minChartHeight (reduced from 120)
+    const chartMargin = { top: 15, right: 30, bottom: 40, left: 50 }  // reduced margins
 
-    // Calculate total spacing needed
-    const totalSpacing = (metricsCount - 1) * spacing + metricsCount * (chartTitleHeight + chartMarginTop)
-    // Each chart needs at least minChartHeight + margins
-    const totalChartHeight = metricsCount * (minChartHeight + chartMarginTopBottom)
-    // Add header height (48px) and padding (16px)
-    adjustedHeight = totalSpacing + totalChartHeight + 48 + 16
+    // Each chart needs:
+    // - chartTitleHeight + chartMargin.top at the top
+    // - minChartHeight for the actual chart
+    // - chartMargin.bottom at the bottom
+    // - sliderArea below that
+    const sliderArea = 40  // Space for slider track and handle below chart
+
+    // Calculate the height each chart needs in total
+    const totalHeightPerChart = chartTitleHeight + chartMargin.top + minChartHeight + chartMargin.bottom + sliderArea
+
+    // Total spacing between charts
+    const totalSpacing = (metricsCount - 1) * spacing
+
+    // Header and container padding
+    const headerHeight = 48
+    const containerPadding = 16
+
+    // Calculate required container height
+    // The d3-utils logic expects containerHeight to accommodate:
+    // For each chart: yOffset (includes title + top margin) + chartHeight + bottom margin + slider
+    adjustedHeight = headerHeight + containerPadding + (metricsCount * totalHeightPerChart) + totalSpacing
   }
 
   const maxWidth = Math.min(defaultWidth, viewport.width * 0.9)
-  const maxHeight = Math.min(adjustedHeight, viewport.height * 0.9)  // Increased to 90% of viewport
-  const minWidth = Math.max(420, maxWidth)
-  const minHeight = Math.max(280, maxHeight)
+  // Use calculated height without artificial constraints to eliminate scrolling
+  const maxHeight = Math.min(adjustedHeight, viewport.height * 0.95)  // Only prevent going off screen
 
-  return { width: minWidth, height: minHeight }
+  const minWidth = Math.max(420, maxWidth)
+  // For multi-histogram, use the exact calculated height to fit all content
+  const minHeight = metricsCount > 1 ? adjustedHeight : Math.max(280, maxHeight)
+
+  return { width: minWidth, height: Math.min(minHeight, viewport.height * 0.95) }
 }
 
 // ============================================================================
@@ -335,14 +351,39 @@ export const HistogramPopover = ({
 
   const getEffectiveThreshold = useCallback((metric: string): number => {
     const hierarchicalThresholds = useVisualizationStore.getState().hierarchicalThresholds
-    const parentNodeId = popoverData?.parentNodeId || 'global'
-    const thresholdKey = metric as keyof typeof parentThresholds
+    const parentNodeId = popoverData?.parentNodeId
 
-    // Access nested threshold structure: hierarchicalThresholds[parentNodeId][thresholdKey]
-    const parentThresholds = hierarchicalThresholds[parentNodeId]
-    if (parentThresholds && parentThresholds[thresholdKey] !== undefined) {
-      return parentThresholds[thresholdKey]
+    // Check if this is a score metric
+    const isScoreMetric = metric.startsWith('score_') ||
+                         metric === 'score_fuzz' ||
+                         metric === 'score_detection' ||
+                         metric === 'score_simulation'
+
+    // If we have a parent node ID, check for overrides
+    if (parentNodeId) {
+      if (isScoreMetric) {
+        // For score metrics, check score_agreement_groups
+        const scoreGroup = hierarchicalThresholds.score_agreement_groups?.[parentNodeId]
+        if (scoreGroup && scoreGroup[metric] !== undefined) {
+          return scoreGroup[metric]
+        }
+      } else {
+        // For other metrics (like semdist_mean), check individual_node_groups
+        const nodeKey = parentNodeId.startsWith('node_') ? parentNodeId : `node_${parentNodeId}`
+        const individualNodeGroup = hierarchicalThresholds.individual_node_groups?.[nodeKey]
+        if (individualNodeGroup && individualNodeGroup[metric] !== undefined) {
+          return individualNodeGroup[metric]
+        }
+      }
     }
+
+    // Fallback to global thresholds
+    const globalThresholds = hierarchicalThresholds.global_thresholds
+    const thresholdKey = metric as keyof typeof globalThresholds
+    if (globalThresholds && globalThresholds[thresholdKey] !== undefined) {
+      return globalThresholds[thresholdKey]
+    }
+
     // Fallback to histogram mean
     if (histogramData && histogramData[metric]) {
       return histogramData[metric].statistics.mean
@@ -351,29 +392,27 @@ export const HistogramPopover = ({
   }, [histogramData, popoverData?.parentNodeId])
 
   // ============================================================================
-  // INLINE SINGLE HISTOGRAM VIEW
+  // UNIFIED HISTOGRAM RENDERING (SINGLE & MULTI-HISTOGRAM)
   // ============================================================================
   const renderHistograms = useCallback((layout: HistogramLayout, histogramData: Record<string, HistogramData>) => {
     if (!layout || !histogramData) return null
-
-    const isSingleHistogram = layout.charts.length === 1
 
     return (
       <svg
         ref={svgRef}
         width={containerSize.width - 16}
-        height={containerSize.height - 64}
+        height={layout.totalHeight}
         style={{ display: 'block' }}
       >
         {/* Background */}
         <rect
           width={containerSize.width - 16}
-          height={containerSize.height - 64}
+          height={layout.totalHeight}
           fill={HISTOGRAM_COLORS.background}
         />
 
         {/* Render each histogram chart */}
-        {layout.charts.map((chart: HistogramChart, index: number) => {
+        {layout.charts.map((chart: HistogramChart, _: number) => {
           const metric = chart.metric
           const data = histogramData[metric]
           const threshold = getEffectiveThreshold(metric)
@@ -411,23 +450,21 @@ export const HistogramPopover = ({
 
           return (
             <g key={metric} transform={`translate(${chart.margin.left}, ${chart.yOffset})`}>
-              {/* Grid lines for single histogram only */}
-              {isSingleHistogram && (
-                <g>
-                  {chart.yScale.ticks(5).map((tick: number) => (
-                    <line
-                      key={tick}
-                      x1={0}
-                      x2={chart.width}
-                      y1={chart.yScale(tick) as number}
-                      y2={chart.yScale(tick) as number}
-                      stroke={HISTOGRAM_COLORS.grid}
-                      strokeWidth={1}
-                      opacity={0.5}
-                    />
-                  ))}
-                </g>
-              )}
+              {/* Grid lines for all histograms */}
+              <g>
+                {chart.yScale.ticks(5).map((tick: number) => (
+                  <line
+                    key={tick}
+                    x1={0}
+                    x2={chart.width}
+                    y1={chart.yScale(tick) as number}
+                    y2={chart.yScale(tick) as number}
+                    stroke={HISTOGRAM_COLORS.grid}
+                    strokeWidth={1}
+                    opacity={0.5}
+                  />
+                ))}
+              </g>
 
               {/* Histogram bars */}
               <g>
@@ -444,8 +481,8 @@ export const HistogramPopover = ({
                       height={barHeight}
                       fill={barColor}
                       stroke="white"
-                      strokeWidth={isSingleHistogram ? 1 : 0.5}
-                      style={isSingleHistogram ? { transition: `fill ${animationDuration}ms ease-out` } : {}}
+                      strokeWidth={1}
+                      style={{ transition: `fill ${animationDuration}ms ease-out` }}
                     />
                   )
                 })}
@@ -459,8 +496,8 @@ export const HistogramPopover = ({
                   y1={0}
                   y2={chart.height}
                   stroke={HISTOGRAM_COLORS.threshold}
-                  strokeWidth={isSingleHistogram ? 3 : 2}
-                  style={isSingleHistogram ? { cursor: 'pointer' } : {}}
+                  strokeWidth={3}
+                  style={{ cursor: 'pointer' }}
                 />
               )}
 
@@ -505,13 +542,13 @@ export const HistogramPopover = ({
                 </g>
               )}
 
-              {/* Chart title (multi-histogram only) */}
-              {!isSingleHistogram && (
+              {/* Chart title (for multi-histogram mode) */}
+              {layout.charts.length > 1 && (
                 <text
                   x={chart.width / 2}
-                  y={-8}
+                  y={-16}
                   textAnchor="middle"
-                  fontSize={11}
+                  fontSize={12}
                   fontWeight="600"
                   fill={HISTOGRAM_COLORS.text}
                 >
@@ -519,13 +556,13 @@ export const HistogramPopover = ({
                 </text>
               )}
 
-              {/* Threshold value (multi-histogram only) */}
-              {!isSingleHistogram && (
+              {/* Threshold value (for multi-histogram mode) */}
+              {(
                 <text
                   x={chart.width}
-                  y={chart.height + 15}
+                  y={chart.height + 50}
                   textAnchor="end"
-                  fontSize={9}
+                  fontSize={10}
                   fill="#6b7280"
                   fontFamily="monospace"
                 >
@@ -538,7 +575,7 @@ export const HistogramPopover = ({
                 <>
                   <g transform={`translate(0,${chart.height})`}>
                     <line x1={0} x2={chart.width} y1={0} y2={0} stroke={HISTOGRAM_COLORS.axis} strokeWidth={1} />
-                    {chart.xScale.ticks(isSingleHistogram ? 5 : 3).map((tick: number) => (
+                    {chart.xScale.ticks(5).map((tick: number) => (
                       <g key={tick} transform={`translate(${chart.xScale(tick)},0)`}>
                         <line y1={0} y2={6} stroke={HISTOGRAM_COLORS.axis} strokeWidth={1} />
                         <text y={20} textAnchor="middle" fontSize={12} fill={HISTOGRAM_COLORS.text}>
@@ -550,7 +587,7 @@ export const HistogramPopover = ({
 
                   <g>
                     <line x1={0} x2={0} y1={0} y2={chart.height} stroke={HISTOGRAM_COLORS.axis} strokeWidth={1} />
-                    {chart.yScale.ticks(isSingleHistogram ? 5 : 3).map((tick: number) => (
+                    {chart.yScale.ticks(5).map((tick: number) => (
                       <g key={tick} transform={`translate(0,${chart.yScale(tick)})`}>
                         <line x1={-6} x2={0} stroke={HISTOGRAM_COLORS.axis} strokeWidth={1} />
                         <text x={-10} textAnchor="end" alignmentBaseline="middle" fontSize={12} fill={HISTOGRAM_COLORS.text}>
@@ -567,10 +604,6 @@ export const HistogramPopover = ({
       </svg>
     )
   }, [containerSize, animationDuration, getEffectiveThreshold, formatSmartNumber, setHierarchicalThresholds, setIsDraggingSlider, draggingMetricRef])
-
-  // ============================================================================
-  // MULTI-HISTOGRAM RENDERING
-  // ============================================================================
 
   // ============================================================================
   // THRESHOLD MANAGEMENT
@@ -599,7 +632,25 @@ export const HistogramPopover = ({
     }
 
     const chartWidth = containerSize.width - 16
-    const chartHeight = containerSize.height - 64
+    // For multi-histogram, give more generous height to prevent cutting off
+    const metricsCount = popoverData.metrics.length
+    let chartHeight = containerSize.height - 64
+
+    if (metricsCount > 1) {
+      // Calculate the exact height needed for multi-histogram with updated constants
+      const spacing = 12
+      const chartTitleHeight = 24
+      const minChartHeight = 80
+      const chartMargin = { top: 15, bottom: 40 }
+      const sliderSpace = 40
+
+      const requiredHeightPerChart = chartTitleHeight + chartMargin.top + minChartHeight + chartMargin.bottom + sliderSpace
+      const totalSpacing = (metricsCount - 1) * spacing
+      const minimumChartHeight = (metricsCount * requiredHeightPerChart) + totalSpacing
+
+      // Use the larger of calculated minimum or available space
+      chartHeight = Math.max(chartHeight, minimumChartHeight)
+    }
 
     return calculateHistogramLayout(histogramData, chartWidth, chartHeight)
   }, [histogramData, containerSize, validationErrors, popoverData?.metrics])

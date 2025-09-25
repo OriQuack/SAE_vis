@@ -142,16 +142,43 @@ export const useStore = create<AppState>((set, get) => ({
         }
       }))
     } else {
-      // Handle semantic distance groups or other hierarchical groups
-      set((state) => ({
-        hierarchicalThresholds: {
-          ...state.hierarchicalThresholds,
-          semantic_distance_groups: {
-            ...state.hierarchicalThresholds.semantic_distance_groups,
-            [parentNodeId]: newThresholds.semdist_mean || 0.1
+      // Check if we're setting score thresholds
+      const isScoreThreshold = Object.keys(newThresholds).some(key =>
+        key.startsWith('score_') || key === 'score_fuzz' || key === 'score_detection' || key === 'score_simulation'
+      )
+
+      if (isScoreThreshold) {
+        // Use score_agreement_groups for score thresholds
+        // The parentNodeId should be the semantic distance parent (e.g., split_true_semdist_low)
+        set((state) => ({
+          hierarchicalThresholds: {
+            ...state.hierarchicalThresholds,
+            score_agreement_groups: {
+              ...state.hierarchicalThresholds.score_agreement_groups,
+              [parentNodeId]: {
+                ...state.hierarchicalThresholds.score_agreement_groups?.[parentNodeId],
+                ...newThresholds
+              }
+            }
           }
-        }
-      }))
+        }))
+      } else {
+        // Use individual_node_groups for other thresholds (like semdist_mean)
+        const nodeKey = parentNodeId.startsWith('node_') ? parentNodeId : `node_${parentNodeId}`
+
+        set((state) => ({
+          hierarchicalThresholds: {
+            ...state.hierarchicalThresholds,
+            individual_node_groups: {
+              ...state.hierarchicalThresholds.individual_node_groups,
+              [nodeKey]: {
+                ...state.hierarchicalThresholds.individual_node_groups?.[nodeKey],
+                ...newThresholds
+              }
+            }
+          }
+        }))
+      }
     }
   },
 
@@ -363,14 +390,18 @@ export const useStore = create<AppState>((set, get) => ({
         score_simulation: 0.2
       }
 
-      // Extract semantic distance groups from hierarchical thresholds
-      const semanticDistanceGroups = hierarchicalThresholds.semantic_distance_groups || {}
+      // Extract groups from hierarchical thresholds
+      const individualNodeGroups = hierarchicalThresholds.individual_node_groups || {}
+      const scoreAgreementGroups = hierarchicalThresholds.score_agreement_groups || {}
 
       // Create backend-compatible hierarchical thresholds structure
       const backendHierarchicalThresholds = {
         global_thresholds: globalThresholds,
-        ...(Object.keys(semanticDistanceGroups).length > 0 && {
-          semantic_distance_groups: semanticDistanceGroups
+        ...(Object.keys(scoreAgreementGroups).length > 0 && {
+          score_agreement_groups: scoreAgreementGroups
+        }),
+        ...(Object.keys(individualNodeGroups).length > 0 && {
+          individual_node_groups: individualNodeGroups
         })
       }
 
