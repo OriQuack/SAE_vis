@@ -453,7 +453,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   // Utility functions
-  getNodesInSameThresholdGroup: (nodeId: string, metric: MetricType) => {
+  getNodesInSameThresholdGroup: (_nodeId: string, _metric: MetricType) => {
     // Simplified implementation - return empty array for now
     // In the original complex system, this would return nodes that share threshold groups
     return []
