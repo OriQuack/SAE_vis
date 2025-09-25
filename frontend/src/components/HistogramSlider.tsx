@@ -38,11 +38,11 @@ export const HistogramSlider: React.FC<HistogramSliderProps> = React.memo(({
   animationDuration = DEFAULT_ANIMATION.duration
 }) => {
   const data = useVisualizationStore(state => state.histogramData)
-  const threshold = useVisualizationStore(state => state.thresholds.semdist_mean)
+  const threshold = useVisualizationStore(state => state.hierarchicalThresholds.global_thresholds.semdist_mean)  // why semdist_mean?
   const metric = useVisualizationStore(state => state.currentMetric)
   const loading = useVisualizationStore(state => state.loading.histogram)
   const error = useVisualizationStore(state => state.errors.histogram)
-  const { setThresholds, setCurrentMetric, fetchHistogramData, clearError } = useVisualizationStore()
+  const { setGlobalThresholds, setCurrentMetric, fetchHistogramData, clearError } = useVisualizationStore()
 
   // Custom hooks
   const { ref: containerRef, size: containerSize } = useResizeObserver({
@@ -87,8 +87,8 @@ export const HistogramSlider: React.FC<HistogramSliderProps> = React.memo(({
       Math.min(data.statistics.max, newThreshold)
     )
 
-    setThresholds({ semdist_mean: clampedThreshold })
-  }, [data, setThresholds])
+    setGlobalThresholds({ semdist_mean: clampedThreshold })
+  }, [data, setGlobalThresholds])
 
   // Calculate new threshold value from mouse position
   const calculateThresholdFromEvent = useCallback((event: React.MouseEvent | MouseEvent) => {

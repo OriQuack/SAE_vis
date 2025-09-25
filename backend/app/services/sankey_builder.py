@@ -7,7 +7,7 @@ including nodes, links, and metadata for visualization.
 
 import polars as pl
 from typing import Dict, List, Any
-from ..models.common import Filters
+from ..models.common import Filters, HierarchicalThresholds
 from ..models.responses import SankeyResponse
 from .data_constants import *
 
@@ -19,7 +19,7 @@ class SankeyBuilder:
         self,
         categorized_df: pl.DataFrame,
         filters: Filters,
-        thresholds: Dict[str, float]
+        hierarchical_thresholds: HierarchicalThresholds
     ) -> SankeyResponse:
         """
         Build complete Sankey response from categorized data.
@@ -27,7 +27,7 @@ class SankeyBuilder:
         Args:
             categorized_df: DataFrame with all classification columns
             filters: Applied filters
-            thresholds: Applied thresholds
+            hierarchical_thresholds: Applied hierarchical thresholds
 
         Returns:
             Complete Sankey response with nodes, links, and metadata
@@ -57,7 +57,7 @@ class SankeyBuilder:
         links.extend(agreement_links)
 
         # Build metadata
-        metadata = self.build_metadata(total_features, filters, thresholds)
+        metadata = self.build_metadata(total_features, filters, hierarchical_thresholds)
 
         return SankeyResponse(
             nodes=nodes,
@@ -209,7 +209,7 @@ class SankeyBuilder:
         self,
         total_features: int,
         filters: Filters,
-        thresholds: Dict[str, float]
+        hierarchical_thresholds: HierarchicalThresholds
     ) -> Dict[str, Any]:
         """Build metadata for the Sankey response."""
         applied_filters = {}
@@ -224,10 +224,19 @@ class SankeyBuilder:
         if filters.llm_scorer:
             applied_filters[COL_LLM_SCORER] = filters.llm_scorer
 
+        # Extract effective global thresholds for metadata
+        effective_thresholds = {
+            "feature_splitting": hierarchical_thresholds.get_feature_splitting_threshold(),
+            "semdist_mean": hierarchical_thresholds.global_thresholds.semdist_mean,
+            "score_fuzz": hierarchical_thresholds.global_thresholds.score_fuzz,
+            "score_detection": hierarchical_thresholds.global_thresholds.score_detection,
+            "score_simulation": hierarchical_thresholds.global_thresholds.score_simulation
+        }
+
         return {
             "total_features": total_features,
             "applied_filters": applied_filters,
-            "applied_thresholds": thresholds
+            "applied_thresholds": effective_thresholds
         }
 
     def validate_categorized_data(self, df: pl.DataFrame) -> bool:

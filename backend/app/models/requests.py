@@ -25,15 +25,7 @@ class SankeyRequest(BaseModel):
         ...,
         description="Filter criteria for data subset"
     )
-    thresholds: Thresholds = Field(
-        ...,
-        description="Threshold values for categorization"
-    )
-    nodeThresholds: Optional[Dict[str, Dict[str, float]]] = Field(
-        default=None,
-        description="Legacy node-specific threshold overrides by nodeId and metric (for backward compatibility)"
-    )
-    hierarchicalThresholds: Optional[HierarchicalThresholds] = Field(
+    hierarchicalThresholds: HierarchicalThresholds = Field(
         default=None,
         description="New hierarchical threshold system supporting parent-based grouping"
     )

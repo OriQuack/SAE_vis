@@ -70,11 +70,25 @@ class Thresholds(BaseModel):
         description="Threshold for semantic distance classification",
         example=0.15
     )
-    score_high: float = Field(
+    score_fuzz: float = Field(
         ...,
         ge=0.0,
         le=1.0,
-        description="Threshold for 'high' score classification",
+        description="Threshold for 'high' fuzz score classification",
+        example=0.8
+    )
+    score_detection: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Threshold for 'high' detection score classification",
+        example=0.8
+    )
+    score_simulation: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Threshold for 'high' simulation score classification",
         example=0.8
     )
 
@@ -172,12 +186,11 @@ class HierarchicalThresholds(BaseModel):
 
     def get_score_thresholds_for_node(self, node_id: str) -> Dict[str, float]:
         """Get score thresholds for a node based on its parent grouping"""
-        # Default to global score_high for all score types
-        default_score = self.global_thresholds.score_high
+        # Use individual global thresholds as defaults
         result = {
-            "score_fuzz": default_score,
-            "score_simulation": default_score,
-            "score_detection": default_score
+            "score_fuzz": self.global_thresholds.score_fuzz,
+            "score_simulation": self.global_thresholds.score_simulation,
+            "score_detection": self.global_thresholds.score_detection
         }
 
         # Extract semantic distance parent from node_id (e.g., "split_true_semdist_high_agree_all" -> "split_true_semdist_high")

@@ -24,9 +24,7 @@ class ThresholdManager:
     def apply_classification(
         self,
         df: pl.DataFrame,
-        thresholds: Dict[str, float],
-        node_thresholds: Optional[Dict[str, Dict[str, float]]] = None,
-        hierarchical_thresholds: Optional[HierarchicalThresholds] = None
+        hierarchical_thresholds: HierarchicalThresholds = None
     ) -> pl.DataFrame:
         """
         Apply feature classification using the appropriate threshold system.
@@ -41,16 +39,14 @@ class ThresholdManager:
             DataFrame with all classification columns added
         """
         logger.info(f"🚀 ThresholdManager.apply_classification called for {len(df)} features")
-        logger.info(f"📝 Legacy thresholds: {thresholds}")
-        logger.info(f"🔧 Node thresholds: {node_thresholds}")
-        logger.info(f"🏗️ Hierarchical thresholds present: {hierarchical_thresholds is not None}")
 
-        if hierarchical_thresholds:
-            logger.info("🎯 Using HIERARCHICAL classification strategy")
-            return self._apply_hierarchical_classification(df, hierarchical_thresholds)
-        else:
-            logger.info("🔄 Using LEGACY classification strategy")
-            return self._apply_legacy_classification(df, thresholds, node_thresholds)
+        # Note: Due to auto-conversion validator in SankeyRequest, hierarchical_thresholds
+        # should always be present. Legacy nodeThresholds are automatically converted.
+        if not hierarchical_thresholds:
+            raise ValueError("Hierarchical thresholds are required but not provided")
+
+        logger.info("🎯 Using HIERARCHICAL classification strategy")
+        return self._apply_hierarchical_classification(df, hierarchical_thresholds)
 
     def _apply_hierarchical_classification(
         self,
@@ -78,62 +74,7 @@ class ThresholdManager:
             initial_df, hierarchical_thresholds
         )
 
-    def _apply_legacy_classification(
-        self,
-        df: pl.DataFrame,
-        thresholds: Dict[str, float],
-        node_thresholds: Optional[Dict[str, Dict[str, float]]] = None
-    ) -> pl.DataFrame:
-        """Apply legacy threshold system classification."""
-        # Extract thresholds with defaults
-        semdist_threshold = thresholds.get(COL_SEMDIST_MEAN, 0.5)
-        score_threshold = thresholds.get("score_high", 0.5)
-        splitting_threshold = thresholds.get(COL_FEATURE_SPLITTING, DEFAULT_FEATURE_SPLITTING_THRESHOLD)
 
-        # Apply node threshold overrides for semantic distance
-        if node_thresholds:
-            for node_id, node_thresh in node_thresholds.items():
-                if COL_SEMDIST_MEAN in node_thresh:
-                    semdist_threshold = node_thresh[COL_SEMDIST_MEAN]
-                    break  # Use first found override
-
-        # Apply basic categorization
-        categorized_df = self.classifier.classify_splitting(df, splitting_threshold)
-        categorized_df = self.classifier.classify_semantic_distance(categorized_df, semdist_threshold)
-
-        # Apply score agreement classification
-        if node_thresholds:
-            return self.classifier.classify_score_agreement_with_node_thresholds(
-                categorized_df, score_threshold, node_thresholds
-            )
-        else:
-            return self.classifier.classify_score_agreement_simple(categorized_df, score_threshold)
-
-    def extract_node_threshold_overrides(
-        self,
-        node_thresholds: Optional[Dict[str, Dict[str, float]]]
-    ) -> Dict[str, float]:
-        """
-        Extract threshold overrides from node-specific thresholds.
-
-        Args:
-            node_thresholds: Node-specific threshold configuration
-
-        Returns:
-            Dictionary of threshold overrides for legacy system compatibility
-        """
-        overrides = {}
-
-        if not node_thresholds:
-            return overrides
-
-        # Extract semantic distance threshold from first suitable node
-        for node_id, thresholds in node_thresholds.items():
-            if COL_SEMDIST_MEAN in thresholds:
-                overrides[COL_SEMDIST_MEAN] = thresholds[COL_SEMDIST_MEAN]
-                break
-
-        return overrides
 
     def validate_thresholds(self, thresholds: Dict[str, float]) -> bool:
         """
@@ -150,9 +91,17 @@ class ThresholdManager:
             if not (0.0 <= thresholds[COL_SEMDIST_MEAN] <= 1.0):
                 return False
 
-        # Validate score threshold (0.0 to 1.0)
-        if "score_high" in thresholds:
-            if not (0.0 <= thresholds["score_high"] <= 1.0):
+        # Validate individual score thresholds (0.0 to 1.0, simulation can be -1.0 to 1.0)
+        if COL_SCORE_FUZZ in thresholds:
+            if not (0.0 <= thresholds[COL_SCORE_FUZZ] <= 1.0):
+                return False
+
+        if COL_SCORE_DETECTION in thresholds:
+            if not (0.0 <= thresholds[COL_SCORE_DETECTION] <= 1.0):
+                return False
+
+        if COL_SCORE_SIMULATION in thresholds:
+            if not (-1.0 <= thresholds[COL_SCORE_SIMULATION] <= 1.0):
                 return False
 
         # Validate feature splitting threshold (typically small positive value)
@@ -182,15 +131,12 @@ class ThresholdManager:
         if hierarchical_thresholds:
             return {
                 COL_SEMDIST_MEAN: hierarchical_thresholds.global_thresholds.semdist_mean,
-                "score_high": hierarchical_thresholds.global_thresholds.score_high,
+                COL_SCORE_FUZZ: hierarchical_thresholds.global_thresholds.score_fuzz,
+                COL_SCORE_DETECTION: hierarchical_thresholds.global_thresholds.score_detection,
+                COL_SCORE_SIMULATION: hierarchical_thresholds.global_thresholds.score_simulation,
                 COL_FEATURE_SPLITTING: hierarchical_thresholds.get_feature_splitting_threshold()
             }
         else:
-            effective = base_thresholds.copy()
-
-            # Apply node threshold overrides
-            if node_thresholds:
-                overrides = self.extract_node_threshold_overrides(node_thresholds)
-                effective.update(overrides)
-
-            return effective
+            # Fallback for cases where hierarchical thresholds are not provided
+            # This should not happen due to auto-conversion validator
+            return base_thresholds.copy()

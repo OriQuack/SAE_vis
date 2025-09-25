@@ -17,7 +17,17 @@ export interface Filters {
 export interface Thresholds {
   feature_splitting: number
   semdist_mean: number
-  score_high: number
+  score_fuzz: number
+  score_detection: number
+  score_simulation: number
+}
+
+export interface HierarchicalThresholds {
+  global_thresholds: Thresholds
+  feature_splitting_groups?: Record<string, number>
+  semantic_distance_groups?: Record<string, number>
+  score_agreement_groups?: Record<string, Record<string, number>>
+  individual_node_groups?: Record<string, Record<string, number>>
 }
 
 export interface FilterOptions {
@@ -40,7 +50,7 @@ export interface HistogramDataRequest {
 
 export interface SankeyDataRequest {
   filters: Filters
-  thresholds: Thresholds
+  hierarchicalThresholds: HierarchicalThresholds
 }
 
 export interface ComparisonDataRequest {
@@ -110,7 +120,7 @@ export interface SankeyData {
   metadata: {
     total_features: number
     applied_filters: Filters
-    applied_thresholds: Thresholds
+    applied_thresholds: HierarchicalThresholds
   }
 }
 
@@ -297,7 +307,7 @@ export interface AppState {
   // Core data
   filters: Filters
   filterOptions: FilterOptions | null
-  thresholds: Thresholds
+  hierarchicalThresholds: HierarchicalThresholds
   histogramData: Record<string, HistogramData> | null
   sankeyData: SankeyData | null
 
@@ -309,7 +319,7 @@ export interface AppState {
 
   // Actions
   setFilters: (filters: Partial<Filters>) => void
-  setThresholds: (thresholds: Partial<Thresholds>) => void
+  setGlobalThresholds: (thresholds: Partial<Thresholds>) => void
   setHistogramData: (data: Record<string, HistogramData> | null) => void
   setSankeyData: (data: SankeyData | null) => void
   setLoading: (key: keyof LoadingStates, value: boolean) => void
@@ -344,7 +354,9 @@ export const INITIAL_FILTERS: Filters = {
 export const INITIAL_THRESHOLDS: Thresholds = {
   feature_splitting: 0.1,
   semdist_mean: 0.1,
-  score_high: 0.5
+  score_fuzz: 0.5,
+  score_detection: 0.5,
+  score_simulation: 0.2,
 }
 
 export const INITIAL_LOADING: LoadingStates = {

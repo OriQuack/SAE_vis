@@ -135,7 +135,7 @@ const SankeyNode: React.FC<SankeyNodeComponentProps> = React.memo(({
     return null
   }
 
-  const color = getNodeColor(node.category as NodeCategory)
+  const color = getNodeColor(node)
   const width = node.x1 - node.x0
   const height = node.y1 - node.y0
 
@@ -229,7 +229,7 @@ const SankeyLink: React.FC<SankeyLinkComponentProps> = React.memo(({
   if (!sourceNode) return null
 
   const path = getSankeyPath(link)
-  const color = getLinkColor(sourceNode.category as NodeCategory)
+  const color = getLinkColor(link)
 
   return (
     <path
@@ -361,12 +361,11 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     const errors: string[] = []
 
     if (displayData) {
-      console.log('SankeyDiagram: Validating data:', {
-        nodes: displayData.nodes?.length || 0,
-        links: displayData.links?.length || 0,
-        sampleNodes: displayData.nodes?.slice(0, 3),
-        sampleLinks: displayData.links?.slice(0, 3)
-      })
+      // Validate Sankey data structure
+
+      // Check node structure
+
+      // Check link structure
       const validationErrors = validateSankeyData(displayData)
       errors.push(...validationErrors)
       if (validationErrors.length > 0) {

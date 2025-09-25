@@ -99,7 +99,7 @@ const CHART_STYLES = {
 }
 
 // ============================================================================
-// INLINE POSITIONING UTILITIES (from utils/positioning.ts)
+// INLINE POSITIONING UTILITIES
 // ============================================================================
 function calculateOptimalPosition(
   clickPosition: { x: number, y: number },
@@ -182,11 +182,11 @@ interface HistogramPopoverProps {
 // ============================================================================
 // MAIN CONSOLIDATED HISTOGRAM POPOVER COMPONENT
 // ============================================================================
-export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
+export const HistogramPopover = ({
   width = 520,
   height = 380,
   animationDuration = DEFAULT_ANIMATION.duration
-}) => {
+}: HistogramPopoverProps) => {
   const popoverData = useVisualizationStore(state => state.popoverState.histogram)
   const histogramData = useVisualizationStore(state => state.histogramData)
   const loading = useVisualizationStore(state => state.loading.histogram)
@@ -222,7 +222,7 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
   }, [popoverData?.visible, popoverData?.position, containerSize])
 
   // ============================================================================
-  // INLINE HEADER COMPONENT (from PopoverHeader.tsx)
+  // INLINE HEADER COMPONENT
   // ============================================================================
   const renderHeader = useCallback(() => {
     if (!popoverData) return null
@@ -292,20 +292,8 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
   }, [popoverData, draggedPosition, calculatedPosition, hideHistogramPopover])
 
   // ============================================================================
-  // THRESHOLD UTILITIES - Moved before useEffect that uses them
+  // THRESHOLD UTILITIES
   // ============================================================================
-  // Map metric names to threshold keys in the store
-  const mapMetricToThresholdKey = useCallback((metric: string): string => {
-    if (metric.startsWith('score_')) {
-      return 'score_high'
-    }
-    if (metric === 'semdist_mean' || metric === 'feature_splitting') {
-      return metric
-    }
-    // Default fallback
-    return 'score_high'
-  }, [])
-
   // Handle global mouse events for slider dragging
   useEffect(() => {
     if (!isDraggingSlider) return
@@ -321,7 +309,7 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
       // Calculate position relative to the specific chart
       const x = event.clientX - rect.left - chart.margin.left
       const data = histogramData[metric]
-      const thresholdKey = mapMetricToThresholdKey(metric)
+      const thresholdKey = metric
 
       // Use the specific chart's width for position calculation
       const newValue = positionToValue(x, data.statistics.min, data.statistics.max, chart.width)
@@ -343,12 +331,12 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [isDraggingSlider, histogramData, setHierarchicalThresholds, mapMetricToThresholdKey, popoverData?.parentNodeId])
+  }, [isDraggingSlider, histogramData, setHierarchicalThresholds, popoverData?.parentNodeId])
 
   const getEffectiveThreshold = useCallback((metric: string): number => {
     const hierarchicalThresholds = useVisualizationStore.getState().hierarchicalThresholds
     const parentNodeId = popoverData?.parentNodeId || 'global'
-    const thresholdKey = mapMetricToThresholdKey(metric)
+    const thresholdKey = metric as keyof typeof parentThresholds
 
     // Access nested threshold structure: hierarchicalThresholds[parentNodeId][thresholdKey]
     const parentThresholds = hierarchicalThresholds[parentNodeId]
@@ -360,10 +348,10 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
       return histogramData[metric].statistics.mean
     }
     return 0.5
-  }, [histogramData, mapMetricToThresholdKey, popoverData?.parentNodeId])
+  }, [histogramData, popoverData?.parentNodeId])
 
   // ============================================================================
-  // INLINE SINGLE HISTOGRAM VIEW (from SingleHistogramView.tsx)
+  // INLINE SINGLE HISTOGRAM VIEW
   // ============================================================================
   const renderHistograms = useCallback((layout: HistogramLayout, histogramData: Record<string, HistogramData>) => {
     if (!layout || !histogramData) return null
@@ -396,7 +384,7 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
 
           const handleThresholdChange = (newThreshold: number) => {
             const clampedThreshold = Math.max(data.statistics.min, Math.min(data.statistics.max, newThreshold))
-            const thresholdKey = mapMetricToThresholdKey(metric)
+            const thresholdKey = metric
             setHierarchicalThresholds({ [thresholdKey]: clampedThreshold }, popoverData?.parentNodeId)
           }
 
@@ -578,31 +566,15 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
         })}
       </svg>
     )
-  }, [containerSize, animationDuration, getEffectiveThreshold, formatSmartNumber, setHierarchicalThresholds, mapMetricToThresholdKey, setIsDraggingSlider, draggingMetricRef])
+  }, [containerSize, animationDuration, getEffectiveThreshold, formatSmartNumber, setHierarchicalThresholds, setIsDraggingSlider, draggingMetricRef])
 
   // ============================================================================
   // MULTI-HISTOGRAM RENDERING
   // ============================================================================
 
   // ============================================================================
-  // THRESHOLD MANAGEMENT (simplified from hooks/useThresholdManagement.ts)
+  // THRESHOLD MANAGEMENT
   // ============================================================================
-  const handleSingleThresholdChange = useCallback((newThreshold: number) => {
-    if (!histogramData || !popoverData?.metrics?.[0]) return
-
-    const singleMetric = popoverData.metrics[0]
-    const metricData = histogramData[singleMetric]
-    if (!metricData) return
-
-    const clampedThreshold = Math.max(
-      metricData.statistics.min,
-      Math.min(metricData.statistics.max, newThreshold)
-    )
-
-    const thresholdKey = mapMetricToThresholdKey(singleMetric)
-    setHierarchicalThresholds({ [thresholdKey]: clampedThreshold }, popoverData?.parentNodeId)
-  }, [histogramData, popoverData?.metrics, popoverData?.parentNodeId, setHierarchicalThresholds, mapMetricToThresholdKey])
-
   // Validation
   const validationErrors = useMemo(() => {
     const errors: string[] = []
@@ -636,7 +608,7 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
   const handleRetry = useCallback(() => {
     if (popoverData?.nodeId && popoverData?.metrics) {
       clearError('histogram')
-      fetchMultipleHistogramData(popoverData.metrics, false, popoverData.nodeId)
+      fetchMultipleHistogramData(popoverData.metrics, popoverData.nodeId)
     }
   }, [popoverData?.nodeId, popoverData?.metrics, clearError, fetchMultipleHistogramData])
 
@@ -675,7 +647,7 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
   // Fetch histogram data when popover opens
   useEffect(() => {
     if (popoverData?.visible && popoverData.nodeId && popoverData.metrics?.length > 0) {
-      fetchMultipleHistogramData(popoverData.metrics, false, popoverData.nodeId)
+      fetchMultipleHistogramData(popoverData.metrics, popoverData.nodeId)
     }
   }, [popoverData?.visible, popoverData?.nodeId, popoverData?.metrics, fetchMultipleHistogramData])
 

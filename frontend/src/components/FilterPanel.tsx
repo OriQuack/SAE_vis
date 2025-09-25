@@ -1,4 +1,3 @@
-import React from 'react'
 import { useVisualizationStore } from '../store'
 
 // ============================================================================
@@ -151,11 +150,11 @@ interface FilterPanelProps {
 // ============================================================================
 // MAIN FILTER PANEL COMPONENT
 // ============================================================================
-export const FilterPanel: React.FC<FilterPanelProps> = ({
+export const FilterPanel = ({
   onCreateVisualization,
   onCancel,
   className = ''
-}) => {
+}: FilterPanelProps) => {
   const { filters, filterOptions, setFilters, resetFilters } = useVisualizationStore()
 
   // Check if filters have been selected

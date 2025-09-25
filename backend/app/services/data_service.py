@@ -188,9 +188,7 @@ class DataService:
     async def get_sankey_data(
         self,
         filters: Filters,
-        thresholds: Dict[str, float],
-        nodeThresholds: Optional[Dict[str, Dict[str, float]]] = None,
-        hierarchicalThresholds: Optional[HierarchicalThresholds] = None
+        hierarchicalThresholds: HierarchicalThresholds = None
     ) -> SankeyResponse:
         """Generate Sankey diagram data with hierarchical categorization."""
         if not self.is_ready():
@@ -205,12 +203,12 @@ class DataService:
 
             # Apply classification using threshold manager
             categorized_df = self._threshold_manager.apply_classification(
-                filtered_df, thresholds, nodeThresholds, hierarchicalThresholds
+                filtered_df, hierarchicalThresholds
             )
 
             # Build Sankey response using builder
             return self._sankey_builder.build_sankey_response(
-                categorized_df, filters, thresholds
+                categorized_df, filters, hierarchicalThresholds
             )
 
         except Exception as e:
