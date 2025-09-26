@@ -90,7 +90,7 @@ export interface ThresholdNode {
  */
 export interface ThresholdTree {
   root: ThresholdNode
-  metrics: Set<string>
+  metrics: string[]
 }
 
 export interface FilterOptions {

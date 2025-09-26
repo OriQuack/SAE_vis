@@ -100,9 +100,9 @@ class ThresholdTree(BaseModel):
         ...,
         description="Root node of the threshold tree"
     )
-    metrics: Set[str] = Field(
-        default_factory=set,
-        description="Set of all metrics used in the tree"
+    metrics: List[str] = Field(
+        default_factory=list,
+        description="List of all metrics used in the tree"
     )
 
 # Forward reference resolution

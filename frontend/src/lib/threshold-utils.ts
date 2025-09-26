@@ -248,20 +248,28 @@ export function buildDefaultTree(): ThresholdTree {
   }
 
   // Collect all metrics used in the tree
-  const metrics = new Set<string>()
-  traverseTree({ root, metrics }, (node) => {
+  const metricsSet = new Set<string>()
+
+  function collectMetrics(node: ThresholdNode): void {
     if (node.metric) {
       if (node.metric === 'score_combined') {
-        metrics.add('score_fuzz')
-        metrics.add('score_detection')
-        metrics.add('score_simulation')
+        metricsSet.add('score_fuzz')
+        metricsSet.add('score_detection')
+        metricsSet.add('score_simulation')
       } else {
-        metrics.add(node.metric)
+        metricsSet.add(node.metric)
       }
     }
-  })
+    if (node.split?.children) {
+      for (const child of node.split.children) {
+        collectMetrics(child)
+      }
+    }
+  }
 
-  return { root, metrics }
+  collectMetrics(root)
+
+  return { root, metrics: Array.from(metricsSet) }
 }
 
 // ============================================================================

@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react'
 import { useVisualizationStore } from '../store'
-import { DEFAULT_ANIMATION, calculateSankeyLayout, validateSankeyData, validateDimensions, getNodeColor, getLinkColor, getSankeyPath, SANKEY_COLORS } from '../lib/d3-utils'
-import { useResizeObserver } from '../lib/utils'
+import { DEFAULT_ANIMATION, calculateSankeyLayout, validateSankeyData, validateDimensions, getNodeColor, getLinkColor, getSankeyPath, SANKEY_COLORS, useResizeObserver } from '../lib/d3-sankey-utils'
 import { findNodeById, getNodeMetrics } from '../lib/threshold-utils'
 import type { D3SankeyNode, D3SankeyLink, MetricType } from '../types'
 

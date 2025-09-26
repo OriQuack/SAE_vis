@@ -259,6 +259,17 @@ class DataService:
             COL_HIGH_SCORE_COUNT
         ])
 
+    def _custom_sort_order(self, items: List[Dict], order_list: List[str], key: str) -> List[Dict]:
+        """Sort items based on custom order list."""
+        def sort_key(item):
+            try:
+                return order_list.index(item[key])
+            except ValueError:
+                # If item not in order list, put it at the end
+                return len(order_list)
+
+        return sorted(items, key=sort_key)
+
     def _build_sankey_nodes_and_links(self, categorized_df: pl.DataFrame) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         """Build Sankey nodes and links from categorized data - consolidated approach."""
         total_features = len(categorized_df)
@@ -279,10 +290,15 @@ class DataService:
             categorized_df
             .group_by(COL_SPLITTING_CATEGORY)
             .count()
-            .sort(COL_SPLITTING_CATEGORY)
+        ).to_dicts()
+
+        # Apply custom ordering for splitting categories
+        from .data_constants import SPLITTING_ORDER
+        splitting_counts_sorted = self._custom_sort_order(
+            splitting_counts, SPLITTING_ORDER, COL_SPLITTING_CATEGORY
         )
 
-        for row in splitting_counts.iter_rows(named=True):
+        for row in splitting_counts_sorted:
             category = row[COL_SPLITTING_CATEGORY]
             count = row["count"]
             node_id = f"{NODE_SPLIT_PREFIX}{category}"
@@ -306,10 +322,18 @@ class DataService:
             categorized_df
             .group_by([COL_SPLITTING_CATEGORY, COL_SEMDIST_CATEGORY])
             .count()
-            .sort([COL_SPLITTING_CATEGORY, COL_SEMDIST_CATEGORY])
-        )
+        ).to_dicts()
 
-        for row in semantic_counts.iter_rows(named=True):
+        # Apply custom ordering for semantic distance categories
+        from .data_constants import SEMDIST_ORDER
+        def semantic_sort_key(row):
+            split_order = SPLITTING_ORDER.index(row[COL_SPLITTING_CATEGORY]) if row[COL_SPLITTING_CATEGORY] in SPLITTING_ORDER else len(SPLITTING_ORDER)
+            semdist_order = SEMDIST_ORDER.index(row[COL_SEMDIST_CATEGORY]) if row[COL_SEMDIST_CATEGORY] in SEMDIST_ORDER else len(SEMDIST_ORDER)
+            return (split_order, semdist_order)
+
+        semantic_counts_sorted = sorted(semantic_counts, key=semantic_sort_key)
+
+        for row in semantic_counts_sorted:
             split_cat = row[COL_SPLITTING_CATEGORY]
             semdist_cat = row[COL_SEMDIST_CATEGORY]
             count = row["count"]
@@ -340,10 +364,19 @@ class DataService:
                 pl.count().alias("count"),
                 pl.col(COL_FEATURE_ID).alias("feature_ids")
             ])
-            .sort([COL_SPLITTING_CATEGORY, COL_SEMDIST_CATEGORY, COL_SCORE_AGREEMENT])
-        )
+        ).to_dicts()
 
-        for row in agreement_groups.iter_rows(named=True):
+        # Apply custom ordering for score agreement categories
+        from .data_constants import AGREEMENT_ORDER
+        def agreement_sort_key(row):
+            split_order = SPLITTING_ORDER.index(row[COL_SPLITTING_CATEGORY]) if row[COL_SPLITTING_CATEGORY] in SPLITTING_ORDER else len(SPLITTING_ORDER)
+            semdist_order = SEMDIST_ORDER.index(row[COL_SEMDIST_CATEGORY]) if row[COL_SEMDIST_CATEGORY] in SEMDIST_ORDER else len(SEMDIST_ORDER)
+            agreement_order = AGREEMENT_ORDER.index(row[COL_SCORE_AGREEMENT]) if row[COL_SCORE_AGREEMENT] in AGREEMENT_ORDER else len(AGREEMENT_ORDER)
+            return (split_order, semdist_order, agreement_order)
+
+        agreement_groups_sorted = sorted(agreement_groups, key=agreement_sort_key)
+
+        for row in agreement_groups_sorted:
             split_cat = row[COL_SPLITTING_CATEGORY]
             semdist_cat = row[COL_SEMDIST_CATEGORY]
             agreement_cat = row[COL_SCORE_AGREEMENT]
