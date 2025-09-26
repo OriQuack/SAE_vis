@@ -11,6 +11,7 @@ class MetricType(str, Enum):
     SCORE_SIMULATION = "score_simulation"
     SCORE_DETECTION = "score_detection"
     SCORE_EMBEDDING = "score_embedding"
+    SCORE_COMBINED = "score_combined"
 
 class CategoryType(str, Enum):
     """Node category types for Sankey diagrams"""

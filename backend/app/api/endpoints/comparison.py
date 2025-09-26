@@ -67,41 +67,8 @@ async def get_comparison_data(
                       no overlapping features, or server errors
     """
     try:
-        # Validate that the configurations are different
-        # (This is also validated in the Pydantic model, but we double-check here)
-        left_config = request.sankey_left
-        right_config = request.sankey_right
-
-        if (left_config.filters == right_config.filters and
-            left_config.thresholds == right_config.thresholds):
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "error": {
-                        "code": "IDENTICAL_CONFIGURATIONS",
-                        "message": "Left and right Sankey configurations must be different",
-                        "details": {}
-                    }
-                }
-            )
-
-        # Call the data service method
-        return await data_service.get_comparison_data(
-            left_filters=left_config.filters,
-            left_thresholds={
-                "semdist_mean": left_config.thresholds.semdist_mean,
-                "score_fuzz": left_config.thresholds.score_fuzz,
-                "score_detection": left_config.thresholds.score_detection,
-                "score_simulation": left_config.thresholds.score_simulation
-            },
-            right_filters=right_config.filters,
-            right_thresholds={
-                "semdist_mean": right_config.thresholds.semdist_mean,
-                "score_fuzz": right_config.thresholds.score_fuzz,
-                "score_detection": right_config.thresholds.score_detection,
-                "score_simulation": right_config.thresholds.score_simulation
-            }
-        )
+        # Phase 2 feature not yet implemented - fail early
+        raise NotImplementedError("Comparison data generation not yet implemented")
 
     except NotImplementedError:
         # Phase 2 feature not yet implemented
