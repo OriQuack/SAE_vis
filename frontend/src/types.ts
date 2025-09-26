@@ -27,6 +27,8 @@ export interface Thresholds {
   score_simulation: number
 }
 
+// DEPRECATED: Legacy hierarchical threshold interface
+// Kept only for backward compatibility if needed
 export interface HierarchicalThresholds {
   global_thresholds: Thresholds
   score_agreement_groups?: Record<string, Record<string, number>>
@@ -111,8 +113,7 @@ export interface HistogramDataRequest {
 
 export interface SankeyDataRequest {
   filters: Filters
-  hierarchicalThresholds?: HierarchicalThresholds  // DEPRECATED: Legacy system (kept for backend compatibility)
-  thresholdTree?: ThresholdTree                    // NEW: Unified system (will be primary after backend migration)
+  thresholdTree: ThresholdTree                    // NEW: Unified system (will be primary after backend migration)
 }
 
 export interface ComparisonDataRequest {
@@ -183,7 +184,7 @@ export interface SankeyData {
   metadata: {
     total_features: number
     applied_filters: Filters
-    applied_thresholds: HierarchicalThresholds  // DEPRECATED: Legacy format (kept for backend compatibility)
+    applied_thresholds: ThresholdTree
   }
 }
 
@@ -376,46 +377,6 @@ export interface HistogramSliderProps {
   onRefresh: () => void
 }
 
-// ============================================================================
-// APP STATE TYPE (Simplified - No Slices)
-// ============================================================================
-
-export interface AppState {
-  // Core data
-  filters: Filters
-  filterOptions: FilterOptions | null
-  hierarchicalThresholds: HierarchicalThresholds
-  histogramData: Record<string, HistogramData> | null
-  sankeyData: SankeyData | null
-
-  // UI state
-  viewState: ViewState
-  popoverState: PopoverState
-  loading: LoadingStates
-  errors: ErrorStates
-
-  // Actions
-  setFilters: (filters: Partial<Filters>) => void
-  setGlobalThresholds: (thresholds: Partial<Thresholds>) => void
-  setHistogramData: (data: Record<string, HistogramData> | null) => void
-  setSankeyData: (data: SankeyData | null) => void
-  setLoading: (key: keyof LoadingStates, value: boolean) => void
-  setError: (key: keyof ErrorStates, error: string | null) => void
-  showHistogramPopover: (
-    nodeId: string,
-    nodeName: string,
-    metrics: MetricType[],
-    position: { x: number; y: number },
-    parentNodeId?: string,
-    parentNodeName?: string
-  ) => void
-  hideHistogramPopover: () => void
-
-  // API actions
-  fetchFilterOptions: () => Promise<void>
-  fetchHistogramData: (metric: MetricType, nodeId?: string) => Promise<void>
-  fetchSankeyData: () => Promise<void>
-}
 
 // ============================================================================
 // CONSTANTS (Simplified)
