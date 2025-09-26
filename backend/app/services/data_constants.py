@@ -1,8 +1,7 @@
 """
-Constants for data processing and visualization.
+Essential constants for data processing and visualization.
 
-This module contains all magic strings, numbers, and configuration values
-used throughout the data service to improve maintainability and consistency.
+This module contains the core constants used throughout the data service.
 """
 
 # Score agreement categories
@@ -31,13 +30,12 @@ SPLITTING_FALSE = "false"
 SEMDIST_HIGH = "high"
 SEMDIST_LOW = "low"
 
-# Node ID prefixes
+# Node ID patterns
 NODE_ROOT = "root"
 NODE_SPLIT_PREFIX = "split_"
 NODE_SEMDIST_SUFFIX = "_semdist_"
-NODE_AGREE_SUFFIX = "_agree_"
 
-# Column names used throughout the service
+# Column names
 COL_FEATURE_ID = "feature_id"
 COL_SAE_ID = "sae_id"
 COL_EXPLANATION_METHOD = "explanation_method"
@@ -58,24 +56,21 @@ COL_SEMDIST_CATEGORY = "semdist_category"
 COL_SCORE_AGREEMENT = "score_agreement"
 COL_HIGH_SCORE_COUNT = "high_score_count"
 
-# Threshold column names (temporary columns used during classification)
+# Threshold column names
 COL_THRESHOLD_FUZZ = "threshold_fuzz"
 COL_THRESHOLD_SIMULATION = "threshold_simulation"
 COL_THRESHOLD_DETECTION = "threshold_detection"
-COL_PARENT_NODE_ID = "parent_node_id"
-COL_SEMDIST_THRESHOLD = "semdist_threshold"
 
 # Default values
 DEFAULT_HISTOGRAM_BINS = 20
-DEFAULT_FEATURE_SPLITTING_THRESHOLD = 0.00002  # Cosine similarity scale
 
-# Stage definitions for Sankey diagram
+# Stage definitions
 STAGE_ROOT = 0
 STAGE_SPLITTING = 1
 STAGE_SEMANTIC = 2
 STAGE_AGREEMENT = 3
 
-# Stage names for display
+# Stage names
 STAGE_NAMES = {
     STAGE_ROOT: "All Features",
     STAGE_SPLITTING: "Feature Splitting",
@@ -83,26 +78,15 @@ STAGE_NAMES = {
     STAGE_AGREEMENT: "Score Agreement"
 }
 
-# Filter columns for caching unique values
+# Filter columns
 FILTER_COLUMNS = [COL_SAE_ID, COL_EXPLANATION_METHOD, COL_LLM_EXPLAINER, COL_LLM_SCORER]
 
-# Score columns for threshold operations
-SCORE_COLUMNS = [COL_SCORE_FUZZ, COL_SCORE_SIMULATION, COL_SCORE_DETECTION]
-
-# Required score count thresholds for agreement classification
-AGREEMENT_THRESHOLDS = {
-    AGREE_ALL: 3,      # All 3 scores high
-    AGREE_2OF3: 2,     # Exactly 2 scores high
-    AGREE_1OF3: 1,     # Exactly 1 score high
-    AGREE_NONE: 0      # All scores low
-}
-
-# Default threshold values for metrics
+# Default threshold values
 DEFAULT_THRESHOLDS = {
-    "feature_splitting": 0.00002,
-    "semdist_mean": 0.15,
-    "score_fuzz": 0.8,
-    "score_simulation": 0.8,
-    "score_detection": 0.8,
-    "score_embedding": 0.8
+    "feature_splitting": 0.5,
+    "semdist_mean": 0.2,
+    "score_fuzz": 0.5,
+    "score_simulation": 0.5,
+    "score_detection": 0.5,
+    "score_embedding": 0.5
 }

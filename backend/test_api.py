@@ -101,15 +101,47 @@ class APITester:
             return False
 
         try:
-            # Use the first available values for testing
+            # Create a simple threshold tree for testing
+            threshold_tree = {
+                "root": {
+                    "id": "root",
+                    "metric": "feature_splitting",
+                    "split": {
+                        "thresholds": [0.5],
+                        "children": [
+                            {
+                                "id": "split_false",
+                                "metric": "semdist_mean",
+                                "split": {
+                                    "thresholds": [0.15],
+                                    "children": [
+                                        {"id": "semdist_low", "metric": None},
+                                        {"id": "semdist_high", "metric": None}
+                                    ]
+                                }
+                            },
+                            {
+                                "id": "split_true",
+                                "metric": "semdist_mean",
+                                "split": {
+                                    "thresholds": [0.15],
+                                    "children": [
+                                        {"id": "semdist_low", "metric": None},
+                                        {"id": "semdist_high", "metric": None}
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                },
+                "metrics": ["feature_splitting", "semdist_mean", "score_fuzz", "score_simulation", "score_detection"]
+            }
+
             test_request = {
                 "filters": {
                     "sae_id": [filter_options['sae_id'][0]]
                 },
-                "thresholds": {
-                    "semdist_mean": 0.15,
-                    "score_high": 0.8
-                }
+                "thresholdTree": threshold_tree
             }
 
             response = self.session.post(
@@ -141,25 +173,90 @@ class APITester:
             return False
 
         try:
-            # Create two different configurations for testing
+            # Create the same threshold tree structure as used in Sankey test
+            base_threshold_tree = {
+                "root": {
+                    "id": "root",
+                    "metric": "feature_splitting",
+                    "split": {
+                        "thresholds": [0.00002],
+                        "children": [
+                            {
+                                "id": "split_false",
+                                "metric": "semdist_mean",
+                                "split": {
+                                    "thresholds": [0.15],
+                                    "children": [
+                                        {"id": "semdist_low", "metric": None},
+                                        {"id": "semdist_high", "metric": None}
+                                    ]
+                                }
+                            },
+                            {
+                                "id": "split_true",
+                                "metric": "semdist_mean",
+                                "split": {
+                                    "thresholds": [0.15],
+                                    "children": [
+                                        {"id": "semdist_low", "metric": None},
+                                        {"id": "semdist_high", "metric": None}
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                },
+                "metrics": ["feature_splitting", "semdist_mean", "score_fuzz", "score_simulation", "score_detection"]
+            }
+
+            # Create a second threshold tree with different threshold
+            right_threshold_tree = {
+                "root": {
+                    "id": "root",
+                    "metric": "feature_splitting",
+                    "split": {
+                        "thresholds": [0.00002],
+                        "children": [
+                            {
+                                "id": "split_false",
+                                "metric": "semdist_mean",
+                                "split": {
+                                    "thresholds": [0.20],  # Different threshold
+                                    "children": [
+                                        {"id": "semdist_low", "metric": None},
+                                        {"id": "semdist_high", "metric": None}
+                                    ]
+                                }
+                            },
+                            {
+                                "id": "split_true",
+                                "metric": "semdist_mean",
+                                "split": {
+                                    "thresholds": [0.20],  # Different threshold
+                                    "children": [
+                                        {"id": "semdist_low", "metric": None},
+                                        {"id": "semdist_high", "metric": None}
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                },
+                "metrics": ["feature_splitting", "semdist_mean", "score_fuzz", "score_simulation", "score_detection"]
+            }
+
             test_request = {
                 "sankey_left": {
                     "filters": {
                         "sae_id": [filter_options['sae_id'][0]]
                     },
-                    "thresholds": {
-                        "semdist_mean": 0.15,
-                        "score_high": 0.8
-                    }
+                    "thresholdTree": base_threshold_tree
                 },
                 "sankey_right": {
                     "filters": {
                         "sae_id": [filter_options['sae_id'][0]]
                     },
-                    "thresholds": {
-                        "semdist_mean": 0.20,  # Different threshold
-                        "score_high": 0.8
-                    }
+                    "thresholdTree": right_threshold_tree
                 }
             }
 
