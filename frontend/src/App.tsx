@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { useVisualizationStore } from './store'
 import FilterPanel from './components/FilterPanel'
 import SankeyDiagram from './components/SankeyDiagram'
+import AlluvialDiagram from './components/AlluvialDiagram'
 import HistogramPopover from './components/HistogramPopover'
 import * as api from './api'
 import './styles/globals.css'
@@ -312,11 +313,11 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
         </div>
       </div>
 
-      {/* Main content - dual panel rendering */}
+      {/* Main content - three-panel rendering */}
       <div className={`sankey-view__content sankey-view__content--${layout}`}>
         <div className="sankey-view__main-content">
           {/* Left Panel */}
-          <div className="sankey-view__left-half">
+          <div className="sankey-view__left-panel">
             {leftPanel.viewState === 'empty' && (
               <EmptyState onAddVisualization={handleAddVisualizationLeft} />
             )}
@@ -337,7 +338,7 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
                   className="sankey-view__floating-actions"
                 />
                 <SankeyDiagram
-                  width={(window.innerWidth / 2) - 40}
+                  width={(window.innerWidth * 0.4) - 20}
                   height={window.innerHeight - 170}
                   showHistogramOnClick={true}
                   flowDirection="left-to-right"
@@ -347,8 +348,17 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
             )}
           </div>
 
+          {/* Center Panel - Alluvial Diagram */}
+          <div className="sankey-view__center-panel">
+            <AlluvialDiagram
+              width={(window.innerWidth * 0.2) - 20}
+              height={window.innerHeight - 170}
+              className="sankey-view__alluvial"
+            />
+          </div>
+
           {/* Right Panel */}
-          <div className="sankey-view__right-half">
+          <div className="sankey-view__right-panel">
             {rightPanel.viewState === 'empty' && (
               <EmptyState onAddVisualization={handleAddVisualizationRight} />
             )}
@@ -369,7 +379,7 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
                   className="sankey-view__floating-actions"
                 />
                 <SankeyDiagram
-                  width={(window.innerWidth / 2) - 40}
+                  width={(window.innerWidth * 0.4) - 20}
                   height={window.innerHeight - 170}
                   showHistogramOnClick={true}
                   flowDirection="right-to-left"

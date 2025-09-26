@@ -168,32 +168,37 @@ class SankeyBuilder:
         nodes = []
         links = []
 
-        # Group by all categories
-        agreement_counts = (
+        # Group by all categories and collect both count and feature IDs
+        agreement_groups = (
             categorized_df
             .group_by([COL_SPLITTING_CATEGORY, COL_SEMDIST_CATEGORY, COL_SCORE_AGREEMENT])
-            .count()
+            .agg([
+                pl.count().alias("count"),
+                pl.col(COL_FEATURE_ID).alias("feature_ids")
+            ])
             .sort([COL_SPLITTING_CATEGORY, COL_SEMDIST_CATEGORY, COL_SCORE_AGREEMENT])
         )
 
-        for row in agreement_counts.iter_rows(named=True):
+        for row in agreement_groups.iter_rows(named=True):
             split_cat = row[COL_SPLITTING_CATEGORY]
             semdist_cat = row[COL_SEMDIST_CATEGORY]
             agreement_cat = row[COL_SCORE_AGREEMENT]
             count = row["count"]
+            feature_ids = row["feature_ids"]
 
             source_id = f"{NODE_SPLIT_PREFIX}{split_cat}{NODE_SEMDIST_SUFFIX}{semdist_cat}"
             target_id = f"{source_id}_{agreement_cat}"
             display_name = AGREEMENT_NAMES[agreement_cat]
 
-            # Add node
+            # Add node with feature IDs for final stage
             nodes.append({
                 "id": target_id,
                 "name": display_name,
                 "stage": STAGE_AGREEMENT,
                 "feature_count": count,
                 "category": CATEGORY_SCORE_AGREEMENT,
-                "parent_path": [f"{NODE_SPLIT_PREFIX}{split_cat}", f"semdist_{semdist_cat}"]
+                "parent_path": [f"{NODE_SPLIT_PREFIX}{split_cat}", f"semdist_{semdist_cat}"],
+                "feature_ids": feature_ids  # Include feature IDs for alluvial diagram
             })
 
             # Add link

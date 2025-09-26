@@ -84,6 +84,7 @@ export interface SankeyNode {
   feature_count: number
   category: NodeCategory
   parent_path?: string[]
+  feature_ids?: number[]
 }
 
 export interface D3SankeyNode extends SankeyNode {
@@ -127,6 +128,15 @@ export interface ComparisonFlow {
   target_node: string
   feature_count: number
   feature_ids: number[]
+}
+
+export interface AlluvialFlow {
+  source: string
+  target: string
+  value: number
+  feature_ids: number[]
+  sourceCategory: string
+  targetCategory: string
 }
 
 export interface ComparisonData {

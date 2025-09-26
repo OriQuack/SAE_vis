@@ -92,6 +92,10 @@ class SankeyNode(BaseModel):
         default=None,
         description="Path from root to this node"
     )
+    feature_ids: Optional[List[int]] = Field(
+        default=None,
+        description="List of feature IDs in this node (included only for leaf nodes to enable alluvial diagrams)"
+    )
 
 class SankeyLink(BaseModel):
     """Individual link in Sankey diagram"""

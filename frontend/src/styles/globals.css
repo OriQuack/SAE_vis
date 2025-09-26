@@ -360,8 +360,8 @@ body {
   overflow: hidden;
 }
 
-.sankey-view__left-half {
-  width: 50%;
+.sankey-view__left-panel {
+  width: 40%;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -373,11 +373,30 @@ body {
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
 }
 
-.sankey-view__right-half {
-  width: 50%;
+.sankey-view__center-panel {
+  width: 20%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
   background: white;
   border-radius: 0.25rem;
-  padding: 0.5rem;
+  padding: 0.25rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  margin: 0 0.25rem;
+}
+
+.sankey-view__right-panel {
+  width: 40%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  background: white;
+  border-radius: 0.25rem;
+  padding: 0.25rem;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
 }
 
@@ -1677,6 +1696,142 @@ body {
   word-break: break-word;
 }
 
+
+/* ============================================================================
+   ALLUVIAL DIAGRAM
+   ============================================================================ */
+
+.alluvial-diagram {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.alluvial-diagram--empty {
+  justify-content: center;
+  align-items: center;
+}
+
+/* Header with statistics */
+.alluvial-header {
+  padding: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.alluvial-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.alluvial-stats {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+}
+
+.alluvial-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.alluvial-stat__value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.alluvial-stat__label {
+  font-size: 0.75rem;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* SVG container */
+.alluvial-svg {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+}
+
+.alluvial-flow-path {
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.alluvial-flow-path:hover {
+  filter: brightness(1.1);
+}
+
+/* Labels */
+.alluvial-panel-label {
+  fill: #374151;
+  font-weight: 600;
+}
+
+.alluvial-node-label {
+  fill: #6b7280;
+}
+
+/* Empty state */
+.alluvial-empty {
+  text-align: center;
+  padding: 2rem;
+  max-width: 300px;
+}
+
+.alluvial-empty__icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  opacity: 0.6;
+}
+
+.alluvial-empty__title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+}
+
+.alluvial-empty__text {
+  color: #6b7280;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* Legend */
+.alluvial-legend {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 0.75rem;
+  border-top: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.alluvial-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: #4b5563;
+}
+
+.alluvial-legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  opacity: 0.8;
+}
 
 /* ============================================================================
    RESPONSIVE DESIGN - DISABLED FOR PRESENTATION MODE

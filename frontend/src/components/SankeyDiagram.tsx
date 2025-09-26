@@ -343,7 +343,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
           // Adjust margins for right-aligned layout
           calculatedLayout.margin = {
             ...calculatedLayout.margin,
-            left: -30,    
+            left: -60,    
             right: 80
           }
         }
