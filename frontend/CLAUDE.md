@@ -2,11 +2,12 @@
 
 This file provides comprehensive guidance to Claude Code when working with the React frontend for the SAE Feature Visualization project.
 
-## Current Status: ✅ PRODUCTION-READY REACT APPLICATION
+## Current Status: 🚀 PHASE 2 DUAL-PANEL ARCHITECTURE IMPLEMENTATION
 
-**Implementation Complete**: Advanced React 19.1.1 application with sophisticated D3.js visualizations
-**Architecture**: Modern TypeScript-based frontend with consolidated state management
-**Status**: Production-quality single Sankey visualization with advanced interactive features
+**Phase 1 Complete**: ✅ Advanced React 19.1.1 application with sophisticated D3.js visualizations
+**Phase 2 Active**: 🚧 Dual-panel comparison architecture with alluvial flow visualization (50% complete)
+**Architecture**: Modern TypeScript-based frontend with dual-panel state management and threshold tree system
+**Status**: Production-quality dual-panel architecture with advanced interactive features and comparison capabilities
 **Development Server**: Active on http://localhost:3003 with hot reload and comprehensive error handling
 
 ## Technology Stack & Architecture
@@ -40,8 +41,8 @@ This file provides comprehensive guidance to Claude Code when working with the R
 ┌─────────────────────────────────────────────────────────────────┐
 │                     D3.js Visualization Layer                   │
 │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐   │
-│  │   Sankey        │ │   Histogram     │ │   Interactive   │   │
-│  │   Layout        │ │   Calculations  │ │   Popovers      │   │
+│  │   Sankey +      │ │   Histogram     │ │   Interactive   │   │
+│  │   Alluvial      │ │   Calculations  │ │   Popovers      │   │
 │  │   Calculations  │ │   + Statistics  │ │   + Positioning │   │
 │  └─────────────────┘ └─────────────────┘ └─────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
@@ -64,9 +65,13 @@ frontend/
 │   ├── components/              # React Components (Production-Ready)
 │   │   ├── FilterPanel.tsx      # Multi-select filter interface with dynamic options
 │   │   ├── SankeyDiagram.tsx    # Advanced D3 Sankey visualization with interactions
+│   │   ├── AlluvialDiagram.tsx  # D3 Alluvial flow visualization (Phase 2)
 │   │   └── HistogramPopover.tsx # Portal-based histogram popover with drag functionality
 │   ├── lib/                     # Utility Libraries
-│   │   ├── d3-utils.ts         # Advanced D3 calculations and helper functions
+│   │   ├── d3-sankey-utils.ts  # D3 Sankey calculations
+│   │   ├── d3-alluvial-utils.ts # D3 Alluvial calculations (Phase 2)
+│   │   ├── d3-histogram-utils.ts # D3 Histogram calculations
+│   │   ├── threshold-utils.ts   # Threshold tree operations
 │   │   └── utils.ts            # General utility functions and formatters
 │   ├── styles/                  # Styling
 │   │   └── globals.css         # Global styles with responsive design patterns
@@ -88,37 +93,46 @@ frontend/
 
 ### ✅ Advanced State Management
 
-The frontend uses a **consolidated Zustand store** with comprehensive state management:
+The frontend uses a **dual-panel Zustand store** with comprehensive state management:
 
 ```typescript
 interface AppState {
-  // Core data state
-  filters: Filters
+  // Dual-panel architecture - Phase 2
+  leftPanel: PanelState
+  rightPanel: PanelState
+
+  // Shared state
   filterOptions: FilterOptions | null
-  hierarchicalThresholds: HierarchicalThresholds
-  histogramData: Record<string, HistogramData> | null
-  sankeyData: SankeyData | null
-
-  // UI state management
-  viewState: ViewState  // 'empty' | 'filtering' | 'visualization'
+  currentMetric: MetricType
   popoverState: PopoverState
-  loading: LoadingStates
-  errors: ErrorStates
+  loading: LoadingStates & { sankeyLeft?: boolean; sankeyRight?: boolean }
+  errors: ErrorStates & { sankeyLeft?: string | null; sankeyRight?: string | null }
 
-  // Comprehensive API actions
-  fetchFilterOptions: () => Promise<void>
-  fetchHistogramData: (metric?: MetricType, nodeId?: string) => Promise<void>
-  fetchMultipleHistogramData: (metrics: MetricType[], nodeId?: string) => Promise<void>
-  fetchSankeyData: () => Promise<void>
+  // Alluvial flows data (Phase 2)
+  alluvialFlows: AlluvialFlow[] | null
+
+  // Panel-aware API actions
+  fetchSankeyData: (panel?: PanelSide) => Promise<void>
+  fetchHistogramData: (metric?: MetricType, nodeId?: string, panel?: PanelSide) => Promise<void>
+  updateThreshold: (nodeId: string, thresholds: number[], panel?: PanelSide) => void
+}
+
+interface PanelState {
+  filters: Filters
+  thresholdTree: ThresholdTree  // New threshold tree system
+  sankeyData: SankeyData | null
+  histogramData: Record<string, HistogramData> | null
+  viewState: ViewState
 }
 ```
 
 **Key Features:**
-- **Hierarchical Threshold Management**: Support for complex threshold configurations
-- **Multi-histogram Data**: Batch loading of histogram data for different metrics
-- **Automatic Threshold Updates**: Dynamic threshold adjustment based on histogram statistics
-- **Comprehensive Error Handling**: Structured error states with user-friendly messages
-- **Loading State Management**: Granular loading indicators for all async operations
+- **Dual-Panel Architecture**: Independent left/right panel state management for comparison
+- **Threshold Tree System**: New unified threshold management replacing legacy hierarchical system
+- **Alluvial Flow Support**: Cross-panel flow visualization data management
+- **Panel-Aware Operations**: All operations support panel-specific targeting
+- **Comprehensive Error Handling**: Panel-specific error states with user-friendly messages
+- **Loading State Management**: Granular loading indicators for all async operations including panel-specific states
 
 ### ✅ Advanced Component Architecture
 
@@ -165,6 +179,28 @@ function getMetricsForNode(node: D3SankeyNode): MetricType[] | null {
 }
 ```
 
+#### AlluvialDiagram Component (Phase 2 - Advanced Flow Visualization)
+- **Cross-Panel Flow Visualization**: Displays alluvial flows between left and right Sankey diagrams
+- **D3 Alluvial Calculations**: Advanced flow layout calculations with proper flow positioning
+- **Interactive Flow Elements**: Hover effects and flow highlighting for enhanced user experience
+- **Dynamic Flow Data**: Real-time flow updates based on panel state changes
+- **Consistency Statistics**: Flow consistency analysis and visualization
+- **Performance Optimized**: Efficient rendering with React.memo and useMemo optimizations
+
+**Flow Calculation Logic:**
+```typescript
+const layout = useMemo(
+  () => calculateAlluvialLayout(
+    alluvialFlows,
+    width,
+    height,
+    leftSankeyData?.nodes,
+    rightSankeyData?.nodes
+  ),
+  [alluvialFlows, width, height, leftSankeyData?.nodes, rightSankeyData?.nodes]
+)
+```
+
 #### HistogramPopover Component (Portal-Based Advanced UI)
 - **Portal-Based Rendering**: Proper z-index layering for complex layouts
 - **Multi-Histogram Support**: Simultaneous display of multiple metric histograms
@@ -175,13 +211,27 @@ function getMetricsForNode(node: D3SankeyNode): MetricType[] | null {
 
 ### 🎯 Advanced D3.js Integration
 
-#### D3 Utility Functions (lib/d3-utils.ts)
+#### D3 Utility Functions (Modular Architecture)
+
+**d3-sankey-utils.ts**
 - **Sankey Layout Calculations**: Complete sankey diagram layout with positioning
+- **Node Classification**: Advanced node categorization and color coding
+- **Link Positioning**: Proper link calculations for complex flow diagrams
+
+**d3-alluvial-utils.ts (Phase 2)**
+- **Alluvial Flow Calculations**: Cross-panel flow layout and positioning
+- **Flow Consistency Analysis**: Statistical analysis of flow patterns
+- **Interactive Flow Elements**: Hover states and flow highlighting logic
+
+**d3-histogram-utils.ts**
 - **Histogram Generation**: Advanced histogram calculations with statistics
-- **Color Management**: Sophisticated color schemes for different node types
-- **Animation Utilities**: Smooth transitions and interactive feedback
 - **Threshold Line Calculations**: Visual threshold indicators on histograms
-- **Position Calculations**: Advanced positioning logic for popovers
+- **Statistical Analysis**: Mean, median, quartile calculations
+
+**threshold-utils.ts (New System)**
+- **Threshold Tree Operations**: Tree traversal and node management
+- **Node Path Resolution**: Parent-child relationship calculations
+- **Threshold Application**: Dynamic threshold updating and validation
 
 #### D3-React Integration Patterns
 ```typescript
@@ -351,11 +401,14 @@ User Interaction → State Update → API Request → Data Processing → UI Upd
 
 ## Future Development (Phase 2 Ready)
 
-### Dual Sankey Comparison (Next Phase)
+### Dual Sankey Comparison (🚧 ACTIVE - 50% Complete)
 - ✅ **Backend API**: Comparison endpoint implemented and ready
 - ✅ **Data Structures**: All required types and interfaces defined
-- ✅ **Architecture**: Component structure ready for dual visualization
-- 📝 **Implementation**: Frontend dual Sankey layout and alluvial flows
+- ✅ **Dual-Panel Architecture**: Left/right panel system implemented
+- ✅ **AlluvialDiagram Component**: Component with D3 calculations implemented
+- ✅ **Threshold Tree System**: New unified threshold management system
+- 🚧 **Integration**: Full alluvial flow data pipeline (in progress)
+- 📝 **UI Polish**: Cross-panel interactions and comparison tools
 
 ### Debug View & Feature Drilling
 - ✅ **Backend Support**: Feature detail endpoint operational
@@ -379,13 +432,15 @@ User Interaction → State Update → API Request → Data Processing → UI Upd
 
 ## Project Assessment
 
-This React frontend represents a **production-ready research visualization interface** with:
+This React frontend represents a **cutting-edge dual-panel research visualization interface** with:
 
 - ✅ **Modern React Architecture** with latest React 19.1.1 and TypeScript 5.8.3
-- ✅ **Advanced D3.js Integration** with sophisticated interactive visualizations
-- ✅ **Professional State Management** with comprehensive data flow
+- ✅ **Advanced Dual-Panel System** with sophisticated comparison capabilities (Phase 2 active)
+- ✅ **D3.js Visualization Suite** with Sankey + Alluvial flow diagrams
+- ✅ **Unified Threshold Tree System** replacing legacy hierarchical architecture
+- ✅ **Professional State Management** with dual-panel data flow
 - ✅ **Production-Quality Error Handling** with graceful degradation
 - ✅ **Optimal Performance** with advanced React and D3 optimizations
 - ✅ **Excellent Developer Experience** with hot reload and comprehensive tooling
 
-The application is ready for **academic research presentation** and capable of handling **complex SAE feature analysis workflows** with professional-grade user experience.
+The application is ready for **academic research presentation** with advanced comparison visualization capabilities and capable of handling **complex SAE feature analysis workflows** with professional-grade dual-panel user experience.

@@ -338,7 +338,7 @@ Raw Features → Feature Splitting Classification → Semantic Distance Classifi
 - **Metric**: `feature_splitting` (cosine similarity magnitude)
 - **Default Threshold**: 0.00002 (cosine similarity scale)
 - **Categories**: `true` (above threshold) or `false` (below threshold)
-- **Implementation**: `FeatureClassifier.classify_splitting()`
+- **Implementation**: Integrated within `DataService` classification methods
 
 #### Stage 2: Semantic Distance Classification
 - **Metric**: `semdist_mean` (semantic distance between explanations)
@@ -405,10 +405,11 @@ hierarchical_thresholds = {
 ### 🔧 Data Service Architecture
 
 #### Core Components
-1. **DataService**: Main orchestrator with async initialization and cleanup
-2. **ThresholdManager**: Handles threshold application and validation
-3. **SankeyBuilder**: Constructs Sankey diagram data structures
-4. **FeatureClassifier**: Implements classification algorithms
+1. **DataService**: Consolidated service class containing all business logic
+   - Feature classification algorithms integrated
+   - Threshold application and validation integrated
+   - Sankey diagram data structure building integrated
+   - All data processing operations consolidated in single class
 
 #### Advanced Features
 - **Lazy DataFrame Operations**: All operations use Polars LazyFrame for memory efficiency
@@ -433,19 +434,18 @@ hierarchical_thresholds = {
 
 ### 🏗️ Modular Service Architecture
 
-#### Service Layer Separation
+#### Service Layer Architecture
 ```
-API Endpoints → DataService → Specialized Managers → Data Processing
+API Endpoints → DataService (Consolidated) → Data Processing
 ```
 
 - **Endpoint Layer**: Request validation, response formatting, error handling
-- **Service Layer**: Business logic orchestration, data transformation
-- **Manager Layer**: Specialized functionality (thresholds, classification, building)
+- **Service Layer**: DataService contains all business logic (thresholds, classification, building)
 - **Data Layer**: Polars operations, file I/O, caching
 
 #### Key Design Patterns
 - **Dependency Injection**: DataService injected into endpoints via FastAPI dependencies
-- **Factory Pattern**: SankeyBuilder constructs complex data structures
+- **Factory Pattern**: DataService methods construct complex data structures
 - **Strategy Pattern**: Different threshold application strategies
 - **Observer Pattern**: Logging and monitoring throughout classification pipeline
 

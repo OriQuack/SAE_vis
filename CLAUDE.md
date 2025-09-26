@@ -6,19 +6,21 @@ This file provides comprehensive guidance to Claude Code (claude.ai/code) when w
 
 This is a **production-ready visualization interface project** for EuroVIS conference submission focused on "Visualizing SAE feature explanation reliability." The project has evolved into a sophisticated full-stack application that visualizes the consistency between different interpretability scoring methods for Sparse Autoencoder (SAE) features with enterprise-grade architecture and advanced interactive visualizations.
 
-## Current Project Status: ✅ PRODUCTION-READY RESEARCH PLATFORM
+## Current Project Status: 🚀 PHASE 2 ADVANCED DUAL-PANEL IMPLEMENTATION
 
-**Phase 1 Complete**: Single Sankey visualization with advanced interactivity
-**Current State**: Production-quality research visualization platform with enterprise-grade architecture
-**Active Usage**: Multiple servers running with real-time API traffic and user interactions
-**Technical Readiness**: Ready for academic conference presentation and complex SAE feature analysis workflows
+**Phase 1 Complete**: ✅ Single Sankey visualization with advanced interactivity and threshold tree system
+**Phase 2 Active**: 🚧 Dual-panel comparison architecture with alluvial flow visualization (50% complete)
+**Current State**: Production-quality research platform with advanced dual-panel architecture and threshold tree system
+**Active Usage**: Multiple servers running with real-time API traffic and sophisticated user interactions
+**Technical Readiness**: Ready for academic conference presentation with cutting-edge comparison visualization features
 
 ## Technology Stack & Architecture
 
 ### Core Technologies
 - **Backend**: Python 3.x, FastAPI 0.104.1, Polars 0.19.19, Uvicorn 0.24.0
 - **Frontend**: React 19.1.1, TypeScript 5.8.3, Vite 7.1.6, Zustand 5.0.8
-- **Visualization**: D3.js ecosystem (d3-sankey, d3-scale, d3-array, d3-selection, d3-transition)
+- **Visualization**: D3.js ecosystem (d3-sankey, d3-scale, d3-array, d3-selection, d3-transition, d3-interpolate)
+- **Advanced Visualizations**: Alluvial diagrams, dual-panel comparisons, threshold tree interactions
 - **Data Processing**: Polars lazy evaluation with string cache optimization
 - **HTTP Client**: Axios 1.12.2 with interceptors and error handling
 - **Data Storage**: Parquet files for efficient columnar data storage (1,648 features processed)
@@ -72,10 +74,7 @@ This is a **production-ready visualization interface project** for EuroVIS confe
 │   │   │   ├── responses.py        # API response schemas
 │   │   │   └── common.py           # Shared models (Filters, Thresholds, etc.)
 │   │   └── services/               # Business logic layer
-│   │       ├── data_service.py     # High-performance Polars data service
-│   │       ├── threshold_manager.py # Hierarchical threshold management
-│   │       ├── sankey_builder.py   # Sankey data structure builder
-│   │       ├── feature_classifier.py # Feature classification logic
+│   │       ├── data_service.py     # Consolidated high-performance Polars service
 │   │       └── data_constants.py   # Data schema constants
 │   ├── docs/                       # API documentation
 │   ├── start.py                    # Production startup script
@@ -86,10 +85,14 @@ This is a **production-ready visualization interface project** for EuroVIS confe
 │   │   ├── components/             # React components
 │   │   │   ├── FilterPanel.tsx     # Multi-select filter interface
 │   │   │   ├── SankeyDiagram.tsx   # D3 Sankey visualization
+│   │   │   ├── AlluvialDiagram.tsx # D3 Alluvial flow visualization (Phase 2)
 │   │   │   └── HistogramPopover.tsx # Advanced popover system
 │   │   ├── lib/
-│   │   │   ├── d3-utils.ts         # D3 calculation utilities
-│   │   │   └── utils.ts            # Helper functions
+│   │   │   ├── d3-sankey-utils.ts  # D3 Sankey calculations
+│   │   │   ├── d3-alluvial-utils.ts # D3 Alluvial calculations (Phase 2)
+│   │   │   ├── d3-histogram-utils.ts # D3 Histogram calculations
+│   │   │   ├── threshold-utils.ts   # Threshold tree operations
+│   │   │   └── utils.ts            # General helper functions
 │   │   ├── store.ts                # Zustand state management
 │   │   ├── types.ts               # TypeScript type definitions
 │   │   ├── api.ts                 # HTTP client and API integration
@@ -150,7 +153,9 @@ Stage 3: Score Agreement (4 categories based on score thresholds)
 - **Comprehensive Error Handling**: Error boundaries and graceful degradation
 
 **Current Implementation:**
-- **Single Sankey Visualization**: Interactive flow diagrams with hierarchical thresholds
+- **Dual-Panel Architecture**: Left/right panel system for comparison visualization
+- **Threshold Tree System**: Unified hierarchical threshold management replacing legacy system
+- **Alluvial Flow Visualization**: Cross-panel flow comparison (Phase 2 - 50% complete)
 - **Advanced Filtering**: Multi-select dropdowns with dynamic options
 - **Histogram Popovers**: Interactive threshold setting with drag-and-drop
 - **Real-time Updates**: Live API integration with loading states
@@ -245,7 +250,14 @@ npm run preview
 - **Schema**: feature_id, sae_id, explanation_method, llm_explainer, llm_scorer, feature_splitting, semdist_mean, semdist_max, scores (fuzz, simulation, detection, embedding), details_path
 - **Size**: 1,648 features with complete metadata
 
-### Hierarchical Threshold System
+### Unified Threshold Tree System (New Architecture)
+- **Tree-Based Structure**: Hierarchical node system with configurable threshold splits
+- **ThresholdNode Interface**: Unified node representation with metric-based splitting
+- **Dynamic Classification**: Real-time feature reclassification based on threshold changes
+- **Multi-Metric Support**: Support for multiple threshold values per node (e.g., multiple score types)
+- **Path-Based Operations**: Threshold operations based on node paths and parent relationships
+
+### Legacy Hierarchical Threshold System (Deprecated)
 - **Global Thresholds**: Default values applied across all nodes
 - **Score Agreement Groups**: Threshold customization by semantic distance parent
 - **Individual Node Overrides**: Specific threshold values for individual nodes
@@ -290,9 +302,12 @@ npm run preview
 
 ## Future Development Roadmap
 
-### Phase 2: Dual Sankey Comparison (Next)
+### Phase 2: Dual Sankey Comparison (🚧 ACTIVE - 50% Complete)
 - ✅ **Backend Structure**: Comparison endpoint implemented and ready
-- 📝 **Frontend Implementation**: Dual visualization layout and alluvial flows
+- ✅ **Dual-Panel Architecture**: Left/right panel store system implemented
+- ✅ **Alluvial Component**: AlluvialDiagram component with D3 calculations
+- ✅ **Threshold Tree System**: Unified threshold management system
+- 🚧 **Integration**: Full alluvial flow data pipeline (in progress)
 - 📝 **Advanced Interactions**: Cross-diagram filtering and comparison tools
 
 ### Phase 3: Debug View & Feature Drilling
