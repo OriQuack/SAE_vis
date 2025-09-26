@@ -7,10 +7,11 @@ for both legacy and hierarchical threshold systems.
 
 import polars as pl
 import logging
-from typing import Dict, Optional
-from ..models.common import HierarchicalThresholds
+from typing import Dict
+from ..models.common import ThresholdTree
 from .data_constants import *
 from .feature_classifier import FeatureClassifier
+from .threshold_tree_utils import ThresholdTreeTraverser
 
 logger = logging.getLogger(__name__)
 
@@ -24,54 +25,37 @@ class ThresholdManager:
     def apply_classification(
         self,
         df: pl.DataFrame,
-        hierarchical_thresholds: HierarchicalThresholds = None
+        threshold_tree: ThresholdTree
     ) -> pl.DataFrame:
         """
-        Apply feature classification using the appropriate threshold system.
+        Apply feature classification using threshold tree system.
 
         Args:
             df: Input DataFrame
-            thresholds: Legacy threshold values
-            node_thresholds: Node-specific threshold overrides
-            hierarchical_thresholds: Hierarchical threshold configuration
+            threshold_tree: Unified threshold tree configuration
 
         Returns:
             DataFrame with all classification columns added
         """
         logger.info(f"🚀 ThresholdManager.apply_classification called for {len(df)} features")
+        logger.info("🌳 Using TREE-BASED classification strategy")
+        return self._apply_tree_classification(df, threshold_tree)
 
-        # Note: Due to auto-conversion validator in SankeyRequest, hierarchical_thresholds
-        # should always be present. Legacy nodeThresholds are automatically converted.
-        if not hierarchical_thresholds:
-            raise ValueError("Hierarchical thresholds are required but not provided")
 
-        logger.info("🎯 Using HIERARCHICAL classification strategy")
-        return self._apply_hierarchical_classification(df, hierarchical_thresholds)
-
-    def _apply_hierarchical_classification(
+    def _apply_tree_classification(
         self,
         df: pl.DataFrame,
-        hierarchical_thresholds: HierarchicalThresholds
+        threshold_tree: ThresholdTree
     ) -> pl.DataFrame:
-        """Apply hierarchical threshold system classification."""
-        # Initial categorization required by hierarchical method
-        initial_df = df.with_columns([
-            # Initial semantic distance category
-            pl.when(pl.col(COL_SEMDIST_MEAN) >= hierarchical_thresholds.global_thresholds.semdist_mean)
-            .then(pl.lit(SEMDIST_HIGH))
-            .otherwise(pl.lit(SEMDIST_LOW))
-            .alias(COL_SEMDIST_CATEGORY),
+        """Apply tree-based threshold system classification."""
+        logger.info("🌳 Starting tree-based classification")
 
-            # Feature splitting category
-            pl.when(pl.col(COL_FEATURE_SPLITTING) >= hierarchical_thresholds.get_feature_splitting_threshold())
-            .then(pl.lit(SPLITTING_TRUE))
-            .otherwise(pl.lit(SPLITTING_FALSE))
-            .alias(COL_SPLITTING_CATEGORY)
-        ])
+        # Create tree traverser
+        traverser = ThresholdTreeTraverser(threshold_tree)
 
-        # Apply hierarchical threshold classification
-        return self.classifier.classify_with_hierarchical_thresholds(
-            initial_df, hierarchical_thresholds
+        # Apply tree-based classification
+        return self.classifier.classify_with_threshold_tree(
+            df, traverser
         )
 
 
@@ -113,30 +97,30 @@ class ThresholdManager:
 
     def get_effective_thresholds(
         self,
-        base_thresholds: Dict[str, float],
-        node_thresholds: Optional[Dict[str, Dict[str, float]]] = None,
-        hierarchical_thresholds: Optional[HierarchicalThresholds] = None
+        threshold_tree: ThresholdTree,
+        base_thresholds: Dict[str, float]
     ) -> Dict[str, float]:
         """
-        Get the effective thresholds that will be applied.
+        Get the effective thresholds that will be applied from threshold tree.
 
         Args:
-            base_thresholds: Base threshold values
-            node_thresholds: Node-specific overrides
-            hierarchical_thresholds: Hierarchical threshold configuration
+            threshold_tree: Unified threshold tree
+            base_thresholds: Base threshold values for fallback
 
         Returns:
             Dictionary of effective threshold values
         """
-        if hierarchical_thresholds:
-            return {
-                COL_SEMDIST_MEAN: hierarchical_thresholds.global_thresholds.semdist_mean,
-                COL_SCORE_FUZZ: hierarchical_thresholds.global_thresholds.score_fuzz,
-                COL_SCORE_DETECTION: hierarchical_thresholds.global_thresholds.score_detection,
-                COL_SCORE_SIMULATION: hierarchical_thresholds.global_thresholds.score_simulation,
-                COL_FEATURE_SPLITTING: hierarchical_thresholds.get_feature_splitting_threshold()
-            }
-        else:
-            # Fallback for cases where hierarchical thresholds are not provided
-            # This should not happen due to auto-conversion validator
-            return base_thresholds.copy()
+        # Extract representative thresholds from tree structure for metadata
+        root_node = threshold_tree.root
+        effective = {}
+
+        # Extract thresholds from tree structure
+        if root_node.metric and root_node.split:
+            effective[root_node.metric] = root_node.split['thresholds'][0] if root_node.split['thresholds'] else 0.0
+
+        # Add other metrics with default values from base_thresholds
+        for metric in threshold_tree.metrics:
+            if metric not in effective:
+                effective[metric] = base_thresholds.get(metric, 0.0)
+
+        return effective

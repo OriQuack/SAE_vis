@@ -14,6 +14,11 @@ export interface Filters {
   llm_scorer?: string[]
 }
 
+// ============================================================================
+// LEGACY THRESHOLD INTERFACES (kept for backend compatibility)
+// These will be removed once backend is migrated to use ThresholdTree
+// ============================================================================
+
 export interface Thresholds {
   feature_splitting: number
   semdist_mean: number
@@ -26,6 +31,64 @@ export interface HierarchicalThresholds {
   global_thresholds: Thresholds
   score_agreement_groups?: Record<string, Record<string, number>>
   individual_node_groups?: Record<string, Record<string, number>>
+}
+
+// ============================================================================
+// NEW UNIFIED THRESHOLD TREE SYSTEM
+// ============================================================================
+
+/**
+ * Represents a node in the hierarchical threshold tree.
+ * A node can be a final category (a leaf) or it can be split further (a branch).
+ */
+export interface ThresholdNode {
+  /**
+   * A unique identifier or name for this category/node.
+   * e.g., 'root', 'split_true', 'split_true_semdist_high', etc.
+   */
+  id: string
+
+  /**
+   * Optional metric name this node uses for evaluation.
+   * Used for histogram display and threshold visualization.
+   */
+  metric?: string
+
+  /**
+   * The rule for splitting this node into children.
+   * If this property is undefined or null, the node is considered a "leaf" node,
+   * representing a final category with no further subdivisions.
+   */
+  split?: {
+    /**
+     * An ordered array of threshold values. The number of thresholds determines
+     * the number of resulting child branches.
+     * - 1 threshold (e.g., [50]) creates 2 branches (<50, >=50).
+     * - 2 thresholds (e.g., [30, 80]) create 3 branches (<30, 30-80, >=80).
+     * - 3 thresholds (e.g., [10, 20, 30]) create 4 branches.
+     */
+    thresholds: number[]
+
+    /**
+     * The child nodes that result from applying the thresholds.
+     *
+     * IMPORTANT: The length of this array must be exactly `thresholds.length + 1`.
+     *
+     * The order is significant and maps directly to the ranges created by the thresholds:
+     * - `children[0]` is for values < `thresholds[0]`
+     * - `children[i]` is for values >= `thresholds[i-1]` and < `thresholds[i]`
+     * - The last child is for values >= the last threshold.
+     */
+    children: ThresholdNode[]
+  }
+}
+
+/**
+ * Complete threshold tree structure with metadata
+ */
+export interface ThresholdTree {
+  root: ThresholdNode
+  metrics: Set<string>
 }
 
 export interface FilterOptions {
@@ -48,7 +111,8 @@ export interface HistogramDataRequest {
 
 export interface SankeyDataRequest {
   filters: Filters
-  hierarchicalThresholds: HierarchicalThresholds
+  hierarchicalThresholds?: HierarchicalThresholds  // DEPRECATED: Legacy system (kept for backend compatibility)
+  thresholdTree?: ThresholdTree                    // NEW: Unified system (will be primary after backend migration)
 }
 
 export interface ComparisonDataRequest {
@@ -119,7 +183,7 @@ export interface SankeyData {
   metadata: {
     total_features: number
     applied_filters: Filters
-    applied_thresholds: HierarchicalThresholds
+    applied_thresholds: HierarchicalThresholds  // DEPRECATED: Legacy format (kept for backend compatibility)
   }
 }
 
@@ -364,13 +428,17 @@ export const INITIAL_FILTERS: Filters = {
   llm_scorer: []
 }
 
-export const INITIAL_THRESHOLDS: Thresholds = {
-  feature_splitting: 0.1,
-  semdist_mean: 0.1,
-  score_fuzz: 0.5,
-  score_detection: 0.5,
-  score_simulation: 0.2,
-}
+// ============================================================================
+// DEPRECATED: Legacy threshold constants (replaced by ThresholdTree system)
+// TODO: Remove after backend migration
+// ============================================================================
+// export const INITIAL_THRESHOLDS: Thresholds = {
+//   feature_splitting: 0.1,
+//   semdist_mean: 0.1,
+//   score_fuzz: 0.5,
+//   score_detection: 0.5,
+//   score_simulation: 0.2,
+// }
 
 export const INITIAL_LOADING: LoadingStates = {
   filters: false,
@@ -398,19 +466,25 @@ export const INITIAL_POPOVER_STATE: PopoverState = {
 // UTILITY FUNCTIONS
 // ============================================================================
 
-/**
- * Utility function to extract parent node ID from score agreement node
- */
-export function getParentNodeId(scoreAgreementNodeId: string): string | undefined {
-  // Score agreement nodes have format: split_{true/false}_semdist_{high/low}_{agreement}
-  // We want to extract: split_{true/false}_semdist_{high/low}
-  const match = scoreAgreementNodeId.match(/^(split_\w+_semdist_\w+)_agree_\w+$/)
-  return match ? match[1] : undefined
-}
+// ============================================================================
+// DEPRECATED: Legacy utility functions (replaced by ThresholdTree operations)
+// These functions were specific to the old 3-tier hierarchy system
+// TODO: Remove after confirming new tree system works fully
+// ============================================================================
 
-/**
- * Check if a node is a score agreement node
- */
-export function isScoreAgreementNode(nodeId: string): boolean {
-  return nodeId.includes('_agree_')
-}
+// /**
+//  * Utility function to extract parent node ID from score agreement node
+//  */
+// export function getParentNodeId(scoreAgreementNodeId: string): string | undefined {
+//   // Score agreement nodes have format: split_{true/false}_semdist_{high/low}_{agreement}
+//   // We want to extract: split_{true/false}_semdist_{high/low}
+//   const match = scoreAgreementNodeId.match(/^(split_\w+_semdist_\w+)_agree_\w+$/)
+//   return match ? match[1] : undefined
+// }
+//
+// /**
+//  * Check if a node is a score agreement node
+//  */
+// export function isScoreAgreementNode(nodeId: string): boolean {
+//   return nodeId.includes('_agree_')
+// }

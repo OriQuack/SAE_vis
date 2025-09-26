@@ -4,6 +4,7 @@ import type {
   Filters,
   Thresholds,
   HierarchicalThresholds,
+  ThresholdTree,
   FilterOptions,
   HistogramData,
   SankeyData,
@@ -15,12 +16,14 @@ import type {
   AlluvialFlow,
   SankeyNode
 } from './types'
+import { buildDefaultTree, updateNodeThreshold, treeToLegacy } from './lib/threshold-utils'
 
 type PanelSide = 'left' | 'right'
 
 interface PanelState {
   filters: Filters
-  hierarchicalThresholds: HierarchicalThresholds
+  hierarchicalThresholds: HierarchicalThresholds  // DEPRECATED: Legacy format (synced from tree for backend compatibility)
+  thresholdTree: ThresholdTree                   // NEW: Unified tree-based threshold system
   sankeyData: SankeyData | null
   histogramData: Record<string, HistogramData> | null
   viewState: ViewState
@@ -40,8 +43,13 @@ interface AppState {
 
   // Data actions - now take panel parameter
   setFilters: (filters: Partial<Filters>, panel?: PanelSide) => void
+  // DEPRECATED: Legacy threshold management actions (kept for backward compatibility)
+  // Use updateThreshold() instead for the new tree-based system
   setGlobalThresholds: (thresholds: Partial<Thresholds>, panel?: PanelSide) => void
   setHierarchicalThresholds: (thresholds: Partial<Thresholds>, parentNodeId?: string, panel?: PanelSide) => void
+  // New threshold tree actions
+  updateThreshold: (nodeId: string, thresholds: number[], panel?: PanelSide) => void
+  resetThresholdTree: (panel?: PanelSide) => void
   setCurrentMetric: (metric: MetricType) => void
   setHistogramData: (data: Record<string, HistogramData> | null, panel?: PanelSide) => void
   setSankeyData: (data: SankeyData | null, panel?: PanelSide) => void
@@ -86,34 +94,39 @@ interface AppState {
   // Reset actions
   reset: () => void
 
-  // Legacy compatibility getters (for backward compatibility)
+  // DEPRECATED: Legacy compatibility getters (only for backward compatibility)
+  // These delegate to leftPanel for backward compatibility - use panel-specific access in new code
   filters: Filters
-  hierarchicalThresholds: HierarchicalThresholds
+  hierarchicalThresholds: HierarchicalThresholds  // DEPRECATED: Use thresholdTree instead
   histogramData: Record<string, HistogramData> | null
   sankeyData: SankeyData | null
   viewState: ViewState
 }
 
-const createInitialPanelState = (): PanelState => ({
-  filters: {
-    sae_id: [],
-    explanation_method: [],
-    llm_explainer: [],
-    llm_scorer: []
-  },
-  hierarchicalThresholds: {
-    global_thresholds: {
-      feature_splitting: 0.1,
-      semdist_mean: 0.1,
-      score_fuzz: 0.5,
-      score_detection: 0.5,
-      score_simulation: 0.2,
-    }
-  },
-  sankeyData: null,
-  histogramData: null,
-  viewState: 'empty' as ViewState
-})
+const createInitialPanelState = (): PanelState => {
+  const defaultTree = buildDefaultTree()
+  return {
+    filters: {
+      sae_id: [],
+      explanation_method: [],
+      llm_explainer: [],
+      llm_scorer: []
+    },
+    hierarchicalThresholds: {
+      global_thresholds: {
+        feature_splitting: 0.1,
+        semdist_mean: 0.1,
+        score_fuzz: 0.5,
+        score_detection: 0.5,
+        score_simulation: 0.2,
+      }
+    },
+    thresholdTree: defaultTree,
+    sankeyData: null,
+    histogramData: null,
+    viewState: 'empty' as ViewState
+  }
+}
 
 const initialState = {
   // Panel states
@@ -155,7 +168,12 @@ export const useStore = create<AppState>((set, get) => ({
     return get().leftPanel.filters
   },
   get hierarchicalThresholds() {
+    // DEPRECATED: Legacy threshold format getter (kept for backward compatibility)
+    // Always return the synchronized legacy format from the threshold tree
     return get().leftPanel.hierarchicalThresholds
+  },
+  get thresholdTree() {
+    return get().leftPanel.thresholdTree
   },
   get histogramData() {
     return get().leftPanel.histogramData
@@ -179,6 +197,8 @@ export const useStore = create<AppState>((set, get) => ({
     }))
   },
 
+  // DEPRECATED: Legacy global threshold setter (replaced by updateThreshold)
+  // Only kept for backward compatibility - avoid using in new code
   setGlobalThresholds: (newThresholds, panel = 'left') => {
     const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
     set((state) => ({
@@ -192,6 +212,8 @@ export const useStore = create<AppState>((set, get) => ({
     }))
   },
 
+  // DEPRECATED: Legacy hierarchical threshold setter (replaced by updateThreshold)
+  // Contains complex 3-tier logic that's no longer needed with the tree system
   setHierarchicalThresholds: (newThresholds, parentNodeId = 'global_thresholds', panel = 'left') => {
     const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
 
@@ -249,6 +271,40 @@ export const useStore = create<AppState>((set, get) => ({
         }))
       }
     }
+  },
+
+  // NEW THRESHOLD TREE ACTIONS
+  updateThreshold: (nodeId, thresholds, panel = 'left') => {
+    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+    set((state) => {
+      const currentTree = state[panelKey].thresholdTree
+      const updatedTree = updateNodeThreshold(currentTree, nodeId, thresholds)
+
+      // Also update legacy hierarchical thresholds for backward compatibility
+      const legacyThresholds = treeToLegacy(updatedTree)
+
+      return {
+        [panelKey]: {
+          ...state[panelKey],
+          thresholdTree: updatedTree,
+          hierarchicalThresholds: legacyThresholds
+        }
+      }
+    })
+  },
+
+  resetThresholdTree: (panel = 'left') => {
+    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+    const defaultTree = buildDefaultTree()
+    const legacyThresholds = treeToLegacy(defaultTree)
+
+    set((state) => ({
+      [panelKey]: {
+        ...state[panelKey],
+        thresholdTree: defaultTree,
+        hierarchicalThresholds: legacyThresholds
+      }
+    }))
   },
 
   setCurrentMetric: (metric) => {
@@ -426,22 +482,25 @@ export const useStore = create<AppState>((set, get) => ({
 
       state.setHistogramData(combinedData, panel)
 
-      // Update global thresholds with mean values from histogram data
-      const newThresholds: Partial<Thresholds> = {}
-      for (const metric of metrics) {
-        const data = combinedData[metric]
-        if (data && data.statistics && data.statistics.mean !== undefined) {
-          if (metric === 'score_fuzz') {
-            newThresholds.score_fuzz = data.statistics.mean
-          } else if (metric in state[panelKey].hierarchicalThresholds.global_thresholds) {
-            newThresholds[metric as keyof Thresholds] = data.statistics.mean
-          }
-        }
-      }
-
-      if (Object.keys(newThresholds).length > 0) {
-        state.setGlobalThresholds(newThresholds, panel)
-      }
+      // DEPRECATED: Legacy auto-threshold-update logic (commented out)
+      // In the new tree system, thresholds are set explicitly by users via histogram popovers
+      // This auto-update behavior is no longer needed and could be confusing
+      // TODO: Remove after confirming new system works as expected
+      //
+      // const newThresholds: Partial<Thresholds> = {}
+      // for (const metric of metrics) {
+      //   const data = combinedData[metric]
+      //   if (data && data.statistics && data.statistics.mean !== undefined) {
+      //     if (metric === 'score_fuzz') {
+      //       newThresholds.score_fuzz = data.statistics.mean
+      //     } else if (metric in state[panelKey].hierarchicalThresholds.global_thresholds) {
+      //       newThresholds[metric as keyof Thresholds] = data.statistics.mean
+      //     }
+      //   }
+      // }
+      // if (Object.keys(newThresholds).length > 0) {
+      //   state.setGlobalThresholds(newThresholds, panel)
+      // }
 
       state.setLoading('histogram', false)
     } catch (error) {
@@ -454,7 +513,7 @@ export const useStore = create<AppState>((set, get) => ({
   fetchSankeyData: async (panel = 'left') => {
     const state = get()
     const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
-    const { filters, hierarchicalThresholds } = state[panelKey]
+    const { filters, hierarchicalThresholds, thresholdTree } = state[panelKey]
     const loadingKey = panel === 'left' ? 'sankeyLeft' : 'sankeyRight' as keyof LoadingStates
     const errorKey = panel === 'left' ? 'sankeyLeft' : 'sankeyRight' as keyof ErrorStates
 
@@ -470,34 +529,13 @@ export const useStore = create<AppState>((set, get) => ({
     state.clearError(errorKey)
 
     try {
-      // Ensure complete global thresholds with all required fields
-      const globalThresholds = hierarchicalThresholds.global_thresholds || {
-        feature_splitting: 0.1,
-        semdist_mean: 0.1,
-        score_fuzz: 0.5,
-        score_detection: 0.5,
-        score_simulation: 0.2
-      }
-
-      // Extract groups from hierarchical thresholds
-      const individualNodeGroups = hierarchicalThresholds.individual_node_groups || {}
-      const scoreAgreementGroups = hierarchicalThresholds.score_agreement_groups || {}
-
-      // Create backend-compatible hierarchical thresholds structure
-      const backendHierarchicalThresholds = {
-        global_thresholds: globalThresholds,
-        ...(Object.keys(scoreAgreementGroups).length > 0 && {
-          score_agreement_groups: scoreAgreementGroups
-        }),
-        ...(Object.keys(individualNodeGroups).length > 0 && {
-          individual_node_groups: individualNodeGroups
-        })
-      }
-
-      // Send only hierarchical thresholds (no legacy thresholds field)
+      // Prepare request data with both old and new threshold systems for backend compatibility
       const request = {
         filters,
-        hierarchicalThresholds: backendHierarchicalThresholds
+        // Send legacy format for backend compatibility
+        hierarchicalThresholds: hierarchicalThresholds,
+        // Also send new tree format (backend will use this when it's updated)
+        thresholdTree: thresholdTree
       }
 
       const sankeyData = await api.getSankeyData(request)

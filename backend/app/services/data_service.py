@@ -15,7 +15,7 @@ from pathlib import Path
 # Enable Polars string cache for categorical operations
 pl.enable_string_cache()
 
-from ..models.common import Filters, MetricType, HierarchicalThresholds
+from ..models.common import Filters, MetricType, ThresholdTree
 from ..models.responses import (
     FilterOptionsResponse, HistogramResponse, SankeyResponse,
     ComparisonResponse, FeatureResponse
@@ -188,7 +188,7 @@ class DataService:
     async def get_sankey_data(
         self,
         filters: Filters,
-        hierarchicalThresholds: HierarchicalThresholds = None
+        thresholdTree: ThresholdTree
     ) -> SankeyResponse:
         """Generate Sankey diagram data with hierarchical categorization."""
         if not self.is_ready():
@@ -203,12 +203,12 @@ class DataService:
 
             # Apply classification using threshold manager
             categorized_df = self._threshold_manager.apply_classification(
-                filtered_df, hierarchicalThresholds
+                filtered_df, thresholdTree
             )
 
             # Build Sankey response using builder
             return self._sankey_builder.build_sankey_response(
-                categorized_df, filters, hierarchicalThresholds
+                categorized_df, filters, thresholdTree
             )
 
         except Exception as e:

@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react'
 import { useVisualizationStore } from '../store'
 import { DEFAULT_ANIMATION, calculateSankeyLayout, validateSankeyData, validateDimensions, getNodeColor, getLinkColor, getSankeyPath, SANKEY_COLORS } from '../lib/d3-utils'
 import { useResizeObserver } from '../lib/utils'
-import { getParentNodeId, isScoreAgreementNode } from '../types'
+import { findNodeById, getNodeMetrics } from '../lib/threshold-utils'
 import type { D3SankeyNode, D3SankeyLink, MetricType } from '../types'
 
 // ==================== INLINE COMPONENTS ====================
@@ -23,28 +23,17 @@ const LEGEND_ITEMS = [
 ] as const
 
 // ==================== UTILITY FUNCTIONS ====================
-function getParentNodeName(parentNodeId: string, allNodes: D3SankeyNode[]): string {
-  const parentNode = allNodes.find(node => node.id === parentNodeId)
-  return parentNode ? parentNode.name : parentNodeId
-}
 
-function getMetricsForNode(node: D3SankeyNode): MetricType[] | null {
-  switch (node.category) {
-    case 'root':
-      return null // No histogram for "All Features" - nothing to threshold yet
+function getMetricsForNodeId(nodeId: string, thresholdTree: any): MetricType[] | null {
+  // Use the threshold tree to determine metrics for a node
+  const treeNode = findNodeById(thresholdTree, nodeId)
 
-    case 'feature_splitting':
-      return ['feature_splitting'] // Single histogram for feature splitting classification (cosine similarity metric)
-
-    case 'semantic_distance':
-      return ['semdist_mean'] // Single histogram for semantic distance classification
-
-    case 'score_agreement':
-      return ['score_detection', 'score_fuzz', 'score_simulation'] // Three stacked histograms for score agreement
-
-    default:
-      return null
+  if (!treeNode) {
+    console.warn(`Node ${nodeId} not found in threshold tree`)
+    return null
   }
+
+  return getNodeMetrics(treeNode)
 }
 
 // ==================== INTERFACES ====================
@@ -279,6 +268,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const errorKey = panel === 'left' ? 'sankeyLeft' : 'sankeyRight'
 
   const data = useVisualizationStore(state => state[panelKey].sankeyData)
+  const thresholdTree = useVisualizationStore(state => state[panelKey].thresholdTree)
   const loading = useVisualizationStore(state => state.loading[loadingKey] || (panel === 'left' && state.loading.sankey))
   const error = useVisualizationStore(state => state.errors[errorKey] || (panel === 'left' && state.errors.sankey))
 
@@ -296,7 +286,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     }
   }, [data, loading, displayData])
 
-  const { showHistogramPopover, getNodesInSameThresholdGroup } = useVisualizationStore()
+  const { showHistogramPopover } = useVisualizationStore()
 
   // ==================== SANKEY LAYOUT LOGIC ====================
   const { layout, validationErrors, isValid } = useMemo(() => {
@@ -382,16 +372,16 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     // No tooltip logic - visual effects are handled in the component itself
   }, [])
 
-  // Handle node histogram click with threshold group information
+  // Handle node histogram click with simplified threshold tree logic
   const handleNodeHistogramClick = useCallback((event: React.MouseEvent, node: D3SankeyNode) => {
-    if (!showHistogramOnClick) return
+    if (!showHistogramOnClick || !thresholdTree) return
 
     event.stopPropagation()
 
-    // Get appropriate metrics for this node
-    const metrics = getMetricsForNode(node)
-    if (!metrics) {
-      // No histogram should be shown for this node type (e.g., root nodes)
+    // Get appropriate metrics for this node using the threshold tree
+    const metrics = getMetricsForNodeId(node.id, thresholdTree)
+    if (!metrics || metrics.length === 0) {
+      // No histogram should be shown for this node (e.g., leaf nodes)
       return
     }
 
@@ -403,39 +393,22 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       y: containerRect ? containerRect.top + containerRect.height / 2 : window.innerHeight / 2
     }
 
-    // Determine the parent node ID for hierarchical thresholds
-    let parentNodeId: string | undefined = undefined
-    let parentNodeName: string | undefined = undefined
+    // With the new tree system, we simply pass the node ID directly
+    // No complex parent node logic needed - the tree handles the hierarchy
+    showHistogramPopover(node.id, node.name, metrics, position, undefined, undefined, panel)
+  }, [showHistogramOnClick, showHistogramPopover, thresholdTree, containerRef, panel])
 
-    // For score agreement nodes, use the semantic distance parent for grouping
-    // but the score node ID itself for storing thresholds
-    if (isScoreAgreementNode(node.id)) {
-      // For score metrics, we need to use the semantic parent for backend lookup
-      const semanticParent = getParentNodeId(node.id)
-      // But we pass the score node ID itself so thresholds are stored correctly
-      parentNodeId = semanticParent
-      parentNodeName = semanticParent && displayData ? getParentNodeName(semanticParent, displayData.nodes) : undefined
-    }
-    // For semantic distance nodes, use the node ID itself as the parent for threshold grouping
-    else if (node.category === 'semantic_distance') {
-      parentNodeId = node.id
-      parentNodeName = node.name
-    }
-
-    showHistogramPopover(node.id, node.name, metrics, position, parentNodeId, parentNodeName, panel)
-  }, [showHistogramOnClick, showHistogramPopover, displayData, containerRef])
-
-  // Handle link histogram click (show histogram for source node) with threshold group information
+  // Handle link histogram click (show histogram for source node) with simplified logic
   const handleLinkHistogramClick = useCallback((event: React.MouseEvent, link: D3SankeyLink) => {
-    if (!showHistogramOnClick) return
+    if (!showHistogramOnClick || !thresholdTree) return
 
     const sourceNode = typeof link.source === 'object' ? link.source : null
     if (!sourceNode) return
 
-    // Get appropriate metrics for the source node
-    const metrics = getMetricsForNode(sourceNode)
-    if (!metrics) {
-      // No histogram should be shown for this node type (e.g., root nodes)
+    // Get appropriate metrics for the source node using the threshold tree
+    const metrics = getMetricsForNodeId(sourceNode.id, thresholdTree)
+    if (!metrics || metrics.length === 0) {
+      // No histogram should be shown for this node (e.g., leaf nodes)
       return
     }
 
@@ -449,62 +422,26 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       y: containerRect ? containerRect.top + containerRect.height / 2 : window.innerHeight / 2
     }
 
-    // Determine the parent node ID for hierarchical thresholds
-    let parentNodeId: string | undefined = undefined
-    let parentNodeName: string | undefined = undefined
+    // With the new tree system, we simply pass the node ID directly
+    // No complex parent node logic needed - the tree handles the hierarchy
+    showHistogramPopover(sourceNode.id, sourceNode.name, metrics, position, undefined, undefined, panel)
+  }, [showHistogramOnClick, showHistogramPopover, thresholdTree, containerRef, panel])
 
-    // For score agreement nodes, use the semantic distance parent for grouping
-    if (isScoreAgreementNode(sourceNode.id)) {
-      // For score metrics, we need the semantic parent for backend lookup
-      const semanticParent = getParentNodeId(sourceNode.id)
-      parentNodeId = semanticParent
-      parentNodeName = semanticParent && displayData ? getParentNodeName(semanticParent, displayData.nodes) : undefined
-    }
-    // For semantic distance nodes, use the node ID itself as the parent for threshold grouping
-    else if (sourceNode.category === 'semantic_distance') {
-      parentNodeId = sourceNode.id
-      parentNodeName = sourceNode.name
-    }
-
-    showHistogramPopover(sourceNode.id, sourceNode.name, metrics, position, parentNodeId, parentNodeName, panel)
-  }, [showHistogramOnClick, showHistogramPopover, displayData, containerRef])
-
-  // ==================== THRESHOLD GROUPS LOGIC ====================
-  // Calculate threshold group information for all nodes
+  // ==================== SIMPLIFIED THRESHOLD LOGIC ====================
+  // With the new tree system, we don't need complex threshold group logic
   const allNodeThresholdGroups = useMemo(() => {
-    if (!displayData || !layout) return new Map<string, ThresholdGroupInfo>()
-
     const nodeGroupMap = new Map<string, ThresholdGroupInfo>()
 
-    for (const node of layout.nodes) {
-      const metrics = getMetricsForNode(node)
-      if (!metrics) {
-        nodeGroupMap.set(node.id, { hasGroup: false, groupSize: 1 })
-        continue
-      }
-
-      // Check each metric to see if this node belongs to a threshold group
-      let found = false
-      for (const metric of metrics) {
-        const groupNodes = getNodesInSameThresholdGroup(node.id, metric)
-        if (groupNodes.length > 1) {
-          nodeGroupMap.set(node.id, {
-            hasGroup: true,
-            groupSize: groupNodes.length,
-            primaryMetric: metric
-          })
-          found = true
-          break
-        }
-      }
-
-      if (!found) {
+    // For now, just mark all nodes as not having groups
+    // This simplifies the UI while maintaining backward compatibility
+    if (layout) {
+      for (const node of layout.nodes) {
         nodeGroupMap.set(node.id, { hasGroup: false, groupSize: 1 })
       }
     }
 
     return nodeGroupMap
-  }, [displayData, layout, getNodesInSameThresholdGroup])
+  }, [layout])
 
   // ==================== RENDER ====================
   return (

@@ -11,6 +11,7 @@ import {
   SLIDER_TRACK
 } from '../lib/d3-utils'
 import { formatSmartNumber } from '../lib/utils'
+import { getEffectiveThreshold } from '../lib/threshold-utils'
 import type { HistogramData, HistogramLayout, HistogramChart } from '../types'
 
 // ============================================================================
@@ -214,7 +215,7 @@ export const HistogramPopover = ({
   const {
     hideHistogramPopover,
     fetchMultipleHistogramData,
-    setHierarchicalThresholds,
+    updateThreshold,  // New threshold tree action
     clearError
   } = useVisualizationStore()
 
@@ -328,14 +329,37 @@ export const HistogramPopover = ({
       // Calculate position relative to the specific chart
       const x = event.clientX - rect.left - chart.margin.left
       const data = histogramData[metric]
-      const thresholdKey = metric
 
       // Use the specific chart's width for position calculation
       const newValue = positionToValue(x, data.statistics.min, data.statistics.max, chart.width)
       const clampedValue = Math.max(data.statistics.min, Math.min(data.statistics.max, newValue))
 
       const panel = popoverData?.panel || 'left'
-      setHierarchicalThresholds({ [thresholdKey]: clampedValue }, popoverData?.parentNodeId, panel)
+      const nodeId = popoverData?.nodeId
+
+      if (!nodeId) {
+        console.warn('No nodeId available for slider drag update')
+        return
+      }
+
+      // For score_combined nodes, update the appropriate threshold in the array
+      if (metric === 'score_fuzz' || metric === 'score_detection' || metric === 'score_simulation') {
+        const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+        const thresholdTree = useVisualizationStore.getState()[panelKey].thresholdTree
+        const currentThresholds = getEffectiveThreshold(thresholdTree, nodeId, 'score_combined')
+
+        if (Array.isArray(currentThresholds) && currentThresholds.length >= 3) {
+          const newThresholds = [...currentThresholds]
+          if (metric === 'score_fuzz') newThresholds[0] = clampedValue
+          else if (metric === 'score_detection') newThresholds[1] = clampedValue
+          else if (metric === 'score_simulation') newThresholds[2] = clampedValue
+
+          updateThreshold(nodeId, newThresholds, panel)
+        }
+      } else {
+        // Single threshold update
+        updateThreshold(nodeId, [clampedValue], panel)
+      }
     }
 
     const handleMouseUp = () => {
@@ -351,51 +375,44 @@ export const HistogramPopover = ({
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [isDraggingSlider, histogramData, setHierarchicalThresholds, popoverData?.parentNodeId])
+  }, [isDraggingSlider, histogramData, updateThreshold, popoverData?.nodeId])
 
-  const getEffectiveThreshold = useCallback((metric: string): number => {
+  const getEffectiveThresholdValue = useCallback((metric: string): number => {
     const panel = popoverData?.panel || 'left'
     const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
-    const hierarchicalThresholds = useVisualizationStore.getState()[panelKey].hierarchicalThresholds
-    const parentNodeId = popoverData?.parentNodeId
+    const thresholdTree = useVisualizationStore.getState()[panelKey].thresholdTree
+    const nodeId = popoverData?.nodeId
 
-    // Check if this is a score metric
-    const isScoreMetric = metric.startsWith('score_') ||
-                         metric === 'score_fuzz' ||
-                         metric === 'score_detection' ||
-                         metric === 'score_simulation'
-
-    // If we have a parent node ID, check for overrides
-    if (parentNodeId) {
-      if (isScoreMetric) {
-        // For score metrics, check score_agreement_groups
-        const scoreGroup = hierarchicalThresholds.score_agreement_groups?.[parentNodeId]
-        if (scoreGroup && scoreGroup[metric] !== undefined) {
-          return scoreGroup[metric]
-        }
-      } else {
-        // For other metrics (like semdist_mean), check individual_node_groups
-        const nodeKey = parentNodeId.startsWith('node_') ? parentNodeId : `node_${parentNodeId}`
-        const individualNodeGroup = hierarchicalThresholds.individual_node_groups?.[nodeKey]
-        if (individualNodeGroup && individualNodeGroup[metric] !== undefined) {
-          return individualNodeGroup[metric]
-        }
+    if (!nodeId || !thresholdTree) {
+      // Fallback to histogram mean if no tree/node available
+      if (histogramData?.[metric]) {
+        return histogramData[metric].statistics.mean
       }
+      return 0.5
     }
 
-    // Fallback to global thresholds
-    const globalThresholds = hierarchicalThresholds.global_thresholds
-    const thresholdKey = metric as keyof typeof globalThresholds
-    if (globalThresholds && globalThresholds[thresholdKey] !== undefined) {
-      return globalThresholds[thresholdKey]
+    const thresholdValue = getEffectiveThreshold(thresholdTree, nodeId, metric)
+
+    if (typeof thresholdValue === 'number') {
+      return thresholdValue
     }
 
-    // Fallback to histogram mean
-    if (histogramData && histogramData[metric]) {
+    if (Array.isArray(thresholdValue)) {
+      // Handle score_combined case with multiple thresholds
+      const scoreMetricMap: Record<string, number> = {
+        'score_fuzz': thresholdValue[0] || 0.5,
+        'score_detection': thresholdValue[1] || 0.5,
+        'score_simulation': thresholdValue[2] || 0.2
+      }
+      return scoreMetricMap[metric] || 0.5
+    }
+
+    // Final fallback to histogram mean
+    if (histogramData?.[metric]) {
       return histogramData[metric].statistics.mean
     }
     return 0.5
-  }, [histogramData, popoverData?.parentNodeId])
+  }, [histogramData, popoverData?.nodeId])
 
   // ============================================================================
   // UNIFIED HISTOGRAM RENDERING (SINGLE & MULTI-HISTOGRAM)
@@ -421,7 +438,7 @@ export const HistogramPopover = ({
         {layout.charts.map((chart: HistogramChart, _: number) => {
           const metric = chart.metric
           const data = histogramData[metric]
-          const threshold = getEffectiveThreshold(metric)
+          const threshold = getEffectiveThresholdValue(metric)
 
           if (!data || !metric) return null
 
@@ -429,9 +446,32 @@ export const HistogramPopover = ({
 
           const handleThresholdChange = (newThreshold: number) => {
             const clampedThreshold = Math.max(data.statistics.min, Math.min(data.statistics.max, newThreshold))
-            const thresholdKey = metric
             const panel = popoverData?.panel || 'left'
-            setHierarchicalThresholds({ [thresholdKey]: clampedThreshold }, popoverData?.parentNodeId, panel)
+            const nodeId = popoverData?.nodeId
+
+            if (!nodeId) {
+              console.warn('No nodeId available for threshold update')
+              return
+            }
+
+            // For score_combined nodes, we need to update the appropriate threshold in the array
+            if (metric === 'score_fuzz' || metric === 'score_detection' || metric === 'score_simulation') {
+              const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+              const thresholdTree = useVisualizationStore.getState()[panelKey].thresholdTree
+              const currentThresholds = getEffectiveThreshold(thresholdTree, nodeId, 'score_combined')
+
+              if (Array.isArray(currentThresholds) && currentThresholds.length >= 3) {
+                const newThresholds = [...currentThresholds]
+                if (metric === 'score_fuzz') newThresholds[0] = clampedThreshold
+                else if (metric === 'score_detection') newThresholds[1] = clampedThreshold
+                else if (metric === 'score_simulation') newThresholds[2] = clampedThreshold
+
+                updateThreshold(nodeId, newThresholds, panel)
+              }
+            } else {
+              // Single threshold update
+              updateThreshold(nodeId, [clampedThreshold], panel)
+            }
           }
 
           const calculateThresholdFromEvent = (event: React.MouseEvent | MouseEvent) => {
@@ -610,7 +650,7 @@ export const HistogramPopover = ({
         })}
       </svg>
     )
-  }, [containerSize, animationDuration, getEffectiveThreshold, setHierarchicalThresholds, setIsDraggingSlider, draggingMetricRef, popoverData?.parentNodeId])
+  }, [containerSize, animationDuration, getEffectiveThresholdValue, updateThreshold, setIsDraggingSlider, draggingMetricRef, popoverData?.nodeId])
 
   // ============================================================================
   // THRESHOLD MANAGEMENT
