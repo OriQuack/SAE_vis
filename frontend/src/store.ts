@@ -427,13 +427,9 @@ export const useStore = create<AppState>((set, get) => ({
     state.clearError(errorKey)
 
     try {
-      // Convert Set to array for JSON serialization
       const requestData = {
         filters,
-        thresholdTree: {
-          ...thresholdTree,
-          metrics: Array.from(thresholdTree.metrics)
-        }
+        thresholdTree
       }
 
       const sankeyData = await api.getSankeyData(requestData)

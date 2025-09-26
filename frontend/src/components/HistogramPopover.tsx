@@ -8,9 +8,9 @@ import {
   validateDimensions,
   DEFAULT_ANIMATION,
   HISTOGRAM_COLORS,
-  SLIDER_TRACK
-} from '../lib/d3-utils'
-import { formatSmartNumber } from '../lib/utils'
+  SLIDER_TRACK,
+  formatSmartNumber
+} from '../lib/d3-histogram-utils'
 import { getEffectiveThreshold } from '../lib/threshold-utils'
 import type { HistogramData, HistogramLayout, HistogramChart } from '../types'
 

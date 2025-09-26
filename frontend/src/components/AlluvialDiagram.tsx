@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { useVisualizationStore } from '../store'
-import { calculateAlluvialLayout, ALLUVIAL_COLORS, ALLUVIAL_OPACITY, ALLUVIAL_MARGIN } from '../lib/d3-utils'
+import { calculateAlluvialLayout, ALLUVIAL_COLORS, ALLUVIAL_OPACITY, ALLUVIAL_MARGIN } from '../lib/d3-alluvial-utils'
 import type { AlluvialFlow } from '../types'
 
 // ==================== TYPES ====================

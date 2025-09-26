@@ -81,6 +81,11 @@ STAGE_NAMES = {
 # Filter columns
 FILTER_COLUMNS = [COL_SAE_ID, COL_EXPLANATION_METHOD, COL_LLM_EXPLAINER, COL_LLM_SCORER]
 
+# Custom ordering for Sankey nodes
+SPLITTING_ORDER = [SPLITTING_FALSE, SPLITTING_TRUE]  # false at the top
+SEMDIST_ORDER = [SEMDIST_HIGH, SEMDIST_LOW]  # high at the top
+AGREEMENT_ORDER = [AGREE_ALL, AGREE_2OF3, AGREE_1OF3, AGREE_NONE]  # all high first
+
 # Default threshold values
 DEFAULT_THRESHOLDS = {
     "feature_splitting": 0.5,

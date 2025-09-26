@@ -20,7 +20,7 @@ interface UseResizeObserverOptions {
 }
 
 interface UseResizeObserverReturn<T extends HTMLElement = HTMLElement> {
-  ref: React.RefObject<T>
+  ref: React.RefObject<T | null>
   size: Size
 }
 
@@ -30,7 +30,7 @@ interface UseClickOutsideOptions {
 }
 
 interface UseClickOutsideReturn {
-  ref: React.RefObject<HTMLElement>
+  ref: React.RefObject<HTMLElement | null>
 }
 
 interface DragHandlerOptions {
@@ -59,9 +59,9 @@ export const useResizeObserver = <T extends HTMLElement = HTMLElement>({
   defaultHeight = 0,
   debounceMs = 100
 }: UseResizeObserverOptions = {}): UseResizeObserverReturn<T> => {
-  const ref = useRef<T>(null)
+  const ref = useRef<T | null>(null)
   const [size, setSize] = useState<Size>({ width: defaultWidth, height: defaultHeight })
-  const timeoutRef = useRef<number>()
+  const timeoutRef = useRef<number | undefined>(undefined)
 
   const updateSize = useCallback(() => {
     if (ref.current) {
@@ -107,7 +107,7 @@ export const useClickOutside = (
   options: UseClickOutsideOptions = {}
 ): UseClickOutsideReturn => {
   const { enabled = true, ignoreEscape = false } = options
-  const ref = useRef<HTMLElement>(null)
+  const ref = useRef<HTMLElement | null>(null)
 
   const handleClick = useCallback((event: MouseEvent) => {
     if (!enabled) return
