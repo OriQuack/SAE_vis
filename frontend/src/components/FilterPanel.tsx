@@ -145,6 +145,7 @@ interface FilterPanelProps {
   onCreateVisualization: () => void
   onCancel: () => void
   className?: string
+  panel?: 'left' | 'right'
 }
 
 // ============================================================================
@@ -153,9 +154,15 @@ interface FilterPanelProps {
 export const FilterPanel = ({
   onCreateVisualization,
   onCancel,
-  className = ''
+  className = '',
+  panel = 'left'
 }: FilterPanelProps) => {
-  const { filters, filterOptions, setFilters, resetFilters } = useVisualizationStore()
+  const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+  const store = useVisualizationStore()
+  const filters = store[panelKey].filters
+  const filterOptions = store.filterOptions
+  const setFilters = (newFilters: any) => store.setFilters(newFilters, panel)
+  const resetFilters = () => store.resetFilters(panel)
 
   // Check if filters have been selected
   const hasActiveFilters = Object.values(filters).some(

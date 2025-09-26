@@ -168,6 +168,8 @@ export interface LoadingStates {
   filters: boolean
   histogram: boolean
   sankey: boolean
+  sankeyLeft: boolean
+  sankeyRight: boolean
   comparison: boolean
 }
 
@@ -175,6 +177,8 @@ export interface ErrorStates {
   filters: string | null
   histogram: string | null
   sankey: string | null
+  sankeyLeft: string | null
+  sankeyRight: string | null
   comparison: string | null
 }
 
@@ -261,6 +265,7 @@ export interface HistogramPopoverData {
     y: number
   }
   visible: boolean
+  panel?: 'left' | 'right'
 }
 
 export interface PopoverState {
@@ -361,6 +366,8 @@ export const INITIAL_LOADING: LoadingStates = {
   filters: false,
   histogram: false,
   sankey: false,
+  sankeyLeft: false,
+  sankeyRight: false,
   comparison: false
 }
 
@@ -368,6 +375,8 @@ export const INITIAL_ERRORS: ErrorStates = {
   filters: null,
   histogram: null,
   sankey: null,
+  sankeyLeft: null,
+  sankeyRight: null,
   comparison: null
 }
 

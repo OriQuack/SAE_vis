@@ -204,7 +204,10 @@ export const HistogramPopover = ({
   animationDuration = DEFAULT_ANIMATION.duration
 }: HistogramPopoverProps) => {
   const popoverData = useVisualizationStore(state => state.popoverState.histogram)
-  const histogramData = useVisualizationStore(state => state.histogramData)
+  const panel = popoverData?.panel || 'left'
+  const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+
+  const histogramData = useVisualizationStore(state => state[panelKey].histogramData)
   const loading = useVisualizationStore(state => state.loading.histogram)
   const error = useVisualizationStore(state => state.errors.histogram)
 
@@ -331,7 +334,8 @@ export const HistogramPopover = ({
       const newValue = positionToValue(x, data.statistics.min, data.statistics.max, chart.width)
       const clampedValue = Math.max(data.statistics.min, Math.min(data.statistics.max, newValue))
 
-      setHierarchicalThresholds({ [thresholdKey]: clampedValue }, popoverData?.parentNodeId)
+      const panel = popoverData?.panel || 'left'
+      setHierarchicalThresholds({ [thresholdKey]: clampedValue }, popoverData?.parentNodeId, panel)
     }
 
     const handleMouseUp = () => {
@@ -350,7 +354,9 @@ export const HistogramPopover = ({
   }, [isDraggingSlider, histogramData, setHierarchicalThresholds, popoverData?.parentNodeId])
 
   const getEffectiveThreshold = useCallback((metric: string): number => {
-    const hierarchicalThresholds = useVisualizationStore.getState().hierarchicalThresholds
+    const panel = popoverData?.panel || 'left'
+    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+    const hierarchicalThresholds = useVisualizationStore.getState()[panelKey].hierarchicalThresholds
     const parentNodeId = popoverData?.parentNodeId
 
     // Check if this is a score metric
@@ -424,7 +430,8 @@ export const HistogramPopover = ({
           const handleThresholdChange = (newThreshold: number) => {
             const clampedThreshold = Math.max(data.statistics.min, Math.min(data.statistics.max, newThreshold))
             const thresholdKey = metric
-            setHierarchicalThresholds({ [thresholdKey]: clampedThreshold }, popoverData?.parentNodeId)
+            const panel = popoverData?.panel || 'left'
+            setHierarchicalThresholds({ [thresholdKey]: clampedThreshold }, popoverData?.parentNodeId, panel)
           }
 
           const calculateThresholdFromEvent = (event: React.MouseEvent | MouseEvent) => {
@@ -659,7 +666,8 @@ export const HistogramPopover = ({
   const handleRetry = useCallback(() => {
     if (popoverData?.nodeId && popoverData?.metrics) {
       clearError('histogram')
-      fetchMultipleHistogramData(popoverData.metrics, popoverData.nodeId)
+      const panel = popoverData.panel || 'left'
+      fetchMultipleHistogramData(popoverData.metrics, popoverData.nodeId, panel)
     }
   }, [popoverData?.nodeId, popoverData?.metrics, clearError, fetchMultipleHistogramData])
 
@@ -698,7 +706,8 @@ export const HistogramPopover = ({
   // Fetch histogram data when popover opens
   useEffect(() => {
     if (popoverData?.visible && popoverData.nodeId && popoverData.metrics?.length > 0) {
-      fetchMultipleHistogramData(popoverData.metrics, popoverData.nodeId)
+      const panel = popoverData.panel || 'left'
+      fetchMultipleHistogramData(popoverData.metrics, popoverData.nodeId, panel)
     }
   }, [popoverData?.visible, popoverData?.nodeId, popoverData?.metrics, fetchMultipleHistogramData])
 
