@@ -11,7 +11,9 @@ import type {
   PopoverState,
   ViewState,
   LoadingStates,
-  ErrorStates
+  ErrorStates,
+  AlluvialFlow,
+  SankeyNode
 } from './types'
 
 type PanelSide = 'left' | 'right'
@@ -75,6 +77,12 @@ interface AppState {
   // Utility functions
   getNodesInSameThresholdGroup: (nodeId: string, metric: MetricType) => any[]
 
+  // Alluvial flows data
+  alluvialFlows: AlluvialFlow[] | null
+
+  // Alluvial flow actions
+  updateAlluvialFlows: () => void
+
   // Reset actions
   reset: () => void
 
@@ -133,7 +141,10 @@ const initialState = {
     sankeyLeft: null,
     sankeyRight: null,
     comparison: null
-  }
+  },
+
+  // Alluvial flows
+  alluvialFlows: null
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -497,6 +508,9 @@ export const useStore = create<AppState>((set, get) => ({
       if (panel === 'left') {
         state.setLoading('sankey', false)
       }
+
+      // Update alluvial flows after successful data fetch
+      state.updateAlluvialFlows()
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch Sankey data'
       state.setError(errorKey, errorMessage)
@@ -563,6 +577,86 @@ export const useStore = create<AppState>((set, get) => ({
     // Simplified implementation - return empty array for now
     // In the original complex system, this would return nodes that share threshold groups
     return []
+  },
+
+  // Update alluvial flows from both panel data
+  updateAlluvialFlows: () => {
+    const state = get()
+    const { leftPanel, rightPanel } = state
+
+    console.log('🌊 Computing alluvial flows...', {
+      leftData: !!leftPanel.sankeyData,
+      rightData: !!rightPanel.sankeyData
+    })
+
+    // Return null if either panel doesn't have visualization data
+    if (!leftPanel.sankeyData || !rightPanel.sankeyData) {
+      console.log('❌ Missing panel data')
+      set({ alluvialFlows: null })
+      return
+    }
+
+    // Extract final nodes (stage 3) with feature IDs from both panels
+    const leftFinalNodes = leftPanel.sankeyData.nodes.filter((node: SankeyNode) =>
+      node.stage === 3 && node.feature_ids && node.feature_ids.length > 0
+    )
+    const rightFinalNodes = rightPanel.sankeyData.nodes.filter((node: SankeyNode) =>
+      node.stage === 3 && node.feature_ids && node.feature_ids.length > 0
+    )
+
+    console.log('🔍 Final Nodes Debug:', {
+      leftFinalNodes: leftFinalNodes.length,
+      rightFinalNodes: rightFinalNodes.length
+    })
+
+    // If no final nodes with feature IDs, return empty array
+    if (leftFinalNodes.length === 0 || rightFinalNodes.length === 0) {
+      console.log('❌ No final nodes with feature IDs found')
+      set({ alluvialFlows: [] })
+      return
+    }
+
+    // Generate flows by finding overlapping feature IDs
+    const flows: AlluvialFlow[] = []
+
+    for (const leftNode of leftFinalNodes) {
+      for (const rightNode of rightFinalNodes) {
+        if (!leftNode.feature_ids || !rightNode.feature_ids) continue
+
+        // Find common features between left and right nodes
+        const commonFeatures = leftNode.feature_ids.filter(id =>
+          rightNode.feature_ids!.includes(id)
+        )
+
+        if (commonFeatures.length > 0) {
+          // Extract category names from node IDs for consistency analysis
+          const leftCategory = leftNode.id.split('_').slice(-1)[0] // Last part after final underscore
+          const rightCategory = rightNode.id.split('_').slice(-1)[0]
+
+          flows.push({
+            source: leftNode.id,
+            target: rightNode.id,
+            value: commonFeatures.length,
+            feature_ids: commonFeatures,
+            sourceCategory: leftCategory,
+            targetCategory: rightCategory
+          })
+        }
+      }
+    }
+
+    console.log('✅ Generated flows:', {
+      flowCount: flows.length,
+      sampleFlow: flows[0] ? {
+        source: flows[0].source,
+        target: flows[0].target,
+        value: flows[0].value,
+        sourceCategory: flows[0].sourceCategory,
+        targetCategory: flows[0].targetCategory
+      } : null
+    })
+
+    set({ alluvialFlows: flows })
   },
 
   reset: () => {
