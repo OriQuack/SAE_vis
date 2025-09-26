@@ -1,32 +1,42 @@
-import { scaleLinear } from 'd3-scale'
-import { max, sum, group } from 'd3-array'
-import { linkHorizontal } from 'd3-shape'
-import type { AlluvialFlow } from '../types'
+import { sum } from 'd3-array'
+import { sankey, sankeyLinkHorizontal } from 'd3-sankey'
+import type { AlluvialFlow, SankeyNode } from '../types'
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-export interface AlluvialLinkData {
-  sourceY: number
-  targetY: number
+export interface AlluvialSankeyNode {
+  id: string
+  x0?: number
+  x1?: number
+  y0?: number
+  y1?: number
+  value?: number
+  label: string
+  featureCount: number
+  height?: number
+  width?: number
 }
 
-export interface AlluvialProcessedFlow {
-  id: string
-  path: string
-  strokeWidth: number
+export interface AlluvialSankeyLink {
+  source: AlluvialSankeyNode | number
+  target: AlluvialSankeyNode | number
+  value: number
+  y0?: number
+  y1?: number
+  width?: number
+  flow: AlluvialFlow
   color: string
   opacity: number
-  flow: AlluvialFlow
-  sourceY: number
-  targetY: number
+  id: string
 }
 
 export interface AlluvialLayoutData {
-  flows: AlluvialProcessedFlow[]
-  leftNodes: { id: string; y: number; label: string }[]
-  rightNodes: { id: string; y: number; label: string }[]
+  flows: AlluvialSankeyLink[]
+  leftNodes: AlluvialSankeyNode[]
+  rightNodes: AlluvialSankeyNode[]
+  sankeyGenerator: any // The d3-sankey generator for path creation
   stats: {
     totalFlows: number
     consistentFlows: number
@@ -41,10 +51,6 @@ export interface AlluvialLayoutData {
 
 export const ALLUVIAL_MARGIN = { top: 50, right: 30, bottom: 50, left: 30 }
 export const ALLUVIAL_NODE_WIDTH = 20
-export const ALLUVIAL_STROKE = {
-  MAX_WIDTH: 30,
-  MIN_WIDTH: 2
-}
 
 export const ALLUVIAL_COLORS = {
   consistent: '#10b981',    // green
@@ -63,28 +69,27 @@ export const ALLUVIAL_OPACITY = {
 // ============================================================================
 
 /**
- * Calculate alluvial diagram layout using D3 scales and generators
+ * Calculate alluvial diagram layout using d3-sankey
  * This is a pure function - no DOM manipulation, just calculations
  */
 export function calculateAlluvialLayout(
   flows: AlluvialFlow[] | null,
   width: number,
-  height: number
+  height: number,
+  leftSankeyNodes?: SankeyNode[],
+  rightSankeyNodes?: SankeyNode[]
 ): AlluvialLayoutData {
   if (!flows || flows.length === 0) {
     return {
       flows: [],
       leftNodes: [],
       rightNodes: [],
+      sankeyGenerator: null,
       stats: null
     }
   }
 
-  // Group flows by source and target to get unique nodes
-  const sourceGroups = group(flows, d => d.source)
-  const targetGroups = group(flows, d => d.target)
-
-  // Calculate total features for each node
+  // Extract unique source and target nodes from flows
   const sourceFeatureCounts = new Map<string, number>()
   const targetFeatureCounts = new Map<string, number>()
 
@@ -94,137 +99,137 @@ export function calculateAlluvialLayout(
     targetFeatureCounts.set(flow.target, (targetFeatureCounts.get(flow.target) || 0) + flow.value)
   })
 
-  // Get unique node IDs sorted by their total features (larger nodes at top)
-  const sourceNodes = Array.from(sourceGroups.keys()).sort((a, b) =>
-    (sourceFeatureCounts.get(b) || 0) - (sourceFeatureCounts.get(a) || 0)
-  )
-  const targetNodes = Array.from(targetGroups.keys()).sort((a, b) =>
-    (targetFeatureCounts.get(b) || 0) - (targetFeatureCounts.get(a) || 0)
-  )
+  // Create node order maps from Sankey data if provided
+  const leftNodeOrder = new Map<string, number>()
+  const rightNodeOrder = new Map<string, number>()
 
-  // Calculate available height for stacking
-  const availableHeight = height - ALLUVIAL_MARGIN.top - ALLUVIAL_MARGIN.bottom
-  const totalSourceFeatures = sum(Array.from(sourceFeatureCounts.values()))
-  const totalTargetFeatures = sum(Array.from(targetFeatureCounts.values()))
+  if (leftSankeyNodes) {
+    // Get only stage 3 nodes and record their order
+    leftSankeyNodes
+      .filter(n => n.stage === 3)
+      .forEach((node, index) => {
+        leftNodeOrder.set(node.id, index)
+      })
+  }
 
-  // Create stacked node positions with proportional heights
-  const sourceNodeData: Array<{
-    id: string
-    y: number
-    height: number
-    centerY: number
-    featureCount: number
-    label: string
-  }> = []
+  if (rightSankeyNodes) {
+    // Get only stage 3 nodes and record their order
+    rightSankeyNodes
+      .filter(n => n.stage === 3)
+      .forEach((node, index) => {
+        rightNodeOrder.set(node.id, index)
+      })
+  }
 
-  const targetNodeData: Array<{
-    id: string
-    y: number
-    height: number
-    centerY: number
-    featureCount: number
-    label: string
-  }> = []
+  // Create nodes for d3-sankey with unique IDs to prevent circular references
+  const nodes: AlluvialSankeyNode[] = []
+  const sourceIndexMap = new Map<string, number>()
+  const targetIndexMap = new Map<string, number>()
 
-  // Stack source nodes
-  let currentSourceY = ALLUVIAL_MARGIN.top
-  sourceNodes.forEach(id => {
-    const featureCount = sourceFeatureCounts.get(id) || 0
-    const nodeHeight = (featureCount / totalSourceFeatures) * availableHeight
-    const centerY = currentSourceY + nodeHeight / 2
+  // Add source nodes (left side) with "left_" prefix, sorted by Sankey order
+  let nodeIndex = 0
+  const sourceKeys = Array.from(sourceFeatureCounts.keys())
 
-    sourceNodeData.push({
-      id,
-      y: currentSourceY,
-      height: nodeHeight,
-      centerY,
-      featureCount,
-      label: id.split('_').pop() || id
+  // Sort source keys based on leftNodeOrder if available
+  if (leftNodeOrder.size > 0) {
+    sourceKeys.sort((a, b) => {
+      const orderA = leftNodeOrder.get(a) ?? 999
+      const orderB = leftNodeOrder.get(b) ?? 999
+      return orderA - orderB
     })
+  }
 
-    currentSourceY += nodeHeight
+  sourceKeys.forEach(originalId => {
+    const uniqueId = `left_${originalId}`
+    const featureCount = sourceFeatureCounts.get(originalId) || 0
+    nodes.push({
+      id: uniqueId,
+      label: originalId.split('_').pop() || originalId,
+      featureCount,
+      value: featureCount
+    })
+    sourceIndexMap.set(originalId, nodeIndex++)
   })
 
-  // Stack target nodes
-  let currentTargetY = ALLUVIAL_MARGIN.top
-  targetNodes.forEach(id => {
-    const featureCount = targetFeatureCounts.get(id) || 0
-    const nodeHeight = (featureCount / totalTargetFeatures) * availableHeight
-    const centerY = currentTargetY + nodeHeight / 2
+  // Add target nodes (right side) with "right_" prefix, sorted by Sankey order
+  const targetKeys = Array.from(targetFeatureCounts.keys())
 
-    targetNodeData.push({
-      id,
-      y: currentTargetY,
-      height: nodeHeight,
-      centerY,
-      featureCount,
-      label: id.split('_').pop() || id
+  // Sort target keys based on rightNodeOrder if available
+  if (rightNodeOrder.size > 0) {
+    targetKeys.sort((a, b) => {
+      const orderA = rightNodeOrder.get(a) ?? 999
+      const orderB = rightNodeOrder.get(b) ?? 999
+      return orderA - orderB
     })
+  }
 
-    currentTargetY += nodeHeight
+  targetKeys.forEach(originalId => {
+    const uniqueId = `right_${originalId}`
+    const featureCount = targetFeatureCounts.get(originalId) || 0
+    nodes.push({
+      id: uniqueId,
+      label: originalId.split('_').pop() || originalId,
+      featureCount,
+      value: featureCount
+    })
+    targetIndexMap.set(originalId, nodeIndex++)
   })
 
-  // Create lookup maps for centerY positions
-  const sourceCenterYMap = new Map(sourceNodeData.map(node => [node.id, node.centerY]))
-  const targetCenterYMap = new Map(targetNodeData.map(node => [node.id, node.centerY]))
-
-  // Scale for stroke width based on feature count
-  const maxFlowValue = max(flows, d => d.value) || 1
-  const strokeScale = scaleLinear()
-    .domain([0, maxFlowValue])
-    .range([ALLUVIAL_STROKE.MIN_WIDTH, ALLUVIAL_STROKE.MAX_WIDTH])
-    .clamp(true)
-
-  // Create link generator with horizontal curve
-  const linkGen = linkHorizontal<AlluvialLinkData>()
-    .source(d => [ALLUVIAL_MARGIN.left + ALLUVIAL_NODE_WIDTH, d.sourceY])
-    .target(d => [width - ALLUVIAL_MARGIN.right - ALLUVIAL_NODE_WIDTH, d.targetY])
-
-  // Process flows into renderable data
-  const processedFlows: AlluvialProcessedFlow[] = flows.map(flow => {
-    const sourceY = sourceCenterYMap.get(flow.source) || 0
-    const targetY = targetCenterYMap.get(flow.target) || 0
-    const strokeWidth = strokeScale(flow.value)
+  // Create links for d3-sankey
+  const links: AlluvialSankeyLink[] = flows.map(flow => {
+    const sourceIndex = sourceIndexMap.get(flow.source)!
+    const targetIndex = targetIndexMap.get(flow.target)!
     const isConsistent = flow.sourceCategory === flow.targetCategory
     const color = isConsistent ? ALLUVIAL_COLORS.consistent : ALLUVIAL_COLORS.inconsistent
 
-    // Generate path using D3 link generator
-    const pathData = linkGen({ sourceY, targetY } as AlluvialLinkData)
-
     return {
-      id: `${flow.source}-${flow.target}`,
-      path: pathData || '',
-      strokeWidth,
+      source: sourceIndex,
+      target: targetIndex,
+      value: flow.value,
+      flow,
       color,
       opacity: ALLUVIAL_OPACITY.default,
-      flow,
-      sourceY,
-      targetY
+      id: `${flow.source}-${flow.target}`
     }
   })
 
-  // Use the enhanced node data with dimensions
-  const leftNodes = sourceNodeData.map(node => ({
-    id: node.id,
-    y: node.y,
-    centerY: node.centerY,
-    height: node.height,
-    featureCount: node.featureCount,
-    label: node.label,
-    x: ALLUVIAL_MARGIN.left,
-    width: ALLUVIAL_NODE_WIDTH
-  }))
+  // Configure d3-sankey
+  const sankeyGenerator = sankey<AlluvialSankeyNode, AlluvialSankeyLink>()
+    .nodeWidth(ALLUVIAL_NODE_WIDTH)
+    .nodePadding(10)
+    .extent([
+      [ALLUVIAL_MARGIN.left, ALLUVIAL_MARGIN.top],
+      [width - ALLUVIAL_MARGIN.right, height - ALLUVIAL_MARGIN.bottom]
+    ])
+    .nodeAlign((node) => {
+      // Force left nodes to left side (x=0) and right nodes to right side (x=1)
+      const nodeId = (node as AlluvialSankeyNode).id
+      return nodeId.startsWith('left_') ? 0 : 1
+    })
 
-  const rightNodes = targetNodeData.map(node => ({
-    id: node.id,
-    y: node.y,
-    centerY: node.centerY,
-    height: node.height,
-    featureCount: node.featureCount,
-    label: node.label,
-    x: width - ALLUVIAL_MARGIN.right - ALLUVIAL_NODE_WIDTH,
-    width: ALLUVIAL_NODE_WIDTH
-  }))
+  // Calculate the layout
+  const sankeyData = sankeyGenerator({
+    nodes: nodes.map(n => ({ ...n })), // Create copies to avoid mutation
+    links: links.map(l => ({ ...l }))
+  })
+
+  // Separate left and right nodes based on their ID prefix
+  const leftNodes: AlluvialSankeyNode[] = []
+  const rightNodes: AlluvialSankeyNode[] = []
+
+  sankeyData.nodes.forEach(node => {
+    const nodeId = (node as AlluvialSankeyNode).id
+    if (nodeId.startsWith('left_')) {
+      leftNodes.push(node as AlluvialSankeyNode)
+    } else {
+      rightNodes.push(node as AlluvialSankeyNode)
+    }
+  })
+
+  // Don't re-sort nodes - keep the order from Sankey layout which preserves our intended order
+
+  // d3-sankey automatically calculates the width property based on value
+  // No need for custom strokeWidth scaling - use the calculated width directly
 
   // Calculate statistics
   const consistentFlows = flows.filter(f => f.sourceCategory === f.targetCategory).length
@@ -237,10 +242,12 @@ export function calculateAlluvialLayout(
     consistencyRate: (consistentFlows / flows.length) * 100
   }
 
+
   return {
-    flows: processedFlows,
+    flows: sankeyData.links as AlluvialSankeyLink[],
     leftNodes,
     rightNodes,
+    sankeyGenerator: sankeyLinkHorizontal(),
     stats
   }
 }

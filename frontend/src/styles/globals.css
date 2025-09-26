@@ -1764,11 +1764,20 @@ body {
 }
 
 .alluvial-flow-path {
-  stroke-linejoin: round;
-  stroke-linecap: round;
+  stroke-linejoin: miter;
+  stroke-linecap: butt;
 }
 
 .alluvial-flow-path:hover {
+  filter: brightness(1.1);
+}
+
+.alluvial-flow-ribbon {
+  stroke-linejoin: miter;
+  stroke-linecap: butt;
+}
+
+.alluvial-flow-ribbon:hover {
   filter: brightness(1.1);
 }
 

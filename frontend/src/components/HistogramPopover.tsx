@@ -3,13 +3,15 @@ import { useVisualizationStore } from '../store'
 import {
   calculateHistogramLayout,
   calculateThresholdLine,
-  positionToValue,
   validateHistogramData,
   validateDimensions,
   DEFAULT_ANIMATION,
   HISTOGRAM_COLORS,
   SLIDER_TRACK,
-  formatSmartNumber
+  formatSmartNumber,
+  calculateOptimalPopoverPosition,
+  calculateResponsivePopoverSize,
+  calculateThresholdFromMouseEvent
 } from '../lib/d3-histogram-utils'
 import { getEffectiveThreshold } from '../lib/threshold-utils'
 import type { HistogramData, HistogramLayout, HistogramChart } from '../types'
@@ -38,7 +40,11 @@ const HEADER_STYLES = {
     backgroundColor: '#f8fafc',
     borderRadius: '8px 8px 0 0',
     height: '48px',
-    flexShrink: 0
+    flexShrink: 0,
+    userSelect: 'none' as const,
+    WebkitUserSelect: 'none' as const,
+    msUserSelect: 'none' as const,
+    MozUserSelect: 'none' as const
   },
   titleSection: {
     display: 'flex',
@@ -99,93 +105,7 @@ const CHART_STYLES = {
   }
 }
 
-// ============================================================================
-// INLINE POSITIONING UTILITIES
-// ============================================================================
-function calculateOptimalPosition(
-  clickPosition: { x: number, y: number },
-  popoverSize: { width: number, height: number },
-  margin: number = 20
-) {
-  const viewport = {
-    width: window.innerWidth,
-    height: window.innerHeight
-  }
 
-  // Use fixed right positioning for histogram popovers
-  let x = clickPosition.x
-  let y = clickPosition.y
-  let transform = 'translate(0%, -50%)'
-
-  // Ensure the popover fits vertically on screen
-  const halfHeight = popoverSize.height / 2
-  if (y - halfHeight < margin) {
-    y = halfHeight + margin
-  } else if (y + halfHeight > viewport.height - margin) {
-    y = viewport.height - halfHeight - margin
-  }
-
-  // Ensure the popover fits horizontally on screen
-  if (x + popoverSize.width > viewport.width - margin) {
-    x = viewport.width - popoverSize.width - margin
-  }
-
-  return { x, y, transform }
-}
-
-function calculateResponsiveSize(
-  defaultWidth: number,
-  defaultHeight: number,
-  metricsCount: number = 1
-) {
-  const viewport = {
-    width: window.innerWidth,
-    height: window.innerHeight
-  }
-
-  let adjustedHeight = defaultHeight
-
-  if (metricsCount > 1) {
-    // Match the exact logic from d3-utils calculateHistogramLayout
-    // Constants from d3-utils (updated with smaller sizes):
-    const spacing = 12  // MULTI_HISTOGRAM_LAYOUT.spacing (reduced from 16)
-    const chartTitleHeight = 24  // MULTI_HISTOGRAM_LAYOUT.chartTitleHeight (reduced from 28)
-    const minChartHeight = 80  // MULTI_HISTOGRAM_LAYOUT.minChartHeight (reduced from 120)
-    const chartMargin = { top: 15, right: 30, bottom: 40, left: 50 }  // reduced margins
-
-    // Each chart needs:
-    // - chartTitleHeight + chartMargin.top at the top
-    // - minChartHeight for the actual chart
-    // - chartMargin.bottom at the bottom
-    // - sliderArea below that
-    const sliderArea = 40  // Space for slider track and handle below chart
-
-    // Calculate the height each chart needs in total
-    const totalHeightPerChart = chartTitleHeight + chartMargin.top + minChartHeight + chartMargin.bottom + sliderArea
-
-    // Total spacing between charts
-    const totalSpacing = (metricsCount - 1) * spacing
-
-    // Header and container padding
-    const headerHeight = 48
-    const containerPadding = 16
-
-    // Calculate required container height
-    // The d3-utils logic expects containerHeight to accommodate:
-    // For each chart: yOffset (includes title + top margin) + chartHeight + bottom margin + slider
-    adjustedHeight = headerHeight + containerPadding + (metricsCount * totalHeightPerChart) + totalSpacing
-  }
-
-  const maxWidth = Math.min(defaultWidth, viewport.width * 0.9)
-  // Use calculated height without artificial constraints to eliminate scrolling
-  const maxHeight = Math.min(adjustedHeight, viewport.height * 0.95)  // Only prevent going off screen
-
-  const minWidth = Math.max(420, maxWidth)
-  // For multi-histogram, use the exact calculated height to fit all content
-  const minHeight = metricsCount > 1 ? adjustedHeight : Math.max(280, maxHeight)
-
-  return { width: minWidth, height: Math.min(minHeight, viewport.height * 0.95) }
-}
 
 // ============================================================================
 // MAIN COMPONENT PROPS
@@ -232,13 +152,13 @@ export const HistogramPopover = ({
 
   // Calculate container size
   const containerSize = useMemo(() => {
-    return calculateResponsiveSize(width, height, popoverData?.metrics?.length || 1)
+    return calculateResponsivePopoverSize(width, height, popoverData?.metrics?.length || 1)
   }, [width, height, popoverData?.metrics?.length])
 
   // Calculate position
   const calculatedPosition = useMemo(() => {
     if (!popoverData?.visible || !popoverData?.position) return null
-    return calculateOptimalPosition(popoverData.position, containerSize)
+    return calculateOptimalPopoverPosition(popoverData.position, containerSize)
   }, [popoverData?.visible, popoverData?.position, containerSize])
 
   // ============================================================================
@@ -327,11 +247,12 @@ export const HistogramPopover = ({
       if (!rect) return
 
       // Calculate position relative to the specific chart
-      const x = event.clientX - rect.left - chart.margin.left
       const data = histogramData[metric]
 
       // Use the specific chart's width for position calculation
-      const newValue = positionToValue(x, data.statistics.min, data.statistics.max, chart.width)
+      const newValue = calculateThresholdFromMouseEvent(event, svgRef.current, chart, data.statistics.min, data.statistics.max)
+      if (newValue === null) return
+
       const clampedValue = Math.max(data.statistics.min, Math.min(data.statistics.max, newValue))
 
       const panel = popoverData?.panel || 'left'
@@ -475,10 +396,7 @@ export const HistogramPopover = ({
           }
 
           const calculateThresholdFromEvent = (event: React.MouseEvent | MouseEvent) => {
-            const rect = svgRef.current?.getBoundingClientRect()
-            if (!rect) return null
-            const x = event.clientX - rect.left - chart.margin.left
-            return positionToValue(x, data.statistics.min, data.statistics.max, chart.width)
+            return calculateThresholdFromMouseEvent(event, svgRef.current, chart, data.statistics.min, data.statistics.max)
           }
 
           const handleSliderMouseDown = (event: React.MouseEvent) => {
@@ -742,6 +660,36 @@ export const HistogramPopover = ({
       setDragStartOffset(null)
     }
   }, [popoverData?.visible])
+
+  // Handle click outside to close popover
+  useEffect(() => {
+    if (!popoverData?.visible) return
+
+    const handleClickOutside = (event: MouseEvent) => {
+      // Don't close if currently dragging a slider
+      if (isDraggingSlider) return
+
+      // Don't close if clicking on interactive elements
+      const target = event.target as HTMLElement
+      if (target.closest('circle') || target.closest('rect[style*="cursor: pointer"]')) {
+        return
+      }
+
+      if (containerRef.current && !containerRef.current.contains(target)) {
+        hideHistogramPopover()
+      }
+    }
+
+    // Add event listener with a small delay to prevent immediate closing
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('mouseup', handleClickOutside)
+    }, 100)
+
+    return () => {
+      clearTimeout(timeoutId)
+      document.removeEventListener('mouseup', handleClickOutside)
+    }
+  }, [popoverData?.visible, isDraggingSlider]) // Removed hideHistogramPopover dependency
 
   // Fetch histogram data when popover opens
   useEffect(() => {

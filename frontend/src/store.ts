@@ -523,7 +523,6 @@ export const useStore = create<AppState>((set, get) => ({
 
     // Return null if either panel doesn't have visualization data
     if (!leftPanel.sankeyData || !rightPanel.sankeyData) {
-      console.log('❌ Missing panel data')
       set({ alluvialFlows: null })
       return
     }

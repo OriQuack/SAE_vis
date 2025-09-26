@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { useVisualizationStore } from '../store'
-import { calculateAlluvialLayout, ALLUVIAL_COLORS, ALLUVIAL_OPACITY, ALLUVIAL_MARGIN } from '../lib/d3-alluvial-utils'
-import type { AlluvialFlow } from '../types'
+import { calculateAlluvialLayout, ALLUVIAL_COLORS, ALLUVIAL_OPACITY } from '../lib/d3-alluvial-utils'
+import type { AlluvialSankeyNode, AlluvialSankeyLink } from '../lib/d3-alluvial-utils'
 
 // ==================== TYPES ====================
 
@@ -20,15 +20,8 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
 }) => {
   // Get data from store
   const alluvialFlows = useVisualizationStore(state => state.alluvialFlows)
-//   const leftPanel = useVisualizationStore(state => state.leftPanel)
-//   const rightPanel = useVisualizationStore(state => state.rightPanel)
-
-//   // Debug logging
-//   console.log('🎯 AlluvialDiagram rendering:', {
-//     alluvialFlows: alluvialFlows ? `${alluvialFlows.length} flows` : alluvialFlows,
-//     leftViewState: leftPanel.viewState,
-//     rightViewState: rightPanel.viewState
-//   })
+  const leftSankeyData = useVisualizationStore(state => state.leftPanel.sankeyData)
+  const rightSankeyData = useVisualizationStore(state => state.rightPanel.sankeyData)
 
   // State for interactions
   const [hoveredFlowId, setHoveredFlowId] = useState<string | null>(null)
@@ -36,8 +29,14 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
 
   // Calculate layout using D3 (memoized for performance)
   const layout = useMemo(
-    () => calculateAlluvialLayout(alluvialFlows, width, height),
-    [alluvialFlows, width, height]
+    () => calculateAlluvialLayout(
+      alluvialFlows,
+      width,
+      height,
+      leftSankeyData?.nodes,
+      rightSankeyData?.nodes
+    ),
+    [alluvialFlows, width, height, leftSankeyData?.nodes, rightSankeyData?.nodes]
   )
 
   // Handle empty state
@@ -97,9 +96,9 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
         viewBox={`0 0 ${width} ${height}`}
         className="alluvial-svg"
       >
-        {/* Render flows as paths */}
+        {/* Render flows as curved ribbons with proper width */}
         <g className="alluvial-flows">
-          {layout.flows.map(flow => {
+          {layout.flows.map((flow: AlluvialSankeyLink) => {
             const isHovered = hoveredFlowId === flow.id
             const opacity = isHovered
               ? ALLUVIAL_OPACITY.hover
@@ -107,16 +106,26 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
                 ? ALLUVIAL_OPACITY.inactive
                 : flow.opacity
 
+            // Create path data using sankeyLinkHorizontal
+            // The link object from d3-sankey has source and target nodes with coordinates
+            let pathData = ''
+            if (layout.sankeyGenerator && flow.source && flow.target) {
+              // After d3-sankey processing, source and target should be node objects with coordinates
+              pathData = layout.sankeyGenerator(flow) || ''
+            }
+
+            // Get the flow width from d3-sankey calculations
+            const flowWidth = Math.max(1, flow.width || 1)
+
             return (
               <path
                 key={flow.id}
-                d={flow.path}
-                stroke={flow.color}
-                strokeWidth={flow.strokeWidth}
+                d={pathData}
                 fill="none"
+                stroke={flow.color}
+                strokeWidth={flowWidth}
                 opacity={opacity}
-                strokeLinecap="round"
-                className="alluvial-flow-path"
+                className="alluvial-flow-ribbon"
                 onMouseEnter={() => setHoveredFlowId(flow.id)}
                 onMouseLeave={() => setHoveredFlowId(null)}
                 style={{
@@ -135,8 +144,8 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
         {/* Left nodes as rectangles */}
         <g className="alluvial-left-nodes">
           <text
-            x={ALLUVIAL_MARGIN.left}
-            y={ALLUVIAL_MARGIN.top - 10}
+            x={30}
+            y={40}
             textAnchor="start"
             className="alluvial-panel-label"
             fontSize="12"
@@ -145,7 +154,7 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
           >
             Left Panel
           </text>
-          {layout.leftNodes.map(node => {
+          {layout.leftNodes.map((node: AlluvialSankeyNode) => {
             // Determine color based on category (using similar logic to flows)
             const baseColor = node.label === 'all' ? '#10b981' :
                              node.label === 'none' ? '#f59e0b' :
@@ -157,13 +166,20 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
             const strokeWidth = isHovered ? 2 : 0.5
             const strokeColor = isHovered ? '#ffffff' : '#374151'
 
+            // Use d3-sankey calculated positions
+            const x = node.x0 || 0
+            const y = node.y0 || 0
+            const nodeWidth = (node.x1 || 0) - (node.x0 || 0)
+            const nodeHeight = (node.y1 || 0) - (node.y0 || 0)
+            const centerY = y + nodeHeight / 2
+
             return (
               <g key={node.id} className="alluvial-node-group">
                 <rect
-                  x={node.x}
-                  y={node.y}
-                  width={node.width}
-                  height={node.height}
+                  x={x}
+                  y={y}
+                  width={nodeWidth}
+                  height={nodeHeight}
                   fill={baseColor}
                   fillOpacity={fillOpacity}
                   stroke={strokeColor}
@@ -180,8 +196,8 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
                   <title>{`${node.label}: ${node.featureCount} features`}</title>
                 </rect>
                 <text
-                  x={node.x - 6}
-                  y={node.centerY}
+                  x={x - 6}
+                  y={centerY}
                   textAnchor="end"
                   dominantBaseline="middle"
                   fontSize="10"
@@ -193,8 +209,8 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
                   {node.label}
                 </text>
                 <text
-                  x={node.x - 6}
-                  y={node.centerY + 12}
+                  x={x - 6}
+                  y={centerY + 12}
                   textAnchor="end"
                   dominantBaseline="middle"
                   fontSize="9"
@@ -212,8 +228,8 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
         {/* Right nodes as rectangles */}
         <g className="alluvial-right-nodes">
           <text
-            x={width - ALLUVIAL_MARGIN.right}
-            y={ALLUVIAL_MARGIN.top - 10}
+            x={width - 30}
+            y={40}
             textAnchor="end"
             className="alluvial-panel-label"
             fontSize="12"
@@ -222,7 +238,7 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
           >
             Right Panel
           </text>
-          {layout.rightNodes.map(node => {
+          {layout.rightNodes.map((node: AlluvialSankeyNode) => {
             // Determine color based on category
             const baseColor = node.label === 'all' ? '#10b981' :
                              node.label === 'none' ? '#f59e0b' :
@@ -234,13 +250,20 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
             const strokeWidth = isHovered ? 2 : 0.5
             const strokeColor = isHovered ? '#ffffff' : '#374151'
 
+            // Use d3-sankey calculated positions
+            const x = node.x0 || 0
+            const y = node.y0 || 0
+            const nodeWidth = (node.x1 || 0) - (node.x0 || 0)
+            const nodeHeight = (node.y1 || 0) - (node.y0 || 0)
+            const centerY = y + nodeHeight / 2
+
             return (
               <g key={node.id} className="alluvial-node-group">
                 <rect
-                  x={node.x}
-                  y={node.y}
-                  width={node.width}
-                  height={node.height}
+                  x={x}
+                  y={y}
+                  width={nodeWidth}
+                  height={nodeHeight}
                   fill={baseColor}
                   fillOpacity={fillOpacity}
                   stroke={strokeColor}
@@ -257,8 +280,8 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
                   <title>{`${node.label}: ${node.featureCount} features`}</title>
                 </rect>
                 <text
-                  x={node.x + node.width + 6}
-                  y={node.centerY}
+                  x={x + nodeWidth + 6}
+                  y={centerY}
                   textAnchor="start"
                   dominantBaseline="middle"
                   fontSize="10"
@@ -270,8 +293,8 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
                   {node.label}
                 </text>
                 <text
-                  x={node.x + node.width + 6}
-                  y={node.centerY + 12}
+                  x={x + nodeWidth + 6}
+                  y={centerY + 12}
                   textAnchor="start"
                   dominantBaseline="middle"
                   fontSize="9"
