@@ -14,72 +14,85 @@ import type {
   ErrorStates
 } from './types'
 
-interface AppState {
-  // Data state
+type PanelSide = 'left' | 'right'
+
+interface PanelState {
   filters: Filters
-  filterOptions: FilterOptions | null
   hierarchicalThresholds: HierarchicalThresholds
-  currentMetric: MetricType
-  histogramData: Record<string, HistogramData> | null
   sankeyData: SankeyData | null
-
-  // UI state
+  histogramData: Record<string, HistogramData> | null
   viewState: ViewState
+}
+
+interface AppState {
+  // Data state - now split for left and right panels
+  leftPanel: PanelState
+  rightPanel: PanelState
+
+  // Shared state
+  filterOptions: FilterOptions | null
+  currentMetric: MetricType
   popoverState: PopoverState
-  loading: LoadingStates
-  errors: ErrorStates
+  loading: LoadingStates & { sankeyLeft?: boolean; sankeyRight?: boolean }
+  errors: ErrorStates & { sankeyLeft?: string | null; sankeyRight?: string | null }
 
-  // Data actions
-  setFilters: (filters: Partial<Filters>) => void
-  setGlobalThresholds: (thresholds: Partial<Thresholds>) => void
-  setHierarchicalThresholds: (thresholds: Partial<Thresholds>, parentNodeId?: string) => void
+  // Data actions - now take panel parameter
+  setFilters: (filters: Partial<Filters>, panel?: PanelSide) => void
+  setGlobalThresholds: (thresholds: Partial<Thresholds>, panel?: PanelSide) => void
+  setHierarchicalThresholds: (thresholds: Partial<Thresholds>, parentNodeId?: string, panel?: PanelSide) => void
   setCurrentMetric: (metric: MetricType) => void
-  setHistogramData: (data: Record<string, HistogramData> | null) => void
-  setSankeyData: (data: SankeyData | null) => void
+  setHistogramData: (data: Record<string, HistogramData> | null, panel?: PanelSide) => void
+  setSankeyData: (data: SankeyData | null, panel?: PanelSide) => void
 
-  // UI actions
-  setViewState: (state: ViewState) => void
+  // UI actions - now take panel parameter
+  setViewState: (state: ViewState, panel?: PanelSide) => void
   showHistogramPopover: (
     nodeId: string,
     nodeName: string,
     metrics: MetricType[],
     position: { x: number; y: number },
     parentNodeId?: string,
-    parentNodeName?: string
+    parentNodeName?: string,
+    panel?: PanelSide
   ) => void
   hideHistogramPopover: () => void
   setLoading: (key: keyof LoadingStates, value: boolean) => void
   setError: (key: keyof ErrorStates, error: string | null) => void
   clearError: (key: keyof ErrorStates) => void
 
-  // API actions
+  // API actions - now take panel parameter
   fetchFilterOptions: () => Promise<void>
-  fetchHistogramData: (metric?: MetricType, nodeId?: string) => Promise<void>
-  fetchMultipleHistogramData: (metrics: MetricType[], nodeId?: string) => Promise<void>
-  fetchSankeyData: () => Promise<void>
+  fetchHistogramData: (metric?: MetricType, nodeId?: string, panel?: PanelSide) => Promise<void>
+  fetchMultipleHistogramData: (metrics: MetricType[], nodeId?: string, panel?: PanelSide) => Promise<void>
+  fetchSankeyData: (panel?: PanelSide) => Promise<void>
 
-  // View state actions
-  showVisualization: () => void
-  editFilters: () => void
-  removeVisualization: () => void
-  resetFilters: () => void
+  // View state actions - now take panel parameter
+  showVisualization: (panel?: PanelSide) => void
+  editFilters: (panel?: PanelSide) => void
+  removeVisualization: (panel?: PanelSide) => void
+  resetFilters: (panel?: PanelSide) => void
 
   // Utility functions
   getNodesInSameThresholdGroup: (nodeId: string, metric: MetricType) => any[]
 
   // Reset actions
   reset: () => void
+
+  // Legacy compatibility getters (for backward compatibility)
+  filters: Filters
+  hierarchicalThresholds: HierarchicalThresholds
+  histogramData: Record<string, HistogramData> | null
+  sankeyData: SankeyData | null
+  viewState: ViewState
 }
 
-const initialState = {
-  // Data initial state
+const createInitialPanelState = (): PanelState => ({
   filters: {
     sae_id: [],
     explanation_method: [],
     llm_explainer: [],
     llm_scorer: []
   },
-  filterOptions: null,
   hierarchicalThresholds: {
     global_thresholds: {
       feature_splitting: 0.1,
@@ -89,12 +102,19 @@ const initialState = {
       score_simulation: 0.2,
     }
   },
-  currentMetric: 'semdist_mean' as MetricType,
-  histogramData: null,
   sankeyData: null,
+  histogramData: null,
+  viewState: 'empty' as ViewState
+})
 
-  // UI initial state
-  viewState: 'empty' as ViewState,
+const initialState = {
+  // Panel states
+  leftPanel: createInitialPanelState(),
+  rightPanel: createInitialPanelState(),
+
+  // Shared state
+  filterOptions: null,
+  currentMetric: 'semdist_mean' as MetricType,
   popoverState: {
     histogram: null
   },
@@ -102,12 +122,16 @@ const initialState = {
     filters: false,
     histogram: false,
     sankey: false,
+    sankeyLeft: false,
+    sankeyRight: false,
     comparison: false
   },
   errors: {
     filters: null,
     histogram: null,
     sankey: null,
+    sankeyLeft: null,
+    sankeyRight: null,
     comparison: null
   }
 }
@@ -115,30 +139,59 @@ const initialState = {
 export const useStore = create<AppState>((set, get) => ({
   ...initialState,
 
-  // Data actions
-  setFilters: (newFilters) => {
-    set((state) => ({
-      filters: { ...state.filters, ...newFilters },
-      histogramData: null,
-      sankeyData: null
-    }))
+  // Legacy compatibility getters
+  get filters() {
+    return get().leftPanel.filters
+  },
+  get hierarchicalThresholds() {
+    return get().leftPanel.hierarchicalThresholds
+  },
+  get histogramData() {
+    return get().leftPanel.histogramData
+  },
+  get sankeyData() {
+    return get().leftPanel.sankeyData
+  },
+  get viewState() {
+    return get().leftPanel.viewState
   },
 
-  setGlobalThresholds: (newThresholds) => {
+  // Data actions
+  setFilters: (newFilters, panel = 'left') => {
     set((state) => ({
-      hierarchicalThresholds: {
-        ...state.hierarchicalThresholds,
-        global_thresholds: { ...state.hierarchicalThresholds.global_thresholds, ...newThresholds }
+      [panel === 'left' ? 'leftPanel' : 'rightPanel']: {
+        ...state[panel === 'left' ? 'leftPanel' : 'rightPanel'],
+        filters: { ...state[panel === 'left' ? 'leftPanel' : 'rightPanel'].filters, ...newFilters },
+        histogramData: null,
+        sankeyData: null
       }
     }))
   },
 
-  setHierarchicalThresholds: (newThresholds, parentNodeId = 'global_thresholds') => {
+  setGlobalThresholds: (newThresholds, panel = 'left') => {
+    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+    set((state) => ({
+      [panelKey]: {
+        ...state[panelKey],
+        hierarchicalThresholds: {
+          ...state[panelKey].hierarchicalThresholds,
+          global_thresholds: { ...state[panelKey].hierarchicalThresholds.global_thresholds, ...newThresholds }
+        }
+      }
+    }))
+  },
+
+  setHierarchicalThresholds: (newThresholds, parentNodeId = 'global_thresholds', panel = 'left') => {
+    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+
     if (parentNodeId === 'global_thresholds') {
       set((state) => ({
-        hierarchicalThresholds: {
-          ...state.hierarchicalThresholds,
-          global_thresholds: { ...state.hierarchicalThresholds.global_thresholds, ...newThresholds }
+        [panelKey]: {
+          ...state[panelKey],
+          hierarchicalThresholds: {
+            ...state[panelKey].hierarchicalThresholds,
+            global_thresholds: { ...state[panelKey].hierarchicalThresholds.global_thresholds, ...newThresholds }
+          }
         }
       }))
     } else {
@@ -149,31 +202,36 @@ export const useStore = create<AppState>((set, get) => ({
 
       if (isScoreThreshold) {
         // Use score_agreement_groups for score thresholds
-        // The parentNodeId should be the semantic distance parent (e.g., split_true_semdist_low)
         set((state) => ({
-          hierarchicalThresholds: {
-            ...state.hierarchicalThresholds,
-            score_agreement_groups: {
-              ...state.hierarchicalThresholds.score_agreement_groups,
-              [parentNodeId]: {
-                ...state.hierarchicalThresholds.score_agreement_groups?.[parentNodeId],
-                ...newThresholds
+          [panelKey]: {
+            ...state[panelKey],
+            hierarchicalThresholds: {
+              ...state[panelKey].hierarchicalThresholds,
+              score_agreement_groups: {
+                ...state[panelKey].hierarchicalThresholds.score_agreement_groups,
+                [parentNodeId]: {
+                  ...state[panelKey].hierarchicalThresholds.score_agreement_groups?.[parentNodeId],
+                  ...newThresholds
+                }
               }
             }
           }
         }))
       } else {
-        // Use individual_node_groups for other thresholds (like semdist_mean)
+        // Use individual_node_groups for other thresholds
         const nodeKey = parentNodeId.startsWith('node_') ? parentNodeId : `node_${parentNodeId}`
 
         set((state) => ({
-          hierarchicalThresholds: {
-            ...state.hierarchicalThresholds,
-            individual_node_groups: {
-              ...state.hierarchicalThresholds.individual_node_groups,
-              [nodeKey]: {
-                ...state.hierarchicalThresholds.individual_node_groups?.[nodeKey],
-                ...newThresholds
+          [panelKey]: {
+            ...state[panelKey],
+            hierarchicalThresholds: {
+              ...state[panelKey].hierarchicalThresholds,
+              individual_node_groups: {
+                ...state[panelKey].hierarchicalThresholds.individual_node_groups,
+                [nodeKey]: {
+                  ...state[panelKey].hierarchicalThresholds.individual_node_groups?.[nodeKey],
+                  ...newThresholds
+                }
               }
             }
           }
@@ -186,20 +244,38 @@ export const useStore = create<AppState>((set, get) => ({
     set(() => ({ currentMetric: metric }))
   },
 
-  setHistogramData: (data) => {
-    set(() => ({ histogramData: data }))
+  setHistogramData: (data, panel = 'left') => {
+    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+    set((state) => ({
+      [panelKey]: {
+        ...state[panelKey],
+        histogramData: data
+      }
+    }))
   },
 
-  setSankeyData: (data) => {
-    set(() => ({ sankeyData: data }))
+  setSankeyData: (data, panel = 'left') => {
+    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+    set((state) => ({
+      [panelKey]: {
+        ...state[panelKey],
+        sankeyData: data
+      }
+    }))
   },
 
   // UI actions
-  setViewState: (newState) => {
-    set(() => ({ viewState: newState }))
+  setViewState: (newState, panel = 'left') => {
+    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+    set((state) => ({
+      [panelKey]: {
+        ...state[panelKey],
+        viewState: newState
+      }
+    }))
   },
 
-  showHistogramPopover: (nodeId, nodeName, metrics, position, parentNodeId, parentNodeName) => {
+  showHistogramPopover: (nodeId, nodeName, metrics, position, parentNodeId, parentNodeName, panel = 'left') => {
     set(() => ({
       popoverState: {
         histogram: {
@@ -209,7 +285,8 @@ export const useStore = create<AppState>((set, get) => ({
           parentNodeName,
           metrics,
           position,
-          visible: true
+          visible: true,
+          panel
         }
       }
     }))
@@ -267,10 +344,11 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  fetchHistogramData: async (metric?: MetricType, nodeId?: string) => {
+  fetchHistogramData: async (metric?: MetricType, nodeId?: string, panel = 'left') => {
     const state = get()
     const targetMetric = metric || state.currentMetric
-    const { filters } = state
+    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+    const { filters } = state[panelKey]
 
     const hasActiveFilters = Object.values(filters).some(
       filterArray => filterArray && filterArray.length > 0
@@ -293,9 +371,7 @@ export const useStore = create<AppState>((set, get) => ({
 
       const histogramData = await api.getHistogramData(request)
 
-      set(() => ({
-        histogramData: { [targetMetric]: histogramData }
-      }))
+      state.setHistogramData({ [targetMetric]: histogramData }, panel)
 
       state.setLoading('histogram', false)
     } catch (error) {
@@ -305,9 +381,10 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  fetchMultipleHistogramData: async (metrics, nodeId?: string) => {
+  fetchMultipleHistogramData: async (metrics, nodeId?: string, panel = 'left') => {
     const state = get()
-    const { filters } = state
+    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+    const { filters } = state[panelKey]
 
     const hasActiveFilters = Object.values(filters).some(
       filterArray => filterArray && filterArray.length > 0
@@ -336,9 +413,7 @@ export const useStore = create<AppState>((set, get) => ({
       const results = await Promise.all(histogramPromises)
       const combinedData = results.reduce((acc, result) => ({ ...acc, ...result }), {})
 
-      set(() => ({
-        histogramData: combinedData
-      }))
+      state.setHistogramData(combinedData, panel)
 
       // Update global thresholds with mean values from histogram data
       const newThresholds: Partial<Thresholds> = {}
@@ -347,14 +422,14 @@ export const useStore = create<AppState>((set, get) => ({
         if (data && data.statistics && data.statistics.mean !== undefined) {
           if (metric === 'score_fuzz') {
             newThresholds.score_fuzz = data.statistics.mean
-          } else if (metric in state.hierarchicalThresholds.global_thresholds) {
+          } else if (metric in state[panelKey].hierarchicalThresholds.global_thresholds) {
             newThresholds[metric as keyof Thresholds] = data.statistics.mean
           }
         }
       }
 
       if (Object.keys(newThresholds).length > 0) {
-        state.setGlobalThresholds(newThresholds)
+        state.setGlobalThresholds(newThresholds, panel)
       }
 
       state.setLoading('histogram', false)
@@ -365,9 +440,12 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  fetchSankeyData: async () => {
+  fetchSankeyData: async (panel = 'left') => {
     const state = get()
-    const { filters, hierarchicalThresholds } = state
+    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+    const { filters, hierarchicalThresholds } = state[panelKey]
+    const loadingKey = panel === 'left' ? 'sankeyLeft' : 'sankeyRight' as keyof LoadingStates
+    const errorKey = panel === 'left' ? 'sankeyLeft' : 'sankeyRight' as keyof ErrorStates
 
     const hasActiveFilters = Object.values(filters).some(
       filterArray => filterArray && filterArray.length > 0
@@ -377,8 +455,8 @@ export const useStore = create<AppState>((set, get) => ({
       return
     }
 
-    state.setLoading('sankey', true)
-    state.clearError('sankey')
+    state.setLoading(loadingKey, true)
+    state.clearError(errorKey)
 
     try {
       // Ensure complete global thresholds with all required fields
@@ -413,42 +491,70 @@ export const useStore = create<AppState>((set, get) => ({
 
       const sankeyData = await api.getSankeyData(request)
 
-      set(() => ({ sankeyData }))
-      state.setLoading('sankey', false)
+      state.setSankeyData(sankeyData, panel)
+      state.setLoading(loadingKey, false)
+      // For backward compatibility
+      if (panel === 'left') {
+        state.setLoading('sankey', false)
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch Sankey data'
-      state.setError('sankey', errorMessage)
-      state.setLoading('sankey', false)
+      state.setError(errorKey, errorMessage)
+      state.setLoading(loadingKey, false)
+      if (panel === 'left') {
+        state.setError('sankey', errorMessage)
+        state.setLoading('sankey', false)
+      }
     }
   },
 
   // View state actions
-  showVisualization: () => {
-    set(() => ({ viewState: 'visualization' }))
-  },
-
-  editFilters: () => {
-    set(() => ({ viewState: 'filtering' }))
-  },
-
-  removeVisualization: () => {
-    set(() => ({
-      viewState: 'empty',
-      sankeyData: null,
-      histogramData: null
+  showVisualization: (panel = 'left') => {
+    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+    set((state) => ({
+      [panelKey]: {
+        ...state[panelKey],
+        viewState: 'visualization'
+      }
     }))
   },
 
-  resetFilters: () => {
-    set(() => ({
-      filters: {
-        sae_id: [],
-        explanation_method: [],
-        llm_explainer: [],
-        llm_scorer: []
-      },
-      sankeyData: null,
-      histogramData: null
+  editFilters: (panel = 'left') => {
+    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+    set((state) => ({
+      [panelKey]: {
+        ...state[panelKey],
+        viewState: 'filtering'
+      }
+    }))
+  },
+
+  removeVisualization: (panel = 'left') => {
+    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+    set((state) => ({
+      [panelKey]: {
+        ...state[panelKey],
+        viewState: 'empty',
+        sankeyData: null,
+        histogramData: null
+      }
+    }))
+  },
+
+  resetFilters: (panel = 'left') => {
+    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+    set((state) => ({
+      [panelKey]: {
+        ...state[panelKey],
+        filters: {
+          sae_id: [],
+          explanation_method: [],
+          llm_explainer: [],
+          llm_scorer: []
+        },
+        sankeyData: null,
+        histogramData: null
+      }
     }))
   },
 
@@ -460,7 +566,11 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   reset: () => {
-    set(() => initialState)
+    set(() => ({
+      ...initialState,
+      leftPanel: createInitialPanelState(),
+      rightPanel: createInitialPanelState()
+    }))
   }
 }))
 

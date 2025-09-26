@@ -60,6 +60,8 @@ interface SankeyDiagramProps {
   className?: string
   animationDuration?: number
   showHistogramOnClick?: boolean
+  flowDirection?: 'left-to-right' | 'right-to-left'
+  panel?: 'left' | 'right'
 }
 
 interface SankeyNodeComponentProps {
@@ -70,6 +72,7 @@ interface SankeyNodeComponentProps {
   onLeave: () => void
   onHistogramClick?: (event: React.MouseEvent, node: D3SankeyNode) => void
   thresholdGroupInfo?: ThresholdGroupInfo
+  flowDirection?: 'left-to-right' | 'right-to-left'
 }
 
 interface SankeyLinkComponentProps {
@@ -92,7 +95,8 @@ const SankeyNode = React.memo(({
   onHover,
   onLeave,
   onHistogramClick,
-  thresholdGroupInfo
+  thresholdGroupInfo,
+  flowDirection = 'left-to-right'
 }: SankeyNodeComponentProps) => {
   const [isHovered, setIsHovered] = useState(false)
 
@@ -119,6 +123,11 @@ const SankeyNode = React.memo(({
   const color = getNodeColor(node)
   const width = node.x1 - node.x0
   const height = node.y1 - node.y0
+
+  // Determine label positioning based on flow direction
+  const isRightToLeft = flowDirection === 'right-to-left'
+  const labelX = isRightToLeft ? node.x1 + 6 : node.x0 - 6
+  const textAnchor = isRightToLeft ? 'start' : 'end'
 
   // Determine if this node has threshold group styling
   const hasThresholdGroup = thresholdGroupInfo?.hasGroup && thresholdGroupInfo.groupSize > 1
@@ -150,13 +159,13 @@ const SankeyNode = React.memo(({
 
       {/* Node label */}
       <text
-        x={node.x0 - 6}
+        x={labelX}
         y={(node.y0 + node.y1) / 2}
         dy="0.35em"
         fontSize={12}
         fill="#374151"
         fontWeight={isHovered ? 600 : 400}
-        textAnchor="end"
+        textAnchor={textAnchor}
         style={{
           transition: `font-weight ${animationDuration}ms ease-out`,
           pointerEvents: 'none'
@@ -167,12 +176,12 @@ const SankeyNode = React.memo(({
 
       {/* Feature count */}
       <text
-        x={node.x0 - 6}
+        x={labelX}
         y={(node.y0 + node.y1) / 2 + 14}
         dy="0.35em"
         fontSize={10}
         fill="#6b7280"
-        textAnchor="end"
+        textAnchor={textAnchor}
         style={{ pointerEvents: 'none' }}
       >
         ({node.feature_count.toLocaleString()})
@@ -261,11 +270,17 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   height = 600,
   className = '',
   animationDuration = DEFAULT_ANIMATION.duration,
-  showHistogramOnClick = true
+  showHistogramOnClick = true,
+  flowDirection = 'left-to-right',
+  panel = 'left'
 }) => {
-  const data = useVisualizationStore(state => state.sankeyData)
-  const loading = useVisualizationStore(state => state.loading.sankey)
-  const error = useVisualizationStore(state => state.errors.sankey)
+  const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+  const loadingKey = panel === 'left' ? 'sankeyLeft' : 'sankeyRight'
+  const errorKey = panel === 'left' ? 'sankeyLeft' : 'sankeyRight'
+
+  const data = useVisualizationStore(state => state[panelKey].sankeyData)
+  const loading = useVisualizationStore(state => state.loading[loadingKey] || (panel === 'left' && state.loading.sankey))
+  const error = useVisualizationStore(state => state.errors[errorKey] || (panel === 'left' && state.errors.sankey))
 
   // Use previous data when loading to prevent flickering
   const [displayData, setDisplayData] = React.useState(data)
@@ -307,7 +322,31 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     let calculatedLayout = null
     if (displayData && errors.length === 0) {
       try {
+        // Use the same width for both panels to ensure consistent layout dimensions
         calculatedLayout = calculateSankeyLayout(displayData, width, height)
+
+        // Apply right-to-left flow transformation if needed
+        if (flowDirection === 'right-to-left' && calculatedLayout) {
+          // Calculate the content area width for position reversal
+          const contentAreaWidth = width - calculatedLayout.margin.left - calculatedLayout.margin.right
+
+          // Reverse node positions for right-to-left flow
+          calculatedLayout.nodes.forEach(sankeyNode => {
+            const nodeX0 = sankeyNode.x0 || 0
+            const nodeX1 = sankeyNode.x1 || 0
+
+            // Mirror positions within content area and apply margin offset
+            sankeyNode.x0 = contentAreaWidth - nodeX1 + calculatedLayout!.margin.left
+            sankeyNode.x1 = contentAreaWidth - nodeX0 + calculatedLayout!.margin.left
+          })
+
+          // Adjust margins for right-aligned layout
+          calculatedLayout.margin = {
+            ...calculatedLayout.margin,
+            left: -30,    
+            right: 80
+          }
+        }
       } catch (error) {
         console.error('Sankey layout calculation failed:', error)
         errors.push(`Sankey layout error: ${error instanceof Error ? error.message : 'Unknown error'}`)
@@ -383,7 +422,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       parentNodeName = node.name
     }
 
-    showHistogramPopover(node.id, node.name, metrics, position, parentNodeId, parentNodeName)
+    showHistogramPopover(node.id, node.name, metrics, position, parentNodeId, parentNodeName, panel)
   }, [showHistogramOnClick, showHistogramPopover, displayData, containerRef])
 
   // Handle link histogram click (show histogram for source node) with threshold group information
@@ -427,7 +466,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       parentNodeName = sourceNode.name
     }
 
-    showHistogramPopover(sourceNode.id, sourceNode.name, metrics, position, parentNodeId, parentNodeName)
+    showHistogramPopover(sourceNode.id, sourceNode.name, metrics, position, parentNodeId, parentNodeName, panel)
   }, [showHistogramOnClick, showHistogramPopover, displayData, containerRef])
 
   // ==================== THRESHOLD GROUPS LOGIC ====================
@@ -547,6 +586,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                       onLeave={handleHoverLeave}
                       onHistogramClick={handleNodeHistogramClick}
                       thresholdGroupInfo={thresholdGroupInfo}
+                      flowDirection={flowDirection}
                     />
                   )
                 })}

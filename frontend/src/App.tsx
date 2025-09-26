@@ -121,11 +121,10 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
     error: null
   })
 
-  // Store state
+  // Store state - now with dual panel support
   const {
-    filters,
-    hierarchicalThresholds,
-    viewState,
+    leftPanel,
+    rightPanel,
     filterOptions,
     fetchFilterOptions,
     fetchSankeyData,
@@ -173,19 +172,19 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
     }
   }, [healthState.isHealthy, filterOptions, autoLoad, fetchFilterOptions])
 
-  // Watch for filter changes and fetch data when in visualization mode
+  // Watch for filter changes and fetch data when in visualization mode - left panel
   useEffect(() => {
     const loadData = async () => {
-      const hasActiveFilters = Object.values(filters).some(
+      const hasActiveFilters = Object.values(leftPanel.filters).some(
         filterArray => filterArray && filterArray.length > 0
       )
 
-      if (hasActiveFilters && viewState === 'visualization') {
+      if (hasActiveFilters && leftPanel.viewState === 'visualization') {
         try {
-          await fetchMultipleHistogramData(['feature_splitting', 'semdist_mean', 'score_fuzz'])
-          fetchSankeyData()
+          await fetchMultipleHistogramData(['feature_splitting', 'semdist_mean', 'score_fuzz'], undefined, 'left')
+          fetchSankeyData('left')
         } catch (error) {
-          console.error('Failed to load visualization data:', error)
+          console.error('Failed to load left visualization data:', error)
         }
       }
     }
@@ -193,43 +192,102 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
     if (healthState.isHealthy) {
       loadData()
     }
-  }, [filters, viewState, healthState.isHealthy, fetchMultipleHistogramData, fetchSankeyData])
+  }, [leftPanel.filters, leftPanel.viewState, healthState.isHealthy, fetchMultipleHistogramData, fetchSankeyData])
 
-  // Watch for threshold changes and re-fetch Sankey data
+  // Watch for filter changes and fetch data when in visualization mode - right panel
   useEffect(() => {
-    const hasActiveFilters = Object.values(filters).some(
+    const loadData = async () => {
+      const hasActiveFilters = Object.values(rightPanel.filters).some(
+        filterArray => filterArray && filterArray.length > 0
+      )
+
+      if (hasActiveFilters && rightPanel.viewState === 'visualization') {
+        try {
+          await fetchMultipleHistogramData(['feature_splitting', 'semdist_mean', 'score_fuzz'], undefined, 'right')
+          fetchSankeyData('right')
+        } catch (error) {
+          console.error('Failed to load right visualization data:', error)
+        }
+      }
+    }
+
+    if (healthState.isHealthy) {
+      loadData()
+    }
+  }, [rightPanel.filters, rightPanel.viewState, healthState.isHealthy, fetchMultipleHistogramData, fetchSankeyData])
+
+  // Watch for threshold changes and re-fetch Sankey data - left panel
+  useEffect(() => {
+    const hasActiveFilters = Object.values(leftPanel.filters).some(
       filterArray => filterArray && filterArray.length > 0
     )
 
-    if (hasActiveFilters && viewState === 'visualization' && healthState.isHealthy) {
+    if (hasActiveFilters && leftPanel.viewState === 'visualization' && healthState.isHealthy) {
       try {
-        fetchSankeyData()
+        fetchSankeyData('left')
       } catch (error) {
-        console.error('Failed to update Sankey data:', error)
+        console.error('Failed to update left Sankey data:', error)
       }
     }
-  }, [hierarchicalThresholds, filters, viewState, healthState.isHealthy, fetchSankeyData])
+  }, [leftPanel.hierarchicalThresholds, leftPanel.filters, leftPanel.viewState, healthState.isHealthy, fetchSankeyData])
 
-  // Event handlers
-  const handleAddVisualization = useCallback(() => {
-    setViewState('filtering')
+  // Watch for threshold changes and re-fetch Sankey data - right panel
+  useEffect(() => {
+    const hasActiveFilters = Object.values(rightPanel.filters).some(
+      filterArray => filterArray && filterArray.length > 0
+    )
+
+    if (hasActiveFilters && rightPanel.viewState === 'visualization' && healthState.isHealthy) {
+      try {
+        fetchSankeyData('right')
+      } catch (error) {
+        console.error('Failed to update right Sankey data:', error)
+      }
+    }
+  }, [rightPanel.hierarchicalThresholds, rightPanel.filters, rightPanel.viewState, healthState.isHealthy, fetchSankeyData])
+
+  // Event handlers - left panel
+  const handleAddVisualizationLeft = useCallback(() => {
+    setViewState('filtering', 'left')
   }, [setViewState])
 
-  const handleCancelFiltering = useCallback(() => {
-    setViewState('empty')
+  const handleCancelFilteringLeft = useCallback(() => {
+    setViewState('empty', 'left')
   }, [setViewState])
 
-  const handleCreateVisualization = useCallback(() => {
-    showVisualization()
+  const handleCreateVisualizationLeft = useCallback(() => {
+    showVisualization('left')
   }, [showVisualization])
 
-  const handleEditFilters = useCallback(() => {
-    editFilters()
+  const handleEditFiltersLeft = useCallback(() => {
+    editFilters('left')
   }, [editFilters])
 
-  const handleRemoveVisualization = useCallback(() => {
-    removeVisualization()
-    resetFilters()
+  const handleRemoveVisualizationLeft = useCallback(() => {
+    removeVisualization('left')
+    resetFilters('left')
+  }, [removeVisualization, resetFilters])
+
+  // Event handlers - right panel
+  const handleAddVisualizationRight = useCallback(() => {
+    setViewState('filtering', 'right')
+  }, [setViewState])
+
+  const handleCancelFilteringRight = useCallback(() => {
+    setViewState('empty', 'right')
+  }, [setViewState])
+
+  const handleCreateVisualizationRight = useCallback(() => {
+    showVisualization('right')
+  }, [showVisualization])
+
+  const handleEditFiltersRight = useCallback(() => {
+    editFilters('right')
+  }, [editFilters])
+
+  const handleRemoveVisualizationRight = useCallback(() => {
+    removeVisualization('right')
+    resetFilters('right')
   }, [removeVisualization, resetFilters])
 
   // Show loading/error states if health check hasn't passed
@@ -254,54 +312,73 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
         </div>
       </div>
 
-      {/* Main content - conditional rendering based on view state */}
+      {/* Main content - dual panel rendering */}
       <div className={`sankey-view__content sankey-view__content--${layout}`}>
-        {viewState === 'empty' && (
-          <div className="sankey-view__main-content">
-            <div className="sankey-view__left-half">
-              <EmptyState onAddVisualization={handleAddVisualization} />
-            </div>
-            <div className="sankey-view__right-half">
-              {/* Empty space for future content */}
-            </div>
-          </div>
-        )}
+        <div className="sankey-view__main-content">
+          {/* Left Panel */}
+          <div className="sankey-view__left-half">
+            {leftPanel.viewState === 'empty' && (
+              <EmptyState onAddVisualization={handleAddVisualizationLeft} />
+            )}
 
-        {viewState === 'filtering' && (
-          <div className="sankey-view__main-content">
-            <div className="sankey-view__left-half">
+            {leftPanel.viewState === 'filtering' && (
               <FilterPanel
-                onCreateVisualization={handleCreateVisualization}
-                onCancel={handleCancelFiltering}
+                onCreateVisualization={handleCreateVisualizationLeft}
+                onCancel={handleCancelFilteringLeft}
+                panel="left"
               />
-            </div>
-            <div className="sankey-view__right-half">
-              {/* Empty space for future content */}
-            </div>
-          </div>
-        )}
+            )}
 
-        {viewState === 'visualization' && (
-          <div className="sankey-view__main-content">
-            <div className="sankey-view__left-half">
+            {leftPanel.viewState === 'visualization' && (
               <div className="sankey-view__diagram-container">
                 <VisualizationActions
-                  onEditFilters={handleEditFilters}
-                  onRemove={handleRemoveVisualization}
+                  onEditFilters={handleEditFiltersLeft}
+                  onRemove={handleRemoveVisualizationLeft}
                   className="sankey-view__floating-actions"
                 />
                 <SankeyDiagram
                   width={(window.innerWidth / 2) - 40}
                   height={window.innerHeight - 170}
                   showHistogramOnClick={true}
+                  flowDirection="left-to-right"
+                  panel="left"
                 />
               </div>
-            </div>
-            <div className="sankey-view__right-half">
-              {/* Empty space for future content */}
-            </div>
+            )}
           </div>
-        )}
+
+          {/* Right Panel */}
+          <div className="sankey-view__right-half">
+            {rightPanel.viewState === 'empty' && (
+              <EmptyState onAddVisualization={handleAddVisualizationRight} />
+            )}
+
+            {rightPanel.viewState === 'filtering' && (
+              <FilterPanel
+                onCreateVisualization={handleCreateVisualizationRight}
+                onCancel={handleCancelFilteringRight}
+                panel="right"
+              />
+            )}
+
+            {rightPanel.viewState === 'visualization' && (
+              <div className="sankey-view__diagram-container">
+                <VisualizationActions
+                  onEditFilters={handleEditFiltersRight}
+                  onRemove={handleRemoveVisualizationRight}
+                  className="sankey-view__floating-actions"
+                />
+                <SankeyDiagram
+                  width={(window.innerWidth / 2) - 40}
+                  height={window.innerHeight - 170}
+                  showHistogramOnClick={true}
+                  flowDirection="right-to-left"
+                  panel="right"
+                />
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Histogram popover for node-specific threshold setting */}
