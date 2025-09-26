@@ -1,4 +1,4 @@
-import { scaleLinear, scalePoint } from 'd3-scale'
+import { scaleLinear } from 'd3-scale'
 import { max, sum, group } from 'd3-array'
 import { sankey, sankeyLinkHorizontal } from 'd3-sankey'
 import { linkHorizontal } from 'd3-shape'

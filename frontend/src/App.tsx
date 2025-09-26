@@ -230,7 +230,7 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
         console.error('Failed to update left Sankey data:', error)
       }
     }
-  }, [leftPanel.hierarchicalThresholds, leftPanel.filters, leftPanel.viewState, healthState.isHealthy, fetchSankeyData])
+  }, [leftPanel.thresholdTree, leftPanel.filters, leftPanel.viewState, healthState.isHealthy, fetchSankeyData])
 
   // Watch for threshold changes and re-fetch Sankey data - right panel
   useEffect(() => {
@@ -245,7 +245,7 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
         console.error('Failed to update right Sankey data:', error)
       }
     }
-  }, [rightPanel.hierarchicalThresholds, rightPanel.filters, rightPanel.viewState, healthState.isHealthy, fetchSankeyData])
+  }, [rightPanel.thresholdTree, rightPanel.filters, rightPanel.viewState, healthState.isHealthy, fetchSankeyData])
 
   // Event handlers - left panel
   const handleAddVisualizationLeft = useCallback(() => {

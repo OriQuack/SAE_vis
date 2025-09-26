@@ -20,15 +20,15 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
 }) => {
   // Get data from store
   const alluvialFlows = useVisualizationStore(state => state.alluvialFlows)
-  const leftPanel = useVisualizationStore(state => state.leftPanel)
-  const rightPanel = useVisualizationStore(state => state.rightPanel)
+//   const leftPanel = useVisualizationStore(state => state.leftPanel)
+//   const rightPanel = useVisualizationStore(state => state.rightPanel)
 
-  // Debug logging
-  console.log('🎯 AlluvialDiagram rendering:', {
-    alluvialFlows: alluvialFlows ? `${alluvialFlows.length} flows` : alluvialFlows,
-    leftViewState: leftPanel.viewState,
-    rightViewState: rightPanel.viewState
-  })
+//   // Debug logging
+//   console.log('🎯 AlluvialDiagram rendering:', {
+//     alluvialFlows: alluvialFlows ? `${alluvialFlows.length} flows` : alluvialFlows,
+//     leftViewState: leftPanel.viewState,
+//     rightViewState: rightPanel.viewState
+//   })
 
   // State for interactions
   const [hoveredFlowId, setHoveredFlowId] = useState<string | null>(null)

@@ -95,6 +95,10 @@ class ThresholdTreeTraverser:
         """
         Extract threshold values for all features in the DataFrame.
 
+        This method works stage by stage to avoid circular dependencies:
+        1. Extract root threshold for feature_splitting (same for all features)
+        2. Extract subsequent thresholds based on tree structure
+
         Args:
             df: DataFrame containing feature values
 
@@ -106,31 +110,90 @@ class ThresholdTreeTraverser:
         threshold_columns = {}
         num_rows = len(df)
 
-        # Get metrics that are actually part of the tree structure
-        tree_metrics = self._get_tree_metrics()
+        # Stage 1: Feature splitting - all features use the root threshold
+        if "feature_splitting" in self.tree.metrics:
+            root_threshold = 0.0  # default
+            if self.tree.root.split and self.tree.root.split.get('thresholds'):
+                root_threshold = self.tree.root.split['thresholds'][0]
+            threshold_columns["feature_splitting_threshold"] = pl.Series([root_threshold] * num_rows)
 
-        for metric in self.tree.metrics:
-            # Map metric names to the expected column name format
-            if metric.startswith("score_"):
-                # score_fuzz -> threshold_fuzz
-                column_name = f"threshold_{metric.replace('score_', '')}"
-            else:
-                # feature_splitting -> feature_splitting_threshold
-                column_name = f"{metric}_threshold"
+        # Stage 2: Semantic distance - extract thresholds from splitting children
+        if "semdist_mean" in self.tree.metrics:
+            semdist_thresholds = []
+            for row in df.iter_rows(named=True):
+                # Determine which splitting branch this feature would go to
+                feature_splitting_val = row.get("feature_splitting", 0.0)
+                root_threshold = threshold_columns["feature_splitting_threshold"][0]  # All same for root
 
-            if metric in tree_metrics:
-                # For metrics in tree structure, traverse the tree
-                thresholds = []
-                for row in df.iter_rows(named=True):
-                    threshold = self.get_threshold_for_path(dict(row))
-                    thresholds.append(threshold if threshold is not None else DEFAULT_THRESHOLDS.get(metric, 0.0))
-                threshold_columns[column_name] = pl.Series(thresholds)
-            else:
-                # For metrics not in tree structure, use default threshold
-                default_threshold = DEFAULT_THRESHOLDS.get(metric, 0.0)
-                threshold_columns[column_name] = pl.Series([default_threshold] * num_rows)
+                if feature_splitting_val >= root_threshold:
+                    # Goes to split_true branch
+                    child_node = self._find_child_by_id(self.tree.root, "split_true")
+                else:
+                    # Goes to split_false branch
+                    child_node = self._find_child_by_id(self.tree.root, "split_false")
+
+                if child_node and child_node.split and child_node.split.get('thresholds'):
+                    semdist_threshold = child_node.split['thresholds'][0]
+                else:
+                    semdist_threshold = DEFAULT_THRESHOLDS.get("semdist_mean", 0.0)
+
+                semdist_thresholds.append(semdist_threshold)
+
+            threshold_columns["semdist_mean_threshold"] = pl.Series(semdist_thresholds)
+
+        # Stage 3: Score thresholds - extract from semdist children
+        for score_metric in ["score_fuzz", "score_simulation", "score_detection"]:
+            if score_metric in self.tree.metrics:
+                column_name = f"threshold_{score_metric.replace('score_', '')}"
+                score_thresholds = []
+
+                for i, row in enumerate(df.iter_rows(named=True)):
+                    # Determine the path this feature takes
+                    feature_splitting_val = row.get("feature_splitting", 0.0)
+                    semdist_mean_val = row.get("semdist_mean", 0.0)
+
+                    # Get the appropriate semdist child node
+                    root_threshold = threshold_columns["feature_splitting_threshold"][0]
+                    semdist_threshold = semdist_thresholds[i]
+
+                    if feature_splitting_val >= root_threshold:
+                        parent_node = self._find_child_by_id(self.tree.root, "split_true")
+                    else:
+                        parent_node = self._find_child_by_id(self.tree.root, "split_false")
+
+                    if parent_node:
+                        if semdist_mean_val >= semdist_threshold:
+                            child_node = self._find_child_by_id(parent_node, f"{parent_node.id}_semdist_high")
+                        else:
+                            child_node = self._find_child_by_id(parent_node, f"{parent_node.id}_semdist_low")
+
+                        # Extract the appropriate score threshold
+                        threshold_index = {"score_fuzz": 0, "score_simulation": 1, "score_detection": 2}.get(score_metric, 0)
+                        if child_node and child_node.split and child_node.split.get('thresholds'):
+                            if threshold_index < len(child_node.split['thresholds']):
+                                score_threshold = child_node.split['thresholds'][threshold_index]
+                            else:
+                                score_threshold = DEFAULT_THRESHOLDS.get(score_metric, 0.0)
+                        else:
+                            score_threshold = DEFAULT_THRESHOLDS.get(score_metric, 0.0)
+                    else:
+                        score_threshold = DEFAULT_THRESHOLDS.get(score_metric, 0.0)
+
+                    score_thresholds.append(score_threshold)
+
+                threshold_columns[column_name] = pl.Series(score_thresholds)
 
         return threshold_columns
+
+    def _find_child_by_id(self, parent_node: ThresholdNode, child_id: str) -> Optional[ThresholdNode]:
+        """Find a child node by its ID within the parent node's children."""
+        if not parent_node.split or not parent_node.split.get('children'):
+            return None
+
+        for child in parent_node.split['children']:
+            if child.id == child_id:
+                return child
+        return None
 
     def _get_tree_metrics(self) -> set:
         """Get the set of metrics that are actually used in the tree structure."""
