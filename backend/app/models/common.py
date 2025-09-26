@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+from pydantic import BaseModel, Field, validator
+from typing import List, Optional, Dict, Any, Union, Set
 from enum import Enum
 
 class MetricType(str, Enum):
@@ -54,160 +54,55 @@ class Filters(BaseModel):
         example=["gpt-4-turbo"]
     )
 
-class Thresholds(BaseModel):
-    """Threshold configuration for Sankey diagram generation"""
-    feature_splitting: float = Field(
-        default=0.3,
-        ge=0.0,
-        le=1.0,
-        description="Threshold for feature splitting classification (cosine similarity magnitude, typically 1e-5 to 1e-4)",
-        example=0.00002
-    )
-    semdist_mean: float = Field(
-        ...,
-        ge=0.0,
-        le=1.0,
-        description="Threshold for semantic distance classification",
-        example=0.15
-    )
-    score_fuzz: float = Field(
-        ...,
-        ge=0.0,
-        le=1.0,
-        description="Threshold for 'high' fuzz score classification",
-        example=0.8
-    )
-    score_detection: float = Field(
-        ...,
-        ge=0.0,
-        le=1.0,
-        description="Threshold for 'high' detection score classification",
-        example=0.8
-    )
-    score_simulation: float = Field(
-        ...,
-        ge=0.0,
-        le=1.0,
-        description="Threshold for 'high' simulation score classification",
-        example=0.8
-    )
 
-class ThresholdGroup(str, Enum):
-    """Types of threshold groups for hierarchical management"""
-    SEMANTIC_DISTANCE = "semantic_distance"  # Groups semantic distance nodes by splitting parent
-    SCORE_AGREEMENT = "score_agreement"      # Groups score agreement nodes by semantic distance parent
 
-class HierarchicalThresholds(BaseModel):
-    """Hierarchical threshold configuration supporting parent-based grouping"""
-    global_thresholds: Thresholds = Field(
+# ============================================================================
+# NEW UNIFIED THRESHOLD TREE SYSTEM
+# ============================================================================
+
+class ThresholdNode(BaseModel):
+    """Represents a node in the hierarchical threshold tree."""
+    id: str = Field(
         ...,
-        description="Global threshold values used as defaults"
+        description="Unique identifier for this category/node"
     )
-
-    # Feature splitting threshold groups: can be customized by different conditions
-    # Key format: "condition" -> feature splitting threshold for that condition
-    feature_splitting_groups: Optional[Dict[str, float]] = Field(
+    metric: Optional[str] = Field(
         default=None,
-        description="Feature splitting thresholds for different groupings",
-        example={
-            "default": 0.00002,
-            "high_confidence": 0.00001
-        }
+        description="Optional metric name this node uses for evaluation"
     )
-
-    # Semantic distance threshold groups: grouped by splitting parent
-    # Key format: "split_{true/false}" -> all semantic distance nodes under this splitting parent
-    semantic_distance_groups: Optional[Dict[str, float]] = Field(
+    split: Optional[Dict[str, Union[List[float], List['ThresholdNode']]]] = Field(
         default=None,
-        description="Semantic distance thresholds grouped by splitting parent",
-        example={
-            "split_true": 0.15,
-            "split_false": 0.20
-        }
+        description="The rule for splitting this node into children"
     )
 
-    # Score agreement threshold groups: grouped by semantic distance parent
-    # Key format: "split_{true/false}_semdist_{high/low}" -> all score nodes under this semantic distance parent
-    score_agreement_groups: Optional[Dict[str, Dict[str, float]]] = Field(
-        default=None,
-        description="Score thresholds grouped by semantic distance parent",
-        example={
-            "split_true_semdist_high": {
-                "score_fuzz": 0.8,
-                "score_simulation": 0.8,
-                "score_detection": 0.8
-            },
-            "split_true_semdist_low": {
-                "score_fuzz": 0.7,
-                "score_simulation": 0.7,
-                "score_detection": 0.7
-            }
-        }
+    @validator('split')
+    def validate_split(cls, v):
+        """Validate split structure has both thresholds and children."""
+        if v is not None:
+            if 'thresholds' not in v or 'children' not in v:
+                raise ValueError("Split must contain both 'thresholds' and 'children' keys")
+
+            thresholds = v['thresholds']
+            children = v['children']
+
+            if not isinstance(thresholds, list) or not isinstance(children, list):
+                raise ValueError("Both thresholds and children must be lists")
+
+            if len(children) != len(thresholds) + 1:
+                raise ValueError(f"Children length ({len(children)}) must be exactly thresholds length + 1 ({len(thresholds) + 1})")
+
+        return v
+
+class ThresholdTree(BaseModel):
+    """Complete threshold tree structure with metadata."""
+    root: ThresholdNode = Field(
+        ...,
+        description="Root node of the threshold tree"
+    )
+    metrics: Set[str] = Field(
+        default_factory=set,
+        description="Set of all metrics used in the tree"
     )
 
-    # Individual node threshold overrides
-    # Key format: "node_{nodeId}" -> threshold values for specific individual nodes
-    individual_node_groups: Optional[Dict[str, Dict[str, float]]] = Field(
-        default=None,
-        description="Individual node threshold overrides",
-        example={
-            "node_split_true_semdist_high": {
-                "semdist_mean": 0.25
-            },
-            "node_split_true_semdist_high_agree_all": {
-                "score_fuzz": 0.9,
-                "score_simulation": 0.85
-            }
-        }
-    )
-
-    def get_feature_splitting_threshold(self, condition: str = "default") -> float:
-        """Get feature splitting threshold for a given condition (cosine similarity scale)"""
-        if self.feature_splitting_groups and condition in self.feature_splitting_groups:
-            return self.feature_splitting_groups[condition]
-        return self.global_thresholds.feature_splitting
-
-    def get_semdist_threshold_for_node(self, node_id: str) -> float:
-        """Get semantic distance threshold for a node based on its parent grouping"""
-        # First check for individual node override
-        individual_group_id = f"node_{node_id}"
-        if (self.individual_node_groups and
-            individual_group_id in self.individual_node_groups and
-            "semdist_mean" in self.individual_node_groups[individual_group_id]):
-            return self.individual_node_groups[individual_group_id]["semdist_mean"]
-
-        # Extract splitting parent from node_id (e.g., "split_true_semdist_high" -> "split_true")
-        if "_semdist_" in node_id:
-            splitting_parent = node_id.split("_semdist_")[0]  # e.g., "split_true"
-            if self.semantic_distance_groups and splitting_parent in self.semantic_distance_groups:
-                return self.semantic_distance_groups[splitting_parent]
-
-        return self.global_thresholds.semdist_mean
-
-    def get_score_thresholds_for_node(self, node_id: str) -> Dict[str, float]:
-        """Get score thresholds for a node based on its parent grouping"""
-        # Use individual global thresholds as defaults
-        result = {
-            "score_fuzz": self.global_thresholds.score_fuzz,
-            "score_simulation": self.global_thresholds.score_simulation,
-            "score_detection": self.global_thresholds.score_detection
-        }
-
-        # Extract semantic distance parent from node_id (e.g., "split_true_semdist_high_agree_all" -> "split_true_semdist_high")
-        if "_agree_" in node_id:
-            semantic_parent = "_".join(node_id.split("_")[:-2])  # Remove "_agree_{type}" suffix
-            if self.score_agreement_groups and semantic_parent in self.score_agreement_groups:
-                # Merge hierarchical thresholds with defaults, so missing metrics use defaults
-                group_thresholds = self.score_agreement_groups[semantic_parent]
-                result.update(group_thresholds)
-
-        # Check for individual node overrides (highest priority)
-        individual_group_id = f"node_{node_id}"
-        if self.individual_node_groups and individual_group_id in self.individual_node_groups:
-            individual_thresholds = self.individual_node_groups[individual_group_id]
-            # Only update the metrics that are explicitly set in individual overrides
-            for score_type in ["score_fuzz", "score_simulation", "score_detection"]:
-                if score_type in individual_thresholds:
-                    result[score_type] = individual_thresholds[score_type]
-
-        return result
+# Forward reference resolution
+ThresholdNode.model_rebuild()

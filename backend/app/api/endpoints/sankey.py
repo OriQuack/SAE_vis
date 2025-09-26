@@ -65,13 +65,13 @@ async def get_sankey_data(
     """
     logger.info("📡 === SANKEY API REQUEST ===")
     logger.info(f"🔍 Filters: {request.filters}")
-    logger.info(f"🏗️ Hierarchical thresholds: {request.hierarchicalThresholds}")
+    logger.info(f"🌳 Threshold tree: {request.thresholdTree}")
 
     try:
         # Generate Sankey data
         return await data_service.get_sankey_data(
             filters=request.filters,
-            hierarchicalThresholds=request.hierarchicalThresholds
+            thresholdTree=request.thresholdTree
         )
 
     except ValueError as e:

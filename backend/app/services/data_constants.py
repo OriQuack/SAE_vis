@@ -96,3 +96,13 @@ AGREEMENT_THRESHOLDS = {
     AGREE_1OF3: 1,     # Exactly 1 score high
     AGREE_NONE: 0      # All scores low
 }
+
+# Default threshold values for metrics
+DEFAULT_THRESHOLDS = {
+    "feature_splitting": 0.00002,
+    "semdist_mean": 0.15,
+    "score_fuzz": 0.8,
+    "score_simulation": 0.8,
+    "score_detection": 0.8,
+    "score_embedding": 0.8
+}
