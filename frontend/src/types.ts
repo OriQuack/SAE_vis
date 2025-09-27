@@ -15,7 +15,7 @@ export interface Filters {
 }
 
 // ============================================================================
-// NEW UNIFIED THRESHOLD TREE SYSTEM
+// THRESHOLD TREE SYSTEM
 // ============================================================================
 
 /**
@@ -128,7 +128,6 @@ export interface SankeyNode {
   stage: number
   feature_count: number
   category: NodeCategory
-  parent_path?: string[]
   feature_ids?: number[]
 }
 

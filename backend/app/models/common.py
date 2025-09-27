@@ -58,7 +58,7 @@ class Filters(BaseModel):
 
 
 # ============================================================================
-# NEW UNIFIED THRESHOLD TREE SYSTEM
+# DEPRECIATED Threshold system
 # ============================================================================
 
 class ThresholdNode(BaseModel):
