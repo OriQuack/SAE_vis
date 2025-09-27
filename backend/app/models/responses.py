@@ -88,10 +88,6 @@ class SankeyNode(BaseModel):
         ...,
         description="Category type of this node"
     )
-    parent_path: Optional[List[str]] = Field(
-        default=None,
-        description="Path from root to this node"
-    )
     feature_ids: Optional[List[int]] = Field(
         default=None,
         description="List of feature IDs in this node (included only for leaf nodes to enable alluvial diagrams)"
