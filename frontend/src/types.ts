@@ -15,27 +15,6 @@ export interface Filters {
 }
 
 // ============================================================================
-// LEGACY THRESHOLD INTERFACES (kept for backend compatibility)
-// These will be removed once backend is migrated to use ThresholdTree
-// ============================================================================
-
-export interface Thresholds {
-  feature_splitting: number
-  semdist_mean: number
-  score_fuzz: number
-  score_detection: number
-  score_simulation: number
-}
-
-// DEPRECATED: Legacy hierarchical threshold interface
-// Kept only for backward compatibility if needed
-export interface HierarchicalThresholds {
-  global_thresholds: Thresholds
-  score_agreement_groups?: Record<string, Record<string, number>>
-  individual_node_groups?: Record<string, Record<string, number>>
-}
-
-// ============================================================================
 // NEW UNIFIED THRESHOLD TREE SYSTEM
 // ============================================================================
 
@@ -109,11 +88,12 @@ export interface HistogramDataRequest {
   metric: string
   bins?: number
   nodeId?: string
+  thresholdTree?: ThresholdTree
 }
 
 export interface SankeyDataRequest {
   filters: Filters
-  thresholdTree: ThresholdTree                    // NEW: Unified system (will be primary after backend migration)
+  thresholdTree: ThresholdTree
 }
 
 export interface ComparisonDataRequest {
@@ -389,18 +369,6 @@ export const INITIAL_FILTERS: Filters = {
   llm_scorer: []
 }
 
-// ============================================================================
-// DEPRECATED: Legacy threshold constants (replaced by ThresholdTree system)
-// TODO: Remove after backend migration
-// ============================================================================
-// export const INITIAL_THRESHOLDS: Thresholds = {
-//   feature_splitting: 0.1,
-//   semdist_mean: 0.1,
-//   score_fuzz: 0.5,
-//   score_detection: 0.5,
-//   score_simulation: 0.2,
-// }
-
 export const INITIAL_LOADING: LoadingStates = {
   filters: false,
   histogram: false,
@@ -422,30 +390,3 @@ export const INITIAL_ERRORS: ErrorStates = {
 export const INITIAL_POPOVER_STATE: PopoverState = {
   histogram: null
 }
-
-// ============================================================================
-// UTILITY FUNCTIONS
-// ============================================================================
-
-// ============================================================================
-// DEPRECATED: Legacy utility functions (replaced by ThresholdTree operations)
-// These functions were specific to the old 3-tier hierarchy system
-// TODO: Remove after confirming new tree system works fully
-// ============================================================================
-
-// /**
-//  * Utility function to extract parent node ID from score agreement node
-//  */
-// export function getParentNodeId(scoreAgreementNodeId: string): string | undefined {
-//   // Score agreement nodes have format: split_{true/false}_semdist_{high/low}_{agreement}
-//   // We want to extract: split_{true/false}_semdist_{high/low}
-//   const match = scoreAgreementNodeId.match(/^(split_\w+_semdist_\w+)_agree_\w+$/)
-//   return match ? match[1] : undefined
-// }
-//
-// /**
-//  * Check if a node is a score agreement node
-//  */
-// export function isScoreAgreementNode(nodeId: string): boolean {
-//   return nodeId.includes('_agree_')
-// }

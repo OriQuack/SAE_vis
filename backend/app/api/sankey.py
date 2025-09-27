@@ -1,16 +1,16 @@
 from fastapi import APIRouter, HTTPException, Depends
 import logging
-from ...services.data_service import DataService
-from ...models.requests import HistogramRequest
-from ...models.responses import HistogramResponse
-from ...models.common import ErrorResponse
+from ..services.data_service import DataService
+from ..models.requests import SankeyRequest
+from ..models.responses import SankeyResponse
+from ..models.common import ErrorResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 def get_data_service():
     """Dependency to get data service instance"""
-    from ...main import data_service
+    from ..main import data_service
     if not data_service or not data_service.is_ready():
         raise HTTPException(
             status_code=503,
@@ -25,45 +25,53 @@ def get_data_service():
     return data_service
 
 @router.post(
-    "/histogram-data",
-    response_model=HistogramResponse,
+    "/sankey-data",
+    response_model=SankeyResponse,
     responses={
-        200: {"description": "Histogram data generated successfully"},
+        200: {"description": "Sankey data generated successfully"},
         400: {"model": ErrorResponse, "description": "Invalid request parameters"},
         500: {"model": ErrorResponse, "description": "Server error"}
     },
-    summary="Get Histogram Data",
-    description="Returns histogram data for a specific metric to render distribution visualization with threshold controls."
+    summary="Get Sankey Diagram Data",
+    description="Returns structured nodes and links data for rendering a Sankey diagram based on complete configuration."
 )
-async def get_histogram_data(
-    request: HistogramRequest,
+async def get_sankey_data(
+    request: SankeyRequest,
     data_service: DataService = Depends(get_data_service)
 ):
     """
-    Generate histogram data for a specific metric.
+    Generate Sankey diagram data with hierarchical categorization.
 
-    This endpoint takes a set of filters and a metric name, then returns
-    histogram data including bins, counts, and statistical summary.
+    This is the main endpoint for generating visualization data. It takes
+    a complete configuration including filters and thresholds, then returns
+    structured nodes and links for rendering interactive Sankey diagrams.
 
-    The histogram is used to render distribution visualizations that help
-    users set appropriate threshold values for the Sankey diagrams.
+    The Sankey diagram shows feature flow through multiple stages:
+    1. **Stage 0**: Root (all features)
+    2. **Stage 1**: Feature splitting (true/false)
+    3. **Stage 2**: Semantic distance (high/low based on threshold)
+    4. **Stage 3**: Score agreement (4 groups based on score thresholds)
 
     Args:
-        request: Histogram request containing filters, metric, and bin count
+        request: Sankey request containing filters and thresholds
         data_service: Data service dependency
 
     Returns:
-        HistogramResponse: Histogram data, statistics, and metadata
+        SankeyResponse: Nodes, links, and metadata for the Sankey diagram
 
     Raises:
         HTTPException: For various error conditions including invalid filters,
-                      insufficient data, or server errors
+                      invalid thresholds, insufficient data, or server errors
     """
+    logger.info("📡 === SANKEY API REQUEST ===")
+    logger.info(f"🔍 Filters: {request.filters}")
+    logger.info(f"🌳 Threshold tree: {request.thresholdTree}")
+
     try:
-        return await data_service.get_histogram_data(
+        # Generate Sankey data
+        return await data_service.get_sankey_data(
             filters=request.filters,
-            metric=request.metric,
-            bins=request.bins
+            thresholdTree=request.thresholdTree
         )
 
     except ValueError as e:
@@ -79,17 +87,6 @@ async def get_histogram_data(
                     }
                 }
             )
-        elif "No valid values" in error_msg:
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "error": {
-                        "code": "INVALID_METRIC_DATA",
-                        "message": f"No valid values found for metric '{request.metric.value}'",
-                        "details": {"metric": request.metric.value}
-                    }
-                }
-            )
         else:
             raise HTTPException(
                 status_code=400,
@@ -102,14 +99,18 @@ async def get_histogram_data(
                 }
             )
 
+    except HTTPException:
+        # Re-raise HTTP exceptions (like validation errors)
+        raise
+
     except Exception as e:
-        logger.error(f"Error generating histogram data: {e}")
+        logger.error(f"Error generating Sankey data: {e}")
         raise HTTPException(
             status_code=500,
             detail={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to generate histogram data",
+                    "message": "Failed to generate Sankey data",
                     "details": {"error": str(e)}
                 }
             }

@@ -1,15 +1,15 @@
 from fastapi import APIRouter, HTTPException, Depends
 import logging
-from ...services.data_service import DataService
-from ...models.responses import FilterOptionsResponse
-from ...models.common import ErrorResponse
+from ..services.data_service import DataService
+from ..models.responses import FilterOptionsResponse
+from ..models.common import ErrorResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 def get_data_service():
     """Dependency to get data service instance"""
-    from ...main import data_service
+    from ..main import data_service
     if not data_service or not data_service.is_ready():
         raise HTTPException(
             status_code=503,

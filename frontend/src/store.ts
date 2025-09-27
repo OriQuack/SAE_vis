@@ -313,7 +313,7 @@ export const useStore = create<AppState>((set, get) => ({
     const state = get()
     const targetMetric = metric || state.currentMetric
     const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
-    const { filters } = state[panelKey]
+    const { filters, thresholdTree } = state[panelKey]
 
     const hasActiveFilters = Object.values(filters).some(
       filterArray => filterArray && filterArray.length > 0
@@ -330,8 +330,9 @@ export const useStore = create<AppState>((set, get) => ({
       const request = {
         filters,
         metric: targetMetric,
-        bins: 20,
-        nodeId
+        nodeId,
+        // Include thresholdTree when nodeId is provided for node-specific filtering
+        ...(nodeId && { thresholdTree })
       }
 
       const histogramData = await api.getHistogramData(request)
@@ -349,7 +350,7 @@ export const useStore = create<AppState>((set, get) => ({
   fetchMultipleHistogramData: async (metrics, nodeId?: string, panel = 'left') => {
     const state = get()
     const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
-    const { filters } = state[panelKey]
+    const { filters, thresholdTree } = state[panelKey]
 
     const hasActiveFilters = Object.values(filters).some(
       filterArray => filterArray && filterArray.length > 0
@@ -367,8 +368,9 @@ export const useStore = create<AppState>((set, get) => ({
         const request = {
           filters,
           metric,
-          bins: 20,
-          nodeId
+          nodeId,
+          // Include thresholdTree when nodeId is provided for node-specific filtering
+          ...(nodeId && { thresholdTree })
         }
 
         const data = await api.getHistogramData(request)
@@ -379,26 +381,6 @@ export const useStore = create<AppState>((set, get) => ({
       const combinedData = results.reduce((acc, result) => ({ ...acc, ...result }), {})
 
       state.setHistogramData(combinedData, panel)
-
-      // DEPRECATED: Legacy auto-threshold-update logic (commented out)
-      // In the new tree system, thresholds are set explicitly by users via histogram popovers
-      // This auto-update behavior is no longer needed and could be confusing
-      // TODO: Remove after confirming new system works as expected
-      //
-      // const newThresholds: Partial<Thresholds> = {}
-      // for (const metric of metrics) {
-      //   const data = combinedData[metric]
-      //   if (data && data.statistics && data.statistics.mean !== undefined) {
-      //     if (metric === 'score_fuzz') {
-      //       newThresholds.score_fuzz = data.statistics.mean
-      //     } else if (metric in state[panelKey].hierarchicalThresholds.global_thresholds) {
-      //       newThresholds[metric as keyof Thresholds] = data.statistics.mean
-      //     }
-      //   }
-      // }
-      // if (Object.keys(newThresholds).length > 0) {
-      //   state.setGlobalThresholds(newThresholds, panel)
-      // }
 
       state.setLoading('histogram', false)
     } catch (error) {
