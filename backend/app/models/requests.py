@@ -13,10 +13,18 @@ class HistogramRequest(BaseModel):
         description="Metric name to analyze for histogram"
     )
     bins: Optional[int] = Field(
-        default=20,
+        default=None,
         ge=5,
         le=100,
-        description="Number of histogram bins"
+        description="Number of histogram bins (auto-calculated if not provided)"
+    )
+    thresholdTree: Optional[ThresholdTree] = Field(
+        default=None,
+        description="Optional threshold tree for node-specific histogram filtering"
+    )
+    nodeId: Optional[str] = Field(
+        default=None,
+        description="Optional node ID to filter features for specific node in threshold tree"
     )
 
 class SankeyRequest(BaseModel):

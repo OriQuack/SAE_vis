@@ -63,12 +63,11 @@ backend/
 │   ├── main.py                    # 🚀 FastAPI application with lifespan management
 │   ├── api/
 │   │   ├── __init__.py           # 📡 API router aggregation
-│   │   └── endpoints/            # 🔗 Modular endpoint implementations
-│   │       ├── filters.py        # ✅ GET /api/filter-options
-│   │       ├── histogram.py      # ✅ POST /api/histogram-data
-│   │       ├── sankey.py         # ✅ POST /api/sankey-data
-│   │       ├── comparison.py     # ✅ POST /api/comparison-data (Phase 2)
-│   │       └── feature.py        # ✅ GET /api/feature/{id}
+│   │   ├── filters.py            # ✅ GET /api/filter-options
+│   │   ├── histogram.py          # ✅ POST /api/histogram-data
+│   │   ├── sankey.py             # ✅ POST /api/sankey-data
+│   │   ├── comparison.py         # ✅ POST /api/comparison-data (Phase 2)
+│   │   └── feature.py            # ✅ GET /api/feature/{id}
 │   ├── models/                   # 📋 Pydantic model definitions
 │   │   ├── requests.py           # Request schemas with validation
 │   │   ├── responses.py          # Response schemas with type safety

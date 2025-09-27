@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from .endpoints import filters, histogram, sankey, comparison, feature
+from . import filters, histogram, sankey, comparison, feature
 
 router = APIRouter()
 

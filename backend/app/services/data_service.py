@@ -21,6 +21,7 @@ from ..models.responses import (
     ComparisonResponse, FeatureResponse
 )
 from .data_constants import *
+from .utils import extract_thresholds_from_tree, build_sankey_nodes_and_links, filter_dataframe_for_node
 
 logger = logging.getLogger(__name__)
 
@@ -109,113 +110,12 @@ class DataService:
 
         return lazy_df
 
-    def _extract_thresholds_from_tree(self, df: pl.DataFrame, threshold_tree: ThresholdTree) -> Dict[str, pl.Series]:
-        """Extract threshold values for all features from threshold tree - proper hierarchical traversal."""
-        threshold_columns = {}
-        num_rows = len(df)
-
-        # Stage 1: Feature splitting - all features use root threshold
-        root_threshold = 0.0
-        if threshold_tree.root.split and threshold_tree.root.split.get('thresholds'):
-            root_threshold = threshold_tree.root.split['thresholds'][0]
-        threshold_columns["feature_splitting_threshold"] = pl.Series([root_threshold] * num_rows)
-
-        # Initialize threshold lists for per-feature extraction
-        semdist_thresholds = []
-        fuzz_thresholds = []
-        simulation_thresholds = []
-        detection_thresholds = []
-
-        # Process each feature individually to get proper hierarchical thresholds
-        for row in df.iter_rows(named=True):
-            feature_splitting_val = row.get("feature_splitting", 0.0)
-            semdist_mean_val = row.get("semdist_mean", 0.0)
-
-            # Stage 1: Determine splitting branch
-            if feature_splitting_val >= root_threshold:
-                splitting_branch = "split_true"
-            else:
-                splitting_branch = "split_false"
-
-            # Find the splitting child node
-            splitting_node = None
-            if threshold_tree.root.split:
-                for child in threshold_tree.root.split.get('children', []):
-                    if child.id == splitting_branch:
-                        splitting_node = child
-                        break
-
-            # Stage 2: Extract semdist threshold
-            if splitting_node and splitting_node.split and splitting_node.split.get('thresholds'):
-                semdist_threshold = splitting_node.split['thresholds'][0]
-            else:
-                semdist_threshold = DEFAULT_THRESHOLDS.get("semdist_mean", 0.15)
-
-            semdist_thresholds.append(semdist_threshold)
-
-            # Stage 3: Determine semantic distance branch and extract score thresholds
-            if semdist_mean_val >= semdist_threshold:
-                semdist_branch = f"{splitting_branch}_semdist_high"
-            else:
-                semdist_branch = f"{splitting_branch}_semdist_low"
-
-            # Find the semantic distance child node
-            semdist_node = None
-            if splitting_node and splitting_node.split:
-                for child in splitting_node.split.get('children', []):
-                    if hasattr(child, 'id') and child.id == semdist_branch:
-                        semdist_node = child
-                        break
-                    elif isinstance(child, dict) and child.get('id') == semdist_branch:
-                        # Handle case where children are still dicts instead of ThresholdNode objects
-                        from ..models.common import ThresholdNode
-                        semdist_node = ThresholdNode(**child)
-                        break
-
-            # Extract score thresholds from the semdist node
-            if semdist_node:
-                logger.debug(f"Feature {row[COL_FEATURE_ID]}: found semdist_node {semdist_node.id}, metric={semdist_node.metric}")
-
-                if (semdist_node.split and
-                    semdist_node.split.get('thresholds') and
-                    semdist_node.metric == "score_combined"):
-
-                    score_thresholds = semdist_node.split['thresholds']
-                    # Expecting [fuzz, simulation, detection] thresholds
-                    fuzz_threshold = score_thresholds[0] if len(score_thresholds) > 0 else DEFAULT_THRESHOLDS.get("score_fuzz", 0.8)
-                    simulation_threshold = score_thresholds[1] if len(score_thresholds) > 1 else DEFAULT_THRESHOLDS.get("score_simulation", 0.8)
-                    detection_threshold = score_thresholds[2] if len(score_thresholds) > 2 else DEFAULT_THRESHOLDS.get("score_detection", 0.8)
-                    logger.info(f"✅ Found hierarchical thresholds for feature {row[COL_FEATURE_ID]}: {score_thresholds}")
-                else:
-                    # Fallback to defaults
-                    fuzz_threshold = DEFAULT_THRESHOLDS.get("score_fuzz", 0.8)
-                    simulation_threshold = DEFAULT_THRESHOLDS.get("score_simulation", 0.8)
-                    detection_threshold = DEFAULT_THRESHOLDS.get("score_detection", 0.8)
-                    logger.debug(f"Using default thresholds for feature {row[COL_FEATURE_ID]}: metric={semdist_node.metric}")
-            else:
-                # Fallback to defaults - no semdist node found
-                fuzz_threshold = DEFAULT_THRESHOLDS.get("score_fuzz", 0.8)
-                simulation_threshold = DEFAULT_THRESHOLDS.get("score_simulation", 0.8)
-                detection_threshold = DEFAULT_THRESHOLDS.get("score_detection", 0.8)
-                logger.warning(f"No semdist node found for feature {row[COL_FEATURE_ID]}, branch={semdist_branch}")
-
-            fuzz_thresholds.append(fuzz_threshold)
-            simulation_thresholds.append(simulation_threshold)
-            detection_thresholds.append(detection_threshold)
-
-        # Build threshold columns
-        threshold_columns["semdist_mean_threshold"] = pl.Series(semdist_thresholds)
-        threshold_columns[COL_THRESHOLD_FUZZ] = pl.Series(fuzz_thresholds)
-        threshold_columns[COL_THRESHOLD_SIMULATION] = pl.Series(simulation_thresholds)
-        threshold_columns[COL_THRESHOLD_DETECTION] = pl.Series(detection_thresholds)
-
-        return threshold_columns
 
     def _classify_features(self, df: pl.DataFrame, threshold_tree: ThresholdTree) -> pl.DataFrame:
         """Classify features using simplified threshold system - single pass approach."""
 
         # Extract thresholds for all features
-        threshold_columns = self._extract_thresholds_from_tree(df, threshold_tree)
+        threshold_columns = extract_thresholds_from_tree(df, threshold_tree)
 
         # Add threshold columns to DataFrame
         df_with_thresholds = df.with_columns([
@@ -259,150 +159,7 @@ class DataService:
             COL_HIGH_SCORE_COUNT
         ])
 
-    def _custom_sort_order(self, items: List[Dict], order_list: List[str], key: str) -> List[Dict]:
-        """Sort items based on custom order list."""
-        def sort_key(item):
-            try:
-                return order_list.index(item[key])
-            except ValueError:
-                # If item not in order list, put it at the end
-                return len(order_list)
 
-        return sorted(items, key=sort_key)
-
-    def _build_sankey_nodes_and_links(self, categorized_df: pl.DataFrame) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
-        """Build Sankey nodes and links from categorized data - consolidated approach."""
-        total_features = len(categorized_df)
-        nodes = []
-        links = []
-
-        # Stage 0: Root node
-        nodes.append({
-            "id": NODE_ROOT,
-            "name": STAGE_NAMES[STAGE_ROOT],
-            "stage": STAGE_ROOT,
-            "feature_count": total_features,
-            "category": CATEGORY_ROOT
-        })
-
-        # Stage 1: Feature splitting
-        splitting_counts = (
-            categorized_df
-            .group_by(COL_SPLITTING_CATEGORY)
-            .count()
-        ).to_dicts()
-
-        # Apply custom ordering for splitting categories
-        from .data_constants import SPLITTING_ORDER
-        splitting_counts_sorted = self._custom_sort_order(
-            splitting_counts, SPLITTING_ORDER, COL_SPLITTING_CATEGORY
-        )
-
-        for row in splitting_counts_sorted:
-            category = row[COL_SPLITTING_CATEGORY]
-            count = row["count"]
-            node_id = f"{NODE_SPLIT_PREFIX}{category}"
-
-            nodes.append({
-                "id": node_id,
-                "name": f"Feature Splitting: {category.title()}",
-                "stage": STAGE_SPLITTING,
-                "feature_count": count,
-                "category": CATEGORY_FEATURE_SPLITTING
-            })
-
-            links.append({
-                "source": NODE_ROOT,
-                "target": node_id,
-                "value": count
-            })
-
-        # Stage 2: Semantic distance
-        semantic_counts = (
-            categorized_df
-            .group_by([COL_SPLITTING_CATEGORY, COL_SEMDIST_CATEGORY])
-            .count()
-        ).to_dicts()
-
-        # Apply custom ordering for semantic distance categories
-        from .data_constants import SEMDIST_ORDER
-        def semantic_sort_key(row):
-            split_order = SPLITTING_ORDER.index(row[COL_SPLITTING_CATEGORY]) if row[COL_SPLITTING_CATEGORY] in SPLITTING_ORDER else len(SPLITTING_ORDER)
-            semdist_order = SEMDIST_ORDER.index(row[COL_SEMDIST_CATEGORY]) if row[COL_SEMDIST_CATEGORY] in SEMDIST_ORDER else len(SEMDIST_ORDER)
-            return (split_order, semdist_order)
-
-        semantic_counts_sorted = sorted(semantic_counts, key=semantic_sort_key)
-
-        for row in semantic_counts_sorted:
-            split_cat = row[COL_SPLITTING_CATEGORY]
-            semdist_cat = row[COL_SEMDIST_CATEGORY]
-            count = row["count"]
-
-            source_id = f"{NODE_SPLIT_PREFIX}{split_cat}"
-            target_id = f"{NODE_SPLIT_PREFIX}{split_cat}{NODE_SEMDIST_SUFFIX}{semdist_cat}"
-
-            nodes.append({
-                "id": target_id,
-                "name": f"{semdist_cat.title()} Semantic Distance",
-                "stage": STAGE_SEMANTIC,
-                "feature_count": count,
-                "category": CATEGORY_SEMANTIC_DISTANCE,
-                "parent_path": [source_id]
-            })
-
-            links.append({
-                "source": source_id,
-                "target": target_id,
-                "value": count
-            })
-
-        # Stage 3: Score agreement
-        agreement_groups = (
-            categorized_df
-            .group_by([COL_SPLITTING_CATEGORY, COL_SEMDIST_CATEGORY, COL_SCORE_AGREEMENT])
-            .agg([
-                pl.count().alias("count"),
-                pl.col(COL_FEATURE_ID).alias("feature_ids")
-            ])
-        ).to_dicts()
-
-        # Apply custom ordering for score agreement categories
-        from .data_constants import AGREEMENT_ORDER
-        def agreement_sort_key(row):
-            split_order = SPLITTING_ORDER.index(row[COL_SPLITTING_CATEGORY]) if row[COL_SPLITTING_CATEGORY] in SPLITTING_ORDER else len(SPLITTING_ORDER)
-            semdist_order = SEMDIST_ORDER.index(row[COL_SEMDIST_CATEGORY]) if row[COL_SEMDIST_CATEGORY] in SEMDIST_ORDER else len(SEMDIST_ORDER)
-            agreement_order = AGREEMENT_ORDER.index(row[COL_SCORE_AGREEMENT]) if row[COL_SCORE_AGREEMENT] in AGREEMENT_ORDER else len(AGREEMENT_ORDER)
-            return (split_order, semdist_order, agreement_order)
-
-        agreement_groups_sorted = sorted(agreement_groups, key=agreement_sort_key)
-
-        for row in agreement_groups_sorted:
-            split_cat = row[COL_SPLITTING_CATEGORY]
-            semdist_cat = row[COL_SEMDIST_CATEGORY]
-            agreement_cat = row[COL_SCORE_AGREEMENT]
-            count = row["count"]
-            feature_ids = row["feature_ids"]
-
-            source_id = f"{NODE_SPLIT_PREFIX}{split_cat}{NODE_SEMDIST_SUFFIX}{semdist_cat}"
-            target_id = f"{source_id}_{agreement_cat}"
-
-            nodes.append({
-                "id": target_id,
-                "name": AGREEMENT_NAMES[agreement_cat],
-                "stage": STAGE_AGREEMENT,
-                "feature_count": count,
-                "category": CATEGORY_SCORE_AGREEMENT,
-                "parent_path": [f"{NODE_SPLIT_PREFIX}{split_cat}", f"semdist_{semdist_cat}"],
-                "feature_ids": feature_ids
-            })
-
-            links.append({
-                "source": source_id,
-                "target": target_id,
-                "value": count
-            })
-
-        return nodes, links
 
     async def get_filter_options(self) -> FilterOptionsResponse:
         """Get all available filter options."""
@@ -410,30 +167,90 @@ class DataService:
             await self._cache_filter_options()
         return FilterOptionsResponse(**self._filter_options_cache)
 
+    @staticmethod
+    def calculate_optimal_bins(data_size: int, data_range: float, std_dev: float) -> int:
+        """
+        Calculate optimal histogram bins using statistical methods.
+
+        Args:
+            data_size: Number of data points
+            data_range: Range of data (max - min)
+            std_dev: Standard deviation of data
+
+        Returns:
+            Optimal number of bins (between 5 and 50)
+        """
+        # Method 1: Sturges' Rule (good for normal distributions)
+        sturges = int(np.ceil(np.log2(data_size) + 1))
+
+        # Method 2: Rice Rule (better for larger datasets)
+        rice = int(np.ceil(2 * np.cbrt(data_size)))
+
+        # Method 3: Freedman-Diaconis (robust to outliers)
+        # Using approximation: IQR ≈ 1.35 * std for normal distribution
+        iqr_approx = 1.35 * std_dev
+        if iqr_approx > 0 and data_range > 0:
+            bin_width = 2 * iqr_approx * (data_size ** (-1/3))
+            freedman = int(np.ceil(data_range / bin_width))
+        else:
+            freedman = sturges
+
+        # Choose based on data characteristics
+        if data_size < 30:
+            optimal = max(5, sturges)  # Small dataset - conservative
+        elif data_size < 100:
+            optimal = sturges  # Medium dataset - Sturges works well
+        elif data_size < 1000:
+            optimal = rice  # Large dataset - Rice provides more detail
+        else:
+            # Very large dataset - use Freedman if reasonable, else Rice
+            optimal = min(freedman, rice) if freedman > 0 else rice
+
+        # Apply constraints (between 5 and 50 bins)
+        return max(5, min(50, optimal))
+
     async def get_histogram_data(
         self,
         filters: Filters,
         metric: MetricType,
-        bins: int = DEFAULT_HISTOGRAM_BINS
+        bins: Optional[int] = None,
+        threshold_tree: Optional[ThresholdTree] = None,
+        node_id: Optional[str] = None
     ) -> HistogramResponse:
-        """Generate histogram data for a specific metric."""
+        """Generate histogram data for a specific metric, optionally filtered by node."""
         if not self.is_ready():
             raise RuntimeError("DataService not ready")
 
         try:
-            metric_data = (
-                self._apply_filters(self._df_lazy, filters)
-                .select([pl.col(metric.value).alias("metric_value")])
-                .collect()
-            )
+            # Apply base filters
+            filtered_df = self._apply_filters(self._df_lazy, filters).collect()
 
-            if len(metric_data) == 0:
+            if len(filtered_df) == 0:
                 raise ValueError("No data available after applying filters")
 
+            # Apply node-specific filtering if threshold tree and node ID are provided
+            if threshold_tree and node_id:
+                logger.debug(f"Applying node-specific filtering for node: {node_id}")
+                filtered_df = filter_dataframe_for_node(filtered_df, threshold_tree, node_id)
+
+                if len(filtered_df) == 0:
+                    raise ValueError(f"No data available for node '{node_id}' after applying thresholds")
+
+            # Extract metric values
+            metric_data = filtered_df.select([pl.col(metric.value).alias("metric_value")])
             values = metric_data.get_column("metric_value").drop_nulls().to_numpy()
 
             if len(values) == 0:
                 raise ValueError("No valid values found for the specified metric")
+
+            # Calculate optimal bins if not specified
+            if bins is None:
+                data_range = float(np.max(values) - np.min(values))
+                std_dev = float(np.std(values))
+                bins = self.calculate_optimal_bins(len(values), data_range, std_dev)
+
+                logger.info(f"Auto-calculated {bins} bins for {len(values)} data points " +
+                           f"(range: {data_range:.3f}, std: {std_dev:.3f})")
 
             # Calculate histogram and statistics
             counts, bin_edges = np.histogram(values, bins=bins)
@@ -482,7 +299,7 @@ class DataService:
             categorized_df = self._classify_features(filtered_df, thresholdTree)
 
             # Build Sankey nodes and links
-            nodes, links = self._build_sankey_nodes_and_links(categorized_df)
+            nodes, links = build_sankey_nodes_and_links(categorized_df)
 
             # Build metadata
             applied_filters = {}
@@ -519,17 +336,6 @@ class DataService:
         except Exception as e:
             logger.error(f"Error generating Sankey data: {e}")
             raise
-
-    async def get_comparison_data(
-        self,
-        left_filters: Filters,
-        left_thresholds: Dict[str, float],
-        right_filters: Filters,
-        right_thresholds: Dict[str, float]
-    ) -> ComparisonResponse:
-        """Generate alluvial comparison data between two Sankey configurations."""
-        # Implementation for Phase 2
-        raise NotImplementedError("Comparison data generation not yet implemented")
 
     async def get_feature_data(
         self,
