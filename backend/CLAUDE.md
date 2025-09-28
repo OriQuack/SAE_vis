@@ -2,9 +2,9 @@
 
 This file provides comprehensive guidance to Claude Code when working with the FastAPI backend for the SAE Feature Visualization project.
 
-## Project Status: ✅ PRODUCTION-READY IMPLEMENTATION
+## Project Status: ✅ RESEARCH PROTOTYPE IMPLEMENTATION
 
-The backend is a sophisticated, production-ready FastAPI application with enterprise-grade architecture and performance optimizations.
+The backend is a flexible, research-oriented FastAPI application with configurable architecture optimized for conference demonstrations and research flexibility.
 
 ## Architecture Overview
 
@@ -320,102 +320,129 @@ For future scaling beyond Parquet:
 - **Structured Logging**: Configurable levels (debug/info/warning/error) with detailed classification logs
 - **Error Tracking**: Full stack traces for debugging with structured error responses
 - **Request Logging**: Automatic access log generation with API endpoint performance metrics
-- **Feature Classification Logging**: Detailed logs for hierarchical threshold application and feature distribution changes
+- **Feature Classification Logging**: Detailed logs for flexible threshold tree V2 processing and feature distribution changes
 
 ## Advanced Implementation Details
 
-### 🧠 Feature Classification System
+### 🧠 Flexible Feature Classification System V2 (Revolutionary Research Architecture)
 
-The backend implements a sophisticated **hierarchical feature classification system** with multiple stages:
+The backend implements a **revolutionary configurable feature classification system** designed for research flexibility and conference demonstrations:
 
-#### Classification Pipeline
-```
-Raw Features → Feature Splitting Classification → Semantic Distance Classification → Score Agreement Classification → Final Sankey Nodes
-```
+#### Key Research Benefits:
+- **Dynamic Stage Ordering**: Reorder classification stages without code changes
+- **Variable Scoring Methods**: Support any number of scoring methods (not limited to 3)
+- **Flexible Split Rules**: Three types of split rules for maximum research adaptability
+- **Conference Demonstration Ready**: Modify classification logic during live presentations
+- **Maintainable Complexity**: Avoids over-engineering while supporting advanced research scenarios
 
-#### Stage 1: Feature Splitting Classification
-- **Metric**: `feature_splitting` (cosine similarity magnitude)
-- **Default Threshold**: 0.00002 (cosine similarity scale)
-- **Categories**: `true` (above threshold) or `false` (below threshold)
-- **Implementation**: Integrated within `DataService` classification methods
+#### Flexible Split Rule Types (New in V2):
 
-#### Stage 2: Semantic Distance Classification
-- **Metric**: `semdist_mean` (semantic distance between explanations)
-- **Hierarchical Thresholds**: Parent-based thresholds with individual node overrides
-- **Categories**: `high` (above threshold) or `low` (below threshold)
-- **Advanced Features**:
-  - Parent-based threshold groups (e.g., `split_true` vs `split_false` can have different thresholds)
-  - Individual node threshold overrides for fine-grained control
-  - Dynamic threshold recalculation and feature reclassification
-
-#### Stage 3: Score Agreement Classification
-- **Metrics**: `score_fuzz`, `score_simulation`, `score_detection`
-- **Algorithm**: Count how many of the 3 scores exceed their respective thresholds
-- **Categories**:
-  - `agree_all`: All 3 scores ≥ threshold (high reliability)
-  - `agree_2of3`: Exactly 2 scores ≥ threshold (moderate reliability)
-  - `agree_1of3`: Exactly 1 score ≥ threshold (low reliability)
-  - `agree_none`: All scores < threshold (unreliable)
-
-### 🎯 Hierarchical Threshold System
-
-The backend supports a **three-level hierarchical threshold system**:
-
-1. **Global Thresholds**: Default values applied system-wide
-2. **Group-Based Thresholds**:
-   - `score_agreement_groups`: Thresholds by semantic distance parent
-   - `semantic_distance_groups`: Thresholds by splitting parent
-   - `feature_splitting_groups`: Conditional thresholds by grouping criteria
-3. **Individual Node Overrides**: Specific thresholds for individual nodes
-
-#### Threshold Resolution Priority
-```
-Individual Node Override > Group-Based Threshold > Global Threshold
-```
-
-#### Example Hierarchical Configuration
+**1. Range Rules (Single metric, multiple thresholds)**
 ```python
-hierarchical_thresholds = {
-    "global_thresholds": {
-        "semdist_mean": 0.15,
-        "score_fuzz": 0.8,
-        "score_detection": 0.8,
-        "score_simulation": 0.8
-    },
-    "semantic_distance_groups": {
-        "split_true": 0.12,   # Lower threshold for true splitting features
-        "split_false": 0.18   # Higher threshold for false splitting features
-    },
-    "score_agreement_groups": {
-        "split_true_semdist_high": {
-            "score_fuzz": 0.85,
-            "score_detection": 0.85,
-            "score_simulation": 0.75
-        }
-    },
-    "individual_node_groups": {
-        "node_split_true_semdist_high": {
-            "semdist_mean": 0.20  # Override for specific node
-        }
-    }
-}
+RangeSplitRule(
+    type="range",
+    metric="semdist_mean",
+    thresholds=[0.1, 0.3, 0.6]  # Creates 4 branches automatically
+)
 ```
+- **Use Case**: Traditional threshold-based splitting
+- **Flexibility**: N thresholds create N+1 branches automatically
+- **Research Value**: Easy to modify thresholds for different experimental conditions
+
+**2. Pattern Rules (Multi-metric pattern matching)**
+```python
+PatternSplitRule(
+    type="pattern",
+    conditions={
+        "score_fuzz": PatternCondition(threshold=0.8),
+        "score_simulation": PatternCondition(threshold=0.7),
+        "score_detection": PatternCondition(threshold=0.8)
+    },
+    patterns=[
+        Pattern(match={"score_fuzz": "high", "score_simulation": "high", "score_detection": "high"},
+               child_id="all_high"),
+        Pattern(match={"score_fuzz": "high", "score_simulation": "high"},
+               child_id="two_high"),
+        # ... configurable patterns for any number of metrics
+    ]
+)
+```
+- **Use Case**: Complex multi-metric conditions (replaces hardcoded "2 of 3 high" logic)
+- **Flexibility**: Support any number of metrics and conditions
+- **Research Value**: Create custom agreement patterns for different research scenarios
+
+**3. Expression Rules (Logical expressions)**
+```python
+ExpressionSplitRule(
+    type="expression",
+    available_metrics=["score_fuzz", "score_simulation", "score_detection"],
+    branches=[
+        ExpressionBranch(
+            condition="(score_fuzz > 0.8 && score_simulation > 0.7) || score_detection > 0.9",
+            child_id="high_confidence"
+        )
+    ],
+    default_child_id="low_confidence"
+)
+```
+- **Use Case**: Advanced research scenarios with complex logical conditions
+- **Flexibility**: Unlimited logical complexity
+- **Research Value**: Express sophisticated research hypotheses as classification rules
+
+#### Threshold Tree Structure V2:
+```python
+class ThresholdStructure(BaseModel):
+    nodes: List[SankeyThreshold]  # All nodes with embedded split rules
+    metrics: List[str]           # Available metrics
+    version: int = 2             # V2 system identifier
+
+class SankeyThreshold(BaseModel):
+    id: str                      # Node identifier
+    stage: int                   # Stage in pipeline (configurable order)
+    category: CategoryType       # Visualization category
+    parent_path: List[ParentPathInfo]  # Complete path from root
+    split_rule: Optional[SplitRule]    # Embedded split configuration
+    children_ids: List[str]      # Child node references
+```
+
+#### Research-Oriented Implementation:
+
+**Configurable Classification Pipeline**
+```
+Raw Features → Stage 1 (Configurable) → Stage 2 (Configurable) → ... → Stage N (Configurable) → Final Sankey Nodes
+
+Example Current Configuration:
+Raw Features → Feature Splitting (Range) → Semantic Distance (Range) → Score Agreement (Pattern) → Final Nodes
+
+Example Alternative Configuration:
+Raw Features → Score Agreement (Pattern) → Feature Splitting (Range) → Semantic Distance (Range) → Final Nodes
+
+Note: Stage order is configurable through threshold tree structure - no code changes required
+```
+
+**Conference Demonstration Features:**
+- **Real-time Reconfiguration**: Modify classification logic during presentations
+- **Research Scenario Testing**: Switch between different research hypotheses instantly
+- **Flexible Metrics**: Add/remove scoring methods through configuration
+- **Maintainable**: Avoid over-engineering while supporting complex research needs
+
 
 ### 🔧 Data Service Architecture
 
 #### Core Components
-1. **DataService**: Consolidated service class containing all business logic
-   - Feature classification algorithms integrated
-   - Threshold application and validation integrated
-   - Sankey diagram data structure building integrated
-   - All data processing operations consolidated in single class
+1. **DataService**: Research-optimized service class with flexible classification
+   - Configurable feature classification algorithms supporting all split rule types (Range, Pattern, Expression)
+   - Dynamic threshold tree V2 processing and validation
+   - Flexible Sankey diagram data structure building
+   - Research-oriented data processing operations optimized for demonstrations
 
 #### Advanced Features
 - **Lazy DataFrame Operations**: All operations use Polars LazyFrame for memory efficiency
 - **String Cache Optimization**: Categorical data operations optimized with string cache
-- **Parent Node ID Resolution**: Dynamic parent ID calculation for hierarchical thresholds
-- **Classification State Logging**: Detailed logs of feature distribution changes at each stage
-- **Error Context Preservation**: Comprehensive error handling with context information
+- **Flexible Split Rule Processing**: Dynamic handling of Range, Pattern, and Expression rules
+- **Parent Path Tracking**: Complete path information from root to any node in threshold tree V2
+- **Classification State Logging**: Detailed logs of feature distribution changes at each configurable stage
+- **Error Context Preservation**: Comprehensive error handling with context information for research scenarios
 
 ### 📊 Performance Optimizations
 
@@ -491,4 +518,13 @@ API Endpoints → DataService (Consolidated) → Data Processing
 6. **CORS Setup**: Frontend ports pre-configured - update for new ports
 7. **Testing**: Always run test_api.py after changes to verify functionality
 
-The backend represents a production-quality implementation with enterprise-grade architecture, comprehensive error handling, and performance optimizations suitable for research visualization workloads.
+The backend represents a research prototype implementation with flexible, configurable architecture, reliable error handling, and demonstration optimizations suitable for academic conference presentations and SAE research scenarios.
+
+**Key Research Features:**
+- **Flexible Threshold Tree V2**: Revolutionary configurable classification system
+- **Dynamic Stage Ordering**: Reorder classification stages without code changes
+- **Variable Scoring Methods**: Support any number of scoring methods through configuration
+- **Conference Optimized**: Reliable performance for live academic demonstrations
+- **Research Maintainability**: Avoids over-engineering while supporting advanced research scenarios
+- **Demonstration Ready**: Modify classification logic during live presentations
+- **Research Flexibility**: Support diverse research hypotheses through configuration
