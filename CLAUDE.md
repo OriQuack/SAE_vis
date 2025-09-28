@@ -4,15 +4,15 @@ This file provides comprehensive guidance to Claude Code (claude.ai/code) when w
 
 ## Project Overview
 
-This is a **production-ready visualization interface project** for EuroVIS conference submission focused on "Visualizing SAE feature explanation reliability." The project has evolved into a sophisticated full-stack application that visualizes the consistency between different interpretability scoring methods for Sparse Autoencoder (SAE) features with enterprise-grade architecture and advanced interactive visualizations.
+This is a **research prototype visualization interface** for EuroVIS conference submission focused on "Visualizing SAE feature explanation reliability." The project is designed as a conference demonstration tool that visualizes the consistency between different interpretability scoring methods for Sparse Autoencoder (SAE) features with flexible, research-oriented architecture.
 
 ## Current Project Status: 🚀 PHASE 2 ADVANCED DUAL-PANEL IMPLEMENTATION
 
 **Phase 1 Complete**: ✅ Single Sankey visualization with advanced interactivity and threshold tree system
 **Phase 2 Active**: 🚧 Dual-panel comparison architecture with alluvial flow visualization (50% complete)
-**Current State**: Production-quality research platform with advanced dual-panel architecture and threshold tree system
-**Active Usage**: Multiple servers running with real-time API traffic and sophisticated user interactions
-**Technical Readiness**: Ready for academic conference presentation with cutting-edge comparison visualization features
+**Current State**: Research prototype with dual-panel architecture and flexible threshold tree system
+**Active Usage**: Development servers for research and demonstration purposes
+**Technical Readiness**: Conference-ready prototype with flexible comparison visualization capabilities
 
 ## Technology Stack & Architecture
 
@@ -24,8 +24,9 @@ This is a **production-ready visualization interface project** for EuroVIS confe
 - **Data Processing**: Polars lazy evaluation with string cache optimization
 - **HTTP Client**: Axios 1.12.2 with interceptors and error handling
 - **Data Storage**: Parquet files for efficient columnar data storage (1,648 features processed)
+- **Design Philosophy**: Research prototype optimized for flexibility and conference demonstration, avoiding over-engineering
 
-### Production Architecture (Three-Tier Design)
+### Research Prototype Architecture (Three-Tier Design)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -127,19 +128,22 @@ This is a **production-ready visualization interface project** for EuroVIS confe
 Raw Data → Polars LazyFrame → Feature Classification → Hierarchical Thresholds → Sankey Response
 ```
 
-**Feature Classification Hierarchy:**
+**Flexible Classification Pipeline Example (Current Configuration):**
 ```
 Stage 0: Root (All Features: 1,648)
-         ↓
-Stage 1: Feature Splitting (True/False based on cosine similarity threshold)
-         ↓
-Stage 2: Semantic Distance (High/Low based on semdist_mean threshold)
-         ↓
-Stage 3: Score Agreement (4 categories based on score thresholds)
-         ├── All 3 High (all scores ≥ threshold)
-         ├── 2 of 3 High (exactly 2 scores ≥ threshold)
-         ├── 1 of 3 High (exactly 1 score ≥ threshold)
-         └── All 3 Low (all scores < threshold)
+         ↓ [Range Rule: feature_splitting threshold]
+Stage 1: Feature Splitting (True/False based on configurable threshold)
+         ↓ [Range Rule: semdist_mean threshold]
+Stage 2: Semantic Distance (High/Low based on configurable threshold)
+         ↓ [Pattern Rule: Multi-metric scoring agreement]
+Stage 3: Score Agreement (Flexible N-way classification)
+         ├── All N High (all scores ≥ threshold)
+         ├── N-1 High (exactly N-1 scores ≥ threshold)
+         ├── ... (configurable patterns)
+         └── All N Low (all scores < threshold)
+
+Note: Stage order and scoring methods are fully configurable through
+threshold tree structure. Not limited to 3 scores or fixed pipeline.
 ```
 
 ### ✅ FRONTEND: Advanced React Application
@@ -154,7 +158,7 @@ Stage 3: Score Agreement (4 categories based on score thresholds)
 
 **Current Implementation:**
 - **Dual-Panel Architecture**: Left/right panel system for comparison visualization
-- **Threshold Tree System**: Unified hierarchical threshold management replacing legacy system
+- **Threshold Tree System**: Flexible threshold tree V2 system with configurable split rules
 - **Alluvial Flow Visualization**: Cross-panel flow comparison (Phase 2 - 50% complete)
 - **Advanced Filtering**: Multi-select dropdowns with dynamic options
 - **Histogram Popovers**: Interactive threshold setting with drag-and-drop
@@ -250,18 +254,17 @@ npm run preview
 - **Schema**: feature_id, sae_id, explanation_method, llm_explainer, llm_scorer, feature_splitting, semdist_mean, semdist_max, scores (fuzz, simulation, detection, embedding), details_path
 - **Size**: 1,648 features with complete metadata
 
-### Unified Threshold Tree System (New Architecture)
-- **Tree-Based Structure**: Hierarchical node system with configurable threshold splits
-- **ThresholdNode Interface**: Unified node representation with metric-based splitting
-- **Dynamic Classification**: Real-time feature reclassification based on threshold changes
-- **Multi-Metric Support**: Support for multiple threshold values per node (e.g., multiple score types)
-- **Path-Based Operations**: Threshold operations based on node paths and parent relationships
+### Flexible Threshold Tree System V2 (New Architecture)
+- **Tree-Based Structure**: Hierarchical node system with configurable, flexible stage ordering
+- **Split Rule Types**: Three types of split rules for maximum flexibility:
+  - **Range Rules**: Single metric with N threshold values creating N+1 branches
+  - **Pattern Rules**: Multi-metric pattern matching with configurable conditions
+  - **Expression Rules**: Complex logical expressions for advanced splitting logic
+- **Dynamic Stage Ordering**: Stages can be reordered without code changes
+- **Flexible Scoring Methods**: Support for any number of scoring methods (not limited to 3)
+- **Parent Path Tracking**: Complete path information from root to any node
+- **Research-Oriented Design**: Optimized for conference demonstration and research flexibility
 
-### Legacy Hierarchical Threshold System (Deprecated)
-- **Global Thresholds**: Default values applied across all nodes
-- **Score Agreement Groups**: Threshold customization by semantic distance parent
-- **Individual Node Overrides**: Specific threshold values for individual nodes
-- **Feature Splitting Groups**: Conditional thresholds for different groupings
 
 ### Data Processing Features
 - **Polars Lazy Evaluation**: Efficient query processing for large datasets
@@ -279,15 +282,15 @@ npm run preview
 - **Client-side memoization** for expensive D3 calculations
 - **Debounced interactions** for smooth user experience
 
-### 🏗️ Enterprise-Grade Architecture
-- **Modular component system** with clear separation of concerns
+### 🏗️ Research-Oriented Architecture
+- **Modular component system** with clear separation of concerns (avoiding over-engineering)
 - **Type-safe API integration** throughout the stack
 - **Comprehensive error handling** with graceful degradation
 - **Advanced state management** with centralized data flow
-- **Production-ready deployment** configuration
+- **Conference demonstration** configuration
 
 ### 🎯 Advanced User Experience
-- **Interactive Sankey diagrams** with hierarchical threshold management
+- **Interactive Sankey diagrams** with flexible threshold tree V2 management
 - **Portal-based popovers** with advanced positioning and drag functionality
 - **Real-time data updates** with loading states and error handling
 - **Responsive design** with adaptive layouts
@@ -332,13 +335,20 @@ npm run preview
 
 ## Project Maturity Assessment
 
-This SAE Feature Visualization platform represents a **production-ready research tool** with:
+This SAE Feature Visualization platform represents a **research prototype for conference demonstration** with:
 
-- ✅ **Enterprise-grade architecture** with modular, scalable design
-- ✅ **Advanced interactive visualizations** with sophisticated user experience
-- ✅ **High-performance data processing** capable of handling large datasets
-- ✅ **Comprehensive error handling** and graceful degradation
+- ✅ **Research-focused architecture** with modular, flexible design optimized for demonstrations
+- ✅ **Interactive visualizations** with intuitive user experience for conference presentations
+- ✅ **Efficient data processing** capable of handling research datasets
+- ✅ **Reliable error handling** and graceful degradation for live demonstrations
 - ✅ **Full-stack TypeScript integration** with excellent developer experience
-- ✅ **Production deployment readiness** with monitoring and health checks
+- ✅ **Conference demonstration readiness** with stable local deployment
+- ✅ **Flexible threshold system** supporting dynamic stage ordering and variable scoring methods
 
-The platform is ready for **academic conference presentation** and capable of handling **complex SAE feature analysis workflows** at research scale.
+**Important Design Philosophy:**
+- **Research Prototype**: Designed for conference demonstration, not production deployment
+- **Flexibility Over Enterprise Features**: Prioritizes research flexibility over enterprise-grade scalability
+- **Maintainability**: Avoids over-engineering to ensure readability and ease of modification
+- **Conference Ready**: Optimized for live academic presentations and research validation
+
+The platform is ready for **academic conference presentation** and designed for **flexible SAE feature analysis research** at conference demonstration scale.

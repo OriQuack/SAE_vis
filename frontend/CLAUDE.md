@@ -2,13 +2,14 @@
 
 This file provides comprehensive guidance to Claude Code when working with the React frontend for the SAE Feature Visualization project.
 
-## Current Status: 🚀 PHASE 2 DUAL-PANEL ARCHITECTURE IMPLEMENTATION
+## Current Status: 🚀 PHASE 2 DUAL-PANEL RESEARCH PROTOTYPE
 
-**Phase 1 Complete**: ✅ Advanced React 19.1.1 application with sophisticated D3.js visualizations
+**Phase 1 Complete**: ✅ React 19.1.1 research interface with D3.js visualizations
 **Phase 2 Active**: 🚧 Dual-panel comparison architecture with alluvial flow visualization (50% complete)
-**Architecture**: Modern TypeScript-based frontend with dual-panel state management and threshold tree system
-**Status**: Production-quality dual-panel architecture with advanced interactive features and comparison capabilities
-**Development Server**: Active on http://localhost:3003 with hot reload and comprehensive error handling
+**Architecture**: Modern TypeScript-based frontend with dual-panel state management and flexible threshold tree system V2
+**Status**: Conference-ready research prototype with flexible interactive features for demonstrations
+**Development Server**: Active on http://localhost:3003 with hot reload for research and demonstration
+**Design Philosophy**: Research prototype optimized for conference presentations, avoiding over-engineering
 
 ## Technology Stack & Architecture
 
@@ -128,11 +129,16 @@ interface PanelState {
 
 **Key Features:**
 - **Dual-Panel Architecture**: Independent left/right panel state management for comparison
-- **Threshold Tree System**: New unified threshold management replacing legacy hierarchical system
+- **Flexible Threshold Tree System V2**: Revolutionary threshold management with configurable split rules
+  - **Range Rules**: Single metric, multiple thresholds (N thresholds → N+1 branches)
+  - **Pattern Rules**: Multi-metric pattern matching with flexible conditions
+  - **Expression Rules**: Complex logical expressions for advanced research scenarios
+- **Dynamic Stage Ordering**: Stages can be reordered without code changes for research flexibility
+- **Variable Scoring Methods**: Support for any number of scoring methods (not limited to 3)
 - **Alluvial Flow Support**: Cross-panel flow visualization data management
 - **Panel-Aware Operations**: All operations support panel-specific targeting
-- **Comprehensive Error Handling**: Panel-specific error states with user-friendly messages
-- **Loading State Management**: Granular loading indicators for all async operations including panel-specific states
+- **Research-Oriented Error Handling**: Graceful degradation suitable for live demonstrations
+- **Conference-Ready Performance**: Optimized for demonstration scenarios
 
 ### ✅ Advanced Component Architecture
 
@@ -228,10 +234,12 @@ const layout = useMemo(
 - **Threshold Line Calculations**: Visual threshold indicators on histograms
 - **Statistical Analysis**: Mean, median, quartile calculations
 
-**threshold-utils.ts (New System)**
-- **Threshold Tree Operations**: Tree traversal and node management
-- **Node Path Resolution**: Parent-child relationship calculations
-- **Threshold Application**: Dynamic threshold updating and validation
+**threshold-utils.ts (V2 System)**
+- **Flexible Threshold Tree Operations**: Tree traversal with configurable split rules
+- **Split Rule Management**: Support for range, pattern, and expression rules
+- **Node Path Resolution**: Complete parent path tracking from root to any node
+- **Dynamic Threshold Updates**: Real-time threshold modification with validation
+- **Research Flexibility**: Support for dynamic stage ordering and variable metrics
 
 #### D3-React Integration Patterns
 ```typescript
@@ -386,11 +394,11 @@ User Interaction → State Update → API Request → Data Processing → UI Upd
 - **Color-Coded Categories**: Intuitive visual categorization
 
 ### 🔄 State Management
-- **Hierarchical Thresholds**: Complex threshold configuration support
-- **Multi-Histogram Data**: Batch loading and management
-- **View State Management**: Comprehensive workflow state tracking
-- **Error State Management**: Granular error handling and recovery
-- **Loading State Management**: Detailed loading indicators for all operations
+- **Flexible Threshold Tree V2**: Support for configurable split rules and dynamic stage ordering
+- **Multi-Histogram Data**: Batch loading and management for variable metrics
+- **View State Management**: Comprehensive workflow state tracking for research scenarios
+- **Conference-Ready Error Handling**: Reliable error handling suitable for live demonstrations
+- **Research-Optimized Loading**: Loading indicators optimized for demonstration scenarios
 
 ### 📱 User Experience
 - **Responsive Design**: Adaptive layout for different screen sizes
@@ -406,9 +414,9 @@ User Interaction → State Update → API Request → Data Processing → UI Upd
 - ✅ **Data Structures**: All required types and interfaces defined
 - ✅ **Dual-Panel Architecture**: Left/right panel system implemented
 - ✅ **AlluvialDiagram Component**: Component with D3 calculations implemented
-- ✅ **Threshold Tree System**: New unified threshold management system
+- ✅ **Flexible Threshold Tree System V2**: Revolutionary configurable threshold management
 - 🚧 **Integration**: Full alluvial flow data pipeline (in progress)
-- 📝 **UI Polish**: Cross-panel interactions and comparison tools
+- 📝 **Conference Polish**: Cross-panel interactions optimized for demonstrations
 
 ### Debug View & Feature Drilling
 - ✅ **Backend Support**: Feature detail endpoint operational
@@ -432,15 +440,26 @@ User Interaction → State Update → API Request → Data Processing → UI Upd
 
 ## Project Assessment
 
-This React frontend represents a **cutting-edge dual-panel research visualization interface** with:
+This React frontend represents a **research prototype for conference demonstration** with:
 
-- ✅ **Modern React Architecture** with latest React 19.1.1 and TypeScript 5.8.3
-- ✅ **Advanced Dual-Panel System** with sophisticated comparison capabilities (Phase 2 active)
-- ✅ **D3.js Visualization Suite** with Sankey + Alluvial flow diagrams
-- ✅ **Unified Threshold Tree System** replacing legacy hierarchical architecture
-- ✅ **Professional State Management** with dual-panel data flow
-- ✅ **Production-Quality Error Handling** with graceful degradation
-- ✅ **Optimal Performance** with advanced React and D3 optimizations
-- ✅ **Excellent Developer Experience** with hot reload and comprehensive tooling
+- ✅ **Modern React Architecture** with React 19.1.1 and TypeScript 5.8.3 optimized for research
+- ✅ **Flexible Dual-Panel System** with configurable comparison capabilities (Phase 2 active)
+- ✅ **D3.js Visualization Suite** with Sankey + Alluvial flow diagrams for research presentations
+- ✅ **Revolutionary Threshold Tree System V2** with configurable split rules and dynamic stage ordering
+- ✅ **Research-Oriented State Management** with dual-panel data flow optimized for demonstrations
+- ✅ **Conference-Ready Error Handling** with reliable graceful degradation for live presentations
+- ✅ **Demonstration-Optimized Performance** with React and D3 optimizations suitable for conferences
+- ✅ **Research Developer Experience** with hot reload and flexible tooling
 
-The application is ready for **academic research presentation** with advanced comparison visualization capabilities and capable of handling **complex SAE feature analysis workflows** with professional-grade dual-panel user experience.
+**Key Research Features:**
+- **Dynamic Stage Ordering**: Researchers can reorder classification stages without code changes
+- **Variable Scoring Methods**: Support for any number of scoring methods (not limited to 3)
+- **Flexible Split Rules**: Range, pattern, and expression-based splitting for research flexibility
+- **Conference Demonstration**: Optimized for live academic presentations and research validation
+
+**Design Philosophy:**
+- **Research Prototype**: Built for conference demonstration, not production deployment
+- **Flexibility Over Scale**: Prioritizes research adaptability over enterprise features
+- **Maintainable Complexity**: Avoids over-engineering while supporting advanced research scenarios
+
+The application is ready for **academic conference presentation** with flexible comparison visualization capabilities designed for **SAE feature analysis research** at conference demonstration scale.
