@@ -1,8 +1,9 @@
 from pydantic import BaseModel, Field
-from typing import Optional
-from .common import Filters, MetricType, ThresholdTree
+from typing import Optional, Union, Dict, Any
+from .common import Filters, MetricType
+from .threshold import ThresholdStructure
 
-class HistogramRequest(BaseModel):
+class  HistogramRequest(BaseModel):
     """Request model for histogram data endpoint"""
     filters: Filters = Field(
         ...,
@@ -18,9 +19,9 @@ class HistogramRequest(BaseModel):
         le=100,
         description="Number of histogram bins (auto-calculated if not provided)"
     )
-    thresholdTree: Optional[ThresholdTree] = Field(
+    thresholdTree: Optional[ThresholdStructure] = Field(
         default=None,
-        description="Optional threshold tree for node-specific histogram filtering"
+        description="Optional threshold tree for node-specific histogram filtering (v2 format only)"
     )
     nodeId: Optional[str] = Field(
         default=None,
@@ -33,15 +34,13 @@ class SankeyRequest(BaseModel):
         ...,
         description="Filter criteria for data subset"
     )
-    thresholdTree: ThresholdTree = Field(
+    thresholdTree: ThresholdStructure = Field(
         ...,
-        description="Threshold tree structure for hierarchical classification"
+        description="Threshold tree structure for hierarchical classification (v2 format only)"
     )
-    version: Optional[int] = Field(
-        default=None,
-        ge=1,
-        le=2,
-        description="Threshold system version (1=legacy, 2=new flexible system, None=auto-detect)"
+    version: int = Field(
+        default=2,
+        description="Threshold system version (always 2 for new flexible system)"
     )
 
 class ComparisonRequest(BaseModel):

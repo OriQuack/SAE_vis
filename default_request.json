@@ -1,0 +1,2091 @@
+{
+  "filters": {},
+  "thresholdTree": {
+    "nodes": [
+      {
+        "id": "root",
+        "stage": 0,
+        "category": "root",
+        "parent_path": [],
+        "split_rule": {
+          "type": "range",
+          "metric": "feature_splitting",
+          "thresholds": [
+            0.1
+          ]
+        },
+        "children_ids": [
+          "split_false",
+          "split_true"
+        ]
+      },
+      {
+        "id": "split_false",
+        "stage": 1,
+        "category": "feature_splitting",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 0
+          }
+        ],
+        "split_rule": {
+          "type": "range",
+          "metric": "semdist_mean",
+          "thresholds": [
+            0.085
+          ]
+        },
+        "children_ids": [
+          "split_false_semdist_low",
+          "split_false_semdist_high"
+        ]
+      },
+      {
+        "id": "split_true",
+        "stage": 1,
+        "category": "feature_splitting",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 1
+          }
+        ],
+        "split_rule": {
+          "type": "range",
+          "metric": "semdist_mean",
+          "thresholds": [
+            0.085
+          ]
+        },
+        "children_ids": [
+          "split_true_semdist_low",
+          "split_true_semdist_high"
+        ]
+      },
+      {
+        "id": "split_false_semdist_low",
+        "stage": 2,
+        "category": "semantic_distance",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_false",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 0
+          }
+        ],
+        "split_rule": {
+          "type": "pattern",
+          "conditions": {
+            "score_fuzz": {
+              "threshold": 0.5
+            },
+            "score_simulation": {
+              "threshold": 0.5
+            },
+            "score_detection": {
+              "threshold": 0.2
+            }
+          },
+          "patterns": [
+            {
+              "match": {
+                "score_fuzz": "high",
+                "score_simulation": "high",
+                "score_detection": "high"
+              },
+              "child_id": "all_3_high",
+              "description": "All 3 scores high"
+            },
+            {
+              "match": {
+                "score_fuzz": "high",
+                "score_simulation": "high",
+                "score_detection": "low"
+              },
+              "child_id": "2_of_3_high_fuzz_sim",
+              "description": "2 of 3 high (fuzz & simulation)"
+            },
+            {
+              "match": {
+                "score_fuzz": "high",
+                "score_simulation": "low",
+                "score_detection": "high"
+              },
+              "child_id": "2_of_3_high_fuzz_det",
+              "description": "2 of 3 high (fuzz & detection)"
+            },
+            {
+              "match": {
+                "score_fuzz": "low",
+                "score_simulation": "high",
+                "score_detection": "high"
+              },
+              "child_id": "2_of_3_high_sim_det",
+              "description": "2 of 3 high (simulation & detection)"
+            },
+            {
+              "match": {
+                "score_fuzz": "high",
+                "score_simulation": "low",
+                "score_detection": "low"
+              },
+              "child_id": "1_of_3_high_fuzz",
+              "description": "1 of 3 high (fuzz only)"
+            },
+            {
+              "match": {
+                "score_fuzz": "low",
+                "score_simulation": "high",
+                "score_detection": "low"
+              },
+              "child_id": "1_of_3_high_sim",
+              "description": "1 of 3 high (simulation only)"
+            },
+            {
+              "match": {
+                "score_fuzz": "low",
+                "score_simulation": "low",
+                "score_detection": "high"
+              },
+              "child_id": "1_of_3_high_det",
+              "description": "1 of 3 high (detection only)"
+            },
+            {
+              "match": {
+                "score_fuzz": "low",
+                "score_simulation": "low",
+                "score_detection": "low"
+              },
+              "child_id": "all_3_low",
+              "description": "All 3 scores low"
+            }
+          ]
+        },
+        "children_ids": [
+          "split_false_semdist_low_all_3_high",
+          "split_false_semdist_low_2_of_3_high_fuzz_sim",
+          "split_false_semdist_low_2_of_3_high_fuzz_det",
+          "split_false_semdist_low_2_of_3_high_sim_det",
+          "split_false_semdist_low_1_of_3_high_fuzz",
+          "split_false_semdist_low_1_of_3_high_sim",
+          "split_false_semdist_low_1_of_3_high_det",
+          "split_false_semdist_low_all_3_low"
+        ]
+      },
+      {
+        "id": "split_false_semdist_high",
+        "stage": 2,
+        "category": "semantic_distance",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_false",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 1
+          }
+        ],
+        "split_rule": {
+          "type": "pattern",
+          "conditions": {
+            "score_fuzz": {
+              "threshold": 0.5
+            },
+            "score_simulation": {
+              "threshold": 0.5
+            },
+            "score_detection": {
+              "threshold": 0.2
+            }
+          },
+          "patterns": [
+            {
+              "match": {
+                "score_fuzz": "high",
+                "score_simulation": "high",
+                "score_detection": "high"
+              },
+              "child_id": "all_3_high",
+              "description": "All 3 scores high"
+            },
+            {
+              "match": {
+                "score_fuzz": "high",
+                "score_simulation": "high",
+                "score_detection": "low"
+              },
+              "child_id": "2_of_3_high_fuzz_sim",
+              "description": "2 of 3 high (fuzz & simulation)"
+            },
+            {
+              "match": {
+                "score_fuzz": "high",
+                "score_simulation": "low",
+                "score_detection": "high"
+              },
+              "child_id": "2_of_3_high_fuzz_det",
+              "description": "2 of 3 high (fuzz & detection)"
+            },
+            {
+              "match": {
+                "score_fuzz": "low",
+                "score_simulation": "high",
+                "score_detection": "high"
+              },
+              "child_id": "2_of_3_high_sim_det",
+              "description": "2 of 3 high (simulation & detection)"
+            },
+            {
+              "match": {
+                "score_fuzz": "high",
+                "score_simulation": "low",
+                "score_detection": "low"
+              },
+              "child_id": "1_of_3_high_fuzz",
+              "description": "1 of 3 high (fuzz only)"
+            },
+            {
+              "match": {
+                "score_fuzz": "low",
+                "score_simulation": "high",
+                "score_detection": "low"
+              },
+              "child_id": "1_of_3_high_sim",
+              "description": "1 of 3 high (simulation only)"
+            },
+            {
+              "match": {
+                "score_fuzz": "low",
+                "score_simulation": "low",
+                "score_detection": "high"
+              },
+              "child_id": "1_of_3_high_det",
+              "description": "1 of 3 high (detection only)"
+            },
+            {
+              "match": {
+                "score_fuzz": "low",
+                "score_simulation": "low",
+                "score_detection": "low"
+              },
+              "child_id": "all_3_low",
+              "description": "All 3 scores low"
+            }
+          ]
+        },
+        "children_ids": [
+          "split_false_semdist_high_all_3_high",
+          "split_false_semdist_high_2_of_3_high_fuzz_sim",
+          "split_false_semdist_high_2_of_3_high_fuzz_det",
+          "split_false_semdist_high_2_of_3_high_sim_det",
+          "split_false_semdist_high_1_of_3_high_fuzz",
+          "split_false_semdist_high_1_of_3_high_sim",
+          "split_false_semdist_high_1_of_3_high_det",
+          "split_false_semdist_high_all_3_low"
+        ]
+      },
+      {
+        "id": "split_true_semdist_low",
+        "stage": 2,
+        "category": "semantic_distance",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_true",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 0
+          }
+        ],
+        "split_rule": {
+          "type": "pattern",
+          "conditions": {
+            "score_fuzz": {
+              "threshold": 0.5
+            },
+            "score_simulation": {
+              "threshold": 0.5
+            },
+            "score_detection": {
+              "threshold": 0.2
+            }
+          },
+          "patterns": [
+            {
+              "match": {
+                "score_fuzz": "high",
+                "score_simulation": "high",
+                "score_detection": "high"
+              },
+              "child_id": "all_3_high",
+              "description": "All 3 scores high"
+            },
+            {
+              "match": {
+                "score_fuzz": "high",
+                "score_simulation": "high",
+                "score_detection": "low"
+              },
+              "child_id": "2_of_3_high_fuzz_sim",
+              "description": "2 of 3 high (fuzz & simulation)"
+            },
+            {
+              "match": {
+                "score_fuzz": "high",
+                "score_simulation": "low",
+                "score_detection": "high"
+              },
+              "child_id": "2_of_3_high_fuzz_det",
+              "description": "2 of 3 high (fuzz & detection)"
+            },
+            {
+              "match": {
+                "score_fuzz": "low",
+                "score_simulation": "high",
+                "score_detection": "high"
+              },
+              "child_id": "2_of_3_high_sim_det",
+              "description": "2 of 3 high (simulation & detection)"
+            },
+            {
+              "match": {
+                "score_fuzz": "high",
+                "score_simulation": "low",
+                "score_detection": "low"
+              },
+              "child_id": "1_of_3_high_fuzz",
+              "description": "1 of 3 high (fuzz only)"
+            },
+            {
+              "match": {
+                "score_fuzz": "low",
+                "score_simulation": "high",
+                "score_detection": "low"
+              },
+              "child_id": "1_of_3_high_sim",
+              "description": "1 of 3 high (simulation only)"
+            },
+            {
+              "match": {
+                "score_fuzz": "low",
+                "score_simulation": "low",
+                "score_detection": "high"
+              },
+              "child_id": "1_of_3_high_det",
+              "description": "1 of 3 high (detection only)"
+            },
+            {
+              "match": {
+                "score_fuzz": "low",
+                "score_simulation": "low",
+                "score_detection": "low"
+              },
+              "child_id": "all_3_low",
+              "description": "All 3 scores low"
+            }
+          ]
+        },
+        "children_ids": [
+          "split_true_semdist_low_all_3_high",
+          "split_true_semdist_low_2_of_3_high_fuzz_sim",
+          "split_true_semdist_low_2_of_3_high_fuzz_det",
+          "split_true_semdist_low_2_of_3_high_sim_det",
+          "split_true_semdist_low_1_of_3_high_fuzz",
+          "split_true_semdist_low_1_of_3_high_sim",
+          "split_true_semdist_low_1_of_3_high_det",
+          "split_true_semdist_low_all_3_low"
+        ]
+      },
+      {
+        "id": "split_true_semdist_high",
+        "stage": 2,
+        "category": "semantic_distance",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_true",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 1
+          }
+        ],
+        "split_rule": {
+          "type": "pattern",
+          "conditions": {
+            "score_fuzz": {
+              "threshold": 0.5
+            },
+            "score_simulation": {
+              "threshold": 0.5
+            },
+            "score_detection": {
+              "threshold": 0.2
+            }
+          },
+          "patterns": [
+            {
+              "match": {
+                "score_fuzz": "high",
+                "score_simulation": "high",
+                "score_detection": "high"
+              },
+              "child_id": "all_3_high",
+              "description": "All 3 scores high"
+            },
+            {
+              "match": {
+                "score_fuzz": "high",
+                "score_simulation": "high",
+                "score_detection": "low"
+              },
+              "child_id": "2_of_3_high_fuzz_sim",
+              "description": "2 of 3 high (fuzz & simulation)"
+            },
+            {
+              "match": {
+                "score_fuzz": "high",
+                "score_simulation": "low",
+                "score_detection": "high"
+              },
+              "child_id": "2_of_3_high_fuzz_det",
+              "description": "2 of 3 high (fuzz & detection)"
+            },
+            {
+              "match": {
+                "score_fuzz": "low",
+                "score_simulation": "high",
+                "score_detection": "high"
+              },
+              "child_id": "2_of_3_high_sim_det",
+              "description": "2 of 3 high (simulation & detection)"
+            },
+            {
+              "match": {
+                "score_fuzz": "high",
+                "score_simulation": "low",
+                "score_detection": "low"
+              },
+              "child_id": "1_of_3_high_fuzz",
+              "description": "1 of 3 high (fuzz only)"
+            },
+            {
+              "match": {
+                "score_fuzz": "low",
+                "score_simulation": "high",
+                "score_detection": "low"
+              },
+              "child_id": "1_of_3_high_sim",
+              "description": "1 of 3 high (simulation only)"
+            },
+            {
+              "match": {
+                "score_fuzz": "low",
+                "score_simulation": "low",
+                "score_detection": "high"
+              },
+              "child_id": "1_of_3_high_det",
+              "description": "1 of 3 high (detection only)"
+            },
+            {
+              "match": {
+                "score_fuzz": "low",
+                "score_simulation": "low",
+                "score_detection": "low"
+              },
+              "child_id": "all_3_low",
+              "description": "All 3 scores low"
+            }
+          ]
+        },
+        "children_ids": [
+          "split_true_semdist_high_all_3_high",
+          "split_true_semdist_high_2_of_3_high_fuzz_sim",
+          "split_true_semdist_high_2_of_3_high_fuzz_det",
+          "split_true_semdist_high_2_of_3_high_sim_det",
+          "split_true_semdist_high_1_of_3_high_fuzz",
+          "split_true_semdist_high_1_of_3_high_sim",
+          "split_true_semdist_high_1_of_3_high_det",
+          "split_true_semdist_high_all_3_low"
+        ]
+      },
+      {
+        "id": "split_false_semdist_low_all_3_high",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_false",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_false_semdist_low",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 0,
+                "pattern_description": "all 3 high"
+              }
+            },
+            "branch_index": 0
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_false_semdist_low_2_of_3_high_fuzz_sim",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_false",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_false_semdist_low",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 1,
+                "pattern_description": "2 of 3 high fuzz sim"
+              }
+            },
+            "branch_index": 1
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_false_semdist_low_2_of_3_high_fuzz_det",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_false",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_false_semdist_low",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 2,
+                "pattern_description": "2 of 3 high fuzz det"
+              }
+            },
+            "branch_index": 2
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_false_semdist_low_2_of_3_high_sim_det",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_false",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_false_semdist_low",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 3,
+                "pattern_description": "2 of 3 high sim det"
+              }
+            },
+            "branch_index": 3
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_false_semdist_low_1_of_3_high_fuzz",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_false",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_false_semdist_low",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 4,
+                "pattern_description": "1 of 3 high fuzz"
+              }
+            },
+            "branch_index": 4
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_false_semdist_low_1_of_3_high_sim",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_false",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_false_semdist_low",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 5,
+                "pattern_description": "1 of 3 high sim"
+              }
+            },
+            "branch_index": 5
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_false_semdist_low_1_of_3_high_det",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_false",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_false_semdist_low",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 6,
+                "pattern_description": "1 of 3 high det"
+              }
+            },
+            "branch_index": 6
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_false_semdist_low_all_3_low",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_false",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_false_semdist_low",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 7,
+                "pattern_description": "all 3 low"
+              }
+            },
+            "branch_index": 7
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_false_semdist_high_all_3_high",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_false",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_false_semdist_high",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 0,
+                "pattern_description": "all 3 high"
+              }
+            },
+            "branch_index": 0
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_false_semdist_high_2_of_3_high_fuzz_sim",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_false",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_false_semdist_high",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 1,
+                "pattern_description": "2 of 3 high fuzz sim"
+              }
+            },
+            "branch_index": 1
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_false_semdist_high_2_of_3_high_fuzz_det",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_false",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_false_semdist_high",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 2,
+                "pattern_description": "2 of 3 high fuzz det"
+              }
+            },
+            "branch_index": 2
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_false_semdist_high_2_of_3_high_sim_det",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_false",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_false_semdist_high",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 3,
+                "pattern_description": "2 of 3 high sim det"
+              }
+            },
+            "branch_index": 3
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_false_semdist_high_1_of_3_high_fuzz",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_false",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_false_semdist_high",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 4,
+                "pattern_description": "1 of 3 high fuzz"
+              }
+            },
+            "branch_index": 4
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_false_semdist_high_1_of_3_high_sim",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_false",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_false_semdist_high",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 5,
+                "pattern_description": "1 of 3 high sim"
+              }
+            },
+            "branch_index": 5
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_false_semdist_high_1_of_3_high_det",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_false",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_false_semdist_high",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 6,
+                "pattern_description": "1 of 3 high det"
+              }
+            },
+            "branch_index": 6
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_false_semdist_high_all_3_low",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_false",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_false_semdist_high",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 7,
+                "pattern_description": "all 3 low"
+              }
+            },
+            "branch_index": 7
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_true_semdist_low_all_3_high",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_true",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_true_semdist_low",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 0,
+                "pattern_description": "all 3 high"
+              }
+            },
+            "branch_index": 0
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_true_semdist_low_2_of_3_high_fuzz_sim",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_true",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_true_semdist_low",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 1,
+                "pattern_description": "2 of 3 high fuzz sim"
+              }
+            },
+            "branch_index": 1
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_true_semdist_low_2_of_3_high_fuzz_det",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_true",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_true_semdist_low",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 2,
+                "pattern_description": "2 of 3 high fuzz det"
+              }
+            },
+            "branch_index": 2
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_true_semdist_low_2_of_3_high_sim_det",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_true",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_true_semdist_low",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 3,
+                "pattern_description": "2 of 3 high sim det"
+              }
+            },
+            "branch_index": 3
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_true_semdist_low_1_of_3_high_fuzz",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_true",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_true_semdist_low",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 4,
+                "pattern_description": "1 of 3 high fuzz"
+              }
+            },
+            "branch_index": 4
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_true_semdist_low_1_of_3_high_sim",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_true",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_true_semdist_low",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 5,
+                "pattern_description": "1 of 3 high sim"
+              }
+            },
+            "branch_index": 5
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_true_semdist_low_1_of_3_high_det",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_true",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_true_semdist_low",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 6,
+                "pattern_description": "1 of 3 high det"
+              }
+            },
+            "branch_index": 6
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_true_semdist_low_all_3_low",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_true",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 0
+          },
+          {
+            "parent_id": "split_true_semdist_low",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 7,
+                "pattern_description": "all 3 low"
+              }
+            },
+            "branch_index": 7
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_true_semdist_high_all_3_high",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_true",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_true_semdist_high",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 0,
+                "pattern_description": "all 3 high"
+              }
+            },
+            "branch_index": 0
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_true_semdist_high_2_of_3_high_fuzz_sim",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_true",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_true_semdist_high",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 1,
+                "pattern_description": "2 of 3 high fuzz sim"
+              }
+            },
+            "branch_index": 1
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_true_semdist_high_2_of_3_high_fuzz_det",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_true",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_true_semdist_high",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 2,
+                "pattern_description": "2 of 3 high fuzz det"
+              }
+            },
+            "branch_index": 2
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_true_semdist_high_2_of_3_high_sim_det",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_true",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_true_semdist_high",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 3,
+                "pattern_description": "2 of 3 high sim det"
+              }
+            },
+            "branch_index": 3
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_true_semdist_high_1_of_3_high_fuzz",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_true",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_true_semdist_high",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 4,
+                "pattern_description": "1 of 3 high fuzz"
+              }
+            },
+            "branch_index": 4
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_true_semdist_high_1_of_3_high_sim",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_true",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_true_semdist_high",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 5,
+                "pattern_description": "1 of 3 high sim"
+              }
+            },
+            "branch_index": 5
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_true_semdist_high_1_of_3_high_det",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_true",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_true_semdist_high",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 6,
+                "pattern_description": "1 of 3 high det"
+              }
+            },
+            "branch_index": 6
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "split_true_semdist_high_all_3_low",
+        "stage": 3,
+        "category": "score_agreement",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.1
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_true",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.085
+                ]
+              }
+            },
+            "branch_index": 1
+          },
+          {
+            "parent_id": "split_true_semdist_high",
+            "parent_split_rule": {
+              "type": "pattern",
+              "pattern_info": {
+                "pattern_index": 7,
+                "pattern_description": "all 3 low"
+              }
+            },
+            "branch_index": 7
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      }
+    ],
+    "metrics": [
+      "feature_splitting",
+      "semdist_mean",
+      "score_fuzz",
+      "score_simulation",
+      "score_detection"
+    ],
+    "version": 2
+  },
+  "version": 2
+}

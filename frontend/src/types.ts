@@ -18,58 +18,86 @@ export interface Filters {
 // THRESHOLD TREE SYSTEM
 // ============================================================================
 
-/**
- * Represents a node in the hierarchical threshold tree.
- * A node can be a final category (a leaf) or it can be split further (a branch).
- */
-export interface ThresholdNode {
-  /**
-   * A unique identifier or name for this category/node.
-   * e.g., 'root', 'split_true', 'split_true_semdist_high', etc.
-   */
-  id: string
+// ============================================================================
+// NEW THRESHOLD SYSTEM V2 (Phase 2 Implementation)
+// ============================================================================
 
-  /**
-   * Optional metric name this node uses for evaluation.
-   * Used for histogram display and threshold visualization.
-   */
-  metric?: string
-
-  /**
-   * The rule for splitting this node into children.
-   * If this property is undefined or null, the node is considered a "leaf" node,
-   * representing a final category with no further subdivisions.
-   */
-  split?: {
-    /**
-     * An ordered array of threshold values. The number of thresholds determines
-     * the number of resulting child branches.
-     * - 1 threshold (e.g., [50]) creates 2 branches (<50, >=50).
-     * - 2 thresholds (e.g., [30, 80]) create 3 branches (<30, 30-80, >=80).
-     * - 3 thresholds (e.g., [10, 20, 30]) create 4 branches.
-     */
-    thresholds: number[]
-
-    /**
-     * The child nodes that result from applying the thresholds.
-     *
-     * IMPORTANT: The length of this array must be exactly `thresholds.length + 1`.
-     *
-     * The order is significant and maps directly to the ranges created by the thresholds:
-     * - `children[0]` is for values < `thresholds[0]`
-     * - `children[i]` is for values >= `thresholds[i-1]` and < `thresholds[i]`
-     * - The last child is for values >= the last threshold.
-     */
-    children: ThresholdNode[]
-  }
+// Category Type Definition
+export enum CategoryType {
+  ROOT = "root",
+  FEATURE_SPLITTING = "feature_splitting",
+  SEMANTIC_DISTANCE = "semantic_distance",
+  SCORE_AGREEMENT = "score_agreement"
 }
 
-/**
- * Complete threshold tree structure with metadata
- */
-export interface ThresholdTree {
-  root: ThresholdNode
+// Split Rule Definitions
+export interface RangeSplitRule {
+  type: 'range'
+  metric: string
+  thresholds: number[]
+}
+
+export interface PatternSplitRule {
+  type: 'pattern'
+  conditions: {
+    [metric: string]: {
+      threshold?: number
+      min?: number
+      max?: number
+      operator?: '>' | '>=' | '<' | '<=' | '==' | '!='
+    }
+  }
+  patterns: Array<{
+    match: {
+      [metric: string]: 'high' | 'low' | 'in_range' | 'out_range' | undefined
+    }
+    child_id: string
+    description?: string
+  }>
+  default_child_id?: string
+}
+
+export interface ExpressionSplitRule {
+  type: 'expression'
+  available_metrics?: string[]
+  branches: Array<{
+    condition: string
+    child_id: string
+    description?: string
+  }>
+  default_child_id: string
+}
+
+export type SplitRule = RangeSplitRule | PatternSplitRule | ExpressionSplitRule
+
+// Parent Path Information
+export interface ParentPathInfo {
+  parent_id: string
+  parent_split_rule: {
+    type: 'range' | 'pattern' | 'expression'
+    range_info?: { metric: string; thresholds: number[] }
+    pattern_info?: { pattern_index: number; pattern_description?: string }
+    expression_info?: { branch_index: number; condition: string; description?: string }
+  }
+  branch_index: number
+  triggering_values?: { [metric: string]: number }
+}
+
+// Main Node Definition
+export interface SankeyThreshold {
+  id: string
+  stage: number
+  category: CategoryType
+  parent_path: ParentPathInfo[]
+  split_rule: SplitRule | null
+  children_ids: string[]
+}
+
+// New Threshold Tree Structure for V2
+export interface ThresholdTreeV2 {
+  nodes: SankeyThreshold[]
   metrics: string[]
+  version: 2
 }
 
 export interface FilterOptions {
@@ -88,12 +116,12 @@ export interface HistogramDataRequest {
   metric: string
   bins?: number
   nodeId?: string
-  thresholdTree?: ThresholdTree
+  thresholdTree?: ThresholdTreeV2
 }
 
 export interface SankeyDataRequest {
   filters: Filters
-  thresholdTree: ThresholdTree
+  thresholdTree: ThresholdTreeV2
 }
 
 export interface ComparisonDataRequest {
@@ -163,7 +191,7 @@ export interface SankeyData {
   metadata: {
     total_features: number
     applied_filters: Filters
-    applied_thresholds: ThresholdTree
+    applied_thresholds: ThresholdTreeV2
   }
 }
 

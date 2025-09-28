@@ -12,7 +12,7 @@ import re
 from typing import Dict, Any, Optional, Tuple, List
 from dataclasses import dataclass
 
-from ..models.threshold_v2 import (
+from ..models.threshold import (
     RangeSplitRule,
     PatternSplitRule,
     PatternCondition,
@@ -148,12 +148,18 @@ class SplitEvaluator:
         # Now match against patterns in order
         for pattern_index, pattern in enumerate(rule.patterns):
             if self._pattern_matches(metric_states, pattern.match):
-                # Found matching pattern
-                try:
-                    branch_index = children_ids.index(pattern.child_id)
-                except ValueError:
-                    logger.warning(f"Pattern child_id '{pattern.child_id}' not in children_ids")
+                # Found matching pattern - use position-agnostic matching
+                matching_child = self._find_matching_child(pattern.child_id, children_ids)
+
+                if matching_child:
+                    branch_index = children_ids.index(matching_child)
+                else:
+                    logger.warning(
+                        f"Pattern child_id '{pattern.child_id}' not found in children_ids: {children_ids}. "
+                        f"Using first child as fallback."
+                    )
                     branch_index = 0
+                    matching_child = children_ids[0] if children_ids else pattern.child_id
 
                 split_info = ParentSplitRuleInfo(
                     type='pattern',
@@ -165,7 +171,7 @@ class SplitEvaluator:
                 )
 
                 return EvaluationResult(
-                    child_id=pattern.child_id,
+                    child_id=matching_child,
                     branch_index=branch_index,
                     split_info=split_info,
                     triggering_values=triggering_values
@@ -351,6 +357,52 @@ class SplitEvaluator:
                 return False
 
         return True
+
+    def _find_matching_child(
+        self,
+        pattern_child_id: str,
+        children_ids: List[str]
+    ) -> Optional[str]:
+        """
+        Find child that matches pattern, regardless of hierarchy position.
+
+        Handles:
+        - Exact matches (backward compatibility)
+        - Suffix matches (score agreement at end)
+        - Component matches (score agreement in middle/beginning)
+
+        Args:
+            pattern_child_id: The pattern's child_id (e.g., '2_of_3_high_fuzz_det')
+            children_ids: List of actual child node IDs
+
+        Returns:
+            Matching child ID or None if not found
+        """
+        # First try exact match (fastest and most reliable)
+        if pattern_child_id in children_ids:
+            return pattern_child_id
+
+        # Then try suffix match (for current hierarchy where score is at end)
+        for child_id in children_ids:
+            if child_id.endswith(pattern_child_id) or child_id.endswith('_' + pattern_child_id):
+                return child_id
+
+        # Then try component-based matching (for score agreement in middle/beginning)
+        pattern_parts = pattern_child_id.split('_')
+
+        for child_id in children_ids:
+            child_parts = child_id.split('_')
+
+            # Check if pattern parts appear consecutively in child parts
+            # This handles cases like:
+            # pattern: '2_of_3_high_fuzz_det'
+            # child: 'root_2_of_3_high_fuzz_det_split_true_semdist_high'
+            for i in range(len(child_parts) - len(pattern_parts) + 1):
+                if child_parts[i:i+len(pattern_parts)] == pattern_parts:
+                    return child_id
+
+        # No match found
+        return None
 
     def _evaluate_expression(
         self,

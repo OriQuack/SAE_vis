@@ -32,28 +32,29 @@ def get_data_service():
         400: {"model": ErrorResponse, "description": "Invalid request parameters"},
         500: {"model": ErrorResponse, "description": "Server error"}
     },
-    summary="Get Sankey Diagram Data",
-    description="Returns structured nodes and links data for rendering a Sankey diagram based on complete configuration."
+    summary="Get Sankey Diagram Data (v2 only)",
+    description="Returns structured nodes and links data for rendering a Sankey diagram using the v2 threshold system only."
 )
 async def get_sankey_data(
     request: SankeyRequest,
     data_service: DataService = Depends(get_data_service)
 ):
     """
-    Generate Sankey diagram data with hierarchical categorization.
+    Generate Sankey diagram data using the v2 threshold system only.
 
-    This is the main endpoint for generating visualization data. It takes
-    a complete configuration including filters and thresholds, then returns
-    structured nodes and links for rendering interactive Sankey diagrams.
+    This endpoint generates visualization data using the new flexible threshold
+    system (v2) exclusively. It takes a complete configuration including filters
+    and threshold structure, then returns structured nodes and links for
+    rendering interactive Sankey diagrams.
 
-    The Sankey diagram shows feature flow through multiple stages:
+    The Sankey diagram shows feature flow through multiple stages (not necessarily in this order):
     1. **Stage 0**: Root (all features)
     2. **Stage 1**: Feature splitting (true/false)
     3. **Stage 2**: Semantic distance (high/low based on threshold)
-    4. **Stage 3**: Score agreement (4 groups based on score thresholds)
+    4. **Stage 3**: Score agreement (n groups based on score thresholds)
 
     Args:
-        request: Sankey request containing filters and thresholds
+        request: Sankey request containing filters and v2 threshold structure
         data_service: Data service dependency
 
     Returns:
@@ -63,30 +64,18 @@ async def get_sankey_data(
         HTTPException: For various error conditions including invalid filters,
                       invalid thresholds, insufficient data, or server errors
     """
-    logger.info("📡 === SANKEY API REQUEST ===")
+    logger.info("📡 === SANKEY API REQUEST (v2 only) ===")
     logger.info(f"🔍 Filters: {request.filters}")
-    logger.info(f"🌳 Threshold tree: {request.thresholdTree}")
+    logger.info(f"🌳 Threshold tree v2: {request.thresholdTree}")
+    logger.info(f"📄 Version: {request.version}")
 
     try:
-        # Check if new dual-mode method is available
-        if hasattr(data_service, 'get_sankey_data_v2'):
-            # Use the dual-mode method that supports both v1 and v2
-            # Check for optional version parameter
-            use_v2 = None
-            if hasattr(request, 'version'):
-                use_v2 = request.version == 2
-
-            return await data_service.get_sankey_data_v2(
-                filters=request.filters,
-                threshold_data=request.thresholdTree,
-                use_v2=use_v2
-            )
-        else:
-            # Fall back to original method
-            return await data_service.get_sankey_data(
-                filters=request.filters,
-                thresholdTree=request.thresholdTree
-            )
+        # Use only v2 threshold system
+        return await data_service.get_sankey_data(
+            filters=request.filters,
+            threshold_data=request.thresholdTree,
+            use_v2=True
+        )
 
     except ValueError as e:
         error_msg = str(e)

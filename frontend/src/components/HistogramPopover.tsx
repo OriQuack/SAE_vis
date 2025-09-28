@@ -263,20 +263,10 @@ export const HistogramPopover = ({
         return
       }
 
-      // For score_combined nodes, update the appropriate threshold in the array
+      // For score nodes, update the individual threshold
       if (metric === 'score_fuzz' || metric === 'score_detection' || metric === 'score_simulation') {
-        const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
-        const thresholdTree = useVisualizationStore.getState()[panelKey].thresholdTree
-        const currentThresholds = getEffectiveThreshold(thresholdTree, nodeId, 'score_combined')
-
-        if (Array.isArray(currentThresholds) && currentThresholds.length >= 3) {
-          const newThresholds = [...currentThresholds]
-          if (metric === 'score_fuzz') newThresholds[0] = clampedValue
-          else if (metric === 'score_detection') newThresholds[1] = clampedValue
-          else if (metric === 'score_simulation') newThresholds[2] = clampedValue
-
-          updateThreshold(nodeId, newThresholds, panel)
-        }
+        // Update the individual threshold for this specific metric
+        updateThreshold(nodeId, [clampedValue], panel, metric)
       } else {
         // Single threshold update
         updateThreshold(nodeId, [clampedValue], panel)
@@ -319,13 +309,8 @@ export const HistogramPopover = ({
     }
 
     if (Array.isArray(thresholdValue)) {
-      // Handle score_combined case with multiple thresholds
-      const scoreMetricMap: Record<string, number> = {
-        'score_fuzz': thresholdValue[0] || 0.5,
-        'score_detection': thresholdValue[1] || 0.5,
-        'score_simulation': thresholdValue[2] || 0.2
-      }
-      return scoreMetricMap[metric] || 0.5
+      // If we get an array, use the first value
+      return thresholdValue[0] || 0.5
     }
 
     // Final fallback to histogram mean
@@ -375,20 +360,10 @@ export const HistogramPopover = ({
               return
             }
 
-            // For score_combined nodes, we need to update the appropriate threshold in the array
+            // For score nodes, update the individual threshold
             if (metric === 'score_fuzz' || metric === 'score_detection' || metric === 'score_simulation') {
-              const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
-              const thresholdTree = useVisualizationStore.getState()[panelKey].thresholdTree
-              const currentThresholds = getEffectiveThreshold(thresholdTree, nodeId, 'score_combined')
-
-              if (Array.isArray(currentThresholds) && currentThresholds.length >= 3) {
-                const newThresholds = [...currentThresholds]
-                if (metric === 'score_fuzz') newThresholds[0] = clampedThreshold
-                else if (metric === 'score_detection') newThresholds[1] = clampedThreshold
-                else if (metric === 'score_simulation') newThresholds[2] = clampedThreshold
-
-                updateThreshold(nodeId, newThresholds, panel)
-              }
+              // Update the individual threshold for this specific metric
+              updateThreshold(nodeId, [clampedThreshold], panel, metric)
             } else {
               // Single threshold update
               updateThreshold(nodeId, [clampedThreshold], panel)

@@ -63,7 +63,7 @@ This is a **production-ready visualization interface project** for EuroVIS confe
 ├── backend/                          # ✅ FastAPI Backend (Production-Ready)
 │   ├── app/
 │   │   ├── main.py                  # FastAPI application with lifespan management
-│   │   ├── api/endpoints/           # Modular API endpoints (5 implemented)
+│   │   ├── api/                    # Modular API endpoints (5 implemented)
 │   │   │   ├── filters.py           # GET /api/filter-options
 │   │   │   ├── histogram.py         # POST /api/histogram-data
 │   │   │   ├── sankey.py           # POST /api/sankey-data

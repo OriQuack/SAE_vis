@@ -15,23 +15,16 @@ from pathlib import Path
 # Enable Polars string cache for categorical operations
 pl.enable_string_cache()
 
-from ..models.common import Filters, MetricType, ThresholdTree
+from ..models.common import Filters, MetricType
+from ..models.threshold import ThresholdStructure
 from ..models.responses import (
     FilterOptionsResponse, HistogramResponse, SankeyResponse,
     ComparisonResponse, FeatureResponse
 )
 from .data_constants import *
-from .utils import extract_thresholds_from_tree, build_sankey_nodes_and_links, filter_dataframe_for_node
+from .classification import ClassificationEngine
 
-# Import v2 components for dual-mode support
-try:
-    from ..models.threshold_v2 import ThresholdStructure
-    from .classification_v2 import ClassificationEngine
-    from .migration_utils import FormatDetector, migrate_if_needed
-    V2_AVAILABLE = True
-except ImportError:
-    V2_AVAILABLE = False
-    logger.warning("V2 threshold system not available - using v1 only")
+from ..models.threshold import ThresholdStructure
 
 logger = logging.getLogger(__name__)
 
@@ -120,57 +113,6 @@ class DataService:
 
         return lazy_df
 
-
-    def _classify_features(self, df: pl.DataFrame, threshold_tree: ThresholdTree) -> pl.DataFrame:
-        """Classify features using simplified threshold system - single pass approach."""
-
-        # Extract thresholds for all features
-        threshold_columns = extract_thresholds_from_tree(df, threshold_tree)
-
-        # Add threshold columns to DataFrame
-        df_with_thresholds = df.with_columns([
-            pl.Series(name, values) for name, values in threshold_columns.items()
-        ])
-
-        # Apply all classifications in a single pass
-        return df_with_thresholds.with_columns([
-            # Stage 1: Feature splitting classification
-            pl.when(pl.col(COL_FEATURE_SPLITTING) >= pl.col("feature_splitting_threshold"))
-            .then(pl.lit(SPLITTING_TRUE))
-            .otherwise(pl.lit(SPLITTING_FALSE))
-            .alias(COL_SPLITTING_CATEGORY),
-
-            # Stage 2: Semantic distance classification
-            pl.when(pl.col(COL_SEMDIST_MEAN) >= pl.col("semdist_mean_threshold"))
-            .then(pl.lit(SEMDIST_HIGH))
-            .otherwise(pl.lit(SEMDIST_LOW))
-            .alias(COL_SEMDIST_CATEGORY),
-        ]).with_columns([
-            # Stage 3: Score agreement classification
-            (
-                (pl.col(COL_SCORE_FUZZ) >= pl.col(COL_THRESHOLD_FUZZ)).cast(pl.Int32) +
-                (pl.col(COL_SCORE_SIMULATION) >= pl.col(COL_THRESHOLD_SIMULATION)).cast(pl.Int32) +
-                (pl.col(COL_SCORE_DETECTION) >= pl.col(COL_THRESHOLD_DETECTION)).cast(pl.Int32)
-            ).alias(COL_HIGH_SCORE_COUNT)
-        ]).with_columns([
-            # Create final score agreement category
-            pl.when(pl.col(COL_HIGH_SCORE_COUNT) == 3)
-            .then(pl.lit(AGREE_ALL))
-            .when(pl.col(COL_HIGH_SCORE_COUNT) == 2)
-            .then(pl.lit(AGREE_2OF3))
-            .when(pl.col(COL_HIGH_SCORE_COUNT) == 1)
-            .then(pl.lit(AGREE_1OF3))
-            .otherwise(pl.lit(AGREE_NONE))
-            .alias(COL_SCORE_AGREEMENT)
-        ]).drop([
-            # Clean up temporary columns
-            "feature_splitting_threshold", "semdist_mean_threshold",
-            COL_THRESHOLD_FUZZ, COL_THRESHOLD_SIMULATION, COL_THRESHOLD_DETECTION,
-            COL_HIGH_SCORE_COUNT
-        ])
-
-
-
     async def get_filter_options(self) -> FilterOptionsResponse:
         """Get all available filter options."""
         if not self._filter_options_cache:
@@ -224,7 +166,7 @@ class DataService:
         filters: Filters,
         metric: MetricType,
         bins: Optional[int] = None,
-        threshold_tree: Optional[ThresholdTree] = None,
+        threshold_tree: Optional[ThresholdStructure] = None,
         node_id: Optional[str] = None
     ) -> HistogramResponse:
         """Generate histogram data for a specific metric, optionally filtered by node."""
@@ -239,12 +181,15 @@ class DataService:
                 raise ValueError("No data available after applying filters")
 
             # Apply node-specific filtering if threshold tree and node ID are provided
-            if threshold_tree and node_id:
-                logger.debug(f"Applying node-specific filtering for node: {node_id}")
-                filtered_df = filter_dataframe_for_node(filtered_df, threshold_tree, node_id)
+            logger.debug(f"Applying node-specific filtering for node: {node_id}")
 
-                if len(filtered_df) == 0:
-                    raise ValueError(f"No data available for node '{node_id}' after applying thresholds")
+            # Use the v2 classification engine for filtering
+            # Developer option: Change sort_mode to 'within_parent' for grouped sorting
+            engine = ClassificationEngine(sort_mode='within_parent')
+            filtered_df = engine.filter_features_for_node(filtered_df, threshold_tree, node_id)
+
+            if len(filtered_df) == 0:
+                raise ValueError(f"No data available for node '{node_id}' after applying thresholds")
 
             # Extract metric values
             metric_data = filtered_df.select([pl.col(metric.value).alias("metric_value")])
@@ -292,78 +237,19 @@ class DataService:
     async def get_sankey_data(
         self,
         filters: Filters,
-        thresholdTree: ThresholdTree
-    ) -> SankeyResponse:
-        """Generate Sankey diagram data with hierarchical categorization."""
-        if not self.is_ready():
-            raise RuntimeError("DataService not ready")
-
-        try:
-            # Apply filters and collect data
-            filtered_df = self._apply_filters(self._df_lazy, filters).collect()
-
-            if len(filtered_df) == 0:
-                raise ValueError("No data available after applying filters")
-
-            # Classify features using simplified system
-            categorized_df = self._classify_features(filtered_df, thresholdTree)
-
-            # Build Sankey nodes and links
-            nodes, links = build_sankey_nodes_and_links(categorized_df)
-
-            # Build metadata
-            applied_filters = {}
-            if filters.sae_id:
-                applied_filters[COL_SAE_ID] = filters.sae_id
-            if filters.explanation_method:
-                applied_filters[COL_EXPLANATION_METHOD] = filters.explanation_method
-            if filters.llm_explainer:
-                applied_filters[COL_LLM_EXPLAINER] = filters.llm_explainer
-            if filters.llm_scorer:
-                applied_filters[COL_LLM_SCORER] = filters.llm_scorer
-
-            # Extract effective thresholds from tree
-            effective_thresholds = {}
-            if thresholdTree.root.metric and thresholdTree.root.split:
-                effective_thresholds[thresholdTree.root.metric] = thresholdTree.root.split['thresholds'][0] if thresholdTree.root.split['thresholds'] else 0.0
-
-            for metric in thresholdTree.metrics:
-                if metric not in effective_thresholds:
-                    effective_thresholds[metric] = DEFAULT_THRESHOLDS.get(metric, 0.0)
-
-            metadata = {
-                "total_features": len(categorized_df),
-                "applied_filters": applied_filters,
-                "applied_thresholds": effective_thresholds
-            }
-
-            return SankeyResponse(
-                nodes=nodes,
-                links=links,
-                metadata=metadata
-            )
-
-        except Exception as e:
-            logger.error(f"Error generating Sankey data: {e}")
-            raise
-
-    async def get_sankey_data_v2(
-        self,
-        filters: Filters,
-        threshold_data: Union[ThresholdTree, Dict[str, Any]],
+        threshold_data: Union[ThresholdStructure, Dict[str, Any]],
         use_v2: Optional[bool] = None
     ) -> SankeyResponse:
         """
-        Generate Sankey diagram data with dual-mode support (v1 and v2).
+        Generate Sankey diagram data using the v2 threshold system.
 
-        This method automatically detects the threshold format and uses the
-        appropriate classification engine. It provides backward compatibility
-        while supporting the new flexible threshold system.
+        This method uses the new flexible threshold system with the v2
+        classification engine for feature categorization and Sankey generation.
 
         Args:
             filters: Filter criteria
-            threshold_data: Either ThresholdTree (v1) or ThresholdStructure (v2) as dict
-            use_v2: Force v2 mode if True, v1 if False, auto-detect if None
+            threshold_data: ThresholdStructure as dict or ThresholdStructure object
+            use_v2: Legacy parameter (ignored, always uses v2)
 
         Returns:
             SankeyResponse with nodes, links, and metadata
@@ -371,40 +257,16 @@ class DataService:
         if not self.is_ready():
             raise RuntimeError("DataService not ready")
 
-        if not V2_AVAILABLE and use_v2:
-            raise RuntimeError("V2 threshold system requested but not available")
 
-        try:
-            # Apply filters and collect data
-            filtered_df = self._apply_filters(self._df_lazy, filters).collect()
+        # Apply filters and collect data
+        filtered_df = self._apply_filters(self._df_lazy, filters).collect()
 
-            if len(filtered_df) == 0:
-                raise ValueError("No data available after applying filters")
+        if len(filtered_df) == 0:
+            raise ValueError("No data available after applying filters")
 
-            # Determine which version to use
-            if use_v2 is None and V2_AVAILABLE:
-                # Auto-detect format
-                if isinstance(threshold_data, dict):
-                    use_v2 = FormatDetector.detect_format(threshold_data) == 2
-                else:
-                    use_v2 = False  # ThresholdTree object is v1
+        return await self._get_sankey_data_impl(filtered_df, filters, threshold_data)
 
-            # Use v2 if available and requested
-            if use_v2 and V2_AVAILABLE:
-                return await self._get_sankey_data_v2_impl(filtered_df, filters, threshold_data)
-            else:
-                # Fall back to v1
-                if isinstance(threshold_data, dict):
-                    threshold_tree = ThresholdTree(**threshold_data)
-                else:
-                    threshold_tree = threshold_data
-                return await self.get_sankey_data(filters, threshold_tree)
-
-        except Exception as e:
-            logger.error(f"Error generating Sankey data (dual-mode): {e}")
-            raise
-
-    async def _get_sankey_data_v2_impl(
+    async def _get_sankey_data_impl(
         self,
         filtered_df: pl.DataFrame,
         filters: Filters,
@@ -415,18 +277,13 @@ class DataService:
         """
         # Convert to ThresholdStructure if needed
         if isinstance(threshold_data, dict):
-            # Check if it's v1 format that needs migration
-            if FormatDetector.detect_format(threshold_data) == 1:
-                # Migrate v1 to v2
-                threshold_structure = migrate_if_needed(threshold_data, target_version=2)
-            else:
-                # Already v2 format
-                threshold_structure = ThresholdStructure.from_dict(threshold_data)
+            threshold_structure = ThresholdStructure.from_dict(threshold_data)
         else:
             threshold_structure = threshold_data
 
         # Use v2 classification engine
-        engine = ClassificationEngine()
+        # Developer option: Change sort_mode to 'within_parent' for grouped sorting
+        engine = ClassificationEngine(sort_mode='within_parent')
         classified_df = engine.classify_features(filtered_df, threshold_structure)
 
         # Build Sankey nodes and links
@@ -443,13 +300,34 @@ class DataService:
         if filters.llm_scorer:
             applied_filters[COL_LLM_SCORER] = filters.llm_scorer
 
+        # Extract actual threshold values from the structure
+        applied_thresholds = {}
+        for node in threshold_structure.nodes:
+            if hasattr(node, 'split_rule') and node.split_rule:
+                if hasattr(node.split_rule, 'metric') and hasattr(node.split_rule, 'thresholds'):
+                    # Range split rule: extract metric thresholds
+                    metric = node.split_rule.metric
+                    thresholds = node.split_rule.thresholds
+                    if thresholds:
+                        if len(thresholds) == 1:
+                            applied_thresholds[metric] = float(thresholds[0])
+                        else:
+                            for i, threshold in enumerate(thresholds):
+                                applied_thresholds[f"{metric}_{i}"] = float(threshold)
+                elif hasattr(node.split_rule, 'conditions') and node.split_rule.conditions:
+                    # Pattern split rule: extract score thresholds
+                    conditions = node.split_rule.conditions
+                    for metric_name, pattern_condition in conditions.items():
+                        # Extract threshold from PatternCondition object
+                        if hasattr(pattern_condition, 'threshold') and pattern_condition.threshold is not None:
+                            applied_thresholds[metric_name] = float(pattern_condition.threshold)
+                        elif hasattr(pattern_condition, 'value') and pattern_condition.value is not None:
+                            applied_thresholds[metric_name] = float(pattern_condition.value)
+
         metadata = {
-            "total_features": len(classified_df),
+            "total_features": filtered_df.select(pl.col("feature_id")).n_unique(),  # Count unique features, not rows
             "applied_filters": applied_filters,
-            "applied_thresholds": {
-                "version": 2,
-                "structure": threshold_structure.to_dict()
-            }
+            "applied_thresholds": applied_thresholds
         }
 
         return SankeyResponse(

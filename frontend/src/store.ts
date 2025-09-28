@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import * as api from './api'
 import type {
   Filters,
-  ThresholdTree,
+  ThresholdTreeV2,
   FilterOptions,
   HistogramData,
   SankeyData,
@@ -14,13 +14,13 @@ import type {
   AlluvialFlow,
   SankeyNode
 } from './types'
-import { buildDefaultTree, updateNodeThreshold } from './lib/threshold-utils'
+import { buildDefaultTree, updateNodeThreshold, getNodesInSameThresholdGroup } from './lib/threshold-utils'
 
 type PanelSide = 'left' | 'right'
 
 interface PanelState {
   filters: Filters
-  thresholdTree: ThresholdTree
+  thresholdTree: ThresholdTreeV2
   sankeyData: SankeyData | null
   histogramData: Record<string, HistogramData> | null
   viewState: ViewState
@@ -41,7 +41,7 @@ interface AppState {
   // Data actions - now take panel parameter
   setFilters: (filters: Partial<Filters>, panel?: PanelSide) => void
   // New threshold tree actions
-  updateThreshold: (nodeId: string, thresholds: number[], panel?: PanelSide) => void
+  updateThreshold: (nodeId: string, thresholds: number[], panel?: PanelSide, metric?: string) => void
   resetThresholdTree: (panel?: PanelSide) => void
   setCurrentMetric: (metric: MetricType) => void
   setHistogramData: (data: Record<string, HistogramData> | null, panel?: PanelSide) => void
@@ -178,11 +178,11 @@ export const useStore = create<AppState>((set, get) => ({
 
 
   // NEW THRESHOLD TREE ACTIONS
-  updateThreshold: (nodeId, thresholds, panel = 'left') => {
+  updateThreshold: (nodeId, thresholds, panel = 'left', metric) => {
     const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
     set((state) => {
       const currentTree = state[panelKey].thresholdTree
-      const updatedTree = updateNodeThreshold(currentTree, nodeId, thresholds)
+      const updatedTree = updateNodeThreshold(currentTree, nodeId, thresholds, metric)
 
       return {
         [panelKey]: {
@@ -411,7 +411,8 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       const requestData = {
         filters,
-        thresholdTree
+        thresholdTree,
+        version: 2
       }
 
       const sankeyData = await api.getSankeyData(requestData)
@@ -487,10 +488,10 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   // Utility functions
-  getNodesInSameThresholdGroup: (_nodeId: string, _metric: MetricType) => {
-    // Simplified implementation - return empty array for now
-    // In the original complex system, this would return nodes that share threshold groups
-    return []
+  getNodesInSameThresholdGroup: (nodeId: string, metric: MetricType) => {
+    const state = get()
+    // Use the left panel's threshold tree as default
+    return getNodesInSameThresholdGroup(state.leftPanel.thresholdTree, nodeId, metric)
   },
 
   // Update alluvial flows from both panel data
