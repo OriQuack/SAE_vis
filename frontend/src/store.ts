@@ -87,11 +87,14 @@ interface AppState {
   // Reset actions
   reset: () => void
 
-  // Legacy compatibility getters for backward compatibility
-  // These delegate to leftPanel for backward compatibility - use panel-specific access in new code
+  // @deprecated Use leftPanel.* or rightPanel.* for panel-specific access instead
+  /** @deprecated Use leftPanel.filters or rightPanel.filters */
   filters: Filters
+  /** @deprecated Use leftPanel.histogramData or rightPanel.histogramData */
   histogramData: Record<string, HistogramData> | null
+  /** @deprecated Use leftPanel.sankeyData or rightPanel.sankeyData */
   sankeyData: SankeyData | null
+  /** @deprecated Use leftPanel.viewState or rightPanel.viewState */
   viewState: ViewState
 }
 
@@ -146,7 +149,8 @@ const initialState = {
 export const useStore = create<AppState>((set, get) => ({
   ...initialState,
 
-  // Legacy compatibility getters
+  // @deprecated These getters are unused - all components use panel-specific access (state.leftPanel.* or state.rightPanel.*)
+  // TODO: Remove in future version after confirming no external dependencies
   get filters() {
     return get().leftPanel.filters
   },
