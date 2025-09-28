@@ -179,13 +179,65 @@ export function calculateSankeyLayout(sankeyData: any, layoutWidth?: number, lay
   // Process the data with d3-sankey using our ordered data
   const sankeyLayout = sankeyGenerator(orderedData)
 
+  // Sort links to match node visual order and prevent crossing
+  const sortedLinks = sortLinksToMatchNodeOrder(sankeyLayout.links, sankeyLayout.nodes)
+
   return {
     nodes: sankeyLayout.nodes,
-    links: sankeyLayout.links,
+    links: sortedLinks,
     width,
     height,
     margin: DEFAULT_SANKEY_MARGIN
   }
+}
+
+/**
+ * Sort links to match the visual order of nodes and prevent crossing.
+ * Links to nodes that appear higher (lower y-coordinate) should connect
+ * from higher positions on the source node.
+ */
+function sortLinksToMatchNodeOrder(links: D3SankeyLink[], nodes: D3SankeyNode[]): D3SankeyLink[] {
+  // Create a map of node ID to y-position for sorting
+  const nodeYPositions = new Map<string, number>()
+
+  nodes.forEach(node => {
+    if (node.y !== undefined && node.id !== undefined) {
+      nodeYPositions.set(String(node.id), node.y)
+    }
+  })
+
+  // Group links by source node to sort targets within each source
+  const linksBySource = new Map<string, D3SankeyLink[]>()
+
+  links.forEach(link => {
+    const source = link.source as D3SankeyNode
+    const sourceId = String(source?.id || '')
+
+    if (!linksBySource.has(sourceId)) {
+      linksBySource.set(sourceId, [])
+    }
+    linksBySource.get(sourceId)!.push(link)
+  })
+
+  // Sort links within each source group by target node's y-position
+  const sortedLinks: D3SankeyLink[] = []
+
+  linksBySource.forEach(sourceLinks => {
+    // Sort links to this source by target node y-position (ascending = top to bottom)
+    const sortedSourceLinks = sourceLinks.sort((a, b) => {
+      const targetA = a.target as D3SankeyNode
+      const targetB = b.target as D3SankeyNode
+
+      const yA = nodeYPositions.get(String(targetA?.id || '')) ?? Number.MAX_SAFE_INTEGER
+      const yB = nodeYPositions.get(String(targetB?.id || '')) ?? Number.MAX_SAFE_INTEGER
+
+      return yA - yB
+    })
+
+    sortedLinks.push(...sortedSourceLinks)
+  })
+
+  return sortedLinks
 }
 
 export function getSankeyPath(link: D3SankeyLink): string {

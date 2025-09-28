@@ -171,14 +171,14 @@ class RangeInfo(BaseModel):
     """Information about a range split that was applied"""
     metric: str
     thresholds: List[float]
-    selected_range: int = Field(..., description="Index of the range that was selected (0 to len(thresholds))")
+    selected_range: Optional[int] = Field(None, description="Index of the range that was selected (0 to len(thresholds))")
 
 
 class PatternInfo(BaseModel):
     """Information about a pattern match that occurred"""
     pattern_index: int
     pattern_description: Optional[str] = None
-    matched_pattern: Dict[str, str] = Field(..., description="The actual pattern that matched")
+    matched_pattern: Optional[Dict[str, str]] = Field(None, description="The actual pattern that matched")
 
 
 class ExpressionInfo(BaseModel):
@@ -197,15 +197,8 @@ class ParentSplitRuleInfo(BaseModel):
 
     @validator('*', pre=False)
     def validate_info_matches_type(cls, v, values):
-        """Ensure the correct info field is populated based on type"""
-        if 'type' in values:
-            rule_type = values['type']
-            if rule_type == 'range' and v is None and cls.__name__ == 'range_info':
-                raise ValueError("range_info must be provided for range type")
-            elif rule_type == 'pattern' and v is None and cls.__name__ == 'pattern_info':
-                raise ValueError("pattern_info must be provided for pattern type")
-            elif rule_type == 'expression' and v is None and cls.__name__ == 'expression_info':
-                raise ValueError("expression_info must be provided for expression type")
+        """Ensure the correct info field is populated based on type (optional for frontend compatibility)"""
+        # Made optional to support frontend structures that don't include runtime classification info
         return v
 
 
@@ -223,7 +216,7 @@ class ParentPathInfo(BaseModel):
         ...,
         description="The branch index taken from parent's children_ids array"
     )
-    triggering_values: Optional[Dict[str, float]] = Field(
+    triggering_values: Optional[Dict[str, Optional[float]]] = Field(
         None,
         description="The actual metric values that led to this branch"
     )
@@ -279,13 +272,18 @@ class SankeyThreshold(BaseModel):
 
             elif isinstance(split_rule, PatternSplitRule):
                 # Pattern rules can have variable children based on patterns
-                # Just ensure we have at least the explicitly defined patterns
+                # Allow for prefixed child IDs (frontend compatibility)
                 pattern_child_ids = {p.child_id for p in split_rule.patterns}
                 if split_rule.default_child_id:
                     pattern_child_ids.add(split_rule.default_child_id)
 
-                if not pattern_child_ids.issubset(set(v)):
-                    missing = pattern_child_ids - set(v)
+                # Check if each pattern child_id exists as a suffix in actual children_ids
+                missing = set()
+                for pattern_id in pattern_child_ids:
+                    if not any(child_id.endswith(pattern_id) for child_id in v):
+                        missing.add(pattern_id)
+
+                if missing:
                     raise ValueError(f"PatternSplitRule missing children: {missing}")
 
             elif isinstance(split_rule, ExpressionSplitRule):
@@ -391,224 +389,3 @@ class ThresholdStructure(BaseModel):
     def from_dict(cls, data: Dict[str, Any]) -> "ThresholdStructure":
         """Create from dictionary"""
         return cls(**data)
-
-
-# ============================================================================
-# MIGRATION UTILITIES
-# ============================================================================
-
-def create_default_v2_structure() -> ThresholdStructure:
-    """
-    Create a default v2 threshold structure that matches the current 3-stage flow.
-    This is used for initial migration and testing.
-    """
-    nodes = []
-
-    # Root node
-    root = SankeyThreshold(
-        id="root",
-        stage=0,
-        category=CategoryType.ROOT,
-        parent_path=[],
-        split_rule=RangeSplitRule(
-            type="range",
-            metric="feature_splitting",
-            thresholds=[0.00002]  # Default threshold from old system
-        ),
-        children_ids=["split_false", "split_true"]
-    )
-    nodes.append(root)
-
-    # Stage 1: Feature splitting nodes
-    for split_val in ["false", "true"]:
-        split_node = SankeyThreshold(
-            id=f"split_{split_val}",
-            stage=1,
-            category=CategoryType.FEATURE_SPLITTING,
-            parent_path=[
-                ParentPathInfo(
-                    parent_id="root",
-                    parent_split_rule=ParentSplitRuleInfo(
-                        type="range",
-                        range_info=RangeInfo(
-                            metric="feature_splitting",
-                            thresholds=[0.00002],
-                            selected_range=0 if split_val == "false" else 1
-                        )
-                    ),
-                    branch_index=0 if split_val == "false" else 1
-                )
-            ],
-            split_rule=RangeSplitRule(
-                type="range",
-                metric="semdist_mean",
-                thresholds=[0.15]  # Default from old system
-            ),
-            children_ids=[f"split_{split_val}_semdist_low", f"split_{split_val}_semdist_high"]
-        )
-        nodes.append(split_node)
-
-        # Stage 2: Semantic distance nodes
-        for semdist_val in ["low", "high"]:
-            semdist_node_id = f"split_{split_val}_semdist_{semdist_val}"
-            semdist_node = SankeyThreshold(
-                id=semdist_node_id,
-                stage=2,
-                category=CategoryType.SEMANTIC_DISTANCE,
-                parent_path=[
-                    ParentPathInfo(
-                        parent_id="root",
-                        parent_split_rule=ParentSplitRuleInfo(
-                            type="range",
-                            range_info=RangeInfo(
-                                metric="feature_splitting",
-                                thresholds=[0.00002],
-                                selected_range=0 if split_val == "false" else 1
-                            )
-                        ),
-                        branch_index=0 if split_val == "false" else 1
-                    ),
-                    ParentPathInfo(
-                        parent_id=f"split_{split_val}",
-                        parent_split_rule=ParentSplitRuleInfo(
-                            type="range",
-                            range_info=RangeInfo(
-                                metric="semdist_mean",
-                                thresholds=[0.15],
-                                selected_range=0 if semdist_val == "low" else 1
-                            )
-                        ),
-                        branch_index=0 if semdist_val == "low" else 1
-                    )
-                ],
-                split_rule=PatternSplitRule(
-                    type="pattern",
-                    conditions={
-                        "score_fuzz": PatternCondition(threshold=0.5),
-                        "score_simulation": PatternCondition(threshold=0.5),
-                        "score_detection": PatternCondition(threshold=0.2)
-                    },
-                    patterns=[
-                        Pattern(
-                            match={
-                                "score_fuzz": "high",
-                                "score_simulation": "high",
-                                "score_detection": "high"
-                            },
-                            child_id=f"{semdist_node_id}_agree_all3high",
-                            description="All 3 scores high"
-                        ),
-                        Pattern(
-                            match={
-                                "score_fuzz": "high",
-                                "score_simulation": "high",
-                                "score_detection": "low"
-                            },
-                            child_id=f"{semdist_node_id}_agree_2of3high",
-                            description="2 of 3 high (fuzz & sim)"
-                        ),
-                        Pattern(
-                            match={
-                                "score_fuzz": "high",
-                                "score_simulation": "low",
-                                "score_detection": "high"
-                            },
-                            child_id=f"{semdist_node_id}_agree_2of3high",
-                            description="2 of 3 high (fuzz & det)"
-                        ),
-                        Pattern(
-                            match={
-                                "score_fuzz": "low",
-                                "score_simulation": "high",
-                                "score_detection": "high"
-                            },
-                            child_id=f"{semdist_node_id}_agree_2of3high",
-                            description="2 of 3 high (sim & det)"
-                        ),
-                        Pattern(
-                            match={
-                                "score_fuzz": "high",
-                                "score_simulation": "low",
-                                "score_detection": "low"
-                            },
-                            child_id=f"{semdist_node_id}_agree_1of3high",
-                            description="1 of 3 high (fuzz)"
-                        ),
-                        Pattern(
-                            match={
-                                "score_fuzz": "low",
-                                "score_simulation": "high",
-                                "score_detection": "low"
-                            },
-                            child_id=f"{semdist_node_id}_agree_1of3high",
-                            description="1 of 3 high (sim)"
-                        ),
-                        Pattern(
-                            match={
-                                "score_fuzz": "low",
-                                "score_simulation": "low",
-                                "score_detection": "high"
-                            },
-                            child_id=f"{semdist_node_id}_agree_1of3high",
-                            description="1 of 3 high (det)"
-                        ),
-                        Pattern(
-                            match={
-                                "score_fuzz": "low",
-                                "score_simulation": "low",
-                                "score_detection": "low"
-                            },
-                            child_id=f"{semdist_node_id}_agree_all3low",
-                            description="All 3 scores low"
-                        )
-                    ],
-                    default_child_id=f"{semdist_node_id}_agree_all3low"
-                ),
-                children_ids=[
-                    f"{semdist_node_id}_agree_all3low",
-                    f"{semdist_node_id}_agree_1of3high",
-                    f"{semdist_node_id}_agree_2of3high",
-                    f"{semdist_node_id}_agree_all3high"
-                ]
-            )
-            nodes.append(semdist_node)
-
-            # Stage 3: Score agreement nodes (leaf nodes)
-            for agreement in ["all3low", "1of3high", "2of3high", "all3high"]:
-                agreement_node = SankeyThreshold(
-                    id=f"{semdist_node_id}_agree_{agreement}",
-                    stage=3,
-                    category=CategoryType.SCORE_AGREEMENT,
-                    parent_path=semdist_node.parent_path + [
-                        ParentPathInfo(
-                            parent_id=semdist_node_id,
-                            parent_split_rule=ParentSplitRuleInfo(
-                                type="pattern",
-                                pattern_info=PatternInfo(
-                                    pattern_index=0,  # Will be set correctly during classification
-                                    pattern_description=f"Score agreement: {agreement}",
-                                    matched_pattern={}
-                                )
-                            ),
-                            branch_index=["all3low", "1of3high", "2of3high", "all3high"].index(agreement)
-                        )
-                    ],
-                    split_rule=None,  # Leaf nodes
-                    children_ids=[]
-                )
-                nodes.append(agreement_node)
-
-    # Collect all metrics
-    metrics = [
-        "feature_splitting",
-        "semdist_mean",
-        "score_fuzz",
-        "score_simulation",
-        "score_detection"
-    ]
-
-    return ThresholdStructure(
-        nodes=nodes,
-        metrics=metrics,
-        version=2
-    )

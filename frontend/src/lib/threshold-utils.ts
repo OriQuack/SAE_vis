@@ -1,285 +1,256 @@
-// ============================================================================
-// THRESHOLD TREE UTILITIES
-// Helper functions for operating on the unified threshold tree structure
-// ============================================================================
+import type {
+    SankeyThreshold,
+    ThresholdTreeV2,
+    RangeSplitRule,
+    PatternSplitRule,
+    MetricType
+} from '../types'
+import { buildDefaultThresholdStructure } from './split-rule-builders'
 
-import type { ThresholdNode, ThresholdTree, MetricType } from '../types'
-
 // ============================================================================
-// TREE TRAVERSAL AND SEARCH
+// CORE THRESHOLD TREE UTILITIES FOR V2 SYSTEM
 // ============================================================================
 
 /**
- * Find a node by its ID in the threshold tree
+ * Find a node by ID in the threshold tree
+ * @param tree The threshold tree
+ * @param nodeId ID of the node to find
+ * @returns The found node or null
  */
-export function findNodeById(tree: ThresholdTree, nodeId: string): ThresholdNode | null {
-  function search(node: ThresholdNode): ThresholdNode | null {
-    if (node.id === nodeId) {
-      return node
-    }
-
-    if (node.split?.children) {
-      for (const child of node.split.children) {
-        const result = search(child)
-        if (result) return result
-      }
-    }
-
-    return null
-  }
-
-  return search(tree.root)
+export function findNodeById(
+  tree: ThresholdTreeV2,
+  nodeId: string
+): SankeyThreshold | null {
+  const node = tree.nodes.find(node => node.id === nodeId)
+  return node || null
 }
 
 /**
  * Get the path from root to a specific node
- * Returns array of node IDs from root to target
+ * @param tree The threshold tree
+ * @param nodeId ID of the target node
+ * @returns Array of node IDs from root to target
  */
-export function getNodePath(tree: ThresholdTree, nodeId: string): string[] {
-  function findPath(node: ThresholdNode, path: string[]): string[] | null {
-    if (node.id === nodeId) {
-      return [...path, node.id]
-    }
+export function getNodePath(tree: ThresholdTreeV2, nodeId: string): string[] {
+  const target = findNodeById(tree, nodeId)
+  if (!target) return []
 
-    if (node.split?.children) {
-      for (const child of node.split.children) {
-        const result = findPath(child, [...path, node.id])
-        if (result) return result
-      }
-    }
+  const path = [nodeId]
+  let current = target
 
-    return null
+  while (current.parent_path.length > 0) {
+    const parentId = current.parent_path[current.parent_path.length - 1].parent_id
+    path.unshift(parentId)
+    const parent = findNodeById(tree, parentId)
+    if (!parent) break
+    current = parent
   }
 
-  return findPath(tree.root, []) || []
+  return path
 }
 
 /**
- * Get parent node of a given node ID
+ * Get parent node of a given node
+ * @param tree The threshold tree
+ * @param nodeId ID of the child node
+ * @returns The parent node or null
  */
-export function getParentNode(tree: ThresholdTree, nodeId: string): ThresholdNode | null {
-  function findParent(node: ThresholdNode): ThresholdNode | null {
-    if (node.split?.children) {
-      for (const child of node.split.children) {
-        if (child.id === nodeId) {
-          return node
-        }
+export function getParentNode(tree: ThresholdTreeV2, nodeId: string): SankeyThreshold | null {
+  const child = findNodeById(tree, nodeId)
+  if (!child || child.parent_path.length === 0) return null
 
-        const result = findParent(child)
-        if (result) return result
-      }
-    }
-
-    return null
-  }
-
-  return findParent(tree.root)
+  const parentId = child.parent_path[child.parent_path.length - 1].parent_id
+  return findNodeById(tree, parentId)
 }
 
 /**
  * Traverse the entire tree with a callback function
+ * @param tree The threshold tree
+ * @param callback Function to call for each node with node and depth
  */
-export function traverseTree(tree: ThresholdTree, callback: (node: ThresholdNode, depth: number) => void): void {
-  function traverse(node: ThresholdNode, depth: number): void {
+export function traverseTree(
+  tree: ThresholdTreeV2,
+  callback: (node: SankeyThreshold, depth: number) => void
+): void {
+  const visited = new Set<string>()
+
+  function traverse(nodeId: string, depth: number): void {
+    if (visited.has(nodeId)) return
+    visited.add(nodeId)
+
+    const node = findNodeById(tree, nodeId)
+    if (!node) return
+
     callback(node, depth)
 
-    if (node.split?.children) {
-      for (const child of node.split.children) {
-        traverse(child, depth + 1)
-      }
+    for (const childId of node.children_ids) {
+      traverse(childId, depth + 1)
     }
   }
 
-  traverse(tree.root, 0)
+  // Start from root
+  const root = tree.nodes.find(n => n.id === 'root')
+  if (root) {
+    traverse('root', 0)
+  }
 }
-
-// ============================================================================
-// THRESHOLD OPERATIONS
-// ============================================================================
 
 /**
  * Update thresholds for a specific node
  * Creates a new tree with updated thresholds (immutable operation)
+ * @param tree The threshold tree
+ * @param nodeId ID of the node to update
+ * @param thresholds New threshold values
+ * @returns Updated threshold tree
  */
 export function updateNodeThreshold(
-  tree: ThresholdTree,
+  tree: ThresholdTreeV2,
   nodeId: string,
-  thresholds: number[]
-): ThresholdTree {
-  function updateNode(node: ThresholdNode): ThresholdNode {
-    if (node.id === nodeId) {
-      return {
-        ...node,
-        split: node.split ? {
-          ...node.split,
-          thresholds: [...thresholds]
-        } : undefined
-      }
-    }
+  thresholds: number[],
+  metric?: string
+): ThresholdTreeV2 {
+  const node = findNodeById(tree, nodeId)
+  if (!node) return tree
 
-    if (node.split?.children) {
-      return {
-        ...node,
-        split: {
-          ...node.split,
-          children: node.split.children.map(updateNode)
+  let updatedNodes = tree.nodes
+
+  // Handle different split rule types
+  if (node.split_rule?.type === 'range') {
+    // For range splits, directly update thresholds
+    updatedNodes = tree.nodes.map(n => {
+      if (n.id === nodeId) {
+        return {
+          ...n,
+          split_rule: {
+            ...n.split_rule as RangeSplitRule,
+            thresholds: thresholds
+          }
         }
       }
-    }
+      return n
+    })
+  } else if (node.split_rule?.type === 'pattern') {
+    // For pattern splits, update specific metric's threshold
+    const rule = node.split_rule as PatternSplitRule
 
-    return node
+    updatedNodes = tree.nodes.map(n => {
+      if (n.id === nodeId) {
+        const updatedConditions = { ...rule.conditions }
+
+        if (metric && updatedConditions[metric]) {
+          // Update specific metric
+          updatedConditions[metric] = {
+            ...updatedConditions[metric],
+            threshold: thresholds[0]
+          }
+        } else {
+          // Legacy: update all metrics by index
+          const metrics = Object.keys(rule.conditions)
+          metrics.forEach((m, idx) => {
+            if (idx < thresholds.length) {
+              updatedConditions[m] = {
+                ...updatedConditions[m],
+                threshold: thresholds[idx]
+              }
+            }
+          })
+        }
+
+        return {
+          ...n,
+          split_rule: {
+            ...rule,
+            conditions: updatedConditions
+          }
+        }
+      }
+      return n
+    })
   }
 
   return {
     ...tree,
-    root: updateNode(tree.root)
+    nodes: updatedNodes
   }
 }
 
 /**
  * Get all metrics used in a node (for histogram display)
+ * @param node The node to get metrics for
+ * @returns Array of metrics as MetricType[]
  */
-export function getNodeMetrics(node: ThresholdNode): MetricType[] {
-  if (!node.split) {
+export function getNodeMetrics(node: SankeyThreshold): MetricType[] {
+  if (!node.split_rule) {
     // Leaf node - no metrics to display
     return []
   }
 
-  if (!node.metric) {
-    // No metric defined for this split
-    return []
+  let metrics: string[] = []
+
+  if (node.split_rule.type === 'range') {
+    metrics = [node.split_rule.metric]
+  } else if (node.split_rule.type === 'pattern') {
+    metrics = Object.keys(node.split_rule.conditions)
+  } else if (node.split_rule.type === 'expression' && node.split_rule.available_metrics) {
+    metrics = node.split_rule.available_metrics
   }
 
-  // Handle special case for score metrics (multiple thresholds for multiple scores)
-  if (node.metric === 'score_combined') {
-    return ['score_fuzz', 'score_detection', 'score_simulation'] as MetricType[]
-  }
-
-  return [node.metric as MetricType]
+  // Filter to only valid MetricType values
+  return metrics.filter(m =>
+    ['feature_splitting', 'semdist_mean', 'semdist_max',
+     'score_fuzz', 'score_simulation', 'score_detection', 'score_embedding'].includes(m)
+  ) as MetricType[]
 }
 
 /**
  * Get effective threshold values for a node and metric
+ * @param tree The threshold tree
+ * @param nodeId ID of the node
+ * @param metric Metric name
+ * @returns The threshold value(s) or null
  */
 export function getEffectiveThreshold(
-  tree: ThresholdTree,
+  tree: ThresholdTreeV2,
   nodeId: string,
   metric: string
 ): number | number[] | null {
   const node = findNodeById(tree, nodeId)
+  if (!node?.split_rule) return null
 
-  if (!node?.split) {
-    return null
-  }
-
-  // For score_combined nodes, return array of thresholds
-  if (node.metric === 'score_combined') {
-    return node.split.thresholds
-  }
-
-  // For single metric nodes, return single threshold
-  if (node.metric === metric && node.split.thresholds.length === 1) {
-    return node.split.thresholds[0]
+  if (node.split_rule.type === 'range' && node.split_rule.metric === metric) {
+    const thresholds = node.split_rule.thresholds
+    return thresholds.length === 1 ? thresholds[0] : thresholds
+  } else if (node.split_rule.type === 'pattern') {
+    const condition = node.split_rule.conditions[metric]
+    if (condition?.threshold !== undefined) {
+      return condition.threshold
+    }
   }
 
   return null
 }
 
-// ============================================================================
-// TREE CONSTRUCTION
-// ============================================================================
-
 /**
- * Build the default threshold tree structure matching current 3-stage flow
+ * Build the default threshold tree structure
+ * @returns ThresholdTreeV2 with default 3-stage flow
  */
-export function buildDefaultTree(): ThresholdTree {
-  // Score agreement children for each semantic distance node
-  const buildScoreChildren = (prefix: string) => [
-    { id: `${prefix}_agree_all3low` },
-    { id: `${prefix}_agree_1of3high` },
-    { id: `${prefix}_agree_2of3high` },
-    { id: `${prefix}_agree_all3high` }
-  ]
+export function buildDefaultTree(): ThresholdTreeV2 {
+  const nodes = buildDefaultThresholdStructure()
+  const metrics = getAllMetrics(nodes)
 
-  // Semantic distance children for each feature splitting node
-  const buildSemanticChildren = (prefix: string) => [
-    {
-      id: `${prefix}_semdist_low`,
-      metric: 'score_combined',
-      split: {
-        thresholds: [0.5, 0.5, 0.2], // fuzz, detection, simulation
-        children: buildScoreChildren(`${prefix}_semdist_low`)
-      }
-    },
-    {
-      id: `${prefix}_semdist_high`,
-      metric: 'score_combined',
-      split: {
-        thresholds: [0.5, 0.5, 0.2], // fuzz, detection, simulation
-        children: buildScoreChildren(`${prefix}_semdist_high`)
-      }
-    }
-  ]
-
-  const root: ThresholdNode = {
-    id: 'root',
-    metric: 'feature_splitting',
-    split: {
-      thresholds: [0.1],
-      children: [
-        {
-          id: 'split_false',
-          metric: 'semdist_mean',
-          split: {
-            thresholds: [0.1],
-            children: buildSemanticChildren('split_false')
-          }
-        },
-        {
-          id: 'split_true',
-          metric: 'semdist_mean',
-          split: {
-            thresholds: [0.1],
-            children: buildSemanticChildren('split_true')
-          }
-        }
-      ]
-    }
+  return {
+    nodes,
+    metrics,
+    version: 2
   }
-
-  // Collect all metrics used in the tree
-  const metricsSet = new Set<string>()
-
-  function collectMetrics(node: ThresholdNode): void {
-    if (node.metric) {
-      if (node.metric === 'score_combined') {
-        metricsSet.add('score_fuzz')
-        metricsSet.add('score_detection')
-        metricsSet.add('score_simulation')
-      } else {
-        metricsSet.add(node.metric)
-      }
-    }
-    if (node.split?.children) {
-      for (const child of node.split.children) {
-        collectMetrics(child)
-      }
-    }
-  }
-
-  collectMetrics(root)
-
-  return { root, metrics: Array.from(metricsSet) }
 }
-
-// ============================================================================
-// VALIDATION UTILITIES
-// ============================================================================
 
 /**
  * Validate that a threshold tree is properly structured
+ * @param tree The threshold tree to validate
+ * @returns Array of error messages (empty if valid)
  */
-export function validateThresholdTree(tree: ThresholdTree): string[] {
+export function validateThresholdTree(tree: ThresholdTreeV2): string[] {
   const errors: string[] = []
 
   traverseTree(tree, (node, depth) => {
@@ -288,77 +259,172 @@ export function validateThresholdTree(tree: ThresholdTree): string[] {
       errors.push(`Node at depth ${depth} has empty ID`)
     }
 
-    // Check split structure if it exists
-    if (node.split) {
-      if (!Array.isArray(node.split.thresholds)) {
-        errors.push(`Node ${node.id} has invalid thresholds (not an array)`)
-      }
-
-      if (!Array.isArray(node.split.children)) {
-        errors.push(`Node ${node.id} has invalid children (not an array)`)
-      }
-
-      if (node.split.children.length !== node.split.thresholds.length + 1) {
-        errors.push(
-          `Node ${node.id} has ${node.split.children.length} children but ${node.split.thresholds.length} thresholds ` +
-          `(should be ${node.split.thresholds.length + 1} children)`
-        )
-      }
-
-      // Check thresholds are in ascending order
-      for (let i = 1; i < node.split.thresholds.length; i++) {
-        if (node.split.thresholds[i] <= node.split.thresholds[i - 1]) {
-          errors.push(`Node ${node.id} has thresholds not in ascending order`)
+    // Check split rule structure if it exists
+    if (node.split_rule) {
+      if (node.split_rule.type === 'range') {
+        const rule = node.split_rule as RangeSplitRule
+        if (!Array.isArray(rule.thresholds)) {
+          errors.push(`Node ${node.id} has invalid thresholds (not an array)`)
         }
+        // Check thresholds are in ascending order
+        for (let i = 1; i < rule.thresholds.length; i++) {
+          if (rule.thresholds[i] <= rule.thresholds[i - 1]) {
+            errors.push(`Node ${node.id} has thresholds not in ascending order`)
+          }
+        }
+        // Check children count matches thresholds + 1
+        if (node.children_ids.length !== rule.thresholds.length + 1) {
+          errors.push(
+            `Node ${node.id} has ${node.children_ids.length} children but ${rule.thresholds.length} thresholds ` +
+            `(should be ${rule.thresholds.length + 1} children)`
+          )
+        }
+      } else if (node.split_rule.type === 'pattern') {
+        const rule = node.split_rule as PatternSplitRule
+        // Check that all patterns have valid child_ids
+        for (const pattern of rule.patterns) {
+          if (!node.children_ids.includes(pattern.child_id)) {
+            errors.push(`Node ${node.id} pattern references child ${pattern.child_id} not in children_ids`)
+          }
+        }
+      }
+    } else {
+      // Leaf node should have no children
+      if (node.children_ids.length > 0) {
+        errors.push(`Leaf node ${node.id} has children but no split_rule`)
       }
     }
   })
+
+  // Check for orphaned nodes
+  const nodeIds = new Set(tree.nodes.map(n => n.id))
+  for (const node of tree.nodes) {
+    for (const childId of node.children_ids) {
+      if (!nodeIds.has(childId)) {
+        errors.push(`Node ${node.id} references non-existent child ${childId}`)
+      }
+    }
+  }
 
   return errors
 }
 
 // ============================================================================
-// LEGACY COMPATIBILITY
+// UTILITY FUNCTIONS
 // ============================================================================
 
 /**
- * Convert old HierarchicalThresholds to new ThresholdTree format
- * This is a migration helper function
+ * Get all nodes at a specific stage
+ * @param tree The threshold tree
+ * @param stage Stage number
+ * @returns Array of nodes at the specified stage
  */
-export function legacyToTree(_hierarchicalThresholds: any): ThresholdTree {
-  // For now, just return the default tree
-  // TODO: Implement proper conversion logic based on legacy structure
-  console.warn('Legacy threshold conversion not yet implemented, using default tree')
+export function getNodesByStage(
+  tree: ThresholdTreeV2,
+  stage: number
+): SankeyThreshold[] {
+  return tree.nodes.filter(node => node.stage === stage)
+}
+
+/**
+ * Get child nodes of a parent
+ * @param tree The threshold tree
+ * @param parentId ID of the parent node
+ * @returns Array of child nodes
+ */
+export function getChildNodes(
+  tree: ThresholdTreeV2,
+  parentId: string
+): SankeyThreshold[] {
+  const parent = findNodeById(tree, parentId)
+  if (!parent) return []
+
+  return parent.children_ids
+    .map(childId => findNodeById(tree, childId))
+    .filter((node): node is SankeyThreshold => node !== null)
+}
+
+/**
+ * Check if a node is a leaf (has no children)
+ * @param node The node to check
+ * @returns True if the node is a leaf
+ */
+export function isLeafNode(node: SankeyThreshold): boolean {
+  return node.split_rule === null || node.children_ids.length === 0
+}
+
+/**
+ * Get all metrics used in the threshold structure
+ * @param nodes Array of threshold nodes
+ * @returns Array of unique metric names
+ */
+export function getAllMetrics(nodes: SankeyThreshold[]): string[] {
+  const metrics = new Set<string>()
+
+  for (const node of nodes) {
+    if (!node.split_rule) continue
+
+    if (node.split_rule.type === 'range') {
+      metrics.add(node.split_rule.metric)
+    } else if (node.split_rule.type === 'pattern') {
+      Object.keys(node.split_rule.conditions).forEach(metric => metrics.add(metric))
+    } else if (node.split_rule.type === 'expression' && node.split_rule.available_metrics) {
+      node.split_rule.available_metrics.forEach(metric => metrics.add(metric))
+    }
+  }
+
+  return Array.from(metrics)
+}
+
+/**
+ * Get nodes in the same threshold group (for batch threshold updates)
+ * @param tree The threshold tree
+ * @param nodeId ID of the reference node
+ * @param metric The metric to check
+ * @returns Array of nodes that share the same threshold group
+ */
+export function getNodesInSameThresholdGroup(
+  tree: ThresholdTreeV2,
+  nodeId: string,
+  _metric: MetricType
+): SankeyThreshold[] {
+  const referenceNode = findNodeById(tree, nodeId)
+  if (!referenceNode) return []
+
+  // For now, return just the single node
+  // This can be expanded to find nodes with shared threshold configurations
+  return [referenceNode]
+}
+
+/**
+ * Reset threshold tree to default values
+ * @returns New default threshold tree
+ */
+export function resetThresholdTree(): ThresholdTreeV2 {
   return buildDefaultTree()
 }
 
 /**
- * Convert ThresholdTree to legacy HierarchicalThresholds format
- * This is a migration helper function for backward compatibility
+ * Create an empty threshold tree v2
+ * @returns Empty ThresholdTreeV2
  */
-export function treeToLegacy(tree: ThresholdTree): any {
-  // Extract thresholds from tree nodes and convert to legacy format
-  const globalThresholds: any = {}
-
-  traverseTree(tree, (node) => {
-    if (node.split && node.metric) {
-      if (node.metric === 'score_combined') {
-        globalThresholds.score_fuzz = node.split.thresholds[0] || 0.5
-        globalThresholds.score_detection = node.split.thresholds[1] || 0.5
-        globalThresholds.score_simulation = node.split.thresholds[2] || 0.2
-      } else {
-        globalThresholds[node.metric] = node.split.thresholds[0] || 0.1
-      }
-    }
-  })
-
+export function createEmptyThresholdTree(): ThresholdTreeV2 {
   return {
-    global_thresholds: {
-      feature_splitting: globalThresholds.feature_splitting || 0.1,
-      semdist_mean: globalThresholds.semdist_mean || 0.1,
-      score_fuzz: globalThresholds.score_fuzz || 0.5,
-      score_detection: globalThresholds.score_detection || 0.5,
-      score_simulation: globalThresholds.score_simulation || 0.2
-    }
+    nodes: [],
+    metrics: [],
+    version: 2
+  }
+}
+
+/**
+ * Serialize threshold tree for API requests
+ * @param tree The threshold tree
+ * @returns Serializable tree structure
+ */
+export function serializeThresholdTree(tree: ThresholdTreeV2): any {
+  return {
+    nodes: tree.nodes,
+    metrics: tree.metrics,
+    version: tree.version
   }
 }

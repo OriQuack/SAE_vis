@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react'
 import { useVisualizationStore } from '../store'
 import { DEFAULT_ANIMATION, calculateSankeyLayout, validateSankeyData, validateDimensions, getNodeColor, getLinkColor, getSankeyPath, SANKEY_COLORS, useResizeObserver } from '../lib/d3-sankey-utils'
 import { findNodeById, getNodeMetrics } from '../lib/threshold-utils'
-import type { D3SankeyNode, D3SankeyLink, MetricType } from '../types'
+import type { D3SankeyNode, D3SankeyLink, MetricType, ThresholdTreeV2, SankeyThreshold } from '../types'
 
 // ==================== INLINE COMPONENTS ====================
 const ErrorMessage: React.FC<{ message: string; className?: string }> = ({ message, className }) => (
@@ -23,7 +23,7 @@ const LEGEND_ITEMS = [
 
 // ==================== UTILITY FUNCTIONS ====================
 
-function getMetricsForNodeId(nodeId: string, thresholdTree: any): MetricType[] | null {
+function getMetricsForNodeId(nodeId: string, thresholdTree: ThresholdTreeV2): MetricType[] | null {
   // Use the threshold tree to determine metrics for a node
   const treeNode = findNodeById(thresholdTree, nodeId)
 
@@ -32,7 +32,7 @@ function getMetricsForNodeId(nodeId: string, thresholdTree: any): MetricType[] |
     return null
   }
 
-  return getNodeMetrics(treeNode)
+  return getNodeMetrics(treeNode as SankeyThreshold)
 }
 
 // ==================== INTERFACES ====================
