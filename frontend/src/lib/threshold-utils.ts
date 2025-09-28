@@ -144,7 +144,7 @@ export function updateNodeThreshold(
             threshold: thresholds[0]
           }
         } else {
-          // Legacy: update all metrics by index
+          // Fallback: update all metrics by index when no specific metric provided
           const metrics = Object.keys(rule.conditions)
           metrics.forEach((m, idx) => {
             if (idx < thresholds.length) {
