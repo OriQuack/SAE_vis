@@ -68,11 +68,25 @@ async def get_sankey_data(
     logger.info(f"🌳 Threshold tree: {request.thresholdTree}")
 
     try:
-        # Generate Sankey data
-        return await data_service.get_sankey_data(
-            filters=request.filters,
-            thresholdTree=request.thresholdTree
-        )
+        # Check if new dual-mode method is available
+        if hasattr(data_service, 'get_sankey_data_v2'):
+            # Use the dual-mode method that supports both v1 and v2
+            # Check for optional version parameter
+            use_v2 = None
+            if hasattr(request, 'version'):
+                use_v2 = request.version == 2
+
+            return await data_service.get_sankey_data_v2(
+                filters=request.filters,
+                threshold_data=request.thresholdTree,
+                use_v2=use_v2
+            )
+        else:
+            # Fall back to original method
+            return await data_service.get_sankey_data(
+                filters=request.filters,
+                thresholdTree=request.thresholdTree
+            )
 
     except ValueError as e:
         error_msg = str(e)
