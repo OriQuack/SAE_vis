@@ -23,6 +23,16 @@ from ..models.responses import (
 from .data_constants import *
 from .utils import extract_thresholds_from_tree, build_sankey_nodes_and_links, filter_dataframe_for_node
 
+# Import v2 components for dual-mode support
+try:
+    from ..models.threshold_v2 import ThresholdStructure
+    from .classification_v2 import ClassificationEngine
+    from .migration_utils import FormatDetector, migrate_if_needed
+    V2_AVAILABLE = True
+except ImportError:
+    V2_AVAILABLE = False
+    logger.warning("V2 threshold system not available - using v1 only")
+
 logger = logging.getLogger(__name__)
 
 
@@ -336,6 +346,117 @@ class DataService:
         except Exception as e:
             logger.error(f"Error generating Sankey data: {e}")
             raise
+
+    async def get_sankey_data_v2(
+        self,
+        filters: Filters,
+        threshold_data: Union[ThresholdTree, Dict[str, Any]],
+        use_v2: Optional[bool] = None
+    ) -> SankeyResponse:
+        """
+        Generate Sankey diagram data with dual-mode support (v1 and v2).
+
+        This method automatically detects the threshold format and uses the
+        appropriate classification engine. It provides backward compatibility
+        while supporting the new flexible threshold system.
+
+        Args:
+            filters: Filter criteria
+            threshold_data: Either ThresholdTree (v1) or ThresholdStructure (v2) as dict
+            use_v2: Force v2 mode if True, v1 if False, auto-detect if None
+
+        Returns:
+            SankeyResponse with nodes, links, and metadata
+        """
+        if not self.is_ready():
+            raise RuntimeError("DataService not ready")
+
+        if not V2_AVAILABLE and use_v2:
+            raise RuntimeError("V2 threshold system requested but not available")
+
+        try:
+            # Apply filters and collect data
+            filtered_df = self._apply_filters(self._df_lazy, filters).collect()
+
+            if len(filtered_df) == 0:
+                raise ValueError("No data available after applying filters")
+
+            # Determine which version to use
+            if use_v2 is None and V2_AVAILABLE:
+                # Auto-detect format
+                if isinstance(threshold_data, dict):
+                    use_v2 = FormatDetector.detect_format(threshold_data) == 2
+                else:
+                    use_v2 = False  # ThresholdTree object is v1
+
+            # Use v2 if available and requested
+            if use_v2 and V2_AVAILABLE:
+                return await self._get_sankey_data_v2_impl(filtered_df, filters, threshold_data)
+            else:
+                # Fall back to v1
+                if isinstance(threshold_data, dict):
+                    threshold_tree = ThresholdTree(**threshold_data)
+                else:
+                    threshold_tree = threshold_data
+                return await self.get_sankey_data(filters, threshold_tree)
+
+        except Exception as e:
+            logger.error(f"Error generating Sankey data (dual-mode): {e}")
+            raise
+
+    async def _get_sankey_data_v2_impl(
+        self,
+        filtered_df: pl.DataFrame,
+        filters: Filters,
+        threshold_data: Union[Dict[str, Any], ThresholdStructure]
+    ) -> SankeyResponse:
+        """
+        Internal implementation using v2 classification engine.
+        """
+        # Convert to ThresholdStructure if needed
+        if isinstance(threshold_data, dict):
+            # Check if it's v1 format that needs migration
+            if FormatDetector.detect_format(threshold_data) == 1:
+                # Migrate v1 to v2
+                threshold_structure = migrate_if_needed(threshold_data, target_version=2)
+            else:
+                # Already v2 format
+                threshold_structure = ThresholdStructure.from_dict(threshold_data)
+        else:
+            threshold_structure = threshold_data
+
+        # Use v2 classification engine
+        engine = ClassificationEngine()
+        classified_df = engine.classify_features(filtered_df, threshold_structure)
+
+        # Build Sankey nodes and links
+        nodes, links = engine.build_sankey_data(classified_df, threshold_structure)
+
+        # Build metadata
+        applied_filters = {}
+        if filters.sae_id:
+            applied_filters[COL_SAE_ID] = filters.sae_id
+        if filters.explanation_method:
+            applied_filters[COL_EXPLANATION_METHOD] = filters.explanation_method
+        if filters.llm_explainer:
+            applied_filters[COL_LLM_EXPLAINER] = filters.llm_explainer
+        if filters.llm_scorer:
+            applied_filters[COL_LLM_SCORER] = filters.llm_scorer
+
+        metadata = {
+            "total_features": len(classified_df),
+            "applied_filters": applied_filters,
+            "applied_thresholds": {
+                "version": 2,
+                "structure": threshold_structure.to_dict()
+            }
+        }
+
+        return SankeyResponse(
+            nodes=nodes,
+            links=links,
+            metadata=metadata
+        )
 
     async def get_feature_data(
         self,
