@@ -131,6 +131,7 @@ export interface HistogramDataRequest {
 export interface SankeyDataRequest {
   filters: Filters
   thresholdTree: ThresholdTree
+  version?: number
 }
 
 export interface ComparisonDataRequest {

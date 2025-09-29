@@ -356,7 +356,7 @@ body {
   display: flex;
   flex-direction: row;
   flex: 1;
-  gap: 0.5rem;
+  gap: 0;
   overflow: hidden;
 }
 
@@ -368,9 +368,7 @@ body {
   align-items: center;
   overflow: hidden;
   background: white;
-  border-radius: 0.25rem;
-  padding: 0.25rem;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  padding: 0;
 }
 
 .sankey-view__center-panel {
@@ -381,10 +379,8 @@ body {
   align-items: center;
   overflow: hidden;
   background: white;
-  border-radius: 0.25rem;
-  padding: 0.25rem;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  margin: 0 0.25rem;
+  padding: 0;
+  margin: 0;
 }
 
 .sankey-view__right-panel {
@@ -395,9 +391,7 @@ body {
   align-items: center;
   overflow: hidden;
   background: white;
-  border-radius: 0.25rem;
-  padding: 0.25rem;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  padding: 0;
 }
 
 .sankey-view__sidebar {
@@ -1139,8 +1133,8 @@ body {
   width: 100%;
   height: 100%;
   min-height: 400px;
-  border: 2px dashed #d1d5db;
-  border-radius: 12px;
+  border: none;
+  border-radius: 0;
   background: #ffffff;
   transition: all 0.2s ease;
   box-sizing: border-box;
@@ -1148,7 +1142,6 @@ body {
 }
 
 .empty-state-card:hover {
-  border-color: #9ca3af;
   background: #f9fafb;
 }
 

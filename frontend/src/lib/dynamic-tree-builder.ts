@@ -125,20 +125,20 @@ export function canAddStageToNode(tree: ThresholdTree, nodeId: string): boolean 
   return canAdd
 }
 
-/**
- * Get the next available stage number for a new stage
- * @param tree The threshold tree
- * @returns Next stage number
- */
-function getNextStageNumber(tree: ThresholdTree): number {
-  let maxStage = 0
-  traverseTree(tree, (node) => {
-    if (node.stage > maxStage) {
-      maxStage = node.stage
-    }
-  })
-  return maxStage + 1
-}
+// /**
+//  * Get the next available stage number for a new stage
+//  * @param tree The threshold tree
+//  * @returns Next stage number
+//  */
+// function getNextStageNumber(tree: ThresholdTree): number {
+//   let maxStage = 0
+//   traverseTree(tree, (node) => {
+//     if (node.stage > maxStage) {
+//       maxStage = node.stage
+//     }
+//   })
+//   return maxStage + 1
+// }
 
 /**
  * Add a new stage to a specific node in the threshold tree
@@ -166,7 +166,9 @@ export function addStageToNode(
     throw new Error(`Unknown stage type: ${config.stageType}`)
   }
 
-  const nextStage = getNextStageNumber(tree)
+  // Children should be at parent's stage + 1, not max stage + 1
+  // This ensures siblings at the same level have the same stage number
+  const nextStage = parentNode.stage + 1
   const newNodes: SankeyThreshold[] = []
 
   // Create split rule based on configuration

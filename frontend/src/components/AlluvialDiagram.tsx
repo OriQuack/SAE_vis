@@ -59,23 +59,24 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
   // React renders all elements
   return (
     <div className={`alluvial-diagram ${className}`}>
-      {/* Statistics header */}
+      {/* Compact statistics header */}
       {layout.stats && (
-        <div className="alluvial-header">
-          <h3 className="alluvial-title">Feature Flow Consistency</h3>
-          <div className="alluvial-stats">
-            <div className="alluvial-stat">
-              <span className="alluvial-stat__value">{layout.stats.totalFeatures}</span>
-              <span className="alluvial-stat__label">Features</span>
+        <div className="alluvial-header" style={{ padding: '8px 12px', marginBottom: '8px', background: 'transparent' }}>
+          <div className="alluvial-stats" style={{ display: 'flex', justifyContent: 'space-around', gap: '12px' }}>
+            <div className="alluvial-stat" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <span className="alluvial-stat__value" style={{ fontSize: '14px', fontWeight: '600' }}>{layout.stats.totalFeatures}</span>
+              <span className="alluvial-stat__label" style={{ fontSize: '10px', color: '#6b7280' }}>Features</span>
             </div>
-            <div className="alluvial-stat">
-              <span className="alluvial-stat__value">{layout.stats.totalFlows}</span>
-              <span className="alluvial-stat__label">Flows</span>
+            <div className="alluvial-stat" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <span className="alluvial-stat__value" style={{ fontSize: '14px', fontWeight: '600' }}>{layout.stats.totalFlows}</span>
+              <span className="alluvial-stat__label" style={{ fontSize: '10px', color: '#6b7280' }}>Flows</span>
             </div>
-            <div className="alluvial-stat">
+            <div className="alluvial-stat" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <span
                 className="alluvial-stat__value"
                 style={{
+                  fontSize: '14px',
+                  fontWeight: '600',
                   color: layout.stats.consistencyRate > 50
                     ? ALLUVIAL_COLORS.consistent
                     : ALLUVIAL_COLORS.inconsistent
@@ -83,7 +84,7 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
               >
                 {layout.stats.consistencyRate.toFixed(1)}%
               </span>
-              <span className="alluvial-stat__label">Consistent</span>
+              <span className="alluvial-stat__label" style={{ fontSize: '10px', color: '#6b7280' }}>Consistent</span>
             </div>
           </div>
         </div>
@@ -134,7 +135,7 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
                 }}
               >
                 <title>
-                  {`${flow.flow.value} features: ${flow.flow.sourceCategory} → ${flow.flow.targetCategory}`}
+                  {`${flow.flow.value} features: ${flow.flow.source} → ${flow.flow.target}`}
                 </title>
               </path>
             )
@@ -145,12 +146,12 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
         <g className="alluvial-left-nodes">
           <text
             x={30}
-            y={40}
+            y={15}
             textAnchor="start"
             className="alluvial-panel-label"
-            fontSize="12"
-            fontWeight="600"
-            fill="#374151"
+            fontSize="10"
+            fontWeight="500"
+            fill="#6b7280"
           >
             Left Panel
           </text>
@@ -195,31 +196,6 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
                 >
                   <title>{`${node.label}: ${node.featureCount} features`}</title>
                 </rect>
-                <text
-                  x={x - 6}
-                  y={centerY}
-                  textAnchor="end"
-                  dominantBaseline="middle"
-                  fontSize="10"
-                  fill="#374151"
-                  fontWeight={isHovered ? "600" : "500"}
-                  className="alluvial-node-label"
-                  style={{ pointerEvents: 'none' }}
-                >
-                  {node.label}
-                </text>
-                <text
-                  x={x - 6}
-                  y={centerY + 12}
-                  textAnchor="end"
-                  dominantBaseline="middle"
-                  fontSize="9"
-                  fill="#6b7280"
-                  className="alluvial-node-count"
-                  style={{ pointerEvents: 'none' }}
-                >
-                  {node.featureCount}
-                </text>
               </g>
             )
           })}
@@ -229,12 +205,12 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
         <g className="alluvial-right-nodes">
           <text
             x={width - 30}
-            y={40}
+            y={15}
             textAnchor="end"
             className="alluvial-panel-label"
-            fontSize="12"
-            fontWeight="600"
-            fill="#374151"
+            fontSize="10"
+            fontWeight="500"
+            fill="#6b7280"
           >
             Right Panel
           </text>
@@ -279,31 +255,6 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
                 >
                   <title>{`${node.label}: ${node.featureCount} features`}</title>
                 </rect>
-                <text
-                  x={x + nodeWidth + 6}
-                  y={centerY}
-                  textAnchor="start"
-                  dominantBaseline="middle"
-                  fontSize="10"
-                  fill="#374151"
-                  fontWeight={isHovered ? "600" : "500"}
-                  className="alluvial-node-label"
-                  style={{ pointerEvents: 'none' }}
-                >
-                  {node.label}
-                </text>
-                <text
-                  x={x + nodeWidth + 6}
-                  y={centerY + 12}
-                  textAnchor="start"
-                  dominantBaseline="middle"
-                  fontSize="9"
-                  fill="#6b7280"
-                  className="alluvial-node-count"
-                  style={{ pointerEvents: 'none' }}
-                >
-                  {node.featureCount}
-                </text>
               </g>
             )
           })}
@@ -318,20 +269,41 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
       </svg>
 
       {/* Legend */}
-      <div className="alluvial-legend">
-        <div className="alluvial-legend-item">
+      <div className="alluvial-legend" style={{ display: 'flex', justifyContent: 'center', gap: '16px', padding: '8px', fontSize: '11px', flexWrap: 'wrap', background: 'transparent' }}>
+        <div className="alluvial-legend-item" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <div
             className="alluvial-legend-color"
-            style={{ backgroundColor: ALLUVIAL_COLORS.consistent }}
+            style={{ backgroundColor: ALLUVIAL_COLORS.trivial, width: '12px', height: '12px', borderRadius: '2px' }}
           />
-          <span>Same Category</span>
+          <span>Trivial (Same)</span>
         </div>
-        <div className="alluvial-legend-item">
+        <div className="alluvial-legend-item" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <div
             className="alluvial-legend-color"
-            style={{ backgroundColor: ALLUVIAL_COLORS.inconsistent }}
+            style={{ backgroundColor: ALLUVIAL_COLORS.minor, width: '12px', height: '12px', borderRadius: '2px' }}
           />
-          <span>Different Category</span>
+          <span>Minor (1 level)</span>
+        </div>
+        <div className="alluvial-legend-item" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div
+            className="alluvial-legend-color"
+            style={{ backgroundColor: ALLUVIAL_COLORS.moderate, width: '12px', height: '12px', borderRadius: '2px' }}
+          />
+          <span>Moderate (2 levels)</span>
+        </div>
+        <div className="alluvial-legend-item" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div
+            className="alluvial-legend-color"
+            style={{ backgroundColor: ALLUVIAL_COLORS.major, width: '12px', height: '12px', borderRadius: '2px' }}
+          />
+          <span>Major (3+ levels)</span>
+        </div>
+        <div className="alluvial-legend-item" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div
+            className="alluvial-legend-color"
+            style={{ backgroundColor: ALLUVIAL_COLORS.differentStage, width: '12px', height: '12px', borderRadius: '2px' }}
+          />
+          <span>Different Stage</span>
         </div>
       </div>
     </div>
