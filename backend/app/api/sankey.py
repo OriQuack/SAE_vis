@@ -47,11 +47,19 @@ async def get_sankey_data(
     and threshold structure, then returns structured nodes and links for
     rendering interactive Sankey diagrams.
 
-    The Sankey diagram shows feature flow through multiple stages (not necessarily in this order):
-    1. **Stage 0**: Root (all features)
-    2. **Stage 1**: Feature splitting (true/false)
-    3. **Stage 2**: Semantic distance (high/low based on threshold)
-    4. **Stage 3**: Score agreement (n groups based on score thresholds)
+    The v2 threshold system supports fully flexible stage configurations:
+    - **Dynamic Stage Ordering**: Stages can be reordered without code changes
+    - **Flexible Split Rules**: Range, Pattern, and Expression rules for any metric
+    - **Variable Scoring Methods**: Support for any number of scoring methods (not limited to 3)
+    - **Custom Categories**: New stage types can be added through configuration
+    - **Configurable Thresholds**: Multiple threshold values per stage with flexible branching
+
+    Example stage configurations:
+    - Root → Score Agreement → Feature Splitting → Semantic Distance
+    - Root → Custom Stage → Range-based Split → Pattern Matching
+    - Root → Expression Logic → Multi-threshold Ranges → Variable Score Patterns
+
+    The actual stage flow is determined entirely by the threshold_structure parameter.
 
     Args:
         request: Sankey request containing filters and v2 threshold structure

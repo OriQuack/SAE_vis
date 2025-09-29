@@ -1,6 +1,7 @@
 import { sankey, sankeyLinkHorizontal } from 'd3-sankey'
 import React, { useRef, useEffect, useState, useCallback } from 'react'
 import type { NodeCategory, D3SankeyNode, D3SankeyLink } from '../types'
+import { CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_DISTANCE, CATEGORY_SCORE_AGREEMENT } from './constants'
 
 // ============================================================================
 // TYPES
@@ -41,10 +42,10 @@ export const DEFAULT_ANIMATION = {
 }
 
 export const SANKEY_COLORS: Record<NodeCategory, string> = {
-  root: '#8b5cf6',
-  feature_splitting: '#06b6d4',
-  semantic_distance: '#3b82f6',
-  score_agreement: '#10b981'
+  [CATEGORY_ROOT]: '#8b5cf6',
+  [CATEGORY_FEATURE_SPLITTING]: '#06b6d4',
+  [CATEGORY_SEMANTIC_DISTANCE]: '#3b82f6',
+  [CATEGORY_SCORE_AGREEMENT]: '#10b981'
 }
 
 const DEFAULT_SANKEY_MARGIN = { top: 80, right: 20, bottom: 20, left: 80 }
@@ -139,7 +140,8 @@ export function calculateSankeyLayout(sankeyData: any, layoutWidth?: number, lay
     throw new Error('No valid nodes found for Sankey diagram')
   }
 
-  if (transformedData.links.length === 0) {
+  // Allow empty links for root-only trees (dynamic tree building starts with just the root)
+  if (transformedData.links.length === 0 && transformedData.nodes.length > 1) {
     throw new Error('No valid links found for Sankey diagram')
   }
 
@@ -178,6 +180,19 @@ export function calculateSankeyLayout(sankeyData: any, layoutWidth?: number, lay
 
   // Process the data with d3-sankey using our ordered data
   const sankeyLayout = sankeyGenerator(orderedData)
+
+  // Handle single-node case (root-only tree) where d3-sankey can't position nodes properly
+  if (sankeyLayout.links.length === 0 && sankeyLayout.nodes.length === 1) {
+    const singleNode = sankeyLayout.nodes[0]
+    const nodeWidth = 15 // Same as sankeyGenerator nodeWidth
+    const nodeHeight = Math.min(100, height * 0.6) // Reasonable height for single node
+
+    // Center the single node
+    singleNode.x0 = (width - nodeWidth) / 2
+    singleNode.x1 = singleNode.x0 + nodeWidth
+    singleNode.y0 = (height - nodeHeight) / 2
+    singleNode.y1 = singleNode.y0 + nodeHeight
+  }
 
   // Sort links to match node visual order and prevent crossing
   const sortedLinks = sortLinksToMatchNodeOrder(sankeyLayout.links, sankeyLayout.nodes)

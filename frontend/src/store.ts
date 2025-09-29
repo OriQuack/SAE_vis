@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import * as api from './api'
 import type {
   Filters,
-  ThresholdTreeV2,
+  ThresholdTree,
   FilterOptions,
   HistogramData,
   SankeyData,
@@ -15,12 +15,14 @@ import type {
   SankeyNode
 } from './types'
 import { buildDefaultTree, updateNodeThreshold, getNodesInSameThresholdGroup } from './lib/threshold-utils'
+import { createRootOnlyTree, addStageToNode, type AddStageConfig } from './lib/dynamic-tree-builder'
+import { PANEL_LEFT, PANEL_RIGHT, METRIC_SEMDIST_MEAN } from './lib/constants'
 
-type PanelSide = 'left' | 'right'
+type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
 
 interface PanelState {
   filters: Filters
-  thresholdTree: ThresholdTreeV2
+  thresholdTree: ThresholdTree
   sankeyData: SankeyData | null
   histogramData: Record<string, HistogramData> | null
   viewState: ViewState
@@ -43,6 +45,9 @@ interface AppState {
   // New threshold tree actions
   updateThreshold: (nodeId: string, thresholds: number[], panel?: PanelSide, metric?: string) => void
   resetThresholdTree: (panel?: PanelSide) => void
+  // Dynamic tree actions
+  addStageToTree: (nodeId: string, config: AddStageConfig, panel?: PanelSide) => void
+  resetToRootOnlyTree: (panel?: PanelSide) => void
   setCurrentMetric: (metric: MetricType) => void
   setHistogramData: (data: Record<string, HistogramData> | null, panel?: PanelSide) => void
   setSankeyData: (data: SankeyData | null, panel?: PanelSide) => void
@@ -99,7 +104,7 @@ interface AppState {
 }
 
 const createInitialPanelState = (): PanelState => {
-  const defaultTree = buildDefaultTree()
+  const rootOnlyTree = createRootOnlyTree() // Start with just the root node
   return {
     filters: {
       sae_id: [],
@@ -107,7 +112,7 @@ const createInitialPanelState = (): PanelState => {
       llm_explainer: [],
       llm_scorer: []
     },
-    thresholdTree: defaultTree,
+    thresholdTree: rootOnlyTree,
     sankeyData: null,
     histogramData: null,
     viewState: 'empty' as ViewState
@@ -121,7 +126,7 @@ const initialState = {
 
   // Shared state
   filterOptions: null,
-  currentMetric: 'semdist_mean' as MetricType,
+  currentMetric: METRIC_SEMDIST_MEAN as MetricType,
   popoverState: {
     histogram: null
   },
@@ -168,11 +173,11 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   // Data actions
-  setFilters: (newFilters, panel = 'left') => {
+  setFilters: (newFilters, panel = PANEL_LEFT) => {
     set((state) => ({
-      [panel === 'left' ? 'leftPanel' : 'rightPanel']: {
-        ...state[panel === 'left' ? 'leftPanel' : 'rightPanel'],
-        filters: { ...state[panel === 'left' ? 'leftPanel' : 'rightPanel'].filters, ...newFilters },
+      [panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel']: {
+        ...state[panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'],
+        filters: { ...state[panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'].filters, ...newFilters },
         histogramData: null,
         sankeyData: null
       }
@@ -182,8 +187,8 @@ export const useStore = create<AppState>((set, get) => ({
 
 
   // NEW THRESHOLD TREE ACTIONS
-  updateThreshold: (nodeId, thresholds, panel = 'left', metric) => {
-    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+  updateThreshold: (nodeId, thresholds, panel = PANEL_LEFT, metric) => {
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
     set((state) => {
       const currentTree = state[panelKey].thresholdTree
       const updatedTree = updateNodeThreshold(currentTree, nodeId, thresholds, metric)
@@ -197,8 +202,8 @@ export const useStore = create<AppState>((set, get) => ({
     })
   },
 
-  resetThresholdTree: (panel = 'left') => {
-    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+  resetThresholdTree: (panel = PANEL_LEFT) => {
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
     const defaultTree = buildDefaultTree()
 
     set((state) => ({
@@ -209,12 +214,52 @@ export const useStore = create<AppState>((set, get) => ({
     }))
   },
 
+  // DYNAMIC TREE ACTIONS
+  addStageToTree: (nodeId, config, panel = PANEL_LEFT) => {
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
+    set((state) => {
+      try {
+        const currentTree = state[panelKey].thresholdTree
+        const updatedTree = addStageToNode(currentTree, nodeId, config)
+
+        return {
+          [panelKey]: {
+            ...state[panelKey],
+            thresholdTree: updatedTree,
+            // Clear existing data to trigger refresh
+            sankeyData: null,
+            histogramData: null
+          }
+        }
+      } catch (error) {
+        console.error('Failed to add stage to tree:', error)
+        // Return unchanged state on error
+        return state
+      }
+    })
+  },
+
+  resetToRootOnlyTree: (panel = PANEL_LEFT) => {
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
+    const rootOnlyTree = createRootOnlyTree()
+
+    set((state) => ({
+      [panelKey]: {
+        ...state[panelKey],
+        thresholdTree: rootOnlyTree,
+        // Clear existing data to trigger refresh
+        sankeyData: null,
+        histogramData: null
+      }
+    }))
+  },
+
   setCurrentMetric: (metric) => {
     set(() => ({ currentMetric: metric }))
   },
 
-  setHistogramData: (data, panel = 'left') => {
-    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+  setHistogramData: (data, panel = PANEL_LEFT) => {
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
     set((state) => ({
       [panelKey]: {
         ...state[panelKey],
@@ -223,8 +268,8 @@ export const useStore = create<AppState>((set, get) => ({
     }))
   },
 
-  setSankeyData: (data, panel = 'left') => {
-    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+  setSankeyData: (data, panel = PANEL_LEFT) => {
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
     set((state) => ({
       [panelKey]: {
         ...state[panelKey],
@@ -234,8 +279,8 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   // UI actions
-  setViewState: (newState, panel = 'left') => {
-    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+  setViewState: (newState, panel = PANEL_LEFT) => {
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
     set((state) => ({
       [panelKey]: {
         ...state[panelKey],
@@ -244,7 +289,7 @@ export const useStore = create<AppState>((set, get) => ({
     }))
   },
 
-  showHistogramPopover: (nodeId, nodeName, metrics, position, parentNodeId, parentNodeName, panel = 'left') => {
+  showHistogramPopover: (nodeId, nodeName, metrics, position, parentNodeId, parentNodeName, panel = PANEL_LEFT) => {
     set(() => ({
       popoverState: {
         histogram: {
@@ -313,10 +358,10 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  fetchHistogramData: async (metric?: MetricType, nodeId?: string, panel = 'left') => {
+  fetchHistogramData: async (metric?: MetricType, nodeId?: string, panel = PANEL_LEFT) => {
     const state = get()
     const targetMetric = metric || state.currentMetric
-    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
     const { filters, thresholdTree } = state[panelKey]
 
     const hasActiveFilters = Object.values(filters).some(
@@ -351,9 +396,9 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  fetchMultipleHistogramData: async (metrics, nodeId?: string, panel = 'left') => {
+  fetchMultipleHistogramData: async (metrics, nodeId?: string, panel = PANEL_LEFT) => {
     const state = get()
-    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
     const { filters, thresholdTree } = state[panelKey]
 
     const hasActiveFilters = Object.values(filters).some(
@@ -394,12 +439,12 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  fetchSankeyData: async (panel = 'left') => {
+  fetchSankeyData: async (panel = PANEL_LEFT) => {
     const state = get()
-    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
     const { filters, thresholdTree } = state[panelKey]
-    const loadingKey = panel === 'left' ? 'sankeyLeft' : 'sankeyRight' as keyof LoadingStates
-    const errorKey = panel === 'left' ? 'sankeyLeft' : 'sankeyRight' as keyof ErrorStates
+    const loadingKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight' as keyof LoadingStates
+    const errorKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight' as keyof ErrorStates
 
     const hasActiveFilters = Object.values(filters).some(
       filterArray => filterArray && filterArray.length > 0
@@ -424,7 +469,7 @@ export const useStore = create<AppState>((set, get) => ({
       state.setSankeyData(sankeyData, panel)
       state.setLoading(loadingKey, false)
       // For backward compatibility
-      if (panel === 'left') {
+      if (panel === PANEL_LEFT) {
         state.setLoading('sankey', false)
       }
 
@@ -434,7 +479,7 @@ export const useStore = create<AppState>((set, get) => ({
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch Sankey data'
       state.setError(errorKey, errorMessage)
       state.setLoading(loadingKey, false)
-      if (panel === 'left') {
+      if (panel === PANEL_LEFT) {
         state.setError('sankey', errorMessage)
         state.setLoading('sankey', false)
       }
@@ -442,8 +487,8 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   // View state actions
-  showVisualization: (panel = 'left') => {
-    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+  showVisualization: (panel = PANEL_LEFT) => {
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
     set((state) => ({
       [panelKey]: {
         ...state[panelKey],
@@ -452,8 +497,8 @@ export const useStore = create<AppState>((set, get) => ({
     }))
   },
 
-  editFilters: (panel = 'left') => {
-    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+  editFilters: (panel = PANEL_LEFT) => {
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
     set((state) => ({
       [panelKey]: {
         ...state[panelKey],
@@ -462,20 +507,23 @@ export const useStore = create<AppState>((set, get) => ({
     }))
   },
 
-  removeVisualization: (panel = 'left') => {
-    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+  removeVisualization: (panel = PANEL_LEFT) => {
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
+    const rootOnlyTree = createRootOnlyTree() // Reset to root-only tree for fresh start
+
     set((state) => ({
       [panelKey]: {
         ...state[panelKey],
         viewState: 'empty',
+        thresholdTree: rootOnlyTree, // Reset threshold tree to root-only
         sankeyData: null,
         histogramData: null
       }
     }))
   },
 
-  resetFilters: (panel = 'left') => {
-    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
+  resetFilters: (panel = PANEL_LEFT) => {
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
     set((state) => ({
       [panelKey]: {
         ...state[panelKey],
@@ -503,10 +551,6 @@ export const useStore = create<AppState>((set, get) => ({
     const state = get()
     const { leftPanel, rightPanel } = state
 
-    console.log('🌊 Computing alluvial flows...', {
-      leftData: !!leftPanel.sankeyData,
-      rightData: !!rightPanel.sankeyData
-    })
 
     // Return null if either panel doesn't have visualization data
     if (!leftPanel.sankeyData || !rightPanel.sankeyData) {
@@ -522,14 +566,9 @@ export const useStore = create<AppState>((set, get) => ({
       node.stage === 3 && node.feature_ids && node.feature_ids.length > 0
     )
 
-    console.log('🔍 Final Nodes Debug:', {
-      leftFinalNodes: leftFinalNodes.length,
-      rightFinalNodes: rightFinalNodes.length
-    })
 
     // If no final nodes with feature IDs, return empty array
     if (leftFinalNodes.length === 0 || rightFinalNodes.length === 0) {
-      console.log('❌ No final nodes with feature IDs found')
       set({ alluvialFlows: [] })
       return
     }
@@ -563,16 +602,6 @@ export const useStore = create<AppState>((set, get) => ({
       }
     }
 
-    console.log('✅ Generated flows:', {
-      flowCount: flows.length,
-      sampleFlow: flows[0] ? {
-        source: flows[0].source,
-        target: flows[0].target,
-        value: flows[0].value,
-        sourceCategory: flows[0].sourceCategory,
-        targetCategory: flows[0].targetCategory
-      } : null
-    })
 
     set({ alluvialFlows: flows })
   },

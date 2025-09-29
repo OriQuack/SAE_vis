@@ -23,6 +23,11 @@ from ..models.threshold import (
     ExpressionInfo,
     ParentSplitRuleInfo
 )
+from .data_constants import (
+    SPLIT_TYPE_RANGE, SPLIT_TYPE_PATTERN, SPLIT_TYPE_EXPRESSION,
+    CONDITION_STATE_HIGH, CONDITION_STATE_LOW, CONDITION_STATE_IN_RANGE, CONDITION_STATE_OUT_RANGE,
+    EXPR_OP_AND, EXPR_OP_OR, EXPR_OP_NOT, EXPR_OP_PYTHON_AND, EXPR_OP_PYTHON_OR, EXPR_OP_PYTHON_NOT
+)
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +109,7 @@ class SplitEvaluator:
 
         # Build split info
         split_info = ParentSplitRuleInfo(
-            type='range',
+            type=SPLIT_TYPE_RANGE,
             range_info=RangeInfo(
                 metric=rule.metric,
                 thresholds=rule.thresholds,
@@ -162,7 +167,7 @@ class SplitEvaluator:
                     matching_child = children_ids[0] if children_ids else pattern.child_id
 
                 split_info = ParentSplitRuleInfo(
-                    type='pattern',
+                    type=SPLIT_TYPE_PATTERN,
                     pattern_info=PatternInfo(
                         pattern_index=pattern_index,
                         pattern_description=pattern.description,
@@ -246,7 +251,7 @@ class SplitEvaluator:
                         child_branch_index = 0
 
                     split_info = ParentSplitRuleInfo(
-                        type='expression',
+                        type=SPLIT_TYPE_EXPRESSION,
                         expression_info=ExpressionInfo(
                             branch_index=branch_index,
                             condition=branch.condition,
@@ -273,7 +278,7 @@ class SplitEvaluator:
             branch_index = len(children_ids) - 1 if children_ids else 0
 
         split_info = ParentSplitRuleInfo(
-            type='expression',
+            type=SPLIT_TYPE_EXPRESSION,
             expression_info=ExpressionInfo(
                 branch_index=-1,  # Indicates default was used
                 condition="default",
@@ -299,17 +304,17 @@ class SplitEvaluator:
         Returns: 'high', 'low', 'in_range', 'out_range', or None
         """
         if condition.threshold is not None:
-            return 'high' if value >= condition.threshold else 'low'
+            return CONDITION_STATE_HIGH if value >= condition.threshold else CONDITION_STATE_LOW
 
         if condition.min is not None and condition.max is not None:
             if condition.min <= value <= condition.max:
-                return 'in_range'
+                return CONDITION_STATE_IN_RANGE
             else:
-                return 'out_range'
+                return CONDITION_STATE_OUT_RANGE
 
         if condition.operator and condition.value is not None:
             result = self._apply_operator(value, condition.operator, condition.value)
-            return 'high' if result else 'low'
+            return CONDITION_STATE_HIGH if result else CONDITION_STATE_LOW
 
         return None
 
@@ -420,9 +425,9 @@ class SplitEvaluator:
         For now, we'll use a very restricted eval with safety checks.
         """
         # Replace logical operators with Python equivalents
-        expression = expression.replace('&&', ' and ')
-        expression = expression.replace('||', ' or ')
-        expression = expression.replace('!', ' not ')
+        expression = expression.replace(EXPR_OP_AND, EXPR_OP_PYTHON_AND)
+        expression = expression.replace(EXPR_OP_OR, EXPR_OP_PYTHON_OR)
+        expression = expression.replace(EXPR_OP_NOT, EXPR_OP_PYTHON_NOT)
 
         # Basic safety check - only allow certain characters
         allowed_chars = set('0123456789.()><=! andornotTrueFalse_')

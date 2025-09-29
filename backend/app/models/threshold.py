@@ -13,6 +13,13 @@ from typing import List, Dict, Optional, Union, Any, Literal
 from pydantic import BaseModel, Field, validator
 import json
 
+# Import constants for consistent string management
+from ..services.data_constants import (
+    SPLIT_TYPE_RANGE, SPLIT_TYPE_PATTERN, SPLIT_TYPE_EXPRESSION,
+    CONDITION_STATE_HIGH, CONDITION_STATE_LOW, CONDITION_STATE_IN_RANGE, CONDITION_STATE_OUT_RANGE,
+    CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_DISTANCE, CATEGORY_SCORE_AGREEMENT
+)
+
 
 # ============================================================================
 # CATEGORY TYPE DEFINITION
@@ -20,10 +27,10 @@ import json
 
 class CategoryType(str, Enum):
     """Node category types for Sankey diagrams and visualization"""
-    ROOT = "root"
-    FEATURE_SPLITTING = "feature_splitting"
-    SEMANTIC_DISTANCE = "semantic_distance"
-    SCORE_AGREEMENT = "score_agreement"
+    ROOT = CATEGORY_ROOT
+    FEATURE_SPLITTING = CATEGORY_FEATURE_SPLITTING
+    SEMANTIC_DISTANCE = CATEGORY_SEMANTIC_DISTANCE
+    SCORE_AGREEMENT = CATEGORY_SCORE_AGREEMENT
     # Can be extended with new categories without code changes
 
 
@@ -40,7 +47,7 @@ class RangeSplitRule(BaseModel):
         metric="semdist_mean", thresholds=[0.1, 0.3, 0.6]
         Creates 4 branches: <0.1, 0.1-0.3, 0.3-0.6, >=0.6
     """
-    type: Literal["range"] = Field(default="range")
+    type: Literal["range"] = Field(default=SPLIT_TYPE_RANGE)
     metric: str = Field(..., description="The metric name to evaluate")
     thresholds: List[float] = Field(
         ...,
@@ -97,7 +104,7 @@ class PatternSplitRule(BaseModel):
     This replaces the hardcoded "1 of 3 high", "2 of 3 high" logic
     with flexible, configurable patterns.
     """
-    type: Literal["pattern"] = Field(default="pattern")
+    type: Literal["pattern"] = Field(default=SPLIT_TYPE_PATTERN)
     conditions: Dict[str, PatternCondition] = Field(
         ...,
         description="Condition definitions for each metric"
@@ -143,7 +150,7 @@ class ExpressionSplitRule(BaseModel):
     WARNING: Expression evaluation should be done safely in production.
     Consider using a safe expression evaluator library.
     """
-    type: Literal["expression"] = Field(default="expression")
+    type: Literal["expression"] = Field(default=SPLIT_TYPE_EXPRESSION)
     available_metrics: Optional[List[str]] = Field(
         None,
         description="Available metrics that can be used in expressions"

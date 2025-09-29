@@ -9,11 +9,12 @@ import type {
   FeatureDetail,
   Filters
 } from './types'
+import { API_BASE_URL, API_ENDPOINTS } from './lib/constants'
 
-const API_BASE = '/api'
+const API_BASE = API_BASE_URL
 
 export async function getFilterOptions(): Promise<FilterOptions> {
-  const response = await fetch(`${API_BASE}/filter-options`)
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.FILTER_OPTIONS}`)
   if (!response.ok) {
     throw new Error(`Failed to fetch filter options: ${response.status}`)
   }
@@ -21,7 +22,7 @@ export async function getFilterOptions(): Promise<FilterOptions> {
 }
 
 export async function getHistogramData(request: HistogramDataRequest): Promise<HistogramData> {
-  const response = await fetch(`${API_BASE}/histogram-data`, {
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.HISTOGRAM_DATA}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -35,7 +36,7 @@ export async function getHistogramData(request: HistogramDataRequest): Promise<H
 }
 
 export async function getSankeyData(request: SankeyDataRequest): Promise<SankeyData> {
-  const response = await fetch(`${API_BASE}/sankey-data`, {
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.SANKEY_DATA}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -49,7 +50,7 @@ export async function getSankeyData(request: SankeyDataRequest): Promise<SankeyD
 }
 
 export async function getComparisonData(request: ComparisonDataRequest): Promise<ComparisonData> {
-  const response = await fetch(`${API_BASE}/comparison-data`, {
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.COMPARISON_DATA}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -63,7 +64,7 @@ export async function getComparisonData(request: ComparisonDataRequest): Promise
 }
 
 export async function getFeatureDetail(featureId: number, params: Partial<Filters> = {}): Promise<FeatureDetail> {
-  const url = new URL(`${API_BASE}/feature/${featureId}`, window.location.origin)
+  const url = new URL(`${API_BASE}${API_ENDPOINTS.FEATURE_DETAIL}/${featureId}`, window.location.origin)
   Object.entries(params).forEach(([key, value]) => {
     if (value && Array.isArray(value) && value.length > 0) {
       value.forEach(v => url.searchParams.append(key, v))

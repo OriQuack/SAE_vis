@@ -185,7 +185,7 @@ class DataService:
 
             # Use the v2 classification engine for filtering
             # Developer option: Change sort_mode to 'within_parent' for grouped sorting
-            engine = ClassificationEngine(sort_mode='within_parent')
+            engine = ClassificationEngine()
             filtered_df = engine.filter_features_for_node(filtered_df, threshold_tree, node_id)
 
             if len(filtered_df) == 0:
@@ -283,7 +283,7 @@ class DataService:
 
         # Use v2 classification engine
         # Developer option: Change sort_mode to 'within_parent' for grouped sorting
-        engine = ClassificationEngine(sort_mode='within_parent')
+        engine = ClassificationEngine()
         classified_df = engine.classify_features(filtered_df, threshold_structure)
 
         # Build Sankey nodes and links
