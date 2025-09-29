@@ -1,0 +1,74 @@
+{
+  "nodes": [
+    {
+      "id": "root",
+      "name": "All Features",
+      "stage": 0,
+      "feature_count": 824,
+      "category": "root",
+      "feature_ids": null
+    },
+    {
+      "id": "root_feature_splitting_0",
+      "name": "Feature Splitting: Low",
+      "stage": 1,
+      "feature_count": 820,
+      "category": "feature_splitting",
+      "feature_ids": null
+    },
+    {
+      "id": "root_feature_splitting_1",
+      "name": "Feature Splitting: High",
+      "stage": 1,
+      "feature_count": 4,
+      "category": "feature_splitting",
+      "feature_ids": null
+    },
+    {
+      "id": "root_feature_splitting_1_semdist_mean_0",
+      "name": "Semantic Distance: Low",
+      "stage": 2,
+      "feature_count": 2,
+      "category": "semantic_distance",
+      "feature_ids": null
+    },
+    {
+      "id": "root_feature_splitting_1_semdist_mean_1",
+      "name": "Semantic Distance: High",
+      "stage": 2,
+      "feature_count": 2,
+      "category": "semantic_distance",
+      "feature_ids": null
+    }
+  ],
+  "links": [
+    {
+      "source": "root",
+      "target": "root_feature_splitting_0",
+      "value": 820
+    },
+    {
+      "source": "root",
+      "target": "root_feature_splitting_1",
+      "value": 4
+    },
+    {
+      "source": "root_feature_splitting_1",
+      "target": "root_feature_splitting_1_semdist_mean_0",
+      "value": 2
+    },
+    {
+      "source": "root_feature_splitting_1",
+      "target": "root_feature_splitting_1_semdist_mean_1",
+      "value": 2
+    }
+  ],
+  "metadata": {
+    "total_features": 824,
+    "applied_filters": {},
+    "applied_thresholds": {
+      "feature_splitting": 0.5,
+      "semdist_mean": 0.1
+    }
+  }
+}

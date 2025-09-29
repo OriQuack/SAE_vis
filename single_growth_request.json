@@ -1,0 +1,182 @@
+{
+  "filters": {
+    "sae_id": [],
+    "explanation_method": [],
+    "llm_explainer": [],
+    "llm_scorer": []
+  },
+  "thresholdTree": {
+    "nodes": [
+      {
+        "id": "root",
+        "stage": 0,
+        "category": "root",
+        "parent_path": [],
+        "split_rule": {
+          "type": "range",
+          "metric": "feature_splitting",
+          "thresholds": [
+            0.5
+          ]
+        },
+        "children_ids": [
+          "root_feature_splitting_0",
+          "root_feature_splitting_1"
+        ]
+      },
+      {
+        "id": "root_feature_splitting_0",
+        "stage": 1,
+        "category": "feature_splitting",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.5
+                ],
+                "selected_range": 0
+              }
+            },
+            "branch_index": 0,
+            "triggering_values": {
+              "feature_splitting": 0.3
+            }
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "root_feature_splitting_1",
+        "stage": 1,
+        "category": "feature_splitting",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.5
+                ],
+                "selected_range": 1
+              }
+            },
+            "branch_index": 1,
+            "triggering_values": {
+              "feature_splitting": 0.7
+            }
+          }
+        ],
+        "split_rule": {
+          "type": "range",
+          "metric": "semdist_mean",
+          "thresholds": [
+            0.1
+          ]
+        },
+        "children_ids": [
+          "root_feature_splitting_1_semdist_mean_0",
+          "root_feature_splitting_1_semdist_mean_1"
+        ]
+      },
+      {
+        "id": "root_feature_splitting_1_semdist_mean_0",
+        "stage": 2,
+        "category": "semantic_distance",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.5
+                ],
+                "selected_range": 1
+              }
+            },
+            "branch_index": 1,
+            "triggering_values": {
+              "feature_splitting": 0.7
+            }
+          },
+          {
+            "parent_id": "root_feature_splitting_1",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.1
+                ],
+                "selected_range": 0
+              }
+            },
+            "branch_index": 0,
+            "triggering_values": {
+              "semdist_mean": 0.05
+            }
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      },
+      {
+        "id": "root_feature_splitting_1_semdist_mean_1",
+        "stage": 2,
+        "category": "semantic_distance",
+        "parent_path": [
+          {
+            "parent_id": "root",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "feature_splitting",
+                "thresholds": [
+                  0.5
+                ],
+                "selected_range": 1
+              }
+            },
+            "branch_index": 1,
+            "triggering_values": {
+              "feature_splitting": 0.7
+            }
+          },
+          {
+            "parent_id": "root_feature_splitting_1",
+            "parent_split_rule": {
+              "type": "range",
+              "range_info": {
+                "metric": "semdist_mean",
+                "thresholds": [
+                  0.1
+                ],
+                "selected_range": 1
+              }
+            },
+            "branch_index": 1,
+            "triggering_values": {
+              "semdist_mean": 0.15
+            }
+          }
+        ],
+        "split_rule": null,
+        "children_ids": []
+      }
+    ],
+    "metrics": [
+      "feature_splitting",
+      "semdist_mean"
+    ],
+    "version": 2
+  },
+  "version": 2
+}

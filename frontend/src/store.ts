@@ -15,7 +15,7 @@ import type {
   SankeyNode
 } from './types'
 import { buildDefaultTree, updateNodeThreshold, getNodesInSameThresholdGroup } from './lib/threshold-utils'
-import { createRootOnlyTree, addStageToNode, type AddStageConfig } from './lib/dynamic-tree-builder'
+import { createRootOnlyTree, addStageToNode, removeStageFromNode, type AddStageConfig } from './lib/dynamic-tree-builder'
 import { PANEL_LEFT, PANEL_RIGHT, METRIC_SEMDIST_MEAN } from './lib/constants'
 
 type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
@@ -47,6 +47,7 @@ interface AppState {
   resetThresholdTree: (panel?: PanelSide) => void
   // Dynamic tree actions
   addStageToTree: (nodeId: string, config: AddStageConfig, panel?: PanelSide) => void
+  removeStageFromTree: (nodeId: string, panel?: PanelSide) => void
   resetToRootOnlyTree: (panel?: PanelSide) => void
   setCurrentMetric: (metric: MetricType) => void
   setHistogramData: (data: Record<string, HistogramData> | null, panel?: PanelSide) => void
@@ -233,6 +234,30 @@ export const useStore = create<AppState>((set, get) => ({
         }
       } catch (error) {
         console.error('Failed to add stage to tree:', error)
+        // Return unchanged state on error
+        return state
+      }
+    })
+  },
+
+  removeStageFromTree: (nodeId, panel = PANEL_LEFT) => {
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
+    set((state) => {
+      try {
+        const currentTree = state[panelKey].thresholdTree
+        const updatedTree = removeStageFromNode(currentTree, nodeId)
+
+        return {
+          [panelKey]: {
+            ...state[panelKey],
+            thresholdTree: updatedTree,
+            // Clear existing data to trigger refresh
+            sankeyData: null,
+            histogramData: null
+          }
+        }
+      } catch (error) {
+        console.error('Failed to remove stage from tree:', error)
         // Return unchanged state on error
         return state
       }
@@ -464,6 +489,12 @@ export const useStore = create<AppState>((set, get) => ({
         version: 2
       }
 
+      console.log('📤 Sending Sankey request:', {
+        filters,
+        thresholdTree: JSON.stringify(thresholdTree, null, 2),
+        version: 2
+      })
+
       const sankeyData = await api.getSankeyData(requestData)
 
       state.setSankeyData(sankeyData, panel)
@@ -558,12 +589,13 @@ export const useStore = create<AppState>((set, get) => ({
       return
     }
 
-    // Extract final nodes (stage 3) with feature IDs from both panels
+    // Extract leaf nodes (nodes with feature_ids) from both panels
+    // Leaf nodes are identified by having feature_ids, not by stage number
     const leftFinalNodes = leftPanel.sankeyData.nodes.filter((node: SankeyNode) =>
-      node.stage === 3 && node.feature_ids && node.feature_ids.length > 0
+      node.feature_ids && node.feature_ids.length > 0
     )
     const rightFinalNodes = rightPanel.sankeyData.nodes.filter((node: SankeyNode) =>
-      node.stage === 3 && node.feature_ids && node.feature_ids.length > 0
+      node.feature_ids && node.feature_ids.length > 0
     )
 
 
@@ -586,9 +618,10 @@ export const useStore = create<AppState>((set, get) => ({
         )
 
         if (commonFeatures.length > 0) {
-          // Extract category names from node IDs for consistency analysis
-          const leftCategory = leftNode.id.split('_').slice(-1)[0] // Last part after final underscore
-          const rightCategory = rightNode.id.split('_').slice(-1)[0]
+          // Use the category field from nodes for proper stage comparison
+          // This identifies the actual stage (root, feature_splitting, semantic_distance, score_agreement)
+          const leftCategory = leftNode.category
+          const rightCategory = rightNode.category
 
           flows.push({
             source: leftNode.id,

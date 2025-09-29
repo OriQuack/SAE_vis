@@ -201,6 +201,10 @@ class ClassificationEngine:
         aggregated_node_counts = self._count_unique_features_per_aggregated_node(
             classified_df, threshold_structure
         )
+        # Collect feature IDs for all nodes
+        feature_ids_by_node = self._collect_feature_ids_per_node(
+            classified_df, threshold_structure
+        )
         aggregated_link_counts = self._count_aggregated_links(
             classified_df, threshold_structure
         )
@@ -219,15 +223,22 @@ class ClassificationEngine:
                 continue
 
             # Create node entry (no more aggregation - each node is unique)
-            nodes.append(
-                {
-                    "id": node_id,
-                    "name": self._get_node_display_name(node),
-                    "stage": node.stage,
-                    "feature_count": count,
-                    "category": node.category.value,
-                }
-            )
+            node_dict = {
+                "id": node_id,
+                "name": self._get_node_display_name(node),
+                "stage": node.stage,
+                "feature_count": count,
+                "category": node.category.value,
+            }
+
+            # Add feature IDs only for leaf nodes (nodes with no children)
+            is_leaf_node = len(node.children_ids) == 0
+            if is_leaf_node:
+                feature_ids = feature_ids_by_node.get(node_id, [])
+                if feature_ids:
+                    node_dict["feature_ids"] = feature_ids
+
+            nodes.append(node_dict)
 
         # Step 4: Build aggregated links
         links = []
@@ -243,7 +254,7 @@ class ClassificationEngine:
     def _count_unique_features_per_aggregated_node(
         self, classified_df: pl.DataFrame, threshold_structure: ThresholdStructure
     ) -> Dict[str, int]:
-        """Count unique features per aggregated node (fixes 4x multiplication bug)"""
+        """Count unique features per node - all nodes that appear in classification"""
         from .data_constants import COL_FEATURE_ID
 
         aggregated_counts = {}
@@ -251,21 +262,15 @@ class ClassificationEngine:
         # Get maximum stage
         max_stage = max(node.stage for node in threshold_structure.nodes)
 
-        # Count unique features at each stage
+        # Count unique features at each stage - include ALL nodes that appear
         for stage in range(max_stage + 1):
             stage_col = f"node_at_stage_{stage}"
 
             if stage_col in classified_df.columns:
-                # Group by aggregated node ID and count unique feature_ids
+                # Count all nodes at this stage
                 stage_data = (
                     classified_df.filter(pl.col(stage_col).is_not_null())
-                    .with_columns(
-                        [
-                            pl.col(stage_col).alias(
-                                "actual_node_id"
-                            )  # Use actual node ID, no aggregation
-                        ]
-                    )
+                    .with_columns([pl.col(stage_col).alias("actual_node_id")])
                     .group_by("actual_node_id")
                     .agg(pl.col(COL_FEATURE_ID).n_unique().alias("unique_count"))
                     .to_dicts()
@@ -278,18 +283,54 @@ class ClassificationEngine:
 
         return aggregated_counts
 
-    def _count_aggregated_links(
+    def _collect_feature_ids_per_node(
         self, classified_df: pl.DataFrame, threshold_structure: ThresholdStructure
-    ) -> Dict[Tuple[str, str], int]:
-        """Count features flowing through aggregated links"""
+    ) -> Dict[str, List[int]]:
+        """Collect feature IDs for each node at all stages"""
         from .data_constants import COL_FEATURE_ID
 
-        aggregated_link_counts = defaultdict(int)
+        feature_ids_by_node = {}
 
         # Get maximum stage
         max_stage = max(node.stage for node in threshold_structure.nodes)
 
-        # Count unique features flowing between consecutive aggregated stages
+        # Collect feature IDs at each stage
+        for stage in range(max_stage + 1):
+            stage_col = f"node_at_stage_{stage}"
+
+            if stage_col in classified_df.columns:
+                # Group by node and collect feature IDs
+                stage_data = (
+                    classified_df.filter(pl.col(stage_col).is_not_null())
+                    .with_columns([pl.col(stage_col).alias("actual_node_id")])
+                    .group_by("actual_node_id")
+                    .agg(pl.col(COL_FEATURE_ID).unique().alias("feature_ids"))
+                    .to_dicts()
+                )
+
+                for row in stage_data:
+                    actual_id = row["actual_node_id"]
+                    if actual_id and actual_id not in feature_ids_by_node:
+                        # Convert to list of integers
+                        feature_ids_by_node[actual_id] = [int(fid) for fid in row["feature_ids"]]
+
+        return feature_ids_by_node
+
+    def _count_aggregated_links(
+        self, classified_df: pl.DataFrame, threshold_structure: ThresholdStructure
+    ) -> Dict[Tuple[str, str], int]:
+        """Count features flowing through aggregated links - only where branching occurs"""
+        from .data_constants import COL_FEATURE_ID
+
+        aggregated_link_counts = defaultdict(int)
+
+        # Build node lookup
+        nodes_by_id = {node.id: node for node in threshold_structure.nodes}
+
+        # Get maximum stage
+        max_stage = max(node.stage for node in threshold_structure.nodes)
+
+        # Count unique features flowing between stages, but only where branching occurs
         for stage in range(max_stage):
             source_col = f"node_at_stage_{stage}"
             target_col = f"node_at_stage_{stage + 1}"
@@ -298,33 +339,43 @@ class ClassificationEngine:
                 source_col in classified_df.columns
                 and target_col in classified_df.columns
             ):
-                # Group by aggregated source-target pairs and count unique feature_ids
-                link_data = (
+                # First, identify which source nodes actually branch (have multiple children)
+                branching_sources = (
                     classified_df.filter(
                         pl.col(source_col).is_not_null()
                         & pl.col(target_col).is_not_null()
                     )
-                    .with_columns(
-                        [
-                            pl.col(source_col).alias(
-                                "actual_source"
-                            ),  # Use actual IDs, no aggregation
-                            pl.col(target_col).alias(
-                                "actual_target"
-                            ),  # Use actual IDs, no aggregation
-                        ]
-                    )
-                    .group_by(["actual_source", "actual_target"])
-                    .agg(pl.col(COL_FEATURE_ID).n_unique().alias("unique_count"))
-                    .to_dicts()
+                    .group_by(pl.col(source_col))
+                    .agg(pl.col(target_col).n_unique().alias("children_count"))
+                    .filter(pl.col("children_count") > 1)
+                    .select(pl.col(source_col))
+                    .to_series()
+                    .to_list()
                 )
 
-                for row in link_data:
-                    source = row["actual_source"]
-                    target = row["actual_target"]
-                    count = row["unique_count"]
-                    if source and target:
-                        aggregated_link_counts[(source, target)] = count
+                # Only create links from nodes that actually branch
+                if branching_sources:
+                    link_data = (
+                        classified_df.filter(
+                            pl.col(source_col).is_not_null()
+                            & pl.col(target_col).is_not_null()
+                            & pl.col(source_col).is_in(branching_sources)
+                        )
+                        .with_columns([
+                            pl.col(source_col).alias("actual_source"),
+                            pl.col(target_col).alias("actual_target")
+                        ])
+                        .group_by(["actual_source", "actual_target"])
+                        .agg(pl.col(COL_FEATURE_ID).n_unique().alias("unique_count"))
+                        .to_dicts()
+                    )
+
+                    for row in link_data:
+                        source = row["actual_source"]
+                        target = row["actual_target"]
+                        count = row["unique_count"]
+                        if source and target:
+                            aggregated_link_counts[(source, target)] = count
 
         return dict(aggregated_link_counts)
 
@@ -356,16 +407,16 @@ class ClassificationEngine:
         # For FEATURE_SPLITTING nodes, show True/False
         if node.category == CategoryType.FEATURE_SPLITTING:
             if "true" in parts:
-                return f"{base_name}: True"
+                return "True"
             elif "false" in parts:
-                return f"{base_name}: False"
+                return "False"
 
         # For SEMANTIC_DISTANCE nodes, show only High/Low
         elif node.category == CategoryType.SEMANTIC_DISTANCE:
             if "high" in parts:
-                return f"{base_name}: High"
+                return "High"
             elif "low" in parts:
-                return f"{base_name}: Low"
+                return "Low"
 
         # For SCORE_AGREEMENT nodes, show detailed information without category prefix
         elif node.category == CategoryType.SCORE_AGREEMENT:
@@ -426,12 +477,22 @@ class ClassificationEngine:
 
         # Range rules: use descriptive range labels
         if split_rule.type == "range":
-            if branch_index == 0:
-                return f"{base_name}: Low"
-            elif branch_index == len(split_rule.thresholds):
-                return f"{base_name}: High"
+            # For Feature Splitting and Semantic Distance, remove category prefix
+            if node.category in [CategoryType.FEATURE_SPLITTING, CategoryType.SEMANTIC_DISTANCE]:
+                if branch_index == 0:
+                    return "Low"
+                elif branch_index == len(split_rule.thresholds):
+                    return "High"
+                else:
+                    return f"Range {branch_index + 1}"
             else:
-                return f"{base_name}: Range {branch_index + 1}"
+                # Other categories keep prefix
+                if branch_index == 0:
+                    return f"{base_name}: Low"
+                elif branch_index == len(split_rule.thresholds):
+                    return f"{base_name}: High"
+                else:
+                    return f"{base_name}: Range {branch_index + 1}"
 
         # Pattern rules: dynamic score pattern analysis
         elif split_rule.type == "pattern":
@@ -462,6 +523,9 @@ class ClassificationEngine:
             if branch_index < len(split_rule.branches):
                 branch = split_rule.branches[branch_index]
                 if branch.description:
+                    # For Feature Splitting and Semantic Distance, remove category prefix from descriptions
+                    if node.category in [CategoryType.FEATURE_SPLITTING, CategoryType.SEMANTIC_DISTANCE]:
+                        return branch.description
                     return f"{base_name}: {branch.description}"
 
             # Use default child description
@@ -469,8 +533,12 @@ class ClassificationEngine:
                 hasattr(split_rule, "default_child_id")
                 and split_rule.default_child_id == node.id
             ):
+                if node.category in [CategoryType.FEATURE_SPLITTING, CategoryType.SEMANTIC_DISTANCE]:
+                    return "Default"
                 return f"{base_name}: Default"
 
+            if node.category in [CategoryType.FEATURE_SPLITTING, CategoryType.SEMANTIC_DISTANCE]:
+                return f"Branch {branch_index + 1}"
             return f"{base_name}: Branch {branch_index + 1}"
 
         return base_name

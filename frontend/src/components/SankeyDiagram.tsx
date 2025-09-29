@@ -5,7 +5,7 @@ import { findNodeById, getNodeMetrics } from '../lib/threshold-utils'
 import { canAddStageToNode, getAvailableStageTypes } from '../lib/dynamic-tree-builder'
 import type { D3SankeyNode, D3SankeyLink, MetricType, ThresholdTree, SankeyThreshold } from '../types'
 import type { AddStageConfig, StageTypeConfig } from '../lib/dynamic-tree-builder'
-import { PANEL_LEFT, PANEL_RIGHT, LEGEND_ITEMS } from '../lib/constants'
+import { PANEL_LEFT, PANEL_RIGHT, LEGEND_ITEMS, CATEGORY_DISPLAY_NAMES } from '../lib/constants'
 
 // ==================== INLINE COMPONENTS ====================
 const ErrorMessage: React.FC<{ message: string; className?: string }> = ({ message, className }) => (
@@ -54,9 +54,11 @@ interface SankeyNodeComponentProps {
   onLeave: () => void
   onHistogramClick?: (event: React.MouseEvent, node: D3SankeyNode) => void
   onAddStageClick?: (event: React.MouseEvent, node: D3SankeyNode) => void
+  onRemoveStageClick?: (event: React.MouseEvent, node: D3SankeyNode) => void
   thresholdGroupInfo?: ThresholdGroupInfo
   flowDirection?: 'left-to-right' | 'right-to-left'
   canAddStage?: boolean
+  canRemoveStage?: boolean
 }
 
 interface SankeyLinkComponentProps {
@@ -80,9 +82,11 @@ const SankeyNode = React.memo(({
   onLeave,
   onHistogramClick,
   onAddStageClick,
+  onRemoveStageClick,
   thresholdGroupInfo,
   flowDirection = 'left-to-right',
-  canAddStage = false
+  canAddStage = false,
+  canRemoveStage = false
 }: SankeyNodeComponentProps) => {
   const [isHovered, setIsHovered] = useState(false)
 
@@ -108,6 +112,12 @@ const SankeyNode = React.memo(({
     }
   }, [onAddStageClick, node])
 
+  const handleRemoveStageClick = useCallback((event: React.MouseEvent) => {
+    if (onRemoveStageClick) {
+      onRemoveStageClick(event, node)
+    }
+  }, [onRemoveStageClick, node])
+
   if (node.x0 === undefined || node.x1 === undefined || node.y0 === undefined || node.y1 === undefined) {
     return null
   }
@@ -120,6 +130,9 @@ const SankeyNode = React.memo(({
   const isRightToLeft = flowDirection === 'right-to-left'
   const labelX = isRightToLeft ? node.x1 + 6 : node.x0 - 6
   const textAnchor = isRightToLeft ? 'start' : 'end'
+
+  // Determine button positioning based on flow direction
+  const buttonX = isRightToLeft ? node.x0 - 15 : node.x1 + 15
 
   // Determine if this node has threshold group styling
   const hasThresholdGroup = thresholdGroupInfo?.hasGroup && thresholdGroupInfo.groupSize > 1
@@ -183,7 +196,7 @@ const SankeyNode = React.memo(({
       {canAddStage && (
         <g className="sankey-node-add-stage">
           <circle
-            cx={node.x1 + 15}
+            cx={buttonX}
             cy={(node.y0 + node.y1) / 2}
             r={12}
             fill="#3b82f6"
@@ -198,7 +211,7 @@ const SankeyNode = React.memo(({
             onMouseEnter={(e) => e.stopPropagation()}
           />
           <text
-            x={node.x1 + 15}
+            x={buttonX}
             y={(node.y0 + node.y1) / 2}
             dy="0.35em"
             fontSize={14}
@@ -214,13 +227,48 @@ const SankeyNode = React.memo(({
           </text>
         </g>
       )}
+
+      {/* Remove Stage button for nodes with children */}
+      {canRemoveStage && (
+        <g className="sankey-node-remove-stage">
+          <circle
+            cx={buttonX}
+            cy={(node.y0 + node.y1) / 2}
+            r={12}
+            fill="#ef4444"
+            stroke="#ffffff"
+            strokeWidth={2}
+            style={{
+              cursor: 'pointer',
+              opacity: isHovered ? 1 : 0.7,
+              transition: `all ${animationDuration}ms ease-out`
+            }}
+            onClick={handleRemoveStageClick}
+            onMouseEnter={(e) => e.stopPropagation()}
+          />
+          <text
+            x={buttonX}
+            y={(node.y0 + node.y1) / 2}
+            dy="0.35em"
+            fontSize={16}
+            fill="#ffffff"
+            fontWeight="bold"
+            textAnchor="middle"
+            style={{
+              pointerEvents: 'none',
+              userSelect: 'none'
+            }}
+          >
+            ×
+          </text>
+        </g>
+      )}
     </g>
   )
 })
 
 const SankeyLink: React.FC<SankeyLinkComponentProps> = React.memo(({
   link,
-  animationDuration,
   onHover,
   onLeave,
   onHistogramClick
@@ -257,7 +305,6 @@ const SankeyLink: React.FC<SankeyLinkComponentProps> = React.memo(({
       strokeWidth={Math.max(1, link.width || 0)}
       opacity={isHovered ? 0.9 : 0.6}
       style={{
-        transition: `all ${animationDuration}ms ease-out`,
         cursor: onHistogramClick ? 'pointer' : 'default'
       }}
       onMouseEnter={handleMouseEnter}
@@ -332,7 +379,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     availableStages: StageTypeConfig[]
   } | null>(null)
 
-  const { showHistogramPopover, addStageToTree } = useVisualizationStore()
+  const { showHistogramPopover, addStageToTree, removeStageFromTree } = useVisualizationStore()
 
   // ==================== SANKEY LAYOUT LOGIC ====================
   const { layout, validationErrors, isValid } = useMemo(() => {
@@ -377,9 +424,10 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
           })
 
           // Adjust margins for right-aligned layout
+          // Need more space on left for buttons, less on right
           calculatedLayout.margin = {
             ...calculatedLayout.margin,
-            left: -60,    
+            left: -45,
             right: 80
           }
         }
@@ -547,6 +595,16 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     setInlineSelector(null)
   }, [])
 
+  // Handle remove stage click
+  const handleRemoveStageClick = useCallback((event: React.MouseEvent, node: D3SankeyNode) => {
+    if (!thresholdTree) return
+
+    event.stopPropagation()
+
+    // Remove stage via store
+    removeStageFromTree(node.id, panel)
+  }, [thresholdTree, removeStageFromTree, panel])
+
   // ==================== SIMPLIFIED THRESHOLD LOGIC ====================
   // With the new tree system, we don't need complex threshold group logic
   const allNodeThresholdGroups = useMemo(() => {
@@ -562,6 +620,42 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
     return nodeGroupMap
   }, [layout])
+
+  // ==================== STAGE LABEL CALCULATION ====================
+  // Calculate stage positions and labels
+  const stageLabels = useMemo(() => {
+    if (!layout || !displayData) return []
+
+    // Group nodes by stage
+    const nodesByStage = new Map<number, D3SankeyNode[]>()
+    layout.nodes.forEach(node => {
+      const stage = node.stage
+      if (!nodesByStage.has(stage)) {
+        nodesByStage.set(stage, [])
+      }
+      nodesByStage.get(stage)!.push(node)
+    })
+
+    // Calculate position and label for each stage
+    const labels: Array<{ x: number; y: number; label: string; stage: number }> = []
+    nodesByStage.forEach((nodes, stage) => {
+      if (nodes.length === 0) return
+
+      // Get category from the first node in the stage
+      const category = nodes[0].category
+      const label = CATEGORY_DISPLAY_NAMES[category] || category
+
+      // Calculate x position (average of all nodes in the stage)
+      const avgX = nodes.reduce((sum, node) => sum + ((node.x0 || 0) + (node.x1 || 0)) / 2, 0) / nodes.length
+
+      // Y position at the top of the diagram
+      const y = -30
+
+      labels.push({ x: avgX, y, label, stage })
+    })
+
+    return labels
+  }, [layout, displayData])
 
   // ==================== RENDER ====================
   return (
@@ -613,6 +707,24 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
             {/* Chart area */}
             <g transform={`translate(${layout.margin.left},${layout.margin.top})`}>
+              {/* Stage labels */}
+              <g className="sankey-diagram__stage-labels">
+                {stageLabels.map((label) => (
+                  <text
+                    key={`stage-label-${label.stage}`}
+                    x={label.x}
+                    y={label.y}
+                    textAnchor="middle"
+                    fontSize={14}
+                    fontWeight={600}
+                    fill="#374151"
+                    style={{ pointerEvents: 'none', userSelect: 'none' }}
+                  >
+                    {label.label}
+                  </text>
+                ))}
+              </g>
+
               {/* Links (render first so nodes appear on top) */}
               <g className="sankey-diagram__links">
                 {layout.links.map((link, index) => (
@@ -638,6 +750,10 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                   const availableStages = canAddStageStructurally && thresholdTree ? getAvailableStageTypes(thresholdTree, node.id) : []
                   const canAddStageToThisNode = canAddStageStructurally && availableStages.length > 0
 
+                  // Check if node has children (can remove stage)
+                  const treeNode = thresholdTree ? findNodeById(thresholdTree, node.id) : null
+                  const canRemoveStageFromThisNode = treeNode ? (treeNode.children_ids.length > 0) : false
+
                   return (
                     <SankeyNode
                       key={node.id}
@@ -648,9 +764,11 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                       onLeave={handleHoverLeave}
                       onHistogramClick={handleNodeHistogramClick}
                       onAddStageClick={handleAddStageClick}
+                      onRemoveStageClick={handleRemoveStageClick}
                       thresholdGroupInfo={thresholdGroupInfo}
                       flowDirection={flowDirection}
                       canAddStage={canAddStageToThisNode}
+                      canRemoveStage={canRemoveStageFromThisNode}
                     />
                   )
                 })}

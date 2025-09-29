@@ -49,12 +49,15 @@ export interface AlluvialLayoutData {
 // CONSTANTS
 // ============================================================================
 
-export const ALLUVIAL_MARGIN = { top: 50, right: 30, bottom: 50, left: 30 }
+export const ALLUVIAL_MARGIN = { top: 20, right: 2, bottom: 50, left: 2 }
 export const ALLUVIAL_NODE_WIDTH = 20
 
 export const ALLUVIAL_COLORS = {
-  consistent: '#10b981',    // green
-  inconsistent: '#f59e0b',  // orange
+  trivial: '#10b981',       // green - exact match (e.g., True→True, All High→All High)
+  minor: '#60a5fa',         // light blue - 1 level difference (e.g., All High→2 of 3 High)
+  moderate: '#fb923c',      // orange - 2 level difference (e.g., All High→1 of 3 High)
+  major: '#ef4444',         // red - 3+ level difference (e.g., All High→All Low)
+  differentStage: '#9ca3af', // gray - features from different stages (inconsistent classification)
   hover: '#3b82f6'          // blue
 }
 
@@ -67,6 +70,87 @@ export const ALLUVIAL_OPACITY = {
 // ============================================================================
 // ALLUVIAL DIAGRAM UTILITIES
 // ============================================================================
+
+/**
+ * Calculate the triviality level of a connection between two nodes
+ * Returns: 'trivial', 'minor', 'moderate', or 'major'
+ */
+function calculateTrivialityLevel(sourceId: string, targetId: string): 'trivial' | 'minor' | 'moderate' | 'major' {
+  // Extract the meaningful part of node IDs (last segments after splitting by underscore)
+  const getNodeType = (id: string): string => {
+    // For feature splitting: "split_true" or "split_false" -> extract "true"/"false"
+    if (id.includes('split_true') || id === 'True') return 'true'
+    if (id.includes('split_false') || id === 'False') return 'false'
+
+    // For semantic distance: contains "high" or "low"
+    if (id.toLowerCase().includes('semdist_high') || id === 'High') return 'high'
+    if (id.toLowerCase().includes('semdist_low') || id === 'Low') return 'low'
+
+    // For score agreement: extract pattern
+    const allHighMatch = id.match(/all_\d+_high/)
+    if (allHighMatch) return 'all_high'
+
+    const allLowMatch = id.match(/all_\d+_low/)
+    if (allLowMatch) return 'all_low'
+
+    const kOfNHighMatch = id.match(/(\d+)_of_\d+_high/)
+    if (kOfNHighMatch) {
+      const k = parseInt(kOfNHighMatch[1])
+      return `${k}_high`
+    }
+
+    const kOfNLowMatch = id.match(/(\d+)_of_\d+_low/)
+    if (kOfNLowMatch) {
+      const k = parseInt(kOfNLowMatch[1])
+      return `${k}_low`
+    }
+
+    return id
+  }
+
+  const sourceType = getNodeType(sourceId)
+  const targetType = getNodeType(targetId)
+
+  // Exact match - trivial
+  if (sourceType === targetType) {
+    return 'trivial'
+  }
+
+  // Feature splitting or semantic distance: different values - major
+  if ((sourceType === 'true' && targetType === 'false') ||
+      (sourceType === 'false' && targetType === 'true') ||
+      (sourceType === 'high' && targetType === 'low') ||
+      (sourceType === 'low' && targetType === 'high')) {
+    return 'major'
+  }
+
+  // Score agreement: calculate difference
+  if (sourceType.includes('high') || sourceType.includes('low')) {
+    // Parse score agreement levels
+    const getScoreLevel = (type: string): number => {
+      if (type === 'all_high') return 3  // All scores high
+      if (type === 'all_low') return 0   // All scores low
+      const match = type.match(/^(\d+)_(high|low)$/)
+      if (match) {
+        const k = parseInt(match[1])
+        return match[2] === 'high' ? k : (3 - k)  // Normalize to 0-3 scale
+      }
+      return 1.5  // Default middle value
+    }
+
+    const sourceLevel = getScoreLevel(sourceType)
+    const targetLevel = getScoreLevel(targetType)
+    const difference = Math.abs(sourceLevel - targetLevel)
+
+    if (difference === 0) return 'trivial'
+    if (difference === 1) return 'minor'
+    if (difference === 2) return 'moderate'
+    return 'major'
+  }
+
+  // Default: moderate
+  return 'moderate'
+}
 
 /**
  * Calculate alluvial diagram layout using d3-sankey
@@ -99,25 +183,35 @@ export function calculateAlluvialLayout(
     targetFeatureCounts.set(flow.target, (targetFeatureCounts.get(flow.target) || 0) + flow.value)
   })
 
-  // Create node order maps from Sankey data if provided
+  // Create node order and position maps from Sankey data if provided
   const leftNodeOrder = new Map<string, number>()
   const rightNodeOrder = new Map<string, number>()
+  const leftNodePositions = new Map<string, { y0: number; y1: number }>()
+  const rightNodePositions = new Map<string, { y0: number; y1: number }>()
 
   if (leftSankeyNodes) {
-    // Get only stage 3 nodes and record their order
+    // Get only leaf nodes (nodes with feature_ids) and record their order and positions
     leftSankeyNodes
-      .filter(n => n.stage === 3)
+      .filter(n => n.feature_ids && n.feature_ids.length > 0)
       .forEach((node, index) => {
         leftNodeOrder.set(node.id, index)
+        // Store y-positions if available (from D3 layout)
+        if ('y0' in node && 'y1' in node) {
+          leftNodePositions.set(node.id, { y0: node.y0 as number, y1: node.y1 as number })
+        }
       })
   }
 
   if (rightSankeyNodes) {
-    // Get only stage 3 nodes and record their order
+    // Get only leaf nodes (nodes with feature_ids) and record their order and positions
     rightSankeyNodes
-      .filter(n => n.stage === 3)
+      .filter(n => n.feature_ids && n.feature_ids.length > 0)
       .forEach((node, index) => {
         rightNodeOrder.set(node.id, index)
+        // Store y-positions if available (from D3 layout)
+        if ('y0' in node && 'y1' in node) {
+          rightNodePositions.set(node.id, { y0: node.y0 as number, y1: node.y1 as number })
+        }
       })
   }
 
@@ -175,12 +269,21 @@ export function calculateAlluvialLayout(
     targetIndexMap.set(originalId, nodeIndex++)
   })
 
-  // Create links for d3-sankey
+  // Create links for d3-sankey with triviality-based coloring
   const links: AlluvialSankeyLink[] = flows.map(flow => {
     const sourceIndex = sourceIndexMap.get(flow.source)!
     const targetIndex = targetIndexMap.get(flow.target)!
-    const isConsistent = flow.sourceCategory === flow.targetCategory
-    const color = isConsistent ? ALLUVIAL_COLORS.consistent : ALLUVIAL_COLORS.inconsistent
+
+    // Check if source and target are from different stages (different categories)
+    // If so, use gray color to indicate inconsistent classification
+    let color: string
+    if (flow.sourceCategory !== flow.targetCategory) {
+      color = ALLUVIAL_COLORS.differentStage
+    } else {
+      // Same stage - calculate triviality level and assign color based on consistency
+      const trivialityLevel = calculateTrivialityLevel(flow.source, flow.target)
+      color = ALLUVIAL_COLORS[trivialityLevel]
+    }
 
     return {
       source: sourceIndex,
@@ -193,7 +296,7 @@ export function calculateAlluvialLayout(
     }
   })
 
-  // Configure d3-sankey
+  // Configure d3-sankey with fixed node ordering based on Sankey positions
   const sankeyGenerator = sankey<AlluvialSankeyNode, AlluvialSankeyLink>()
     .nodeWidth(ALLUVIAL_NODE_WIDTH)
     .nodePadding(10)
@@ -205,6 +308,28 @@ export function calculateAlluvialLayout(
       // Force left nodes to left side (x=0) and right nodes to right side (x=1)
       const nodeId = (node as AlluvialSankeyNode).id
       return nodeId.startsWith('left_') ? 0 : 1
+    })
+    .nodeSort((a, b) => {
+      // Sort by the y-position from Sankey if available
+      const aNode = a as AlluvialSankeyNode
+      const bNode = b as AlluvialSankeyNode
+      const aOriginalId = aNode.id.replace(/^(left_|right_)/, '')
+      const bOriginalId = bNode.id.replace(/^(left_|right_)/, '')
+
+      if (aNode.id.startsWith('left_')) {
+        const aPos = leftNodePositions.get(aOriginalId)
+        const bPos = leftNodePositions.get(bOriginalId)
+        if (aPos && bPos) {
+          return aPos.y0 - bPos.y0
+        }
+      } else {
+        const aPos = rightNodePositions.get(aOriginalId)
+        const bPos = rightNodePositions.get(bOriginalId)
+        if (aPos && bPos) {
+          return aPos.y0 - bPos.y0
+        }
+      }
+      return 0
     })
 
   // Calculate the layout
@@ -225,8 +350,6 @@ export function calculateAlluvialLayout(
       rightNodes.push(node as AlluvialSankeyNode)
     }
   })
-
-  // Don't re-sort nodes - keep the order from Sankey layout which preserves our intended order
 
   // d3-sankey automatically calculates the width property based on value
   // No need for custom strokeWidth scaling - use the calculated width directly

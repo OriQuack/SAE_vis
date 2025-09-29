@@ -54,6 +54,16 @@ const DEFAULT_SANKEY_MARGIN = { top: 80, right: 20, bottom: 20, left: 80 }
 // SANKEY UTILITIES
 // ============================================================================
 
+/**
+ * Professional D3-sankey node alignment function that respects actual stage positions.
+ * This is the proper way to control node positioning in D3-sankey.
+ */
+function stageBasedAlign(node: D3SankeyNode, n: number): number {
+  // Use our stage property instead of D3's calculated depth
+  // This ensures nodes are positioned at their actual stages
+  return node.stage || 0
+}
+
 export function calculateSankeyLayout(sankeyData: any, layoutWidth?: number, layoutHeight?: number): SankeyLayout {
   if (!sankeyData?.nodes || !sankeyData?.links) {
     throw new Error('Invalid sankey data: missing nodes or links')
@@ -151,14 +161,139 @@ export function calculateSankeyLayout(sankeyData: any, layoutWidth?: number, lay
     originalIndex: index
   }))
 
-  // Flexible sorting function that preserves backend ordering regardless of stage structure
-  const preserveBackendOrder = (a: any, b: any) => {
-    // If stages exist and are different, sort by stage
+  // ============================================================================
+  // NODE SORTING HELPER FUNCTIONS
+  // ============================================================================
+
+  /**
+   * Extract parent ID from a node ID by removing the last component
+   * Examples:
+   * - "root_feature_splitting_0" -> "root"
+   * - "root_feature_splitting_1_semdist_mean_0" -> "root_feature_splitting_1"
+   * - "root_false_semdist_high_all_3_high" -> "root_false_semdist_high"
+   */
+  function extractParentId(nodeId: string): string {
+    if (nodeId === 'root') return ''
+
+    // Split by underscore and work backwards to find the logical parent
+    const parts = nodeId.split('_')
+
+    // For range splits (ending with numbers), remove the last part
+    if (/^\d+$/.test(parts[parts.length - 1])) {
+      return parts.slice(0, -1).join('_')
+    }
+
+    // For score agreement patterns, find the pattern and remove it
+    const scorePatterns = [
+      'all_3_high', 'all_3_low',
+      '2_of_3_high_fuzz_sim', '2_of_3_high_fuzz_det', '2_of_3_high_sim_det',
+      '1_of_3_high_fuzz', '1_of_3_high_sim', '1_of_3_high_det'
+    ]
+
+    for (const pattern of scorePatterns) {
+      if (nodeId.endsWith(`_${pattern}`)) {
+        return nodeId.slice(0, -(pattern.length + 1))
+      }
+    }
+
+    // Fallback: remove last component
+    return parts.slice(0, -1).join('_')
+  }
+
+  /**
+   * Get sorting priority for score agreement nodes (lower number = higher priority)
+   * Most agreement (all_3_high) should come first, least agreement (all_3_low) last
+   */
+  function getScoreAgreementPriority(nodeId: string): number {
+    // Most to least agreement
+    if (nodeId.includes('all_3_high')) return 0
+    if (nodeId.includes('2_of_3_high_fuzz_sim')) return 1
+    if (nodeId.includes('2_of_3_high_fuzz_det')) return 2
+    if (nodeId.includes('2_of_3_high_sim_det')) return 3
+    if (nodeId.includes('1_of_3_high_fuzz')) return 4
+    if (nodeId.includes('1_of_3_high_sim')) return 5
+    if (nodeId.includes('1_of_3_high_det')) return 6
+    if (nodeId.includes('all_3_low')) return 7
+
+    // Fallback for unknown patterns
+    return 999
+  }
+
+  /**
+   * Get category-specific sort order within the same parent
+   */
+  function getCategorySortOrder(nodeId: string, category: string): number {
+    switch (category) {
+      case CATEGORY_FEATURE_SPLITTING:
+        // feature_splitting_0 (False) before feature_splitting_1 (True)
+        return nodeId.includes('_0') ? 0 : 1
+
+      case CATEGORY_SEMANTIC_DISTANCE:
+        // semdist_mean_0 (Low) before semdist_mean_1 (High)
+        return nodeId.includes('_0') ? 0 : 1
+
+      case CATEGORY_SCORE_AGREEMENT:
+        // Use score agreement priority (most agreement first)
+        return getScoreAgreementPriority(nodeId)
+
+      default:
+        return 0
+    }
+  }
+
+  // Create parent position map before sorting for proper inter-parent group ordering
+  const parentPositionMap = new Map<string, number>()
+  nodesWithOrder.forEach(node => {
+    if (node.id) {
+      parentPositionMap.set(node.id, node.originalIndex ?? 0)
+    }
+  })
+
+  // Smart node sorting function that groups by parent and sorts by category rules
+  const smartNodeSort = (a: any, b: any) => {
+    // First, sort by stage
     if (a.stage != null && b.stage != null && a.stage !== b.stage) {
       return a.stage - b.stage
     }
 
-    // Within same stage (or if stages don't exist), preserve original backend order
+    // Within same stage, extract parent IDs
+    const parentA = extractParentId(a.id || '')
+    const parentB = extractParentId(b.id || '')
+
+    // If different parents, sort by parent position (ensures all children of parent A come before all children of parent B)
+    if (parentA !== parentB) {
+      const parentIndexA = parentPositionMap.get(parentA) ?? Number.MAX_SAFE_INTEGER
+      const parentIndexB = parentPositionMap.get(parentB) ?? Number.MAX_SAFE_INTEGER
+
+      if (parentIndexA !== parentIndexB) {
+        return parentIndexA - parentIndexB
+      }
+
+      // If parent positions are the same or not found, use original node ordering as fallback
+      const aIndex = a.originalIndex ?? 0
+      const bIndex = b.originalIndex ?? 0
+      return aIndex - bIndex
+    }
+
+    // Same parent: apply category-specific sorting rules
+    if (a.category && b.category) {
+      // If different categories within same parent, maintain original order
+      if (a.category !== b.category) {
+        const aIndex = a.originalIndex ?? 0
+        const bIndex = b.originalIndex ?? 0
+        return aIndex - bIndex
+      }
+
+      // Same category and parent: apply specific sorting rules
+      const sortOrderA = getCategorySortOrder(a.id || '', a.category)
+      const sortOrderB = getCategorySortOrder(b.id || '', b.category)
+
+      if (sortOrderA !== sortOrderB) {
+        return sortOrderA - sortOrderB
+      }
+    }
+
+    // Fallback: preserve original order
     const aIndex = a.originalIndex ?? 0
     const bIndex = b.originalIndex ?? 0
     return aIndex - bIndex
@@ -170,13 +305,31 @@ export function calculateSankeyLayout(sankeyData: any, layoutWidth?: number, lay
     links: transformedData.links
   }
 
-  // Create D3 sankey generator with custom sorting to preserve backend ordering
+  // Link sorting function to match visual node order
+  // This ensures links connect from top to bottom on both source and target nodes
+  const linkSort = (a: D3SankeyLink, b: D3SankeyLink) => {
+    const sourceA = a.source as D3SankeyNode
+    const sourceB = b.source as D3SankeyNode
+    const targetA = a.target as D3SankeyNode
+    const targetB = b.target as D3SankeyNode
+
+    // First, sort by source node (to group links from same source)
+    if (sourceA.index !== sourceB.index) {
+      return (sourceA.index ?? 0) - (sourceB.index ?? 0)
+    }
+
+    // Within same source, sort by target node index (which follows our node sort order)
+    return (targetA.index ?? 0) - (targetB.index ?? 0)
+  }
+
+  // Create D3 sankey generator with professional stage-based alignment
   const sankeyGenerator = sankey<D3SankeyNode, D3SankeyLink>()
     .nodeWidth(15)
     .nodePadding(10)
     .extent([[1, 1], [width - 1, height - 1]])
-    .nodeSort(preserveBackendOrder) // Preserve backend order regardless of stage structure
-    .linkSort(null) // Disable link reordering to reduce crossing interference
+    .nodeAlign(stageBasedAlign) // Use stage-based alignment (professional approach)
+    .nodeSort(smartNodeSort) // Smart sorting by parent groups and category-specific rules
+    .linkSort(linkSort) // Enable link sorting to match node order
 
   // Process the data with d3-sankey using our ordered data
   const sankeyLayout = sankeyGenerator(orderedData)
@@ -194,66 +347,15 @@ export function calculateSankeyLayout(sankeyData: any, layoutWidth?: number, lay
     singleNode.y1 = singleNode.y0 + nodeHeight
   }
 
-  // Sort links to match node visual order and prevent crossing
-  const sortedLinks = sortLinksToMatchNodeOrder(sankeyLayout.links, sankeyLayout.nodes)
-
   return {
     nodes: sankeyLayout.nodes,
-    links: sortedLinks,
+    links: sankeyLayout.links,
     width,
     height,
     margin: DEFAULT_SANKEY_MARGIN
   }
 }
 
-/**
- * Sort links to match the visual order of nodes and prevent crossing.
- * Links to nodes that appear higher (lower y-coordinate) should connect
- * from higher positions on the source node.
- */
-function sortLinksToMatchNodeOrder(links: D3SankeyLink[], nodes: D3SankeyNode[]): D3SankeyLink[] {
-  // Create a map of node ID to y-position for sorting
-  const nodeYPositions = new Map<string, number>()
-
-  nodes.forEach(node => {
-    if (node.y !== undefined && node.id !== undefined) {
-      nodeYPositions.set(String(node.id), node.y)
-    }
-  })
-
-  // Group links by source node to sort targets within each source
-  const linksBySource = new Map<string, D3SankeyLink[]>()
-
-  links.forEach(link => {
-    const source = link.source as D3SankeyNode
-    const sourceId = String(source?.id || '')
-
-    if (!linksBySource.has(sourceId)) {
-      linksBySource.set(sourceId, [])
-    }
-    linksBySource.get(sourceId)!.push(link)
-  })
-
-  // Sort links within each source group by target node's y-position
-  const sortedLinks: D3SankeyLink[] = []
-
-  linksBySource.forEach(sourceLinks => {
-    // Sort links to this source by target node y-position (ascending = top to bottom)
-    const sortedSourceLinks = sourceLinks.sort((a, b) => {
-      const targetA = a.target as D3SankeyNode
-      const targetB = b.target as D3SankeyNode
-
-      const yA = nodeYPositions.get(String(targetA?.id || '')) ?? Number.MAX_SAFE_INTEGER
-      const yB = nodeYPositions.get(String(targetB?.id || '')) ?? Number.MAX_SAFE_INTEGER
-
-      return yA - yB
-    })
-
-    sortedLinks.push(...sortedSourceLinks)
-  })
-
-  return sortedLinks
-}
 
 export function getSankeyPath(link: D3SankeyLink): string {
   return sankeyLinkHorizontal()(link) || ''
