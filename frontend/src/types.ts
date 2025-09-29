@@ -22,23 +22,32 @@ export interface Filters {
 // THRESHOLD SYSTEM
 // ============================================================================
 
+import {
+  CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_DISTANCE, CATEGORY_SCORE_AGREEMENT,
+  SPLIT_TYPE_RANGE, SPLIT_TYPE_PATTERN, SPLIT_TYPE_EXPRESSION,
+  PATTERN_STATE_HIGH, PATTERN_STATE_LOW, PATTERN_STATE_IN_RANGE, PATTERN_STATE_OUT_RANGE,
+  METRIC_FEATURE_SPLITTING, METRIC_SEMDIST_MEAN, METRIC_SEMDIST_MAX,
+  METRIC_SCORE_FUZZ, METRIC_SCORE_SIMULATION, METRIC_SCORE_DETECTION, METRIC_SCORE_EMBEDDING,
+  PANEL_LEFT, PANEL_RIGHT
+} from './lib/constants'
+
 // Category Type Definition
 export enum CategoryType {
-  ROOT = "root",
-  FEATURE_SPLITTING = "feature_splitting",
-  SEMANTIC_DISTANCE = "semantic_distance",
-  SCORE_AGREEMENT = "score_agreement"
+  ROOT = CATEGORY_ROOT,
+  FEATURE_SPLITTING = CATEGORY_FEATURE_SPLITTING,
+  SEMANTIC_DISTANCE = CATEGORY_SEMANTIC_DISTANCE,
+  SCORE_AGREEMENT = CATEGORY_SCORE_AGREEMENT
 }
 
 // Split Rule Definitions
 export interface RangeSplitRule {
-  type: 'range'
+  type: typeof SPLIT_TYPE_RANGE
   metric: string
   thresholds: number[]
 }
 
 export interface PatternSplitRule {
-  type: 'pattern'
+  type: typeof SPLIT_TYPE_PATTERN
   conditions: {
     [metric: string]: {
       threshold?: number
@@ -49,7 +58,7 @@ export interface PatternSplitRule {
   }
   patterns: Array<{
     match: {
-      [metric: string]: 'high' | 'low' | 'in_range' | 'out_range' | undefined
+      [metric: string]: typeof PATTERN_STATE_HIGH | typeof PATTERN_STATE_LOW | typeof PATTERN_STATE_IN_RANGE | typeof PATTERN_STATE_OUT_RANGE | undefined
     }
     child_id: string
     description?: string
@@ -58,7 +67,7 @@ export interface PatternSplitRule {
 }
 
 export interface ExpressionSplitRule {
-  type: 'expression'
+  type: typeof SPLIT_TYPE_EXPRESSION
   available_metrics?: string[]
   branches: Array<{
     condition: string
@@ -74,7 +83,7 @@ export type SplitRule = RangeSplitRule | PatternSplitRule | ExpressionSplitRule
 export interface ParentPathInfo {
   parent_id: string
   parent_split_rule: {
-    type: 'range' | 'pattern' | 'expression'
+    type: typeof SPLIT_TYPE_RANGE | typeof SPLIT_TYPE_PATTERN | typeof SPLIT_TYPE_EXPRESSION
     range_info?: { metric: string; thresholds: number[] }
     pattern_info?: { pattern_index: number; pattern_description?: string }
     expression_info?: { branch_index: number; condition: string; description?: string }
@@ -94,7 +103,7 @@ export interface SankeyThreshold {
 }
 
 // New Threshold Tree Structure for V2
-export interface ThresholdTreeV2 {
+export interface ThresholdTree {
   nodes: SankeyThreshold[]
   metrics: string[]
   version: 2
@@ -116,12 +125,12 @@ export interface HistogramDataRequest {
   metric: string
   bins?: number
   nodeId?: string
-  thresholdTree?: ThresholdTreeV2
+  thresholdTree?: ThresholdTree
 }
 
 export interface SankeyDataRequest {
   filters: Filters
-  thresholdTree: ThresholdTreeV2
+  thresholdTree: ThresholdTree
 }
 
 export interface ComparisonDataRequest {
@@ -191,7 +200,7 @@ export interface SankeyData {
   metadata: {
     total_features: number
     applied_filters: Filters
-    applied_thresholds: ThresholdTreeV2
+    applied_thresholds: ThresholdTree
   }
 }
 
@@ -267,19 +276,19 @@ export interface ErrorStates {
 export type ViewState = 'empty' | 'filtering' | 'visualization'
 
 export type MetricType =
-  | 'feature_splitting'
-  | 'semdist_mean'
-  | 'semdist_max'
-  | 'score_fuzz'
-  | 'score_simulation'
-  | 'score_detection'
-  | 'score_embedding'
+  | typeof METRIC_FEATURE_SPLITTING
+  | typeof METRIC_SEMDIST_MEAN
+  | typeof METRIC_SEMDIST_MAX
+  | typeof METRIC_SCORE_FUZZ
+  | typeof METRIC_SCORE_SIMULATION
+  | typeof METRIC_SCORE_DETECTION
+  | typeof METRIC_SCORE_EMBEDDING
 
 export type NodeCategory =
-  | 'root'
-  | 'feature_splitting'
-  | 'semantic_distance'
-  | 'score_agreement'
+  | typeof CATEGORY_ROOT
+  | typeof CATEGORY_FEATURE_SPLITTING
+  | typeof CATEGORY_SEMANTIC_DISTANCE
+  | typeof CATEGORY_SCORE_AGREEMENT
 
 // ============================================================================
 // VISUALIZATION TYPES
@@ -347,73 +356,39 @@ export interface HistogramPopoverData {
     y: number
   }
   visible: boolean
-  panel?: 'left' | 'right'
+  panel?: typeof PANEL_LEFT | typeof PANEL_RIGHT
 }
 
 export interface PopoverState {
   histogram: HistogramPopoverData | null
 }
 
-// ============================================================================
-// COMPONENT PROP TYPES (Essential only)
-// ============================================================================
+// // ============================================================================
+// // COMPONENT PROP TYPES (Essential only)
+// // ============================================================================
 
-export interface FilterPanelProps {
-  filters: Filters
-  filterOptions: FilterOptions | null
-  loading: boolean
-  onFiltersChange: (filters: Partial<Filters>) => void
-}
+// export interface FilterPanelProps {
+//   filters: Filters
+//   filterOptions: FilterOptions | null
+//   loading: boolean
+//   onFiltersChange: (filters: Partial<Filters>) => void
+// }
 
-export interface SankeyDiagramProps {
-  data: SankeyData | null
-  loading: boolean
-  error: string | null
-  width?: number
-  height?: number
-  onNodeClick?: (node: SankeyNode) => void
-  onLinkClick?: (link: SankeyLink) => void
-}
+// export interface SankeyDiagramProps {
+//   data: SankeyData | null
+//   loading: boolean
+//   error: string | null
+//   width?: number
+//   height?: number
+//   onNodeClick?: (node: SankeyNode) => void
+//   onLinkClick?: (link: SankeyLink) => void
+// }
 
-export interface HistogramSliderProps {
-  histogramData: HistogramData | null
-  threshold: number
-  loading: boolean
-  error: string | null
-  onThresholdChange: (threshold: number) => void
-  onRefresh: () => void
-}
-
-
-// ============================================================================
-// CONSTANTS (Simplified)
-// ============================================================================
-
-export const INITIAL_FILTERS: Filters = {
-  sae_id: [],
-  explanation_method: [],
-  llm_explainer: [],
-  llm_scorer: []
-}
-
-export const INITIAL_LOADING: LoadingStates = {
-  filters: false,
-  histogram: false,
-  sankey: false,
-  sankeyLeft: false,
-  sankeyRight: false,
-  comparison: false
-}
-
-export const INITIAL_ERRORS: ErrorStates = {
-  filters: null,
-  histogram: null,
-  sankey: null,
-  sankeyLeft: null,
-  sankeyRight: null,
-  comparison: null
-}
-
-export const INITIAL_POPOVER_STATE: PopoverState = {
-  histogram: null
-}
+// export interface HistogramSliderProps {
+//   histogramData: HistogramData | null
+//   threshold: number
+//   loading: boolean
+//   error: string | null
+//   onThresholdChange: (threshold: number) => void
+//   onRefresh: () => void
+// }

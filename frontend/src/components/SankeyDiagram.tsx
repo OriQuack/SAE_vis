@@ -2,7 +2,10 @@ import React, { useState, useCallback, useMemo } from 'react'
 import { useVisualizationStore } from '../store'
 import { DEFAULT_ANIMATION, calculateSankeyLayout, validateSankeyData, validateDimensions, getNodeColor, getLinkColor, getSankeyPath, SANKEY_COLORS, useResizeObserver } from '../lib/d3-sankey-utils'
 import { findNodeById, getNodeMetrics } from '../lib/threshold-utils'
-import type { D3SankeyNode, D3SankeyLink, MetricType, ThresholdTreeV2, SankeyThreshold } from '../types'
+import { canAddStageToNode, getAvailableStageTypes } from '../lib/dynamic-tree-builder'
+import type { D3SankeyNode, D3SankeyLink, MetricType, ThresholdTree, SankeyThreshold } from '../types'
+import type { AddStageConfig, StageTypeConfig } from '../lib/dynamic-tree-builder'
+import { PANEL_LEFT, PANEL_RIGHT, LEGEND_ITEMS } from '../lib/constants'
 
 // ==================== INLINE COMPONENTS ====================
 const ErrorMessage: React.FC<{ message: string; className?: string }> = ({ message, className }) => (
@@ -12,18 +15,9 @@ const ErrorMessage: React.FC<{ message: string; className?: string }> = ({ messa
 )
 
 
-// ==================== CONSTANTS ====================
-
-const LEGEND_ITEMS = [
-  { key: 'root', label: 'All Features' },
-  { key: 'feature_splitting', label: 'Feature Splitting' },
-  { key: 'semantic_distance', label: 'Semantic Distance' },
-  { key: 'score_agreement', label: 'Score Agreement' }
-] as const
-
 // ==================== UTILITY FUNCTIONS ====================
 
-function getMetricsForNodeId(nodeId: string, thresholdTree: ThresholdTreeV2): MetricType[] | null {
+function getMetricsForNodeId(nodeId: string, thresholdTree: ThresholdTree): MetricType[] | null {
   // Use the threshold tree to determine metrics for a node
   const treeNode = findNodeById(thresholdTree, nodeId)
 
@@ -49,7 +43,7 @@ interface SankeyDiagramProps {
   animationDuration?: number
   showHistogramOnClick?: boolean
   flowDirection?: 'left-to-right' | 'right-to-left'
-  panel?: 'left' | 'right'
+  panel?: typeof PANEL_LEFT | typeof PANEL_RIGHT
 }
 
 interface SankeyNodeComponentProps {
@@ -59,8 +53,10 @@ interface SankeyNodeComponentProps {
   onHover: (event: React.MouseEvent, node: D3SankeyNode) => void
   onLeave: () => void
   onHistogramClick?: (event: React.MouseEvent, node: D3SankeyNode) => void
+  onAddStageClick?: (event: React.MouseEvent, node: D3SankeyNode) => void
   thresholdGroupInfo?: ThresholdGroupInfo
   flowDirection?: 'left-to-right' | 'right-to-left'
+  canAddStage?: boolean
 }
 
 interface SankeyLinkComponentProps {
@@ -83,8 +79,10 @@ const SankeyNode = React.memo(({
   onHover,
   onLeave,
   onHistogramClick,
+  onAddStageClick,
   thresholdGroupInfo,
-  flowDirection = 'left-to-right'
+  flowDirection = 'left-to-right',
+  canAddStage = false
 }: SankeyNodeComponentProps) => {
   const [isHovered, setIsHovered] = useState(false)
 
@@ -103,6 +101,12 @@ const SankeyNode = React.memo(({
       onHistogramClick(event, node)
     }
   }, [onHistogramClick, node])
+
+  const handleAddStageClick = useCallback((event: React.MouseEvent) => {
+    if (onAddStageClick) {
+      onAddStageClick(event, node)
+    }
+  }, [onAddStageClick, node])
 
   if (node.x0 === undefined || node.x1 === undefined || node.y0 === undefined || node.y1 === undefined) {
     return null
@@ -174,6 +178,42 @@ const SankeyNode = React.memo(({
       >
         ({node.feature_count.toLocaleString()})
       </text>
+
+      {/* Add Stage button for leaf nodes */}
+      {canAddStage && (
+        <g className="sankey-node-add-stage">
+          <circle
+            cx={node.x1 + 15}
+            cy={(node.y0 + node.y1) / 2}
+            r={12}
+            fill="#3b82f6"
+            stroke="#ffffff"
+            strokeWidth={2}
+            style={{
+              cursor: 'pointer',
+              opacity: isHovered ? 1 : 0.7,
+              transition: `all ${animationDuration}ms ease-out`
+            }}
+            onClick={handleAddStageClick}
+            onMouseEnter={(e) => e.stopPropagation()}
+          />
+          <text
+            x={node.x1 + 15}
+            y={(node.y0 + node.y1) / 2}
+            dy="0.35em"
+            fontSize={14}
+            fill="#ffffff"
+            fontWeight="bold"
+            textAnchor="middle"
+            style={{
+              pointerEvents: 'none',
+              userSelect: 'none'
+            }}
+          >
+            +
+          </text>
+        </g>
+      )}
     </g>
   )
 })
@@ -260,16 +300,16 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   animationDuration = DEFAULT_ANIMATION.duration,
   showHistogramOnClick = true,
   flowDirection = 'left-to-right',
-  panel = 'left'
+  panel = PANEL_LEFT
 }) => {
-  const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
-  const loadingKey = panel === 'left' ? 'sankeyLeft' : 'sankeyRight'
-  const errorKey = panel === 'left' ? 'sankeyLeft' : 'sankeyRight'
+  const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
+  const loadingKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
+  const errorKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
 
   const data = useVisualizationStore(state => state[panelKey].sankeyData)
   const thresholdTree = useVisualizationStore(state => state[panelKey].thresholdTree)
-  const loading = useVisualizationStore(state => state.loading[loadingKey] || (panel === 'left' && state.loading.sankey))
-  const error = useVisualizationStore(state => state.errors[errorKey] || (panel === 'left' && state.errors.sankey))
+  const loading = useVisualizationStore(state => state.loading[loadingKey] || (panel === PANEL_LEFT && state.loading.sankey))
+  const error = useVisualizationStore(state => state.errors[errorKey] || (panel === PANEL_LEFT && state.errors.sankey))
 
   // Use previous data when loading to prevent flickering
   const [displayData, setDisplayData] = React.useState(data)
@@ -285,7 +325,14 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     }
   }, [data, loading, displayData])
 
-  const { showHistogramPopover } = useVisualizationStore()
+  // Inline stage selector state
+  const [inlineSelector, setInlineSelector] = useState<{
+    nodeId: string
+    position: { x: number; y: number }
+    availableStages: StageTypeConfig[]
+  } | null>(null)
+
+  const { showHistogramPopover, addStageToTree } = useVisualizationStore()
 
   // ==================== SANKEY LAYOUT LOGIC ====================
   const { layout, validationErrors, isValid } = useMemo(() => {
@@ -426,6 +473,80 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     showHistogramPopover(sourceNode.id, sourceNode.name, metrics, position, undefined, undefined, panel)
   }, [showHistogramOnClick, showHistogramPopover, thresholdTree, containerRef, panel])
 
+  // Handle add stage click
+  const handleAddStageClick = useCallback((event: React.MouseEvent, node: D3SankeyNode) => {
+    if (!thresholdTree) return
+
+    event.stopPropagation()
+
+    // Check if we can add a stage to this node
+    if (!canAddStageToNode(thresholdTree, node.id)) {
+      return
+    }
+
+    // Get available stage types for this node
+    const availableStages = getAvailableStageTypes(thresholdTree, node.id)
+
+    // Position dropdown near the button
+    const rect = event.currentTarget.getBoundingClientRect()
+    const position = {
+      x: rect.left + rect.width + 10,
+      y: rect.top
+    }
+
+    setInlineSelector({
+      nodeId: node.id,
+      position,
+      availableStages
+    })
+  }, [thresholdTree])
+
+  // Handle stage selection
+  const handleStageSelect = useCallback((stageTypeId: string) => {
+    if (!inlineSelector || !thresholdTree) return
+
+    // Find the stage type config
+    const stageType = inlineSelector.availableStages.find(s => s.id === stageTypeId)
+    if (!stageType) return
+
+    // Create config with defaults
+    const config: AddStageConfig = {
+      stageType: stageTypeId,
+      splitRuleType: stageType.defaultSplitRule,
+      metric: stageType.defaultMetric,
+      thresholds: stageType.defaultThresholds
+    }
+
+    // Add stage to tree via store
+    addStageToTree(inlineSelector.nodeId, config, panel)
+
+    // Close inline selector
+    setInlineSelector(null)
+
+    // Show histogram popover for threshold adjustment after a short delay
+    setTimeout(() => {
+      const parentNodeId = inlineSelector.nodeId
+      const parentNode = layout?.nodes.find(n => n.id === parentNodeId)
+
+      if (parentNode) {
+        const metrics = getMetricsForNodeId(parentNodeId, thresholdTree)
+        if (metrics && metrics.length > 0) {
+          // Calculate position for histogram popover
+          const position = {
+            x: window.innerWidth / 2,
+            y: window.innerHeight / 2
+          }
+          showHistogramPopover(parentNodeId, 'Node', metrics, position, undefined, undefined, panel)
+        }
+      }
+    }, 500)
+  }, [inlineSelector, thresholdTree, addStageToTree, panel, layout, showHistogramPopover])
+
+  // Handle clicking outside to close dropdown
+  const handleClickOutside = useCallback(() => {
+    setInlineSelector(null)
+  }, [])
+
   // ==================== SIMPLIFIED THRESHOLD LOGIC ====================
   // With the new tree system, we don't need complex threshold group logic
   const allNodeThresholdGroups = useMemo(() => {
@@ -512,6 +633,11 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                 {layout.nodes.map((node, index) => {
                   const thresholdGroupInfo = allNodeThresholdGroups.get(node.id) || { hasGroup: false, groupSize: 1 }
 
+                  // Check if node can have stages AND if there are available stage types
+                  const canAddStageStructurally = thresholdTree ? canAddStageToNode(thresholdTree, node.id) : false
+                  const availableStages = canAddStageStructurally && thresholdTree ? getAvailableStageTypes(thresholdTree, node.id) : []
+                  const canAddStageToThisNode = canAddStageStructurally && availableStages.length > 0
+
                   return (
                     <SankeyNode
                       key={node.id}
@@ -521,8 +647,10 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                       onHover={handleNodeHover}
                       onLeave={handleHoverLeave}
                       onHistogramClick={handleNodeHistogramClick}
+                      onAddStageClick={handleAddStageClick}
                       thresholdGroupInfo={thresholdGroupInfo}
                       flowDirection={flowDirection}
+                      canAddStage={canAddStageToThisNode}
                     />
                   )
                 })}
@@ -543,6 +671,68 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
             Select filters to generate the Sankey diagram
           </div>
         </div>
+      )}
+
+      {/* Inline Stage Selector */}
+      {inlineSelector && (
+        <>
+          <div
+            className="inline-selector-overlay"
+            onClick={handleClickOutside}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 999
+            }}
+          />
+          <div
+            className="inline-stage-selector"
+            style={{
+              position: 'fixed',
+              left: Math.min(inlineSelector.position.x, window.innerWidth - 200),
+              top: Math.min(inlineSelector.position.y, window.innerHeight - 200),
+              zIndex: 1000,
+              backgroundColor: '#ffffff',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
+              boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+              minWidth: '180px',
+              maxHeight: '300px',
+              overflowY: 'auto'
+            }}
+          >
+            {inlineSelector.availableStages.map((stageType) => (
+              <div
+                key={stageType.id}
+                className="stage-option"
+                onClick={() => handleStageSelect(stageType.id)}
+                style={{
+                  padding: '12px 16px',
+                  cursor: 'pointer',
+                  borderBottom: '1px solid #f3f4f6',
+                  fontSize: '14px',
+                  color: '#374151'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f9fafb'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent'
+                }}
+              >
+                <div style={{ fontWeight: 500, marginBottom: '4px' }}>
+                  {stageType.name}
+                </div>
+                <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: '1.4' }}>
+                  {stageType.description}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
     </div>

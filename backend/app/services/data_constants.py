@@ -95,3 +95,75 @@ DEFAULT_THRESHOLDS = {
     "score_detection": 0.5,
     "score_embedding": 0.5
 }
+
+# ============================================================================
+# SPLIT RULE TYPES (V2 System)
+# ============================================================================
+SPLIT_TYPE_RANGE = "range"
+SPLIT_TYPE_PATTERN = "pattern"
+SPLIT_TYPE_EXPRESSION = "expression"
+
+# ============================================================================
+# PATTERN CONDITION STATES
+# ============================================================================
+CONDITION_STATE_HIGH = "high"
+CONDITION_STATE_LOW = "low"
+CONDITION_STATE_IN_RANGE = "in_range"
+CONDITION_STATE_OUT_RANGE = "out_range"
+
+# ============================================================================
+# SCORE NAMES - Flexible for N Scores
+# ============================================================================
+SCORE_NAME_FUZZ = "fuzz"
+SCORE_NAME_SIMULATION = "simulation"
+SCORE_NAME_DETECTION = "detection"
+SCORE_NAME_EMBEDDING = "embedding"
+
+# Score column mappings for flexible score handling
+SCORE_COLUMNS_MAPPING = {
+    SCORE_NAME_FUZZ: COL_SCORE_FUZZ,
+    SCORE_NAME_SIMULATION: COL_SCORE_SIMULATION,
+    SCORE_NAME_DETECTION: COL_SCORE_DETECTION,
+    SCORE_NAME_EMBEDDING: COL_SCORE_EMBEDDING
+}
+
+# ============================================================================
+# REGEX PATTERNS - Centralized Pattern Management
+# ============================================================================
+PATTERN_ALL_N_HIGH = r'all_(\d+)_high'
+PATTERN_ALL_N_LOW = r'all_(\d+)_low'
+PATTERN_K_OF_N_HIGH = r'(\d+)_of_(\d+)_high'
+PATTERN_SCORE_DETAILED = r'(\d+)_of_(\d+)_high_\w+(_\w+)?'
+PATTERN_SINGLE_SCORE_DETAILED = r'(\d+)_of_(\d+)_high_\w+'
+PATTERN_SEMDIST_KEYWORD = r'_semdist_'
+
+# ============================================================================
+# NODE CONTENT KEYWORDS
+# ============================================================================
+NODE_KEYWORD_SEMDIST = "semdist"
+NODE_SPLIT_TRUE = "split_true"
+NODE_SPLIT_FALSE = "split_false"
+
+# ============================================================================
+# EXPRESSION OPERATORS
+# ============================================================================
+EXPR_OP_AND = "&&"
+EXPR_OP_OR = "||"
+EXPR_OP_NOT = "!"
+EXPR_OP_PYTHON_AND = " and "
+EXPR_OP_PYTHON_OR = " or "
+EXPR_OP_PYTHON_NOT = " not "
+
+# ============================================================================
+# DISPLAY NAMES - Centralized UI Strings
+# ============================================================================
+BOOLEAN_DISPLAY_NAMES = {
+    SPLITTING_TRUE: "True",
+    SPLITTING_FALSE: "False",
+    SEMDIST_HIGH: "High",
+    SEMDIST_LOW: "Low"
+}
+
+# Score agreement patterns for flexible N-score systems
+SCORE_PATTERN_PREFIXES = ['2_of_3_high_fuzz_det', '2_of_3_high_fuzz_sim', '2_of_3_high_sim_det']
+SINGLE_SCORE_PATTERNS = ['1_of_3_high_fuzz', '1_of_3_high_sim', '1_of_3_high_det']

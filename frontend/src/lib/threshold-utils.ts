@@ -1,11 +1,17 @@
 import type {
     SankeyThreshold,
-    ThresholdTreeV2,
+    ThresholdTree as ThresholdTree,
     RangeSplitRule,
     PatternSplitRule,
     MetricType
 } from '../types'
 import { buildDefaultThresholdStructure } from './split-rule-builders'
+import {
+    NODE_ROOT_ID,
+    SPLIT_TYPE_RANGE, SPLIT_TYPE_PATTERN, SPLIT_TYPE_EXPRESSION,
+    METRIC_FEATURE_SPLITTING, METRIC_SEMDIST_MEAN, METRIC_SEMDIST_MAX,
+    METRIC_SCORE_FUZZ, METRIC_SCORE_SIMULATION, METRIC_SCORE_DETECTION, METRIC_SCORE_EMBEDDING
+} from './constants'
 
 // ============================================================================
 // CORE THRESHOLD TREE UTILITIES FOR V2 SYSTEM
@@ -18,7 +24,7 @@ import { buildDefaultThresholdStructure } from './split-rule-builders'
  * @returns The found node or null
  */
 export function findNodeById(
-  tree: ThresholdTreeV2,
+  tree: ThresholdTree,
   nodeId: string
 ): SankeyThreshold | null {
   const node = tree.nodes.find(node => node.id === nodeId)
@@ -31,7 +37,7 @@ export function findNodeById(
  * @param nodeId ID of the target node
  * @returns Array of node IDs from root to target
  */
-export function getNodePath(tree: ThresholdTreeV2, nodeId: string): string[] {
+export function getNodePath(tree: ThresholdTree, nodeId: string): string[] {
   const target = findNodeById(tree, nodeId)
   if (!target) return []
 
@@ -55,7 +61,7 @@ export function getNodePath(tree: ThresholdTreeV2, nodeId: string): string[] {
  * @param nodeId ID of the child node
  * @returns The parent node or null
  */
-export function getParentNode(tree: ThresholdTreeV2, nodeId: string): SankeyThreshold | null {
+export function getParentNode(tree: ThresholdTree, nodeId: string): SankeyThreshold | null {
   const child = findNodeById(tree, nodeId)
   if (!child || child.parent_path.length === 0) return null
 
@@ -69,7 +75,7 @@ export function getParentNode(tree: ThresholdTreeV2, nodeId: string): SankeyThre
  * @param callback Function to call for each node with node and depth
  */
 export function traverseTree(
-  tree: ThresholdTreeV2,
+  tree: ThresholdTree,
   callback: (node: SankeyThreshold, depth: number) => void
 ): void {
   const visited = new Set<string>()
@@ -89,9 +95,9 @@ export function traverseTree(
   }
 
   // Start from root
-  const root = tree.nodes.find(n => n.id === 'root')
+  const root = tree.nodes.find(n => n.id === NODE_ROOT_ID)
   if (root) {
-    traverse('root', 0)
+    traverse(NODE_ROOT_ID, 0)
   }
 }
 
@@ -104,18 +110,18 @@ export function traverseTree(
  * @returns Updated threshold tree
  */
 export function updateNodeThreshold(
-  tree: ThresholdTreeV2,
+  tree: ThresholdTree,
   nodeId: string,
   thresholds: number[],
   metric?: string
-): ThresholdTreeV2 {
+): ThresholdTree {
   const node = findNodeById(tree, nodeId)
   if (!node) return tree
 
   let updatedNodes = tree.nodes
 
   // Handle different split rule types
-  if (node.split_rule?.type === 'range') {
+  if (node.split_rule?.type === SPLIT_TYPE_RANGE) {
     // For range splits, directly update thresholds
     updatedNodes = tree.nodes.map(n => {
       if (n.id === nodeId) {
@@ -129,7 +135,7 @@ export function updateNodeThreshold(
       }
       return n
     })
-  } else if (node.split_rule?.type === 'pattern') {
+  } else if (node.split_rule?.type === SPLIT_TYPE_PATTERN) {
     // For pattern splits, update specific metric's threshold
     const rule = node.split_rule as PatternSplitRule
 
@@ -187,18 +193,18 @@ export function getNodeMetrics(node: SankeyThreshold): MetricType[] {
 
   let metrics: string[] = []
 
-  if (node.split_rule.type === 'range') {
+  if (node.split_rule.type === SPLIT_TYPE_RANGE) {
     metrics = [node.split_rule.metric]
-  } else if (node.split_rule.type === 'pattern') {
+  } else if (node.split_rule.type === SPLIT_TYPE_PATTERN) {
     metrics = Object.keys(node.split_rule.conditions)
-  } else if (node.split_rule.type === 'expression' && node.split_rule.available_metrics) {
+  } else if (node.split_rule.type === SPLIT_TYPE_EXPRESSION && node.split_rule.available_metrics) {
     metrics = node.split_rule.available_metrics
   }
 
   // Filter to only valid MetricType values
   return metrics.filter(m =>
-    ['feature_splitting', 'semdist_mean', 'semdist_max',
-     'score_fuzz', 'score_simulation', 'score_detection', 'score_embedding'].includes(m)
+    [METRIC_FEATURE_SPLITTING, METRIC_SEMDIST_MEAN, METRIC_SEMDIST_MAX,
+     METRIC_SCORE_FUZZ, METRIC_SCORE_SIMULATION, METRIC_SCORE_DETECTION, METRIC_SCORE_EMBEDDING].includes(m)
   ) as MetricType[]
 }
 
@@ -210,17 +216,17 @@ export function getNodeMetrics(node: SankeyThreshold): MetricType[] {
  * @returns The threshold value(s) or null
  */
 export function getEffectiveThreshold(
-  tree: ThresholdTreeV2,
+  tree: ThresholdTree,
   nodeId: string,
   metric: string
 ): number | number[] | null {
   const node = findNodeById(tree, nodeId)
   if (!node?.split_rule) return null
 
-  if (node.split_rule.type === 'range' && node.split_rule.metric === metric) {
+  if (node.split_rule.type === SPLIT_TYPE_RANGE && node.split_rule.metric === metric) {
     const thresholds = node.split_rule.thresholds
     return thresholds.length === 1 ? thresholds[0] : thresholds
-  } else if (node.split_rule.type === 'pattern') {
+  } else if (node.split_rule.type === SPLIT_TYPE_PATTERN) {
     const condition = node.split_rule.conditions[metric]
     if (condition?.threshold !== undefined) {
       return condition.threshold
@@ -234,7 +240,7 @@ export function getEffectiveThreshold(
  * Build the default threshold tree structure
  * @returns ThresholdTreeV2 with default 3-stage flow
  */
-export function buildDefaultTree(): ThresholdTreeV2 {
+export function buildDefaultTree(): ThresholdTree {
   const nodes = buildDefaultThresholdStructure()
   const metrics = getAllMetrics(nodes)
 
@@ -250,7 +256,7 @@ export function buildDefaultTree(): ThresholdTreeV2 {
  * @param tree The threshold tree to validate
  * @returns Array of error messages (empty if valid)
  */
-export function validateThresholdTree(tree: ThresholdTreeV2): string[] {
+export function validateThresholdTree(tree: ThresholdTree): string[] {
   const errors: string[] = []
 
   traverseTree(tree, (node, depth) => {
@@ -261,7 +267,7 @@ export function validateThresholdTree(tree: ThresholdTreeV2): string[] {
 
     // Check split rule structure if it exists
     if (node.split_rule) {
-      if (node.split_rule.type === 'range') {
+      if (node.split_rule.type === SPLIT_TYPE_RANGE) {
         const rule = node.split_rule as RangeSplitRule
         if (!Array.isArray(rule.thresholds)) {
           errors.push(`Node ${node.id} has invalid thresholds (not an array)`)
@@ -279,7 +285,7 @@ export function validateThresholdTree(tree: ThresholdTreeV2): string[] {
             `(should be ${rule.thresholds.length + 1} children)`
           )
         }
-      } else if (node.split_rule.type === 'pattern') {
+      } else if (node.split_rule.type === SPLIT_TYPE_PATTERN) {
         const rule = node.split_rule as PatternSplitRule
         // Check that all patterns have valid child_ids
         for (const pattern of rule.patterns) {
@@ -320,7 +326,7 @@ export function validateThresholdTree(tree: ThresholdTreeV2): string[] {
  * @returns Array of nodes at the specified stage
  */
 export function getNodesByStage(
-  tree: ThresholdTreeV2,
+  tree: ThresholdTree,
   stage: number
 ): SankeyThreshold[] {
   return tree.nodes.filter(node => node.stage === stage)
@@ -333,7 +339,7 @@ export function getNodesByStage(
  * @returns Array of child nodes
  */
 export function getChildNodes(
-  tree: ThresholdTreeV2,
+  tree: ThresholdTree,
   parentId: string
 ): SankeyThreshold[] {
   const parent = findNodeById(tree, parentId)
@@ -364,11 +370,11 @@ export function getAllMetrics(nodes: SankeyThreshold[]): string[] {
   for (const node of nodes) {
     if (!node.split_rule) continue
 
-    if (node.split_rule.type === 'range') {
+    if (node.split_rule.type === SPLIT_TYPE_RANGE) {
       metrics.add(node.split_rule.metric)
-    } else if (node.split_rule.type === 'pattern') {
+    } else if (node.split_rule.type === SPLIT_TYPE_PATTERN) {
       Object.keys(node.split_rule.conditions).forEach(metric => metrics.add(metric))
-    } else if (node.split_rule.type === 'expression' && node.split_rule.available_metrics) {
+    } else if (node.split_rule.type === SPLIT_TYPE_EXPRESSION && node.split_rule.available_metrics) {
       node.split_rule.available_metrics.forEach(metric => metrics.add(metric))
     }
   }
@@ -384,7 +390,7 @@ export function getAllMetrics(nodes: SankeyThreshold[]): string[] {
  * @returns Array of nodes that share the same threshold group
  */
 export function getNodesInSameThresholdGroup(
-  tree: ThresholdTreeV2,
+  tree: ThresholdTree,
   nodeId: string,
   _metric: MetricType
 ): SankeyThreshold[] {
@@ -400,7 +406,7 @@ export function getNodesInSameThresholdGroup(
  * Reset threshold tree to default values
  * @returns New default threshold tree
  */
-export function resetThresholdTree(): ThresholdTreeV2 {
+export function resetThresholdTree(): ThresholdTree {
   return buildDefaultTree()
 }
 
@@ -408,7 +414,7 @@ export function resetThresholdTree(): ThresholdTreeV2 {
  * Create an empty threshold tree v2
  * @returns Empty ThresholdTreeV2
  */
-export function createEmptyThresholdTree(): ThresholdTreeV2 {
+export function createEmptyThresholdTree(): ThresholdTree {
   return {
     nodes: [],
     metrics: [],
@@ -421,7 +427,7 @@ export function createEmptyThresholdTree(): ThresholdTreeV2 {
  * @param tree The threshold tree
  * @returns Serializable tree structure
  */
-export function serializeThresholdTree(tree: ThresholdTreeV2): any {
+export function serializeThresholdTree(tree: ThresholdTree): any {
   return {
     nodes: tree.nodes,
     metrics: tree.metrics,

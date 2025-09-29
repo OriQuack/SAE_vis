@@ -2,6 +2,12 @@
 // Simplified implementation for research prototype
 
 import React, { useRef, useEffect, useState, useCallback } from 'react'
+import {
+  METRIC_SEMDIST_MEAN, METRIC_SEMDIST_MAX,
+  METRIC_SCORE_FUZZ, METRIC_SCORE_SIMULATION, METRIC_SCORE_DETECTION, METRIC_SCORE_EMBEDDING,
+  CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_DISTANCE, CATEGORY_SCORE_AGREEMENT,
+  METRIC_DISPLAY_NAMES, CATEGORY_DISPLAY_NAMES
+} from './constants'
 
 // ============================================================================
 // TYPES
@@ -286,12 +292,12 @@ export function truncateText(text: string, maxLength: number): string {
 
 export function formatMetricName(metric: string): string {
   const metricLabels: Record<string, string> = {
-    'semdist_mean': 'Semantic Distance (Mean)',
-    'semdist_max': 'Semantic Distance (Max)',
-    'score_fuzz': 'Fuzz Score',
-    'score_simulation': 'Simulation Score',
-    'score_detection': 'Detection Score',
-    'score_embedding': 'Embedding Score'
+    [METRIC_SEMDIST_MEAN]: METRIC_DISPLAY_NAMES[METRIC_SEMDIST_MEAN],
+    [METRIC_SEMDIST_MAX]: METRIC_DISPLAY_NAMES[METRIC_SEMDIST_MAX],
+    [METRIC_SCORE_FUZZ]: METRIC_DISPLAY_NAMES[METRIC_SCORE_FUZZ],
+    [METRIC_SCORE_SIMULATION]: METRIC_DISPLAY_NAMES[METRIC_SCORE_SIMULATION],
+    [METRIC_SCORE_DETECTION]: METRIC_DISPLAY_NAMES[METRIC_SCORE_DETECTION],
+    [METRIC_SCORE_EMBEDDING]: METRIC_DISPLAY_NAMES[METRIC_SCORE_EMBEDDING]
   }
 
   return metricLabels[metric] || toTitleCase(metric)
@@ -299,10 +305,10 @@ export function formatMetricName(metric: string): string {
 
 export function formatCategoryName(category: string): string {
   const categoryLabels: Record<string, string> = {
-    'root': 'All Features',
-    'feature_splitting': 'Feature Splitting',
-    'semantic_distance': 'Semantic Distance',
-    'score_agreement': 'Score Agreement'
+    [CATEGORY_ROOT]: CATEGORY_DISPLAY_NAMES[CATEGORY_ROOT],
+    [CATEGORY_FEATURE_SPLITTING]: CATEGORY_DISPLAY_NAMES[CATEGORY_FEATURE_SPLITTING],
+    [CATEGORY_SEMANTIC_DISTANCE]: CATEGORY_DISPLAY_NAMES[CATEGORY_SEMANTIC_DISTANCE],
+    [CATEGORY_SCORE_AGREEMENT]: CATEGORY_DISPLAY_NAMES[CATEGORY_SCORE_AGREEMENT]
   }
 
   return categoryLabels[category] || toTitleCase(category)
