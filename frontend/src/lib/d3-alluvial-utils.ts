@@ -1,6 +1,6 @@
 import { sum } from 'd3-array'
 import { sankey, sankeyLinkHorizontal } from 'd3-sankey'
-import type { AlluvialFlow, SankeyNode } from '../types'
+import type { AlluvialFlow, D3SankeyNode } from '../types'
 
 // ============================================================================
 // TYPES
@@ -160,8 +160,8 @@ export function calculateAlluvialLayout(
   flows: AlluvialFlow[] | null,
   width: number,
   height: number,
-  leftSankeyNodes?: SankeyNode[],
-  rightSankeyNodes?: SankeyNode[]
+  leftSankeyNodes?: D3SankeyNode[],
+  rightSankeyNodes?: D3SankeyNode[]
 ): AlluvialLayoutData {
   if (!flows || flows.length === 0) {
     return {
@@ -184,35 +184,98 @@ export function calculateAlluvialLayout(
   })
 
   // Create node order and position maps from Sankey data if provided
+  // Extract leaf nodes and sort by absolute y0 position (top to bottom)
   const leftNodeOrder = new Map<string, number>()
   const rightNodeOrder = new Map<string, number>()
   const leftNodePositions = new Map<string, { y0: number; y1: number }>()
   const rightNodePositions = new Map<string, { y0: number; y1: number }>()
 
   if (leftSankeyNodes) {
-    // Get only leaf nodes (nodes with feature_ids) and record their order and positions
-    leftSankeyNodes
-      .filter(n => n.feature_ids && n.feature_ids.length > 0)
-      .forEach((node, index) => {
-        leftNodeOrder.set(node.id, index)
-        // Store y-positions if available (from D3 layout)
-        if ('y0' in node && 'y1' in node) {
-          leftNodePositions.set(node.id, { y0: node.y0 as number, y1: node.y1 as number })
-        }
+    console.log('[ALLUVIAL] LEFT PANEL - All nodes received:', leftSankeyNodes.map(n => ({
+      id: n.id,
+      stage: n.stage,
+      y0: n.y0,
+      y1: n.y1,
+      hasFeatureIds: !!n.feature_ids,
+      featureCount: n.feature_ids?.length || 0
+    })))
+
+    // Get nodes that appear in flows (not just leaf nodes) with y-positions
+    // A node appears in flows if it has feature_ids OR if it's referenced in sourceFeatureCounts
+    const nodesInFlows = leftSankeyNodes
+      .filter(n => {
+        const hasPosition = 'y0' in n && 'y1' in n
+        const isInFlows = sourceFeatureCounts.has(n.id)
+        return hasPosition && isInFlows
       })
+
+    console.log('[ALLUVIAL] LEFT PANEL - Nodes in flows BEFORE sorting:', nodesInFlows.map(n => ({
+      id: n.id,
+      stage: n.stage,
+      y0: n.y0,
+      y1: n.y1,
+      featureCount: n.feature_ids?.length || n.feature_count
+    })))
+
+    // Sort by absolute y0 position (top to bottom)
+    nodesInFlows.sort((a, b) => (a.y0 as number) - (b.y0 as number))
+
+    console.log('[ALLUVIAL] LEFT PANEL - Nodes in flows AFTER y0 sorting:', nodesInFlows.map(n => ({
+      id: n.id,
+      y0: n.y0
+    })))
+
+    // Assign sequential order indices based on y0-sorted position
+    nodesInFlows.forEach((node, index) => {
+      leftNodeOrder.set(node.id, index)
+      leftNodePositions.set(node.id, { y0: node.y0 as number, y1: node.y1 as number })
+    })
+
+    console.log('[ALLUVIAL] LEFT PANEL - Final order map:', Array.from(leftNodeOrder.entries()))
   }
 
   if (rightSankeyNodes) {
-    // Get only leaf nodes (nodes with feature_ids) and record their order and positions
-    rightSankeyNodes
-      .filter(n => n.feature_ids && n.feature_ids.length > 0)
-      .forEach((node, index) => {
-        rightNodeOrder.set(node.id, index)
-        // Store y-positions if available (from D3 layout)
-        if ('y0' in node && 'y1' in node) {
-          rightNodePositions.set(node.id, { y0: node.y0 as number, y1: node.y1 as number })
-        }
+    console.log('[ALLUVIAL] RIGHT PANEL - All nodes received:', rightSankeyNodes.map(n => ({
+      id: n.id,
+      stage: n.stage,
+      y0: n.y0,
+      y1: n.y1,
+      hasFeatureIds: !!n.feature_ids,
+      featureCount: n.feature_ids?.length || 0
+    })))
+
+    // Get nodes that appear in flows (not just leaf nodes) with y-positions
+    // A node appears in flows if it's referenced in targetFeatureCounts
+    const nodesInFlows = rightSankeyNodes
+      .filter(n => {
+        const hasPosition = 'y0' in n && 'y1' in n
+        const isInFlows = targetFeatureCounts.has(n.id)
+        return hasPosition && isInFlows
       })
+
+    console.log('[ALLUVIAL] RIGHT PANEL - Nodes in flows BEFORE sorting:', nodesInFlows.map(n => ({
+      id: n.id,
+      stage: n.stage,
+      y0: n.y0,
+      y1: n.y1,
+      featureCount: n.feature_ids?.length || n.feature_count
+    })))
+
+    // Sort by absolute y0 position (top to bottom)
+    nodesInFlows.sort((a, b) => (a.y0 as number) - (b.y0 as number))
+
+    console.log('[ALLUVIAL] RIGHT PANEL - Nodes in flows AFTER y0 sorting:', nodesInFlows.map(n => ({
+      id: n.id,
+      y0: n.y0
+    })))
+
+    // Assign sequential order indices based on y0-sorted position
+    nodesInFlows.forEach((node, index) => {
+      rightNodeOrder.set(node.id, index)
+      rightNodePositions.set(node.id, { y0: node.y0 as number, y1: node.y1 as number })
+    })
+
+    console.log('[ALLUVIAL] RIGHT PANEL - Final order map:', Array.from(rightNodeOrder.entries()))
   }
 
   // Create nodes for d3-sankey with unique IDs to prevent circular references
@@ -226,11 +289,14 @@ export function calculateAlluvialLayout(
 
   // Sort source keys based on leftNodeOrder if available
   if (leftNodeOrder.size > 0) {
+    console.log('[ALLUVIAL] Sorting sourceKeys. Before:', sourceKeys)
     sourceKeys.sort((a, b) => {
       const orderA = leftNodeOrder.get(a) ?? 999
       const orderB = leftNodeOrder.get(b) ?? 999
+      console.log(`  Comparing ${a} (order=${orderA}) vs ${b} (order=${orderB})`)
       return orderA - orderB
     })
+    console.log('[ALLUVIAL] Sorting sourceKeys. After:', sourceKeys)
   }
 
   sourceKeys.forEach(originalId => {
@@ -250,11 +316,14 @@ export function calculateAlluvialLayout(
 
   // Sort target keys based on rightNodeOrder if available
   if (rightNodeOrder.size > 0) {
+    console.log('[ALLUVIAL] Sorting targetKeys. Before:', targetKeys)
     targetKeys.sort((a, b) => {
       const orderA = rightNodeOrder.get(a) ?? 999
       const orderB = rightNodeOrder.get(b) ?? 999
+      console.log(`  Comparing ${a} (order=${orderA}) vs ${b} (order=${orderB})`)
       return orderA - orderB
     })
+    console.log('[ALLUVIAL] Sorting targetKeys. After:', targetKeys)
   }
 
   targetKeys.forEach(originalId => {
@@ -310,19 +379,35 @@ export function calculateAlluvialLayout(
       return nodeId.startsWith('left_') ? 0 : 1
     })
     .nodeSort((a, b) => {
-      // Sort by the y-position from Sankey if available
+      // Sort by y0-based order indices from Sankey (with y-position fallback)
       const aNode = a as AlluvialSankeyNode
       const bNode = b as AlluvialSankeyNode
       const aOriginalId = aNode.id.replace(/^(left_|right_)/, '')
       const bOriginalId = bNode.id.replace(/^(left_|right_)/, '')
 
       if (aNode.id.startsWith('left_')) {
+        // Primary: Use y0-based order indices
+        const aOrder = leftNodeOrder.get(aOriginalId)
+        const bOrder = leftNodeOrder.get(bOriginalId)
+        if (aOrder !== undefined && bOrder !== undefined) {
+          return aOrder - bOrder
+        }
+
+        // Fallback: Use y0 positions directly
         const aPos = leftNodePositions.get(aOriginalId)
         const bPos = leftNodePositions.get(bOriginalId)
         if (aPos && bPos) {
           return aPos.y0 - bPos.y0
         }
       } else {
+        // Primary: Use y0-based order indices
+        const aOrder = rightNodeOrder.get(aOriginalId)
+        const bOrder = rightNodeOrder.get(bOriginalId)
+        if (aOrder !== undefined && bOrder !== undefined) {
+          return aOrder - bOrder
+        }
+
+        // Fallback: Use y0 positions directly
         const aPos = rightNodePositions.get(aOriginalId)
         const bPos = rightNodePositions.get(bOriginalId)
         if (aPos && bPos) {

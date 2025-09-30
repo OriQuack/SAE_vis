@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { useVisualizationStore } from '../store'
 import { calculateAlluvialLayout, ALLUVIAL_COLORS, ALLUVIAL_OPACITY } from '../lib/d3-alluvial-utils'
+import { calculateSankeyLayout } from '../lib/d3-sankey-utils'
 import type { AlluvialSankeyNode, AlluvialSankeyLink } from '../lib/d3-alluvial-utils'
 
 // ==================== TYPES ====================
@@ -27,16 +28,27 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
   const [hoveredFlowId, setHoveredFlowId] = useState<string | null>(null)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
 
-  // Calculate layout using D3 (memoized for performance)
+  // Calculate Sankey layouts to get nodes with y0/y1 positions
+  const leftLayout = useMemo(
+    () => leftSankeyData ? calculateSankeyLayout(leftSankeyData, width, height) : null,
+    [leftSankeyData, width, height]
+  )
+
+  const rightLayout = useMemo(
+    () => rightSankeyData ? calculateSankeyLayout(rightSankeyData, width, height) : null,
+    [rightSankeyData, width, height]
+  )
+
+  // Calculate alluvial layout using processed nodes (with y0/y1 positions)
   const layout = useMemo(
     () => calculateAlluvialLayout(
       alluvialFlows,
       width,
       height,
-      leftSankeyData?.nodes,
-      rightSankeyData?.nodes
+      leftLayout?.nodes,
+      rightLayout?.nodes
     ),
-    [alluvialFlows, width, height, leftSankeyData?.nodes, rightSankeyData?.nodes]
+    [alluvialFlows, width, height, leftLayout?.nodes, rightLayout?.nodes]
   )
 
   // Handle empty state
