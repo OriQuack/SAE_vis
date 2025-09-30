@@ -38,10 +38,6 @@ class SankeyRequest(BaseModel):
         ...,
         description="Threshold tree structure for hierarchical classification (v2 format only)"
     )
-    version: int = Field(
-        default=2,
-        description="Threshold system version (always 2 for new flexible system)"
-    )
 
 class ComparisonRequest(BaseModel):
     """Request model for comparison/alluvial diagram data endpoint"""
