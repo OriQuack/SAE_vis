@@ -3,9 +3,15 @@ import type {
   PatternSplitRule,
   ExpressionSplitRule,
   SankeyThreshold,
-  ParentPathInfo
+  ParentPathInfo,
+  CategoryType
 } from '../types'
-import { CategoryType } from '../types'
+import {
+  CATEGORY_ROOT,
+  CATEGORY_FEATURE_SPLITTING,
+  CATEGORY_SEMANTIC_DISTANCE,
+  CATEGORY_SCORE_AGREEMENT
+} from './constants'
 
 /**
  * Build a range-based split rule for binary or multi-way splits
@@ -258,7 +264,7 @@ export function buildDefaultThresholdStructure(): SankeyThreshold[] {
   const root = createNode(
     'root',
     0,
-    CategoryType.ROOT,
+    CATEGORY_ROOT,
     [],
     buildRangeSplit('feature_splitting', [0.1]),
     ['split_false', 'split_true']
@@ -269,7 +275,7 @@ export function buildDefaultThresholdStructure(): SankeyThreshold[] {
   const splitFalse = createNode(
     'split_false',
     1,
-    CategoryType.FEATURE_SPLITTING,
+    CATEGORY_FEATURE_SPLITTING,
     [createParentPath('root', 'range', 0, { metric: 'feature_splitting', thresholds: [0.1] })],
     buildRangeSplit('semdist_mean', [0.1]),
     ['split_false_semdist_low', 'split_false_semdist_high']
@@ -279,7 +285,7 @@ export function buildDefaultThresholdStructure(): SankeyThreshold[] {
   const splitTrue = createNode(
     'split_true',
     1,
-    CategoryType.FEATURE_SPLITTING,
+    CATEGORY_FEATURE_SPLITTING,
     [createParentPath('root', 'range', 1, { metric: 'feature_splitting', thresholds: [0.1] })],
     buildRangeSplit('semdist_mean', [0.1]),
     ['split_true_semdist_low', 'split_true_semdist_high']
@@ -305,7 +311,7 @@ export function buildDefaultThresholdStructure(): SankeyThreshold[] {
     const node = createNode(
       sdNode.id,
       2,
-      CategoryType.SEMANTIC_DISTANCE,
+      CATEGORY_SEMANTIC_DISTANCE,
       parentPath,
       buildScoreAgreementSplit(0.5, 0.5, 0.2),
       [
@@ -336,7 +342,7 @@ export function buildDefaultThresholdStructure(): SankeyThreshold[] {
       const node = createNode(
         nodeId,
         3,
-        CategoryType.SCORE_AGREEMENT,
+        CATEGORY_SCORE_AGREEMENT,
         parentNode.parent_path.concat([
           createParentPath(parentNode.id, 'pattern', idx, {
             patternIndex: idx,

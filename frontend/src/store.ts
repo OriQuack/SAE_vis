@@ -41,6 +41,11 @@ interface AppState {
   loading: LoadingStates & { sankeyLeft?: boolean; sankeyRight?: boolean }
   errors: ErrorStates & { sankeyLeft?: string | null; sankeyRight?: string | null }
 
+  // Hover state for cross-component highlighting
+  hoveredAlluvialNodeId: string | null
+  hoveredAlluvialPanel: 'left' | 'right' | null
+  setHoveredAlluvialNode: (nodeId: string | null, panel: 'left' | 'right' | null) => void
+
   // Data actions - now take panel parameter
   setFilters: (filters: Partial<Filters>, panel?: PanelSide) => void
   // New threshold tree actions
@@ -151,11 +156,19 @@ const initialState = {
   },
 
   // Alluvial flows
-  alluvialFlows: null
+  alluvialFlows: null,
+
+  // Hover state
+  hoveredAlluvialNodeId: null,
+  hoveredAlluvialPanel: null
 }
 
 export const useStore = create<AppState>((set, get) => ({
   ...initialState,
+
+  // Hover state actions
+  setHoveredAlluvialNode: (nodeId: string | null, panel: 'left' | 'right' | null) =>
+    set({ hoveredAlluvialNodeId: nodeId, hoveredAlluvialPanel: panel }),
 
   // @deprecated These getters are unused - all components use panel-specific access (state.leftPanel.* or state.rightPanel.*)
   // TODO: Remove in future version after confirming no external dependencies

@@ -22,9 +22,12 @@ import {
   SPLIT_TYPE_RANGE,
   SPLIT_TYPE_PATTERN,
   METRIC_FEATURE_SPLITTING,
-  METRIC_SEMDIST_MEAN
+  METRIC_SEMDIST_MEAN,
+  CATEGORY_ROOT,
+  CATEGORY_FEATURE_SPLITTING,
+  CATEGORY_SEMANTIC_DISTANCE,
+  CATEGORY_SCORE_AGREEMENT
 } from './constants'
-import { CategoryType as CategoryTypeEnum } from '../types'
 
 // ============================================================================
 // DYNAMIC TREE BUILDER UTILITIES
@@ -63,7 +66,7 @@ export const AVAILABLE_STAGE_TYPES: StageTypeConfig[] = [
     id: 'feature_splitting',
     name: 'Feature Splitting',
     description: 'Split features based on feature_splitting metric',
-    category: CategoryTypeEnum.FEATURE_SPLITTING,
+    category: CATEGORY_FEATURE_SPLITTING,
     defaultSplitRule: 'range',
     defaultMetric: METRIC_FEATURE_SPLITTING,
     defaultThresholds: [0.1]
@@ -72,7 +75,7 @@ export const AVAILABLE_STAGE_TYPES: StageTypeConfig[] = [
     id: 'semantic_distance',
     name: 'Semantic Distance',
     description: 'Split features based on semantic distance',
-    category: CategoryTypeEnum.SEMANTIC_DISTANCE,
+    category: CATEGORY_SEMANTIC_DISTANCE,
     defaultSplitRule: 'range',
     defaultMetric: METRIC_SEMDIST_MEAN,
     defaultThresholds: [0.1]
@@ -81,7 +84,7 @@ export const AVAILABLE_STAGE_TYPES: StageTypeConfig[] = [
     id: 'score_agreement',
     name: 'Score Agreement',
     description: 'Classify features based on scoring method agreement (user-selectable metrics)',
-    category: CategoryTypeEnum.SCORE_AGREEMENT,
+    category: CATEGORY_SCORE_AGREEMENT,
     defaultSplitRule: 'pattern'
     // Note: selectedScoreMetrics should be provided when adding this stage
     // Defaults to ['score_fuzz', 'score_simulation', 'score_detection'] if not specified
@@ -96,7 +99,7 @@ export function createRootOnlyTree(): ThresholdTree {
   const rootNode = createNode(
     NODE_ROOT_ID,
     0,
-    CategoryTypeEnum.ROOT,
+    CATEGORY_ROOT,
     [],
     null, // No split rule initially
     []    // No children initially

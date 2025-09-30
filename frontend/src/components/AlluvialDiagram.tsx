@@ -23,6 +23,7 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
   const alluvialFlows = useVisualizationStore(state => state.alluvialFlows)
   const leftSankeyData = useVisualizationStore(state => state.leftPanel.sankeyData)
   const rightSankeyData = useVisualizationStore(state => state.rightPanel.sankeyData)
+  const setHoveredAlluvialNode = useVisualizationStore(state => state.setHoveredAlluvialNode)
 
   // State for interactions
   const [hoveredFlowId, setHoveredFlowId] = useState<string | null>(null)
@@ -50,6 +51,24 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
     ),
     [alluvialFlows, width, height, leftLayout?.nodes, rightLayout?.nodes]
   )
+
+  // Get connected link IDs for hovered node
+  const hoveredNodeLinkIds = useMemo(() => {
+    if (!hoveredNodeId) return new Set<string>()
+
+    const linkIds = new Set<string>()
+    layout.flows.forEach((flow: AlluvialSankeyLink) => {
+      // Check if flow is connected to hovered node
+      const sourceId = typeof flow.source === 'object' ? flow.source.id : flow.source
+      const targetId = typeof flow.target === 'object' ? flow.target.id : flow.target
+
+      if (sourceId === hoveredNodeId || targetId === hoveredNodeId) {
+        linkIds.add(flow.id)
+      }
+    })
+
+    return linkIds
+  }, [hoveredNodeId, layout.flows])
 
   // Handle empty state
   if (!layout.flows.length) {
@@ -112,10 +131,13 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
         {/* Render flows as curved ribbons with proper width */}
         <g className="alluvial-flows">
           {layout.flows.map((flow: AlluvialSankeyLink) => {
-            const isHovered = hoveredFlowId === flow.id
-            const opacity = isHovered
+            const isFlowHovered = hoveredFlowId === flow.id
+            const isConnectedToNode = hoveredNodeId && hoveredNodeLinkIds.has(flow.id)
+
+            // Calculate opacity based on hover state
+            const opacity = isFlowHovered || isConnectedToNode
               ? ALLUVIAL_OPACITY.hover
-              : hoveredFlowId
+              : (hoveredFlowId || hoveredNodeId)
                 ? ALLUVIAL_OPACITY.inactive
                 : flow.opacity
 
@@ -156,17 +178,6 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
 
         {/* Left nodes as rectangles */}
         <g className="alluvial-left-nodes">
-          <text
-            x={30}
-            y={15}
-            textAnchor="start"
-            className="alluvial-panel-label"
-            fontSize="10"
-            fontWeight="500"
-            fill="#6b7280"
-          >
-            Left Panel
-          </text>
           {layout.leftNodes.map((node: AlluvialSankeyNode) => {
             // Determine color based on category (using similar logic to flows)
             const baseColor = node.label === 'all' ? '#10b981' :
@@ -184,7 +195,6 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
             const y = node.y0 || 0
             const nodeWidth = (node.x1 || 0) - (node.x0 || 0)
             const nodeHeight = (node.y1 || 0) - (node.y0 || 0)
-            const centerY = y + nodeHeight / 2
 
             return (
               <g key={node.id} className="alluvial-node-group">
@@ -203,8 +213,15 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
                     cursor: 'pointer',
                     transition: 'all 0.2s ease'
                   }}
-                  onMouseEnter={() => setHoveredNodeId(node.id)}
-                  onMouseLeave={() => setHoveredNodeId(null)}
+                  onMouseEnter={() => {
+                    setHoveredNodeId(node.id)
+                    const sankeyNodeId = node.id.replace(/^left_/, '')
+                    setHoveredAlluvialNode(sankeyNodeId, 'left')
+                  }}
+                  onMouseLeave={() => {
+                    setHoveredNodeId(null)
+                    setHoveredAlluvialNode(null, null)
+                  }}
                 >
                   <title>{`${node.label}: ${node.featureCount} features`}</title>
                 </rect>
@@ -215,17 +232,6 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
 
         {/* Right nodes as rectangles */}
         <g className="alluvial-right-nodes">
-          <text
-            x={width - 30}
-            y={15}
-            textAnchor="end"
-            className="alluvial-panel-label"
-            fontSize="10"
-            fontWeight="500"
-            fill="#6b7280"
-          >
-            Right Panel
-          </text>
           {layout.rightNodes.map((node: AlluvialSankeyNode) => {
             // Determine color based on category
             const baseColor = node.label === 'all' ? '#10b981' :
@@ -243,7 +249,6 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
             const y = node.y0 || 0
             const nodeWidth = (node.x1 || 0) - (node.x0 || 0)
             const nodeHeight = (node.y1 || 0) - (node.y0 || 0)
-            const centerY = y + nodeHeight / 2
 
             return (
               <g key={node.id} className="alluvial-node-group">
@@ -262,8 +267,15 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
                     cursor: 'pointer',
                     transition: 'all 0.2s ease'
                   }}
-                  onMouseEnter={() => setHoveredNodeId(node.id)}
-                  onMouseLeave={() => setHoveredNodeId(null)}
+                  onMouseEnter={() => {
+                    setHoveredNodeId(node.id)
+                    const sankeyNodeId = node.id.replace(/^right_/, '')
+                    setHoveredAlluvialNode(sankeyNodeId, 'right')
+                  }}
+                  onMouseLeave={() => {
+                    setHoveredNodeId(null)
+                    setHoveredAlluvialNode(null, null)
+                  }}
                 >
                   <title>{`${node.label}: ${node.featureCount} features`}</title>
                 </rect>

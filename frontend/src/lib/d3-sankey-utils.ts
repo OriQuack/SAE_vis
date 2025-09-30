@@ -58,7 +58,7 @@ const DEFAULT_SANKEY_MARGIN = { top: 80, right: 20, bottom: 20, left: 80 }
  * Professional D3-sankey node alignment function that respects actual stage positions.
  * This is the proper way to control node positioning in D3-sankey.
  */
-function stageBasedAlign(node: D3SankeyNode, n: number): number {
+function stageBasedAlign(node: D3SankeyNode): number {
   // Use our stage property instead of D3's calculated depth
   // This ensures nodes are positioned at their actual stages
   return node.stage || 0
