@@ -6,13 +6,13 @@ This file provides comprehensive guidance to Claude Code (claude.ai/code) when w
 
 This is a **research prototype visualization interface** for EuroVIS conference submission focused on "Visualizing SAE feature explanation reliability." The project is designed as a conference demonstration tool that visualizes the consistency between different interpretability scoring methods for Sparse Autoencoder (SAE) features with flexible, research-oriented architecture.
 
-## Current Project Status: 🚀 PHASE 2 ADVANCED DUAL-PANEL IMPLEMENTATION
+## Current Project Status: 🚀 DYNAMIC TREE BUILDER IMPLEMENTATION
 
-**Phase 1 Complete**: ✅ Single Sankey visualization with advanced interactivity and threshold tree system
-**Phase 2 Active**: 🚧 Dual-panel comparison architecture with alluvial flow visualization (50% complete)
-**Current State**: Research prototype with dual-panel architecture and flexible threshold tree system
-**Active Usage**: Development servers for research and demonstration purposes
-**Technical Readiness**: Conference-ready prototype with flexible comparison visualization capabilities
+**Phase 1 Complete**: ✅ Dual-panel Sankey visualization with dynamic tree building system
+**Phase 2 Complete**: ✅ Dynamic tree builder allowing runtime stage creation and modification
+**Current State**: Research prototype with flexible dynamic tree building and dual-panel comparison
+**Active Usage**: Development servers for research demonstrations with dynamic visualization control
+**Technical Readiness**: Conference-ready prototype with fully dynamic threshold tree construction
 
 ## Technology Stack & Architecture
 
@@ -76,6 +76,8 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 │   │   │   └── common.py           # Shared models (Filters, Thresholds, etc.)
 │   │   └── services/               # Business logic layer
 │   │       ├── data_service.py     # Consolidated high-performance Polars service
+│   │       ├── classification.py   # V2 classification engine
+│   │       ├── split_evaluators.py # Split rule evaluation logic
 │   │       └── data_constants.py   # Data schema constants
 │   ├── docs/                       # API documentation
 │   ├── start.py                    # Production startup script
@@ -86,15 +88,18 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 │   │   ├── components/             # React components
 │   │   │   ├── FilterPanel.tsx     # Multi-select filter interface
 │   │   │   ├── SankeyDiagram.tsx   # D3 Sankey visualization
-│   │   │   ├── AlluvialDiagram.tsx # D3 Alluvial flow visualization (Phase 2)
+│   │   │   ├── AlluvialDiagram.tsx # D3 Alluvial flow visualization
 │   │   │   └── HistogramPopover.tsx # Advanced popover system
 │   │   ├── lib/
+│   │   │   ├── constants.ts         # Centralized constant definitions
 │   │   │   ├── d3-sankey-utils.ts  # D3 Sankey calculations
-│   │   │   ├── d3-alluvial-utils.ts # D3 Alluvial calculations (Phase 2)
+│   │   │   ├── d3-alluvial-utils.ts # D3 Alluvial calculations
 │   │   │   ├── d3-histogram-utils.ts # D3 Histogram calculations
 │   │   │   ├── threshold-utils.ts   # Threshold tree operations
+│   │   │   ├── dynamic-tree-builder.ts # Dynamic stage creation/removal
+│   │   │   ├── split-rule-builders.ts # Split rule construction helpers
 │   │   │   └── utils.ts            # General helper functions
-│   │   ├── store.ts                # Zustand state management
+│   │   ├── store.ts                # Zustand state management with dual panels
 │   │   ├── types.ts               # TypeScript type definitions
 │   │   ├── api.ts                 # HTTP client and API integration
 │   │   ├── App.tsx                # Main application component
@@ -157,12 +162,13 @@ threshold tree structure. Not limited to 3 scores or fixed pipeline.
 - **Comprehensive Error Handling**: Error boundaries and graceful degradation
 
 **Current Implementation:**
-- **Dual-Panel Architecture**: Left/right panel system for comparison visualization
-- **Threshold Tree System**: Flexible threshold tree V2 system with configurable split rules
-- **Alluvial Flow Visualization**: Cross-panel flow comparison (Phase 2 - 50% complete)
-- **Advanced Filtering**: Multi-select dropdowns with dynamic options
-- **Histogram Popovers**: Interactive threshold setting with drag-and-drop
-- **Real-time Updates**: Live API integration with loading states
+- **Dual-Panel Architecture**: Left/right panel system for comparison visualization with independent state
+- **Dynamic Tree Builder**: Runtime stage creation/removal with `dynamic-tree-builder.ts`
+- **Threshold Tree System V2**: Flexible threshold tree with configurable split rules (range, pattern, expression)
+- **Alluvial Flow Visualization**: Cross-panel flow comparison with feature ID tracking
+- **Advanced Filtering**: Multi-select dropdowns with dynamic options from backend
+- **Histogram Popovers**: Interactive threshold setting with drag-and-drop positioning
+- **Real-time Updates**: Live API integration with loading states and error boundaries
 - **Responsive Design**: Adaptive layout for different screen sizes
 
 **Component Architecture:**
@@ -254,16 +260,19 @@ npm run preview
 - **Schema**: feature_id, sae_id, explanation_method, llm_explainer, llm_scorer, feature_splitting, semdist_mean, semdist_max, scores (fuzz, simulation, detection, embedding), details_path
 - **Size**: 1,648 features with complete metadata
 
-### Flexible Threshold Tree System V2 (New Architecture)
-- **Tree-Based Structure**: Hierarchical node system with configurable, flexible stage ordering
+### Dynamic Threshold Tree System (Current Architecture)
+- **Dynamic Tree Builder**: Runtime stage creation and removal through `dynamic-tree-builder.ts`
+  - `createRootOnlyTree()`: Initialize with root-only tree
+  - `addStageToNode()`: Add new classification stage to any node at runtime
+  - `removeStageFromNode()`: Remove stage and collapse subtree
 - **Split Rule Types**: Three types of split rules for maximum flexibility:
   - **Range Rules**: Single metric with N threshold values creating N+1 branches
   - **Pattern Rules**: Multi-metric pattern matching with configurable conditions
   - **Expression Rules**: Complex logical expressions for advanced splitting logic
-- **Dynamic Stage Ordering**: Stages can be reordered without code changes
+- **Split Rule Builders**: Helper functions in `split-rule-builders.ts` for easy rule construction
 - **Flexible Scoring Methods**: Support for any number of scoring methods (not limited to 3)
 - **Parent Path Tracking**: Complete path information from root to any node
-- **Research-Oriented Design**: Optimized for conference demonstration and research flexibility
+- **Research-Oriented Design**: Optimized for conference demonstration with live tree modification
 
 
 ### Data Processing Features
@@ -303,25 +312,27 @@ npm run preview
 - **Comprehensive testing suite** for API validation
 - **Structured logging** with configurable levels
 
-## Future Development Roadmap
+## Implementation Status
 
-### Phase 2: Dual Sankey Comparison (🚧 ACTIVE - 50% Complete)
-- ✅ **Backend Structure**: Comparison endpoint implemented and ready
-- ✅ **Dual-Panel Architecture**: Left/right panel store system implemented
-- ✅ **Alluvial Component**: AlluvialDiagram component with D3 calculations
-- ✅ **Threshold Tree System**: Unified threshold management system
-- 🚧 **Integration**: Full alluvial flow data pipeline (in progress)
-- 📝 **Advanced Interactions**: Cross-diagram filtering and comparison tools
+### ✅ Phase 1: Dual-Panel Sankey Visualization (COMPLETE)
+- ✅ **Dual-Panel Architecture**: Independent left/right panel state management
+- ✅ **Sankey Diagrams**: D3-based visualization with interactive nodes
+- ✅ **Filter System**: Multi-select filters with backend integration
+- ✅ **Histogram Popovers**: Interactive threshold visualization
 
-### Phase 3: Debug View & Feature Drilling
-- 📝 **Individual Feature Analysis**: Detailed feature inspection interface
-- 📝 **Advanced Category Management**: Dynamic grouping and classification tools
-- 📝 **Export Functionality**: Data export and visualization sharing
+### ✅ Phase 2: Dynamic Tree Builder (COMPLETE)
+- ✅ **Runtime Stage Creation**: `addStageToNode()` for dynamic tree building
+- ✅ **Runtime Stage Removal**: `removeStageFromNode()` for tree simplification
+- ✅ **Root-Only Mode**: `createRootOnlyTree()` for starting fresh
+- ✅ **Split Rule Builders**: Helper functions for easy rule construction
+- ✅ **Alluvial Flows**: Cross-panel feature tracking and flow visualization
+- ✅ **Classification Engine**: V2 classification with split evaluators
 
-### Phase 4: Performance & Polish
-- 📝 **Optimization**: Further performance improvements for large datasets
-- 📝 **Enhanced UX**: Advanced interaction patterns and accessibility improvements
-- 📝 **Production Deployment**: Containerization and deployment configuration
+### 📝 Future Enhancements
+- **UI for Tree Builder**: Visual interface for adding/removing stages (currently API-only)
+- **Debug View**: Individual feature inspection and path visualization
+- **Export Functionality**: Save/load custom tree configurations
+- **Performance**: Optimization for 16K+ feature datasets
 
 ## Important Development Notes
 
