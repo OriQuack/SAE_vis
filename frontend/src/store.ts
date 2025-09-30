@@ -13,10 +13,10 @@ import type {
   ErrorStates,
   AlluvialFlow,
   SankeyNode,
-  NodeCategory
+  NodeCategory,
+  AddStageConfig
 } from './types'
-import { updateNodeThreshold } from './lib/threshold-utils'
-import { createRootOnlyTree, addStageToNode, removeStageFromNode, type AddStageConfig } from './lib/dynamic-tree-builder'
+import { updateNodeThreshold, createRootOnlyTree, addStageToNode, removeStageFromNode } from './lib/threshold-utils'
 import { PANEL_LEFT, PANEL_RIGHT, METRIC_SEMDIST_MEAN } from './lib/constants'
 
 type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT

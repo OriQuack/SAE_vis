@@ -1,9 +1,4 @@
 // ============================================================================
-// CONSOLIDATED TYPES FOR SAE FEATURE VISUALIZATION
-// Simplified for research prototype - merged from 8 separate type files
-// ============================================================================
-
-// ============================================================================
 // FILTER AND DATA TYPES
 // ============================================================================
 
@@ -13,10 +8,6 @@ export interface Filters {
   llm_explainer?: string[]
   llm_scorer?: string[]
 }
-
-// ============================================================================
-// THRESHOLD TREE SYSTEM
-// ============================================================================
 
 // ============================================================================
 // THRESHOLD SYSTEM
@@ -341,6 +332,25 @@ export interface ThresholdLineData {
   value: number
 }
 
+export interface SankeyLayout {
+  nodes: D3SankeyNode[]
+  links: D3SankeyLink[]
+  width: number
+  height: number
+  margin: LayoutMargin
+}
+
+export interface PopoverPosition {
+  x: number
+  y: number
+  transform: string
+}
+
+export interface PopoverSize {
+  width: number
+  height: number
+}
+
 // ============================================================================
 // POPOVER TYPES (Simplified)
 // ============================================================================
@@ -362,4 +372,70 @@ export interface HistogramPopoverData {
 
 export interface PopoverState {
   histogram: HistogramPopoverData | null
+}
+
+// ============================================================================
+// DYNAMIC TREE BUILDER TYPES
+// ============================================================================
+
+export interface StageTypeConfig {
+  id: string
+  name: string
+  description: string
+  category: CategoryType
+  defaultSplitRule: 'range' | 'pattern' | 'expression'
+  defaultMetric?: string
+  defaultThresholds?: number[]
+}
+
+export interface AddStageConfig {
+  stageType: string
+  splitRuleType: 'range' | 'pattern' | 'expression'
+  metric?: string
+  thresholds?: number[]
+  selectedScoreMetrics?: string[]
+  customConfig?: any
+}
+
+// ============================================================================
+// ALLUVIAL DIAGRAM TYPES
+// ============================================================================
+
+export interface AlluvialSankeyNode {
+  id: string
+  x0?: number
+  x1?: number
+  y0?: number
+  y1?: number
+  value?: number
+  label: string
+  featureCount: number
+  height?: number
+  width?: number
+}
+
+export interface AlluvialSankeyLink {
+  source: AlluvialSankeyNode | number
+  target: AlluvialSankeyNode | number
+  value: number
+  y0?: number
+  y1?: number
+  width?: number
+  flow: AlluvialFlow
+  color: string
+  opacity: number
+  id: string
+}
+
+export interface AlluvialLayoutData {
+  flows: AlluvialSankeyLink[]
+  leftNodes: AlluvialSankeyNode[]
+  rightNodes: AlluvialSankeyNode[]
+  sankeyGenerator: any
+  stats: {
+    totalFlows: number
+    consistentFlows: number
+    totalFeatures: number
+    consistencyRate: number
+  } | null
 }

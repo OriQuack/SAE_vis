@@ -1,10 +1,8 @@
 import React, { useState, useCallback, useMemo } from 'react'
 import { useVisualizationStore } from '../store'
 import { DEFAULT_ANIMATION, calculateSankeyLayout, validateSankeyData, validateDimensions, getNodeColor, getLinkColor, getSankeyPath, SANKEY_COLORS, useResizeObserver } from '../lib/d3-sankey-utils'
-import { findNodeById, getNodeMetrics } from '../lib/threshold-utils'
-import { canAddStageToNode, getAvailableStageTypes } from '../lib/dynamic-tree-builder'
-import type { D3SankeyNode, D3SankeyLink, MetricType, ThresholdTree, SankeyThreshold } from '../types'
-import type { AddStageConfig, StageTypeConfig } from '../lib/dynamic-tree-builder'
+import { findNodeById, getNodeMetrics, canAddStageToNode, getAvailableStageTypes } from '../lib/threshold-utils'
+import type { D3SankeyNode, D3SankeyLink, MetricType, ThresholdTree, SankeyThreshold, AddStageConfig, StageTypeConfig } from '../types'
 import { PANEL_LEFT, PANEL_RIGHT, LEGEND_ITEMS, CATEGORY_DISPLAY_NAMES } from '../lib/constants'
 
 // ==================== INLINE COMPONENTS ====================

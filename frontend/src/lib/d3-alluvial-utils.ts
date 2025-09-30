@@ -1,73 +1,7 @@
 import { sum } from 'd3-array'
 import { sankey, sankeyLinkHorizontal } from 'd3-sankey'
-import type { AlluvialFlow, D3SankeyNode } from '../types'
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-export interface AlluvialSankeyNode {
-  id: string
-  x0?: number
-  x1?: number
-  y0?: number
-  y1?: number
-  value?: number
-  label: string
-  featureCount: number
-  height?: number
-  width?: number
-}
-
-export interface AlluvialSankeyLink {
-  source: AlluvialSankeyNode | number
-  target: AlluvialSankeyNode | number
-  value: number
-  y0?: number
-  y1?: number
-  width?: number
-  flow: AlluvialFlow
-  color: string
-  opacity: number
-  id: string
-}
-
-export interface AlluvialLayoutData {
-  flows: AlluvialSankeyLink[]
-  leftNodes: AlluvialSankeyNode[]
-  rightNodes: AlluvialSankeyNode[]
-  sankeyGenerator: any // The d3-sankey generator for path creation
-  stats: {
-    totalFlows: number
-    consistentFlows: number
-    totalFeatures: number
-    consistencyRate: number
-  } | null
-}
-
-// ============================================================================
-// CONSTANTS
-// ============================================================================
-
-export const ALLUVIAL_MARGIN = { top: 20, right: 2, bottom: 50, left: 2 }
-export const ALLUVIAL_NODE_WIDTH = 20
-
-export const ALLUVIAL_COLORS = {
-  trivial: '#10b981',       // green - exact match (e.g., True→True, All High→All High)
-  minor: '#60a5fa',         // light blue - 1 level difference (e.g., All High→2 of 3 High)
-  moderate: '#fb923c',      // orange - 2 level difference (e.g., All High→1 of 3 High)
-  major: '#ef4444',         // red - 3+ level difference (e.g., All High→All Low)
-  differentStage: '#9ca3af', // gray - features from different stages (inconsistent classification)
-  hover: '#3b82f6',          // blue
-  consistent: '#10b981',    // green - for consistency rate display
-  inconsistent: '#ef4444'   // red - for inconsistency rate display
-}
-
-export const ALLUVIAL_OPACITY = {
-  default: 0.6,
-  hover: 0.9,
-  inactive: 0.2
-}
+import type { AlluvialFlow, D3SankeyNode, AlluvialSankeyNode, AlluvialSankeyLink, AlluvialLayoutData } from '../types'
+import { ALLUVIAL_MARGIN, ALLUVIAL_NODE_WIDTH, ALLUVIAL_COLORS, ALLUVIAL_OPACITY } from './constants'
 
 // ============================================================================
 // ALLUVIAL DIAGRAM UTILITIES
