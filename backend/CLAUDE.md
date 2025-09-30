@@ -2,9 +2,9 @@
 
 This file provides comprehensive guidance to Claude Code when working with the FastAPI backend for the SAE Feature Visualization project.
 
-## Project Status: ✅ RESEARCH PROTOTYPE IMPLEMENTATION
+## Project Status: ✅ PRODUCTION-READY RESEARCH PROTOTYPE
 
-The backend is a flexible, research-oriented FastAPI application with configurable architecture optimized for conference demonstrations and research flexibility.
+The backend is a production-ready FastAPI application with V2 classification engine, supporting dynamic tree building and flexible split rule evaluation optimized for research demonstrations.
 
 ## Architecture Overview
 
@@ -73,7 +73,10 @@ backend/
 │   │   ├── responses.py          # Response schemas with type safety
 │   │   └── common.py             # Shared models and enums
 │   └── services/
-│       └── data_service.py       # 🏭 High-performance Polars data service
+│       ├── data_service.py       # 🏭 High-performance Polars data service
+│       ├── classification.py      # 🔧 V2 classification engine
+│       ├── split_evaluators.py    # ⚙️ Split rule evaluation logic
+│       └── data_constants.py      # 📊 Data schema constants
 ├── docs/                         # 📚 API documentation
 ├── start.py                      # 🔧 Production startup script with CLI args
 ├── test_api.py                   # 🧪 Comprehensive API testing suite
@@ -324,16 +327,20 @@ For future scaling beyond Parquet:
 
 ## Advanced Implementation Details
 
-### 🧠 Flexible Feature Classification System V2 (Revolutionary Research Architecture)
+### 🧠 V2 Classification Engine (Production Implementation)
 
-The backend implements a **revolutionary configurable feature classification system** designed for research flexibility and conference demonstrations:
+The backend implements a **production-ready V2 classification engine** with modular architecture:
 
-#### Key Research Benefits:
-- **Dynamic Stage Ordering**: Reorder classification stages without code changes
-- **Variable Scoring Methods**: Support any number of scoring methods (not limited to 3)
-- **Flexible Split Rules**: Three types of split rules for maximum research adaptability
-- **Conference Demonstration Ready**: Modify classification logic during live presentations
-- **Maintainable Complexity**: Avoids over-engineering while supporting advanced research scenarios
+#### Core Components:
+- **ClassificationEngine** (`classification.py`): Main classification orchestrator
+  - `classify_features()`: Complete feature classification using threshold tree
+  - `filter_features_for_node()`: Node-specific feature filtering for histograms
+  - `build_sankey_data()`: Sankey diagram data generation
+- **SplitEvaluator** (`split_evaluators.py`): Split rule evaluation
+  - `evaluate_range_split()`: Range-based splits (N thresholds → N+1 branches)
+  - `evaluate_pattern_split()`: Pattern-based splits (multi-metric conditions)
+  - `evaluate_expression_split()`: Expression-based splits (logical conditions)
+- **Dynamic Tree Support**: Runtime stage creation/removal through threshold tree structure
 
 #### Flexible Split Rule Types (New in V2):
 
@@ -462,11 +469,13 @@ Note: Stage order is configurable through threshold tree structure - no code cha
 
 #### Service Layer Architecture
 ```
-API Endpoints → DataService (Consolidated) → Data Processing
+API Endpoints → DataService → ClassificationEngine → SplitEvaluator → Data Processing
 ```
 
 - **Endpoint Layer**: Request validation, response formatting, error handling
-- **Service Layer**: DataService contains all business logic (thresholds, classification, building)
+- **Service Layer**: DataService orchestrates data operations
+- **Classification Layer**: ClassificationEngine handles feature classification
+- **Evaluation Layer**: SplitEvaluator evaluates split rules
 - **Data Layer**: Polars operations, file I/O, caching
 
 #### Key Design Patterns
@@ -491,10 +500,11 @@ API Endpoints → DataService (Consolidated) → Data Processing
 
 ## Future Enhancement Roadmap
 
-### Phase 2 (Comparison View)
-- ✅ **Comparison endpoint structure implemented**
-- 🔄 **Alluvial diagram data generation** (backend ready)
-- 🔄 **Dual filtering support** (architecture in place)
+### ✅ Completed Features
+- ✅ **V2 Classification Engine**: Modular classification with split evaluators
+- ✅ **Dynamic Tree Support**: Runtime stage creation/removal
+- ✅ **Comparison Endpoint**: Alluvial flow data generation
+- ✅ **Node Filtering**: Histogram data filtered by node path
 
 ### Performance Optimizations
 - 📝 Request rate limiting implementation
@@ -520,11 +530,11 @@ API Endpoints → DataService (Consolidated) → Data Processing
 
 The backend represents a research prototype implementation with flexible, configurable architecture, reliable error handling, and demonstration optimizations suitable for academic conference presentations and SAE research scenarios.
 
-**Key Research Features:**
-- **Flexible Threshold Tree V2**: Revolutionary configurable classification system
-- **Dynamic Stage Ordering**: Reorder classification stages without code changes
-- **Variable Scoring Methods**: Support any number of scoring methods through configuration
+**Key Implementation Features:**
+- **V2 Classification Engine**: Modular classification with `ClassificationEngine` and `SplitEvaluator`
+- **Dynamic Tree Support**: Runtime stage creation/removal through threshold tree structure
+- **Three Split Rule Types**: Range, pattern, and expression-based splitting
+- **Production-Ready**: Comprehensive error handling and logging
+- **Research Flexibility**: Support diverse research scenarios through configuration
 - **Conference Optimized**: Reliable performance for live academic demonstrations
-- **Research Maintainability**: Avoids over-engineering while supporting advanced research scenarios
-- **Demonstration Ready**: Modify classification logic during live presentations
-- **Research Flexibility**: Support diverse research hypotheses through configuration
+- **Maintainable Architecture**: Clear separation of concerns with modular design
