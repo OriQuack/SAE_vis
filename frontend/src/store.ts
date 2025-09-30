@@ -15,7 +15,7 @@ import type {
   SankeyNode,
   NodeCategory
 } from './types'
-import { buildDefaultTree, updateNodeThreshold, getNodesInSameThresholdGroup } from './lib/threshold-utils'
+import { updateNodeThreshold } from './lib/threshold-utils'
 import { createRootOnlyTree, addStageToNode, removeStageFromNode, type AddStageConfig } from './lib/dynamic-tree-builder'
 import { PANEL_LEFT, PANEL_RIGHT, METRIC_SEMDIST_MEAN } from './lib/constants'
 
@@ -50,7 +50,6 @@ interface AppState {
   setFilters: (filters: Partial<Filters>, panel?: PanelSide) => void
   // New threshold tree actions
   updateThreshold: (nodeId: string, thresholds: number[], panel?: PanelSide, metric?: string) => void
-  resetThresholdTree: (panel?: PanelSide) => void
   // Dynamic tree actions
   addStageToTree: (nodeId: string, config: AddStageConfig, panel?: PanelSide) => void
   removeStageFromTree: (nodeId: string, panel?: PanelSide) => void
@@ -88,9 +87,6 @@ interface AppState {
   removeVisualization: (panel?: PanelSide) => void
   resetFilters: (panel?: PanelSide) => void
 
-  // Utility functions
-  getNodesInSameThresholdGroup: (nodeId: string, metric: MetricType) => any[]
-
   // Alluvial flows data
   alluvialFlows: AlluvialFlow[] | null
 
@@ -99,16 +95,6 @@ interface AppState {
 
   // Reset actions
   reset: () => void
-
-  // @deprecated Use leftPanel.* or rightPanel.* for panel-specific access instead
-  /** @deprecated Use leftPanel.filters or rightPanel.filters */
-  filters: Filters
-  /** @deprecated Use leftPanel.histogramData or rightPanel.histogramData */
-  histogramData: Record<string, HistogramData> | null
-  /** @deprecated Use leftPanel.sankeyData or rightPanel.sankeyData */
-  sankeyData: SankeyData | null
-  /** @deprecated Use leftPanel.viewState or rightPanel.viewState */
-  viewState: ViewState
 }
 
 const createInitialPanelState = (): PanelState => {
@@ -170,24 +156,6 @@ export const useStore = create<AppState>((set, get) => ({
   setHoveredAlluvialNode: (nodeId: string | null, panel: 'left' | 'right' | null) =>
     set({ hoveredAlluvialNodeId: nodeId, hoveredAlluvialPanel: panel }),
 
-  // @deprecated These getters are unused - all components use panel-specific access (state.leftPanel.* or state.rightPanel.*)
-  // TODO: Remove in future version after confirming no external dependencies
-  get filters() {
-    return get().leftPanel.filters
-  },
-  get thresholdTree() {
-    return get().leftPanel.thresholdTree
-  },
-  get histogramData() {
-    return get().leftPanel.histogramData
-  },
-  get sankeyData() {
-    return get().leftPanel.sankeyData
-  },
-  get viewState() {
-    return get().leftPanel.viewState
-  },
-
   // Data actions
   setFilters: (newFilters, panel = PANEL_LEFT) => {
     set((state) => ({
@@ -199,8 +167,6 @@ export const useStore = create<AppState>((set, get) => ({
       }
     }))
   },
-
-
 
   // NEW THRESHOLD TREE ACTIONS
   updateThreshold: (nodeId, thresholds, panel = PANEL_LEFT, metric) => {
@@ -218,17 +184,6 @@ export const useStore = create<AppState>((set, get) => ({
     })
   },
 
-  resetThresholdTree: (panel = PANEL_LEFT) => {
-    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
-    const defaultTree = buildDefaultTree()
-
-    set((state) => ({
-      [panelKey]: {
-        ...state[panelKey],
-        thresholdTree: defaultTree
-      }
-    }))
-  },
 
   // DYNAMIC TREE ACTIONS
   addStageToTree: (nodeId, config, panel = PANEL_LEFT) => {
@@ -502,13 +457,11 @@ export const useStore = create<AppState>((set, get) => ({
       const requestData = {
         filters,
         thresholdTree,
-        version: 2
       }
 
       console.log('📤 Sending Sankey request:', {
         filters,
         thresholdTree: JSON.stringify(thresholdTree, null, 2),
-        version: 2
       })
 
       const sankeyData = await api.getSankeyData(requestData)
@@ -584,13 +537,6 @@ export const useStore = create<AppState>((set, get) => ({
         histogramData: null
       }
     }))
-  },
-
-  // Utility functions
-  getNodesInSameThresholdGroup: (nodeId: string, metric: MetricType) => {
-    const state = get()
-    // Use the left panel's threshold tree as default
-    return getNodesInSameThresholdGroup(state.leftPanel.thresholdTree, nodeId, metric)
   },
 
   // Update alluvial flows from both panel data

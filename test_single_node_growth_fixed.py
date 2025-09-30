@@ -170,9 +170,7 @@ def create_test_request():
                 }
             ],
             "metrics": ["feature_splitting", "semdist_mean"],
-            "version": 2
         },
-        "version": 2
     }
 
     return single_growth_request

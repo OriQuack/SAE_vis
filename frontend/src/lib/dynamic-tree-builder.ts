@@ -108,7 +108,6 @@ export function createRootOnlyTree(): ThresholdTree {
   return {
     nodes: [rootNode],
     metrics: [],
-    version: 2
   }
 }
 
