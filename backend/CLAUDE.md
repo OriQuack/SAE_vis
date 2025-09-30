@@ -401,7 +401,6 @@ ExpressionSplitRule(
 class ThresholdStructure(BaseModel):
     nodes: List[SankeyThreshold]  # All nodes with embedded split rules
     metrics: List[str]           # Available metrics
-    version: int = 2             # V2 system identifier
 
 class SankeyThreshold(BaseModel):
     id: str                      # Node identifier

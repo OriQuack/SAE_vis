@@ -2084,8 +2084,6 @@
       "score_fuzz",
       "score_simulation",
       "score_detection"
-    ],
-    "version": 2
-  },
-  "version": 2
+    ]
+  }
 }

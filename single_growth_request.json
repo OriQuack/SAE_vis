@@ -175,8 +175,6 @@
     "metrics": [
       "feature_splitting",
       "semdist_mean"
-    ],
-    "version": 2
-  },
-  "version": 2
+    ]
+  }
 }
