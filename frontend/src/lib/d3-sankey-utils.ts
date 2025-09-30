@@ -156,7 +156,7 @@ export function calculateSankeyLayout(sankeyData: any, layoutWidth?: number, lay
   }
 
   // Preserve original node order with flexible stage handling
-  const nodesWithOrder = transformedData.nodes.map((node, index) => ({
+  const nodesWithOrder = transformedData.nodes.map((node: D3SankeyNode, index: number) => ({
     ...node,
     originalIndex: index
   }))
@@ -175,25 +175,22 @@ export function calculateSankeyLayout(sankeyData: any, layoutWidth?: number, lay
   function extractParentId(nodeId: string): string {
     if (nodeId === 'root') return ''
 
-    // Split by underscore and work backwards to find the logical parent
-    const parts = nodeId.split('_')
-
     // For range splits (ending with numbers), remove the last part
+    const parts = nodeId.split('_')
     if (/^\d+$/.test(parts[parts.length - 1])) {
       return parts.slice(0, -1).join('_')
     }
 
-    // For score agreement patterns, find the pattern and remove it
-    const scorePatterns = [
-      'all_3_high', 'all_3_low',
-      '2_of_3_high_fuzz_sim', '2_of_3_high_fuzz_det', '2_of_3_high_sim_det',
-      '1_of_3_high_fuzz', '1_of_3_high_sim', '1_of_3_high_det'
-    ]
+    // For score agreement patterns "all_N_high" or "all_N_low"
+    const allPatternMatch = nodeId.match(/_all_\d+_(high|low)$/)
+    if (allPatternMatch) {
+      return nodeId.slice(0, allPatternMatch.index)
+    }
 
-    for (const pattern of scorePatterns) {
-      if (nodeId.endsWith(`_${pattern}`)) {
-        return nodeId.slice(0, -(pattern.length + 1))
-      }
+    // For score agreement patterns "X_of_N_high_[metrics]"
+    const partialPatternMatch = nodeId.match(/_\d+_of_\d+_high_[a-z_]+$/)
+    if (partialPatternMatch) {
+      return nodeId.slice(0, partialPatternMatch.index)
     }
 
     // Fallback: remove last component
@@ -202,18 +199,35 @@ export function calculateSankeyLayout(sankeyData: any, layoutWidth?: number, lay
 
   /**
    * Get sorting priority for score agreement nodes (lower number = higher priority)
-   * Most agreement (all_3_high) should come first, least agreement (all_3_low) last
+   * Most agreement (all_N_high) should come first, least agreement (all_N_low) last
+   * Works flexibly with any number of metrics (2, 3, 4, etc.)
    */
   function getScoreAgreementPriority(nodeId: string): number {
-    // Most to least agreement
-    if (nodeId.includes('all_3_high')) return 0
-    if (nodeId.includes('2_of_3_high_fuzz_sim')) return 1
-    if (nodeId.includes('2_of_3_high_fuzz_det')) return 2
-    if (nodeId.includes('2_of_3_high_sim_det')) return 3
-    if (nodeId.includes('1_of_3_high_fuzz')) return 4
-    if (nodeId.includes('1_of_3_high_sim')) return 5
-    if (nodeId.includes('1_of_3_high_det')) return 6
-    if (nodeId.includes('all_3_low')) return 7
+    // Extract pattern from node ID
+    // Pattern examples: "all_3_high", "2_of_3_high_fuzz_det", "all_4_low"
+
+    // Match "all_N_high" pattern
+    const allHighMatch = nodeId.match(/all_(\d+)_high/)
+    if (allHighMatch) {
+      return 0  // Highest priority - all scores high
+    }
+
+    // Match "all_N_low" pattern
+    const allLowMatch = nodeId.match(/all_(\d+)_low/)
+    if (allLowMatch) {
+      const totalScores = parseInt(allLowMatch[1])
+      return totalScores + 1  // Lowest priority - all scores low
+    }
+
+    // Match "X_of_N_high_..." pattern
+    const partialMatch = nodeId.match(/(\d+)_of_(\d+)_high/)
+    if (partialMatch) {
+      const numHigh = parseInt(partialMatch[1])
+      const totalScores = parseInt(partialMatch[2])
+      // Sort by number of high scores (descending)
+      // More high scores = lower priority number = comes first
+      return totalScores - numHigh + 1
+    }
 
     // Fallback for unknown patterns
     return 999
@@ -241,11 +255,21 @@ export function calculateSankeyLayout(sankeyData: any, layoutWidth?: number, lay
     }
   }
 
-  // Create parent position map before sorting for proper inter-parent group ordering
-  const parentPositionMap = new Map<string, number>()
-  nodesWithOrder.forEach(node => {
+  // Create a map of all nodes by ID for quick parent lookup
+  const nodeMap = new Map<string, D3SankeyNode>()
+  nodesWithOrder.forEach((node: D3SankeyNode) => {
     if (node.id) {
-      parentPositionMap.set(node.id, node.originalIndex ?? 0)
+      nodeMap.set(node.id, node)
+    }
+  })
+
+  // Build a map from child node to parent node using link data
+  const childToParentMap = new Map<string, string>()
+  transformedData.links.forEach(link => {
+    const targetId = typeof link.target === 'string' ? link.target : (link.target as any)?.id
+    const sourceId = typeof link.source === 'string' ? link.source : (link.source as any)?.id
+    if (targetId && sourceId) {
+      childToParentMap.set(targetId, sourceId)
     }
   })
 
@@ -256,20 +280,21 @@ export function calculateSankeyLayout(sankeyData: any, layoutWidth?: number, lay
       return a.stage - b.stage
     }
 
-    // Within same stage, extract parent IDs
-    const parentA = extractParentId(a.id || '')
-    const parentB = extractParentId(b.id || '')
+    // Within same stage, get actual parent IDs from link data
+    const parentA = childToParentMap.get(a.id || '') || extractParentId(a.id || '')
+    const parentB = childToParentMap.get(b.id || '') || extractParentId(b.id || '')
 
-    // If different parents, sort by parent position (ensures all children of parent A come before all children of parent B)
+    // If different parents, sort by parent's Y position (if available)
     if (parentA !== parentB) {
-      const parentIndexA = parentPositionMap.get(parentA) ?? Number.MAX_SAFE_INTEGER
-      const parentIndexB = parentPositionMap.get(parentB) ?? Number.MAX_SAFE_INTEGER
+      const parentNodeA = nodeMap.get(parentA)
+      const parentNodeB = nodeMap.get(parentB)
 
-      if (parentIndexA !== parentIndexB) {
-        return parentIndexA - parentIndexB
+      // If both parents have been positioned by d3-sankey (have y0), use visual position
+      if (parentNodeA?.y0 != null && parentNodeB?.y0 != null) {
+        return parentNodeA.y0 - parentNodeB.y0
       }
 
-      // If parent positions are the same or not found, use original node ordering as fallback
+      // Fallback to original node ordering if parents not positioned yet
       const aIndex = a.originalIndex ?? 0
       const bIndex = b.originalIndex ?? 0
       return aIndex - bIndex

@@ -68,8 +68,8 @@ export const SLIDER_TRACK = {
   cornerRadius: 3
 }
 
-const DEFAULT_HISTOGRAM_MARGIN = { top: 20, right: 30, bottom: 70, left: 50 }
-const MULTI_HISTOGRAM_LAYOUT = { spacing: 12, chartTitleHeight: 24, chartMarginTop: 12, minChartHeight: 80 }
+const DEFAULT_HISTOGRAM_MARGIN = { top: 15, right: 25, bottom: 50, left: 45 }
+const MULTI_HISTOGRAM_LAYOUT = { spacing: 10, chartTitleHeight: 20, chartMarginTop: 10, minChartHeight: 70 }
 
 const METRIC_TITLES: Record<string, string> = {
   score_detection: 'Detection Score',
@@ -140,12 +140,23 @@ export function calculateHistogramLayout(
     })
 
   } else {
-    // Multi-histogram layout
-    const availableHeight = containerHeight - (metricsCount - 1) * spacing
-    const chartHeight = Math.max(MULTI_HISTOGRAM_LAYOUT.minChartHeight, availableHeight / metricsCount)
-
-    const chartMargin = { top: 15, right: 30, bottom: 40, left: 50 }
+    // Multi-histogram layout - use consistent margins
+    const chartMargin = { ...DEFAULT_HISTOGRAM_MARGIN }
     const chartWidth = containerWidth - chartMargin.left - chartMargin.right
+
+    // Calculate chart height based on available space
+    const chartTitleHeight = MULTI_HISTOGRAM_LAYOUT.chartTitleHeight
+    const sliderSpace = 35  // Space for slider below chart
+
+    // Each chart needs: title + top margin + chart + bottom margin + slider
+    const heightPerChart = chartTitleHeight + chartMargin.top + MULTI_HISTOGRAM_LAYOUT.minChartHeight + chartMargin.bottom + sliderSpace
+    const totalSpacing = (metricsCount - 1) * spacing
+
+    // Calculate if we need to adjust based on container
+    const requiredHeight = (metricsCount * heightPerChart) + totalSpacing
+    const chartHeight = requiredHeight > containerHeight
+      ? Math.max(MULTI_HISTOGRAM_LAYOUT.minChartHeight, (containerHeight - totalSpacing - metricsCount * (chartTitleHeight + chartMargin.top + chartMargin.bottom + sliderSpace)) / metricsCount)
+      : MULTI_HISTOGRAM_LAYOUT.minChartHeight
 
     metrics.forEach((metric) => {
       const data = histogramDataMap[metric]
@@ -157,7 +168,7 @@ export function calculateHistogramLayout(
       const maxCount = max(data.histogram.counts) || 1
       const yScale = scaleLinear()
         .domain([0, maxCount])
-        .range([chartHeight - chartMargin.top - chartMargin.bottom, 0])
+        .range([chartHeight, 0])
 
       // Transform API histogram format to expected HistogramBin format
       const transformedBins = data.histogram.counts.map((count, i) => ({
@@ -167,27 +178,29 @@ export function calculateHistogramLayout(
         density: count / (data.total_features || 1)
       }))
 
+      // Calculate yOffset: currentYOffset + title height + top margin
+      const yOffset = currentYOffset + chartTitleHeight + chartMargin.top
+
       charts.push({
         bins: transformedBins,
         xScale,
         yScale,
         width: chartWidth,
-        height: chartHeight - chartMargin.top - chartMargin.bottom,
+        height: chartHeight,
         margin: chartMargin,
         metric,
-        yOffset: currentYOffset + chartMargin.top + MULTI_HISTOGRAM_LAYOUT.chartTitleHeight,
+        yOffset,
         chartTitle: METRIC_TITLES[metric] || metric
       })
 
-      // Account for slider space: SLIDER_TRACK.yOffset (30) + handle radius (10) + padding (10) = 50px
-      const sliderSpace = 50
-      currentYOffset += chartHeight + spacing + sliderSpace
+      // Move to next chart position
+      currentYOffset += chartTitleHeight + chartMargin.top + chartHeight + chartMargin.bottom + sliderSpace + spacing
     })
   }
 
-  // For multi-histogram, add slider space to total height
+  // Calculate final total height
   const finalTotalHeight = metricsCount > 1
-    ? currentYOffset + 50  // Add slider space for the last chart
+    ? currentYOffset - spacing  // Remove extra spacing after last chart
     : containerHeight
 
   return {
@@ -277,22 +290,30 @@ export function calculateOptimalPopoverPosition(
     height: window.innerHeight
   }
 
-  // Use fixed right positioning for histogram popovers
+  // For tall popovers, position at top instead of center
   let x = clickPosition.x
   let y = clickPosition.y
-  let transform = 'translate(0%, -50%)'
+  let transform = 'translate(0%, 0%)'  // Start at top-left by default
 
-  // Ensure the popover fits vertically on screen
-  const halfHeight = popoverSize.height / 2
-  if (y - halfHeight < margin) {
-    y = halfHeight + margin
-  } else if (y + halfHeight > viewport.height - margin) {
-    y = viewport.height - halfHeight - margin
+  // If popover would go off bottom, adjust y position
+  if (y + popoverSize.height > viewport.height - margin) {
+    // Position so bottom edge is at viewport bottom - margin
+    y = viewport.height - popoverSize.height - margin
+  }
+
+  // If still would go off top, position at top margin
+  if (y < margin) {
+    y = margin
   }
 
   // Ensure the popover fits horizontally on screen
   if (x + popoverSize.width > viewport.width - margin) {
     x = viewport.width - popoverSize.width - margin
+  }
+
+  // Ensure doesn't go off left edge
+  if (x < margin) {
+    x = margin
   }
 
   return { x, y, transform }
@@ -312,18 +333,18 @@ export function calculateResponsivePopoverSize(
 
   if (metricsCount > 1) {
     // Match the exact logic from calculateHistogramLayout
-    // Constants from multi-histogram layout (updated with smaller sizes):
-    const spacing = 12  // MULTI_HISTOGRAM_LAYOUT.spacing (reduced from 16)
-    const chartTitleHeight = 24  // MULTI_HISTOGRAM_LAYOUT.chartTitleHeight (reduced from 28)
-    const minChartHeight = 80  // MULTI_HISTOGRAM_LAYOUT.minChartHeight (reduced from 120)
-    const chartMargin = { top: 15, right: 30, bottom: 40, left: 50 }  // reduced margins
+    // Constants from multi-histogram layout (smaller, more compact):
+    const spacing = 10  // MULTI_HISTOGRAM_LAYOUT.spacing
+    const chartTitleHeight = 20  // MULTI_HISTOGRAM_LAYOUT.chartTitleHeight
+    const minChartHeight = 70  // MULTI_HISTOGRAM_LAYOUT.minChartHeight
+    const chartMargin = { top: 15, right: 25, bottom: 50, left: 45 }  // compact margins
 
     // Each chart needs:
     // - chartTitleHeight + chartMargin.top at the top
     // - minChartHeight for the actual chart
     // - chartMargin.bottom at the bottom
     // - sliderArea below that
-    const sliderArea = 40  // Space for slider track and handle below chart
+    const sliderArea = 35  // Space for slider track and handle below chart
 
     // Calculate the height each chart needs in total
     const totalHeightPerChart = chartTitleHeight + chartMargin.top + minChartHeight + chartMargin.bottom + sliderArea
@@ -332,8 +353,8 @@ export function calculateResponsivePopoverSize(
     const totalSpacing = (metricsCount - 1) * spacing
 
     // Header and container padding
-    const headerHeight = 48
-    const containerPadding = 16
+    const headerHeight = 42
+    const containerPadding = 12
 
     // Calculate required container height
     // The calculateHistogramLayout logic expects containerHeight to accommodate:
