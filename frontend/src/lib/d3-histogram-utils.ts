@@ -1,85 +1,7 @@
 import { scaleLinear } from 'd3-scale'
 import { max } from 'd3-array'
-import type { HistogramData } from '../types'
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-export interface HistogramBin {
-  x0: number
-  x1: number
-  count: number
-  density: number
-}
-
-export interface HistogramChart {
-  bins: HistogramBin[]
-  xScale: ReturnType<typeof scaleLinear>
-  yScale: ReturnType<typeof scaleLinear>
-  width: number
-  height: number
-  margin: { top: number; right: number; bottom: number; left: number }
-  metric: string
-  yOffset: number
-  chartTitle: string
-}
-
-export interface HistogramLayout {
-  charts: HistogramChart[]
-  totalWidth: number
-  totalHeight: number
-  spacing: number
-}
-
-export interface ThresholdLineData {
-  x: number
-  y1: number
-  y2: number
-  value: number
-}
-
-// ============================================================================
-// CONSTANTS
-// ============================================================================
-
-export const DEFAULT_ANIMATION = {
-  duration: 300,
-  easing: 'ease-out'
-}
-
-export const HISTOGRAM_COLORS = {
-  bars: '#94a3b8',
-  barsHover: '#64748b',
-  threshold: '#10b981',
-  thresholdHover: '#059669',
-  background: '#f8fafc',
-  grid: '#e2e8f0',
-  text: '#374151',
-  axis: '#6b7280',
-  sliderHandle: '#3b82f6',
-  sliderTrackFilled: '#3b82f6',
-  sliderTrackUnfilled: '#cbd5e1'
-}
-
-export const SLIDER_TRACK = {
-  height: 6,
-  yOffset: 30,
-  cornerRadius: 3
-}
-
-const DEFAULT_HISTOGRAM_MARGIN = { top: 15, right: 25, bottom: 50, left: 45 }
-const MULTI_HISTOGRAM_LAYOUT = { spacing: 10, chartTitleHeight: 20, chartMarginTop: 10, minChartHeight: 70 }
-
-const METRIC_TITLES: Record<string, string> = {
-  score_detection: 'Detection Score',
-  score_fuzz: 'Fuzz Score',
-  score_simulation: 'Simulation Score',
-  semdist_mean: 'Semantic Distance (Mean)',
-  semdist_max: 'Semantic Distance (Max)',
-  score_embedding: 'Embedding Score',
-  feature_splitting: 'Feature Splitting'
-}
+import type { HistogramData, HistogramChart, HistogramLayout, ThresholdLineData, PopoverPosition, PopoverSize } from '../types'
+import { DEFAULT_HISTOGRAM_MARGIN, MULTI_HISTOGRAM_LAYOUT, METRIC_TITLES } from './constants'
 
 // ============================================================================
 // HISTOGRAM UTILITIES
@@ -268,17 +190,6 @@ export function formatSmartNumber(value: number): string {
 // ============================================================================
 // POPOVER POSITIONING UTILITIES
 // ============================================================================
-
-export interface PopoverPosition {
-  x: number
-  y: number
-  transform: string
-}
-
-export interface PopoverSize {
-  width: number
-  height: number
-}
 
 export function calculateOptimalPopoverPosition(
   clickPosition: { x: number, y: number },

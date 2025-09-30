@@ -5,14 +5,12 @@ import {
   calculateThresholdLine,
   validateHistogramData,
   validateDimensions,
-  DEFAULT_ANIMATION,
-  HISTOGRAM_COLORS,
-  SLIDER_TRACK,
   formatSmartNumber,
   calculateOptimalPopoverPosition,
   calculateResponsivePopoverSize,
   calculateThresholdFromMouseEvent
 } from '../lib/d3-histogram-utils'
+import { DEFAULT_ANIMATION, HISTOGRAM_COLORS, SLIDER_TRACK } from '../lib/constants'
 import { getEffectiveThreshold } from '../lib/threshold-utils'
 import { CATEGORY_DISPLAY_NAMES } from '../lib/constants'
 import type { HistogramData, HistogramLayout, HistogramChart } from '../types'

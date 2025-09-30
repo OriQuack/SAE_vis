@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react'
 import { useVisualizationStore } from '../store'
-import { calculateAlluvialLayout, ALLUVIAL_COLORS, ALLUVIAL_OPACITY } from '../lib/d3-alluvial-utils'
+import { calculateAlluvialLayout } from '../lib/d3-alluvial-utils'
 import { calculateSankeyLayout } from '../lib/d3-sankey-utils'
-import type { AlluvialSankeyNode, AlluvialSankeyLink } from '../lib/d3-alluvial-utils'
+import { ALLUVIAL_COLORS, ALLUVIAL_OPACITY } from '../lib/constants'
+import type { AlluvialSankeyNode, AlluvialSankeyLink } from '../types'
 
 // ==================== TYPES ====================
 

@@ -1,19 +1,11 @@
 import { sankey, sankeyLinkHorizontal } from 'd3-sankey'
 import React, { useRef, useEffect, useState, useCallback } from 'react'
-import type { NodeCategory, D3SankeyNode, D3SankeyLink } from '../types'
+import type { NodeCategory, D3SankeyNode, D3SankeyLink, SankeyLayout } from '../types'
 import { CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_DISTANCE, CATEGORY_SCORE_AGREEMENT } from './constants'
 
 // ============================================================================
 // TYPES
 // ============================================================================
-
-export interface SankeyLayout {
-  nodes: D3SankeyNode[]
-  links: D3SankeyLink[]
-  width: number
-  height: number
-  margin: { top: number; right: number; bottom: number; left: number }
-}
 
 // Hook Types
 interface Size {
