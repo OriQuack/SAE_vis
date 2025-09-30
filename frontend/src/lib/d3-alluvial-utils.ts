@@ -58,7 +58,9 @@ export const ALLUVIAL_COLORS = {
   moderate: '#fb923c',      // orange - 2 level difference (e.g., All High→1 of 3 High)
   major: '#ef4444',         // red - 3+ level difference (e.g., All High→All Low)
   differentStage: '#9ca3af', // gray - features from different stages (inconsistent classification)
-  hover: '#3b82f6'          // blue
+  hover: '#3b82f6',          // blue
+  consistent: '#10b981',    // green - for consistency rate display
+  inconsistent: '#ef4444'   // red - for inconsistency rate display
 }
 
 export const ALLUVIAL_OPACITY = {
@@ -191,17 +193,6 @@ export function calculateAlluvialLayout(
   const rightNodePositions = new Map<string, { y0: number; y1: number }>()
 
   if (leftSankeyNodes) {
-    console.log('[ALLUVIAL] LEFT PANEL - All nodes received:', leftSankeyNodes.map(n => ({
-      id: n.id,
-      stage: n.stage,
-      y0: n.y0,
-      y1: n.y1,
-      hasFeatureIds: !!n.feature_ids,
-      featureCount: n.feature_ids?.length || 0
-    })))
-
-    // Get nodes that appear in flows (not just leaf nodes) with y-positions
-    // A node appears in flows if it has feature_ids OR if it's referenced in sourceFeatureCounts
     const nodesInFlows = leftSankeyNodes
       .filter(n => {
         const hasPosition = 'y0' in n && 'y1' in n
@@ -209,43 +200,15 @@ export function calculateAlluvialLayout(
         return hasPosition && isInFlows
       })
 
-    console.log('[ALLUVIAL] LEFT PANEL - Nodes in flows BEFORE sorting:', nodesInFlows.map(n => ({
-      id: n.id,
-      stage: n.stage,
-      y0: n.y0,
-      y1: n.y1,
-      featureCount: n.feature_ids?.length || n.feature_count
-    })))
-
-    // Sort by absolute y0 position (top to bottom)
     nodesInFlows.sort((a, b) => (a.y0 as number) - (b.y0 as number))
 
-    console.log('[ALLUVIAL] LEFT PANEL - Nodes in flows AFTER y0 sorting:', nodesInFlows.map(n => ({
-      id: n.id,
-      y0: n.y0
-    })))
-
-    // Assign sequential order indices based on y0-sorted position
     nodesInFlows.forEach((node, index) => {
       leftNodeOrder.set(node.id, index)
       leftNodePositions.set(node.id, { y0: node.y0 as number, y1: node.y1 as number })
     })
-
-    console.log('[ALLUVIAL] LEFT PANEL - Final order map:', Array.from(leftNodeOrder.entries()))
   }
 
   if (rightSankeyNodes) {
-    console.log('[ALLUVIAL] RIGHT PANEL - All nodes received:', rightSankeyNodes.map(n => ({
-      id: n.id,
-      stage: n.stage,
-      y0: n.y0,
-      y1: n.y1,
-      hasFeatureIds: !!n.feature_ids,
-      featureCount: n.feature_ids?.length || 0
-    })))
-
-    // Get nodes that appear in flows (not just leaf nodes) with y-positions
-    // A node appears in flows if it's referenced in targetFeatureCounts
     const nodesInFlows = rightSankeyNodes
       .filter(n => {
         const hasPosition = 'y0' in n && 'y1' in n
@@ -253,29 +216,12 @@ export function calculateAlluvialLayout(
         return hasPosition && isInFlows
       })
 
-    console.log('[ALLUVIAL] RIGHT PANEL - Nodes in flows BEFORE sorting:', nodesInFlows.map(n => ({
-      id: n.id,
-      stage: n.stage,
-      y0: n.y0,
-      y1: n.y1,
-      featureCount: n.feature_ids?.length || n.feature_count
-    })))
-
-    // Sort by absolute y0 position (top to bottom)
     nodesInFlows.sort((a, b) => (a.y0 as number) - (b.y0 as number))
 
-    console.log('[ALLUVIAL] RIGHT PANEL - Nodes in flows AFTER y0 sorting:', nodesInFlows.map(n => ({
-      id: n.id,
-      y0: n.y0
-    })))
-
-    // Assign sequential order indices based on y0-sorted position
     nodesInFlows.forEach((node, index) => {
       rightNodeOrder.set(node.id, index)
       rightNodePositions.set(node.id, { y0: node.y0 as number, y1: node.y1 as number })
     })
-
-    console.log('[ALLUVIAL] RIGHT PANEL - Final order map:', Array.from(rightNodeOrder.entries()))
   }
 
   // Create nodes for d3-sankey with unique IDs to prevent circular references
@@ -289,14 +235,11 @@ export function calculateAlluvialLayout(
 
   // Sort source keys based on leftNodeOrder if available
   if (leftNodeOrder.size > 0) {
-    console.log('[ALLUVIAL] Sorting sourceKeys. Before:', sourceKeys)
     sourceKeys.sort((a, b) => {
       const orderA = leftNodeOrder.get(a) ?? 999
       const orderB = leftNodeOrder.get(b) ?? 999
-      console.log(`  Comparing ${a} (order=${orderA}) vs ${b} (order=${orderB})`)
       return orderA - orderB
     })
-    console.log('[ALLUVIAL] Sorting sourceKeys. After:', sourceKeys)
   }
 
   sourceKeys.forEach(originalId => {
@@ -316,14 +259,11 @@ export function calculateAlluvialLayout(
 
   // Sort target keys based on rightNodeOrder if available
   if (rightNodeOrder.size > 0) {
-    console.log('[ALLUVIAL] Sorting targetKeys. Before:', targetKeys)
     targetKeys.sort((a, b) => {
       const orderA = rightNodeOrder.get(a) ?? 999
       const orderB = rightNodeOrder.get(b) ?? 999
-      console.log(`  Comparing ${a} (order=${orderA}) vs ${b} (order=${orderB})`)
       return orderA - orderB
     })
-    console.log('[ALLUVIAL] Sorting targetKeys. After:', targetKeys)
   }
 
   targetKeys.forEach(originalId => {

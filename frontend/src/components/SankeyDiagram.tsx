@@ -59,6 +59,7 @@ interface SankeyNodeComponentProps {
   flowDirection?: 'left-to-right' | 'right-to-left'
   canAddStage?: boolean
   canRemoveStage?: boolean
+  currentPanel?: 'left' | 'right'
 }
 
 interface SankeyLinkComponentProps {
@@ -86,9 +87,12 @@ const SankeyNode = React.memo(({
   thresholdGroupInfo,
   flowDirection = 'left-to-right',
   canAddStage = false,
-  canRemoveStage = false
+  canRemoveStage = false,
+  currentPanel
 }: SankeyNodeComponentProps) => {
   const [isHovered, setIsHovered] = useState(false)
+  const hoveredAlluvialNodeId = useVisualizationStore(state => state.hoveredAlluvialNodeId)
+  const hoveredAlluvialPanel = useVisualizationStore(state => state.hoveredAlluvialPanel)
 
   const handleMouseEnter = useCallback((event: React.MouseEvent) => {
     setIsHovered(true)
@@ -136,8 +140,9 @@ const SankeyNode = React.memo(({
 
   // Determine if this node has threshold group styling
   const hasThresholdGroup = thresholdGroupInfo?.hasGroup && thresholdGroupInfo.groupSize > 1
-  const strokeColor = isHovered ? '#ffffff' : (hasThresholdGroup ? '#3b82f6' : 'none')
-  const strokeWidth = isHovered ? 2 : (hasThresholdGroup ? 1.5 : 0)
+  const isHighlightedFromAlluvial = hoveredAlluvialNodeId === node.id && hoveredAlluvialPanel === currentPanel
+  const strokeColor = (isHovered || isHighlightedFromAlluvial) ? '#ffffff' : (hasThresholdGroup ? '#3b82f6' : 'none')
+  const strokeWidth = (isHovered || isHighlightedFromAlluvial) ? 2 : (hasThresholdGroup ? 1.5 : 0)
   const strokeDasharray = hasThresholdGroup ? '3,2' : 'none'
 
   return (
@@ -154,7 +159,7 @@ const SankeyNode = React.memo(({
         style={{
           transition: `all ${animationDuration}ms ease-out`,
           cursor: onHistogramClick ? 'pointer' : 'default',
-          filter: isHovered ? 'brightness(1.1)' : 'none'
+          filter: (isHovered || isHighlightedFromAlluvial) ? 'brightness(1.1)' : 'none'
         }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
@@ -826,6 +831,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                       flowDirection={flowDirection}
                       canAddStage={canAddStageToThisNode}
                       canRemoveStage={canRemoveStageFromThisNode}
+                      currentPanel={panel === PANEL_LEFT ? 'left' : 'right'}
                     />
                   )
                 })}
