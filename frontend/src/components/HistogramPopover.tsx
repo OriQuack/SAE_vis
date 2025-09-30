@@ -14,6 +14,7 @@ import {
   calculateThresholdFromMouseEvent
 } from '../lib/d3-histogram-utils'
 import { getEffectiveThreshold } from '../lib/threshold-utils'
+import { CATEGORY_DISPLAY_NAMES } from '../lib/constants'
 import type { HistogramData, HistogramLayout, HistogramChart } from '../types'
 
 // ============================================================================
@@ -35,11 +36,11 @@ const HEADER_STYLES = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '10px 16px',
+    padding: '8px 12px',
     borderBottom: '1px solid #e2e8f0',
     backgroundColor: '#f8fafc',
     borderRadius: '8px 8px 0 0',
-    height: '48px',
+    height: '42px',
     flexShrink: 0,
     userSelect: 'none' as const,
     WebkitUserSelect: 'none' as const,
@@ -100,7 +101,7 @@ const HEADER_STYLES = {
 
 const CHART_STYLES = {
   container: {
-    padding: '8px',
+    padding: '6px',
     overflow: 'hidden'
   }
 }
@@ -120,8 +121,8 @@ interface HistogramPopoverProps {
 // MAIN CONSOLIDATED HISTOGRAM POPOVER COMPONENT
 // ============================================================================
 export const HistogramPopover = ({
-  width = 520,
-  height = 380,
+  width = 420,
+  height = 280,
   animationDuration = DEFAULT_ANIMATION.duration
 }: HistogramPopoverProps) => {
   const popoverData = useVisualizationStore(state => state.popoverState.histogram)
@@ -208,7 +209,9 @@ export const HistogramPopover = ({
         onMouseDown={handleMouseDown}
       >
         <div style={HEADER_STYLES.titleSection}>
-          <h4 style={HEADER_STYLES.title}>{popoverData.nodeName}</h4>
+          <h4 style={HEADER_STYLES.title}>
+            {popoverData.nodeCategory ? CATEGORY_DISPLAY_NAMES[popoverData.nodeCategory] : 'Node'}: {popoverData.nodeName}
+          </h4>
           {popoverData.parentNodeName && (
             <span style={HEADER_STYLES.parent}>
               Thresholds for: {popoverData.parentNodeName}
@@ -688,7 +691,7 @@ export const HistogramPopover = ({
     ...POPOVER_STYLES.container,
     left: finalPosition.x,
     top: finalPosition.y,
-    transform: calculatedPosition?.transform || 'translate(0%, -50%)',
+    transform: calculatedPosition?.transform || 'translate(0%, 0%)',
     transition: `all ${animationDuration}ms ease-out`
   }
 

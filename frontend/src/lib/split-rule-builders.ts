@@ -65,7 +65,7 @@ export function buildExpressionSplit(
 }
 
 /**
- * Build a score agreement pattern split for the common case
+ * Build a score agreement pattern split for the common case (backward compatibility)
  * @param fuzzThreshold Threshold for fuzz score
  * @param simThreshold Threshold for simulation score
  * @param detThreshold Threshold for detection score
@@ -76,87 +76,96 @@ export function buildScoreAgreementSplit(
   simThreshold: number = 0.5,
   detThreshold: number = 0.2
 ): PatternSplitRule {
-  return buildPatternSplit(
-    {
-      'score_fuzz': { threshold: fuzzThreshold },
-      'score_simulation': { threshold: simThreshold },
-      'score_detection': { threshold: detThreshold }
-    },
-    [
-      {
-        match: {
-          'score_fuzz': 'high',
-          'score_simulation': 'high',
-          'score_detection': 'high'
-        },
-        child_id: 'all_3_high',
-        description: 'All 3 scores high'
-      },
-      {
-        match: {
-          'score_fuzz': 'high',
-          'score_simulation': 'high',
-          'score_detection': 'low'
-        },
-        child_id: '2_of_3_high_fuzz_sim',
-        description: '2 of 3 high (fuzz & simulation)'
-      },
-      {
-        match: {
-          'score_fuzz': 'high',
-          'score_simulation': 'low',
-          'score_detection': 'high'
-        },
-        child_id: '2_of_3_high_fuzz_det',
-        description: '2 of 3 high (fuzz & detection)'
-      },
-      {
-        match: {
-          'score_fuzz': 'low',
-          'score_simulation': 'high',
-          'score_detection': 'high'
-        },
-        child_id: '2_of_3_high_sim_det',
-        description: '2 of 3 high (simulation & detection)'
-      },
-      {
-        match: {
-          'score_fuzz': 'high',
-          'score_simulation': 'low',
-          'score_detection': 'low'
-        },
-        child_id: '1_of_3_high_fuzz',
-        description: '1 of 3 high (fuzz only)'
-      },
-      {
-        match: {
-          'score_fuzz': 'low',
-          'score_simulation': 'high',
-          'score_detection': 'low'
-        },
-        child_id: '1_of_3_high_sim',
-        description: '1 of 3 high (simulation only)'
-      },
-      {
-        match: {
-          'score_fuzz': 'low',
-          'score_simulation': 'low',
-          'score_detection': 'high'
-        },
-        child_id: '1_of_3_high_det',
-        description: '1 of 3 high (detection only)'
-      },
-      {
-        match: {
-          'score_fuzz': 'low',
-          'score_simulation': 'low',
-          'score_detection': 'low'
-        },
-        child_id: 'all_3_low',
-        description: 'All 3 scores low'
-      }
-    ]
+  return buildFlexibleScoreAgreementSplit(
+    ['score_fuzz', 'score_simulation', 'score_detection'],
+    [fuzzThreshold, simThreshold, detThreshold]
   )
+}
+
+/**
+ * Build a flexible score agreement pattern split with user-selected metrics
+ * Generates all possible high/low combinations for N metrics (2^N patterns)
+ * @param metrics Array of metric names to use (e.g., ['score_fuzz', 'score_simulation'])
+ * @param thresholds Array of threshold values (same length as metrics)
+ * @returns PatternSplitRule configured for score agreement patterns
+ */
+export function buildFlexibleScoreAgreementSplit(
+  metrics: string[],
+  thresholds: number[]
+): PatternSplitRule {
+  if (metrics.length === 0) {
+    throw new Error('At least one metric must be provided for score agreement')
+  }
+
+  if (metrics.length !== thresholds.length) {
+    throw new Error('Number of metrics must match number of thresholds')
+  }
+
+  // Build conditions object
+  const conditions: PatternSplitRule['conditions'] = {}
+  metrics.forEach((metric, index) => {
+    conditions[metric] = { threshold: thresholds[index] }
+  })
+
+  // Generate all possible high/low combinations (2^N patterns)
+  const numPatterns = Math.pow(2, metrics.length)
+  const patterns: PatternSplitRule['patterns'] = []
+
+  for (let i = 0; i < numPatterns; i++) {
+    const match: { [metric: string]: 'high' | 'low' } = {}
+    const highMetrics: string[] = []
+
+    // Convert index to binary to determine high/low for each metric
+    for (let j = 0; j < metrics.length; j++) {
+      const isHigh = (i & (1 << (metrics.length - 1 - j))) !== 0
+      match[metrics[j]] = isHigh ? 'high' : 'low'
+      if (isHigh) {
+        highMetrics.push(getMetricShortName(metrics[j]))
+      }
+    }
+
+    // Generate child_id and description
+    const numHigh = highMetrics.length
+    let childId: string
+    let description: string
+
+    if (numHigh === metrics.length) {
+      childId = `all_${metrics.length}_high`
+      description = `All ${metrics.length} scores high`
+    } else if (numHigh === 0) {
+      childId = `all_${metrics.length}_low`
+      description = `All ${metrics.length} scores low`
+    } else {
+      const metricsList = highMetrics.join('_')
+      childId = `${numHigh}_of_${metrics.length}_high_${metricsList}`
+      description = `${numHigh} of ${metrics.length} high (${highMetrics.join(', ')})`
+    }
+
+    patterns.push({
+      match,
+      child_id: childId,
+      description
+    })
+  }
+
+  // Sort patterns by number of high scores (descending) for consistent ordering
+  // This ensures nodes appear from "all high" → "all low" in visualizations
+  patterns.sort((a, b) => {
+    const numHighA = Object.values(a.match).filter(v => v === 'high').length
+    const numHighB = Object.values(b.match).filter(v => v === 'high').length
+    return numHighB - numHighA  // Descending: more high scores first
+  })
+
+  return buildPatternSplit(conditions, patterns)
+}
+
+/**
+ * Get short name for a metric (remove 'score_' prefix)
+ * @param metric Full metric name (e.g., 'score_fuzz')
+ * @returns Short name (e.g., 'fuzz')
+ */
+function getMetricShortName(metric: string): string {
+  return metric.replace('score_', '')
 }
 
 /**

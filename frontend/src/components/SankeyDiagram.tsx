@@ -489,7 +489,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
     // With the new tree system, we simply pass the node ID directly
     // No complex parent node logic needed - the tree handles the hierarchy
-    showHistogramPopover(node.id, node.name, metrics, position, undefined, undefined, panel)
+    showHistogramPopover(node.id, node.name, metrics, position, undefined, undefined, panel, node.category)
   }, [showHistogramOnClick, showHistogramPopover, thresholdTree, containerRef, panel])
 
   // Handle link histogram click (show histogram for source node) with simplified logic
@@ -518,7 +518,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
     // With the new tree system, we simply pass the node ID directly
     // No complex parent node logic needed - the tree handles the hierarchy
-    showHistogramPopover(sourceNode.id, sourceNode.name, metrics, position, undefined, undefined, panel)
+    showHistogramPopover(sourceNode.id, sourceNode.name, metrics, position, undefined, undefined, panel, sourceNode.category)
   }, [showHistogramOnClick, showHistogramPopover, thresholdTree, containerRef, panel])
 
   // Handle add stage click
@@ -549,6 +549,13 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     })
   }, [thresholdTree])
 
+  // State for metric selector modal
+  const [metricSelectorState, setMetricSelectorState] = useState<{
+    nodeId: string
+    stageType: StageTypeConfig
+    position: { x: number; y: number }
+  } | null>(null)
+
   // Handle stage selection
   const handleStageSelect = useCallback((stageTypeId: string) => {
     if (!inlineSelector || !thresholdTree) return
@@ -557,7 +564,24 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     const stageType = inlineSelector.availableStages.find(s => s.id === stageTypeId)
     if (!stageType) return
 
-    // Create config with defaults
+    // Close inline selector
+    setInlineSelector(null)
+
+    // For score_agreement, show metric selector
+    if (stageTypeId === 'score_agreement') {
+      const rect = containerRef.current?.getBoundingClientRect()
+      setMetricSelectorState({
+        nodeId: inlineSelector.nodeId,
+        stageType,
+        position: {
+          x: rect ? rect.left + rect.width / 2 : window.innerWidth / 2,
+          y: rect ? rect.top + rect.height / 2 : window.innerHeight / 2
+        }
+      })
+      return
+    }
+
+    // For other stages, use defaults
     const config: AddStageConfig = {
       stageType: stageTypeId,
       splitRuleType: stageType.defaultSplitRule,
@@ -567,9 +591,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
     // Add stage to tree via store
     addStageToTree(inlineSelector.nodeId, config, panel)
-
-    // Close inline selector
-    setInlineSelector(null)
 
     // Show histogram popover for threshold adjustment after a short delay
     setTimeout(() => {
@@ -584,11 +605,47 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
             x: window.innerWidth / 2,
             y: window.innerHeight / 2
           }
-          showHistogramPopover(parentNodeId, 'Node', metrics, position, undefined, undefined, panel)
+          showHistogramPopover(parentNodeId, parentNode.name, metrics, position, undefined, undefined, panel, parentNode.category)
         }
       }
     }, 500)
-  }, [inlineSelector, thresholdTree, addStageToTree, panel, layout, showHistogramPopover])
+  }, [inlineSelector, thresholdTree, addStageToTree, panel, layout, showHistogramPopover, containerRef])
+
+  // Handle metric selection confirmation
+  const handleMetricSelectionConfirm = useCallback((selectedMetrics: string[]) => {
+    if (!metricSelectorState || !thresholdTree) return
+
+    const config: AddStageConfig = {
+      stageType: 'score_agreement',
+      splitRuleType: 'pattern',
+      selectedScoreMetrics: selectedMetrics,
+      thresholds: selectedMetrics.map(() => 0.5) // Default threshold for each metric
+    }
+
+    // Add stage to tree via store
+    addStageToTree(metricSelectorState.nodeId, config, panel)
+
+    // Close metric selector
+    setMetricSelectorState(null)
+
+    // Show histogram popover for threshold adjustment after a short delay
+    setTimeout(() => {
+      const parentNodeId = metricSelectorState.nodeId
+      const parentNode = layout?.nodes.find(n => n.id === parentNodeId)
+
+      if (parentNode) {
+        const metrics = getMetricsForNodeId(parentNodeId, thresholdTree)
+        if (metrics && metrics.length > 0) {
+          // Calculate position for histogram popover
+          const position = {
+            x: window.innerWidth / 2,
+            y: window.innerHeight / 2
+          }
+          showHistogramPopover(parentNodeId, parentNode.name, metrics, position, undefined, undefined, panel, parentNode.category)
+        }
+      }
+    }, 500)
+  }, [metricSelectorState, thresholdTree, addStageToTree, panel, layout, showHistogramPopover])
 
   // Handle clicking outside to close dropdown
   const handleClickOutside = useCallback(() => {
@@ -853,8 +910,184 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
         </>
       )}
 
+      {/* Metric Selector Modal */}
+      {metricSelectorState && (
+        <MetricSelectorModal
+          onConfirm={handleMetricSelectionConfirm}
+          onCancel={() => setMetricSelectorState(null)}
+        />
+      )}
+
     </div>
   )
 }
+
+// ==================== METRIC SELECTOR MODAL COMPONENT ====================
+interface MetricSelectorModalProps {
+  onConfirm: (selectedMetrics: string[]) => void
+  onCancel: () => void
+}
+
+const MetricSelectorModal: React.FC<MetricSelectorModalProps> = React.memo(({ onConfirm, onCancel }) => {
+  const [selectedMetrics, setSelectedMetrics] = useState<string[]>(['score_fuzz', 'score_simulation', 'score_detection'])
+
+  const availableMetrics = [
+    { id: 'score_fuzz', name: 'Fuzz Score', description: 'String fuzzy matching score' },
+    { id: 'score_simulation', name: 'Simulation Score', description: 'Activation simulation score' },
+    { id: 'score_detection', name: 'Detection Score', description: 'Pattern detection score' },
+    { id: 'score_embedding', name: 'Embedding Score', description: 'Semantic embedding score' }
+  ]
+
+  const toggleMetric = (metricId: string) => {
+    setSelectedMetrics(prev =>
+      prev.includes(metricId)
+        ? prev.filter(m => m !== metricId)
+        : [...prev, metricId]
+    )
+  }
+
+  const handleConfirm = () => {
+    if (selectedMetrics.length === 0) {
+      alert('Please select at least one metric')
+      return
+    }
+    onConfirm(selectedMetrics)
+  }
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 10000
+      }}
+      onClick={onCancel}
+    >
+      <div
+        style={{
+          backgroundColor: '#ffffff',
+          borderRadius: '8px',
+          boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
+          padding: '20px',
+          minWidth: '400px',
+          maxWidth: '500px'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '600', color: '#1f2937' }}>
+          Select Scoring Metrics
+        </h3>
+
+        <p style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#6b7280' }}>
+          Choose one or more scoring metrics to compare for agreement analysis:
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
+          {availableMetrics.map(metric => (
+            <label
+              key={metric.id}
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '12px',
+                padding: '12px',
+                border: selectedMetrics.includes(metric.id) ? '2px solid #3b82f6' : '1px solid #e5e7eb',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                backgroundColor: selectedMetrics.includes(metric.id) ? '#eff6ff' : '#ffffff',
+                transition: 'all 150ms ease'
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={selectedMetrics.includes(metric.id)}
+                onChange={() => toggleMetric(metric.id)}
+                style={{
+                  marginTop: '2px',
+                  width: '16px',
+                  height: '16px',
+                  cursor: 'pointer'
+                }}
+              />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: '500', fontSize: '14px', color: '#1f2937', marginBottom: '2px' }}>
+                  {metric.name}
+                </div>
+                <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: '1.4' }}>
+                  {metric.description}
+                </div>
+              </div>
+            </label>
+          ))}
+        </div>
+
+        <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '16px', padding: '8px', backgroundColor: '#f9fafb', borderRadius: '4px' }}>
+          <strong>Selected: {selectedMetrics.length} metric{selectedMetrics.length !== 1 ? 's' : ''}</strong>
+          <br />
+          This will create {Math.pow(2, selectedMetrics.length)} categories (2^{selectedMetrics.length} combinations)
+        </div>
+
+        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+          <button
+            onClick={onCancel}
+            style={{
+              padding: '8px 16px',
+              fontSize: '14px',
+              fontWeight: '500',
+              color: '#6b7280',
+              backgroundColor: '#ffffff',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              transition: 'all 150ms ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#f9fafb'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#ffffff'
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={selectedMetrics.length === 0}
+            style={{
+              padding: '8px 16px',
+              fontSize: '14px',
+              fontWeight: '600',
+              color: '#ffffff',
+              backgroundColor: selectedMetrics.length === 0 ? '#9ca3af' : '#3b82f6',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: selectedMetrics.length === 0 ? 'not-allowed' : 'pointer',
+              transition: 'all 150ms ease'
+            }}
+            onMouseEnter={(e) => {
+              if (selectedMetrics.length > 0) {
+                e.currentTarget.style.backgroundColor = '#2563eb'
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (selectedMetrics.length > 0) {
+                e.currentTarget.style.backgroundColor = '#3b82f6'
+              }
+            }}
+          >
+            Confirm Selection
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+})
 
 export default SankeyDiagram

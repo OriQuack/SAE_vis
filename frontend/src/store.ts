@@ -12,7 +12,8 @@ import type {
   LoadingStates,
   ErrorStates,
   AlluvialFlow,
-  SankeyNode
+  SankeyNode,
+  NodeCategory
 } from './types'
 import { buildDefaultTree, updateNodeThreshold, getNodesInSameThresholdGroup } from './lib/threshold-utils'
 import { createRootOnlyTree, addStageToNode, removeStageFromNode, type AddStageConfig } from './lib/dynamic-tree-builder'
@@ -62,7 +63,8 @@ interface AppState {
     position: { x: number; y: number },
     parentNodeId?: string,
     parentNodeName?: string,
-    panel?: PanelSide
+    panel?: PanelSide,
+    nodeCategory?: NodeCategory
   ) => void
   hideHistogramPopover: () => void
   setLoading: (key: keyof LoadingStates, value: boolean) => void
@@ -314,12 +316,13 @@ export const useStore = create<AppState>((set, get) => ({
     }))
   },
 
-  showHistogramPopover: (nodeId, nodeName, metrics, position, parentNodeId, parentNodeName, panel = PANEL_LEFT) => {
+  showHistogramPopover: (nodeId, nodeName, metrics, position, parentNodeId, parentNodeName, panel = PANEL_LEFT, nodeCategory) => {
     set(() => ({
       popoverState: {
         histogram: {
           nodeId,
           nodeName,
+          nodeCategory,
           parentNodeId,
           parentNodeName,
           metrics,

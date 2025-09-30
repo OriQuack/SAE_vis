@@ -8,7 +8,7 @@ import type {
 } from '../types'
 import {
   buildRangeSplit,
-  buildScoreAgreementSplit,
+  buildFlexibleScoreAgreementSplit,
   createNode,
   createParentPath
 } from './split-rule-builders'
@@ -51,6 +51,7 @@ export interface AddStageConfig {
   splitRuleType: 'range' | 'pattern' | 'expression'
   metric?: string
   thresholds?: number[]
+  selectedScoreMetrics?: string[]  // For score_agreement: which metrics to use (e.g., ['score_fuzz', 'score_simulation'])
   customConfig?: any
 }
 
@@ -79,10 +80,11 @@ export const AVAILABLE_STAGE_TYPES: StageTypeConfig[] = [
   {
     id: 'score_agreement',
     name: 'Score Agreement',
-    description: 'Classify features based on scoring method agreement',
+    description: 'Classify features based on scoring method agreement (user-selectable metrics)',
     category: CategoryTypeEnum.SCORE_AGREEMENT,
-    defaultSplitRule: 'pattern',
-    defaultThresholds: [0.5, 0.5, 0.2]
+    defaultSplitRule: 'pattern'
+    // Note: selectedScoreMetrics should be provided when adding this stage
+    // Defaults to ['score_fuzz', 'score_simulation', 'score_detection'] if not specified
   }
 ]
 
@@ -209,31 +211,33 @@ export function addStageToNode(
       newNodes.push(childNode)
     }
   } else if (config.splitRuleType === 'pattern' && config.stageType === 'score_agreement') {
-    // Use the existing score agreement pattern split
-    splitRule = buildScoreAgreementSplit(
-      config.thresholds?.[0] || 0.5, // fuzz threshold
-      config.thresholds?.[1] || 0.5, // simulation threshold
-      config.thresholds?.[2] || 0.2  // detection threshold
-    )
+    // Use flexible score agreement pattern split with user-selected metrics
+    const selectedMetrics = config.selectedScoreMetrics || ['score_fuzz', 'score_simulation', 'score_detection']
+    const selectedThresholds = config.thresholds?.slice(0, selectedMetrics.length) || selectedMetrics.map(() => 0.5)
 
-    // Create child nodes for score agreement patterns
-    const scoreCategories = [
-      'all_3_high', '2_of_3_high_fuzz_sim', '2_of_3_high_fuzz_det',
-      '2_of_3_high_sim_det', '1_of_3_high_fuzz', '1_of_3_high_sim',
-      '1_of_3_high_det', 'all_3_low'
-    ]
+    // Ensure we have the right number of thresholds
+    while (selectedThresholds.length < selectedMetrics.length) {
+      selectedThresholds.push(0.5)
+    }
+
+    splitRule = buildFlexibleScoreAgreementSplit(selectedMetrics, selectedThresholds)
+
+    // Extract pattern child IDs from the split rule
+    const patternRule = splitRule as PatternSplitRule
+    const scoreCategories = patternRule.patterns.map(p => p.child_id)
 
     scoreCategories.forEach((category, idx) => {
       const childId = `${nodeId}_${category}`
       childrenIds.push(childId)
 
+      const pattern = patternRule.patterns[idx]
       const parentPath = [...parentNode.parent_path, createParentPath(
         nodeId,
         'pattern',
         idx,
         {
           patternIndex: idx,
-          patternDescription: category.replace(/_/g, ' ')
+          patternDescription: pattern.description || category.replace(/_/g, ' ')
         }
       )]
 
@@ -245,7 +249,6 @@ export function addStageToNode(
         null, // Leaf node initially
         []
       )
-
 
       newNodes.push(childNode)
     })

@@ -176,6 +176,8 @@ export interface D3SankeyNode extends SankeyNode {
   y1?: number
   depth?: number
   height?: number
+  index?: number
+  originalIndex?: number
   sourceLinks?: D3SankeyLink[]
   targetLinks?: D3SankeyLink[]
 }
@@ -349,6 +351,7 @@ export interface ThresholdLineData {
 export interface HistogramPopoverData {
   nodeId: string
   nodeName: string
+  nodeCategory?: NodeCategory
   parentNodeId?: string
   parentNodeName?: string
   metrics: MetricType[]
