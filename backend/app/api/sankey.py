@@ -75,7 +75,6 @@ async def get_sankey_data(
     logger.info("📡 === SANKEY API REQUEST (v2 only) ===")
     logger.info(f"🔍 Filters: {request.filters}")
     logger.info(f"🌳 Threshold tree v2: {request.thresholdTree}")
-    logger.info(f"📄 Version: {request.version}")
 
     try:
         # Use only v2 threshold system

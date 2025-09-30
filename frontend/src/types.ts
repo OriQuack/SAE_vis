@@ -105,7 +105,6 @@ export interface SankeyThreshold {
 export interface ThresholdTree {
   nodes: SankeyThreshold[]
   metrics: string[]
-  version: 2
 }
 
 export interface FilterOptions {
@@ -130,7 +129,6 @@ export interface HistogramDataRequest {
 export interface SankeyDataRequest {
   filters: Filters
   thresholdTree: ThresholdTree
-  version?: number
 }
 
 export interface ComparisonDataRequest {
@@ -365,33 +363,3 @@ export interface HistogramPopoverData {
 export interface PopoverState {
   histogram: HistogramPopoverData | null
 }
-
-// // ============================================================================
-// // COMPONENT PROP TYPES (Essential only)
-// // ============================================================================
-
-// export interface FilterPanelProps {
-//   filters: Filters
-//   filterOptions: FilterOptions | null
-//   loading: boolean
-//   onFiltersChange: (filters: Partial<Filters>) => void
-// }
-
-// export interface SankeyDiagramProps {
-//   data: SankeyData | null
-//   loading: boolean
-//   error: string | null
-//   width?: number
-//   height?: number
-//   onNodeClick?: (node: SankeyNode) => void
-//   onLinkClick?: (link: SankeyLink) => void
-// }
-
-// export interface HistogramSliderProps {
-//   histogramData: HistogramData | null
-//   threshold: number
-//   loading: boolean
-//   error: string | null
-//   onThresholdChange: (threshold: number) => void
-//   onRefresh: () => void
-// }

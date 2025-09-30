@@ -332,10 +332,6 @@ class ThresholdStructure(BaseModel):
         default_factory=list,
         description="List of all metrics used in the structure"
     )
-    version: int = Field(
-        default=2,
-        description="Version number for compatibility checking"
-    )
 
     @validator('nodes')
     def validate_structure(cls, v):
@@ -389,7 +385,6 @@ class ThresholdStructure(BaseModel):
         return {
             "nodes": [node.dict() for node in self.nodes],
             "metrics": self.metrics,
-            "version": self.version
         }
 
     @classmethod
