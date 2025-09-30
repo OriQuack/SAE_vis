@@ -32,12 +32,11 @@ import {
 } from './lib/constants'
 
 // Category Type Definition
-export enum CategoryType {
-  ROOT = CATEGORY_ROOT,
-  FEATURE_SPLITTING = CATEGORY_FEATURE_SPLITTING,
-  SEMANTIC_DISTANCE = CATEGORY_SEMANTIC_DISTANCE,
-  SCORE_AGREEMENT = CATEGORY_SCORE_AGREEMENT
-}
+export type CategoryType =
+  | typeof CATEGORY_ROOT
+  | typeof CATEGORY_FEATURE_SPLITTING
+  | typeof CATEGORY_SEMANTIC_DISTANCE
+  | typeof CATEGORY_SCORE_AGREEMENT
 
 // Split Rule Definitions
 export interface RangeSplitRule {
