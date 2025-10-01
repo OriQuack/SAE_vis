@@ -2,7 +2,22 @@ import { scaleLinear } from 'd3-scale'
 import type { ScaleLinear } from 'd3-scale'
 import { max } from 'd3-array'
 import type { HistogramData, HistogramChart, HistogramLayout, ThresholdLineData, PopoverPosition, PopoverSize, HistogramBin } from '../types'
-import { DEFAULT_HISTOGRAM_MARGIN, MULTI_HISTOGRAM_LAYOUT, METRIC_TITLES } from './constants'
+
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+const DEFAULT_HISTOGRAM_MARGIN = { top: 15, right: 25, bottom: 50, left: 45 }
+const MULTI_HISTOGRAM_LAYOUT = { spacing: 10, chartTitleHeight: 20, chartMarginTop: 10, minChartHeight: 70 }
+
+const METRIC_TITLES: Record<string, string> = {
+  score_detection: 'Detection Score',
+  score_fuzz: 'Fuzz Score',
+  score_simulation: 'Simulation Score',
+  semdist_mean: 'Semantic Distance (Mean)',
+  semdist_max: 'Semantic Distance (Max)',
+  score_embedding: 'Embedding Score',
+  feature_splitting: 'Feature Splitting'
+}
 
 // ============================================================================
 // TYPES

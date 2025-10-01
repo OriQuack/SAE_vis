@@ -5,7 +5,13 @@ import SankeyDiagram from './components/SankeyDiagram'
 import AlluvialDiagram from './components/AlluvialDiagram'
 import HistogramPopover from './components/HistogramPopover'
 import * as api from './api'
-import './styles/globals.css'
+import './styles/base.css'
+import './styles/App.css'
+
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+const FIXED_DIAGRAM_HEIGHT = 600 // Fixed height for both Sankey and Alluvial diagrams
 
 // ============================================================================
 // TYPES
@@ -338,8 +344,8 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
                   className="sankey-view__floating-actions"
                 />
                 <SankeyDiagram
-                  width={(window.innerWidth * 0.4) - 20}
-                  height={window.innerHeight - 170}
+                  width={600}
+                  height={FIXED_DIAGRAM_HEIGHT}
                   showHistogramOnClick={true}
                   flowDirection="left-to-right"
                   panel="left"
@@ -351,8 +357,8 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
           {/* Center Panel - Alluvial Diagram */}
           <div className="sankey-view__center-panel">
             <AlluvialDiagram
-              width={(window.innerWidth * 0.2) - 20}
-              height={window.innerHeight - 170}
+              width={300}
+              height={FIXED_DIAGRAM_HEIGHT}
               className="sankey-view__alluvial"
             />
           </div>
@@ -379,8 +385,8 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
                   className="sankey-view__floating-actions"
                 />
                 <SankeyDiagram
-                  width={(window.innerWidth * 0.4) - 20}
-                  height={window.innerHeight - 170}
+                  width={600}
+                  height={FIXED_DIAGRAM_HEIGHT}
                   showHistogramOnClick={true}
                   flowDirection="right-to-left"
                   panel="right"

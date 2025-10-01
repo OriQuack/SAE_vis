@@ -29,8 +29,8 @@ export const SANKEY_COLORS: Record<NodeCategory, string> = {
   [CATEGORY_SCORE_AGREEMENT]: '#10b981'
 } as const
 
-export const DEFAULT_SANKEY_MARGIN = { top: 80, right: 60, bottom: 20, left: 80 } as const
-export const RIGHT_SANKEY_MARGIN = { top: 80, right: 80, bottom: 20, left: 60 } as const
+export const DEFAULT_SANKEY_MARGIN = { top: 80, right: 60, bottom: 50, left: 80 } as const
+export const RIGHT_SANKEY_MARGIN = { top: 80, right: 80, bottom: 50, left: 60 } as const
 
 // Category display names
 const CATEGORY_DISPLAY_NAMES: Record<string, string> = {

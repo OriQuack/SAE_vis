@@ -243,7 +243,7 @@ export interface FeatureDetail {
 }
 
 // ============================================================================
-// UI AND STATE TYPES (Simplified)
+// UI AND STATE TYPES
 // ============================================================================
 
 export interface LoadingStates {
@@ -352,7 +352,7 @@ export interface PopoverSize {
 }
 
 // ============================================================================
-// POPOVER TYPES (Simplified)
+// POPOVER TYPES
 // ============================================================================
 
 export interface HistogramPopoverData {
