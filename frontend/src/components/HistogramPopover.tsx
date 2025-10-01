@@ -8,106 +8,19 @@ import {
   formatSmartNumber,
   calculateOptimalPopoverPosition,
   calculateResponsivePopoverSize,
-  calculateThresholdFromMouseEvent
+  calculateThresholdFromMouseEvent,
+  calculateHistogramBars,
+  calculateXAxisTicks,
+  calculateYAxisTicks,
+  calculateGridLines,
+  calculateSliderPosition
 } from '../lib/d3-histogram-utils'
-import { DEFAULT_ANIMATION, HISTOGRAM_COLORS, SLIDER_TRACK } from '../lib/constants'
+import { DEFAULT_ANIMATION, HISTOGRAM_COLORS, SLIDER_TRACK, CATEGORY_DISPLAY_NAMES } from '../lib/constants'
 import { getEffectiveThreshold } from '../lib/threshold-utils'
-import { CATEGORY_DISPLAY_NAMES } from '../lib/constants'
-import type { HistogramData, HistogramLayout, HistogramChart } from '../types'
+import type { HistogramData, HistogramChart, NodeCategory } from '../types'
 
 // ============================================================================
-// INLINE STYLE CONSTANTS (from utils/styles.ts)
-// ============================================================================
-const POPOVER_STYLES = {
-  container: {
-    position: 'fixed' as const,
-    zIndex: 1001,
-    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.1)',
-    border: '1px solid #e2e8f0',
-    borderRadius: '8px',
-    backgroundColor: '#ffffff'
-  }
-}
-
-const HEADER_STYLES = {
-  container: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '8px 12px',
-    borderBottom: '1px solid #e2e8f0',
-    backgroundColor: '#f8fafc',
-    borderRadius: '8px 8px 0 0',
-    height: '42px',
-    flexShrink: 0,
-    userSelect: 'none' as const,
-    WebkitUserSelect: 'none' as const,
-    msUserSelect: 'none' as const,
-    MozUserSelect: 'none' as const
-  },
-  titleSection: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    justifyContent: 'center',
-    flex: 1,
-    minWidth: 0
-  },
-  title: {
-    margin: 0,
-    fontSize: '14px',
-    fontWeight: '600',
-    color: '#1f2937',
-    lineHeight: '1.3',
-    whiteSpace: 'nowrap' as const,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis'
-  },
-  parent: {
-    fontSize: '10px',
-    color: '#7c3aed',
-    fontWeight: '500',
-    lineHeight: '1.2',
-    marginTop: '1px'
-  },
-  metric: {
-    fontSize: '11px',
-    color: '#6b7280',
-    fontWeight: '500',
-    lineHeight: '1.2',
-    marginTop: '2px'
-  },
-  closeButton: {
-    background: 'none',
-    border: 'none',
-    fontSize: '16px',
-    fontWeight: 'normal' as const,
-    color: '#6b7280',
-    cursor: 'pointer',
-    padding: '2px',
-    lineHeight: '1',
-    width: '20px',
-    height: '20px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: '3px',
-    transition: 'all 150ms ease',
-    flexShrink: 0,
-    marginLeft: '8px'
-  }
-}
-
-const CHART_STYLES = {
-  container: {
-    padding: '6px',
-    overflow: 'hidden'
-  }
-}
-
-
-
-// ============================================================================
-// MAIN COMPONENT PROPS
+// COMPONENT INTERFACES
 // ============================================================================
 interface HistogramPopoverProps {
   width?: number
@@ -116,25 +29,283 @@ interface HistogramPopoverProps {
 }
 
 // ============================================================================
-// MAIN CONSOLIDATED HISTOGRAM POPOVER COMPONENT
+// SUB-COMPONENTS
 // ============================================================================
-export const HistogramPopover = ({
+const PopoverHeader: React.FC<{
+  nodeName: string
+  nodeCategory?: NodeCategory
+  parentNodeName?: string
+  metrics: string[]
+  onClose: () => void
+  onMouseDown: (e: React.MouseEvent) => void
+}> = ({ nodeName, nodeCategory, parentNodeName, metrics, onClose, onMouseDown }) => {
+  const formatMetricText = (metrics: string[]) => {
+    if (metrics.length === 1) {
+      return metrics[0].replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
+    }
+    return `${metrics.length} Score Metrics`
+  }
+
+  return (
+    <div
+      className="histogram-popover__header"
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '8px 12px',
+        borderBottom: '1px solid #e2e8f0',
+        backgroundColor: '#f8fafc',
+        borderRadius: '8px 8px 0 0',
+        cursor: 'move',
+        userSelect: 'none'
+      }}
+      onMouseDown={onMouseDown}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+        <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: '#1f2937' }}>
+          {nodeCategory ? CATEGORY_DISPLAY_NAMES[nodeCategory] : 'Node'}: {nodeName}
+        </h4>
+        {parentNodeName && (
+          <span style={{ fontSize: '10px', color: '#7c3aed', fontWeight: 500 }}>
+            Thresholds for: {parentNodeName}
+          </span>
+        )}
+        <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500 }}>
+          {formatMetricText(metrics)}
+        </span>
+      </div>
+      <button
+        onClick={onClose}
+        style={{
+          background: 'none',
+          border: 'none',
+          fontSize: '16px',
+          color: '#6b7280',
+          cursor: 'pointer',
+          padding: '2px',
+          width: '20px',
+          height: '20px',
+          borderRadius: '3px'
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.backgroundColor = '#f3f4f6'
+          e.currentTarget.style.color = '#374151'
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.backgroundColor = 'transparent'
+          e.currentTarget.style.color = '#6b7280'
+        }}
+      >
+        ×
+      </button>
+    </div>
+  )
+}
+
+const HistogramChart: React.FC<{
+  chart: HistogramChart
+  data: HistogramData
+  threshold: number
+  isMultiChart: boolean
+  animationDuration: number
+  onSliderMouseDown: (e: React.MouseEvent, metric: string, chart: HistogramChart) => void
+}> = ({ chart, threshold, isMultiChart, animationDuration, onSliderMouseDown }) => {
+  const bars = useMemo(() =>
+    calculateHistogramBars(chart, threshold, HISTOGRAM_COLORS.bars, HISTOGRAM_COLORS.threshold),
+    [chart, threshold]
+  )
+
+  const gridLines = useMemo(() =>
+    calculateGridLines(chart, 5),
+    [chart]
+  )
+
+  const xAxisTicks = useMemo(() =>
+    calculateXAxisTicks(chart, 5),
+    [chart]
+  )
+
+  const yAxisTicks = useMemo(() =>
+    calculateYAxisTicks(chart, 5),
+    [chart]
+  )
+
+  const thresholdLine = useMemo(() =>
+    calculateThresholdLine(threshold, chart),
+    [threshold, chart]
+  )
+
+  const sliderPosition = useMemo(() =>
+    calculateSliderPosition(threshold, chart, SLIDER_TRACK.height, SLIDER_TRACK.yOffset),
+    [threshold, chart]
+  )
+
+  return (
+    <g transform={`translate(${chart.margin.left}, ${chart.yOffset})`}>
+      {/* Grid lines */}
+      <g>
+        {gridLines.map((line, i) => (
+          <line
+            key={i}
+            x1={line.x1}
+            x2={line.x2}
+            y1={line.y1}
+            y2={line.y2}
+            stroke={HISTOGRAM_COLORS.grid}
+            strokeWidth={1}
+            opacity={line.opacity}
+          />
+        ))}
+      </g>
+
+      {/* Histogram bars */}
+      <g>
+        {bars.map((bar, i) => (
+          <rect
+            key={i}
+            x={bar.x}
+            y={bar.y}
+            width={bar.width}
+            height={bar.height}
+            fill={bar.color}
+            stroke="white"
+            strokeWidth={1}
+            style={{ transition: `fill ${animationDuration}ms ease-out` }}
+          />
+        ))}
+      </g>
+
+      {/* Threshold line */}
+      {thresholdLine && (
+        <line
+          x1={thresholdLine.x}
+          x2={thresholdLine.x}
+          y1={0}
+          y2={chart.height}
+          stroke={HISTOGRAM_COLORS.threshold}
+          strokeWidth={3}
+          style={{ cursor: 'pointer' }}
+        />
+      )}
+
+      {/* Slider track */}
+      {thresholdLine && (
+        <g transform={`translate(0, ${sliderPosition.trackY})`}>
+          <rect
+            x={sliderPosition.trackUnfilledX}
+            y={0}
+            width={sliderPosition.trackUnfilledWidth}
+            height={SLIDER_TRACK.height}
+            fill={HISTOGRAM_COLORS.sliderTrackUnfilled}
+            rx={SLIDER_TRACK.cornerRadius}
+          />
+          <rect
+            x={0}
+            y={0}
+            width={sliderPosition.trackFilledWidth}
+            height={SLIDER_TRACK.height}
+            fill={HISTOGRAM_COLORS.sliderTrackFilled}
+            rx={SLIDER_TRACK.cornerRadius}
+          />
+          <rect
+            x={0}
+            y={-10}
+            width={chart.width}
+            height={SLIDER_TRACK.height + 20}
+            fill="transparent"
+            style={{ cursor: 'pointer' }}
+            onMouseDown={(e) => onSliderMouseDown(e, chart.metric, chart)}
+          />
+          <circle
+            cx={sliderPosition.handleCx}
+            cy={sliderPosition.handleCy}
+            r={10}
+            fill={HISTOGRAM_COLORS.sliderHandle}
+            stroke="white"
+            strokeWidth={2}
+            style={{ cursor: 'pointer' }}
+            onMouseDown={(e) => onSliderMouseDown(e, chart.metric, chart)}
+          />
+        </g>
+      )}
+
+      {/* Chart title (multi-chart mode) */}
+      {isMultiChart && (
+        <text
+          x={chart.width / 2}
+          y={-16}
+          textAnchor="middle"
+          fontSize={12}
+          fontWeight="600"
+          fill={HISTOGRAM_COLORS.text}
+        >
+          {chart.chartTitle}
+        </text>
+      )}
+
+      {/* Threshold value */}
+      <text
+        x={chart.width}
+        y={chart.height + 50}
+        textAnchor="end"
+        fontSize={10}
+        fill="#6b7280"
+        fontFamily="monospace"
+      >
+        {formatSmartNumber(threshold)}
+      </text>
+
+      {/* X-axis */}
+      <g transform={`translate(0,${chart.height})`}>
+        <line x1={0} x2={chart.width} y1={0} y2={0} stroke={HISTOGRAM_COLORS.axis} strokeWidth={1} />
+        {xAxisTicks.map(tick => (
+          <g key={tick.value} transform={`translate(${tick.position},0)`}>
+            <line y1={0} y2={6} stroke={HISTOGRAM_COLORS.axis} strokeWidth={1} />
+            <text y={20} textAnchor="middle" fontSize={12} fill={HISTOGRAM_COLORS.text}>
+              {tick.label}
+            </text>
+          </g>
+        ))}
+      </g>
+
+      {/* Y-axis */}
+      <g>
+        <line x1={0} x2={0} y1={0} y2={chart.height} stroke={HISTOGRAM_COLORS.axis} strokeWidth={1} />
+        {yAxisTicks.map(tick => (
+          <g key={tick.value} transform={`translate(0,${tick.position})`}>
+            <line x1={-6} x2={0} stroke={HISTOGRAM_COLORS.axis} strokeWidth={1} />
+            <text x={-10} textAnchor="end" alignmentBaseline="middle" fontSize={12} fill={HISTOGRAM_COLORS.text}>
+              {tick.label}
+            </text>
+          </g>
+        ))}
+      </g>
+    </g>
+  )
+}
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
   width = 420,
   height = 280,
   animationDuration = DEFAULT_ANIMATION.duration
-}: HistogramPopoverProps) => {
+}) => {
+  // Store state
   const popoverData = useVisualizationStore(state => state.popoverState.histogram)
   const panel = popoverData?.panel || 'left'
   const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
-
   const histogramData = useVisualizationStore(state => state[panelKey].histogramData)
   const loading = useVisualizationStore(state => state.loading.histogram)
   const error = useVisualizationStore(state => state.errors.histogram)
+  const thresholdTree = useVisualizationStore(state => state[panelKey].thresholdTree)
 
   const {
     hideHistogramPopover,
     fetchMultipleHistogramData,
-    updateThreshold,  // New threshold tree action
+    updateThreshold,
     clearError
   } = useVisualizationStore()
 
@@ -145,14 +316,15 @@ export const HistogramPopover = ({
   // Local state for dragging
   const [draggedPosition, setDraggedPosition] = useState<{ x: number; y: number } | null>(null)
   const [dragStartOffset, setDragStartOffset] = useState<{ x: number; y: number } | null>(null)
-  const [isDraggingSlider, setIsDraggingSlider] = useState<boolean>(false)
+  const [isDraggingSlider, setIsDraggingSlider] = useState(false)
   const draggingMetricRef = useRef<string | null>(null)
   const draggingChartRef = useRef<HistogramChart | null>(null)
 
   // Calculate container size
-  const containerSize = useMemo(() => {
-    return calculateResponsivePopoverSize(width, height, popoverData?.metrics?.length || 1)
-  }, [width, height, popoverData?.metrics?.length])
+  const containerSize = useMemo(() =>
+    calculateResponsivePopoverSize(width, height, popoverData?.metrics?.length || 1),
+    [width, height, popoverData?.metrics?.length]
+  )
 
   // Calculate position
   const calculatedPosition = useMemo(() => {
@@ -160,148 +332,12 @@ export const HistogramPopover = ({
     return calculateOptimalPopoverPosition(popoverData.position, containerSize)
   }, [popoverData?.visible, popoverData?.position, containerSize])
 
-  // ============================================================================
-  // INLINE HEADER COMPONENT
-  // ============================================================================
-  const renderHeader = useCallback(() => {
-    if (!popoverData) return null
-
-    const formatMetricText = (metrics: string[]) => {
-      if (metrics.length === 1) {
-        return metrics[0].replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
-      }
-      return `${metrics.length} Score Metrics`
-    }
-
-    const handleMouseDown = (event: React.MouseEvent) => {
-      // Don't start dragging if clicking on the close button
-      if ((event.target as HTMLElement).closest('.histogram-popover__close')) {
-        return
-      }
-
-      const currentPosition = draggedPosition || {
-        x: calculatedPosition?.x || popoverData.position.x,
-        y: calculatedPosition?.y || popoverData.position.y
-      }
-
-      setDragStartOffset({
-        x: event.clientX - currentPosition.x,
-        y: event.clientY - currentPosition.y
-      })
-    }
-
-    const handleCloseHover = (e: React.MouseEvent<HTMLButtonElement>, isEnter: boolean) => {
-      if (isEnter) {
-        e.currentTarget.style.backgroundColor = '#f3f4f6'
-        e.currentTarget.style.color = '#374151'
-      } else {
-        e.currentTarget.style.backgroundColor = 'transparent'
-        e.currentTarget.style.color = '#6b7280'
-      }
-    }
-
-    return (
-      <div
-        className="histogram-popover__header"
-        style={{ ...HEADER_STYLES.container, cursor: 'move' }}
-        onMouseDown={handleMouseDown}
-      >
-        <div style={HEADER_STYLES.titleSection}>
-          <h4 style={HEADER_STYLES.title}>
-            {popoverData.nodeCategory ? CATEGORY_DISPLAY_NAMES[popoverData.nodeCategory] : 'Node'}: {popoverData.nodeName}
-          </h4>
-          {popoverData.parentNodeName && (
-            <span style={HEADER_STYLES.parent}>
-              Thresholds for: {popoverData.parentNodeName}
-            </span>
-          )}
-          <span style={HEADER_STYLES.metric}>
-            {formatMetricText(popoverData.metrics)}
-          </span>
-        </div>
-        <button
-          className="histogram-popover__close"
-          onClick={hideHistogramPopover}
-          style={HEADER_STYLES.closeButton}
-          onMouseEnter={(e) => handleCloseHover(e, true)}
-          onMouseLeave={(e) => handleCloseHover(e, false)}
-        >
-          ×
-        </button>
-      </div>
-    )
-  }, [popoverData, draggedPosition, calculatedPosition, hideHistogramPopover])
-
-  // ============================================================================
-  // THRESHOLD UTILITIES
-  // ============================================================================
-  // Handle global mouse events for slider dragging
-  useEffect(() => {
-    if (!isDraggingSlider) return
-
-    const handleMouseMove = (event: MouseEvent) => {
-      const metric = draggingMetricRef.current
-      const chart = draggingChartRef.current
-      if (!metric || !chart || !histogramData?.[metric]) return
-
-      const rect = svgRef.current?.getBoundingClientRect()
-      if (!rect) return
-
-      // Calculate position relative to the specific chart
-      const data = histogramData[metric]
-
-      // Use the specific chart's width for position calculation
-      const newValue = calculateThresholdFromMouseEvent(event, svgRef.current, chart, data.statistics.min, data.statistics.max)
-      if (newValue === null) return
-
-      // Don't clamp - allow thresholds outside data range
-      const thresholdValue = newValue
-
-      const panel = popoverData?.panel || 'left'
-      const nodeId = popoverData?.nodeId
-
-      if (!nodeId) {
-        console.warn('No nodeId available for slider drag update')
-        return
-      }
-
-      // For score nodes, update the individual threshold
-      if (metric === 'score_fuzz' || metric === 'score_detection' || metric === 'score_simulation') {
-        // Update the individual threshold for this specific metric
-        updateThreshold(nodeId, [thresholdValue], panel, metric)
-      } else {
-        // Single threshold update
-        updateThreshold(nodeId, [thresholdValue], panel)
-      }
-    }
-
-    const handleMouseUp = () => {
-      setIsDraggingSlider(false)
-      draggingMetricRef.current = null
-      draggingChartRef.current = null
-    }
-
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-    }
-  }, [isDraggingSlider, histogramData, updateThreshold, popoverData?.nodeId])
-
+  // Get effective threshold value for a metric
   const getEffectiveThresholdValue = useCallback((metric: string): number => {
-    const panel = popoverData?.panel || 'left'
-    const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
-    const thresholdTree = useVisualizationStore.getState()[panelKey].thresholdTree
     const nodeId = popoverData?.nodeId
 
     if (!nodeId || !thresholdTree) {
-      // Fallback to histogram mean if no tree/node available
-      if (histogramData?.[metric]) {
-        return histogramData[metric].statistics.mean
-      }
-      return 0.5
+      return histogramData?.[metric]?.statistics?.mean || 0.5
     }
 
     const thresholdValue = getEffectiveThreshold(thresholdTree, nodeId, metric)
@@ -311,245 +347,12 @@ export const HistogramPopover = ({
     }
 
     if (Array.isArray(thresholdValue)) {
-      // If we get an array, use the first value
       return thresholdValue[0] || 0.5
     }
 
-    // Final fallback to histogram mean
-    if (histogramData?.[metric]) {
-      return histogramData[metric].statistics.mean
-    }
-    return 0.5
-  }, [histogramData, popoverData?.nodeId])
+    return histogramData?.[metric]?.statistics?.mean || 0.5
+  }, [histogramData, popoverData?.nodeId, thresholdTree])
 
-  // ============================================================================
-  // UNIFIED HISTOGRAM RENDERING (SINGLE & MULTI-HISTOGRAM)
-  // ============================================================================
-  const renderHistograms = useCallback((layout: HistogramLayout, histogramData: Record<string, HistogramData>) => {
-    if (!layout || !histogramData) return null
-
-    return (
-      <svg
-        ref={svgRef}
-        width={containerSize.width - 16}
-        height={layout.totalHeight}
-        style={{ display: 'block' }}
-      >
-        {/* Background */}
-        <rect
-          width={containerSize.width - 16}
-          height={layout.totalHeight}
-          fill={HISTOGRAM_COLORS.background}
-        />
-
-        {/* Render each histogram chart */}
-        {layout.charts.map((chart: HistogramChart, _: number) => {
-          const metric = chart.metric
-          const data = histogramData[metric]
-          const threshold = getEffectiveThresholdValue(metric)
-
-          if (!data || !metric) return null
-
-          const thresholdLine = calculateThresholdLine(threshold, chart)
-
-          const handleThresholdChange = (newThreshold: number) => {
-            // Don't clamp - allow thresholds outside data range
-            const panel = popoverData?.panel || 'left'
-            const nodeId = popoverData?.nodeId
-
-            if (!nodeId) {
-              console.warn('No nodeId available for threshold update')
-              return
-            }
-
-            // For score nodes, update the individual threshold
-            if (metric === 'score_fuzz' || metric === 'score_detection' || metric === 'score_simulation') {
-              // Update the individual threshold for this specific metric
-              updateThreshold(nodeId, [newThreshold], panel, metric)
-            } else {
-              // Single threshold update
-              updateThreshold(nodeId, [newThreshold], panel)
-            }
-          }
-
-          const calculateThresholdFromEvent = (event: React.MouseEvent | MouseEvent) => {
-            return calculateThresholdFromMouseEvent(event, svgRef.current, chart, data.statistics.min, data.statistics.max)
-          }
-
-          const handleSliderMouseDown = (event: React.MouseEvent) => {
-            // Start dragging
-            setIsDraggingSlider(true)
-            draggingMetricRef.current = metric
-            draggingChartRef.current = chart
-
-            // Also set initial threshold value
-            const newValue = calculateThresholdFromEvent(event)
-            if (newValue !== null) handleThresholdChange(newValue)
-
-            // Prevent default to avoid text selection
-            event.preventDefault()
-          }
-
-          return (
-            <g key={metric} transform={`translate(${chart.margin.left}, ${chart.yOffset})`}>
-              {/* Grid lines for all histograms */}
-              <g>
-                {chart.yScale.ticks(5).map((tick: number) => (
-                  <line
-                    key={tick}
-                    x1={0}
-                    x2={chart.width}
-                    y1={chart.yScale(tick) as number}
-                    y2={chart.yScale(tick) as number}
-                    stroke={HISTOGRAM_COLORS.grid}
-                    strokeWidth={1}
-                    opacity={0.5}
-                  />
-                ))}
-              </g>
-
-              {/* Histogram bars */}
-              <g>
-                {chart.bins.map((bin: any, binIndex: number) => {
-                  const barHeight = chart.height - (chart.yScale(bin.count) as number)
-                  const barColor = bin.x0 >= threshold ? HISTOGRAM_COLORS.threshold : HISTOGRAM_COLORS.bars
-
-                  return (
-                    <rect
-                      key={binIndex}
-                      x={chart.xScale(bin.x0) as number}
-                      y={chart.yScale(bin.count) as number}
-                      width={Math.max(1, (chart.xScale(bin.x1) as number) - (chart.xScale(bin.x0) as number) - 1)}
-                      height={barHeight}
-                      fill={barColor}
-                      stroke="white"
-                      strokeWidth={1}
-                      style={{ transition: `fill ${animationDuration}ms ease-out` }}
-                    />
-                  )
-                })}
-              </g>
-
-              {/* Threshold line */}
-              {thresholdLine && (
-                <line
-                  x1={thresholdLine.x}
-                  x2={thresholdLine.x}
-                  y1={0}
-                  y2={chart.height}
-                  stroke={HISTOGRAM_COLORS.threshold}
-                  strokeWidth={3}
-                  style={{ cursor: 'pointer' }}
-                />
-              )}
-
-              {/* Interactive slider track (for all histograms) */}
-              {thresholdLine && (
-                <g transform={`translate(0, ${chart.height + SLIDER_TRACK.yOffset})`}>
-                  <rect
-                    x={thresholdLine.x}
-                    y={0}
-                    width={chart.width - thresholdLine.x}
-                    height={SLIDER_TRACK.height}
-                    fill={HISTOGRAM_COLORS.sliderTrackUnfilled}
-                    rx={SLIDER_TRACK.cornerRadius}
-                  />
-                  <rect
-                    x={0}
-                    y={0}
-                    width={thresholdLine.x}
-                    height={SLIDER_TRACK.height}
-                    fill={HISTOGRAM_COLORS.sliderTrackFilled}
-                    rx={SLIDER_TRACK.cornerRadius}
-                  />
-                  <rect
-                    x={0}
-                    y={-10}
-                    width={chart.width}
-                    height={SLIDER_TRACK.height + 20}
-                    fill="transparent"
-                    style={{ cursor: 'pointer' }}
-                    onMouseDown={handleSliderMouseDown}
-                  />
-                  <circle
-                    cx={thresholdLine.x}
-                    cy={SLIDER_TRACK.height / 2}
-                    r={10}
-                    fill={HISTOGRAM_COLORS.sliderHandle}
-                    stroke="white"
-                    strokeWidth={2}
-                    style={{ cursor: 'pointer' }}
-                    onMouseDown={handleSliderMouseDown}
-                  />
-                </g>
-              )}
-
-              {/* Chart title (for multi-histogram mode) */}
-              {layout.charts.length > 1 && (
-                <text
-                  x={chart.width / 2}
-                  y={-16}
-                  textAnchor="middle"
-                  fontSize={12}
-                  fontWeight="600"
-                  fill={HISTOGRAM_COLORS.text}
-                >
-                  {chart.chartTitle}
-                </text>
-              )}
-
-              {/* Threshold value (for multi-histogram mode) */}
-              {(
-                <text
-                  x={chart.width}
-                  y={chart.height + 50}
-                  textAnchor="end"
-                  fontSize={10}
-                  fill="#6b7280"
-                  fontFamily="monospace"
-                >
-                  {formatSmartNumber(threshold)}
-                </text>
-              )}
-
-              {/* Axes (for all histograms) */}
-              {(
-                <>
-                  <g transform={`translate(0,${chart.height})`}>
-                    <line x1={0} x2={chart.width} y1={0} y2={0} stroke={HISTOGRAM_COLORS.axis} strokeWidth={1} />
-                    {chart.xScale.ticks(5).map((tick: number) => (
-                      <g key={tick} transform={`translate(${chart.xScale(tick)},0)`}>
-                        <line y1={0} y2={6} stroke={HISTOGRAM_COLORS.axis} strokeWidth={1} />
-                        <text y={20} textAnchor="middle" fontSize={12} fill={HISTOGRAM_COLORS.text}>
-                          {tick.toFixed(2)}
-                        </text>
-                      </g>
-                    ))}
-                  </g>
-
-                  <g>
-                    <line x1={0} x2={0} y1={0} y2={chart.height} stroke={HISTOGRAM_COLORS.axis} strokeWidth={1} />
-                    {chart.yScale.ticks(5).map((tick: number) => (
-                      <g key={tick} transform={`translate(0,${chart.yScale(tick)})`}>
-                        <line x1={-6} x2={0} stroke={HISTOGRAM_COLORS.axis} strokeWidth={1} />
-                        <text x={-10} textAnchor="end" alignmentBaseline="middle" fontSize={12} fill={HISTOGRAM_COLORS.text}>
-                          {tick}
-                        </text>
-                      </g>
-                    ))}
-                  </g>
-                </>
-              )}
-            </g>
-          )
-        })}
-      </svg>
-    )
-  }, [containerSize, animationDuration, getEffectiveThresholdValue, updateThreshold, setIsDraggingSlider, draggingMetricRef, popoverData?.nodeId])
-
-  // ============================================================================
-  // THRESHOLD MANAGEMENT
-  // ============================================================================
   // Validation
   const validationErrors = useMemo(() => {
     const errors: string[] = []
@@ -574,39 +377,101 @@ export const HistogramPopover = ({
     }
 
     const chartWidth = containerSize.width - 16
-    // For multi-histogram, give more generous height to prevent cutting off
-    const metricsCount = popoverData.metrics.length
-    let chartHeight = containerSize.height - 64
-
-    if (metricsCount > 1) {
-      // Calculate the exact height needed for multi-histogram with updated constants
-      const spacing = 12
-      const chartTitleHeight = 24
-      const minChartHeight = 80
-      const chartMargin = { top: 15, bottom: 40 }
-      const sliderSpace = 40
-
-      const requiredHeightPerChart = chartTitleHeight + chartMargin.top + minChartHeight + chartMargin.bottom + sliderSpace
-      const totalSpacing = (metricsCount - 1) * spacing
-      const minimumChartHeight = (metricsCount * requiredHeightPerChart) + totalSpacing
-
-      // Use the larger of calculated minimum or available space
-      chartHeight = Math.max(chartHeight, minimumChartHeight)
-    }
+    const chartHeight = containerSize.height - 64
 
     return calculateHistogramLayout(histogramData, chartWidth, chartHeight)
   }, [histogramData, containerSize, validationErrors, popoverData?.metrics])
+
+  // Handle slider drag
+  const handleSliderMouseDown = useCallback((
+    event: React.MouseEvent,
+    metric: string,
+    chart: HistogramChart
+  ) => {
+    setIsDraggingSlider(true)
+    draggingMetricRef.current = metric
+    draggingChartRef.current = chart
+
+    // Calculate initial threshold
+    const data = histogramData?.[metric]
+    if (!data) return
+
+    const newValue = calculateThresholdFromMouseEvent(event, svgRef.current, chart, data.statistics.min, data.statistics.max)
+    if (newValue !== null && popoverData?.nodeId) {
+      const scoreMetrics = ['score_fuzz', 'score_detection', 'score_simulation']
+      if (scoreMetrics.includes(metric)) {
+        updateThreshold(popoverData.nodeId, [newValue], panel, metric)
+      } else {
+        updateThreshold(popoverData.nodeId, [newValue], panel)
+      }
+    }
+
+    event.preventDefault()
+  }, [histogramData, updateThreshold, popoverData?.nodeId, panel])
+
+  // Handle header drag start
+  const handleHeaderMouseDown = useCallback((event: React.MouseEvent) => {
+    if ((event.target as HTMLElement).closest('button')) {
+      return
+    }
+
+    const currentPosition = draggedPosition || {
+      x: calculatedPosition?.x || popoverData?.position?.x || 0,
+      y: calculatedPosition?.y || popoverData?.position?.y || 0
+    }
+
+    setDragStartOffset({
+      x: event.clientX - currentPosition.x,
+      y: event.clientY - currentPosition.y
+    })
+  }, [draggedPosition, calculatedPosition, popoverData?.position])
 
   // Handle retry
   const handleRetry = useCallback(() => {
     if (popoverData?.nodeId && popoverData?.metrics) {
       clearError('histogram')
-      const panel = popoverData.panel || 'left'
       fetchMultipleHistogramData(popoverData.metrics, popoverData.nodeId, panel)
     }
-  }, [popoverData?.nodeId, popoverData?.metrics, clearError, fetchMultipleHistogramData])
+  }, [popoverData, clearError, fetchMultipleHistogramData, panel])
 
-  // Drag handling
+  // Handle global mouse events for slider dragging
+  useEffect(() => {
+    if (!isDraggingSlider) return
+
+    const handleMouseMove = (event: MouseEvent) => {
+      const metric = draggingMetricRef.current
+      const chart = draggingChartRef.current
+      if (!metric || !chart || !histogramData?.[metric]) return
+
+      const data = histogramData[metric]
+      const newValue = calculateThresholdFromMouseEvent(event, svgRef.current, chart, data.statistics.min, data.statistics.max)
+
+      if (newValue !== null && popoverData?.nodeId) {
+        const scoreMetrics = ['score_fuzz', 'score_detection', 'score_simulation']
+        if (scoreMetrics.includes(metric)) {
+          updateThreshold(popoverData.nodeId, [newValue], panel, metric)
+        } else {
+          updateThreshold(popoverData.nodeId, [newValue], panel)
+        }
+      }
+    }
+
+    const handleMouseUp = () => {
+      setIsDraggingSlider(false)
+      draggingMetricRef.current = null
+      draggingChartRef.current = null
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDraggingSlider, histogramData, updateThreshold, popoverData?.nodeId, panel])
+
+  // Handle popover dragging
   useEffect(() => {
     if (!dragStartOffset) return
 
@@ -630,7 +495,7 @@ export const HistogramPopover = ({
     }
   }, [dragStartOffset])
 
-  // Reset dragged position when popover opens/closes
+  // Reset dragged position when popover closes
   useEffect(() => {
     if (!popoverData?.visible) {
       setDraggedPosition(null)
@@ -638,15 +503,13 @@ export const HistogramPopover = ({
     }
   }, [popoverData?.visible])
 
-  // Handle click outside to close popover
+  // Handle click outside to close
   useEffect(() => {
     if (!popoverData?.visible) return
 
     const handleClickOutside = (event: MouseEvent) => {
-      // Don't close if currently dragging a slider
       if (isDraggingSlider) return
 
-      // Don't close if clicking on interactive elements
       const target = event.target as HTMLElement
       if (target.closest('circle') || target.closest('rect[style*="cursor: pointer"]')) {
         return
@@ -657,7 +520,6 @@ export const HistogramPopover = ({
       }
     }
 
-    // Add event listener with a small delay to prevent immediate closing
     const timeoutId = setTimeout(() => {
       document.addEventListener('mouseup', handleClickOutside)
     }, 100)
@@ -666,17 +528,16 @@ export const HistogramPopover = ({
       clearTimeout(timeoutId)
       document.removeEventListener('mouseup', handleClickOutside)
     }
-  }, [popoverData?.visible, isDraggingSlider]) // Removed hideHistogramPopover dependency
+  }, [popoverData?.visible, isDraggingSlider, hideHistogramPopover])
 
-  // Fetch histogram data when popover opens
+  // Fetch data when popover opens
   useEffect(() => {
     if (popoverData?.visible && popoverData.nodeId && popoverData.metrics?.length > 0) {
-      const panel = popoverData.panel || 'left'
       fetchMultipleHistogramData(popoverData.metrics, popoverData.nodeId, panel)
     }
-  }, [popoverData?.visible, popoverData?.nodeId, popoverData?.metrics, fetchMultipleHistogramData])
+  }, [popoverData?.visible, popoverData?.nodeId, popoverData?.metrics, fetchMultipleHistogramData, panel])
 
-  // Don't render if popover is not visible
+  // Don't render if not visible
   if (!popoverData?.visible) {
     return null
   }
@@ -686,31 +547,59 @@ export const HistogramPopover = ({
     y: calculatedPosition?.y || popoverData.position.y
   }
 
-  const containerStyle = {
-    ...POPOVER_STYLES.container,
-    left: finalPosition.x,
-    top: finalPosition.y,
-    transform: calculatedPosition?.transform || 'translate(0%, 0%)',
-    transition: `all ${animationDuration}ms ease-out`
-  }
-
   return (
-    <div className="histogram-popover" style={containerStyle}>
+    <div
+      className="histogram-popover"
+      style={{
+        position: 'fixed',
+        left: finalPosition.x,
+        top: finalPosition.y,
+        transform: calculatedPosition?.transform || 'translate(0%, 0%)',
+        zIndex: 1001,
+        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.1)',
+        border: '1px solid #e2e8f0',
+        borderRadius: '8px',
+        backgroundColor: '#ffffff',
+        transition: `all ${animationDuration}ms ease-out`
+      }}
+    >
       <div
         ref={containerRef}
         className="histogram-popover__container"
         style={{ width: containerSize.width, height: containerSize.height }}
       >
         {/* Header */}
-        {renderHeader()}
+        <PopoverHeader
+          nodeName={popoverData.nodeName}
+          nodeCategory={popoverData.nodeCategory}
+          parentNodeName={popoverData.parentNodeName}
+          metrics={popoverData.metrics}
+          onClose={hideHistogramPopover}
+          onMouseDown={handleHeaderMouseDown}
+        />
 
         {/* Error display */}
         {error && (
-          <div style={{ padding: '12px 16px', backgroundColor: '#fef2f2', borderLeft: '4px solid #ef4444', margin: '8px 16px', borderRadius: '4px' }}>
+          <div style={{
+            padding: '12px 16px',
+            backgroundColor: '#fef2f2',
+            borderLeft: '4px solid #ef4444',
+            margin: '8px 16px',
+            borderRadius: '4px'
+          }}>
             <div style={{ color: '#7f1d1d', fontSize: '14px' }}>{error}</div>
             <button
               onClick={handleRetry}
-              style={{ padding: '4px 8px', fontSize: '12px', color: '#ef4444', background: 'transparent', border: '1px solid #ef4444', borderRadius: '4px', cursor: 'pointer', marginTop: '8px' }}
+              style={{
+                padding: '4px 8px',
+                fontSize: '12px',
+                color: '#ef4444',
+                background: 'transparent',
+                border: '1px solid #ef4444',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                marginTop: '8px'
+              }}
             >
               Retry
             </button>
@@ -719,7 +608,13 @@ export const HistogramPopover = ({
 
         {/* Validation errors */}
         {validationErrors.length > 0 && (
-          <div style={{ padding: '8px 16px', backgroundColor: '#fffbeb', borderLeft: '4px solid #f59e0b', margin: '8px 16px', borderRadius: '4px' }}>
+          <div style={{
+            padding: '8px 16px',
+            backgroundColor: '#fffbeb',
+            borderLeft: '4px solid #f59e0b',
+            margin: '8px 16px',
+            borderRadius: '4px'
+          }}>
             {validationErrors.map((error, index) => (
               <div key={index} style={{ color: '#92400e', fontSize: '12px', marginBottom: '4px' }}>
                 {error}
@@ -730,20 +625,71 @@ export const HistogramPopover = ({
 
         {/* Loading state */}
         {loading && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '40px 16px', color: '#6b7280' }}>
-            <div style={{ width: '16px', height: '16px', border: '2px solid #e5e7eb', borderTop: '2px solid #3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite' }}>
-            </div>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            padding: '40px 16px',
+            color: '#6b7280'
+          }}>
+            <div style={{
+              width: '16px',
+              height: '16px',
+              border: '2px solid #e5e7eb',
+              borderTop: '2px solid #3b82f6',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite'
+            }} />
             <span>Loading histogram...</span>
           </div>
         )}
 
         {/* Main visualization */}
-        {layout && histogramData && !loading && !error && validationErrors.length === 0 && popoverData?.metrics && (
-          <div style={CHART_STYLES.container}>
-            {renderHistograms(layout, histogramData)}
+        {layout && histogramData && !loading && !error && validationErrors.length === 0 && (
+          <div style={{ padding: '6px', overflow: 'hidden' }}>
+            <svg
+              ref={svgRef}
+              width={containerSize.width - 16}
+              height={layout.totalHeight}
+              style={{ display: 'block' }}
+            >
+              <rect
+                width={containerSize.width - 16}
+                height={layout.totalHeight}
+                fill={HISTOGRAM_COLORS.background}
+              />
+
+              {layout.charts.map(chart => {
+                const metric = chart.metric
+                const data = histogramData[metric]
+                const threshold = getEffectiveThresholdValue(metric)
+
+                if (!data) return null
+
+                return (
+                  <HistogramChart
+                    key={metric}
+                    chart={chart}
+                    data={data}
+                    threshold={threshold}
+                    isMultiChart={layout.charts.length > 1}
+                    animationDuration={animationDuration}
+                    onSliderMouseDown={handleSliderMouseDown}
+                  />
+                )
+              })}
+            </svg>
           </div>
         )}
       </div>
+
+      {/* Add CSS for spinner animation */}
+      <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   )
 }

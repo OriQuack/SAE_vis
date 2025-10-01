@@ -237,7 +237,6 @@ class ClassificationEngine:
                 "id": node_id,
                 "name": display_name_generator.get_display_name(node),
                 "stage": node.stage,
-                "count": count,  # For frontend compatibility
                 "feature_count": count,  # Required by response model
                 "category": node.category.value,
             }

@@ -1,11 +1,17 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useCallback } from 'react'
 import { useVisualizationStore } from '../store'
-import { calculateAlluvialLayout } from '../lib/d3-alluvial-utils'
+import {
+  calculateAlluvialLayout,
+  getNodeColor,
+  getNodeStyle,
+  getConnectedFlowIds,
+  getFlowOpacity,
+  ALLUVIAL_LEGEND_ITEMS
+} from '../lib/d3-alluvial-utils'
 import { calculateSankeyLayout } from '../lib/d3-sankey-utils'
-import { ALLUVIAL_COLORS, ALLUVIAL_OPACITY } from '../lib/constants'
 import type { AlluvialSankeyNode, AlluvialSankeyLink } from '../types'
 
-// ==================== TYPES ====================
+// ==================== INTERFACES ====================
 
 interface AlluvialDiagramProps {
   width?: number
@@ -13,7 +19,117 @@ interface AlluvialDiagramProps {
   className?: string
 }
 
-// ==================== REACT COMPONENT ====================
+// ==================== HELPER COMPONENTS ====================
+
+const EmptyState: React.FC = () => (
+  <div className="alluvial-empty">
+    <div className="alluvial-empty__icon">🌊</div>
+    <h3 className="alluvial-empty__title">No Flows Available</h3>
+    <p className="alluvial-empty__text">
+      Create visualizations in both panels to see feature flows
+    </p>
+  </div>
+)
+
+const FlowPath: React.FC<{
+  flow: AlluvialSankeyLink
+  pathData: string
+  opacity: number
+  onMouseEnter: () => void
+  onMouseLeave: () => void
+}> = ({ flow, pathData, opacity, onMouseEnter, onMouseLeave }) => (
+  <path
+    d={pathData}
+    fill="none"
+    stroke={flow.color}
+    strokeWidth={Math.max(1, flow.width || 1)}
+    opacity={opacity}
+    className="alluvial-flow-ribbon"
+    onMouseEnter={onMouseEnter}
+    onMouseLeave={onMouseLeave}
+    style={{
+      transition: 'opacity 0.2s ease',
+      cursor: 'pointer'
+    }}
+  >
+    <title>
+      {`${flow.flow.value} features: ${flow.flow.source} → ${flow.flow.target}`}
+    </title>
+  </path>
+)
+
+const NodeRect: React.FC<{
+  node: AlluvialSankeyNode
+  isHovered: boolean
+  onMouseEnter: () => void
+  onMouseLeave: () => void
+}> = ({ node, isHovered, onMouseEnter, onMouseLeave }) => {
+  const color = getNodeColor(node.label)
+  const style = getNodeStyle(isHovered)
+
+  const x = node.x0 || 0
+  const y = node.y0 || 0
+  const width = (node.x1 || 0) - (node.x0 || 0)
+  const height = (node.y1 || 0) - (node.y0 || 0)
+
+  return (
+    <rect
+      x={x}
+      y={y}
+      width={width}
+      height={height}
+      fill={color}
+      fillOpacity={style.fillOpacity}
+      stroke={style.strokeColor}
+      strokeWidth={style.strokeWidth}
+      rx={2}
+      className="alluvial-node-rect"
+      style={{
+        cursor: 'pointer',
+        transition: 'all 0.2s ease'
+      }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      <title>{`${node.label}: ${node.featureCount} features`}</title>
+    </rect>
+  )
+}
+
+const Legend: React.FC = () => (
+  <div
+    className="alluvial-legend"
+    style={{
+      display: 'flex',
+      justifyContent: 'center',
+      gap: '16px',
+      padding: '8px',
+      fontSize: '11px',
+      flexWrap: 'wrap'
+    }}
+  >
+    {ALLUVIAL_LEGEND_ITEMS.map((item, index) => (
+      <div
+        key={index}
+        className="alluvial-legend-item"
+        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+      >
+        <div
+          className="alluvial-legend-color"
+          style={{
+            backgroundColor: item.color,
+            width: '12px',
+            height: '12px',
+            borderRadius: '2px'
+          }}
+        />
+        <span>{item.label}</span>
+      </div>
+    ))}
+  </div>
+)
+
+// ==================== MAIN COMPONENT ====================
 
 const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
   width = 400,
@@ -30,7 +146,7 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
   const [hoveredFlowId, setHoveredFlowId] = useState<string | null>(null)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
 
-  // Calculate Sankey layouts to get nodes with y0/y1 positions
+  // Calculate Sankey layouts to get nodes with positions
   const leftLayout = useMemo(
     () => leftSankeyData ? calculateSankeyLayout(leftSankeyData, width, height) : null,
     [leftSankeyData, width, height]
@@ -41,7 +157,7 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
     [rightSankeyData, width, height]
   )
 
-  // Calculate alluvial layout using processed nodes (with y0/y1 positions)
+  // Calculate alluvial layout using D3 utilities
   const layout = useMemo(
     () => calculateAlluvialLayout(
       alluvialFlows,
@@ -53,284 +169,116 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
     [alluvialFlows, width, height, leftLayout?.nodes, rightLayout?.nodes]
   )
 
-  // Get connected link IDs for hovered node
-  const hoveredNodeLinkIds = useMemo(() => {
-    if (!hoveredNodeId) return new Set<string>()
+  // Get connected flow IDs using utility function
+  const hoveredNodeLinkIds = useMemo(
+    () => getConnectedFlowIds(hoveredNodeId, layout.flows),
+    [hoveredNodeId, layout.flows]
+  )
 
-    const linkIds = new Set<string>()
-    layout.flows.forEach((flow: AlluvialSankeyLink) => {
-      // Check if flow is connected to hovered node
-      const sourceId = typeof flow.source === 'object' ? flow.source.id : flow.source
-      const targetId = typeof flow.target === 'object' ? flow.target.id : flow.target
+  // Event handlers with useCallback for performance
+  const handleNodeMouseEnter = useCallback(
+    (nodeId: string, panel: 'left' | 'right') => {
+      setHoveredNodeId(nodeId)
+      const sankeyNodeId = nodeId.replace(/^(left_|right_)/, '')
+      setHoveredAlluvialNode(sankeyNodeId, panel)
+    },
+    [setHoveredAlluvialNode]
+  )
 
-      if (sourceId === hoveredNodeId || targetId === hoveredNodeId) {
-        linkIds.add(flow.id)
-      }
-    })
-
-    return linkIds
-  }, [hoveredNodeId, layout.flows])
+  const handleNodeMouseLeave = useCallback(() => {
+    setHoveredNodeId(null)
+    setHoveredAlluvialNode(null, null)
+  }, [setHoveredAlluvialNode])
 
   // Handle empty state
   if (!layout.flows.length) {
     return (
       <div className={`alluvial-diagram alluvial-diagram--empty ${className}`}>
-        <div className="alluvial-empty">
-          <div className="alluvial-empty__icon">🌊</div>
-          <h3 className="alluvial-empty__title">No Flows Available</h3>
-          <p className="alluvial-empty__text">
-            {!alluvialFlows
-              ? 'Create visualizations in both panels to see feature flows'
-              : 'No overlapping features found between configurations'}
-          </p>
-        </div>
+        {!alluvialFlows ? (
+          <EmptyState />
+        ) : (
+          <div className="alluvial-empty">
+            <div className="alluvial-empty__icon">🌊</div>
+            <h3 className="alluvial-empty__title">No Flows Available</h3>
+            <p className="alluvial-empty__text">
+              No overlapping features found between configurations
+            </p>
+          </div>
+        )}
       </div>
     )
   }
 
-  // React renders all elements
+  // Render the visualization
   return (
     <div className={`alluvial-diagram ${className}`}>
-      {/* Compact statistics header */}
-      {layout.stats && (
-        <div className="alluvial-header" style={{ padding: '8px 12px', marginBottom: '8px', background: 'transparent' }}>
-          <div className="alluvial-stats" style={{ display: 'flex', justifyContent: 'space-around', gap: '12px' }}>
-            <div className="alluvial-stat" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <span className="alluvial-stat__value" style={{ fontSize: '14px', fontWeight: '600' }}>{layout.stats.totalFeatures}</span>
-              <span className="alluvial-stat__label" style={{ fontSize: '10px', color: '#6b7280' }}>Features</span>
-            </div>
-            <div className="alluvial-stat" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <span className="alluvial-stat__value" style={{ fontSize: '14px', fontWeight: '600' }}>{layout.stats.totalFlows}</span>
-              <span className="alluvial-stat__label" style={{ fontSize: '10px', color: '#6b7280' }}>Flows</span>
-            </div>
-            <div className="alluvial-stat" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <span
-                className="alluvial-stat__value"
-                style={{
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  color: layout.stats.consistencyRate > 50
-                    ? ALLUVIAL_COLORS.consistent
-                    : ALLUVIAL_COLORS.inconsistent
-                }}
-              >
-                {layout.stats.consistencyRate.toFixed(1)}%
-              </span>
-              <span className="alluvial-stat__label" style={{ fontSize: '10px', color: '#6b7280' }}>Consistent</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* SVG visualization */}
       <svg
         width={width}
         height={height}
         viewBox={`0 0 ${width} ${height}`}
         className="alluvial-svg"
       >
-        {/* Render flows as curved ribbons with proper width */}
+        {/* Render flows */}
         <g className="alluvial-flows">
-          {layout.flows.map((flow: AlluvialSankeyLink) => {
+          {layout.flows.map(flow => {
             const isFlowHovered = hoveredFlowId === flow.id
-            const isConnectedToNode = hoveredNodeId && hoveredNodeLinkIds.has(flow.id)
+            const isConnectedToNode = hoveredNodeId !== null && hoveredNodeLinkIds.has(flow.id)
 
-            // Calculate opacity based on hover state
-            const opacity = isFlowHovered || isConnectedToNode
-              ? ALLUVIAL_OPACITY.hover
-              : (hoveredFlowId || hoveredNodeId)
-                ? ALLUVIAL_OPACITY.inactive
-                : flow.opacity
+            const opacity = getFlowOpacity(
+              isFlowHovered,
+              isConnectedToNode,
+              hoveredFlowId,
+              hoveredNodeId,
+              flow.opacity
+            )
 
-            // Create path data using sankeyLinkHorizontal
-            // The link object from d3-sankey has source and target nodes with coordinates
-            let pathData = ''
-            if (layout.sankeyGenerator && flow.source && flow.target) {
-              // After d3-sankey processing, source and target should be node objects with coordinates
-              pathData = layout.sankeyGenerator(flow) || ''
-            }
-
-            // Get the flow width from d3-sankey calculations
-            const flowWidth = Math.max(1, flow.width || 1)
+            // Get path data from D3 sankey generator
+            const pathData = layout.sankeyGenerator && flow.source && flow.target
+              ? layout.sankeyGenerator(flow) || ''
+              : ''
 
             return (
-              <path
+              <FlowPath
                 key={flow.id}
-                d={pathData}
-                fill="none"
-                stroke={flow.color}
-                strokeWidth={flowWidth}
+                flow={flow}
+                pathData={pathData}
                 opacity={opacity}
-                className="alluvial-flow-ribbon"
                 onMouseEnter={() => setHoveredFlowId(flow.id)}
                 onMouseLeave={() => setHoveredFlowId(null)}
-                style={{
-                  transition: 'opacity 0.2s ease',
-                  cursor: 'pointer'
-                }}
-              >
-                <title>
-                  {`${flow.flow.value} features: ${flow.flow.source} → ${flow.flow.target}`}
-                </title>
-              </path>
+              />
             )
           })}
         </g>
 
-        {/* Left nodes as rectangles */}
+        {/* Render left nodes */}
         <g className="alluvial-left-nodes">
-          {layout.leftNodes.map((node: AlluvialSankeyNode) => {
-            // Determine color based on category (using similar logic to flows)
-            const baseColor = node.label === 'all' ? '#10b981' :
-                             node.label === 'none' ? '#f59e0b' :
-                             node.label.includes('1of') ? '#ef4444' :
-                             node.label.includes('2of') ? '#f97316' : '#6b7280'
-
-            const isHovered = hoveredNodeId === node.id
-            const fillOpacity = isHovered ? 0.9 : 0.7
-            const strokeWidth = isHovered ? 2 : 0.5
-            const strokeColor = isHovered ? '#ffffff' : '#374151'
-
-            // Use d3-sankey calculated positions
-            const x = node.x0 || 0
-            const y = node.y0 || 0
-            const nodeWidth = (node.x1 || 0) - (node.x0 || 0)
-            const nodeHeight = (node.y1 || 0) - (node.y0 || 0)
-
-            return (
-              <g key={node.id} className="alluvial-node-group">
-                <rect
-                  x={x}
-                  y={y}
-                  width={nodeWidth}
-                  height={nodeHeight}
-                  fill={baseColor}
-                  fillOpacity={fillOpacity}
-                  stroke={strokeColor}
-                  strokeWidth={strokeWidth}
-                  rx={2}
-                  className="alluvial-node-rect"
-                  style={{
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease'
-                  }}
-                  onMouseEnter={() => {
-                    setHoveredNodeId(node.id)
-                    const sankeyNodeId = node.id.replace(/^left_/, '')
-                    setHoveredAlluvialNode(sankeyNodeId, 'left')
-                  }}
-                  onMouseLeave={() => {
-                    setHoveredNodeId(null)
-                    setHoveredAlluvialNode(null, null)
-                  }}
-                >
-                  <title>{`${node.label}: ${node.featureCount} features`}</title>
-                </rect>
-              </g>
-            )
-          })}
+          {layout.leftNodes.map(node => (
+            <NodeRect
+              key={node.id}
+              node={node}
+              isHovered={hoveredNodeId === node.id}
+              onMouseEnter={() => handleNodeMouseEnter(node.id, 'left')}
+              onMouseLeave={handleNodeMouseLeave}
+            />
+          ))}
         </g>
 
-        {/* Right nodes as rectangles */}
+        {/* Render right nodes */}
         <g className="alluvial-right-nodes">
-          {layout.rightNodes.map((node: AlluvialSankeyNode) => {
-            // Determine color based on category
-            const baseColor = node.label === 'all' ? '#10b981' :
-                             node.label === 'none' ? '#f59e0b' :
-                             node.label.includes('1of') ? '#ef4444' :
-                             node.label.includes('2of') ? '#f97316' : '#6b7280'
-
-            const isHovered = hoveredNodeId === node.id
-            const fillOpacity = isHovered ? 0.9 : 0.7
-            const strokeWidth = isHovered ? 2 : 0.5
-            const strokeColor = isHovered ? '#ffffff' : '#374151'
-
-            // Use d3-sankey calculated positions
-            const x = node.x0 || 0
-            const y = node.y0 || 0
-            const nodeWidth = (node.x1 || 0) - (node.x0 || 0)
-            const nodeHeight = (node.y1 || 0) - (node.y0 || 0)
-
-            return (
-              <g key={node.id} className="alluvial-node-group">
-                <rect
-                  x={x}
-                  y={y}
-                  width={nodeWidth}
-                  height={nodeHeight}
-                  fill={baseColor}
-                  fillOpacity={fillOpacity}
-                  stroke={strokeColor}
-                  strokeWidth={strokeWidth}
-                  rx={2}
-                  className="alluvial-node-rect"
-                  style={{
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease'
-                  }}
-                  onMouseEnter={() => {
-                    setHoveredNodeId(node.id)
-                    const sankeyNodeId = node.id.replace(/^right_/, '')
-                    setHoveredAlluvialNode(sankeyNodeId, 'right')
-                  }}
-                  onMouseLeave={() => {
-                    setHoveredNodeId(null)
-                    setHoveredAlluvialNode(null, null)
-                  }}
-                >
-                  <title>{`${node.label}: ${node.featureCount} features`}</title>
-                </rect>
-              </g>
-            )
-          })}
+          {layout.rightNodes.map(node => (
+            <NodeRect
+              key={node.id}
+              node={node}
+              isHovered={hoveredNodeId === node.id}
+              onMouseEnter={() => handleNodeMouseEnter(node.id, 'right')}
+              onMouseLeave={handleNodeMouseLeave}
+            />
+          ))}
         </g>
-
-        {/* Hover tooltip */}
-        {hoveredFlowId && (
-          <g className="alluvial-tooltip" style={{ pointerEvents: 'none' }}>
-            {/* Tooltip implementation could go here */}
-          </g>
-        )}
       </svg>
 
       {/* Legend */}
-      <div className="alluvial-legend" style={{ display: 'flex', justifyContent: 'center', gap: '16px', padding: '8px', fontSize: '11px', flexWrap: 'wrap', background: 'transparent' }}>
-        <div className="alluvial-legend-item" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <div
-            className="alluvial-legend-color"
-            style={{ backgroundColor: ALLUVIAL_COLORS.trivial, width: '12px', height: '12px', borderRadius: '2px' }}
-          />
-          <span>Trivial (Same)</span>
-        </div>
-        <div className="alluvial-legend-item" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <div
-            className="alluvial-legend-color"
-            style={{ backgroundColor: ALLUVIAL_COLORS.minor, width: '12px', height: '12px', borderRadius: '2px' }}
-          />
-          <span>Minor (1 level)</span>
-        </div>
-        <div className="alluvial-legend-item" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <div
-            className="alluvial-legend-color"
-            style={{ backgroundColor: ALLUVIAL_COLORS.moderate, width: '12px', height: '12px', borderRadius: '2px' }}
-          />
-          <span>Moderate (2 levels)</span>
-        </div>
-        <div className="alluvial-legend-item" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <div
-            className="alluvial-legend-color"
-            style={{ backgroundColor: ALLUVIAL_COLORS.major, width: '12px', height: '12px', borderRadius: '2px' }}
-          />
-          <span>Major (3+ levels)</span>
-        </div>
-        <div className="alluvial-legend-item" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <div
-            className="alluvial-legend-color"
-            style={{ backgroundColor: ALLUVIAL_COLORS.differentStage, width: '12px', height: '12px', borderRadius: '2px' }}
-          />
-          <span>Different Stage</span>
-        </div>
-      </div>
+      <Legend />
     </div>
   )
 }
