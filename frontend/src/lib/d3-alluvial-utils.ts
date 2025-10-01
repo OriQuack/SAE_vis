@@ -333,3 +333,89 @@ export function calculateAlluvialLayout(
     stats
   }
 }
+
+// ============================================================================
+// NODE COLOR UTILITIES
+// ============================================================================
+
+/**
+ * Get node color based on label pattern
+ * Centralized logic for consistent node coloring
+ */
+export function getNodeColor(label: string): string {
+  if (label === 'all' || label.includes('all_') && label.includes('_high')) return '#10b981'
+  if (label === 'none' || label.includes('all_') && label.includes('_low')) return '#f59e0b'
+  if (label.includes('1_of_') || label.includes('1of')) return '#ef4444'
+  if (label.includes('2_of_') || label.includes('2of')) return '#f97316'
+  return '#6b7280'
+}
+
+/**
+ * Get node style properties based on hover state
+ */
+export function getNodeStyle(isHovered: boolean) {
+  return {
+    fillOpacity: isHovered ? 0.9 : 0.7,
+    strokeWidth: isHovered ? 2 : 0.5,
+    strokeColor: isHovered ? '#ffffff' : '#374151'
+  }
+}
+
+// ============================================================================
+// FLOW INTERACTION UTILITIES
+// ============================================================================
+
+/**
+ * Get connected flow IDs for a hovered node
+ */
+export function getConnectedFlowIds(
+  nodeId: string | null,
+  flows: AlluvialSankeyLink[]
+): Set<string> {
+  if (!nodeId) return new Set<string>()
+
+  const linkIds = new Set<string>()
+  flows.forEach(flow => {
+    const sourceId = typeof flow.source === 'object' ? flow.source.id : flow.source
+    const targetId = typeof flow.target === 'object' ? flow.target.id : flow.target
+
+    if (sourceId === nodeId || targetId === nodeId) {
+      linkIds.add(flow.id)
+    }
+  })
+
+  return linkIds
+}
+
+/**
+ * Calculate flow opacity based on hover states
+ */
+export function getFlowOpacity(
+  isFlowHovered: boolean,
+  isConnectedToNode: boolean,
+  hoveredFlowId: string | null,
+  hoveredNodeId: string | null,
+  defaultOpacity: number
+): number {
+  if (isFlowHovered || isConnectedToNode) {
+    return ALLUVIAL_OPACITY.hover
+  }
+
+  if (hoveredFlowId || hoveredNodeId) {
+    return ALLUVIAL_OPACITY.inactive
+  }
+
+  return defaultOpacity
+}
+
+// ============================================================================
+// LEGEND DATA
+// ============================================================================
+
+export const ALLUVIAL_LEGEND_ITEMS = [
+  { color: ALLUVIAL_COLORS.trivial, label: 'Trivial (Same)' },
+  { color: ALLUVIAL_COLORS.minor, label: 'Minor (1 level)' },
+  { color: ALLUVIAL_COLORS.moderate, label: 'Moderate (2 levels)' },
+  { color: ALLUVIAL_COLORS.major, label: 'Major (3+ levels)' },
+  { color: ALLUVIAL_COLORS.differentStage, label: 'Different Stage' }
+] as const

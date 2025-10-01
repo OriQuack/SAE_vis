@@ -1,5 +1,4 @@
 import { sankey, sankeyLinkHorizontal } from 'd3-sankey'
-import React, { useRef, useEffect, useState, useCallback } from 'react'
 import type { NodeCategory, D3SankeyNode, D3SankeyLink, SankeyLayout } from '../types'
 import { CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_DISTANCE, CATEGORY_SCORE_AGREEMENT } from './constants'
 
@@ -7,21 +6,11 @@ import { CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_DISTANCE, 
 // TYPES
 // ============================================================================
 
-// Hook Types
-interface Size {
-  width: number
-  height: number
-}
-
-interface UseResizeObserverOptions {
-  defaultWidth?: number
-  defaultHeight?: number
-  debounceMs?: number
-}
-
-interface UseResizeObserverReturn<T extends HTMLElement = HTMLElement> {
-  ref: React.RefObject<T | null>
-  size: Size
+export interface StageLabel {
+  x: number
+  y: number
+  label: string
+  stage: number
 }
 
 // ============================================================================
@@ -31,91 +20,172 @@ interface UseResizeObserverReturn<T extends HTMLElement = HTMLElement> {
 export const DEFAULT_ANIMATION = {
   duration: 300,
   easing: 'ease-out'
-}
+} as const
 
 export const SANKEY_COLORS: Record<NodeCategory, string> = {
   [CATEGORY_ROOT]: '#8b5cf6',
   [CATEGORY_FEATURE_SPLITTING]: '#06b6d4',
   [CATEGORY_SEMANTIC_DISTANCE]: '#3b82f6',
   [CATEGORY_SCORE_AGREEMENT]: '#10b981'
-}
+} as const
 
-const DEFAULT_SANKEY_MARGIN = { top: 80, right: 20, bottom: 20, left: 80 }
+export const DEFAULT_SANKEY_MARGIN = { top: 80, right: 60, bottom: 20, left: 80 } as const
+export const RIGHT_SANKEY_MARGIN = { top: 80, right: 80, bottom: 20, left: 60 } as const
+
+// Category display names
+const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
+  [CATEGORY_ROOT]: 'All Features',
+  [CATEGORY_FEATURE_SPLITTING]: 'Feature Splitting',
+  [CATEGORY_SEMANTIC_DISTANCE]: 'Semantic Distance',
+  [CATEGORY_SCORE_AGREEMENT]: 'Score Agreement'
+} as const
 
 // ============================================================================
-// SANKEY UTILITIES
+// HELPER FUNCTIONS
 // ============================================================================
 
 /**
- * Professional D3-sankey node alignment function that respects actual stage positions.
- * This is the proper way to control node positioning in D3-sankey.
+ * D3-sankey node alignment function that respects actual stage positions
  */
 function stageBasedAlign(node: D3SankeyNode): number {
-  // Use our stage property instead of D3's calculated depth
-  // This ensures nodes are positioned at their actual stages
   return node.stage || 0
 }
 
-export function calculateSankeyLayout(sankeyData: any, layoutWidth?: number, layoutHeight?: number): SankeyLayout {
+/**
+ * Extract parent ID from a node ID by removing the last component
+ */
+function extractParentId(nodeId: string): string {
+  if (nodeId === 'root') return ''
+
+  const parts = nodeId.split('_')
+
+  // For range splits (ending with numbers), remove the last part
+  if (/^\d+$/.test(parts[parts.length - 1])) {
+    return parts.slice(0, -1).join('_')
+  }
+
+  // For score agreement patterns "all_N_high" or "all_N_low"
+  const allPatternMatch = nodeId.match(/_all_\d+_(high|low)$/)
+  if (allPatternMatch) {
+    return nodeId.slice(0, allPatternMatch.index)
+  }
+
+  // For score agreement patterns "X_of_N_high_[metrics]"
+  const partialPatternMatch = nodeId.match(/_\d+_of_\d+_high_[a-z_]+$/)
+  if (partialPatternMatch) {
+    return nodeId.slice(0, partialPatternMatch.index)
+  }
+
+  // Fallback: remove last component
+  return parts.slice(0, -1).join('_')
+}
+
+/**
+ * Get sorting priority for score agreement nodes (lower number = higher priority)
+ */
+function getScoreAgreementPriority(nodeId: string): number {
+  // Match "all_N_high" pattern
+  if (nodeId.match(/all_(\d+)_high/)) {
+    return 0  // Highest priority - all scores high
+  }
+
+  // Match "all_N_low" pattern
+  const allLowMatch = nodeId.match(/all_(\d+)_low/)
+  if (allLowMatch) {
+    const totalScores = parseInt(allLowMatch[1])
+    return totalScores + 1  // Lowest priority - all scores low
+  }
+
+  // Match "X_of_N_high_..." pattern
+  const partialMatch = nodeId.match(/(\d+)_of_(\d+)_high/)
+  if (partialMatch) {
+    const numHigh = parseInt(partialMatch[1])
+    const totalScores = parseInt(partialMatch[2])
+    return totalScores - numHigh + 1
+  }
+
+  return 999 // Fallback for unknown patterns
+}
+
+/**
+ * Get category-specific sort order within the same parent
+ */
+function getCategorySortOrder(nodeId: string, category: string): number {
+  switch (category) {
+    case CATEGORY_FEATURE_SPLITTING:
+      // feature_splitting_0 (False) before feature_splitting_1 (True)
+      return nodeId.includes('_0') ? 0 : 1
+
+    case CATEGORY_SEMANTIC_DISTANCE:
+      // semdist_mean_0 (Low) before semdist_mean_1 (High)
+      return nodeId.includes('_0') ? 0 : 1
+
+    case CATEGORY_SCORE_AGREEMENT:
+      // Use score agreement priority (most agreement first)
+      return getScoreAgreementPriority(nodeId)
+
+    default:
+      return 0
+  }
+}
+
+// ============================================================================
+// MAIN SANKEY CALCULATION
+// ============================================================================
+
+/**
+ * Calculate Sankey layout from data
+ */
+export function calculateSankeyLayout(
+  sankeyData: any,
+  layoutWidth?: number,
+  layoutHeight?: number,
+  customMargin?: { top: number; right: number; bottom: number; left: number }
+): SankeyLayout {
   if (!sankeyData?.nodes || !sankeyData?.links) {
     throw new Error('Invalid sankey data: missing nodes or links')
   }
 
-  const width = (layoutWidth || 800) - DEFAULT_SANKEY_MARGIN.left - DEFAULT_SANKEY_MARGIN.right
-  const height = (layoutHeight || 600) - DEFAULT_SANKEY_MARGIN.top - DEFAULT_SANKEY_MARGIN.bottom
+  const margin = customMargin || DEFAULT_SANKEY_MARGIN
+  const width = (layoutWidth || 800) - margin.left - margin.right
+  const height = (layoutHeight || 600) - margin.top - margin.bottom
 
-  // Create node ID to index mapping
+  // Build reference sets and maps for efficiency
+  const referencedNodeIds = new Set<string>()
+
+  // Process links once to build reference set
+  for (const link of sankeyData.links) {
+    const sourceId = typeof link.source === 'object' ? String(link.source?.id) : String(link.source)
+    const targetId = typeof link.target === 'object' ? String(link.target?.id) : String(link.target)
+    referencedNodeIds.add(sourceId)
+    referencedNodeIds.add(targetId)
+  }
+
+  // Filter nodes efficiently
+  const filteredNodes = sankeyData.nodes.filter((node: any) => {
+    const nodeId = String(node.id)
+    return referencedNodeIds.has(nodeId) || (node.feature_count || 0) > 0
+  })
+
+  // Create node ID map for quick lookup
   const nodeIdMap = new Map<string, number>()
-  sankeyData.nodes.forEach((node: any, index: number) => {
+  filteredNodes.forEach((node: any, index: number) => {
     nodeIdMap.set(String(node.id), index)
   })
 
-  // Transform data for d3-sankey
+  // Transform links efficiently
   const transformedLinks: any[] = []
 
-  sankeyData.links.forEach((link: any, linkIndex: number) => {
-    // Handle different link reference formats
-    let sourceIndex = -1
-    let targetIndex = -1
+  for (const link of sankeyData.links) {
+    const sourceId = typeof link.source === 'object' ? link.source?.id : link.source
+    const targetId = typeof link.target === 'object' ? link.target?.id : link.target
 
-    if (typeof link.source === 'number') {
-      sourceIndex = link.source
-    } else if (typeof link.source === 'string') {
-      sourceIndex = nodeIdMap.get(link.source) ?? -1
-    } else if (typeof link.source === 'object' && link.source?.id) {
-      sourceIndex = nodeIdMap.get(String(link.source.id)) ?? -1
-    }
+    const sourceIndex = typeof sourceId === 'number' ? sourceId : nodeIdMap.get(String(sourceId))
+    const targetIndex = typeof targetId === 'number' ? targetId : nodeIdMap.get(String(targetId))
 
-    if (typeof link.target === 'number') {
-      targetIndex = link.target
-    } else if (typeof link.target === 'string') {
-      targetIndex = nodeIdMap.get(link.target) ?? -1
-    } else if (typeof link.target === 'object' && link.target?.id) {
-      targetIndex = nodeIdMap.get(String(link.target.id)) ?? -1
-    }
-
-    if (sourceIndex === -1 || targetIndex === -1) {
-      console.error('calculateSankeyLayout: Invalid link reference (skipping):', {
-        linkIndex,
-        original: link,
-        sourceIndex,
-        targetIndex,
-        sourceId: typeof link.source === 'object' ? link.source?.id : link.source,
-        targetId: typeof link.target === 'object' ? link.target?.id : link.target,
-        availableNodeIds: Array.from(nodeIdMap.keys()).slice(0, 10)
-      })
-      return // Skip invalid links
-    }
-
-    // Validate indices are within bounds
-    if (sourceIndex >= sankeyData.nodes.length || targetIndex >= sankeyData.nodes.length || sourceIndex < 0 || targetIndex < 0) {
-      console.error('calculateSankeyLayout: Link index out of bounds (skipping):', {
-        linkIndex,
-        sourceIndex,
-        targetIndex,
-        nodeCount: sankeyData.nodes.length
-      })
-      return // Skip out-of-bounds links
+    if (sourceIndex === undefined || targetIndex === undefined) {
+      console.warn(`Skipping invalid link: ${sourceId} -> ${targetId}`)
+      continue
     }
 
     transformedLinks.push({
@@ -123,185 +193,64 @@ export function calculateSankeyLayout(sankeyData: any, layoutWidth?: number, lay
       source: sourceIndex,
       target: targetIndex
     })
-  })
-
-  const transformedData = {
-    nodes: sankeyData.nodes.map((node: any, index: number) => {
-      // Preserve all original node properties to prevent d3-sankey from losing them
-      const transformedNode = {
-        ...node,
-        index // Add index for debugging
-      }
-      return transformedNode
-    }),
-    links: transformedLinks
   }
 
-  // Validate we have valid data for d3-sankey
-  if (transformedData.nodes.length === 0) {
+  // Validate data
+  if (filteredNodes.length === 0) {
     throw new Error('No valid nodes found for Sankey diagram')
   }
 
-  // Allow empty links for root-only trees (dynamic tree building starts with just the root)
-  if (transformedData.links.length === 0 && transformedData.nodes.length > 1) {
+  if (transformedLinks.length === 0 && filteredNodes.length > 1) {
     throw new Error('No valid links found for Sankey diagram')
   }
 
-  // Preserve original node order with flexible stage handling
-  const nodesWithOrder = transformedData.nodes.map((node: D3SankeyNode, index: number) => ({
+  // Prepare nodes with original index for sorting
+  const nodesWithOrder = filteredNodes.map((node: D3SankeyNode, index: number) => ({
     ...node,
     originalIndex: index
   }))
 
-  // ============================================================================
-  // NODE SORTING HELPER FUNCTIONS
-  // ============================================================================
-
-  /**
-   * Extract parent ID from a node ID by removing the last component
-   * Examples:
-   * - "root_feature_splitting_0" -> "root"
-   * - "root_feature_splitting_1_semdist_mean_0" -> "root_feature_splitting_1"
-   * - "root_false_semdist_high_all_3_high" -> "root_false_semdist_high"
-   */
-  function extractParentId(nodeId: string): string {
-    if (nodeId === 'root') return ''
-
-    // For range splits (ending with numbers), remove the last part
-    const parts = nodeId.split('_')
-    if (/^\d+$/.test(parts[parts.length - 1])) {
-      return parts.slice(0, -1).join('_')
-    }
-
-    // For score agreement patterns "all_N_high" or "all_N_low"
-    const allPatternMatch = nodeId.match(/_all_\d+_(high|low)$/)
-    if (allPatternMatch) {
-      return nodeId.slice(0, allPatternMatch.index)
-    }
-
-    // For score agreement patterns "X_of_N_high_[metrics]"
-    const partialPatternMatch = nodeId.match(/_\d+_of_\d+_high_[a-z_]+$/)
-    if (partialPatternMatch) {
-      return nodeId.slice(0, partialPatternMatch.index)
-    }
-
-    // Fallback: remove last component
-    return parts.slice(0, -1).join('_')
-  }
-
-  /**
-   * Get sorting priority for score agreement nodes (lower number = higher priority)
-   * Most agreement (all_N_high) should come first, least agreement (all_N_low) last
-   * Works flexibly with any number of metrics (2, 3, 4, etc.)
-   */
-  function getScoreAgreementPriority(nodeId: string): number {
-    // Extract pattern from node ID
-    // Pattern examples: "all_3_high", "2_of_3_high_fuzz_det", "all_4_low"
-
-    // Match "all_N_high" pattern
-    const allHighMatch = nodeId.match(/all_(\d+)_high/)
-    if (allHighMatch) {
-      return 0  // Highest priority - all scores high
-    }
-
-    // Match "all_N_low" pattern
-    const allLowMatch = nodeId.match(/all_(\d+)_low/)
-    if (allLowMatch) {
-      const totalScores = parseInt(allLowMatch[1])
-      return totalScores + 1  // Lowest priority - all scores low
-    }
-
-    // Match "X_of_N_high_..." pattern
-    const partialMatch = nodeId.match(/(\d+)_of_(\d+)_high/)
-    if (partialMatch) {
-      const numHigh = parseInt(partialMatch[1])
-      const totalScores = parseInt(partialMatch[2])
-      // Sort by number of high scores (descending)
-      // More high scores = lower priority number = comes first
-      return totalScores - numHigh + 1
-    }
-
-    // Fallback for unknown patterns
-    return 999
-  }
-
-  /**
-   * Get category-specific sort order within the same parent
-   */
-  function getCategorySortOrder(nodeId: string, category: string): number {
-    switch (category) {
-      case CATEGORY_FEATURE_SPLITTING:
-        // feature_splitting_0 (False) before feature_splitting_1 (True)
-        return nodeId.includes('_0') ? 0 : 1
-
-      case CATEGORY_SEMANTIC_DISTANCE:
-        // semdist_mean_0 (Low) before semdist_mean_1 (High)
-        return nodeId.includes('_0') ? 0 : 1
-
-      case CATEGORY_SCORE_AGREEMENT:
-        // Use score agreement priority (most agreement first)
-        return getScoreAgreementPriority(nodeId)
-
-      default:
-        return 0
-    }
-  }
-
-  // Create a map of all nodes by ID for quick parent lookup
+  // Build parent-child relationships
   const nodeMap = new Map<string, D3SankeyNode>()
-  nodesWithOrder.forEach((node: D3SankeyNode) => {
-    if (node.id) {
-      nodeMap.set(node.id, node)
-    }
-  })
-
-  // Build a map from child node to parent node using link data
   const childToParentMap = new Map<string, string>()
-  transformedData.links.forEach(link => {
-    const targetId = typeof link.target === 'string' ? link.target : (link.target as any)?.id
-    const sourceId = typeof link.source === 'string' ? link.source : (link.source as any)?.id
+
+  nodesWithOrder.forEach((node: D3SankeyNode) => {
+    if (node.id) nodeMap.set(node.id, node)
+  })
+
+  transformedLinks.forEach(link => {
+    const targetId = typeof link.target === 'number' ? filteredNodes[link.target]?.id : link.target
+    const sourceId = typeof link.source === 'number' ? filteredNodes[link.source]?.id : link.source
     if (targetId && sourceId) {
-      childToParentMap.set(targetId, sourceId)
+      childToParentMap.set(String(targetId), String(sourceId))
     }
   })
 
-  // Smart node sorting function that groups by parent and sorts by category rules
-  const smartNodeSort = (a: any, b: any) => {
-    // First, sort by stage
-    if (a.stage != null && b.stage != null && a.stage !== b.stage) {
-      return a.stage - b.stage
+  // Node sorting function
+  const smartNodeSort = (a: D3SankeyNode, b: D3SankeyNode) => {
+    // Sort by stage first
+    if (a.stage !== b.stage) {
+      return (a.stage || 0) - (b.stage || 0)
     }
 
-    // Within same stage, get actual parent IDs from link data
+    // Within same stage, get parent IDs
     const parentA = childToParentMap.get(a.id || '') || extractParentId(a.id || '')
     const parentB = childToParentMap.get(b.id || '') || extractParentId(b.id || '')
 
-    // If different parents, sort by parent's Y position (if available)
+    // If different parents, sort by parent's Y position if available
     if (parentA !== parentB) {
       const parentNodeA = nodeMap.get(parentA)
       const parentNodeB = nodeMap.get(parentB)
 
-      // If both parents have been positioned by d3-sankey (have y0), use visual position
       if (parentNodeA?.y0 != null && parentNodeB?.y0 != null) {
         return parentNodeA.y0 - parentNodeB.y0
       }
 
-      // Fallback to original node ordering if parents not positioned yet
-      const aIndex = a.originalIndex ?? 0
-      const bIndex = b.originalIndex ?? 0
-      return aIndex - bIndex
+      return (a.originalIndex ?? 0) - (b.originalIndex ?? 0)
     }
 
-    // Same parent: apply category-specific sorting rules
-    if (a.category && b.category) {
-      // If different categories within same parent, maintain original order
-      if (a.category !== b.category) {
-        const aIndex = a.originalIndex ?? 0
-        const bIndex = b.originalIndex ?? 0
-        return aIndex - bIndex
-      }
-
-      // Same category and parent: apply specific sorting rules
+    // Same parent and category: apply category-specific sorting
+    if (a.category === b.category && a.category) {
       const sortOrderA = getCategorySortOrder(a.id || '', a.category)
       const sortOrderB = getCategorySortOrder(b.id || '', b.category)
 
@@ -310,46 +259,40 @@ export function calculateSankeyLayout(sankeyData: any, layoutWidth?: number, lay
       }
     }
 
-    // Fallback: preserve original order
-    const aIndex = a.originalIndex ?? 0
-    const bIndex = b.originalIndex ?? 0
-    return aIndex - bIndex
+    // Fallback to original order
+    return (a.originalIndex ?? 0) - (b.originalIndex ?? 0)
   }
 
-  // Update the transformed data with original indices
-  const orderedData = {
-    nodes: nodesWithOrder,
-    links: transformedData.links
-  }
-
-  // Link sorting function to match visual node order
-  // This ensures links connect from top to bottom on both source and target nodes
+  // Link sorting function
   const linkSort = (a: D3SankeyLink, b: D3SankeyLink) => {
     const sourceA = a.source as D3SankeyNode
     const sourceB = b.source as D3SankeyNode
     const targetA = a.target as D3SankeyNode
     const targetB = b.target as D3SankeyNode
 
-    // First, sort by source node (to group links from same source)
+    // Sort by source node index
     if (sourceA.index !== sourceB.index) {
       return (sourceA.index ?? 0) - (sourceB.index ?? 0)
     }
 
-    // Within same source, sort by target node index (which follows our node sort order)
+    // Within same source, sort by target node index
     return (targetA.index ?? 0) - (targetB.index ?? 0)
   }
 
-  // Create D3 sankey generator with professional stage-based alignment
+  // Create D3 sankey generator
   const sankeyGenerator = sankey<D3SankeyNode, D3SankeyLink>()
     .nodeWidth(15)
     .nodePadding(10)
     .extent([[1, 1], [width - 1, height - 1]])
-    .nodeAlign(stageBasedAlign) // Use stage-based alignment (professional approach)
-    .nodeSort(smartNodeSort) // Smart sorting by parent groups and category-specific rules
-    .linkSort(linkSort) // Enable link sorting to match node order
+    .nodeAlign(stageBasedAlign)
+    .nodeSort(smartNodeSort as any)
+    .linkSort(linkSort as any)
 
-  // Process the data with d3-sankey using our ordered data
-  const sankeyLayout = sankeyGenerator(orderedData)
+  // Process the data
+  const sankeyLayout = sankeyGenerator({
+    nodes: nodesWithOrder,
+    links: transformedLinks
+  })
 
   // Handle single-node case (root-only tree) where d3-sankey can't position nodes properly
   if (sankeyLayout.links.length === 0 && sankeyLayout.nodes.length === 1) {
@@ -369,7 +312,7 @@ export function calculateSankeyLayout(sankeyData: any, layoutWidth?: number, lay
     links: sankeyLayout.links,
     width,
     height,
-    margin: DEFAULT_SANKEY_MARGIN
+    margin
   }
 }
 
@@ -419,144 +362,63 @@ export function getLinkColor(link: D3SankeyLink): string {
 // VALIDATION UTILITIES
 // ============================================================================
 
+/**
+ * Validate container dimensions
+ */
 export function validateDimensions(width: number, height: number): string[] {
   const errors: string[] = []
-
-  if (width < 200) {
-    errors.push('Container width must be at least 200px')
-  }
-  if (height < 150) {
-    errors.push('Container height must be at least 150px')
-  }
-
+  if (width < 200) errors.push('Container width must be at least 200px')
+  if (height < 150) errors.push('Container height must be at least 150px')
   return errors
 }
 
+/**
+ * Validate Sankey data structure
+ */
 export function validateSankeyData(data: any): string[] {
+  if (!data) return ['Sankey data is required']
+  if (!data.nodes || !Array.isArray(data.nodes)) return ['Sankey data must contain nodes array']
+  if (!data.links || !Array.isArray(data.links)) return ['Sankey data must contain links array']
+
   const errors: string[] = []
 
-  if (!data) {
-    errors.push('Sankey data is required')
-    return errors
-  }
-
-  if (!data.nodes || !Array.isArray(data.nodes)) {
-    errors.push('Sankey data must contain nodes array')
-    return errors
-  }
-
-  if (!data.links || !Array.isArray(data.links)) {
-    errors.push('Sankey data must contain links array')
-    return errors
-  }
-
-  // Check that all link source/target IDs exist in nodes
   if (data.nodes.length > 0 && data.links.length > 0) {
+    // Build node ID map
     const nodeIdToIndex = new Map<string, number>()
     data.nodes.forEach((node: any, index: number) => {
       nodeIdToIndex.set(String(node.id), index)
     })
 
-    // Track which nodes are referenced by links
+    // Validate links
     const referencedNodeIndices = new Set<number>()
+    const linksByTarget = new Map<number, boolean>()
 
     for (let i = 0; i < data.links.length; i++) {
       const link = data.links[i]
-
-      // Handle both string IDs and object references
       const sourceId = typeof link.source === 'object' ? link.source?.id : link.source
       const targetId = typeof link.target === 'object' ? link.target?.id : link.target
 
-      let sourceIndex = -1
-      let targetIndex = -1
+      const sourceIndex = typeof sourceId === 'number' ? sourceId : nodeIdToIndex.get(String(sourceId))
+      const targetIndex = typeof targetId === 'number' ? targetId : nodeIdToIndex.get(String(targetId))
 
-      // Convert source to index
-      if (typeof sourceId === 'number') {
-        sourceIndex = sourceId
-      } else if (typeof sourceId === 'string') {
-        sourceIndex = nodeIdToIndex.get(sourceId) ?? -1
-      }
-
-      // Convert target to index
-      if (typeof targetId === 'number') {
-        targetIndex = targetId
-      } else if (typeof targetId === 'string') {
-        targetIndex = nodeIdToIndex.get(targetId) ?? -1
-      }
-
-      if (sourceIndex === -1) {
+      if (sourceIndex === undefined) {
         errors.push(`Link ${i} references missing source node: "${sourceId}"`)
       } else {
         referencedNodeIndices.add(sourceIndex)
       }
 
-      if (targetIndex === -1) {
+      if (targetIndex === undefined) {
         errors.push(`Link ${i} references missing target node: "${targetId}"`)
       } else {
         referencedNodeIndices.add(targetIndex)
+        linksByTarget.set(targetIndex, true)
       }
     }
 
-    // Check for disconnected nodes (not referenced by any links)
-    const disconnectedNodes: string[] = []
-    data.nodes.forEach((node: any, index: number) => {
-      if (!referencedNodeIndices.has(index)) {
-        disconnectedNodes.push(String(node.id))
-      }
-    })
-
-    if (disconnectedNodes.length > 0) {
-      console.warn('validateSankeyData: Found disconnected nodes:', disconnectedNodes)
-    }
-
-    // Check for specific d3-sankey issues
-    if (errors.length === 0 && data.links.length > 0) {
-      // Simulate what d3-sankey will do to catch "missing: root" type errors early
-      const linksBySource = new Map<number, any[]>()
-      const linksByTarget = new Map<number, any[]>()
-
-      data.links.forEach((link: any) => {
-        let sourceIndex = -1
-        let targetIndex = -1
-
-        // Convert references to indices
-        const sourceId = typeof link.source === 'object' ? link.source?.id : link.source
-        const targetId = typeof link.target === 'object' ? link.target?.id : link.target
-
-        if (typeof sourceId === 'number') {
-          sourceIndex = sourceId
-        } else if (typeof sourceId === 'string') {
-          sourceIndex = nodeIdToIndex.get(sourceId) ?? -1
-        }
-
-        if (typeof targetId === 'number') {
-          targetIndex = targetId
-        } else if (typeof targetId === 'string') {
-          targetIndex = nodeIdToIndex.get(targetId) ?? -1
-        }
-
-        if (sourceIndex >= 0) {
-          if (!linksBySource.has(sourceIndex)) linksBySource.set(sourceIndex, [])
-          linksBySource.get(sourceIndex)!.push(link)
-        }
-
-        if (targetIndex >= 0) {
-          if (!linksByTarget.has(targetIndex)) linksByTarget.set(targetIndex, [])
-          linksByTarget.get(targetIndex)!.push(link)
-        }
-      })
-
-      // Look for root nodes (nodes with no incoming links)
-      const rootNodes: number[] = []
-      for (let i = 0; i < data.nodes.length; i++) {
-        if (!linksByTarget.has(i) && linksBySource.has(i)) {
-          rootNodes.push(i)
-        }
-      }
-
-      if (rootNodes.length === 0 && referencedNodeIndices.size > 0) {
-        errors.push('No root nodes found - all nodes have incoming links, creating circular dependencies')
-      }
+    // Check for circular dependencies (no root nodes)
+    if (errors.length === 0 && referencedNodeIndices.size === data.nodes.length &&
+        linksByTarget.size === data.nodes.length) {
+      errors.push('No root nodes found - all nodes have incoming links, creating circular dependencies')
     }
   }
 
@@ -564,53 +426,90 @@ export function validateSankeyData(data: any): string[] {
 }
 
 // ============================================================================
-// CUSTOM HOOKS
+// STAGE LABEL CALCULATIONS
 // ============================================================================
 
 /**
- * Hook to observe element size changes with debouncing
+ * Calculate stage label positions from layout data
  */
-export const useResizeObserver = <T extends HTMLElement = HTMLElement>({
-  defaultWidth = 0,
-  defaultHeight = 0,
-  debounceMs = 100
-}: UseResizeObserverOptions = {}): UseResizeObserverReturn<T> => {
-  const ref = useRef<T | null>(null)
-  const [size, setSize] = useState<Size>({ width: defaultWidth, height: defaultHeight })
-  const timeoutRef = useRef<number | undefined>(undefined)
+export function calculateStageLabels(
+  layout: SankeyLayout | null,
+  displayData: any
+): StageLabel[] {
+  if (!layout || !displayData) return []
 
-  const updateSize = useCallback(() => {
-    if (ref.current) {
-      const rect = ref.current.getBoundingClientRect()
-      setSize({
-        width: rect.width || defaultWidth,
-        height: rect.height || defaultHeight
-      })
+  // Group nodes by stage
+  const nodesByStage = new Map<number, D3SankeyNode[]>()
+  layout.nodes.forEach(node => {
+    const stage = node.stage
+    if (!nodesByStage.has(stage)) {
+      nodesByStage.set(stage, [])
     }
-  }, [defaultWidth, defaultHeight])
+    nodesByStage.get(stage)!.push(node)
+  })
 
-  const debouncedUpdateSize = useCallback(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
-    }
-    timeoutRef.current = window.setTimeout(updateSize, debounceMs)
-  }, [updateSize, debounceMs])
+  // Calculate position and label for each stage
+  const labels: StageLabel[] = []
 
-  useEffect(() => {
-    updateSize()
+  nodesByStage.forEach((nodes, stage) => {
+    if (nodes.length === 0) return
 
-    const resizeObserver = new ResizeObserver(debouncedUpdateSize)
-    if (ref.current) {
-      resizeObserver.observe(ref.current)
-    }
+    // Get category from the first node in the stage
+    const category = nodes[0].category
+    const label = CATEGORY_DISPLAY_NAMES[category] || category
 
-    return () => {
-      resizeObserver.disconnect()
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-      }
-    }
-  }, [updateSize, debouncedUpdateSize])
+    // Calculate x position (average of all nodes in the stage)
+    const avgX = nodes.reduce((sum, node) => sum + ((node.x0 || 0) + (node.x1 || 0)) / 2, 0) / nodes.length
 
-  return { ref, size }
+    labels.push({ x: avgX, y: -30, label, stage })
+  })
+
+  return labels
 }
+
+// ============================================================================
+// LAYOUT TRANSFORMATIONS
+// ============================================================================
+
+/**
+ * Apply right-to-left flow transformation to layout
+ */
+export function applyRightToLeftTransform(
+  layout: SankeyLayout,
+  width: number
+): SankeyLayout {
+  const innerWidth = width - layout.margin.left - layout.margin.right
+  const nodeMap = new Map<D3SankeyNode, D3SankeyNode>()
+
+  // Transform nodes with mirrored x positions
+  const transformedNodes = layout.nodes.map(node => {
+    const transformedNode = {
+      ...node,
+      x0: innerWidth - (node.x1 || 0),
+      x1: innerWidth - (node.x0 || 0)
+    }
+    nodeMap.set(node, transformedNode)
+    return transformedNode
+  })
+
+  // Update links to reference transformed nodes
+  const transformedLinks = layout.links.map(link => {
+    const sourceNode = typeof link.source === 'object' ? link.source : layout.nodes[link.source as number]
+    const targetNode = typeof link.target === 'object' ? link.target : layout.nodes[link.target as number]
+
+    return {
+      ...link,
+      source: nodeMap.get(sourceNode) || sourceNode,
+      target: nodeMap.get(targetNode) || targetNode
+    }
+  })
+
+  return {
+    nodes: transformedNodes,
+    links: transformedLinks,
+    width: layout.width,
+    height: layout.height,
+    margin: layout.margin
+  }
+}
+

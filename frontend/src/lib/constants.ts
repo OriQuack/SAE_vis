@@ -141,7 +141,7 @@ export const LEGEND_ITEMS = [
 // ============================================================================
 // ALLUVIAL DIAGRAM CONFIGURATION
 // ============================================================================
-export const ALLUVIAL_MARGIN = { top: 20, right: 2, bottom: 50, left: 2 }
+export const ALLUVIAL_MARGIN = { top: 80, right: 2, bottom: 50, left: 2 }
 export const ALLUVIAL_NODE_WIDTH = 20
 
 export const ALLUVIAL_COLORS = {

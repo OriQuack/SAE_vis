@@ -1,12 +1,95 @@
 import { scaleLinear } from 'd3-scale'
+import type { ScaleLinear } from 'd3-scale'
 import { max } from 'd3-array'
-import type { HistogramData, HistogramChart, HistogramLayout, ThresholdLineData, PopoverPosition, PopoverSize } from '../types'
+import type { HistogramData, HistogramChart, HistogramLayout, ThresholdLineData, PopoverPosition, PopoverSize, HistogramBin } from '../types'
 import { DEFAULT_HISTOGRAM_MARGIN, MULTI_HISTOGRAM_LAYOUT, METRIC_TITLES } from './constants'
 
 // ============================================================================
-// HISTOGRAM UTILITIES
+// TYPES
 // ============================================================================
 
+export interface HistogramBarData {
+  x: number
+  y: number
+  width: number
+  height: number
+  color: string
+  binData: {
+    x0: number
+    x1: number
+    count: number
+  }
+}
+
+export interface AxisTickData {
+  value: number
+  position: number
+  label: string
+}
+
+export interface GridLineData {
+  x1: number
+  y1: number
+  x2: number
+  y2: number
+  opacity: number
+}
+
+interface ChartDimensions {
+  width: number
+  height: number
+  margin: typeof DEFAULT_HISTOGRAM_MARGIN
+}
+
+// ============================================================================
+// HISTOGRAM LAYOUT CALCULATIONS
+// ============================================================================
+
+/**
+ * Creates scales and bins for a single histogram chart
+ */
+function createHistogramChart(
+  data: HistogramData,
+  dimensions: ChartDimensions,
+  metric: string,
+  yOffset: number
+): HistogramChart {
+  const { width, height, margin } = dimensions
+
+  // Create scales
+  const xScale = scaleLinear()
+    .domain([data.statistics.min, data.statistics.max])
+    .range([0, width])
+
+  const maxCount = max(data.histogram.counts) || 1
+  const yScale = scaleLinear()
+    .domain([0, maxCount])
+    .range([height, 0])
+
+  // Transform bins - single transformation logic
+  const transformedBins: HistogramBin[] = data.histogram.counts.map((count, i) => ({
+    x0: data.histogram.bin_edges[i],
+    x1: data.histogram.bin_edges[i + 1],
+    count,
+    density: count / (data.total_features || 1)
+  }))
+
+  return {
+    bins: transformedBins,
+    xScale,
+    yScale,
+    width,
+    height,
+    margin,
+    metric,
+    yOffset,
+    chartTitle: METRIC_TITLES[metric] || metric
+  }
+}
+
+/**
+ * Calculate layout for histogram charts (single or multiple)
+ */
 export function calculateHistogramLayout(
   histogramDataMap: Record<string, HistogramData>,
   containerWidth: number,
@@ -16,128 +99,106 @@ export function calculateHistogramLayout(
   const metricsCount = metrics.length
 
   if (metricsCount === 0) {
-    return { charts: [], totalWidth: containerWidth, totalHeight: containerHeight, spacing: 0 }
+    return {
+      charts: [],
+      totalWidth: containerWidth,
+      totalHeight: containerHeight,
+      spacing: 0
+    }
   }
 
   const charts: HistogramChart[] = []
-  const spacing = MULTI_HISTOGRAM_LAYOUT.spacing
-  let currentYOffset = 0
+  const margin = DEFAULT_HISTOGRAM_MARGIN
 
   if (metricsCount === 1) {
-    // Single histogram - use full container
-    const metric = metrics[0]
-    const data = histogramDataMap[metric]
-    const margin = DEFAULT_HISTOGRAM_MARGIN
+    // Single histogram layout
+    const dimensions: ChartDimensions = {
+      width: containerWidth - margin.left - margin.right,
+      height: containerHeight - margin.top - margin.bottom,
+      margin
+    }
 
-    const width = containerWidth - margin.left - margin.right
-    const height = containerHeight - margin.top - margin.bottom
+    charts.push(
+      createHistogramChart(
+        histogramDataMap[metrics[0]],
+        dimensions,
+        metrics[0],
+        margin.top
+      )
+    )
 
-    const xScale = scaleLinear()
-      .domain([data.statistics.min, data.statistics.max])
-      .range([0, width])
-
-    const maxCount = max(data.histogram.counts) || 1
-    const yScale = scaleLinear()
-      .domain([0, maxCount])
-      .range([height, 0])
-
-    // Transform API histogram format to expected HistogramBin format
-    const transformedBins = data.histogram.counts.map((count, i) => ({
-      x0: data.histogram.bin_edges[i],
-      x1: data.histogram.bin_edges[i + 1],
-      count: count,
-      density: count / (data.total_features || 1)
-    }))
-
-    charts.push({
-      bins: transformedBins,
-      xScale,
-      yScale,
-      width,
-      height,
-      margin,
-      metric,
-      yOffset: margin.top,
-      chartTitle: METRIC_TITLES[metric] || metric
-    })
-
-  } else {
-    // Multi-histogram layout - use consistent margins
-    const chartMargin = { ...DEFAULT_HISTOGRAM_MARGIN }
-    const chartWidth = containerWidth - chartMargin.left - chartMargin.right
-
-    // Calculate chart height based on available space
-    const chartTitleHeight = MULTI_HISTOGRAM_LAYOUT.chartTitleHeight
-    const sliderSpace = 35  // Space for slider below chart
-
-    // Each chart needs: title + top margin + chart + bottom margin + slider
-    const heightPerChart = chartTitleHeight + chartMargin.top + MULTI_HISTOGRAM_LAYOUT.minChartHeight + chartMargin.bottom + sliderSpace
-    const totalSpacing = (metricsCount - 1) * spacing
-
-    // Calculate if we need to adjust based on container
-    const requiredHeight = (metricsCount * heightPerChart) + totalSpacing
-    const chartHeight = requiredHeight > containerHeight
-      ? Math.max(MULTI_HISTOGRAM_LAYOUT.minChartHeight, (containerHeight - totalSpacing - metricsCount * (chartTitleHeight + chartMargin.top + chartMargin.bottom + sliderSpace)) / metricsCount)
-      : MULTI_HISTOGRAM_LAYOUT.minChartHeight
-
-    metrics.forEach((metric) => {
-      const data = histogramDataMap[metric]
-
-      const xScale = scaleLinear()
-        .domain([data.statistics.min, data.statistics.max])
-        .range([0, chartWidth])
-
-      const maxCount = max(data.histogram.counts) || 1
-      const yScale = scaleLinear()
-        .domain([0, maxCount])
-        .range([chartHeight, 0])
-
-      // Transform API histogram format to expected HistogramBin format
-      const transformedBins = data.histogram.counts.map((count, i) => ({
-        x0: data.histogram.bin_edges[i],
-        x1: data.histogram.bin_edges[i + 1],
-        count: count,
-        density: count / (data.total_features || 1)
-      }))
-
-      // Calculate yOffset: currentYOffset + title height + top margin
-      const yOffset = currentYOffset + chartTitleHeight + chartMargin.top
-
-      charts.push({
-        bins: transformedBins,
-        xScale,
-        yScale,
-        width: chartWidth,
-        height: chartHeight,
-        margin: chartMargin,
-        metric,
-        yOffset,
-        chartTitle: METRIC_TITLES[metric] || metric
-      })
-
-      // Move to next chart position
-      currentYOffset += chartTitleHeight + chartMargin.top + chartHeight + chartMargin.bottom + sliderSpace + spacing
-    })
+    return {
+      charts,
+      totalWidth: containerWidth,
+      totalHeight: containerHeight,
+      spacing: 0
+    }
   }
 
-  // Calculate final total height
-  const finalTotalHeight = metricsCount > 1
-    ? currentYOffset - spacing  // Remove extra spacing after last chart
-    : containerHeight
+  // Multi-histogram layout
+  const spacing = MULTI_HISTOGRAM_LAYOUT.spacing
+  const chartTitleHeight = MULTI_HISTOGRAM_LAYOUT.chartTitleHeight
+  const sliderSpace = 35
+
+  // Calculate dimensions for each chart
+  const chartWidth = containerWidth - margin.left - margin.right
+  const heightPerChart = chartTitleHeight + margin.top + MULTI_HISTOGRAM_LAYOUT.minChartHeight + margin.bottom + sliderSpace
+  const totalSpacing = (metricsCount - 1) * spacing
+  const requiredHeight = (metricsCount * heightPerChart) + totalSpacing
+
+  const chartHeight = requiredHeight > containerHeight
+    ? Math.max(
+        MULTI_HISTOGRAM_LAYOUT.minChartHeight,
+        (containerHeight - totalSpacing - metricsCount * (chartTitleHeight + margin.top + margin.bottom + sliderSpace)) / metricsCount
+      )
+    : MULTI_HISTOGRAM_LAYOUT.minChartHeight
+
+  const dimensions: ChartDimensions = {
+    width: chartWidth,
+    height: chartHeight,
+    margin
+  }
+
+  // Create charts with calculated offsets
+  let currentYOffset = 0
+  metrics.forEach(metric => {
+    const yOffset = currentYOffset + chartTitleHeight + margin.top
+
+    charts.push(
+      createHistogramChart(
+        histogramDataMap[metric],
+        dimensions,
+        metric,
+        yOffset
+      )
+    )
+
+    currentYOffset += chartTitleHeight + margin.top + chartHeight + margin.bottom + sliderSpace + spacing
+  })
 
   return {
     charts,
     totalWidth: containerWidth,
-    totalHeight: finalTotalHeight,
+    totalHeight: currentYOffset - spacing, // Remove extra spacing after last chart
     spacing
   }
 }
 
-export function calculateThresholdLine(threshold: number, chart: HistogramChart): ThresholdLineData | null {
-  if (!chart || !chart.xScale) return null
+// ============================================================================
+// THRESHOLD CALCULATIONS
+// ============================================================================
+
+/**
+ * Calculate threshold line position for a histogram chart
+ */
+export function calculateThresholdLine(
+  threshold: number,
+  chart: HistogramChart
+): ThresholdLineData | null {
+  if (!chart?.xScale) return null
 
   const x = chart.xScale(threshold) as number
-  if (typeof x !== 'number' || isNaN(x)) return null
+  if (!Number.isFinite(x)) return null
 
   return {
     x,
@@ -147,53 +208,141 @@ export function calculateThresholdLine(threshold: number, chart: HistogramChart)
   }
 }
 
-// ============================================================================
-// SLIDER UTILITIES
-// ============================================================================
-
-export function positionToValue(
-  position: number,
+/**
+ * Convert mouse position to threshold value
+ */
+export function calculateThresholdFromMouseEvent(
+  event: MouseEvent | React.MouseEvent,
+  svgElement: SVGSVGElement | null,
+  chart: HistogramChart,
   minValue: number,
-  maxValue: number,
-  width: number
-): number {
-  const ratio = Math.max(0, Math.min(1, position / width))
+  maxValue: number
+): number | null {
+  if (!svgElement) return null
+
+  const rect = svgElement.getBoundingClientRect()
+  const x = event.clientX - rect.left - chart.margin.left
+
+  // Clamp position and convert to value
+  const ratio = Math.max(0, Math.min(1, x / chart.width))
   return minValue + ratio * (maxValue - minValue)
 }
 
-export function valueToPosition(
-  value: number,
-  minValue: number,
-  maxValue: number,
-  width: number
-): number {
-  const ratio = (value - minValue) / (maxValue - minValue)
-  return Math.max(0, Math.min(width, ratio * width))
+// ============================================================================
+// RENDERING CALCULATIONS
+// ============================================================================
+
+/**
+ * Calculate histogram bars data for rendering
+ */
+export function calculateHistogramBars(
+  chart: HistogramChart,
+  threshold: number,
+  barColor: string,
+  thresholdColor: string
+): HistogramBarData[] {
+  return chart.bins.map(bin => {
+    const x = chart.xScale(bin.x0) as number
+    const x1 = chart.xScale(bin.x1) as number
+    const y = chart.yScale(bin.count) as number
+
+    return {
+      x,
+      y,
+      width: Math.max(1, x1 - x - 1),
+      height: chart.height - y,
+      color: bin.x0 >= threshold ? thresholdColor : barColor,
+      binData: {
+        x0: bin.x0,
+        x1: bin.x1,
+        count: bin.count
+      }
+    }
+  })
+}
+
+/**
+ * Calculate axis ticks for rendering
+ */
+export function calculateXAxisTicks(
+  chart: HistogramChart,
+  tickCount: number = 5
+): AxisTickData[] {
+  const scale = chart.xScale as ScaleLinear<number, number>
+  return scale.ticks(tickCount).map(tick => ({
+    value: tick,
+    position: scale(tick),
+    label: tick.toFixed(2)
+  }))
+}
+
+export function calculateYAxisTicks(
+  chart: HistogramChart,
+  tickCount: number = 5
+): AxisTickData[] {
+  const scale = chart.yScale as ScaleLinear<number, number>
+  return scale.ticks(tickCount).map(tick => ({
+    value: tick,
+    position: scale(tick),
+    label: tick.toString()
+  }))
+}
+
+/**
+ * Calculate grid lines for histogram
+ */
+export function calculateGridLines(
+  chart: HistogramChart,
+  tickCount: number = 5
+): GridLineData[] {
+  const scale = chart.yScale as ScaleLinear<number, number>
+  return scale.ticks(tickCount).map(tick => ({
+    x1: 0,
+    x2: chart.width,
+    y1: scale(tick),
+    y2: scale(tick),
+    opacity: 0.5
+  }))
+}
+
+/**
+ * Calculate slider position from threshold value
+ */
+export function calculateSliderPosition(
+  threshold: number,
+  chart: HistogramChart,
+  sliderTrackHeight: number,
+  sliderTrackYOffset: number
+): {
+  trackFilledWidth: number
+  trackUnfilledX: number
+  trackUnfilledWidth: number
+  handleCx: number
+  handleCy: number
+  trackY: number
+} {
+  const x = chart.xScale(threshold) as number
+
+  return {
+    trackFilledWidth: x,
+    trackUnfilledX: x,
+    trackUnfilledWidth: chart.width - x,
+    handleCx: x,
+    handleCy: sliderTrackHeight / 2,
+    trackY: chart.height + sliderTrackYOffset
+  }
 }
 
 // ============================================================================
-// FORMATTING UTILITIES
+// POPOVER UTILITIES
 // ============================================================================
 
-export function formatSmartNumber(value: number): string {
-  if (Math.abs(value) < 0.001 && value !== 0) {
-    return value.toExponential(2)
-  }
-
-  if (Math.abs(value) < 1) {
-    return value.toFixed(3)
-  }
-
-  return value.toFixed(2)
-}
-
-// ============================================================================
-// POPOVER POSITIONING UTILITIES
-// ============================================================================
-
+/**
+ * Calculate optimal popover position within viewport
+ */
 export function calculateOptimalPopoverPosition(
-  clickPosition: { x: number, y: number },
-  popoverSize: { width: number, height: number },
+  clickPosition: { x: number; y: number },
+  popoverSize: { width: number; height: number },
   margin: number = 20
 ): PopoverPosition {
   const viewport = {
@@ -201,35 +350,23 @@ export function calculateOptimalPopoverPosition(
     height: window.innerHeight
   }
 
-  // For tall popovers, position at top instead of center
-  let x = clickPosition.x
-  let y = clickPosition.y
-  let transform = 'translate(0%, 0%)'  // Start at top-left by default
+  // Calculate bounded position
+  const x = Math.max(
+    margin,
+    Math.min(clickPosition.x, viewport.width - popoverSize.width - margin)
+  )
 
-  // If popover would go off bottom, adjust y position
-  if (y + popoverSize.height > viewport.height - margin) {
-    // Position so bottom edge is at viewport bottom - margin
-    y = viewport.height - popoverSize.height - margin
-  }
+  const y = Math.max(
+    margin,
+    Math.min(clickPosition.y, viewport.height - popoverSize.height - margin)
+  )
 
-  // If still would go off top, position at top margin
-  if (y < margin) {
-    y = margin
-  }
-
-  // Ensure the popover fits horizontally on screen
-  if (x + popoverSize.width > viewport.width - margin) {
-    x = viewport.width - popoverSize.width - margin
-  }
-
-  // Ensure doesn't go off left edge
-  if (x < margin) {
-    x = margin
-  }
-
-  return { x, y, transform }
+  return { x, y, transform: 'translate(0%, 0%)' }
 }
 
+/**
+ * Calculate responsive popover size based on metrics count
+ */
 export function calculateResponsivePopoverSize(
   defaultWidth: number,
   defaultHeight: number,
@@ -243,71 +380,79 @@ export function calculateResponsivePopoverSize(
   let adjustedHeight = defaultHeight
 
   if (metricsCount > 1) {
-    // Match the exact logic from calculateHistogramLayout
-    // Constants from multi-histogram layout (smaller, more compact):
-    const spacing = 10  // MULTI_HISTOGRAM_LAYOUT.spacing
-    const chartTitleHeight = 20  // MULTI_HISTOGRAM_LAYOUT.chartTitleHeight
-    const minChartHeight = 70  // MULTI_HISTOGRAM_LAYOUT.minChartHeight
-    const chartMargin = { top: 15, right: 25, bottom: 50, left: 45 }  // compact margins
+    // Calculate height for multi-histogram layout
+    const chartComponents = {
+      spacing: MULTI_HISTOGRAM_LAYOUT.spacing,
+      chartTitleHeight: MULTI_HISTOGRAM_LAYOUT.chartTitleHeight,
+      minChartHeight: MULTI_HISTOGRAM_LAYOUT.minChartHeight,
+      margin: DEFAULT_HISTOGRAM_MARGIN,
+      sliderArea: 35,
+      headerHeight: 42,
+      containerPadding: 12
+    }
 
-    // Each chart needs:
-    // - chartTitleHeight + chartMargin.top at the top
-    // - minChartHeight for the actual chart
-    // - chartMargin.bottom at the bottom
-    // - sliderArea below that
-    const sliderArea = 35  // Space for slider track and handle below chart
+    const totalHeightPerChart =
+      chartComponents.chartTitleHeight +
+      chartComponents.margin.top +
+      chartComponents.minChartHeight +
+      chartComponents.margin.bottom +
+      chartComponents.sliderArea
 
-    // Calculate the height each chart needs in total
-    const totalHeightPerChart = chartTitleHeight + chartMargin.top + minChartHeight + chartMargin.bottom + sliderArea
+    const totalSpacing = (metricsCount - 1) * chartComponents.spacing
 
-    // Total spacing between charts
-    const totalSpacing = (metricsCount - 1) * spacing
-
-    // Header and container padding
-    const headerHeight = 42
-    const containerPadding = 12
-
-    // Calculate required container height
-    // The calculateHistogramLayout logic expects containerHeight to accommodate:
-    // For each chart: yOffset (includes title + top margin) + chartHeight + bottom margin + slider
-    adjustedHeight = headerHeight + containerPadding + (metricsCount * totalHeightPerChart) + totalSpacing
+    adjustedHeight =
+      chartComponents.headerHeight +
+      chartComponents.containerPadding +
+      (metricsCount * totalHeightPerChart) +
+      totalSpacing
   }
 
-  const maxWidth = Math.min(defaultWidth, viewport.width * 0.9)
-  // Use calculated height without artificial constraints to eliminate scrolling
-  const maxHeight = Math.min(adjustedHeight, viewport.height * 0.95)  // Only prevent going off screen
+  // Apply viewport constraints
+  const width = Math.min(
+    Math.max(420, defaultWidth),
+    viewport.width * 0.9
+  )
 
-  const minWidth = Math.max(420, maxWidth)
-  // For multi-histogram, use the exact calculated height to fit all content
-  const minHeight = metricsCount > 1 ? adjustedHeight : Math.max(280, maxHeight)
+  const height = Math.min(
+    metricsCount > 1 ? adjustedHeight : Math.max(280, defaultHeight),
+    viewport.height * 0.95
+  )
 
-  return { width: minWidth, height: Math.min(minHeight, viewport.height * 0.95) }
+  return { width, height }
 }
 
 // ============================================================================
-// MOUSE EVENT UTILITIES
+// FORMATTING UTILITIES
 // ============================================================================
 
-export function calculateThresholdFromMouseEvent(
-  event: MouseEvent | React.MouseEvent,
-  svgElement: SVGSVGElement | null,
-  chart: HistogramChart,
-  minValue: number,
-  maxValue: number
-): number | null {
-  if (!svgElement) return null
+/**
+ * Format number for display with appropriate precision
+ */
+export function formatSmartNumber(value: number): string {
+  const absValue = Math.abs(value)
 
-  const rect = svgElement.getBoundingClientRect()
-  const x = event.clientX - rect.left - chart.margin.left
+  if (absValue < 0.001 && value !== 0) {
+    return value.toExponential(2)
+  }
 
-  return positionToValue(x, minValue, maxValue, chart.width)
+  if (absValue < 1) {
+    return value.toFixed(3)
+  }
+
+  return value.toFixed(2)
 }
 
 // ============================================================================
 // VALIDATION UTILITIES
 // ============================================================================
 
-export function validateDimensions(width: number, height: number): string[] {
+/**
+ * Validate container dimensions
+ */
+export function validateDimensions(
+  width: number,
+  height: number
+): string[] {
   const errors: string[] = []
 
   if (width < 200) {
@@ -320,15 +465,17 @@ export function validateDimensions(width: number, height: number): string[] {
   return errors
 }
 
+/**
+ * Validate histogram data structure
+ */
 export function validateHistogramData(data: HistogramData): string[] {
-  const errors: string[] = []
-
   if (!data) {
-    errors.push('Histogram data is required')
-    return errors
+    return ['Histogram data is required']
   }
 
-  if (!data.histogram || !data.histogram.bins || data.histogram.bins.length === 0) {
+  const errors: string[] = []
+
+  if (!data.histogram?.bins || data.histogram.bins.length === 0) {
     errors.push('Histogram data must contain bins')
   }
 
@@ -344,4 +491,21 @@ export function validateHistogramData(data: HistogramData): string[] {
   }
 
   return errors
+}
+
+// ============================================================================
+// DEPRECATED - Remove in next major version
+// ============================================================================
+
+/**
+ * @deprecated Use calculateThresholdFromMouseEvent instead
+ */
+export function positionToValue(
+  position: number,
+  minValue: number,
+  maxValue: number,
+  width: number
+): number {
+  const ratio = Math.max(0, Math.min(1, position / width))
+  return minValue + ratio * (maxValue - minValue)
 }
