@@ -9,7 +9,19 @@ import type {
   FeatureDetail,
   Filters
 } from './types'
-import { API_BASE_URL, API_ENDPOINTS } from './lib/constants'
+
+// ============================================================================
+// API CONFIGURATION
+// ============================================================================
+const API_BASE_URL = "/api"
+
+const API_ENDPOINTS = {
+  FILTER_OPTIONS: "/filter-options",
+  HISTOGRAM_DATA: "/histogram-data",
+  SANKEY_DATA: "/sankey-data",
+  COMPARISON_DATA: "/comparison-data",
+  FEATURE_DETAIL: "/feature"
+} as const
 
 const API_BASE = API_BASE_URL
 

@@ -9,7 +9,9 @@ import {
   ALLUVIAL_LEGEND_ITEMS
 } from '../lib/d3-alluvial-utils'
 import { calculateSankeyLayout } from '../lib/d3-sankey-utils'
+import { ALLUVIAL_MARGIN } from '../lib/d3-alluvial-utils'
 import type { AlluvialSankeyNode, AlluvialSankeyLink } from '../types'
+import '../styles/AlluvialDiagram.css'
 
 // ==================== INTERFACES ====================
 
@@ -96,38 +98,47 @@ const NodeRect: React.FC<{
   )
 }
 
-const Legend: React.FC = () => (
-  <div
-    className="alluvial-legend"
-    style={{
-      display: 'flex',
-      justifyContent: 'center',
-      gap: '16px',
-      padding: '8px',
-      fontSize: '11px',
-      flexWrap: 'wrap'
-    }}
-  >
-    {ALLUVIAL_LEGEND_ITEMS.map((item, index) => (
-      <div
-        key={index}
-        className="alluvial-legend-item"
-        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-      >
-        <div
-          className="alluvial-legend-color"
-          style={{
-            backgroundColor: item.color,
-            width: '12px',
-            height: '12px',
-            borderRadius: '2px'
-          }}
-        />
-        <span>{item.label}</span>
-      </div>
-    ))}
-  </div>
-)
+const Legend: React.FC = () => {
+  // Calculate approximate widths for each item (rect + gap + text)
+  const itemWidths = [35, 35, 55, 35, 75] // Approximate widths for each label
+  const gap = 10 // Gap between items
+  const totalWidth = itemWidths.reduce((sum, w) => sum + w, 0) + (gap * (itemWidths.length - 1))
+  const startX = (300 - totalWidth) / 2 - 5 // Center based on 300px width
+
+  let currentX = startX
+
+  return (
+    <>
+      {ALLUVIAL_LEGEND_ITEMS.map((item, index) => {
+        const x = currentX
+        currentX += itemWidths[index] + gap
+
+        return (
+          <g key={index} className="alluvial-legend-item">
+            <rect
+              x={x}
+              y={580}
+              width={10}
+              height={10}
+              fill={item.color}
+              rx={2}
+              opacity={0.8}
+            />
+            <text
+              x={x+11}
+              y={588}
+              fontSize={10}
+              fill="#4b5563"
+              fontWeight={500}
+            >
+              {item.label}
+            </text>
+          </g>
+        )
+      })}
+    </>
+  )
+}
 
 // ==================== MAIN COMPONENT ====================
 
@@ -218,8 +229,10 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
         viewBox={`0 0 ${width} ${height}`}
         className="alluvial-svg"
       >
-        {/* Render flows */}
-        <g className="alluvial-flows">
+        {/* Apply transform to position content with margins like SankeyDiagram */}
+        <g transform={`translate(${ALLUVIAL_MARGIN.left},${ALLUVIAL_MARGIN.top})`}>
+          {/* Render flows */}
+          <g className="alluvial-flows">
           {layout.flows.map(flow => {
             const isFlowHovered = hoveredFlowId === flow.id
             const isConnectedToNode = hoveredNodeId !== null && hoveredNodeLinkIds.has(flow.id)
@@ -275,10 +288,11 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
             />
           ))}
         </g>
-      </svg>
+        </g>{/* Close transform group */}
 
-      {/* Legend */}
-      <Legend />
+        {/* Legend - Rendered directly in SVG */}
+        <Legend />
+      </svg>
     </div>
   )
 }

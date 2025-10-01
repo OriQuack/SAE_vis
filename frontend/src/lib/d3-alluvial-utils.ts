@@ -1,7 +1,29 @@
 import { sum } from 'd3-array'
 import { sankey, sankeyLinkHorizontal } from 'd3-sankey'
 import type { AlluvialFlow, D3SankeyNode, AlluvialSankeyNode, AlluvialSankeyLink, AlluvialLayoutData } from '../types'
-import { ALLUVIAL_MARGIN, ALLUVIAL_NODE_WIDTH, ALLUVIAL_COLORS, ALLUVIAL_OPACITY } from './constants'
+
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+export const ALLUVIAL_MARGIN = { top: 80, right: 2, bottom: 50, left: 2 }
+const ALLUVIAL_NODE_WIDTH = 20
+
+const ALLUVIAL_COLORS = {
+  trivial: '#10b981',
+  minor: '#60a5fa',
+  moderate: '#fb923c',
+  major: '#ef4444',
+  differentStage: '#9ca3af',
+  hover: '#3b82f6',
+  consistent: '#10b981',
+  inconsistent: '#ef4444'
+} as const
+
+const ALLUVIAL_OPACITY = {
+  default: 0.6,
+  hover: 0.9,
+  inactive: 0.2
+} as const
 
 // ============================================================================
 // ALLUVIAL DIAGRAM UTILITIES
@@ -120,11 +142,11 @@ export function calculateAlluvialLayout(
   })
 
   // Create node order and position maps from Sankey data if provided
-  // Extract leaf nodes and sort by absolute y0 position (top to bottom)
+  // Extract leaf nodes and sort by middle position (top to bottom)
   const leftNodeOrder = new Map<string, number>()
   const rightNodeOrder = new Map<string, number>()
-  const leftNodePositions = new Map<string, { y0: number; y1: number }>()
-  const rightNodePositions = new Map<string, { y0: number; y1: number }>()
+  const leftNodePositions = new Map<string, { y0: number; y1: number; yMid: number }>()
+  const rightNodePositions = new Map<string, { y0: number; y1: number; yMid: number }>()
 
   if (leftSankeyNodes) {
     const nodesInFlows = leftSankeyNodes
@@ -134,11 +156,21 @@ export function calculateAlluvialLayout(
         return hasPosition && isInFlows
       })
 
-    nodesInFlows.sort((a, b) => (a.y0 as number) - (b.y0 as number))
+    // Sort by middle position (y0 + y1) / 2
+    nodesInFlows.sort((a, b) => {
+      const aMid = ((a.y0 as number) + (a.y1 as number)) / 2
+      const bMid = ((b.y0 as number) + (b.y1 as number)) / 2
+      return aMid - bMid
+    })
 
     nodesInFlows.forEach((node, index) => {
+      const yMid = ((node.y0 as number) + (node.y1 as number)) / 2
       leftNodeOrder.set(node.id, index)
-      leftNodePositions.set(node.id, { y0: node.y0 as number, y1: node.y1 as number })
+      leftNodePositions.set(node.id, {
+        y0: node.y0 as number,
+        y1: node.y1 as number,
+        yMid
+      })
     })
   }
 
@@ -150,11 +182,21 @@ export function calculateAlluvialLayout(
         return hasPosition && isInFlows
       })
 
-    nodesInFlows.sort((a, b) => (a.y0 as number) - (b.y0 as number))
+    // Sort by middle position (y0 + y1) / 2
+    nodesInFlows.sort((a, b) => {
+      const aMid = ((a.y0 as number) + (a.y1 as number)) / 2
+      const bMid = ((b.y0 as number) + (b.y1 as number)) / 2
+      return aMid - bMid
+    })
 
     nodesInFlows.forEach((node, index) => {
+      const yMid = ((node.y0 as number) + (node.y1 as number)) / 2
       rightNodeOrder.set(node.id, index)
-      rightNodePositions.set(node.id, { y0: node.y0 as number, y1: node.y1 as number })
+      rightNodePositions.set(node.id, {
+        y0: node.y0 as number,
+        y1: node.y1 as number,
+        yMid
+      })
     })
   }
 
@@ -240,12 +282,13 @@ export function calculateAlluvialLayout(
   })
 
   // Configure d3-sankey with fixed node ordering based on Sankey positions
+  // Note: We use 0,0 as the starting point since margins will be applied via transform in the component
   const sankeyGenerator = sankey<AlluvialSankeyNode, AlluvialSankeyLink>()
     .nodeWidth(ALLUVIAL_NODE_WIDTH)
     .nodePadding(10)
     .extent([
-      [ALLUVIAL_MARGIN.left, ALLUVIAL_MARGIN.top],
-      [width - ALLUVIAL_MARGIN.right, height - ALLUVIAL_MARGIN.bottom]
+      [0, 0],
+      [width - ALLUVIAL_MARGIN.left - ALLUVIAL_MARGIN.right, height - ALLUVIAL_MARGIN.top - ALLUVIAL_MARGIN.bottom]
     ])
     .nodeAlign((node) => {
       // Force left nodes to left side (x=0) and right nodes to right side (x=1)
@@ -253,39 +296,39 @@ export function calculateAlluvialLayout(
       return nodeId.startsWith('left_') ? 0 : 1
     })
     .nodeSort((a, b) => {
-      // Sort by y0-based order indices from Sankey (with y-position fallback)
+      // Sort by middle position-based order indices from Sankey (with yMid fallback)
       const aNode = a as AlluvialSankeyNode
       const bNode = b as AlluvialSankeyNode
       const aOriginalId = aNode.id.replace(/^(left_|right_)/, '')
       const bOriginalId = bNode.id.replace(/^(left_|right_)/, '')
 
       if (aNode.id.startsWith('left_')) {
-        // Primary: Use y0-based order indices
+        // Primary: Use middle position-based order indices
         const aOrder = leftNodeOrder.get(aOriginalId)
         const bOrder = leftNodeOrder.get(bOriginalId)
         if (aOrder !== undefined && bOrder !== undefined) {
           return aOrder - bOrder
         }
 
-        // Fallback: Use y0 positions directly
+        // Fallback: Use middle positions (yMid) directly
         const aPos = leftNodePositions.get(aOriginalId)
         const bPos = leftNodePositions.get(bOriginalId)
         if (aPos && bPos) {
-          return aPos.y0 - bPos.y0
+          return aPos.yMid - bPos.yMid
         }
       } else {
-        // Primary: Use y0-based order indices
+        // Primary: Use middle position-based order indices
         const aOrder = rightNodeOrder.get(aOriginalId)
         const bOrder = rightNodeOrder.get(bOriginalId)
         if (aOrder !== undefined && bOrder !== undefined) {
           return aOrder - bOrder
         }
 
-        // Fallback: Use y0 positions directly
+        // Fallback: Use middle positions (yMid) directly
         const aPos = rightNodePositions.get(aOriginalId)
         const bPos = rightNodePositions.get(bOriginalId)
         if (aPos && bPos) {
-          return aPos.y0 - bPos.y0
+          return aPos.yMid - bPos.yMid
         }
       }
       return 0
@@ -413,9 +456,9 @@ export function getFlowOpacity(
 // ============================================================================
 
 export const ALLUVIAL_LEGEND_ITEMS = [
-  { color: ALLUVIAL_COLORS.trivial, label: 'Trivial (Same)' },
-  { color: ALLUVIAL_COLORS.minor, label: 'Minor (1 level)' },
-  { color: ALLUVIAL_COLORS.moderate, label: 'Moderate (2 levels)' },
-  { color: ALLUVIAL_COLORS.major, label: 'Major (3+ levels)' },
+  { color: ALLUVIAL_COLORS.trivial, label: 'Trivial' },
+  { color: ALLUVIAL_COLORS.minor, label: 'Minor' },
+  { color: ALLUVIAL_COLORS.moderate, label: 'Moderate' },
+  { color: ALLUVIAL_COLORS.major, label: 'Major' },
   { color: ALLUVIAL_COLORS.differentStage, label: 'Different Stage' }
 ] as const

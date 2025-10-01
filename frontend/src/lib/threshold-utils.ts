@@ -17,7 +17,6 @@ import {
   createParentPath
 } from './split-rule-builders'
 import {
-  NODE_ROOT_ID,
   SPLIT_TYPE_RANGE,
   SPLIT_TYPE_PATTERN,
   SPLIT_TYPE_EXPRESSION,
@@ -37,6 +36,7 @@ import {
 // ============================================================================
 // CONSTANTS
 // ============================================================================
+const NODE_ROOT_ID = "root"
 
 // Valid metric types for filtering
 const VALID_METRICS = [
@@ -358,7 +358,9 @@ export function addStageToNode(
       'score_detection'
     ]
     const thresholds = config.thresholds || []
-    const selectedThresholds = selectedMetrics.map((_, i) => thresholds[i] || 0.5)
+    const selectedThresholds = selectedMetrics.map((metric, i) =>
+      thresholds[i] !== undefined ? thresholds[i] : (metric === 'score_simulation' ? 0.1 : 0.5)
+    )
 
     splitRule = buildFlexibleScoreAgreementSplit(selectedMetrics, selectedThresholds)
     const patternRule = splitRule as PatternSplitRule

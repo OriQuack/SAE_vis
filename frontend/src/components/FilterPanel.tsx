@@ -1,4 +1,5 @@
 import { useVisualizationStore } from '../store'
+import '../styles/FilterPanel.css'
 
 // ============================================================================
 // INLINE STYLES

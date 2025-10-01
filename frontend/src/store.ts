@@ -224,6 +224,10 @@ export const useStore = create<AppState>((set, get) => ({
             // Clear existing data to trigger refresh
             sankeyData: null,
             histogramData: null
+          },
+          // Close histogram popover if it's open for the current panel
+          popoverState: {
+            histogram: state.popoverState.histogram?.panel === panel ? null : state.popoverState.histogram
           }
         }
       } catch (error) {

@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useMemo, useCallback, useState } from 'react'
 import { useVisualizationStore } from '../store'
+import '../styles/HistogramPopover.css'
 import {
   calculateHistogramLayout,
   calculateThresholdLine,
@@ -15,9 +16,37 @@ import {
   calculateGridLines,
   calculateSliderPosition
 } from '../lib/d3-histogram-utils'
-import { DEFAULT_ANIMATION, HISTOGRAM_COLORS, SLIDER_TRACK, CATEGORY_DISPLAY_NAMES } from '../lib/constants'
+import { CATEGORY_DISPLAY_NAMES } from '../lib/constants'
 import { getEffectiveThreshold } from '../lib/threshold-utils'
 import type { HistogramData, HistogramChart, NodeCategory } from '../types'
+
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+const DEFAULT_ANIMATION = {
+  duration: 300,
+  easing: 'ease-out'
+} as const
+
+const HISTOGRAM_COLORS = {
+  bars: '#94a3b8',
+  barsHover: '#64748b',
+  threshold: '#10b981',
+  thresholdHover: '#059669',
+  background: '#f8fafc',
+  grid: '#e2e8f0',
+  text: '#374151',
+  axis: '#6b7280',
+  sliderHandle: '#3b82f6',
+  sliderTrackFilled: '#3b82f6',
+  sliderTrackUnfilled: '#cbd5e1'
+} as const
+
+const SLIDER_TRACK = {
+  height: 6,
+  yOffset: 30,
+  cornerRadius: 3
+} as const
 
 // ============================================================================
 // COMPONENT INTERFACES

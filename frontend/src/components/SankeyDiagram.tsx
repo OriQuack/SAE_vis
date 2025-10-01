@@ -16,6 +16,7 @@ import { useResizeObserver } from '../lib/utils'
 import { findNodeById, getNodeMetrics, canAddStageToNode, getAvailableStageTypes } from '../lib/threshold-utils'
 import type { D3SankeyNode, D3SankeyLink, AddStageConfig, StageTypeConfig } from '../types'
 import { PANEL_LEFT, PANEL_RIGHT } from '../lib/constants'
+import '../styles/SankeyDiagram.css'
 
 // ==================== INTERFACES ====================
 interface SankeyDiagramProps {
@@ -82,10 +83,10 @@ const SankeyNode: React.FC<{
         width={width}
         height={height}
         fill={color}
-        stroke={isHovered || isHighlighted ? '#ffffff' : 'none'}
-        strokeWidth={isHovered || isHighlighted ? 2 : 0}
+        stroke="none"
+        strokeWidth={0}
         style={{
-          transition: `all ${animationDuration}ms ease-out`,
+        //   transition: `all ${animationDuration}ms ease-out`,
           cursor: onClick ? 'pointer' : 'default',
           filter: isHovered || isHighlighted ? 'brightness(1.1)' : 'none'
         }}
@@ -134,7 +135,7 @@ const SankeyNode: React.FC<{
             style={{
               cursor: 'pointer',
               opacity: isHovered ? 1 : 0.7,
-              transition: `all ${animationDuration}ms ease-out`
+            //   transition: `all ${animationDuration}ms ease-out`
             }}
             onClick={onAddStage}
             onMouseEnter={(e) => e.stopPropagation()}
@@ -166,7 +167,7 @@ const SankeyNode: React.FC<{
             style={{
               cursor: 'pointer',
               opacity: isHovered ? 1 : 0.7,
-              transition: `all ${animationDuration}ms ease-out`
+            //   transition: `all ${animationDuration}ms ease-out`
             }}
             onClick={onRemoveStage}
             onMouseEnter={(e) => e.stopPropagation()}
@@ -195,7 +196,8 @@ const SankeyLink: React.FC<{
   onMouseLeave: () => void
   onClick?: (e: React.MouseEvent) => void
   isHovered: boolean
-}> = ({ link, onMouseEnter, onMouseLeave, onClick, isHovered }) => {
+  animationDuration: number
+}> = ({ link, onMouseEnter, onMouseLeave, onClick, isHovered, animationDuration }) => {
   const sourceNode = typeof link.source === 'object' ? link.source : null
   if (!sourceNode) return null
 
@@ -209,7 +211,10 @@ const SankeyLink: React.FC<{
       stroke={color}
       strokeWidth={Math.max(1, link.width || 0)}
       opacity={isHovered ? 0.9 : 0.6}
-      style={{ cursor: onClick ? 'pointer' : 'default' }}
+      style={{
+        transition: `opacity ${animationDuration}ms ease-out, stroke ${animationDuration}ms ease-out`,
+        cursor: onClick ? 'pointer' : 'default'
+      }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       onClick={onClick}
@@ -533,7 +538,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       stageType: 'score_agreement',
       splitRuleType: 'pattern',
       selectedScoreMetrics: selectedMetrics,
-      thresholds: selectedMetrics.map(() => 0.5)
+      thresholds: selectedMetrics.map((metric) => metric === 'score_simulation' ? 0.1 : 0.5)
     }
 
     addStageToTree(metricSelectorState.nodeId, config, panel)
@@ -617,6 +622,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                   key={`link-${index}`}
                   link={link}
                   isHovered={hoveredLinkIndex === index}
+                  animationDuration={animationDuration}
                   onMouseEnter={() => setHoveredLinkIndex(index)}
                   onMouseLeave={() => setHoveredLinkIndex(null)}
                   onClick={showHistogramOnClick ? () => handleLinkHistogramClick(link) : undefined}
