@@ -136,14 +136,28 @@ class SplitEvaluator:
         Evaluates conditions to determine metric states (high/low/in_range/out_range),
         then matches against patterns in order.
         """
-        # First, evaluate all conditions to get metric states
+        metric_states, triggering_values = self._evaluate_all_conditions(feature_row, rule.conditions)
+
+        # Try to match patterns in order
+        for pattern_index, pattern in enumerate(rule.patterns):
+            if self._pattern_matches(metric_states, pattern.match):
+                return self._build_pattern_result(
+                    pattern, pattern_index, children_ids, triggering_values
+                )
+
+        # No pattern matched, use default
+        return self._build_default_pattern_result(rule, children_ids, triggering_values)
+
+    def _evaluate_all_conditions(
+        self, feature_row: Dict[str, Any], conditions: Dict[str, Any]
+    ) -> Tuple[Dict[str, Optional[str]], Dict[str, Any]]:
+        """Evaluate all conditions and return metric states and triggering values."""
         metric_states = {}
         triggering_values = {}
 
-        for metric, condition in rule.conditions.items():
+        for metric, condition in conditions.items():
             value = feature_row.get(metric)
             if value is None:
-                # Treat None/null values as "low" state for pattern matching
                 metric_states[metric] = CONDITION_STATE_LOW
                 triggering_values[metric] = None
                 logger.debug(f"Metric {metric}: value=None, state=LOW")
@@ -154,44 +168,51 @@ class SplitEvaluator:
             metric_states[metric] = state
             logger.debug(f"Metric {metric}: value={value}, threshold={condition.threshold}, state={state}")
 
-        # Now match against patterns in order
-        for pattern_index, pattern in enumerate(rule.patterns):
-            if self._pattern_matches(metric_states, pattern.match):
-                # Found matching pattern - use position-agnostic matching
-                matching_child = self._find_matching_child(pattern.child_id, children_ids)
+        return metric_states, triggering_values
 
-                if matching_child:
-                    branch_index = children_ids.index(matching_child)
-                else:
-                    logger.warning(
-                        f"Pattern child_id '{pattern.child_id}' not found in children_ids: {children_ids}. "
-                        f"Using first child as fallback."
-                    )
-                    branch_index = 0
-                    matching_child = children_ids[0] if children_ids else pattern.child_id
+    def _build_pattern_result(
+        self,
+        pattern,
+        pattern_index: int,
+        children_ids: List[str],
+        triggering_values: Dict[str, Any]
+    ) -> EvaluationResult:
+        """Build evaluation result for matched pattern."""
+        matching_child = self._find_matching_child(pattern.child_id, children_ids)
 
-                split_info = ParentSplitRuleInfo(
-                    type=SPLIT_TYPE_PATTERN,
-                    pattern_info=PatternInfo(
-                        pattern_index=pattern_index,
-                        pattern_description=pattern.description,
-                        matched_pattern={k: v for k, v in pattern.match.items() if v is not None}
-                    )
-                )
-
-                return EvaluationResult(
-                    child_id=matching_child,
-                    branch_index=branch_index,
-                    split_info=split_info,
-                    triggering_values=triggering_values
-                )
-
-        # No pattern matched, use default
-        if rule.default_child_id:
-            child_id = rule.default_child_id
+        if matching_child:
+            branch_index = children_ids.index(matching_child)
         else:
-            # No default specified, use last child
-            child_id = children_ids[-1] if children_ids else "unknown"
+            logger.warning(
+                f"Pattern child_id '{pattern.child_id}' not found in children_ids: {children_ids}. "
+                f"Using first child as fallback."
+            )
+            branch_index = 0
+            matching_child = children_ids[0] if children_ids else pattern.child_id
+
+        split_info = ParentSplitRuleInfo(
+            type=SPLIT_TYPE_PATTERN,
+            pattern_info=PatternInfo(
+                pattern_index=pattern_index,
+                pattern_description=pattern.description,
+                matched_pattern={k: v for k, v in pattern.match.items() if v is not None}
+            )
+        )
+
+        return EvaluationResult(
+            child_id=matching_child,
+            branch_index=branch_index,
+            split_info=split_info,
+            triggering_values=triggering_values
+        )
+
+    def _build_default_pattern_result(
+        self, rule: PatternSplitRule, children_ids: List[str], triggering_values: Dict[str, Any]
+    ) -> EvaluationResult:
+        """Build evaluation result for default case (no pattern matched)."""
+        child_id = rule.default_child_id if rule.default_child_id else (
+            children_ids[-1] if children_ids else "unknown"
+        )
 
         try:
             branch_index = children_ids.index(child_id)
@@ -201,7 +222,7 @@ class SplitEvaluator:
         split_info = ParentSplitRuleInfo(
             type='pattern',
             pattern_info=PatternInfo(
-                pattern_index=-1,  # Indicates default was used
+                pattern_index=-1,
                 pattern_description="Default (no pattern matched)",
                 matched_pattern={}
             )
@@ -226,55 +247,69 @@ class SplitEvaluator:
         WARNING: This uses eval() which can be dangerous. In production,
         use a safe expression evaluator like simpleeval or numexpr.
         """
-        triggering_values = {}
+        triggering_values = self._extract_triggering_values(feature_row, rule.available_metrics)
 
-        # Extract relevant metric values for the expression
-        if rule.available_metrics:
-            for metric in rule.available_metrics:
-                value = feature_row.get(metric, 0.0)
-                triggering_values[metric] = value
-        else:
-            # Extract all numeric values from feature_row
-            for key, value in feature_row.items():
-                if isinstance(value, (int, float)):
-                    triggering_values[key] = value
-
-        # Evaluate branches in order
+        # Try to match branches in order
         for branch_index, branch in enumerate(rule.branches):
             try:
-                # Create a safe evaluation context
-                # In production, use a proper expression evaluator
-                result = self._evaluate_expression(branch.condition, triggering_values)
-
-                if result:
-                    # Branch condition is true
-                    try:
-                        child_branch_index = children_ids.index(branch.child_id)
-                    except ValueError:
-                        logger.warning(f"Branch child_id '{branch.child_id}' not in children_ids")
-                        child_branch_index = 0
-
-                    split_info = ParentSplitRuleInfo(
-                        type=SPLIT_TYPE_EXPRESSION,
-                        expression_info=ExpressionInfo(
-                            branch_index=branch_index,
-                            condition=branch.condition,
-                            description=branch.description
-                        )
+                if self._evaluate_expression(branch.condition, triggering_values):
+                    return self._build_expression_result(
+                        branch, branch_index, children_ids, triggering_values
                     )
-
-                    return EvaluationResult(
-                        child_id=branch.child_id,
-                        branch_index=child_branch_index,
-                        split_info=split_info,
-                        triggering_values=triggering_values
-                    )
-
             except Exception as e:
                 logger.error(f"Error evaluating expression '{branch.condition}': {e}")
                 continue
 
         # No branch matched, use default
+        return self._build_default_expression_result(rule, children_ids, triggering_values)
+
+    def _extract_triggering_values(
+        self, feature_row: Dict[str, Any], available_metrics: Optional[List[str]]
+    ) -> Dict[str, float]:
+        """Extract triggering values from feature row."""
+        triggering_values = {}
+
+        if available_metrics:
+            for metric in available_metrics:
+                triggering_values[metric] = feature_row.get(metric, 0.0)
+        else:
+            # Extract all numeric values
+            for key, value in feature_row.items():
+                if isinstance(value, (int, float)):
+                    triggering_values[key] = value
+
+        return triggering_values
+
+    def _build_expression_result(
+        self, branch, branch_index: int, children_ids: List[str], triggering_values: Dict[str, float]
+    ) -> EvaluationResult:
+        """Build evaluation result for matched expression branch."""
+        try:
+            child_branch_index = children_ids.index(branch.child_id)
+        except ValueError:
+            logger.warning(f"Branch child_id '{branch.child_id}' not in children_ids")
+            child_branch_index = 0
+
+        split_info = ParentSplitRuleInfo(
+            type=SPLIT_TYPE_EXPRESSION,
+            expression_info=ExpressionInfo(
+                branch_index=branch_index,
+                condition=branch.condition,
+                description=branch.description
+            )
+        )
+
+        return EvaluationResult(
+            child_id=branch.child_id,
+            branch_index=child_branch_index,
+            split_info=split_info,
+            triggering_values=triggering_values
+        )
+
+    def _build_default_expression_result(
+        self, rule: ExpressionSplitRule, children_ids: List[str], triggering_values: Dict[str, float]
+    ) -> EvaluationResult:
+        """Build evaluation result for default case (no expression matched)."""
         child_id = rule.default_child_id
         try:
             branch_index = children_ids.index(child_id)
@@ -284,7 +319,7 @@ class SplitEvaluator:
         split_info = ParentSplitRuleInfo(
             type=SPLIT_TYPE_EXPRESSION,
             expression_info=ExpressionInfo(
-                branch_index=-1,  # Indicates default was used
+                branch_index=-1,
                 condition="default",
                 description="Default (no expression matched)"
             )
@@ -322,27 +357,21 @@ class SplitEvaluator:
 
         return None
 
-    def _apply_operator(
-        self,
-        value: float,
-        operator: str,
-        threshold: float
-    ) -> bool:
+    def _apply_operator(self, value: float, operator: str, threshold: float) -> bool:
         """Apply a comparison operator"""
-        if operator == '>':
-            return value > threshold
-        elif operator == '>=':
-            return value >= threshold
-        elif operator == '<':
-            return value < threshold
-        elif operator == '<=':
-            return value <= threshold
-        elif operator == '==':
-            return abs(value - threshold) < 1e-9  # Float equality with tolerance
-        elif operator == '!=':
-            return abs(value - threshold) >= 1e-9
-        else:
+        operators = {
+            '>': lambda v, t: v > t,
+            '>=': lambda v, t: v >= t,
+            '<': lambda v, t: v < t,
+            '<=': lambda v, t: v <= t,
+            '==': lambda v, t: abs(v - t) < 1e-9,
+            '!=': lambda v, t: abs(v - t) >= 1e-9
+        }
+
+        if operator not in operators:
             raise ValueError(f"Unknown operator: {operator}")
+
+        return operators[operator](value, threshold)
 
     def _pattern_matches(
         self,

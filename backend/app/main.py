@@ -5,7 +5,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from .api import router as api_router
-from .services.data_service import DataService
+from .services.visualization_service import DataService
 
 logger = logging.getLogger(__name__)
 

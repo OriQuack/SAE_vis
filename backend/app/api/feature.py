@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import Optional
 import logging
-from ..services.data_service import DataService
+from ..services.visualization_service import DataService
 from ..models.responses import FeatureResponse
 from ..models.common import ErrorResponse
 
