@@ -22,9 +22,7 @@ from ..models.responses import (
     ComparisonResponse, FeatureResponse
 )
 from .data_constants import *
-from .classification import ClassificationEngine
-
-from ..models.threshold import ThresholdStructure
+from .feature_classifier import ClassificationEngine
 
 logger = logging.getLogger(__name__)
 
@@ -92,8 +90,6 @@ class DataService:
 
     def _apply_filters(self, lazy_df: pl.LazyFrame, filters: Filters) -> pl.LazyFrame:
         """Apply filters to lazy DataFrame efficiently."""
-        conditions = []
-
         filter_mapping = [
             (filters.sae_id, COL_SAE_ID),
             (filters.explanation_method, COL_EXPLANATION_METHOD),
@@ -101,17 +97,20 @@ class DataService:
             (filters.llm_scorer, COL_LLM_SCORER)
         ]
 
-        for filter_value, column_name in filter_mapping:
-            if filter_value:
-                conditions.append(pl.col(column_name).is_in(filter_value))
+        conditions = [
+            pl.col(column).is_in(values)
+            for values, column in filter_mapping
+            if values
+        ]
 
-        if conditions:
-            combined_condition = conditions[0]
-            for condition in conditions[1:]:
-                combined_condition = combined_condition & condition
-            return lazy_df.filter(combined_condition)
+        if not conditions:
+            return lazy_df
 
-        return lazy_df
+        combined_condition = conditions[0]
+        for condition in conditions[1:]:
+            combined_condition = combined_condition & condition
+
+        return lazy_df.filter(combined_condition)
 
     async def get_filter_options(self) -> FilterOptionsResponse:
         """Get all available filter options."""
@@ -174,50 +173,12 @@ class DataService:
             raise RuntimeError("DataService not ready")
 
         try:
-            # Apply base filters
-            filtered_df = self._apply_filters(self._df_lazy, filters).collect()
+            filtered_df = self._apply_filtered_data(filters, threshold_tree, node_id)
+            values = self._extract_metric_values(filtered_df, metric)
+            bins = self._calculate_bins_if_needed(values, bins)
 
-            if len(filtered_df) == 0:
-                raise ValueError("No data available after applying filters")
-
-            # Apply node-specific filtering if threshold tree and node ID are provided
-            logger.debug(f"Applying node-specific filtering for node: {node_id}")
-
-            # Use the v2 classification engine for filtering
-            # Developer option: Change sort_mode to 'within_parent' for grouped sorting
-            engine = ClassificationEngine()
-            filtered_df = engine.filter_features_for_node(filtered_df, threshold_tree, node_id)
-
-            if len(filtered_df) == 0:
-                raise ValueError(f"No data available for node '{node_id}' after applying thresholds")
-
-            # Extract metric values
-            metric_data = filtered_df.select([pl.col(metric.value).alias("metric_value")])
-            values = metric_data.get_column("metric_value").drop_nulls().to_numpy()
-
-            if len(values) == 0:
-                raise ValueError("No valid values found for the specified metric")
-
-            # Calculate optimal bins if not specified
-            if bins is None:
-                data_range = float(np.max(values) - np.min(values))
-                std_dev = float(np.std(values))
-                bins = self.calculate_optimal_bins(len(values), data_range, std_dev)
-
-                logger.info(f"Auto-calculated {bins} bins for {len(values)} data points " +
-                           f"(range: {data_range:.3f}, std: {std_dev:.3f})")
-
-            # Calculate histogram and statistics
             counts, bin_edges = np.histogram(values, bins=bins)
             bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
-
-            statistics = {
-                "min": float(np.min(values)),
-                "max": float(np.max(values)),
-                "mean": float(np.mean(values)),
-                "median": float(np.median(values)),
-                "std": float(np.std(values))
-            }
 
             return HistogramResponse(
                 metric=metric.value,
@@ -226,13 +187,69 @@ class DataService:
                     "counts": counts.tolist(),
                     "bin_edges": bin_edges.tolist()
                 },
-                statistics=statistics,
+                statistics=self._calculate_statistics(values),
                 total_features=len(values)
             )
 
         except Exception as e:
             logger.error(f"Error generating histogram: {e}")
             raise
+
+    def _apply_filtered_data(
+        self,
+        filters: Filters,
+        threshold_tree: Optional[ThresholdStructure],
+        node_id: Optional[str]
+    ) -> pl.DataFrame:
+        """Apply filters and node-specific filtering to get final dataset."""
+        filtered_df = self._apply_filters(self._df_lazy, filters).collect()
+
+        if len(filtered_df) == 0:
+            raise ValueError("No data available after applying filters")
+
+        if threshold_tree or node_id:
+            logger.debug(f"Applying node-specific filtering for node: {node_id}")
+            engine = ClassificationEngine()
+            filtered_df = engine.filter_features_for_node(filtered_df, threshold_tree, node_id)
+
+            if len(filtered_df) == 0:
+                raise ValueError(f"No data available for node '{node_id}' after applying thresholds")
+
+        return filtered_df
+
+    def _extract_metric_values(self, df: pl.DataFrame, metric: MetricType) -> np.ndarray:
+        """Extract and validate metric values from DataFrame."""
+        metric_data = df.select([pl.col(metric.value).alias("metric_value")])
+        values = metric_data.get_column("metric_value").drop_nulls().to_numpy()
+
+        if len(values) == 0:
+            raise ValueError("No valid values found for the specified metric")
+
+        return values
+
+    def _calculate_bins_if_needed(self, values: np.ndarray, bins: Optional[int]) -> int:
+        """Calculate optimal bins if not specified."""
+        if bins is not None:
+            return bins
+
+        data_range = float(np.max(values) - np.min(values))
+        std_dev = float(np.std(values))
+        bins = self.calculate_optimal_bins(len(values), data_range, std_dev)
+
+        logger.info(f"Auto-calculated {bins} bins for {len(values)} data points "
+                   f"(range: {data_range:.3f}, std: {std_dev:.3f})")
+
+        return bins
+
+    def _calculate_statistics(self, values: np.ndarray) -> Dict[str, float]:
+        """Calculate statistical summary for values."""
+        return {
+            "min": float(np.min(values)),
+            "max": float(np.max(values)),
+            "mean": float(np.mean(values)),
+            "median": float(np.median(values)),
+            "std": float(np.std(values))
+        }
 
     async def get_sankey_data(
         self,
@@ -242,9 +259,6 @@ class DataService:
     ) -> SankeyResponse:
         """
         Generate Sankey diagram data using the v2 threshold system.
-
-        This method uses the new flexible threshold system with the v2
-        classification engine for feature categorization and Sankey generation.
 
         Args:
             filters: Filter criteria
@@ -257,8 +271,6 @@ class DataService:
         if not self.is_ready():
             raise RuntimeError("DataService not ready")
 
-
-        # Apply filters and collect data
         filtered_df = self._apply_filters(self._df_lazy, filters).collect()
 
         if len(filtered_df) == 0:
@@ -272,69 +284,73 @@ class DataService:
         filters: Filters,
         threshold_data: Union[Dict[str, Any], ThresholdStructure]
     ) -> SankeyResponse:
-        """
-        Internal implementation using v2 classification engine.
-        """
-        # Convert to ThresholdStructure if needed
-        if isinstance(threshold_data, dict):
-            threshold_structure = ThresholdStructure.from_dict(threshold_data)
-        else:
-            threshold_structure = threshold_data
+        """Internal implementation using v2 classification engine."""
+        threshold_structure = self._ensure_threshold_structure(threshold_data)
 
-        # Use v2 classification engine
-        # Developer option: Change sort_mode to 'within_parent' for grouped sorting
         engine = ClassificationEngine()
         classified_df = engine.classify_features(filtered_df, threshold_structure)
-
-        # Build Sankey nodes and links
         nodes, links = engine.build_sankey_data(classified_df, threshold_structure)
 
-        # Build metadata
-        applied_filters = {}
-        if filters.sae_id:
-            applied_filters[COL_SAE_ID] = filters.sae_id
-        if filters.explanation_method:
-            applied_filters[COL_EXPLANATION_METHOD] = filters.explanation_method
-        if filters.llm_explainer:
-            applied_filters[COL_LLM_EXPLAINER] = filters.llm_explainer
-        if filters.llm_scorer:
-            applied_filters[COL_LLM_SCORER] = filters.llm_scorer
-
-        # Extract actual threshold values from the structure
-        applied_thresholds = {}
-        for node in threshold_structure.nodes:
-            if hasattr(node, 'split_rule') and node.split_rule:
-                if hasattr(node.split_rule, 'metric') and hasattr(node.split_rule, 'thresholds'):
-                    # Range split rule: extract metric thresholds
-                    metric = node.split_rule.metric
-                    thresholds = node.split_rule.thresholds
-                    if thresholds:
-                        if len(thresholds) == 1:
-                            applied_thresholds[metric] = float(thresholds[0])
-                        else:
-                            for i, threshold in enumerate(thresholds):
-                                applied_thresholds[f"{metric}_{i}"] = float(threshold)
-                elif hasattr(node.split_rule, 'conditions') and node.split_rule.conditions:
-                    # Pattern split rule: extract score thresholds
-                    conditions = node.split_rule.conditions
-                    for metric_name, pattern_condition in conditions.items():
-                        # Extract threshold from PatternCondition object
-                        if hasattr(pattern_condition, 'threshold') and pattern_condition.threshold is not None:
-                            applied_thresholds[metric_name] = float(pattern_condition.threshold)
-                        elif hasattr(pattern_condition, 'value') and pattern_condition.value is not None:
-                            applied_thresholds[metric_name] = float(pattern_condition.value)
-
         metadata = {
-            "total_features": filtered_df.select(pl.col("feature_id")).n_unique(),  # Count unique features, not rows
-            "applied_filters": applied_filters,
-            "applied_thresholds": applied_thresholds
+            "total_features": filtered_df.select(pl.col("feature_id")).n_unique(),
+            "applied_filters": self._build_applied_filters(filters),
+            "applied_thresholds": self._extract_applied_thresholds(threshold_structure)
         }
 
-        return SankeyResponse(
-            nodes=nodes,
-            links=links,
-            metadata=metadata
-        )
+        return SankeyResponse(nodes=nodes, links=links, metadata=metadata)
+
+    def _ensure_threshold_structure(
+        self, threshold_data: Union[Dict[str, Any], ThresholdStructure]
+    ) -> ThresholdStructure:
+        """Convert threshold_data to ThresholdStructure if needed."""
+        if isinstance(threshold_data, dict):
+            return ThresholdStructure.from_dict(threshold_data)
+        return threshold_data
+
+    def _build_applied_filters(self, filters: Filters) -> Dict[str, List[str]]:
+        """Build dictionary of applied filters."""
+        applied_filters = {}
+        filter_mapping = [
+            (filters.sae_id, COL_SAE_ID),
+            (filters.explanation_method, COL_EXPLANATION_METHOD),
+            (filters.llm_explainer, COL_LLM_EXPLAINER),
+            (filters.llm_scorer, COL_LLM_SCORER)
+        ]
+
+        for filter_value, column_name in filter_mapping:
+            if filter_value:
+                applied_filters[column_name] = filter_value
+
+        return applied_filters
+
+    def _extract_applied_thresholds(self, threshold_structure: ThresholdStructure) -> Dict[str, float]:
+        """Extract threshold values from the threshold structure."""
+        applied_thresholds = {}
+
+        for node in threshold_structure.nodes:
+            if not (hasattr(node, 'split_rule') and node.split_rule):
+                continue
+
+            # Range split rule
+            if hasattr(node.split_rule, 'metric') and hasattr(node.split_rule, 'thresholds'):
+                metric = node.split_rule.metric
+                thresholds = node.split_rule.thresholds
+                if thresholds:
+                    if len(thresholds) == 1:
+                        applied_thresholds[metric] = float(thresholds[0])
+                    else:
+                        for i, threshold in enumerate(thresholds):
+                            applied_thresholds[f"{metric}_{i}"] = float(threshold)
+
+            # Pattern split rule
+            elif hasattr(node.split_rule, 'conditions') and node.split_rule.conditions:
+                for metric_name, pattern_condition in node.split_rule.conditions.items():
+                    if hasattr(pattern_condition, 'threshold') and pattern_condition.threshold is not None:
+                        applied_thresholds[metric_name] = float(pattern_condition.threshold)
+                    elif hasattr(pattern_condition, 'value') and pattern_condition.value is not None:
+                        applied_thresholds[metric_name] = float(pattern_condition.value)
+
+        return applied_thresholds
 
     async def get_feature_data(
         self,
@@ -349,52 +365,66 @@ class DataService:
             raise RuntimeError("DataService not ready")
 
         try:
-            conditions = [pl.col(COL_FEATURE_ID) == feature_id]
-
-            filter_params = [
-                (sae_id, COL_SAE_ID),
-                (explanation_method, COL_EXPLANATION_METHOD),
-                (llm_explainer, COL_LLM_EXPLAINER),
-                (llm_scorer, COL_LLM_SCORER)
-            ]
-
-            for param_value, column_name in filter_params:
-                if param_value:
-                    conditions.append(pl.col(column_name) == param_value)
-
-            combined_condition = conditions[0]
-            for condition in conditions[1:]:
-                combined_condition = combined_condition & condition
-
-            result_df = (
-                self._df_lazy
-                .filter(combined_condition)
-                .collect()
+            combined_condition = self._build_feature_conditions(
+                feature_id, sae_id, explanation_method, llm_explainer, llm_scorer
             )
+
+            result_df = self._df_lazy.filter(combined_condition).collect()
 
             if len(result_df) == 0:
                 raise ValueError(f"Feature {feature_id} not found with specified parameters")
 
             row = result_df.row(0, named=True)
-
-            return FeatureResponse(
-                feature_id=row[COL_FEATURE_ID],
-                sae_id=row[COL_SAE_ID],
-                explanation_method=row[COL_EXPLANATION_METHOD],
-                llm_explainer=row[COL_LLM_EXPLAINER],
-                llm_scorer=row[COL_LLM_SCORER],
-                feature_splitting=row[COL_FEATURE_SPLITTING],
-                semdist_mean=row[COL_SEMDIST_MEAN],
-                semdist_max=row[COL_SEMDIST_MAX],
-                scores={
-                    "fuzz": row[COL_SCORE_FUZZ] or 0.0,
-                    "simulation": row[COL_SCORE_SIMULATION] or 0.0,
-                    "detection": row[COL_SCORE_DETECTION] or 0.0,
-                    "embedding": row[COL_SCORE_EMBEDDING] or 0.0
-                },
-                details_path=row[COL_DETAILS_PATH]
-            )
+            return self._build_feature_response(row)
 
         except Exception as e:
             logger.error(f"Error retrieving feature data: {e}")
             raise
+
+    def _build_feature_conditions(
+        self,
+        feature_id: int,
+        sae_id: Optional[str],
+        explanation_method: Optional[str],
+        llm_explainer: Optional[str],
+        llm_scorer: Optional[str]
+    ):
+        """Build combined condition for feature query."""
+        conditions = [pl.col(COL_FEATURE_ID) == feature_id]
+
+        filter_params = [
+            (sae_id, COL_SAE_ID),
+            (explanation_method, COL_EXPLANATION_METHOD),
+            (llm_explainer, COL_LLM_EXPLAINER),
+            (llm_scorer, COL_LLM_SCORER)
+        ]
+
+        for param_value, column_name in filter_params:
+            if param_value:
+                conditions.append(pl.col(column_name) == param_value)
+
+        combined_condition = conditions[0]
+        for condition in conditions[1:]:
+            combined_condition = combined_condition & condition
+
+        return combined_condition
+
+    def _build_feature_response(self, row: Dict[str, Any]) -> FeatureResponse:
+        """Build FeatureResponse from row data."""
+        return FeatureResponse(
+            feature_id=row[COL_FEATURE_ID],
+            sae_id=row[COL_SAE_ID],
+            explanation_method=row[COL_EXPLANATION_METHOD],
+            llm_explainer=row[COL_LLM_EXPLAINER],
+            llm_scorer=row[COL_LLM_SCORER],
+            feature_splitting=row[COL_FEATURE_SPLITTING],
+            semdist_mean=row[COL_SEMDIST_MEAN],
+            semdist_max=row[COL_SEMDIST_MAX],
+            scores={
+                "fuzz": row[COL_SCORE_FUZZ] or 0.0,
+                "simulation": row[COL_SCORE_SIMULATION] or 0.0,
+                "detection": row[COL_SCORE_DETECTION] or 0.0,
+                "embedding": row[COL_SCORE_EMBEDDING] or 0.0
+            },
+            details_path=row[COL_DETAILS_PATH]
+        )

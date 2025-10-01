@@ -75,10 +75,11 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 │   │   │   ├── responses.py        # API response schemas
 │   │   │   └── common.py           # Shared models (Filters, Thresholds, etc.)
 │   │   └── services/               # Business logic layer
-│   │       ├── data_service.py     # Consolidated high-performance Polars service
-│   │       ├── classification.py   # V2 classification engine
-│   │       ├── split_evaluators.py # Split rule evaluation logic
-│   │       └── data_constants.py   # Data schema constants
+│   │       ├── visualization_service.py  # High-performance Polars visualization service
+│   │       ├── feature_classifier.py     # V2 feature classification engine
+│   │       ├── rule_evaluators.py        # Split rule evaluation logic
+│   │       ├── node_labeler.py           # Sankey node display name generation
+│   │       └── data_constants.py         # Data schema constants
 │   ├── docs/                       # API documentation
 │   ├── start.py                    # Production startup script
 │   ├── test_api.py                # Comprehensive API testing

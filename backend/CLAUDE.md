@@ -73,10 +73,11 @@ backend/
 │   │   ├── responses.py          # Response schemas with type safety
 │   │   └── common.py             # Shared models and enums
 │   └── services/
-│       ├── data_service.py       # 🏭 High-performance Polars data service
-│       ├── classification.py      # 🔧 V2 classification engine
-│       ├── split_evaluators.py    # ⚙️ Split rule evaluation logic
-│       └── data_constants.py      # 📊 Data schema constants
+│       ├── visualization_service.py  # 🏭 High-performance Polars visualization service
+│       ├── feature_classifier.py     # 🔧 V2 feature classification engine
+│       ├── rule_evaluators.py        # ⚙️ Split rule evaluation logic
+│       ├── node_labeler.py           # 🎨 Sankey node display name generation
+│       └── data_constants.py         # 📊 Data schema constants
 ├── docs/                         # 📚 API documentation
 ├── start.py                      # 🔧 Production startup script with CLI args
 ├── test_api.py                   # 🧪 Comprehensive API testing suite
@@ -332,14 +333,15 @@ For future scaling beyond Parquet:
 The backend implements a **production-ready V2 classification engine** with modular architecture:
 
 #### Core Components:
-- **ClassificationEngine** (`classification.py`): Main classification orchestrator
+- **ClassificationEngine** (`feature_classifier.py`): Main classification orchestrator
   - `classify_features()`: Complete feature classification using threshold tree
   - `filter_features_for_node()`: Node-specific feature filtering for histograms
   - `build_sankey_data()`: Sankey diagram data generation
-- **SplitEvaluator** (`split_evaluators.py`): Split rule evaluation
+- **SplitEvaluator** (`rule_evaluators.py`): Split rule evaluation
   - `evaluate_range_split()`: Range-based splits (N thresholds → N+1 branches)
   - `evaluate_pattern_split()`: Pattern-based splits (multi-metric conditions)
   - `evaluate_expression_split()`: Expression-based splits (logical conditions)
+- **NodeDisplayNameGenerator** (`node_labeler.py`): Generates human-readable display names for Sankey nodes
 - **Dynamic Tree Support**: Runtime stage creation/removal through threshold tree structure
 
 #### Flexible Split Rule Types (New in V2):
@@ -433,14 +435,26 @@ Note: Stage order is configurable through threshold tree structure - no code cha
 - **Maintainable**: Avoid over-engineering while supporting complex research needs
 
 
-### 🔧 Data Service Architecture
+### 🔧 Service Architecture
 
 #### Core Components
-1. **DataService**: Research-optimized service class with flexible classification
+1. **DataService** (`visualization_service.py`): Research-optimized visualization data provider
+   - Orchestrates histogram, Sankey, and feature data generation
+   - Handles filter caching and data lifecycle management
+   - Integrates with ClassificationEngine for feature classification
+
+2. **ClassificationEngine** (`feature_classifier.py`): Feature classification orchestrator
    - Configurable feature classification algorithms supporting all split rule types (Range, Pattern, Expression)
    - Dynamic threshold tree V2 processing and validation
    - Flexible Sankey diagram data structure building
-   - Research-oriented data processing operations optimized for demonstrations
+
+3. **SplitEvaluator** (`rule_evaluators.py`): Rule evaluation engine
+   - Evaluates range, pattern, and expression split rules
+   - Returns child node selection and branch metadata
+
+4. **NodeDisplayNameGenerator** (`node_labeler.py`): Display name generator
+   - Generates human-readable labels for Sankey nodes
+   - Supports dynamic and legacy naming patterns
 
 #### Advanced Features
 - **Lazy DataFrame Operations**: All operations use Polars LazyFrame for memory efficiency
@@ -468,13 +482,20 @@ Note: Stage order is configurable through threshold tree structure - no code cha
 
 #### Service Layer Architecture
 ```
-API Endpoints → DataService → ClassificationEngine → SplitEvaluator → Data Processing
+API Endpoints → DataService (visualization_service.py)
+                    ↓
+                ClassificationEngine (feature_classifier.py)
+                    ↓
+                SplitEvaluator (rule_evaluators.py)
+                    ↓
+                NodeDisplayNameGenerator (node_labeler.py)
 ```
 
 - **Endpoint Layer**: Request validation, response formatting, error handling
-- **Service Layer**: DataService orchestrates data operations
+- **Service Layer**: DataService orchestrates visualization data generation
 - **Classification Layer**: ClassificationEngine handles feature classification
 - **Evaluation Layer**: SplitEvaluator evaluates split rules
+- **Presentation Layer**: NodeDisplayNameGenerator formats node labels
 - **Data Layer**: Polars operations, file I/O, caching
 
 #### Key Design Patterns
