@@ -254,7 +254,8 @@ export const HistogramPopover = ({
       const newValue = calculateThresholdFromMouseEvent(event, svgRef.current, chart, data.statistics.min, data.statistics.max)
       if (newValue === null) return
 
-      const clampedValue = Math.max(data.statistics.min, Math.min(data.statistics.max, newValue))
+      // Don't clamp - allow thresholds outside data range
+      const thresholdValue = newValue
 
       const panel = popoverData?.panel || 'left'
       const nodeId = popoverData?.nodeId
@@ -267,10 +268,10 @@ export const HistogramPopover = ({
       // For score nodes, update the individual threshold
       if (metric === 'score_fuzz' || metric === 'score_detection' || metric === 'score_simulation') {
         // Update the individual threshold for this specific metric
-        updateThreshold(nodeId, [clampedValue], panel, metric)
+        updateThreshold(nodeId, [thresholdValue], panel, metric)
       } else {
         // Single threshold update
-        updateThreshold(nodeId, [clampedValue], panel)
+        updateThreshold(nodeId, [thresholdValue], panel)
       }
     }
 
@@ -352,7 +353,7 @@ export const HistogramPopover = ({
           const thresholdLine = calculateThresholdLine(threshold, chart)
 
           const handleThresholdChange = (newThreshold: number) => {
-            const clampedThreshold = Math.max(data.statistics.min, Math.min(data.statistics.max, newThreshold))
+            // Don't clamp - allow thresholds outside data range
             const panel = popoverData?.panel || 'left'
             const nodeId = popoverData?.nodeId
 
@@ -364,10 +365,10 @@ export const HistogramPopover = ({
             // For score nodes, update the individual threshold
             if (metric === 'score_fuzz' || metric === 'score_detection' || metric === 'score_simulation') {
               // Update the individual threshold for this specific metric
-              updateThreshold(nodeId, [clampedThreshold], panel, metric)
+              updateThreshold(nodeId, [newThreshold], panel, metric)
             } else {
               // Single threshold update
-              updateThreshold(nodeId, [clampedThreshold], panel)
+              updateThreshold(nodeId, [newThreshold], panel)
             }
           }
 

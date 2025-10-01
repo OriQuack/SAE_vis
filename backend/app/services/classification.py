@@ -94,16 +94,17 @@ class ClassificationEngine:
         # Initialize tracking structures
         feature_classifications = []
 
-        # Process each feature
-        for row_dict in df.iter_rows(named=True):
+        # Process each feature row (may have duplicate feature_ids)
+        for i, row_dict in enumerate(df.iter_rows(named=True)):
             feature_id = row_dict.get(COL_FEATURE_ID)
 
             # Track the classification path for this feature
             path_info = self._classify_single_feature(row_dict, root, nodes_by_id)
 
-            # Store classification info
+            # Store classification info with row index for proper join
             feature_classifications.append(
                 {
+                    "_row_idx": i,  # Track original row index (will be cast to u32)
                     COL_FEATURE_ID: feature_id,
                     "final_node_id": path_info["final_node_id"],
                     "classification_path": path_info["path"],
@@ -117,13 +118,18 @@ class ClassificationEngine:
         classification_df = pl.DataFrame(feature_classifications)
 
         # Ensure feature_id column has the same type as original DataFrame
+        # Also cast _row_idx to match with_row_count output (u32)
         original_feature_id_type = df.schema[COL_FEATURE_ID]
-        classification_df = classification_df.with_columns(
-            pl.col(COL_FEATURE_ID).cast(original_feature_id_type)
-        )
+        classification_df = classification_df.with_columns([
+            pl.col(COL_FEATURE_ID).cast(original_feature_id_type),
+            pl.col("_row_idx").cast(pl.UInt32)
+        ])
 
-        # Join with original DataFrame
-        result_df = df.join(classification_df, on=COL_FEATURE_ID, how="left")
+        # Add row index to original DataFrame for proper join
+        df_with_idx = df.with_row_count("_row_idx")
+
+        # Join using row index to avoid duplication from duplicate feature_ids
+        result_df = df_with_idx.join(classification_df, on="_row_idx", how="left").drop("_row_idx")
 
         # Log classification summary
         self._log_classification_summary(result_df)
@@ -218,16 +224,15 @@ class ClassificationEngine:
             node_id = node.id
             count = aggregated_node_counts.get(node_id, 0)
 
-            # Skip nodes with no features (except root)
-            if count == 0 and node.stage > 0:
-                continue
+            # Don't skip any nodes - we need to show all nodes even if empty
 
             # Create node entry (no more aggregation - each node is unique)
             node_dict = {
                 "id": node_id,
                 "name": self._get_node_display_name(node),
                 "stage": node.stage,
-                "feature_count": count,
+                "count": count,  # For frontend compatibility
+                "feature_count": count,  # Required by response model
                 "category": node.category.value,
             }
 

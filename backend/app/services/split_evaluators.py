@@ -143,12 +143,16 @@ class SplitEvaluator:
         for metric, condition in rule.conditions.items():
             value = feature_row.get(metric)
             if value is None:
-                metric_states[metric] = None
+                # Treat None/null values as "low" state for pattern matching
+                metric_states[metric] = CONDITION_STATE_LOW
                 triggering_values[metric] = None
+                logger.debug(f"Metric {metric}: value=None, state=LOW")
                 continue
 
             triggering_values[metric] = value
-            metric_states[metric] = self._evaluate_condition(value, condition)
+            state = self._evaluate_condition(value, condition)
+            metric_states[metric] = state
+            logger.debug(f"Metric {metric}: value={value}, threshold={condition.threshold}, state={state}")
 
         # Now match against patterns in order
         for pattern_index, pattern in enumerate(rule.patterns):
