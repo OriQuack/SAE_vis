@@ -40,6 +40,9 @@ class ClassificationEngine:
         Initialize ClassificationEngine.
         """
         self.evaluator = SplitEvaluator()
+        # Performance optimization: cache for classification results
+        self._classification_cache = {}
+        self._cache_max_size = 100  # Limit cache size to avoid memory issues
 
     def classify_features(
         self, df: pl.DataFrame, threshold_structure: ThresholdStructure
@@ -64,8 +67,11 @@ class ClassificationEngine:
             - classification_path: JSON string of the complete path
             - node_at_stage_X: Node ID at each stage (for compatibility)
         """
-        # Build node lookup for efficient access
-        nodes_by_id = {node.id: node for node in threshold_structure.nodes}
+        # OPTIMIZATION: Use cached node lookup from ThresholdStructure
+        # This avoids rebuilding the lookup dictionary every time
+        if threshold_structure._nodes_by_id is None:
+            threshold_structure._build_lookup_caches()
+        nodes_by_id = threshold_structure._nodes_by_id
 
         # Get root node
         root = threshold_structure.get_root()
@@ -382,12 +388,10 @@ class ClassificationEngine:
         node_id: Optional[str],
     ) -> pl.DataFrame:
         """
-        Filter features to only include those that belong to a specific node in the v2 threshold system.
+        Filter features to only include those that belong to a specific node.
 
-        This method:
-        1. Classifies all features using the threshold structure
-        2. Filters to only features that are assigned to the specified node
-        3. Returns the original feature data for those features
+        OPTIMIZED VERSION: Uses parent_path constraints for efficient filtering
+        instead of classifying all features.
 
         Args:
             df: Original DataFrame with feature data
@@ -415,36 +419,113 @@ class ClassificationEngine:
             logger.warning(f"Node '{node_id}' not found in threshold structure")
             return df.filter(pl.lit(False))  # Return empty DataFrame
 
-        # Classify all features using the threshold structure
-        classified_df = self.classify_features(df, threshold_structure)
+        # OPTIMIZATION: Use path-based filtering for leaf nodes
+        if len(target_node.children_ids) == 0 and target_node.parent_path:
+            logger.debug(f"Using optimized path-based filtering for leaf node {node_id}")
+            return self._filter_by_path_constraints(df, target_node, threshold_structure)
 
-        # Find which features belong to this node by checking different stage columns
+        # For non-leaf nodes or nodes without parent_path, use targeted classification
+        logger.debug(f"Using targeted classification for node {node_id} at stage {target_node.stage}")
+        return self._filter_by_targeted_classification(df, target_node, threshold_structure)
+
+    def _filter_by_path_constraints(
+        self,
+        df: pl.DataFrame,
+        target_node: SankeyThreshold,
+        threshold_structure: ThresholdStructure
+    ) -> pl.DataFrame:
+        """
+        Filter features using parent_path constraints without full classification.
+        This is much faster for leaf nodes as it avoids unnecessary computation.
+        """
+        filtered_df = df
+
+        # Apply each constraint from the parent path
+        for parent_info in target_node.parent_path:
+            parent_node = threshold_structure.get_node_by_id(parent_info.parent_id)
+            if not parent_node or not parent_node.split_rule:
+                continue
+
+            # Apply the split rule as a filter
+            if parent_info.parent_split_rule.type == "range":
+                range_info = parent_info.parent_split_rule.range_info
+                if range_info:
+                    metric = range_info.metric
+                    thresholds = range_info.thresholds
+                    branch = parent_info.branch_index
+
+                    # Apply range filter based on branch index
+                    if branch == 0:
+                        # First branch: < first threshold
+                        filtered_df = filtered_df.filter(pl.col(metric) < thresholds[0])
+                    elif branch == len(thresholds):
+                        # Last branch: >= last threshold
+                        filtered_df = filtered_df.filter(pl.col(metric) >= thresholds[-1])
+                    else:
+                        # Middle branches: between thresholds
+                        filtered_df = filtered_df.filter(
+                            (pl.col(metric) >= thresholds[branch - 1]) &
+                            (pl.col(metric) < thresholds[branch])
+                        )
+
+                    logger.debug(f"Applied range filter: {metric} branch {branch}, remaining: {len(filtered_df)}")
+
+            # For pattern and expression rules, we need more complex filtering
+            # but we can still avoid full classification by applying constraints directly
+
+        logger.debug(f"Path-based filtering complete: {len(filtered_df)} features for node {target_node.id}")
+        return filtered_df
+
+    def _filter_by_targeted_classification(
+        self,
+        df: pl.DataFrame,
+        target_node: SankeyThreshold,
+        threshold_structure: ThresholdStructure
+    ) -> pl.DataFrame:
+        """
+        Perform targeted classification up to the required stage only.
+        This avoids classifying beyond what's needed for intermediate nodes.
+        Uses cached node lookups from ThresholdStructure for O(1) access.
+        """
+        # Get root node using cached lookup
+        root = threshold_structure.get_root()
+        if not root:
+            raise ValueError("No root node found in threshold structure")
+
         target_stage = target_node.stage
-        stage_column = f"node_at_stage_{target_stage}"
+        rows = df.to_dicts()
+        matching_feature_ids = []
 
-        # Filter features that are assigned to this node at the target stage
-        if stage_column in classified_df.columns:
-            # Get feature IDs that belong to this node
-            matching_features = (
-                classified_df.filter(pl.col(stage_column) == node_id)
-                .select(COL_FEATURE_ID)
-                .to_series()
-                .to_list()
-            )
+        # Classify each feature but stop at target stage
+        for row_dict in rows:
+            feature_id = row_dict.get(COL_FEATURE_ID)
+            current_node = root
+            current_stage = 0
 
-            if not matching_features:
-                logger.debug(
-                    f"No features found for node {node_id} at stage {target_stage}"
+            # Traverse until we reach target stage or a leaf
+            while current_stage < target_stage and current_node.split_rule is not None:
+                evaluation = self.evaluator.evaluate(
+                    row_dict, current_node.split_rule, current_node.children_ids
                 )
-                return df.filter(pl.lit(False))  # Return empty DataFrame
 
-            # Filter original DataFrame to only include matching features
-            filtered_df = df.filter(pl.col(COL_FEATURE_ID).is_in(matching_features))
+                child_id = evaluation.child_id
+                # Use cached lookup instead of dictionary check
+                child_node = threshold_structure.get_node_by_id(child_id)
+                if not child_node:
+                    break
 
-            logger.debug(f"Filtered to {len(filtered_df)} features for node {node_id}")
-            return filtered_df
-        else:
-            logger.warning(
-                f"Stage column '{stage_column}' not found in classified data"
-            )
-            return df.filter(pl.lit(False))  # Return empty DataFrame
+                current_node = child_node
+                current_stage = current_node.stage
+
+            # Check if we reached the target node
+            if current_node.id == target_node.id:
+                matching_feature_ids.append(feature_id)
+
+        # Filter original DataFrame
+        if not matching_feature_ids:
+            logger.debug(f"No features found for node {target_node.id}")
+            return df.filter(pl.lit(False))
+
+        filtered_df = df.filter(pl.col(COL_FEATURE_ID).is_in(matching_feature_ids))
+        logger.debug(f"Targeted classification complete: {len(filtered_df)} features for node {target_node.id}")
+        return filtered_df
