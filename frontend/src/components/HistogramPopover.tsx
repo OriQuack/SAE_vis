@@ -139,7 +139,8 @@ const HistogramChart: React.FC<{
   isMultiChart: boolean
   animationDuration: number
   onSliderMouseDown: (e: React.MouseEvent, metric: string, chart: HistogramChart) => void
-}> = ({ chart, threshold, isMultiChart, animationDuration, onSliderMouseDown }) => {
+  onBarHover: (barIndex: number | null, chart: HistogramChart) => void
+}> = ({ chart, threshold, isMultiChart, animationDuration, onSliderMouseDown, onBarHover }) => {
   const bars = useMemo(() =>
     calculateHistogramBars(chart, threshold, HISTOGRAM_COLORS.bars, HISTOGRAM_COLORS.threshold),
     [chart, threshold]
@@ -200,7 +201,12 @@ const HistogramChart: React.FC<{
             fill={bar.color}
             stroke="white"
             strokeWidth={1}
-            style={{ transition: `fill ${animationDuration}ms ease-out` }}
+            style={{
+              transition: `fill ${animationDuration}ms ease-out`,
+              cursor: 'pointer'
+            }}
+            onMouseEnter={() => onBarHover(i, chart)}
+            onMouseLeave={() => onBarHover(null, chart)}
           />
         ))}
       </g>
@@ -349,6 +355,9 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
   const draggingMetricRef = useRef<string | null>(null)
   const draggingChartRef = useRef<HistogramChart | null>(null)
 
+  // Local state for tooltip
+  const [hoveredBarInfo, setHoveredBarInfo] = useState<{ barIndex: number; chart: HistogramChart } | null>(null)
+
   // Calculate container size
   const containerSize = useMemo(() =>
     calculateResponsivePopoverSize(width, height, popoverData?.metrics?.length || 1),
@@ -410,6 +419,15 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
 
     return calculateHistogramLayout(histogramData, chartWidth, chartHeight)
   }, [histogramData, containerSize, validationErrors, popoverData?.metrics])
+
+  // Handle bar hover
+  const handleBarHover = useCallback((barIndex: number | null, chart: HistogramChart) => {
+    if (barIndex === null) {
+      setHoveredBarInfo(null)
+    } else {
+      setHoveredBarInfo({ barIndex, chart })
+    }
+  }, [])
 
   // Handle slider drag
   const handleSliderMouseDown = useCallback((
@@ -705,9 +723,61 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
                     isMultiChart={layout.charts.length > 1}
                     animationDuration={animationDuration}
                     onSliderMouseDown={handleSliderMouseDown}
+                    onBarHover={handleBarHover}
                   />
                 )
               })}
+
+              {/* Global tooltip - rendered last to be on top */}
+              {hoveredBarInfo && histogramData && (() => {
+                const { barIndex, chart } = hoveredBarInfo
+                const metric = chart.metric
+                const data = histogramData[metric]
+                const threshold = getEffectiveThresholdValue(metric)
+
+                if (!data) return null
+
+                const bars = calculateHistogramBars(chart, threshold, HISTOGRAM_COLORS.bars, HISTOGRAM_COLORS.threshold)
+                const bar = bars[barIndex]
+
+                if (!bar) return null
+
+                const tooltipX = bar.x + bar.width / 2 + chart.margin.left
+                const tooltipY = bar.y + chart.yOffset - 40
+
+                return (
+                  <g pointerEvents="none">
+                    <rect
+                      x={tooltipX - 60}
+                      y={tooltipY}
+                      width={120}
+                      height={32}
+                      fill="#1f2937"
+                      rx={4}
+                      opacity={0.95}
+                    />
+                    <text
+                      x={tooltipX}
+                      y={tooltipY + 14}
+                      textAnchor="middle"
+                      fill="white"
+                      fontSize={11}
+                      fontWeight="600"
+                    >
+                      {bar.binData.count} features
+                    </text>
+                    <text
+                      x={tooltipX}
+                      y={tooltipY + 26}
+                      textAnchor="middle"
+                      fill="#d1d5db"
+                      fontSize={9}
+                    >
+                      {bar.binData.x0.toFixed(3)} - {bar.binData.x1.toFixed(3)}
+                    </text>
+                  </g>
+                )
+              })()}
             </svg>
           </div>
         )}
