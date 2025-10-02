@@ -10,6 +10,7 @@ import {
 } from '../lib/d3-alluvial-utils'
 import { calculateSankeyLayout } from '../lib/d3-sankey-utils'
 import { ALLUVIAL_MARGIN } from '../lib/d3-alluvial-utils'
+import { useResizeObserver } from '../lib/utils'
 import type { AlluvialSankeyNode, AlluvialSankeyLink } from '../types'
 import '../styles/AlluvialDiagram.css'
 
@@ -157,27 +158,34 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
   const [hoveredFlowId, setHoveredFlowId] = useState<string | null>(null)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
 
+  // Resize observer for responsive width with minimal debounce
+  const { ref: containerRef, size: containerSize } = useResizeObserver<HTMLDivElement>({
+    defaultWidth: width,
+    defaultHeight: height,
+    debounceMs: 16  // ~60fps for smooth resizing
+  })
+
   // Calculate Sankey layouts to get nodes with positions
   const leftLayout = useMemo(
-    () => leftSankeyData ? calculateSankeyLayout(leftSankeyData, width, height) : null,
-    [leftSankeyData, width, height]
+    () => leftSankeyData ? calculateSankeyLayout(leftSankeyData, containerSize.width, height) : null,
+    [leftSankeyData, containerSize.width, height]
   )
 
   const rightLayout = useMemo(
-    () => rightSankeyData ? calculateSankeyLayout(rightSankeyData, width, height) : null,
-    [rightSankeyData, width, height]
+    () => rightSankeyData ? calculateSankeyLayout(rightSankeyData, containerSize.width, height) : null,
+    [rightSankeyData, containerSize.width, height]
   )
 
   // Calculate alluvial layout using D3 utilities
   const layout = useMemo(
     () => calculateAlluvialLayout(
       alluvialFlows,
-      width,
+      containerSize.width,
       height,
       leftLayout?.nodes,
       rightLayout?.nodes
     ),
-    [alluvialFlows, width, height, leftLayout?.nodes, rightLayout?.nodes]
+    [alluvialFlows, containerSize.width, height, leftLayout?.nodes, rightLayout?.nodes]
   )
 
   // Get connected flow IDs using utility function
@@ -222,11 +230,11 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
 
   // Render the visualization
   return (
-    <div className={`alluvial-diagram ${className}`}>
+    <div ref={containerRef} className={`alluvial-diagram ${className}`} style={{ width: '100%', height }}>
       <svg
-        width={width}
+        width={containerSize.width}
         height={height}
-        viewBox={`0 0 ${width} ${height}`}
+        viewBox={`0 0 ${containerSize.width} ${height}`}
         className="alluvial-svg"
       >
         {/* Apply transform to position content with margins like SankeyDiagram */}

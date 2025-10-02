@@ -396,10 +396,11 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     position: { x: number; y: number }
   } | null>(null)
 
-  // Resize observer hook
+  // Resize observer hook with minimal debounce for responsiveness
   const { ref: containerRef, size: containerSize } = useResizeObserver<HTMLDivElement>({
     defaultWidth: width,
-    defaultHeight: height
+    defaultHeight: height,
+    debounceMs: 16  // ~60fps for smooth resizing
   })
 
   // Update display data when loading completes

@@ -319,9 +319,23 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
         </div>
       </div>
 
-      {/* Main content - three-panel rendering */}
+      {/* Main content - four-panel rendering */}
       <div className={`sankey-view__content sankey-view__content--${layout}`}>
         <div className="sankey-view__main-content">
+          {/* Far Left Panel - Placeholder for now */}
+          <div className="sankey-view__far-left-panel">
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%',
+              color: '#9ca3af',
+              fontSize: '14px'
+            }}>
+              Panel 1
+            </div>
+          </div>
+
           {/* Left Panel */}
           <div className="sankey-view__left-panel">
             {leftPanel.viewState === 'empty' && (
@@ -344,7 +358,6 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
                   className="sankey-view__floating-actions"
                 />
                 <SankeyDiagram
-                  width={600}
                   height={FIXED_DIAGRAM_HEIGHT}
                   showHistogramOnClick={true}
                   flowDirection="left-to-right"
@@ -357,7 +370,6 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
           {/* Center Panel - Alluvial Diagram */}
           <div className="sankey-view__center-panel">
             <AlluvialDiagram
-              width={300}
               height={FIXED_DIAGRAM_HEIGHT}
               className="sankey-view__alluvial"
             />
@@ -385,7 +397,6 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
                   className="sankey-view__floating-actions"
                 />
                 <SankeyDiagram
-                  width={600}
                   height={FIXED_DIAGRAM_HEIGHT}
                   showHistogramOnClick={true}
                   flowDirection="right-to-left"
