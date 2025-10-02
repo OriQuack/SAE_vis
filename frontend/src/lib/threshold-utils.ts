@@ -58,7 +58,7 @@ export const AVAILABLE_STAGE_TYPES: StageTypeConfig[] = [
     category: CATEGORY_FEATURE_SPLITTING,
     defaultSplitRule: 'range',
     defaultMetric: METRIC_FEATURE_SPLITTING,
-    defaultThresholds: [0.1]
+    defaultThresholds: [0.3]
   },
   {
     id: 'semantic_distance',
