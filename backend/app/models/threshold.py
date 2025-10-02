@@ -333,6 +333,14 @@ class ThresholdStructure(BaseModel):
         description="List of all metrics used in the structure"
     )
 
+    # Performance optimization: cache for O(1) node lookups
+    _nodes_by_id: Optional[Dict[str, SankeyThreshold]] = None
+    _nodes_by_stage: Optional[Dict[int, List[SankeyThreshold]]] = None
+
+    class Config:
+        # Allow private attributes for caching
+        underscore_attrs_are_private = True
+
     @validator('nodes')
     def validate_structure(cls, v):
         """Validate the overall structure consistency"""
@@ -358,13 +366,32 @@ class ThresholdStructure(BaseModel):
 
         return v
 
+    def __init__(self, **data):
+        """Initialize and build lookup caches"""
+        super().__init__(**data)
+        self._build_lookup_caches()
+
+    def _build_lookup_caches(self):
+        """Build lookup caches for O(1) access"""
+        self._nodes_by_id = {node.id: node for node in self.nodes}
+        self._nodes_by_stage = {}
+        for node in self.nodes:
+            if node.stage not in self._nodes_by_stage:
+                self._nodes_by_stage[node.stage] = []
+            self._nodes_by_stage[node.stage].append(node)
+
     def get_root(self) -> SankeyThreshold:
         """Get the root node of the structure"""
+        # Use cached lookup if available
+        if self._nodes_by_stage and 0 in self._nodes_by_stage:
+            return self._nodes_by_stage[0][0]
         return next(n for n in self.nodes if n.stage == 0)
 
     def get_node_by_id(self, node_id: str) -> Optional[SankeyThreshold]:
-        """Find a node by its ID"""
-        return next((n for n in self.nodes if n.id == node_id), None)
+        """Find a node by its ID - O(1) with cache"""
+        if self._nodes_by_id is None:
+            self._build_lookup_caches()
+        return self._nodes_by_id.get(node_id)
 
     def get_children(self, parent_id: str) -> List[SankeyThreshold]:
         """Get all children of a parent node"""
@@ -379,6 +406,54 @@ class ThresholdStructure(BaseModel):
                 children.append(child)
 
         return children
+
+    def get_ancestors(self, node_id: str) -> List[str]:
+        """Get all ancestor node IDs from parent path - uses parent_path for efficiency"""
+        node = self.get_node_by_id(node_id)
+        if not node:
+            return []
+        return [p.parent_id for p in node.parent_path]
+
+    def get_path_constraints(self, node_id: str) -> List[Dict[str, Any]]:
+        """
+        Extract path constraints from parent_path for efficient filtering.
+        Returns list of constraint dicts with metric, thresholds, and branch info.
+        """
+        node = self.get_node_by_id(node_id)
+        if not node:
+            return []
+
+        constraints = []
+        for parent_info in node.parent_path:
+            constraint = {
+                "parent_id": parent_info.parent_id,
+                "branch_index": parent_info.branch_index,
+                "split_type": parent_info.parent_split_rule.type
+            }
+
+            # Extract specific constraint details based on split type
+            if parent_info.parent_split_rule.type == "range":
+                if parent_info.parent_split_rule.range_info:
+                    constraint["metric"] = parent_info.parent_split_rule.range_info.metric
+                    constraint["thresholds"] = parent_info.parent_split_rule.range_info.thresholds
+                    constraint["selected_range"] = parent_info.parent_split_rule.range_info.selected_range
+            elif parent_info.parent_split_rule.type == "pattern":
+                if parent_info.parent_split_rule.pattern_info:
+                    constraint["pattern_index"] = parent_info.parent_split_rule.pattern_info.pattern_index
+
+            # Include triggering values if available (useful for exact filtering)
+            if parent_info.triggering_values:
+                constraint["triggering_values"] = parent_info.triggering_values
+
+            constraints.append(constraint)
+
+        return constraints
+
+    def get_nodes_at_stage(self, stage: int) -> List[SankeyThreshold]:
+        """Get all nodes at a specific stage - O(1) with cache"""
+        if self._nodes_by_stage is None:
+            self._build_lookup_caches()
+        return self._nodes_by_stage.get(stage, [])
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization"""
