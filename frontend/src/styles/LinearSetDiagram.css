@@ -41,16 +41,18 @@
 }
 
 .linear-set-diagram__checkbox {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   cursor: pointer;
-  margin-right: 8px;
+  margin-right: 6px;
+  accent-color: #3b82f6;
+  border-radius: 2px;
 }
 
 .linear-set-diagram__label {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
-  color: #374151;
+  color: #4b5563;
   cursor: pointer;
   user-select: none;
 }
@@ -99,4 +101,139 @@
 .linear-set-diagram__tooltip-subtitle {
   color: #d1d5db;
   font-size: 10px;
+}
+
+.linear-set-diagram__tooltip--category {
+  background-color: #374151;
+  font-weight: 600;
+}
+
+/* Group Row Styles */
+.group-column-indicator {
+  transition: opacity 0.2s ease;
+}
+
+.group-column-indicator:hover {
+  opacity: 1 !important;
+}
+
+.group-edit-btn,
+.group-delete-btn {
+  transition: fill 0.2s ease;
+}
+
+.group-edit-btn:hover,
+.group-delete-btn:hover {
+  filter: brightness(0.9);
+}
+
+/* Edit Dialog */
+.linear-set-diagram__edit-dialog {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.3);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.linear-set-diagram__edit-dialog-content {
+  background-color: white;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 16px;
+  min-width: 200px;
+}
+
+.linear-set-diagram__edit-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+
+.linear-set-diagram__edit-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.linear-set-diagram__edit-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.linear-set-diagram__edit-btn {
+  padding: 6px 16px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.linear-set-diagram__edit-btn--save {
+  background-color: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.linear-set-diagram__edit-btn--save:hover {
+  background-color: #2563eb;
+  border-color: #2563eb;
+}
+
+.linear-set-diagram__edit-btn--cancel {
+  background-color: white;
+  color: #6b7280;
+  border-color: #d1d5db;
+}
+
+.linear-set-diagram__edit-btn--cancel:hover {
+  background-color: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.linear-set-diagram__edit-btn--delete {
+  background-color: #ef4444;
+  color: white;
+  border-color: #ef4444;
+}
+
+.linear-set-diagram__edit-btn--delete:hover {
+  background-color: #dc2626;
+  border-color: #dc2626;
+}
+
+/* Group Management Controls */
+.linear-set-diagram__controls {
+  padding: 12px 16px;
+  border-top: 1px solid #e5e7eb;
+  background-color: #f9fafb;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.linear-set-diagram__add-group-btn {
+  padding: 6px 16px;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.linear-set-diagram__add-group-btn:hover {
+  background-color: #2563eb;
 }

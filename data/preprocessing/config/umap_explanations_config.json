@@ -1,0 +1,21 @@
+{
+  "embedding_sources": [
+    {
+      "name": "llama_e-llama_s",
+      "path": "data/embeddings/llama_e-llama_s"
+    },
+    {
+      "name": "gwen_e-llama_s",
+      "path": "data/embeddings/gwen_e-llama_s"
+    }
+  ],
+  "umap_parameters": {
+    "n_neighbors": 15,
+    "min_dist": 0.1,
+    "metric": "cosine",
+    "random_state": 42
+  },
+  "output_dir": "data/umap_explanations",
+  "output_filename": "explanation_umap.json",
+  "description": "UMAP configuration for explanation embeddings from multiple sources"
+}

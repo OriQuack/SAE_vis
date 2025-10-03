@@ -27,7 +27,7 @@ interface UseResizeObserverOptions {
 }
 
 interface UseResizeObserverReturn<T extends HTMLElement = HTMLElement> {
-  ref: React.RefObject<T | null>
+  ref: (node: T | null) => void
   size: Size
 }
 
@@ -83,7 +83,7 @@ export const useResizeObserver = <T extends HTMLElement = HTMLElement>({
     }
 
     if (node) {
-      console.log(`[useResizeObserver ${debugIdRef.current}] Element attached, measuring immediately`)
+    //   console.log(`[useResizeObserver ${debugIdRef.current}] Element attached, measuring immediately`)
 
       // Immediate measurement
       const rect = node.getBoundingClientRect()
@@ -91,7 +91,7 @@ export const useResizeObserver = <T extends HTMLElement = HTMLElement>({
         width: rect.width || defaultWidth,
         height: rect.height || defaultHeight
       }
-      console.log(`[useResizeObserver ${debugIdRef.current}] Initial size:`, newSize)
+    //   console.log(`[useResizeObserver ${debugIdRef.current}] Initial size:`, newSize)
       setSize(newSize)
 
       // Set up observer for future changes
@@ -105,7 +105,7 @@ export const useResizeObserver = <T extends HTMLElement = HTMLElement>({
             width: rect.width || defaultWidth,
             height: rect.height || defaultHeight
           }
-          console.log(`[useResizeObserver ${debugIdRef.current}] Resize detected:`, newSize)
+        //   console.log(`[useResizeObserver ${debugIdRef.current}] Resize detected:`, newSize)
           setSize(newSize)
         }, debounceMs)
       })

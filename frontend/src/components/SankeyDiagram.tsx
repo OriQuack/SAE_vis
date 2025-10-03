@@ -330,6 +330,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const error = useVisualizationStore(state => state.errors[errorKey])
   const hoveredAlluvialNodeId = useVisualizationStore(state => state.hoveredAlluvialNodeId)
   const hoveredAlluvialPanel = useVisualizationStore(state => state.hoveredAlluvialPanel)
+  const scoringMetricThresholds = useVisualizationStore(state => state.scoringMetricThresholds)
   const { showHistogramPopover, addStageToTree, removeStageFromTree } = useVisualizationStore()
 
   // Track previous data for smooth transitions
@@ -348,6 +349,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   } | null>(null)
 
   // Resize observer hook with minimal debounce for responsiveness
+  const containerElementRef = React.useRef<HTMLDivElement | null>(null)
   const { ref: containerRef, size: containerSize } = useResizeObserver<HTMLDivElement>({
     defaultWidth: width,
     defaultHeight: height,
@@ -355,10 +357,11 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     debugId: panel
   })
 
-  // Debug: Log containerSize changes
-  React.useEffect(() => {
-    console.log(`[SankeyDiagram ${panel}] containerSize:`, containerSize)
-  }, [containerSize, panel])
+  // Combined ref callback to support both resize observer and direct access
+  const setContainerRef = React.useCallback((node: HTMLDivElement | null) => {
+    containerElementRef.current = node
+    containerRef(node)
+  }, [containerRef])
 
   // Update display data when loading completes
   React.useEffect(() => {
@@ -379,7 +382,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       return { layout: null, validationErrors: errors }
     }
 
-    console.log(`[SankeyDiagram ${panel}] Calculating layout with container size:`, containerSize)
+    // console.log(`[SankeyDiagram ${panel}] Calculating layout with container size:`, containerSize)
 
     try {
       // Use different margins for right panel
@@ -415,7 +418,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     const metrics = getNodeMetrics(treeNode)
     if (!metrics || metrics.length === 0) return
 
-    const containerRect = containerRef.current?.getBoundingClientRect()
+    const containerRect = containerElementRef.current?.getBoundingClientRect()
     const position = {
       x: containerRect ? containerRect.right + 20 : window.innerWidth - 600,
       y: containerRect ? containerRect.top + containerRect.height / 2 : window.innerHeight / 2
@@ -467,7 +470,10 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       thresholds: stageType.defaultThresholds,
       // Use selected scoring metrics from store for score_agreement stage
       ...(stageTypeId === 'score_agreement' && {
-        selectedScoreMetrics: useVisualizationStore.getState().selectedScoringMetrics
+        selectedScoreMetrics: useVisualizationStore.getState().selectedScoringMetrics,
+        thresholds: useVisualizationStore.getState().selectedScoringMetrics.map(
+          metric => useVisualizationStore.getState().scoringMetricThresholds[metric] || 0.5
+        )
       })
     }
 
@@ -489,7 +495,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       stageType: 'score_agreement',
       splitRuleType: 'pattern',
       selectedScoreMetrics: selectedMetrics,
-      thresholds: selectedMetrics.map((metric) => metric === 'score_simulation' ? 0.1 : 0.5)
+      thresholds: selectedMetrics.map((metric) => scoringMetricThresholds[metric] || 0.5)
     }
 
     addStageToTree(metricSelectorState.nodeId, config, panel)
@@ -540,7 +546,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   return (
     <div className={`sankey-diagram ${className}`}>
       <div
-        ref={containerRef}
+        ref={setContainerRef}
         className="sankey-diagram__container"
         style={{ width: '100%', height: height, position: 'relative' }}
       >

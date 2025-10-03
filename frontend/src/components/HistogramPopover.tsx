@@ -336,11 +336,13 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
   const loading = useVisualizationStore(state => state.loading.histogram)
   const error = useVisualizationStore(state => state.errors.histogram)
   const thresholdTree = useVisualizationStore(state => state[panelKey].thresholdTree)
+  const scoringMetricThresholds = useVisualizationStore(state => state.scoringMetricThresholds)
 
   const {
     hideHistogramPopover,
     fetchMultipleHistogramData,
     updateThreshold,
+    setScoringMetricThreshold,
     clearError
   } = useVisualizationStore()
 
@@ -375,7 +377,8 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     const nodeId = popoverData?.nodeId
 
     if (!nodeId || !thresholdTree) {
-      return histogramData?.[metric]?.statistics?.mean || 0.5
+      // No nodeId: use global scoring metric thresholds (for Linear Set Diagram)
+      return scoringMetricThresholds[metric] || histogramData?.[metric]?.statistics?.mean || 0.5
     }
 
     const thresholdValue = getEffectiveThreshold(thresholdTree, nodeId, metric)
@@ -389,7 +392,7 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     }
 
     return histogramData?.[metric]?.statistics?.mean || 0.5
-  }, [histogramData, popoverData?.nodeId, thresholdTree])
+  }, [histogramData, popoverData?.nodeId, thresholdTree, scoringMetricThresholds])
 
   // Validation
   const validationErrors = useMemo(() => {
@@ -444,17 +447,23 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     if (!data) return
 
     const newValue = calculateThresholdFromMouseEvent(event, svgRef.current, chart, data.statistics.min, data.statistics.max)
-    if (newValue !== null && popoverData?.nodeId) {
-      const scoreMetrics = ['score_fuzz', 'score_detection', 'score_simulation']
-      if (scoreMetrics.includes(metric)) {
-        updateThreshold(popoverData.nodeId, [newValue], panel, metric)
+    if (newValue !== null) {
+      if (popoverData?.nodeId) {
+        // Has nodeId: update tree node threshold
+        const scoreMetrics = ['score_fuzz', 'score_detection', 'score_simulation']
+        if (scoreMetrics.includes(metric)) {
+          updateThreshold(popoverData.nodeId, [newValue], panel, metric)
+        } else {
+          updateThreshold(popoverData.nodeId, [newValue], panel)
+        }
       } else {
-        updateThreshold(popoverData.nodeId, [newValue], panel)
+        // No nodeId: update global scoring metric threshold (for Linear Set Diagram)
+        setScoringMetricThreshold(metric, newValue)
       }
     }
 
     event.preventDefault()
-  }, [histogramData, updateThreshold, popoverData?.nodeId, panel])
+  }, [histogramData, updateThreshold, setScoringMetricThreshold, popoverData?.nodeId, panel])
 
   // Handle header drag start
   const handleHeaderMouseDown = useCallback((event: React.MouseEvent) => {
@@ -493,12 +502,18 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
       const data = histogramData[metric]
       const newValue = calculateThresholdFromMouseEvent(event, svgRef.current, chart, data.statistics.min, data.statistics.max)
 
-      if (newValue !== null && popoverData?.nodeId) {
-        const scoreMetrics = ['score_fuzz', 'score_detection', 'score_simulation']
-        if (scoreMetrics.includes(metric)) {
-          updateThreshold(popoverData.nodeId, [newValue], panel, metric)
+      if (newValue !== null) {
+        if (popoverData?.nodeId) {
+          // Has nodeId: update tree node threshold
+          const scoreMetrics = ['score_fuzz', 'score_detection', 'score_simulation']
+          if (scoreMetrics.includes(metric)) {
+            updateThreshold(popoverData.nodeId, [newValue], panel, metric)
+          } else {
+            updateThreshold(popoverData.nodeId, [newValue], panel)
+          }
         } else {
-          updateThreshold(popoverData.nodeId, [newValue], panel)
+          // No nodeId: update global scoring metric threshold (for Linear Set Diagram)
+          setScoringMetricThreshold(metric, newValue)
         }
       }
     }
@@ -579,7 +594,7 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
 
   // Fetch data when popover opens
   useEffect(() => {
-    if (popoverData?.visible && popoverData.nodeId && popoverData.metrics?.length > 0) {
+    if (popoverData?.visible && popoverData.metrics?.length > 0) {
       fetchMultipleHistogramData(popoverData.metrics, popoverData.nodeId, panel)
     }
   }, [popoverData?.visible, popoverData?.nodeId, popoverData?.metrics, fetchMultipleHistogramData, panel])

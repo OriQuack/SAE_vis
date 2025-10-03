@@ -13,6 +13,7 @@ import type {
 import {
   buildRangeSplit,
   buildFlexibleScoreAgreementSplit,
+  buildCategoryGroupPatternSplit,
   createNode,
   createParentPath
 } from './split-rule-builders'
@@ -37,6 +38,68 @@ import {
 // CONSTANTS
 // ============================================================================
 const NODE_ROOT_ID = "root"
+
+// ============================================================================
+// EXPRESSION SPLIT RULE HELPERS
+// ============================================================================
+
+/**
+ * Parse threshold value for a specific metric from an ExpressionSplitRule condition string
+ * @param condition Condition string like "(score_fuzz >= 0.5 && score_detection >= 0.5)"
+ * @param metric Metric name to extract threshold for
+ * @returns Threshold value if found, null otherwise
+ */
+function parseThresholdFromCondition(condition: string, metric: string): number | null {
+  // Match patterns like "score_fuzz >= 0.5" or "score_fuzz < 0.5"
+  const regex = new RegExp(`${metric}\\s*(?:>=|<)\\s*([0-9.]+)`, 'g')
+  const match = regex.exec(condition)
+
+  if (match && match[1]) {
+    return parseFloat(match[1])
+  }
+
+  return null
+}
+
+/**
+ * Update threshold value for a specific metric in a condition string
+ * @param condition Condition string to update
+ * @param metric Metric name to update threshold for
+ * @param newThreshold New threshold value
+ * @returns Updated condition string
+ */
+function updateThresholdInCondition(condition: string, metric: string, newThreshold: number): string {
+  // Replace all occurrences of "metric >= old_value" or "metric < old_value" with new threshold
+  const regex = new RegExp(`(${metric}\\s*(?:>=|<))\\s*[0-9.]+`, 'g')
+  return condition.replace(regex, `$1 ${newThreshold}`)
+}
+
+/**
+ * Extract all score metric thresholds from ExpressionSplitRule condition strings
+ * @param expressionRule ExpressionSplitRule to extract from
+ * @returns Record of metric name to threshold value
+ */
+function extractThresholdsFromExpressionRule(expressionRule: ExpressionSplitRule): Record<string, number> {
+  const thresholds: Record<string, number> = {}
+
+  // Parse first branch condition to extract thresholds
+  // (all branches should have same thresholds for each metric, just different operators)
+  if (expressionRule.branches.length > 0) {
+    const firstCondition = expressionRule.branches[0].condition
+    const metrics = expressionRule.available_metrics || []
+
+    for (const metric of metrics) {
+      if (metric.startsWith('score_')) {
+        const threshold = parseThresholdFromCondition(firstCondition, metric)
+        if (threshold !== null) {
+          thresholds[metric] = threshold
+        }
+      }
+    }
+  }
+
+  return thresholds
+}
 
 // Valid metric types for filtering
 const VALID_METRICS = [
@@ -81,6 +144,58 @@ export const AVAILABLE_STAGE_TYPES: StageTypeConfig[] = [
 // ============================================================================
 // CORE TREE UTILITIES
 // ============================================================================
+
+/**
+ * Update all score thresholds in the tree to match scoringMetricThresholds
+ * This is used when thresholds are changed from Linear Set Diagram
+ */
+export function updateScoreThresholdsInTree(
+  tree: ThresholdTree,
+  scoringMetricThresholds: Record<string, number>
+): ThresholdTree {
+  let updatedTree = tree
+
+  // Iterate through all nodes to find and update score thresholds
+  for (const node of tree.nodes) {
+    if (!node.split_rule) continue
+
+    // Handle PatternSplitRule nodes
+    if (node.split_rule.type === SPLIT_TYPE_PATTERN) {
+      const patternRule = node.split_rule as PatternSplitRule
+      const conditions = patternRule.conditions
+
+      // Check if this node has score metrics
+      const hasScoreMetrics = Object.keys(conditions).some(m => m.startsWith('score_'))
+      if (hasScoreMetrics) {
+        // Update each score metric threshold
+        for (const metric of Object.keys(conditions)) {
+          if (metric.startsWith('score_') && scoringMetricThresholds[metric] !== undefined) {
+            updatedTree = updateNodeThreshold(updatedTree, node.id, [scoringMetricThresholds[metric]], undefined, metric)
+          }
+        }
+      }
+    }
+
+    // Handle ExpressionSplitRule nodes
+    if (node.split_rule.type === SPLIT_TYPE_EXPRESSION) {
+      const expressionRule = node.split_rule as ExpressionSplitRule
+      const availableMetrics = expressionRule.available_metrics || []
+
+      // Check if this node has score metrics
+      const hasScoreMetrics = availableMetrics.some(m => m.startsWith('score_'))
+      if (hasScoreMetrics) {
+        // Update each score metric threshold in expression conditions
+        for (const metric of availableMetrics) {
+          if (metric.startsWith('score_') && scoringMetricThresholds[metric] !== undefined) {
+            updatedTree = updateNodeThreshold(updatedTree, node.id, [scoringMetricThresholds[metric]], undefined, metric)
+          }
+        }
+      }
+    }
+  }
+
+  return updatedTree
+}
 
 /**
  * Find a node by ID in the threshold tree
@@ -183,6 +298,29 @@ export function updateNodeThreshold(
       }
     }
 
+    if (split_rule.type === SPLIT_TYPE_EXPRESSION) {
+      const rule = split_rule as ExpressionSplitRule
+
+      if (!metric) {
+        // If no specific metric provided, can't update expression rule
+        return n
+      }
+
+      // Update threshold in all branch conditions
+      const updatedBranches = rule.branches.map(branch => ({
+        ...branch,
+        condition: updateThresholdInCondition(branch.condition, metric, thresholds[0])
+      }))
+
+      return {
+        ...n,
+        split_rule: {
+          ...rule,
+          branches: updatedBranches
+        }
+      }
+    }
+
     return n
   })
 
@@ -238,9 +376,52 @@ export function getEffectiveThreshold(
     if (condition?.threshold !== undefined) {
       return condition.threshold
     }
+  } else if (split_rule.type === SPLIT_TYPE_EXPRESSION) {
+    const expressionRule = split_rule as ExpressionSplitRule
+    // Parse threshold from first branch condition
+    if (expressionRule.branches.length > 0) {
+      const threshold = parseThresholdFromCondition(expressionRule.branches[0].condition, metric)
+      if (threshold !== null) {
+        return threshold
+      }
+    }
   }
 
   return null
+}
+
+/**
+ * Extract score metric thresholds from threshold tree
+ * Searches for pattern rules with score metric conditions and extracts thresholds
+ * @param tree The threshold tree to search
+ * @returns Record of metric name to threshold value
+ */
+export function extractScoreThresholdsFromTree(tree: ThresholdTree): Record<string, number> {
+  const thresholds: Record<string, number> = {}
+
+  // Search all nodes for pattern or expression rules with score metrics
+  for (const node of tree.nodes) {
+    if (!node.split_rule) continue
+
+    if (node.split_rule.type === SPLIT_TYPE_PATTERN) {
+      const patternRule = node.split_rule as PatternSplitRule
+      const conditions = patternRule.conditions
+
+      // Extract thresholds from conditions
+      for (const [metric, condition] of Object.entries(conditions)) {
+        if (metric.startsWith('score_') && condition.threshold !== undefined) {
+          thresholds[metric] = condition.threshold
+        }
+      }
+    } else if (node.split_rule.type === SPLIT_TYPE_EXPRESSION) {
+      const expressionRule = node.split_rule as ExpressionSplitRule
+      // Extract thresholds from expression rule
+      const extractedThresholds = extractThresholdsFromExpressionRule(expressionRule)
+      Object.assign(thresholds, extractedThresholds)
+    }
+  }
+
+  return thresholds
 }
 
 /**
@@ -362,26 +543,105 @@ export function addStageToNode(
       thresholds[i] !== undefined ? thresholds[i] : (metric === 'score_simulation' ? 0.1 : 0.5)
     )
 
-    splitRule = buildFlexibleScoreAgreementSplit(selectedMetrics, selectedThresholds)
-    const patternRule = splitRule as PatternSplitRule
+    // Check if we should use CategoryGroups (passed through config)
+    const categoryGroups = config.customConfig?.categoryGroups || []
+    console.log('[addStageToNode] score_agreement - categoryGroups from config:', categoryGroups.length)
 
-    // Create child nodes for pattern split
-    patternRule.patterns.forEach((pattern, idx) => {
-      const childId = `${nodeId}_${pattern.child_id}`
-      childrenIds.push(childId)
+    if (categoryGroups.length > 0) {
+      console.log('[addStageToNode] CategoryGroups found:', categoryGroups.map(g => ({ id: g.id, name: g.name, columnCount: g.columnIds.length })))
+    }
 
-      const parentPath = [
-        ...parentNode.parent_path,
-        createParentPath(nodeId, 'pattern', idx, {
-          patternIndex: idx,
-          patternDescription: pattern.description || pattern.child_id.replace(/_/g, ' ')
-        })
-      ]
+    // Use CategoryGroup-based split if groups exist, otherwise standard flexible split
+    if (categoryGroups.length > 0) {
+      console.log('[addStageToNode] Using CategoryGroup-based split with', categoryGroups.length, 'groups')
+      const expressionRule = buildCategoryGroupPatternSplit(categoryGroups, selectedMetrics, selectedThresholds)
+      console.log('[addStageToNode] CategoryGroup expression rule branches:', expressionRule.branches.map(b => ({ child_id: b.child_id, description: b.description })))
 
-      newNodes.push(
-        createNode(childId, nextStage, stageConfig.category, parentPath, null, [])
-      )
-    })
+      // Update split rule to use prefixed child_ids for uniqueness
+      const prefixedBranches = expressionRule.branches.map(branch => ({
+        ...branch,
+        child_id: `${nodeId}_${branch.child_id}`
+      }))
+      const prefixedDefaultChildId = expressionRule.default_child_id === 'others'
+        ? `${nodeId}_others`
+        : `${nodeId}_${expressionRule.default_child_id}`
+
+      splitRule = {
+        ...expressionRule,
+        branches: prefixedBranches,
+        default_child_id: prefixedDefaultChildId
+      }
+
+      // Create child nodes for expression split (from branches)
+      // Use prefixed IDs to ensure uniqueness across the tree
+      prefixedBranches.forEach((branch, idx) => {
+        const childId = branch.child_id  // Already prefixed above
+        childrenIds.push(childId)
+
+        const parentPath = [
+          ...parentNode.parent_path,
+          createParentPath(nodeId, 'expression', idx, {
+            condition: branch.condition,
+            description: branch.description
+          })
+        ]
+
+        const childNode = createNode(
+          childId,
+          nextStage,
+          CATEGORY_SCORE_AGREEMENT,
+          parentPath,
+          null,
+          []
+        )
+        newNodes.push(childNode)
+      })
+
+      // Add "others" default child only if not all combinations are covered
+      if (expressionRule.default_child_id === 'others') {
+        const othersChildId = prefixedDefaultChildId  // Already prefixed above
+        childrenIds.push(othersChildId)
+        const othersParentPath = [
+          ...parentNode.parent_path,
+          createParentPath(nodeId, 'expression', -1, {
+            condition: 'default',
+            description: 'Others (no match)'
+          })
+        ]
+        const othersNode = createNode(
+          othersChildId,
+          nextStage,
+          CATEGORY_SCORE_AGREEMENT,
+          othersParentPath,
+          null,
+          []
+        )
+        newNodes.push(othersNode)
+      }
+    } else {
+      console.log('[addStageToNode] Using legacy flexible split (no CategoryGroups available)')
+      splitRule = buildFlexibleScoreAgreementSplit(selectedMetrics, selectedThresholds)
+      console.log('[addStageToNode] Legacy split rule patterns:', (splitRule as any).patterns.length, 'patterns')
+      const patternRule = splitRule as PatternSplitRule
+
+      // Create child nodes for pattern split
+      patternRule.patterns.forEach((pattern, idx) => {
+        const childId = `${nodeId}_${pattern.child_id}`
+        childrenIds.push(childId)
+
+        const parentPath = [
+          ...parentNode.parent_path,
+          createParentPath(nodeId, 'pattern', idx, {
+            patternIndex: idx,
+            patternDescription: pattern.description || pattern.child_id.replace(/_/g, ' ')
+          })
+        ]
+
+        newNodes.push(
+          createNode(childId, nextStage, stageConfig.category, parentPath, null, [])
+        )
+      })
+    }
   } else {
     throw new Error(
       `Split rule type ${config.splitRuleType} not yet implemented for stage type ${config.stageType}`
@@ -486,7 +746,7 @@ function getStageTypeFromSplitRule(splitRule: SplitRule): string | null {
     }
   }
 
-  if (splitRule.type === SPLIT_TYPE_PATTERN) {
+  if (splitRule.type === SPLIT_TYPE_PATTERN || splitRule.type === SPLIT_TYPE_EXPRESSION) {
     return 'score_agreement'
   }
 
@@ -513,7 +773,7 @@ function getStageTypeFromParentInfo(parentPath: ParentPathInfo): string | null {
     }
   }
 
-  if (splitRule.type === 'pattern') {
+  if (splitRule.type === 'pattern' || splitRule.type === 'expression') {
     return 'score_agreement'
   }
 
