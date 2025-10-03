@@ -15,9 +15,10 @@ import type {
   SankeyNode,
   NodeCategory,
   AddStageConfig,
-  SetVisualizationData
+  SetVisualizationData,
+  CategoryGroup
 } from './types'
-import { updateNodeThreshold, createRootOnlyTree, addStageToNode, removeStageFromNode } from './lib/threshold-utils'
+import { updateNodeThreshold, createRootOnlyTree, addStageToNode, removeStageFromNode, extractScoreThresholdsFromTree, updateScoreThresholdsInTree } from './lib/threshold-utils'
 import { buildFlexibleScoreAgreementSplit } from './lib/split-rule-builders'
 import { PANEL_LEFT, PANEL_RIGHT, METRIC_SEMDIST_MEAN, METRIC_SCORE_FUZZ, METRIC_SCORE_DETECTION, METRIC_SCORE_SIMULATION } from './lib/constants'
 
@@ -106,11 +107,19 @@ interface AppState {
   selectedScoringMetrics: string[]
   scoringMetricThresholds: Record<string, number>
   setVisualizationData: SetVisualizationData | null
+  categoryGroups: CategoryGroup[]
 
   // Set visualization actions
   toggleScoringMetric: (metric: string) => void
   setScoringMetricThreshold: (metric: string, threshold: number) => void
   fetchSetVisualizationData: () => Promise<void>
+
+  // Category group actions
+  initializeCategoryGroups: () => void
+  addCategoryGroup: (name: string, columnIds: string[], color?: string) => void
+  removeCategoryGroup: (groupId: string) => void
+  updateCategoryGroup: (groupId: string, updates: Partial<CategoryGroup>) => void
+  moveColumnToGroup: (columnId: string, fromGroupId: string, toGroupId: string) => void
 }
 
 const createInitialPanelState = (): PanelState => {
@@ -168,11 +177,12 @@ const initialState = {
   selectedScoringMetrics: [METRIC_SCORE_FUZZ, METRIC_SCORE_DETECTION, METRIC_SCORE_SIMULATION],
   scoringMetricThresholds: {
     [METRIC_SCORE_FUZZ]: 0.5,
-    [METRIC_SCORE_DETECTION]: 0.5,
-    [METRIC_SCORE_SIMULATION]: 0.5,
+    [METRIC_SCORE_DETECTION]: 0.5,  // Match Sankey default
+    [METRIC_SCORE_SIMULATION]: 0.1, // Match Sankey default
     score_embedding: 0.5
   },
-  setVisualizationData: null
+  setVisualizationData: null,
+  categoryGroups: []
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -201,23 +211,51 @@ export const useStore = create<AppState>((set, get) => ({
       const currentTree = state[panelKey].thresholdTree
       const updatedTree = updateNodeThreshold(currentTree, nodeId, thresholds, metric)
 
+      // Extract score thresholds from updated tree and sync to Linear Set
+      const scoreThresholds = extractScoreThresholdsFromTree(updatedTree)
+      const updatedScoringMetricThresholds = {
+        ...state.scoringMetricThresholds,
+        ...scoreThresholds
+      }
+
       return {
         [panelKey]: {
           ...state[panelKey],
           thresholdTree: updatedTree
-        }
+        },
+        scoringMetricThresholds: updatedScoringMetricThresholds
       }
     })
+
+    // Fetch new Linear Set data if score metrics were updated
+    if (metric?.startsWith('score_')) {
+      get().fetchSetVisualizationData()
+    }
   },
 
 
   // DYNAMIC TREE ACTIONS
   addStageToTree: (nodeId, config, panel = PANEL_LEFT) => {
+    console.log('[Store.addStageToTree] Called with nodeId:', nodeId, 'stageType:', config.stageType, 'panel:', panel)
     const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
+
+    const currentState = get()
+    console.log('[Store.addStageToTree] Current categoryGroups count:', currentState.categoryGroups.length)
+
+    // Pass CategoryGroups through config for score_agreement stages
+    const enhancedConfig = config.stageType === 'score_agreement' && currentState.categoryGroups.length > 0
+      ? { ...config, customConfig: { categoryGroups: currentState.categoryGroups } }
+      : config
+
+    console.log('[Store.addStageToTree] Enhanced config with categoryGroups:', enhancedConfig.customConfig?.categoryGroups?.length || 0)
+
     set((state) => {
       try {
         const currentTree = state[panelKey].thresholdTree
-        const updatedTree = addStageToNode(currentTree, nodeId, config)
+        console.log('[Store.addStageToTree] Current tree nodes:', currentTree.nodes.length)
+
+        const updatedTree = addStageToNode(currentTree, nodeId, enhancedConfig)
+        console.log('[Store.addStageToTree] Updated tree nodes:', updatedTree.nodes.length)
 
         return {
           [panelKey]: {
@@ -227,13 +265,21 @@ export const useStore = create<AppState>((set, get) => ({
             sankeyData: null,
             histogramData: null
           }
+          // Do NOT sync tree → scoringMetricThresholds here
+          // Flow is scoringMetricThresholds → tree (via config.thresholds)
         }
       } catch (error) {
-        console.error('Failed to add stage to tree:', error)
+        console.error('[Store.addStageToTree] Failed to add stage to tree:', error)
         // Return unchanged state on error
         return state
       }
     })
+
+    // Fetch new Linear Set data if score_agreement stage was added
+    if (config.stageType === 'score_agreement') {
+      console.log('[Store.addStageToTree] Fetching set visualization data after adding score_agreement')
+      get().fetchSetVisualizationData()
+    }
   },
 
   removeStageFromTree: (nodeId, panel = PANEL_LEFT) => {
@@ -496,6 +542,14 @@ export const useStore = create<AppState>((set, get) => ({
 
       const sankeyData = await api.getSankeyData(requestData)
 
+      console.log('📥 Received Sankey response:', {
+        nodes: sankeyData.nodes,
+        links: sankeyData.links,
+        metadata: sankeyData.metadata,
+        nodeCount: sankeyData.nodes.length,
+        linkCount: sankeyData.links.length
+      })
+
       state.setSankeyData(sankeyData, panel)
       state.setLoading(loadingKey, false)
       // For backward compatibility
@@ -708,15 +762,42 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   setScoringMetricThreshold: (metric: string, threshold: number) => {
-    set((state) => ({
-      scoringMetricThresholds: {
+    set((state) => {
+      // Update scoring metric thresholds
+      const updatedScoringMetricThresholds = {
         ...state.scoringMetricThresholds,
         [metric]: threshold
       }
-    }))
 
-    // Fetch new set visualization data after changing threshold
+      // Update threshold trees in both panels to reflect new score thresholds
+      const updatedLeftTree = updateScoreThresholdsInTree(
+        state.leftPanel.thresholdTree,
+        updatedScoringMetricThresholds
+      )
+      const updatedRightTree = updateScoreThresholdsInTree(
+        state.rightPanel.thresholdTree,
+        updatedScoringMetricThresholds
+      )
+
+      return {
+        scoringMetricThresholds: updatedScoringMetricThresholds,
+        leftPanel: {
+          ...state.leftPanel,
+          thresholdTree: updatedLeftTree,
+          sankeyData: null  // Clear to trigger refresh
+        },
+        rightPanel: {
+          ...state.rightPanel,
+          thresholdTree: updatedRightTree,
+          sankeyData: null  // Clear to trigger refresh
+        }
+      }
+    })
+
+    // Fetch new visualization data
     get().fetchSetVisualizationData()
+    get().fetchSankeyData('left')
+    get().fetchSankeyData('right')
   },
 
   fetchSetVisualizationData: async () => {
@@ -750,6 +831,53 @@ export const useStore = create<AppState>((set, get) => ({
       console.error('Failed to fetch set visualization data:', error)
       set({ setVisualizationData: null })
     }
+  },
+
+  // Category group actions
+  initializeCategoryGroups: () => {
+    // Will be called from LinearSetDiagram when columns are available
+    set({ categoryGroups: [] })
+  },
+
+  addCategoryGroup: (name: string, columnIds: string[], color: string = '#e5e7eb') => {
+    const state = get()
+    const newGroupIndex = state.categoryGroups.length
+    const newGroup: CategoryGroup = {
+      id: `group_${newGroupIndex}`,
+      name,
+      columnIds,
+      color
+    }
+    set({ categoryGroups: [...state.categoryGroups, newGroup] })
+  },
+
+  removeCategoryGroup: (groupId: string) => {
+    const state = get()
+    set({ categoryGroups: state.categoryGroups.filter(g => g.id !== groupId) })
+  },
+
+  updateCategoryGroup: (groupId: string, updates: Partial<CategoryGroup>) => {
+    const state = get()
+    set({
+      categoryGroups: state.categoryGroups.map(g =>
+        g.id === groupId ? { ...g, ...updates } : g
+      )
+    })
+  },
+
+  moveColumnToGroup: (columnId: string, fromGroupId: string, toGroupId: string) => {
+    const state = get()
+    set({
+      categoryGroups: state.categoryGroups.map(g => {
+        if (g.id === fromGroupId) {
+          return { ...g, columnIds: g.columnIds.filter(id => id !== columnId) }
+        }
+        if (g.id === toGroupId) {
+          return { ...g, columnIds: [...g.columnIds, columnId] }
+        }
+        return g
+      })
+    })
   }
 }))
 

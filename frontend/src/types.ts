@@ -252,6 +252,13 @@ export interface SetVisualizationRequest {
   pattern_rule: PatternSplitRule
 }
 
+export interface CategoryGroup {
+  id: string
+  name: string
+  columnIds: string[]
+  color: string
+}
+
 // ============================================================================
 // UI AND STATE TYPES
 // ============================================================================

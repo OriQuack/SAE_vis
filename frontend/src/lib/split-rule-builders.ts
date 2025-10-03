@@ -166,6 +166,107 @@ export function buildFlexibleScoreAgreementSplit(
 }
 
 /**
+ * Build a CategoryGroup-based expression split for score agreement
+ * Creates N+1 children (N groups + "others") instead of 2^M metric combinations
+ * Uses ExpressionSplitRule to support multiple columnIds per group via OR logic
+ *
+ * @param categoryGroups Array of CategoryGroup objects from Linear Set Diagram
+ * @param metrics Array of metric names (e.g., ['score_fuzz', 'score_detection', 'score_simulation'])
+ * @param thresholds Array of threshold values (same length as metrics)
+ * @returns ExpressionSplitRule with OR conditions for groups with multiple columnIds
+ *
+ * @example
+ * // If group_2 has columnIds: ["1_of_3_high_fuzz", "2_of_3_high_fuzz_sim"]
+ * // Creates condition: "(fuzz >= 0.5 && detection < 0.5 && sim < 0.1) || (fuzz >= 0.5 && sim >= 0.1 && detection < 0.5)"
+ */
+export function buildCategoryGroupPatternSplit(
+  categoryGroups: Array<{ id: string; name: string; columnIds: string[]; color: string }>,
+  metrics: string[],
+  thresholds: number[]
+): ExpressionSplitRule {
+  if (metrics.length === 0) {
+    throw new Error('At least one metric must be provided for score agreement')
+  }
+
+  if (metrics.length !== thresholds.length) {
+    throw new Error('Number of metrics must match number of thresholds')
+  }
+
+  if (categoryGroups.length === 0) {
+    throw new Error('At least one category group must be provided')
+  }
+
+  // Helper: Parse columnId to get metric states
+  const parseColumnIdToMetricStates = (columnId: string): Record<string, 'high' | 'low'> => {
+    if (columnId.startsWith('all_') && columnId.endsWith('_high')) {
+      return metrics.reduce((acc, metric) => ({ ...acc, [metric]: 'high' as const }), {})
+    }
+    if (columnId.startsWith('all_') && columnId.endsWith('_low')) {
+      return metrics.reduce((acc, metric) => ({ ...acc, [metric]: 'low' as const }), {})
+    }
+    const match = columnId.match(/\d+_of_\d+_high_(.+)/)
+    if (match) {
+      const metricsPart = match[1]
+      const shortNames = metricsPart.split('_')
+      const highMetrics = new Set(
+        shortNames
+          .map(shortName => metrics.find(m => m.includes(shortName)))
+          .filter((m): m is string => m !== undefined)
+      )
+      return metrics.reduce((acc, metric) => ({
+        ...acc,
+        [metric]: highMetrics.has(metric) ? 'high' as const : 'low' as const
+      }), {})
+    }
+    return metrics.reduce((acc, metric) => ({ ...acc, [metric]: 'low' as const }), {})
+  }
+
+  // Helper: Build condition string for a single columnId
+  const buildConditionForColumn = (columnId: string): string => {
+    const metricStates = parseColumnIdToMetricStates(columnId)
+    const conditions: string[] = []
+
+    metrics.forEach((metric, idx) => {
+      const threshold = thresholds[idx]
+      const state = metricStates[metric]
+      const condition = state === 'high' ? `${metric} >= ${threshold}` : `${metric} < ${threshold}`
+      conditions.push(condition)
+    })
+
+    return `(${conditions.join(' && ')})`
+  }
+
+  // Create branches for each CategoryGroup
+  const branches: ExpressionSplitRule['branches'] = categoryGroups.map(group => {
+    if (group.columnIds.length === 0) {
+      throw new Error(`CategoryGroup ${group.id} has no columnIds`)
+    }
+
+    // Build OR condition for all columnIds in this group
+    const columnConditions = group.columnIds.map(buildConditionForColumn)
+    const condition = columnConditions.length === 1
+      ? columnConditions[0]
+      : columnConditions.join(' || ')
+
+    return {
+      condition,
+      child_id: group.id,
+      description: group.name
+    }
+  })
+
+  // Check if all possible combinations are covered
+  const totalCombinations = Math.pow(2, metrics.length)
+  const totalColumnIds = categoryGroups.reduce((sum, group) => sum + group.columnIds.length, 0)
+  const needsOthers = totalColumnIds < totalCombinations
+
+  // Only add "others" if not all combinations are covered
+  const defaultChildId = needsOthers ? 'others' : branches[branches.length - 1].child_id
+
+  return buildExpressionSplit(branches, defaultChildId, metrics)
+}
+
+/**
  * Get short name for a metric (remove 'score_' prefix)
  * @param metric Full metric name (e.g., 'score_fuzz')
  * @returns Short name (e.g., 'fuzz')

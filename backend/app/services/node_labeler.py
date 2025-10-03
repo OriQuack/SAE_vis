@@ -35,6 +35,11 @@ class NodeDisplayNameGenerator:
         if node.id == "root":
             return base_name
 
+        # Special case for "others" node - handle early
+        if node.id == "others" or node.id.endswith("_others"):
+            print(f"[DEBUG] Found 'others' node: {node.id}")
+            return f"{base_name}: Others"
+
         # Try dynamic display name from split rules
         dynamic_name = self._get_dynamic_display_name(node, base_name)
         if dynamic_name:
@@ -162,6 +167,9 @@ class NodeDisplayNameGenerator:
 
         # Check for default child
         if hasattr(split_rule, "default_child_id") and split_rule.default_child_id == node.id:
+            # Special case for "others" node
+            if node.id == "others" or node.id.endswith("_others"):
+                return "Others" if should_remove_prefix else f"{base_name}: Others"
             return "Default" if should_remove_prefix else f"{base_name}: Default"
 
         # Fallback to branch number
@@ -176,7 +184,24 @@ class NodeDisplayNameGenerator:
         - root_2_of_3_high_fuzz_det → "2 of 3 High (Fuzz, Detection)"
         - root_all_3_high → "All High"
         - root_1_of_3_high_sim → "1 of 3 High (Simulation)"
+        - root_group_0 → Use pattern description from split rule (e.g., "All High")
+        - root_others → "Others"
         """
+        # Check for CategoryGroup-based child IDs (group_N format)
+        group_match = re.search(r"group_(\d+)$", node_id)
+        if group_match:
+            # Try to get the pattern description from the parent's split rule
+            parent_info = self._get_parent_split_info(node_id)
+            if parent_info:
+                return parent_info
+            # Fallback to generic group label
+            group_num = group_match.group(1)
+            return f"Group {group_num}"
+
+        # Check for "others" child ID (used as default in CategoryGroup patterns)
+        if node_id.endswith("_others") or node_id == "others":
+            return "Others"
+
         # All high/low patterns
         if re.search(r"all_(\d+)_high", node_id):
             return "All High"
@@ -202,6 +227,34 @@ class NodeDisplayNameGenerator:
             return f"{k} of {n} Low"
 
         return "Score Agreement"
+
+    def _get_parent_split_info(self, node_id: str) -> Optional[str]:
+        """
+        Get the pattern description from the parent's split rule.
+        Used for CategoryGroup-based nodes to display the group name.
+        """
+        try:
+            node = self.threshold_structure.get_node_by_id(node_id)
+            if not node or not node.parent_path:
+                return None
+
+            parent_info = node.parent_path[-1]
+            parent_node = self.threshold_structure.get_node_by_id(parent_info.parent_id)
+
+            if not parent_node or not parent_node.split_rule:
+                return None
+
+            # For pattern rules, look up the pattern by branch index
+            if parent_node.split_rule.type == "pattern":
+                branch_idx = parent_info.branch_index
+                if branch_idx < len(parent_node.split_rule.patterns):
+                    pattern = parent_node.split_rule.patterns[branch_idx]
+                    if pattern.description:
+                        return pattern.description
+
+            return None
+        except Exception:
+            return None
 
     def _format_scoring_methods(self, methods_part: str) -> str:
         """
