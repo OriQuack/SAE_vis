@@ -31,7 +31,7 @@ interface SankeyDiagramProps {
 
 // ==================== HELPER COMPONENTS ====================
 const ErrorMessage: React.FC<{ message: string }> = ({ message }) => (
-  <div style={{ color: 'red', padding: '8px', margin: '8px 0' }}>
+  <div className="sankey-error">
     {message}
   </div>
 )
@@ -252,104 +252,55 @@ const MetricSelectorModal: React.FC<{
   }
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 10000
-      }}
-      onClick={onCancel}
-    >
-      <div
-        style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '8px',
-          boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
-          padding: '20px',
-          minWidth: '400px',
-          maxWidth: '500px'
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '600', color: '#1f2937' }}>
+    <div className="sankey-metric-modal-overlay" onClick={onCancel}>
+      <div className="sankey-metric-modal" onClick={(e) => e.stopPropagation()}>
+        <h3 className="sankey-metric-modal__title">
           Select Scoring Metrics
         </h3>
-        <p style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#6b7280' }}>
+        <p className="sankey-metric-modal__description">
           Choose one or more scoring metrics to compare for agreement analysis:
         </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
+        <div className="sankey-metric-modal__list">
           {availableMetrics.map(metric => (
             <label
               key={metric.id}
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '12px',
-                padding: '12px',
-                border: selectedMetrics.includes(metric.id) ? '2px solid #3b82f6' : '1px solid #e5e7eb',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                backgroundColor: selectedMetrics.includes(metric.id) ? '#eff6ff' : '#ffffff'
-              }}
+              className={`sankey-metric-modal__metric ${
+                selectedMetrics.includes(metric.id) ? 'sankey-metric-modal__metric--selected' : ''
+              }`}
             >
               <input
                 type="checkbox"
                 checked={selectedMetrics.includes(metric.id)}
                 onChange={() => toggleMetric(metric.id)}
-                style={{ marginTop: '2px', width: '16px', height: '16px', cursor: 'pointer' }}
+                className="sankey-metric-modal__checkbox"
               />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: '500', fontSize: '14px', color: '#1f2937', marginBottom: '2px' }}>
+              <div className="sankey-metric-modal__metric-content">
+                <div className="sankey-metric-modal__metric-name">
                   {metric.name}
                 </div>
-                <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: '1.4' }}>
+                <div className="sankey-metric-modal__metric-description">
                   {metric.description}
                 </div>
               </div>
             </label>
           ))}
         </div>
-        <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '16px', padding: '8px', backgroundColor: '#f9fafb', borderRadius: '4px' }}>
+        <div className="sankey-metric-modal__info">
           <strong>Selected: {selectedMetrics.length} metric{selectedMetrics.length !== 1 ? 's' : ''}</strong>
           <br />
           This will create {Math.pow(2, selectedMetrics.length)} categories (2^{selectedMetrics.length} combinations)
         </div>
-        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+        <div className="sankey-metric-modal__actions">
           <button
             onClick={onCancel}
-            style={{
-              padding: '8px 16px',
-              fontSize: '14px',
-              fontWeight: '500',
-              color: '#6b7280',
-              backgroundColor: '#ffffff',
-              border: '1px solid #d1d5db',
-              borderRadius: '6px',
-              cursor: 'pointer'
-            }}
+            className="sankey-metric-modal__button sankey-metric-modal__button--cancel"
           >
             Cancel
           </button>
           <button
             onClick={handleConfirm}
             disabled={selectedMetrics.length === 0}
-            style={{
-              padding: '8px 16px',
-              fontSize: '14px',
-              fontWeight: '600',
-              color: '#ffffff',
-              backgroundColor: selectedMetrics.length === 0 ? '#9ca3af' : '#3b82f6',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: selectedMetrics.length === 0 ? 'not-allowed' : 'pointer'
-            }}
+            className="sankey-metric-modal__button sankey-metric-modal__button--confirm"
           >
             Confirm Selection
           </button>
@@ -400,8 +351,14 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const { ref: containerRef, size: containerSize } = useResizeObserver<HTMLDivElement>({
     defaultWidth: width,
     defaultHeight: height,
-    debounceMs: 16  // ~60fps for smooth resizing
+    debounceMs: 16,  // ~60fps for smooth resizing
+    debugId: panel
   })
+
+  // Debug: Log containerSize changes
+  React.useEffect(() => {
+    console.log(`[SankeyDiagram ${panel}] containerSize:`, containerSize)
+  }, [containerSize, panel])
 
   // Update display data when loading completes
   React.useEffect(() => {
@@ -421,6 +378,8 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     if (errors.length > 0 || !displayData) {
       return { layout: null, validationErrors: errors }
     }
+
+    console.log(`[SankeyDiagram ${panel}] Calculating layout with container size:`, containerSize)
 
     try {
       // Use different margins for right panel
@@ -501,24 +460,15 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
     setInlineSelector(null)
 
-    if (stageTypeId === 'score_agreement') {
-      const rect = containerRef.current?.getBoundingClientRect()
-      setMetricSelectorState({
-        nodeId: inlineSelector.nodeId,
-        stageType,
-        position: {
-          x: rect ? rect.left + rect.width / 2 : window.innerWidth / 2,
-          y: rect ? rect.top + rect.height / 2 : window.innerHeight / 2
-        }
-      })
-      return
-    }
-
     const config: AddStageConfig = {
       stageType: stageTypeId,
       splitRuleType: stageType.defaultSplitRule,
       metric: stageType.defaultMetric,
-      thresholds: stageType.defaultThresholds
+      thresholds: stageType.defaultThresholds,
+      // Use selected scoring metrics from store for score_agreement stage
+      ...(stageTypeId === 'score_agreement' && {
+        selectedScoreMetrics: useVisualizationStore.getState().selectedScoringMetrics
+      })
     }
 
     addStageToTree(inlineSelector.nodeId, config, panel)
@@ -668,55 +618,26 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       {inlineSelector && (
         <>
           <div
-            className="inline-selector-overlay"
+            className="sankey-stage-selector-overlay"
             onClick={() => setInlineSelector(null)}
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              zIndex: 999
-            }}
           />
           <div
-            className="inline-stage-selector"
+            className="sankey-stage-selector"
             style={{
-              position: 'fixed',
               left: Math.min(inlineSelector.position.x, window.innerWidth - 200),
-              top: Math.min(inlineSelector.position.y, window.innerHeight - 200),
-              zIndex: 1000,
-              backgroundColor: '#ffffff',
-              border: '1px solid #d1d5db',
-              borderRadius: '6px',
-              boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-              minWidth: '180px',
-              maxHeight: '300px',
-              overflowY: 'auto'
+              top: Math.min(inlineSelector.position.y, window.innerHeight - 200)
             }}
           >
             {inlineSelector.availableStages.map((stageType) => (
               <div
                 key={stageType.id}
                 onClick={() => handleStageSelect(stageType.id)}
-                style={{
-                  padding: '12px 16px',
-                  cursor: 'pointer',
-                  borderBottom: '1px solid #f3f4f6',
-                  fontSize: '14px',
-                  color: '#374151'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#f9fafb'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent'
-                }}
+                className="sankey-stage-selector__item"
               >
-                <div style={{ fontWeight: 500, marginBottom: '4px' }}>
+                <div className="sankey-stage-selector__item-title">
                   {stageType.name}
                 </div>
-                <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: '1.4' }}>
+                <div className="sankey-stage-selector__item-description">
                   {stageType.description}
                 </div>
               </div>

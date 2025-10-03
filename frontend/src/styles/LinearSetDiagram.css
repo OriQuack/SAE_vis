@@ -1,0 +1,102 @@
+/* ============================================================================
+   LINEAR SET DIAGRAM - Component-Specific Styles
+   ============================================================================ */
+
+/* Layout Constants */
+:root {
+  --linear-diagram-label-width: 8px;
+  --linear-diagram-padding-right: 8px;
+  --linear-diagram-padding-vertical: 12px;
+  --linear-diagram-gap: 20px;
+}
+
+/* Main Container */
+.linear-set-diagram-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Metric Selector Section */
+.linear-set-diagram__selector {
+  width: 100%;
+  padding-left: var(--linear-diagram-label-width);
+  padding-right: var(--linear-diagram-padding-right);
+  padding-top: var(--linear-diagram-padding-vertical);
+  padding-bottom: var(--linear-diagram-padding-vertical);
+  border-bottom: 1px solid #e5e7eb;
+  background-color: white;
+}
+
+.linear-set-diagram__selector-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--linear-diagram-gap);
+}
+
+.linear-set-diagram__metric-item {
+  display: flex;
+  align-items: center;
+}
+
+.linear-set-diagram__checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  margin-right: 8px;
+}
+
+.linear-set-diagram__label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Empty State */
+.linear-set-diagram__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+/* Visualization Container */
+.linear-set-diagram__viz-container {
+  position: relative;
+  width: 100%;
+  flex: 1;
+}
+
+/* SVG Diagram */
+.linear-set-diagram__svg {
+  display: block;
+}
+
+/* Tooltip */
+.linear-set-diagram__tooltip {
+  position: absolute;
+  background-color: #1f2937;
+  color: white;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  pointer-events: none;
+  z-index: 1000;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.linear-set-diagram__tooltip-title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.linear-set-diagram__tooltip-subtitle {
+  color: #d1d5db;
+  font-size: 10px;
+}

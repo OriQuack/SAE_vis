@@ -251,3 +251,15 @@ class FeatureResponse(BaseModel):
         ...,
         description="Path to detailed JSON file"
     )
+
+class SetVisualizationResponse(BaseModel):
+    """Response model for set visualization data endpoint"""
+    set_counts: Dict[str, int] = Field(
+        ...,
+        description="Dictionary mapping child_id to feature count for each set category"
+    )
+    total_features: int = Field(
+        ...,
+        ge=0,
+        description="Total number of features in the filtered dataset"
+    )

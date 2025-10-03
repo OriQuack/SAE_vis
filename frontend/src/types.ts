@@ -242,6 +242,16 @@ export interface FeatureDetail {
   details_path: string
 }
 
+export interface SetVisualizationData {
+  set_counts: Record<string, number>
+  total_features: number
+}
+
+export interface SetVisualizationRequest {
+  filters: Filters
+  pattern_rule: PatternSplitRule
+}
+
 // ============================================================================
 // UI AND STATE TYPES
 // ============================================================================
