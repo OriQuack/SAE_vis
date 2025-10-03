@@ -14,10 +14,12 @@ import type {
   AlluvialFlow,
   SankeyNode,
   NodeCategory,
-  AddStageConfig
+  AddStageConfig,
+  SetVisualizationData
 } from './types'
 import { updateNodeThreshold, createRootOnlyTree, addStageToNode, removeStageFromNode } from './lib/threshold-utils'
-import { PANEL_LEFT, PANEL_RIGHT, METRIC_SEMDIST_MEAN } from './lib/constants'
+import { buildFlexibleScoreAgreementSplit } from './lib/split-rule-builders'
+import { PANEL_LEFT, PANEL_RIGHT, METRIC_SEMDIST_MEAN, METRIC_SCORE_FUZZ, METRIC_SCORE_DETECTION, METRIC_SCORE_SIMULATION } from './lib/constants'
 
 type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
 
@@ -95,6 +97,20 @@ interface AppState {
 
   // Reset actions
   reset: () => void
+
+  // Auto-initialization with default filters
+  // DEFAULT APPROACH: Auto-initialize with first two LLM Explainers (subject to change)
+  initializeWithDefaultFilters: () => void
+
+  // Set visualization state (linear diagram)
+  selectedScoringMetrics: string[]
+  scoringMetricThresholds: Record<string, number>
+  setVisualizationData: SetVisualizationData | null
+
+  // Set visualization actions
+  toggleScoringMetric: (metric: string) => void
+  setScoringMetricThreshold: (metric: string, threshold: number) => void
+  fetchSetVisualizationData: () => Promise<void>
 }
 
 const createInitialPanelState = (): PanelState => {
@@ -146,7 +162,17 @@ const initialState = {
 
   // Hover state
   hoveredAlluvialNodeId: null,
-  hoveredAlluvialPanel: null
+  hoveredAlluvialPanel: null,
+
+  // Set visualization state
+  selectedScoringMetrics: [METRIC_SCORE_FUZZ, METRIC_SCORE_DETECTION, METRIC_SCORE_SIMULATION],
+  scoringMetricThresholds: {
+    [METRIC_SCORE_FUZZ]: 0.5,
+    [METRIC_SCORE_DETECTION]: 0.5,
+    [METRIC_SCORE_SIMULATION]: 0.5,
+    score_embedding: 0.5
+  },
+  setVisualizationData: null
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -611,6 +637,119 @@ export const useStore = create<AppState>((set, get) => ({
       leftPanel: createInitialPanelState(),
       rightPanel: createInitialPanelState()
     }))
+  },
+
+  // DEFAULT APPROACH: Auto-initialize both panels with first two LLM Explainers
+  // This is a default configuration and is subject to change based on research needs
+  initializeWithDefaultFilters: () => {
+    const state = get()
+    const { filterOptions } = state
+
+    if (!filterOptions) {
+      console.warn('Cannot initialize default filters: filterOptions not loaded')
+      return
+    }
+
+    // Get first two LLM Explainers (or reuse first if only one exists)
+    const llmExplainers = filterOptions.llm_explainer || []
+    if (llmExplainers.length === 0) {
+      console.warn('Cannot initialize default filters: no LLM Explainers available')
+      return
+    }
+
+    const leftLLMExplainer = llmExplainers[0]
+    const rightLLMExplainer = llmExplainers.length > 1 ? llmExplainers[1] : llmExplainers[0]
+
+    console.log('🚀 Auto-initializing with default filters:', {
+      leftLLMExplainer,
+      rightLLMExplainer
+    })
+
+    // Set filters for both panels and transition to visualization state
+    set((state) => ({
+      leftPanel: {
+        ...state.leftPanel,
+        filters: {
+          sae_id: [],
+          explanation_method: [],
+          llm_explainer: [leftLLMExplainer],
+          llm_scorer: []
+        },
+        viewState: 'visualization' as ViewState
+      },
+      rightPanel: {
+        ...state.rightPanel,
+        filters: {
+          sae_id: [],
+          explanation_method: [],
+          llm_explainer: [rightLLMExplainer],
+          llm_scorer: []
+        },
+        viewState: 'visualization' as ViewState
+      }
+    }))
+  },
+
+  // Set visualization actions
+  toggleScoringMetric: (metric: string) => {
+    set((state) => {
+      const currentMetrics = state.selectedScoringMetrics
+      const isSelected = currentMetrics.includes(metric)
+
+      const newMetrics = isSelected
+        ? currentMetrics.filter(m => m !== metric)
+        : [...currentMetrics, metric]
+
+      return { selectedScoringMetrics: newMetrics }
+    })
+
+    // Fetch new set visualization data after toggling
+    get().fetchSetVisualizationData()
+  },
+
+  setScoringMetricThreshold: (metric: string, threshold: number) => {
+    set((state) => ({
+      scoringMetricThresholds: {
+        ...state.scoringMetricThresholds,
+        [metric]: threshold
+      }
+    }))
+
+    // Fetch new set visualization data after changing threshold
+    get().fetchSetVisualizationData()
+  },
+
+  fetchSetVisualizationData: async () => {
+    const state = get()
+    const { selectedScoringMetrics, scoringMetricThresholds } = state
+
+    if (selectedScoringMetrics.length === 0) {
+      // No metrics selected, clear visualization data
+      set({ setVisualizationData: null })
+      return
+    }
+
+    try {
+      // Build pattern rule using selected metrics and thresholds
+      const thresholds = selectedScoringMetrics.map(m => scoringMetricThresholds[m] || 0.5)
+      const patternRule = buildFlexibleScoreAgreementSplit(selectedScoringMetrics, thresholds)
+
+      // Call API with empty filters (all data) and pattern rule
+      const data = await api.getSetVisualizationData({
+        filters: {
+          sae_id: [],
+          explanation_method: [],
+          llm_explainer: [],
+          llm_scorer: []
+        },
+        pattern_rule: patternRule
+      })
+
+      set({ setVisualizationData: data })
+    } catch (error) {
+      console.error('Failed to fetch set visualization data:', error)
+      set({ setVisualizationData: null })
+    }
   }
 }))
 

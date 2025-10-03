@@ -16,7 +16,8 @@ from pathlib import Path
 pl.enable_string_cache()
 
 from ..models.common import Filters, MetricType
-from ..models.threshold import ThresholdStructure
+from ..models.threshold import ThresholdStructure, PatternSplitRule
+from .rule_evaluators import SplitEvaluator
 from ..models.responses import (
     FilterOptionsResponse, HistogramResponse, SankeyResponse,
     ComparisonResponse, FeatureResponse
@@ -408,6 +409,63 @@ class DataService:
             combined_condition = combined_condition & condition
 
         return combined_condition
+
+    async def get_set_visualization_data(
+        self,
+        filters: Filters,
+        pattern_rule: PatternSplitRule
+    ) -> Dict[str, Any]:
+        """
+        Generate set visualization data by evaluating pattern rule on filtered features.
+
+        Args:
+            filters: Filter criteria for data subset (defaults to empty = all data)
+            pattern_rule: Pattern split rule defining set membership conditions
+
+        Returns:
+            Dictionary with set_counts (child_id -> count) and total_features
+        """
+
+        if self._df_lazy is None:
+            raise RuntimeError("DataService not initialized")
+
+        # Apply filters to get filtered dataset
+        filtered_df = self._apply_filters(self._df_lazy, filters)
+        df = filtered_df.collect()
+
+        if df.height == 0:
+            raise ValueError("No data available after applying filters")
+
+        # Initialize evaluator
+        evaluator = SplitEvaluator()
+
+        # Extract child IDs from pattern rule
+        child_ids = [pattern.child_id for pattern in pattern_rule.patterns]
+        if pattern_rule.default_child_id:
+            child_ids.append(pattern_rule.default_child_id)
+
+        # Initialize counts dictionary
+        set_counts = {child_id: 0 for child_id in child_ids}
+
+        # Evaluate pattern for each feature
+        rows = df.to_dicts()
+        for row in rows:
+            evaluation_result = evaluator.evaluate_pattern_split(
+                feature_row=row,
+                rule=pattern_rule,
+                children_ids=child_ids
+            )
+            selected_child_id = evaluation_result.child_id
+            set_counts[selected_child_id] = set_counts.get(selected_child_id, 0) + 1
+
+        total_features = df.height
+
+        logger.info(f"Set visualization: {total_features} features classified into {len(set_counts)} categories")
+
+        return {
+            "set_counts": set_counts,
+            "total_features": total_features
+        }
 
     def _build_feature_response(self, row: Dict[str, Any]) -> FeatureResponse:
         """Build FeatureResponse from row data."""

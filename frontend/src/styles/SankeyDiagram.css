@@ -1,7 +1,18 @@
 /* ============================================================================
-   SANKEY DIAGRAM
+   SANKEY DIAGRAM - Component-Specific Styles
    ============================================================================ */
 
+/* CSS Variables */
+:root {
+  --sankey-animation-duration: 300ms;
+  --sankey-button-radius: 12px;
+  --sankey-button-offset: 15px;
+  --sankey-modal-overlay: rgba(0, 0, 0, 0.5);
+  --sankey-button-add: #3b82f6;
+  --sankey-button-remove: #ef4444;
+}
+
+/* Main Container */
 .sankey-diagram {
   width: 100%;
   height: 100%;
@@ -26,6 +37,7 @@
   height: auto;
 }
 
+/* Empty State */
 .sankey-diagram__empty {
   display: flex;
   flex-direction: column;
@@ -50,4 +62,180 @@
 
 .sankey-diagram__empty-description {
   font-size: 0.875rem;
+}
+
+/* Error Message */
+.sankey-error {
+  color: red;
+  padding: 8px;
+  margin: 8px 0;
+}
+
+/* Stage Selector Popup */
+.sankey-stage-selector-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+}
+
+.sankey-stage-selector {
+  position: fixed;
+  z-index: 1000;
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  min-width: 180px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.sankey-stage-selector__item {
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 14px;
+  color: #374151;
+}
+
+.sankey-stage-selector__item:hover {
+  background-color: #f9fafb;
+}
+
+.sankey-stage-selector__item-title {
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.sankey-stage-selector__item-description {
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+/* Metric Selector Modal */
+.sankey-metric-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--sankey-modal-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.sankey-metric-modal {
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  padding: 20px;
+  min-width: 400px;
+  max-width: 500px;
+}
+
+.sankey-metric-modal__title {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.sankey-metric-modal__description {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.sankey-metric-modal__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.sankey-metric-modal__metric {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  cursor: pointer;
+  background-color: #ffffff;
+}
+
+.sankey-metric-modal__metric--selected {
+  border: 2px solid #3b82f6;
+  background-color: #eff6ff;
+}
+
+.sankey-metric-modal__checkbox {
+  margin-top: 2px;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.sankey-metric-modal__metric-content {
+  flex: 1;
+}
+
+.sankey-metric-modal__metric-name {
+  font-weight: 500;
+  font-size: 14px;
+  color: #1f2937;
+  margin-bottom: 2px;
+}
+
+.sankey-metric-modal__metric-description {
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.sankey-metric-modal__info {
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 16px;
+  padding: 8px;
+  background-color: #f9fafb;
+  border-radius: 4px;
+}
+
+.sankey-metric-modal__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.sankey-metric-modal__button {
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.sankey-metric-modal__button--cancel {
+  color: #6b7280;
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+}
+
+.sankey-metric-modal__button--confirm {
+  color: #ffffff;
+  background-color: #3b82f6;
+  border: none;
+  font-weight: 600;
+}
+
+.sankey-metric-modal__button--confirm:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
 }

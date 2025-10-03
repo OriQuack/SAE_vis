@@ -7,7 +7,9 @@ import type {
   ComparisonData,
   ComparisonDataRequest,
   FeatureDetail,
-  Filters
+  Filters,
+  SetVisualizationData,
+  SetVisualizationRequest
 } from './types'
 
 // ============================================================================
@@ -20,7 +22,8 @@ const API_ENDPOINTS = {
   HISTOGRAM_DATA: "/histogram-data",
   SANKEY_DATA: "/sankey-data",
   COMPARISON_DATA: "/comparison-data",
-  FEATURE_DETAIL: "/feature"
+  FEATURE_DETAIL: "/feature",
+  SET_VISUALIZATION: "/set-visualization-data"
 } as const
 
 const API_BASE = API_BASE_URL
@@ -86,6 +89,20 @@ export async function getFeatureDetail(featureId: number, params: Partial<Filter
   const response = await fetch(url.toString())
   if (!response.ok) {
     throw new Error(`Failed to fetch feature detail: ${response.status}`)
+  }
+  return response.json()
+}
+
+export async function getSetVisualizationData(request: SetVisualizationRequest): Promise<SetVisualizationData> {
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.SET_VISUALIZATION}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request)
+  })
+  if (!response.ok) {
+    throw new Error(`Failed to fetch set visualization data: ${response.status}`)
   }
   return response.json()
 }

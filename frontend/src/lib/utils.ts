@@ -23,6 +23,7 @@ interface UseResizeObserverOptions {
   defaultWidth?: number
   defaultHeight?: number
   debounceMs?: number
+  debugId?: string
 }
 
 interface UseResizeObserverReturn<T extends HTMLElement = HTMLElement> {
@@ -63,46 +64,68 @@ interface DragHandlerReturn {
 export const useResizeObserver = <T extends HTMLElement = HTMLElement>({
   defaultWidth = 0,
   defaultHeight = 0,
-  debounceMs = 100
+  debounceMs = 100,
+  debugId = 'unknown'
 }: UseResizeObserverOptions = {}): UseResizeObserverReturn<T> => {
-  const ref = useRef<T | null>(null)
   const [size, setSize] = useState<Size>({ width: defaultWidth, height: defaultHeight })
   const timeoutRef = useRef<number | undefined>(undefined)
+  const observerRef = useRef<ResizeObserver | null>(null)
+  const debugIdRef = useRef(debugId)
 
-  const updateSize = useCallback(() => {
-    if (ref.current) {
-      const rect = ref.current.getBoundingClientRect()
-      setSize({
+  // Update debugId ref when it changes
+  debugIdRef.current = debugId
+
+  const callbackRef = useCallback((node: T | null) => {
+    // Cleanup previous observer
+    if (observerRef.current) {
+      observerRef.current.disconnect()
+      observerRef.current = null
+    }
+
+    if (node) {
+      console.log(`[useResizeObserver ${debugIdRef.current}] Element attached, measuring immediately`)
+
+      // Immediate measurement
+      const rect = node.getBoundingClientRect()
+      const newSize = {
         width: rect.width || defaultWidth,
         height: rect.height || defaultHeight
+      }
+      console.log(`[useResizeObserver ${debugIdRef.current}] Initial size:`, newSize)
+      setSize(newSize)
+
+      // Set up observer for future changes
+      observerRef.current = new ResizeObserver(() => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current)
+        }
+        timeoutRef.current = window.setTimeout(() => {
+          const rect = node.getBoundingClientRect()
+          const newSize = {
+            width: rect.width || defaultWidth,
+            height: rect.height || defaultHeight
+          }
+          console.log(`[useResizeObserver ${debugIdRef.current}] Resize detected:`, newSize)
+          setSize(newSize)
+        }, debounceMs)
       })
+      observerRef.current.observe(node)
     }
-  }, [defaultWidth, defaultHeight])
+  }, [defaultWidth, defaultHeight, debounceMs])
 
-  const debouncedUpdateSize = useCallback(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
-    }
-    timeoutRef.current = window.setTimeout(updateSize, debounceMs)
-  }, [updateSize, debounceMs])
-
+  // Cleanup on unmount
   useEffect(() => {
-    updateSize()
-
-    const resizeObserver = new ResizeObserver(debouncedUpdateSize)
-    if (ref.current) {
-      resizeObserver.observe(ref.current)
-    }
-
     return () => {
-      resizeObserver.disconnect()
+      if (observerRef.current) {
+        observerRef.current.disconnect()
+      }
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current)
       }
     }
-  }, [updateSize, debouncedUpdateSize])
+  }, [])
 
-  return { ref, size }
+  return { ref: callbackRef, size }
 }
 
 /**

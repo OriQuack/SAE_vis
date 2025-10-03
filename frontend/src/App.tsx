@@ -4,6 +4,7 @@ import FilterPanel from './components/FilterPanel'
 import SankeyDiagram from './components/SankeyDiagram'
 import AlluvialDiagram from './components/AlluvialDiagram'
 import HistogramPopover from './components/HistogramPopover'
+import { LinearSetDiagram } from './components/LinearSetDiagram'
 import * as api from './api'
 import './styles/base.css'
 import './styles/App.css'
@@ -140,7 +141,9 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
     showVisualization,
     editFilters,
     removeVisualization,
-    resetFilters
+    resetFilters,
+    initializeWithDefaultFilters,
+    fetchSetVisualizationData
   } = useVisualizationStore()
 
   // Health check function
@@ -178,6 +181,22 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
       fetchFilterOptions()
     }
   }, [healthState.isHealthy, filterOptions, autoLoad, fetchFilterOptions])
+
+  // DEFAULT APPROACH: Auto-initialize with default filters after filterOptions load
+  // This automatically sets first LLM Explainer for left panel and second for right panel
+  // Subject to change based on research needs
+  useEffect(() => {
+    if (filterOptions && leftPanel.viewState === 'empty' && rightPanel.viewState === 'empty') {
+      initializeWithDefaultFilters()
+    }
+  }, [filterOptions, leftPanel.viewState, rightPanel.viewState, initializeWithDefaultFilters])
+
+  // Fetch set visualization data after health check and filters load
+  useEffect(() => {
+    if (healthState.isHealthy && filterOptions) {
+      fetchSetVisualizationData()
+    }
+  }, [healthState.isHealthy, filterOptions, fetchSetVisualizationData])
 
   // Watch for filter changes and fetch data when in visualization mode - left panel
   useEffect(() => {
@@ -322,18 +341,9 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
       {/* Main content - four-panel rendering */}
       <div className={`sankey-view__content sankey-view__content--${layout}`}>
         <div className="sankey-view__main-content">
-          {/* Far Left Panel - Placeholder for now */}
-          <div className="sankey-view__far-left-panel">
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              color: '#9ca3af',
-              fontSize: '14px'
-            }}>
-              Panel 1
-            </div>
+          {/* Linear Diagram Panel - Linear Set Diagram */}
+          <div className="sankey-view__linear-diagram-panel">
+            <LinearSetDiagram />
           </div>
 
           {/* Left Panel */}

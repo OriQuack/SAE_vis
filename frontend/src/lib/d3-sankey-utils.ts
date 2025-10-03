@@ -29,8 +29,12 @@ export const SANKEY_COLORS: Record<NodeCategory, string> = {
   [CATEGORY_SCORE_AGREEMENT]: '#10b981'
 } as const
 
-export const DEFAULT_SANKEY_MARGIN = { top: 80, right: 60, bottom: 50, left: 80 } as const
-export const RIGHT_SANKEY_MARGIN = { top: 80, right: 80, bottom: 50, left: 60 } as const
+export const DEFAULT_SANKEY_MARGIN = { top: 80, right: 40, bottom: 50, left: 80 } as const
+export const RIGHT_SANKEY_MARGIN = { top: 80, right: 80, bottom: 50, left: 40 } as const
+
+// Validation constants
+export const MIN_CONTAINER_WIDTH = 200
+export const MIN_CONTAINER_HEIGHT = 150
 
 // Category display names
 const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
@@ -367,8 +371,8 @@ export function getLinkColor(link: D3SankeyLink): string {
  */
 export function validateDimensions(width: number, height: number): string[] {
   const errors: string[] = []
-  if (width < 200) errors.push('Container width must be at least 200px')
-  if (height < 150) errors.push('Container height must be at least 150px')
+  if (width < MIN_CONTAINER_WIDTH) errors.push(`Container width must be at least ${MIN_CONTAINER_WIDTH}px`)
+  if (height < MIN_CONTAINER_HEIGHT) errors.push(`Container height must be at least ${MIN_CONTAINER_HEIGHT}px`)
   return errors
 }
 

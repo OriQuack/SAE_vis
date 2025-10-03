@@ -255,16 +255,16 @@
   height: auto;
 }
 
-.sankey-view__far-left-panel {
+.sankey-view__linear-diagram-panel {
   flex: 1.5;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   overflow: visible;
-  background: transparent;
+  background: white;
   padding: 0;
-  border: none;
+  border-left: 1px solid #000000;
   min-width: 0;
 }
 
@@ -277,7 +277,7 @@
   overflow: visible;
   background: transparent;
   padding: 0;
-  border: none;
+  border-left: 1px solid #000000;
   min-width: 0;
 }
 
@@ -291,6 +291,8 @@
   background: white;
   padding: 0;
   margin: 0;
+  border-left: 1px solid #000000;
+  border-right: 1px solid #000000;
   min-width: 0;
 }
 
@@ -303,7 +305,7 @@
   overflow: visible;
   background: transparent;
   padding: 0;
-  border: none;
+  border-right: 1px solid #000000;
   min-width: 0;
 }
 
