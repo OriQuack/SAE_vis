@@ -1,0 +1,136 @@
+{
+  "nodes": [
+    {
+      "id": "root",
+      "stage": 0,
+      "category": "root",
+      "parent_path": [],
+      "split_rule": {
+        "type": "expression",
+        "available_metrics": [
+          "score_fuzz",
+          "score_detection",
+          "score_simulation"
+        ],
+        "branches": [
+          {
+            "condition": "(score_fuzz >= 0.5 && score_detection >= 0.5 && score_simulation >= 0.1)",
+            "child_id": "root_group_0",
+            "description": "All High"
+          },
+          {
+            "condition": "(score_fuzz >= 0.5 && score_detection >= 0.5 && score_simulation < 0.1) || (score_fuzz >= 0.5 && score_detection < 0.5 && score_simulation >= 0.1) || (score_fuzz < 0.5 && score_detection >= 0.5 && score_simulation >= 0.1)",
+            "child_id": "root_group_1",
+            "description": "2 High"
+          },
+          {
+            "condition": "(score_fuzz >= 0.5 && score_detection < 0.5 && score_simulation < 0.1) || (score_fuzz < 0.5 && score_detection < 0.5 && score_simulation >= 0.1) || (score_fuzz < 0.5 && score_detection >= 0.5 && score_simulation < 0.1)",
+            "child_id": "root_group_2",
+            "description": "1 High"
+          },
+          {
+            "condition": "(score_fuzz < 0.5 && score_detection < 0.5 && score_simulation < 0.1)",
+            "child_id": "root_group_3",
+            "description": "All Low"
+          }
+        ],
+        "default_child_id": "root_group_3"
+      },
+      "children_ids": [
+        "root_group_0",
+        "root_group_1",
+        "root_group_2",
+        "root_group_3"
+      ]
+    },
+    {
+      "id": "root_group_0",
+      "stage": 1,
+      "category": "score_agreement",
+      "parent_path": [
+        {
+          "parent_id": "root",
+          "parent_split_rule": {
+            "type": "expression",
+            "expression_info": {
+              "branch_index": 0,
+              "condition": "(score_fuzz >= 0.5 && score_detection >= 0.5 && score_simulation >= 0.1)",
+              "description": "All High"
+            }
+          },
+          "branch_index": 0
+        }
+      ],
+      "split_rule": null,
+      "children_ids": []
+    },
+    {
+      "id": "root_group_1",
+      "stage": 1,
+      "category": "score_agreement",
+      "parent_path": [
+        {
+          "parent_id": "root",
+          "parent_split_rule": {
+            "type": "expression",
+            "expression_info": {
+              "branch_index": 1,
+              "condition": "(score_fuzz >= 0.5 && score_detection >= 0.5 && score_simulation < 0.1) || (score_fuzz >= 0.5 && score_detection < 0.5 && score_simulation >= 0.1) || (score_fuzz < 0.5 && score_detection >= 0.5 && score_simulation >= 0.1)",
+              "description": "2 High"
+            }
+          },
+          "branch_index": 1
+        }
+      ],
+      "split_rule": null,
+      "children_ids": []
+    },
+    {
+      "id": "root_group_2",
+      "stage": 1,
+      "category": "score_agreement",
+      "parent_path": [
+        {
+          "parent_id": "root",
+          "parent_split_rule": {
+            "type": "expression",
+            "expression_info": {
+              "branch_index": 2,
+              "condition": "(score_fuzz >= 0.5 && score_detection < 0.5 && score_simulation < 0.1) || (score_fuzz < 0.5 && score_detection < 0.5 && score_simulation >= 0.1) || (score_fuzz < 0.5 && score_detection >= 0.5 && score_simulation < 0.1)",
+              "description": "1 High"
+            }
+          },
+          "branch_index": 2
+        }
+      ],
+      "split_rule": null,
+      "children_ids": []
+    },
+    {
+      "id": "root_group_3",
+      "stage": 1,
+      "category": "score_agreement",
+      "parent_path": [
+        {
+          "parent_id": "root",
+          "parent_split_rule": {
+            "type": "expression",
+            "expression_info": {
+              "branch_index": 3,
+              "condition": "(score_fuzz < 0.5 && score_detection < 0.5 && score_simulation < 0.1)",
+              "description": "All Low"
+            }
+          },
+          "branch_index": 3
+        }
+      ],
+      "split_rule": null,
+      "children_ids": []
+    }
+  ],
+  "metrics": [
+    "score_fuzz",
+    "score_detection",
+    "score_simulation"
+  ]
+}

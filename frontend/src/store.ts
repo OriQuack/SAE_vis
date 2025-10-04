@@ -64,7 +64,7 @@ interface AppState {
   // UI actions - now take panel parameter
   setViewState: (state: ViewState, panel?: PanelSide) => void
   showHistogramPopover: (
-    nodeId: string,
+    nodeId: string | undefined,
     nodeName: string,
     metrics: MetricType[],
     position: { x: number; y: number },
@@ -763,13 +763,11 @@ export const useStore = create<AppState>((set, get) => ({
 
   setScoringMetricThreshold: (metric: string, threshold: number) => {
     set((state) => {
-      // Update scoring metric thresholds
       const updatedScoringMetricThresholds = {
         ...state.scoringMetricThresholds,
         [metric]: threshold
       }
 
-      // Update threshold trees in both panels to reflect new score thresholds
       const updatedLeftTree = updateScoreThresholdsInTree(
         state.leftPanel.thresholdTree,
         updatedScoringMetricThresholds
@@ -783,21 +781,23 @@ export const useStore = create<AppState>((set, get) => ({
         scoringMetricThresholds: updatedScoringMetricThresholds,
         leftPanel: {
           ...state.leftPanel,
-          thresholdTree: updatedLeftTree,
-          sankeyData: null  // Clear to trigger refresh
+          thresholdTree: updatedLeftTree
         },
         rightPanel: {
           ...state.rightPanel,
-          thresholdTree: updatedRightTree,
-          sankeyData: null  // Clear to trigger refresh
+          thresholdTree: updatedRightTree
         }
       }
     })
 
-    // Fetch new visualization data
     get().fetchSetVisualizationData()
-    get().fetchSankeyData('left')
-    get().fetchSankeyData('right')
+
+    const state = get()
+    const leftHasFilters = Object.values(state.leftPanel.filters).some(f => f && f.length > 0)
+    const rightHasFilters = Object.values(state.rightPanel.filters).some(f => f && f.length > 0)
+
+    if (leftHasFilters) get().fetchSankeyData('left')
+    if (rightHasFilters) get().fetchSankeyData('right')
   },
 
   fetchSetVisualizationData: async () => {

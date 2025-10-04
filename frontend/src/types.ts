@@ -373,7 +373,7 @@ export interface PopoverSize {
 // ============================================================================
 
 export interface HistogramPopoverData {
-  nodeId: string
+  nodeId: string | undefined
   nodeName: string
   nodeCategory?: NodeCategory
   parentNodeId?: string
