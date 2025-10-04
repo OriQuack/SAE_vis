@@ -167,14 +167,21 @@ class DataService:
         metric: MetricType,
         bins: Optional[int] = None,
         threshold_tree: Optional[ThresholdStructure] = None,
-        node_id: Optional[str] = None
+        node_id: Optional[str] = None,
+        group_by: Optional[str] = None
     ) -> HistogramResponse:
-        """Generate histogram data for a specific metric, optionally filtered by node."""
+        """Generate histogram data for a specific metric, optionally filtered by node and/or grouped."""
         if not self.is_ready():
             raise RuntimeError("DataService not ready")
 
         try:
             filtered_df = self._apply_filtered_data(filters, threshold_tree, node_id)
+
+            # If groupBy is specified, generate grouped histograms
+            if group_by:
+                return self._generate_grouped_histogram(filtered_df, metric, bins, group_by)
+
+            # Otherwise, generate regular histogram
             values = self._extract_metric_values(filtered_df, metric)
             bins = self._calculate_bins_if_needed(values, bins)
 
@@ -251,6 +258,77 @@ class DataService:
             "median": float(np.median(values)),
             "std": float(np.std(values))
         }
+
+    def _generate_grouped_histogram(
+        self,
+        df: pl.DataFrame,
+        metric: MetricType,
+        bins: Optional[int],
+        group_by: str
+    ) -> HistogramResponse:
+        """Generate grouped histogram data by the specified field."""
+        from ..models.responses import GroupedHistogramData
+
+        # Get unique values for the grouping field
+        if group_by not in df.columns:
+            raise ValueError(f"Group by field '{group_by}' not found in data")
+
+        group_values = df.select(pl.col(group_by)).unique().sort(group_by).to_series().to_list()
+
+        if not group_values:
+            raise ValueError(f"No unique values found for grouping field '{group_by}'")
+
+        # Extract all values to determine common bin edges
+        all_values = self._extract_metric_values(df, metric)
+        bins = self._calculate_bins_if_needed(all_values, bins)
+
+        # Calculate common bin edges based on all data
+        _, common_bin_edges = np.histogram(all_values, bins=bins)
+        bin_centers = (common_bin_edges[:-1] + common_bin_edges[1:]) / 2
+
+        # Generate histogram for each group
+        grouped_data = []
+        for group_value in group_values:
+            # Filter data for this group
+            group_df = df.filter(pl.col(group_by) == group_value)
+
+            if len(group_df) == 0:
+                continue
+
+            # Extract metric values for this group
+            group_values_array = self._extract_metric_values(group_df, metric)
+
+            # Calculate histogram with common bin edges
+            counts, _ = np.histogram(group_values_array, bins=common_bin_edges)
+
+            # Calculate statistics for this group
+            statistics = self._calculate_statistics(group_values_array)
+
+            grouped_data.append(
+                GroupedHistogramData(
+                    group_value=str(group_value),
+                    histogram={
+                        "bins": bin_centers.tolist(),
+                        "counts": counts.tolist(),
+                        "bin_edges": common_bin_edges.tolist()
+                    },
+                    statistics=statistics,
+                    total_features=len(group_values_array)
+                )
+            )
+
+        # Return response with grouped data
+        return HistogramResponse(
+            metric=metric.value,
+            histogram={
+                "bins": bin_centers.tolist(),
+                "counts": [0] * len(bin_centers),  # Empty for grouped response
+                "bin_edges": common_bin_edges.tolist()
+            },
+            statistics=self._calculate_statistics(all_values),
+            total_features=len(all_values),
+            grouped_data=grouped_data
+        )
 
     async def get_sankey_data(
         self,

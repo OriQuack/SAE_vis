@@ -295,7 +295,9 @@ export function LinearSetDiagram({ width: propWidth, height: propHeight }: Linea
             position,
             undefined,
             undefined,
-            'left'
+            'left',
+            undefined,  // nodeCategory
+            true  // isFromLinearSet
           )
         })
 

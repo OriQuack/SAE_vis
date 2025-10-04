@@ -71,7 +71,8 @@ interface AppState {
     parentNodeId?: string,
     parentNodeName?: string,
     panel?: PanelSide,
-    nodeCategory?: NodeCategory
+    nodeCategory?: NodeCategory,
+    isFromLinearSet?: boolean
   ) => void
   hideHistogramPopover: () => void
   setLoading: (key: keyof LoadingStates, value: boolean) => void
@@ -360,7 +361,7 @@ export const useStore = create<AppState>((set, get) => ({
     }))
   },
 
-  showHistogramPopover: (nodeId, nodeName, metrics, position, parentNodeId, parentNodeName, panel = PANEL_LEFT, nodeCategory) => {
+  showHistogramPopover: (nodeId, nodeName, metrics, position, parentNodeId, parentNodeName, panel = PANEL_LEFT, nodeCategory, isFromLinearSet) => {
     set(() => ({
       popoverState: {
         histogram: {
@@ -372,7 +373,8 @@ export const useStore = create<AppState>((set, get) => ({
           metrics,
           position,
           visible: true,
-          panel
+          panel,
+          isFromLinearSet
         }
       }
     }))
@@ -472,12 +474,22 @@ export const useStore = create<AppState>((set, get) => ({
     const state = get()
     const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
     const { filters, thresholdTree } = state[panelKey]
+    const isFromLinearSet = state.popoverState.histogram?.isFromLinearSet
+
+    console.log('[HistogramPopover] fetchMultipleHistogramData called:', {
+      metrics,
+      nodeId,
+      panel,
+      isFromLinearSet,
+      filters
+    })
 
     const hasActiveFilters = Object.values(filters).some(
       filterArray => filterArray && filterArray.length > 0
     )
 
     if (!hasActiveFilters) {
+      console.log('[HistogramPopover] No active filters, skipping request')
       return
     }
 
@@ -486,15 +498,31 @@ export const useStore = create<AppState>((set, get) => ({
 
     try {
       const histogramPromises = metrics.map(async (metric) => {
+        // When grouping by llm_explainer, clear the llm_explainer filter to get all groups
+        const requestFilters = isFromLinearSet
+          ? { ...filters, llm_explainer: [] }  // Clear llm_explainer filter to get all groups
+          : filters
+
         const request = {
-          filters,
+          filters: requestFilters,
           metric,
           nodeId,
           // Include thresholdTree when nodeId is provided for node-specific filtering
-          ...(nodeId && { thresholdTree })
+          ...(nodeId && { thresholdTree }),
+          // Include groupBy when request is from Linear Set Diagram
+          ...(isFromLinearSet && { groupBy: 'llm_explainer' })
         }
 
+        console.log('[HistogramPopover] Request for metric:', metric, request)
+
         const data = await api.getHistogramData(request)
+
+        console.log('[HistogramPopover] Response for metric:', metric, {
+          hasGroupedData: !!data.grouped_data,
+          groupedDataLength: data.grouped_data?.length,
+          totalFeatures: data.total_features
+        })
+
         return { [metric]: data }
       })
 

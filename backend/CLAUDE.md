@@ -4,7 +4,7 @@ This file provides comprehensive guidance to Claude Code when working with the F
 
 ## Project Status: ✅ OPTIMIZED RESEARCH PROTOTYPE
 
-The backend is a production-ready FastAPI application with V2 classification engine, ParentPath-based performance optimizations, and flexible split rule evaluation optimized for research demonstrations supporting multiple frontend visualization types (Sankey, Alluvial, Linear Set).
+The backend is a production-ready FastAPI application with V2 classification engine, ParentPath-based performance optimizations, and flexible split rule evaluation optimized for research demonstrations supporting multiple frontend visualization types (Sankey, Alluvial, Linear Set/UpSet).
 
 ## Architecture Overview
 
@@ -67,6 +67,7 @@ backend/
 │   │   ├── histogram.py          # ✅ POST /api/histogram-data
 │   │   ├── sankey.py             # ✅ POST /api/sankey-data
 │   │   ├── comparison.py         # ✅ POST /api/comparison-data (Phase 2)
+│   │   ├── set_visualization.py  # ✅ POST /api/set-visualization-data (Phase 4)
 │   │   └── feature.py            # ✅ GET /api/feature/{id}
 │   ├── models/                   # 📋 Pydantic model definitions
 │   │   ├── requests.py           # Request schemas with validation
@@ -131,7 +132,8 @@ curl http://localhost:8003/health
 | `GET` | `/api/filter-options` | Dynamic filter population for UI | ✅ Cached |
 | `POST` | `/api/histogram-data` | Threshold slider visualization | ✅ Optimized |
 | `POST` | `/api/sankey-data` | Phase 1 flow diagrams | ✅ Multi-stage |
-| `POST` | `/api/comparison-data` | Phase 2 alluvial comparisons | ✅ Ready |
+| `POST` | `/api/comparison-data` | Phase 2 alluvial comparisons | ✅ Active |
+| `POST` | `/api/set-visualization-data` | Phase 4 Linear Set (UpSet) diagrams | ✅ Active |
 | `GET` | `/api/feature/{id}` | Debug view detail drilling | ✅ JSON linked |
 
 ### System Endpoints
@@ -442,7 +444,7 @@ Note: Stage order is configurable through threshold tree structure - no code cha
 
 #### Core Components
 1. **DataService** (`visualization_service.py`): Research-optimized visualization data provider
-   - Orchestrates histogram, Sankey, and feature data generation
+   - Orchestrates histogram, Sankey, Alluvial, and Linear Set data generation
    - Handles filter caching and data lifecycle management
    - Integrates with ClassificationEngine for feature classification
 
@@ -568,10 +570,10 @@ API Endpoints → DataService (visualization_service.py)
 ### ✅ Completed Features (January 2025)
 - ✅ **V2 Classification Engine**: Modular classification with split evaluators
 - ✅ **Dynamic Tree Support**: Runtime stage creation/removal
-- ✅ **Comparison Endpoint**: Alluvial flow data generation
+- ✅ **Comparison Endpoint**: Alluvial flow data generation (Phase 2)
+- ✅ **Set Visualization Endpoint**: Linear Set (UpSet) diagram data generation (Phase 4)
 - ✅ **Node Filtering**: Histogram data filtered by node path
 - ✅ **ParentPath Optimizations**: O(1) node lookups, path-based filtering, early termination
-- ✅ **Set Visualization Support**: Backend support for Linear Set Diagram
 - ✅ **Performance Validated**: 20-30% faster Sankey generation, 3-5x faster leaf filtering
 
 ### 📝 Future Performance Optimizations

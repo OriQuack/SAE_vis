@@ -18,7 +18,7 @@ import {
 } from '../lib/d3-histogram-utils'
 import { CATEGORY_DISPLAY_NAMES } from '../lib/constants'
 import { getEffectiveThreshold } from '../lib/threshold-utils'
-import type { HistogramData, HistogramChart, NodeCategory } from '../types'
+import type { HistogramData, GroupedHistogramData, HistogramChart, NodeCategory } from '../types'
 
 // ============================================================================
 // CONSTANTS
@@ -41,6 +41,26 @@ const HISTOGRAM_COLORS = {
   sliderTrackFilled: '#3b82f6',
   sliderTrackUnfilled: '#cbd5e1'
 } as const
+
+// Color palette for grouped histograms (scalable)
+const GROUP_COLORS = [
+  '#3b82f6', // Blue
+  '#f97316', // Orange
+  '#10b981', // Emerald
+  '#8b5cf6', // Violet
+  '#ef4444', // Red
+  '#06b6d4', // Cyan
+  '#f59e0b', // Amber
+  '#ec4899', // Pink
+  '#14b8a6', // Teal
+  '#6366f1', // Indigo
+]
+
+// Function to get consistent color for a group value
+const getGroupColor = (_groupValue: string, index: number): string => {
+  // Use index-based color assignment for consistency
+  return GROUP_COLORS[index % GROUP_COLORS.length]
+}
 
 const SLIDER_TRACK = {
   height: 6,
@@ -132,15 +152,222 @@ const PopoverHeader: React.FC<{
   )
 }
 
+const GroupedHistogramChart: React.FC<{
+  chart: HistogramChart
+  groupedData: GroupedHistogramData[]
+  threshold: number
+  animationDuration: number
+  onSliderMouseDown: (e: React.MouseEvent, metric: string, chart: HistogramChart) => void
+  onBarHover: (barIndex: number | null, chart: HistogramChart, groupIndex?: number) => void
+}> = ({ chart, groupedData, threshold, animationDuration, onSliderMouseDown, onBarHover }) => {
+  const gridLines = useMemo(() =>
+    calculateGridLines(chart, 5),
+    [chart]
+  )
+
+  const xAxisTicks = useMemo(() =>
+    calculateXAxisTicks(chart, 5),
+    [chart]
+  )
+
+  const yAxisTicks = useMemo(() =>
+    calculateYAxisTicks(chart, 5),
+    [chart]
+  )
+
+  const thresholdLine = useMemo(() =>
+    calculateThresholdLine(threshold, chart),
+    [threshold, chart]
+  )
+
+  const sliderPosition = useMemo(() =>
+    calculateSliderPosition(threshold, chart, SLIDER_TRACK.height, SLIDER_TRACK.yOffset),
+    [threshold, chart]
+  )
+
+  // Find max count across all groups for Y-axis scaling
+  const maxCount = Math.max(...groupedData.flatMap(g => g.histogram.counts))
+
+  return (
+    <g transform={`translate(${chart.margin.left}, ${chart.yOffset})`}>
+      {/* Grid lines */}
+      <g>
+        {gridLines.map((line, i) => (
+          <line
+            key={i}
+            x1={line.x1}
+            x2={line.x2}
+            y1={line.y1}
+            y2={line.y2}
+            stroke={HISTOGRAM_COLORS.grid}
+            strokeWidth={1}
+            opacity={line.opacity}
+          />
+        ))}
+      </g>
+
+      {/* Histogram bars for each group */}
+      {groupedData.map((group, groupIndex) => {
+        const color = getGroupColor(group.group_value, groupIndex)
+        const bars = calculateHistogramBars(
+          chart,
+          threshold,
+          color,
+          color  // Use same color for threshold bars
+        )
+
+        return (
+          <g key={group.group_value}>
+            {group.histogram.counts.map((count, i) => {
+              const bar = bars[i]
+              if (!bar) return null
+
+              // Recalculate bar height based on actual count
+              const barHeight = (count / maxCount) * chart.height
+
+              return (
+                <rect
+                  key={`${group.group_value}-${i}`}
+                  x={bar.x}
+                  y={chart.height - barHeight}
+                  width={bar.width}
+                  height={barHeight}
+                  fill={color}
+                  fillOpacity={0.6}
+                  stroke="white"
+                  strokeWidth={0.5}
+                  style={{
+                    transition: `all ${animationDuration}ms ease-out`,
+                    cursor: 'pointer'
+                  }}
+                  onMouseEnter={() => onBarHover(i, chart)}
+                  onMouseLeave={() => onBarHover(null, chart)}
+                />
+              )
+            })}
+          </g>
+        )
+      })}
+
+      {/* Threshold line */}
+      {thresholdLine && (
+        <line
+          x1={thresholdLine.x}
+          x2={thresholdLine.x}
+          y1={0}
+          y2={chart.height}
+          stroke={HISTOGRAM_COLORS.threshold}
+          strokeWidth={3}
+          style={{ cursor: 'pointer' }}
+        />
+      )}
+
+      {/* Chart title */}
+      <text
+        x={chart.width / 2}
+        y={-16}
+        textAnchor="middle"
+        fontSize={12}
+        fontWeight="600"
+        fill={HISTOGRAM_COLORS.text}
+      >
+        {chart.chartTitle}
+      </text>
+
+      {/* Slider track */}
+      {thresholdLine && (
+        <g transform={`translate(0, ${sliderPosition.trackY})`}>
+          <rect
+            x={sliderPosition.trackUnfilledX}
+            y={0}
+            width={sliderPosition.trackUnfilledWidth}
+            height={SLIDER_TRACK.height}
+            fill={HISTOGRAM_COLORS.sliderTrackUnfilled}
+            rx={SLIDER_TRACK.cornerRadius}
+          />
+          <rect
+            x={0}
+            y={0}
+            width={sliderPosition.trackFilledWidth}
+            height={SLIDER_TRACK.height}
+            fill={HISTOGRAM_COLORS.sliderTrackFilled}
+            rx={SLIDER_TRACK.cornerRadius}
+          />
+          <rect
+            x={0}
+            y={-10}
+            width={chart.width}
+            height={SLIDER_TRACK.height + 20}
+            fill="transparent"
+            style={{ cursor: 'pointer' }}
+            onMouseDown={(e) => onSliderMouseDown(e, chart.metric, chart)}
+          />
+          <circle
+            cx={sliderPosition.handleCx}
+            cy={sliderPosition.handleCy}
+            r={10}
+            fill={HISTOGRAM_COLORS.sliderHandle}
+            stroke="white"
+            strokeWidth={2}
+            style={{ cursor: 'pointer' }}
+            onMouseDown={(e) => onSliderMouseDown(e, chart.metric, chart)}
+          />
+        </g>
+      )}
+
+      {/* Legend is now shown separately for multi-chart, removed from here */}
+
+      {/* Threshold value */}
+      <text
+        x={chart.width}
+        y={chart.height + 50}
+        textAnchor="end"
+        fontSize={10}
+        fill="#6b7280"
+        fontFamily="monospace"
+      >
+        {formatSmartNumber(threshold)}
+      </text>
+
+      {/* X-axis */}
+      <g transform={`translate(0,${chart.height})`}>
+        <line x1={0} x2={chart.width} y1={0} y2={0} stroke={HISTOGRAM_COLORS.axis} strokeWidth={1} />
+        {xAxisTicks.map(tick => (
+          <g key={tick.value} transform={`translate(${tick.position},0)`}>
+            <line y1={0} y2={6} stroke={HISTOGRAM_COLORS.axis} strokeWidth={1} />
+            <text y={20} textAnchor="middle" fontSize={12} fill={HISTOGRAM_COLORS.text}>
+              {tick.label}
+            </text>
+          </g>
+        ))}
+      </g>
+
+      {/* Y-axis */}
+      <g>
+        <line x1={0} x2={0} y1={0} y2={chart.height} stroke={HISTOGRAM_COLORS.axis} strokeWidth={1} />
+        {yAxisTicks.map(tick => (
+          <g key={tick.value} transform={`translate(0,${tick.position})`}>
+            <line x1={-6} x2={0} stroke={HISTOGRAM_COLORS.axis} strokeWidth={1} />
+            <text x={-10} textAnchor="end" alignmentBaseline="middle" fontSize={12} fill={HISTOGRAM_COLORS.text}>
+              {tick.label}
+            </text>
+          </g>
+        ))}
+      </g>
+    </g>
+  )
+}
+
 const HistogramChart: React.FC<{
   chart: HistogramChart
   data: HistogramData
   threshold: number
   isMultiChart: boolean
   animationDuration: number
+  barColor?: string
   onSliderMouseDown: (e: React.MouseEvent, metric: string, chart: HistogramChart) => void
   onBarHover: (barIndex: number | null, chart: HistogramChart) => void
-}> = ({ chart, threshold, isMultiChart, animationDuration, onSliderMouseDown, onBarHover }) => {
+}> = ({ chart, threshold, isMultiChart, animationDuration, barColor, onSliderMouseDown, onBarHover }) => {
   const bars = useMemo(() =>
     calculateHistogramBars(chart, threshold, HISTOGRAM_COLORS.bars, HISTOGRAM_COLORS.threshold),
     [chart, threshold]
@@ -198,11 +425,12 @@ const HistogramChart: React.FC<{
             y={bar.y}
             width={bar.width}
             height={bar.height}
-            fill={bar.color}
+            fill={barColor || HISTOGRAM_COLORS.bars}
+            fillOpacity={0.6}
             stroke="white"
-            strokeWidth={1}
+            strokeWidth={0.5}
             style={{
-              transition: `fill ${animationDuration}ms ease-out`,
+              transition: `all ${animationDuration}ms ease-out`,
               cursor: 'pointer'
             }}
             onMouseEnter={() => onBarHover(i, chart)}
@@ -333,6 +561,7 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
   const panel = popoverData?.panel || 'left'
   const panelKey = panel === 'left' ? 'leftPanel' : 'rightPanel'
   const histogramData = useVisualizationStore(state => state[panelKey].histogramData)
+  const filters = useVisualizationStore(state => state[panelKey].filters)
   const loading = useVisualizationStore(state => state.loading.histogram)
   const error = useVisualizationStore(state => state.errors.histogram)
   const thresholdTree = useVisualizationStore(state => state[panelKey].thresholdTree)
@@ -358,7 +587,12 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
   const draggingChartRef = useRef<HistogramChart | null>(null)
 
   // Local state for tooltip
-  const [hoveredBarInfo, setHoveredBarInfo] = useState<{ barIndex: number; chart: HistogramChart } | null>(null)
+  const [hoveredBarInfo, setHoveredBarInfo] = useState<{
+    barIndex: number;
+    chart: HistogramChart;
+    isGrouped?: boolean;
+    groupedData?: GroupedHistogramData[];
+  } | null>(null)
 
   // Calculate container size
   const containerSize = useMemo(() =>
@@ -595,9 +829,33 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
   // Fetch data when popover opens
   useEffect(() => {
     if (popoverData?.visible && popoverData.metrics?.length > 0) {
+      console.log('[HistogramPopover] Popover opened, fetching data:', {
+        metrics: popoverData.metrics,
+        nodeId: popoverData.nodeId,
+        isFromLinearSet: popoverData.isFromLinearSet,
+        panel
+      })
       fetchMultipleHistogramData(popoverData.metrics, popoverData.nodeId, panel)
     }
   }, [popoverData?.visible, popoverData?.nodeId, popoverData?.metrics, fetchMultipleHistogramData, panel])
+
+  // Log histogram data changes
+  useEffect(() => {
+    if (histogramData) {
+      console.log('[HistogramPopover] Histogram data received:', {
+        metrics: Object.keys(histogramData),
+        data: Object.entries(histogramData).map(([metric, data]) => ({
+          metric,
+          hasGroupedData: !!data.grouped_data,
+          groupedDataLength: data.grouped_data?.length,
+          groupedDataSample: data.grouped_data?.map(g => ({
+            group: g.group_value,
+            features: g.total_features
+          }))
+        }))
+      })
+    }
+  }, [histogramData])
 
   // Don't render if not visible
   if (!popoverData?.visible) {
@@ -729,6 +987,45 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
 
                 if (!data) return null
 
+                // Check if we have grouped data
+                if (data.grouped_data && data.grouped_data.length > 0) {
+                  console.log('[HistogramPopover] Rendering GroupedHistogramChart for metric:', metric, {
+                    groupCount: data.grouped_data.length,
+                    groups: data.grouped_data.map(g => g.group_value)
+                  })
+
+                  // Create a wrapper for handleBarHover that includes grouped data
+                  const handleGroupedBarHover = (barIndex: number | null, chart: HistogramChart) => {
+                    if (barIndex === null) {
+                      setHoveredBarInfo(null)
+                    } else {
+                      setHoveredBarInfo({
+                        barIndex,
+                        chart,
+                        isGrouped: true,
+                        groupedData: data.grouped_data
+                      })
+                    }
+                  }
+
+                  return (
+                    <GroupedHistogramChart
+                      key={metric}
+                      chart={chart}
+                      groupedData={data.grouped_data}
+                      threshold={threshold}
+                      animationDuration={animationDuration}
+                      onSliderMouseDown={handleSliderMouseDown}
+                      onBarHover={handleGroupedBarHover}
+                    />
+                  )
+                }
+
+                // Regular histogram - use LLM explainer color
+                console.log('[HistogramPopover] Rendering regular HistogramChart for metric:', metric)
+                const llmExplainer = filters.llm_explainer?.[0] || ''
+                const llmColor = getGroupColor(llmExplainer, 0)
+
                 return (
                   <HistogramChart
                     key={metric}
@@ -737,15 +1034,63 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
                     threshold={threshold}
                     isMultiChart={layout.charts.length > 1}
                     animationDuration={animationDuration}
+                    barColor={llmColor}
                     onSliderMouseDown={handleSliderMouseDown}
                     onBarHover={handleBarHover}
                   />
                 )
               })}
 
+              {/* Legend for multi-LLM histograms only */}
+              {(() => {
+                // Position legend at top right of the entire SVG
+                const legendX = containerSize.width - 150
+                const legendY = 25
+
+                // Check if any chart has grouped data
+                const firstGroupedChart = layout.charts.find(chart => {
+                  const data = histogramData[chart.metric]
+                  return data?.grouped_data && data.grouped_data.length > 0
+                })
+
+                if (firstGroupedChart) {
+                  // Multi-LLM legend
+                  const data = histogramData[firstGroupedChart.metric]
+                  if (!data?.grouped_data) return null
+
+                  return (
+                    <g transform={`translate(${legendX}, ${legendY})`}>
+                      {data.grouped_data.map((group, index) => (
+                        <g key={group.group_value} transform={`translate(0, ${index * 18})`}>
+                          <rect
+                            x={0}
+                            y={0}
+                            width={12}
+                            height={12}
+                            fill={getGroupColor(group.group_value, index)}
+                            fillOpacity={0.6}
+                          />
+                          <text
+                            x={16}
+                            y={10}
+                            fontSize={10}
+                            fill={HISTOGRAM_COLORS.text}
+                          >
+                            {group.group_value.split('/').pop()}
+                          </text>
+                        </g>
+                      ))}
+                    </g>
+                  )
+                }
+
+                // No legend for single-LLM histograms
+                return null
+              })()}
+
               {/* Global tooltip - rendered last to be on top */}
               {hoveredBarInfo && histogramData && (() => {
-                const { barIndex, chart } = hoveredBarInfo
+                const { barIndex, chart, isGrouped, groupedData } = hoveredBarInfo
                 const metric = chart.metric
                 const data = histogramData[metric]
                 const threshold = getEffectiveThresholdValue(metric)
@@ -758,6 +1103,70 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
                 if (!bar) return null
 
                 const tooltipX = bar.x + bar.width / 2 + chart.margin.left
+
+                // Handle grouped histogram tooltip
+                if (isGrouped && groupedData) {
+                  const numGroups = groupedData.length
+                  const tooltipHeight = 14 + numGroups * 16 + 12  // padding + groups + bin range
+                  const tooltipWidth = 110  // Adjusted for "N explanations"
+                  const tooltipY = bar.y + chart.yOffset - tooltipHeight - 8
+
+                  return (
+                    <g pointerEvents="none">
+                      <rect
+                        x={tooltipX - tooltipWidth / 2}
+                        y={tooltipY}
+                        width={tooltipWidth}
+                        height={tooltipHeight}
+                        fill="#1f2937"
+                        rx={4}
+                        opacity={0.95}
+                      />
+                      {groupedData.map((group, idx) => {
+                        const groupColor = getGroupColor(group.group_value, idx)
+                        const groupCount = group.histogram.counts[barIndex] || 0
+                        const yPos = tooltipY + 12 + idx * 16
+
+                        return (
+                          <g key={group.group_value}>
+                            {/* Color square indicator */}
+                            <rect
+                              x={tooltipX - 48}
+                              y={yPos - 7}
+                              width={8}
+                              height={8}
+                              fill={groupColor}
+                              rx={1}
+                            />
+                            {/* Count with "explanations" text */}
+                            <text
+                              x={tooltipX - 36}
+                              y={yPos}
+                              textAnchor="start"
+                              fill="white"
+                              fontSize={10}
+                              fontWeight="500"
+                            >
+                              {groupCount} explanations
+                            </text>
+                          </g>
+                        )
+                      })}
+                      {/* Bin range at bottom */}
+                      <text
+                        x={tooltipX}
+                        y={tooltipY + tooltipHeight - 4}
+                        textAnchor="middle"
+                        fill="#d1d5db"
+                        fontSize={9}
+                      >
+                        {bar.binData.x0.toFixed(3)} - {bar.binData.x1.toFixed(3)}
+                      </text>
+                    </g>
+                  )
+                }
+
+                // Handle regular single histogram tooltip
                 const tooltipY = bar.y + chart.yOffset - 40
 
                 return (

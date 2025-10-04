@@ -120,7 +120,7 @@ interface AppState {
   // Alluvial flows data (Phase 2)
   alluvialFlows: AlluvialFlow[] | null
 
-  // Linear Set Diagram state (Phase 4)
+  // Linear Set Diagram state (Phase 4) - NEW
   selectedScoringMetrics: string[]
   scoringMetricThresholds: Record<string, number>
   setVisualizationData: SetVisualizationData | null
@@ -128,10 +128,10 @@ interface AppState {
   // Panel-aware API actions
   fetchSankeyData: (panel?: PanelSide) => Promise<void>
   fetchHistogramData: (metric?: MetricType, nodeId?: string, panel?: PanelSide) => Promise<void>
-  fetchSetVisualizationData: () => Promise<void>
+  fetchSetVisualizationData: () => Promise<void>  // NEW - Phase 4
   updateThreshold: (nodeId: string, thresholds: number[], panel?: PanelSide) => void
-  toggleScoringMetric: (metric: string) => void
-  setScoringMetricThreshold: (metric: string, threshold: number) => void
+  toggleScoringMetric: (metric: string) => void  // NEW - Phase 4
+  setScoringMetricThreshold: (metric: string, threshold: number) => void  // NEW - Phase 4
 }
 
 interface PanelState {
@@ -211,15 +211,16 @@ function getMetricsForNode(node: D3SankeyNode): MetricType[] | null {
 - **Consistency Statistics**: Flow consistency analysis and visualization
 - **Performance Optimized**: Efficient rendering with React.memo and useMemo optimizations
 
-#### LinearSetDiagram Component (Phase 4 - UpSet-Style Visualization)
+#### LinearSetDiagram Component (Phase 4 - UpSet-Style Visualization) ✅ COMPLETE
 - **UpSet-Style Layout**: Linear set diagram showing scoring metric agreement patterns
 - **Interactive Metric Selection**: Toggle metrics (Fuzz, Detection, Simulation, Embedding) to analyze combinations
 - **Set Size Visualization**: Column heights represent feature counts for each metric combination
-- **Category Background Areas**: Color-coded regions showing semantic distance and feature splitting categories
-- **Threshold Configuration**: Configurable thresholds for each scoring metric
+- **Category Background Areas**: Color-coded regions showing semantic/feature splitting categories
+- **Threshold Configuration**: Configurable thresholds for each scoring metric via store
 - **Interactive Tooltips**: Hover tooltips showing detailed feature counts and category information
-- **Responsive Design**: useResizeObserver hook for automatic size adaptation
-- **Performance Optimized**: Efficient D3 calculations with React integration patterns
+- **Responsive Design**: useResizeObserver hook for automatic size adaptation to panel dimensions
+- **Performance Optimized**: Efficient D3 calculations with React.memo and useMemo optimizations
+- **Full API Integration**: Connected to `/api/set-visualization-data` endpoint
 
 **Flow Calculation Logic:**
 ```typescript
@@ -257,12 +258,13 @@ const layout = useMemo(
 - **Flow Consistency Analysis**: Statistical analysis of flow patterns
 - **Interactive Flow Elements**: Hover states and flow highlighting logic
 
-**d3-linear-set-utils.ts (Phase 4)**
-- **Linear Set Layout Calculations**: UpSet-style visualization layout with column positioning
+**d3-linear-set-utils.ts (Phase 4) ✅ COMPLETE**
+- **Linear Set Layout Calculations**: Complete UpSet-style visualization layout with column positioning
 - **Set Intersection Analysis**: Calculates feature counts for each metric combination
 - **Category Area Calculations**: Generates background regions for semantic/splitting categories
-- **Column Height Scaling**: Scales column heights based on feature counts
-- **Metric Combination Logic**: Handles arbitrary combinations of scoring metrics
+- **Column Height Scaling**: D3 scale functions for proportional column heights
+- **Metric Combination Logic**: Handles arbitrary combinations of 4 scoring metrics
+- **Flexible Metric Selection**: Dynamically updates layout based on selected metrics
 
 **d3-histogram-utils.ts**
 - **Histogram Generation**: Advanced histogram calculations with statistics
@@ -311,11 +313,12 @@ useEffect(() => {
 
 **API Endpoints Integration:**
 ```typescript
-// All 5 backend endpoints fully integrated
+// All 6 backend endpoints fully integrated
 export const getFilterOptions = (): Promise<FilterOptions>
 export const getHistogramData = (request: HistogramDataRequest): Promise<HistogramData>
 export const getSankeyData = (request: SankeyDataRequest): Promise<SankeyData>
 export const getComparisonData = (request: ComparisonDataRequest): Promise<ComparisonData>
+export const getSetVisualizationData = (request: SetVisualizationRequest): Promise<SetVisualizationData>
 export const getFeatureData = (featureId: number): Promise<FeatureDetail>
 export const healthCheck = (): Promise<boolean>
 ```
@@ -414,7 +417,8 @@ npm run lint
 | `GET` | `/api/filter-options` | Dynamic filter population | FilterPanel dropdown options |
 | `POST` | `/api/histogram-data` | Threshold visualization | HistogramPopover data |
 | `POST` | `/api/sankey-data` | Sankey diagram generation | SankeyDiagram main visualization |
-| `POST` | `/api/comparison-data` | Phase 2 comparisons | Future dual Sankey implementation |
+| `POST` | `/api/comparison-data` | Phase 2 alluvial comparisons | AlluvialDiagram flow visualization |
+| `POST` | `/api/set-visualization-data` | Phase 4 Linear Set diagrams | LinearSetDiagram metric agreement |
 | `GET` | `/api/feature/{id}` | Individual feature details | Future debug view |
 | `GET` | `/health` | Backend connectivity | App startup health check |
 
@@ -483,7 +487,7 @@ User Interaction → State Update → API Request → Data Processing → UI Upd
 3. **Performance**: All D3 calculations optimized for smooth interactions
 4. **Error Handling**: Use structured error codes for proper user messaging
 5. **State Management**: Maintain centralized state with Zustand store
-6. **API Integration**: All 5 backend endpoints must be operational
+6. **API Integration**: All 6 backend endpoints must be operational
 7. **Component Architecture**: Maintain clear separation of concerns
 
 ## Project Assessment

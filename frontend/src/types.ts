@@ -115,6 +115,7 @@ export interface HistogramDataRequest {
   bins?: number
   nodeId?: string
   thresholdTree?: ThresholdTree
+  groupBy?: string  // Optional grouping field, e.g., 'llm_explainer'
 }
 
 export interface SankeyDataRequest {
@@ -131,6 +132,23 @@ export interface ComparisonDataRequest {
 // API RESPONSE TYPES
 // ============================================================================
 
+export interface GroupedHistogramData {
+  group_value: string  // e.g., "Llama-3.1-70B"
+  histogram: {
+    bins: number[]
+    counts: number[]
+    bin_edges: number[]
+  }
+  statistics: {
+    min: number
+    max: number
+    mean: number
+    median: number
+    std: number
+  }
+  total_features: number
+}
+
 export interface HistogramData {
   metric: string
   histogram: {
@@ -146,6 +164,7 @@ export interface HistogramData {
     std: number
   }
   total_features: number
+  grouped_data?: GroupedHistogramData[]  // Optional for grouped histograms
 }
 
 export interface SankeyNode {
@@ -385,6 +404,7 @@ export interface HistogramPopoverData {
   }
   visible: boolean
   panel?: typeof PANEL_LEFT | typeof PANEL_RIGHT
+  isFromLinearSet?: boolean  // Flag to indicate request is from Linear Set Diagram
 }
 
 export interface PopoverState {
