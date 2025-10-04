@@ -53,18 +53,3 @@ class ComparisonRequest(BaseModel):
         ...,
         description="Configuration for right Sankey diagram"
     )
-
-class SetVisualizationRequest(BaseModel):
-    """Request model for set visualization data endpoint"""
-    filters: Filters = Field(
-        default_factory=lambda: Filters(),
-        description="Filter criteria for data subset (defaults to empty = all data)"
-    )
-    pattern_rule: "PatternSplitRule" = Field(
-        ...,
-        description="Pattern split rule defining set membership conditions and categories"
-    )
-
-# Import PatternSplitRule for type hint
-from .threshold import PatternSplitRule
-SetVisualizationRequest.model_rebuild()

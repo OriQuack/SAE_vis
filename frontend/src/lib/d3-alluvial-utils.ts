@@ -3,6 +3,18 @@ import { sankey, sankeyLinkHorizontal } from 'd3-sankey'
 import type { AlluvialFlow, D3SankeyNode, AlluvialSankeyNode, AlluvialSankeyLink, AlluvialLayoutData } from '../types'
 
 // ============================================================================
+// UTILS-SPECIFIC TYPES
+// ============================================================================
+
+type TrivialityLevel = 'trivial' | 'minor' | 'moderate' | 'major'
+
+interface NodePositionInfo {
+  y0: number
+  y1: number
+  yMid: number
+}
+
+// ============================================================================
 // CONSTANTS
 // ============================================================================
 export const ALLUVIAL_MARGIN = { top: 80, right: 2, bottom: 50, left: 2 }
@@ -33,7 +45,7 @@ const ALLUVIAL_OPACITY = {
  * Calculate the triviality level of a connection between two nodes
  * Returns: 'trivial', 'minor', 'moderate', or 'major'
  */
-function calculateTrivialityLevel(sourceId: string, targetId: string): 'trivial' | 'minor' | 'moderate' | 'major' {
+function calculateTrivialityLevel(sourceId: string, targetId: string): TrivialityLevel {
   // Extract the meaningful part of node IDs (last segments after splitting by underscore)
   const getNodeType = (id: string): string => {
     // For feature splitting: "split_true" or "split_false" -> extract "true"/"false"
@@ -145,8 +157,8 @@ export function calculateAlluvialLayout(
   // Extract leaf nodes and sort by middle position (top to bottom)
   const leftNodeOrder = new Map<string, number>()
   const rightNodeOrder = new Map<string, number>()
-  const leftNodePositions = new Map<string, { y0: number; y1: number; yMid: number }>()
-  const rightNodePositions = new Map<string, { y0: number; y1: number; yMid: number }>()
+  const leftNodePositions = new Map<string, NodePositionInfo>()
+  const rightNodePositions = new Map<string, NodePositionInfo>()
 
   if (leftSankeyNodes) {
     const nodesInFlows = leftSankeyNodes

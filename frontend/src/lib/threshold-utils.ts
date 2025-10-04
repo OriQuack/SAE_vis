@@ -201,37 +201,6 @@ export function findNodeById(
   return tree.nodes.find(node => node.id === nodeId) || null
 }
 
-/**
- * Traverse the entire tree with a callback function
- * Optimized with iterative approach for better performance
- */
-function traverseTree(
-  tree: ThresholdTree,
-  callback: (node: SankeyThreshold, depth: number) => void
-): void {
-  const root = tree.nodes.find(n => n.id === NODE_ROOT_ID)
-  if (!root) return
-
-  const visited = new Set<string>()
-  const stack: Array<{ nodeId: string; depth: number }> = [{ nodeId: NODE_ROOT_ID, depth: 0 }]
-
-  while (stack.length > 0) {
-    const { nodeId, depth } = stack.pop()!
-
-    if (visited.has(nodeId)) continue
-    visited.add(nodeId)
-
-    const node = findNodeById(tree, nodeId)
-    if (!node) continue
-
-    callback(node, depth)
-
-    // Add children in reverse order so they're processed in correct order
-    for (let i = node.children_ids.length - 1; i >= 0; i--) {
-      stack.push({ nodeId: node.children_ids[i], depth: depth + 1 })
-    }
-  }
-}
 
 /**
  * Update thresholds for a specific node
@@ -772,62 +741,9 @@ function getStageTypeFromParentInfo(parentPath: ParentPathInfo): string | null {
 }
 
 // ============================================================================
-// VALIDATION AND DEBUG UTILITIES (Keep for development, tree-shakeable)
+// REMOVED UNUSED FUNCTIONS
 // ============================================================================
-
-/**
- * Validate tree structure
- * Keep for development/debugging but will be tree-shaken in production if unused
- */
-export function validateDynamicTree(tree: ThresholdTree): string[] {
-  const errors: string[] = []
-
-  if (!findNodeById(tree, NODE_ROOT_ID)) {
-    errors.push('Tree must have a root node')
-    return errors
-  }
-
-  traverseTree(tree, (node) => {
-    for (const childId of node.children_ids) {
-      const childNode = findNodeById(tree, childId)
-      if (!childNode) {
-        errors.push(`Node ${node.id} references non-existent child ${childId}`)
-      } else {
-        const hasParent = childNode.parent_path.some(p => p.parent_id === node.id)
-        if (!hasParent) {
-          errors.push(`Child node ${childId} does not reference parent ${node.id} in parent_path`)
-        }
-      }
-    }
-  })
-
-  return errors
-}
-
-/**
- * Get tree description for debugging
- * Keep for development but will be tree-shaken in production if unused
- */
-export function getTreeDescription(tree: ThresholdTree): string {
-  const descriptions: string[] = []
-
-  traverseTree(tree, (node, depth) => {
-    const indent = '  '.repeat(depth)
-    let desc = `${indent}${node.id}`
-
-    if (node.split_rule) {
-      if (node.split_rule.type === SPLIT_TYPE_RANGE) {
-        const rule = node.split_rule as RangeSplitRule
-        desc += ` -> Split on ${rule.metric} (thresholds: ${rule.thresholds.join(', ')})`
-      } else if (node.split_rule.type === SPLIT_TYPE_PATTERN) {
-        desc += ' -> Pattern matching split'
-      }
-    } else if (depth > 0) {
-      desc += ' (leaf)'
-    }
-
-    descriptions.push(desc)
-  })
-
-  return descriptions.join('\n')
-}
+// Previously exported but never imported/used:
+// - validateDynamicTree(): Tree structure validation (debugging utility)
+// - getTreeDescription(): Tree description generator (debugging utility)
+// - traverseTree(): Internal tree traversal (only used by removed functions)

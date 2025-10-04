@@ -18,7 +18,7 @@ import type { D3SankeyNode, D3SankeyLink, AddStageConfig, StageTypeConfig } from
 import { PANEL_LEFT, PANEL_RIGHT } from '../lib/constants'
 import '../styles/SankeyDiagram.css'
 
-// ==================== INTERFACES ====================
+// ==================== COMPONENT-SPECIFIC TYPES ====================
 interface SankeyDiagramProps {
   width?: number
   height?: number
@@ -330,7 +330,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const error = useVisualizationStore(state => state.errors[errorKey])
   const hoveredAlluvialNodeId = useVisualizationStore(state => state.hoveredAlluvialNodeId)
   const hoveredAlluvialPanel = useVisualizationStore(state => state.hoveredAlluvialPanel)
-  const scoringMetricThresholds = useVisualizationStore(state => state.scoringMetricThresholds)
   const { showHistogramPopover, addStageToTree, removeStageFromTree } = useVisualizationStore()
 
   // Track previous data for smooth transitions
@@ -425,7 +424,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     }
 
     showHistogramPopover(node.id, node.name, metrics, position, undefined, undefined, panel, node.category)
-  }, [showHistogramOnClick, showHistogramPopover, thresholdTree, containerRef, panel])
+  }, [showHistogramOnClick, showHistogramPopover, thresholdTree, panel])
 
   const handleLinkHistogramClick = useCallback((link: D3SankeyLink) => {
     const sourceNode = typeof link.source === 'object' ? link.source : null
@@ -468,12 +467,10 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       splitRuleType: stageType.defaultSplitRule,
       metric: stageType.defaultMetric,
       thresholds: stageType.defaultThresholds,
-      // Use selected scoring metrics from store for score_agreement stage
+      // Use default scoring metrics for score_agreement stage
       ...(stageTypeId === 'score_agreement' && {
-        selectedScoreMetrics: useVisualizationStore.getState().selectedScoringMetrics,
-        thresholds: useVisualizationStore.getState().selectedScoringMetrics.map(
-          metric => useVisualizationStore.getState().scoringMetricThresholds[metric] || 0.5
-        )
+        selectedScoreMetrics: ['score_fuzz', 'score_detection', 'score_simulation'],
+        thresholds: [0.5, 0.5, 0.1]  // Default thresholds for fuzz, detection, simulation
       })
     }
 
@@ -486,7 +483,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
         handleNodeHistogramClick(parentNode)
       }
     }, 500)
-  }, [inlineSelector, thresholdTree, addStageToTree, panel, layout, handleNodeHistogramClick, containerRef])
+  }, [inlineSelector, thresholdTree, addStageToTree, panel, layout, handleNodeHistogramClick])
 
   const handleMetricSelectionConfirm = useCallback((selectedMetrics: string[]) => {
     if (!metricSelectorState || !thresholdTree) return
@@ -495,7 +492,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       stageType: 'score_agreement',
       splitRuleType: 'pattern',
       selectedScoreMetrics: selectedMetrics,
-      thresholds: selectedMetrics.map((metric) => scoringMetricThresholds[metric] || 0.5)
+      thresholds: selectedMetrics.map(() => 0.5)  // Default threshold of 0.5 for all metrics
     }
 
     addStageToTree(metricSelectorState.nodeId, config, panel)

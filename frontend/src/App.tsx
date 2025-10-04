@@ -4,7 +4,7 @@ import FilterPanel from './components/FilterPanel'
 import SankeyDiagram from './components/SankeyDiagram'
 import AlluvialDiagram from './components/AlluvialDiagram'
 import HistogramPopover from './components/HistogramPopover'
-import { LinearSetDiagram } from './components/LinearSetDiagram'
+import { usePanelDataLoader } from './lib/utils'
 import * as api from './api'
 import './styles/base.css'
 import './styles/App.css'
@@ -142,8 +142,7 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
     editFilters,
     removeVisualization,
     resetFilters,
-    initializeWithDefaultFilters,
-    fetchSetVisualizationData
+    initializeWithDefaultFilters
   } = useVisualizationStore()
 
   // Health check function
@@ -191,86 +190,10 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
     }
   }, [filterOptions, leftPanel.viewState, rightPanel.viewState, initializeWithDefaultFilters])
 
-  // Fetch set visualization data after health check and filters load
-  useEffect(() => {
-    if (healthState.isHealthy && filterOptions) {
-      fetchSetVisualizationData()
-    }
-  }, [healthState.isHealthy, filterOptions, fetchSetVisualizationData])
 
-  // Watch for filter changes and fetch data when in visualization mode - left panel
-  useEffect(() => {
-    const loadData = async () => {
-      const hasActiveFilters = Object.values(leftPanel.filters).some(
-        filterArray => filterArray && filterArray.length > 0
-      )
-
-      if (hasActiveFilters && leftPanel.viewState === 'visualization') {
-        try {
-          await fetchMultipleHistogramData(['feature_splitting', 'semdist_mean', 'score_fuzz'], undefined, 'left')
-          fetchSankeyData('left')
-        } catch (error) {
-          console.error('Failed to load left visualization data:', error)
-        }
-      }
-    }
-
-    if (healthState.isHealthy) {
-      loadData()
-    }
-  }, [leftPanel.filters, leftPanel.viewState, healthState.isHealthy, fetchMultipleHistogramData, fetchSankeyData])
-
-  // Watch for filter changes and fetch data when in visualization mode - right panel
-  useEffect(() => {
-    const loadData = async () => {
-      const hasActiveFilters = Object.values(rightPanel.filters).some(
-        filterArray => filterArray && filterArray.length > 0
-      )
-
-      if (hasActiveFilters && rightPanel.viewState === 'visualization') {
-        try {
-          await fetchMultipleHistogramData(['feature_splitting', 'semdist_mean', 'score_fuzz'], undefined, 'right')
-          fetchSankeyData('right')
-        } catch (error) {
-          console.error('Failed to load right visualization data:', error)
-        }
-      }
-    }
-
-    if (healthState.isHealthy) {
-      loadData()
-    }
-  }, [rightPanel.filters, rightPanel.viewState, healthState.isHealthy, fetchMultipleHistogramData, fetchSankeyData])
-
-  // Watch for threshold changes and re-fetch Sankey data - left panel
-  useEffect(() => {
-    const hasActiveFilters = Object.values(leftPanel.filters).some(
-      filterArray => filterArray && filterArray.length > 0
-    )
-
-    if (hasActiveFilters && leftPanel.viewState === 'visualization' && healthState.isHealthy) {
-      try {
-        fetchSankeyData('left')
-      } catch (error) {
-        console.error('Failed to update left Sankey data:', error)
-      }
-    }
-  }, [leftPanel.thresholdTree, leftPanel.filters, leftPanel.viewState, healthState.isHealthy, fetchSankeyData])
-
-  // Watch for threshold changes and re-fetch Sankey data - right panel
-  useEffect(() => {
-    const hasActiveFilters = Object.values(rightPanel.filters).some(
-      filterArray => filterArray && filterArray.length > 0
-    )
-
-    if (hasActiveFilters && rightPanel.viewState === 'visualization' && healthState.isHealthy) {
-      try {
-        fetchSankeyData('right')
-      } catch (error) {
-        console.error('Failed to update right Sankey data:', error)
-      }
-    }
-  }, [rightPanel.thresholdTree, rightPanel.filters, rightPanel.viewState, healthState.isHealthy, fetchSankeyData])
+  // Use custom hook to handle panel data loading (consolidates duplicate logic)
+  usePanelDataLoader('left', leftPanel, healthState.isHealthy, fetchMultipleHistogramData, fetchSankeyData)
+  usePanelDataLoader('right', rightPanel, healthState.isHealthy, fetchMultipleHistogramData, fetchSankeyData)
 
   // Event handlers - left panel
   const handleAddVisualizationLeft = useCallback(() => {
@@ -341,9 +264,21 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
       {/* Main content - four-panel rendering */}
       <div className={`sankey-view__content sankey-view__content--${layout}`}>
         <div className="sankey-view__main-content">
-          {/* Linear Diagram Panel - Linear Set Diagram */}
-          <div className="sankey-view__linear-diagram-panel">
-            <LinearSetDiagram />
+          {/* Linear Diagram Wrapper - Contains top and bottom panels */}
+          <div className="sankey-view__linear-diagram-wrapper">
+            {/* Top Panel - Placeholder */}
+            <div className="sankey-view__linear-diagram-panel">
+              <div className="sankey-view__placeholder-text">
+                Top Panel
+              </div>
+            </div>
+
+            {/* Bottom Panel - UMAP Diagram */}
+            <div className="sankey-view__umap-diagram-panel">
+              <div className="sankey-view__placeholder-text">
+                UMAP Diagram
+              </div>
+            </div>
           </div>
 
           {/* Left Panel */}

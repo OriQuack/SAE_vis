@@ -247,6 +247,12 @@
   text-align: center;
 }
 
+/* Panel Placeholders */
+.sankey-view__placeholder-text {
+  font-size: 14px;
+  color: #6b7280;
+}
+
 .sankey-view__main-content {
   display: flex;
   flex-direction: row;
@@ -255,8 +261,16 @@
   height: auto;
 }
 
-.sankey-view__linear-diagram-panel {
+.sankey-view__linear-diagram-wrapper {
   flex: 1.5;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #000000;
+  min-width: 0;
+}
+
+.sankey-view__linear-diagram-panel {
+  flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -264,8 +278,20 @@
   overflow: visible;
   background: white;
   padding: 0;
-  border-left: 1px solid #000000;
   min-width: 0;
+}
+
+.sankey-view__umap-diagram-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: visible;
+  background: #f9fafb;
+  padding: 0;
+  min-width: 0;
+  border-top: 1px solid #000000;
 }
 
 .sankey-view__left-panel {

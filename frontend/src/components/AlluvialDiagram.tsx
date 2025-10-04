@@ -14,7 +14,7 @@ import { useResizeObserver } from '../lib/utils'
 import type { AlluvialSankeyNode, AlluvialSankeyLink } from '../types'
 import '../styles/AlluvialDiagram.css'
 
-// ==================== INTERFACES ====================
+// ==================== COMPONENT-SPECIFIC TYPES ====================
 
 interface AlluvialDiagramProps {
   width?: number
@@ -50,10 +50,6 @@ const FlowPath: React.FC<{
     className="alluvial-flow-ribbon"
     onMouseEnter={onMouseEnter}
     onMouseLeave={onMouseLeave}
-    style={{
-      transition: 'opacity 0.2s ease',
-      cursor: 'pointer'
-    }}
   >
     <title>
       {`${flow.flow.value} features: ${flow.flow.source} → ${flow.flow.target}`}
@@ -87,10 +83,6 @@ const NodeRect: React.FC<{
       strokeWidth={style.strokeWidth}
       rx={2}
       className="alluvial-node-rect"
-      style={{
-        cursor: 'pointer',
-        transition: 'all 0.2s ease'
-      }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
@@ -123,14 +115,10 @@ const Legend: React.FC = () => {
               height={10}
               fill={item.color}
               rx={2}
-              opacity={0.8}
             />
             <text
               x={x+11}
               y={588}
-              fontSize={10}
-              fill="#4b5563"
-              fontWeight={500}
             >
               {item.label}
             </text>
@@ -230,7 +218,7 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
 
   // Render the visualization
   return (
-    <div ref={containerRef} className={`alluvial-diagram ${className}`} style={{ width: '100%', height }}>
+    <div ref={containerRef} className={`alluvial-diagram ${className}`}>
       <svg
         width={containerSize.width}
         height={height}
