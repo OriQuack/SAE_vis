@@ -1,3 +1,4 @@
+import React from 'react'
 import { scaleLinear } from 'd3-scale'
 import type { ScaleLinear } from 'd3-scale'
 import { max } from 'd3-array'
@@ -20,10 +21,10 @@ const METRIC_TITLES: Record<string, string> = {
 }
 
 // ============================================================================
-// TYPES
+// UTILS-SPECIFIC TYPES (Internal use only - not exported)
 // ============================================================================
 
-export interface HistogramBarData {
+interface HistogramBarData {
   x: number
   y: number
   width: number
@@ -36,13 +37,13 @@ export interface HistogramBarData {
   }
 }
 
-export interface AxisTickData {
+interface AxisTickData {
   value: number
   position: number
   label: string
 }
 
-export interface GridLineData {
+interface GridLineData {
   x1: number
   y1: number
   x2: number

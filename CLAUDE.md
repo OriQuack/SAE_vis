@@ -11,8 +11,7 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 **Phase 1 Complete**: ✅ Dual-panel Sankey visualization with dynamic tree building system
 **Phase 2 Complete**: ✅ Dynamic tree builder allowing runtime stage creation and modification
 **Phase 3 Complete**: ✅ Performance optimization with ParentPath-based caching and filtering
-**Phase 4 Complete**: ✅ Linear Set Diagram (UpSet-style visualization) for scoring metric agreement analysis
-**Current State**: Advanced research prototype with multiple visualization types and optimized backend
+**Current State**: Advanced research prototype with dual-panel Sankey and Alluvial visualizations
 **Active Usage**: Development servers for research demonstrations with multi-panel visualization control
 **Technical Readiness**: Conference-ready prototype with production-grade performance optimizations
 
@@ -22,7 +21,7 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 - **Backend**: Python 3.x, FastAPI 0.104.1, Polars 0.19.19, Uvicorn 0.24.0
 - **Frontend**: React 19.1.1, TypeScript 5.8.3, Vite 7.1.6, Zustand 5.0.8
 - **Visualization**: D3.js ecosystem (d3-sankey, d3-scale, d3-array, d3-selection, d3-transition, d3-interpolate)
-- **Advanced Visualizations**: Sankey diagrams, Alluvial diagrams, Linear Set diagrams (UpSet-style), dual-panel comparisons, threshold tree interactions
+- **Advanced Visualizations**: Sankey diagrams, Alluvial diagrams, dual-panel comparisons, threshold tree interactions
 - **Data Processing**: Polars lazy evaluation with string cache optimization
 - **HTTP Client**: Axios 1.12.2 with interceptors and error handling
 - **Data Storage**: Parquet files for efficient columnar data storage (1,648 features processed)
@@ -92,13 +91,11 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 │   │   │   ├── FilterPanel.tsx     # Multi-select filter interface
 │   │   │   ├── SankeyDiagram.tsx   # D3 Sankey visualization
 │   │   │   ├── AlluvialDiagram.tsx # D3 Alluvial flow visualization
-│   │   │   ├── LinearSetDiagram.tsx # D3 Linear Set (UpSet-style) visualization
 │   │   │   └── HistogramPopover.tsx # Advanced popover system
 │   │   ├── lib/
 │   │   │   ├── constants.ts         # Centralized constant definitions
 │   │   │   ├── d3-sankey-utils.ts  # D3 Sankey calculations
 │   │   │   ├── d3-alluvial-utils.ts # D3 Alluvial calculations
-│   │   │   ├── d3-linear-set-utils.ts # D3 Linear Set (UpSet-style) calculations
 │   │   │   ├── d3-histogram-utils.ts # D3 Histogram calculations
 │   │   │   ├── threshold-utils.ts   # Threshold tree operations
 │   │   │   ├── dynamic-tree-builder.ts # Dynamic stage creation/removal
@@ -127,12 +124,12 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 **Core Features:**
 - **FastAPI 0.104.1**: Modern async web framework with automatic OpenAPI documentation
 - **High-Performance Data Service**: Polars-based lazy evaluation for efficient large dataset processing
-- **Comprehensive API**: 5 core endpoints with sub-second response times
+- **Comprehensive API**: 4 core endpoints with sub-second response times
 - **Advanced Error Handling**: Structured error responses with custom error codes
 - **Health Monitoring**: Service availability and data connectivity validation
 - **CORS Support**: Multi-port frontend development support
 - **Production Servers**: Active on ports 8003 (primary) and 8001 (development)
-- **Performance Optimizations (NEW)**: ParentPath-based caching and filtering (20-30% faster)
+- **Performance Optimizations**: ParentPath-based caching and filtering (20-30% faster)
 
 **Data Processing Pipeline:**
 ```
@@ -173,11 +170,10 @@ threshold tree structure. Not limited to 3 scores or fixed pipeline.
 - **Threshold Tree System V2**: Flexible threshold tree with configurable split rules (range, pattern, expression)
 - **Sankey Flow Visualization**: Multi-stage hierarchical flow diagrams
 - **Alluvial Flow Visualization**: Cross-panel flow comparison with feature ID tracking
-- **Linear Set Diagram (NEW)**: UpSet-style visualization for scoring metric agreement analysis with interactive metric selection
 - **Advanced Filtering**: Multi-select dropdowns with dynamic options from backend
 - **Histogram Popovers**: Interactive threshold setting with drag-and-drop positioning
 - **Real-time Updates**: Live API integration with loading states and error boundaries
-- **Responsive Design**: Adaptive layout with useResizeObserver hook for all visualizations
+- **Responsive Design**: Adaptive layout with useResizeObserver hook for visualizations
 
 **Component Architecture:**
 - **Modular Components**: Clear separation of concerns with reusable components
@@ -193,7 +189,6 @@ threshold tree structure. Not limited to 3 scores or fixed pipeline.
 | `POST` | `/api/histogram-data` | Threshold visualization | ✅ Active | ~200ms (20 bins) |
 | `POST` | `/api/sankey-data` | Multi-stage flow diagrams | ✅ Heavy Usage | ~300ms (full pipeline) |
 | `POST` | `/api/comparison-data` | Alluvial comparisons | ✅ Active | Phase 2 complete |
-| `POST` | `/api/set-visualization-data` | Linear Set (UpSet) diagrams | ✅ Active | ~200ms (Phase 4) |
 | `GET` | `/api/feature/{id}` | Individual feature details | ✅ Active | ~10ms (direct lookup) |
 
 **Additional System Endpoints:**
@@ -350,20 +345,11 @@ npm run preview
 - ✅ **Cache Utilization**: All methods use cached lookups from `ThresholdStructure`
 - ✅ **Performance Validation**: 20-30% faster Sankey generation, 3-5x faster leaf node filtering
 
-### ✅ Phase 4: Linear Set Diagram (COMPLETE - January 2025)
-- ✅ **UpSet-Style Visualization**: Linear set diagram showing scoring metric agreement patterns
-- ✅ **Interactive Metric Selection**: Toggle metrics (Fuzz, Detection, Simulation, Embedding) to analyze different combinations
-- ✅ **Set Size Visualization**: Column heights represent feature counts for each metric combination
-- ✅ **Threshold-Based Classification**: Configurable thresholds for each scoring metric
-- ✅ **Category Background Areas**: Color-coded regions showing semantic/feature splitting categories
-- ✅ **Interactive Tooltips**: Hover tooltips showing feature counts and category labels
-- ✅ **Responsive Layout**: useResizeObserver hook for automatic size adaptation
-
 ### 📝 Future Enhancements
 - **UI for Tree Builder**: Visual interface for adding/removing stages (currently API-only)
 - **Debug View**: Individual feature inspection and path visualization
 - **Export Functionality**: Save/load custom tree configurations
-- **Cross-Visualization Interactions**: Link selections between Sankey, Alluvial, and Linear Set diagrams
+- **Cross-Visualization Interactions**: Link selections between Sankey and Alluvial diagrams
 - **Dataset Scaling**: Further optimization for 16K+ feature datasets
 
 ## Important Development Notes

@@ -4,7 +4,7 @@ This file provides comprehensive guidance to Claude Code when working with the F
 
 ## Project Status: ✅ OPTIMIZED RESEARCH PROTOTYPE
 
-The backend is a production-ready FastAPI application with V2 classification engine, ParentPath-based performance optimizations, and flexible split rule evaluation optimized for research demonstrations supporting multiple frontend visualization types (Sankey, Alluvial, Linear Set/UpSet).
+The backend is a production-ready FastAPI application with V2 classification engine, ParentPath-based performance optimizations, and flexible split rule evaluation optimized for research demonstrations supporting multiple frontend visualization types (Sankey, Alluvial).
 
 ## Architecture Overview
 
@@ -15,7 +15,7 @@ The backend is a production-ready FastAPI application with V2 classification eng
 │                     FastAPI Application Layer                   │
 │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐   │
 │  │   API Router    │ │  Exception      │ │   CORS &        │   │
-│  │   (5 Endpoints) │ │  Handling       │ │   Lifespan      │   │
+│  │   (4 Endpoints) │ │  Handling       │ │   Lifespan      │   │
 │  └─────────────────┘ └─────────────────┘ └─────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
                                  ↕
@@ -67,7 +67,6 @@ backend/
 │   │   ├── histogram.py          # ✅ POST /api/histogram-data
 │   │   ├── sankey.py             # ✅ POST /api/sankey-data
 │   │   ├── comparison.py         # ✅ POST /api/comparison-data (Phase 2)
-│   │   ├── set_visualization.py  # ✅ POST /api/set-visualization-data (Phase 4)
 │   │   └── feature.py            # ✅ GET /api/feature/{id}
 │   ├── models/                   # 📋 Pydantic model definitions
 │   │   ├── requests.py           # Request schemas with validation
@@ -133,7 +132,6 @@ curl http://localhost:8003/health
 | `POST` | `/api/histogram-data` | Threshold slider visualization | ✅ Optimized |
 | `POST` | `/api/sankey-data` | Phase 1 flow diagrams | ✅ Multi-stage |
 | `POST` | `/api/comparison-data` | Phase 2 alluvial comparisons | ✅ Active |
-| `POST` | `/api/set-visualization-data` | Phase 4 Linear Set (UpSet) diagrams | ✅ Active |
 | `GET` | `/api/feature/{id}` | Debug view detail drilling | ✅ JSON linked |
 
 ### System Endpoints
@@ -279,7 +277,7 @@ allow_origins=[
 - **Memory Usage**: Efficient lazy loading with ~50% reduction in temporary allocations
 - **Scalability**: Designed for 16K+ features with optimized filtering
 - **Concurrency**: Async/await throughout for high throughput
-- **Frontend Support**: Powers Sankey, Alluvial, and Linear Set visualizations
+- **Frontend Support**: Powers Sankey and Alluvial visualizations
 
 ### Performance Metrics (Optimized - January 2025)
 ```
@@ -288,7 +286,6 @@ Histogram Data:     ~150ms   (with 20 bins, path-based filtering)
 Sankey Generation:  ~220ms   (full pipeline, 20-30% faster)
 Feature Details:    ~10ms    (direct lookup)
 Health Check:       ~5ms     (service status)
-Set Visualization:  ~200ms   (for Linear Set Diagram)
 ```
 
 ## Development Guidelines
@@ -444,7 +441,7 @@ Note: Stage order is configurable through threshold tree structure - no code cha
 
 #### Core Components
 1. **DataService** (`visualization_service.py`): Research-optimized visualization data provider
-   - Orchestrates histogram, Sankey, Alluvial, and Linear Set data generation
+   - Orchestrates histogram, Sankey, and Alluvial data generation
    - Handles filter caching and data lifecycle management
    - Integrates with ClassificationEngine for feature classification
 
@@ -571,7 +568,6 @@ API Endpoints → DataService (visualization_service.py)
 - ✅ **V2 Classification Engine**: Modular classification with split evaluators
 - ✅ **Dynamic Tree Support**: Runtime stage creation/removal
 - ✅ **Comparison Endpoint**: Alluvial flow data generation (Phase 2)
-- ✅ **Set Visualization Endpoint**: Linear Set (UpSet) diagram data generation (Phase 4)
 - ✅ **Node Filtering**: Histogram data filtered by node path
 - ✅ **ParentPath Optimizations**: O(1) node lookups, path-based filtering, early termination
 - ✅ **Performance Validated**: 20-30% faster Sankey generation, 3-5x faster leaf filtering

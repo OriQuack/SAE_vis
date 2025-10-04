@@ -15,12 +15,10 @@ import type {
   SankeyNode,
   NodeCategory,
   AddStageConfig,
-  SetVisualizationData,
   CategoryGroup
 } from './types'
-import { updateNodeThreshold, createRootOnlyTree, addStageToNode, removeStageFromNode, extractScoreThresholdsFromTree, updateScoreThresholdsInTree } from './lib/threshold-utils'
-import { buildFlexibleScoreAgreementSplit } from './lib/split-rule-builders'
-import { PANEL_LEFT, PANEL_RIGHT, METRIC_SEMDIST_MEAN, METRIC_SCORE_FUZZ, METRIC_SCORE_DETECTION, METRIC_SCORE_SIMULATION } from './lib/constants'
+import { updateNodeThreshold, createRootOnlyTree, addStageToNode, removeStageFromNode } from './lib/threshold-utils'
+import { PANEL_LEFT, PANEL_RIGHT, METRIC_SEMDIST_MEAN } from './lib/constants'
 
 type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
 
@@ -71,8 +69,7 @@ interface AppState {
     parentNodeId?: string,
     parentNodeName?: string,
     panel?: PanelSide,
-    nodeCategory?: NodeCategory,
-    isFromLinearSet?: boolean
+    nodeCategory?: NodeCategory
   ) => void
   hideHistogramPopover: () => void
   setLoading: (key: keyof LoadingStates, value: boolean) => void
@@ -104,16 +101,8 @@ interface AppState {
   // DEFAULT APPROACH: Auto-initialize with first two LLM Explainers (subject to change)
   initializeWithDefaultFilters: () => void
 
-  // Set visualization state (linear diagram)
-  selectedScoringMetrics: string[]
-  scoringMetricThresholds: Record<string, number>
-  setVisualizationData: SetVisualizationData | null
+  // Category group state
   categoryGroups: CategoryGroup[]
-
-  // Set visualization actions
-  toggleScoringMetric: (metric: string) => void
-  setScoringMetricThreshold: (metric: string, threshold: number) => void
-  fetchSetVisualizationData: () => Promise<void>
 
   // Category group actions
   initializeCategoryGroups: () => void
@@ -174,15 +163,7 @@ const initialState = {
   hoveredAlluvialNodeId: null,
   hoveredAlluvialPanel: null,
 
-  // Set visualization state
-  selectedScoringMetrics: [METRIC_SCORE_FUZZ, METRIC_SCORE_DETECTION, METRIC_SCORE_SIMULATION],
-  scoringMetricThresholds: {
-    [METRIC_SCORE_FUZZ]: 0.5,
-    [METRIC_SCORE_DETECTION]: 0.5,  // Match Sankey default
-    [METRIC_SCORE_SIMULATION]: 0.1, // Match Sankey default
-    score_embedding: 0.5
-  },
-  setVisualizationData: null,
+  // Category group state
   categoryGroups: []
 }
 
@@ -212,26 +193,13 @@ export const useStore = create<AppState>((set, get) => ({
       const currentTree = state[panelKey].thresholdTree
       const updatedTree = updateNodeThreshold(currentTree, nodeId, thresholds, metric)
 
-      // Extract score thresholds from updated tree and sync to Linear Set
-      const scoreThresholds = extractScoreThresholdsFromTree(updatedTree)
-      const updatedScoringMetricThresholds = {
-        ...state.scoringMetricThresholds,
-        ...scoreThresholds
-      }
-
       return {
         [panelKey]: {
           ...state[panelKey],
           thresholdTree: updatedTree
-        },
-        scoringMetricThresholds: updatedScoringMetricThresholds
+        }
       }
     })
-
-    // Fetch new Linear Set data if score metrics were updated
-    if (metric?.startsWith('score_')) {
-      get().fetchSetVisualizationData()
-    }
   },
 
 
@@ -275,12 +243,6 @@ export const useStore = create<AppState>((set, get) => ({
         return state
       }
     })
-
-    // Fetch new Linear Set data if score_agreement stage was added
-    if (config.stageType === 'score_agreement') {
-      console.log('[Store.addStageToTree] Fetching set visualization data after adding score_agreement')
-      get().fetchSetVisualizationData()
-    }
   },
 
   removeStageFromTree: (nodeId, panel = PANEL_LEFT) => {
@@ -361,7 +323,7 @@ export const useStore = create<AppState>((set, get) => ({
     }))
   },
 
-  showHistogramPopover: (nodeId, nodeName, metrics, position, parentNodeId, parentNodeName, panel = PANEL_LEFT, nodeCategory, isFromLinearSet) => {
+  showHistogramPopover: (nodeId, nodeName, metrics, position, parentNodeId, parentNodeName, panel = PANEL_LEFT, nodeCategory) => {
     set(() => ({
       popoverState: {
         histogram: {
@@ -373,8 +335,7 @@ export const useStore = create<AppState>((set, get) => ({
           metrics,
           position,
           visible: true,
-          panel,
-          isFromLinearSet
+          panel
         }
       }
     }))
@@ -474,13 +435,11 @@ export const useStore = create<AppState>((set, get) => ({
     const state = get()
     const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
     const { filters, thresholdTree } = state[panelKey]
-    const isFromLinearSet = state.popoverState.histogram?.isFromLinearSet
 
     console.log('[HistogramPopover] fetchMultipleHistogramData called:', {
       metrics,
       nodeId,
       panel,
-      isFromLinearSet,
       filters
     })
 
@@ -498,19 +457,12 @@ export const useStore = create<AppState>((set, get) => ({
 
     try {
       const histogramPromises = metrics.map(async (metric) => {
-        // When grouping by llm_explainer, clear the llm_explainer filter to get all groups
-        const requestFilters = isFromLinearSet
-          ? { ...filters, llm_explainer: [] }  // Clear llm_explainer filter to get all groups
-          : filters
-
         const request = {
-          filters: requestFilters,
+          filters,
           metric,
           nodeId,
           // Include thresholdTree when nodeId is provided for node-specific filtering
-          ...(nodeId && { thresholdTree }),
-          // Include groupBy when request is from Linear Set Diagram
-          ...(isFromLinearSet && { groupBy: 'llm_explainer' })
+          ...(nodeId && { thresholdTree })
         }
 
         console.log('[HistogramPopover] Request for metric:', metric, request)
@@ -518,8 +470,6 @@ export const useStore = create<AppState>((set, get) => ({
         const data = await api.getHistogramData(request)
 
         console.log('[HistogramPopover] Response for metric:', metric, {
-          hasGroupedData: !!data.grouped_data,
-          groupedDataLength: data.grouped_data?.length,
           totalFeatures: data.total_features
         })
 
@@ -772,98 +722,8 @@ export const useStore = create<AppState>((set, get) => ({
     }))
   },
 
-  // Set visualization actions
-  toggleScoringMetric: (metric: string) => {
-    set((state) => {
-      const currentMetrics = state.selectedScoringMetrics
-      const isSelected = currentMetrics.includes(metric)
-
-      const newMetrics = isSelected
-        ? currentMetrics.filter(m => m !== metric)
-        : [...currentMetrics, metric]
-
-      return { selectedScoringMetrics: newMetrics }
-    })
-
-    // Fetch new set visualization data after toggling
-    get().fetchSetVisualizationData()
-  },
-
-  setScoringMetricThreshold: (metric: string, threshold: number) => {
-    set((state) => {
-      const updatedScoringMetricThresholds = {
-        ...state.scoringMetricThresholds,
-        [metric]: threshold
-      }
-
-      const updatedLeftTree = updateScoreThresholdsInTree(
-        state.leftPanel.thresholdTree,
-        updatedScoringMetricThresholds
-      )
-      const updatedRightTree = updateScoreThresholdsInTree(
-        state.rightPanel.thresholdTree,
-        updatedScoringMetricThresholds
-      )
-
-      return {
-        scoringMetricThresholds: updatedScoringMetricThresholds,
-        leftPanel: {
-          ...state.leftPanel,
-          thresholdTree: updatedLeftTree
-        },
-        rightPanel: {
-          ...state.rightPanel,
-          thresholdTree: updatedRightTree
-        }
-      }
-    })
-
-    get().fetchSetVisualizationData()
-
-    const state = get()
-    const leftHasFilters = Object.values(state.leftPanel.filters).some(f => f && f.length > 0)
-    const rightHasFilters = Object.values(state.rightPanel.filters).some(f => f && f.length > 0)
-
-    if (leftHasFilters) get().fetchSankeyData('left')
-    if (rightHasFilters) get().fetchSankeyData('right')
-  },
-
-  fetchSetVisualizationData: async () => {
-    const state = get()
-    const { selectedScoringMetrics, scoringMetricThresholds } = state
-
-    if (selectedScoringMetrics.length === 0) {
-      // No metrics selected, clear visualization data
-      set({ setVisualizationData: null })
-      return
-    }
-
-    try {
-      // Build pattern rule using selected metrics and thresholds
-      const thresholds = selectedScoringMetrics.map(m => scoringMetricThresholds[m] || 0.5)
-      const patternRule = buildFlexibleScoreAgreementSplit(selectedScoringMetrics, thresholds)
-
-      // Call API with empty filters (all data) and pattern rule
-      const data = await api.getSetVisualizationData({
-        filters: {
-          sae_id: [],
-          explanation_method: [],
-          llm_explainer: [],
-          llm_scorer: []
-        },
-        pattern_rule: patternRule
-      })
-
-      set({ setVisualizationData: data })
-    } catch (error) {
-      console.error('Failed to fetch set visualization data:', error)
-      set({ setVisualizationData: null })
-    }
-  },
-
   // Category group actions
   initializeCategoryGroups: () => {
-    // Will be called from LinearSetDiagram when columns are available
     set({ categoryGroups: [] })
   },
 

@@ -132,23 +132,6 @@ export interface ComparisonDataRequest {
 // API RESPONSE TYPES
 // ============================================================================
 
-export interface GroupedHistogramData {
-  group_value: string  // e.g., "Llama-3.1-70B"
-  histogram: {
-    bins: number[]
-    counts: number[]
-    bin_edges: number[]
-  }
-  statistics: {
-    min: number
-    max: number
-    mean: number
-    median: number
-    std: number
-  }
-  total_features: number
-}
-
 export interface HistogramData {
   metric: string
   histogram: {
@@ -164,7 +147,6 @@ export interface HistogramData {
     std: number
   }
   total_features: number
-  grouped_data?: GroupedHistogramData[]  // Optional for grouped histograms
 }
 
 export interface SankeyNode {
@@ -261,16 +243,6 @@ export interface FeatureDetail {
   details_path: string
 }
 
-export interface SetVisualizationData {
-  set_counts: Record<string, number>
-  total_features: number
-}
-
-export interface SetVisualizationRequest {
-  filters: Filters
-  pattern_rule: PatternSplitRule
-}
-
 export interface CategoryGroup {
   id: string
   name: string
@@ -354,13 +326,6 @@ export interface LayoutMargin {
   left: number
 }
 
-export interface TooltipData {
-  x: number
-  y: number
-  title: string
-  content: Array<{ label: string; value: string | number }>
-}
-
 export interface ThresholdLineData {
   x: number
   y1: number
@@ -404,7 +369,6 @@ export interface HistogramPopoverData {
   }
   visible: boolean
   panel?: typeof PANEL_LEFT | typeof PANEL_RIGHT
-  isFromLinearSet?: boolean  // Flag to indicate request is from Linear Set Diagram
 }
 
 export interface PopoverState {

@@ -3,10 +3,10 @@ import type { NodeCategory, D3SankeyNode, D3SankeyLink, SankeyLayout } from '../
 import { CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_DISTANCE, CATEGORY_SCORE_AGREEMENT } from './constants'
 
 // ============================================================================
-// TYPES
+// UTILS-SPECIFIC TYPES (Internal use only - not exported)
 // ============================================================================
 
-export interface StageLabel {
+interface StageLabel {
   x: number
   y: number
   label: string

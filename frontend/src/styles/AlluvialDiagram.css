@@ -23,22 +23,45 @@
   height: 100%;
 }
 
-.alluvial-flow-path {
-  stroke-linejoin: miter;
-  stroke-linecap: butt;
-}
-
-.alluvial-flow-path:hover {
-  filter: brightness(1.1);
+.alluvial-flows {
+  pointer-events: all;
 }
 
 .alluvial-flow-ribbon {
   stroke-linejoin: miter;
   stroke-linecap: butt;
+  transition: opacity 0.2s ease;
+  cursor: pointer;
 }
 
 .alluvial-flow-ribbon:hover {
   filter: brightness(1.1);
+  opacity: 1 !important;
+}
+
+.alluvial-node-rect {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.alluvial-left-nodes,
+.alluvial-right-nodes {
+  pointer-events: all;
+}
+
+/* Legend */
+.alluvial-legend-item {
+  cursor: default;
+}
+
+.alluvial-legend-item rect {
+  opacity: 0.8;
+}
+
+.alluvial-legend-item text {
+  font-size: 10px;
+  fill: #4b5563;
+  font-weight: 500;
 }
 
 /* Labels */
@@ -54,12 +77,13 @@
 /* Empty state */
 .alluvial-empty {
   text-align: center;
-  padding: 2rem;
+  padding: 3rem 2rem;
+  color: #6b7280;
   max-width: 300px;
 }
 
 .alluvial-empty__icon {
-  font-size: 4rem;
+  font-size: 3rem;
   margin-bottom: 1rem;
   opacity: 0.6;
 }
@@ -67,14 +91,13 @@
 .alluvial-empty__title {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #1f2937;
-  margin-bottom: 0.5rem;
+  color: #374151;
+  margin: 0 0 0.5rem 0;
 }
 
 .alluvial-empty__text {
-  color: #6b7280;
   font-size: 0.875rem;
+  color: #6b7280;
   line-height: 1.5;
+  margin: 0;
 }
-
-/* Legend - Rendered directly in SVG, no CSS needed */

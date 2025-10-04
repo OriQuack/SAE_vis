@@ -7,9 +7,8 @@ This file provides comprehensive guidance to Claude Code when working with the R
 **Phase 1 Complete**: ✅ Dual-panel Sankey visualization with dynamic tree building
 **Phase 2 Complete**: ✅ Dynamic tree builder with runtime stage creation/removal
 **Phase 3 Complete**: ✅ Backend performance optimization (20-30% faster classification)
-**Phase 4 Complete**: ✅ Linear Set Diagram (UpSet-style visualization) for scoring metric agreement analysis
 **Architecture**: Modern TypeScript-based frontend with multiple visualization types and dual-panel state management
-**Status**: Conference-ready research prototype with Sankey, Alluvial, and Linear Set visualizations
+**Status**: Conference-ready research prototype with Sankey and Alluvial visualizations
 **Development Server**: Active on http://localhost:3003 with hot reload
 **Design Philosophy**: Research prototype optimized for live demonstrations with interactive visualization controls
 **Backend Integration**: Optimized API calls with ParentPath-based caching for improved performance
@@ -70,13 +69,11 @@ frontend/
 │   │   ├── FilterPanel.tsx      # Multi-select filter interface with dynamic options
 │   │   ├── SankeyDiagram.tsx    # Advanced D3 Sankey visualization with interactions
 │   │   ├── AlluvialDiagram.tsx  # D3 Alluvial flow visualization (Phase 2)
-│   │   ├── LinearSetDiagram.tsx # D3 Linear Set (UpSet-style) visualization (Phase 4)
 │   │   └── HistogramPopover.tsx # Portal-based histogram popover with drag functionality
 │   ├── lib/                     # Utility Libraries
 │   │   ├── constants.ts         # Centralized constant definitions
 │   │   ├── d3-sankey-utils.ts  # D3 Sankey calculations
 │   │   ├── d3-alluvial-utils.ts # D3 Alluvial calculations
-│   │   ├── d3-linear-set-utils.ts # D3 Linear Set (UpSet-style) calculations
 │   │   ├── d3-histogram-utils.ts # D3 Histogram calculations
 │   │   ├── threshold-utils.ts   # Threshold tree operations
 │   │   ├── dynamic-tree-builder.ts # Dynamic stage creation/removal
@@ -120,18 +117,10 @@ interface AppState {
   // Alluvial flows data (Phase 2)
   alluvialFlows: AlluvialFlow[] | null
 
-  // Linear Set Diagram state (Phase 4) - NEW
-  selectedScoringMetrics: string[]
-  scoringMetricThresholds: Record<string, number>
-  setVisualizationData: SetVisualizationData | null
-
   // Panel-aware API actions
   fetchSankeyData: (panel?: PanelSide) => Promise<void>
   fetchHistogramData: (metric?: MetricType, nodeId?: string, panel?: PanelSide) => Promise<void>
-  fetchSetVisualizationData: () => Promise<void>  // NEW - Phase 4
   updateThreshold: (nodeId: string, thresholds: number[], panel?: PanelSide) => void
-  toggleScoringMetric: (metric: string) => void  // NEW - Phase 4
-  setScoringMetricThreshold: (metric: string, threshold: number) => void  // NEW - Phase 4
 }
 
 interface PanelState {
@@ -211,18 +200,7 @@ function getMetricsForNode(node: D3SankeyNode): MetricType[] | null {
 - **Consistency Statistics**: Flow consistency analysis and visualization
 - **Performance Optimized**: Efficient rendering with React.memo and useMemo optimizations
 
-#### LinearSetDiagram Component (Phase 4 - UpSet-Style Visualization) ✅ COMPLETE
-- **UpSet-Style Layout**: Linear set diagram showing scoring metric agreement patterns
-- **Interactive Metric Selection**: Toggle metrics (Fuzz, Detection, Simulation, Embedding) to analyze combinations
-- **Set Size Visualization**: Column heights represent feature counts for each metric combination
-- **Category Background Areas**: Color-coded regions showing semantic/feature splitting categories
-- **Threshold Configuration**: Configurable thresholds for each scoring metric via store
-- **Interactive Tooltips**: Hover tooltips showing detailed feature counts and category information
-- **Responsive Design**: useResizeObserver hook for automatic size adaptation to panel dimensions
-- **Performance Optimized**: Efficient D3 calculations with React.memo and useMemo optimizations
-- **Full API Integration**: Connected to `/api/set-visualization-data` endpoint
-
-**Flow Calculation Logic:**
+**Alluvial Flow Calculation Logic:**
 ```typescript
 const layout = useMemo(
   () => calculateAlluvialLayout(
@@ -257,14 +235,6 @@ const layout = useMemo(
 - **Alluvial Flow Calculations**: Cross-panel flow layout and positioning
 - **Flow Consistency Analysis**: Statistical analysis of flow patterns
 - **Interactive Flow Elements**: Hover states and flow highlighting logic
-
-**d3-linear-set-utils.ts (Phase 4) ✅ COMPLETE**
-- **Linear Set Layout Calculations**: Complete UpSet-style visualization layout with column positioning
-- **Set Intersection Analysis**: Calculates feature counts for each metric combination
-- **Category Area Calculations**: Generates background regions for semantic/splitting categories
-- **Column Height Scaling**: D3 scale functions for proportional column heights
-- **Metric Combination Logic**: Handles arbitrary combinations of 4 scoring metrics
-- **Flexible Metric Selection**: Dynamically updates layout based on selected metrics
 
 **d3-histogram-utils.ts**
 - **Histogram Generation**: Advanced histogram calculations with statistics
@@ -313,12 +283,11 @@ useEffect(() => {
 
 **API Endpoints Integration:**
 ```typescript
-// All 6 backend endpoints fully integrated
+// All backend endpoints fully integrated
 export const getFilterOptions = (): Promise<FilterOptions>
 export const getHistogramData = (request: HistogramDataRequest): Promise<HistogramData>
 export const getSankeyData = (request: SankeyDataRequest): Promise<SankeyData>
 export const getComparisonData = (request: ComparisonDataRequest): Promise<ComparisonData>
-export const getSetVisualizationData = (request: SetVisualizationRequest): Promise<SetVisualizationData>
 export const getFeatureData = (featureId: number): Promise<FeatureDetail>
 export const healthCheck = (): Promise<boolean>
 ```
@@ -418,7 +387,6 @@ npm run lint
 | `POST` | `/api/histogram-data` | Threshold visualization | HistogramPopover data |
 | `POST` | `/api/sankey-data` | Sankey diagram generation | SankeyDiagram main visualization |
 | `POST` | `/api/comparison-data` | Phase 2 alluvial comparisons | AlluvialDiagram flow visualization |
-| `POST` | `/api/set-visualization-data` | Phase 4 Linear Set diagrams | LinearSetDiagram metric agreement |
 | `GET` | `/api/feature/{id}` | Individual feature details | Future debug view |
 | `GET` | `/health` | Backend connectivity | App startup health check |
 
@@ -466,7 +434,6 @@ User Interaction → State Update → API Request → Data Processing → UI Upd
 - ✅ **Threshold Tree V2**: Range, pattern, and expression split rules
 - ✅ **Sankey Flow Visualization**: Multi-stage hierarchical flow diagrams
 - ✅ **Alluvial Flow Visualization**: Cross-panel feature tracking with `AlluvialDiagram`
-- ✅ **Linear Set Diagram**: UpSet-style visualization for metric agreement analysis
 - ✅ **Split Rule Builders**: Helper functions for easy rule construction
 - ✅ **Histogram Popovers**: Portal-based popovers with drag functionality
 - ✅ **Responsive Design**: useResizeObserver hook for all visualizations
@@ -475,7 +442,7 @@ User Interaction → State Update → API Request → Data Processing → UI Upd
 ### 📝 Future Enhancements
 - **UI for Tree Builder**: Visual interface for adding/removing stages (currently API-only)
 - **Debug View**: Individual feature inspection with path visualization
-- **Cross-Visualization Interactions**: Link selections between Sankey, Alluvial, and Linear Set diagrams
+- **Cross-Visualization Interactions**: Link selections between Sankey and Alluvial diagrams
 - **Export Functionality**: Save/load custom tree configurations
 - **Virtual Scrolling**: Performance optimization for large node lists
 - **Advanced Caching**: Intelligent data caching strategies
@@ -487,7 +454,7 @@ User Interaction → State Update → API Request → Data Processing → UI Upd
 3. **Performance**: All D3 calculations optimized for smooth interactions
 4. **Error Handling**: Use structured error codes for proper user messaging
 5. **State Management**: Maintain centralized state with Zustand store
-6. **API Integration**: All 6 backend endpoints must be operational
+6. **API Integration**: All backend endpoints must be operational
 7. **Component Architecture**: Maintain clear separation of concerns
 
 ## Project Assessment
@@ -497,19 +464,18 @@ This React frontend represents a **production-ready research prototype** with:
 - ✅ **Modern React Architecture** with React 19.1.1 and TypeScript 5.8.3
 - ✅ **Dual-Panel System** with independent left/right panel state management
 - ✅ **Dynamic Tree Builder** with runtime stage creation/removal capabilities
-- ✅ **D3.js Visualization Suite** with Sankey, Alluvial, and Linear Set diagrams
+- ✅ **D3.js Visualization Suite** with Sankey and Alluvial diagrams
 - ✅ **Threshold Tree System V2** with range, pattern, and expression split rules
 - ✅ **Split Rule Builders** with helper functions for easy rule construction
 - ✅ **Production Error Handling** with comprehensive error boundaries
 - ✅ **Alluvial Flow Tracking** with feature ID-based cross-panel comparison
-- ✅ **Linear Set Diagram** with UpSet-style metric agreement visualization
 - ✅ **Responsive Design** with useResizeObserver hook for all visualizations
 - ✅ **Developer Experience** with hot reload and TypeScript tooling
 
 **Key Implementation Features:**
 - **Dynamic Tree Building**: Add/remove classification stages at runtime through store actions
 - **Three Split Rule Types**: Range, pattern, and expression-based splitting
-- **Multiple Visualization Types**: Sankey, Alluvial, and Linear Set diagrams for different analytical perspectives
+- **Multiple Visualization Types**: Sankey and Alluvial diagrams for different analytical perspectives
 - **Dual-Panel State**: Independent threshold trees and data for left/right panels
 - **Responsive Layout**: useResizeObserver hook ensures all visualizations adapt to container size
 - **Conference Ready**: Optimized for live demonstrations with reliable error handling

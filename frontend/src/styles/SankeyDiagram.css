@@ -239,3 +239,44 @@
   background-color: #9ca3af;
   cursor: not-allowed;
 }
+
+/* Node and Link Styles */
+.sankey-node__rect {
+  cursor: pointer;
+}
+
+.sankey-node__text {
+  pointer-events: none;
+  transition: font-weight var(--sankey-animation-duration) ease-out;
+}
+
+.sankey-node__count-text {
+  pointer-events: none;
+}
+
+.sankey-node__add-button-circle,
+.sankey-node__remove-button-circle {
+  cursor: pointer;
+  transition: opacity var(--sankey-animation-duration) ease-out;
+}
+
+.sankey-node__add-button-text,
+.sankey-node__remove-button-text {
+  pointer-events: none;
+  user-select: none;
+}
+
+.sankey-link__path {
+  transition: opacity var(--sankey-animation-duration) ease-out,
+              stroke var(--sankey-animation-duration) ease-out;
+  cursor: pointer;
+}
+
+.sankey-link__path--default {
+  cursor: default;
+}
+
+.sankey-stage-label {
+  pointer-events: none;
+  user-select: none;
+}
