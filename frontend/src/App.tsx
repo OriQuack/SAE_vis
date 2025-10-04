@@ -12,7 +12,7 @@ import './styles/App.css'
 // ============================================================================
 // CONSTANTS
 // ============================================================================
-const FIXED_DIAGRAM_HEIGHT = 600 // Fixed height for both Sankey and Alluvial diagrams
+const FIXED_DIAGRAM_HEIGHT = 500 // Fixed height for both Sankey and Alluvial diagrams
 
 // ============================================================================
 // TYPES
@@ -181,14 +181,6 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
     }
   }, [healthState.isHealthy, filterOptions, autoLoad, fetchFilterOptions])
 
-  // DEFAULT APPROACH: Auto-initialize with default filters after filterOptions load
-  // This automatically sets first LLM Explainer for left panel and second for right panel
-  // Subject to change based on research needs
-  useEffect(() => {
-    if (filterOptions && leftPanel.viewState === 'empty' && rightPanel.viewState === 'empty') {
-      initializeWithDefaultFilters()
-    }
-  }, [filterOptions, leftPanel.viewState, rightPanel.viewState, initializeWithDefaultFilters])
 
 
   // Use custom hook to handle panel data loading (consolidates duplicate logic)
@@ -264,91 +256,128 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
       {/* Main content - four-panel rendering */}
       <div className={`sankey-view__content sankey-view__content--${layout}`}>
         <div className="sankey-view__main-content">
-          {/* Linear Diagram Wrapper - Contains top and bottom panels */}
-          <div className="sankey-view__linear-diagram-wrapper">
-            {/* Top Panel - Placeholder */}
-            <div className="sankey-view__linear-diagram-panel">
+          {/* Left Wrapper - Contains three panels */}
+          <div className="sankey-view__left-wrapper">
+            {/* Flow Panel */}
+            <div className="sankey-view__flow-panel">
               <div className="sankey-view__placeholder-text">
-                Top Panel
+                Flow Panel
               </div>
             </div>
 
-            {/* Bottom Panel - UMAP Diagram */}
-            <div className="sankey-view__umap-diagram-panel">
+            {/* Middle Panel - LLM Comparison */}
+            <div className="sankey-view__llm-comparison-panel">
               <div className="sankey-view__placeholder-text">
-                UMAP Diagram
+                LLM Comparison
+              </div>
+            </div>
+
+            {/* Bottom Panel - Histogram */}
+            <div className="sankey-view__histogram-panel">
+              <div className="sankey-view__placeholder-text">
+                Histogram Panel
               </div>
             </div>
           </div>
 
-          {/* Left Panel */}
-          <div className="sankey-view__left-panel">
-            {leftPanel.viewState === 'empty' && (
-              <EmptyState onAddVisualization={handleAddVisualizationLeft} />
-            )}
+          {/* Right Wrapper - Contains progress bar and sankey panels */}
+          <div className="sankey-view__right-wrapper">
+            {/* Progress Bar Panel - Spans across left, center, and right panels */}
+            <div className="sankey-view__progress-bar-panel">
+              <div className="sankey-view__placeholder-text">
+                Progress Bar Panel
+              </div>
+            </div>
 
-            {leftPanel.viewState === 'filtering' && (
-              <FilterPanel
-                onCreateVisualization={handleCreateVisualizationLeft}
-                onCancel={handleCancelFilteringLeft}
-                panel="left"
-              />
-            )}
+            {/* Sankey Wrapper */}
+            <div className="sankey-view__sankey-wrapper">
+              {/* Left Panel */}
+              <div className="sankey-view__left-panel">
+                {leftPanel.viewState === 'empty' && (
+                  <EmptyState onAddVisualization={handleAddVisualizationLeft} />
+                )}
 
-            {leftPanel.viewState === 'visualization' && (
-              <div className="sankey-view__diagram-container">
-                <VisualizationActions
-                  onEditFilters={handleEditFiltersLeft}
-                  onRemove={handleRemoveVisualizationLeft}
-                  className="sankey-view__floating-actions"
-                />
-                <SankeyDiagram
+                {leftPanel.viewState === 'filtering' && (
+                  <FilterPanel
+                    onCreateVisualization={handleCreateVisualizationLeft}
+                    onCancel={handleCancelFilteringLeft}
+                    panel="left"
+                  />
+                )}
+
+                {leftPanel.viewState === 'visualization' && (
+                  <div className="sankey-view__diagram-container">
+                    <VisualizationActions
+                      onEditFilters={handleEditFiltersLeft}
+                      onRemove={handleRemoveVisualizationLeft}
+                      className="sankey-view__floating-actions"
+                    />
+                    <SankeyDiagram
+                      height={FIXED_DIAGRAM_HEIGHT}
+                      showHistogramOnClick={true}
+                      flowDirection="left-to-right"
+                      panel="left"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Center Panel - Alluvial Diagram */}
+              <div className="sankey-view__center-panel">
+                <AlluvialDiagram
                   height={FIXED_DIAGRAM_HEIGHT}
-                  showHistogramOnClick={true}
-                  flowDirection="left-to-right"
-                  panel="left"
+                  className="sankey-view__alluvial"
                 />
               </div>
-            )}
-          </div>
 
-          {/* Center Panel - Alluvial Diagram */}
-          <div className="sankey-view__center-panel">
-            <AlluvialDiagram
-              height={FIXED_DIAGRAM_HEIGHT}
-              className="sankey-view__alluvial"
-            />
-          </div>
+              {/* Right Panel */}
+              <div className="sankey-view__right-panel">
+                {rightPanel.viewState === 'empty' && (
+                  <EmptyState onAddVisualization={handleAddVisualizationRight} />
+                )}
 
-          {/* Right Panel */}
-          <div className="sankey-view__right-panel">
-            {rightPanel.viewState === 'empty' && (
-              <EmptyState onAddVisualization={handleAddVisualizationRight} />
-            )}
+                {rightPanel.viewState === 'filtering' && (
+                  <FilterPanel
+                    onCreateVisualization={handleCreateVisualizationRight}
+                    onCancel={handleCancelFilteringRight}
+                    panel="right"
+                  />
+                )}
 
-            {rightPanel.viewState === 'filtering' && (
-              <FilterPanel
-                onCreateVisualization={handleCreateVisualizationRight}
-                onCancel={handleCancelFilteringRight}
-                panel="right"
-              />
-            )}
-
-            {rightPanel.viewState === 'visualization' && (
-              <div className="sankey-view__diagram-container">
-                <VisualizationActions
-                  onEditFilters={handleEditFiltersRight}
-                  onRemove={handleRemoveVisualizationRight}
-                  className="sankey-view__floating-actions"
-                />
-                <SankeyDiagram
-                  height={FIXED_DIAGRAM_HEIGHT}
-                  showHistogramOnClick={true}
-                  flowDirection="right-to-left"
-                  panel="right"
-                />
+                {rightPanel.viewState === 'visualization' && (
+                  <div className="sankey-view__diagram-container">
+                    <VisualizationActions
+                      onEditFilters={handleEditFiltersRight}
+                      onRemove={handleRemoveVisualizationRight}
+                      className="sankey-view__floating-actions"
+                    />
+                    <SankeyDiagram
+                      height={FIXED_DIAGRAM_HEIGHT}
+                      showHistogramOnClick={true}
+                      flowDirection="right-to-left"
+                      panel="right"
+                    />
+                  </div>
+                )}
               </div>
-            )}
+            </div>
+
+            {/* Bottom Wrapper - Contains two panels */}
+            <div className="sankey-view__bottom-wrapper">
+              {/* UMAP Panel */}
+              <div className="sankey-view__umap-panel">
+                <div className="sankey-view__placeholder-text">
+                  UMAP Panel
+                </div>
+              </div>
+
+              {/* Bottom Right Panel */}
+              <div className="sankey-view__bottom-right-panel">
+                <div className="sankey-view__placeholder-text">
+                  Bottom Right Panel
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

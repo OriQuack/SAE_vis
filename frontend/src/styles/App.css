@@ -253,24 +253,31 @@
   color: #6b7280;
 }
 
+.sankey-view__content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .sankey-view__main-content {
+  flex: 1;
   display: flex;
   flex-direction: row;
   gap: 0;
   overflow: auto;
-  height: auto;
 }
 
-.sankey-view__linear-diagram-wrapper {
-  flex: 1.5;
+.sankey-view__left-wrapper {
+  flex: 2;
   display: flex;
   flex-direction: column;
   border-left: 1px solid #000000;
   min-width: 0;
 }
 
-.sankey-view__linear-diagram-panel {
-  flex: 1;
+.sankey-view__flow-panel {
+  flex: 0.5;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -281,8 +288,21 @@
   min-width: 0;
 }
 
-.sankey-view__umap-diagram-panel {
+.sankey-view__llm-comparison-panel {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: visible;
+  background: white;
+  padding: 0;
+  min-width: 0;
+  border-top: 1px solid #000000;
+}
+
+.sankey-view__histogram-panel {
+  flex: 2;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -292,6 +312,68 @@
   padding: 0;
   min-width: 0;
   border-top: 1px solid #000000;
+}
+
+.sankey-view__right-wrapper {
+  flex: 5;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sankey-view__progress-bar-panel {
+  flex: 0.2;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  overflow: visible;
+  background: white;
+  padding: 0;
+  min-width: 0;
+  border-left: 1px solid #000000;
+  border-bottom: 1px solid #000000;
+}
+
+.sankey-view__sankey-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  min-width: 0;
+}
+
+.sankey-view__bottom-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  border-top: 1px solid #000000;
+  min-width: 0;
+}
+
+.sankey-view__umap-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: visible;
+  background: white;
+  padding: 0;
+  min-width: 0;
+  border-left: 1px solid #000000;
+}
+
+.sankey-view__bottom-right-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: visible;
+  background: #f9fafb;
+  padding: 0;
+  min-width: 0;
+  border-left: 1px solid #000000;
 }
 
 .sankey-view__left-panel {
