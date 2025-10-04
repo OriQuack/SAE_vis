@@ -3,6 +3,7 @@ import { useStore } from '../store'
 import { calculateLinearSetLayout, formatCount, LINEAR_DIAGRAM_MARGIN, generateDefaultCategoryGroups } from '../lib/d3-linear-set-utils'
 import { METRIC_SCORE_FUZZ, METRIC_SCORE_DETECTION, METRIC_SCORE_SIMULATION, METRIC_SCORE_EMBEDDING } from '../lib/constants'
 import { useResizeObserver } from '../lib/utils'
+import type { MetricType } from '../types'
 import '../styles/LinearSetDiagram.css'
 
 const SCORING_METRICS = [
@@ -28,10 +29,8 @@ export function LinearSetDiagram({ width: propWidth, height: propHeight }: Linea
   const svgRef = useRef<SVGSVGElement>(null)
   const setVisualizationData = useStore((state) => state.setVisualizationData)
   const selectedScoringMetrics = useStore((state) => state.selectedScoringMetrics)
-  const scoringMetricThresholds = useStore((state) => state.scoringMetricThresholds)
   const categoryGroups = useStore((state) => state.categoryGroups)
   const toggleScoringMetric = useStore((state) => state.toggleScoringMetric)
-  const fetchSetVisualizationData = useStore((state) => state.fetchSetVisualizationData)
   const updateCategoryGroup = useStore((state) => state.updateCategoryGroup)
   const removeCategoryGroup = useStore((state) => state.removeCategoryGroup)
   const moveColumnToGroup = useStore((state) => state.moveColumnToGroup)
@@ -141,6 +140,7 @@ export function LinearSetDiagram({ width: propWidth, height: propHeight }: Linea
           console.log('[LinearSetDiagram] Re-adding left panel score_agreement stage')
           addStageToTree(parentNode.id, {
             stageType: 'score_agreement',
+            splitRuleType: 'pattern',
             thresholds: [
               state.scoringMetricThresholds.score_fuzz || 0.5,
               state.scoringMetricThresholds.score_detection || 0.5,
@@ -171,6 +171,7 @@ export function LinearSetDiagram({ width: propWidth, height: propHeight }: Linea
           console.log('[LinearSetDiagram] Re-adding right panel score_agreement stage')
           addStageToTree(parentNode.id, {
             stageType: 'score_agreement',
+            splitRuleType: 'pattern',
             thresholds: [
               state.scoringMetricThresholds.score_fuzz || 0.5,
               state.scoringMetricThresholds.score_detection || 0.5,
@@ -290,7 +291,7 @@ export function LinearSetDiagram({ width: propWidth, height: propHeight }: Linea
           showHistogramPopover(
             undefined,
             column?.label || segment.columnId,
-            selectedScoringMetrics,
+            selectedScoringMetrics as MetricType[],
             position,
             undefined,
             undefined,

@@ -8,7 +8,8 @@ import type {
   StageTypeConfig,
   AddStageConfig,
   ParentPathInfo,
-  SplitRule
+  SplitRule,
+  CategoryGroup
 } from '../types'
 import {
   buildRangeSplit,
@@ -69,7 +70,6 @@ function parseThresholdFromCondition(condition: string, metric: string): number 
  * @returns Updated condition string
  */
 function updateThresholdInCondition(condition: string, metric: string, newThreshold: number): string {
-  // Replace all occurrences of "metric >= old_value" or "metric < old_value" with new threshold
   const regex = new RegExp(`(${metric}\\s*(?:>=|<))\\s*[0-9.]+`, 'g')
   return condition.replace(regex, `$1 ${newThreshold}`)
 }
@@ -155,39 +155,32 @@ export function updateScoreThresholdsInTree(
 ): ThresholdTree {
   let updatedTree = tree
 
-  // Iterate through all nodes to find and update score thresholds
   for (const node of tree.nodes) {
     if (!node.split_rule) continue
 
-    // Handle PatternSplitRule nodes
     if (node.split_rule.type === SPLIT_TYPE_PATTERN) {
       const patternRule = node.split_rule as PatternSplitRule
       const conditions = patternRule.conditions
-
-      // Check if this node has score metrics
       const hasScoreMetrics = Object.keys(conditions).some(m => m.startsWith('score_'))
+
       if (hasScoreMetrics) {
-        // Update each score metric threshold
         for (const metric of Object.keys(conditions)) {
           if (metric.startsWith('score_') && scoringMetricThresholds[metric] !== undefined) {
-            updatedTree = updateNodeThreshold(updatedTree, node.id, [scoringMetricThresholds[metric]], undefined, metric)
+            updatedTree = updateNodeThreshold(updatedTree, node.id, [scoringMetricThresholds[metric]], metric)
           }
         }
       }
     }
 
-    // Handle ExpressionSplitRule nodes
     if (node.split_rule.type === SPLIT_TYPE_EXPRESSION) {
       const expressionRule = node.split_rule as ExpressionSplitRule
       const availableMetrics = expressionRule.available_metrics || []
-
-      // Check if this node has score metrics
       const hasScoreMetrics = availableMetrics.some(m => m.startsWith('score_'))
+
       if (hasScoreMetrics) {
-        // Update each score metric threshold in expression conditions
         for (const metric of availableMetrics) {
           if (metric.startsWith('score_') && scoringMetricThresholds[metric] !== undefined) {
-            updatedTree = updateNodeThreshold(updatedTree, node.id, [scoringMetricThresholds[metric]], undefined, metric)
+            updatedTree = updateNodeThreshold(updatedTree, node.id, [scoringMetricThresholds[metric]], metric)
           }
         }
       }
@@ -302,11 +295,9 @@ export function updateNodeThreshold(
       const rule = split_rule as ExpressionSplitRule
 
       if (!metric) {
-        // If no specific metric provided, can't update expression rule
         return n
       }
 
-      // Update threshold in all branch conditions
       const updatedBranches = rule.branches.map(branch => ({
         ...branch,
         condition: updateThresholdInCondition(branch.condition, metric, thresholds[0])
@@ -548,7 +539,7 @@ export function addStageToNode(
     console.log('[addStageToNode] score_agreement - categoryGroups from config:', categoryGroups.length)
 
     if (categoryGroups.length > 0) {
-      console.log('[addStageToNode] CategoryGroups found:', categoryGroups.map(g => ({ id: g.id, name: g.name, columnCount: g.columnIds.length })))
+      console.log('[addStageToNode] CategoryGroups found:', categoryGroups.map((g: CategoryGroup) => ({ id: g.id, name: g.name, columnCount: g.columnIds.length })))
     }
 
     // Use CategoryGroup-based split if groups exist, otherwise standard flexible split
