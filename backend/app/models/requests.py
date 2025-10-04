@@ -27,6 +27,10 @@ class  HistogramRequest(BaseModel):
         default=None,
         description="Optional node ID to filter features for specific node in threshold tree"
     )
+    groupBy: Optional[str] = Field(
+        default=None,
+        description="Optional field to group histogram data by (e.g., 'llm_explainer')"
+    )
 
 class SankeyRequest(BaseModel):
     """Request model for Sankey diagram data endpoint"""

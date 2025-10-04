@@ -44,6 +44,25 @@ class StatisticsData(BaseModel):
     median: float = Field(..., description="Median value")
     std: float = Field(..., description="Standard deviation")
 
+class GroupedHistogramData(BaseModel):
+    """Grouped histogram data for a specific group value"""
+    group_value: str = Field(
+        ...,
+        description="The value for this group (e.g., specific LLM explainer name)"
+    )
+    histogram: HistogramData = Field(
+        ...,
+        description="Histogram data for this group"
+    )
+    statistics: StatisticsData = Field(
+        ...,
+        description="Statistical summary for this group"
+    )
+    total_features: int = Field(
+        ...,
+        description="Total number of features in this group"
+    )
+
 class HistogramResponse(BaseModel):
     """Response model for histogram data endpoint"""
     metric: str = Field(
@@ -52,15 +71,19 @@ class HistogramResponse(BaseModel):
     )
     histogram: HistogramData = Field(
         ...,
-        description="Histogram data"
+        description="Histogram data (when not grouped)"
     )
     statistics: StatisticsData = Field(
         ...,
-        description="Statistical summary"
+        description="Statistical summary (when not grouped)"
     )
     total_features: int = Field(
         ...,
         description="Total number of features in the filtered dataset"
+    )
+    grouped_data: Optional[List[GroupedHistogramData]] = Field(
+        default=None,
+        description="Grouped histogram data when groupBy is specified"
     )
 
 class SankeyNode(BaseModel):

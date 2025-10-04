@@ -192,7 +192,8 @@ threshold tree structure. Not limited to 3 scores or fixed pipeline.
 | `GET` | `/api/filter-options` | Dynamic filter population | ✅ Active | ~50ms (cached) |
 | `POST` | `/api/histogram-data` | Threshold visualization | ✅ Active | ~200ms (20 bins) |
 | `POST` | `/api/sankey-data` | Multi-stage flow diagrams | ✅ Heavy Usage | ~300ms (full pipeline) |
-| `POST` | `/api/comparison-data` | Alluvial comparisons | ✅ Ready | Phase 2 implementation |
+| `POST` | `/api/comparison-data` | Alluvial comparisons | ✅ Active | Phase 2 complete |
+| `POST` | `/api/set-visualization-data` | Linear Set (UpSet) diagrams | ✅ Active | ~200ms (Phase 4) |
 | `GET` | `/api/feature/{id}` | Individual feature details | ✅ Active | ~10ms (direct lookup) |
 
 **Additional System Endpoints:**
