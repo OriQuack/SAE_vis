@@ -11,6 +11,7 @@ import statistics
 import math
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
+from sklearn.metrics import roc_auc_score
 
 
 def load_config(config_path: str) -> Dict:
@@ -65,10 +66,10 @@ def process_latent_scores(score_data: Dict, method: str) -> Tuple[Optional[float
     Process scores for a single latent based on scoring method.
 
     Returns:
-        - average_score: Average of valid scores (or accuracy for binary methods)
+        - average_score: Average of valid scores (or accuracy for binary methods, or AUC for embedding)
         - total_examples: Total number of examples
         - failure_count: Number of failed examples
-        - variance: Variance of valid scores (None for binary methods)
+        - variance: Variance of valid scores (None for binary methods and embedding)
     """
     if not score_data:
         return None, 0, 0, None
@@ -76,6 +77,9 @@ def process_latent_scores(score_data: Dict, method: str) -> Tuple[Optional[float
     if method == 'simulation':
         # Simulation method has ev_correlation_score for each example
         return process_simulation_scores(score_data)
+    elif method == 'embedding':
+        # Embedding method uses cosine similarity and distance for AUC calculation
+        return process_embedding_scores(score_data)
     else:
         # Fuzz and detection methods have binary correct field
         return process_binary_scores(score_data)
@@ -148,6 +152,63 @@ def process_binary_scores(score_data: Dict) -> Tuple[Optional[float], int, int, 
     return accuracy, total_examples, failure_count, None
 
 
+def process_embedding_scores(score_data: Dict) -> Tuple[Optional[float], int, int, Optional[float]]:
+    """
+    Process embedding scores that use cosine similarity and AUC.
+
+    Each example has:
+    - similarity: cosine similarity score (prediction score)
+    - distance: -1.0 for non-activating, >=0 for activating (ground truth label)
+
+    Returns AUC score using similarity as prediction and distance-based labels.
+    """
+    if not isinstance(score_data, list):
+        return None, 0, 0, None
+
+    labels = []
+    similarities = []
+    failure_count = 0
+
+    for item in score_data:
+        if isinstance(item, dict) and 'similarity' in item and 'distance' in item:
+            try:
+                similarity = float(item['similarity'])
+                distance = float(item['distance'])
+
+                # Validate similarity value
+                if math.isnan(similarity) or not math.isfinite(similarity):
+                    failure_count += 1
+                    continue
+
+                # Create binary label: 1 for activating (distance >= 0), 0 for non-activating (distance == -1.0)
+                label = 1 if distance >= 0 else 0
+
+                labels.append(label)
+                similarities.append(similarity)
+            except (ValueError, TypeError):
+                failure_count += 1
+        else:
+            failure_count += 1
+
+    total_examples = len(score_data)
+
+    if not labels or not similarities:
+        return None, total_examples, failure_count, None
+
+    # Check if all labels are the same (can't compute AUC)
+    if len(set(labels)) < 2:
+        return None, total_examples, failure_count, None
+
+    try:
+        # Calculate AUC score
+        auc_score = roc_auc_score(labels, similarities)
+        return auc_score, total_examples, failure_count, None
+    except (ValueError, Exception) as e:
+        # If AUC calculation fails for any reason, treat as failure
+        print(f"AUC calculation failed: {e}")
+        return None, total_examples, total_examples, None
+
+
 def get_score_files(scores_dir: str, method: str) -> List[str]:
     """Get all score files for a specific scoring method."""
     method_dir = os.path.join(scores_dir, method)
@@ -179,31 +240,19 @@ def save_processed_scores(processed_data: Dict, output_dir: str, filename: str, 
     print(f"Config saved to: {config_file}")
 
 
-def main():
-    """Main function to process scores for all latents and scoring methods."""
-    parser = argparse.ArgumentParser(description="Process latent scores from multiple scoring methods")
-    parser.add_argument(
-        "--config",
-        default="../config/score_config.json",
-        help="Path to configuration file (default: ../config/score_config.json)"
-    )
-    args = parser.parse_args()
-
-    # Get script directory and project root
-    script_dir = Path(__file__).parent
-    project_root = script_dir.parent.parent.parent  # Go up to interface root
-
-    # Load configuration
-    config_path = script_dir / args.config
-    if not config_path.exists():
-        print(f"Config file not found: {config_path}")
-        return
-
-    config = load_config(config_path)
-    print(f"Loaded config from: {config_path}")
+def process_single_data_source(
+    data_source: str,
+    llm_scorer: str,
+    config: Dict,
+    project_root: Path
+) -> bool:
+    """Process scores for a single data source."""
+    print(f"\n{'='*80}")
+    print(f"Processing data source: {data_source}")
+    print(f"LLM Scorer: {llm_scorer}")
+    print(f"{'='*80}\n")
 
     # Setup paths relative to project root
-    data_source = config["data_source"]
     data_source_dir = project_root / "data" / "raw" / data_source
     scores_dir = data_source_dir / "scores"
     output_dir = project_root / "data" / "scores" / data_source
@@ -219,7 +268,7 @@ def main():
     # Validate input directory exists
     if not scores_dir.exists():
         print(f"Error: Scores directory does not exist: {scores_dir}")
-        return
+        return False
 
     # Process scores for each method
     processed_data = {
@@ -227,6 +276,7 @@ def main():
             "data_source": data_source,
             "scoring_methods": config["scoring_methods"],
             "sae_id": sae_id,
+            "llm_scorer": llm_scorer,
             "config_used": config,
         },
         "latent_scores": {}
@@ -281,9 +331,72 @@ def main():
 
     # Print summary statistics
     total_latents = len(all_latent_ids)
-    print(f"\nProcessing completed:")
+    print(f"\nProcessing completed for {data_source}:")
     print(f"Total latents processed: {total_latents}")
     print(f"Scoring methods: {', '.join(config['scoring_methods'])}")
+
+    return True
+
+
+def main():
+    """Main function to process scores for all latents and scoring methods."""
+    parser = argparse.ArgumentParser(description="Process latent scores from multiple scoring methods")
+    parser.add_argument(
+        "--config",
+        default="../config/score_config.json",
+        help="Path to configuration file (default: ../config/score_config.json)"
+    )
+    args = parser.parse_args()
+
+    # Get script directory and project root
+    script_dir = Path(__file__).parent
+    project_root = script_dir.parent.parent.parent  # Go up to interface root
+
+    # Load configuration
+    config_path = script_dir / args.config
+    if not config_path.exists():
+        print(f"Config file not found: {config_path}")
+        return
+
+    config = load_config(config_path)
+    print(f"Loaded config from: {config_path}")
+
+    # Check if using new multi-source format or old single-source format
+    if "data_sources" in config:
+        # New format: array of data sources with their own llm_scorers
+        print(f"\nProcessing {len(config['data_sources'])} data sources")
+
+        success_count = 0
+        for source_config in config["data_sources"]:
+            data_source = source_config["name"]
+            llm_scorer = source_config["llm_scorer"]
+
+            success = process_single_data_source(
+                data_source=data_source,
+                llm_scorer=llm_scorer,
+                config=config,
+                project_root=project_root
+            )
+
+            if success:
+                success_count += 1
+
+        print(f"\n{'='*80}")
+        print(f"ALL DATA SOURCES PROCESSED: {success_count}/{len(config['data_sources'])} successful")
+        print(f"{'='*80}\n")
+
+    else:
+        # Old format: backward compatibility with single data_source
+        print("\nUsing legacy single data source format")
+        data_source = config["data_source"]
+        llm_scorer = config.get("llm_scorer", "unknown")
+
+        process_single_data_source(
+            data_source=data_source,
+            llm_scorer=llm_scorer,
+            config=config,
+            project_root=project_root
+        )
 
 
 if __name__ == "__main__":

@@ -59,15 +59,15 @@ export function calculateFlowLayout(): FlowLayout {
     // Middle path: Explainer
     { id: 'explainer', label: '', x: 150, y: 190, width: 60, height: 60, iconType: 'explainer' },
 
-    // Scorer branch
-    { id: 'scorer', label: '', x: 280, y: 120, width: 60, height: 60, iconType: 'scorer' },
-    { id: 'fuzz-score', label: 'Fuzz Score', x: 420, y: 100, width: 180, height: 45 },
-    { id: 'detection-score', label: 'Detection Score', x: 420, y: 150, width: 180, height: 45 },
-
     // Embedder branch
-    { id: 'embedder', label: '', x: 280, y: 230, width: 60, height: 60, iconType: 'embedder' },
-    { id: 'embedding-score', label: 'Embedding Score', x: 420, y: 210, width: 180, height: 45 },
-    { id: 'semantic-similarity', label: 'Semantic Similarity', x: 420, y: 260, width: 180, height: 45 }
+    { id: 'embedder', label: '', x: 280, y: 120, width: 60, height: 60, iconType: 'embedder' },
+    { id: 'semantic-similarity', label: 'Semantic Similarity', x: 420, y: 100, width: 180, height: 45 },
+    { id: 'embedding-score', label: 'Embedding Score', x: 420, y: 150, width: 180, height: 45 },
+
+    // Scorer branch
+    { id: 'scorer', label: '', x: 280, y: 230, width: 60, height: 60, iconType: 'scorer' },
+    { id: 'fuzz-score', label: 'Fuzz Score', x: 420, y: 210, width: 180, height: 45 },
+    { id: 'detection-score', label: 'Detection Score', x: 420, y: 260, width: 180, height: 45 }
   ]
 
   // Edge definitions (source → target)
