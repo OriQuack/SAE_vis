@@ -4,6 +4,7 @@ import FilterPanel from './components/FilterPanel'
 import SankeyDiagram from './components/SankeyDiagram'
 import AlluvialDiagram from './components/AlluvialDiagram'
 import HistogramPopover from './components/HistogramPopover'
+import FlowPanel from './components/FlowPanel'
 import { usePanelDataLoader } from './lib/utils'
 import * as api from './api'
 import './styles/base.css'
@@ -141,8 +142,7 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
     showVisualization,
     editFilters,
     removeVisualization,
-    resetFilters,
-    initializeWithDefaultFilters
+    resetFilters
   } = useVisualizationStore()
 
   // Health check function
@@ -260,9 +260,7 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
           <div className="sankey-view__left-wrapper">
             {/* Flow Panel */}
             <div className="sankey-view__flow-panel">
-              <div className="sankey-view__placeholder-text">
-                Flow Panel
-              </div>
+              <FlowPanel />
             </div>
 
             {/* Middle Panel - LLM Comparison */}

@@ -108,14 +108,75 @@ export const METRIC_DISPLAY_NAMES = {
 } as const
 
 // ============================================================================
+// ACADEMIC VISUALIZATION COLOR SCHEMES (EuroVIS/IEEE VIS Standards)
+// Colorblind-friendly palettes for research papers and conference demonstrations
+// ============================================================================
+
+/**
+ * Okabe-Ito Palette (Recommended for EuroVIS/IEEE VIS submissions)
+ * Source: Masataka Okabe and Kei Ito, Color Universal Design (CUD)
+ * - Accessible to people with all forms of color vision deficiency
+ * - 8 vivid colors corresponding to major primary and secondary colors
+ */
+export const OKABE_ITO_PALETTE = {
+  BLACK: '#000000',
+  ORANGE: '#E69F00',
+  SKY_BLUE: '#56B4E9',
+  BLUISH_GREEN: '#009E73',
+  YELLOW: '#F0E442',
+  BLUE: '#0072B2',
+  VERMILLION: '#D55E00',
+  REDDISH_PURPLE: '#CC79A7',
+  GRAY: '#999999'
+} as const
+
+/**
+ * Paul Tol Bright Palette (Recommended for EuroVIS/IEEE VIS submissions)
+ * Source: Paul Tol's Technical Note (SRON)
+ * - Colorblind-safe qualitative scheme with 7 colors
+ * - Distinct for all viewers including colorblind readers
+ * - Optimized for both screen and print
+ */
+export const PAUL_TOL_BRIGHT = {
+  BLUE: '#4477AA',
+  CYAN: '#66CCEE',
+  GREEN: '#228833',
+  YELLOW: '#CCBB44',
+  RED: '#EE6677',
+  PURPLE: '#AA3377',
+  GRAY: '#BBBBBB'
+} as const
+
+/**
+ * EuroVIS Research Palette (Custom for this project)
+ * Based on colorblind-friendly principles using Okabe-Ito and Paul Tol colors
+ */
+export const EUROVIS_PALETTE = {
+  // Primary colors from Okabe-Ito
+  PRIMARY_BLUE: OKABE_ITO_PALETTE.BLUE,           // #0072B2
+  PRIMARY_ORANGE: OKABE_ITO_PALETTE.ORANGE,       // #E69F00
+  PRIMARY_GREEN: OKABE_ITO_PALETTE.BLUISH_GREEN,  // #009E73
+  PRIMARY_PURPLE: OKABE_ITO_PALETTE.REDDISH_PURPLE, // #CC79A7
+
+  // Secondary colors from Paul Tol
+  SECONDARY_CYAN: PAUL_TOL_BRIGHT.CYAN,           // #66CCEE
+  SECONDARY_YELLOW: PAUL_TOL_BRIGHT.YELLOW,       // #CCBB44
+  SECONDARY_RED: PAUL_TOL_BRIGHT.RED,             // #EE6677
+
+  // Neutral colors
+  NEUTRAL_GRAY: OKABE_ITO_PALETTE.GRAY,           // #999999
+  NEUTRAL_BLACK: OKABE_ITO_PALETTE.BLACK          // #000000
+} as const
+
+// ============================================================================
 // SANKEY DIAGRAM CONFIGURATION
 // Used across: SankeyDiagram.tsx, d3-sankey-utils.ts (2+ files, visualization-specific)
 // ============================================================================
 export const SANKEY_COLORS: Record<string, string> = {
-  [CATEGORY_ROOT]: '#8b5cf6',
-  [CATEGORY_FEATURE_SPLITTING]: '#06b6d4',
-  [CATEGORY_SEMANTIC_DISTANCE]: '#3b82f6',
-  [CATEGORY_SCORE_AGREEMENT]: '#10b981'
+  [CATEGORY_ROOT]: EUROVIS_PALETTE.PRIMARY_PURPLE,        // #CC79A7 - Reddish Purple
+  [CATEGORY_FEATURE_SPLITTING]: EUROVIS_PALETTE.SECONDARY_CYAN,  // #66CCEE - Cyan
+  [CATEGORY_SEMANTIC_DISTANCE]: EUROVIS_PALETTE.PRIMARY_BLUE,    // #0072B2 - Blue
+  [CATEGORY_SCORE_AGREEMENT]: EUROVIS_PALETTE.PRIMARY_GREEN      // #009E73 - Bluish Green
 } as const
 
 // ============================================================================

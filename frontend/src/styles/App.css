@@ -277,11 +277,11 @@
 }
 
 .sankey-view__flow-panel {
-  flex: 0.5;
+  flex: 0.1;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
   overflow: visible;
   background: white;
   padding: 0;
@@ -336,7 +336,7 @@
 }
 
 .sankey-view__sankey-wrapper {
-  flex: 1;
+  flex: 1.4;
   display: flex;
   flex-direction: row;
   min-width: 0;
