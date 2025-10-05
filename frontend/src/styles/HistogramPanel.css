@@ -1,0 +1,164 @@
+/* ============================================================================
+   HISTOGRAM PANEL - Component-Specific Styles
+   ============================================================================ */
+
+.histogram-panel {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: #f9fafb;
+  overflow: hidden;
+}
+
+.histogram-panel__container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Individual chart styles */
+.histogram-panel__chart {
+  background: white;
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+}
+
+.histogram-panel__chart:last-child {
+  margin-bottom: 0;
+}
+
+.histogram-panel__chart-title {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f2937;
+  text-align: center;
+}
+
+/* Empty chart state */
+.histogram-panel__chart--empty {
+  justify-content: center;
+  align-items: center;
+}
+
+.histogram-panel__no-data {
+  color: #9ca3af;
+  font-size: 12px;
+  text-align: center;
+  padding: 20px;
+}
+
+/* Loading state */
+.histogram-panel__loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #6b7280;
+}
+
+.histogram-panel__spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #e5e7eb;
+  border-top: 3px solid #3b82f6;
+  border-radius: 50%;
+  animation: histogram-panel-spin 1s linear infinite;
+}
+
+@keyframes histogram-panel-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Error state */
+.histogram-panel__error {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  text-align: center;
+}
+
+.histogram-panel__error-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.histogram-panel__error-message {
+  color: #ef4444;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Empty state */
+.histogram-panel__empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  text-align: center;
+  padding: 20px;
+}
+
+.histogram-panel__empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.histogram-panel__empty-message {
+  font-size: 14px;
+}
+
+/* SVG styles */
+.histogram-panel__chart svg {
+  display: block;
+  margin: 0 auto;
+}
+
+/* Scrollbar customization */
+.histogram-panel__container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.histogram-panel__container::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+.histogram-panel__container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.histogram-panel__container::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Responsive adjustments */
+@media (max-height: 600px) {
+  .histogram-panel__chart {
+    min-height: 100px;
+    padding: 8px;
+  }
+
+  .histogram-panel__chart-title {
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+}

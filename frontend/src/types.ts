@@ -116,6 +116,7 @@ export interface HistogramDataRequest {
   nodeId?: string
   thresholdTree?: ThresholdTree
   groupBy?: string  // Optional grouping field, e.g., 'llm_explainer'
+  averageBy?: string | null  // Optional averaging field, e.g., 'llm_explainer' or 'llm_scorer'
 }
 
 export interface SankeyDataRequest {
@@ -261,6 +262,7 @@ export interface LoadingStates {
   sankeyLeft: boolean
   sankeyRight: boolean
   comparison: boolean
+  histogramPanel?: boolean
 }
 
 export interface ErrorStates {
@@ -270,6 +272,7 @@ export interface ErrorStates {
   sankeyLeft: string | null
   sankeyRight: string | null
   comparison: string | null
+  histogramPanel?: string | null
 }
 
 export type ViewState = 'empty' | 'filtering' | 'visualization'

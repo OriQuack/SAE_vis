@@ -66,7 +66,8 @@ async def get_histogram_data(
             bins=request.bins,
             threshold_tree=request.thresholdTree,
             node_id=request.nodeId,
-            group_by=request.groupBy
+            group_by=request.groupBy,
+            average_by=request.averageBy
         )
 
     except ValueError as e:

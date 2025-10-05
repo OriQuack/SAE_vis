@@ -218,11 +218,11 @@ def build_scores_for_latent(latent_id: str, scores_data: Dict[str, Dict]) -> Lis
             continue
 
         score_info = latent_scores[latent_id]
-        config = data.get("metadata", {}).get("config_used", {})
+        metadata = data.get("metadata", {})
 
         score_entry = {
             "data_source": data_source,
-            "llm_scorer": config.get("llm_scorer", "unknown"),
+            "llm_scorer": metadata.get("llm_scorer", "unknown"),
             "score_fuzz": score_info.get("fuzz", {}).get("average_score"),
             "score_detection": score_info.get("detection", {}).get("average_score"),
             "score_simulation": score_info.get("simulation", {}).get("average_score"),

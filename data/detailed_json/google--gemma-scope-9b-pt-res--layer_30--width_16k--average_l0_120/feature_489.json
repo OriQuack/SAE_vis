@@ -34,15 +34,15 @@
       "score_fuzz": 0.64,
       "score_detection": 0.29,
       "score_simulation": -0.006057516103802243,
-      "score_embedding": null
+      "score_embedding": 0.5044
     },
     {
       "data_source": "gwen_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
       "score_fuzz": 0.67,
       "score_detection": 0.57,
-      "score_simulation": null,
-      "score_embedding": null
+      "score_simulation": 0.41782768682329047,
+      "score_embedding": 0.4368
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

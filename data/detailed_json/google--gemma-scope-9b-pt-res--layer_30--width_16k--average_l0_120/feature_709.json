@@ -42,7 +42,7 @@
       "score_fuzz": 0.8,
       "score_detection": 0.65,
       "score_simulation": null,
-      "score_embedding": null
+      "score_embedding": 0.5900000000000001
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

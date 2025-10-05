@@ -31,6 +31,10 @@ class  HistogramRequest(BaseModel):
         default=None,
         description="Optional field to group histogram data by (e.g., 'llm_explainer')"
     )
+    averageBy: Optional[str] = Field(
+        default=None,
+        description="Optional field to average values by before creating histogram (e.g., 'llm_explainer', 'llm_scorer')"
+    )
 
 class SankeyRequest(BaseModel):
     """Request model for Sankey diagram data endpoint"""

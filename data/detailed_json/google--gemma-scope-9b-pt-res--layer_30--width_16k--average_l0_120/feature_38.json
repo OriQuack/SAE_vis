@@ -34,7 +34,7 @@
       "score_fuzz": 0.9,
       "score_detection": 0.83,
       "score_simulation": 0.6639295141326412,
-      "score_embedding": null
+      "score_embedding": 0.5556
     },
     {
       "data_source": "gwen_e-llama_s",
@@ -42,7 +42,7 @@
       "score_fuzz": 0.9,
       "score_detection": 0.68,
       "score_simulation": 0.12315474629214099,
-      "score_embedding": null
+      "score_embedding": 0.6195999999999999
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

@@ -39,8 +39,11 @@ interface AppState {
   filterOptions: FilterOptions | null
   currentMetric: MetricType
   popoverState: PopoverState
-  loading: LoadingStates & { sankeyLeft?: boolean; sankeyRight?: boolean }
-  errors: ErrorStates & { sankeyLeft?: string | null; sankeyRight?: string | null }
+  loading: LoadingStates & { sankeyLeft?: boolean; sankeyRight?: boolean; histogramPanel?: boolean }
+  errors: ErrorStates & { sankeyLeft?: string | null; sankeyRight?: string | null; histogramPanel?: string | null }
+
+  // Histogram panel data
+  histogramPanelData: Record<string, HistogramData> | null
 
   // Hover state for cross-component highlighting
   hoveredAlluvialNodeId: string | null
@@ -81,6 +84,7 @@ interface AppState {
   fetchHistogramData: (metric?: MetricType, nodeId?: string, panel?: PanelSide) => Promise<void>
   fetchMultipleHistogramData: (metrics: MetricType[], nodeId?: string, panel?: PanelSide) => Promise<void>
   fetchSankeyData: (panel?: PanelSide) => Promise<void>
+  fetchHistogramPanelData: () => Promise<void>
 
   // View state actions - now take panel parameter
   showVisualization: (panel?: PanelSide) => void
@@ -145,7 +149,8 @@ const initialState = {
     sankey: false,
     sankeyLeft: false,
     sankeyRight: false,
-    comparison: false
+    comparison: false,
+    histogramPanel: false
   },
   errors: {
     filters: null,
@@ -153,8 +158,12 @@ const initialState = {
     sankey: null,
     sankeyLeft: null,
     sankeyRight: null,
-    comparison: null
+    comparison: null,
+    histogramPanel: null
   },
+
+  // Histogram panel data
+  histogramPanelData: null,
 
   // Alluvial flows
   alluvialFlows: null,
@@ -545,6 +554,51 @@ export const useStore = create<AppState>((set, get) => ({
         state.setError('sankey', errorMessage)
         state.setLoading('sankey', false)
       }
+    }
+  },
+
+  fetchHistogramPanelData: async () => {
+    const state = get()
+    state.setLoading('histogramPanel' as any, true)
+    state.clearError('histogramPanel' as any)
+
+    try {
+      // Define the metrics to fetch with their averaging configurations
+      const metricsToFetch = [
+        { metric: 'feature_splitting' as MetricType, averageBy: null },
+        { metric: 'semdist_mean' as MetricType, averageBy: 'llm_explainer' },
+        { metric: 'score_embedding' as MetricType, averageBy: 'llm_scorer' },
+        { metric: 'score_fuzz' as MetricType, averageBy: 'llm_scorer' },
+        { metric: 'score_detection' as MetricType, averageBy: 'llm_scorer' }
+      ]
+
+      // Fetch all histograms in parallel
+      const histogramPromises = metricsToFetch.map(async ({ metric, averageBy }) => {
+        const request = {
+          filters: {
+            sae_id: [],
+            explanation_method: [],
+            llm_explainer: [],
+            llm_scorer: []
+          },
+          metric,
+          ...(averageBy && { averageBy }) // Only include averageBy if it's not null
+        }
+
+        console.log('[HistogramPanel] Sending request:', JSON.stringify(request, null, 2))
+        const data = await api.getHistogramData(request)
+        return { [metric]: data }
+      })
+
+      const results = await Promise.all(histogramPromises)
+      const combinedData = results.reduce((acc, result) => ({ ...acc, ...result }), {})
+
+      set({ histogramPanelData: combinedData })
+      state.setLoading('histogramPanel' as any, false)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch histogram panel data'
+      state.setError('histogramPanel' as any, errorMessage)
+      state.setLoading('histogramPanel' as any, false)
     }
   },
 

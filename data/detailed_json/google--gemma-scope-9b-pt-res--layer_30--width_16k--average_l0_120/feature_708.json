@@ -41,8 +41,8 @@
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
       "score_fuzz": 0.84,
       "score_detection": 0.62,
-      "score_simulation": null,
-      "score_embedding": null
+      "score_simulation": 0.46308990216156265,
+      "score_embedding": 0.6296
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

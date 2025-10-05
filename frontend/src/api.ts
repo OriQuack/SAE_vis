@@ -42,7 +42,9 @@ export async function getHistogramData(request: HistogramDataRequest): Promise<H
     body: JSON.stringify(request)
   })
   if (!response.ok) {
-    throw new Error(`Failed to fetch histogram data: ${response.status}`)
+    const errorText = await response.text()
+    console.error('Histogram API error:', response.status, errorText)
+    throw new Error(`Failed to fetch histogram data: ${response.status} - ${errorText}`)
   }
   return response.json()
 }

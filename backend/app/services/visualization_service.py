@@ -168,7 +168,8 @@ class DataService:
         bins: Optional[int] = None,
         threshold_tree: Optional[ThresholdStructure] = None,
         node_id: Optional[str] = None,
-        group_by: Optional[str] = None
+        group_by: Optional[str] = None,
+        average_by: Optional[str] = None
     ) -> HistogramResponse:
         """Generate histogram data for a specific metric, optionally filtered by node and/or grouped."""
         if not self.is_ready():
@@ -176,6 +177,10 @@ class DataService:
 
         try:
             filtered_df = self._apply_filtered_data(filters, threshold_tree, node_id)
+
+            # If averageBy is specified, average values by the specified field
+            if average_by:
+                filtered_df = self._average_by_field(filtered_df, metric, average_by)
 
             # If groupBy is specified, generate grouped histograms
             if group_by:
@@ -234,6 +239,27 @@ class DataService:
             raise ValueError("No valid values found for the specified metric")
 
         return values
+
+    def _average_by_field(self, df: pl.DataFrame, metric: MetricType, average_by: str) -> pl.DataFrame:
+        """Average metric values by the specified field (e.g., llm_explainer or llm_scorer)."""
+        # Group by feature_id and calculate mean of the metric
+        averaged_df = (
+            df.group_by([COL_FEATURE_ID])
+            .agg(pl.col(metric.value).mean().alias(metric.value))
+        )
+
+        # Add back other necessary columns (take first value from each group)
+        other_columns = [col for col in df.columns if col not in [COL_FEATURE_ID, metric.value, average_by]]
+        if other_columns:
+            # Get first value for each feature_id for other columns
+            first_values = (
+                df.group_by([COL_FEATURE_ID])
+                .agg([pl.col(col).first().alias(col) for col in other_columns])
+            )
+            averaged_df = averaged_df.join(first_values, on=COL_FEATURE_ID, how="left")
+
+        logger.info(f"Averaged {metric.value} by {average_by}: {len(df)} rows -> {len(averaged_df)} features")
+        return averaged_df
 
     def _calculate_bins_if_needed(self, values: np.ndarray, bins: Optional[int]) -> int:
         """Calculate optimal bins if not specified."""
