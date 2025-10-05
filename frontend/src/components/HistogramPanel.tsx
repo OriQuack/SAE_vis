@@ -3,11 +3,11 @@ import { useVisualizationStore } from '../store'
 import {
   calculateHistogramBars,
   calculateXAxisTicks,
-  calculateYAxisTicks,
   calculateGridLines,
   formatSmartNumber
 } from '../lib/d3-histogram-utils'
 import type { HistogramData, HistogramChart, MetricType } from '../types'
+import { OKABE_ITO_PALETTE } from '../lib/constants'
 import '../styles/HistogramPanel.css'
 
 // ==================== COMPONENT-SPECIFIC TYPES ====================
@@ -20,28 +20,47 @@ interface HistogramPanelProps {
 const PANEL_METRICS = [
   {
     key: 'feature_splitting' as MetricType,
-    title: 'Feature Splitting',
-    averageBy: null
+    label: ['Feature', 'Splitting'],
+    averageBy: null,
+    badges: [
+      { color: OKABE_ITO_PALETTE.BLUISH_GREEN, text: '1' } // Colorblind-safe green
+    ]
   },
   {
     key: 'semdist_mean' as MetricType,
-    title: 'Semantic Similarity',
-    averageBy: 'llm_explainer'
+    label: ['Semantic', 'Similarity'],
+    averageBy: 'llm_explainer',
+    badges: [
+      { color: OKABE_ITO_PALETTE.ORANGE, text: '3' }, // Colorblind-safe yellow
+      { color: OKABE_ITO_PALETTE.REDDISH_PURPLE, text: '1' }  // Orange (for LLM explainer)
+    ]
   },
   {
     key: 'score_embedding' as MetricType,
-    title: 'Embedding Score',
-    averageBy: 'llm_scorer'
+    label: ['Embedding', 'Score'],
+    averageBy: 'llm_scorer',
+    badges: [
+      { color: OKABE_ITO_PALETTE.ORANGE, text: '3' }, // Colorblind-safe yellow
+      { color: OKABE_ITO_PALETTE.REDDISH_PURPLE, text: '3' }  // Reddish purple
+    ]
   },
   {
     key: 'score_fuzz' as MetricType,
-    title: 'Fuzz Score',
-    averageBy: 'llm_scorer'
+    label: ['Fuzz', 'Score'],
+    averageBy: 'llm_scorer',
+    badges: [
+      { color: OKABE_ITO_PALETTE.ORANGE, text: '3' }, // Colorblind-safe yellow
+      { color: OKABE_ITO_PALETTE.BLUE, text: '3' }  // Colorblind-safe blue (for LLM scorer)
+    ]
   },
   {
     key: 'score_detection' as MetricType,
-    title: 'Detection Score',
-    averageBy: 'llm_scorer'
+    label: ['Detection', 'Score'],
+    averageBy: 'llm_scorer',
+    badges: [
+      { color: OKABE_ITO_PALETTE.ORANGE, text: '3' }, // Colorblind-safe yellow
+      { color: OKABE_ITO_PALETTE.BLUE, text: '3' }  // Colorblind-safe blue (for LLM scorer)
+    ]
   }
 ]
 
@@ -56,11 +75,13 @@ const HISTOGRAM_COLORS = {
 // ==================== SUB-COMPONENTS ====================
 const SingleHistogram: React.FC<{
   data: HistogramData
-  title: string
+  label: string[]
+  badges: Array<{ color: string; text: string }>
   width: number
   height: number
-}> = ({ data, title, width, height }) => {
-  const margin = { top: 10, right: 15, bottom: 25, left: 45 }
+  isLast: boolean
+}> = ({ data, label, badges, width, height }) => {
+  const margin = { top: 5, right: 10, bottom: 10, left: 85 }
   const innerWidth = width - margin.left - margin.right
   const innerHeight = height - margin.top - margin.bottom
 
@@ -109,8 +130,8 @@ const SingleHistogram: React.FC<{
     margin,
     metric: data.metric,
     yOffset: 0,
-    chartTitle: title
-  }), [data, xScale, yScale, innerWidth, innerHeight, margin, title])
+    chartTitle: label.join(' ')
+  }), [data, xScale, yScale, innerWidth, innerHeight, margin, label])
 
   const bars = useMemo(() =>
     calculateHistogramBars(chart, 0, HISTOGRAM_COLORS.bars, HISTOGRAM_COLORS.bars),
@@ -118,7 +139,7 @@ const SingleHistogram: React.FC<{
   )
 
   const gridLines = useMemo(() =>
-    calculateGridLines(chart, 5),
+    calculateGridLines(chart, 3),
     [chart]
   )
 
@@ -127,17 +148,11 @@ const SingleHistogram: React.FC<{
     [chart]
   )
 
-  const yAxisTicks = useMemo(() =>
-    calculateYAxisTicks(chart, 5),
-    [chart]
-  )
-
   return (
     <div className="histogram-panel__chart">
-      <h4 className="histogram-panel__chart-title">{title}</h4>
       <svg width={width} height={height}>
         <g transform={`translate(${margin.left}, ${margin.top})`}>
-          {/* Grid lines */}
+          {/* Grid lines - subtle */}
           {gridLines.map((line, i) => (
             <line
               key={i}
@@ -147,7 +162,7 @@ const SingleHistogram: React.FC<{
               y2={line.y2}
               stroke={HISTOGRAM_COLORS.grid}
               strokeWidth={1}
-              opacity={line.opacity}
+              opacity={0.3}
             />
           ))}
 
@@ -168,28 +183,60 @@ const SingleHistogram: React.FC<{
 
           {/* X-axis */}
           <g transform={`translate(0, ${innerHeight})`}>
-            <line x1={0} x2={innerWidth} y1={0} y2={0} stroke={HISTOGRAM_COLORS.axis} strokeWidth={1} />
+            <line x1={0} x2={innerWidth} y1={0} y2={0} stroke={HISTOGRAM_COLORS.axis} strokeWidth={0.5} opacity={0.4} />
             {xAxisTicks.map(tick => (
               <g key={tick.value} transform={`translate(${tick.position}, 0)`}>
-                <line y1={0} y2={4} stroke={HISTOGRAM_COLORS.axis} strokeWidth={1} />
-                <text y={14} textAnchor="middle" fontSize={9} fill={HISTOGRAM_COLORS.text}>
+                <line y1={0} y2={2} stroke={HISTOGRAM_COLORS.axis} strokeWidth={0.5} opacity={0.4} />
+                <text y={8} textAnchor="middle" fontSize={7} fill={HISTOGRAM_COLORS.text} opacity={0.6}>
                   {formatSmartNumber(tick.value)}
                 </text>
               </g>
             ))}
           </g>
 
-          {/* Y-axis */}
-          <g>
-            <line x1={0} x2={0} y1={0} y2={innerHeight} stroke={HISTOGRAM_COLORS.axis} strokeWidth={1} />
-            {yAxisTicks.map(tick => (
-              <g key={tick.value} transform={`translate(0, ${tick.position})`}>
-                <line x1={-4} x2={0} stroke={HISTOGRAM_COLORS.axis} strokeWidth={1} />
-                <text x={-8} textAnchor="end" alignmentBaseline="middle" fontSize={9} fill={HISTOGRAM_COLORS.text}>
-                  {Math.round(tick.value)}
-                </text>
-              </g>
+          {/* Left-side label with badges below */}
+          <g transform={`translate(${-margin.left + 10}, ${innerHeight / 2})`}>
+            {/* Label text */}
+            {label.map((line, i) => (
+              <text
+                key={i}
+                x={0}
+                y={(i - (label.length - 1) / 2) * 14 - 8}
+                textAnchor="start"
+                alignmentBaseline="middle"
+                fontSize={14}
+                fontWeight={600}
+                fill={HISTOGRAM_COLORS.text}
+              >
+                {line}
+              </text>
             ))}
+            {/* Badges below the label */}
+            <g transform={`translate(8, ${label.length * 7 + 3})`}>
+              {badges.map((badge, i) => (
+                <g key={i} transform={`translate(${i * 20}, 0)`}>
+                  {/* Colored dot */}
+                  <circle
+                    cx={0}
+                    cy={0}
+                    r={8}
+                    fill={badge.color}
+                  />
+                  {/* Badge number */}
+                  <text
+                    x={0}
+                    y={0}
+                    textAnchor="middle"
+                    alignmentBaseline="middle"
+                    fontSize={10}
+                    fontWeight={700}
+                    fill="white"
+                  >
+                    {badge.text}
+                  </text>
+                </g>
+              ))}
+            </g>
           </g>
         </g>
       </svg>
@@ -229,13 +276,13 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
 
   // Calculate individual histogram dimensions
   const histogramHeight = useMemo(() => {
-    const padding = 12
+    const padding = 6
     const totalPadding = padding * (PANEL_METRICS.length + 1)
     return (containerSize.height - totalPadding) / PANEL_METRICS.length
   }, [containerSize.height])
 
   const histogramWidth = useMemo(() => {
-    return containerSize.width - 20 // Leave some padding on sides
+    return containerSize.width - 12 // Leave some padding on sides
   }, [containerSize.width])
 
   // Render loading state
@@ -277,14 +324,14 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
   return (
     <div className={`histogram-panel ${className}`} ref={containerRef}>
       <div className="histogram-panel__container">
-        {PANEL_METRICS.map((metric) => {
+        {PANEL_METRICS.map((metric, index) => {
           const data = histogramPanelData[metric.key]
+          const isLast = index === PANEL_METRICS.length - 1
 
           if (!data) {
             return (
               <div key={metric.key} className="histogram-panel__chart histogram-panel__chart--empty">
-                <h4 className="histogram-panel__chart-title">{metric.title}</h4>
-                <div className="histogram-panel__no-data">No data</div>
+                <div className="histogram-panel__no-data">{metric.label.join(' ')}: No data</div>
               </div>
             )
           }
@@ -293,9 +340,11 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
             <SingleHistogram
               key={metric.key}
               data={data}
-              title={metric.title}
+              label={metric.label}
+              badges={metric.badges}
               width={histogramWidth}
               height={histogramHeight}
+              isLast={isLast}
             />
           )
         })}

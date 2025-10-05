@@ -128,26 +128,26 @@ const EmbeddingIcon: React.FC = () => (
 // METHOD ITEM COMPONENT
 // ============================================================================
 
-interface MethodItemProps {
-  icon: React.ReactNode
-  title: string
-  color: string
-  badge?: string
-}
+// interface MethodItemProps {
+//   icon: React.ReactNode
+//   title: string
+//   color: string
+//   badge?: string
+// }
 
-const MethodItem: React.FC<MethodItemProps> = ({ icon, title, color, badge }) => (
-  <div className="method-item">
-    <div className="method-item__icon-container" style={{ backgroundColor: `${color}15`, position: 'relative' }}>
-      {icon}
-      {badge && (
-        <div className="method-item__badge" style={{ backgroundColor: color }}>
-          {badge}
-        </div>
-      )}
-    </div>
-    <span className="method-item__label" style={{ color }}>{title}</span>
-  </div>
-)
+// const MethodItem: React.FC<MethodItemProps> = ({ icon, title, color, badge }) => (
+//   <div className="method-item">
+//     <div className="method-item__icon-container" style={{ backgroundColor: `${color}15`, position: 'relative' }}>
+//       {icon}
+//       {badge && (
+//         <div className="method-item__badge" style={{ backgroundColor: color }}>
+//           {badge}
+//         </div>
+//       )}
+//     </div>
+//     <span className="method-item__label" style={{ color }}>{title}</span>
+//   </div>
+// )
 
 // ============================================================================
 // ICON RENDERER - Renders icon based on node type
@@ -250,7 +250,7 @@ const getArrowMarker = (edgeColor: string) => {
     [PAUL_TOL_BRIGHT.GREEN]: 'url(#arrow-green)',
     [OKABE_ITO_PALETTE.ORANGE]: 'url(#arrow-orange)',
     [OKABE_ITO_PALETTE.REDDISH_PURPLE]: 'url(#arrow-purple)',
-    [OKABE_ITO_PALETTE.SKY_BLUE]: 'url(#arrow-blue)',
+    [OKABE_ITO_PALETTE.BLUE]: 'url(#arrow-blue)',
     '#475569': 'url(#arrow-gray)'
   }
   return colorMap[edgeColor] || 'url(#arrow-gray)'
@@ -259,7 +259,7 @@ const getArrowMarker = (edgeColor: string) => {
 const getBadgeText = (iconType?: string) => {
   switch (iconType) {
     case 'decoder':
-      return '16k'
+      return '1'
     case 'embedder':
       return '1'
     case 'scorer':
@@ -278,7 +278,7 @@ const getBadgeColor = (iconType?: string) => {
     case 'embedder':
       return OKABE_ITO_PALETTE.REDDISH_PURPLE
     case 'scorer':
-      return OKABE_ITO_PALETTE.SKY_BLUE
+      return OKABE_ITO_PALETTE.BLUE
     case 'explainer':
       return OKABE_ITO_PALETTE.ORANGE
     default:
@@ -346,8 +346,8 @@ const FlowPanel: React.FC = () => {
             <linearGradient id="gradient-scorer-metrics" x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stopColor={OKABE_ITO_PALETTE.ORANGE} stopOpacity="0.4" />
               <stop offset="30%" stopColor={OKABE_ITO_PALETTE.ORANGE} stopOpacity="0.4" />
-              <stop offset="70%" stopColor={OKABE_ITO_PALETTE.SKY_BLUE} stopOpacity="0.4" />
-              <stop offset="100%" stopColor={OKABE_ITO_PALETTE.SKY_BLUE} stopOpacity="0.4" />
+              <stop offset="70%" stopColor={OKABE_ITO_PALETTE.BLUE} stopOpacity="0.4" />
+              <stop offset="100%" stopColor={OKABE_ITO_PALETTE.BLUE} stopOpacity="0.4" />
             </linearGradient>
 
             {/* Arrow markers for each edge color */}
@@ -539,6 +539,28 @@ const FlowPanel: React.FC = () => {
                           {line}
                         </text>
                       ))}
+                      {/* Badge for Feature node */}
+                      {node.id === 'feature' && (
+                        <>
+                          <circle
+                            cx={node.x + node.width - 3}
+                            cy={node.y + 3}
+                            r="10"
+                            fill="#475569"
+                          />
+                          <text
+                            x={node.x + node.width - 3}
+                            y={node.y + 3}
+                            textAnchor="middle"
+                            dominantBaseline="central"
+                            fontSize="9"
+                            fill="white"
+                            fontWeight="700"
+                          >
+                            16k
+                          </text>
+                        </>
+                      )}
                     </>
                   )}
                 </>

@@ -15,7 +15,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 8px;
+  padding: 6px;
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -23,25 +23,17 @@
 /* Individual chart styles */
 .histogram-panel__chart {
   background: white;
-  border-radius: 4px;
-  padding: 6px;
-  margin-bottom: 6px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-  min-height: 100px;
+  border-radius: 3px;
+  padding: 3px;
+  margin-bottom: 3px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  min-height: 80px;
   display: flex;
   flex-direction: column;
 }
 
 .histogram-panel__chart:last-child {
   margin-bottom: 0;
-}
-
-.histogram-panel__chart-title {
-  margin: 0 0 4px 0;
-  font-size: 11px;
-  font-weight: 600;
-  color: #1f2937;
-  text-align: center;
 }
 
 /* Empty chart state */
@@ -153,12 +145,7 @@
 /* Responsive adjustments */
 @media (max-height: 600px) {
   .histogram-panel__chart {
-    min-height: 100px;
-    padding: 8px;
-  }
-
-  .histogram-panel__chart-title {
-    font-size: 12px;
-    margin-bottom: 4px;
+    min-height: 70px;
+    padding: 2px;
   }
 }

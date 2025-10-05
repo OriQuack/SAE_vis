@@ -76,7 +76,7 @@ export function calculateFlowLayout(): FlowLayout {
   // Node definitions with absolute coordinates (viewBox: 0 0 600 180)
   const nodes: FlowNode[] = [
     // Feature (starting point)
-    { id: 'feature', label: 'Feature', x: 10, y: 45, width: 70, height: 30 },
+    { id: 'feature', label: 'Feature', x: 10, y: 45, width: 80, height: 30 },
 
     // Activating Example (below Feature)
     { id: 'activating-example', label: 'Activating Examples', x: 15, y: 145, width: 150, height: 20 },
