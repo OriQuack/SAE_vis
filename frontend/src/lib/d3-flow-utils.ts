@@ -79,27 +79,35 @@ export function calculateFlowLayout(): FlowLayout {
     { id: 'feature', label: 'Feature', x: 10, y: 45, width: 80, height: 30 },
 
     // Activating Example (below Feature)
-    { id: 'activating-example', label: 'Activating Examples', x: 15, y: 145, width: 150, height: 20 },
+    { id: 'activating-example', label: 'Activating Examples', x: 20, y: 145, width: 140, height: 17 },
 
     // Explanation label (rotated, between explainer and outputs)
-    { id: 'explanation-label', label: 'Explanation', x: 190, y: 100, width: 100, height: 16 },
+    { id: 'explanation-label', label: 'Explanation', x: 195, y: 100, width: 90, height: 17 },
 
     // Top path: Decoder
     { id: 'decoder', label: '', x: 150, y: 10, width: 55, height: 55, iconType: 'decoder' },
-    { id: 'feature-splitting', label: 'Feature Splitting', x: 430, y: 8, width: 160, height: 30 },
+    { id: 'feature-splitting', label: 'Feature Splitting', x: 450, y: 8, width: 145, height: 26 },
 
     // Middle path: Explainer
     { id: 'explainer', label: '', x: 150, y: 83, width: 55, height: 55, iconType: 'explainer' },
 
     // Embedder branch
     { id: 'embedder', label: '', x: 280, y: 48, width: 55, height: 55, iconType: 'embedder' },
-    { id: 'semantic-similarity', label: 'Semantic Similarity', x: 430, y: 45, width: 160, height: 28 },
-    { id: 'embedding-score', label: 'Embedding Score', x: 430, y: 78, width: 160, height: 28 },
+
+    // Embedding label (rotated, between embedder and embedding outputs)
+    { id: 'embedding-label', label: 'Embedding', x: 370, y: 70, width: 80, height: 17 },
+
+    { id: 'semantic-similarity', label: 'Semantic Similarity', x: 450, y: 45, width: 145, height: 26 },
+    { id: 'embedding-score', label: 'Embedding Score', x: 450, y: 74, width: 145, height: 26 },
 
     // Scorer branch
     { id: 'scorer', label: '', x: 280, y: 118, width: 55, height: 55, iconType: 'scorer' },
-    { id: 'fuzz-score', label: 'Fuzz Score', x: 430, y: 113, width: 160, height: 28 },
-    { id: 'detection-score', label: 'Detection Score', x: 430, y: 146, width: 160, height: 28 }
+
+    // Score label (rotated, between scorer and score outputs)
+    { id: 'score-label', label: 'Score', x: 360, y: 135, width: 50, height: 17 },
+
+    { id: 'fuzz-score', label: 'Fuzz Score', x: 450, y: 113, width: 145, height: 26 },
+    { id: 'detection-score', label: 'Detection Score', x: 450, y: 142, width: 145, height: 26 }
   ]
 
   // Edge definitions (source → target)

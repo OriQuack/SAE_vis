@@ -41,7 +41,7 @@ const PANEL_METRICS = [
     averageBy: 'llm_scorer',
     badges: [
       { color: COMPONENT_COLORS.EXPLAINER, text: '3' }, // LLM Explainer (orange)
-      { color: COMPONENT_COLORS.EMBEDDER, text: '3' }  // Embedder (purple)
+      { color: COMPONENT_COLORS.EMBEDDER, text: '1' }  // Embedder (purple)
     ]
   },
   {

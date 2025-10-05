@@ -217,17 +217,22 @@ const getTextNodeBackgroundColor = (nodeId: string) => {
 }
 
 const getTextNodeFontSize = (nodeId: string) => {
-  // Smaller font for activating example and explanation label
-  if (nodeId === 'activating-example' || nodeId === 'explanation-label') {
-    return '14'
+  // Smaller font for activating example and label nodes
+  if (nodeId === 'activating-example' || nodeId === 'explanation-label' || nodeId === 'score-label' || nodeId === 'embedding-label') {
+    return '12'
+  }
+  // Medium font for final output nodes
+  if (nodeId === 'feature-splitting' || nodeId === 'semantic-similarity' || nodeId === 'embedding-score' ||
+      nodeId === 'fuzz-score' || nodeId === 'detection-score') {
+    return '15'
   }
   // Default size for other nodes
   return '16'
 }
 
 const getTextNodeFontWeight = (nodeId: string) => {
-  // Medium weight for activating example and explanation label
-  if (nodeId === 'activating-example' || nodeId === 'explanation-label') {
+  // Medium weight for activating example and label nodes
+  if (nodeId === 'activating-example' || nodeId === 'explanation-label' || nodeId === 'score-label' || nodeId === 'embedding-label') {
     return '600'
   }
   // Bold for other nodes
@@ -235,8 +240,8 @@ const getTextNodeFontWeight = (nodeId: string) => {
 }
 
 const getTextNodeLetterSpacing = (nodeId: string) => {
-  // Wider spacing for explanation label
-  if (nodeId === 'explanation-label') {
+  // Wider spacing for label nodes
+  if (nodeId === 'explanation-label' || nodeId === 'score-label' || nodeId === 'embedding-label') {
     return '0.5'
   }
   return '0'
@@ -483,7 +488,7 @@ const FlowPanel: React.FC = () => {
               ) : (
                 <>
                   {/* Text node */}
-                  {node.id === 'explanation-label' ? (
+                  {node.id === 'explanation-label' || node.id === 'score-label' || node.id === 'embedding-label' ? (
                     <g transform={`rotate(-90, ${node.x + node.width / 2}, ${node.y + node.height / 2})`}>
                       <rect
                         x={node.x}
@@ -509,6 +514,24 @@ const FlowPanel: React.FC = () => {
                           {line}
                         </text>
                       ))}
+                      {/* Badge for label nodes */}
+                      <circle
+                        cx={node.x + node.width}
+                        cy={node.y}
+                        r="10"
+                        fill="#475569"
+                      />
+                      <text
+                        x={node.x + node.width}
+                        y={node.y}
+                        textAnchor="middle"
+                        dominantBaseline="central"
+                        fontSize="10"
+                        fill="white"
+                        fontWeight="700"
+                      >
+                        {node.id === 'score-label' ? '9' : node.id === 'embedding-label' ? '3' : '3'}
+                      </text>
                     </g>
                   ) : (
                     <>
@@ -552,7 +575,7 @@ const FlowPanel: React.FC = () => {
                             y={node.y-1}
                             textAnchor="middle"
                             dominantBaseline="central"
-                            fontSize="9"
+                            fontSize="10"
                             fill="white"
                             fontWeight="700"
                           >
