@@ -169,6 +169,45 @@ export const EUROVIS_PALETTE = {
 } as const
 
 // ============================================================================
+// COMPONENT TYPE COLORS - Centralized color mapping for SAE components
+// EuroVIS colorblind-safe palette for different component types
+// Used across: FlowPanel.tsx, HistogramPanel.tsx, d3-flow-utils.ts (3+ files)
+// ============================================================================
+export const COMPONENT_COLORS = {
+  DECODER: PAUL_TOL_BRIGHT.GREEN,                    // #228833 - Feature Splitting (Decoder)
+  EXPLAINER: OKABE_ITO_PALETTE.ORANGE,               // #E69F00 - LLM Explainer
+  SCORER: OKABE_ITO_PALETTE.BLUE,                    // #0072B2 - LLM Scorer
+  EMBEDDER: OKABE_ITO_PALETTE.REDDISH_PURPLE,        // #CC79A7 - Embedding
+  FEATURE_SPLITTING: OKABE_ITO_PALETTE.BLUISH_GREEN  // #009E73 - Green for feature splitting metric
+} as const
+
+/**
+ * Get component color by type
+ * @param type - Component type identifier
+ * @returns Colorblind-safe color from Okabe-Ito or Paul Tol palette
+ */
+export const getComponentColor = (type: 'decoder' | 'explainer' | 'scorer' | 'embedder' | 'feature_splitting'): string => {
+  const colorMap = {
+    decoder: COMPONENT_COLORS.DECODER,
+    explainer: COMPONENT_COLORS.EXPLAINER,
+    scorer: COMPONENT_COLORS.SCORER,
+    embedder: COMPONENT_COLORS.EMBEDDER,
+    feature_splitting: COMPONENT_COLORS.FEATURE_SPLITTING
+  }
+  return colorMap[type] || '#6b7280'
+}
+
+/**
+ * Get background color with opacity for component types
+ * @param type - Component type identifier
+ * @param opacity - Opacity value as hex (default: '30' for 30/255 ≈ 19%)
+ * @returns Color with opacity suffix
+ */
+export const getComponentBackgroundColor = (type: 'decoder' | 'explainer' | 'scorer' | 'embedder', opacity: string = '30'): string => {
+  return `${getComponentColor(type)}${opacity}`
+}
+
+// ============================================================================
 // SANKEY DIAGRAM CONFIGURATION
 // Used across: SankeyDiagram.tsx, d3-sankey-utils.ts (2+ files, visualization-specific)
 // ============================================================================

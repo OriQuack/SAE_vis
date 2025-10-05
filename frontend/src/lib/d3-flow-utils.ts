@@ -2,7 +2,7 @@
 // D3 FLOW CHART UTILITIES - Simplified and Clean
 // ============================================================================
 
-import { OKABE_ITO_PALETTE, PAUL_TOL_BRIGHT } from './constants'
+import { COMPONENT_COLORS } from './constants'
 
 export interface FlowNode {
   id: string
@@ -59,12 +59,12 @@ function curve(x1: number, y1: number, x2: number, y2: number, orientation: 'hor
 // Edge color mapping based on source node type
 function getEdgeColor(sourceId: string): string {
   const colorMap: Record<string, string> = {
-    'feature': '#475569',                           // neutral gray
-    'activating-example': '#475569',                // neutral gray
-    'decoder': PAUL_TOL_BRIGHT.GREEN,              // #228833
-    'explainer': OKABE_ITO_PALETTE.ORANGE,         // #E69F00
-    'embedder': OKABE_ITO_PALETTE.REDDISH_PURPLE,  // #CC79A7
-    'scorer': OKABE_ITO_PALETTE.SKY_BLUE           // #56B4E9
+    'feature': '#475569',                      // neutral gray
+    'activating-example': '#475569',           // neutral gray
+    'decoder': COMPONENT_COLORS.DECODER,       // Decoder (green)
+    'explainer': COMPONENT_COLORS.EXPLAINER,   // LLM Explainer (orange)
+    'embedder': COMPONENT_COLORS.EMBEDDER,     // Embedder (purple)
+    'scorer': COMPONENT_COLORS.SCORER          // LLM Scorer (blue)
   }
   return colorMap[sourceId] || '#475569'
 }

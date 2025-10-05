@@ -7,7 +7,7 @@ import {
   formatSmartNumber
 } from '../lib/d3-histogram-utils'
 import type { HistogramData, HistogramChart, MetricType } from '../types'
-import { OKABE_ITO_PALETTE } from '../lib/constants'
+import { COMPONENT_COLORS } from '../lib/constants'
 import '../styles/HistogramPanel.css'
 
 // ==================== COMPONENT-SPECIFIC TYPES ====================
@@ -23,7 +23,7 @@ const PANEL_METRICS = [
     label: ['Feature', 'Splitting'],
     averageBy: null,
     badges: [
-      { color: OKABE_ITO_PALETTE.BLUISH_GREEN, text: '1' } // Colorblind-safe green
+      { color: COMPONENT_COLORS.FEATURE_SPLITTING, text: '1' } // Decoder-related (green)
     ]
   },
   {
@@ -31,8 +31,8 @@ const PANEL_METRICS = [
     label: ['Semantic', 'Similarity'],
     averageBy: 'llm_explainer',
     badges: [
-      { color: OKABE_ITO_PALETTE.ORANGE, text: '3' }, // Colorblind-safe yellow
-      { color: OKABE_ITO_PALETTE.REDDISH_PURPLE, text: '1' }  // Orange (for LLM explainer)
+      { color: COMPONENT_COLORS.EXPLAINER, text: '3' }, // LLM Explainer (orange)
+      { color: COMPONENT_COLORS.EMBEDDER, text: '1' }  // Embedder (purple)
     ]
   },
   {
@@ -40,8 +40,8 @@ const PANEL_METRICS = [
     label: ['Embedding', 'Score'],
     averageBy: 'llm_scorer',
     badges: [
-      { color: OKABE_ITO_PALETTE.ORANGE, text: '3' }, // Colorblind-safe yellow
-      { color: OKABE_ITO_PALETTE.REDDISH_PURPLE, text: '3' }  // Reddish purple
+      { color: COMPONENT_COLORS.EXPLAINER, text: '3' }, // LLM Explainer (orange)
+      { color: COMPONENT_COLORS.EMBEDDER, text: '3' }  // Embedder (purple)
     ]
   },
   {
@@ -49,8 +49,8 @@ const PANEL_METRICS = [
     label: ['Fuzz', 'Score'],
     averageBy: 'llm_scorer',
     badges: [
-      { color: OKABE_ITO_PALETTE.ORANGE, text: '3' }, // Colorblind-safe yellow
-      { color: OKABE_ITO_PALETTE.BLUE, text: '3' }  // Colorblind-safe blue (for LLM scorer)
+      { color: COMPONENT_COLORS.EXPLAINER, text: '3' }, // LLM Explainer (orange)
+      { color: COMPONENT_COLORS.SCORER, text: '3' }  // LLM Scorer (blue)
     ]
   },
   {
@@ -58,8 +58,8 @@ const PANEL_METRICS = [
     label: ['Detection', 'Score'],
     averageBy: 'llm_scorer',
     badges: [
-      { color: OKABE_ITO_PALETTE.ORANGE, text: '3' }, // Colorblind-safe yellow
-      { color: OKABE_ITO_PALETTE.BLUE, text: '3' }  // Colorblind-safe blue (for LLM scorer)
+      { color: COMPONENT_COLORS.EXPLAINER, text: '3' }, // LLM Explainer (orange)
+      { color: COMPONENT_COLORS.SCORER, text: '3' }  // LLM Scorer (blue)
     ]
   }
 ]

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { OKABE_ITO_PALETTE, PAUL_TOL_BRIGHT } from '../lib/constants'
+import { OKABE_ITO_PALETTE, COMPONENT_COLORS, getComponentBackgroundColor } from '../lib/constants'
 import { calculateFlowLayout, getIconTransform, splitLabel, type FlowNode } from '../lib/d3-flow-utils'
 import '../styles/FlowPanel.css'
 
@@ -10,7 +10,7 @@ import '../styles/FlowPanel.css'
 const LLMExplainerIcon: React.FC = () => (
   <svg viewBox="0 0 100 100" className="flow-icon">
     {/* Cute robot head */}
-    <rect x="25" y="35" width="50" height="45" rx="12" fill={OKABE_ITO_PALETTE.ORANGE} />
+    <rect x="25" y="35" width="50" height="45" rx="12" fill={COMPONENT_COLORS.EXPLAINER} />
 
     {/* Eyes - friendly teacher look */}
     <circle cx="38" cy="53" r="6" fill="white" />
@@ -36,17 +36,17 @@ const LLMExplainerIcon: React.FC = () => (
     <circle cx="68" cy="14" r="2" fill={OKABE_ITO_PALETTE.YELLOW} />
 
     {/* Book/document - teaching symbol */}
-    <rect x="70" y="40" width="18" height="24" rx="2" fill="white" stroke={OKABE_ITO_PALETTE.ORANGE} strokeWidth="2" />
-    <line x1="73" y1="47" x2="85" y2="47" stroke={OKABE_ITO_PALETTE.ORANGE} strokeWidth="1.5" />
-    <line x1="73" y1="52" x2="85" y2="52" stroke={OKABE_ITO_PALETTE.ORANGE} strokeWidth="1.5" />
-    <line x1="73" y1="57" x2="85" y2="57" stroke={OKABE_ITO_PALETTE.ORANGE} strokeWidth="1.5" />
+    <rect x="70" y="40" width="18" height="24" rx="2" fill="white" stroke={COMPONENT_COLORS.EXPLAINER} strokeWidth="2" />
+    <line x1="73" y1="47" x2="85" y2="47" stroke={COMPONENT_COLORS.EXPLAINER} strokeWidth="1.5" />
+    <line x1="73" y1="52" x2="85" y2="52" stroke={COMPONENT_COLORS.EXPLAINER} strokeWidth="1.5" />
+    <line x1="73" y1="57" x2="85" y2="57" stroke={COMPONENT_COLORS.EXPLAINER} strokeWidth="1.5" />
   </svg>
 )
 
 const LLMScorerIcon: React.FC = () => (
   <svg viewBox="0 0 100 100" className="flow-icon">
     {/* Cute robot head */}
-    <rect x="25" y="35" width="50" height="45" rx="12" fill={OKABE_ITO_PALETTE.BLUE} />
+    <rect x="25" y="35" width="50" height="45" rx="12" fill={COMPONENT_COLORS.SCORER} />
 
     {/* Eyes - focused student look */}
     <circle cx="38" cy="53" r="6" fill="white" />
@@ -76,27 +76,27 @@ const LLMScorerIcon: React.FC = () => (
 const DecoderIcon: React.FC = () => (
   <svg viewBox="0 0 100 100" className="flow-icon">
     {/* Neural network nodes */}
-    <circle cx="30" cy="30" r="8" fill={PAUL_TOL_BRIGHT.GREEN} />
-    <circle cx="30" cy="50" r="8" fill={PAUL_TOL_BRIGHT.GREEN} />
-    <circle cx="30" cy="70" r="8" fill={PAUL_TOL_BRIGHT.GREEN} />
+    <circle cx="30" cy="30" r="8" fill={COMPONENT_COLORS.DECODER} />
+    <circle cx="30" cy="50" r="8" fill={COMPONENT_COLORS.DECODER} />
+    <circle cx="30" cy="70" r="8" fill={COMPONENT_COLORS.DECODER} />
 
-    <circle cx="70" cy="40" r="10" fill={PAUL_TOL_BRIGHT.GREEN} opacity="0.8" />
-    <circle cx="70" cy="60" r="10" fill={PAUL_TOL_BRIGHT.GREEN} opacity="0.8" />
+    <circle cx="70" cy="40" r="10" fill={COMPONENT_COLORS.DECODER} opacity="0.8" />
+    <circle cx="70" cy="60" r="10" fill={COMPONENT_COLORS.DECODER} opacity="0.8" />
 
     {/* Connections (weights) */}
-    <line x1="38" y1="30" x2="60" y2="40" stroke={PAUL_TOL_BRIGHT.GREEN} strokeWidth="2" opacity="0.5" />
-    <line x1="38" y1="30" x2="60" y2="60" stroke={PAUL_TOL_BRIGHT.GREEN} strokeWidth="2" opacity="0.3" />
+    <line x1="38" y1="30" x2="60" y2="40" stroke={COMPONENT_COLORS.DECODER} strokeWidth="2" opacity="0.5" />
+    <line x1="38" y1="30" x2="60" y2="60" stroke={COMPONENT_COLORS.DECODER} strokeWidth="2" opacity="0.3" />
 
-    <line x1="38" y1="50" x2="60" y2="40" stroke={PAUL_TOL_BRIGHT.GREEN} strokeWidth="3" opacity="0.7" />
-    <line x1="38" y1="50" x2="60" y2="60" stroke={PAUL_TOL_BRIGHT.GREEN} strokeWidth="3" opacity="0.7" />
+    <line x1="38" y1="50" x2="60" y2="40" stroke={COMPONENT_COLORS.DECODER} strokeWidth="3" opacity="0.7" />
+    <line x1="38" y1="50" x2="60" y2="60" stroke={COMPONENT_COLORS.DECODER} strokeWidth="3" opacity="0.7" />
 
-    <line x1="38" y1="70" x2="60" y2="40" stroke={PAUL_TOL_BRIGHT.GREEN} strokeWidth="2" opacity="0.3" />
-    <line x1="38" y1="70" x2="60" y2="60" stroke={PAUL_TOL_BRIGHT.GREEN} strokeWidth="2" opacity="0.5" />
+    <line x1="38" y1="70" x2="60" y2="40" stroke={COMPONENT_COLORS.DECODER} strokeWidth="2" opacity="0.3" />
+    <line x1="38" y1="70" x2="60" y2="60" stroke={COMPONENT_COLORS.DECODER} strokeWidth="2" opacity="0.5" />
 
     {/* Weight indicators */}
-    <text x="45" y="35" fontSize="10" fill={PAUL_TOL_BRIGHT.GREEN} fontWeight="bold">W</text>
-    <text x="45" y="52" fontSize="10" fill={PAUL_TOL_BRIGHT.GREEN} fontWeight="bold">W</text>
-    <text x="45" y="65" fontSize="10" fill={PAUL_TOL_BRIGHT.GREEN} fontWeight="bold">W</text>
+    <text x="45" y="35" fontSize="10" fill={COMPONENT_COLORS.DECODER} fontWeight="bold">W</text>
+    <text x="45" y="52" fontSize="10" fill={COMPONENT_COLORS.DECODER} fontWeight="bold">W</text>
+    <text x="45" y="65" fontSize="10" fill={COMPONENT_COLORS.DECODER} fontWeight="bold">W</text>
   </svg>
 )
 
@@ -104,23 +104,23 @@ const EmbeddingIcon: React.FC = () => (
   <svg viewBox="0 0 100 100" className="flow-icon">
     {/* Hub/Share icon - commonly used for embeddings/vectors */}
     {/* Center hub */}
-    <circle cx="50" cy="50" r="8" fill={OKABE_ITO_PALETTE.REDDISH_PURPLE} />
+    <circle cx="50" cy="50" r="8" fill={COMPONENT_COLORS.EMBEDDER} />
 
     {/* Outer nodes */}
-    <circle cx="50" cy="20" r="6" fill={OKABE_ITO_PALETTE.REDDISH_PURPLE} opacity="0.8" />
-    <circle cx="75" cy="35" r="6" fill={OKABE_ITO_PALETTE.REDDISH_PURPLE} opacity="0.8" />
-    <circle cx="75" cy="65" r="6" fill={OKABE_ITO_PALETTE.REDDISH_PURPLE} opacity="0.8" />
-    <circle cx="50" cy="80" r="6" fill={OKABE_ITO_PALETTE.REDDISH_PURPLE} opacity="0.8" />
-    <circle cx="25" cy="65" r="6" fill={OKABE_ITO_PALETTE.REDDISH_PURPLE} opacity="0.8" />
-    <circle cx="25" cy="35" r="6" fill={OKABE_ITO_PALETTE.REDDISH_PURPLE} opacity="0.8" />
+    <circle cx="50" cy="20" r="6" fill={COMPONENT_COLORS.EMBEDDER} opacity="0.8" />
+    <circle cx="75" cy="35" r="6" fill={COMPONENT_COLORS.EMBEDDER} opacity="0.8" />
+    <circle cx="75" cy="65" r="6" fill={COMPONENT_COLORS.EMBEDDER} opacity="0.8" />
+    <circle cx="50" cy="80" r="6" fill={COMPONENT_COLORS.EMBEDDER} opacity="0.8" />
+    <circle cx="25" cy="65" r="6" fill={COMPONENT_COLORS.EMBEDDER} opacity="0.8" />
+    <circle cx="25" cy="35" r="6" fill={COMPONENT_COLORS.EMBEDDER} opacity="0.8" />
 
     {/* Connection lines */}
-    <line x1="50" y1="42" x2="50" y2="26" stroke={OKABE_ITO_PALETTE.REDDISH_PURPLE} strokeWidth="3" />
-    <line x1="56" y1="44" x2="69" y2="36" stroke={OKABE_ITO_PALETTE.REDDISH_PURPLE} strokeWidth="3" />
-    <line x1="56" y1="56" x2="69" y2="64" stroke={OKABE_ITO_PALETTE.REDDISH_PURPLE} strokeWidth="3" />
-    <line x1="50" y1="58" x2="50" y2="74" stroke={OKABE_ITO_PALETTE.REDDISH_PURPLE} strokeWidth="3" />
-    <line x1="44" y1="56" x2="31" y2="64" stroke={OKABE_ITO_PALETTE.REDDISH_PURPLE} strokeWidth="3" />
-    <line x1="44" y1="44" x2="31" y2="36" stroke={OKABE_ITO_PALETTE.REDDISH_PURPLE} strokeWidth="3" />
+    <line x1="50" y1="42" x2="50" y2="26" stroke={COMPONENT_COLORS.EMBEDDER} strokeWidth="3" />
+    <line x1="56" y1="44" x2="69" y2="36" stroke={COMPONENT_COLORS.EMBEDDER} strokeWidth="3" />
+    <line x1="56" y1="56" x2="69" y2="64" stroke={COMPONENT_COLORS.EMBEDDER} strokeWidth="3" />
+    <line x1="50" y1="58" x2="50" y2="74" stroke={COMPONENT_COLORS.EMBEDDER} strokeWidth="3" />
+    <line x1="44" y1="56" x2="31" y2="64" stroke={COMPONENT_COLORS.EMBEDDER} strokeWidth="3" />
+    <line x1="44" y1="44" x2="31" y2="36" stroke={COMPONENT_COLORS.EMBEDDER} strokeWidth="3" />
   </svg>
 )
 
@@ -171,13 +171,13 @@ const renderIconForNode = (node: FlowNode) => {
 const getIconBorderColor = (iconType?: string) => {
   switch (iconType) {
     case 'decoder':
-      return PAUL_TOL_BRIGHT.GREEN
+      return COMPONENT_COLORS.DECODER
     case 'explainer':
-      return OKABE_ITO_PALETTE.ORANGE
+      return COMPONENT_COLORS.EXPLAINER
     case 'scorer':
-      return OKABE_ITO_PALETTE.BLUE
+      return COMPONENT_COLORS.SCORER
     case 'embedder':
-      return OKABE_ITO_PALETTE.REDDISH_PURPLE
+      return COMPONENT_COLORS.EMBEDDER
     default:
       return '#6b7280'
   }
@@ -186,13 +186,10 @@ const getIconBorderColor = (iconType?: string) => {
 const getIconBackgroundColor = (iconType?: string) => {
   switch (iconType) {
     case 'decoder':
-      return `${PAUL_TOL_BRIGHT.GREEN}30`
     case 'explainer':
-      return `${OKABE_ITO_PALETTE.ORANGE}30`
     case 'scorer':
-      return `${OKABE_ITO_PALETTE.BLUE}30`
     case 'embedder':
-      return `${OKABE_ITO_PALETTE.REDDISH_PURPLE}30`
+      return getComponentBackgroundColor(iconType)
     default:
       return 'white'
   }
@@ -201,7 +198,7 @@ const getIconBackgroundColor = (iconType?: string) => {
 const getTextNodeBackgroundColor = (nodeId: string) => {
   // Feature splitting - green tint (from decoder)
   if (nodeId === 'feature-splitting') {
-    return `${PAUL_TOL_BRIGHT.GREEN}30`
+    return getComponentBackgroundColor('decoder')
   }
   // Semantic similarity & Embedding score - gradient from explainer (orange) to embedder (purple)
   if (nodeId === 'semantic-similarity' || nodeId === 'embedding-score') {
@@ -247,10 +244,10 @@ const getTextNodeLetterSpacing = (nodeId: string) => {
 
 const getArrowMarker = (edgeColor: string) => {
   const colorMap: Record<string, string> = {
-    [PAUL_TOL_BRIGHT.GREEN]: 'url(#arrow-green)',
-    [OKABE_ITO_PALETTE.ORANGE]: 'url(#arrow-orange)',
-    [OKABE_ITO_PALETTE.REDDISH_PURPLE]: 'url(#arrow-purple)',
-    [OKABE_ITO_PALETTE.BLUE]: 'url(#arrow-blue)',
+    [COMPONENT_COLORS.DECODER]: 'url(#arrow-green)',
+    [COMPONENT_COLORS.EXPLAINER]: 'url(#arrow-orange)',
+    [COMPONENT_COLORS.EMBEDDER]: 'url(#arrow-purple)',
+    [COMPONENT_COLORS.SCORER]: 'url(#arrow-blue)',
     '#475569': 'url(#arrow-gray)'
   }
   return colorMap[edgeColor] || 'url(#arrow-gray)'
@@ -274,13 +271,13 @@ const getBadgeText = (iconType?: string) => {
 const getBadgeColor = (iconType?: string) => {
   switch (iconType) {
     case 'decoder':
-      return PAUL_TOL_BRIGHT.GREEN
+      return COMPONENT_COLORS.DECODER
     case 'embedder':
-      return OKABE_ITO_PALETTE.REDDISH_PURPLE
+      return COMPONENT_COLORS.EMBEDDER
     case 'scorer':
-      return OKABE_ITO_PALETTE.BLUE
+      return COMPONENT_COLORS.SCORER
     case 'explainer':
-      return OKABE_ITO_PALETTE.ORANGE
+      return COMPONENT_COLORS.EXPLAINER
     default:
       return '#6b7280'
   }
@@ -336,18 +333,18 @@ const FlowPanel: React.FC = () => {
           <defs>
             {/* Semantic Similarity: Explainer (Orange) → Embedder (Purple) */}
             <linearGradient id="gradient-semantic-similarity" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor={OKABE_ITO_PALETTE.ORANGE} stopOpacity="0.4" />
-              <stop offset="30%" stopColor={OKABE_ITO_PALETTE.ORANGE} stopOpacity="0.4" />
-              <stop offset="70%" stopColor={OKABE_ITO_PALETTE.REDDISH_PURPLE} stopOpacity="0.4" />
-              <stop offset="100%" stopColor={OKABE_ITO_PALETTE.REDDISH_PURPLE} stopOpacity="0.4" />
+              <stop offset="0%" stopColor={COMPONENT_COLORS.EXPLAINER} stopOpacity="0.4" />
+              <stop offset="30%" stopColor={COMPONENT_COLORS.EXPLAINER} stopOpacity="0.4" />
+              <stop offset="70%" stopColor={COMPONENT_COLORS.EMBEDDER} stopOpacity="0.4" />
+              <stop offset="100%" stopColor={COMPONENT_COLORS.EMBEDDER} stopOpacity="0.4" />
             </linearGradient>
 
             {/* Fuzz & Detection Scores: Explainer (Orange) → Scorer (Blue) */}
             <linearGradient id="gradient-scorer-metrics" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor={OKABE_ITO_PALETTE.ORANGE} stopOpacity="0.4" />
-              <stop offset="30%" stopColor={OKABE_ITO_PALETTE.ORANGE} stopOpacity="0.4" />
-              <stop offset="70%" stopColor={OKABE_ITO_PALETTE.BLUE} stopOpacity="0.4" />
-              <stop offset="100%" stopColor={OKABE_ITO_PALETTE.BLUE} stopOpacity="0.4" />
+              <stop offset="0%" stopColor={COMPONENT_COLORS.EXPLAINER} stopOpacity="0.4" />
+              <stop offset="30%" stopColor={COMPONENT_COLORS.EXPLAINER} stopOpacity="0.4" />
+              <stop offset="70%" stopColor={COMPONENT_COLORS.SCORER} stopOpacity="0.4" />
+              <stop offset="100%" stopColor={COMPONENT_COLORS.SCORER} stopOpacity="0.4" />
             </linearGradient>
 
             {/* Arrow markers for each edge color */}
@@ -372,7 +369,7 @@ const FlowPanel: React.FC = () => {
               markerHeight="6"
               orient="auto"
             >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill={PAUL_TOL_BRIGHT.GREEN} opacity="1.0" />
+              <path d="M 0 0 L 10 5 L 0 10 z" fill={COMPONENT_COLORS.DECODER} opacity="1.0" />
             </marker>
 
             <marker
@@ -384,7 +381,7 @@ const FlowPanel: React.FC = () => {
               markerHeight="6"
               orient="auto"
             >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill={OKABE_ITO_PALETTE.ORANGE} opacity="1.0" />
+              <path d="M 0 0 L 10 5 L 0 10 z" fill={COMPONENT_COLORS.EXPLAINER} opacity="1.0" />
             </marker>
 
             <marker
@@ -396,7 +393,7 @@ const FlowPanel: React.FC = () => {
               markerHeight="6"
               orient="auto"
             >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill={OKABE_ITO_PALETTE.REDDISH_PURPLE} opacity="1.0" />
+              <path d="M 0 0 L 10 5 L 0 10 z" fill={COMPONENT_COLORS.EMBEDDER} opacity="1.0" />
             </marker>
 
             <marker
@@ -408,7 +405,7 @@ const FlowPanel: React.FC = () => {
               markerHeight="6"
               orient="auto"
             >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill={OKABE_ITO_PALETTE.SKY_BLUE} opacity="1.0" />
+              <path d="M 0 0 L 10 5 L 0 10 z" fill={COMPONENT_COLORS.SCORER} opacity="1.0" />
             </marker>
           </defs>
 
@@ -542,15 +539,17 @@ const FlowPanel: React.FC = () => {
                       {/* Badge for Feature node */}
                       {node.id === 'feature' && (
                         <>
-                          <circle
-                            cx={node.x + node.width - 3}
-                            cy={node.y + 3}
-                            r="10"
+                          <rect
+                            x={node.x + node.width - 20}
+                            y={node.y - 10}
+                            width="24"
+                            height="18"
+                            rx="9"
                             fill="#475569"
                           />
                           <text
-                            x={node.x + node.width - 3}
-                            y={node.y + 3}
+                            x={node.x + node.width - 8}
+                            y={node.y-1}
                             textAnchor="middle"
                             dominantBaseline="central"
                             fontSize="9"
