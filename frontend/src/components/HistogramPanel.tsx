@@ -15,13 +15,6 @@ interface HistogramPanelProps {
   className?: string
 }
 
-interface PanelHistogramData {
-  featureSplitting: HistogramData | null
-  semanticSimilarity: HistogramData | null
-  embeddingScore: HistogramData | null
-  fuzzScore: HistogramData | null
-  detectionScore: HistogramData | null
-}
 
 // Metric configuration for the panel
 const PANEL_METRICS = [
@@ -67,7 +60,7 @@ const SingleHistogram: React.FC<{
   width: number
   height: number
 }> = ({ data, title, width, height }) => {
-  const margin = { top: 20, right: 20, bottom: 40, left: 50 }
+  const margin = { top: 10, right: 15, bottom: 25, left: 45 }
   const innerWidth = width - margin.left - margin.right
   const innerHeight = height - margin.top - margin.bottom
 
@@ -103,7 +96,7 @@ const SingleHistogram: React.FC<{
 
   // Create chart object for utility functions
   const chart: HistogramChart = useMemo(() => ({
-    bins: data.histogram.bins.map((bin, i) => ({
+    bins: data.histogram.bins.map((_bin, i) => ({
       x0: data.histogram.bin_edges[i],
       x1: data.histogram.bin_edges[i + 1],
       count: data.histogram.counts[i],
@@ -178,8 +171,8 @@ const SingleHistogram: React.FC<{
             <line x1={0} x2={innerWidth} y1={0} y2={0} stroke={HISTOGRAM_COLORS.axis} strokeWidth={1} />
             {xAxisTicks.map(tick => (
               <g key={tick.value} transform={`translate(${tick.position}, 0)`}>
-                <line y1={0} y2={6} stroke={HISTOGRAM_COLORS.axis} strokeWidth={1} />
-                <text y={20} textAnchor="middle" fontSize={10} fill={HISTOGRAM_COLORS.text}>
+                <line y1={0} y2={4} stroke={HISTOGRAM_COLORS.axis} strokeWidth={1} />
+                <text y={14} textAnchor="middle" fontSize={9} fill={HISTOGRAM_COLORS.text}>
                   {formatSmartNumber(tick.value)}
                 </text>
               </g>
@@ -191,24 +184,13 @@ const SingleHistogram: React.FC<{
             <line x1={0} x2={0} y1={0} y2={innerHeight} stroke={HISTOGRAM_COLORS.axis} strokeWidth={1} />
             {yAxisTicks.map(tick => (
               <g key={tick.value} transform={`translate(0, ${tick.position})`}>
-                <line x1={-6} x2={0} stroke={HISTOGRAM_COLORS.axis} strokeWidth={1} />
-                <text x={-10} textAnchor="end" alignmentBaseline="middle" fontSize={10} fill={HISTOGRAM_COLORS.text}>
+                <line x1={-4} x2={0} stroke={HISTOGRAM_COLORS.axis} strokeWidth={1} />
+                <text x={-8} textAnchor="end" alignmentBaseline="middle" fontSize={9} fill={HISTOGRAM_COLORS.text}>
                   {Math.round(tick.value)}
                 </text>
               </g>
             ))}
           </g>
-
-          {/* Statistics text */}
-          <text
-            x={innerWidth / 2}
-            y={innerHeight + 35}
-            textAnchor="middle"
-            fontSize={9}
-            fill={HISTOGRAM_COLORS.text}
-          >
-            μ={formatSmartNumber(data.statistics.mean)}, σ={formatSmartNumber(data.statistics.std)}
-          </text>
         </g>
       </svg>
     </div>
@@ -247,7 +229,7 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
 
   // Calculate individual histogram dimensions
   const histogramHeight = useMemo(() => {
-    const padding = 20
+    const padding = 12
     const totalPadding = padding * (PANEL_METRICS.length + 1)
     return (containerSize.height - totalPadding) / PANEL_METRICS.length
   }, [containerSize.height])
@@ -295,7 +277,7 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
   return (
     <div className={`histogram-panel ${className}`} ref={containerRef}>
       <div className="histogram-panel__container">
-        {PANEL_METRICS.map((metric, index) => {
+        {PANEL_METRICS.map((metric) => {
           const data = histogramPanelData[metric.key]
 
           if (!data) {

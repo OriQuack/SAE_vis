@@ -199,20 +199,91 @@ const getIconBackgroundColor = (iconType?: string) => {
 }
 
 const getTextNodeBackgroundColor = (nodeId: string) => {
-  // Feature splitting - green tint
+  // Feature splitting - green tint (from decoder)
   if (nodeId === 'feature-splitting') {
     return `${PAUL_TOL_BRIGHT.GREEN}30`
   }
-  // Semantic similarity - purple tint
-  if (nodeId === 'semantic-similarity') {
-    return `${OKABE_ITO_PALETTE.REDDISH_PURPLE}30`
+  // Semantic similarity & Embedding score - gradient from explainer (orange) to embedder (purple)
+  if (nodeId === 'semantic-similarity' || nodeId === 'embedding-score') {
+    return 'url(#gradient-semantic-similarity)'
   }
-  // All scores (fuzz-score, detection-score, embedding-score) - blue tint
-  if (nodeId.includes('score')) {
-    return `${OKABE_ITO_PALETTE.BLUE}30`
+  // Fuzz and Detection scores - gradient from explainer (orange) to scorer (blue)
+  if (nodeId === 'fuzz-score' || nodeId === 'detection-score') {
+    return 'url(#gradient-scorer-metrics)'
+  }
+  // Activating Example - white background
+  if (nodeId === 'activating-example') {
+    return 'white'
   }
   // Default (Feature node)
   return '#f8fafc'
+}
+
+const getTextNodeFontSize = (nodeId: string) => {
+  // Smaller font for activating example and explanation label
+  if (nodeId === 'activating-example' || nodeId === 'explanation-label') {
+    return '14'
+  }
+  // Default size for other nodes
+  return '16'
+}
+
+const getTextNodeFontWeight = (nodeId: string) => {
+  // Medium weight for activating example and explanation label
+  if (nodeId === 'activating-example' || nodeId === 'explanation-label') {
+    return '600'
+  }
+  // Bold for other nodes
+  return '700'
+}
+
+const getTextNodeLetterSpacing = (nodeId: string) => {
+  // Wider spacing for explanation label
+  if (nodeId === 'explanation-label') {
+    return '0.5'
+  }
+  return '0'
+}
+
+const getArrowMarker = (edgeColor: string) => {
+  const colorMap: Record<string, string> = {
+    [PAUL_TOL_BRIGHT.GREEN]: 'url(#arrow-green)',
+    [OKABE_ITO_PALETTE.ORANGE]: 'url(#arrow-orange)',
+    [OKABE_ITO_PALETTE.REDDISH_PURPLE]: 'url(#arrow-purple)',
+    [OKABE_ITO_PALETTE.SKY_BLUE]: 'url(#arrow-blue)',
+    '#475569': 'url(#arrow-gray)'
+  }
+  return colorMap[edgeColor] || 'url(#arrow-gray)'
+}
+
+const getBadgeText = (iconType?: string) => {
+  switch (iconType) {
+    case 'decoder':
+      return '16k'
+    case 'embedder':
+      return '1'
+    case 'scorer':
+      return '3'
+    case 'explainer':
+      return '3'
+    default:
+      return null
+  }
+}
+
+const getBadgeColor = (iconType?: string) => {
+  switch (iconType) {
+    case 'decoder':
+      return PAUL_TOL_BRIGHT.GREEN
+    case 'embedder':
+      return OKABE_ITO_PALETTE.REDDISH_PURPLE
+    case 'scorer':
+      return OKABE_ITO_PALETTE.SKY_BLUE
+    case 'explainer':
+      return OKABE_ITO_PALETTE.ORANGE
+    default:
+      return '#6b7280'
+  }
 }
 
 // ============================================================================
@@ -225,23 +296,8 @@ const FlowPanel: React.FC = () => {
 
   return (
     <div className="flow-panel">
-      {/* Left: Method Icons Grid */}
+      {/* Left: Method Icons Grid
       <div className="flow-panel__icons">
-        <div className="flow-panel__row">
-          <MethodItem
-            icon={<LLMExplainerIcon />}
-            title="LLM Explainer"
-            color={OKABE_ITO_PALETTE.ORANGE}
-            badge="3"
-          />
-          <MethodItem
-            icon={<LLMScorerIcon />}
-            title="LLM Scorer"
-            color={OKABE_ITO_PALETTE.BLUE}
-            badge="3"
-          />
-        </div>
-
         <div className="flow-panel__row">
           <MethodItem
             icon={<DecoderIcon />}
@@ -256,21 +312,118 @@ const FlowPanel: React.FC = () => {
             badge="1"
           />
         </div>
-      </div>
+
+        <div className="flow-panel__row">
+          <MethodItem
+            icon={<LLMScorerIcon />}
+            title="LLM Scorer"
+            color={OKABE_ITO_PALETTE.BLUE}
+            badge="3"
+          />
+          <MethodItem
+            icon={<LLMExplainerIcon />}
+            title="LLM Explainer"
+            color={OKABE_ITO_PALETTE.ORANGE}
+            badge="3"
+          />
+        </div>
+      </div> */}
 
       {/* Right: D3-Calculated Flowchart */}
       <div className="flow-panel__chart">
-        <svg viewBox="0 0 600 310" preserveAspectRatio="xMidYMid meet">
+        <svg viewBox="0 0 600 180" preserveAspectRatio="xMidYMid meet">
+          {/* Define gradients */}
+          <defs>
+            {/* Semantic Similarity: Explainer (Orange) → Embedder (Purple) */}
+            <linearGradient id="gradient-semantic-similarity" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor={OKABE_ITO_PALETTE.ORANGE} stopOpacity="0.4" />
+              <stop offset="30%" stopColor={OKABE_ITO_PALETTE.ORANGE} stopOpacity="0.4" />
+              <stop offset="70%" stopColor={OKABE_ITO_PALETTE.REDDISH_PURPLE} stopOpacity="0.4" />
+              <stop offset="100%" stopColor={OKABE_ITO_PALETTE.REDDISH_PURPLE} stopOpacity="0.4" />
+            </linearGradient>
+
+            {/* Fuzz & Detection Scores: Explainer (Orange) → Scorer (Blue) */}
+            <linearGradient id="gradient-scorer-metrics" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor={OKABE_ITO_PALETTE.ORANGE} stopOpacity="0.4" />
+              <stop offset="30%" stopColor={OKABE_ITO_PALETTE.ORANGE} stopOpacity="0.4" />
+              <stop offset="70%" stopColor={OKABE_ITO_PALETTE.SKY_BLUE} stopOpacity="0.4" />
+              <stop offset="100%" stopColor={OKABE_ITO_PALETTE.SKY_BLUE} stopOpacity="0.4" />
+            </linearGradient>
+
+            {/* Arrow markers for each edge color */}
+            <marker
+              id="arrow-gray"
+              viewBox="0 0 10 10"
+              refX="9"
+              refY="5"
+              markerWidth="6"
+              markerHeight="6"
+              orient="auto"
+            >
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569" opacity="1.0" />
+            </marker>
+
+            <marker
+              id="arrow-green"
+              viewBox="0 0 10 10"
+              refX="9"
+              refY="5"
+              markerWidth="6"
+              markerHeight="6"
+              orient="auto"
+            >
+              <path d="M 0 0 L 10 5 L 0 10 z" fill={PAUL_TOL_BRIGHT.GREEN} opacity="1.0" />
+            </marker>
+
+            <marker
+              id="arrow-orange"
+              viewBox="0 0 10 10"
+              refX="9"
+              refY="5"
+              markerWidth="6"
+              markerHeight="6"
+              orient="auto"
+            >
+              <path d="M 0 0 L 10 5 L 0 10 z" fill={OKABE_ITO_PALETTE.ORANGE} opacity="1.0" />
+            </marker>
+
+            <marker
+              id="arrow-purple"
+              viewBox="0 0 10 10"
+              refX="9"
+              refY="5"
+              markerWidth="6"
+              markerHeight="6"
+              orient="auto"
+            >
+              <path d="M 0 0 L 10 5 L 0 10 z" fill={OKABE_ITO_PALETTE.REDDISH_PURPLE} opacity="1.0" />
+            </marker>
+
+            <marker
+              id="arrow-blue"
+              viewBox="0 0 10 10"
+              refX="9"
+              refY="5"
+              markerWidth="6"
+              markerHeight="6"
+              orient="auto"
+            >
+              <path d="M 0 0 L 10 5 L 0 10 z" fill={OKABE_ITO_PALETTE.SKY_BLUE} opacity="1.0" />
+            </marker>
+          </defs>
+
           {/* Render edges (connections) */}
           {flowLayout.edges.map((edge) => (
             <g key={edge.id}>
               <path
                 d={edge.path}
                 fill="none"
-                stroke="#475569"
-                strokeWidth="2"
+                stroke={edge.color || '#475569'}
+                strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
+                opacity="0.7"
+                markerEnd={getArrowMarker(edge.color || '#475569')}
               />
               {edge.label && edge.labelX && edge.labelY && (
                 <text
@@ -287,62 +440,6 @@ const FlowPanel: React.FC = () => {
               )}
             </g>
           ))}
-
-          {/* Vertical "activating example" label */}
-          <g transform="rotate(0, 0, 0)">
-            {/* Background container */}
-            <rect
-              x={15}
-              y={152}
-              width={190}
-              height={24}
-              rx="4"
-              fill="white"
-              stroke="#cbd5e1"
-              strokeWidth="1.5"
-            />
-            {/* Label text */}
-            <text
-              x={110}
-              y={165}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              fontSize="14"
-              fill="#1e293b"
-              fontWeight="600"
-              letterSpacing="0.5"
-            >
-              + ACTIVATING EXAMPLE
-            </text>
-          </g>
-
-          {/* Vertical "explanation" label spanning both branches */}
-          <g transform="rotate(-90, 235, 125)">
-            {/* Background container */}
-            <rect
-              x={150 - 75}
-              y={150 - 20}
-              width={150}
-              height={24}
-              rx="4"
-              fill="white"
-              stroke="#cbd5e1"
-              strokeWidth="1.5"
-            />
-            {/* Label text */}
-            <text
-              x={150}
-              y={143}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              fontSize="16"
-              fill="#1e293b"
-              fontWeight="600"
-              letterSpacing="0.5"
-            >
-              EXPLANATION
-            </text>
-          </g>
 
           {/* Render nodes */}
           {flowLayout.nodes.map((node) => (
@@ -363,33 +460,87 @@ const FlowPanel: React.FC = () => {
                   <g transform={getIconTransform(node)}>
                     {renderIconForNode(node)}
                   </g>
+                  {/* Badge */}
+                  {getBadgeText(node.iconType) && (
+                    <>
+                      <circle
+                        cx={node.x + node.width - 3}
+                        cy={node.y + 3}
+                        r="10"
+                        fill={getBadgeColor(node.iconType)}
+                      />
+                      <text
+                        x={node.x + node.width - 3}
+                        y={node.y + 3}
+                        textAnchor="middle"
+                        dominantBaseline="central"
+                        fontSize="10"
+                        fill="white"
+                        fontWeight="700"
+                      >
+                        {getBadgeText(node.iconType)}
+                      </text>
+                    </>
+                  )}
                 </>
               ) : (
                 <>
                   {/* Text node */}
-                  <rect
-                    x={node.x}
-                    y={node.y}
-                    width={node.width}
-                    height={node.height}
-                    rx="4"
-                    fill={getTextNodeBackgroundColor(node.id)}
-                    stroke="#cbd5e1"
-                    strokeWidth="1.5"
-                  />
-                  {splitLabel(node.label).map((line, i) => (
-                    <text
-                      key={i}
-                      x={node.x + node.width / 2}
-                      y={node.y + node.height / 2 + (i - (splitLabel(node.label).length - 1) / 2) * 12 + 4}
-                      textAnchor="middle"
-                      fontSize="18"
-                      fill="#334155"
-                      fontWeight="700"
-                    >
-                      {line}
-                    </text>
-                  ))}
+                  {node.id === 'explanation-label' ? (
+                    <g transform={`rotate(-90, ${node.x + node.width / 2}, ${node.y + node.height / 2})`}>
+                      <rect
+                        x={node.x}
+                        y={node.y}
+                        width={node.width}
+                        height={node.height}
+                        rx="4"
+                        fill={getTextNodeBackgroundColor(node.id)}
+                        stroke="#cbd5e1"
+                        strokeWidth="1.5"
+                      />
+                      {splitLabel(node.label).map((line, i) => (
+                        <text
+                          key={i}
+                          x={node.x + node.width / 2}
+                          y={node.y + node.height / 2 + (i - (splitLabel(node.label).length - 1) / 2) * 12 + 4}
+                          textAnchor="middle"
+                          fontSize={getTextNodeFontSize(node.id)}
+                          fill="#334155"
+                          fontWeight={getTextNodeFontWeight(node.id)}
+                          letterSpacing={getTextNodeLetterSpacing(node.id)}
+                        >
+                          {line}
+                        </text>
+                      ))}
+                    </g>
+                  ) : (
+                    <>
+                      <rect
+                        x={node.x}
+                        y={node.y}
+                        width={node.width}
+                        height={node.height}
+                        rx="4"
+                        fill={getTextNodeBackgroundColor(node.id)}
+                        stroke="#cbd5e1"
+                        strokeWidth="1.5"
+                      />
+                      {splitLabel(node.label).map((line, i) => (
+                        <text
+                          key={i}
+                          x={node.x + node.width / 2}
+                          y={node.y + node.height / 2 + (i - (splitLabel(node.label).length - 1) / 2) * 12 + 4}
+                          textAnchor="middle"
+                          fontSize={getTextNodeFontSize(node.id)}
+                          fill="#334155"
+                          fontWeight={getTextNodeFontWeight(node.id)}
+                          letterSpacing={getTextNodeLetterSpacing(node.id)}
+                        >
+                          {line}
+                        </text>
+                      ))}
+                    </>
+                  )}
                 </>
               )}
             </g>
