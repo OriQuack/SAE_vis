@@ -50,24 +50,24 @@ export function calculateFlowLayout(): FlowLayout {
   // Node definitions with absolute coordinates (viewBox: 0 0 600 300)
   const nodes: FlowNode[] = [
     // Feature (starting point)
-    { id: 'feature', label: 'Feature', x: 0, y: 120, width: 100, height: 45 },
+    { id: 'feature', label: 'Feature', x: 0, y: 95, width: 100, height: 45 },
 
     // Top path: Decoder
     { id: 'decoder', label: '', x: 150, y: 20, width: 60, height: 60, iconType: 'decoder' },
-    { id: 'feature-splitting', label: 'Feature Splitting', x: 420, y: 25, width: 170, height: 45 },
+    { id: 'feature-splitting', label: 'Feature Splitting', x: 420, y: 25, width: 180, height: 45 },
 
     // Middle path: Explainer
-    { id: 'explainer', label: '', x: 150, y: 200, width: 60, height: 60, iconType: 'explainer' },
+    { id: 'explainer', label: '', x: 150, y: 190, width: 60, height: 60, iconType: 'explainer' },
 
     // Scorer branch
-    { id: 'scorer', label: '', x: 280, y: 110, width: 60, height: 60, iconType: 'scorer' },
-    { id: 'fuzz-score', label: 'Fuzz Score', x: 420, y: 90, width: 170, height: 45 },
-    { id: 'detection-score', label: 'Detection Score', x: 420, y: 140, width: 170, height: 45 },
+    { id: 'scorer', label: '', x: 280, y: 120, width: 60, height: 60, iconType: 'scorer' },
+    { id: 'fuzz-score', label: 'Fuzz Score', x: 420, y: 100, width: 180, height: 45 },
+    { id: 'detection-score', label: 'Detection Score', x: 420, y: 150, width: 180, height: 45 },
 
     // Embedder branch
-    { id: 'embedder', label: '', x: 280, y: 220, width: 60, height: 60, iconType: 'embedder' },
-    { id: 'embedding-score', label: 'Embedding Score', x: 420, y: 200, width: 170, height: 45 },
-    { id: 'semantic-similarity', label: 'Semantic Similarity', x: 420, y: 250, width: 170, height: 45 }
+    { id: 'embedder', label: '', x: 280, y: 230, width: 60, height: 60, iconType: 'embedder' },
+    { id: 'embedding-score', label: 'Embedding Score', x: 420, y: 210, width: 180, height: 45 },
+    { id: 'semantic-similarity', label: 'Semantic Similarity', x: 420, y: 260, width: 180, height: 45 }
   ]
 
   // Edge definitions (source → target)

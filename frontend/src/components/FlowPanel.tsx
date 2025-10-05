@@ -57,6 +57,10 @@ const LLMScorerIcon: React.FC = () => (
     {/* Sad expression - linear mouth */}
     <line x1="38" y1="66" x2="62" y2="66" stroke="white" strokeWidth="3" strokeLinecap="round" />
 
+    {/* Cute antenna */}
+    <line x1="50" y1="35" x2="50" y2="22" stroke="#1f2937" strokeWidth="2" strokeLinecap="round" />
+    <circle cx="50" cy="18" r="4" fill={OKABE_ITO_PALETTE.YELLOW} stroke="#1f2937" strokeWidth="1.5" />
+
     {/* Pencil - upside down */}
     {/* Pencil tip pointing up */}
     <polygon points="78,30 75,35 81,35" fill="#1f2937" />
@@ -128,12 +132,18 @@ interface MethodItemProps {
   icon: React.ReactNode
   title: string
   color: string
+  badge?: string
 }
 
-const MethodItem: React.FC<MethodItemProps> = ({ icon, title, color }) => (
+const MethodItem: React.FC<MethodItemProps> = ({ icon, title, color, badge }) => (
   <div className="method-item">
-    <div className="method-item__icon-container" style={{ backgroundColor: `${color}15` }}>
+    <div className="method-item__icon-container" style={{ backgroundColor: `${color}15`, position: 'relative' }}>
       {icon}
+      {badge && (
+        <div className="method-item__badge" style={{ backgroundColor: color }}>
+          {badge}
+        </div>
+      )}
     </div>
     <span className="method-item__label" style={{ color }}>{title}</span>
   </div>
@@ -173,6 +183,38 @@ const getIconBorderColor = (iconType?: string) => {
   }
 }
 
+const getIconBackgroundColor = (iconType?: string) => {
+  switch (iconType) {
+    case 'decoder':
+      return `${PAUL_TOL_BRIGHT.GREEN}30`
+    case 'explainer':
+      return `${OKABE_ITO_PALETTE.ORANGE}30`
+    case 'scorer':
+      return `${OKABE_ITO_PALETTE.BLUE}30`
+    case 'embedder':
+      return `${OKABE_ITO_PALETTE.REDDISH_PURPLE}30`
+    default:
+      return 'white'
+  }
+}
+
+const getTextNodeBackgroundColor = (nodeId: string) => {
+  // Feature splitting - green tint
+  if (nodeId === 'feature-splitting') {
+    return `${PAUL_TOL_BRIGHT.GREEN}30`
+  }
+  // Semantic similarity - purple tint
+  if (nodeId === 'semantic-similarity') {
+    return `${OKABE_ITO_PALETTE.REDDISH_PURPLE}30`
+  }
+  // All scores (fuzz-score, detection-score, embedding-score) - blue tint
+  if (nodeId.includes('score')) {
+    return `${OKABE_ITO_PALETTE.BLUE}30`
+  }
+  // Default (Feature node)
+  return '#f8fafc'
+}
+
 // ============================================================================
 // MAIN FLOW PANEL COMPONENT
 // ============================================================================
@@ -190,11 +232,13 @@ const FlowPanel: React.FC = () => {
             icon={<LLMExplainerIcon />}
             title="LLM Explainer"
             color={OKABE_ITO_PALETTE.ORANGE}
+            badge="3"
           />
           <MethodItem
             icon={<LLMScorerIcon />}
             title="LLM Scorer"
             color={OKABE_ITO_PALETTE.BLUE}
+            badge="3"
           />
         </div>
 
@@ -203,18 +247,20 @@ const FlowPanel: React.FC = () => {
             icon={<DecoderIcon />}
             title="Decoder"
             color={PAUL_TOL_BRIGHT.GREEN}
+            badge="16k"
           />
           <MethodItem
             icon={<EmbeddingIcon />}
             title="Embedding"
             color={OKABE_ITO_PALETTE.REDDISH_PURPLE}
+            badge="1"
           />
         </div>
       </div>
 
       {/* Right: D3-Calculated Flowchart */}
       <div className="flow-panel__chart">
-        <svg viewBox="0 0 600 300" preserveAspectRatio="xMidYMid meet">
+        <svg viewBox="0 0 600 310" preserveAspectRatio="xMidYMid meet">
           {/* Render edges (connections) */}
           {flowLayout.edges.map((edge) => (
             <g key={edge.id}>
@@ -243,12 +289,12 @@ const FlowPanel: React.FC = () => {
           ))}
 
           {/* Vertical "activating example" label */}
-          <g transform="rotate(-90, 130, 160)">
+          <g transform="rotate(0, 0, 0)">
             {/* Background container */}
             <rect
-              x={130 - 80}
-              y={160 - 12}
-              width={160}
+              x={15}
+              y={152}
+              width={190}
               height={24}
               rx="4"
               fill="white"
@@ -257,8 +303,8 @@ const FlowPanel: React.FC = () => {
             />
             {/* Label text */}
             <text
-              x={130}
-              y={160}
+              x={110}
+              y={165}
               textAnchor="middle"
               dominantBaseline="middle"
               fontSize="14"
@@ -266,7 +312,7 @@ const FlowPanel: React.FC = () => {
               fontWeight="600"
               letterSpacing="0.5"
             >
-              ACTIVATING EXAMPLE
+              + ACTIVATING EXAMPLE
             </text>
           </g>
 
@@ -274,7 +320,7 @@ const FlowPanel: React.FC = () => {
           <g transform="rotate(-90, 235, 125)">
             {/* Background container */}
             <rect
-              x={150 - 80}
+              x={150 - 75}
               y={150 - 20}
               width={150}
               height={24}
@@ -286,7 +332,7 @@ const FlowPanel: React.FC = () => {
             {/* Label text */}
             <text
               x={150}
-              y={145}
+              y={143}
               textAnchor="middle"
               dominantBaseline="middle"
               fontSize="16"
@@ -310,7 +356,7 @@ const FlowPanel: React.FC = () => {
                     width={node.width}
                     height={node.height}
                     rx="6"
-                    fill="white"
+                    fill={getIconBackgroundColor(node.iconType)}
                     stroke={getIconBorderColor(node.iconType)}
                     strokeWidth="2"
                   />
@@ -327,7 +373,7 @@ const FlowPanel: React.FC = () => {
                     width={node.width}
                     height={node.height}
                     rx="4"
-                    fill="#f8fafc"
+                    fill={getTextNodeBackgroundColor(node.id)}
                     stroke="#cbd5e1"
                     strokeWidth="1.5"
                   />
