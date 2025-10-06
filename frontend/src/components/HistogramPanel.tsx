@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useVisualizationStore } from '../store'
-import { calculateSimpleHistogramPanel, formatSmartNumber } from '../lib/d3-histogram-utils'
-import { calculateExactThresholdRange, getBarsInSelection, getContainerCoordinates } from '../lib/selection-utils'
+import { calculateSimpleHistogramPanel, calculateSimpleHistogramPanelWithFixedDomain, formatSmartNumber } from '../lib/d3-histogram-utils'
+import { calculateThresholdRangeFromMouse, getBarsInSelection, getContainerCoordinates } from '../lib/selection-utils'
 import type { HistogramData, MetricType } from '../types'
 import { COMPONENT_COLORS } from '../lib/constants'
 import '../styles/HistogramPanel.css'
@@ -12,8 +12,8 @@ interface HistogramPanelProps {
 }
 
 
-// Metric configuration for the panel
-const PANEL_METRICS = [
+// Metric configuration for the panel - individual metrics (not merged)
+const INDIVIDUAL_METRICS = [
   {
     key: 'feature_splitting' as MetricType,
     label: ['Feature', 'Splitting'],
@@ -30,7 +30,11 @@ const PANEL_METRICS = [
       { color: COMPONENT_COLORS.EXPLAINER, text: '3' }, // LLM Explainer (orange)
       { color: COMPONENT_COLORS.EMBEDDER, text: '1' }  // Embedder (purple)
     ]
-  },
+  }
+]
+
+// Score metrics to be merged with common x-axis (0-1.0)
+const MERGED_SCORE_METRICS = [
   {
     key: 'score_embedding' as MetricType,
     label: ['Embedding', 'Score'],
@@ -60,6 +64,9 @@ const PANEL_METRICS = [
   }
 ]
 
+// All metrics combined (for backwards compatibility)
+const PANEL_METRICS = [...INDIVIDUAL_METRICS, ...MERGED_SCORE_METRICS]
+
 // Colors for histograms
 const HISTOGRAM_COLORS = {
   bars: '#94a3b8',
@@ -77,41 +84,50 @@ const SingleHistogram: React.FC<{
   height: number
   isLast: boolean
   metricKey: MetricType
-  selections: Array<{ metricType: string; barIndices: number[]; color: string; thresholdRange: { min: number; max: number } }>
-  showXAxisLabels: boolean
-}> = ({ data, label, badges, width, height, metricKey, selections, showXAxisLabels }) => {
+  selections: Array<{
+    id: string
+    metricType: string
+    barIndices: number[]
+    thresholdRange: { min: number; max: number }
+    color: string
+  }>
+  useFixedDomain?: boolean
+  isMerged?: boolean
+  showXAxis?: boolean
+}> = ({ data, label, badges, width, height, metricKey, selections, useFixedDomain = false, isMerged = false, showXAxis = true }) => {
   const margin = { top: 5, right: 10, bottom: 10, left: 85 }
   const innerWidth = width - margin.left - margin.right
   const innerHeight = height - margin.top - margin.bottom
 
-  // D3 calculations
-  const { bars, gridLines, xAxisTicks } = useMemo(
-    () => calculateSimpleHistogramPanel(data, innerWidth, innerHeight, HISTOGRAM_COLORS.bars),
-    [data, innerWidth, innerHeight]
+  // D3 calculations - use fixed domain for score metrics
+  const { bars, gridLines, verticalGridLines, xAxisTicks } = useMemo(
+    () => useFixedDomain
+      ? calculateSimpleHistogramPanelWithFixedDomain(data, innerWidth, innerHeight, HISTOGRAM_COLORS.bars, 0, 1.0)
+      : calculateSimpleHistogramPanel(data, innerWidth, innerHeight, HISTOGRAM_COLORS.bars),
+    [data, innerWidth, innerHeight, useFixedDomain]
   )
 
   // Get selection for this metric
   const metricSelections = selections.filter(s => s.metricType === metricKey)
 
-  // Calculate x positions for threshold lines
-  // Note: Use bin_edges from backend which already reflect the correct domain
-  const getThresholdX = (value: number) => {
-    const domainMin = data.histogram.bin_edges[0]
-    const domainMax = data.histogram.bin_edges[data.histogram.bin_edges.length - 1]
-    const range = domainMax - domainMin
-    if (range === 0) return innerWidth / 2
-    return ((value - domainMin) / range) * innerWidth
-  }
+  // Helper to convert threshold value to X position
+  const thresholdToX = useCallback((threshold: number) => {
+    const domain = useFixedDomain
+      ? { min: 0, max: 1.0 }
+      : { min: data.histogram.bin_edges[0], max: data.histogram.bin_edges[data.histogram.bin_edges.length - 1] }
 
+    const ratio = (threshold - domain.min) / (domain.max - domain.min)
+    return ratio * innerWidth
+  }, [useFixedDomain, data.histogram.bin_edges, innerWidth])
 
   return (
-    <div className="histogram-panel__chart">
+    <div className={isMerged ? "histogram-panel__merged-chart" : "histogram-panel__chart"}>
       <svg width={width} height={height}>
         <g transform={`translate(${margin.left}, ${margin.top})`}>
-          {/* Grid lines - subtle */}
+          {/* Horizontal grid lines */}
           {gridLines.map((line, i) => (
             <line
-              key={i}
+              key={`h-${i}`}
               x1={line.x1}
               x2={line.x2}
               y1={line.y1}
@@ -119,6 +135,20 @@ const SingleHistogram: React.FC<{
               stroke={HISTOGRAM_COLORS.grid}
               strokeWidth={1}
               opacity={0.5}
+            />
+          ))}
+
+          {/* Vertical grid lines */}
+          {verticalGridLines.map((line, i) => (
+            <line
+              key={`v-${i}`}
+              x1={line.x1}
+              x2={line.x2}
+              y1={line.y1}
+              y2={line.y2}
+              stroke={HISTOGRAM_COLORS.grid}
+              strokeWidth={1}
+              opacity={0.3}
             />
           ))}
 
@@ -130,6 +160,7 @@ const SingleHistogram: React.FC<{
             return (
               <rect
                 key={i}
+                className={selection ? 'histogram-bar--selected' : ''}
                 x={bar.x}
                 y={bar.y}
                 width={bar.width}
@@ -142,57 +173,86 @@ const SingleHistogram: React.FC<{
             )
           })}
 
-          {/* X-axis */}
-          <g transform={`translate(0, ${innerHeight})`}>
-            <line x1={0} x2={innerWidth} y1={0} y2={0} stroke={HISTOGRAM_COLORS.axis} strokeWidth={0.5} opacity={0.4} />
-            {xAxisTicks.map(tick => (
-              <g key={tick.value} transform={`translate(${tick.position}, 0)`}>
-                <line y1={0} y2={2} stroke={HISTOGRAM_COLORS.axis} strokeWidth={0.5} opacity={0.4} />
-                {showXAxisLabels && (
-                  <text y={8} textAnchor="middle" fontSize={7} fill={HISTOGRAM_COLORS.text} opacity={0.6}>
+          {/* Threshold indicators (colored area and dotted lines) - rendered on top */}
+          {metricSelections.map(selection => {
+            const minX = thresholdToX(selection.thresholdRange.min)
+            const maxX = thresholdToX(selection.thresholdRange.max)
+
+            return (
+              <g key={selection.id}>
+                {/* Colored area between thresholds */}
+                <rect
+                  x={minX}
+                  y={0}
+                  width={maxX - minX}
+                  height={innerHeight}
+                  fill={selection.color}
+                  opacity={0.15}
+                />
+                {/* Min threshold line (dotted) */}
+                <line
+                  x1={minX}
+                  x2={minX}
+                  y1={0}
+                  y2={innerHeight}
+                  stroke="#94a3b8"
+                  strokeWidth={2}
+                  strokeDasharray="4 2"
+                  opacity={0.8}
+                />
+                {/* Min threshold value */}
+                <text
+                  x={minX}
+                  y={8}
+                  textAnchor="start"
+                  fontSize={8}
+                  fontWeight={600}
+                  fill="#000000"
+                  transform={`rotate(30, ${minX + 5}, 10)`}
+                >
+                  {formatSmartNumber(selection.thresholdRange.min)}
+                </text>
+                {/* Max threshold line (dotted) */}
+                <line
+                  x1={maxX}
+                  x2={maxX}
+                  y1={0}
+                  y2={innerHeight}
+                  stroke="#94a3b8"
+                  strokeWidth={2}
+                  strokeDasharray="4 2"
+                  opacity={0.8}
+                />
+                {/* Max threshold value */}
+                <text
+                  x={maxX}
+                  y={8}
+                  textAnchor="start"
+                  fontSize={8}
+                  fontWeight={600}
+                  fill="#000000"
+                  transform={`rotate(30, ${maxX + 5}, 10)`}
+                >
+                  {formatSmartNumber(selection.thresholdRange.max)}
+                </text>
+              </g>
+            )
+          })}
+
+          {/* X-axis - conditionally rendered */}
+          {showXAxis && (
+            <g transform={`translate(0, ${innerHeight})`}>
+              <line x1={0} x2={innerWidth} y1={0} y2={0} stroke={HISTOGRAM_COLORS.axis} strokeWidth={0.5} opacity={0.4} />
+              {xAxisTicks.map(tick => (
+                <g key={tick.value} transform={`translate(${tick.position}, 0)`}>
+                  <line y1={0} y2={2} stroke={HISTOGRAM_COLORS.axis} strokeWidth={0.5} opacity={0.4} />
+                  <text y={8} textAnchor="middle" fontSize={7} fill="#000000">
                     {formatSmartNumber(tick.value)}
                   </text>
-                )}
-              </g>
-            ))}
-          </g>
-
-          {/* Threshold range lines */}
-          {metricSelections.map((selection, idx) => (
-            <g key={idx}>
-              {/* Min threshold line */}
-              <line
-                x1={getThresholdX(selection.thresholdRange.min)}
-                x2={getThresholdX(selection.thresholdRange.min)}
-                y1={0}
-                y2={innerHeight}
-                stroke={selection.color}
-                strokeWidth={2}
-                strokeDasharray="4,2"
-                opacity={0.8}
-              />
-              {/* Max threshold line */}
-              <line
-                x1={getThresholdX(selection.thresholdRange.max)}
-                x2={getThresholdX(selection.thresholdRange.max)}
-                y1={0}
-                y2={innerHeight}
-                stroke={selection.color}
-                strokeWidth={2}
-                strokeDasharray="4,2"
-                opacity={0.8}
-              />
-              {/* Shaded area between thresholds */}
-              <rect
-                x={getThresholdX(selection.thresholdRange.min)}
-                y={0}
-                width={getThresholdX(selection.thresholdRange.max) - getThresholdX(selection.thresholdRange.min)}
-                height={innerHeight}
-                fill={selection.color}
-                opacity={0.1}
-              />
+                </g>
+              ))}
             </g>
-          ))}
+          )}
 
           {/* Left-side label with badges below */}
           <g transform={`translate(${-margin.left + 10}, ${innerHeight / 2})`}>
@@ -258,8 +318,31 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
   const error = useVisualizationStore(state => state.errors.histogramPanel)
   const selectionMode = useVisualizationStore(state => state.selectionMode)
   const selections = useVisualizationStore(state => state.selections)
+  const thresholdGroups = useVisualizationStore(state => state.thresholdGroups)
+  const isCreatingGroup = useVisualizationStore(state => state.isCreatingGroup)
+  const pendingGroup = useVisualizationStore(state => state.pendingGroup)
   const activeSelection = useVisualizationStore(state => state.activeSelection)
   const { fetchHistogramPanelData, startSelection, updateSelection, completeSelection } = useVisualizationStore()
+
+  // Get all visible selections from groups
+  const visibleSelections = useMemo(() => {
+    // If creating a group, show pending selections
+    if (isCreatingGroup) {
+      return pendingGroup
+    }
+
+    // Otherwise show selections from visible groups
+    const groupSelections = thresholdGroups
+      .filter(group => group.visible)
+      .flatMap(group => group.selections)
+
+    // Include legacy selections if no groups exist
+    if (thresholdGroups.length === 0) {
+      return selections
+    }
+
+    return groupSelections
+  }, [thresholdGroups, selections, isCreatingGroup, pendingGroup])
 
   // Update container size on resize
   useEffect(() => {
@@ -318,47 +401,103 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
   const handleMouseUp = useCallback(() => {
     if (!isDragging || !selectionRect || !histogramPanelData) return
 
-    // Process selection for each metric
-    PANEL_METRICS.forEach((metric, metricIndex) => {
-      const data = histogramPanelData[metric.key]
-      if (!data) return
+    const margin = { top: 5, right: 10, bottom: 10, left: 85 }
 
-      // Calculate chart position
-      const chartTop = metricIndex * histogramHeight + metricIndex * 6
-      const chartBottom = chartTop + histogramHeight
+    // Get all chart elements (both individual and merged)
+    const individualCharts = containerRef.current?.querySelectorAll('.histogram-panel__chart:not(.histogram-panel__chart--empty)')
+    const mergedCharts = containerRef.current?.querySelectorAll('.histogram-panel__merged-chart:not(.histogram-panel__chart--empty)')
+
+    // Process individual metrics
+    INDIVIDUAL_METRICS.forEach((metric, index) => {
+      const data = histogramPanelData[metric.key]
+      if (!data || !individualCharts) return
+
+      const chartElement = individualCharts[index] as HTMLElement
+      if (!chartElement) return
+
+      const chartRect = chartElement.getBoundingClientRect()
+      const containerRect = containerRef.current?.getBoundingClientRect()
+      if (!containerRect) return
+
+      // Calculate relative chart position
+      const chartTop = chartRect.top - containerRect.top
+      const chartBottom = chartRect.bottom - containerRect.top
 
       // Check if selection intersects with this chart
       if (selectionRect.y < chartBottom && selectionRect.y + selectionRect.height > chartTop) {
-        // Get bars in selection for visual highlighting
-        const chartElement = containerRef.current?.querySelectorAll('.histogram-panel__chart')[metricIndex]
-        if (!chartElement) return
-
-        const chartRect = chartElement.getBoundingClientRect()
-        const margin = { top: 5, right: 10, bottom: 10, left: 85 }
         const innerWidth = histogramWidth - margin.left - margin.right
+        const innerHeight = histogramHeight - margin.top - margin.bottom
 
         const { bars } = calculateSimpleHistogramPanel(
           data,
           innerWidth,
-          histogramHeight - margin.top - margin.bottom,
+          innerHeight,
           HISTOGRAM_COLORS.bars
         )
 
-        // Get bars that are within selection for visual feedback
         const selectedIndices = getBarsInSelection(selectionRect, chartRect, bars, margin)
 
         if (selectedIndices.length > 0) {
-          // Calculate EXACT threshold range based on mouse selection coordinates
-          const exactThresholdRange = calculateExactThresholdRange(
+          // Calculate exact threshold from mouse position
+          const domain = {
+            min: data.histogram.bin_edges[0],
+            max: data.histogram.bin_edges[data.histogram.bin_edges.length - 1]
+          }
+          const thresholdRange = calculateThresholdRangeFromMouse(
             selectionRect,
             chartRect,
-            data,
+            margin,
             innerWidth,
-            margin
+            domain
           )
+          completeSelection(metric.key, selectedIndices, thresholdRange)
+        }
+      }
+    })
 
-          // Use exact threshold range instead of bar-based range
-          completeSelection(metric.key, selectedIndices, exactThresholdRange)
+    // Process merged score metrics (with fixed domain 0-1)
+    MERGED_SCORE_METRICS.forEach((metric, index) => {
+      const data = histogramPanelData[metric.key]
+      if (!data || !mergedCharts) return
+
+      const chartElement = mergedCharts[index] as HTMLElement
+      if (!chartElement) return
+
+      const chartRect = chartElement.getBoundingClientRect()
+      const containerRect = containerRef.current?.getBoundingClientRect()
+      if (!containerRect) return
+
+      // Calculate relative chart position
+      const chartTop = chartRect.top - containerRect.top
+      const chartBottom = chartRect.bottom - containerRect.top
+
+      // Check if selection intersects with this chart
+      if (selectionRect.y < chartBottom && selectionRect.y + selectionRect.height > chartTop) {
+        const innerWidth = histogramWidth - margin.left - margin.right
+        const innerHeight = histogramHeight - margin.top - margin.bottom
+
+        const { bars } = calculateSimpleHistogramPanelWithFixedDomain(
+          data,
+          innerWidth,
+          innerHeight,
+          HISTOGRAM_COLORS.bars,
+          0,
+          1.0
+        )
+
+        const selectedIndices = getBarsInSelection(selectionRect, chartRect, bars, margin)
+
+        if (selectedIndices.length > 0) {
+          // Calculate exact threshold from mouse position with fixed domain [0, 1]
+          const domain = { min: 0, max: 1.0 }
+          const thresholdRange = calculateThresholdRangeFromMouse(
+            selectionRect,
+            chartRect,
+            margin,
+            innerWidth,
+            domain
+          )
+          completeSelection(metric.key, selectedIndices, thresholdRange)
         }
       }
     })
@@ -409,10 +548,9 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
       ref={containerRef}
     >
       <div className="histogram-panel__container">
-        {PANEL_METRICS.map((metric, index) => {
+        {/* Render individual metrics */}
+        {INDIVIDUAL_METRICS.map((metric) => {
           const data = histogramPanelData[metric.key]
-          const isLast = index === PANEL_METRICS.length - 1
-          const isScoreMetric = metric.key === 'score_embedding' || metric.key === 'score_fuzz' || metric.key === 'score_detection'
 
           if (!data) {
             return (
@@ -422,50 +560,40 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
             )
           }
 
-          // For score metrics, we'll group them together
-          if (isScoreMetric && metric.key === 'score_embedding') {
-            // Render the grouped score panel
-            const scoreMetrics = PANEL_METRICS.filter(m =>
-              m.key === 'score_embedding' || m.key === 'score_fuzz' || m.key === 'score_detection'
-            )
+          return (
+            <SingleHistogram
+              key={metric.key}
+              data={data}
+              label={metric.label}
+              badges={metric.badges}
+              width={histogramWidth}
+              height={histogramHeight}
+              isLast={false}
+              metricKey={metric.key}
+              selections={visibleSelections}
+              useFixedDomain={false}
+              isMerged={false}
+            />
+          )
+        })}
+
+        {/* Render merged score container with common x-axis (0-1.0) */}
+        <div className="histogram-panel__merged-container">
+          {MERGED_SCORE_METRICS.map((metric, index) => {
+            const data = histogramPanelData[metric.key]
+            const isLast = index === MERGED_SCORE_METRICS.length - 1
+
+            if (!data) {
+              return (
+                <div key={metric.key} className="histogram-panel__merged-chart histogram-panel__chart--empty">
+                  <div className="histogram-panel__no-data">{metric.label.join(' ')}: No data</div>
+                </div>
+              )
+            }
 
             return (
-              <div key="score-group" className="histogram-panel__chart">
-                {scoreMetrics.map((scoreMetric) => {
-                  const scoreData = histogramPanelData[scoreMetric.key]
-                  if (!scoreData) return null
-
-                  const showXAxisLabels = scoreMetric.key === 'score_detection'
-
-                  return (
-                    <div key={scoreMetric.key} className="histogram-panel__score-item">
-                      <SingleHistogram
-                        data={scoreData}
-                        label={scoreMetric.label}
-                        badges={scoreMetric.badges}
-                        width={histogramWidth}
-                        height={histogramHeight}
-                        isLast={scoreMetric.key === 'score_detection'}
-                        metricKey={scoreMetric.key}
-                        selections={selections}
-                        showXAxisLabels={showXAxisLabels}
-                      />
-                    </div>
-                  )
-                })}
-              </div>
-            )
-          }
-
-          // Skip individual score metrics (already rendered in group)
-          if (isScoreMetric) {
-            return null
-          }
-
-          // Render non-score metrics normally
-          return (
-            <div key={metric.key} className="histogram-panel__chart">
               <SingleHistogram
+                key={metric.key}
                 data={data}
                 label={metric.label}
                 badges={metric.badges}
@@ -473,12 +601,14 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
                 height={histogramHeight}
                 isLast={isLast}
                 metricKey={metric.key}
-                selections={selections}
-                showXAxisLabels={true}
+                selections={visibleSelections}
+                useFixedDomain={true}
+                isMerged={true}
+                showXAxis={isLast}
               />
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
       </div>
 
       {/* Selection overlay */}

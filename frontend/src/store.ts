@@ -39,6 +39,14 @@ interface ThresholdSelection {
   timestamp: number
 }
 
+interface ThresholdGroup {
+  id: string
+  name: string
+  selections: ThresholdSelection[]
+  visible: boolean
+  timestamp: number
+}
+
 interface ActiveSelection {
   startPoint: { x: number; y: number } | null
   endPoint: { x: number; y: number } | null
@@ -62,8 +70,14 @@ interface AppState {
 
   // Selection mode state
   selectionMode: boolean
-  selections: ThresholdSelection[]
+  selections: ThresholdSelection[]  // Keep for backwards compatibility
   activeSelection: ActiveSelection | null
+
+  // Threshold group management
+  thresholdGroups: ThresholdGroup[]
+  pendingGroup: ThresholdSelection[]
+  isCreatingGroup: boolean
+  showGroupNameInput: boolean
 
   // Hover state for cross-component highlighting
   hoveredAlluvialNodeId: string | null
@@ -125,6 +139,14 @@ interface AppState {
   completeSelection: (metricType: string, barIndices: number[], thresholdRange: { min: number; max: number }) => void
   removeSelection: (id: string) => void
   clearAllSelections: () => void
+
+  // Threshold group actions
+  startGroupCreation: () => void
+  finishGroupCreation: (name: string) => void
+  cancelGroupCreation: () => void
+  toggleGroupVisibility: (groupId: string) => void
+  deleteGroup: (groupId: string) => void
+  setShowGroupNameInput: (show: boolean) => void
 
   // Reset actions
   reset: () => void
@@ -197,6 +219,12 @@ const initialState = {
   selectionMode: false,
   selections: [],
   activeSelection: null,
+
+  // Threshold group management
+  thresholdGroups: [],
+  pendingGroup: [],
+  isCreatingGroup: false,
+  showGroupNameInput: false,
 
   // Alluvial flows
   alluvialFlows: null,
@@ -607,9 +635,6 @@ export const useStore = create<AppState>((set, get) => ({
 
       // Fetch all histograms in parallel
       const histogramPromises = metricsToFetch.map(async ({ metric, averageBy }) => {
-        // Determine if this is a score metric that needs fixed domain [0.0, 1.0]
-        const isScoreMetric = metric === 'score_embedding' || metric === 'score_fuzz' || metric === 'score_detection'
-
         const request = {
           filters: {
             sae_id: [],
@@ -619,7 +644,7 @@ export const useStore = create<AppState>((set, get) => ({
           },
           metric,
           ...(averageBy && { averageBy }), // Only include averageBy if it's not null
-          ...(isScoreMetric && { fixedDomain: [0.0, 1.0] as [number, number] }) // Add fixed domain for score metrics
+          ...(metric.startsWith('score_') && { fixedDomain: [0.0, 1.0] }) // Fixed domain for score metrics
         }
 
         console.log('[HistogramPanel] Sending request:', JSON.stringify(request, null, 2))
@@ -900,42 +925,42 @@ export const useStore = create<AppState>((set, get) => ({
     const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
     const state = get()
 
-    // Check if selection already exists for this metric
-    const existingSelection = state.selections.find(s => s.metricType === metricType)
+    // Determine color index based on whether we're creating a group or not
+    const existingCount = state.isCreatingGroup
+      ? state.pendingGroup.length
+      : state.selections.length
+    const colorIndex = existingCount % colors.length
 
-    if (existingSelection) {
-      // Update existing selection, preserve color
-      const updatedSelection = {
-        ...existingSelection,
-        barIndices,
-        thresholdRange,
-        timestamp: Date.now()
-      }
-
-      set((state) => ({
-        selections: state.selections.map(s =>
-          s.metricType === metricType ? updatedSelection : s
-        ),
-        activeSelection: null
-      }))
-    } else {
-      // Add new selection with next color
-      const colorIndex = state.selections.length % colors.length
-
-      const newSelection = {
-        id: `sel_${Date.now()}`,
-        metricType,
-        barIndices,
-        thresholdRange,
-        color: colors[colorIndex],
-        timestamp: Date.now()
-      }
-
-      set((state) => ({
-        selections: [...state.selections, newSelection],
-        activeSelection: null
-      }))
+    const newSelection = {
+      id: `sel_${Date.now()}`,
+      metricType,
+      barIndices,
+      thresholdRange,
+      color: colors[colorIndex],
+      timestamp: Date.now()
     }
+
+    set((state) => {
+      if (state.isCreatingGroup) {
+        // Add to pending group, replacing existing selection for same metric
+        return {
+          pendingGroup: [
+            ...state.pendingGroup.filter(s => s.metricType !== metricType),
+            newSelection
+          ],
+          activeSelection: null
+        }
+      } else {
+        // Old behavior for backwards compatibility
+        return {
+          selections: [
+            ...state.selections.filter(s => s.metricType !== metricType),
+            newSelection
+          ],
+          activeSelection: null
+        }
+      }
+    })
   },
 
   removeSelection: (id) => {
@@ -948,6 +973,78 @@ export const useStore = create<AppState>((set, get) => ({
     set(() => ({
       selections: [],
       activeSelection: null
+    }))
+  },
+
+  // Threshold group actions
+  startGroupCreation: () => {
+    set(() => ({
+      isCreatingGroup: true,
+      selectionMode: true,
+      pendingGroup: [],
+      showGroupNameInput: false
+    }))
+  },
+
+  finishGroupCreation: (name: string) => {
+    const state = get()
+    if (state.pendingGroup.length === 0 || !name.trim()) {
+      // Cancel if no selections or empty name
+      set(() => ({
+        isCreatingGroup: false,
+        selectionMode: false,
+        pendingGroup: [],
+        showGroupNameInput: false
+      }))
+      return
+    }
+
+    const newGroup: ThresholdGroup = {
+      id: `group_${Date.now()}`,
+      name: name.trim(),
+      selections: [...state.pendingGroup],
+      visible: false, // Start with visualizations hidden
+      timestamp: Date.now()
+    }
+
+    set(() => ({
+      thresholdGroups: [...state.thresholdGroups, newGroup],
+      isCreatingGroup: false,
+      selectionMode: false,
+      pendingGroup: [],
+      showGroupNameInput: false,
+      selections: [] // Clear old selections when we have groups
+    }))
+  },
+
+  cancelGroupCreation: () => {
+    set(() => ({
+      isCreatingGroup: false,
+      selectionMode: false,
+      pendingGroup: [],
+      showGroupNameInput: false
+    }))
+  },
+
+  toggleGroupVisibility: (groupId: string) => {
+    set((state) => ({
+      thresholdGroups: state.thresholdGroups.map(group =>
+        group.id === groupId
+          ? { ...group, visible: !group.visible }
+          : group
+      )
+    }))
+  },
+
+  deleteGroup: (groupId: string) => {
+    set((state) => ({
+      thresholdGroups: state.thresholdGroups.filter(group => group.id !== groupId)
+    }))
+  },
+
+  setShowGroupNameInput: (show: boolean) => {
+    set(() => ({
+      showGroupNameInput: show
     }))
   }
 }))

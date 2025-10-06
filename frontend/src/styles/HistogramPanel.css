@@ -36,10 +36,27 @@
   margin-bottom: 0;
 }
 
-/* Score group item - no individual border */
-.histogram-panel__score-item {
+/* Merged container for score histograms */
+.histogram-panel__merged-container {
+  background: white;
+  border-radius: 3px;
+  padding: 3px;
+  margin-bottom: 3px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   display: flex;
   flex-direction: column;
+}
+
+/* Individual charts within merged container */
+.histogram-panel__merged-chart {
+  background: transparent;
+  padding: 3px;
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
 }
 
 /* Empty chart state */
@@ -153,9 +170,19 @@
   position: relative;
 }
 
-.histogram-panel--selection-mode .histogram-panel__chart {
-  opacity: 0.5;
+.histogram-panel--selection-mode .histogram-panel__chart rect[fill]:not([fill="none"]) {
+  opacity: 0.3;
   transition: opacity 0.2s;
+}
+
+.histogram-panel--selection-mode .histogram-panel__merged-chart rect[fill]:not([fill="none"]) {
+  opacity: 0.3;
+  transition: opacity 0.2s;
+}
+
+/* Keep selected bars at full opacity */
+.histogram-panel--selection-mode .histogram-bar--selected {
+  opacity: 1 !important;
 }
 
 .histogram-panel__selection-overlay {

@@ -152,12 +152,9 @@
 
 /* Add button styles */
 .threshold-group-panel__add-button {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+  width: calc(100% - 16px);
+  min-height: 44px;
+  border-radius: 6px;
   background: white;
   border: 2px solid #e5e7eb;
   cursor: pointer;
@@ -166,8 +163,11 @@
   align-items: center;
   justify-content: center;
   color: #6b7280;
-  z-index: 10;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+  margin: 8px auto;
+  padding: 10px 12px;
+  order: -1;
 }
 
 .threshold-group-panel__add-button:hover {
@@ -176,15 +176,37 @@
   transform: scale(1.05);
 }
 
-.threshold-group-panel__add-button--active {
-  background: #3b82f6;
-  border-color: #3b82f6;
-  color: white;
+.threshold-group-panel__add-button--check {
+  background: #fef3c7;
+  border-color: #fbbf24;
+  color: #92400e;
 }
 
-.threshold-group-panel__add-button--active:hover {
-  background: #2563eb;
-  border-color: #2563eb;
+.threshold-group-panel__add-button--check:hover {
+  background: #fed7aa;
+  border-color: #f59e0b;
+}
+
+.threshold-group-panel__add-button--ready {
+  background: #10b981;
+  border-color: #10b981;
+  color: white;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+.threshold-group-panel__add-button--ready:hover {
+  background: #059669;
+  border-color: #059669;
+}
+
+.threshold-group-panel__add-button svg {
+  flex-shrink: 0;
+  display: block;
 }
 
 /* Selection list styles */
@@ -287,6 +309,191 @@
 .threshold-group-panel__remove-selection:hover {
   background: #fee2e2;
   color: #ef4444;
+}
+
+/* Group styles */
+.threshold-group-panel__groups {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+}
+
+.threshold-group-panel__group {
+  background: white;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.threshold-group-panel__group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.threshold-group-panel__group-header:hover {
+  background: #f9fafb;
+}
+
+.threshold-group-panel__group-header--visible {
+  background: #eff6ff;
+  border-bottom-color: #3b82f6;
+}
+
+.threshold-group-panel__group-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #d1d5db;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.threshold-group-panel__group-indicator--visible {
+  background: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.threshold-group-panel__group-name {
+  flex: 1;
+  font-weight: 600;
+  color: #374151;
+}
+
+.threshold-group-panel__group-count {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.threshold-group-panel__group-delete {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  line-height: 1;
+  transition: all 0.2s;
+}
+
+.threshold-group-panel__group-delete:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.threshold-group-panel__group-selections {
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #f9fafb;
+}
+
+/* Pending selections */
+.threshold-group-panel__pending {
+  background: #fef3c7;
+  border-radius: 6px;
+  padding: 12px;
+  margin: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.threshold-group-panel__pending-header {
+  font-weight: 600;
+  color: #92400e;
+  margin-bottom: 8px;
+}
+
+/* Name input modal */
+.threshold-group-panel__name-input-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.threshold-group-panel__name-input-container {
+  background: white;
+  border-radius: 8px;
+  padding: 24px;
+  min-width: 300px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.threshold-group-panel__name-input-container h3 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  color: #374151;
+}
+
+.threshold-group-panel__name-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 2px solid #e5e7eb;
+  border-radius: 4px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.threshold-group-panel__name-input:focus {
+  border-color: #3b82f6;
+}
+
+.threshold-group-panel__name-input-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.threshold-group-panel__name-input-buttons button {
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.threshold-group-panel__name-input-buttons button:first-child {
+  background: #3b82f6;
+  color: white;
+}
+
+.threshold-group-panel__name-input-buttons button:first-child:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.threshold-group-panel__name-input-buttons button:first-child:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+}
+
+.threshold-group-panel__name-input-buttons button:last-child {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.threshold-group-panel__name-input-buttons button:last-child:hover {
+  background: #e5e7eb;
 }
 
 /* Responsive adjustments */

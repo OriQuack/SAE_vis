@@ -25,6 +25,63 @@ export interface ThresholdRange {
 // ============================================================================
 
 /**
+ * Calculate threshold value from mouse X position
+ * @param mouseX - Mouse X coordinate relative to container
+ * @param chartRect - Chart bounding rectangle
+ * @param margin - Chart margins
+ * @param innerWidth - Chart inner width (excluding margins)
+ * @param domain - Metric domain {min, max}
+ * @returns Threshold value
+ */
+export function calculateThresholdFromMouseX(
+  mouseX: number,
+  chartRect: DOMRect,
+  margin: { left: number },
+  innerWidth: number,
+  domain: { min: number; max: number }
+): number {
+  // Convert mouse position to chart coordinates
+  const chartX = mouseX - chartRect.left - margin.left
+
+  // Clamp to chart bounds
+  const clampedX = Math.max(0, Math.min(innerWidth, chartX))
+
+  // Convert to domain value
+  const ratio = clampedX / innerWidth
+  const value = domain.min + ratio * (domain.max - domain.min)
+
+  return value
+}
+
+/**
+ * Calculate threshold range from mouse selection rectangle
+ * @param selectionRect - Selection rectangle in container coordinates
+ * @param chartRect - Chart bounding rectangle
+ * @param margin - Chart margins
+ * @param innerWidth - Chart inner width
+ * @param domain - Metric domain
+ * @returns Min and max threshold values
+ */
+export function calculateThresholdRangeFromMouse(
+  selectionRect: SelectionRect,
+  chartRect: DOMRect,
+  margin: { left: number },
+  innerWidth: number,
+  domain: { min: number; max: number }
+): ThresholdRange {
+  const minX = selectionRect.x
+  const maxX = selectionRect.x + selectionRect.width
+
+  const minThreshold = calculateThresholdFromMouseX(minX, chartRect, margin, innerWidth, domain)
+  const maxThreshold = calculateThresholdFromMouseX(maxX, chartRect, margin, innerWidth, domain)
+
+  return {
+    min: Math.min(minThreshold, maxThreshold),
+    max: Math.max(minThreshold, maxThreshold)
+  }
+}
+
+/**
  * Calculate threshold range from selected bar indices
  * @param histogramData - Histogram data containing bin edges
  * @param selectedIndices - Array of selected bar indices
@@ -44,43 +101,6 @@ export function calculateThresholdRange(
   // Get exact threshold values from bin edges
   const min = histogramData.histogram.bin_edges[minIndex]
   const max = histogramData.histogram.bin_edges[maxIndex + 1]
-
-  return { min, max }
-}
-
-/**
- * Calculate exact threshold range from mouse selection coordinates
- * @param selectionRect - Selection rectangle in container coordinates
- * @param chartRect - Chart SVG element bounding rect
- * @param histogramData - Histogram data with bin edges
- * @param innerWidth - Inner width of chart (excluding margins)
- * @param margin - Chart margins
- * @returns Exact min and max threshold values based on pixel positions
- */
-export function calculateExactThresholdRange(
-  selectionRect: SelectionRect,
-  chartRect: DOMRect,
-  histogramData: HistogramData,
-  innerWidth: number,
-  margin: { left: number; top: number }
-): ThresholdRange {
-  // Convert selection x coordinates to chart space
-  const chartX1 = selectionRect.x - chartRect.left - margin.left
-  const chartX2 = (selectionRect.x + selectionRect.width) - chartRect.left - margin.left
-
-  // Ensure coordinates are within chart bounds
-  const clampedX1 = Math.max(0, Math.min(innerWidth, chartX1))
-  const clampedX2 = Math.max(0, Math.min(innerWidth, chartX2))
-
-  // Use bin_edges to determine the domain (handles both fixed and data-based domains)
-  const domainMin = histogramData.histogram.bin_edges[0]
-  const domainMax = histogramData.histogram.bin_edges[histogramData.histogram.bin_edges.length - 1]
-  const dataRange = domainMax - domainMin
-
-  // Convert pixel positions to exact threshold values
-  // Linear interpolation from pixel space to data space
-  const min = domainMin + (Math.min(clampedX1, clampedX2) / innerWidth) * dataRange
-  const max = domainMin + (Math.max(clampedX1, clampedX2) / innerWidth) * dataRange
 
   return { min, max }
 }
@@ -117,52 +137,6 @@ export function getBarsInSelection(
       selectedIndices.push(index)
     }
   })
-
-  return selectedIndices
-}
-
-/**
- * Check if a threshold value falls within a bar's range
- * @param value - Threshold value to check
- * @param binEdges - Array of bin edges from histogram
- * @param barIndex - Index of the bar to check
- * @returns True if value is within the bar's range
- */
-export function isValueInBar(
-  value: number,
-  binEdges: number[],
-  barIndex: number
-): boolean {
-  if (barIndex < 0 || barIndex >= binEdges.length - 1) return false
-  return value >= binEdges[barIndex] && value < binEdges[barIndex + 1]
-}
-
-/**
- * Get bars that contain the threshold range
- * @param thresholdRange - Min and max threshold values
- * @param histogramData - Histogram data with bin edges
- * @returns Array of bar indices that fall within the threshold range
- */
-export function getBarsInThresholdRange(
-  thresholdRange: ThresholdRange,
-  histogramData: HistogramData
-): number[] {
-  const selectedIndices: number[] = []
-  const binEdges = histogramData.histogram.bin_edges
-
-  for (let i = 0; i < binEdges.length - 1; i++) {
-    const binStart = binEdges[i]
-    const binEnd = binEdges[i + 1]
-
-    // Check if this bin overlaps with the threshold range
-    if (
-      (binStart >= thresholdRange.min && binStart < thresholdRange.max) ||
-      (binEnd > thresholdRange.min && binEnd <= thresholdRange.max) ||
-      (binStart <= thresholdRange.min && binEnd >= thresholdRange.max)
-    ) {
-      selectedIndices.push(i)
-    }
-  }
 
   return selectedIndices
 }

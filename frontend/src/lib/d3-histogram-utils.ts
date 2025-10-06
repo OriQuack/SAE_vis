@@ -477,7 +477,7 @@ export function calculateSimpleHistogramPanel(
     }
   })
 
-  // Grid line calculations
+  // Horizontal grid line calculations
   const gridLines = Array.from({ length: 4 }, (_, i) => {
     const tick = (maxCount / 3) * i
     const y = innerHeight - (tick / maxCount) * innerHeight
@@ -491,7 +491,75 @@ export function calculateSimpleHistogramPanel(
     return { value: tick, position: pos }
   })
 
-  return { bars, gridLines, xAxisTicks }
+  // Vertical grid line calculations (aligned with x-axis ticks)
+  const verticalGridLines = xAxisTicks.map(tick => ({
+    x1: tick.position,
+    x2: tick.position,
+    y1: 0,
+    y2: innerHeight
+  }))
+
+  return { bars, gridLines, verticalGridLines, xAxisTicks }
+}
+
+/**
+ * Calculate simple histogram panel elements with fixed domain override
+ * Used for score histograms that need a common 0-1.0 x-axis regardless of data range
+ */
+export function calculateSimpleHistogramPanelWithFixedDomain(
+  data: HistogramData,
+  innerWidth: number,
+  innerHeight: number,
+  barColor: string,
+  fixedDomainMin: number = 0,
+  fixedDomainMax: number = 1
+) {
+  const maxCount = Math.max(...data.histogram.counts, 1)
+
+  // Use fixed domain for x-axis instead of data-derived domain
+  const domainMin = fixedDomainMin
+  const domainMax = fixedDomainMax
+  const range = domainMax - domainMin
+
+  // Bar calculations with fixed domain
+  const bars = data.histogram.counts.map((count, i) => {
+    const x0 = data.histogram.bin_edges[i]
+    const x1 = data.histogram.bin_edges[i + 1]
+    const x = range === 0 ? innerWidth / 2 : ((x0 - domainMin) / range) * innerWidth
+    const x1Pos = range === 0 ? innerWidth / 2 : ((x1 - domainMin) / range) * innerWidth
+    const y = innerHeight - (count / maxCount) * innerHeight
+    return {
+      x,
+      y,
+      width: Math.max(1, x1Pos - x - 1),
+      height: innerHeight - y,
+      color: barColor
+    }
+  })
+
+  // Horizontal grid line calculations
+  const gridLines = Array.from({ length: 4 }, (_, i) => {
+    const tick = (maxCount / 3) * i
+    const y = innerHeight - (tick / maxCount) * innerHeight
+    return { x1: 0, x2: innerWidth, y1: y, y2: y }
+  })
+
+  // X-axis tick calculations with fixed domain
+  const xAxisTicks = Array.from({ length: 6 }, (_, i) => {
+    const tick = domainMin + (range / 5) * i
+    const pos = range === 0 ? innerWidth / 2 : ((tick - domainMin) / range) * innerWidth
+    return { value: tick, position: pos }
+  })
+
+  // Vertical grid line calculations (aligned with x-axis ticks)
+  const verticalGridLines = xAxisTicks.map(tick => ({
+    x1: tick.position,
+    x2: tick.position,
+    y1: 0,
+    y2: innerHeight
+  }))
+
+  return { bars, gridLines, verticalGridLines, xAxisTicks }
 }
 
 // ============================================================================
