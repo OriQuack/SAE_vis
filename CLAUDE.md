@@ -11,9 +11,10 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 **Phase 1 Complete**: ✅ Dual-panel Sankey visualization with dynamic tree building system
 **Phase 2 Complete**: ✅ Dynamic tree builder allowing runtime stage creation and modification
 **Phase 3 Complete**: ✅ Performance optimization with ParentPath-based caching and filtering
-**Current State**: Advanced research prototype with dual-panel Sankey and Alluvial visualizations
-**Active Usage**: Development servers for research demonstrations with multi-panel visualization control
-**Technical Readiness**: Conference-ready prototype with production-grade performance optimizations
+**Phase 4 Complete**: ✅ Threshold group management with histogram-based selection (January 2025)
+**Current State**: Advanced research prototype with Sankey, Alluvial, and Histogram visualizations
+**Active Usage**: Development servers for research demonstrations with multi-panel visualization and threshold grouping
+**Technical Readiness**: Conference-ready prototype with production-grade performance and interactive threshold management
 
 ## Technology Stack & Architecture
 
@@ -21,7 +22,7 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 - **Backend**: Python 3.x, FastAPI 0.104.1, Polars 0.19.19, Uvicorn 0.24.0
 - **Frontend**: React 19.1.1, TypeScript 5.8.3, Vite 7.1.6, Zustand 5.0.8
 - **Visualization**: D3.js ecosystem (d3-sankey, d3-scale, d3-array, d3-selection, d3-transition, d3-interpolate)
-- **Advanced Visualizations**: Sankey diagrams, Alluvial diagrams, dual-panel comparisons, threshold tree interactions
+- **Advanced Visualizations**: Sankey diagrams, Alluvial diagrams, Histogram panels with threshold selection, dual-panel comparisons, threshold tree interactions, threshold group management
 - **Data Processing**: Polars lazy evaluation with string cache optimization
 - **HTTP Client**: Axios 1.12.2 with interceptors and error handling
 - **Data Storage**: Parquet files for efficient columnar data storage (1,648 features processed)
@@ -344,6 +345,20 @@ npm run preview
 - ✅ **Early Termination**: `_filter_by_targeted_classification()` stops at target stage
 - ✅ **Cache Utilization**: All methods use cached lookups from `ThresholdStructure`
 - ✅ **Performance Validation**: 20-30% faster Sankey generation, 3-5x faster leaf node filtering
+
+### ✅ Phase 4: Threshold Group Management (COMPLETE - January 2025)
+- ✅ **HistogramPanel Component**: Multi-histogram visualization with 5 metrics (Feature Splitting, Semantic Similarity, Embedding/Fuzz/Detection Scores)
+- ✅ **ThresholdGroupPanel Component**: Group management UI with + button workflow
+- ✅ **Named Threshold Groups**: User-defined groups with auto-generated default names ("group 1", "group 2", etc.)
+- ✅ **Interactive Selection**: Drag-to-select on histograms with exact mouse position calculation
+- ✅ **Group Visibility Toggle**: Click group nodes to show/hide threshold visualizations
+- ✅ **Visual Indicators**: Color-coded status (gray=hidden, green=visible) with subtle glow effect
+- ✅ **Threshold Display**: 30-degree rotated labels showing exact min/max values on histogram
+- ✅ **Selection Mode**: Dimmed histogram bars (0.3 opacity) with full-opacity selected bars
+- ✅ **Merged Score Histograms**: Common 0-1 x-axis for score metrics with single bottom axis
+- ✅ **Professional Styling**: Gray dotted threshold lines, black value labels, color-coded selection areas
+- ✅ **Store Integration**: Zustand state management with `thresholdGroups`, `pendingGroup`, group actions
+- ✅ **Selection Utilities**: `selection-utils.ts` with threshold calculation and formatting functions
 
 ### 📝 Future Enhancements
 - **UI for Tree Builder**: Visual interface for adding/removing stages (currently API-only)

@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useVisualizationStore } from '../store'
-import { formatThresholdRange, formatMetricName } from '../lib/selection-utils'
 import '../styles/ThresholdGroupPanel.css'
 
 // ==================== COMPONENT-SPECIFIC TYPES ====================
@@ -11,21 +10,15 @@ interface ThresholdGroupPanelProps {
 // ==================== MAIN COMPONENT ====================
 export const ThresholdGroupPanel: React.FC<ThresholdGroupPanelProps> = ({ className = '' }) => {
   const containerRef = useRef<HTMLDivElement>(null)
-  const [containerSize, setContainerSize] = useState({ width: 400, height: 800 })
   const [groupName, setGroupName] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Store state
-  const selectionMode = useVisualizationStore(state => state.selectionMode)
-  const selections = useVisualizationStore(state => state.selections)
   const thresholdGroups = useVisualizationStore(state => state.thresholdGroups)
   const pendingGroup = useVisualizationStore(state => state.pendingGroup)
   const isCreatingGroup = useVisualizationStore(state => state.isCreatingGroup)
   const showGroupNameInput = useVisualizationStore(state => state.showGroupNameInput)
 
-  const setSelectionMode = useVisualizationStore(state => state.setSelectionMode)
-  const removeSelection = useVisualizationStore(state => state.removeSelection)
-  const clearAllSelections = useVisualizationStore(state => state.clearAllSelections)
   const startGroupCreation = useVisualizationStore(state => state.startGroupCreation)
   const finishGroupCreation = useVisualizationStore(state => state.finishGroupCreation)
   const cancelGroupCreation = useVisualizationStore(state => state.cancelGroupCreation)
@@ -36,20 +29,6 @@ export const ThresholdGroupPanel: React.FC<ThresholdGroupPanelProps> = ({ classN
   // Placeholder states - ready for future data integration
   const loading = false
   const error = null
-
-  // Update container size on resize
-  useEffect(() => {
-    const updateSize = () => {
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect()
-        setContainerSize({ width: rect.width, height: rect.height })
-      }
-    }
-
-    updateSize()
-    window.addEventListener('resize', updateSize)
-    return () => window.removeEventListener('resize', updateSize)
-  }, [])
 
   // Focus input when shown and set default name
   useEffect(() => {
@@ -66,8 +45,11 @@ export const ThresholdGroupPanel: React.FC<ThresholdGroupPanelProps> = ({ classN
   // Handle button click
   const handleButtonClick = () => {
     if (isCreatingGroup && pendingGroup.length > 0) {
-      // Show name input when check button is clicked with selections
+      // Show name input when selections exist
       setShowGroupNameInput(true)
+    } else if (isCreatingGroup && pendingGroup.length === 0) {
+      // Cancel creation when no selections
+      cancelGroupCreation()
     } else if (!isCreatingGroup) {
       // Start group creation
       startGroupCreation()
@@ -160,13 +142,7 @@ export const ThresholdGroupPanel: React.FC<ThresholdGroupPanelProps> = ({ classN
                   }`}
                   onClick={() => toggleGroupVisibility(group.id)}
                 >
-                  <div className={`threshold-group-panel__group-indicator ${
-                    group.visible ? 'threshold-group-panel__group-indicator--visible' : ''
-                  }`} />
                   <span className="threshold-group-panel__group-name">{group.name}</span>
-                  <span className="threshold-group-panel__group-count">
-                    ({group.selections.length})
-                  </span>
                   <button
                     className="threshold-group-panel__group-delete"
                     onClick={(e) => {
@@ -183,53 +159,32 @@ export const ThresholdGroupPanel: React.FC<ThresholdGroupPanelProps> = ({ classN
           </div>
         )}
 
-        {/* Don't show pending selections during creation - they're visible on histogram */}
-
-        {/* Empty state */}
-        {thresholdGroups.length === 0 && !isCreatingGroup && (
-          <div className="threshold-group-panel__empty">
-            <div className="threshold-group-panel__empty-icon">🎯</div>
-            <div className="threshold-group-panel__empty-message">
-              No threshold groups
-            </div>
-            <div className="threshold-group-panel__empty-submessage">
-              Click + to create a group
-            </div>
-          </div>
-        )}
-
-        {/* Selection instructions when creating */}
-        {isCreatingGroup && pendingGroup.length === 0 && (
-          <div className="threshold-group-panel__empty">
-            <div className="threshold-group-panel__empty-icon">✋</div>
-            <div className="threshold-group-panel__empty-message">
-              Drag on histogram to select
-            </div>
-            <div className="threshold-group-panel__empty-submessage">
-              Selection mode active
-            </div>
-          </div>
-        )}
-
         {/* Add button positioned at bottom of groups */}
         <button
           className={`threshold-group-panel__add-button ${
-            isCreatingGroup ? 'threshold-group-panel__add-button--check' : ''
+            isCreatingGroup && pendingGroup.length === 0 ? 'threshold-group-panel__add-button--cancel' : ''
           } ${isCreatingGroup && pendingGroup.length > 0 ? 'threshold-group-panel__add-button--ready' : ''}`}
           onClick={handleButtonClick}
           title={
             isCreatingGroup
               ? pendingGroup.length > 0
                 ? 'Finish selection'
-                : 'Select thresholds by dragging on histogram'
+                : 'Cancel group creation'
               : 'Create new threshold group'
           }
         >
           {isCreatingGroup ? (
-            // Check mark icon
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" />
-            </svg>
+            pendingGroup.length > 0 ? (
+              // Check mark icon when selections exist
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" />
+              </svg>
+            ) : (
+              // X icon when no selections (cancel)
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" />
+              </svg>
+            )
           ) : (
             // Plus icon
             <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">

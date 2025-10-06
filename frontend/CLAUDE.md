@@ -7,11 +7,13 @@ This file provides comprehensive guidance to Claude Code when working with the R
 **Phase 1 Complete**: ✅ Dual-panel Sankey visualization with dynamic tree building
 **Phase 2 Complete**: ✅ Dynamic tree builder with runtime stage creation/removal
 **Phase 3 Complete**: ✅ Backend performance optimization (20-30% faster classification)
+**Phase 4 Complete**: ✅ Threshold group management system with histogram visualization
 **Architecture**: Modern TypeScript-based frontend with multiple visualization types and dual-panel state management
-**Status**: Conference-ready research prototype with Sankey and Alluvial visualizations
-**Development Server**: Active on http://localhost:3003 with hot reload
+**Status**: Conference-ready research prototype with Sankey, Alluvial, and Histogram visualizations
+**Development Server**: Active on http://localhost:3005 with hot reload
 **Design Philosophy**: Research prototype optimized for live demonstrations with interactive visualization controls
 **Backend Integration**: Optimized API calls with ParentPath-based caching for improved performance
+**New Features**: Named threshold groups with visual indicators and histogram-based selection
 
 ## Technology Stack & Architecture
 
@@ -69,19 +71,25 @@ frontend/
 │   │   ├── FilterPanel.tsx      # Multi-select filter interface with dynamic options
 │   │   ├── SankeyDiagram.tsx    # Advanced D3 Sankey visualization with interactions
 │   │   ├── AlluvialDiagram.tsx  # D3 Alluvial flow visualization (Phase 2)
+│   │   ├── HistogramPanel.tsx   # Histogram visualization with threshold selection (Phase 4)
+│   │   ├── ThresholdGroupPanel.tsx # Threshold group management UI (Phase 4)
 │   │   └── HistogramPopover.tsx # Portal-based histogram popover with drag functionality
 │   ├── lib/                     # Utility Libraries
 │   │   ├── constants.ts         # Centralized constant definitions
 │   │   ├── d3-sankey-utils.ts  # D3 Sankey calculations
 │   │   ├── d3-alluvial-utils.ts # D3 Alluvial calculations
-│   │   ├── d3-histogram-utils.ts # D3 Histogram calculations
+│   │   ├── d3-histogram-utils.ts # D3 Histogram calculations with grid lines
+│   │   ├── selection-utils.ts   # Threshold selection and calculation utilities
 │   │   ├── threshold-utils.ts   # Threshold tree operations
 │   │   ├── dynamic-tree-builder.ts # Dynamic stage creation/removal
 │   │   ├── split-rule-builders.ts # Split rule construction helpers
 │   │   └── utils.ts            # General utility functions (includes useResizeObserver hook)
 │   ├── styles/                  # Styling
-│   │   └── globals.css         # Global styles with responsive design patterns
-│   ├── store.ts                # Consolidated Zustand store (Production Implementation)
+│   │   ├── App.css             # Application-level styles
+│   │   ├── globals.css         # Global styles with responsive design patterns
+│   │   ├── HistogramPanel.css  # Histogram panel specific styles (Phase 4)
+│   │   └── ThresholdGroupPanel.css # Threshold group panel styles (Phase 4)
+│   ├── store.ts                # Consolidated Zustand store with threshold groups (Phase 4)
 │   ├── types.ts                # Comprehensive TypeScript type definitions
 │   ├── api.ts                  # HTTP client and API integration layer
 │   ├── App.tsx                 # Main application component with routing and error boundaries
@@ -111,8 +119,17 @@ interface AppState {
   filterOptions: FilterOptions | null
   currentMetric: MetricType
   popoverState: PopoverState
-  loading: LoadingStates & { sankeyLeft?: boolean; sankeyRight?: boolean }
-  errors: ErrorStates & { sankeyLeft?: string | null; sankeyRight?: string | null }
+  loading: LoadingStates & { sankeyLeft?: boolean; sankeyRight?: boolean; histogramPanel?: boolean }
+  errors: ErrorStates & { sankeyLeft?: string | null; sankeyRight?: string | null; histogramPanel?: string | null }
+
+  // Histogram panel data (Phase 4)
+  histogramPanelData: Record<string, HistogramData> | null
+
+  // Threshold group management (Phase 4)
+  thresholdGroups: ThresholdGroup[]
+  pendingGroup: ThresholdSelection[]
+  isCreatingGroup: boolean
+  showGroupNameInput: boolean
 
   // Alluvial flows data (Phase 2)
   alluvialFlows: AlluvialFlow[] | null
@@ -120,15 +137,31 @@ interface AppState {
   // Panel-aware API actions
   fetchSankeyData: (panel?: PanelSide) => Promise<void>
   fetchHistogramData: (metric?: MetricType, nodeId?: string, panel?: PanelSide) => Promise<void>
+  fetchHistogramPanelData: () => Promise<void>
   updateThreshold: (nodeId: string, thresholds: number[], panel?: PanelSide) => void
+
+  // Threshold group actions (Phase 4)
+  startGroupCreation: () => void
+  finishGroupCreation: (name: string) => void
+  cancelGroupCreation: () => void
+  toggleGroupVisibility: (groupId: string) => void
+  deleteGroup: (groupId: string) => void
 }
 
 interface PanelState {
   filters: Filters
-  thresholdTree: ThresholdTree  // New threshold tree system
+  thresholdTree: ThresholdTree  // Threshold tree system
   sankeyData: SankeyData | null
   histogramData: Record<string, HistogramData> | null
   viewState: ViewState
+}
+
+interface ThresholdGroup {
+  id: string
+  name: string
+  selections: ThresholdSelection[]
+  visible: boolean
+  timestamp: number
 }
 ```
 
@@ -258,6 +291,13 @@ const layout = useMemo(
 - **Pattern Rule Builder**: Helper for creating pattern-based split rules
 - **Expression Rule Builder**: Helper for creating expression-based split rules
 
+**selection-utils.ts (Phase 4)**
+- **Threshold Calculation**: `calculateThresholdFromMouseX()` for exact mouse-to-threshold conversion
+- **Range Calculation**: `calculateThresholdRangeFromMouse()` for selection rectangles
+- **Bar Selection**: `getBarsInSelection()` for histogram bar intersection detection
+- **Color Utilities**: `getSelectionColor()` for consistent threshold group colors
+- **Formatting**: `formatThresholdRange()` and `formatMetricName()` for display
+
 #### D3-React Integration Patterns
 ```typescript
 // Proper React-D3 integration
@@ -366,11 +406,12 @@ npm run lint
 
 ### Current Development Status (🟢 ACTIVE)
 
-**Development Server**: http://localhost:3003
+**Development Server**: http://localhost:3005 (auto-adjusted from 3003)
 - ✅ Hot reload with React Fast Refresh
 - ✅ TypeScript compilation with error reporting
 - ✅ Vite development server with optimized bundling
 - ✅ Backend API integration with automatic health checking
+- ✅ Histogram panel with threshold group management
 
 **Performance Metrics**:
 - **Bundle Size**: Optimized with code splitting and tree shaking
@@ -428,24 +469,47 @@ User Interaction → State Update → API Request → Data Processing → UI Upd
 
 ## Implementation Status
 
-### ✅ Completed Features
-- ✅ **Dual-Panel Architecture**: Independent left/right panel state with Zustand
-- ✅ **Dynamic Tree Builder**: Runtime stage creation/removal through store actions
-- ✅ **Threshold Tree V2**: Range, pattern, and expression split rules
-- ✅ **Sankey Flow Visualization**: Multi-stage hierarchical flow diagrams
-- ✅ **Alluvial Flow Visualization**: Cross-panel feature tracking with `AlluvialDiagram`
+### ✅ Phase 1: Dual-Panel Sankey Visualization (COMPLETE)
+- ✅ **Dual-Panel Architecture**: Independent left/right panel state management
+- ✅ **Sankey Diagrams**: D3-based visualization with interactive nodes
+- ✅ **Filter System**: Multi-select filters with backend integration
+- ✅ **Histogram Popovers**: Interactive threshold visualization
+
+### ✅ Phase 2: Dynamic Tree Builder (COMPLETE)
+- ✅ **Runtime Stage Creation**: `addStageToNode()` for dynamic tree building
+- ✅ **Runtime Stage Removal**: `removeStageFromNode()` for tree simplification
+- ✅ **Root-Only Mode**: `createRootOnlyTree()` for starting fresh
 - ✅ **Split Rule Builders**: Helper functions for easy rule construction
-- ✅ **Histogram Popovers**: Portal-based popovers with drag functionality
-- ✅ **Responsive Design**: useResizeObserver hook for all visualizations
-- ✅ **Production Error Handling**: Comprehensive error boundaries
+- ✅ **Alluvial Flows**: Cross-panel feature tracking and flow visualization
+- ✅ **Classification Engine**: V2 classification with split evaluators
+
+### ✅ Phase 3: Performance Optimization (COMPLETE)
+- ✅ **Node Lookup Caching**: O(1) node access with cached dictionaries
+- ✅ **Path Constraint Extraction**: Direct filtering for leaf nodes
+- ✅ **Path-Based Filtering**: 3-5x faster for leaf node operations
+- ✅ **Early Termination**: 2-3x faster for intermediate nodes
+- ✅ **Overall Performance**: 20-30% faster Sankey generation
+
+### ✅ Phase 4: Threshold Group Management (COMPLETE - January 2025)
+- ✅ **HistogramPanel Component**: Multi-histogram visualization with selection mode
+- ✅ **ThresholdGroupPanel Component**: Group management UI with + button interface
+- ✅ **Named Threshold Groups**: User-defined groups with custom names
+- ✅ **Visual Indicators**: Color-coded visibility status (gray/green)
+- ✅ **Exact Threshold Display**: Rotated labels showing precise threshold values
+- ✅ **Histogram Selection**: Drag-to-select with exact mouse position calculation
+- ✅ **Selection Mode**: Dimmed bars with highlighted selections
+- ✅ **Group Visibility Toggle**: Click to show/hide threshold visualizations on histogram
+- ✅ **Merged Score Histograms**: Common 0-1 x-axis for embedding, fuzz, detection scores
+- ✅ **Professional Styling**: Gray dotted threshold lines, black labels, color-coded areas
 
 ### 📝 Future Enhancements
 - **UI for Tree Builder**: Visual interface for adding/removing stages (currently API-only)
 - **Debug View**: Individual feature inspection with path visualization
 - **Cross-Visualization Interactions**: Link selections between Sankey and Alluvial diagrams
-- **Export Functionality**: Save/load custom tree configurations
+- **Export Functionality**: Save/load custom tree and group configurations
 - **Virtual Scrolling**: Performance optimization for large node lists
 - **Advanced Caching**: Intelligent data caching strategies
+- **Group Analytics**: Statistics and insights for threshold groups
 
 ## Critical Development Notes
 

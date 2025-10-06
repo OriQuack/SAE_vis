@@ -94,10 +94,13 @@ const SingleHistogram: React.FC<{
   useFixedDomain?: boolean
   isMerged?: boolean
   showXAxis?: boolean
-}> = ({ data, label, badges, width, height, metricKey, selections, useFixedDomain = false, isMerged = false, showXAxis = true }) => {
-  const margin = { top: 5, right: 10, bottom: 10, left: 85 }
+  onRemoveThreshold?: (metricType: string) => void
+  selectionMode?: boolean
+}> = ({ data, label, badges, width, height, metricKey, selections, useFixedDomain = false, isMerged = false, showXAxis = true, onRemoveThreshold, selectionMode = false }) => {
+  const margin = { top: 5, right: 28, bottom: 10, left: 80 }
   const innerWidth = width - margin.left - margin.right
   const innerHeight = height - margin.top - margin.bottom
+  const [hoveredBar, setHoveredBar] = useState<{ index: number; x: number; y: number } | null>(null)
 
   // D3 calculations - use fixed domain for score metrics
   const { bars, gridLines, verticalGridLines, xAxisTicks } = useMemo(
@@ -106,9 +109,6 @@ const SingleHistogram: React.FC<{
       : calculateSimpleHistogramPanel(data, innerWidth, innerHeight, HISTOGRAM_COLORS.bars),
     [data, innerWidth, innerHeight, useFixedDomain]
   )
-
-  // Get selection for this metric
-  const metricSelections = selections.filter(s => s.metricType === metricKey)
 
   // Helper to convert threshold value to X position
   const thresholdToX = useCallback((threshold: number) => {
@@ -120,8 +120,11 @@ const SingleHistogram: React.FC<{
     return ratio * innerWidth
   }, [useFixedDomain, data.histogram.bin_edges, innerWidth])
 
+  // Get selection for this metric
+  const metricSelections = selections.filter(s => s.metricType === metricKey)
+
   return (
-    <div className={isMerged ? "histogram-panel__merged-chart" : "histogram-panel__chart"}>
+    <div className={isMerged ? "histogram-panel__merged-chart" : "histogram-panel__chart"} style={{ position: 'relative' }}>
       <svg width={width} height={height}>
         <g transform={`translate(${margin.left}, ${margin.top})`}>
           {/* Horizontal grid lines */}
@@ -169,6 +172,16 @@ const SingleHistogram: React.FC<{
                 fillOpacity={selection ? 1 : 0.6}
                 stroke="white"
                 strokeWidth={0.5}
+                onMouseEnter={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  setHoveredBar({
+                    index: i,
+                    x: rect.left + rect.width / 2,
+                    y: rect.top
+                  })
+                }}
+                onMouseLeave={() => setHoveredBar(null)}
+                style={{ cursor: 'default' }}
               />
             )
           })}
@@ -208,7 +221,7 @@ const SingleHistogram: React.FC<{
                   fontSize={8}
                   fontWeight={600}
                   fill="#000000"
-                  transform={`rotate(30, ${minX + 5}, 10)`}
+                  transform={`rotate(45, ${minX + 5}, 10)`}
                 >
                   {formatSmartNumber(selection.thresholdRange.min)}
                 </text>
@@ -231,13 +244,14 @@ const SingleHistogram: React.FC<{
                   fontSize={8}
                   fontWeight={600}
                   fill="#000000"
-                  transform={`rotate(30, ${maxX + 5}, 10)`}
+                  transform={`rotate(45, ${maxX + 5}, 10)`}
                 >
                   {formatSmartNumber(selection.thresholdRange.max)}
                 </text>
               </g>
             )
           })}
+
 
           {/* X-axis - conditionally rendered */}
           {showXAxis && (
@@ -246,7 +260,7 @@ const SingleHistogram: React.FC<{
               {xAxisTicks.map(tick => (
                 <g key={tick.value} transform={`translate(${tick.position}, 0)`}>
                   <line y1={0} y2={2} stroke={HISTOGRAM_COLORS.axis} strokeWidth={0.5} opacity={0.4} />
-                  <text y={8} textAnchor="middle" fontSize={7} fill="#000000">
+                  <text y={8} textAnchor="middle" fontSize={8} fill="#000000">
                     {formatSmartNumber(tick.value)}
                   </text>
                 </g>
@@ -255,7 +269,7 @@ const SingleHistogram: React.FC<{
           )}
 
           {/* Left-side label with badges below */}
-          <g transform={`translate(${-margin.left + 10}, ${innerHeight / 2})`}>
+          <g transform={`translate(${-margin.left + 2}, ${innerHeight / 2})`}>
             {/* Label text */}
             {label.map((line, i) => (
               <text
@@ -300,6 +314,75 @@ const SingleHistogram: React.FC<{
           </g>
         </g>
       </svg>
+      {/* Tooltip */}
+      {hoveredBar && (
+        <div
+          style={{
+            position: 'fixed',
+            left: `${hoveredBar.x}px`,
+            top: `${hoveredBar.y - 60}px`,
+            transform: 'translateX(-50%)',
+            backgroundColor: 'rgba(31, 41, 55, 0.95)',
+            color: 'white',
+            padding: '4px 10px',
+            borderRadius: '6px',
+            fontSize: '12px',
+            fontWeight: '500',
+            zIndex: 1000,
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06)'
+          }}
+        >
+          <div style={{ marginBottom: '0px' }}>
+            {data.histogram.counts[hoveredBar.index] === 1
+              ? '1 feature'
+              : `${data.histogram.counts[hoveredBar.index]} features`}
+          </div>
+          <div style={{ fontSize: '11px', color: '#9CA3AF' }}>
+            {formatSmartNumber(data.histogram.bin_edges[hoveredBar.index])} - {formatSmartNumber(data.histogram.bin_edges[hoveredBar.index + 1])}
+          </div>
+        </div>
+      )}
+      {/* Remove threshold button - HTML element positioned absolutely */}
+      {selectionMode && metricSelections.length > 0 && onRemoveThreshold && (() => {
+        const maxX = thresholdToX(metricSelections[0].thresholdRange.max)
+        const buttonX = margin.left + maxX + 12
+        const buttonY = margin.top + innerHeight / 2
+        return (
+          <div
+            style={{
+              position: 'absolute',
+              left: `${buttonX}px`,
+              top: `${buttonY}px`,
+              transform: 'translate(-50%, -50%)',
+              width: '14px',
+              height: '14px',
+              borderRadius: '50%',
+              backgroundColor: '#ef4444',
+              opacity: 0.8,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 20
+            }}
+            onClick={(e) => {
+              e.stopPropagation()
+              onRemoveThreshold(metricKey)
+            }}
+          >
+            <svg width="6" height="6" viewBox="0 0 8 8" style={{ pointerEvents: 'none' }}>
+              <path
+                d="M 1,1 L 7,7 M 7,1 L 1,7"
+                stroke="white"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
+          </div>
+        )
+      })()}
     </div>
   )
 }
@@ -322,7 +405,7 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
   const isCreatingGroup = useVisualizationStore(state => state.isCreatingGroup)
   const pendingGroup = useVisualizationStore(state => state.pendingGroup)
   const activeSelection = useVisualizationStore(state => state.activeSelection)
-  const { fetchHistogramPanelData, startSelection, updateSelection, completeSelection } = useVisualizationStore()
+  const { fetchHistogramPanelData, startSelection, updateSelection, completeSelection, removeThresholdForMetric } = useVisualizationStore()
 
   // Get all visible selections from groups
   const visibleSelections = useMemo(() => {
@@ -384,10 +467,10 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
     setSelectionRect({ x: coords.x, y: coords.y, width: 0, height: 0 })
   }, [selectionMode, startSelection])
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+  const handleMouseMove = useCallback((e: MouseEvent | React.MouseEvent) => {
     if (!isDragging || !containerRef.current || !activeSelection?.startPoint) return
 
-    const coords = getContainerCoordinates(e, containerRef.current)
+    const coords = getContainerCoordinates(e as React.MouseEvent, containerRef.current)
     updateSelection(coords.x, coords.y)
 
     const startX = Math.min(activeSelection.startPoint.x, coords.x)
@@ -506,6 +589,27 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
     setSelectionRect(null)
   }, [isDragging, selectionRect, histogramPanelData, histogramHeight, histogramWidth, completeSelection])
 
+  // Attach window-level mouse event listeners when dragging
+  useEffect(() => {
+    if (!isDragging) return
+
+    const handleWindowMouseMove = (e: MouseEvent) => {
+      handleMouseMove(e)
+    }
+
+    const handleWindowMouseUp = () => {
+      handleMouseUp()
+    }
+
+    window.addEventListener('mousemove', handleWindowMouseMove)
+    window.addEventListener('mouseup', handleWindowMouseUp)
+
+    return () => {
+      window.removeEventListener('mousemove', handleWindowMouseMove)
+      window.removeEventListener('mouseup', handleWindowMouseUp)
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp])
+
   // Render loading state
   if (loading) {
     return (
@@ -547,7 +651,10 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
       className={`histogram-panel ${className} ${selectionMode ? 'histogram-panel--selection-mode' : ''}`}
       ref={containerRef}
     >
-      <div className="histogram-panel__container">
+      <div
+        className="histogram-panel__container"
+        onMouseDown={selectionMode ? handleMouseDown : undefined}
+      >
         {/* Render individual metrics */}
         {INDIVIDUAL_METRICS.map((metric) => {
           const data = histogramPanelData[metric.key]
@@ -573,6 +680,8 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
               selections={visibleSelections}
               useFixedDomain={false}
               isMerged={false}
+              onRemoveThreshold={removeThresholdForMetric}
+              selectionMode={selectionMode}
             />
           )
         })}
@@ -605,6 +714,8 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
                 useFixedDomain={true}
                 isMerged={true}
                 showXAxis={isLast}
+                onRemoveThreshold={removeThresholdForMetric}
+                selectionMode={selectionMode}
               />
             )
           })}
@@ -616,10 +727,6 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
         <div
           ref={overlayRef}
           className="histogram-panel__selection-overlay"
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
         >
           {selectionRect && (
             <div

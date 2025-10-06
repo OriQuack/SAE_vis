@@ -20,6 +20,14 @@
   overflow-x: hidden;
 }
 
+.histogram-panel--selection-mode .histogram-panel__container {
+  cursor: crosshair;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
 /* Individual chart styles */
 .histogram-panel__chart {
   background: white;
@@ -193,6 +201,7 @@
   bottom: 0;
   cursor: crosshair;
   z-index: 10;
+  pointer-events: none;
 }
 
 .histogram-panel__selection-rect {

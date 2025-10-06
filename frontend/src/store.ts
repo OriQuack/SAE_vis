@@ -78,6 +78,7 @@ interface AppState {
   pendingGroup: ThresholdSelection[]
   isCreatingGroup: boolean
   showGroupNameInput: boolean
+  editingGroupId: string | null
 
   // Hover state for cross-component highlighting
   hoveredAlluvialNodeId: string | null
@@ -147,6 +148,7 @@ interface AppState {
   toggleGroupVisibility: (groupId: string) => void
   deleteGroup: (groupId: string) => void
   setShowGroupNameInput: (show: boolean) => void
+  removeThresholdForMetric: (metricType: string) => void
 
   // Reset actions
   reset: () => void
@@ -225,6 +227,7 @@ const initialState = {
   pendingGroup: [],
   isCreatingGroup: false,
   showGroupNameInput: false,
+  editingGroupId: null,
 
   // Alluvial flows
   alluvialFlows: null,
@@ -925,8 +928,8 @@ export const useStore = create<AppState>((set, get) => ({
     const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
     const state = get()
 
-    // Determine color index based on whether we're creating a group or not
-    const existingCount = state.isCreatingGroup
+    // Determine color index based on whether we're creating/editing a group or not
+    const existingCount = (state.isCreatingGroup || state.editingGroupId)
       ? state.pendingGroup.length
       : state.selections.length
     const colorIndex = existingCount % colors.length
@@ -941,7 +944,23 @@ export const useStore = create<AppState>((set, get) => ({
     }
 
     set((state) => {
-      if (state.isCreatingGroup) {
+      if (state.editingGroupId) {
+        // Editing existing group: Update pendingGroup and immediately save to group
+        const updatedPendingGroup = [
+          ...state.pendingGroup.filter(s => s.metricType !== metricType),
+          newSelection
+        ]
+
+        return {
+          pendingGroup: updatedPendingGroup,
+          thresholdGroups: state.thresholdGroups.map(g =>
+            g.id === state.editingGroupId
+              ? { ...g, selections: updatedPendingGroup }
+              : g
+          ),
+          activeSelection: null
+        }
+      } else if (state.isCreatingGroup) {
         // Add to pending group, replacing existing selection for same metric
         return {
           pendingGroup: [
@@ -978,12 +997,25 @@ export const useStore = create<AppState>((set, get) => ({
 
   // Threshold group actions
   startGroupCreation: () => {
-    set(() => ({
+    const state = get()
+
+    // If editing a group, cancel that first
+    const updates: any = {
       isCreatingGroup: true,
       selectionMode: true,
       pendingGroup: [],
-      showGroupNameInput: false
-    }))
+      showGroupNameInput: false,
+      editingGroupId: null  // Clear editing state
+    }
+
+    // Hide the group that was being edited
+    if (state.editingGroupId) {
+      updates.thresholdGroups = state.thresholdGroups.map(g =>
+        g.id === state.editingGroupId ? { ...g, visible: false } : g
+      )
+    }
+
+    set(updates)
   },
 
   finishGroupCreation: (name: string) => {
@@ -1027,13 +1059,35 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   toggleGroupVisibility: (groupId: string) => {
-    set((state) => ({
-      thresholdGroups: state.thresholdGroups.map(group =>
-        group.id === groupId
-          ? { ...group, visible: !group.visible }
-          : group
-      )
-    }))
+    const state = get()
+    const group = state.thresholdGroups.find(g => g.id === groupId)
+
+    if (!group) return
+
+    if (!group.visible) {
+      // Showing group: Enable edit mode
+      set({
+        thresholdGroups: state.thresholdGroups.map(g =>
+          g.id === groupId ? { ...g, visible: true } : g
+        ),
+        editingGroupId: groupId,
+        selectionMode: true,
+        pendingGroup: [...group.selections],
+        // Cancel any ongoing group creation
+        isCreatingGroup: false,
+        showGroupNameInput: false
+      })
+    } else {
+      // Hiding group: Disable edit mode
+      set({
+        thresholdGroups: state.thresholdGroups.map(g =>
+          g.id === groupId ? { ...g, visible: false } : g
+        ),
+        editingGroupId: null,
+        selectionMode: false,
+        pendingGroup: []
+      })
+    }
   },
 
   deleteGroup: (groupId: string) => {
@@ -1046,6 +1100,29 @@ export const useStore = create<AppState>((set, get) => ({
     set(() => ({
       showGroupNameInput: show
     }))
+  },
+
+  removeThresholdForMetric: (metricType: string) => {
+    const state = get()
+
+    if (state.editingGroupId) {
+      // Editing mode: Remove from pendingGroup and update the group
+      const updatedPendingGroup = state.pendingGroup.filter(s => s.metricType !== metricType)
+
+      set({
+        pendingGroup: updatedPendingGroup,
+        thresholdGroups: state.thresholdGroups.map(g =>
+          g.id === state.editingGroupId
+            ? { ...g, selections: updatedPendingGroup }
+            : g
+        )
+      })
+    } else if (state.isCreatingGroup) {
+      // Creating mode: Remove from pendingGroup
+      set({
+        pendingGroup: state.pendingGroup.filter(s => s.metricType !== metricType)
+      })
+    }
   }
 }))
 
