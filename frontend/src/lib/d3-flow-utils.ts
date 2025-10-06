@@ -86,7 +86,7 @@ export function calculateFlowLayout(): FlowLayout {
 
     // Top path: Decoder
     { id: 'decoder', label: '', x: 150, y: 10, width: 55, height: 55, iconType: 'decoder' },
-    { id: 'feature-splitting', label: 'Feature Splitting', x: 450, y: 8, width: 145, height: 26 },
+    { id: 'feature-splitting', label: 'Feature Splitting', x: 450, y: 5, width: 145, height: 26 },
 
     // Middle path: Explainer
     { id: 'explainer', label: '', x: 150, y: 83, width: 55, height: 55, iconType: 'explainer' },

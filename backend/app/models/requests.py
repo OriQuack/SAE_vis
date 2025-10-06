@@ -35,6 +35,10 @@ class  HistogramRequest(BaseModel):
         default=None,
         description="Optional field to average values by before creating histogram (e.g., 'llm_explainer', 'llm_scorer')"
     )
+    fixedDomain: Optional[tuple[float, float]] = Field(
+        default=None,
+        description="Optional fixed domain [min, max] for histogram bins (e.g., [0.0, 1.0] for score metrics)"
+    )
 
 class SankeyRequest(BaseModel):
     """Request model for Sankey diagram data endpoint"""

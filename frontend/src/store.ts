@@ -30,6 +30,21 @@ interface PanelState {
   viewState: ViewState
 }
 
+interface ThresholdSelection {
+  id: string
+  metricType: string
+  barIndices: number[]
+  thresholdRange: { min: number; max: number }
+  color: string
+  timestamp: number
+}
+
+interface ActiveSelection {
+  startPoint: { x: number; y: number } | null
+  endPoint: { x: number; y: number } | null
+  rect: { x: number; y: number; width: number; height: number } | null
+}
+
 interface AppState {
   // Data state - now split for left and right panels
   leftPanel: PanelState
@@ -44,6 +59,11 @@ interface AppState {
 
   // Histogram panel data
   histogramPanelData: Record<string, HistogramData> | null
+
+  // Selection mode state
+  selectionMode: boolean
+  selections: ThresholdSelection[]
+  activeSelection: ActiveSelection | null
 
   // Hover state for cross-component highlighting
   hoveredAlluvialNodeId: string | null
@@ -97,6 +117,14 @@ interface AppState {
 
   // Alluvial flow actions
   updateAlluvialFlows: () => void
+
+  // Selection mode actions
+  setSelectionMode: (enabled: boolean) => void
+  startSelection: (x: number, y: number) => void
+  updateSelection: (x: number, y: number) => void
+  completeSelection: (metricType: string, barIndices: number[], thresholdRange: { min: number; max: number }) => void
+  removeSelection: (id: string) => void
+  clearAllSelections: () => void
 
   // Reset actions
   reset: () => void
@@ -164,6 +192,11 @@ const initialState = {
 
   // Histogram panel data
   histogramPanelData: null,
+
+  // Selection mode state
+  selectionMode: false,
+  selections: [],
+  activeSelection: null,
 
   // Alluvial flows
   alluvialFlows: null,
@@ -574,6 +607,9 @@ export const useStore = create<AppState>((set, get) => ({
 
       // Fetch all histograms in parallel
       const histogramPromises = metricsToFetch.map(async ({ metric, averageBy }) => {
+        // Determine if this is a score metric that needs fixed domain [0.0, 1.0]
+        const isScoreMetric = metric === 'score_embedding' || metric === 'score_fuzz' || metric === 'score_detection'
+
         const request = {
           filters: {
             sae_id: [],
@@ -582,7 +618,8 @@ export const useStore = create<AppState>((set, get) => ({
             llm_scorer: []
           },
           metric,
-          ...(averageBy && { averageBy }) // Only include averageBy if it's not null
+          ...(averageBy && { averageBy }), // Only include averageBy if it's not null
+          ...(isScoreMetric && { fixedDomain: [0.0, 1.0] as [number, number] }) // Add fixed domain for score metrics
         }
 
         console.log('[HistogramPanel] Sending request:', JSON.stringify(request, null, 2))
@@ -820,6 +857,98 @@ export const useStore = create<AppState>((set, get) => ({
         return g
       })
     })
+  },
+
+  // Selection mode actions
+  setSelectionMode: (enabled) => {
+    set(() => ({
+      selectionMode: enabled,
+      activeSelection: enabled ? null : null // Clear active selection when toggling off
+    }))
+  },
+
+  startSelection: (x, y) => {
+    set(() => ({
+      activeSelection: {
+        startPoint: { x, y },
+        endPoint: null,
+        rect: null
+      }
+    }))
+  },
+
+  updateSelection: (x, y) => {
+    set((state) => {
+      if (!state.activeSelection?.startPoint) return state
+
+      const startX = Math.min(state.activeSelection.startPoint.x, x)
+      const startY = Math.min(state.activeSelection.startPoint.y, y)
+      const width = Math.abs(x - state.activeSelection.startPoint.x)
+      const height = Math.abs(y - state.activeSelection.startPoint.y)
+
+      return {
+        activeSelection: {
+          ...state.activeSelection,
+          endPoint: { x, y },
+          rect: { x: startX, y: startY, width, height }
+        }
+      }
+    })
+  },
+
+  completeSelection: (metricType, barIndices, thresholdRange) => {
+    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
+    const state = get()
+
+    // Check if selection already exists for this metric
+    const existingSelection = state.selections.find(s => s.metricType === metricType)
+
+    if (existingSelection) {
+      // Update existing selection, preserve color
+      const updatedSelection = {
+        ...existingSelection,
+        barIndices,
+        thresholdRange,
+        timestamp: Date.now()
+      }
+
+      set((state) => ({
+        selections: state.selections.map(s =>
+          s.metricType === metricType ? updatedSelection : s
+        ),
+        activeSelection: null
+      }))
+    } else {
+      // Add new selection with next color
+      const colorIndex = state.selections.length % colors.length
+
+      const newSelection = {
+        id: `sel_${Date.now()}`,
+        metricType,
+        barIndices,
+        thresholdRange,
+        color: colors[colorIndex],
+        timestamp: Date.now()
+      }
+
+      set((state) => ({
+        selections: [...state.selections, newSelection],
+        activeSelection: null
+      }))
+    }
+  },
+
+  removeSelection: (id) => {
+    set((state) => ({
+      selections: state.selections.filter(s => s.id !== id)
+    }))
+  },
+
+  clearAllSelections: () => {
+    set(() => ({
+      selections: [],
+      activeSelection: null
+    }))
   }
 }))
 

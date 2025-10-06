@@ -169,7 +169,8 @@ class DataService:
         threshold_tree: Optional[ThresholdStructure] = None,
         node_id: Optional[str] = None,
         group_by: Optional[str] = None,
-        average_by: Optional[str] = None
+        average_by: Optional[str] = None,
+        fixed_domain: Optional[tuple[float, float]] = None
     ) -> HistogramResponse:
         """Generate histogram data for a specific metric, optionally filtered by node and/or grouped."""
         if not self.is_ready():
@@ -184,13 +185,20 @@ class DataService:
 
             # If groupBy is specified, generate grouped histograms
             if group_by:
-                return self._generate_grouped_histogram(filtered_df, metric, bins, group_by)
+                return self._generate_grouped_histogram(filtered_df, metric, bins, group_by, fixed_domain)
 
             # Otherwise, generate regular histogram
             values = self._extract_metric_values(filtered_df, metric)
             bins = self._calculate_bins_if_needed(values, bins)
 
-            counts, bin_edges = np.histogram(values, bins=bins)
+            # Use fixed domain if provided, otherwise use data range
+            if fixed_domain:
+                bin_range = fixed_domain
+                logger.debug(f"Using fixed domain for histogram: {bin_range}")
+            else:
+                bin_range = (float(np.min(values)), float(np.max(values)))
+
+            counts, bin_edges = np.histogram(values, bins=bins, range=bin_range)
             bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
 
             return HistogramResponse(
@@ -290,7 +298,8 @@ class DataService:
         df: pl.DataFrame,
         metric: MetricType,
         bins: Optional[int],
-        group_by: str
+        group_by: str,
+        fixed_domain: Optional[tuple[float, float]] = None
     ) -> HistogramResponse:
         """Generate grouped histogram data by the specified field."""
         from ..models.responses import GroupedHistogramData
@@ -308,8 +317,15 @@ class DataService:
         all_values = self._extract_metric_values(df, metric)
         bins = self._calculate_bins_if_needed(all_values, bins)
 
+        # Use fixed domain if provided, otherwise use data range
+        if fixed_domain:
+            bin_range = fixed_domain
+            logger.debug(f"Using fixed domain for grouped histogram: {bin_range}")
+        else:
+            bin_range = (float(np.min(all_values)), float(np.max(all_values)))
+
         # Calculate common bin edges based on all data
-        _, common_bin_edges = np.histogram(all_values, bins=bins)
+        _, common_bin_edges = np.histogram(all_values, bins=bins, range=bin_range)
         bin_centers = (common_bin_edges[:-1] + common_bin_edges[1:]) / 2
 
         # Generate histogram for each group

@@ -6,6 +6,7 @@ import AlluvialDiagram from './components/AlluvialDiagram'
 import HistogramPopover from './components/HistogramPopover'
 import FlowPanel from './components/FlowPanel'
 import HistogramPanel from './components/HistogramPanel'
+import ThresholdGroupPanel from './components/ThresholdGroupPanel'
 import { usePanelDataLoader } from './lib/utils'
 import * as api from './api'
 import './styles/base.css'
@@ -271,9 +272,14 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
               </div>
             </div>
 
-            {/* Bottom Panel - Histogram */}
-            <div className="sankey-view__histogram-panel">
-              <HistogramPanel />
+            {/* Bottom Panel - Histogram Wrapper */}
+            <div className="sankey-view__histogram-wrapper">
+              <div className="sankey-view__histogram-left-panel">
+                <HistogramPanel />
+              </div>
+              <div className="sankey-view__threshold-group-panel">
+                <ThresholdGroupPanel />
+              </div>
             </div>
           </div>
 

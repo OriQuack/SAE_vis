@@ -117,6 +117,7 @@ export interface HistogramDataRequest {
   thresholdTree?: ThresholdTree
   groupBy?: string  // Optional grouping field, e.g., 'llm_explainer'
   averageBy?: string | null  // Optional averaging field, e.g., 'llm_explainer' or 'llm_scorer'
+  fixedDomain?: [number, number]  // Optional fixed domain for histogram bins, e.g., [0.0, 1.0]
 }
 
 export interface SankeyDataRequest {

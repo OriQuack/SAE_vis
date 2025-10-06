@@ -438,6 +438,63 @@ export function calculateResponsivePopoverSize(
 }
 
 // ============================================================================
+// SIMPLE HISTOGRAM PANEL CALCULATIONS
+// ============================================================================
+
+/**
+ * Calculate simple histogram panel elements (bars, grid, ticks)
+ * Used by HistogramPanel component for basic visualization
+ *
+ * Note: Domain is now handled by backend via fixedDomain parameter.
+ * The bin_edges from backend already reflect the correct domain.
+ */
+export function calculateSimpleHistogramPanel(
+  data: HistogramData,
+  innerWidth: number,
+  innerHeight: number,
+  barColor: string
+) {
+  const maxCount = Math.max(...data.histogram.counts, 1)
+
+  // Use the bin edges from backend directly (already in correct domain)
+  const domainMin = data.histogram.bin_edges[0]
+  const domainMax = data.histogram.bin_edges[data.histogram.bin_edges.length - 1]
+  const range = domainMax - domainMin
+
+  // Bar calculations
+  const bars = data.histogram.counts.map((count, i) => {
+    const x0 = data.histogram.bin_edges[i]
+    const x1 = data.histogram.bin_edges[i + 1]
+    const x = range === 0 ? innerWidth / 2 : ((x0 - domainMin) / range) * innerWidth
+    const x1Pos = range === 0 ? innerWidth / 2 : ((x1 - domainMin) / range) * innerWidth
+    const y = innerHeight - (count / maxCount) * innerHeight
+    return {
+      x,
+      y,
+      width: Math.max(1, x1Pos - x - 1),
+      height: innerHeight - y,
+      color: barColor
+    }
+  })
+
+  // Grid line calculations
+  const gridLines = Array.from({ length: 4 }, (_, i) => {
+    const tick = (maxCount / 3) * i
+    const y = innerHeight - (tick / maxCount) * innerHeight
+    return { x1: 0, x2: innerWidth, y1: y, y2: y }
+  })
+
+  // X-axis tick calculations
+  const xAxisTicks = Array.from({ length: 6 }, (_, i) => {
+    const tick = domainMin + (range / 5) * i
+    const pos = range === 0 ? innerWidth / 2 : ((tick - domainMin) / range) * innerWidth
+    return { value: tick, position: pos }
+  })
+
+  return { bars, gridLines, xAxisTicks }
+}
+
+// ============================================================================
 // FORMATTING UTILITIES
 // ============================================================================
 

@@ -261,13 +261,13 @@ const getArrowMarker = (edgeColor: string) => {
 const getBadgeText = (iconType?: string) => {
   switch (iconType) {
     case 'decoder':
-      return '1'
+      return '×1'
     case 'embedder':
-      return '1'
+      return '×1'
     case 'scorer':
-      return '3'
+      return '×3'
     case 'explainer':
-      return '3'
+      return '×3'
     default:
       return null
   }
@@ -465,15 +465,17 @@ const FlowPanel: React.FC = () => {
                   {/* Badge */}
                   {getBadgeText(node.iconType) && (
                     <>
-                      <circle
-                        cx={node.x + node.width - 3}
-                        cy={node.y + 3}
-                        r="10"
+                      <rect
+                        x={node.x + node.width - 20}
+                        y={node.y - 10}
+                        width="24"
+                        height="18"
+                        rx="9"
                         fill={getBadgeColor(node.iconType)}
                       />
                       <text
-                        x={node.x + node.width - 3}
-                        y={node.y + 3}
+                        x={node.x + node.width - 8}
+                        y={node.y - 1}
                         textAnchor="middle"
                         dominantBaseline="central"
                         fontSize="10"
@@ -515,22 +517,24 @@ const FlowPanel: React.FC = () => {
                         </text>
                       ))}
                       {/* Badge for label nodes */}
-                      <circle
-                        cx={node.x + node.width}
-                        cy={node.y}
-                        r="10"
+                      <rect
+                        x={node.x + node.width - (node.id === 'score-label' ? 16 : 14)}
+                        y={node.y - 14}
+                        width={node.id === 'score-label' ? 32 : 28}
+                        height="18"
+                        rx="9"
                         fill="#475569"
                       />
                       <text
                         x={node.x + node.width}
-                        y={node.y}
+                        y={node.y - 5}
                         textAnchor="middle"
                         dominantBaseline="central"
                         fontSize="10"
                         fill="white"
                         fontWeight="700"
                       >
-                        {node.id === 'score-label' ? '9' : node.id === 'embedding-label' ? '3' : '3'}
+                        {node.id === 'explanation-label' ? '48k' : node.id === 'score-label' ? '144k' : node.id === 'embedding-label' ? '48k' : '3'}
                       </text>
                     </g>
                   ) : (

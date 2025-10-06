@@ -301,8 +301,16 @@
   border-top: 1px solid #000000;
 }
 
-.sankey-view__histogram-panel {
+.sankey-view__histogram-wrapper {
   flex: 2;
+  display: flex;
+  flex-direction: row;
+  min-width: 0;
+  border-top: 1px solid #000000;
+}
+
+.sankey-view__histogram-left-panel {
+  flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -311,7 +319,19 @@
   background: #f9fafb;
   padding: 0;
   min-width: 0;
-  border-top: 1px solid #000000;
+}
+
+.sankey-view__threshold-group-panel {
+  flex: 0.4;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: visible;
+  background: #f9fafb;
+  padding: 0;
+  min-width: 0;
+  border-left: 1px solid #000000;
 }
 
 .sankey-view__right-wrapper {
