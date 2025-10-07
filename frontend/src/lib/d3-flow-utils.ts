@@ -95,7 +95,7 @@ export function calculateFlowLayout(): FlowLayout {
     { id: 'embedder', label: '', x: 280, y: 48, width: 55, height: 55, iconType: 'embedder' },
 
     // Embedding label (rotated, between embedder and embedding outputs)
-    { id: 'embedding-label', label: 'Embedding', x: 370, y: 70, width: 80, height: 17 },
+    { id: 'embedding-label', label: 'Embedding', x: 372, y: 70, width: 80, height: 17 },
 
     { id: 'semantic-similarity', label: 'Semantic Similarity', x: 450, y: 45, width: 145, height: 26 },
     { id: 'embedding-score', label: 'Embedding Score', x: 450, y: 74, width: 145, height: 26 },
@@ -104,7 +104,7 @@ export function calculateFlowLayout(): FlowLayout {
     { id: 'scorer', label: '', x: 280, y: 118, width: 55, height: 55, iconType: 'scorer' },
 
     // Score label (rotated, between scorer and score outputs)
-    { id: 'score-label', label: 'Score', x: 360, y: 135, width: 50, height: 17 },
+    { id: 'score-label', label: 'Score', x: 345, y: 135, width: 50, height: 17 },
 
     { id: 'fuzz-score', label: 'Fuzz Score', x: 450, y: 113, width: 145, height: 26 },
     { id: 'detection-score', label: 'Detection Score', x: 450, y: 142, width: 145, height: 26 }

@@ -482,43 +482,45 @@ const FlowPanel: React.FC = () => {
                 <>
                   {/* Text node */}
                   {node.id === 'explanation-label' || node.id === 'score-label' || node.id === 'embedding-label' ? (
-                    <g transform={`rotate(-90, ${node.x + node.width / 2}, ${node.y + node.height / 2})`}>
+                    <>
+                      <g transform={`rotate(-90, ${node.x + node.width / 2}, ${node.y + node.height / 2})`}>
+                        <rect
+                          x={node.x}
+                          y={node.y}
+                          width={node.width}
+                          height={node.height}
+                          rx="4"
+                          fill={getTextNodeBackgroundColor(node.id)}
+                          stroke="#cbd5e1"
+                          strokeWidth="1.5"
+                        />
+                        {splitLabel(node.label).map((line, i) => (
+                          <text
+                            key={i}
+                            x={node.x + node.width / 2}
+                            y={node.y + node.height / 2 + (i - (splitLabel(node.label).length - 1) / 2) * 12 + 4}
+                            textAnchor="middle"
+                            fontSize={getTextNodeFontSize(node.id)}
+                            fill="#334155"
+                            fontWeight={getTextNodeFontWeight(node.id)}
+                            letterSpacing={getTextNodeLetterSpacing(node.id)}
+                          >
+                            {line}
+                          </text>
+                        ))}
+                      </g>
+                      {/* Badge for label nodes - horizontal (not rotated) */}
                       <rect
-                        x={node.x}
-                        y={node.y}
-                        width={node.width}
-                        height={node.height}
-                        rx="4"
-                        fill={getTextNodeBackgroundColor(node.id)}
-                        stroke="#cbd5e1"
-                        strokeWidth="1.5"
-                      />
-                      {splitLabel(node.label).map((line, i) => (
-                        <text
-                          key={i}
-                          x={node.x + node.width / 2}
-                          y={node.y + node.height / 2 + (i - (splitLabel(node.label).length - 1) / 2) * 12 + 4}
-                          textAnchor="middle"
-                          fontSize={getTextNodeFontSize(node.id)}
-                          fill="#334155"
-                          fontWeight={getTextNodeFontWeight(node.id)}
-                          letterSpacing={getTextNodeLetterSpacing(node.id)}
-                        >
-                          {line}
-                        </text>
-                      ))}
-                      {/* Badge for label nodes */}
-                      <rect
-                        x={node.x + node.width - (node.id === 'score-label' ? 16 : 14)}
-                        y={node.y - 14}
+                        x={node.x + node.width / 2 - (node.id === 'score-label' ? 2 : 0)}
+                        y={node.y - (node.id === 'explanation-label' ? 50 : node.id === 'score-label' ? 30 : 45)}
                         width={node.id === 'score-label' ? 32 : 28}
                         height="18"
                         rx="9"
                         fill="#475569"
                       />
                       <text
-                        x={node.x + node.width}
-                        y={node.y - 5}
+                        x={node.x + node.width / 2 + 14}
+                        y={node.y - (node.id === 'explanation-label' ? 41 : node.id === 'score-label' ? 21 : 36)}
                         textAnchor="middle"
                         dominantBaseline="central"
                         fontSize="10"
@@ -527,7 +529,7 @@ const FlowPanel: React.FC = () => {
                       >
                         {node.id === 'explanation-label' ? '48k' : node.id === 'score-label' ? '144k' : node.id === 'embedding-label' ? '48k' : '3'}
                       </text>
-                    </g>
+                    </>
                   ) : (
                     <>
                       <rect

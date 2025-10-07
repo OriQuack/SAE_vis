@@ -1,3 +1,5 @@
+import { COMPONENT_COLORS } from './constants'
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================
@@ -5,18 +7,18 @@
 export const TOTAL_FEATURES = 1648
 
 export const LINEAR_SET_METRICS = [
-  { key: 'feature_splitting', label: 'Feature Splitting', color: '#10b981' },
-  { key: 'semdist_mean', label: 'Semantic Similarity', color: '#f59e0b' },
-  { key: 'score_fuzz', label: 'Fuzz Score', color: '#3b82f6' },
-  { key: 'score_detection', label: 'Detection Score', color: '#8b5cf6' },
-  { key: 'score_embedding', label: 'Embedding Score', color: '#ef4444' }
+  { key: 'feature_splitting', label: 'Feature Splitting', color: COMPONENT_COLORS.FEATURE_SPLITTING },
+  { key: 'semdist_mean', label: 'Semantic Similarity', color: COMPONENT_COLORS.SEMANTIC_SIMILARITY },
+  { key: 'score_embedding', label: 'Embedding Score', color: COMPONENT_COLORS.SCORE_EMBEDDING },
+  { key: 'score_fuzz', label: 'Fuzz Score', color: COMPONENT_COLORS.SCORE_FUZZ },
+  { key: 'score_detection', label: 'Detection Score', color: COMPONENT_COLORS.SCORE_DETECTION }
 ] as const
 
 export const DEFAULT_LINEAR_SET_DIMENSIONS = {
   width: 1000,
-  height: 150,
-  margin: { top: 5, right: 5, bottom: 5, left: 150 },
-  lineHeight: 4
+  height: 70,
+margin: { top: 0, right: 0, bottom: 0, left: 120 },
+  lineHeight: 8
 } as const
 
 // ============================================================================
@@ -48,6 +50,13 @@ interface LineSegment {
 interface GroupPosition {
   start: number
   end: number
+}
+
+export interface Dimensions {
+  width: number
+  height: number
+  margin: { top: number; right: number; bottom: number; left: number }
+  lineHeight: number
 }
 
 interface LinearSetLayout {
@@ -223,7 +232,7 @@ function calculateSegments(featureGroups: FeatureGroup[]): {
  */
 export function calculateLinearSetLayout(
   thresholdGroups: ThresholdGroup[],
-  dimensions = DEFAULT_LINEAR_SET_DIMENSIONS
+  dimensions: Dimensions = DEFAULT_LINEAR_SET_DIMENSIONS
 ): LinearSetLayout {
   const { width, height, margin, lineHeight } = dimensions
   const innerWidth = width - margin.left - margin.right

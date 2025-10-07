@@ -5,6 +5,7 @@ import {
   LINEAR_SET_METRICS,
   DEFAULT_LINEAR_SET_DIMENSIONS
 } from '../lib/d3-linear-set-utils'
+import { useResizeObserver } from '../lib/utils'
 import '../styles/ProgressBar.css'
 
 interface ProgressBarProps {
@@ -16,13 +17,28 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({ className = '' }) => {
   const [hoveredGroupIndex, setHoveredGroupIndex] = useState<number | null>(null)
   const [hoveredMetric, setHoveredMetric] = useState<string | null>(null)
 
-  // Calculate layout using D3 utilities
-  const layout = useMemo(
-    () => calculateLinearSetLayout(thresholdGroups, DEFAULT_LINEAR_SET_DIMENSIONS),
-    [thresholdGroups]
-  )
+  // Resize observer for responsive width
+  const { ref: containerRef, size: containerSize } = useResizeObserver<HTMLDivElement>({
+    defaultWidth: DEFAULT_LINEAR_SET_DIMENSIONS.width,
+    defaultHeight: DEFAULT_LINEAR_SET_DIMENSIONS.height,
+    debounceMs: 16
+  })
 
-  const { width, height, margin, lineHeight } = DEFAULT_LINEAR_SET_DIMENSIONS
+  // Use container width
+  const width = containerSize.width
+
+  // Calculate layout using D3 utilities
+  const layout = useMemo(() => {
+    const dimensions = {
+      width,
+      height: DEFAULT_LINEAR_SET_DIMENSIONS.height,
+      margin: DEFAULT_LINEAR_SET_DIMENSIONS.margin,
+      lineHeight: DEFAULT_LINEAR_SET_DIMENSIONS.lineHeight
+    }
+    return calculateLinearSetLayout(thresholdGroups, dimensions)
+  }, [thresholdGroups, width])
+
+  const { height, margin, lineHeight } = DEFAULT_LINEAR_SET_DIMENSIONS
   const {
     featureGroups,
     metricSegments,
@@ -33,8 +49,12 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({ className = '' }) => {
   } = layout
 
   return (
-    <div className={`progress-bar ${className}`}>
-      <svg className="progress-bar__svg" width={width} height={height}>
+    <div ref={containerRef} className={`progress-bar ${className}`}>
+      <svg
+        className="progress-bar__svg"
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="none"
+      >
         <g transform={`translate(${margin.left}, ${margin.top})`}>
           {/* Background groups */}
           {featureGroups.map((_group, index) => {
@@ -75,7 +95,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({ className = '' }) => {
                   textAnchor="end"
                   alignmentBaseline="middle"
                   fontSize={12}
-                  fontWeight={isHovered ? 600 : 500}
+                  fontWeight={isHovered ? 500 : 400}
                   fill={isHovered ? '#1f2937' : '#374151'}
                 >
                   {metric.label}
@@ -90,7 +110,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({ className = '' }) => {
                     width={xScale(segment.endX) - xScale(segment.startX)}
                     height={lineHeight}
                     fill={metric.color}
-                    opacity={isHovered ? 1 : 0.7}
+                    opacity={isHovered ? 1 : 0.8}
                     onMouseEnter={() => setHoveredMetric(metric.key)}
                     onMouseLeave={() => setHoveredMetric(null)}
                     style={{ cursor: 'pointer' }}

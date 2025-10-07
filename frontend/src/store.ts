@@ -1025,12 +1025,10 @@ export const useStore = create<AppState>((set, get) => ({
       editingGroupId: null  // Clear editing state
     }
 
-    // Hide the group that was being edited
-    if (state.editingGroupId) {
-      updates.thresholdGroups = state.thresholdGroups.map(g =>
-        g.id === state.editingGroupId ? { ...g, visible: false } : g
-      )
-    }
+    // Hide all visible groups when starting new group creation
+    updates.thresholdGroups = state.thresholdGroups.map(g =>
+      g.visible ? { ...g, visible: false } : g
+    )
 
     set(updates)
   },
@@ -1052,7 +1050,7 @@ export const useStore = create<AppState>((set, get) => ({
       id: `group_${Date.now()}`,
       name: name.trim(),
       selections: [...state.pendingGroup],
-      visible: false, // Start with visualizations hidden
+      visible: true, // Immediately show the newly created group
       timestamp: Date.now()
     }
 
@@ -1095,15 +1093,21 @@ export const useStore = create<AppState>((set, get) => ({
         showGroupNameInput: false
       })
     } else {
-      // Hiding group: Disable edit mode
-      set({
+      // Hiding group: Only disable edit mode if this group is being edited
+      const updates: any = {
         thresholdGroups: state.thresholdGroups.map(g =>
           g.id === groupId ? { ...g, visible: false } : g
-        ),
-        editingGroupId: null,
-        selectionMode: false,
-        pendingGroup: []
-      })
+        )
+      }
+
+      // Only clear editing state if we're hiding the group that's being edited
+      if (state.editingGroupId === groupId) {
+        updates.editingGroupId = null
+        updates.selectionMode = false
+        updates.pendingGroup = []
+      }
+
+      set(updates)
     }
   },
 

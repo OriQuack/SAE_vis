@@ -6,10 +6,9 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding: 16px;
+  padding: 4px 4px;
   background-color: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  width: 100%;
 }
 
 /* Header Section */
@@ -48,6 +47,8 @@
 .progress-bar__svg {
   display: block;
   user-select: none;
+  width: 100%;
+  max-width: 100%;
 }
 
 /* Line segments - thin horizontal bars */
