@@ -649,7 +649,7 @@ export const useStore = create<AppState>((set, get) => ({
           },
           metric,
           ...(averageBy && { averageBy }), // Only include averageBy if it's not null
-          ...(metric.startsWith('score_') && { fixedDomain: [0.0, 1.0] }) // Fixed domain for score metrics
+          ...(metric.startsWith('score_') && { fixedDomain: [0.0, 1.0] as [number, number] }) // Fixed domain for score metrics
         }
 
         console.log('[HistogramPanel] Sending request:', JSON.stringify(request, null, 2))

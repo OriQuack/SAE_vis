@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react'
 import { useVisualizationStore } from '../store'
 import '../styles/ProgressBar.css'
 
-const TOTAL_FEATURES = 824
+const TOTAL_FEATURES = 1000
 
 interface ProgressBarProps {
   className?: string
@@ -165,7 +165,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({ className = '' }) => {
 
         {/* Feature ID labels at intervals */}
         <div className="progress-bar__labels">
-          {[0, 100, 200, 300, 400, 500, 600, 700, 800].map(id => (
+          {[0, 100, 200, 300, 400, 500, 600, 700, 800, 900].map(id => (
             <span
               key={id}
               className="progress-bar__label"
