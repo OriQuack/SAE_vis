@@ -1,196 +1,112 @@
-/* ProgressBar Component Styles */
+/* ============================================================================
+   LINEAR SET DIAGRAM - PROGRESS BAR
+   ============================================================================ */
 
 .progress-bar {
-  width: 100%;
-  background: white;
-  padding: 0 18px;  /* Left and right padding only */
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 /* Header Section */
 .progress-bar__header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .progress-bar__title {
   font-size: 14px;
   font-weight: 600;
-  color: #374151;
+  color: #1f2937;
+  margin: 0;
 }
 
-/* Legend */
 .progress-bar__legend {
   display: flex;
-  gap: 16px;
-  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 11px;
+  color: #6b7280;
 }
 
 .progress-bar__legend-item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #6b7280;
-}
-
-.progress-bar__legend-color {
-  width: 12px;
-  height: 12px;
-  border-radius: 2px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  gap: 4px;
 }
 
 .progress-bar__legend-label {
   font-weight: 500;
 }
 
-/* Progress Track Container */
-.progress-bar__container {
-  position: relative;
-  padding-bottom: 20px; /* Space for labels */
+/* SVG Visualization */
+.progress-bar__svg {
+  display: block;
+  user-select: none;
 }
 
-/* Progress Track */
-.progress-bar__track {
-  display: flex;
-  width: 100%;
-  height: 40px;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  overflow: hidden;
-  background: #f9fafb;
-}
-
-/* Individual Feature Segments */
+/* Line segments - thin horizontal bars */
 .progress-bar__segment {
-  height: 100%;
-  transition: transform 0.2s ease, opacity 0.2s ease;
+  transition: opacity 0.2s ease;
   cursor: pointer;
-  position: relative;
 }
 
-.progress-bar__segment--active {
-  opacity: 1;
+.progress-bar__segment:hover {
+  opacity: 1 !important;
 }
 
-.progress-bar__segment:not(.progress-bar__segment--active) {
-  opacity: 0.7;
+/* Row labels */
+.progress-bar__label--hover {
+  fill: #1f2937;
+  font-weight: 600;
 }
 
-.progress-bar__segment--hovered {
-  transform: scaleY(1.1);
-  z-index: 10;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
-}
-
-/* Feature ID Labels */
-.progress-bar__labels {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 20px;
-  display: flex;
-  align-items: center;
-}
-
-.progress-bar__label {
-  position: absolute;
-  font-size: 10px;
-  color: #9ca3af;
-  transform: translateX(-50%);
-  white-space: nowrap;
-}
-
-/* Hover Details */
+/* Hover Details Panel */
 .progress-bar__hover-details {
-  margin-top: 8px;
-  padding: 8px 12px;
-  background: #f3f4f6;
-  border-radius: 4px;
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: rgba(31, 41, 55, 0.95);
+  color: white;
+  padding: 12px 16px;
+  border-radius: 8px;
   font-size: 12px;
-  color: #374151;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  white-space: pre-wrap;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+  z-index: 1000;
+  pointer-events: none;
+  min-width: 200px;
+}
+
+.progress-bar__hover-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #ffffff;
+}
+
+.progress-bar__hover-text {
+  font-size: 11px;
+  color: #d1d5db;
   line-height: 1.5;
 }
 
-/* Gradient Patterns for Overlapping Groups */
-.progress-bar__segment--multi-group {
-  position: relative;
-  overflow: hidden;
-}
-
-.progress-bar__segment--multi-group::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-image: repeating-linear-gradient(
-    45deg,
-    transparent,
-    transparent 2px,
-    rgba(0, 0, 0, 0.05) 2px,
-    rgba(0, 0, 0, 0.05) 4px
-  );
-  pointer-events: none;
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .progress-bar__header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-
-  .progress-bar__legend {
-    flex-wrap: wrap;
-  }
-
-  .progress-bar__track {
-    height: 30px;
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+  .progress-bar__svg {
+    width: 100%;
+    height: auto;
   }
 }
 
-/* Loading State */
-.progress-bar--loading {
-  opacity: 0.6;
-  pointer-events: none;
-}
-
-.progress-bar--loading .progress-bar__track {
-  background: linear-gradient(
-    90deg,
-    #f3f4f6 0%,
-    #e5e7eb 50%,
-    #f3f4f6 100%
-  );
-  background-size: 200% 100%;
-  animation: loading-shimmer 2s ease-in-out infinite;
-}
-
-@keyframes loading-shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
-}
-
-/* Empty State */
-.progress-bar--empty .progress-bar__track {
-  justify-content: center;
-  align-items: center;
+/* Empty state */
+.progress-bar--empty {
+  padding: 32px;
+  text-align: center;
   color: #9ca3af;
-  font-size: 14px;
-}
-
-.progress-bar--empty .progress-bar__track::after {
-  content: 'No threshold groups created yet';
+  font-size: 13px;
 }
