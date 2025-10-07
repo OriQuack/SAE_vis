@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import * as api from './api'
+import { getFeaturesInThreshold } from './api'
 import type {
   Filters,
   ThresholdTree,
@@ -18,7 +19,7 @@ import type {
   CategoryGroup
 } from './types'
 import { updateNodeThreshold, createRootOnlyTree, addStageToNode, removeStageFromNode } from './lib/threshold-utils'
-import { PANEL_LEFT, PANEL_RIGHT, METRIC_SEMDIST_MEAN } from './lib/constants'
+import { PANEL_LEFT, PANEL_RIGHT, METRIC_SEMDIST_MEAN, getMetricColor } from './lib/constants'
 
 type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
 
@@ -35,6 +36,7 @@ interface ThresholdSelection {
   metricType: string
   barIndices: number[]
   thresholdRange: { min: number; max: number }
+  featureIds: number[]  // Feature IDs within this threshold range
   color: string
   timestamp: number
 }
@@ -137,7 +139,7 @@ interface AppState {
   setSelectionMode: (enabled: boolean) => void
   startSelection: (x: number, y: number) => void
   updateSelection: (x: number, y: number) => void
-  completeSelection: (metricType: string, barIndices: number[], thresholdRange: { min: number; max: number }) => void
+  completeSelection: (metricType: string, barIndices: number[], thresholdRange: { min: number; max: number }) => Promise<void>
   removeSelection: (id: string) => void
   clearAllSelections: () => void
 
@@ -924,22 +926,37 @@ export const useStore = create<AppState>((set, get) => ({
     })
   },
 
-  completeSelection: (metricType, barIndices, thresholdRange) => {
-    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
+  completeSelection: async (metricType, barIndices, thresholdRange) => {
     const state = get()
 
-    // Determine color index based on whether we're creating/editing a group or not
-    const existingCount = (state.isCreatingGroup || state.editingGroupId)
-      ? state.pendingGroup.length
-      : state.selections.length
-    const colorIndex = existingCount % colors.length
+    // Use metric identity color
+    const color = getMetricColor(metricType as MetricType)
+
+    // Fetch feature IDs from backend
+    let featureIds: number[] = []
+    try {
+      // Use the current filters from leftPanel (or could make this configurable)
+      const filters = state.leftPanel.filters
+      const result = await getFeaturesInThreshold(
+        filters,
+        metricType,
+        thresholdRange.min,
+        thresholdRange.max
+      )
+      featureIds = result.feature_ids
+      console.log(`Fetched ${featureIds.length} feature IDs for ${metricType} in range [${thresholdRange.min}, ${thresholdRange.max}]`)
+    } catch (error) {
+      console.error('Failed to fetch feature IDs:', error)
+      // Continue with empty feature IDs on error
+    }
 
     const newSelection = {
       id: `sel_${Date.now()}`,
       metricType,
       barIndices,
       thresholdRange,
-      color: colors[colorIndex],
+      featureIds,  // Now includes the fetched feature IDs
+      color,  // Use metric identity color
       timestamp: Date.now()
     }
 

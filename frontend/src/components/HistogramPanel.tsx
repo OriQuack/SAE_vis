@@ -367,6 +367,12 @@ const SingleHistogram: React.FC<{
               justifyContent: 'center',
               zIndex: 20
             }}
+            onMouseDown={(e) => {
+              e.stopPropagation()
+            }}
+            onMouseUp={(e) => {
+              e.stopPropagation()
+            }}
             onClick={(e) => {
               e.stopPropagation()
               onRemoveThreshold(metricKey)

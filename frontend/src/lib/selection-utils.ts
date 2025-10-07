@@ -2,7 +2,6 @@
 // SELECTION UTILITIES FOR HISTOGRAM INTERACTION
 // ============================================================================
 
-import type { HistogramData } from '../types'
 
 // ============================================================================
 // TYPES
@@ -82,30 +81,6 @@ export function calculateThresholdRangeFromMouse(
 }
 
 /**
- * Calculate threshold range from selected bar indices
- * @param histogramData - Histogram data containing bin edges
- * @param selectedIndices - Array of selected bar indices
- * @returns Min and max threshold values
- */
-export function calculateThresholdRange(
-  histogramData: HistogramData,
-  selectedIndices: number[]
-): ThresholdRange {
-  if (selectedIndices.length === 0) {
-    return { min: 0, max: 0 }
-  }
-
-  const minIndex = Math.min(...selectedIndices)
-  const maxIndex = Math.max(...selectedIndices)
-
-  // Get exact threshold values from bin edges
-  const min = histogramData.histogram.bin_edges[minIndex]
-  const max = histogramData.histogram.bin_edges[maxIndex + 1]
-
-  return { min, max }
-}
-
-/**
  * Get bars that intersect with selection rectangle
  * @param selectionRect - Selection rectangle in container coordinates
  * @param chartRect - Chart SVG element bounding rect
@@ -139,67 +114,6 @@ export function getBarsInSelection(
   })
 
   return selectedIndices
-}
-
-// ============================================================================
-// COLOR UTILITIES
-// ============================================================================
-
-/**
- * Get selection color based on index
- * @param index - Selection index
- * @returns CSS color string
- */
-export function getSelectionColor(index: number): string {
-  const colors = [
-    '#3b82f6', // blue
-    '#10b981', // green
-    '#f59e0b', // amber
-    '#ef4444', // red
-    '#8b5cf6', // violet
-    '#ec4899', // pink
-  ]
-  return colors[index % colors.length]
-}
-
-// ============================================================================
-// FORMATTING UTILITIES
-// ============================================================================
-
-/**
- * Format threshold range for display
- * @param min - Minimum threshold value
- * @param max - Maximum threshold value
- * @returns Formatted string
- */
-export function formatThresholdRange(min: number, max: number): string {
-  const formatValue = (val: number): string => {
-    if (Math.abs(val) < 0.001 && val !== 0) {
-      return val.toExponential(2)
-    }
-    if (Math.abs(val) < 1) {
-      return val.toFixed(3)
-    }
-    return val.toFixed(2)
-  }
-
-  return `${formatValue(min)} - ${formatValue(max)}`
-}
-
-/**
- * Format metric name for display
- * @param metricType - Metric type key
- * @returns Human-readable metric name
- */
-export function formatMetricName(metricType: string): string {
-  const names: Record<string, string> = {
-    feature_splitting: 'Feature Splitting',
-    semdist_mean: 'Semantic Similarity',
-    score_embedding: 'Embedding Score',
-    score_fuzz: 'Fuzz Score',
-    score_detection: 'Detection Score'
-  }
-  return names[metricType] || metricType
 }
 
 // ============================================================================

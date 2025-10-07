@@ -274,3 +274,22 @@ class FeatureResponse(BaseModel):
         ...,
         description="Path to detailed JSON file"
     )
+
+class ThresholdFeatureResponse(BaseModel):
+    """Response model for threshold feature IDs endpoint"""
+    feature_ids: List[int] = Field(
+        ...,
+        description="List of unique feature IDs within the threshold range"
+    )
+    total_count: int = Field(
+        ...,
+        description="Total number of features in the threshold range"
+    )
+    metric: str = Field(
+        ...,
+        description="The metric used for filtering"
+    )
+    threshold_range: Dict[str, float] = Field(
+        ...,
+        description="The threshold range used (min and max values)"
+    )

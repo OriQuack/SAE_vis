@@ -61,3 +61,22 @@ class ComparisonRequest(BaseModel):
         ...,
         description="Configuration for right Sankey diagram"
     )
+
+class ThresholdFeatureRequest(BaseModel):
+    """Request model for retrieving feature IDs within a threshold range"""
+    filters: Filters = Field(
+        ...,
+        description="Filter criteria for data subset"
+    )
+    metric: MetricType = Field(
+        ...,
+        description="Metric to check against threshold range"
+    )
+    min_value: float = Field(
+        ...,
+        description="Minimum threshold value (inclusive)"
+    )
+    max_value: float = Field(
+        ...,
+        description="Maximum threshold value (inclusive)"
+    )

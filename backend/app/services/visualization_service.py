@@ -372,6 +372,60 @@ class DataService:
             grouped_data=grouped_data
         )
 
+    async def get_features_in_threshold_range(
+        self,
+        filters: Filters,
+        metric: MetricType,
+        min_value: float,
+        max_value: float
+    ) -> List[int]:
+        """
+        Get unique feature IDs that fall within a specific threshold range for a given metric.
+
+        This method is used by the progress bar visualization to track which features
+        belong to each threshold selection in a threshold group.
+
+        Args:
+            filters: Filter criteria to apply
+            metric: The metric to check
+            min_value: Minimum threshold value (inclusive)
+            max_value: Maximum threshold value (inclusive)
+
+        Returns:
+            List of unique feature IDs within the threshold range
+        """
+        if not self.is_ready():
+            raise RuntimeError("DataService not ready")
+
+        try:
+            # Apply filters to get the base dataset
+            filtered_df = self._apply_filters(self._df_lazy, filters).collect()
+
+            if len(filtered_df) == 0:
+                raise ValueError("No data available after applying filters")
+
+            # Filter by threshold range
+            metric_col = metric.value
+            threshold_filtered = filtered_df.filter(
+                (pl.col(metric_col) >= min_value) &
+                (pl.col(metric_col) <= max_value)
+            )
+
+            # Get unique feature IDs
+            feature_ids = (
+                threshold_filtered
+                .select(pl.col(COL_FEATURE_ID).unique())
+                .get_column(COL_FEATURE_ID)
+                .to_list()
+            )
+
+            # Convert to integers and return
+            return [int(fid) for fid in feature_ids]
+
+        except Exception as e:
+            logger.error(f"Error getting features in threshold range: {e}")
+            raise
+
     async def get_sankey_data(
         self,
         filters: Filters,

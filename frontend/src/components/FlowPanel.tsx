@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { OKABE_ITO_PALETTE, COMPONENT_COLORS, getComponentBackgroundColor } from '../lib/constants'
+import { OKABE_ITO_PALETTE, COMPONENT_COLORS, getComponentBackgroundColor, METRIC_COLORS } from '../lib/constants'
 import { calculateFlowLayout, getIconTransform, splitLabel, type FlowNode } from '../lib/d3-flow-utils'
 import '../styles/FlowPanel.css'
 
@@ -196,17 +196,25 @@ const getIconBackgroundColor = (iconType?: string) => {
 }
 
 const getTextNodeBackgroundColor = (nodeId: string) => {
-  // Feature splitting - green tint (from decoder)
+  // Feature splitting - dark bluish green with opacity
   if (nodeId === 'feature-splitting') {
-    return getComponentBackgroundColor('decoder')
+    return METRIC_COLORS.FEATURE_SPLITTING
   }
-  // Semantic similarity & Embedding score - gradient from explainer (orange) to embedder (purple)
-  if (nodeId === 'semantic-similarity' || nodeId === 'embedding-score') {
-    return 'url(#gradient-semantic-similarity)'
+  // Semantic similarity - medium vermillion with opacity
+  if (nodeId === 'semantic-similarity') {
+    return METRIC_COLORS.SEMANTIC_SIMILARITY
   }
-  // Fuzz and Detection scores - gradient from explainer (orange) to scorer (blue)
-  if (nodeId === 'fuzz-score' || nodeId === 'detection-score') {
-    return 'url(#gradient-scorer-metrics)'
+  // Embedding score - medium sky blue with opacity
+  if (nodeId === 'embedding-score') {
+    return METRIC_COLORS.SCORE_EMBEDDING
+  }
+  // Fuzz score - light sky blue with opacity
+  if (nodeId === 'fuzz-score') {
+    return METRIC_COLORS.SCORE_FUZZ
+  }
+  // Detection score - light sky blue with opacity
+  if (nodeId === 'detection-score') {
+    return METRIC_COLORS.SCORE_DETECTION
   }
   // Activating Example - white background
   if (nodeId === 'activating-example') {
@@ -334,24 +342,7 @@ const FlowPanel: React.FC = () => {
       {/* Right: D3-Calculated Flowchart */}
       <div className="flow-panel__chart">
         <svg viewBox="0 0 600 180" preserveAspectRatio="xMidYMid meet">
-          {/* Define gradients */}
           <defs>
-            {/* Semantic Similarity: Explainer (Orange) → Embedder (Purple) */}
-            <linearGradient id="gradient-semantic-similarity" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor={COMPONENT_COLORS.EXPLAINER} stopOpacity="0.4" />
-              <stop offset="30%" stopColor={COMPONENT_COLORS.EXPLAINER} stopOpacity="0.4" />
-              <stop offset="70%" stopColor={COMPONENT_COLORS.EMBEDDER} stopOpacity="0.4" />
-              <stop offset="100%" stopColor={COMPONENT_COLORS.EMBEDDER} stopOpacity="0.4" />
-            </linearGradient>
-
-            {/* Fuzz & Detection Scores: Explainer (Orange) → Scorer (Blue) */}
-            <linearGradient id="gradient-scorer-metrics" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor={COMPONENT_COLORS.EXPLAINER} stopOpacity="0.4" />
-              <stop offset="30%" stopColor={COMPONENT_COLORS.EXPLAINER} stopOpacity="0.4" />
-              <stop offset="70%" stopColor={COMPONENT_COLORS.SCORER} stopOpacity="0.4" />
-              <stop offset="100%" stopColor={COMPONENT_COLORS.SCORER} stopOpacity="0.4" />
-            </linearGradient>
-
             {/* Arrow markers for each edge color */}
             <marker
               id="arrow-gray"

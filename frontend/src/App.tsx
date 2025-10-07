@@ -7,6 +7,7 @@ import HistogramPopover from './components/HistogramPopover'
 import FlowPanel from './components/FlowPanel'
 import HistogramPanel from './components/HistogramPanel'
 import ThresholdGroupPanel from './components/ThresholdGroupPanel'
+import ProgressBar from './components/ProgressBar'
 import { usePanelDataLoader } from './lib/utils'
 import * as api from './api'
 import './styles/base.css'
@@ -287,9 +288,7 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
           <div className="sankey-view__right-wrapper">
             {/* Progress Bar Panel - Spans across left, center, and right panels */}
             <div className="sankey-view__progress-bar-panel">
-              <div className="sankey-view__placeholder-text">
-                Progress Bar Panel
-              </div>
+              <ProgressBar />
             </div>
 
             {/* Sankey Wrapper */}

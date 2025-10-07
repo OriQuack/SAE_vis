@@ -169,16 +169,39 @@ export const EUROVIS_PALETTE = {
 } as const
 
 // ============================================================================
+// METRIC-SPECIFIC COLORS - Solid colors for metrics without gradients
+// Based on Okabe-Ito colorblind-safe palette with custom shades
+// ============================================================================
+export const METRIC_COLORS = {
+  // Feature Splitting - Dark Bluish Green
+  FEATURE_SPLITTING: OKABE_ITO_PALETTE.BLUISH_GREEN,  
+
+  // Semantic Similarity - Medium Vermillion
+  SEMANTIC_SIMILARITY: OKABE_ITO_PALETTE.VERMILLION + '99',  // Okabe-Ito Vermillion (medium shade)
+
+  // Score metrics - Sky Blue variants
+  SCORE_FUZZ: OKABE_ITO_PALETTE.SKY_BLUE + 48,          
+  SCORE_DETECTION: OKABE_ITO_PALETTE.SKY_BLUE + 48,      
+  SCORE_EMBEDDING: OKABE_ITO_PALETTE.SKY_BLUE + '99',      
+} as const
+
+// ============================================================================
 // COMPONENT TYPE COLORS - Centralized color mapping for SAE components
 // EuroVIS colorblind-safe palette for different component types
 // Used across: FlowPanel.tsx, HistogramPanel.tsx, d3-flow-utils.ts (3+ files)
 // ============================================================================
 export const COMPONENT_COLORS = {
-  DECODER: PAUL_TOL_BRIGHT.GREEN,                    // #228833 - Feature Splitting (Decoder)
-  EXPLAINER: OKABE_ITO_PALETTE.ORANGE,               // #E69F00 - LLM Explainer
-  SCORER: OKABE_ITO_PALETTE.BLUE,                    // #0072B2 - LLM Scorer
-  EMBEDDER: OKABE_ITO_PALETTE.REDDISH_PURPLE,        // #CC79A7 - Embedding
-  FEATURE_SPLITTING: OKABE_ITO_PALETTE.BLUISH_GREEN  // #009E73 - Green for feature splitting metric
+  DECODER: OKABE_ITO_PALETTE.BLUISH_GREEN,     // #009E73 - Decoder
+  EXPLAINER: OKABE_ITO_PALETTE.ORANGE,         // #E69F00 - LLM Explainer
+  SCORER: OKABE_ITO_PALETTE.BLUE,              // #0072B2 - LLM Scorer
+  EMBEDDER: OKABE_ITO_PALETTE.REDDISH_PURPLE,  // #CC79A7 - Embedder
+
+  // Metric-specific colors (solid, no gradients)
+  FEATURE_SPLITTING: METRIC_COLORS.FEATURE_SPLITTING,      // #006B52 - Dark bluish green
+  SEMANTIC_SIMILARITY: METRIC_COLORS.SEMANTIC_SIMILARITY,  // #D55E00 - Medium vermillion
+  SCORE_FUZZ: METRIC_COLORS.SCORE_FUZZ,                    // #87CEEB - Light sky blue
+  SCORE_DETECTION: METRIC_COLORS.SCORE_DETECTION,          // #87CEEB - Light sky blue
+  SCORE_EMBEDDING: METRIC_COLORS.SCORE_EMBEDDING,          // #56B4E9 - Medium sky blue
 } as const
 
 /**
@@ -195,6 +218,25 @@ export const getComponentColor = (type: 'decoder' | 'explainer' | 'scorer' | 'em
     feature_splitting: COMPONENT_COLORS.FEATURE_SPLITTING
   }
   return colorMap[type] || '#6b7280'
+}
+
+/**
+ * Get metric color by type (solid colors, no gradients)
+ * @param metric - Metric type identifier
+ * @returns Colorblind-safe solid color
+ */
+export const getMetricColor = (metric: MetricTypeValue): string => {
+  const colorMap = {
+    feature_splitting: METRIC_COLORS.FEATURE_SPLITTING,
+    semantic_similarity: METRIC_COLORS.SEMANTIC_SIMILARITY,
+    semdist_mean: METRIC_COLORS.SEMANTIC_SIMILARITY,
+    semdist_max: METRIC_COLORS.SEMANTIC_SIMILARITY,
+    score_fuzz: METRIC_COLORS.SCORE_FUZZ,
+    score_detection: METRIC_COLORS.SCORE_DETECTION,
+    score_embedding: METRIC_COLORS.SCORE_EMBEDDING,
+    score_simulation: METRIC_COLORS.SCORE_EMBEDDING,
+  }
+  return colorMap[metric] || '#6b7280'
 }
 
 /**

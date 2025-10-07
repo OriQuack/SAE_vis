@@ -92,6 +92,35 @@ export async function getFeatureDetail(featureId: number, params: Partial<Filter
   return response.json()
 }
 
+export async function getFeaturesInThreshold(
+  filters: Filters,
+  metric: string,
+  minValue: number,
+  maxValue: number
+): Promise<{ feature_ids: number[]; total_count: number }> {
+  console.log('[getFeaturesInThreshold] Request:', { filters, metric, minValue, maxValue })
+
+  const response = await fetch(`${API_BASE}/features-in-threshold`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      filters,
+      metric,
+      min_value: minValue,
+      max_value: maxValue
+    })
+  })
+
+  if (!response.ok) {
+    console.error('[getFeaturesInThreshold] Error:', response.status, response.statusText)
+    throw new Error(`Failed to fetch features in threshold: ${response.status}`)
+  }
+
+  const result = await response.json()
+  console.log('[getFeaturesInThreshold] Response:', result)
+  return result
+}
+
 export async function healthCheck(): Promise<boolean> {
   try {
     const response = await fetch('/health')
