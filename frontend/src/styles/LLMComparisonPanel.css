@@ -40,12 +40,6 @@
 
 /* Cell styles */
 .llm-comparison-panel__cell {
-  transition: opacity 0.2s ease;
+  transition: fill-opacity 0.2s ease, stroke-width 0.2s ease;
   cursor: pointer;
-  stroke: white;
-  stroke-width: 2;
-}
-
-.llm-comparison-panel__cell:hover {
-  opacity: 1 !important;
 }

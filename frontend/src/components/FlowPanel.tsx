@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { OKABE_ITO_PALETTE, COMPONENT_COLORS, getComponentBackgroundColor, METRIC_COLORS, LLM_EXPLAINER_ICON_SVG, LLM_SCORER_ICON_SVG } from '../lib/constants'
+import { COMPONENT_COLORS, getComponentBackgroundColor, METRIC_COLORS, LLM_EXPLAINER_ICON_SVG, LLM_SCORER_ICON_SVG } from '../lib/constants'
 import { calculateFlowLayout, getIconTransform, splitLabel, type FlowNode } from '../lib/d3-flow-utils'
 import '../styles/FlowPanel.css'
 
