@@ -1,0 +1,44 @@
+/* ============================================================================
+   LLM COMPARISON VISUALIZATION - Static Matrix Visualization
+   ============================================================================ */
+
+.llm-comparison-visualization {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  background-color: #ffffff;
+}
+
+.llm-comparison-visualization__svg {
+  display: block;
+  user-select: none;
+  width: 100%;
+  height: 100%;
+}
+
+/* Label group styles */
+.llm-comparison-visualization__label-group {
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Label text styles */
+.llm-comparison-visualization__label {
+  pointer-events: none;
+  user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  letter-spacing: 0.5px;
+}
+
+/* Icon styles */
+.llm-comparison-visualization__icon {
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Cell styles - static, no interactivity */
+.llm-comparison-visualization__cell {
+  pointer-events: none;
+}

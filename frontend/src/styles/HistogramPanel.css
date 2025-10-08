@@ -16,8 +16,8 @@
   display: flex;
   flex-direction: column;
   padding: 6px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
+  min-height: 0;
 }
 
 .histogram-panel--selection-mode .histogram-panel__container {
@@ -35,9 +35,9 @@
   padding: 3px;
   margin-bottom: 3px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  min-height: 80px;
   display: flex;
   flex-direction: column;
+  flex-shrink: 1;
 }
 
 .histogram-panel__chart:last-child {
@@ -59,9 +59,9 @@
 .histogram-panel__merged-chart {
   background: transparent;
   padding: 3px;
-  min-height: 80px;
   display: flex;
   flex-direction: column;
+  flex-shrink: 1;
   border: none;
   box-shadow: none;
   border-radius: 0;
@@ -215,7 +215,6 @@
 /* Responsive adjustments */
 @media (max-height: 600px) {
   .histogram-panel__chart {
-    min-height: 70px;
     padding: 2px;
   }
 }

@@ -454,9 +454,18 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
 
   // Calculate individual histogram dimensions
   const histogramHeight = useMemo(() => {
-    const padding = 6
-    const totalPadding = padding * (PANEL_METRICS.length + 1)
-    return (containerSize.height - totalPadding) / PANEL_METRICS.length
+    // Account for all padding and margins in the layout
+    const containerPadding = 12  // .histogram-panel__container: 6px top + 6px bottom
+    const individualChartOverhead = 9  // .histogram-panel__chart: 3px padding-top + 3px padding-bottom + 3px margin-bottom
+    const mergedContainerOverhead = 9  // .histogram-panel__merged-container: 3px padding-top + 3px padding-bottom + 3px margin-bottom
+    const mergedChartOverhead = 6  // .histogram-panel__merged-chart: 3px padding-top + 3px padding-bottom
+
+    const totalOverhead = containerPadding
+      + (INDIVIDUAL_METRICS.length * individualChartOverhead)
+      + mergedContainerOverhead
+      + (MERGED_SCORE_METRICS.length * mergedChartOverhead)
+
+    return (containerSize.height - totalOverhead) / PANEL_METRICS.length
   }, [containerSize.height])
 
   const histogramWidth = useMemo(() => {

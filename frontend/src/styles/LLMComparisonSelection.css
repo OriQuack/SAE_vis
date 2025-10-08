@@ -1,0 +1,45 @@
+/* ============================================================================
+   LLM COMPARISON SELECTION - Interactive Matrix Selection
+   ============================================================================ */
+
+.llm-comparison-selection {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  background-color: #ffffff;
+}
+
+.llm-comparison-selection__svg {
+  display: block;
+  user-select: none;
+  width: 100%;
+  height: 100%;
+}
+
+/* Label group styles */
+.llm-comparison-selection__label-group {
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Label text styles */
+.llm-comparison-selection__label {
+  pointer-events: none;
+  user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  letter-spacing: 0.5px;
+}
+
+/* Icon styles */
+.llm-comparison-selection__icon {
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Cell styles */
+.llm-comparison-selection__cell {
+  transition: fill-opacity 0.2s ease, stroke-width 0.2s ease;
+  cursor: pointer;
+}

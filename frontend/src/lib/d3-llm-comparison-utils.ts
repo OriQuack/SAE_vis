@@ -344,8 +344,8 @@ export function calculateLLMComparisonLayout(
   const innerHeight = height - margin.top - margin.bottom
 
   // Simple triangle sizes - scale with available space
-  const leftTriangleSize = innerHeight * 0.32
-  const rightTriangleSize = innerHeight * 0.30
+  const leftTriangleSize = innerHeight * 0.25
+  const rightTriangleSize = innerHeight * 0.24
 
   const cellGap = 5
 
