@@ -5,7 +5,7 @@
 export const DEFAULT_LLM_COMPARISON_DIMENSIONS = {
   width: 800,
   height: 400,
-  margin: { top: 10, right: 10, bottom: 10, left: 10 },
+  margin: { top: 10, right: 5, bottom: 5, left: 5 },
   triangleGap: 10  // Gap between right triangles
 } as const
 
@@ -75,7 +75,7 @@ function calculateTriangleCellPoints(
   vx: number,
   vy: number,
   size: number,
-  orientation: 'left' | 'down' | 'up'
+  orientation: 'left' | 'right' | 'down' | 'up'
 ): string {
   // For an isosceles right triangle with leg length = size,
   // the legs extend at 45° angles from the vertex
@@ -85,6 +85,9 @@ function calculateTriangleCellPoints(
   if (orientation === 'left') {
     // Vertex at left, two points to the right at ±45°
     return `${vx},${vy} ${vx + offset},${vy - offset} ${vx + offset},${vy + offset}`
+  } else if (orientation === 'right') {
+    // Vertex at right, two points to the left at ±45°
+    return `${vx},${vy} ${vx - offset},${vy - offset} ${vx - offset},${vy + offset}`
   } else if (orientation === 'down') {
     // Vertex at bottom, two points above at ±45°
     return `${vx},${vy} ${vx - offset},${vy - offset} ${vx + offset},${vy - offset}`
@@ -109,7 +112,7 @@ function calculateTriangleCellPoints(
  * @param vx - vertex x coordinate (90° angle vertex)
  * @param vy - vertex y coordinate (90° angle vertex)
  * @param size - triangle leg length
- * @param orientation - direction the 90° vertex points ('left', 'down', 'up')
+ * @param orientation - direction the 90° vertex points ('left', 'right', 'down', 'up')
  * @param gap - gap between cells in pixels (default: 2)
  * @returns Array of 6 cells with calculated polygon points
  */
@@ -117,7 +120,7 @@ function calculateTriangleCells(
   vx: number,
   vy: number,
   size: number,
-  orientation: 'left' | 'down' | 'up',
+  orientation: 'left' | 'right' | 'down' | 'up',
   gap: number = 2
 ): Cell[] {
   const cells: Cell[] = []
@@ -170,6 +173,54 @@ function calculateTriangleCells(
     })
     cells.push({
       points: calculateTriangleCellPoints(row1X + cellSpan * 1.5 + gap * 2.5, vy + triangleVerticalOffset, cellSize, 'left'),
+      row: 2,
+      col: 2,
+      type: 'triangle'
+    })
+  } else if (orientation === 'right') {
+    // Right-pointing triangle: vertex at right, extends to the left
+    const row1X = vx - cellSpan - gap
+    const row2X = vx - 2 * cellSpan - 2 * gap
+    const diamondVerticalOffset = cellSpan + gap
+    const triangleVerticalOffset = cellSpan * 2 + gap * 2
+
+    // Row 0: triangle at vertex
+    cells.push({
+      points: calculateTriangleCellPoints(row1X - cellSpan * 1.5 - gap * 2.5, vy - triangleVerticalOffset, cellSize, 'right'),
+      row: 0,
+      col: 0,
+      type: 'triangle'
+    })
+
+    // Row 1: diamond + triangle (horizontally adjacent)
+    cells.push({
+      points: calculateDiamondCellPoints(row1X - cellSpan / 2, vy, cellSize),
+      row: 1,
+      col: 0,
+      type: 'diamond'
+    })
+    cells.push({
+      points: calculateTriangleCellPoints(row1X - cellSpan * 1.5 - gap * 2.5, vy, cellSize, 'right'),
+      row: 1,
+      col: 1,
+      type: 'triangle'
+    })
+
+    // Row 2: two diamonds (vertically stacked) + triangle
+    cells.push({
+      points: calculateDiamondCellPoints(row2X - cellSpan / 2, vy - diamondVerticalOffset, cellSize),
+      row: 2,
+      col: 0,
+      type: 'diamond'
+    })
+    cells.push({
+      points: calculateDiamondCellPoints(row2X - cellSpan / 2, vy + diamondVerticalOffset, cellSize),
+      row: 2,
+      col: 1,
+      type: 'diamond'
+    })
+    cells.push({
+      points: calculateTriangleCellPoints(row1X - cellSpan * 1.5 - gap * 2.5, vy + triangleVerticalOffset, cellSize, 'right'),
       row: 2,
       col: 2,
       type: 'triangle'
@@ -293,8 +344,8 @@ export function calculateLLMComparisonLayout(
   const innerHeight = height - margin.top - margin.bottom
 
   // Simple triangle sizes - scale with available space
-  const leftTriangleSize = innerHeight * 0.43
-  const rightTriangleSize = innerHeight * 0.4
+  const leftTriangleSize = innerHeight * 0.4
+  const rightTriangleSize = innerHeight * 0.35
 
   const cellGap = 2
 
@@ -302,10 +353,10 @@ export function calculateLLMComparisonLayout(
   // Left triangle: vertex at left edge, vertically centered
   const leftTriangle = {
     cells: calculateTriangleCells(
-      margin.left,
-      margin.top + innerHeight / 2,
+      margin.left + innerWidth * 0.5,
+      margin.top + innerHeight * 0.55,
       leftTriangleSize,
-      'left',
+      'right',
       cellGap
     )
   }
@@ -314,7 +365,7 @@ export function calculateLLMComparisonLayout(
   const topRightTriangle = {
     cells: calculateTriangleCells(
       margin.left + innerWidth * 0.5 + innerWidth * 0.02,
-      margin.top + innerHeight * 0.5 + innerWidth * 0.02,
+      margin.top + innerHeight * 0.55 + innerHeight * 0.05,
       rightTriangleSize,
       'down',
       cellGap
@@ -324,8 +375,8 @@ export function calculateLLMComparisonLayout(
   // Middle right triangle: vertex pointing left, vertically centered
   const middleRightTriangle = {
     cells: calculateTriangleCells(
-      margin.left + innerWidth * 0.5 ,
-      margin.top + innerHeight * 0.5,
+      margin.left + innerWidth * 0.5,
+      margin.top + innerHeight * 0.55,
       rightTriangleSize,
       'left',
       cellGap
@@ -336,7 +387,7 @@ export function calculateLLMComparisonLayout(
   const bottomRightTriangle = {
     cells: calculateTriangleCells(
       margin.left + innerWidth * 0.5 + innerWidth * 0.02,
-      margin.top + innerHeight * 0.5 - innerWidth * 0.02,
+      margin.top + innerHeight * 0.55 - innerHeight * 0.05,
       rightTriangleSize,
       'up',
       cellGap

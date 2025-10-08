@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { OKABE_ITO_PALETTE, COMPONENT_COLORS, getComponentBackgroundColor, METRIC_COLORS } from '../lib/constants'
+import { OKABE_ITO_PALETTE, COMPONENT_COLORS, getComponentBackgroundColor, METRIC_COLORS, LLM_EXPLAINER_ICON_SVG, LLM_SCORER_ICON_SVG } from '../lib/constants'
 import { calculateFlowLayout, getIconTransform, splitLabel, type FlowNode } from '../lib/d3-flow-utils'
 import '../styles/FlowPanel.css'
 
@@ -8,69 +8,11 @@ import '../styles/FlowPanel.css'
 // ============================================================================
 
 const LLMExplainerIcon: React.FC = () => (
-  <svg viewBox="0 0 100 100" className="flow-icon">
-    {/* Cute robot head */}
-    <rect x="25" y="35" width="50" height="45" rx="12" fill={COMPONENT_COLORS.EXPLAINER} />
-
-    {/* Eyes - friendly teacher look */}
-    <circle cx="38" cy="53" r="6" fill="white" />
-    <circle cx="62" cy="53" r="6" fill="white" />
-    <circle cx="38" cy="53" r="3" fill="#1f2937" />
-    <circle cx="62" cy="53" r="3" fill="#1f2937" />
-
-    {/* Neutral mouth */}
-    <line x1="40" y1="65" x2="60" y2="65" stroke="white" strokeWidth="3" strokeLinecap="round" />
-
-    {/* Glasses - teacher style */}
-    <circle cx="38" cy="53" r="8" stroke="#1f2937" strokeWidth="2" fill="none" />
-    <circle cx="62" cy="53" r="8" stroke="#1f2937" strokeWidth="2" fill="none" />
-    <line x1="46" y1="53" x2="54" y2="53" stroke="#1f2937" strokeWidth="2" />
-
-    {/* Graduation cap */}
-    {/* Cap base */}
-    <rect x="35" y="25" width="30" height="6" rx="1" fill="#1f2937" />
-    {/* Cap top (mortarboard) */}
-    <path d="M 30 25 L 70 25 L 68 20 L 32 20 Z" fill="#1f2937" />
-    {/* Tassel */}
-    <line x1="65" y1="20" x2="68" y2="15" stroke="#1f2937" strokeWidth="1.5" />
-    <circle cx="68" cy="14" r="2" fill={OKABE_ITO_PALETTE.YELLOW} />
-
-    {/* Book/document - teaching symbol */}
-    <rect x="70" y="40" width="18" height="24" rx="2" fill="white" stroke={COMPONENT_COLORS.EXPLAINER} strokeWidth="2" />
-    <line x1="73" y1="47" x2="85" y2="47" stroke={COMPONENT_COLORS.EXPLAINER} strokeWidth="1.5" />
-    <line x1="73" y1="52" x2="85" y2="52" stroke={COMPONENT_COLORS.EXPLAINER} strokeWidth="1.5" />
-    <line x1="73" y1="57" x2="85" y2="57" stroke={COMPONENT_COLORS.EXPLAINER} strokeWidth="1.5" />
-  </svg>
+  <svg viewBox="0 0 100 100" className="flow-icon" dangerouslySetInnerHTML={{ __html: LLM_EXPLAINER_ICON_SVG }} />
 )
 
 const LLMScorerIcon: React.FC = () => (
-  <svg viewBox="0 0 100 100" className="flow-icon">
-    {/* Cute robot head */}
-    <rect x="25" y="35" width="50" height="45" rx="12" fill={COMPONENT_COLORS.SCORER} />
-
-    {/* Eyes - focused student look */}
-    <circle cx="38" cy="53" r="6" fill="white" />
-    <circle cx="62" cy="53" r="6" fill="white" />
-    <circle cx="40" cy="53" r="3" fill="#1f2937" />
-    <circle cx="64" cy="53" r="3" fill="#1f2937" />
-
-    {/* Sad expression - linear mouth */}
-    <line x1="38" y1="66" x2="62" y2="66" stroke="white" strokeWidth="3" strokeLinecap="round" />
-
-    {/* Cute antenna */}
-    <line x1="50" y1="35" x2="50" y2="22" stroke="#1f2937" strokeWidth="2" strokeLinecap="round" />
-    <circle cx="50" cy="18" r="4" fill={OKABE_ITO_PALETTE.YELLOW} stroke="#1f2937" strokeWidth="1.5" />
-
-    {/* Pencil - upside down */}
-    {/* Pencil tip pointing up */}
-    <polygon points="78,30 75,35 81,35" fill="#1f2937" />
-    {/* Wood body */}
-    <rect x="75" y="35" width="6" height="26" rx="1" fill={OKABE_ITO_PALETTE.YELLOW} />
-    {/* Metal band */}
-    <rect x="75" y="61" width="6" height="2" fill="#9CA3AF" />
-    {/* Eraser */}
-    <rect x="75" y="63" width="6" height="5" fill="#FF6B9D" />
-  </svg>
+  <svg viewBox="0 0 100 100" className="flow-icon" dangerouslySetInnerHTML={{ __html: LLM_SCORER_ICON_SVG }} />
 )
 
 const DecoderIcon: React.FC = () => (
