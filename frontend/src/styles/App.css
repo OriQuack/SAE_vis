@@ -268,7 +268,8 @@
   overflow: auto;
 }
 
-.sankey-view__left-wrapper {
+/* Control Column - Left side containing input controls */
+.sankey-view__control-column {
   flex: 2;
   display: flex;
   flex-direction: column;
@@ -301,7 +302,7 @@
   border-top: 1px solid #000000;
 }
 
-.sankey-view__histogram-wrapper {
+.sankey-view__histogram-container {
   flex: 2;
   display: flex;
   flex-direction: row;
@@ -309,7 +310,7 @@
   border-top: 1px solid #000000;
 }
 
-.sankey-view__histogram-left-panel {
+.sankey-view__histogram-panel {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -334,14 +335,15 @@
   border-left: 1px solid #000000;
 }
 
-.sankey-view__right-wrapper {
+/* Visualization Column - Right side containing visualizations */
+.sankey-view__visualization-column {
   flex: 5;
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
 
-.sankey-view__progress-bar-panel {
+.sankey-view__linear-set-panel {
   flex: 0.2;
   display: flex;
   flex-direction: row;
@@ -356,14 +358,14 @@
   border-bottom: 1px solid #000000;
 }
 
-.sankey-view__sankey-wrapper {
+.sankey-view__sankey-container {
   flex: 1.4;
   display: flex;
   flex-direction: row;
   min-width: 0;
 }
 
-.sankey-view__bottom-wrapper {
+.sankey-view__analysis-container {
   flex: 1;
   display: flex;
   flex-direction: row;
@@ -384,7 +386,7 @@
   border-left: 1px solid #000000;
 }
 
-.sankey-view__bottom-right-panel {
+.sankey-view__analysis-right-panel {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -397,7 +399,8 @@
   border-left: 1px solid #000000;
 }
 
-.sankey-view__left-panel {
+/* Sankey Diagram Panels */
+.sankey-view__sankey-left {
   flex: 2;
   display: flex;
   flex-direction: column;
@@ -410,7 +413,7 @@
   min-width: 0;
 }
 
-.sankey-view__center-panel {
+.sankey-view__alluvial-panel {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -425,7 +428,7 @@
   min-width: 0;
 }
 
-.sankey-view__right-panel {
+.sankey-view__sankey-right {
   flex: 2;
   display: flex;
   flex-direction: column;

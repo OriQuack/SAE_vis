@@ -8,6 +8,7 @@ import FlowPanel from './components/FlowPanel'
 import HistogramPanel from './components/HistogramPanel'
 import ThresholdGroupPanel from './components/ThresholdGroupPanel'
 import ProgressBar from './components/ProgressBar'
+import LLMComparisonPanel from './components/LLMComparisonPanel'
 import { usePanelDataLoader } from './lib/utils'
 import * as api from './api'
 import './styles/base.css'
@@ -259,23 +260,21 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
       {/* Main content - four-panel rendering */}
       <div className={`sankey-view__content sankey-view__content--${layout}`}>
         <div className="sankey-view__main-content">
-          {/* Left Wrapper - Contains three panels */}
-          <div className="sankey-view__left-wrapper">
+          {/* Control Column - Contains input controls and histograms */}
+          <div className="sankey-view__control-column">
             {/* Flow Panel */}
             <div className="sankey-view__flow-panel">
               <FlowPanel />
             </div>
 
-            {/* Middle Panel - LLM Comparison */}
+            {/* LLM Comparison Panel */}
             <div className="sankey-view__llm-comparison-panel">
-              <div className="sankey-view__placeholder-text">
-                LLM Comparison
-              </div>
+              <LLMComparisonPanel />
             </div>
 
-            {/* Bottom Panel - Histogram Wrapper */}
-            <div className="sankey-view__histogram-wrapper">
-              <div className="sankey-view__histogram-left-panel">
+            {/* Histogram Container */}
+            <div className="sankey-view__histogram-container">
+              <div className="sankey-view__histogram-panel">
                 <HistogramPanel />
               </div>
               <div className="sankey-view__threshold-group-panel">
@@ -284,17 +283,17 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
             </div>
           </div>
 
-          {/* Right Wrapper - Contains progress bar and sankey panels */}
-          <div className="sankey-view__right-wrapper">
-            {/* Progress Bar Panel - Spans across left, center, and right panels */}
-            <div className="sankey-view__progress-bar-panel">
+          {/* Visualization Column - Contains visualizations */}
+          <div className="sankey-view__visualization-column">
+            {/* Linear Set Panel - Progress bar showing feature overlap */}
+            <div className="sankey-view__linear-set-panel">
               <ProgressBar />
             </div>
 
-            {/* Sankey Wrapper */}
-            <div className="sankey-view__sankey-wrapper">
-              {/* Left Panel */}
-              <div className="sankey-view__left-panel">
+            {/* Sankey Container - Dual Sankey diagrams with alluvial flow */}
+            <div className="sankey-view__sankey-container">
+              {/* Left Sankey Diagram */}
+              <div className="sankey-view__sankey-left">
                 {leftPanel.viewState === 'empty' && (
                   <EmptyState onAddVisualization={handleAddVisualizationLeft} />
                 )}
@@ -324,16 +323,16 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
                 )}
               </div>
 
-              {/* Center Panel - Alluvial Diagram */}
-              <div className="sankey-view__center-panel">
+              {/* Alluvial Panel - Center flow comparison */}
+              <div className="sankey-view__alluvial-panel">
                 <AlluvialDiagram
                   height={FIXED_DIAGRAM_HEIGHT}
                   className="sankey-view__alluvial"
                 />
               </div>
 
-              {/* Right Panel */}
-              <div className="sankey-view__right-panel">
+              {/* Right Sankey Diagram */}
+              <div className="sankey-view__sankey-right">
                 {rightPanel.viewState === 'empty' && (
                   <EmptyState onAddVisualization={handleAddVisualizationRight} />
                 )}
@@ -364,8 +363,8 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
               </div>
             </div>
 
-            {/* Bottom Wrapper - Contains two panels */}
-            <div className="sankey-view__bottom-wrapper">
+            {/* Analysis Container - Additional analysis panels */}
+            <div className="sankey-view__analysis-container">
               {/* UMAP Panel */}
               <div className="sankey-view__umap-panel">
                 <div className="sankey-view__placeholder-text">
@@ -373,10 +372,10 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
                 </div>
               </div>
 
-              {/* Bottom Right Panel */}
-              <div className="sankey-view__bottom-right-panel">
+              {/* Analysis Right Panel */}
+              <div className="sankey-view__analysis-right-panel">
                 <div className="sankey-view__placeholder-text">
-                  Bottom Right Panel
+                  Analysis Panel
                 </div>
               </div>
             </div>
