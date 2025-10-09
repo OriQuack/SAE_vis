@@ -293,3 +293,77 @@ class ThresholdFeatureResponse(BaseModel):
         ...,
         description="The threshold range used (min and max values)"
     )
+
+class LLMModel(BaseModel):
+    """LLM model information"""
+    id: str = Field(
+        ...,
+        description="Model identifier"
+    )
+    name: str = Field(
+        ...,
+        description="Display name for the model"
+    )
+
+class LLMScorerModel(BaseModel):
+    """LLM scorer model information"""
+    id: str = Field(
+        ...,
+        description="Model identifier"
+    )
+    name: str = Field(
+        ...,
+        description="Display name for the model"
+    )
+    explainerSource: str = Field(
+        ...,
+        description="Associated explainer source ID"
+    )
+
+class ConsistencyScore(BaseModel):
+    """Consistency score data"""
+    value: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Consistency score value (0-1)"
+    )
+    method: str = Field(
+        ...,
+        description="Method used for calculation (e.g., 'cosine_similarity', 'rv_coefficient')"
+    )
+
+class LLMComparisonResponse(BaseModel):
+    """Response model for LLM comparison endpoint"""
+    explainers: List[LLMModel] = Field(
+        ...,
+        min_items=3,
+        max_items=3,
+        description="Three LLM explainer models"
+    )
+    scorersForExplainer1: List[LLMScorerModel] = Field(
+        ...,
+        min_items=3,
+        max_items=3,
+        description="Three scorer models for first explainer"
+    )
+    scorersForExplainer2: List[LLMScorerModel] = Field(
+        ...,
+        min_items=3,
+        max_items=3,
+        description="Three scorer models for second explainer"
+    )
+    scorersForExplainer3: List[LLMScorerModel] = Field(
+        ...,
+        min_items=3,
+        max_items=3,
+        description="Three scorer models for third explainer"
+    )
+    explainerConsistencies: Dict[str, ConsistencyScore] = Field(
+        ...,
+        description="Consistency scores between explainer pairs (left-1, left-3, left-4)"
+    )
+    scorerConsistencies: Dict[str, ConsistencyScore] = Field(
+        ...,
+        description="Consistency scores between scorer pairs for each explainer"
+    )

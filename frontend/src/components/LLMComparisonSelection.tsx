@@ -1,53 +1,12 @@
-import React, { useMemo, useState } from 'react'
-import { calculateLLMComparisonLayout, getConsistencyColor, getGradientStops } from '../lib/d3-llm-comparison-utils'
+import React, { useMemo, useState, useEffect } from 'react'
+import { calculateLLMComparisonLayout, getConsistencyColor, getGradientStops, CONSISTENCY_SCALE } from '../lib/d3-llm-comparison-utils'
 import { COMPONENT_COLORS, LLM_EXPLAINER_ICON_SVG, LLM_SCORER_ICON_SVG } from '../lib/constants'
 import type { LLMComparisonData } from '../types'
+import { getLLMComparisonData } from '../api'
 import '../styles/LLMComparisonSelection.css'
 
 interface LLMComparisonSelectionProps {
   className?: string
-}
-
-// Generate dummy data for testing
-function generateDummyData(): LLMComparisonData {
-  return {
-    explainers: [
-      { id: 'gpt4-exp', name: 'GPT-4' },
-      { id: 'claude-exp', name: 'Claude' },
-      { id: 'gemini-exp', name: 'Gemini' }
-    ],
-    scorersForExplainer1: [
-      { id: 'gpt4-s1', name: 'GPT-4', explainerSource: 'gpt4-exp' },
-      { id: 'claude-s1', name: 'Claude', explainerSource: 'gpt4-exp' },
-      { id: 'gemini-s1', name: 'Gemini', explainerSource: 'gpt4-exp' }
-    ],
-    scorersForExplainer2: [
-      { id: 'gpt4-s2', name: 'GPT-4', explainerSource: 'claude-exp' },
-      { id: 'claude-s2', name: 'Claude', explainerSource: 'claude-exp' },
-      { id: 'gemini-s2', name: 'Gemini', explainerSource: 'claude-exp' }
-    ],
-    scorersForExplainer3: [
-      { id: 'gpt4-s3', name: 'GPT-4', explainerSource: 'gemini-exp' },
-      { id: 'claude-s3', name: 'Claude', explainerSource: 'gemini-exp' },
-      { id: 'gemini-s3', name: 'Gemini', explainerSource: 'gemini-exp' }
-    ],
-    explainerConsistencies: {
-      'left-1': { value: 0.85, method: 'cosine_similarity' },
-      'left-3': { value: 0.42, method: 'cosine_similarity' },
-      'left-4': { value: 0.68, method: 'cosine_similarity' }
-    },
-    scorerConsistencies: {
-      'top-right-1': { value: 0.91, method: 'rv_coefficient' },
-      'top-right-3': { value: 0.33, method: 'rv_coefficient' },
-      'top-right-4': { value: 0.75, method: 'rv_coefficient' },
-      'middle-right-1': { value: 0.62, method: 'rv_coefficient' },
-      'middle-right-3': { value: 0.88, method: 'rv_coefficient' },
-      'middle-right-4': { value: 0.45, method: 'rv_coefficient' },
-      'bottom-right-1': { value: 0.77, method: 'rv_coefficient' },
-      'bottom-right-3': { value: 0.54, method: 'rv_coefficient' },
-      'bottom-right-4': { value: 0.92, method: 'rv_coefficient' }
-    }
-  }
 }
 
 export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ className = '' }) => {
@@ -57,8 +16,54 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
   // State for click/selection - track filled cells
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set())
 
-  // Load dummy data
-  const comparisonData = useMemo(() => generateDummyData(), [])
+  // State for LLM comparison data
+  const [comparisonData, setComparisonData] = useState<LLMComparisonData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Load real data from API
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        const data = await getLLMComparisonData({})
+        setComparisonData(data)
+        setError(null)
+      } catch (err) {
+        console.error('Failed to load LLM comparison data:', err)
+        setError(err instanceof Error ? err.message : 'Failed to load data')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
+
+  // Calculate layout once - MUST be before early returns (Rules of Hooks)
+  const layout = useMemo(() => calculateLLMComparisonLayout(), [])
+
+  // Show loading state
+  if (loading || !comparisonData) {
+    return (
+      <div className={`llm-comparison-selection ${className}`}>
+        <div style={{ padding: '20px', textAlign: 'center' }}>
+          Loading LLM comparison data...
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className={`llm-comparison-selection ${className}`}>
+        <div style={{ padding: '20px', textAlign: 'center', color: 'red' }}>
+          Error: {error}
+        </div>
+      </div>
+    )
+  }
 
   // Helper: Get model name for a cell
   const getModelName = (cellId: string, cellIndex: number): string | null => {
@@ -308,9 +313,7 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
     return { fillOpacity: Math.min(1.0, opacity), strokeWidth: 4 }
   }
 
-  // Calculate layout once - no resizing, no parameters (like FlowPanel)
-  const layout = useMemo(() => calculateLLMComparisonLayout(), [])
-
+  // Destructure layout for use in rendering
   const { leftTriangle, topRightTriangle, middleRightTriangle, bottomRightTriangle } = layout
 
   // Fixed label positions (absolute coordinates for viewBox 800x350)
@@ -713,7 +716,7 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
         <g className="llm-comparison-selection__legend">
           <text
             x="140"
-            y="320"
+            y="310"
             fontSize="14"
             fontWeight="600"
             fill="#333"
@@ -721,20 +724,30 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
           >
             Consistency Score
           </text>
+          <text
+            x="140"
+            y="325"
+            fontSize="12"
+            fill="#666"
+            textAnchor="middle"
+            fontStyle="italic"
+          >
+            (High-consistency range)
+          </text>
           <rect
             x="25"
-            y="325"
+            y="330"
             width="230"
             height="8"
             fill="url(#consistencyGradient)"
             stroke="#999"
             strokeWidth="1"
           />
-          <text x="25" y="345" fontSize="11" fill="#666" textAnchor="start">
-            0 (Low)
+          <text x="25" y="348" fontSize="11" fill="#000000ff" textAnchor="start">
+            {CONSISTENCY_SCALE.MIN.toFixed(2)}
           </text>
-          <text x="255" y="345" fontSize="11" fill="#666" textAnchor="end">
-            1 (High)
+          <text x="255" y="348" fontSize="11" fill="#000000ff" textAnchor="end">
+            {CONSISTENCY_SCALE.MAX.toFixed(2)}
           </text>
         </g>
       </svg>

@@ -344,7 +344,7 @@ export function calculateLLMComparisonLayout(): LLMComparisonLayout {
   const leftTriangle = {
     cells: calculateTriangleCells(
       320,  // vx - horizontal center
-      190,  // vy - slightly below vertical center
+      180,  // vy - slightly below vertical center
       leftTriangleSize,
       'right',
       cellGap
@@ -355,7 +355,7 @@ export function calculateLLMComparisonLayout(): LLMComparisonLayout {
   const topRightTriangle = {
     cells: calculateTriangleCells(
       480,  // vx - slightly right of center
-      200,  // vy - lower than left triangle
+      190,  // vy - lower than left triangle
       rightTriangleSize,
       'down',
       cellGap
@@ -366,7 +366,7 @@ export function calculateLLMComparisonLayout(): LLMComparisonLayout {
   const middleRightTriangle = {
     cells: calculateTriangleCells(
       470,  // vx - same as left triangle
-      190,  // vy - same as left triangle
+      180,  // vy - same as left triangle
       rightTriangleSize,
       'left',
       cellGap
@@ -377,7 +377,7 @@ export function calculateLLMComparisonLayout(): LLMComparisonLayout {
   const bottomRightTriangle = {
     cells: calculateTriangleCells(
       480,  // vx - same as top right
-      180,  // vy - higher than left triangle
+      170,  // vy - higher than left triangle
       rightTriangleSize,
       'up',
       cellGap
@@ -399,12 +399,23 @@ export function calculateLLMComparisonLayout(): LLMComparisonLayout {
 // ============================================================================
 
 /**
- * Get color for consistency score (0 = red/inconsistent, 1 = green/consistent)
- * Uses smooth gradient: red -> yellow -> green
+ * Color scale constants for consistency visualization
+ * Domain adjusted to 0.85-1.0 to better show high-consistency variations
+ */
+export const CONSISTENCY_SCALE = {
+  MIN: 0.75,
+  MID: 0.875,
+  MAX: 1.0
+} as const
+
+/**
+ * Get color for consistency score using focused high-consistency range
+ * Domain: 0.85 (red/lower consistency) → 0.925 (yellow) → 1.0 (green/high consistency)
+ * Values outside this range are clamped to show relative consistency
  */
 export function getConsistencyColor(value: number): string {
   const colorScale = scaleLinear<string>()
-    .domain([0, 0.5, 1])
+    .domain([CONSISTENCY_SCALE.MIN, CONSISTENCY_SCALE.MID, CONSISTENCY_SCALE.MAX])
     .range(['#d73027', '#fee08b', '#1a9850'])
     .clamp(true)
 
@@ -412,12 +423,12 @@ export function getConsistencyColor(value: number): string {
 }
 
 /**
- * Get gradient stops for legend
+ * Get gradient stops for legend (maps 0%-100% to the focused consistency range)
  */
 export function getGradientStops(): Array<{ offset: string; color: string }> {
   return [
-    { offset: '0%', color: '#d73027' },    // red
-    { offset: '50%', color: '#fee08b' },   // yellow
-    { offset: '100%', color: '#1a9850' }   // green
+    { offset: '0%', color: '#d73027' },    // red (0.85)
+    { offset: '50%', color: '#fee08b' },   // yellow (0.925)
+    { offset: '100%', color: '#1a9850' }   // green (1.0)
   ]
 }

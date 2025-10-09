@@ -80,3 +80,10 @@ class ThresholdFeatureRequest(BaseModel):
         ...,
         description="Maximum threshold value (inclusive)"
     )
+
+class LLMComparisonRequest(BaseModel):
+    """Request model for LLM comparison endpoint"""
+    filters: Filters = Field(
+        default_factory=lambda: Filters(),
+        description="Optional filter criteria for data subset"
+    )
