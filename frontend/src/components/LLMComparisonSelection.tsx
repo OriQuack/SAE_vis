@@ -3,13 +3,54 @@ import { calculateLLMComparisonLayout, getConsistencyColor, getGradientStops, CO
 import { COMPONENT_COLORS, LLM_EXPLAINER_ICON_SVG, LLM_SCORER_ICON_SVG } from '../lib/constants'
 import type { LLMComparisonData } from '../types'
 import { getLLMComparisonData } from '../api'
+import { useVisualizationStore } from '../store'
 import '../styles/LLMComparisonSelection.css'
 
 interface LLMComparisonSelectionProps {
   className?: string
 }
 
+// Helper function to extract selected LLM model names from triangle cells
+const extractSelectedModels = (
+  selectedCells: Map<string, number>,
+  comparisonData: LLMComparisonData | null
+): { explainers: string[]; scorers: string[] } => {
+  if (!comparisonData) {
+    return { explainers: [], scorers: [] }
+  }
+
+  const explainers: string[] = []
+  const scorers: string[] = []
+  const triangleIndices = [0, 2, 5]  // Only triangle cells, not diamonds
+
+  for (const cellId of selectedCells.keys()) {
+    const cellIndex = parseInt(cellId.split('-').pop() || '-1')
+    if (!triangleIndices.includes(cellIndex)) continue  // Skip diamond cells
+
+    const modelIndex = triangleIndices.indexOf(cellIndex)
+
+    if (cellId.startsWith('left-')) {
+      // Left triangle = explainer
+      explainers.push(comparisonData.explainers[modelIndex].name)
+    } else if (cellId.startsWith('top-right-')) {
+      scorers.push(comparisonData.scorersForExplainer1[modelIndex].name)
+    } else if (cellId.startsWith('middle-right-')) {
+      scorers.push(comparisonData.scorersForExplainer2[modelIndex].name)
+    } else if (cellId.startsWith('bottom-right-')) {
+      scorers.push(comparisonData.scorersForExplainer3[modelIndex].name)
+    }
+  }
+
+  return {
+    explainers: [...new Set(explainers)],  // Remove duplicates
+    scorers: [...new Set(scorers)]         // Remove duplicates
+  }
+}
+
 export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ className = '' }) => {
+  // Store integration for global LLM filtering
+  const { setLLMSelection } = useVisualizationStore()
+
   // State for hover effects - track individual cells
   const [hoveredCell, setHoveredCell] = useState<string | null>(null)
 
@@ -39,6 +80,15 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
 
     fetchData()
   }, [])
+
+  // Sync selected cells with global LLM filter store
+  useEffect(() => {
+    if (!comparisonData) return
+
+    const { explainers, scorers } = extractSelectedModels(selectedCells, comparisonData)
+    console.log('[LLMComparisonSelection] Setting global LLM filter:', { explainers, scorers })
+    setLLMSelection(explainers, scorers)
+  }, [selectedCells, comparisonData, setLLMSelection])
 
   // Calculate layout once - MUST be before early returns (Rules of Hooks)
   const layout = useMemo(() => calculateLLMComparisonLayout(), [])

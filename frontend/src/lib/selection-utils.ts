@@ -26,22 +26,22 @@ export interface ThresholdRange {
 
 /**
  * Calculate threshold value from mouse X position
- * @param mouseX - Mouse X coordinate relative to container
- * @param chartRect - Chart bounding rectangle
+ * @param mouseScreenX - Mouse X coordinate in screen coordinates
+ * @param chartRect - Chart SVG bounding rectangle (screen coordinates)
  * @param margin - Chart margins
  * @param innerWidth - Chart inner width (excluding margins)
  * @param domain - Metric domain {min, max}
  * @returns Threshold value
  */
 export function calculateThresholdFromMouseX(
-  mouseX: number,
+  mouseScreenX: number,
   chartRect: DOMRect,
   margin: { left: number },
   innerWidth: number,
   domain: { min: number; max: number }
 ): number {
-  // Convert mouse position to chart coordinates
-  const chartX = mouseX - chartRect.left - margin.left
+  // Convert from screen coordinates to chart coordinates
+  const chartX = mouseScreenX - chartRect.left - margin.left
 
   // Clamp to chart bounds
   const clampedX = Math.max(0, Math.min(innerWidth, chartX))
@@ -56,7 +56,8 @@ export function calculateThresholdFromMouseX(
 /**
  * Calculate threshold range from mouse selection rectangle
  * @param selectionRect - Selection rectangle in container coordinates
- * @param chartRect - Chart bounding rectangle
+ * @param chartRect - Chart SVG bounding rectangle (screen coordinates)
+ * @param containerRect - Container bounding rectangle (screen coordinates)
  * @param margin - Chart margins
  * @param innerWidth - Chart inner width
  * @param domain - Metric domain
@@ -65,15 +66,17 @@ export function calculateThresholdFromMouseX(
 export function calculateThresholdRangeFromMouse(
   selectionRect: SelectionRect,
   chartRect: DOMRect,
+  containerRect: DOMRect,
   margin: { left: number },
   innerWidth: number,
   domain: { min: number; max: number }
 ): ThresholdRange {
-  const minX = selectionRect.x
-  const maxX = selectionRect.x + selectionRect.width
+  // Convert from container coordinates to screen coordinates
+  const minScreenX = containerRect.left + selectionRect.x
+  const maxScreenX = containerRect.left + selectionRect.x + selectionRect.width
 
-  const minThreshold = calculateThresholdFromMouseX(minX, chartRect, margin, innerWidth, domain)
-  const maxThreshold = calculateThresholdFromMouseX(maxX, chartRect, margin, innerWidth, domain)
+  const minThreshold = calculateThresholdFromMouseX(minScreenX, chartRect, margin, innerWidth, domain)
+  const maxThreshold = calculateThresholdFromMouseX(maxScreenX, chartRect, margin, innerWidth, domain)
 
   return {
     min: Math.min(minThreshold, maxThreshold),
@@ -84,7 +87,8 @@ export function calculateThresholdRangeFromMouse(
 /**
  * Get bars that intersect with selection rectangle
  * @param selectionRect - Selection rectangle in container coordinates
- * @param chartRect - Chart SVG element bounding rect
+ * @param chartRect - Chart SVG element bounding rect (screen coordinates)
+ * @param containerRect - Container bounding rectangle (screen coordinates)
  * @param bars - Array of bar data with positions
  * @param margin - Chart margins
  * @returns Array of selected bar indices
@@ -92,13 +96,15 @@ export function calculateThresholdRangeFromMouse(
 export function getBarsInSelection(
   selectionRect: SelectionRect,
   chartRect: DOMRect,
+  containerRect: DOMRect,
   bars: Array<{ x: number; width: number }>,
   margin: { left: number; top: number }
 ): number[] {
   const selectedIndices: number[] = []
 
-  // Convert selection rect to chart coordinates
-  const chartSelectionX = selectionRect.x - chartRect.left - margin.left
+  // Convert from container coordinates to screen coordinates, then to chart coordinates
+  const selectionScreenX = containerRect.left + selectionRect.x
+  const chartSelectionX = selectionScreenX - chartRect.left - margin.left
   const chartSelectionRight = chartSelectionX + selectionRect.width
 
   bars.forEach((bar, index) => {

@@ -83,6 +83,10 @@ interface AppState {
   showGroupNameInput: boolean
   editingGroupId: string | null
 
+  // Global LLM selection (primary filter for all components)
+  selectedLLMExplainers: string[]  // Empty array = all explainers
+  selectedLLMScorers: string[]     // Empty array = all scorers
+
   // Hover state for cross-component highlighting
   hoveredAlluvialNodeId: string | null
   hoveredAlluvialPanel: 'left' | 'right' | null
@@ -170,6 +174,9 @@ interface AppState {
   removeCategoryGroup: (groupId: string) => void
   updateCategoryGroup: (groupId: string, updates: Partial<CategoryGroup>) => void
   moveColumnToGroup: (columnId: string, fromGroupId: string, toGroupId: string) => void
+
+  // LLM selection actions
+  setLLMSelection: (explainers: string[], scorers: string[]) => void
 }
 
 const createInitialPanelState = (): PanelState => {
@@ -241,8 +248,26 @@ const initialState = {
   hoveredAlluvialNodeId: null,
   hoveredAlluvialPanel: null,
 
+  // Global LLM selection
+  selectedLLMExplainers: [],
+  selectedLLMScorers: [],
+
   // Category group state
   categoryGroups: []
+}
+
+// Helper function to merge base filters with global LLM selection
+const getMergedFilters = (
+  baseFilters: Filters,
+  selectedExplainers: string[],
+  selectedScorers: string[]
+): Filters => {
+  return {
+    ...baseFilters,
+    // Override with selection if non-empty, otherwise keep base filters
+    llm_explainer: selectedExplainers.length > 0 ? selectedExplainers : (baseFilters.llm_explainer || []),
+    llm_scorer: selectedScorers.length > 0 ? selectedScorers : (baseFilters.llm_scorer || [])
+  }
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -477,7 +502,10 @@ export const useStore = create<AppState>((set, get) => ({
     const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
     const { filters, thresholdTree } = state[panelKey]
 
-    const hasActiveFilters = Object.values(filters).some(
+    // Merge panel filters with global LLM selection
+    const mergedFilters = getMergedFilters(filters, state.selectedLLMExplainers, state.selectedLLMScorers)
+
+    const hasActiveFilters = Object.values(mergedFilters).some(
       filterArray => filterArray && filterArray.length > 0
     )
 
@@ -490,7 +518,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     try {
       const request = {
-        filters,
+        filters: mergedFilters,
         metric: targetMetric,
         nodeId,
         // Include thresholdTree when nodeId is provided for node-specific filtering
@@ -514,14 +542,17 @@ export const useStore = create<AppState>((set, get) => ({
     const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
     const { filters, thresholdTree } = state[panelKey]
 
+    // Merge panel filters with global LLM selection
+    const mergedFilters = getMergedFilters(filters, state.selectedLLMExplainers, state.selectedLLMScorers)
+
     console.log('[HistogramPopover] fetchMultipleHistogramData called:', {
       metrics,
       nodeId,
       panel,
-      filters
+      filters: mergedFilters
     })
 
-    const hasActiveFilters = Object.values(filters).some(
+    const hasActiveFilters = Object.values(mergedFilters).some(
       filterArray => filterArray && filterArray.length > 0
     )
 
@@ -536,7 +567,7 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       const histogramPromises = metrics.map(async (metric) => {
         const request = {
-          filters,
+          filters: mergedFilters,
           metric,
           nodeId,
           // Include thresholdTree when nodeId is provided for node-specific filtering
@@ -574,7 +605,10 @@ export const useStore = create<AppState>((set, get) => ({
     const loadingKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight' as keyof LoadingStates
     const errorKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight' as keyof ErrorStates
 
-    const hasActiveFilters = Object.values(filters).some(
+    // Merge panel filters with global LLM selection
+    const mergedFilters = getMergedFilters(filters, state.selectedLLMExplainers, state.selectedLLMScorers)
+
+    const hasActiveFilters = Object.values(mergedFilters).some(
       filterArray => filterArray && filterArray.length > 0
     )
 
@@ -587,12 +621,12 @@ export const useStore = create<AppState>((set, get) => ({
 
     try {
       const requestData = {
-        filters,
+        filters: mergedFilters,
         thresholdTree,
       }
 
       console.log('📤 Sending Sankey request:', {
-        filters,
+        filters: mergedFilters,
         thresholdTree: JSON.stringify(thresholdTree, null, 2),
       })
 
@@ -632,6 +666,15 @@ export const useStore = create<AppState>((set, get) => ({
     state.clearError('histogramPanel' as any)
 
     try {
+      // Apply global LLM selection to base filters
+      const baseFilters = {
+        sae_id: [],
+        explanation_method: [],
+        llm_explainer: [],
+        llm_scorer: []
+      }
+      const mergedFilters = getMergedFilters(baseFilters, state.selectedLLMExplainers, state.selectedLLMScorers)
+
       // Define the metrics to fetch with their averaging configurations and fixed domains
       const metricsToFetch = [
         { metric: 'feature_splitting' as MetricType, averageBy: null, fixedDomain: [0.0, 0.6] as [number, number] },
@@ -644,12 +687,7 @@ export const useStore = create<AppState>((set, get) => ({
       // Fetch all histograms in parallel
       const histogramPromises = metricsToFetch.map(async ({ metric, averageBy, fixedDomain }) => {
         const request = {
-          filters: {
-            sae_id: [],
-            explanation_method: [],
-            llm_explainer: [],
-            llm_scorer: []
-          },
+          filters: mergedFilters,
           metric,
           ...(averageBy && { averageBy }), // Only include averageBy if it's not null
           fixedDomain // Always include fixed domain for all metrics
@@ -917,6 +955,15 @@ export const useStore = create<AppState>((set, get) => ({
     })
   },
 
+  // LLM selection actions
+  setLLMSelection: (explainers: string[], scorers: string[]) => {
+    console.log('[Store] Setting LLM selection:', { explainers, scorers })
+    set({
+      selectedLLMExplainers: explainers,
+      selectedLLMScorers: scorers
+    })
+  },
+
   // Selection mode actions
   setSelectionMode: (enabled) => {
     set(() => ({
@@ -963,10 +1010,11 @@ export const useStore = create<AppState>((set, get) => ({
     // Fetch feature IDs from backend
     let featureIds: number[] = []
     try {
-      // Use the current filters from leftPanel (or could make this configurable)
-      const filters = state.leftPanel.filters
+      // Use the current filters from leftPanel merged with global LLM selection
+      const baseFilters = state.leftPanel.filters
+      const mergedFilters = getMergedFilters(baseFilters, state.selectedLLMExplainers, state.selectedLLMScorers)
       const result = await getFeaturesInThreshold(
-        filters,
+        mergedFilters,
         metricType,
         thresholdRange.min,
         thresholdRange.max

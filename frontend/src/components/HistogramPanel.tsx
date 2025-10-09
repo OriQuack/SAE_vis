@@ -268,16 +268,16 @@ const SingleHistogram: React.FC<{
             </g>
           )}
 
-          {/* Left-side label with badges below */}
-          <g transform={`translate(${-margin.left + 2}, ${innerHeight / 2})`}>
-            {/* Label text */}
+          {/* Compact title with label and badges */}
+          <g transform={`translate(${-margin.left}, ${10})`}>
+            {/* Label text - compact */}
             {label.map((line, i) => (
               <text
                 key={i}
                 x={0}
-                y={(i - (label.length - 1) / 2) * 14 - 8}
+                y={i * 13}
                 textAnchor="start"
-                alignmentBaseline="middle"
+                alignmentBaseline="hanging"
                 fontSize={14}
                 fontWeight={600}
                 fill={HISTOGRAM_COLORS.text}
@@ -285,31 +285,96 @@ const SingleHistogram: React.FC<{
                 {line}
               </text>
             ))}
-            {/* Badges below the label */}
-            <g transform={`translate(8, ${label.length * 7 + 3})`}>
-              {badges.map((badge, i) => (
-                <g key={i} transform={`translate(${i * 20}, 0)`}>
-                  {/* Colored dot */}
-                  <circle
-                    cx={0}
-                    cy={0}
-                    r={8}
-                    fill={badge.color}
-                  />
-                  {/* Badge number */}
+            {/* Compact badges below the label */}
+            <g transform={`translate(0, ${label.length * 11 + 25})`}>
+              {badges.length === 2 ? (
+                <>
+                  {/* Mathematical expectation: 𝔼[ badge₁ × badge₂ ] */}
                   <text
                     x={0}
                     y={0}
+                    textAnchor="start"
+                    alignmentBaseline="middle"
+                    fontSize={15}
+                    fontWeight={700}
+                    fill={HISTOGRAM_COLORS.text}
+                  >
+                    𝔼[
+                  </text>
+                  {/* First badge */}
+                  <g transform={`translate(23, 0)`}>
+                    <circle cx={0} cy={0} r={6.5} fill={badges[0].color} />
+                    <text
+                      x={0}
+                      y={0}
+                      textAnchor="middle"
+                      alignmentBaseline="middle"
+                      fontSize={9}
+                      fontWeight={700}
+                      fill="white"
+                    >
+                      {badges[0].text}
+                    </text>
+                  </g>
+                  {/* Multiplication symbol */}
+                  <text
+                    x={36}
+                    y={0}
                     textAnchor="middle"
                     alignmentBaseline="middle"
-                    fontSize={10}
-                    fontWeight={700}
-                    fill="white"
+                    fontSize={14}
+                    fontWeight={600}
+                    fill={HISTOGRAM_COLORS.text}
                   >
-                    {badge.text}
+                    ×
                   </text>
-                </g>
-              ))}
+                  {/* Second badge */}
+                  <g transform={`translate(50, 0)`}>
+                    <circle cx={0} cy={0} r={6.5} fill={badges[1].color} />
+                    <text
+                      x={0}
+                      y={0}
+                      textAnchor="middle"
+                      alignmentBaseline="middle"
+                      fontSize={9}
+                      fontWeight={700}
+                      fill="white"
+                    >
+                      {badges[1].text}
+                    </text>
+                  </g>
+                  {/* Closing bracket */}
+                  <text
+                    x={58}
+                    y={0}
+                    textAnchor="start"
+                    alignmentBaseline="middle"
+                    fontSize={14}
+                    fontWeight={700}
+                    fill={HISTOGRAM_COLORS.text}
+                  >
+                    ]
+                  </text>
+                </>
+              ) : (
+                /* Single badge */
+                badges.map((badge, i) => (
+                  <g key={i} transform={`translate(${i * 16 + 10}, 0)`}>
+                    <circle cx={0} cy={0} r={6.5} fill={badge.color} />
+                    <text
+                      x={0}
+                      y={0}
+                      textAnchor="middle"
+                      alignmentBaseline="middle"
+                      fontSize={9}
+                      fontWeight={700}
+                      fill="white"
+                    >
+                      {badge.text}
+                    </text>
+                  </g>
+                ))
+              )}
             </g>
           </g>
         </g>
@@ -499,7 +564,7 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
   const handleMouseUp = useCallback(() => {
     if (!isDragging || !selectionRect || !histogramPanelData) return
 
-    const margin = { top: 5, right: 10, bottom: 10, left: 85 }
+    const margin = { top: 5, right: 10, bottom: 10, left: 80 }
 
     // Get all chart elements (both individual and merged)
     const individualCharts = containerRef.current?.querySelectorAll('.histogram-panel__chart:not(.histogram-panel__chart--empty)')
@@ -513,7 +578,11 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
       const chartElement = individualCharts[index] as HTMLElement
       if (!chartElement) return
 
-      const chartRect = chartElement.getBoundingClientRect()
+      // Get SVG element for accurate bounding rect
+      const svgElement = chartElement.querySelector('svg')
+      if (!svgElement) return
+
+      const chartRect = svgElement.getBoundingClientRect()
       const containerRect = containerRef.current?.getBoundingClientRect()
       if (!containerRect) return
 
@@ -533,7 +602,7 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
           HISTOGRAM_COLORS.bars
         )
 
-        const selectedIndices = getBarsInSelection(selectionRect, chartRect, bars, margin)
+        const selectedIndices = getBarsInSelection(selectionRect, chartRect, containerRect, bars, margin)
 
         if (selectedIndices.length > 0) {
           // Calculate exact threshold from mouse position using actual bin edges
@@ -544,6 +613,7 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
           const thresholdRange = calculateThresholdRangeFromMouse(
             selectionRect,
             chartRect,
+            containerRect,
             margin,
             innerWidth,
             domain
@@ -561,7 +631,11 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
       const chartElement = mergedCharts[index] as HTMLElement
       if (!chartElement) return
 
-      const chartRect = chartElement.getBoundingClientRect()
+      // Get SVG element for accurate bounding rect
+      const svgElement = chartElement.querySelector('svg')
+      if (!svgElement) return
+
+      const chartRect = svgElement.getBoundingClientRect()
       const containerRect = containerRef.current?.getBoundingClientRect()
       if (!containerRect) return
 
@@ -583,7 +657,7 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
           1.0
         )
 
-        const selectedIndices = getBarsInSelection(selectionRect, chartRect, bars, margin)
+        const selectedIndices = getBarsInSelection(selectionRect, chartRect, containerRect, bars, margin)
 
         if (selectedIndices.length > 0) {
           // Calculate exact threshold from mouse position with fixed domain [0, 1]
@@ -591,6 +665,7 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
           const thresholdRange = calculateThresholdRangeFromMouse(
             selectionRect,
             chartRect,
+            containerRect,
             margin,
             innerWidth,
             domain
