@@ -273,7 +273,7 @@ export const LEGEND_ITEMS = [
 
 // ============================================================================
 // LLM ICON SVG PATHS - Reusable icon definitions for LLM components
-// Used across: FlowPanel.tsx, LLMComparisonPanel.tsx
+// Used across: FlowPanel.tsx, LLMComparisonSelection.tsx
 // ============================================================================
 
 export const LLM_EXPLAINER_ICON_SVG = `

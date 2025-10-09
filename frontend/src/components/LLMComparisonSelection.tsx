@@ -1,34 +1,93 @@
 import React, { useMemo, useState } from 'react'
-import { useResizeObserver } from '../lib/utils'
-import {
-  calculateLLMComparisonLayout,
-  DEFAULT_LLM_COMPARISON_DIMENSIONS
-} from '../lib/d3-llm-comparison-utils'
+import { calculateLLMComparisonLayout, getConsistencyColor, getGradientStops } from '../lib/d3-llm-comparison-utils'
 import { COMPONENT_COLORS, LLM_EXPLAINER_ICON_SVG, LLM_SCORER_ICON_SVG } from '../lib/constants'
+import type { LLMComparisonData } from '../types'
 import '../styles/LLMComparisonSelection.css'
 
 interface LLMComparisonSelectionProps {
   className?: string
 }
 
+// Generate dummy data for testing
+function generateDummyData(): LLMComparisonData {
+  return {
+    explainers: [
+      { id: 'gpt4-exp', name: 'GPT-4' },
+      { id: 'claude-exp', name: 'Claude' },
+      { id: 'gemini-exp', name: 'Gemini' }
+    ],
+    scorersForExplainer1: [
+      { id: 'gpt4-s1', name: 'GPT-4', explainerSource: 'gpt4-exp' },
+      { id: 'claude-s1', name: 'Claude', explainerSource: 'gpt4-exp' },
+      { id: 'gemini-s1', name: 'Gemini', explainerSource: 'gpt4-exp' }
+    ],
+    scorersForExplainer2: [
+      { id: 'gpt4-s2', name: 'GPT-4', explainerSource: 'claude-exp' },
+      { id: 'claude-s2', name: 'Claude', explainerSource: 'claude-exp' },
+      { id: 'gemini-s2', name: 'Gemini', explainerSource: 'claude-exp' }
+    ],
+    scorersForExplainer3: [
+      { id: 'gpt4-s3', name: 'GPT-4', explainerSource: 'gemini-exp' },
+      { id: 'claude-s3', name: 'Claude', explainerSource: 'gemini-exp' },
+      { id: 'gemini-s3', name: 'Gemini', explainerSource: 'gemini-exp' }
+    ],
+    explainerConsistencies: {
+      'left-1': { value: 0.85, method: 'cosine_similarity' },
+      'left-3': { value: 0.42, method: 'cosine_similarity' },
+      'left-4': { value: 0.68, method: 'cosine_similarity' }
+    },
+    scorerConsistencies: {
+      'top-right-1': { value: 0.91, method: 'rv_coefficient' },
+      'top-right-3': { value: 0.33, method: 'rv_coefficient' },
+      'top-right-4': { value: 0.75, method: 'rv_coefficient' },
+      'middle-right-1': { value: 0.62, method: 'rv_coefficient' },
+      'middle-right-3': { value: 0.88, method: 'rv_coefficient' },
+      'middle-right-4': { value: 0.45, method: 'rv_coefficient' },
+      'bottom-right-1': { value: 0.77, method: 'rv_coefficient' },
+      'bottom-right-3': { value: 0.54, method: 'rv_coefficient' },
+      'bottom-right-4': { value: 0.92, method: 'rv_coefficient' }
+    }
+  }
+}
+
 export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ className = '' }) => {
-  // State for hover effects - track individual cells and linked triangles
+  // State for hover effects - track individual cells
   const [hoveredCell, setHoveredCell] = useState<string | null>(null)
-  const [linkedTriangles, setLinkedTriangles] = useState<('top' | 'middle' | 'bottom')[]>([])
 
   // State for click/selection - track filled cells
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set())
 
-  // Determine which right triangle groups correspond to a left triangle cell (cross-triangle linking)
-  const getLinkedTriangles = (cellIndex: number): ('top' | 'middle' | 'bottom')[] => {
-    switch (cellIndex) {
-      case 0: return ['top']                    // Top triangle at vertex
-      case 1: return ['top', 'bottom']          // Right diamond (row 1) → top AND bottom
-      case 2: return ['middle']                 // Right triangle (row 1)
-      case 3: return ['top', 'middle']          // Top-left diamond (row 2) → top AND middle
-      case 4: return ['middle', 'bottom']       // Bottom-left diamond (row 2) → middle AND bottom
-      case 5: return ['bottom']                 // Bottom-right triangle (row 2)
-      default: return []
+  // Load dummy data
+  const comparisonData = useMemo(() => generateDummyData(), [])
+
+  // Helper: Get model name for a cell
+  const getModelName = (cellId: string, cellIndex: number): string | null => {
+    const triangleIndices = [0, 2, 5]
+    const modelIndex = triangleIndices.indexOf(cellIndex)
+
+    if (modelIndex < 0) return null // Diamond cell
+
+    if (cellId.startsWith('left-')) {
+      return comparisonData.explainers[modelIndex].name
+    } else if (cellId.startsWith('top-right-')) {
+      return comparisonData.scorersForExplainer1[modelIndex].name
+    } else if (cellId.startsWith('middle-right-')) {
+      return comparisonData.scorersForExplainer2[modelIndex].name
+    } else if (cellId.startsWith('bottom-right-')) {
+      return comparisonData.scorersForExplainer3[modelIndex].name
+    }
+
+    return null
+  }
+
+  // Helper: Get consistency color for diamond cells
+  const getConsistencyColorForCell = (cellId: string): string | null => {
+    if (cellId.startsWith('left-')) {
+      const score = comparisonData.explainerConsistencies[cellId as keyof typeof comparisonData.explainerConsistencies]
+      return score ? getConsistencyColor(score.value) : null
+    } else {
+      const score = comparisonData.scorerConsistencies[cellId]
+      return score ? getConsistencyColor(score.value) : null
     }
   }
 
@@ -47,6 +106,11 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
     return [0, 2, 5].includes(cellIndex)  // Triangle cells at vertices
   }
 
+  // Check if a cell is a diamond
+  const isDiamondCell = (cellIndex: number): boolean => {
+    return [1, 3, 4].includes(cellIndex)  // Diamond cells
+  }
+
   // Get which left cells affect a right triangle cell (reverse mapping for additive opacity)
   const getLeftCellsAffectingRightCell = (triangleGroup: string): number[] => {
     switch (triangleGroup) {
@@ -62,17 +126,18 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
     // Only triangle cells (0, 2, 5) are affected by reverse linking
     if (!isTriangleCell(leftIndex)) return false
 
-    const linkedTriangles = getLinkedTriangles(leftIndex)
+    // Check each right triangle group to see if any cell is hovered
+    const triangleGroups = ['top-right', 'middle-right', 'bottom-right'] as const
 
-    // For each linked triangle group, check if any cell is hovered (not selected)
-    for (const triangleGroup of linkedTriangles) {
-      const prefix = triangleGroup === 'top' ? 'top-right-' :
-                     triangleGroup === 'middle' ? 'middle-right-' :
-                     'bottom-right-'
+    for (const triangleGroup of triangleGroups) {
+      // Check if this left cell affects this right triangle group
+      const affectingCells = getLeftCellsAffectingRightCell(triangleGroup)
+      if (!affectingCells.includes(leftIndex)) continue
 
-      // Check if any cell in this triangle is hovered
+      // This left cell affects this right triangle group
+      // Check if any cell in this right triangle group is hovered
       for (let i = 0; i < 6; i++) {
-        const rightCellId = `${prefix}${i}`
+        const rightCellId = `${triangleGroup}-${i}`
         if (hoveredCell === rightCellId) {
           return true
         }
@@ -85,13 +150,6 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
   // Check if a cell should be highlighted (hovered)
   const isCellHighlighted = (cellId: string, triangleGroup: string): boolean => {
     if (hoveredCell === cellId) return true
-
-    // Cross-triangle linking (left cell → right triangles)
-    if (hoveredCell?.startsWith('left-') && linkedTriangles.length > 0) {
-      if (triangleGroup === 'top-right' && linkedTriangles.includes('top')) return true
-      if (triangleGroup === 'middle-right' && linkedTriangles.includes('middle')) return true
-      if (triangleGroup === 'bottom-right' && linkedTriangles.includes('bottom')) return true
-    }
 
     // Intra-triangle linking (diamond → triangles within same triangle)
     if (hoveredCell) {
@@ -116,6 +174,9 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
   // Handle cell click - toggle selection with linking
   const handleCellClick = (cellId: string, cellIndex?: number) => {
     const cellsToToggle = new Set<string>([cellId])
+
+    // Determine if clicked cell is a diamond
+    const isClickedDiamond = cellIndex !== undefined && isDiamondCell(cellIndex)
 
     if (cellIndex !== undefined) {
       // Intra-triangle linking: Add triangle cells linked within the same triangle
@@ -143,6 +204,39 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
     setSelectedCells(prev => {
       const newSet = new Set(prev)
       const isCurrentlySelected = newSet.has(cellId)
+
+      // RESTRICTION: Only one diamond can be selected at a time
+      // If clicking a diamond to select it (not deselect), clear all other diamonds first
+      if (isClickedDiamond && !isCurrentlySelected) {
+        const allTriangles = ['left', 'top-right', 'middle-right', 'bottom-right']
+        const diamondIndices = [1, 3, 4]
+
+        allTriangles.forEach(triangle => {
+          diamondIndices.forEach(idx => {
+            const diamondId = `${triangle}-${idx}`
+            // Remove any selected diamond (and its linked triangles)
+            if (newSet.has(diamondId)) {
+              newSet.delete(diamondId)
+
+              // Remove the diamond's linked triangle cells
+              const linkedCells = getIntraTriangleLinks(idx)
+              linkedCells.forEach(linkedIdx => {
+                newSet.delete(`${triangle}-${linkedIdx}`)
+              })
+
+              // If this is a right triangle diamond, also clear reverse-linked left triangle cells
+              if (triangle !== 'left') {
+                const affectingLeftCells = getLeftCellsAffectingRightCell(triangle)
+                affectingLeftCells.forEach(leftIndex => {
+                  if (isTriangleCell(leftIndex)) {
+                    newSet.delete(`left-${leftIndex}`)
+                  }
+                })
+              }
+            }
+          })
+        })
+      }
 
       // Toggle all cells in the group
       cellsToToggle.forEach(c => {
@@ -189,19 +283,6 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
     // Otherwise, use additive logic
     let opacity = 0
 
-    // Base: if ANY linked left cell is selected → 0.4
-    const affectingLeftCells = getLeftCellsAffectingRightCell(triangleGroup)
-    const hasLinkedLeftSelection = affectingLeftCells.some(idx =>
-      selectedCells.has(`left-${idx}`)
-    )
-    if (hasLinkedLeftSelection) opacity = 0.4
-
-    // If ANY linked left cell is hovered → +0.3
-    const hasLinkedLeftHover = affectingLeftCells.some(idx =>
-      hoveredCell === `left-${idx}`
-    )
-    if (hasLinkedLeftHover) opacity += 0.3
-
     // Intra-triangle hover: if a diamond in same triangle is hovered and links to this cell → +0.3
     if (hoveredCell) {
       const hoveredParts = hoveredCell.split('-')
@@ -227,54 +308,117 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
     return { fillOpacity: Math.min(1.0, opacity), strokeWidth: 3 }
   }
 
-  // Resize observer for responsive sizing
-  const { ref: containerRef, size: containerSize } = useResizeObserver<HTMLDivElement>({
-    defaultWidth: DEFAULT_LLM_COMPARISON_DIMENSIONS.width,
-    defaultHeight: DEFAULT_LLM_COMPARISON_DIMENSIONS.height,
-    debounceMs: 16
-  })
-
-  // Use container dimensions
-  const width = containerSize.width
-  const height = containerSize.height
-
-  // Calculate layout using D3 utilities
-  const layout = useMemo(() => {
-    const dimensions = {
-      width,
-      height,
-      margin: DEFAULT_LLM_COMPARISON_DIMENSIONS.margin,
-      triangleGap: DEFAULT_LLM_COMPARISON_DIMENSIONS.triangleGap
-    }
-    return calculateLLMComparisonLayout(dimensions)
-  }, [width, height])
+  // Calculate layout once - no resizing, no parameters (like FlowPanel)
+  const layout = useMemo(() => calculateLLMComparisonLayout(), [])
 
   const { leftTriangle, topRightTriangle, middleRightTriangle, bottomRightTriangle } = layout
 
-  // Calculate label positions - at the top
-  const margin = DEFAULT_LLM_COMPARISON_DIMENSIONS.margin
-  const iconSize = 40
+  // Fixed label positions (absolute coordinates for viewBox 800x350)
+  const iconSize = 70
   const iconTextGap = 5
-  const labelY = margin.top + 10
-  const sidePadding = 0
+  const labelY = 35
 
   // Left: align to left edge (icon first, then text)
-  const leftIconX = margin.left + sidePadding
+  const leftIconX = 5
   const leftTextX = leftIconX + iconSize + iconTextGap
 
   // Right: align to right edge (icon first, then text)
-  const estimatedTextWidth = 90
-  const rightGroupEnd = width - margin.right - sidePadding
+  const estimatedTextWidth = 120
+  const rightGroupEnd = 795
   const rightIconX = rightGroupEnd - estimatedTextWidth - iconTextGap - iconSize
   const rightTextX = rightIconX + iconSize + iconTextGap
 
+  // Helper function to calculate center of polygon from points string
+  const getPolygonCenter = (points: string): { x: number; y: number } => {
+    const coords = points.split(' ').map(pair => {
+      const [x, y] = pair.split(',').map(Number)
+      return { x, y }
+    })
+    const sumX = coords.reduce((sum, p) => sum + p.x, 0)
+    const sumY = coords.reduce((sum, p) => sum + p.y, 0)
+    return { x: sumX / coords.length, y: sumY / coords.length }
+  }
+
+  // Helper function to get label position and rotation for a triangle cell
+  const getLabelConfig = (cellId: string, cellIndex: number, center: { x: number; y: number }) => {
+    const triangleIndices = [0, 2, 5]
+    if (!triangleIndices.includes(cellIndex)) return null
+
+    const offset = 35 // Distance from triangle
+
+    // Left triangle (pointing right) - labels on the left
+    if (cellId.startsWith('left-')) {
+      return {
+        x: center.x - offset / 2,
+        y: center.y,
+        rotation: 0,
+        textAnchor: 'end' as const
+      }
+    }
+
+    // Top right triangle (pointing down) - labels on top, rotated -45°
+    if (cellId.startsWith('top-right-')) {
+      return {
+        x: center.x,
+        y: center.y - offset,
+        rotation: -45,
+        textAnchor: 'middle' as const
+      }
+    }
+
+    // Middle right triangle (pointing left) - labels on the right
+    if (cellId.startsWith('middle-right-')) {
+      return {
+        x: center.x + offset / 2,
+        y: center.y,
+        rotation: 0,
+        textAnchor: 'start' as const
+      }
+    }
+
+    // Bottom right triangle (pointing up) - labels on bottom, rotated +45°
+    if (cellId.startsWith('bottom-right-')) {
+      return {
+        x: center.x,
+        y: center.y + offset,
+        rotation: 45,
+        textAnchor: 'middle' as const
+      }
+    }
+
+    return null
+  }
+
+  // Helper to split long text into multiple lines
+  const splitTextIntoLines = (text: string, maxLength: number = 8): string[] => {
+    if (text.length <= maxLength) return [text]
+
+    // Try to split at hyphen or space
+    const words = text.split(/[\s-]/)
+    if (words.length > 1 && words[0].length <= maxLength) {
+      return [words[0], words.slice(1).join(' ')]
+    }
+
+    // Otherwise split at maxLength
+    return [text.slice(0, maxLength), text.slice(maxLength)]
+  }
+
   return (
-    <div ref={containerRef} className={`llm-comparison-selection ${className}`}>
+    <div className={`llm-comparison-selection ${className}`}>
       <svg
         className="llm-comparison-selection__svg"
-        viewBox={`0 0 ${width} ${height}`}
+        viewBox="0 0 800 350"
         preserveAspectRatio="xMidYMid meet"
       >
+        {/* Gradient Definition for Vertical Legend */}
+        <defs>
+          <linearGradient id="consistencyGradient" x1="0%" y1="100%" x2="0%" y2="0%">
+            {getGradientStops().map(stop => (
+              <stop key={stop.offset} offset={stop.offset} stopColor={stop.color} />
+            ))}
+          </linearGradient>
+        </defs>
+
         {/* Left Label with Icon - LLM Explainer */}
         <g className="llm-comparison-selection__label-group">
           <svg
@@ -293,7 +437,7 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
             dominantBaseline="middle"
             className="llm-comparison-selection__label"
             fill="#333"
-            fontSize="14"
+            fontSize="18"
             fontWeight="600"
           >
             LLM Explainer
@@ -318,98 +462,282 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
             dominantBaseline="middle"
             className="llm-comparison-selection__label"
             fill="#333"
-            fontSize="14"
+            fontSize="18"
             fontWeight="600"
           >
             LLM Scorer
           </text>
         </g>
 
-        {/* Left triangle cells - LLM Explainer (Orange) */}
+        {/* Left triangle cells - LLM Explainer */}
         {leftTriangle.cells.map((cell, i) => {
           const cellId = `left-${i}`
           const { fillOpacity, strokeWidth } = getCellVisuals(cellId, 'left')
+          const isDiamond = cell.type === 'diamond'
+          const fillColor = isDiamond
+            ? getConsistencyColorForCell(cellId) || COMPONENT_COLORS.EXPLAINER
+            : COMPONENT_COLORS.EXPLAINER
+
           return (
-            <polygon
-              key={cellId}
-              points={cell.points}
-              fill={COMPONENT_COLORS.EXPLAINER}
-              fillOpacity={fillOpacity}
-              stroke={COMPONENT_COLORS.EXPLAINER}
-              strokeWidth={strokeWidth}
-              className="llm-comparison-selection__cell"
-              onMouseEnter={() => {
-                setHoveredCell(cellId)
-                setLinkedTriangles(getLinkedTriangles(i))
-              }}
-              onMouseLeave={() => {
-                setHoveredCell(null)
-                setLinkedTriangles([])
-              }}
-              onClick={() => handleCellClick(cellId, i)}
-            />
+            <g key={cellId}>
+              <polygon
+                points={cell.points}
+                fill={fillColor}
+                fillOpacity={fillOpacity}
+                stroke={isDiamond ? fillColor : COMPONENT_COLORS.EXPLAINER}
+                strokeWidth={strokeWidth}
+                className="llm-comparison-selection__cell"
+                onMouseEnter={() => setHoveredCell(cellId)}
+                onMouseLeave={() => setHoveredCell(null)}
+                onClick={() => handleCellClick(cellId, i)}
+              />
+              {cell.type === 'triangle' && (() => {
+                const modelName = getModelName(cellId, i)
+                if (!modelName) return null
+                const center = getPolygonCenter(cell.points)
+                const labelConfig = getLabelConfig(cellId, i, center)
+                if (!labelConfig) return null
+
+                const lines = splitTextIntoLines(modelName)
+                const lineHeight = 16
+
+                return (
+                  <text
+                    x={labelConfig.x}
+                    y={labelConfig.y}
+                    textAnchor={labelConfig.textAnchor}
+                    dominantBaseline="middle"
+                    fontSize="16"
+                    fontWeight="600"
+                    fill="#333"
+                    pointerEvents="none"
+                    transform={labelConfig.rotation !== 0 ? `rotate(${labelConfig.rotation} ${labelConfig.x} ${labelConfig.y})` : undefined}
+                  >
+                    {lines.map((line, idx) => (
+                      <tspan
+                        key={idx}
+                        x={labelConfig.x}
+                        dy={idx === 0 ? -(lines.length - 1) * lineHeight / 2 : lineHeight}
+                      >
+                        {line}
+                      </tspan>
+                    ))}
+                  </text>
+                )
+              })()}
+            </g>
           )
         })}
 
-        {/* Top right triangle cells - LLM Scorer (Blue) */}
+        {/* Top right triangle cells - LLM Scorer */}
         {topRightTriangle.cells.map((cell, i) => {
           const cellId = `top-right-${i}`
           const { fillOpacity, strokeWidth } = getCellVisuals(cellId, 'top-right')
+          const isDiamond = cell.type === 'diamond'
+          const fillColor = isDiamond
+            ? getConsistencyColorForCell(cellId) || COMPONENT_COLORS.SCORER
+            : COMPONENT_COLORS.SCORER
+
           return (
-            <polygon
-              key={cellId}
-              points={cell.points}
-              fill={COMPONENT_COLORS.SCORER}
-              fillOpacity={fillOpacity}
-              stroke={COMPONENT_COLORS.SCORER}
-              strokeWidth={strokeWidth}
-              className="llm-comparison-selection__cell"
-              onMouseEnter={() => setHoveredCell(cellId)}
-              onMouseLeave={() => setHoveredCell(null)}
-              onClick={() => handleCellClick(cellId, i)}
-            />
+            <g key={cellId}>
+              <polygon
+                points={cell.points}
+                fill={fillColor}
+                fillOpacity={fillOpacity}
+                stroke={isDiamond ? fillColor : COMPONENT_COLORS.SCORER}
+                strokeWidth={strokeWidth}
+                className="llm-comparison-selection__cell"
+                onMouseEnter={() => setHoveredCell(cellId)}
+                onMouseLeave={() => setHoveredCell(null)}
+                onClick={() => handleCellClick(cellId, i)}
+              />
+              {cell.type === 'triangle' && (() => {
+                const modelName = getModelName(cellId, i)
+                if (!modelName) return null
+                const center = getPolygonCenter(cell.points)
+                const labelConfig = getLabelConfig(cellId, i, center)
+                if (!labelConfig) return null
+
+                const lines = splitTextIntoLines(modelName)
+                const lineHeight = 16
+
+                return (
+                  <text
+                    x={labelConfig.x}
+                    y={labelConfig.y}
+                    textAnchor={labelConfig.textAnchor}
+                    dominantBaseline="middle"
+                    fontSize="16"
+                    fontWeight="600"
+                    fill="#333"
+                    pointerEvents="none"
+                    transform={labelConfig.rotation !== 0 ? `rotate(${labelConfig.rotation} ${labelConfig.x} ${labelConfig.y})` : undefined}
+                  >
+                    {lines.map((line, idx) => (
+                      <tspan
+                        key={idx}
+                        x={labelConfig.x}
+                        dy={idx === 0 ? -(lines.length - 1) * lineHeight / 2 : lineHeight}
+                      >
+                        {line}
+                      </tspan>
+                    ))}
+                  </text>
+                )
+              })()}
+            </g>
           )
         })}
 
-        {/* Middle right triangle cells - LLM Scorer (Blue) */}
+        {/* Middle right triangle cells - LLM Scorer */}
         {middleRightTriangle.cells.map((cell, i) => {
           const cellId = `middle-right-${i}`
           const { fillOpacity, strokeWidth } = getCellVisuals(cellId, 'middle-right')
+          const isDiamond = cell.type === 'diamond'
+          const fillColor = isDiamond
+            ? getConsistencyColorForCell(cellId) || COMPONENT_COLORS.SCORER
+            : COMPONENT_COLORS.SCORER
+
           return (
-            <polygon
-              key={cellId}
-              points={cell.points}
-              fill={COMPONENT_COLORS.SCORER}
-              fillOpacity={fillOpacity}
-              stroke={COMPONENT_COLORS.SCORER}
-              strokeWidth={strokeWidth}
-              className="llm-comparison-selection__cell"
-              onMouseEnter={() => setHoveredCell(cellId)}
-              onMouseLeave={() => setHoveredCell(null)}
-              onClick={() => handleCellClick(cellId, i)}
-            />
+            <g key={cellId}>
+              <polygon
+                points={cell.points}
+                fill={fillColor}
+                fillOpacity={fillOpacity}
+                stroke={isDiamond ? fillColor : COMPONENT_COLORS.SCORER}
+                strokeWidth={strokeWidth}
+                className="llm-comparison-selection__cell"
+                onMouseEnter={() => setHoveredCell(cellId)}
+                onMouseLeave={() => setHoveredCell(null)}
+                onClick={() => handleCellClick(cellId, i)}
+              />
+              {cell.type === 'triangle' && (() => {
+                const modelName = getModelName(cellId, i)
+                if (!modelName) return null
+                const center = getPolygonCenter(cell.points)
+                const labelConfig = getLabelConfig(cellId, i, center)
+                if (!labelConfig) return null
+
+                const lines = splitTextIntoLines(modelName)
+                const lineHeight = 16
+
+                return (
+                  <text
+                    x={labelConfig.x}
+                    y={labelConfig.y}
+                    textAnchor={labelConfig.textAnchor}
+                    dominantBaseline="middle"
+                    fontSize="16"
+                    fontWeight="600"
+                    fill="#333"
+                    pointerEvents="none"
+                    transform={labelConfig.rotation !== 0 ? `rotate(${labelConfig.rotation} ${labelConfig.x} ${labelConfig.y})` : undefined}
+                  >
+                    {lines.map((line, idx) => (
+                      <tspan
+                        key={idx}
+                        x={labelConfig.x}
+                        dy={idx === 0 ? -(lines.length - 1) * lineHeight / 2 : lineHeight}
+                      >
+                        {line}
+                      </tspan>
+                    ))}
+                  </text>
+                )
+              })()}
+            </g>
           )
         })}
 
-        {/* Bottom right triangle cells - LLM Scorer (Blue) */}
+        {/* Bottom right triangle cells - LLM Scorer */}
         {bottomRightTriangle.cells.map((cell, i) => {
           const cellId = `bottom-right-${i}`
           const { fillOpacity, strokeWidth } = getCellVisuals(cellId, 'bottom-right')
+          const isDiamond = cell.type === 'diamond'
+          const fillColor = isDiamond
+            ? getConsistencyColorForCell(cellId) || COMPONENT_COLORS.SCORER
+            : COMPONENT_COLORS.SCORER
+
           return (
-            <polygon
-              key={cellId}
-              points={cell.points}
-              fill={COMPONENT_COLORS.SCORER}
-              fillOpacity={fillOpacity}
-              stroke={COMPONENT_COLORS.SCORER}
-              strokeWidth={strokeWidth}
-              className="llm-comparison-selection__cell"
-              onMouseEnter={() => setHoveredCell(cellId)}
-              onMouseLeave={() => setHoveredCell(null)}
-              onClick={() => handleCellClick(cellId, i)}
-            />
+            <g key={cellId}>
+              <polygon
+                points={cell.points}
+                fill={fillColor}
+                fillOpacity={fillOpacity}
+                stroke={isDiamond ? fillColor : COMPONENT_COLORS.SCORER}
+                strokeWidth={strokeWidth}
+                className="llm-comparison-selection__cell"
+                onMouseEnter={() => setHoveredCell(cellId)}
+                onMouseLeave={() => setHoveredCell(null)}
+                onClick={() => handleCellClick(cellId, i)}
+              />
+              {cell.type === 'triangle' && (() => {
+                const modelName = getModelName(cellId, i)
+                if (!modelName) return null
+                const center = getPolygonCenter(cell.points)
+                const labelConfig = getLabelConfig(cellId, i, center)
+                if (!labelConfig) return null
+
+                const lines = splitTextIntoLines(modelName)
+                const lineHeight = 16
+
+                return (
+                  <text
+                    x={labelConfig.x}
+                    y={labelConfig.y}
+                    textAnchor={labelConfig.textAnchor}
+                    dominantBaseline="middle"
+                    fontSize="16"
+                    fontWeight="600"
+                    fill="#333"
+                    pointerEvents="none"
+                    transform={labelConfig.rotation !== 0 ? `rotate(${labelConfig.rotation} ${labelConfig.x} ${labelConfig.y})` : undefined}
+                  >
+                    {lines.map((line, idx) => (
+                      <tspan
+                        key={idx}
+                        x={labelConfig.x}
+                        dy={idx === 0 ? -(lines.length - 1) * lineHeight / 2 : lineHeight}
+                      >
+                        {line}
+                      </tspan>
+                    ))}
+                  </text>
+                )
+              })()}
+            </g>
           )
         })}
+
+        {/* Vertical Gradient Legend on Left */}
+        <g className="llm-comparison-selection__legend">
+          <text
+            x="50"
+            y="195"
+            fontSize="12"
+            fontWeight="600"
+            fill="#333"
+            textAnchor="middle"
+            transform="rotate(-90 50 195)"
+          >
+            Consistency Score
+          </text>
+          <rect
+            x="70"
+            y="120"
+            width="15"
+            height="150"
+            fill="url(#consistencyGradient)"
+            stroke="#999"
+            strokeWidth="1"
+          />
+          <text x="90" y="125" fontSize="10" fill="#666" textAnchor="start">
+            1 (High)
+          </text>
+          <text x="90" y="275" fontSize="10" fill="#666" textAnchor="start">
+            0 (Low)
+          </text>
+        </g>
       </svg>
     </div>
   )

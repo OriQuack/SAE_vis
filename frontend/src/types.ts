@@ -245,6 +245,39 @@ export interface FeatureDetail {
   details_path: string
 }
 
+// ============================================================================
+// LLM COMPARISON TYPES
+// ============================================================================
+
+export interface LLMExplainerModel {
+  id: string
+  name: string
+}
+
+export interface LLMScorerModel {
+  id: string
+  name: string
+  explainerSource: string
+}
+
+export interface ConsistencyScore {
+  value: number
+  method: 'cosine_similarity' | 'rv_coefficient'
+}
+
+export interface LLMComparisonData {
+  explainers: [LLMExplainerModel, LLMExplainerModel, LLMExplainerModel]
+  scorersForExplainer1: [LLMScorerModel, LLMScorerModel, LLMScorerModel]
+  scorersForExplainer2: [LLMScorerModel, LLMScorerModel, LLMScorerModel]
+  scorersForExplainer3: [LLMScorerModel, LLMScorerModel, LLMScorerModel]
+  explainerConsistencies: {
+    'left-1': ConsistencyScore
+    'left-3': ConsistencyScore
+    'left-4': ConsistencyScore
+  }
+  scorerConsistencies: Record<string, ConsistencyScore>
+}
+
 export interface CategoryGroup {
   id: string
   name: string

@@ -8,12 +8,13 @@ This file provides comprehensive guidance to Claude Code when working with the R
 **Phase 2 Complete**: ✅ Dynamic tree builder with runtime stage creation/removal
 **Phase 3 Complete**: ✅ Backend performance optimization (20-30% faster classification)
 **Phase 4 Complete**: ✅ Threshold group management system with histogram visualization
+**Phase 5 Complete**: ✅ LLM Comparison visualization with consistency scoring
 **Architecture**: Modern TypeScript-based frontend with multiple visualization types and dual-panel state management
-**Status**: Conference-ready research prototype with Sankey, Alluvial, and Histogram visualizations
+**Status**: Conference-ready research prototype with Sankey, Alluvial, Histogram, and LLM Comparison visualizations
 **Development Server**: Active on http://localhost:3005 with hot reload
 **Design Philosophy**: Research prototype optimized for live demonstrations with interactive visualization controls
 **Backend Integration**: Optimized API calls with ParentPath-based caching for improved performance
-**New Features**: Named threshold groups with visual indicators and histogram-based selection
+**New Features**: Named threshold groups with visual indicators, histogram-based selection, LLM consistency comparison
 
 ## Technology Stack & Architecture
 
@@ -46,9 +47,9 @@ This file provides comprehensive guidance to Claude Code when working with the R
 ┌─────────────────────────────────────────────────────────────────┐
 │                     D3.js Visualization Layer                   │
 │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐   │
-│  │   Sankey +      │ │   Histogram     │ │   Interactive   │   │
-│  │   Alluvial      │ │   Calculations  │ │   Popovers      │   │
-│  │   Calculations  │ │   + Statistics  │ │   + Positioning │   │
+│  │   Sankey +      │ │   Histogram +   │ │   LLM Compare + │   │
+│  │   Alluvial      │ │   Calculations  │ │   Interactive   │   │
+│  │   Calculations  │ │   + Statistics  │ │   Popovers      │   │
 │  └─────────────────┘ └─────────────────┘ └─────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
                                  ↕ Event Handling & State Updates
@@ -73,12 +74,16 @@ frontend/
 │   │   ├── AlluvialDiagram.tsx  # D3 Alluvial flow visualization (Phase 2)
 │   │   ├── HistogramPanel.tsx   # Histogram visualization with threshold selection (Phase 4)
 │   │   ├── ThresholdGroupPanel.tsx # Threshold group management UI (Phase 4)
-│   │   └── HistogramPopover.tsx # Portal-based histogram popover with drag functionality
+│   │   ├── HistogramPopover.tsx # Portal-based histogram popover with drag functionality
+│   │   ├── LLMComparisonSelection.tsx # Interactive LLM comparison with consistency (Phase 5)
+│   │   ├── LLMComparisonVisualization.tsx # Static variant (currently commented out)
+│   │   └── FlowPanel.tsx        # Flow visualization panel (viewBox: 0 0 600 175)
 │   ├── lib/                     # Utility Libraries
 │   │   ├── constants.ts         # Centralized constant definitions
 │   │   ├── d3-sankey-utils.ts  # D3 Sankey calculations
 │   │   ├── d3-alluvial-utils.ts # D3 Alluvial calculations
 │   │   ├── d3-histogram-utils.ts # D3 Histogram calculations with grid lines
+│   │   ├── d3-llm-comparison-utils.ts # LLM comparison layout and color utilities (Phase 5)
 │   │   ├── selection-utils.ts   # Threshold selection and calculation utilities
 │   │   ├── threshold-utils.ts   # Threshold tree operations
 │   │   ├── dynamic-tree-builder.ts # Dynamic stage creation/removal
@@ -323,11 +328,12 @@ useEffect(() => {
 
 **API Endpoints Integration:**
 ```typescript
-// All backend endpoints fully integrated
+// All backend endpoints integrated (6 defined, 5 operational)
 export const getFilterOptions = (): Promise<FilterOptions>
 export const getHistogramData = (request: HistogramDataRequest): Promise<HistogramData>
 export const getSankeyData = (request: SankeyDataRequest): Promise<SankeyData>
 export const getComparisonData = (request: ComparisonDataRequest): Promise<ComparisonData>
+export const getLLMComparisonData = (filters: Filters): Promise<LLMComparisonData>  // Backend pending
 export const getFeatureData = (featureId: number): Promise<FeatureDetail>
 export const healthCheck = (): Promise<boolean>
 ```
@@ -502,11 +508,28 @@ User Interaction → State Update → API Request → Data Processing → UI Upd
 - ✅ **Merged Score Histograms**: Common 0-1 x-axis for embedding, fuzz, detection scores
 - ✅ **Professional Styling**: Gray dotted threshold lines, black labels, color-coded areas
 
+### ✅ Phase 5: LLM Comparison Visualization (COMPLETE - January 2025)
+- ✅ **LLMComparisonSelection Component**: Interactive triangle visualization with hover/click
+- ✅ **Triangle Layout System**: 4 triangles (1 explainer + 3 scorers), 6 cells each (3 diamonds + 3 triangles)
+- ✅ **Fixed ViewBox Architecture**: Absolute positioning (800x350) following FlowPanel pattern
+- ✅ **Consistency Color Gradient**: Green→yellow→red (d3-scale) for scores 0-1
+- ✅ **Diamond Cell Coloring**: Consistency scores visualized on diamond cells
+- ✅ **Triangle Cell Labels**: Model names (GPT-4, Claude, Gemini) centered on triangle cells
+- ✅ **Gradient Legend Bar**: Visual reference showing consistency scale (0 Low to 1 High)
+- ✅ **d3-llm-comparison-utils.ts**: Layout calculation and color utility functions
+- ✅ **Type Definitions**: LLMComparisonData, LLMExplainerModel, LLMScorerModel, ConsistencyScore
+- ✅ **API Integration**: getLLMComparisonData() function (backend endpoint pending)
+- ✅ **Dummy Data System**: Realistic test data with cosine similarity and RV coefficient values
+- ✅ **Interactive Features**: Preserved existing hover/selection/click interaction logic
+- ✅ **FlowPanel Updates**: ViewBox adjusted to 0 0 600 175 with 0.1rem top margin
+
 ### 📝 Future Enhancements
 - **UI for Tree Builder**: Visual interface for adding/removing stages (currently API-only)
 - **Debug View**: Individual feature inspection with path visualization
 - **Cross-Visualization Interactions**: Link selections between Sankey and Alluvial diagrams
 - **Export Functionality**: Save/load custom tree and group configurations
+- **LLM Comparison Backend**: Implement backend endpoint for real correlation data
+- **Dynamic LLM Selection**: User interface for selecting models to compare
 - **Virtual Scrolling**: Performance optimization for large node lists
 - **Advanced Caching**: Intelligent data caching strategies
 - **Group Analytics**: Statistics and insights for threshold groups
@@ -528,12 +551,13 @@ This React frontend represents a **production-ready research prototype** with:
 - ✅ **Modern React Architecture** with React 19.1.1 and TypeScript 5.8.3
 - ✅ **Dual-Panel System** with independent left/right panel state management
 - ✅ **Dynamic Tree Builder** with runtime stage creation/removal capabilities
-- ✅ **D3.js Visualization Suite** with Sankey and Alluvial diagrams
+- ✅ **D3.js Visualization Suite** with Sankey, Alluvial, and LLM Comparison diagrams
 - ✅ **Threshold Tree System V2** with range, pattern, and expression split rules
 - ✅ **Split Rule Builders** with helper functions for easy rule construction
+- ✅ **LLM Comparison Visualization** with consistency scoring and color gradients
 - ✅ **Production Error Handling** with comprehensive error boundaries
 - ✅ **Alluvial Flow Tracking** with feature ID-based cross-panel comparison
-- ✅ **Responsive Design** with useResizeObserver hook for all visualizations
+- ✅ **Responsive Design** with useResizeObserver hook and fixed viewBox patterns
 - ✅ **Developer Experience** with hot reload and TypeScript tooling
 
 **Key Implementation Features:**

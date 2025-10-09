@@ -269,7 +269,7 @@ The master parquet file (`feature_analysis.parquet`) is the primary data source 
 - **Backend Service**: Loaded by `DataService` (`backend/app/services/visualization_service.py`)
 - **Lazy Loading**: Polars LazyFrame with string cache optimization
 - **Dataset Size**: 1,648 features processed (824 from llama_e-llama_s + 824 from gwen_e-llama_s)
-- **Usage**: Powers all visualization endpoints (Sankey, Histogram, Alluvial, Linear Set)
+- **Usage**: Powers all visualization endpoints (Sankey, Histogram, Alluvial, Linear Set, LLM Comparison)
 
 ### Visualization Support
 The parquet schema is optimized for multiple visualization types:
@@ -286,6 +286,11 @@ The parquet schema is optimized for multiple visualization types:
 4. **Linear Set Diagrams** (Phase 4): Scoring metric agreement analysis
    - Uses: `score_fuzz`, `score_detection`, `score_simulation`, `score_embedding`
    - Category metadata: `semdist_mean`, `feature_splitting`
+
+5. **LLM Comparison** (Phase 5): Model consistency analysis and correlation visualization
+   - Uses: `llm_explainer`, `llm_scorer` metadata for model identification
+   - Future: Correlation matrices between different LLM explainers and scorers
+   - Frontend: Currently using dummy data (cosine similarity, RV coefficient)
 
 ### Performance Characteristics
 - **Response Times**: Sub-second for all visualization queries

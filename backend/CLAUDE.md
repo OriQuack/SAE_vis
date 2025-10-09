@@ -15,7 +15,7 @@ The backend is a production-ready FastAPI application with V2 classification eng
 │                     FastAPI Application Layer                   │
 │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐   │
 │  │   API Router    │ │  Exception      │ │   CORS &        │   │
-│  │   (4 Endpoints) │ │  Handling       │ │   Lifespan      │   │
+│  │ (6 Endpoints)   │ │  Handling       │ │   Lifespan      │   │
 │  └─────────────────┘ └─────────────────┘ └─────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
                                  ↕
@@ -67,6 +67,7 @@ backend/
 │   │   ├── histogram.py          # ✅ POST /api/histogram-data
 │   │   ├── sankey.py             # ✅ POST /api/sankey-data
 │   │   ├── comparison.py         # ✅ POST /api/comparison-data (Phase 2)
+│   │   ├── llm_comparison.py     # 🔄 POST /api/llm-comparison (Phase 5 - pending)
 │   │   └── feature.py            # ✅ GET /api/feature/{id}
 │   ├── models/                   # 📋 Pydantic model definitions
 │   │   ├── requests.py           # Request schemas with validation

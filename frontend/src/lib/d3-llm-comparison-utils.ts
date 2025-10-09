@@ -1,24 +1,20 @@
+import { scaleLinear } from 'd3-scale'
+
 // ============================================================================
-// CONSTANTS
+// CONSTANTS - Fixed ViewBox Dimensions
 // ============================================================================
 
+// Fixed viewBox dimensions - triangles never resize or reposition
+const VIEWBOX_WIDTH = 800
+const VIEWBOX_HEIGHT = 350
+
+// Legacy export for backward compatibility with components
 export const DEFAULT_LLM_COMPARISON_DIMENSIONS = {
-  width: 800,
-  height: 350,
+  width: VIEWBOX_WIDTH,
+  height: VIEWBOX_HEIGHT,
   margin: { top: 10, right: 5, bottom: 5, left: 5 },
-  triangleGap: 10  // Gap between right triangles
+  triangleGap: 10
 } as const
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-export interface Dimensions {
-  width: number
-  height: number
-  margin: { top: number; right: number; bottom: number; left: number }
-  triangleGap: number
-}
 
 export interface Cell {
   points: string
@@ -334,60 +330,54 @@ function calculateTriangleCells(
 
 /**
  * Calculate complete LLM comparison layout with 4 triangles
- * Uses simple absolute positioning based on viewBox dimensions
+ * Uses fixed absolute positioning - triangles never resize or move
+ * (viewBox: 0 0 800 350)
  */
-export function calculateLLMComparisonLayout(
-  dimensions: Dimensions = DEFAULT_LLM_COMPARISON_DIMENSIONS
-): LLMComparisonLayout {
-  const { width, height, margin } = dimensions
-  const innerWidth = width - margin.left - margin.right
-  const innerHeight = height - margin.top - margin.bottom
-
-  // Simple triangle sizes - scale with available space
-  const leftTriangleSize = innerHeight * 0.25
-  const rightTriangleSize = innerHeight * 0.24
-
+export function calculateLLMComparisonLayout(): LLMComparisonLayout {
+  // Fixed triangle sizes (absolute pixels)
+  const leftTriangleSize = 85
+  const rightTriangleSize = 80
   const cellGap = 5
 
-  // Absolute positions based on viewBox
-  // Left triangle: vertex at left edge, vertically centered
+  // Fixed absolute positions based on viewBox 800x350
+  // Left triangle: vertex at center-left, vertically centered
   const leftTriangle = {
     cells: calculateTriangleCells(
-      margin.left + innerWidth * 0.5,
-      margin.top + innerHeight * 0.55,
+      400,  // vx - horizontal center
+      195,  // vy - slightly below vertical center
       leftTriangleSize,
       'right',
       cellGap
     )
   }
 
-  // Top right triangle: vertex pointing down, in upper portion
+  // Top right triangle: vertex pointing down, upper right
   const topRightTriangle = {
     cells: calculateTriangleCells(
-      margin.left + innerWidth * 0.5 + innerWidth * 0.02,
-      margin.top + innerHeight * 0.55 + innerHeight * 0.05,
+      415,  // vx - slightly right of center
+      205,  // vy - lower than left triangle
       rightTriangleSize,
       'down',
       cellGap
     )
   }
 
-  // Middle right triangle: vertex pointing left, vertically centered
+  // Middle right triangle: vertex pointing left, same position as left triangle
   const middleRightTriangle = {
     cells: calculateTriangleCells(
-      margin.left + innerWidth * 0.5,
-      margin.top + innerHeight * 0.55,
+      400,  // vx - same as left triangle
+      195,  // vy - same as left triangle
       rightTriangleSize,
       'left',
       cellGap
     )
   }
 
-  // Bottom right triangle: vertex pointing up, in lower portion
+  // Bottom right triangle: vertex pointing up, lower right
   const bottomRightTriangle = {
     cells: calculateTriangleCells(
-      margin.left + innerWidth * 0.5 + innerWidth * 0.02,
-      margin.top + innerHeight * 0.55 - innerHeight * 0.05,
+      415,  // vx - same as top right
+      185,  // vy - higher than left triangle
       rightTriangleSize,
       'up',
       cellGap
@@ -399,7 +389,35 @@ export function calculateLLMComparisonLayout(
     topRightTriangle,
     middleRightTriangle,
     bottomRightTriangle,
-    innerWidth,
-    innerHeight
+    innerWidth: VIEWBOX_WIDTH,  // Legacy compatibility
+    innerHeight: VIEWBOX_HEIGHT  // Legacy compatibility
   }
+}
+
+// ============================================================================
+// CONSISTENCY COLOR UTILITIES
+// ============================================================================
+
+/**
+ * Get color for consistency score (0 = red/inconsistent, 1 = green/consistent)
+ * Uses smooth gradient: red -> yellow -> green
+ */
+export function getConsistencyColor(value: number): string {
+  const colorScale = scaleLinear<string>()
+    .domain([0, 0.5, 1])
+    .range(['#d73027', '#fee08b', '#1a9850'])
+    .clamp(true)
+
+  return colorScale(value)
+}
+
+/**
+ * Get gradient stops for legend
+ */
+export function getGradientStops(): Array<{ offset: string; color: string }> {
+  return [
+    { offset: '0%', color: '#d73027' },    // red
+    { offset: '50%', color: '#fee08b' },   // yellow
+    { offset: '100%', color: '#1a9850' }   // green
+  ]
 }

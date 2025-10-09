@@ -8,7 +8,6 @@ import FlowPanel from './components/FlowPanel'
 import HistogramPanel from './components/HistogramPanel'
 import ThresholdGroupPanel from './components/ThresholdGroupPanel'
 import ProgressBar from './components/ProgressBar'
-// import LLMComparisonPanel from './components/LLMComparisonPanel'  // Dual-panel version (visualization + selection)
 import LLMComparisonSelection from './components/LLMComparisonSelection'
 import { usePanelDataLoader } from './lib/utils'
 import * as api from './api'
@@ -270,7 +269,6 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
 
             {/* LLM Comparison Panel */}
             <div className="sankey-view__llm-comparison-panel">
-              {/* <LLMComparisonPanel /> */}  {/* Dual-panel version for future use */}
               <LLMComparisonSelection />
             </div>
 

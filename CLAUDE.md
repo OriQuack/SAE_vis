@@ -12,9 +12,10 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 **Phase 2 Complete**: ✅ Dynamic tree builder allowing runtime stage creation and modification
 **Phase 3 Complete**: ✅ Performance optimization with ParentPath-based caching and filtering
 **Phase 4 Complete**: ✅ Threshold group management with histogram-based selection (January 2025)
-**Current State**: Advanced research prototype with Sankey, Alluvial, and Histogram visualizations
-**Active Usage**: Development servers for research demonstrations with multi-panel visualization and threshold grouping
-**Technical Readiness**: Conference-ready prototype with production-grade performance and interactive threshold management
+**Phase 5 Complete**: ✅ LLM Comparison visualization with consistency scoring (January 2025)
+**Current State**: Advanced research prototype with Sankey, Alluvial, Histogram, and LLM Comparison visualizations
+**Active Usage**: Development servers for research demonstrations with multi-panel visualization, threshold grouping, and LLM consistency analysis
+**Technical Readiness**: Conference-ready prototype with production-grade performance, interactive threshold management, and model comparison visualization
 
 ## Technology Stack & Architecture
 
@@ -22,7 +23,7 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 - **Backend**: Python 3.x, FastAPI 0.104.1, Polars 0.19.19, Uvicorn 0.24.0
 - **Frontend**: React 19.1.1, TypeScript 5.8.3, Vite 7.1.6, Zustand 5.0.8
 - **Visualization**: D3.js ecosystem (d3-sankey, d3-scale, d3-array, d3-selection, d3-transition, d3-interpolate)
-- **Advanced Visualizations**: Sankey diagrams, Alluvial diagrams, Histogram panels with threshold selection, dual-panel comparisons, threshold tree interactions, threshold group management
+- **Advanced Visualizations**: Sankey diagrams, Alluvial diagrams, Histogram panels with threshold selection, LLM Comparison with consistency scoring, dual-panel comparisons, threshold tree interactions, threshold group management
 - **Data Processing**: Polars lazy evaluation with string cache optimization
 - **HTTP Client**: Axios 1.12.2 with interceptors and error handling
 - **Data Storage**: Parquet files for efficient columnar data storage (1,648 features processed)
@@ -66,7 +67,7 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 ├── backend/                          # ✅ FastAPI Backend (Production-Ready)
 │   ├── app/
 │   │   ├── main.py                  # FastAPI application with lifespan management
-│   │   ├── api/                    # Modular API endpoints (5 implemented)
+│   │   ├── api/                    # Modular API endpoints (6 defined, 5 implemented)
 │   │   │   ├── filters.py           # GET /api/filter-options
 │   │   │   ├── histogram.py         # POST /api/histogram-data
 │   │   │   ├── sankey.py           # POST /api/sankey-data
@@ -92,12 +93,15 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 │   │   │   ├── FilterPanel.tsx     # Multi-select filter interface
 │   │   │   ├── SankeyDiagram.tsx   # D3 Sankey visualization
 │   │   │   ├── AlluvialDiagram.tsx # D3 Alluvial flow visualization
-│   │   │   └── HistogramPopover.tsx # Advanced popover system
+│   │   │   ├── HistogramPopover.tsx # Advanced popover system
+│   │   │   ├── LLMComparisonSelection.tsx # Interactive LLM comparison with consistency
+│   │   │   └── LLMComparisonVisualization.tsx # Static LLM comparison display
 │   │   ├── lib/
 │   │   │   ├── constants.ts         # Centralized constant definitions
 │   │   │   ├── d3-sankey-utils.ts  # D3 Sankey calculations
 │   │   │   ├── d3-alluvial-utils.ts # D3 Alluvial calculations
 │   │   │   ├── d3-histogram-utils.ts # D3 Histogram calculations
+│   │   │   ├── d3-llm-comparison-utils.ts # LLM comparison layout and color utilities
 │   │   │   ├── threshold-utils.ts   # Threshold tree operations
 │   │   │   ├── dynamic-tree-builder.ts # Dynamic stage creation/removal
 │   │   │   ├── split-rule-builders.ts # Split rule construction helpers
@@ -125,7 +129,7 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 **Core Features:**
 - **FastAPI 0.104.1**: Modern async web framework with automatic OpenAPI documentation
 - **High-Performance Data Service**: Polars-based lazy evaluation for efficient large dataset processing
-- **Comprehensive API**: 4 core endpoints with sub-second response times
+- **Comprehensive API**: 6 core endpoints with sub-second response times
 - **Advanced Error Handling**: Structured error responses with custom error codes
 - **Health Monitoring**: Service availability and data connectivity validation
 - **CORS Support**: Multi-port frontend development support
@@ -190,6 +194,7 @@ threshold tree structure. Not limited to 3 scores or fixed pipeline.
 | `POST` | `/api/histogram-data` | Threshold visualization | ✅ Active | ~200ms (20 bins) |
 | `POST` | `/api/sankey-data` | Multi-stage flow diagrams | ✅ Heavy Usage | ~300ms (full pipeline) |
 | `POST` | `/api/comparison-data` | Alluvial comparisons | ✅ Active | Phase 2 complete |
+| `POST` | `/api/llm-comparison` | LLM consistency analysis | 🔄 Frontend Ready | Backend pending |
 | `GET` | `/api/feature/{id}` | Individual feature details | ✅ Active | ~10ms (direct lookup) |
 
 **Additional System Endpoints:**
@@ -360,11 +365,29 @@ npm run preview
 - ✅ **Store Integration**: Zustand state management with `thresholdGroups`, `pendingGroup`, group actions
 - ✅ **Selection Utilities**: `selection-utils.ts` with threshold calculation and formatting functions
 
+### ✅ Phase 5: LLM Comparison Visualization (COMPLETE - January 2025)
+- ✅ **LLMComparisonSelection Component**: Interactive triangle-based visualization with hover/click interactions
+- ✅ **LLMComparisonVisualization Component**: Static display variant for reference
+- ✅ **Triangle Layout System**: Four triangles (1 left explainer, 3 right scorers) with 6 cells each (3 diamonds + 3 triangles)
+- ✅ **Fixed ViewBox Architecture**: Consistent positioning with absolute coordinates (viewBox: 0 0 800 350)
+- ✅ **Consistency Scoring**: Green→yellow→red gradient visualization (0=inconsistent, 1=consistent)
+- ✅ **Diamond Cell Coloring**: Consistency scores mapped to color gradient on diamond cells
+- ✅ **Model Name Labels**: GPT-4, Claude, Gemini labels centered on triangle cells
+- ✅ **Gradient Legend**: Visual reference bar showing consistency score scale (0 Low to 1 High)
+- ✅ **Color Utilities**: `getConsistencyColor()` and `getGradientStops()` in d3-llm-comparison-utils.ts
+- ✅ **Layout Calculations**: `calculateLLMComparisonLayout()` with triangle cell positioning
+- ✅ **Type Definitions**: LLMComparisonData, LLMExplainerModel, LLMScorerModel, ConsistencyScore types
+- ✅ **API Function**: `getLLMComparisonData()` in api.ts (backend endpoint pending implementation)
+- ✅ **Dummy Data**: Frontend functional with realistic test data for development
+- ✅ **Correlation Methods**: Cosine similarity (explainers), RV coefficient (scorers)
+
 ### 📝 Future Enhancements
 - **UI for Tree Builder**: Visual interface for adding/removing stages (currently API-only)
 - **Debug View**: Individual feature inspection and path visualization
 - **Export Functionality**: Save/load custom tree configurations
 - **Cross-Visualization Interactions**: Link selections between Sankey and Alluvial diagrams
+- **LLM Comparison Backend**: Implement /api/llm-comparison endpoint with real correlation calculations
+- **Dynamic LLM Loading**: Allow users to select which LLM models to compare
 - **Dataset Scaling**: Further optimization for 16K+ feature datasets
 
 ## Important Development Notes
@@ -374,7 +397,7 @@ npm run preview
 3. **Type Safety**: Comprehensive TypeScript integration - maintain type definitions
 4. **Error Handling**: Use structured error codes for proper frontend error handling
 5. **Performance**: All data operations use async patterns - maintain this architecture
-6. **API Integration**: Frontend depends on all 5 backend endpoints being operational
+6. **API Integration**: Frontend depends on 5 operational backend endpoints (6th endpoint /api/llm-comparison pending)
 7. **Testing**: Always run backend tests after changes to verify functionality
 
 ## Project Maturity Assessment

@@ -7,7 +7,8 @@ import type {
   ComparisonData,
   ComparisonDataRequest,
   FeatureDetail,
-  Filters
+  Filters,
+  LLMComparisonData
 } from './types'
 
 // ============================================================================
@@ -20,7 +21,8 @@ const API_ENDPOINTS = {
   HISTOGRAM_DATA: "/histogram-data",
   SANKEY_DATA: "/sankey-data",
   COMPARISON_DATA: "/comparison-data",
-  FEATURE_DETAIL: "/feature"
+  FEATURE_DETAIL: "/feature",
+  LLM_COMPARISON: "/llm-comparison"
 } as const
 
 const API_BASE = API_BASE_URL
@@ -128,4 +130,18 @@ export async function healthCheck(): Promise<boolean> {
   } catch {
     return false
   }
+}
+
+export async function getLLMComparisonData(filters: Filters = {}): Promise<LLMComparisonData> {
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.LLM_COMPARISON}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ filters })
+  })
+  if (!response.ok) {
+    throw new Error(`Failed to fetch LLM comparison data: ${response.status}`)
+  }
+  return response.json()
 }

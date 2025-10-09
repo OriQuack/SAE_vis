@@ -283,7 +283,7 @@ const FlowPanel: React.FC = () => {
 
       {/* Right: D3-Calculated Flowchart */}
       <div className="flow-panel__chart">
-        <svg viewBox="0 0 600 180" preserveAspectRatio="xMidYMid meet">
+        <svg viewBox="0 0 600 175" preserveAspectRatio="xMidYMid meet">
           <defs>
             {/* Arrow markers for each edge color */}
             <marker
