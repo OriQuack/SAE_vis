@@ -15,6 +15,13 @@
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_2272",
+      "text": "The highlighted fragments consistently mark the syntactic elements that drive a program’s behavior—identifiers, operators, punctuation, and occasionally literal strings. When a single semantic unit (such as a function call or a compound operator) is involved, the markers span the entire sequence. This pattern holds across diverse languages, underscoring that the key tokens are those that define the code’s structure and semantics.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "openai/gpt-oss-20b",
+      "data_source": "openai_e-llama_s"
     }
   ],
   "semantic_distance_pairs": [
@@ -24,10 +31,58 @@
         "exp_625"
       ],
       "cosine_distance": 1.1102230246251565e-16,
-      "euclidean_distance": 0.0
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_1449",
+        "exp_2272"
+      ],
+      "cosine_distance": 0.13165376666416384,
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_625",
+        "exp_2272"
+      ],
+      "cosine_distance": 0.13165376666416384,
+      "euclidean_distance": null
     }
   ],
   "scores": [
+    {
+      "data_source": "gwen_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.45,
+      "score_detection": 0.45,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.45,
+      "score_detection": 0.48,
+      "score_simulation": 0.04323344384368689,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.4666666666666667,
+      "score_detection": 0.45,
+      "score_simulation": -0.0015184882912964409,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.45,
+      "score_detection": 0.4,
+      "score_simulation": null,
+      "score_embedding": null
+    },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
@@ -41,6 +96,14 @@
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
       "score_fuzz": 0.425,
       "score_detection": 0.45,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "openai_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.225,
+      "score_detection": 0.4,
       "score_simulation": null,
       "score_embedding": null
     }

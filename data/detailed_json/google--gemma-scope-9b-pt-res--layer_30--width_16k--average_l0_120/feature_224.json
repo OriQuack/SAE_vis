@@ -24,10 +24,50 @@
         "exp_190"
       ],
       "cosine_distance": 0.19694092317547107,
-      "euclidean_distance": 0.6276001125462041
+      "euclidean_distance": null
     }
   ],
   "scores": [
+    {
+      "data_source": "gwen_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.5,
+      "score_detection": 0.4857142857142857,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.39,
+      "score_detection": 0.13,
+      "score_simulation": 0.09787998573628903,
+      "score_embedding": null
+    },
+    {
+      "data_source": "openai_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.6,
+      "score_detection": 0.25,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.5272727272727272,
+      "score_detection": 0.2,
+      "score_simulation": 0.15542734475317785,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.45,
+      "score_detection": 0.425,
+      "score_simulation": null,
+      "score_embedding": null
+    },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
@@ -43,6 +83,14 @@
       "score_detection": 0.43,
       "score_simulation": 0.09892119135561736,
       "score_embedding": 0.48519999999999996
+    },
+    {
+      "data_source": "openai_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.525,
+      "score_detection": 0.075,
+      "score_simulation": null,
+      "score_embedding": null
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

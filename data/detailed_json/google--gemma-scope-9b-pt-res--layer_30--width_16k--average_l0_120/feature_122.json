@@ -15,6 +15,13 @@
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_1747",
+      "text": "The highlighted tokens are high‑frequency, generic words that appear in many contexts—function words, common nouns, and key terms in recurring phrases (e.g., “common”, “greatest”, “similarities”, “length”, “family”). The model’s activations tend to focus on these ubiquitous connectors and standard phrase components rather than on content‑specific vocabulary.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "openai/gpt-oss-20b",
+      "data_source": "openai_e-llama_s"
     }
   ],
   "semantic_distance_pairs": [
@@ -24,10 +31,66 @@
         "exp_099"
       ],
       "cosine_distance": 0.17253670583877456,
-      "euclidean_distance": 0.5874295082120298
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_923",
+        "exp_1747"
+      ],
+      "cosine_distance": 0.19302026017385465,
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_099",
+        "exp_1747"
+      ],
+      "cosine_distance": 0.14896354158731284,
+      "euclidean_distance": null
     }
   ],
   "scores": [
+    {
+      "data_source": "gwen_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.65,
+      "score_detection": 0.65,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.64,
+      "score_detection": 0.39,
+      "score_simulation": 0.12448253353798805,
+      "score_embedding": null
+    },
+    {
+      "data_source": "openai_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.75,
+      "score_detection": 0.625,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.76,
+      "score_detection": 0.6666666666666666,
+      "score_simulation": 0.15559743581989866,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.675,
+      "score_detection": 0.65,
+      "score_simulation": null,
+      "score_embedding": null
+    },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
@@ -43,6 +106,14 @@
       "score_detection": 0.69,
       "score_simulation": 0.21783040409300725,
       "score_embedding": 0.5916
+    },
+    {
+      "data_source": "openai_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.875,
+      "score_detection": 0.675,
+      "score_simulation": null,
+      "score_embedding": null
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

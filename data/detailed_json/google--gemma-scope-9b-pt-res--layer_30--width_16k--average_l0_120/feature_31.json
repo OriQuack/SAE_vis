@@ -15,6 +15,13 @@
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_1675",
+      "text": "The highlighted tokens are numeric characters or symbols that form numeric literals (decimal, hexadecimal, scientific notation, etc.), often appearing in sequences that represent numbers.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "openai/gpt-oss-20b",
+      "data_source": "openai_e-llama_s"
     }
   ],
   "semantic_distance_pairs": [
@@ -24,10 +31,74 @@
         "exp_027"
       ],
       "cosine_distance": 0.12493802171827884,
-      "euclidean_distance": 0.49987606620628994
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_851",
+        "exp_1675"
+      ],
+      "cosine_distance": 0.0831878363805667,
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_027",
+        "exp_1675"
+      ],
+      "cosine_distance": 0.09569744643563793,
+      "euclidean_distance": null
     }
   ],
   "scores": [
+    {
+      "data_source": "gwen_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.75,
+      "score_detection": 0.675,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.76,
+      "score_detection": 0.61,
+      "score_simulation": 0.11995431189736275,
+      "score_embedding": null
+    },
+    {
+      "data_source": "openai_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.7,
+      "score_detection": 0.625,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "openai_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.725,
+      "score_detection": 0.65,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.6,
+      "score_detection": 0.63,
+      "score_simulation": 0.19946396214766454,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.775,
+      "score_detection": 0.65,
+      "score_simulation": null,
+      "score_embedding": null
+    },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
@@ -43,6 +114,14 @@
       "score_detection": 0.71,
       "score_simulation": 0.0362157550946122,
       "score_embedding": 0.6844
+    },
+    {
+      "data_source": "openai_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.725,
+      "score_detection": 0.7,
+      "score_simulation": null,
+      "score_embedding": null
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

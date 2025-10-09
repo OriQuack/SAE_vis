@@ -1,0 +1,1593 @@
+{
+  "metadata": {
+    "data_source": "openai_e-openai_s",
+    "scoring_methods": [
+      "fuzz",
+      "detection",
+      "simulation",
+      "embedding"
+    ],
+    "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+    "llm_scorer": "openai/gpt-oss-20b",
+    "config_used": {
+      "data_sources": [
+        {
+          "name": "llama_e-llama_s",
+          "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4"
+        },
+        {
+          "name": "llama_e-gwen_s",
+          "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8"
+        },
+        {
+          "name": "llama_e-openai_s",
+          "llm_scorer": "openai/gpt-oss-20b"
+        },
+        {
+          "name": "gwen_e-llama_s",
+          "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4"
+        },
+        {
+          "name": "gwen_e-gwen_s",
+          "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8"
+        },
+        {
+          "name": "gwen_e-openai_s",
+          "llm_scorer": "openai/gpt-oss-20b"
+        },
+        {
+          "name": "openai_e-llama_s",
+          "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4"
+        },
+        {
+          "name": "openai_e-gwen_s",
+          "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8"
+        },
+        {
+          "name": "openai_e-openai_s",
+          "llm_scorer": "openai/gpt-oss-20b"
+        }
+      ],
+      "scoring_methods": [
+        "fuzz",
+        "detection",
+        "simulation",
+        "embedding"
+      ],
+      "output_filename": "scores.json",
+      "description": "Configuration for processing latent scores from multiple data sources"
+    }
+  },
+  "latent_scores": {
+    "0": {
+      "fuzz": {
+        "average_score": 0.5142857142857142,
+        "total_examples": 40,
+        "failure_count": 5,
+        "success_count": 35,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.775,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "1": {
+      "fuzz": {
+        "average_score": 0.8,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.775,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "10": {
+      "fuzz": {
+        "average_score": 0.725,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.675,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "11": {
+      "fuzz": {
+        "average_score": 0.5428571428571428,
+        "total_examples": 40,
+        "failure_count": 5,
+        "success_count": 35,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.575,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "12": {
+      "fuzz": {
+        "average_score": 0.675,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.525,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "13": {
+      "fuzz": {
+        "average_score": 0.6333333333333333,
+        "total_examples": 40,
+        "failure_count": 10,
+        "success_count": 30,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.5,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "14": {
+      "fuzz": {
+        "average_score": 1.0,
+        "total_examples": 40,
+        "failure_count": 35,
+        "success_count": 5,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.4857142857142857,
+        "total_examples": 40,
+        "failure_count": 5,
+        "success_count": 35,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "15": {
+      "fuzz": {
+        "average_score": 0.8,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.5,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "17": {
+      "fuzz": {
+        "average_score": 0.7,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.6,
+        "total_examples": 40,
+        "failure_count": 5,
+        "success_count": 35,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "18": {
+      "fuzz": {
+        "average_score": 0.84,
+        "total_examples": 40,
+        "failure_count": 15,
+        "success_count": 25,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.775,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "2": {
+      "fuzz": {
+        "average_score": 0.6,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.6,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "22": {
+      "fuzz": {
+        "average_score": 0.8571428571428571,
+        "total_examples": 40,
+        "failure_count": 5,
+        "success_count": 35,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.425,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "23": {
+      "fuzz": {
+        "average_score": 0.8,
+        "total_examples": 40,
+        "failure_count": 5,
+        "success_count": 35,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.5,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "25": {
+      "fuzz": {
+        "average_score": 0.9,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.85,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "26": {
+      "fuzz": {
+        "average_score": 0.525,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.5,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "27": {
+      "fuzz": {
+        "average_score": 0.7,
+        "total_examples": 40,
+        "failure_count": 20,
+        "success_count": 20,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.775,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "28": {
+      "fuzz": {
+        "average_score": 0.45714285714285713,
+        "total_examples": 40,
+        "failure_count": 5,
+        "success_count": 35,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.525,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "29": {
+      "fuzz": {
+        "average_score": 0.425,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.375,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "3": {
+      "fuzz": {
+        "average_score": 0.475,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.5142857142857142,
+        "total_examples": 40,
+        "failure_count": 5,
+        "success_count": 35,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "30": {
+      "fuzz": {
+        "average_score": 1.0,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.8571428571428571,
+        "total_examples": 40,
+        "failure_count": 5,
+        "success_count": 35,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "31": {
+      "fuzz": {
+        "average_score": 0.7,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.625,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "32": {
+      "fuzz": {
+        "average_score": 0.525,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.5,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "34": {
+      "fuzz": {
+        "average_score": 0.375,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.3,
+        "total_examples": 40,
+        "failure_count": 10,
+        "success_count": 30,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "35": {
+      "fuzz": {
+        "average_score": 0.45,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.475,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "36": {
+      "fuzz": {
+        "average_score": 0.75,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.6571428571428571,
+        "total_examples": 40,
+        "failure_count": 5,
+        "success_count": 35,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "37": {
+      "fuzz": {
+        "average_score": 0.6571428571428571,
+        "total_examples": 40,
+        "failure_count": 5,
+        "success_count": 35,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.6285714285714286,
+        "total_examples": 40,
+        "failure_count": 5,
+        "success_count": 35,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "38": {
+      "fuzz": {
+        "average_score": 0.8,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.475,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "4": {
+      "fuzz": {
+        "average_score": 0.5714285714285714,
+        "total_examples": 40,
+        "failure_count": 5,
+        "success_count": 35,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.5,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "41": {
+      "fuzz": {
+        "average_score": 0.6,
+        "total_examples": 40,
+        "failure_count": 10,
+        "success_count": 30,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.475,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "42": {
+      "fuzz": {
+        "average_score": 0.5333333333333333,
+        "total_examples": 40,
+        "failure_count": 10,
+        "success_count": 30,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.5428571428571428,
+        "total_examples": 40,
+        "failure_count": 5,
+        "success_count": 35,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "43": {
+      "fuzz": {
+        "average_score": 0.5428571428571428,
+        "total_examples": 40,
+        "failure_count": 5,
+        "success_count": 35,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.45,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "44": {
+      "fuzz": {
+        "average_score": 0.6,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.45,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "46": {
+      "fuzz": {
+        "average_score": 0.925,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.8,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "47": {
+      "fuzz": {
+        "average_score": 0.9,
+        "total_examples": 40,
+        "failure_count": 10,
+        "success_count": 30,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.475,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "48": {
+      "fuzz": {
+        "average_score": 0.6,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.425,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "49": {
+      "fuzz": {
+        "average_score": 0.825,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.5,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "5": {
+      "fuzz": {
+        "average_score": 0.4,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.4,
+        "total_examples": 40,
+        "failure_count": 5,
+        "success_count": 35,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "50": {
+      "fuzz": {
+        "average_score": 0.575,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.52,
+        "total_examples": 40,
+        "failure_count": 15,
+        "success_count": 25,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "51": {
+      "fuzz": {
+        "average_score": 0.6285714285714286,
+        "total_examples": 40,
+        "failure_count": 5,
+        "success_count": 35,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.4,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "52": {
+      "fuzz": {
+        "average_score": 0.65,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.8285714285714286,
+        "total_examples": 40,
+        "failure_count": 5,
+        "success_count": 35,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "53": {
+      "fuzz": {
+        "average_score": 0.45714285714285713,
+        "total_examples": 40,
+        "failure_count": 5,
+        "success_count": 35,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.35,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "54": {
+      "fuzz": {
+        "average_score": 0.6333333333333333,
+        "total_examples": 40,
+        "failure_count": 10,
+        "success_count": 30,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.4,
+        "total_examples": 40,
+        "failure_count": 10,
+        "success_count": 30,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "55": {
+      "fuzz": {
+        "average_score": 0.5666666666666667,
+        "total_examples": 40,
+        "failure_count": 10,
+        "success_count": 30,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.525,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "56": {
+      "fuzz": {
+        "average_score": 0.625,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.5428571428571428,
+        "total_examples": 40,
+        "failure_count": 5,
+        "success_count": 35,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "57": {
+      "fuzz": {
+        "average_score": 0.45,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.5,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "58": {
+      "fuzz": {
+        "average_score": 0.825,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.4,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "59": {
+      "fuzz": {
+        "average_score": 0.45714285714285713,
+        "total_examples": 40,
+        "failure_count": 5,
+        "success_count": 35,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.425,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "6": {
+      "fuzz": {
+        "average_score": 0.775,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.425,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "7": {
+      "fuzz": {
+        "average_score": 0.5,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.5,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "8": {
+      "fuzz": {
+        "average_score": 0.85,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.475,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    },
+    "9": {
+      "fuzz": {
+        "average_score": 0.725,
+        "total_examples": 40,
+        "failure_count": 0,
+        "success_count": 40,
+        "variance": null
+      },
+      "detection": {
+        "average_score": 0.6571428571428571,
+        "total_examples": 40,
+        "failure_count": 5,
+        "success_count": 35,
+        "variance": null
+      },
+      "simulation": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      },
+      "embedding": {
+        "average_score": null,
+        "total_examples": 0,
+        "failure_count": 0,
+        "success_count": 0,
+        "variance": null
+      }
+    }
+  }
+}

@@ -15,6 +15,13 @@
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_1813",
+      "text": "The highlighted words are verbs or verb phrases that function as the main predicate of a clause, usually in present tense or gerund, and they appear across a wide range of contexts, often followed by an object or complement.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "openai/gpt-oss-20b",
+      "data_source": "openai_e-llama_s"
     }
   ],
   "semantic_distance_pairs": [
@@ -24,10 +31,66 @@
         "exp_165"
       ],
       "cosine_distance": 0.11410929705362238,
-      "euclidean_distance": 0.47772231194872045
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_989",
+        "exp_1813"
+      ],
+      "cosine_distance": 0.1251825177348821,
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_165",
+        "exp_1813"
+      ],
+      "cosine_distance": 0.12665738494079837,
+      "euclidean_distance": null
     }
   ],
   "scores": [
+    {
+      "data_source": "gwen_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.875,
+      "score_detection": 0.55,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.74,
+      "score_detection": 0.43,
+      "score_simulation": 0.4105036080326626,
+      "score_embedding": null
+    },
+    {
+      "data_source": "openai_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.825,
+      "score_detection": 0.5,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.9142857142857143,
+      "score_detection": 0.5333333333333333,
+      "score_simulation": 0.4438782027378597,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.8,
+      "score_detection": 0.525,
+      "score_simulation": null,
+      "score_embedding": null
+    },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
@@ -43,6 +106,14 @@
       "score_detection": 0.55,
       "score_simulation": 0.5798242695903303,
       "score_embedding": 0.7952
+    },
+    {
+      "data_source": "openai_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.85,
+      "score_detection": 0.525,
+      "score_simulation": null,
+      "score_embedding": null
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

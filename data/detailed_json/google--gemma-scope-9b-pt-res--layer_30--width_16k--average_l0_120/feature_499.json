@@ -15,6 +15,13 @@
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_2058",
+      "text": "The highlighted words are short function tokens that frequently appear in common collocations expressing time, experience, or direction (e.g., “never before,” “ever before,” “to find,” “to return,” “to see”). They serve as connectors that frame the surrounding content, indicating temporal or experiential context.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "openai/gpt-oss-20b",
+      "data_source": "openai_e-llama_s"
     }
   ],
   "semantic_distance_pairs": [
@@ -24,10 +31,66 @@
         "exp_411"
       ],
       "cosine_distance": 0.12022083835982378,
-      "euclidean_distance": 0.4903485140799453
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_1235",
+        "exp_2058"
+      ],
+      "cosine_distance": 0.1537261501994538,
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_411",
+        "exp_2058"
+      ],
+      "cosine_distance": 0.11568928642898069,
+      "euclidean_distance": null
     }
   ],
   "scores": [
+    {
+      "data_source": "gwen_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.65,
+      "score_detection": 0.6,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.73,
+      "score_detection": 0.54,
+      "score_simulation": 0.1291692058974235,
+      "score_embedding": null
+    },
+    {
+      "data_source": "openai_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.575,
+      "score_detection": 0.575,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.66,
+      "score_detection": 0.49230769230769234,
+      "score_simulation": 0.18035813523493754,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.7,
+      "score_detection": 0.625,
+      "score_simulation": null,
+      "score_embedding": null
+    },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
@@ -43,6 +106,14 @@
       "score_detection": 0.66,
       "score_simulation": 0.19799948262283423,
       "score_embedding": 0.7204
+    },
+    {
+      "data_source": "openai_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.6,
+      "score_detection": 0.625,
+      "score_simulation": null,
+      "score_embedding": null
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

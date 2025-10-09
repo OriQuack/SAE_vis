@@ -15,6 +15,13 @@
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_1932",
+      "text": "The activations consistently target sub‑word units that carry morphological or domain‑specific meaning—whole words, prefixes, suffixes, or split scientific terms—showing the model relies on these sub‑word components to encode and process specialized terminology.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "openai/gpt-oss-20b",
+      "data_source": "openai_e-llama_s"
     }
   ],
   "semantic_distance_pairs": [
@@ -24,10 +31,66 @@
         "exp_285"
       ],
       "cosine_distance": 0.0772853040142818,
-      "euclidean_distance": 0.3931547103757534
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_1109",
+        "exp_1932"
+      ],
+      "cosine_distance": 0.1691723030642729,
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_285",
+        "exp_1932"
+      ],
+      "cosine_distance": 0.15411451368707962,
+      "euclidean_distance": null
     }
   ],
   "scores": [
+    {
+      "data_source": "gwen_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.55,
+      "score_detection": 0.525,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.48,
+      "score_detection": 0.53,
+      "score_simulation": 0.1168669133845421,
+      "score_embedding": null
+    },
+    {
+      "data_source": "openai_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.45,
+      "score_detection": 0.5,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.4,
+      "score_detection": 0.5176470588235295,
+      "score_simulation": 0.11876090295200092,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.575,
+      "score_detection": 0.525,
+      "score_simulation": null,
+      "score_embedding": null
+    },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
@@ -43,6 +106,14 @@
       "score_detection": 0.53,
       "score_simulation": 0.24357435434811747,
       "score_embedding": 0.5608
+    },
+    {
+      "data_source": "openai_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.675,
+      "score_detection": 0.525,
+      "score_simulation": null,
+      "score_embedding": null
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

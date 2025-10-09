@@ -7,10 +7,14 @@
     {
       "name": "gwen_e-llama_s",
       "path": "data/embeddings/gwen_e-llama_s"
+    },
+    {
+      "name": "openai_e-llama_s",
+      "path": "data/embeddings/openai_e-llama_s"
     }
   ],
   "umap_parameters": {
-    "n_neighbors": 15,
+    "n_neighbors": 30,
     "min_dist": 0.1,
     "metric": "cosine",
     "random_state": 42

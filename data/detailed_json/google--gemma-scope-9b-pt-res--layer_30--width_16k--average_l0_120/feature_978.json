@@ -15,6 +15,13 @@
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_2450",
+      "text": "The highlighted tokens are words that belong to semantically coherent phrases or concepts—often nouns, adjectives, or key verbs—whose importance is reflected in the activation scores. The pattern is that these tokens form phrases that convey a specific idea or theme, but the boundaries of those phrases vary across examples.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "openai/gpt-oss-20b",
+      "data_source": "openai_e-llama_s"
     }
   ],
   "semantic_distance_pairs": [
@@ -24,10 +31,58 @@
         "exp_803"
       ],
       "cosine_distance": 0.0,
-      "euclidean_distance": 0.0
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_1627",
+        "exp_2450"
+      ],
+      "cosine_distance": 0.13616600592274675,
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_803",
+        "exp_2450"
+      ],
+      "cosine_distance": 0.13616600592274675,
+      "euclidean_distance": null
     }
   ],
   "scores": [
+    {
+      "data_source": "gwen_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.7,
+      "score_detection": 0.525,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.49,
+      "score_detection": 0.46,
+      "score_simulation": 0.14154101882566975,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.56,
+      "score_detection": 0.4625,
+      "score_simulation": 0.18693171717978088,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.525,
+      "score_detection": 0.525,
+      "score_simulation": null,
+      "score_embedding": null
+    },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
@@ -42,6 +97,14 @@
       "score_fuzz": 0.5,
       "score_detection": 0.45,
       "score_simulation": -0.015359691260187342,
+      "score_embedding": null
+    },
+    {
+      "data_source": "openai_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.55,
+      "score_detection": 0.55,
+      "score_simulation": null,
       "score_embedding": null
     }
   ],

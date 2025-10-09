@@ -15,6 +15,13 @@
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_1988",
+      "text": "The highlighted tokens are typically short, high‑frequency words or punctuation that serve as syntactic boundaries or connectors, or they are brand/product names that anchor a phrase.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "openai/gpt-oss-20b",
+      "data_source": "openai_e-llama_s"
     }
   ],
   "semantic_distance_pairs": [
@@ -24,10 +31,66 @@
         "exp_341"
       ],
       "cosine_distance": 0.0993766161039551,
-      "euclidean_distance": 0.44581748205514904
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_1165",
+        "exp_1988"
+      ],
+      "cosine_distance": 0.1331670403025903,
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_341",
+        "exp_1988"
+      ],
+      "cosine_distance": 0.13773984998815259,
+      "euclidean_distance": null
     }
   ],
   "scores": [
+    {
+      "data_source": "gwen_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.475,
+      "score_detection": 0.6,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.43,
+      "score_detection": 0.45,
+      "score_simulation": -0.009721937362144623,
+      "score_embedding": null
+    },
+    {
+      "data_source": "openai_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.525,
+      "score_detection": 0.5,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.35,
+      "score_detection": 0.5142857142857142,
+      "score_simulation": 0.04333795719824208,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.4,
+      "score_detection": 0.45,
+      "score_simulation": null,
+      "score_embedding": null
+    },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
@@ -43,6 +106,14 @@
       "score_detection": 0.35,
       "score_simulation": 0.013704932231719277,
       "score_embedding": 0.48919999999999997
+    },
+    {
+      "data_source": "openai_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.625,
+      "score_detection": 0.6,
+      "score_simulation": null,
+      "score_embedding": null
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

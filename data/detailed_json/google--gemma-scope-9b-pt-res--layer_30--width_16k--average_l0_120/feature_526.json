@@ -15,6 +15,13 @@
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_2076",
+      "text": "The highlighted tokens are small function words that form common modal or auxiliary verb phrases (e.g., “able to”, “capable of”, “can”, “also”, “accurately”, “unable to”, “at”, “t”, “all”, “for”, “could”), indicating ability, possibility, or adverbial modification.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "openai/gpt-oss-20b",
+      "data_source": "openai_e-llama_s"
     }
   ],
   "semantic_distance_pairs": [
@@ -24,10 +31,66 @@
         "exp_429"
       ],
       "cosine_distance": 0.04506561667377873,
-      "euclidean_distance": 0.3002186336590158
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_1253",
+        "exp_2076"
+      ],
+      "cosine_distance": 0.08418081108034603,
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_429",
+        "exp_2076"
+      ],
+      "cosine_distance": 0.08051279112293286,
+      "euclidean_distance": null
     }
   ],
   "scores": [
+    {
+      "data_source": "gwen_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.85,
+      "score_detection": 0.85,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.9,
+      "score_detection": 0.71,
+      "score_simulation": 0.3870426856977645,
+      "score_embedding": null
+    },
+    {
+      "data_source": "openai_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.875,
+      "score_detection": 0.725,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.9428571428571428,
+      "score_detection": 0.825,
+      "score_simulation": 0.35727879881890945,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.925,
+      "score_detection": 0.85,
+      "score_simulation": null,
+      "score_embedding": null
+    },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
@@ -43,6 +106,14 @@
       "score_detection": 0.84,
       "score_simulation": 0.42130043913937776,
       "score_embedding": 0.8195999999999999
+    },
+    {
+      "data_source": "openai_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.825,
+      "score_detection": 0.875,
+      "score_simulation": null,
+      "score_embedding": null
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

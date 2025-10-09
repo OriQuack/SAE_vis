@@ -15,6 +15,13 @@
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_2138",
+      "text": "The token “as” is a high‑frequency function word that appears in many contexts—often as a conjunction or preposition, sometimes capitalized, and frequently in legal or code phrases such as “AS IS”.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "openai/gpt-oss-20b",
+      "data_source": "openai_e-llama_s"
     }
   ],
   "semantic_distance_pairs": [
@@ -24,10 +31,66 @@
         "exp_491"
       ],
       "cosine_distance": 0.1514076403693363,
-      "euclidean_distance": 0.5502865406729093
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_1315",
+        "exp_2138"
+      ],
+      "cosine_distance": 0.13245164435442702,
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_491",
+        "exp_2138"
+      ],
+      "cosine_distance": 0.11252334874130732,
+      "euclidean_distance": null
     }
   ],
   "scores": [
+    {
+      "data_source": "gwen_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.775,
+      "score_detection": 0.75,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.48,
+      "score_detection": 0.47,
+      "score_simulation": 0.13626127544789207,
+      "score_embedding": null
+    },
+    {
+      "data_source": "openai_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.8,
+      "score_detection": 0.55,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.72,
+      "score_detection": 0.42,
+      "score_simulation": 0.20740678612223268,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.85,
+      "score_detection": 0.725,
+      "score_simulation": null,
+      "score_embedding": null
+    },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
@@ -43,6 +106,14 @@
       "score_detection": 0.84,
       "score_simulation": 0.06331540527257916,
       "score_embedding": 0.29960000000000003
+    },
+    {
+      "data_source": "openai_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.825,
+      "score_detection": 0.725,
+      "score_simulation": null,
+      "score_embedding": null
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

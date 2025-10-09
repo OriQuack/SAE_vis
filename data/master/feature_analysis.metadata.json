@@ -1,6 +1,6 @@
 {
-  "created_at": "2025-10-05T17:52:23.171706",
-  "total_rows": 1648,
+  "created_at": "2025-10-09T16:19:54.217593",
+  "total_rows": 2471,
   "total_features": 824,
   "schema_version": "1.0",
   "source_directory": "/home/dohyun/interface/data/detailed_json",
@@ -11,8 +11,8 @@
     "description": "Configuration for creating master parquet file from detailed JSON files",
     "processing_notes": {
       "expected_features": 824,
-      "expected_rows_per_feature": 2,
-      "total_expected_rows": 1648,
+      "expected_rows_per_feature": 3,
+      "total_expected_rows": 2472,
       "primary_key_fields": [
         "feature_id",
         "sae_id",

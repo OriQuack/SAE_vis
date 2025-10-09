@@ -15,6 +15,13 @@
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_1815",
+      "text": "The text repeatedly marks the interrogative word “What” (or “what”) as a key token, most often at the beginning of a question and usually followed by “is” and a noun phrase, indicating a consistent pattern of question formation.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "openai/gpt-oss-20b",
+      "data_source": "openai_e-llama_s"
     }
   ],
   "semantic_distance_pairs": [
@@ -24,10 +31,66 @@
         "exp_167"
       ],
       "cosine_distance": 0.09297630287322001,
-      "euclidean_distance": 0.431222199394141
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_991",
+        "exp_1815"
+      ],
+      "cosine_distance": 0.11872916060461225,
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_167",
+        "exp_1815"
+      ],
+      "cosine_distance": 0.12877962964347878,
+      "euclidean_distance": null
     }
   ],
   "scores": [
+    {
+      "data_source": "gwen_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.9,
+      "score_detection": 0.9,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.98,
+      "score_detection": 0.93,
+      "score_simulation": 0.5820362570394682,
+      "score_embedding": null
+    },
+    {
+      "data_source": "openai_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 1.0,
+      "score_detection": 1.0,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.8588235294117647,
+      "score_detection": 0.8125,
+      "score_simulation": 0.575899169305111,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 1.0,
+      "score_detection": 0.975,
+      "score_simulation": null,
+      "score_embedding": null
+    },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
@@ -43,6 +106,14 @@
       "score_detection": 0.92,
       "score_simulation": 0.5183221226203083,
       "score_embedding": 0.6648000000000001
+    },
+    {
+      "data_source": "openai_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 1.0,
+      "score_detection": 1.0,
+      "score_simulation": null,
+      "score_embedding": null
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

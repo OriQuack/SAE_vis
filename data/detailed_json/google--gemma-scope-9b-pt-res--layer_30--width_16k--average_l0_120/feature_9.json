@@ -15,6 +15,13 @@
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_1658",
+      "text": "The highlighted words are the heads of noun phrases that carry the main semantic content of each sentence—typically nouns or pronouns that serve as the subject, object, or key descriptor (e.g., “nature,” “DNA,” “natural,” “Aspects,” “duration,” “state,” “What”). These tokens anchor the central idea or action in the clause.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "openai/gpt-oss-20b",
+      "data_source": "openai_e-llama_s"
     }
   ],
   "semantic_distance_pairs": [
@@ -24,10 +31,74 @@
         "exp_010"
       ],
       "cosine_distance": 0.1593939257064676,
-      "euclidean_distance": 0.5646130327141898
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_834",
+        "exp_1658"
+      ],
+      "cosine_distance": 0.16337875211333275,
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_010",
+        "exp_1658"
+      ],
+      "cosine_distance": 0.15623187466865496,
+      "euclidean_distance": null
     }
   ],
   "scores": [
+    {
+      "data_source": "gwen_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.575,
+      "score_detection": 0.575,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.67,
+      "score_detection": 0.43,
+      "score_simulation": 0.21466728143329802,
+      "score_embedding": null
+    },
+    {
+      "data_source": "openai_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.725,
+      "score_detection": 0.6571428571428571,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "openai_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.8,
+      "score_detection": 0.775,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.6666666666666666,
+      "score_detection": 0.4888888888888889,
+      "score_simulation": 0.20128844511819388,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.575,
+      "score_detection": 0.6,
+      "score_simulation": null,
+      "score_embedding": null
+    },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
@@ -43,6 +114,14 @@
       "score_detection": 0.61,
       "score_simulation": 0.3577270602635465,
       "score_embedding": 0.6068
+    },
+    {
+      "data_source": "openai_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.825,
+      "score_detection": 0.8,
+      "score_simulation": null,
+      "score_embedding": null
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

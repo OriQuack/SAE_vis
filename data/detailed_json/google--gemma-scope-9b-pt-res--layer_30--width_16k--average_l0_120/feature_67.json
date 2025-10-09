@@ -15,6 +15,13 @@
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_1705",
+      "text": "The highlighted tokens are short, high‑frequency function words that form common collocations—especially negation and emphasis such as “not yet,” “quite,” “you,” “enough,” and the fragment “t.” They serve as grammatical connectors or particles rather than content words, and they recur across the examples.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "openai/gpt-oss-20b",
+      "data_source": "openai_e-llama_s"
     }
   ],
   "semantic_distance_pairs": [
@@ -24,10 +31,66 @@
         "exp_057"
       ],
       "cosine_distance": 0.08752894953732038,
-      "euclidean_distance": 0.41839918035759827
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_881",
+        "exp_1705"
+      ],
+      "cosine_distance": 0.1405311622990154,
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_057",
+        "exp_1705"
+      ],
+      "cosine_distance": 0.14992116390396848,
+      "euclidean_distance": null
     }
   ],
   "scores": [
+    {
+      "data_source": "gwen_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.85,
+      "score_detection": 0.825,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.9,
+      "score_detection": 0.87,
+      "score_simulation": 0.4254923787722931,
+      "score_embedding": null
+    },
+    {
+      "data_source": "openai_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.825,
+      "score_detection": 0.65,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.8444444444444444,
+      "score_detection": 0.85,
+      "score_simulation": 0.6581899942270198,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.8,
+      "score_detection": 0.825,
+      "score_simulation": null,
+      "score_embedding": null
+    },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
@@ -43,6 +106,14 @@
       "score_detection": 0.89,
       "score_simulation": 0.2906681157759839,
       "score_embedding": 0.6844000000000001
+    },
+    {
+      "data_source": "openai_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.825,
+      "score_detection": 0.8,
+      "score_simulation": null,
+      "score_embedding": null
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

@@ -15,6 +15,13 @@
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_2376",
+      "text": "The highlighted tokens are the keywords and conditions that drive pre‑processor directives—such as `#if`, `#ifdef`, `#ifndef`, `#elif`, `#else`, `#endif`, `#define`, `#pragma`, and similar constructs—used to control compilation paths in source code.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "openai/gpt-oss-20b",
+      "data_source": "openai_e-llama_s"
     }
   ],
   "semantic_distance_pairs": [
@@ -24,10 +31,58 @@
         "exp_729"
       ],
       "cosine_distance": 0.0,
-      "euclidean_distance": 0.0
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_1553",
+        "exp_2376"
+      ],
+      "cosine_distance": 0.09392518524624671,
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_729",
+        "exp_2376"
+      ],
+      "cosine_distance": 0.09392518524624671,
+      "euclidean_distance": null
     }
   ],
   "scores": [
+    {
+      "data_source": "gwen_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.8,
+      "score_detection": 0.925,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.7,
+      "score_detection": 0.81,
+      "score_simulation": 0.33587913580175105,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.8125,
+      "score_detection": 0.8888888888888888,
+      "score_simulation": 0.32629119673458595,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.625,
+      "score_detection": 0.75,
+      "score_simulation": null,
+      "score_embedding": null
+    },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
@@ -42,6 +97,14 @@
       "score_fuzz": 0.775,
       "score_detection": 0.875,
       "score_simulation": -0.024092228700604804,
+      "score_embedding": null
+    },
+    {
+      "data_source": "openai_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.75,
+      "score_detection": 0.85,
+      "score_simulation": null,
       "score_embedding": null
     }
   ],

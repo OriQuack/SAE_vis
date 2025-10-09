@@ -15,6 +15,13 @@
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_2180",
+      "text": "The highlighted fragments are verbs or verb phrases that signal intent, planning, or consideration—often followed by a preposition such as “on,” “to,” “into,” or “about.” These patterns mark future‑oriented actions or deliberations in the surrounding text.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "openai/gpt-oss-20b",
+      "data_source": "openai_e-llama_s"
     }
   ],
   "semantic_distance_pairs": [
@@ -24,10 +31,58 @@
         "exp_533"
       ],
       "cosine_distance": 0.042242201567300186,
-      "euclidean_distance": 0.2906620015294942
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_1357",
+        "exp_2180"
+      ],
+      "cosine_distance": 0.07169315513966645,
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_533",
+        "exp_2180"
+      ],
+      "cosine_distance": 0.05646181359992575,
+      "euclidean_distance": null
     }
   ],
   "scores": [
+    {
+      "data_source": "gwen_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.775,
+      "score_detection": 0.75,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.89,
+      "score_detection": 0.9,
+      "score_simulation": 0.5297021161780959,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.8444444444444444,
+      "score_detection": 0.84,
+      "score_simulation": 0.43025294900413436,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.825,
+      "score_detection": 0.825,
+      "score_simulation": null,
+      "score_embedding": null
+    },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
@@ -43,6 +98,14 @@
       "score_detection": 0.79,
       "score_simulation": 0.36666177555054125,
       "score_embedding": 0.6996
+    },
+    {
+      "data_source": "openai_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.8,
+      "score_detection": 0.725,
+      "score_simulation": null,
+      "score_embedding": null
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

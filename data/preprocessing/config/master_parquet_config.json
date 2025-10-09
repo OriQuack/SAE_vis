@@ -6,8 +6,8 @@
   "description": "Configuration for creating master parquet file from detailed JSON files",
   "processing_notes": {
     "expected_features": 824,
-    "expected_rows_per_feature": 2,
-    "total_expected_rows": 1648,
+    "expected_rows_per_feature": 3,
+    "total_expected_rows": 2472,
     "primary_key_fields": [
       "feature_id",
       "sae_id",

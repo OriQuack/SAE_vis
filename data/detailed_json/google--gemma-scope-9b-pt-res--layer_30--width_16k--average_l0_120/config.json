@@ -7,14 +7,22 @@
     "successful_consolidations": 824,
     "data_sources_embeddings": [
       "llama_e-llama_s",
-      "gwen_e-llama_s"
+      "gwen_e-llama_s",
+      "openai_e-llama_s"
     ],
     "data_sources_scores": [
+      "gwen_e-openai_s",
+      "llama_e-gwen_s",
+      "openai_e-openai_s",
+      "openai_e-gwen_s",
+      "llama_e-openai_s",
+      "gwen_e-gwen_s",
       "llama_e-llama_s",
-      "gwen_e-llama_s"
+      "gwen_e-llama_s",
+      "openai_e-llama_s"
     ],
     "data_sources_distances": [
-      "llama_e-llama_s_vs_gwen_e-llama_s"
+      "llama_e-llama_s_vs_gwen_e-llama_s_vs_openai_e-llama_s"
     ]
   }
 }

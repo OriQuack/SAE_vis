@@ -5,15 +5,16 @@
   "feature_range": {
     "start": 0,
     "end": 1000,
-    "comment": "Testing with 1000 features for faster iteration"
+    "comment": "Process all 16384 features. Adjust 'end' to reduce computation time for testing."
   },
   "umap_parameters": {
-    "n_neighbors": 15,
+    "n_neighbors": 30,
     "min_dist": 0.1,
     "metric": "cosine",
-    "random_state": 42
+    "random_state": 42,
+    "comment": "Standard UMAP parameters. n_neighbors: local neighborhood size, min_dist: minimum distance between points in embedding space"
   },
   "device": "auto",
   "output_filename": "umap_embeddings.json",
-  "description": "Test configuration with 1000 features for quick UMAP generation"
+  "description": "Configuration for generating 2D UMAP embeddings from SAE decoder vectors"
 }

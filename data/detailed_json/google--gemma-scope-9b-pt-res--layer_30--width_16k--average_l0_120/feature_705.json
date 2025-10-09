@@ -15,6 +15,13 @@
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_2231",
+      "text": "The examples consistently highlight multi‑word noun phrases that serve as the core semantic units of a sentence—often legal or descriptive terms that function as subjects, objects, or key modifiers. These phrases are typically composed of a determiner or preposition followed by a noun or noun phrase, and they carry the highest activation values, indicating their importance for the model’s behavior.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "openai/gpt-oss-20b",
+      "data_source": "openai_e-llama_s"
     }
   ],
   "semantic_distance_pairs": [
@@ -24,10 +31,58 @@
         "exp_584"
       ],
       "cosine_distance": 0.07155312425057225,
-      "euclidean_distance": 0.3782938640301835
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_1408",
+        "exp_2231"
+      ],
+      "cosine_distance": 0.1526227966009136,
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_584",
+        "exp_2231"
+      ],
+      "cosine_distance": 0.1630329099440544,
+      "euclidean_distance": null
     }
   ],
   "scores": [
+    {
+      "data_source": "gwen_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.5,
+      "score_detection": 0.375,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.51,
+      "score_detection": 0.32,
+      "score_simulation": 0.31646642226167865,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.7818181818181819,
+      "score_detection": 0.4,
+      "score_simulation": 0.2926909736444846,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.55,
+      "score_detection": 0.3,
+      "score_simulation": null,
+      "score_embedding": null
+    },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
@@ -43,6 +98,14 @@
       "score_detection": 0.23,
       "score_simulation": 0.45673258603703437,
       "score_embedding": 0.508
+    },
+    {
+      "data_source": "openai_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.6,
+      "score_detection": 0.275,
+      "score_simulation": null,
+      "score_embedding": null
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

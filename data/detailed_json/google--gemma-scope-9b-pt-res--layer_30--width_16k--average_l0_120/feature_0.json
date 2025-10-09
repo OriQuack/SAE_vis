@@ -15,6 +15,13 @@
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_1649",
+      "text": "The highlighted tokens are almost always the first word of a clause or phrase that introduces a question, a subordinate clause, or a directive, and they are typically function words such as “how”, “to”, “is”, “will”, “and”, “but”, or “the”.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "openai/gpt-oss-20b",
+      "data_source": "openai_e-llama_s"
     }
   ],
   "semantic_distance_pairs": [
@@ -24,10 +31,74 @@
         "exp_001"
       ],
       "cosine_distance": 0.06935222242492911,
-      "euclidean_distance": 0.3724304700818298
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_825",
+        "exp_1649"
+      ],
+      "cosine_distance": 0.12886547001528936,
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_001",
+        "exp_1649"
+      ],
+      "cosine_distance": 0.13878595641903269,
+      "euclidean_distance": null
     }
   ],
   "scores": [
+    {
+      "data_source": "gwen_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.7,
+      "score_detection": 0.75,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.74,
+      "score_detection": 0.73,
+      "score_simulation": 0.049599218692709335,
+      "score_embedding": null
+    },
+    {
+      "data_source": "openai_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.5142857142857142,
+      "score_detection": 0.775,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "openai_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.575,
+      "score_detection": 0.675,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.6857142857142857,
+      "score_detection": 0.7428571428571429,
+      "score_simulation": 0.03992856737478622,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.7,
+      "score_detection": 0.75,
+      "score_simulation": null,
+      "score_embedding": null
+    },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
@@ -43,6 +114,14 @@
       "score_detection": 0.71,
       "score_simulation": 0.04517236624933737,
       "score_embedding": 0.5795999999999999
+    },
+    {
+      "data_source": "openai_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.575,
+      "score_detection": 0.8,
+      "score_simulation": null,
+      "score_embedding": null
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

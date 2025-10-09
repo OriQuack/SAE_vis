@@ -15,6 +15,13 @@
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_2040",
+      "text": "the pattern: The examples show tokens that are part of words like \\\"expatriate\\\", \\\"international\\\", \\\"students\\\", \\\"expatriates\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\", \\\"expatriate\\\".",
+      "explanation_method": "quantiles",
+      "llm_explainer": "openai/gpt-oss-20b",
+      "data_source": "openai_e-llama_s"
     }
   ],
   "semantic_distance_pairs": [
@@ -24,10 +31,66 @@
         "exp_393"
       ],
       "cosine_distance": 0.15305259551785377,
-      "euclidean_distance": 0.5532677369530942
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_1217",
+        "exp_2040"
+      ],
+      "cosine_distance": 0.1628674517876052,
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_393",
+        "exp_2040"
+      ],
+      "cosine_distance": 0.12923463977643235,
+      "euclidean_distance": null
     }
   ],
   "scores": [
+    {
+      "data_source": "gwen_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.65,
+      "score_detection": 0.475,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.69,
+      "score_detection": 0.45,
+      "score_simulation": 0.24089610888378754,
+      "score_embedding": null
+    },
+    {
+      "data_source": "openai_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.625,
+      "score_detection": 0.625,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.5789473684210527,
+      "score_detection": 0.42857142857142855,
+      "score_simulation": 0.2676709749866964,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.8,
+      "score_detection": 0.5,
+      "score_simulation": null,
+      "score_embedding": null
+    },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
@@ -43,6 +106,14 @@
       "score_detection": 0.46,
       "score_simulation": 0.27098366488514525,
       "score_embedding": 0.4396
+    },
+    {
+      "data_source": "openai_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.75,
+      "score_detection": 0.65,
+      "score_simulation": null,
+      "score_embedding": null
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

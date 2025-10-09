@@ -15,6 +15,13 @@
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_2214",
+      "text": "The highlighted tokens are adverbs of degree or approximation (e.g., “almost,” “nearly,” “virtually,” “barely,” “hardly,” “much,” “basically,” “practically,” “quite,” “essentially,” “effectively,” “absolutely”). They typically precede a noun or adjective phrase to indicate closeness to a state, a level of intensity, or a subtle emphasis, thereby adding nuance to the description.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "openai/gpt-oss-20b",
+      "data_source": "openai_e-llama_s"
     }
   ],
   "semantic_distance_pairs": [
@@ -24,10 +31,58 @@
         "exp_567"
       ],
       "cosine_distance": 0.09839625150964693,
-      "euclidean_distance": 0.44361303184269957
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_1391",
+        "exp_2214"
+      ],
+      "cosine_distance": 0.09164498615767502,
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_567",
+        "exp_2214"
+      ],
+      "cosine_distance": 0.06529869024251456,
+      "euclidean_distance": null
     }
   ],
   "scores": [
+    {
+      "data_source": "gwen_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.925,
+      "score_detection": 0.8,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.91,
+      "score_detection": 0.48,
+      "score_simulation": 0.5086919055100577,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.9,
+      "score_detection": 0.5428571428571428,
+      "score_simulation": 0.5928124411007571,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.9,
+      "score_detection": 0.725,
+      "score_simulation": null,
+      "score_embedding": null
+    },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
@@ -43,6 +98,14 @@
       "score_detection": 0.89,
       "score_simulation": 0.4843917997253119,
       "score_embedding": 0.6568
+    },
+    {
+      "data_source": "openai_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.975,
+      "score_detection": 0.825,
+      "score_simulation": null,
+      "score_embedding": null
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

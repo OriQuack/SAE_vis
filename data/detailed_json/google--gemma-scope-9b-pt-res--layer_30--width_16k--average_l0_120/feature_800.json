@@ -15,6 +15,13 @@
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_2308",
+      "text": "The highlighted tokens are all past‑participle adjectives (or participial adjectives) that modify nouns or serve as descriptive modifiers, sharing the -ed suffix and functioning adjectivally in the sentence.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "openai/gpt-oss-20b",
+      "data_source": "openai_e-llama_s"
     }
   ],
   "semantic_distance_pairs": [
@@ -24,10 +31,58 @@
         "exp_661"
       ],
       "cosine_distance": 1.1102230246251565e-16,
-      "euclidean_distance": 0.0
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_1485",
+        "exp_2308"
+      ],
+      "cosine_distance": 0.08243261842442362,
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_661",
+        "exp_2308"
+      ],
+      "cosine_distance": 0.08243261842442362,
+      "euclidean_distance": null
     }
   ],
   "scores": [
+    {
+      "data_source": "gwen_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.975,
+      "score_detection": 0.8,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.9,
+      "score_detection": 0.63,
+      "score_simulation": 0.4111580396687927,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.9538461538461539,
+      "score_detection": 0.6444444444444445,
+      "score_simulation": 0.553436374209427,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.875,
+      "score_detection": 0.625,
+      "score_simulation": null,
+      "score_embedding": null
+    },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
@@ -42,6 +97,14 @@
       "score_fuzz": 0.9,
       "score_detection": 0.8,
       "score_simulation": -0.003800096134648339,
+      "score_embedding": null
+    },
+    {
+      "data_source": "openai_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.95,
+      "score_detection": 0.7,
+      "score_simulation": null,
       "score_embedding": null
     }
   ],

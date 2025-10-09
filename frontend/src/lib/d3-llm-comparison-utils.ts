@@ -335,16 +335,16 @@ function calculateTriangleCells(
  */
 export function calculateLLMComparisonLayout(): LLMComparisonLayout {
   // Fixed triangle sizes (absolute pixels)
-  const leftTriangleSize = 85
-  const rightTriangleSize = 80
-  const cellGap = 5
+  const leftTriangleSize = 80
+  const rightTriangleSize = 75
+  const cellGap = 6
 
   // Fixed absolute positions based on viewBox 800x350
   // Left triangle: vertex at center-left, vertically centered
   const leftTriangle = {
     cells: calculateTriangleCells(
-      400,  // vx - horizontal center
-      195,  // vy - slightly below vertical center
+      320,  // vx - horizontal center
+      190,  // vy - slightly below vertical center
       leftTriangleSize,
       'right',
       cellGap
@@ -354,8 +354,8 @@ export function calculateLLMComparisonLayout(): LLMComparisonLayout {
   // Top right triangle: vertex pointing down, upper right
   const topRightTriangle = {
     cells: calculateTriangleCells(
-      415,  // vx - slightly right of center
-      205,  // vy - lower than left triangle
+      480,  // vx - slightly right of center
+      200,  // vy - lower than left triangle
       rightTriangleSize,
       'down',
       cellGap
@@ -365,8 +365,8 @@ export function calculateLLMComparisonLayout(): LLMComparisonLayout {
   // Middle right triangle: vertex pointing left, same position as left triangle
   const middleRightTriangle = {
     cells: calculateTriangleCells(
-      400,  // vx - same as left triangle
-      195,  // vy - same as left triangle
+      470,  // vx - same as left triangle
+      190,  // vy - same as left triangle
       rightTriangleSize,
       'left',
       cellGap
@@ -376,8 +376,8 @@ export function calculateLLMComparisonLayout(): LLMComparisonLayout {
   // Bottom right triangle: vertex pointing up, lower right
   const bottomRightTriangle = {
     cells: calculateTriangleCells(
-      415,  // vx - same as top right
-      185,  // vy - higher than left triangle
+      480,  // vx - same as top right
+      180,  // vy - higher than left triangle
       rightTriangleSize,
       'up',
       cellGap

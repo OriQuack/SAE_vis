@@ -15,6 +15,13 @@
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_2166",
+      "text": "The highlighted pieces are the sub‑word or whole‑word units that carry the core meaning of a phrase or word—often the start or end of a lexical item, or a whole noun or idiom. They are the fragments that the model treats as the key building blocks for the semantic or syntactic pattern in the text.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "openai/gpt-oss-20b",
+      "data_source": "openai_e-llama_s"
     }
   ],
   "semantic_distance_pairs": [
@@ -24,10 +31,58 @@
         "exp_519"
       ],
       "cosine_distance": 0.12434027815525384,
-      "euclidean_distance": 0.4986787977086697
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_1343",
+        "exp_2166"
+      ],
+      "cosine_distance": 0.1569713009591719,
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_519",
+        "exp_2166"
+      ],
+      "cosine_distance": 0.12289559498668479,
+      "euclidean_distance": null
     }
   ],
   "scores": [
+    {
+      "data_source": "gwen_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.6285714285714286,
+      "score_detection": 0.4857142857142857,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.71,
+      "score_detection": 0.6,
+      "score_simulation": 0.1438851132921159,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.6545454545454545,
+      "score_detection": 0.7,
+      "score_simulation": 0.22809548723074557,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.625,
+      "score_detection": 0.525,
+      "score_simulation": null,
+      "score_embedding": null
+    },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
@@ -43,6 +98,14 @@
       "score_detection": 0.65,
       "score_simulation": 0.10586248583475372,
       "score_embedding": 0.5256000000000001
+    },
+    {
+      "data_source": "openai_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.625,
+      "score_detection": 0.425,
+      "score_simulation": null,
+      "score_embedding": null
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

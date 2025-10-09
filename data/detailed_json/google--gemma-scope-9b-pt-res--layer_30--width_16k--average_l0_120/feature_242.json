@@ -15,6 +15,13 @@
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_1850",
+      "text": "The highlighted tokens are mainly modal or auxiliary verbs (can, could, will, have, may, should, not, to) and the short verb phrases they form (e.g., “can be”, “will be”, “have been”). These words signal possibility, ability, obligation, or future action, and are often the key elements that carry the sentence’s meaning.",
+      "explanation_method": "quantiles",
+      "llm_explainer": "openai/gpt-oss-20b",
+      "data_source": "openai_e-llama_s"
     }
   ],
   "semantic_distance_pairs": [
@@ -24,10 +31,66 @@
         "exp_203"
       ],
       "cosine_distance": 0.06756732291842993,
-      "euclidean_distance": 0.36760666668729325
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_1027",
+        "exp_1850"
+      ],
+      "cosine_distance": 0.07642177922571225,
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_203",
+        "exp_1850"
+      ],
+      "cosine_distance": 0.10485026789215879,
+      "euclidean_distance": null
     }
   ],
   "scores": [
+    {
+      "data_source": "gwen_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.85,
+      "score_detection": 0.9,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.89,
+      "score_detection": 0.66,
+      "score_simulation": 0.43535722087975637,
+      "score_embedding": null
+    },
+    {
+      "data_source": "openai_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.9,
+      "score_detection": 0.8,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.7733333333333333,
+      "score_detection": 0.875,
+      "score_simulation": 0.5097926177583072,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.85,
+      "score_detection": 0.825,
+      "score_simulation": null,
+      "score_embedding": null
+    },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
@@ -43,6 +106,14 @@
       "score_detection": 0.83,
       "score_simulation": 0.39544752311117704,
       "score_embedding": 0.7344
+    },
+    {
+      "data_source": "openai_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.925,
+      "score_detection": 0.775,
+      "score_simulation": null,
+      "score_embedding": null
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

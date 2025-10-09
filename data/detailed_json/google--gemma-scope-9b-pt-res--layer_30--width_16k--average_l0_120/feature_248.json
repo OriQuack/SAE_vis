@@ -15,6 +15,13 @@
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
+    },
+    {
+      "explanation_id": "exp_1855",
+      "text": "The pattern is that the important tokens are prefixes or substrings that start with \\\"met\\\" or \\\"meta\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" etc. Also \\\"m\\\" appears as a single letter. But many tokens are \\\"met\\\" or \\\"meta\\\" or \\\"met\\\" or \\\"met\\\". Also \\\"m\\\" appears as a single letter. But the main pattern is that the important tokens are substrings that start with \\\"met\\\" or \\\"meta\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\" or \\\"met\\\".",
+      "explanation_method": "quantiles",
+      "llm_explainer": "openai/gpt-oss-20b",
+      "data_source": "openai_e-llama_s"
     }
   ],
   "semantic_distance_pairs": [
@@ -24,10 +31,66 @@
         "exp_208"
       ],
       "cosine_distance": 0.09742859390002911,
-      "euclidean_distance": 0.4414262861421515
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_1032",
+        "exp_1855"
+      ],
+      "cosine_distance": 0.17560949216940402,
+      "euclidean_distance": null
+    },
+    {
+      "pair": [
+        "exp_208",
+        "exp_1855"
+      ],
+      "cosine_distance": 0.18225069308452269,
+      "euclidean_distance": null
     }
   ],
   "scores": [
+    {
+      "data_source": "gwen_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.4,
+      "score_detection": 0.4,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.74,
+      "score_detection": 0.84,
+      "score_simulation": 0.16840967767296516,
+      "score_embedding": null
+    },
+    {
+      "data_source": "openai_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.675,
+      "score_detection": 0.7,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "llama_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.6666666666666666,
+      "score_detection": 0.7428571428571429,
+      "score_simulation": 0.1417257051170698,
+      "score_embedding": null
+    },
+    {
+      "data_source": "gwen_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.55,
+      "score_detection": 0.625,
+      "score_simulation": null,
+      "score_embedding": null
+    },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
@@ -43,6 +106,14 @@
       "score_detection": 0.7,
       "score_simulation": 0.0790654671963556,
       "score_embedding": 0.9331999999999999
+    },
+    {
+      "data_source": "openai_e-llama_s",
+      "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "score_fuzz": 0.7,
+      "score_detection": 0.575,
+      "score_simulation": null,
+      "score_embedding": null
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

@@ -148,7 +148,7 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
   }
 
   // Check if a cell should be highlighted (hovered)
-  const isCellHighlighted = (cellId: string, triangleGroup: string): boolean => {
+  const isCellHighlighted = (cellId: string): boolean => {
     if (hoveredCell === cellId) return true
 
     // Intra-triangle linking (diamond → triangles within same triangle)
@@ -252,9 +252,9 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
   }
 
   // Get visual properties for a cell based on state
-  const getCellVisuals = (cellId: string, triangleGroup: string) => {
+  const getCellVisuals = (cellId: string) => {
     const isSelected = selectedCells.has(cellId)
-    const isHighlighted = isCellHighlighted(cellId, triangleGroup)
+    const isHighlighted = isCellHighlighted(cellId)
     const isDirectHover = hoveredCell === cellId
     const isLeftCell = cellId.startsWith('left-')
 
@@ -263,21 +263,21 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
       const leftIndex = parseInt(cellId.split('-')[1])
 
       if (isSelected) {
-        return { fillOpacity: 1.0, strokeWidth: 3 }
+        return { fillOpacity: 1.0, strokeWidth: 4 }
       } else if (isHighlighted) {
-        return { fillOpacity: isDirectHover ? 0.3 : 0.2, strokeWidth: 3 }
+        return { fillOpacity: isDirectHover ? 0.3 : 0.2, strokeWidth: 4 }
       } else if (isLeftCellAffectedByRightInteraction(leftIndex)) {
         // Reverse linking: right cell interaction affects this left cell
-        return { fillOpacity: 0.2, strokeWidth: 3 }
+        return { fillOpacity: 0.2, strokeWidth: 4 }
       } else {
-        return { fillOpacity: 0, strokeWidth: 3 }
+        return { fillOpacity: 0, strokeWidth: 4 }
       }
     }
 
     // Right cells: use hybrid logic (absolute when selected, additive otherwise)
     // If directly selected (clicked on this right cell) → absolute 1.0
     if (isSelected) {
-      return { fillOpacity: 1.0, strokeWidth: 3 }
+      return { fillOpacity: 1.0, strokeWidth: 4 }
     }
 
     // Otherwise, use additive logic
@@ -305,7 +305,7 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
     // Direct hover adds +0.3
     if (isDirectHover) opacity += 0.3
 
-    return { fillOpacity: Math.min(1.0, opacity), strokeWidth: 3 }
+    return { fillOpacity: Math.min(1.0, opacity), strokeWidth: 4 }
   }
 
   // Calculate layout once - no resizing, no parameters (like FlowPanel)
@@ -410,9 +410,9 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
         viewBox="0 0 800 350"
         preserveAspectRatio="xMidYMid meet"
       >
-        {/* Gradient Definition for Vertical Legend */}
+        {/* Gradient Definition for Horizontal Legend */}
         <defs>
-          <linearGradient id="consistencyGradient" x1="0%" y1="100%" x2="0%" y2="0%">
+          <linearGradient id="consistencyGradient" x1="0%" y1="0%" x2="100%" y2="0%">
             {getGradientStops().map(stop => (
               <stop key={stop.offset} offset={stop.offset} stopColor={stop.color} />
             ))}
@@ -472,7 +472,7 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
         {/* Left triangle cells - LLM Explainer */}
         {leftTriangle.cells.map((cell, i) => {
           const cellId = `left-${i}`
-          const { fillOpacity, strokeWidth } = getCellVisuals(cellId, 'left')
+          const { fillOpacity, strokeWidth } = getCellVisuals(cellId)
           const isDiamond = cell.type === 'diamond'
           const fillColor = isDiamond
             ? getConsistencyColorForCell(cellId) || COMPONENT_COLORS.EXPLAINER
@@ -532,7 +532,7 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
         {/* Top right triangle cells - LLM Scorer */}
         {topRightTriangle.cells.map((cell, i) => {
           const cellId = `top-right-${i}`
-          const { fillOpacity, strokeWidth } = getCellVisuals(cellId, 'top-right')
+          const { fillOpacity, strokeWidth } = getCellVisuals(cellId)
           const isDiamond = cell.type === 'diamond'
           const fillColor = isDiamond
             ? getConsistencyColorForCell(cellId) || COMPONENT_COLORS.SCORER
@@ -592,7 +592,7 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
         {/* Middle right triangle cells - LLM Scorer */}
         {middleRightTriangle.cells.map((cell, i) => {
           const cellId = `middle-right-${i}`
-          const { fillOpacity, strokeWidth } = getCellVisuals(cellId, 'middle-right')
+          const { fillOpacity, strokeWidth } = getCellVisuals(cellId)
           const isDiamond = cell.type === 'diamond'
           const fillColor = isDiamond
             ? getConsistencyColorForCell(cellId) || COMPONENT_COLORS.SCORER
@@ -652,7 +652,7 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
         {/* Bottom right triangle cells - LLM Scorer */}
         {bottomRightTriangle.cells.map((cell, i) => {
           const cellId = `bottom-right-${i}`
-          const { fillOpacity, strokeWidth } = getCellVisuals(cellId, 'bottom-right')
+          const { fillOpacity, strokeWidth } = getCellVisuals(cellId)
           const isDiamond = cell.type === 'diamond'
           const fillColor = isDiamond
             ? getConsistencyColorForCell(cellId) || COMPONENT_COLORS.SCORER
@@ -709,33 +709,32 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
           )
         })}
 
-        {/* Vertical Gradient Legend on Left */}
+        {/* Horizontal Gradient Legend below Left Triangle */}
         <g className="llm-comparison-selection__legend">
           <text
-            x="50"
-            y="195"
-            fontSize="12"
+            x="140"
+            y="320"
+            fontSize="14"
             fontWeight="600"
             fill="#333"
             textAnchor="middle"
-            transform="rotate(-90 50 195)"
           >
             Consistency Score
           </text>
           <rect
-            x="70"
-            y="120"
-            width="15"
-            height="150"
+            x="25"
+            y="325"
+            width="230"
+            height="8"
             fill="url(#consistencyGradient)"
             stroke="#999"
             strokeWidth="1"
           />
-          <text x="90" y="125" fontSize="10" fill="#666" textAnchor="start">
-            1 (High)
-          </text>
-          <text x="90" y="275" fontSize="10" fill="#666" textAnchor="start">
+          <text x="25" y="345" fontSize="11" fill="#666" textAnchor="start">
             0 (Low)
+          </text>
+          <text x="255" y="345" fontSize="11" fill="#666" textAnchor="end">
+            1 (High)
           </text>
         </g>
       </svg>

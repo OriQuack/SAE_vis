@@ -191,10 +191,10 @@ export const METRIC_COLORS = {
 // Used across: FlowPanel.tsx, HistogramPanel.tsx, d3-flow-utils.ts (3+ files)
 // ============================================================================
 export const COMPONENT_COLORS = {
-  DECODER: OKABE_ITO_PALETTE.BLUISH_GREEN,     // #009E73 - Decoder
-  EXPLAINER: OKABE_ITO_PALETTE.ORANGE,         // #E69F00 - LLM Explainer
-  SCORER: OKABE_ITO_PALETTE.BLUE,              // #0072B2 - LLM Scorer
-  EMBEDDER: OKABE_ITO_PALETTE.REDDISH_PURPLE,  // #CC79A7 - Embedder
+  DECODER: OKABE_ITO_PALETTE.BLUISH_GREEN,   
+  EXPLAINER: OKABE_ITO_PALETTE.REDDISH_PURPLE,        
+  SCORER: OKABE_ITO_PALETTE.BLUE,            
+  EMBEDDER: OKABE_ITO_PALETTE.ORANGE,  
 
   // Metric-specific colors (solid, no gradients)
   FEATURE_SPLITTING: METRIC_COLORS.FEATURE_SPLITTING,      // #006B52 - Dark bluish green
