@@ -30,14 +30,14 @@ const extractSelectedModels = (
     const modelIndex = triangleIndices.indexOf(cellIndex)
 
     if (cellId.startsWith('left-')) {
-      // Left triangle = explainer
-      explainers.push(comparisonData.explainers[modelIndex].name)
+      // Left triangle = explainer (use .id for filter, not .name)
+      explainers.push(comparisonData.explainers[modelIndex].id)
     } else if (cellId.startsWith('top-right-')) {
-      scorers.push(comparisonData.scorersForExplainer1[modelIndex].name)
+      scorers.push(comparisonData.scorersForExplainer1[modelIndex].id)
     } else if (cellId.startsWith('middle-right-')) {
-      scorers.push(comparisonData.scorersForExplainer2[modelIndex].name)
+      scorers.push(comparisonData.scorersForExplainer2[modelIndex].id)
     } else if (cellId.startsWith('bottom-right-')) {
-      scorers.push(comparisonData.scorersForExplainer3[modelIndex].name)
+      scorers.push(comparisonData.scorersForExplainer3[modelIndex].id)
     }
   }
 
@@ -49,7 +49,7 @@ const extractSelectedModels = (
 
 export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ className = '' }) => {
   // Store integration for global LLM filtering
-  const { setLLMSelection } = useVisualizationStore()
+  const { setLLMSelection, assignLLMExplainersToPanels } = useVisualizationStore()
 
   // State for hover effects - track individual cells
   const [hoveredCell, setHoveredCell] = useState<string | null>(null)
@@ -81,14 +81,19 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
     fetchData()
   }, [])
 
-  // Sync selected cells with global LLM filter store
+  // Sync selected cells with global LLM filter store and assign to panels
   useEffect(() => {
     if (!comparisonData) return
 
     const { explainers, scorers } = extractSelectedModels(selectedCells, comparisonData)
-    console.log('[LLMComparisonSelection] Setting global LLM filter:', { explainers, scorers })
+    console.log('[LLMComparisonSelection] Setting LLM selection:', { explainers, scorers })
+
+    // Update global selection state
     setLLMSelection(explainers, scorers)
-  }, [selectedCells, comparisonData, setLLMSelection])
+
+    // Automatically assign explainers to panels
+    assignLLMExplainersToPanels(explainers)
+  }, [selectedCells, comparisonData, setLLMSelection, assignLLMExplainersToPanels])
 
   // Calculate layout once - MUST be before early returns (Rules of Hooks)
   const layout = useMemo(() => calculateLLMComparisonLayout(), [])

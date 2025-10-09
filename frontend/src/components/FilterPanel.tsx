@@ -93,9 +93,11 @@ export const FilterPanel = ({
       {/* Filter Content */}
       <div className="filter-panel__content">
         <div className="filter-panel__filter-section">
-          {filterOptions && Object.entries(filterOptions).map(([filterKey, options]) =>
-            renderFilterDropdown(filterKey, options)
-          )}
+          {filterOptions && Object.entries(filterOptions)
+            .filter(([filterKey]) => filterKey !== 'llm_explainer' && filterKey !== 'llm_scorer')
+            .map(([filterKey, options]) =>
+              renderFilterDropdown(filterKey, options)
+            )}
         </div>
       </div>
 

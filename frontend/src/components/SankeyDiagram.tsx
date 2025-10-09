@@ -326,6 +326,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
   const data = useVisualizationStore(state => state[panelKey].sankeyData)
   const thresholdTree = useVisualizationStore(state => state[panelKey].thresholdTree)
+  const filters = useVisualizationStore(state => state[panelKey].filters)
   const loading = useVisualizationStore(state => state.loading[loadingKey])
   const error = useVisualizationStore(state => state.errors[errorKey])
   const hoveredAlluvialNodeId = useVisualizationStore(state => state.hoveredAlluvialNodeId)
@@ -406,6 +407,23 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const stageLabels = useMemo(() => {
     return calculateStageLabels(layout, displayData)
   }, [layout, displayData])
+
+  // Format LLM explainer name for display
+  const llmExplainerLabel = useMemo(() => {
+    if (!filters.llm_explainer || filters.llm_explainer.length === 0) {
+      return null
+    }
+
+    const fullPath = filters.llm_explainer[0]
+    // Map full paths to display names
+    const nameMap: Record<string, string> = {
+      'hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4': 'Llama',
+      'Qwen/Qwen3-30B-A3B-Instruct-2507-FP8': 'Qwen',
+      'openai/gpt-oss-20b': 'OpenAI'
+    }
+
+    return nameMap[fullPath] || fullPath
+  }, [filters.llm_explainer])
 
   // Event handlers
   const handleNodeHistogramClick = useCallback((node: D3SankeyNode) => {
@@ -549,6 +567,20 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       >
         <svg width={containerSize.width} height={height} className="sankey-diagram__svg">
           <rect width={containerSize.width} height={height} fill="#ffffff" />
+
+          {/* LLM Explainer Label */}
+          {llmExplainerLabel && (
+            <text
+              x={10}
+              y={20}
+              fontSize={14}
+              fontWeight={600}
+              fill="#6b7280"
+              style={{ pointerEvents: 'none', userSelect: 'none' }}
+            >
+              Explainer LLM: {llmExplainerLabel}
+            </text>
+          )}
 
           <g transform={`translate(${layout.margin.left},${layout.margin.top})`}>
             {/* Stage labels */}

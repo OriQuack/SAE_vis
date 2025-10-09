@@ -136,30 +136,30 @@ async def get_llm_comparison(request: LLMComparisonRequest) -> LLMComparisonResp
             "method": "rv_coefficient"
         }
 
-        # Define explainer and scorer models
+        # Define explainer and scorer models with actual filter values
         explainers = [
-            {"id": "llama-exp", "name": "Llama"},
-            {"id": "gwen-exp", "name": "Qwen"},
-            {"id": "openai-exp", "name": "OpenAI"}
+            {"id": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4", "name": "Llama"},
+            {"id": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8", "name": "Qwen"},
+            {"id": "openai/gpt-oss-20b", "name": "OpenAI"}
         ]
 
         # Scorer models for each explainer
         scorers_for_explainer1 = [
-            {"id": "llama-s1", "name": "Llama", "explainerSource": "llama-exp"},
-            {"id": "gwen-s1", "name": "Qwen", "explainerSource": "llama-exp"},
-            {"id": "openai-s1", "name": "OpenAI", "explainerSource": "llama-exp"}
+            {"id": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4", "name": "Llama", "explainerSource": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4"},
+            {"id": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8", "name": "Qwen", "explainerSource": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4"},
+            {"id": "openai/gpt-oss-20b", "name": "OpenAI", "explainerSource": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4"}
         ]
 
         scorers_for_explainer2 = [
-            {"id": "llama-s2", "name": "Llama", "explainerSource": "gwen-exp"},
-            {"id": "gwen-s2", "name": "Qwen", "explainerSource": "gwen-exp"},
-            {"id": "openai-s2", "name": "OpenAI", "explainerSource": "gwen-exp"}
+            {"id": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4", "name": "Llama", "explainerSource": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8"},
+            {"id": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8", "name": "Qwen", "explainerSource": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8"},
+            {"id": "openai/gpt-oss-20b", "name": "OpenAI", "explainerSource": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8"}
         ]
 
         scorers_for_explainer3 = [
-            {"id": "llama-s3", "name": "Llama", "explainerSource": "openai-exp"},
-            {"id": "gwen-s3", "name": "Qwen", "explainerSource": "openai-exp"},
-            {"id": "openai-s3", "name": "OpenAI", "explainerSource": "openai-exp"}
+            {"id": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4", "name": "Llama", "explainerSource": "openai/gpt-oss-20b"},
+            {"id": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8", "name": "Qwen", "explainerSource": "openai/gpt-oss-20b"},
+            {"id": "openai/gpt-oss-20b", "name": "OpenAI", "explainerSource": "openai/gpt-oss-20b"}
         ]
 
         return LLMComparisonResponse(

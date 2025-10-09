@@ -20,6 +20,7 @@ import type {
 } from './types'
 import { updateNodeThreshold, createRootOnlyTree, addStageToNode, removeStageFromNode } from './lib/threshold-utils'
 import { PANEL_LEFT, PANEL_RIGHT, METRIC_SEMSIM_MEAN, getMetricColor } from './lib/constants'
+import { convertThresholdGroupsToTree } from './lib/threshold-group-converter'
 
 type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
 
@@ -157,6 +158,7 @@ interface AppState {
   deleteGroup: (groupId: string) => void
   setShowGroupNameInput: (show: boolean) => void
   removeThresholdForMetric: (metricType: string) => void
+  applyThresholdGroupsToSankey: () => void
 
   // Reset actions
   reset: () => void
@@ -177,6 +179,7 @@ interface AppState {
 
   // LLM selection actions
   setLLMSelection: (explainers: string[], scorers: string[]) => void
+  assignLLMExplainersToPanels: (explainers: string[]) => void
 }
 
 const createInitialPanelState = (): PanelState => {
@@ -254,20 +257,6 @@ const initialState = {
 
   // Category group state
   categoryGroups: []
-}
-
-// Helper function to merge base filters with global LLM selection
-const getMergedFilters = (
-  baseFilters: Filters,
-  selectedExplainers: string[],
-  selectedScorers: string[]
-): Filters => {
-  return {
-    ...baseFilters,
-    // Override with selection if non-empty, otherwise keep base filters
-    llm_explainer: selectedExplainers.length > 0 ? selectedExplainers : (baseFilters.llm_explainer || []),
-    llm_scorer: selectedScorers.length > 0 ? selectedScorers : (baseFilters.llm_scorer || [])
-  }
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -502,10 +491,7 @@ export const useStore = create<AppState>((set, get) => ({
     const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
     const { filters, thresholdTree } = state[panelKey]
 
-    // Merge panel filters with global LLM selection
-    const mergedFilters = getMergedFilters(filters, state.selectedLLMExplainers, state.selectedLLMScorers)
-
-    const hasActiveFilters = Object.values(mergedFilters).some(
+    const hasActiveFilters = Object.values(filters).some(
       filterArray => filterArray && filterArray.length > 0
     )
 
@@ -518,7 +504,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     try {
       const request = {
-        filters: mergedFilters,
+        filters,
         metric: targetMetric,
         nodeId,
         // Include thresholdTree when nodeId is provided for node-specific filtering
@@ -542,17 +528,14 @@ export const useStore = create<AppState>((set, get) => ({
     const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
     const { filters, thresholdTree } = state[panelKey]
 
-    // Merge panel filters with global LLM selection
-    const mergedFilters = getMergedFilters(filters, state.selectedLLMExplainers, state.selectedLLMScorers)
-
     console.log('[HistogramPopover] fetchMultipleHistogramData called:', {
       metrics,
       nodeId,
       panel,
-      filters: mergedFilters
+      filters
     })
 
-    const hasActiveFilters = Object.values(mergedFilters).some(
+    const hasActiveFilters = Object.values(filters).some(
       filterArray => filterArray && filterArray.length > 0
     )
 
@@ -567,7 +550,7 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       const histogramPromises = metrics.map(async (metric) => {
         const request = {
-          filters: mergedFilters,
+          filters,
           metric,
           nodeId,
           // Include thresholdTree when nodeId is provided for node-specific filtering
@@ -605,10 +588,7 @@ export const useStore = create<AppState>((set, get) => ({
     const loadingKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight' as keyof LoadingStates
     const errorKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight' as keyof ErrorStates
 
-    // Merge panel filters with global LLM selection
-    const mergedFilters = getMergedFilters(filters, state.selectedLLMExplainers, state.selectedLLMScorers)
-
-    const hasActiveFilters = Object.values(mergedFilters).some(
+    const hasActiveFilters = Object.values(filters).some(
       filterArray => filterArray && filterArray.length > 0
     )
 
@@ -621,12 +601,12 @@ export const useStore = create<AppState>((set, get) => ({
 
     try {
       const requestData = {
-        filters: mergedFilters,
+        filters,
         thresholdTree,
       }
 
       console.log('📤 Sending Sankey request:', {
-        filters: mergedFilters,
+        filters,
         thresholdTree: JSON.stringify(thresholdTree, null, 2),
       })
 
@@ -666,14 +646,13 @@ export const useStore = create<AppState>((set, get) => ({
     state.clearError('histogramPanel' as any)
 
     try {
-      // Apply global LLM selection to base filters
+      // Use base filters without LLM filtering for global histogram panel
       const baseFilters = {
         sae_id: [],
         explanation_method: [],
         llm_explainer: [],
         llm_scorer: []
       }
-      const mergedFilters = getMergedFilters(baseFilters, state.selectedLLMExplainers, state.selectedLLMScorers)
 
       // Define the metrics to fetch with their averaging configurations and fixed domains
       const metricsToFetch = [
@@ -687,7 +666,7 @@ export const useStore = create<AppState>((set, get) => ({
       // Fetch all histograms in parallel
       const histogramPromises = metricsToFetch.map(async ({ metric, averageBy, fixedDomain }) => {
         const request = {
-          filters: mergedFilters,
+          filters: baseFilters,
           metric,
           ...(averageBy && { averageBy }), // Only include averageBy if it's not null
           fixedDomain // Always include fixed domain for all metrics
@@ -964,6 +943,69 @@ export const useStore = create<AppState>((set, get) => ({
     })
   },
 
+  assignLLMExplainersToPanels: (explainers: string[]) => {
+    console.log('[Store] Assigning LLM explainers to panels:', explainers)
+
+    if (explainers.length === 0) {
+      // No explainers: reset both panels to empty
+      set({
+        leftPanel: {
+          ...get().leftPanel,
+          filters: { sae_id: [], explanation_method: [], llm_explainer: [], llm_scorer: [] },
+          viewState: 'empty',
+          sankeyData: null,
+          histogramData: null
+        },
+        rightPanel: {
+          ...get().rightPanel,
+          filters: { sae_id: [], explanation_method: [], llm_explainer: [], llm_scorer: [] },
+          viewState: 'empty',
+          sankeyData: null,
+          histogramData: null
+        }
+      })
+    } else if (explainers.length === 1) {
+      // 1 explainer: assign to left panel, clear right panel
+      set({
+        leftPanel: {
+          ...get().leftPanel,
+          filters: {
+            ...get().leftPanel.filters,
+            llm_explainer: [explainers[0]]
+          },
+          viewState: 'visualization'
+        },
+        rightPanel: {
+          ...get().rightPanel,
+          filters: { sae_id: [], explanation_method: [], llm_explainer: [], llm_scorer: [] },
+          viewState: 'empty',
+          sankeyData: null,
+          histogramData: null
+        }
+      })
+    } else if (explainers.length >= 2) {
+      // 2+ explainers: assign first two to panels (ignore rest)
+      set({
+        leftPanel: {
+          ...get().leftPanel,
+          filters: {
+            ...get().leftPanel.filters,
+            llm_explainer: [explainers[0]]
+          },
+          viewState: 'visualization'
+        },
+        rightPanel: {
+          ...get().rightPanel,
+          filters: {
+            ...get().rightPanel.filters,
+            llm_explainer: [explainers[1]]
+          },
+          viewState: 'visualization'
+        }
+      })
+    }
+  },
+
   // Selection mode actions
   setSelectionMode: (enabled) => {
     set(() => ({
@@ -1010,11 +1052,15 @@ export const useStore = create<AppState>((set, get) => ({
     // Fetch feature IDs from backend
     let featureIds: number[] = []
     try {
-      // Use the current filters from leftPanel merged with global LLM selection
-      const baseFilters = state.leftPanel.filters
-      const mergedFilters = getMergedFilters(baseFilters, state.selectedLLMExplainers, state.selectedLLMScorers)
+      // Use base filters without LLM selection for histogram panel selections
+      const baseFilters = {
+        sae_id: [],
+        explanation_method: [],
+        llm_explainer: [],
+        llm_scorer: []
+      }
       const result = await getFeaturesInThreshold(
-        mergedFilters,
+        baseFilters,
         metricType,
         thresholdRange.min,
         thresholdRange.max
@@ -1162,6 +1208,10 @@ export const useStore = create<AppState>((set, get) => ({
       showGroupNameInput: false,
       selections: [] // Clear old selections when we have groups
     }))
+
+    // Apply new threshold group to Sankey diagrams
+    console.log('[Store.finishGroupCreation] Created new visible group, applying to Sankey')
+    state.applyThresholdGroupsToSankey()
   },
 
   cancelGroupCreation: () => {
@@ -1208,6 +1258,9 @@ export const useStore = create<AppState>((set, get) => ({
           state.fetchFilteredHistogramPanelData(intersectedFeatureIds)
         }
       }
+
+      // Apply threshold groups to Sankey diagrams
+      state.applyThresholdGroupsToSankey()
     } else {
       // Hiding group: Only disable edit mode if this group is being edited
       const updates: any = {
@@ -1228,13 +1281,26 @@ export const useStore = create<AppState>((set, get) => ({
       // Reset to unfiltered when hiding group
       console.log('[Filtering] Hiding group - resetting to unfiltered')
       state.fetchHistogramPanelData()
+
+      // Apply threshold groups to Sankey diagrams (may revert to root-only tree)
+      state.applyThresholdGroupsToSankey()
     }
   },
 
   deleteGroup: (groupId: string) => {
+    const state = get()
+    const group = state.thresholdGroups.find(g => g.id === groupId)
+    const wasVisible = group?.visible || false
+
     set((state) => ({
       thresholdGroups: state.thresholdGroups.filter(group => group.id !== groupId)
     }))
+
+    // If deleted group was visible, update Sankey diagrams
+    if (wasVisible) {
+      console.log('[Store.deleteGroup] Deleted visible group, applying threshold groups to Sankey')
+      state.applyThresholdGroupsToSankey()
+    }
   },
 
   setShowGroupNameInput: (show: boolean) => {
@@ -1287,6 +1353,37 @@ export const useStore = create<AppState>((set, get) => ({
       console.log('[Filtering] No selections remaining - resetting to unfiltered')
       state.fetchHistogramPanelData()
     }
+  },
+
+  applyThresholdGroupsToSankey: () => {
+    const state = get()
+    const visibleGroups = state.thresholdGroups.filter(g => g.visible)
+
+    console.log(`[Store.applyThresholdGroupsToSankey] Processing ${visibleGroups.length} visible groups`)
+
+    let tree: ThresholdTree
+    if (visibleGroups.length === 0) {
+      // No visible groups: revert to default root-only tree
+      console.log('[Store.applyThresholdGroupsToSankey] No visible groups, using root-only tree')
+      tree = createRootOnlyTree()
+    } else {
+      // Convert groups to tree
+      console.log('[Store.applyThresholdGroupsToSankey] Converting groups to threshold tree')
+      tree = convertThresholdGroupsToTree(visibleGroups)
+      console.log('[Store.applyThresholdGroupsToSankey] Generated tree with', tree.nodes.length, 'nodes')
+    }
+
+    // Apply to both panels
+    set({
+      leftPanel: { ...state.leftPanel, thresholdTree: tree },
+      rightPanel: { ...state.rightPanel, thresholdTree: tree }
+    })
+
+    console.log('[Store.applyThresholdGroupsToSankey] Applied tree to both panels, triggering Sankey refresh')
+
+    // Fetch new Sankey data for both panels
+    state.fetchSankeyData('left')
+    state.fetchSankeyData('right')
   }
 }))
 

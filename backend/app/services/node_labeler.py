@@ -159,18 +159,21 @@ class NodeDisplayNameGenerator:
             CategoryType.FEATURE_SPLITTING, CategoryType.SEMANTIC_SIMILARITY
         ]
 
-        # Use branch description if available
-        if branch_index < len(split_rule.branches):
-            branch = split_rule.branches[branch_index]
-            if branch.description:
-                return branch.description if should_remove_prefix else f"{base_name}: {branch.description}"
-
-        # Check for default child
-        if hasattr(split_rule, "default_child_id") and split_rule.default_child_id == node.id:
+        # Check for default child first (branch_index -1 means default/others)
+        if branch_index == -1 or (hasattr(split_rule, "default_child_id") and split_rule.default_child_id == node.id):
             # Special case for "others" node
             if node.id == "others" or node.id.endswith("_others"):
                 return "Others" if should_remove_prefix else f"{base_name}: Others"
             return "Default" if should_remove_prefix else f"{base_name}: Default"
+
+        # Use branch description if available
+        if 0 <= branch_index < len(split_rule.branches):
+            branch = split_rule.branches[branch_index]
+            if branch.description:
+                # Check if description already contains the category name to avoid duplication
+                if branch.description.startswith(base_name + ":"):
+                    return branch.description
+                return branch.description if should_remove_prefix else f"{base_name}: {branch.description}"
 
         # Fallback to branch number
         label = f"Branch {branch_index + 1}"
