@@ -17,7 +17,7 @@ import json
 from ..services.data_constants import (
     SPLIT_TYPE_RANGE, SPLIT_TYPE_PATTERN, SPLIT_TYPE_EXPRESSION,
     CONDITION_STATE_HIGH, CONDITION_STATE_LOW, CONDITION_STATE_IN_RANGE, CONDITION_STATE_OUT_RANGE,
-    CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_DISTANCE, CATEGORY_SCORE_AGREEMENT
+    CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_SIMILARITY, CATEGORY_SCORE_AGREEMENT
 )
 
 
@@ -29,7 +29,7 @@ class CategoryType(str, Enum):
     """Node category types for Sankey diagrams and visualization"""
     ROOT = CATEGORY_ROOT
     FEATURE_SPLITTING = CATEGORY_FEATURE_SPLITTING
-    SEMANTIC_DISTANCE = CATEGORY_SEMANTIC_DISTANCE
+    SEMANTIC_SIMILARITY = CATEGORY_SEMANTIC_SIMILARITY
     SCORE_AGREEMENT = CATEGORY_SCORE_AGREEMENT
     # Can be extended with new categories without code changes
 
@@ -44,7 +44,7 @@ class RangeSplitRule(BaseModel):
     Divides children based on value ranges of a single metric.
 
     Example:
-        metric="semdist_mean", thresholds=[0.1, 0.3, 0.6]
+        metric="semsim_mean", thresholds=[0.1, 0.3, 0.6]
         Creates 4 branches: <0.1, 0.1-0.3, 0.3-0.6, >=0.6
     """
     type: Literal["range"] = Field(default=SPLIT_TYPE_RANGE)

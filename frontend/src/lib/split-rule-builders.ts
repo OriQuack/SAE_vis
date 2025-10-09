@@ -9,7 +9,7 @@ import type {
 
 /**
  * Build a range-based split rule for binary or multi-way splits
- * @param metric The metric to split on (e.g., 'feature_splitting', 'semdist_mean')
+ * @param metric The metric to split on (e.g., 'feature_splitting', 'semsim_mean')
  * @param thresholds Array of threshold values for splitting
  * @returns RangeSplitRule
  */

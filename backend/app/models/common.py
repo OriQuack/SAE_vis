@@ -5,8 +5,8 @@ from enum import Enum
 class MetricType(str, Enum):
     """Supported metric types for histogram analysis"""
     FEATURE_SPLITTING = "feature_splitting"
-    SEMDIST_MEAN = "semdist_mean"
-    SEMDIST_MAX = "semdist_max"
+    SEMSIM_MEAN = "semsim_mean"
+    SEMSIM_MAX = "semsim_max"
     SCORE_FUZZ = "score_fuzz"
     SCORE_SIMULATION = "score_simulation"
     SCORE_DETECTION = "score_detection"
@@ -17,7 +17,7 @@ class CategoryType(str, Enum):
     """Node category types for Sankey diagrams"""
     ROOT = "root"
     FEATURE_SPLITTING = "feature_splitting"
-    SEMANTIC_DISTANCE = "semantic_distance"
+    SEMANTIC_SIMILARITY = "semantic_similarity"
     SCORE_AGREEMENT = "score_agreement"
 
 class ErrorResponse(BaseModel):

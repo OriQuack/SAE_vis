@@ -14,10 +14,10 @@ export interface Filters {
 // ============================================================================
 
 import {
-  CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_DISTANCE, CATEGORY_SCORE_AGREEMENT,
+  CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_SIMILARITY, CATEGORY_SCORE_AGREEMENT,
   SPLIT_TYPE_RANGE, SPLIT_TYPE_PATTERN, SPLIT_TYPE_EXPRESSION,
   PATTERN_STATE_HIGH, PATTERN_STATE_LOW, PATTERN_STATE_IN_RANGE, PATTERN_STATE_OUT_RANGE,
-  METRIC_FEATURE_SPLITTING, METRIC_SEMDIST_MEAN, METRIC_SEMDIST_MAX,
+  METRIC_FEATURE_SPLITTING, METRIC_SEMSIM_MEAN, METRIC_SEMSIM_MAX,
   METRIC_SCORE_FUZZ, METRIC_SCORE_SIMULATION, METRIC_SCORE_DETECTION, METRIC_SCORE_EMBEDDING,
   PANEL_LEFT, PANEL_RIGHT
 } from './lib/constants'
@@ -26,7 +26,7 @@ import {
 export type CategoryType =
   | typeof CATEGORY_ROOT
   | typeof CATEGORY_FEATURE_SPLITTING
-  | typeof CATEGORY_SEMANTIC_DISTANCE
+  | typeof CATEGORY_SEMANTIC_SIMILARITY
   | typeof CATEGORY_SCORE_AGREEMENT
 
 // Split Rule Definitions
@@ -234,8 +234,8 @@ export interface FeatureDetail {
   llm_explainer: string
   llm_scorer: string
   feature_splitting: number
-  semdist_mean: number
-  semdist_max: number
+  semsim_mean: number
+  semsim_max: number
   scores: {
     fuzz: number
     simulation: number
@@ -313,8 +313,8 @@ export type ViewState = 'empty' | 'filtering' | 'visualization'
 
 export type MetricType =
   | typeof METRIC_FEATURE_SPLITTING
-  | typeof METRIC_SEMDIST_MEAN
-  | typeof METRIC_SEMDIST_MAX
+  | typeof METRIC_SEMSIM_MEAN
+  | typeof METRIC_SEMSIM_MAX
   | typeof METRIC_SCORE_FUZZ
   | typeof METRIC_SCORE_SIMULATION
   | typeof METRIC_SCORE_DETECTION
@@ -323,7 +323,7 @@ export type MetricType =
 export type NodeCategory =
   | typeof CATEGORY_ROOT
   | typeof CATEGORY_FEATURE_SPLITTING
-  | typeof CATEGORY_SEMANTIC_DISTANCE
+  | typeof CATEGORY_SEMANTIC_SIMILARITY
   | typeof CATEGORY_SCORE_AGREEMENT
 
 // ============================================================================

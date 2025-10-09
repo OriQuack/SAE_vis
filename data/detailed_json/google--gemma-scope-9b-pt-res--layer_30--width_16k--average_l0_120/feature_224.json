@@ -17,14 +17,14 @@
       "data_source": "gwen_e-llama_s"
     }
   ],
-  "semantic_distance_pairs": [
+  "semantic_similarity_pairs": [
     {
       "pair": [
         "exp_1014",
         "exp_190"
       ],
-      "cosine_distance": 0.19694092317547107,
-      "euclidean_distance": null
+      "cosine_similarity": 0.8030590768245289,
+      "euclidean_similarity": null
     }
   ],
   "scores": [

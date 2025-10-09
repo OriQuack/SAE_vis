@@ -53,7 +53,7 @@ class NodeDisplayNameGenerator:
         category_names = {
             CategoryType.ROOT: "All Features",
             CategoryType.FEATURE_SPLITTING: "Feature Splitting",
-            CategoryType.SEMANTIC_DISTANCE: "Semantic Distance",
+            CategoryType.SEMANTIC_SIMILARITY: "Semantic Similarity",
             CategoryType.SCORE_AGREEMENT: "Score Agreement",
         }
         return category_names.get(category, category.value.replace("_", " ").title())
@@ -87,7 +87,7 @@ class NodeDisplayNameGenerator:
             elif "false" in parts:
                 return "False"
 
-        elif node.category == CategoryType.SEMANTIC_DISTANCE:
+        elif node.category == CategoryType.SEMANTIC_SIMILARITY:
             if "high" in parts:
                 return "High"
             elif "low" in parts:
@@ -115,7 +115,7 @@ class NodeDisplayNameGenerator:
     ) -> str:
         """Format display name for range-based splits."""
         should_remove_prefix = node.category in [
-            CategoryType.FEATURE_SPLITTING, CategoryType.SEMANTIC_DISTANCE
+            CategoryType.FEATURE_SPLITTING, CategoryType.SEMANTIC_SIMILARITY
         ]
 
         if branch_index == 0:
@@ -156,7 +156,7 @@ class NodeDisplayNameGenerator:
     ) -> str:
         """Format display name for expression-based splits."""
         should_remove_prefix = node.category in [
-            CategoryType.FEATURE_SPLITTING, CategoryType.SEMANTIC_DISTANCE
+            CategoryType.FEATURE_SPLITTING, CategoryType.SEMANTIC_SIMILARITY
         ]
 
         # Use branch description if available

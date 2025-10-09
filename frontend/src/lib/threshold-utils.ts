@@ -23,15 +23,15 @@ import {
   SPLIT_TYPE_PATTERN,
   SPLIT_TYPE_EXPRESSION,
   METRIC_FEATURE_SPLITTING,
-  METRIC_SEMDIST_MEAN,
-  METRIC_SEMDIST_MAX,
+  METRIC_SEMSIM_MEAN,
+  METRIC_SEMSIM_MAX,
   METRIC_SCORE_FUZZ,
   METRIC_SCORE_SIMULATION,
   METRIC_SCORE_DETECTION,
   METRIC_SCORE_EMBEDDING,
   CATEGORY_ROOT,
   CATEGORY_FEATURE_SPLITTING,
-  CATEGORY_SEMANTIC_DISTANCE,
+  CATEGORY_SEMANTIC_SIMILARITY,
   CATEGORY_SCORE_AGREEMENT
 } from './constants'
 
@@ -104,8 +104,8 @@ function extractThresholdsFromExpressionRule(expressionRule: ExpressionSplitRule
 // Valid metric types for filtering
 const VALID_METRICS = [
   METRIC_FEATURE_SPLITTING,
-  METRIC_SEMDIST_MEAN,
-  METRIC_SEMDIST_MAX,
+  METRIC_SEMSIM_MEAN,
+  METRIC_SEMSIM_MAX,
   METRIC_SCORE_FUZZ,
   METRIC_SCORE_SIMULATION,
   METRIC_SCORE_DETECTION,
@@ -124,13 +124,13 @@ export const AVAILABLE_STAGE_TYPES: StageTypeConfig[] = [
     defaultThresholds: [0.3]
   },
   {
-    id: 'semantic_distance',
-    name: 'Semantic Distance',
-    description: 'Split features based on semantic distance',
-    category: CATEGORY_SEMANTIC_DISTANCE,
+    id: 'semantic_similarity',
+    name: 'Semantic Similarity',
+    description: 'Split features based on semantic similarity',
+    category: CATEGORY_SEMANTIC_SIMILARITY,
     defaultSplitRule: 'range',
-    defaultMetric: METRIC_SEMDIST_MEAN,
-    defaultThresholds: [0.1]
+    defaultMetric: METRIC_SEMSIM_MEAN,
+    defaultThresholds: [0.88]  // Updated from 0.1 (distance) to 0.88 (similarity median)
   },
   {
     id: 'score_agreement',
@@ -699,8 +699,8 @@ function getStageTypeFromSplitRule(splitRule: SplitRule): string | null {
     switch (metric) {
       case METRIC_FEATURE_SPLITTING:
         return 'feature_splitting'
-      case METRIC_SEMDIST_MEAN:
-        return 'semantic_distance'
+      case METRIC_SEMSIM_MEAN:
+        return 'semantic_similarity'
       default:
         return null
     }
@@ -726,8 +726,8 @@ function getStageTypeFromParentInfo(parentPath: ParentPathInfo): string | null {
     switch (metric) {
       case METRIC_FEATURE_SPLITTING:
         return 'feature_splitting'
-      case METRIC_SEMDIST_MEAN:
-        return 'semantic_distance'
+      case METRIC_SEMSIM_MEAN:
+        return 'semantic_similarity'
       default:
         return null
     }

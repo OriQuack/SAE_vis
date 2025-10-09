@@ -21,7 +21,7 @@
       "gwen_e-llama_s",
       "openai_e-llama_s"
     ],
-    "data_sources_distances": [
+    "data_sources_similarities": [
       "llama_e-llama_s_vs_gwen_e-llama_s_vs_openai_e-llama_s"
     ]
   }

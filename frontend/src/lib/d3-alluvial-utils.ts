@@ -52,9 +52,9 @@ function calculateTrivialityLevel(sourceId: string, targetId: string): Trivialit
     if (id.includes('split_true') || id === 'True') return 'true'
     if (id.includes('split_false') || id === 'False') return 'false'
 
-    // For semantic distance: contains "high" or "low"
-    if (id.toLowerCase().includes('semdist_high') || id === 'High') return 'high'
-    if (id.toLowerCase().includes('semdist_low') || id === 'Low') return 'low'
+    // For semantic similarity: contains "high" or "low"
+    if (id.toLowerCase().includes('semsim_high') || id === 'High') return 'high'
+    if (id.toLowerCase().includes('semsim_low') || id === 'Low') return 'low'
 
     // For score agreement: extract pattern
     const allHighMatch = id.match(/all_\d+_high/)

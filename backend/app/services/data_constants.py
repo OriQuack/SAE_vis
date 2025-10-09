@@ -21,7 +21,7 @@ AGREEMENT_NAMES = {
 # Category types
 CATEGORY_ROOT = "root"
 CATEGORY_FEATURE_SPLITTING = "feature_splitting"
-CATEGORY_SEMANTIC_DISTANCE = "semantic_distance"
+CATEGORY_SEMANTIC_SIMILARITY = "semantic_similarity"
 CATEGORY_SCORE_AGREEMENT = "score_agreement"
 
 # Classification categories
@@ -33,7 +33,7 @@ SEMDIST_LOW = "low"
 # Node ID patterns
 NODE_ROOT = "root"
 NODE_SPLIT_PREFIX = "split_"
-NODE_SEMDIST_SUFFIX = "_semdist_"
+NODE_SEMSIM_SUFFIX = "_semsim_"
 
 # Column names
 COL_FEATURE_ID = "feature_id"
@@ -42,8 +42,8 @@ COL_EXPLANATION_METHOD = "explanation_method"
 COL_LLM_EXPLAINER = "llm_explainer"
 COL_LLM_SCORER = "llm_scorer"
 COL_FEATURE_SPLITTING = "feature_splitting"
-COL_SEMDIST_MEAN = "semdist_mean"
-COL_SEMDIST_MAX = "semdist_max"
+COL_SEMSIM_MEAN = "semsim_mean"
+COL_SEMSIM_MAX = "semsim_max"
 COL_SCORE_FUZZ = "score_fuzz"
 COL_SCORE_SIMULATION = "score_simulation"
 COL_SCORE_DETECTION = "score_detection"
@@ -52,7 +52,7 @@ COL_DETAILS_PATH = "details_path"
 
 # Computed column names
 COL_SPLITTING_CATEGORY = "splitting_category"
-COL_SEMDIST_CATEGORY = "semdist_category"
+COL_SEMSIM_CATEGORY = "semsim_category"
 COL_SCORE_AGREEMENT = "score_agreement"
 COL_HIGH_SCORE_COUNT = "high_score_count"
 
@@ -89,7 +89,7 @@ AGREEMENT_ORDER = [AGREE_ALL, AGREE_2OF3, AGREE_1OF3, AGREE_NONE]  # all high fi
 # Default threshold values
 DEFAULT_THRESHOLDS = {
     "feature_splitting": 0.5,
-    "semdist_mean": 0.2,
+    "semsim_mean": 0.2,
     "score_fuzz": 0.5,
     "score_simulation": 0.5,
     "score_detection": 0.5,
@@ -135,12 +135,12 @@ PATTERN_ALL_N_LOW = r'all_(\d+)_low'
 PATTERN_K_OF_N_HIGH = r'(\d+)_of_(\d+)_high'
 PATTERN_SCORE_DETAILED = r'(\d+)_of_(\d+)_high_\w+(_\w+)?'
 PATTERN_SINGLE_SCORE_DETAILED = r'(\d+)_of_(\d+)_high_\w+'
-PATTERN_SEMDIST_KEYWORD = r'_semdist_'
+PATTERN_SEMSIM_KEYWORD = r'_semsim_'
 
 # ============================================================================
 # NODE CONTENT KEYWORDS
 # ============================================================================
-NODE_KEYWORD_SEMDIST = "semdist"
+NODE_KEYWORD_SEMSIM = "semsim"
 NODE_SPLIT_TRUE = "split_true"
 NODE_SPLIT_FALSE = "split_false"
 

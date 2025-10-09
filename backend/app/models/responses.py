@@ -258,13 +258,13 @@ class FeatureResponse(BaseModel):
         ...,
         description="Feature splitting cosine similarity score"
     )
-    semdist_mean: float = Field(
+    semsim_mean: float = Field(
         ...,
-        description="Average semantic distance"
+        description="Average semantic similarity"
     )
-    semdist_max: float = Field(
+    semsim_max: float = Field(
         ...,
-        description="Maximum semantic distance"
+        description="Maximum semantic similarity"
     )
     scores: FeatureScores = Field(
         ...,

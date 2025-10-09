@@ -109,8 +109,8 @@ class MasterParquetCreator:
 
         # Calculate feature-level metrics
         feature_splitting = self._get_feature_similarity(feature_id)
-        semdist_mean, semdist_max = self._calculate_semantic_distances(
-            data.get("semantic_distance_pairs", [])
+        semsim_mean, semsim_max = self._calculate_semantic_similarities(
+            data.get("semantic_similarity_pairs", [])
         )
 
         # Create portable relative path for details_path
@@ -156,8 +156,8 @@ class MasterParquetCreator:
                 "llm_explainer": explanation["llm_explainer"],
                 "llm_scorer": matching_score["llm_scorer"],
                 "feature_splitting": feature_splitting,
-                "semdist_mean": semdist_mean,
-                "semdist_max": semdist_max,
+                "semsim_mean": semsim_mean,
+                "semsim_max": semsim_max,
                 "score_fuzz": matching_score.get("score_fuzz"),
                 "score_simulation": matching_score.get("score_simulation"),
                 "score_detection": matching_score.get("score_detection"),
@@ -168,22 +168,22 @@ class MasterParquetCreator:
 
         return rows
 
-    def _calculate_semantic_distances(self, distance_pairs: List[Dict]) -> Tuple[Optional[float], Optional[float]]:
-        """Calculate mean and max semantic distances from distance pairs."""
-        if not distance_pairs:
+    def _calculate_semantic_similarities(self, similarity_pairs: List[Dict]) -> Tuple[Optional[float], Optional[float]]:
+        """Calculate mean and max semantic similarities from similarity pairs."""
+        if not similarity_pairs:
             return None, None
 
-        # Extract cosine distances (using cosine as primary metric)
-        distances = [
-            pair.get("cosine_distance")
-            for pair in distance_pairs
-            if pair.get("cosine_distance") is not None
+        # Extract cosine similarities (using cosine as primary metric)
+        similarities = [
+            pair.get("cosine_similarity")
+            for pair in similarity_pairs
+            if pair.get("cosine_similarity") is not None
         ]
 
-        if not distances:
+        if not similarities:
             return None, None
 
-        return float(sum(distances) / len(distances)), float(max(distances))
+        return float(sum(similarities) / len(similarities)), float(max(similarities))
 
     def _find_matching_score(self, data_source: str, scores: List[Dict]) -> Optional[Dict]:
         """Find score set matching the explanation's data_source."""
@@ -263,8 +263,8 @@ class MasterParquetCreator:
             pl.col("llm_explainer").cast(pl.Categorical),
             pl.col("llm_scorer").cast(pl.Categorical),
             pl.col("feature_splitting").cast(pl.Float32),
-            pl.col("semdist_mean").cast(pl.Float32),
-            pl.col("semdist_max").cast(pl.Float32),
+            pl.col("semsim_mean").cast(pl.Float32),
+            pl.col("semsim_max").cast(pl.Float32),
             pl.col("score_fuzz").cast(pl.Float32),
             pl.col("score_simulation").cast(pl.Float32),
             pl.col("score_detection").cast(pl.Float32),
@@ -284,8 +284,8 @@ class MasterParquetCreator:
                 "llm_explainer": pl.Categorical,
                 "llm_scorer": pl.Categorical,
                 "feature_splitting": pl.Float32,
-                "semdist_mean": pl.Float32,
-                "semdist_max": pl.Float32,
+                "semsim_mean": pl.Float32,
+                "semsim_max": pl.Float32,
                 "score_fuzz": pl.Float32,
                 "score_simulation": pl.Float32,
                 "score_detection": pl.Float32,

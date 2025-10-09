@@ -1,6 +1,6 @@
 import { sankey, sankeyLinkHorizontal } from 'd3-sankey'
 import type { NodeCategory, D3SankeyNode, D3SankeyLink, SankeyLayout } from '../types'
-import { CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_DISTANCE, CATEGORY_SCORE_AGREEMENT } from './constants'
+import { CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_SIMILARITY, CATEGORY_SCORE_AGREEMENT } from './constants'
 
 // ============================================================================
 // UTILS-SPECIFIC TYPES (Internal use only - not exported)
@@ -25,7 +25,7 @@ export const DEFAULT_ANIMATION = {
 export const SANKEY_COLORS: Record<NodeCategory, string> = {
   [CATEGORY_ROOT]: '#8b5cf6',
   [CATEGORY_FEATURE_SPLITTING]: '#06b6d4',
-  [CATEGORY_SEMANTIC_DISTANCE]: '#3b82f6',
+  [CATEGORY_SEMANTIC_SIMILARITY]: '#3b82f6',
   [CATEGORY_SCORE_AGREEMENT]: '#10b981'
 } as const
 
@@ -40,7 +40,7 @@ export const MIN_CONTAINER_HEIGHT = 150
 const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
   [CATEGORY_ROOT]: 'All Features',
   [CATEGORY_FEATURE_SPLITTING]: 'Feature Splitting',
-  [CATEGORY_SEMANTIC_DISTANCE]: 'Semantic Distance',
+  [CATEGORY_SEMANTIC_SIMILARITY]: 'Semantic Similarity',
   [CATEGORY_SCORE_AGREEMENT]: 'Score Agreement'
 } as const
 
@@ -120,8 +120,8 @@ function getCategorySortOrder(nodeId: string, category: string): number {
       // feature_splitting_0 (False) before feature_splitting_1 (True)
       return nodeId.includes('_0') ? 0 : 1
 
-    case CATEGORY_SEMANTIC_DISTANCE:
-      // semdist_mean_0 (Low) before semdist_mean_1 (High)
+    case CATEGORY_SEMANTIC_SIMILARITY:
+      // semsim_mean_0 (Low) before semsim_mean_1 (High)
       return nodeId.includes('_0') ? 0 : 1
 
     case CATEGORY_SCORE_AGREEMENT:

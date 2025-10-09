@@ -434,7 +434,7 @@ class SplitEvaluator:
             # Check if pattern parts appear consecutively in child parts
             # This handles cases like:
             # pattern: '2_of_3_high_fuzz_det'
-            # child: 'root_2_of_3_high_fuzz_det_split_true_semdist_high'
+            # child: 'root_2_of_3_high_fuzz_det_split_true_semsim_high'
             for i in range(len(child_parts) - len(pattern_parts) + 1):
                 if child_parts[i:i+len(pattern_parts)] == pattern_parts:
                     return child_id

@@ -1,0 +1,9 @@
+{
+  "data_source_1": "llama_e-llama_s",
+  "data_source_2": "gwen_e-llama_s",
+  "data_source_3": "openai_e-llama_s",
+  "embedding_filename": "embeddings.json",
+  "similarity_metrics": ["cosine"],
+  "output_filename": "semantic_similarities.json",
+  "description": "Configuration for calculating pairwise semantic similarities between embeddings from three data sources"
+}

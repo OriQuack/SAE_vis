@@ -24,30 +24,30 @@
       "data_source": "openai_e-llama_s"
     }
   ],
-  "semantic_distance_pairs": [
+  "semantic_similarity_pairs": [
     {
       "pair": [
         "exp_1175",
         "exp_351"
       ],
-      "cosine_distance": 0.07252301537719452,
-      "euclidean_distance": null
+      "cosine_similarity": 0.9274769846228055,
+      "euclidean_similarity": null
     },
     {
       "pair": [
         "exp_1175",
         "exp_1998"
       ],
-      "cosine_distance": 0.23077489733262002,
-      "euclidean_distance": null
+      "cosine_similarity": 0.76922510266738,
+      "euclidean_similarity": null
     },
     {
       "pair": [
         "exp_351",
         "exp_1998"
       ],
-      "cosine_distance": 0.24284869849250112,
-      "euclidean_distance": null
+      "cosine_similarity": 0.7571513015074989,
+      "euclidean_similarity": null
     }
   ],
   "scores": [

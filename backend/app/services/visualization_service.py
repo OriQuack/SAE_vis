@@ -593,8 +593,8 @@ class DataService:
             llm_explainer=row[COL_LLM_EXPLAINER],
             llm_scorer=row[COL_LLM_SCORER],
             feature_splitting=row[COL_FEATURE_SPLITTING],
-            semdist_mean=row[COL_SEMDIST_MEAN],
-            semdist_max=row[COL_SEMDIST_MAX],
+            semsim_mean=row[COL_SEMSIM_MEAN],
+            semsim_max=row[COL_SEMSIM_MAX],
             scores={
                 "fuzz": row[COL_SCORE_FUZZ] or 0.0,
                 "simulation": row[COL_SCORE_SIMULATION] or 0.0,

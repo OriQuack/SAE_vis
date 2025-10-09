@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Generate detailed JSON files for each latent by consolidating all available data
-(embeddings, scores, semantic distances) for a specific SAE ID.
+(embeddings, scores, semantic similarities) for a specific SAE ID.
 """
 
 import os
@@ -90,28 +90,28 @@ def load_scores_data(scores_dir: Path, sae_id: str) -> Dict[str, Dict]:
     return scores_data
 
 
-def load_semantic_distances_data(distances_dir: Path, sae_id: str) -> Dict[str, Dict]:
-    """Load all semantic distance files that match the given SAE ID."""
-    distances_data = {}
+def load_semantic_similarities_data(similarities_dir: Path, sae_id: str) -> Dict[str, Dict]:
+    """Load all semantic similarity files that match the given SAE ID."""
+    similarities_data = {}
 
-    # Find all distance directories
-    if not distances_dir.exists():
-        print(f"Semantic distances directory not found: {distances_dir}")
-        return distances_data
+    # Find all similarity directories
+    if not similarities_dir.exists():
+        print(f"Semantic similarities directory not found: {similarities_dir}")
+        return similarities_data
 
-    for comparison_dir in distances_dir.iterdir():
+    for comparison_dir in similarities_dir.iterdir():
         if not comparison_dir.is_dir():
             continue
 
-        distances_file = comparison_dir / "semantic_distances.json"
-        if not distances_file.exists():
+        similarities_file = comparison_dir / "semantic_similarities.json"
+        if not similarities_file.exists():
             continue
 
         try:
-            with open(distances_file, 'r', encoding='utf-8') as f:
+            with open(similarities_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
 
-            # Check if this distance file matches our SAE ID
+            # Check if this similarity file matches our SAE ID
             # Support both 2-way and 3-way comparisons
             metadata = data.get("metadata", {})
             file_sae_id_1 = metadata.get("sae_id_1", "")
@@ -123,13 +123,13 @@ def load_semantic_distances_data(distances_dir: Path, sae_id: str) -> Dict[str, 
             sae_ids = [sid for sid in sae_ids if sid]  # Remove empty strings
 
             if sae_ids and all(sid == sae_id for sid in sae_ids):
-                distances_data[comparison_dir.name] = data
-                print(f"Loaded semantic distances from: {comparison_dir.name}")
+                similarities_data[comparison_dir.name] = data
+                print(f"Loaded semantic similarities from: {comparison_dir.name}")
 
         except (json.JSONDecodeError, FileNotFoundError) as e:
-            print(f"Error loading distances from {distances_file}: {e}")
+            print(f"Error loading similarities from {similarities_file}: {e}")
 
-    return distances_data
+    return similarities_data
 
 
 def generate_explanation_ids(embeddings_data: Dict[str, Dict]) -> Dict[str, Dict[str, str]]:
@@ -179,29 +179,29 @@ def build_explanations_for_latent(
     return explanations
 
 
-def build_semantic_distances_for_latent(
+def build_semantic_similarities_for_latent(
     latent_id: str,
-    distances_data: Dict[str, Dict],
+    similarities_data: Dict[str, Dict],
     explanation_mapping: Dict[str, Dict[str, str]]
 ) -> List[Dict]:
-    """Build semantic distance pairs for a specific latent."""
-    distance_pairs = []
+    """Build semantic similarity pairs for a specific latent."""
+    similarity_pairs = []
 
-    for comparison_name, data in distances_data.items():
-        # Check for both old format (semantic_distances) and new format (pairwise_distances)
-        pairwise_distances = data.get("pairwise_distances", {})
-        old_format_distances = data.get("semantic_distances", {})
+    for comparison_name, data in similarities_data.items():
+        # Check for both old format (semantic_similarities) and new format (pairwise_similarities)
+        pairwise_similarities = data.get("pairwise_similarities", {})
+        old_format_similarities = data.get("semantic_similarities", {})
 
         # Handle new 3-way pairwise format
-        if pairwise_distances:
-            for pair_name, pair_data in pairwise_distances.items():
-                # Extract distances for this specific latent
-                pair_distances = pair_data.get("distances", {})
-                if latent_id not in pair_distances:
+        if pairwise_similarities:
+            for pair_name, pair_data in pairwise_similarities.items():
+                # Extract similarities for this specific latent
+                pair_similarities = pair_data.get("similarities", {})
+                if latent_id not in pair_similarities:
                     continue
 
-                distance_info = pair_distances[latent_id]
-                distances_dict = distance_info.get("distances", {})
+                similarity_info = pair_similarities[latent_id]
+                similarities_dict = similarity_info.get("similarities", {})
 
                 # Get data sources for this pair
                 source_1 = pair_data.get("data_source_1", "")
@@ -214,18 +214,18 @@ def build_semantic_distances_for_latent(
                 if exp_id_1 and exp_id_2:
                     pair_info = {
                         "pair": [exp_id_1, exp_id_2],
-                        "cosine_distance": distances_dict.get("cosine"),
-                        "euclidean_distance": distances_dict.get("euclidean")
+                        "cosine_similarity": similarities_dict.get("cosine"),
+                        "euclidean_similarity": similarities_dict.get("euclidean")
                     }
-                    distance_pairs.append(pair_info)
+                    similarity_pairs.append(pair_info)
 
         # Handle old 2-way format for backward compatibility
-        elif old_format_distances:
-            if latent_id not in old_format_distances:
+        elif old_format_similarities:
+            if latent_id not in old_format_similarities:
                 continue
 
-            distance_info = old_format_distances[latent_id]
-            distances_dict = distance_info.get("distances", {})
+            similarity_info = old_format_similarities[latent_id]
+            similarities_dict = similarity_info.get("similarities", {})
 
             # Get data sources from metadata
             metadata = data.get("metadata", {})
@@ -239,12 +239,12 @@ def build_semantic_distances_for_latent(
             if exp_id_1 and exp_id_2:
                 pair_info = {
                     "pair": [exp_id_1, exp_id_2],
-                    "cosine_distance": distances_dict.get("cosine"),
-                    "euclidean_distance": distances_dict.get("euclidean")
+                    "cosine_similarity": similarities_dict.get("cosine"),
+                    "euclidean_similarity": similarities_dict.get("euclidean")
                 }
-                distance_pairs.append(pair_info)
+                similarity_pairs.append(pair_info)
 
-    return distance_pairs
+    return similarity_pairs
 
 
 def build_scores_for_latent(latent_id: str, scores_data: Dict[str, Dict]) -> List[Dict]:
@@ -277,20 +277,20 @@ def consolidate_latent_data(
     sae_id: str,
     embeddings_data: Dict[str, Dict],
     scores_data: Dict[str, Dict],
-    distances_data: Dict[str, Dict],
+    similarities_data: Dict[str, Dict],
     explanation_mapping: Dict[str, Dict[str, str]]
 ) -> Dict:
     """Consolidate all data for a single latent into detailed JSON format."""
 
     explanations = build_explanations_for_latent(latent_id, embeddings_data, explanation_mapping)
-    semantic_distances = build_semantic_distances_for_latent(latent_id, distances_data, explanation_mapping)
+    semantic_similarities = build_semantic_similarities_for_latent(latent_id, similarities_data, explanation_mapping)
     scores = build_scores_for_latent(latent_id, scores_data)
 
     detailed_json = {
         "feature_id": int(latent_id),
         "sae_id": sae_id,
         "explanations": explanations,
-        "semantic_distance_pairs": semantic_distances,
+        "semantic_similarity_pairs": semantic_similarities,
         "scores": scores,
         "activating_examples": "TODO: Not implemented yet"
     }
@@ -352,7 +352,7 @@ def main():
     # Setup paths
     embeddings_dir = project_root / "data" / "embeddings"
     scores_dir = project_root / "data" / "scores"
-    distances_dir = project_root / "data" / "semantic_distances"
+    similarities_dir = project_root / "data" / "semantic_similarities"
 
     # Create output directory
     sanitized_sae_id = sanitize_sae_id_for_path(sae_id)
@@ -364,7 +364,7 @@ def main():
     print("\nLoading data...")
     embeddings_data = load_embeddings_data(embeddings_dir, sae_id)
     scores_data = load_scores_data(scores_dir, sae_id)
-    distances_data = load_semantic_distances_data(distances_dir, sae_id)
+    similarities_data = load_semantic_similarities_data(similarities_dir, sae_id)
 
     if not embeddings_data:
         print("No embedding data found for the specified SAE ID!")
@@ -380,7 +380,7 @@ def main():
         all_latent_ids.update(embeddings.keys())
 
     print(f"\nFound {len(all_latent_ids)} unique latents")
-    print(f"Data sources - Embeddings: {len(embeddings_data)}, Scores: {len(scores_data)}, Distances: {len(distances_data)}")
+    print(f"Data sources - Embeddings: {len(embeddings_data)}, Scores: {len(scores_data)}, Similarities: {len(similarities_data)}")
 
     # Process each latent
     successful_consolidations = 0
@@ -389,7 +389,7 @@ def main():
         try:
             latent_data = consolidate_latent_data(
                 latent_id, sae_id, embeddings_data, scores_data,
-                distances_data, explanation_mapping
+                similarities_data, explanation_mapping
             )
 
             save_detailed_json(latent_data, output_dir, filename_pattern)
@@ -408,7 +408,7 @@ def main():
         "successful_consolidations": successful_consolidations,
         "data_sources_embeddings": list(embeddings_data.keys()),
         "data_sources_scores": list(scores_data.keys()),
-        "data_sources_distances": list(distances_data.keys())
+        "data_sources_similarities": list(similarities_data.keys())
     }
 
     save_consolidation_config(config, sae_id, output_dir, stats)

@@ -8,7 +8,7 @@ export const TOTAL_FEATURES = 1648
 
 export const LINEAR_SET_METRICS = [
   { key: 'feature_splitting', label: 'Feature Splitting', color: COMPONENT_COLORS.FEATURE_SPLITTING },
-  { key: 'semdist_mean', label: 'Semantic Similarity', color: COMPONENT_COLORS.SEMANTIC_SIMILARITY },
+  { key: 'semsim_mean', label: 'Semantic Similarity', color: COMPONENT_COLORS.SEMANTIC_SIMILARITY },
   { key: 'score_embedding', label: 'Embedding Score', color: COMPONENT_COLORS.SCORE_EMBEDDING },
   { key: 'score_fuzz', label: 'Fuzz Score', color: COMPONENT_COLORS.SCORE_FUZZ },
   { key: 'score_detection', label: 'Detection Score', color: COMPONENT_COLORS.SCORE_DETECTION }

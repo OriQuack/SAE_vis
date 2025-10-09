@@ -23,7 +23,7 @@ const INDIVIDUAL_METRICS = [
     ]
   },
   {
-    key: 'semdist_mean' as MetricType,
+    key: 'semsim_mean' as MetricType,
     label: ['Semantic', 'Similarity'],
     averageBy: 'llm_explainer',
     badges: [

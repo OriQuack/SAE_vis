@@ -19,7 +19,7 @@ import type {
   CategoryGroup
 } from './types'
 import { updateNodeThreshold, createRootOnlyTree, addStageToNode, removeStageFromNode } from './lib/threshold-utils'
-import { PANEL_LEFT, PANEL_RIGHT, METRIC_SEMDIST_MEAN, getMetricColor } from './lib/constants'
+import { PANEL_LEFT, PANEL_RIGHT, METRIC_SEMSIM_MEAN, getMetricColor } from './lib/constants'
 
 type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
 
@@ -193,7 +193,7 @@ const initialState = {
 
   // Shared state
   filterOptions: null,
-  currentMetric: METRIC_SEMDIST_MEAN as MetricType,
+  currentMetric: METRIC_SEMSIM_MEAN as MetricType,
   popoverState: {
     histogram: null
   },
@@ -632,7 +632,7 @@ export const useStore = create<AppState>((set, get) => ({
       // Define the metrics to fetch with their averaging configurations
       const metricsToFetch = [
         { metric: 'feature_splitting' as MetricType, averageBy: null },
-        { metric: 'semdist_mean' as MetricType, averageBy: 'llm_explainer' },
+        { metric: 'semsim_mean' as MetricType, averageBy: 'llm_explainer' },
         { metric: 'score_embedding' as MetricType, averageBy: 'llm_scorer' },
         { metric: 'score_fuzz' as MetricType, averageBy: 'llm_scorer' },
         { metric: 'score_detection' as MetricType, averageBy: 'llm_scorer' }
@@ -764,7 +764,7 @@ export const useStore = create<AppState>((set, get) => ({
 
         if (commonFeatures.length > 0) {
           // Use the category field from nodes for proper stage comparison
-          // This identifies the actual stage (root, feature_splitting, semantic_distance, score_agreement)
+          // This identifies the actual stage (root, feature_splitting, semantic_similarity, score_agreement)
           const leftCategory = leftNode.category
           const rightCategory = rightNode.category
 

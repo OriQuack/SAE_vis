@@ -12,13 +12,13 @@
 // ============================================================================
 export const CATEGORY_ROOT = "root"
 export const CATEGORY_FEATURE_SPLITTING = "feature_splitting"
-export const CATEGORY_SEMANTIC_DISTANCE = "semantic_distance"
+export const CATEGORY_SEMANTIC_SIMILARITY = "semantic_similarity"
 export const CATEGORY_SCORE_AGREEMENT = "score_agreement"
 
 export const CATEGORY_TYPES = {
   ROOT: CATEGORY_ROOT,
   FEATURE_SPLITTING: CATEGORY_FEATURE_SPLITTING,
-  SEMANTIC_DISTANCE: CATEGORY_SEMANTIC_DISTANCE,
+  SEMANTIC_SIMILARITY: CATEGORY_SEMANTIC_SIMILARITY,
   SCORE_AGREEMENT: CATEGORY_SCORE_AGREEMENT
 } as const
 
@@ -57,8 +57,8 @@ export const PATTERN_STATES = {
 // Used across: types.ts, utils.ts, threshold-utils.ts, store.ts (5+ files)
 // ============================================================================
 export const METRIC_FEATURE_SPLITTING = "feature_splitting"
-export const METRIC_SEMDIST_MEAN = "semdist_mean"
-export const METRIC_SEMDIST_MAX = "semdist_max"
+export const METRIC_SEMSIM_MEAN = "semsim_mean"
+export const METRIC_SEMSIM_MAX = "semsim_max"
 export const METRIC_SCORE_FUZZ = "score_fuzz"
 export const METRIC_SCORE_SIMULATION = "score_simulation"
 export const METRIC_SCORE_DETECTION = "score_detection"
@@ -66,8 +66,8 @@ export const METRIC_SCORE_EMBEDDING = "score_embedding"
 
 export const METRIC_TYPES = {
   FEATURE_SPLITTING: METRIC_FEATURE_SPLITTING,
-  SEMDIST_MEAN: METRIC_SEMDIST_MEAN,
-  SEMDIST_MAX: METRIC_SEMDIST_MAX,
+  SEMSIM_MEAN: METRIC_SEMSIM_MEAN,
+  SEMSIM_MAX: METRIC_SEMSIM_MAX,
   SCORE_FUZZ: METRIC_SCORE_FUZZ,
   SCORE_SIMULATION: METRIC_SCORE_SIMULATION,
   SCORE_DETECTION: METRIC_SCORE_DETECTION,
@@ -93,14 +93,14 @@ export const PANEL_SIDES = {
 export const CATEGORY_DISPLAY_NAMES = {
   [CATEGORY_ROOT]: "All Features",
   [CATEGORY_FEATURE_SPLITTING]: "Feature Splitting",
-  [CATEGORY_SEMANTIC_DISTANCE]: "Semantic Distance",
+  [CATEGORY_SEMANTIC_SIMILARITY]: "Semantic Similarity",
   [CATEGORY_SCORE_AGREEMENT]: "Score Agreement"
 } as const
 
 export const METRIC_DISPLAY_NAMES = {
   [METRIC_FEATURE_SPLITTING]: "Feature Splitting",
-  [METRIC_SEMDIST_MEAN]: "Semantic Distance (Mean)",
-  [METRIC_SEMDIST_MAX]: "Semantic Distance (Max)",
+  [METRIC_SEMSIM_MEAN]: "Semantic Similarity (Mean)",
+  [METRIC_SEMSIM_MAX]: "Semantic Similarity (Max)",
   [METRIC_SCORE_FUZZ]: "Fuzz Score",
   [METRIC_SCORE_SIMULATION]: "Simulation Score",
   [METRIC_SCORE_DETECTION]: "Detection Score",
@@ -229,8 +229,8 @@ export const getMetricColor = (metric: MetricTypeValue): string => {
   const colorMap = {
     feature_splitting: METRIC_COLORS.FEATURE_SPLITTING,
     semantic_similarity: METRIC_COLORS.SEMANTIC_SIMILARITY,
-    semdist_mean: METRIC_COLORS.SEMANTIC_SIMILARITY,
-    semdist_max: METRIC_COLORS.SEMANTIC_SIMILARITY,
+    semsim_mean: METRIC_COLORS.SEMANTIC_SIMILARITY,
+    semsim_max: METRIC_COLORS.SEMANTIC_SIMILARITY,
     score_fuzz: METRIC_COLORS.SCORE_FUZZ,
     score_detection: METRIC_COLORS.SCORE_DETECTION,
     score_embedding: METRIC_COLORS.SCORE_EMBEDDING,
@@ -256,7 +256,7 @@ export const getComponentBackgroundColor = (type: 'decoder' | 'explainer' | 'sco
 export const SANKEY_COLORS: Record<string, string> = {
   [CATEGORY_ROOT]: EUROVIS_PALETTE.PRIMARY_PURPLE,        // #CC79A7 - Reddish Purple
   [CATEGORY_FEATURE_SPLITTING]: EUROVIS_PALETTE.SECONDARY_CYAN,  // #66CCEE - Cyan
-  [CATEGORY_SEMANTIC_DISTANCE]: EUROVIS_PALETTE.PRIMARY_BLUE,    // #0072B2 - Blue
+  [CATEGORY_SEMANTIC_SIMILARITY]: EUROVIS_PALETTE.PRIMARY_BLUE,    // #0072B2 - Blue
   [CATEGORY_SCORE_AGREEMENT]: EUROVIS_PALETTE.PRIMARY_GREEN      // #009E73 - Bluish Green
 } as const
 
@@ -267,7 +267,7 @@ export const SANKEY_COLORS: Record<string, string> = {
 export const LEGEND_ITEMS = [
   { key: CATEGORY_ROOT, label: CATEGORY_DISPLAY_NAMES[CATEGORY_ROOT] },
   { key: CATEGORY_FEATURE_SPLITTING, label: CATEGORY_DISPLAY_NAMES[CATEGORY_FEATURE_SPLITTING] },
-  { key: CATEGORY_SEMANTIC_DISTANCE, label: CATEGORY_DISPLAY_NAMES[CATEGORY_SEMANTIC_DISTANCE] },
+  { key: CATEGORY_SEMANTIC_SIMILARITY, label: CATEGORY_DISPLAY_NAMES[CATEGORY_SEMANTIC_SIMILARITY] },
   { key: CATEGORY_SCORE_AGREEMENT, label: CATEGORY_DISPLAY_NAMES[CATEGORY_SCORE_AGREEMENT] }
 ] as const
 
