@@ -6,13 +6,17 @@
  *
  * Architecture:
  * - Dynamic stage creation based on available metrics
- * - Each stage uses OR logic across groups
+ * - Single-metric stages: Use OR logic (all groups merged into "matched")
+ * - Multi-metric stages: Generate all 2^N combinations for N groups
+ *   - Example for 2 groups: Group1-only, Group2-only, Both, Neither
+ *   - Uses set-theoretic logic: Match X AND NOT Y for exclusive combinations
  * - Within a group's scores, uses AND logic
  * - Features not matching any group go to "others" branch
  */
 
 import type { ThresholdTree, SankeyThreshold, ExpressionSplitRule, ParentPathInfo } from '../types'
 import { createRootOnlyTree } from './threshold-utils'
+import { createNode, createParentPath } from './split-rule-builders'
 import {
   CATEGORY_ROOT,
   CATEGORY_FEATURE_SPLITTING,
@@ -160,46 +164,148 @@ function buildStageExpression(groups: ThresholdGroup[], stageDef: StageDefinitio
 }
 
 /**
- * Create a node with proper parent path
+ * Build a reusable expression split for threshold groups
+ *
+ * For single-metric stages: Uses OR logic (all groups → "matched")
+ * For multi-metric stages: Generates all 2^N combinations to handle overlaps
+ *   - For N groups, creates 2^N nodes representing all possible combinations
+ *   - Example with 2 groups: Group1-only, Group2-only, Both, Neither
+ *   - Uses compound conditions: "Match A AND NOT B" for exclusive combinations
+ *   - Empty set (match none) becomes the "others" default child
+ *
+ * @param groups Threshold groups to process
+ * @param stageMetric Single metric or array of metrics for this stage
+ * @param matchedIdSuffix Suffix for matched child node ID (single-metric only)
+ * @param othersIdSuffix Suffix for others child node ID
+ * @param description Description for matched branch (single-metric only)
+ * @returns Split rule configuration with child IDs and metrics
  */
-function createNode(
-  id: string,
-  stage: number,
-  category: string,
-  parentPath: ParentPathInfo[],
-  splitRule: ExpressionSplitRule | null,
-  childrenIds: string[]
-): SankeyThreshold {
-  return {
-    id,
-    stage,
-    category: category as any,
-    parent_path: parentPath,
-    split_rule: splitRule,
-    children_ids: childrenIds
-  }
-}
-
-/**
- * Create parent path info for expression rule
- */
-function createParentPathInfo(
-  parentId: string,
-  branchIndex: number,
-  condition: string,
+function buildThresholdGroupExpressionSplit(
+  groups: ThresholdGroup[],
+  stageMetric: string | string[],
+  matchedIdSuffix: string,
+  othersIdSuffix: string,
   description: string
-): ParentPathInfo {
-  return {
-    parent_id: parentId,
-    parent_split_rule: {
-      type: 'expression',
-      expression_info: {
-        branch_index: branchIndex,
-        condition,
-        description
+): {
+  splitRule: ExpressionSplitRule
+  childIds: string[]
+  availableMetrics: string[]
+} {
+  const allMetrics = new Set<string>()
+
+  if (typeof stageMetric === 'string') {
+    // Single metric stage (feature_splitting or semsim_mean)
+    // Use OR logic: merge all groups into single "matched" child
+    const conditions: string[] = []
+
+    for (const group of groups) {
+      const selection = group.selections.find(s => s.metricType === stageMetric)
+      if (selection) {
+        conditions.push(buildMetricRangeCondition(
+          stageMetric,
+          selection.thresholdRange.min,
+          selection.thresholdRange.max
+        ))
+        allMetrics.add(stageMetric)
       }
-    },
-    branch_index: branchIndex
+    }
+
+    const matchedChildId = `matched_${matchedIdSuffix}`
+    const othersChildId = `others_${othersIdSuffix}`
+
+    const splitRule: ExpressionSplitRule = {
+      type: 'expression',
+      available_metrics: Array.from(allMetrics),
+      branches: [{
+        condition: conditions.length > 0 ? conditions.join(' || ') : '',
+        child_id: matchedChildId,
+        description: description
+      }],
+      default_child_id: othersChildId
+    }
+
+    return {
+      splitRule,
+      childIds: [matchedChildId, othersChildId],
+      availableMetrics: Array.from(allMetrics)
+    }
+  } else {
+    // Multi-metric stage (score agreement)
+    // Generate all combinations to handle overlapping groups
+    const groupsWithConditions: Array<{
+      group: ThresholdGroup
+      condition: string
+    }> = []
+
+    for (const group of groups) {
+      const groupCondition = buildGroupScoreCondition(group.selections, stageMetric)
+      if (groupCondition) {
+        groupsWithConditions.push({ group, condition: groupCondition })
+        // Track which score metrics are used
+        for (const selection of group.selections) {
+          if (stageMetric.includes(selection.metricType)) {
+            allMetrics.add(selection.metricType)
+          }
+        }
+      }
+    }
+
+    // Generate all non-empty combinations (2^N - 1, excluding empty set)
+    const branches: ExpressionSplitRule['branches'] = []
+    const n = groupsWithConditions.length
+    const totalCombinations = Math.pow(2, n)
+
+    for (let i = 1; i < totalCombinations; i++) {  // Start from 1 to skip empty set
+      const matchingGroups: string[] = []
+      const matchingGroupIds: string[] = []
+      const matchingConditions: string[] = []
+      const nonMatchingConditions: string[] = []
+
+      for (let j = 0; j < n; j++) {
+        const { group, condition } = groupsWithConditions[j]
+
+        if (i & (1 << j)) {  // Check if jth bit is set
+          matchingGroups.push(group.name)
+          matchingGroupIds.push(group.id)
+          matchingConditions.push(`(${condition})`)
+        } else {
+          nonMatchingConditions.push(`!(${condition})`)
+        }
+      }
+
+      // Build compound condition: Match these AND NOT others
+      const allConditions = [...matchingConditions, ...nonMatchingConditions]
+      const condition = allConditions.join(' && ')
+
+      // Create child ID and description
+      const childId = matchingGroupIds.length === 1
+        ? matchingGroupIds[0]  // Single group: use group ID directly
+        : `combined_${matchingGroupIds.join('_')}`  // Multiple groups: combine IDs
+
+      const description = matchingGroups.join(' + ')
+
+      branches.push({
+        condition,
+        child_id: childId,
+        description
+      })
+    }
+
+    const othersChildId = `others_${othersIdSuffix}`
+    const childIds = [...branches.map(b => b.child_id), othersChildId]
+
+    const splitRule: ExpressionSplitRule = {
+      type: 'expression',
+      available_metrics: Array.from(allMetrics),
+      branches,
+      default_child_id: othersChildId
+    }
+
+    return {
+      splitRule,
+      childIds,
+      availableMetrics: Array.from(allMetrics)
+    }
   }
 }
 
@@ -270,59 +376,104 @@ export function convertThresholdGroupsToTree(groups: ThresholdGroup[]): Threshol
   for (let i = 0; i < stagesToBuild.length; i++) {
     const { def: stageDef, expr: stageExpr } = stagesToBuild[i]
     const currentStage = i + 1  // Sequential stage numbers: 1, 2, 3...
-    const isLastStage = i === stagesToBuild.length - 1
+    const isMultiMetric = Array.isArray(stageDef.metric)
 
-    console.log(`[ThresholdGroupConverter] Building stage ${currentStage}: ${stageDef.category}`)
+    console.log(`[ThresholdGroupConverter] Building stage ${currentStage}: ${stageDef.category} (${isMultiMetric ? 'multi-group' : 'binary'})`)
 
-    // Create split rule for the parent node
-    const matchedChildId = `matched_${stageDef.matchedIdSuffix}`
-    const othersChildId = `others_${stageDef.othersIdSuffix}`
-
-    const splitRule: ExpressionSplitRule = {
-      type: 'expression',
-      available_metrics: stageExpr.availableMetrics,
-      branches: [{
-        condition: stageExpr.condition,
-        child_id: matchedChildId,
-        description: stageExpr.description
-      }],
-      default_child_id: othersChildId
-    }
+    // Build split rule using reusable helper
+    const { splitRule, childIds } = buildThresholdGroupExpressionSplit(
+      visibleGroups,
+      stageDef.metric,
+      stageDef.matchedIdSuffix,
+      stageDef.othersIdSuffix,
+      stageDef.description
+    )
 
     // Update parent node with split rule
     previousMatchedNode.split_rule = splitRule
-    previousMatchedNode.children_ids = [matchedChildId, othersChildId]
+    previousMatchedNode.children_ids = childIds
 
-    // Create matched node
-    const matchedNode = createNode(
-      matchedChildId,
-      currentStage,
-      stageDef.category,
-      [
-        ...previousMatchedNode.parent_path,
-        createParentPathInfo(previousMatchedNode.id, 0, stageExpr.condition, stageExpr.description)
-      ],
-      null,  // Will be set if there's a next stage
-      []
-    )
-    nodes.push(matchedNode)
+    if (isMultiMetric) {
+      // Multi-metric stage (score agreement): Create one node per group + others
+      // All children are terminal (no chain continuation)
+      splitRule.branches.forEach((branch, idx) => {
+        const childNode = createNode(
+          branch.child_id,
+          currentStage,
+          stageDef.category,
+          [
+            ...previousMatchedNode.parent_path,
+            createParentPath(previousMatchedNode.id, 'expression', idx, {
+              condition: branch.condition,
+              description: branch.description
+            })
+          ],
+          null,  // Terminal node
+          []
+        )
+        nodes.push(childNode)
+        console.log(`[ThresholdGroupConverter] Created group node: ${branch.child_id} (${branch.description})`)
+      })
 
-    // Create others node (always terminal)
-    const othersNode = createNode(
-      othersChildId,
-      currentStage,
-      stageDef.category,
-      [
-        ...previousMatchedNode.parent_path,
-        createParentPathInfo(previousMatchedNode.id, -1, 'default', 'Others')
-      ],
-      null,  // Terminal node
-      []
-    )
-    nodes.push(othersNode)
+      // Create others node
+      const othersNode = createNode(
+        splitRule.default_child_id,
+        currentStage,
+        stageDef.category,
+        [
+          ...previousMatchedNode.parent_path,
+          createParentPath(previousMatchedNode.id, 'expression', -1, {
+            condition: 'default',
+            description: 'Others'
+          })
+        ],
+        null,  // Terminal node
+        []
+      )
+      nodes.push(othersNode)
 
-    // Update previous matched node for next iteration
-    previousMatchedNode = matchedNode
+      // Chain terminates here (multi-group stage is always terminal)
+      previousMatchedNode = null as any
+    } else {
+      // Single-metric stage (feature_splitting or semsim_mean): Binary split
+      // matched continues chain, others is terminal
+      const [matchedChildId, othersChildId] = childIds
+
+      const matchedNode = createNode(
+        matchedChildId,
+        currentStage,
+        stageDef.category,
+        [
+          ...previousMatchedNode.parent_path,
+          createParentPath(previousMatchedNode.id, 'expression', 0, {
+            condition: stageExpr.condition,
+            description: stageExpr.description
+          })
+        ],
+        null,
+        []
+      )
+      nodes.push(matchedNode)
+
+      const othersNode = createNode(
+        othersChildId,
+        currentStage,
+        stageDef.category,
+        [
+          ...previousMatchedNode.parent_path,
+          createParentPath(previousMatchedNode.id, 'expression', -1, {
+            condition: 'default',
+            description: 'Others'
+          })
+        ],
+        null,  // Terminal node
+        []
+      )
+      nodes.push(othersNode)
+
+      // Continue chain with matched node
+      previousMatchedNode = matchedNode
+    }
   }
 
   console.log(`[ThresholdGroupConverter] Created ${nodes.length} nodes with ${allMetrics.size} metrics across ${stagesToBuild.length} stages`)
