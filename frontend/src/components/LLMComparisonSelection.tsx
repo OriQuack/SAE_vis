@@ -231,6 +231,88 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
     return false
   }
 
+  // ===== Selection Mutation Helpers =====
+  // These functions mutate the selections Map in place
+
+  // Remove all diamond cells from a specific triangle
+  const removeDiamondsFromTriangle = (selections: Map<string, number>, triangleId: string) => {
+    const diamondIndices = [1, 3, 4]
+    diamondIndices.forEach(diamondIdx => {
+      selections.delete(`${triangleId}-${diamondIdx}`)
+    })
+  }
+
+  // Remove triangle cells linked to a diamond within the same triangle
+  const removeIntraTriangleLinks = (selections: Map<string, number>, triangleId: string, diamondIndex: number) => {
+    const linkedCells = getIntraTriangleLinks(diamondIndex)
+    linkedCells.forEach(linkedIdx => {
+      selections.delete(`${triangleId}-${linkedIdx}`)
+    })
+  }
+
+  // Remove reverse-linked left triangle cells for a right triangle
+  const removeReverseLinkLeftCells = (selections: Map<string, number>, triangleId: string) => {
+    if (triangleId === 'left') return // Only applies to right triangles
+
+    const affectingLeftCells = getLeftCellsAffectingRightCell(triangleId)
+    affectingLeftCells.forEach(leftIndex => {
+      if (isTriangleCell(leftIndex)) {
+        selections.delete(`left-${leftIndex}`)
+      }
+    })
+  }
+
+  // Clear all diamonds across all triangles with their linked cells
+  const clearAllDiamonds = (selections: Map<string, number>, preserveLeftCellsForTriangle?: string) => {
+    const allTriangles = ['left', 'top-right', 'middle-right', 'bottom-right']
+    const diamondIndices = [1, 3, 4]
+
+    allTriangles.forEach(triangle => {
+      diamondIndices.forEach(idx => {
+        const diamondId = `${triangle}-${idx}`
+        if (!selections.has(diamondId)) return
+
+        // Remove the diamond
+        selections.delete(diamondId)
+
+        // Remove intra-triangle links (skip if this is the triangle we're working with)
+        if (triangle !== preserveLeftCellsForTriangle) {
+          removeIntraTriangleLinks(selections, triangle, idx)
+        }
+
+        // Remove reverse-linked left cells (with special handling)
+        if (triangle !== 'left') {
+          // Skip removing left cells if we're building a left diamond
+          if (preserveLeftCellsForTriangle !== 'left') {
+            removeReverseLinkLeftCells(selections, triangle)
+          }
+        }
+      })
+    })
+  }
+
+  // Add a diamond with all its linked cells (intra-triangle + reverse)
+  const addDiamondWithLinks = (selections: Map<string, number>, triangleId: string, diamondIndex: number, timestamp: number) => {
+    // Add the diamond
+    selections.set(`${triangleId}-${diamondIndex}`, timestamp)
+
+    // Add intra-triangle linked cells
+    const linkedCells = getIntraTriangleLinks(diamondIndex)
+    linkedCells.forEach(linkedIdx => {
+      selections.set(`${triangleId}-${linkedIdx}`, timestamp)
+    })
+
+    // Add reverse-linked left cells (if right triangle)
+    if (triangleId !== 'left') {
+      const affectingLeftCells = getLeftCellsAffectingRightCell(triangleId)
+      affectingLeftCells.forEach(leftIndex => {
+        if (isTriangleCell(leftIndex)) {
+          selections.set(`left-${leftIndex}`, timestamp)
+        }
+      })
+    }
+  }
+
   // Handle cell click - toggle selection with linking
   const handleCellClick = (cellId: string, cellIndex?: number) => {
     if (cellIndex === undefined) return
@@ -244,127 +326,66 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
       const isCurrentlySelected = newMap.has(cellId)
       const now = Date.now()
 
-      // If clicking to deselect
+      // ===== DESELECTION =====
       if (isCurrentlySelected) {
-        // Remove the cell
         newMap.delete(cellId)
 
-        // If it's a diamond, also remove its linked triangle cells
         if (isClickedDiamond) {
-          const linkedCells = getIntraTriangleLinks(cellIndex)
-          linkedCells.forEach(linkedIdx => {
-            newMap.delete(`${triangleId}-${linkedIdx}`)
-          })
-
-          // If this is a right triangle diamond, also clear reverse-linked left triangle cells
-          if (triangleId !== 'left') {
-            const affectingLeftCells = getLeftCellsAffectingRightCell(triangleId)
-            affectingLeftCells.forEach(leftIndex => {
-              if (isTriangleCell(leftIndex)) {
-                newMap.delete(`left-${leftIndex}`)
-              }
-            })
-          }
+          // Remove linked triangle cells within same triangle
+          removeIntraTriangleLinks(newMap, triangleId, cellIndex)
+          // Remove reverse-linked left cells (if right triangle)
+          removeReverseLinkLeftCells(newMap, triangleId)
         }
 
-        // If it's a triangle cell, check if we need to deselect the linked diamond
         if (isClickedTriangle) {
+          // If now < 2 triangle cells, remove any linked diamond
           const selectedTriangles = getSelectedTriangleCells(triangleId, newMap)
-          // If less than 2 triangle cells after removal, remove any linked diamond
           if (selectedTriangles.length < 2) {
-            const diamondIndices = [1, 3, 4]
-            diamondIndices.forEach(diamondIdx => {
-              newMap.delete(`${triangleId}-${diamondIdx}`)
-            })
+            removeDiamondsFromTriangle(newMap, triangleId)
           }
         }
 
         return newMap
       }
 
-      // If clicking to select
-      // RESTRICTION 1: Only one diamond can be selected at a time
+      // ===== DIAMOND SELECTION =====
+      // Restriction: Only one diamond can be selected at a time
       if (isClickedDiamond) {
-        const allTriangles = ['left', 'top-right', 'middle-right', 'bottom-right']
-        const diamondIndices = [1, 3, 4]
-
         // Clear all other diamonds and their linked cells
-        allTriangles.forEach(triangle => {
-          diamondIndices.forEach(idx => {
-            const diamondId = `${triangle}-${idx}`
-            if (newMap.has(diamondId)) {
-              newMap.delete(diamondId)
-
-              // Remove the diamond's linked triangle cells
-              const linkedCells = getIntraTriangleLinks(idx)
-              linkedCells.forEach(linkedIdx => {
-                newMap.delete(`${triangle}-${linkedIdx}`)
-              })
-
-              // If this is a right triangle diamond, also clear reverse-linked left triangle cells
-              if (triangle !== 'left') {
-                const affectingLeftCells = getLeftCellsAffectingRightCell(triangle)
-                affectingLeftCells.forEach(leftIndex => {
-                  if (isTriangleCell(leftIndex)) {
-                    newMap.delete(`left-${leftIndex}`)
-                  }
-                })
-              }
-            }
-          })
-        })
-
-        // Add the clicked diamond and its linked triangle cells
-        newMap.set(cellId, now)
-        const linkedCells = getIntraTriangleLinks(cellIndex)
-        linkedCells.forEach(linkedIdx => {
-          newMap.set(`${triangleId}-${linkedIdx}`, now)
-        })
-
-        // Reverse linking: if clicking a right cell, add linked left triangle cells
-        if (triangleId !== 'left') {
-          const affectingLeftCells = getLeftCellsAffectingRightCell(triangleId)
-          affectingLeftCells.forEach(leftIndex => {
-            if (isTriangleCell(leftIndex)) {
-              newMap.set(`left-${leftIndex}`, now)
-            }
-          })
-        }
-
+        clearAllDiamonds(newMap)
+        // Add the clicked diamond with all its linked cells
+        addDiamondWithLinks(newMap, triangleId, cellIndex, now)
         return newMap
       }
 
-      // RESTRICTION 2: At most 2 triangle cells per triangle
+      // ===== TRIANGLE SELECTION =====
+      // Restriction: At most 2 triangle cells per triangle (excluding protected left cells)
       if (isClickedTriangle) {
         const selectedTriangles = getSelectedTriangleCells(triangleId, newMap)
 
-        // For left triangle, protect cells selected via reverse linking
+        // For left triangle: protect cells selected via reverse linking from right triangles
         let trianglesToConsider = selectedTriangles
         if (triangleId === 'left') {
           const protectedCells = getProtectedLeftCells(newMap)
-          // Filter out protected cells - they don't count toward the "at most 2" limit
           trianglesToConsider = selectedTriangles.filter(t => !protectedCells.has(t.cellId))
         }
 
-        // If already have 2 non-protected triangle cells, remove the oldest one
+        // Enforce "at most 2" limit: remove oldest non-protected triangle if needed
         if (trianglesToConsider.length >= 2) {
           const oldestTriangle = trianglesToConsider[0]
           newMap.delete(oldestTriangle.cellId)
 
-          // Check if we need to remove the previously linked diamond
+          // If now < 2 total triangles, remove any linked diamond
           const remainingTriangles = getSelectedTriangleCells(triangleId, newMap)
           if (remainingTriangles.length < 2) {
-            const diamondIndices = [1, 3, 4]
-            diamondIndices.forEach(diamondIdx => {
-              newMap.delete(`${triangleId}-${diamondIdx}`)
-            })
+            removeDiamondsFromTriangle(newMap, triangleId)
           }
         }
 
         // Add the new triangle cell
         newMap.set(cellId, now)
 
-        // Reverse linking: if clicking a right cell, add linked left triangle cells
+        // Reverse linking: if right triangle, add linked left triangle cells
         if (triangleId !== 'left') {
           const affectingLeftCells = getLeftCellsAffectingRightCell(triangleId)
           affectingLeftCells.forEach(leftIndex => {
@@ -374,46 +395,16 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
           })
         }
 
-        // Check if we now have exactly 2 triangle cells → auto-select linked diamond
+        // Auto-select diamond if we now have exactly 2 triangle cells
         const updatedTriangles = getSelectedTriangleCells(triangleId, newMap)
         if (updatedTriangles.length === 2) {
           const cellIndices = updatedTriangles.map(t => parseInt(t.cellId.split('-').pop() || '-1'))
           const linkedDiamond = getLinkedDiamond(cellIndices[0], cellIndices[1])
 
           if (linkedDiamond !== null) {
-            // First clear all other diamonds (only one diamond at a time restriction)
-            const allTriangles = ['left', 'top-right', 'middle-right', 'bottom-right']
-            const diamondIndices = [1, 3, 4]
-
-            allTriangles.forEach(triangle => {
-              diamondIndices.forEach(idx => {
-                const diamondId = `${triangle}-${idx}`
-                if (newMap.has(diamondId)) {
-                  newMap.delete(diamondId)
-
-                  // Remove the diamond's linked triangle cells (only if not in current triangle)
-                  if (triangle !== triangleId) {
-                    const linkedCells = getIntraTriangleLinks(idx)
-                    linkedCells.forEach(linkedIdx => {
-                      newMap.delete(`${triangle}-${linkedIdx}`)
-                    })
-
-                    // If this is a right triangle diamond, also clear reverse-linked left triangle cells
-                    // BUT: if we're currently selecting a left diamond, don't remove left cells (they're being used)
-                    if (triangle !== 'left' && triangleId !== 'left') {
-                      const affectingLeftCells = getLeftCellsAffectingRightCell(triangle)
-                      affectingLeftCells.forEach(leftIndex => {
-                        if (isTriangleCell(leftIndex)) {
-                          newMap.delete(`left-${leftIndex}`)
-                        }
-                      })
-                    }
-                  }
-                }
-              })
-            })
-
-            // Add the linked diamond
+            // Clear all other diamonds (preserve left cells if building left diamond)
+            clearAllDiamonds(newMap, triangleId)
+            // Add the auto-selected diamond
             newMap.set(`${triangleId}-${linkedDiamond}`, now)
           }
         }
