@@ -372,6 +372,92 @@ class DataService:
             grouped_data=grouped_data
         )
 
+    async def get_filtered_histogram_panel_data(
+        self,
+        feature_ids: List[int],
+        bins: int = 20
+    ) -> Dict[str, HistogramResponse]:
+        """
+        Generate all histogram panel data filtered by feature IDs.
+
+        This method efficiently filters the dataset once and generates histograms
+        for all 5 metrics used in the histogram panel.
+
+        Args:
+            feature_ids: List of feature IDs to include
+            bins: Number of histogram bins (default: 20)
+
+        Returns:
+            Dictionary mapping metric names to HistogramResponse objects
+        """
+        if not self.is_ready():
+            raise RuntimeError("DataService not ready")
+
+        if not feature_ids:
+            raise ValueError("feature_ids cannot be empty")
+
+        try:
+            # Filter dataset once by feature IDs
+            filtered_df = (
+                self._df_lazy
+                .filter(pl.col(COL_FEATURE_ID).is_in(feature_ids))
+                .collect()
+            )
+
+            if len(filtered_df) == 0:
+                raise ValueError(f"No data available for provided feature IDs")
+
+            logger.info(f"Generating filtered histogram panel data for {len(filtered_df)} rows (from {len(feature_ids)} feature IDs)")
+
+            # Define metrics configuration matching HistogramPanel requirements
+            metrics_config = [
+                (MetricType.FEATURE_SPLITTING, None, (0.0, 0.6)),
+                (MetricType.SEMSIM_MEAN, 'llm_explainer', (0.75, 1.0)),
+                (MetricType.SCORE_EMBEDDING, 'llm_scorer', (0.0, 1.0)),
+                (MetricType.SCORE_FUZZ, 'llm_scorer', (0.0, 1.0)),
+                (MetricType.SCORE_DETECTION, 'llm_scorer', (0.0, 1.0))
+            ]
+
+            # Generate histogram for each metric
+            histograms = {}
+            for metric, average_by, fixed_domain in metrics_config:
+                # Apply averaging if needed
+                df_for_metric = filtered_df
+                if average_by:
+                    df_for_metric = self._average_by_field(filtered_df, metric, average_by)
+
+                # Extract metric values
+                values = self._extract_metric_values(df_for_metric, metric)
+
+                # Calculate bin range
+                if fixed_domain:
+                    bin_range = fixed_domain
+                else:
+                    bin_range = (float(np.min(values)), float(np.max(values)))
+
+                # Generate histogram
+                counts, bin_edges = np.histogram(values, bins=bins, range=bin_range)
+                bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+
+                # Build response
+                histograms[metric.value] = HistogramResponse(
+                    metric=metric.value,
+                    histogram={
+                        "bins": bin_centers.tolist(),
+                        "counts": counts.tolist(),
+                        "bin_edges": bin_edges.tolist()
+                    },
+                    statistics=self._calculate_statistics(values),
+                    total_features=len(values)
+                )
+
+            logger.info(f"Successfully generated {len(histograms)} histograms for filtered data")
+            return histograms
+
+        except Exception as e:
+            logger.error(f"Error generating filtered histogram panel data: {e}")
+            raise
+
     async def get_features_in_threshold_range(
         self,
         filters: Filters,

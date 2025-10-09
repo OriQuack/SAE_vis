@@ -132,6 +132,25 @@ export async function healthCheck(): Promise<boolean> {
   }
 }
 
+export async function getFilteredHistogramPanelData(
+  featureIds: number[]
+): Promise<Record<string, HistogramData>> {
+  const response = await fetch(`${API_BASE}/histogram-panel-data-filtered`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ featureIds })
+  })
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('Filtered histogram panel API error:', response.status, errorText)
+    throw new Error(`Failed to fetch filtered histogram panel data: ${response.status} - ${errorText}`)
+  }
+  const data = await response.json()
+  return data.histograms  // Extract histograms dict from response
+}
+
 export async function getLLMComparisonData(filters: Filters = {}): Promise<LLMComparisonData> {
   const response = await fetch(`${API_BASE}${API_ENDPOINTS.LLM_COMPARISON}`, {
     method: 'POST',

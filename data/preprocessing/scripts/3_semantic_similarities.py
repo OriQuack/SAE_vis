@@ -39,6 +39,24 @@ def extract_sae_id(run_config: Dict) -> str:
     return ""
 
 
+def get_actual_model_name(data_source: str, model_name_mapping: Dict) -> str:
+    """
+    Extract actual model name from data source using the mapping.
+
+    Args:
+        data_source: Data source name like "llama_e-llama_s"
+        model_name_mapping: Mapping from prefix to actual model name
+
+    Returns:
+        Actual model name or the prefix if not found in mapping
+    """
+    # Extract the explainer prefix (e.g., "llama_e" from "llama_e-llama_s")
+    explainer_prefix = data_source.split("-")[0] if "-" in data_source else data_source
+
+    # Look up the actual model name
+    return model_name_mapping.get(explainer_prefix, explainer_prefix)
+
+
 def load_embeddings(embeddings_path: str) -> Optional[Dict]:
     """Load embeddings from JSON file."""
     try:
@@ -199,7 +217,8 @@ def save_semantic_similarities(
     filename: str,
     config: Dict,
     sae_ids: List[str],
-    data_source_names: List[str]
+    data_source_names: List[str],
+    model_names: List[str]
 ) -> None:
     """Save pairwise semantic similarities data to JSON file and copy config."""
     os.makedirs(output_dir, exist_ok=True)
@@ -209,7 +228,7 @@ def save_semantic_similarities(
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(pairwise_results, f, indent=2, ensure_ascii=False)
 
-    # Save config file with sae_ids in the same directory
+    # Save config file with sae_ids and model names in the same directory
     config_with_sae_ids = config.copy()
     config_with_sae_ids["sae_id_1"] = sae_ids[0]
     config_with_sae_ids["sae_id_2"] = sae_ids[1]
@@ -217,6 +236,9 @@ def save_semantic_similarities(
     config_with_sae_ids["data_source_1"] = data_source_names[0]
     config_with_sae_ids["data_source_2"] = data_source_names[1]
     config_with_sae_ids["data_source_3"] = data_source_names[2]
+    config_with_sae_ids["llm_explainer_1"] = model_names[0]
+    config_with_sae_ids["llm_explainer_2"] = model_names[1]
+    config_with_sae_ids["llm_explainer_3"] = model_names[2]
     config_file = os.path.join(output_dir, "config.json")
     with open(config_file, "w", encoding="utf-8") as f:
         json.dump(config_with_sae_ids, f, indent=2, ensure_ascii=False)
@@ -279,6 +301,16 @@ def main():
         sae_ids.append(sae_id)
         print(f"SAE ID {i+1}: {sae_id}")
 
+    # Extract actual model names from data sources using mapping
+    model_name_mapping = config.get("model_name_mapping", {})
+    model_names = [
+        get_actual_model_name(data_source_names[0], model_name_mapping),
+        get_actual_model_name(data_source_names[1], model_name_mapping),
+        get_actual_model_name(data_source_names[2], model_name_mapping)
+    ]
+    for i, model_name in enumerate(model_names):
+        print(f"LLM Explainer {i+1}: {model_name}")
+
     # Print paths
     for i, path in enumerate(embeddings_paths):
         print(f"Embeddings source {i+1}: {path}")
@@ -315,6 +347,9 @@ def main():
             "data_source_1": data_source_1,
             "data_source_2": data_source_2,
             "data_source_3": data_source_3,
+            "llm_explainer_1": model_names[0],
+            "llm_explainer_2": model_names[1],
+            "llm_explainer_3": model_names[2],
             "sae_id_1": sae_ids[0],
             "sae_id_2": sae_ids[1],
             "sae_id_3": sae_ids[2],
@@ -328,7 +363,7 @@ def main():
     }
 
     # Save results
-    save_semantic_similarities(final_data, str(output_dir), config["output_filename"], config, sae_ids, data_source_names)
+    save_semantic_similarities(final_data, str(output_dir), config["output_filename"], config, sae_ids, data_source_names, model_names)
 
     # Print summary statistics for each pair
     print("\n=== Summary Statistics ===")

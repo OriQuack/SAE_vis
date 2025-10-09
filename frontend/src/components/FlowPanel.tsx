@@ -174,7 +174,7 @@ const getTextNodeFontSize = (nodeId: string) => {
   // Medium font for final output nodes
   if (nodeId === 'feature-splitting' || nodeId === 'semantic-similarity' || nodeId === 'embedding-score' ||
       nodeId === 'fuzz-score' || nodeId === 'detection-score') {
-    return '15'
+    return '14'
   }
   // Default size for other nodes
   return '16'

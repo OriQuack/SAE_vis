@@ -5,5 +5,10 @@
   "embedding_filename": "embeddings.json",
   "similarity_metrics": ["cosine"],
   "output_filename": "semantic_similarities.json",
-  "description": "Configuration for calculating pairwise semantic similarities between embeddings from three data sources"
+  "description": "Configuration for calculating pairwise semantic similarities between embeddings from three data sources",
+  "model_name_mapping": {
+    "llama_e": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+    "gwen_e": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+    "openai_e": "openai/gpt-oss-20b"
+  }
 }

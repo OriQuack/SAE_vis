@@ -6,7 +6,7 @@ import { scaleLinear } from 'd3-scale'
 
 // Fixed viewBox dimensions - triangles never resize or reposition
 const VIEWBOX_WIDTH = 800
-const VIEWBOX_HEIGHT = 350
+const VIEWBOX_HEIGHT = 250
 
 // Legacy export for backward compatibility with components
 export const DEFAULT_LLM_COMPARISON_DIMENSIONS = {
@@ -335,8 +335,8 @@ function calculateTriangleCells(
  */
 export function calculateLLMComparisonLayout(): LLMComparisonLayout {
   // Fixed triangle sizes (absolute pixels)
-  const leftTriangleSize = 80
-  const rightTriangleSize = 75
+  const leftTriangleSize = 75
+  const rightTriangleSize = 65
   const cellGap = 6
 
   // Fixed absolute positions based on viewBox 800x350
@@ -344,7 +344,7 @@ export function calculateLLMComparisonLayout(): LLMComparisonLayout {
   const leftTriangle = {
     cells: calculateTriangleCells(
       320,  // vx - horizontal center
-      180,  // vy - slightly below vertical center
+      125,  // vy - slightly below vertical center
       leftTriangleSize,
       'right',
       cellGap
@@ -355,7 +355,7 @@ export function calculateLLMComparisonLayout(): LLMComparisonLayout {
   const topRightTriangle = {
     cells: calculateTriangleCells(
       480,  // vx - slightly right of center
-      190,  // vy - lower than left triangle
+      135,  // vy - lower than left triangle
       rightTriangleSize,
       'down',
       cellGap
@@ -366,7 +366,7 @@ export function calculateLLMComparisonLayout(): LLMComparisonLayout {
   const middleRightTriangle = {
     cells: calculateTriangleCells(
       470,  // vx - same as left triangle
-      180,  // vy - same as left triangle
+      125,  // vy - same as left triangle
       rightTriangleSize,
       'left',
       cellGap
@@ -377,7 +377,7 @@ export function calculateLLMComparisonLayout(): LLMComparisonLayout {
   const bottomRightTriangle = {
     cells: calculateTriangleCells(
       480,  // vx - same as top right
-      170,  // vy - higher than left triangle
+      115,  // vy - higher than left triangle
       rightTriangleSize,
       'up',
       cellGap

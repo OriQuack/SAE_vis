@@ -1,9 +1,0 @@
-{
-  "data_source_1": "llama_e-llama_s",
-  "data_source_2": "gwen_e-llama_s",
-  "data_source_3": "openai_e-llama_s",
-  "embedding_filename": "embeddings.json",
-  "distance_metrics": ["cosine"],
-  "output_filename": "semantic_distances.json",
-  "description": "Configuration for calculating pairwise semantic distances between embeddings from three data sources"
-}

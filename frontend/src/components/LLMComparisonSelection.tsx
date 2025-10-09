@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react'
-import { calculateLLMComparisonLayout, getConsistencyColor, getGradientStops, CONSISTENCY_SCALE } from '../lib/d3-llm-comparison-utils'
+import { calculateLLMComparisonLayout, getConsistencyColor, getGradientStops, CONSISTENCY_SCALE, DEFAULT_LLM_COMPARISON_DIMENSIONS } from '../lib/d3-llm-comparison-utils'
 import { COMPONENT_COLORS, LLM_EXPLAINER_ICON_SVG, LLM_SCORER_ICON_SVG } from '../lib/constants'
 import type { LLMComparisonData } from '../types'
 import { getLLMComparisonData } from '../api'
@@ -385,8 +385,34 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
         // Add the new triangle cell
         newMap.set(cellId, now)
 
-        // Reverse linking: if right triangle, add linked left triangle cells
+        // If clicking a right triangle, clear selections from OTHER right triangles
         if (triangleId !== 'left') {
+          const rightTriangles = ['top-right', 'middle-right', 'bottom-right']
+          const otherRightTriangles = rightTriangles.filter(t => t !== triangleId)
+
+          const otherRightCellsToRemove = []
+          for (const key of newMap.keys()) {
+            for (const otherTriangle of otherRightTriangles) {
+              if (key.startsWith(`${otherTriangle}-`)) {
+                otherRightCellsToRemove.push(key)
+              }
+            }
+          }
+          otherRightCellsToRemove.forEach(key => newMap.delete(key))
+        }
+
+        // Reverse linking: if right triangle, clear left triangle first, then add linked cells
+        if (triangleId !== 'left') {
+          // First, clear all left triangle cells (both diamonds and triangles)
+          const leftCellsToRemove = []
+          for (const key of newMap.keys()) {
+            if (key.startsWith('left-')) {
+              leftCellsToRemove.push(key)
+            }
+          }
+          leftCellsToRemove.forEach(key => newMap.delete(key))
+
+          // Now add the reverse-linked left cells
           const affectingLeftCells = getLeftCellsAffectingRightCell(triangleId)
           affectingLeftCells.forEach(leftIndex => {
             if (isTriangleCell(leftIndex)) {
@@ -523,9 +549,9 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
     if (cellId.startsWith('top-right-')) {
       return {
         x: center.x,
-        y: center.y - offset,
+        y: center.y - offset / 2,
         rotation: -45,
-        textAnchor: 'middle' as const
+        textAnchor: 'start' as const
       }
     }
 
@@ -543,9 +569,9 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
     if (cellId.startsWith('bottom-right-')) {
       return {
         x: center.x,
-        y: center.y + offset,
+        y: center.y + offset / 2,
         rotation: 45,
-        textAnchor: 'middle' as const
+        textAnchor: 'start' as const
       }
     }
 
@@ -566,11 +592,86 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
     return [text.slice(0, maxLength), text.slice(maxLength)]
   }
 
+  // Render triangle cell label with consistent dimensions
+  const renderTriangleCellLabel = (cellId: string, cellIndex: number, cellPoints: string, bgColor: string) => {
+    const modelName = getModelName(cellId, cellIndex)
+    if (!modelName) return null
+
+    const center = getPolygonCenter(cellPoints)
+    const labelConfig = getLabelConfig(cellId, cellIndex, center)
+    if (!labelConfig) return null
+
+    const lines = splitTextIntoLines(modelName)
+    const fontSize = 16
+    const lineHeight = 16
+    const bgPadding = 6
+
+    // Calculate dynamic width based on longest line
+    const bgWidth = bgPadding * 12
+    const bgHeight = lines.length * lineHeight + bgPadding * 3
+    const isSelected = selectedCells.has(cellId)
+
+    // Position background based on triangle location
+    let bgX = labelConfig.x - bgWidth / 2
+    if (cellId.startsWith('left-')) {
+      // Left triangle: extend to the left
+      bgX = labelConfig.x - bgWidth + 10
+    } else if (cellId.startsWith('top-right-')) {
+      // Top right: center slightly adjusted
+      bgX = labelConfig.x - bgWidth / 2 + 25
+    } else if (cellId.startsWith('middle-right-')) {
+      // Middle right: extend to the right
+      bgX = labelConfig.x - 10
+    } else if (cellId.startsWith('bottom-right-')) {
+      // Bottom right: center slightly adjusted
+      bgX = labelConfig.x - bgWidth / 2 + 25
+    }
+
+    return (
+      <g>
+        {isSelected && (
+          <rect
+            x={bgX}
+            y={labelConfig.y - bgHeight / 2}
+            width={bgWidth}
+            height={bgHeight}
+            fill={bgColor}
+            fillOpacity="0.6"
+            rx="4"
+            pointerEvents="none"
+            transform={labelConfig.rotation !== 0 ? `rotate(${labelConfig.rotation} ${labelConfig.x} ${labelConfig.y})` : undefined}
+          />
+        )}
+        <text
+          x={labelConfig.x}
+          y={labelConfig.y}
+          textAnchor={labelConfig.textAnchor}
+          dominantBaseline="middle"
+          fontSize={fontSize}
+          fontWeight="600"
+          fill="#333"
+          pointerEvents="none"
+          transform={labelConfig.rotation !== 0 ? `rotate(${labelConfig.rotation} ${labelConfig.x} ${labelConfig.y})` : undefined}
+        >
+          {lines.map((line, idx) => (
+            <tspan
+              key={idx}
+              x={labelConfig.x}
+              dy={idx === 0 ? -(lines.length - 1) * lineHeight / 2 : lineHeight}
+            >
+              {line}
+            </tspan>
+          ))}
+        </text>
+      </g>
+    )
+  }
+
   return (
     <div className={`llm-comparison-selection ${className}`}>
       <svg
         className="llm-comparison-selection__svg"
-        viewBox="0 0 800 350"
+        viewBox={`0 0 ${DEFAULT_LLM_COMPARISON_DIMENSIONS.width} ${DEFAULT_LLM_COMPARISON_DIMENSIONS.height}`}
         preserveAspectRatio="xMidYMid meet"
       >
         {/* Gradient Definition for Horizontal Legend */}
@@ -582,8 +683,8 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
           </linearGradient>
         </defs>
 
-        {/* Left Label with Icon - LLM Explainer */}
-        <g className="llm-comparison-selection__label-group">
+        {/* Left Label with Icon - LLM Explainer (rotated -90°) */}
+        <g className="llm-comparison-selection__label-group" transform="rotate(-90 120 110)">
           <svg
             x={leftIconX}
             y={labelY - iconSize / 2}
@@ -607,8 +708,8 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
           </text>
         </g>
 
-        {/* Right Label with Icon - LLM Scorer */}
-        <g className="llm-comparison-selection__label-group">
+        {/* Right Label with Icon - LLM Scorer (rotated 90°) */}
+        <g className="llm-comparison-selection__label-group" transform="rotate(90 680 110)">
           <svg
             x={rightIconX}
             y={labelY - iconSize / 2}
@@ -654,40 +755,7 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
                 onMouseLeave={() => setHoveredCell(null)}
                 onClick={() => handleCellClick(cellId, i)}
               />
-              {cell.type === 'triangle' && (() => {
-                const modelName = getModelName(cellId, i)
-                if (!modelName) return null
-                const center = getPolygonCenter(cell.points)
-                const labelConfig = getLabelConfig(cellId, i, center)
-                if (!labelConfig) return null
-
-                const lines = splitTextIntoLines(modelName)
-                const lineHeight = 16
-
-                return (
-                  <text
-                    x={labelConfig.x}
-                    y={labelConfig.y}
-                    textAnchor={labelConfig.textAnchor}
-                    dominantBaseline="middle"
-                    fontSize="16"
-                    fontWeight="600"
-                    fill="#333"
-                    pointerEvents="none"
-                    transform={labelConfig.rotation !== 0 ? `rotate(${labelConfig.rotation} ${labelConfig.x} ${labelConfig.y})` : undefined}
-                  >
-                    {lines.map((line, idx) => (
-                      <tspan
-                        key={idx}
-                        x={labelConfig.x}
-                        dy={idx === 0 ? -(lines.length - 1) * lineHeight / 2 : lineHeight}
-                      >
-                        {line}
-                      </tspan>
-                    ))}
-                  </text>
-                )
-              })()}
+              {cell.type === 'triangle' && renderTriangleCellLabel(cellId, i, cell.points, COMPONENT_COLORS.EXPLAINER)}
             </g>
           )
         })}
@@ -714,40 +782,7 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
                 onMouseLeave={() => setHoveredCell(null)}
                 onClick={() => handleCellClick(cellId, i)}
               />
-              {cell.type === 'triangle' && (() => {
-                const modelName = getModelName(cellId, i)
-                if (!modelName) return null
-                const center = getPolygonCenter(cell.points)
-                const labelConfig = getLabelConfig(cellId, i, center)
-                if (!labelConfig) return null
-
-                const lines = splitTextIntoLines(modelName)
-                const lineHeight = 16
-
-                return (
-                  <text
-                    x={labelConfig.x}
-                    y={labelConfig.y}
-                    textAnchor={labelConfig.textAnchor}
-                    dominantBaseline="middle"
-                    fontSize="16"
-                    fontWeight="600"
-                    fill="#333"
-                    pointerEvents="none"
-                    transform={labelConfig.rotation !== 0 ? `rotate(${labelConfig.rotation} ${labelConfig.x} ${labelConfig.y})` : undefined}
-                  >
-                    {lines.map((line, idx) => (
-                      <tspan
-                        key={idx}
-                        x={labelConfig.x}
-                        dy={idx === 0 ? -(lines.length - 1) * lineHeight / 2 : lineHeight}
-                      >
-                        {line}
-                      </tspan>
-                    ))}
-                  </text>
-                )
-              })()}
+              {cell.type === 'triangle' && renderTriangleCellLabel(cellId, i, cell.points, COMPONENT_COLORS.SCORER)}
             </g>
           )
         })}
@@ -774,40 +809,7 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
                 onMouseLeave={() => setHoveredCell(null)}
                 onClick={() => handleCellClick(cellId, i)}
               />
-              {cell.type === 'triangle' && (() => {
-                const modelName = getModelName(cellId, i)
-                if (!modelName) return null
-                const center = getPolygonCenter(cell.points)
-                const labelConfig = getLabelConfig(cellId, i, center)
-                if (!labelConfig) return null
-
-                const lines = splitTextIntoLines(modelName)
-                const lineHeight = 16
-
-                return (
-                  <text
-                    x={labelConfig.x}
-                    y={labelConfig.y}
-                    textAnchor={labelConfig.textAnchor}
-                    dominantBaseline="middle"
-                    fontSize="16"
-                    fontWeight="600"
-                    fill="#333"
-                    pointerEvents="none"
-                    transform={labelConfig.rotation !== 0 ? `rotate(${labelConfig.rotation} ${labelConfig.x} ${labelConfig.y})` : undefined}
-                  >
-                    {lines.map((line, idx) => (
-                      <tspan
-                        key={idx}
-                        x={labelConfig.x}
-                        dy={idx === 0 ? -(lines.length - 1) * lineHeight / 2 : lineHeight}
-                      >
-                        {line}
-                      </tspan>
-                    ))}
-                  </text>
-                )
-              })()}
+              {cell.type === 'triangle' && renderTriangleCellLabel(cellId, i, cell.points, COMPONENT_COLORS.SCORER)}
             </g>
           )
         })}
@@ -834,40 +836,7 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
                 onMouseLeave={() => setHoveredCell(null)}
                 onClick={() => handleCellClick(cellId, i)}
               />
-              {cell.type === 'triangle' && (() => {
-                const modelName = getModelName(cellId, i)
-                if (!modelName) return null
-                const center = getPolygonCenter(cell.points)
-                const labelConfig = getLabelConfig(cellId, i, center)
-                if (!labelConfig) return null
-
-                const lines = splitTextIntoLines(modelName)
-                const lineHeight = 16
-
-                return (
-                  <text
-                    x={labelConfig.x}
-                    y={labelConfig.y}
-                    textAnchor={labelConfig.textAnchor}
-                    dominantBaseline="middle"
-                    fontSize="16"
-                    fontWeight="600"
-                    fill="#333"
-                    pointerEvents="none"
-                    transform={labelConfig.rotation !== 0 ? `rotate(${labelConfig.rotation} ${labelConfig.x} ${labelConfig.y})` : undefined}
-                  >
-                    {lines.map((line, idx) => (
-                      <tspan
-                        key={idx}
-                        x={labelConfig.x}
-                        dy={idx === 0 ? -(lines.length - 1) * lineHeight / 2 : lineHeight}
-                      >
-                        {line}
-                      </tspan>
-                    ))}
-                  </text>
-                )
-              })()}
+              {cell.type === 'triangle' && renderTriangleCellLabel(cellId, i, cell.points, COMPONENT_COLORS.SCORER)}
             </g>
           )
         })}
@@ -876,15 +845,15 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
         <g className="llm-comparison-selection__legend">
           <text
             x="140"
-            y="310"
-            fontSize="14"
+            y="250"
+            fontSize="15"
             fontWeight="600"
             fill="#333"
             textAnchor="middle"
           >
             Consistency Score
           </text>
-          <text
+          {/* <text
             x="140"
             y="325"
             fontSize="12"
@@ -893,20 +862,20 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
             fontStyle="italic"
           >
             (High-consistency range)
-          </text>
+          </text> */}
           <rect
             x="25"
-            y="330"
+            y="255"
             width="230"
             height="8"
             fill="url(#consistencyGradient)"
             stroke="#999"
             strokeWidth="1"
           />
-          <text x="25" y="348" fontSize="11" fill="#000000ff" textAnchor="start">
+          <text x="20" y="250" fontSize="12" fill="#000000ff" textAnchor="start">
             {CONSISTENCY_SCALE.MIN.toFixed(2)}
           </text>
-          <text x="255" y="348" fontSize="11" fill="#000000ff" textAnchor="end">
+          <text x="260" y="250" fontSize="12" fill="#000000ff" textAnchor="end">
             {CONSISTENCY_SCALE.MAX.toFixed(2)}
           </text>
         </g>

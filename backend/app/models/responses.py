@@ -86,6 +86,18 @@ class HistogramResponse(BaseModel):
         description="Grouped histogram data when groupBy is specified"
     )
 
+class FilteredHistogramPanelResponse(BaseModel):
+    """Response model for filtered histogram panel data endpoint"""
+    histograms: Dict[str, HistogramResponse] = Field(
+        ...,
+        description="Dictionary mapping metric names to histogram data"
+    )
+    filtered_feature_count: int = Field(
+        ...,
+        ge=0,
+        description="Total number of features after filtering"
+    )
+
 class SankeyNode(BaseModel):
     """Individual node in Sankey diagram"""
     id: str = Field(

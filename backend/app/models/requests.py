@@ -81,6 +81,19 @@ class ThresholdFeatureRequest(BaseModel):
         description="Maximum threshold value (inclusive)"
     )
 
+class FilteredHistogramPanelRequest(BaseModel):
+    """Request model for filtered histogram panel data endpoint"""
+    featureIds: list[int] = Field(
+        ...,
+        description="List of feature IDs to filter histograms by"
+    )
+    bins: Optional[int] = Field(
+        default=20,
+        ge=5,
+        le=100,
+        description="Number of histogram bins"
+    )
+
 class LLMComparisonRequest(BaseModel):
     """Request model for LLM comparison endpoint"""
     filters: Filters = Field(

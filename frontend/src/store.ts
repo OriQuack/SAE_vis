@@ -69,6 +69,7 @@ interface AppState {
 
   // Histogram panel data
   histogramPanelData: Record<string, HistogramData> | null
+  histogramPanelFilteredFeatureIds: number[] | null  // Track filtering state
 
   // Selection mode state
   selectionMode: boolean
@@ -122,6 +123,7 @@ interface AppState {
   fetchMultipleHistogramData: (metrics: MetricType[], nodeId?: string, panel?: PanelSide) => Promise<void>
   fetchSankeyData: (panel?: PanelSide) => Promise<void>
   fetchHistogramPanelData: () => Promise<void>
+  fetchFilteredHistogramPanelData: (featureIds: number[]) => Promise<void>
 
   // View state actions - now take panel parameter
   showVisualization: (panel?: PanelSide) => void
@@ -218,6 +220,7 @@ const initialState = {
 
   // Histogram panel data
   histogramPanelData: null,
+  histogramPanelFilteredFeatureIds: null,
 
   // Selection mode state
   selectionMode: false,
@@ -629,17 +632,17 @@ export const useStore = create<AppState>((set, get) => ({
     state.clearError('histogramPanel' as any)
 
     try {
-      // Define the metrics to fetch with their averaging configurations
+      // Define the metrics to fetch with their averaging configurations and fixed domains
       const metricsToFetch = [
-        { metric: 'feature_splitting' as MetricType, averageBy: null },
-        { metric: 'semsim_mean' as MetricType, averageBy: 'llm_explainer' },
-        { metric: 'score_embedding' as MetricType, averageBy: 'llm_scorer' },
-        { metric: 'score_fuzz' as MetricType, averageBy: 'llm_scorer' },
-        { metric: 'score_detection' as MetricType, averageBy: 'llm_scorer' }
+        { metric: 'feature_splitting' as MetricType, averageBy: null, fixedDomain: [0.0, 0.6] as [number, number] },
+        { metric: 'semsim_mean' as MetricType, averageBy: 'llm_explainer', fixedDomain: [0.75, 1.0] as [number, number] },
+        { metric: 'score_embedding' as MetricType, averageBy: 'llm_scorer', fixedDomain: [0.0, 1.0] as [number, number] },
+        { metric: 'score_fuzz' as MetricType, averageBy: 'llm_scorer', fixedDomain: [0.0, 1.0] as [number, number] },
+        { metric: 'score_detection' as MetricType, averageBy: 'llm_scorer', fixedDomain: [0.0, 1.0] as [number, number] }
       ]
 
       // Fetch all histograms in parallel
-      const histogramPromises = metricsToFetch.map(async ({ metric, averageBy }) => {
+      const histogramPromises = metricsToFetch.map(async ({ metric, averageBy, fixedDomain }) => {
         const request = {
           filters: {
             sae_id: [],
@@ -649,7 +652,7 @@ export const useStore = create<AppState>((set, get) => ({
           },
           metric,
           ...(averageBy && { averageBy }), // Only include averageBy if it's not null
-          ...(metric.startsWith('score_') && { fixedDomain: [0.0, 1.0] as [number, number] }) // Fixed domain for score metrics
+          fixedDomain // Always include fixed domain for all metrics
         }
 
         console.log('[HistogramPanel] Sending request:', JSON.stringify(request, null, 2))
@@ -660,10 +663,35 @@ export const useStore = create<AppState>((set, get) => ({
       const results = await Promise.all(histogramPromises)
       const combinedData = results.reduce((acc, result) => ({ ...acc, ...result }), {})
 
-      set({ histogramPanelData: combinedData })
+      set({ histogramPanelData: combinedData, histogramPanelFilteredFeatureIds: null })
       state.setLoading('histogramPanel' as any, false)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch histogram panel data'
+      state.setError('histogramPanel' as any, errorMessage)
+      state.setLoading('histogramPanel' as any, false)
+    }
+  },
+
+  fetchFilteredHistogramPanelData: async (featureIds: number[]) => {
+    const state = get()
+    state.setLoading('histogramPanel' as any, true)
+    state.clearError('histogramPanel' as any)
+
+    try {
+      console.log(`[HistogramPanel] Fetching filtered data for ${featureIds.length} features`)
+
+      const combinedData = await api.getFilteredHistogramPanelData(featureIds)
+
+      set({
+        histogramPanelData: combinedData,
+        histogramPanelFilteredFeatureIds: featureIds
+      })
+      state.setLoading('histogramPanel' as any, false)
+
+      console.log(`[HistogramPanel] Successfully loaded filtered data for ${featureIds.length} features`)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch filtered histogram panel data'
+      console.error('[HistogramPanel] Error fetching filtered data:', errorMessage)
       state.setError('histogramPanel' as any, errorMessage)
       state.setLoading('histogramPanel' as any, false)
     }
@@ -960,10 +988,12 @@ export const useStore = create<AppState>((set, get) => ({
       timestamp: Date.now()
     }
 
+    let updatedPendingGroup: ThresholdSelection[] = []
+
     set((state) => {
       if (state.editingGroupId) {
         // Editing existing group: Update pendingGroup and immediately save to group
-        const updatedPendingGroup = [
+        updatedPendingGroup = [
           ...state.pendingGroup.filter(s => s.metricType !== metricType),
           newSelection
         ]
@@ -979,11 +1009,13 @@ export const useStore = create<AppState>((set, get) => ({
         }
       } else if (state.isCreatingGroup) {
         // Add to pending group, replacing existing selection for same metric
+        updatedPendingGroup = [
+          ...state.pendingGroup.filter(s => s.metricType !== metricType),
+          newSelection
+        ]
+
         return {
-          pendingGroup: [
-            ...state.pendingGroup.filter(s => s.metricType !== metricType),
-            newSelection
-          ],
+          pendingGroup: updatedPendingGroup,
           activeSelection: null
         }
       } else {
@@ -997,6 +1029,26 @@ export const useStore = create<AppState>((set, get) => ({
         }
       }
     })
+
+    // Calculate intersection of ALL selections in pending group
+    if (updatedPendingGroup.length > 0) {
+      let intersectedFeatureIds = updatedPendingGroup[0].featureIds
+
+      // Intersect with each subsequent selection
+      for (let i = 1; i < updatedPendingGroup.length; i++) {
+        const currentSet = new Set(updatedPendingGroup[i].featureIds)
+        intersectedFeatureIds = intersectedFeatureIds.filter(id => currentSet.has(id))
+      }
+
+      console.log(`[Filtering] ${updatedPendingGroup.length} selections → ${intersectedFeatureIds.length} features (intersection)`)
+
+      // Filter histograms with intersected feature IDs
+      if (intersectedFeatureIds.length > 0) {
+        state.fetchFilteredHistogramPanelData(intersectedFeatureIds)
+      } else {
+        console.warn('[Filtering] No features match all selections - intersection is empty')
+      }
+    }
   },
 
   removeSelection: (id) => {
@@ -1092,6 +1144,22 @@ export const useStore = create<AppState>((set, get) => ({
         isCreatingGroup: false,
         showGroupNameInput: false
       })
+
+      // Apply filter based on group selections (intersection)
+      if (group.selections.length > 0) {
+        let intersectedFeatureIds = group.selections[0].featureIds
+
+        for (let i = 1; i < group.selections.length; i++) {
+          const currentSet = new Set(group.selections[i].featureIds)
+          intersectedFeatureIds = intersectedFeatureIds.filter(id => currentSet.has(id))
+        }
+
+        console.log(`[Filtering] Showing group "${group.name}": ${group.selections.length} selections → ${intersectedFeatureIds.length} features`)
+
+        if (intersectedFeatureIds.length > 0) {
+          state.fetchFilteredHistogramPanelData(intersectedFeatureIds)
+        }
+      }
     } else {
       // Hiding group: Only disable edit mode if this group is being edited
       const updates: any = {
@@ -1108,6 +1176,10 @@ export const useStore = create<AppState>((set, get) => ({
       }
 
       set(updates)
+
+      // Reset to unfiltered when hiding group
+      console.log('[Filtering] Hiding group - resetting to unfiltered')
+      state.fetchHistogramPanelData()
     }
   },
 
@@ -1125,10 +1197,11 @@ export const useStore = create<AppState>((set, get) => ({
 
   removeThresholdForMetric: (metricType: string) => {
     const state = get()
+    let updatedPendingGroup: ThresholdSelection[] = []
 
     if (state.editingGroupId) {
       // Editing mode: Remove from pendingGroup and update the group
-      const updatedPendingGroup = state.pendingGroup.filter(s => s.metricType !== metricType)
+      updatedPendingGroup = state.pendingGroup.filter(s => s.metricType !== metricType)
 
       set({
         pendingGroup: updatedPendingGroup,
@@ -1140,9 +1213,31 @@ export const useStore = create<AppState>((set, get) => ({
       })
     } else if (state.isCreatingGroup) {
       // Creating mode: Remove from pendingGroup
+      updatedPendingGroup = state.pendingGroup.filter(s => s.metricType !== metricType)
+
       set({
-        pendingGroup: state.pendingGroup.filter(s => s.metricType !== metricType)
+        pendingGroup: updatedPendingGroup
       })
+    }
+
+    // Recalculate intersection after removal
+    if (updatedPendingGroup.length > 0) {
+      let intersectedFeatureIds = updatedPendingGroup[0].featureIds
+
+      for (let i = 1; i < updatedPendingGroup.length; i++) {
+        const currentSet = new Set(updatedPendingGroup[i].featureIds)
+        intersectedFeatureIds = intersectedFeatureIds.filter(id => currentSet.has(id))
+      }
+
+      console.log(`[Filtering] After removal: ${updatedPendingGroup.length} selections → ${intersectedFeatureIds.length} features`)
+
+      if (intersectedFeatureIds.length > 0) {
+        state.fetchFilteredHistogramPanelData(intersectedFeatureIds)
+      }
+    } else {
+      // No selections left - reset to unfiltered
+      console.log('[Filtering] No selections remaining - resetting to unfiltered')
+      state.fetchHistogramPanelData()
     }
   }
 }))

@@ -536,7 +536,7 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
         const selectedIndices = getBarsInSelection(selectionRect, chartRect, bars, margin)
 
         if (selectedIndices.length > 0) {
-          // Calculate exact threshold from mouse position
+          // Calculate exact threshold from mouse position using actual bin edges
           const domain = {
             min: data.histogram.bin_edges[0],
             max: data.histogram.bin_edges[data.histogram.bin_edges.length - 1]
