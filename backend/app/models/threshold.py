@@ -10,7 +10,7 @@ This module defines the v2 threshold system that supports:
 
 from enum import Enum
 from typing import List, Dict, Optional, Union, Any, Literal
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, PrivateAttr, ConfigDict
 import json
 
 # Import constants for consistent string management
@@ -308,11 +308,6 @@ class SankeyThreshold(BaseModel):
 
         return v
 
-    class Config:
-        json_encoders = {
-            CategoryType: lambda v: v.value
-        }
-
 
 # ============================================================================
 # THRESHOLD STRUCTURE (replaces ThresholdTree)
@@ -334,12 +329,8 @@ class ThresholdStructure(BaseModel):
     )
 
     # Performance optimization: cache for O(1) node lookups
-    _nodes_by_id: Optional[Dict[str, SankeyThreshold]] = None
-    _nodes_by_stage: Optional[Dict[int, List[SankeyThreshold]]] = None
-
-    class Config:
-        # Allow private attributes for caching
-        underscore_attrs_are_private = True
+    _nodes_by_id: Optional[Dict[str, SankeyThreshold]] = PrivateAttr(default=None)
+    _nodes_by_stage: Optional[Dict[int, List[SankeyThreshold]]] = PrivateAttr(default=None)
 
     @validator('nodes')
     def validate_structure(cls, v):

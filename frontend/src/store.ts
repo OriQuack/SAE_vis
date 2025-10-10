@@ -1177,6 +1177,10 @@ export const useStore = create<AppState>((set, get) => ({
     )
 
     set(updates)
+
+    // Reset histogram panel to unfiltered default state
+    console.log('[Filtering] Starting new group creation - resetting to unfiltered')
+    state.fetchHistogramPanelData()
   },
 
   finishGroupCreation: (name: string) => {
@@ -1215,12 +1219,18 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   cancelGroupCreation: () => {
+    const state = get()
+
     set(() => ({
       isCreatingGroup: false,
       selectionMode: false,
       pendingGroup: [],
       showGroupNameInput: false
     }))
+
+    // Reset histogram panel to unfiltered default state
+    console.log('[Filtering] Canceling group creation - resetting to unfiltered')
+    state.fetchHistogramPanelData()
   },
 
   toggleGroupVisibility: (groupId: string) => {
@@ -1262,25 +1272,59 @@ export const useStore = create<AppState>((set, get) => ({
       // Apply threshold groups to Sankey diagrams
       state.applyThresholdGroupsToSankey()
     } else {
-      // Hiding group: Only disable edit mode if this group is being edited
+      // Hiding group
       const updates: any = {
         thresholdGroups: state.thresholdGroups.map(g =>
           g.id === groupId ? { ...g, visible: false } : g
         )
       }
 
-      // Only clear editing state if we're hiding the group that's being edited
+      // Check if we're hiding the group that's currently being edited
       if (state.editingGroupId === groupId) {
-        updates.editingGroupId = null
-        updates.selectionMode = false
-        updates.pendingGroup = []
+        // Find other visible groups (excluding the one we're hiding)
+        const remainingVisibleGroups = state.thresholdGroups.filter(g =>
+          g.visible && g.id !== groupId
+        )
+
+        if (remainingVisibleGroups.length > 0) {
+          // There are other visible groups - switch to editing the first one
+          const nextGroup = remainingVisibleGroups[0]
+          updates.editingGroupId = nextGroup.id
+          updates.selectionMode = true
+          updates.pendingGroup = [...nextGroup.selections]
+
+          set(updates)
+
+          // Apply filter for the next group
+          if (nextGroup.selections.length > 0) {
+            let intersectedFeatureIds = nextGroup.selections[0].featureIds
+            for (let i = 1; i < nextGroup.selections.length; i++) {
+              const currentSet = new Set(nextGroup.selections[i].featureIds)
+              intersectedFeatureIds = intersectedFeatureIds.filter(id => currentSet.has(id))
+            }
+
+            console.log(`[Filtering] Switched to editing group "${nextGroup.name}": ${nextGroup.selections.length} selections → ${intersectedFeatureIds.length} features`)
+
+            if (intersectedFeatureIds.length > 0) {
+              state.fetchFilteredHistogramPanelData(intersectedFeatureIds)
+            }
+          }
+        } else {
+          // No visible groups remain - disable editing mode completely
+          updates.editingGroupId = null
+          updates.selectionMode = false
+          updates.pendingGroup = []
+
+          set(updates)
+
+          // Reset to unfiltered when no visible groups
+          console.log('[Filtering] Hiding last visible group - resetting to unfiltered')
+          state.fetchHistogramPanelData()
+        }
+      } else {
+        // We're hiding a group that's not being edited - just update state
+        set(updates)
       }
-
-      set(updates)
-
-      // Reset to unfiltered when hiding group
-      console.log('[Filtering] Hiding group - resetting to unfiltered')
-      state.fetchHistogramPanelData()
 
       // Apply threshold groups to Sankey diagrams (may revert to root-only tree)
       state.applyThresholdGroupsToSankey()
@@ -1296,9 +1340,10 @@ export const useStore = create<AppState>((set, get) => ({
       thresholdGroups: state.thresholdGroups.filter(group => group.id !== groupId)
     }))
 
-    // If deleted group was visible, update Sankey diagrams
+    // If deleted group was visible, reset histogram and update Sankey diagrams
     if (wasVisible) {
-      console.log('[Store.deleteGroup] Deleted visible group, applying threshold groups to Sankey')
+      console.log('[Store.deleteGroup] Deleted visible group, resetting to unfiltered and applying threshold groups to Sankey')
+      state.fetchHistogramPanelData()
       state.applyThresholdGroupsToSankey()
     }
   },

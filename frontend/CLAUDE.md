@@ -328,13 +328,14 @@ useEffect(() => {
 
 **API Endpoints Integration:**
 ```typescript
-// All backend endpoints integrated (6 defined, 5 operational)
+// All backend endpoints integrated (7 defined, 7 operational) ✅
 export const getFilterOptions = (): Promise<FilterOptions>
 export const getHistogramData = (request: HistogramDataRequest): Promise<HistogramData>
 export const getSankeyData = (request: SankeyDataRequest): Promise<SankeyData>
 export const getComparisonData = (request: ComparisonDataRequest): Promise<ComparisonData>
-export const getLLMComparisonData = (filters: Filters): Promise<LLMComparisonData>  // Backend pending
+export const getLLMComparisonData = (filters: Filters): Promise<LLMComparisonData>  // ✅ IMPLEMENTED
 export const getFeatureData = (featureId: number): Promise<FeatureDetail>
+export const getFeaturesInThreshold = (filters: Filters, metric: string, min: number, max: number): Promise<{feature_ids: number[]}>
 export const healthCheck = (): Promise<boolean>
 ```
 
@@ -427,13 +428,15 @@ npm run lint
 
 ## Backend Integration
 
-### API Endpoints (All Functional)
+### API Endpoints (All Functional) ✅
 | Method | Endpoint | Purpose | Frontend Integration |
 |--------|----------|---------|---------------------|
 | `GET` | `/api/filter-options` | Dynamic filter population | FilterPanel dropdown options |
 | `POST` | `/api/histogram-data` | Threshold visualization | HistogramPopover data |
 | `POST` | `/api/sankey-data` | Sankey diagram generation | SankeyDiagram main visualization |
 | `POST` | `/api/comparison-data` | Phase 2 alluvial comparisons | AlluvialDiagram flow visualization |
+| `POST` | `/api/llm-comparison` | Phase 5 LLM consistency scores | LLMComparisonSelection visualization |
+| `POST` | `/api/threshold-features` | Feature IDs within threshold range | HistogramPanel filtering |
 | `GET` | `/api/feature/{id}` | Individual feature details | Future debug view |
 | `GET` | `/health` | Backend connectivity | App startup health check |
 
@@ -518,9 +521,10 @@ User Interaction → State Update → API Request → Data Processing → UI Upd
 - ✅ **Gradient Legend Bar**: Visual reference showing consistency scale (0 Low to 1 High)
 - ✅ **d3-llm-comparison-utils.ts**: Layout calculation and color utility functions
 - ✅ **Type Definitions**: LLMComparisonData, LLMExplainerModel, LLMScorerModel, ConsistencyScore
-- ✅ **API Integration**: getLLMComparisonData() function (backend endpoint pending)
-- ✅ **Dummy Data System**: Realistic test data with cosine similarity and RV coefficient values
-- ✅ **Interactive Features**: Preserved existing hover/selection/click interaction logic
+- ✅ **API Integration**: getLLMComparisonData() with backend endpoint IMPLEMENTED (loads pre-calculated stats)
+- ✅ **Backend Implementation**: POST /api/llm-comparison serves consistency scores from JSON file
+- ✅ **Real Data Integration**: Uses pre-calculated explainer consistency (cosine similarity) and scorer consistency (RV coefficient)
+- ✅ **Interactive Features**: Full hover/selection/click interaction logic with model filtering
 - ✅ **FlowPanel Updates**: ViewBox adjusted to 0 0 600 175 with 0.1rem top margin
 
 ### 📝 Future Enhancements
@@ -528,7 +532,7 @@ User Interaction → State Update → API Request → Data Processing → UI Upd
 - **Debug View**: Individual feature inspection with path visualization
 - **Cross-Visualization Interactions**: Link selections between Sankey and Alluvial diagrams
 - **Export Functionality**: Save/load custom tree and group configurations
-- **LLM Comparison Backend**: Implement backend endpoint for real correlation data
+- **Dynamic LLM Statistics Computation**: Real-time correlation calculation instead of pre-calculated stats
 - **Dynamic LLM Selection**: User interface for selecting models to compare
 - **Virtual Scrolling**: Performance optimization for large node lists
 - **Advanced Caching**: Intelligent data caching strategies

@@ -67,7 +67,9 @@ data/
 │       └── config.json         # Consolidation config and statistics
 └── master/                     # Master parquet files for analysis ✅ NEW
     ├── feature_analysis.parquet            # Master table with cosine similarity
-    └── feature_analysis.metadata.json      # Processing metadata and statistics
+    ├── feature_analysis.metadata.json      # Processing metadata and statistics
+    ├── analyze_features.py                 # Simplified analysis script (103 lines)
+    └── analysis_results_<timestamp>.json   # Analysis output with timestamp
 ```
 
 ## Data Flow Pipeline
@@ -297,3 +299,61 @@ The parquet schema is optimized for multiple visualization types:
 - **Optimization**: ParentPath-based caching for 20-30% faster Sankey generation
 - **Memory Efficiency**: Lazy evaluation prevents loading full dataset into memory
 - **Scalability**: Designed to handle 16K+ features with same architecture
+
+## Analysis Tools
+
+### analyze_features.py (Simplified - October 2025)
+
+**Purpose**: Quick data inspection and validation for feature_analysis.parquet
+
+**Features**:
+- **Compact Design**: 103 lines (simplified from 593 lines, ~83% reduction)
+- **Column Analysis**: Shows data type, unique count, null count for each column
+- **Categorical Display**: Lists all values with counts for columns with ≤20 unique values
+- **Numerical Ranges**: Shows min, max, mean for numerical columns
+- **JSON Export**: Saves results to timestamped JSON file
+
+**Usage**:
+```bash
+cd /home/dohyun/interface/data/master
+python analyze_features.py
+
+# Output: analysis_results_YYYYMMDD_HHMMSS.json
+```
+
+**Output Format**:
+```json
+{
+  "timestamp": "20251010_024207",
+  "dataset_info": {
+    "total_rows": 2471,
+    "total_columns": 13,
+    "unique_features": 824
+  },
+  "columns": {
+    "feature_id": {
+      "dtype": "UInt32",
+      "n_unique": 824,
+      "n_nulls": 0,
+      "range": {"min": 0.0, "max": 999.0, "mean": 499.64}
+    },
+    "llm_explainer": {
+      "dtype": "Categorical",
+      "n_unique": 3,
+      "n_nulls": 0,
+      "values": {
+        "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8": 824,
+        "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4": 824,
+        "openai/gpt-oss-20b": 823
+      }
+    }
+  }
+}
+```
+
+**Key Metrics Validated**:
+- 2,471 total rows (824 unique features × 3 LLM explainers)
+- 13 columns with proper data types
+- LLM explainers: Qwen, Llama 3.1, OpenAI (GPT)
+- LLM scorers: Llama 3.1 70B (all 2,471 rows)
+- Score metrics with null handling (simulation: 1,022 nulls, embedding: 1,472 nulls)

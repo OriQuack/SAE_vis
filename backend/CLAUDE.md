@@ -15,7 +15,7 @@ The backend is a production-ready FastAPI application with V2 classification eng
 │                     FastAPI Application Layer                   │
 │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐   │
 │  │   API Router    │ │  Exception      │ │   CORS &        │   │
-│  │ (6 Endpoints)   │ │  Handling       │ │   Lifespan      │   │
+│  │ (7 Endpoints)   │ │  Handling       │ │   Lifespan      │   │
 │  └─────────────────┘ └─────────────────┘ └─────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
                                  ↕
@@ -67,7 +67,8 @@ backend/
 │   │   ├── histogram.py          # ✅ POST /api/histogram-data
 │   │   ├── sankey.py             # ✅ POST /api/sankey-data
 │   │   ├── comparison.py         # ✅ POST /api/comparison-data (Phase 2)
-│   │   ├── llm_comparison.py     # 🔄 POST /api/llm-comparison (Phase 5 - pending)
+│   │   ├── llm_comparison.py     # ✅ POST /api/llm-comparison (Phase 5 - IMPLEMENTED)
+│   │   ├── threshold_features.py # ✅ POST /api/threshold-features (Phase 4)
 │   │   └── feature.py            # ✅ GET /api/feature/{id}
 │   ├── models/                   # 📋 Pydantic model definitions
 │   │   ├── requests.py           # Request schemas with validation
@@ -133,6 +134,8 @@ curl http://localhost:8003/health
 | `POST` | `/api/histogram-data` | Threshold slider visualization | ✅ Optimized |
 | `POST` | `/api/sankey-data` | Phase 1 flow diagrams | ✅ Multi-stage |
 | `POST` | `/api/comparison-data` | Phase 2 alluvial comparisons | ✅ Active |
+| `POST` | `/api/llm-comparison` | Phase 5 LLM consistency scores | ✅ Implemented |
+| `POST` | `/api/threshold-features` | Feature IDs within threshold range | ✅ Active |
 | `GET` | `/api/feature/{id}` | Debug view detail drilling | ✅ JSON linked |
 
 ### System Endpoints
@@ -143,6 +146,72 @@ curl http://localhost:8003/health
 | `GET` | `/` | API information | Version & description |
 | `GET` | `/docs` | Interactive API docs | Swagger UI |
 | `GET` | `/redoc` | Alternative docs | ReDoc interface |
+
+### 📊 LLM Comparison Endpoint (Phase 5 - IMPLEMENTED)
+
+**Endpoint**: `POST /api/llm-comparison`
+**Purpose**: Serves pre-calculated LLM consistency statistics for visualization
+**Status**: ✅ Fully Implemented (October 2025)
+
+**Implementation Details:**
+```python
+# Location: app/api/llm_comparison.py
+@router.post("/llm-comparison", response_model=LLMComparisonResponse)
+async def get_llm_comparison(request: LLMComparisonRequest):
+    """
+    Returns pre-calculated consistency scores for:
+    - Explainer consistency: cosine similarity between explanation embeddings
+    - Scorer consistency: RV coefficient between scoring vectors
+    """
+```
+
+**Data Source:**
+- **Location**: `/data/llm_comparison/llm_comparison_stats.json`
+- **Format**: Pre-calculated JSON file with consistency scores
+- **Loading**: Global cache loaded once at startup
+- **Statistics**: Explainer consistency (cosine similarity) and scorer consistency (RV coefficient)
+
+**Response Structure:**
+```json
+{
+  "explainers": [
+    {"id": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4", "name": "Llama"},
+    {"id": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8", "name": "Qwen"},
+    {"id": "openai/gpt-oss-20b", "name": "OpenAI"}
+  ],
+  "scorersForExplainer1": [...],  // 3 scorers for each explainer
+  "scorersForExplainer2": [...],
+  "scorersForExplainer3": [...],
+  "explainerConsistencies": {
+    "left-1": {"value": 0.85, "method": "cosine_similarity"},
+    "left-3": {"value": 0.92, "method": "cosine_similarity"},
+    "left-4": {"value": 0.88, "method": "cosine_similarity"}
+  },
+  "scorerConsistencies": {
+    "top-right-1": {"value": 0.75, "method": "rv_coefficient"},
+    "top-right-3": {"value": 0.82, "method": "rv_coefficient"},
+    // ... 9 total scorer consistency scores
+  }
+}
+```
+
+**Key Features:**
+- **Static Data Serving**: Pre-calculated statistics for fast response times
+- **Triangle Cell Mapping**: Maps consistency scores to specific triangle cells in frontend visualization
+- **Model Identification**: Uses actual filter values from master parquet (llm_explainer, llm_scorer)
+- **Error Handling**: Proper 404 handling if stats file missing, 500 for unexpected errors
+- **Performance**: Sub-10ms response time (cached data)
+
+**Frontend Integration:**
+- Powers `LLMComparisonSelection.tsx` component
+- Visualizes consistency with green→yellow→red color gradient
+- Diamond cells show consistency scores, triangle cells show model names
+- Used for analyzing LLM explainer/scorer agreement patterns
+
+**Current Limitations:**
+- Serves global statistics (filter parameters not yet applied)
+- Requires pre-calculated statistics file (not real-time computation)
+- Future enhancement: Real-time correlation calculation based on filter selection
 
 ## Data Service Architecture
 
@@ -565,10 +634,12 @@ API Endpoints → DataService (visualization_service.py)
 
 ## Future Enhancement Roadmap
 
-### ✅ Completed Features (January 2025)
+### ✅ Completed Features (October 2025)
 - ✅ **V2 Classification Engine**: Modular classification with split evaluators
 - ✅ **Dynamic Tree Support**: Runtime stage creation/removal
 - ✅ **Comparison Endpoint**: Alluvial flow data generation (Phase 2)
+- ✅ **LLM Comparison Endpoint**: Pre-calculated consistency statistics (Phase 5)
+- ✅ **Threshold Features Endpoint**: Feature ID filtering for histogram panel (Phase 4)
 - ✅ **Node Filtering**: Histogram data filtered by node path
 - ✅ **ParentPath Optimizations**: O(1) node lookups, path-based filtering, early termination
 - ✅ **Performance Validated**: 20-30% faster Sankey generation, 3-5x faster leaf filtering

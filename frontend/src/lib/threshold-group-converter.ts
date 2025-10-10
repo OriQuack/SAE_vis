@@ -14,7 +14,7 @@
  * - Features not matching any group go to "others" branch
  */
 
-import type { ThresholdTree, SankeyThreshold, ExpressionSplitRule, ParentPathInfo } from '../types'
+import type { ThresholdTree, SankeyThreshold, ExpressionSplitRule, CategoryType } from '../types'
 import { createRootOnlyTree } from './threshold-utils'
 import { createNode, createParentPath } from './split-rule-builders'
 import {
@@ -47,7 +47,7 @@ interface ThresholdGroup {
 
 interface StageDefinition {
   metric: string | string[]  // Single metric or array of metrics
-  category: string
+  category: CategoryType
   matchedIdSuffix: string
   othersIdSuffix: string
   description: string

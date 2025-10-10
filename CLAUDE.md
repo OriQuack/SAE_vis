@@ -67,11 +67,13 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 ├── backend/                          # ✅ FastAPI Backend (Production-Ready)
 │   ├── app/
 │   │   ├── main.py                  # FastAPI application with lifespan management
-│   │   ├── api/                    # Modular API endpoints (6 defined, 5 implemented)
+│   │   ├── api/                    # Modular API endpoints (7 defined, 7 implemented)
 │   │   │   ├── filters.py           # GET /api/filter-options
 │   │   │   ├── histogram.py         # POST /api/histogram-data
 │   │   │   ├── sankey.py           # POST /api/sankey-data
 │   │   │   ├── comparison.py        # POST /api/comparison-data
+│   │   │   ├── llm_comparison.py    # POST /api/llm-comparison
+│   │   │   ├── threshold_features.py # POST /api/threshold-features
 │   │   │   └── feature.py          # GET /api/feature/{id}
 │   │   ├── models/                 # Pydantic request/response models
 │   │   │   ├── requests.py         # API request schemas
@@ -129,7 +131,7 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 **Core Features:**
 - **FastAPI 0.104.1**: Modern async web framework with automatic OpenAPI documentation
 - **High-Performance Data Service**: Polars-based lazy evaluation for efficient large dataset processing
-- **Comprehensive API**: 6 core endpoints with sub-second response times
+- **Comprehensive API**: 7 core endpoints with sub-second response times (all operational)
 - **Advanced Error Handling**: Structured error responses with custom error codes
 - **Health Monitoring**: Service availability and data connectivity validation
 - **CORS Support**: Multi-port frontend development support
@@ -194,7 +196,8 @@ threshold tree structure. Not limited to 3 scores or fixed pipeline.
 | `POST` | `/api/histogram-data` | Threshold visualization | ✅ Active | ~200ms (20 bins) |
 | `POST` | `/api/sankey-data` | Multi-stage flow diagrams | ✅ Heavy Usage | ~300ms (full pipeline) |
 | `POST` | `/api/comparison-data` | Alluvial comparisons | ✅ Active | Phase 2 complete |
-| `POST` | `/api/llm-comparison` | LLM consistency analysis | 🔄 Frontend Ready | Backend pending |
+| `POST` | `/api/llm-comparison` | LLM consistency analysis | ✅ IMPLEMENTED | ~10ms (pre-calculated stats) |
+| `POST` | `/api/threshold-features` | Feature IDs within threshold range | ✅ Active | ~50ms (Phase 4) |
 | `GET` | `/api/feature/{id}` | Individual feature details | ✅ Active | ~10ms (direct lookup) |
 
 **Additional System Endpoints:**
@@ -377,17 +380,18 @@ npm run preview
 - ✅ **Color Utilities**: `getConsistencyColor()` and `getGradientStops()` in d3-llm-comparison-utils.ts
 - ✅ **Layout Calculations**: `calculateLLMComparisonLayout()` with triangle cell positioning
 - ✅ **Type Definitions**: LLMComparisonData, LLMExplainerModel, LLMScorerModel, ConsistencyScore types
-- ✅ **API Function**: `getLLMComparisonData()` in api.ts (backend endpoint pending implementation)
-- ✅ **Dummy Data**: Frontend functional with realistic test data for development
+- ✅ **API Function**: `getLLMComparisonData()` in api.ts with backend endpoint IMPLEMENTED
+- ✅ **Backend Implementation**: POST /api/llm-comparison serves pre-calculated consistency statistics
+- ✅ **Real Data Integration**: Uses pre-calculated explainer consistency (cosine similarity) and scorer consistency (RV coefficient)
 - ✅ **Correlation Methods**: Cosine similarity (explainers), RV coefficient (scorers)
 
 ### 📝 Future Enhancements
 - **UI for Tree Builder**: Visual interface for adding/removing stages (currently API-only)
 - **Debug View**: Individual feature inspection and path visualization
-- **Export Functionality**: Save/load custom tree configurations
+- **Export Functionality**: Save/load custom tree and group configurations
 - **Cross-Visualization Interactions**: Link selections between Sankey and Alluvial diagrams
-- **LLM Comparison Backend**: Implement /api/llm-comparison endpoint with real correlation calculations
-- **Dynamic LLM Loading**: Allow users to select which LLM models to compare
+- **Dynamic LLM Statistics Computation**: Real-time correlation calculation instead of pre-calculated stats
+- **Dynamic LLM Selection**: User interface for selecting which LLM models to compare
 - **Dataset Scaling**: Further optimization for 16K+ feature datasets
 
 ## Important Development Notes
@@ -397,8 +401,9 @@ npm run preview
 3. **Type Safety**: Comprehensive TypeScript integration - maintain type definitions
 4. **Error Handling**: Use structured error codes for proper frontend error handling
 5. **Performance**: All data operations use async patterns - maintain this architecture
-6. **API Integration**: Frontend depends on 5 operational backend endpoints (6th endpoint /api/llm-comparison pending)
+6. **API Integration**: Frontend integrates with 7 fully operational backend endpoints (all implemented)
 7. **Testing**: Always run backend tests after changes to verify functionality
+8. **LLM Comparison Data**: Requires pre-calculated statistics file at `/data/llm_comparison/llm_comparison_stats.json`
 
 ## Project Maturity Assessment
 
