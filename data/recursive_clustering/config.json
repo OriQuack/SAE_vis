@@ -14,25 +14,25 @@
   "min_cluster_percentage": 1.0,
   "save_visualizations": true,
   "feature_parameters": {
-    "umap_n_neighbors": 20,
-    "umap_min_dist": 0.2,
+    "umap_n_neighbors": 25,
+    "umap_min_dist": 0.0,
     "umap_metric": "cosine",
-    "umap_n_components": 2,
+    "umap_n_components": 20,
     "hdbscan_min_cluster_size": 10,
     "hdbscan_min_samples": 5,
     "hdbscan_metric": "euclidean",
-    "min_cluster_size_for_recursion": 15
+    "min_cluster_size_for_recursion": 10
   },
   "explanation_parameters": {
-    "umap_n_neighbors": 20,
-    "umap_min_dist": 0.1,
+    "umap_n_neighbors": 10,
+    "umap_min_dist": 0.0,
     "umap_metric": "cosine",
-    "umap_n_components": 2,
+    "umap_n_components": 10,
     "hdbscan_min_cluster_size": 20,
     "hdbscan_min_samples": 5,
     "hdbscan_metric": "euclidean",
     "min_cluster_size_for_recursion": 20
   },
   "description": "Configuration for Recursive UMAP + HDBSCAN clustering on high-dimensional embeddings (Spotify Engineering approach)",
-  "comment": "Recursive UMAP + HDBSCAN on HIGH-DIMENSIONAL embeddings. At each level: (1) Apply UMAP to reduce high-dim → 2D, (2) Apply HDBSCAN on 2D to find clusters, (3) For each cluster, extract high-dim subset and recurse. Features use SAE decoder weights from HuggingFace (orthogonal features with cosine similarity < 0.25). Explanations use embeddings from data/embeddings/ directory (higher internal similarity)."
+  "comment": "Recursive UMAP + HDBSCAN on HIGH-DIMENSIONAL embeddings. At each level: (1) Apply UMAP to reduce high-dim → n_components dimensions, (2) Apply HDBSCAN to find clusters, (3) For each cluster, extract high-dim subset and recurse. umap_n_components is configurable (2 for visualization, 5+ for clustering). Features use SAE decoder weights from HuggingFace (orthogonal features with cosine similarity < 0.25). Explanations use embeddings from data/embeddings/ directory (higher internal similarity)."
 }

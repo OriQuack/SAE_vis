@@ -37,6 +37,7 @@ import hdbscan
 from umap import UMAP
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
 
 
 class NumpyEncoder(json.JSONEncoder):
@@ -299,35 +300,45 @@ class RecursiveUMAPHDBSCAN:
             random_state: Random seed for reproducibility
 
         Returns:
-            2D embeddings (n_samples, 2)
+            Reduced embeddings (n_samples, n_components)
         """
+        n_samples = len(data)
+
         # Adjust n_neighbors if data is too small
-        n_neighbors = min(params["umap_n_neighbors"], len(data) - 1)
+        # UMAP requires n_neighbors < n_samples
+        n_neighbors = min(params["umap_n_neighbors"], n_samples - 1)
+        n_neighbors = max(n_neighbors, 2)  # Minimum 2 neighbors
+
+        # Adjust n_components if data is too small
+        # For spectral initialization, we need n_components < n_samples
+        # Safe rule: n_components <= min(n_samples - 2, requested_n_components)
+        n_components = min(params["umap_n_components"], n_samples - 2)
+        n_components = max(n_components, 2)  # Minimum 2 components
 
         reducer = UMAP(
             n_neighbors=n_neighbors,
             min_dist=params["umap_min_dist"],
-            n_components=params["umap_n_components"],
+            n_components=n_components,
             metric=params["umap_metric"],
             random_state=random_state
         )
 
-        embeddings_2d = reducer.fit_transform(data)
-        return embeddings_2d
+        embeddings_reduced = reducer.fit_transform(data)
+        return embeddings_reduced
 
-    def apply_hdbscan(self, embeddings_2d: np.ndarray, params: Dict) -> Tuple[np.ndarray, hdbscan.HDBSCAN]:
+    def apply_hdbscan(self, embeddings_reduced: np.ndarray, params: Dict) -> Tuple[np.ndarray, hdbscan.HDBSCAN]:
         """
-        Apply HDBSCAN clustering to 2D UMAP embeddings.
+        Apply HDBSCAN clustering to UMAP-reduced embeddings.
 
         Args:
-            embeddings_2d: 2D UMAP embeddings (n_samples, 2)
+            embeddings_reduced: UMAP-reduced embeddings (n_samples, n_components)
             params: Parameter dictionary containing HDBSCAN settings
 
         Returns:
             Tuple of (cluster_labels, hdbscan_object)
         """
         # Adjust parameters if data is too small
-        min_cluster_size = min(params["hdbscan_min_cluster_size"], len(embeddings_2d) // 3)
+        min_cluster_size = min(params["hdbscan_min_cluster_size"], len(embeddings_reduced) // 3)
         min_cluster_size = max(min_cluster_size, 2)
 
         min_samples = min(params["hdbscan_min_samples"], min_cluster_size)
@@ -338,7 +349,7 @@ class RecursiveUMAPHDBSCAN:
             metric=params["hdbscan_metric"]
         )
 
-        labels = clusterer.fit_predict(embeddings_2d)
+        labels = clusterer.fit_predict(embeddings_reduced)
         return labels, clusterer
 
     def save_umap_visualization(
@@ -438,47 +449,97 @@ class RecursiveUMAPHDBSCAN:
 
     def compute_cluster_metadata(
         self,
-        embeddings_2d: np.ndarray,
+        embeddings_reduced: np.ndarray,
         original_high_dim: np.ndarray,
         labels: np.ndarray
     ) -> Dict:
         """
-        Compute metadata for clusters.
+        Compute metadata for clusters including quality metrics.
 
         Args:
-            embeddings_2d: 2D UMAP embeddings
+            embeddings_reduced: UMAP-reduced embeddings
             original_high_dim: Original high-dimensional data
             labels: Cluster labels
 
         Returns:
-            Dictionary with cluster metadata
+            Dictionary with cluster metadata and quality metrics
         """
         unique_labels = np.unique(labels[labels >= 0])
+        n_clusters = len(unique_labels)
+        n_noise = np.sum(labels == -1)
 
         metadata = {
-            "n_clusters": len(unique_labels),
-            "n_noise": np.sum(labels == -1),
-            "noise_percentage": float(np.sum(labels == -1) / len(labels) * 100),
+            "n_clusters": n_clusters,
+            "n_noise": int(n_noise),
+            "noise_percentage": float(n_noise / len(labels) * 100),
             "cluster_sizes": {},
-            "cluster_centroids_2d": {},
-            "cluster_bounds_2d": {}
+            "cluster_centroids": {},
+            "cluster_bounds": {},
+            "quality_metrics": {}
         }
 
+        # Compute cluster-specific metadata
         for label in unique_labels:
             mask = labels == label
-            cluster_points_2d = embeddings_2d[mask]
+            cluster_points = embeddings_reduced[mask]
 
             metadata["cluster_sizes"][int(label)] = int(np.sum(mask))
-            metadata["cluster_centroids_2d"][int(label)] = {
-                "x": float(np.mean(cluster_points_2d[:, 0])),
-                "y": float(np.mean(cluster_points_2d[:, 1]))
-            }
-            metadata["cluster_bounds_2d"][int(label)] = {
-                "x_min": float(np.min(cluster_points_2d[:, 0])),
-                "x_max": float(np.max(cluster_points_2d[:, 0])),
-                "y_min": float(np.min(cluster_points_2d[:, 1])),
-                "y_max": float(np.max(cluster_points_2d[:, 1]))
-            }
+
+            # Compute centroids (works for any dimensionality)
+            if embeddings_reduced.shape[1] == 2:
+                metadata["cluster_centroids"][int(label)] = {
+                    "x": float(np.mean(cluster_points[:, 0])),
+                    "y": float(np.mean(cluster_points[:, 1]))
+                }
+                metadata["cluster_bounds"][int(label)] = {
+                    "x_min": float(np.min(cluster_points[:, 0])),
+                    "x_max": float(np.max(cluster_points[:, 0])),
+                    "y_min": float(np.min(cluster_points[:, 1])),
+                    "y_max": float(np.max(cluster_points[:, 1]))
+                }
+            else:
+                # For higher dimensions, just store centroid as list
+                metadata["cluster_centroids"][int(label)] = cluster_points.mean(axis=0).tolist()
+
+        # Compute clustering quality metrics (only if we have actual clusters, not just noise)
+        if n_clusters >= 2:
+            # Filter out noise points for quality metrics
+            non_noise_mask = labels >= 0
+            labels_no_noise = labels[non_noise_mask]
+            embeddings_no_noise = embeddings_reduced[non_noise_mask]
+
+            # Only compute if we have enough samples per cluster
+            if len(labels_no_noise) >= n_clusters:
+                try:
+                    # Silhouette Score: measures how similar objects are to their own cluster vs others
+                    # Range: [-1, 1], higher is better
+                    silhouette = silhouette_score(embeddings_no_noise, labels_no_noise, metric='euclidean')
+                    metadata["quality_metrics"]["silhouette_score"] = float(silhouette)
+                except Exception as e:
+                    metadata["quality_metrics"]["silhouette_score"] = None
+                    metadata["quality_metrics"]["silhouette_error"] = str(e)
+
+                try:
+                    # Davies-Bouldin Index: average similarity between clusters
+                    # Range: [0, ∞), lower is better
+                    davies_bouldin = davies_bouldin_score(embeddings_no_noise, labels_no_noise)
+                    metadata["quality_metrics"]["davies_bouldin_index"] = float(davies_bouldin)
+                except Exception as e:
+                    metadata["quality_metrics"]["davies_bouldin_index"] = None
+                    metadata["quality_metrics"]["davies_bouldin_error"] = str(e)
+
+                try:
+                    # Calinski-Harabasz Score: ratio of between-cluster to within-cluster dispersion
+                    # Range: [0, ∞), higher is better
+                    calinski = calinski_harabasz_score(embeddings_no_noise, labels_no_noise)
+                    metadata["quality_metrics"]["calinski_harabasz_score"] = float(calinski)
+                except Exception as e:
+                    metadata["quality_metrics"]["calinski_harabasz_score"] = None
+                    metadata["quality_metrics"]["calinski_harabasz_error"] = str(e)
+            else:
+                metadata["quality_metrics"]["note"] = "Too few samples for quality metrics"
+        else:
+            metadata["quality_metrics"]["note"] = "Need at least 2 clusters for quality metrics"
 
         return metadata
 
@@ -545,23 +606,46 @@ class RecursiveUMAPHDBSCAN:
             node.metadata["stop_reason"] = "below_percentage"
             return node
 
-        # Step 1: Apply UMAP to reduce high-dim → 2D
-        logger.info(f"{'  ' * level}  → UMAP: {high_dim_data.shape[1]}D → 2D")
-        embeddings_2d = self.apply_umap(high_dim_data, params, random_state=42 + level)
+        # Step 1: Apply UMAP to reduce high-dim → n_components
+        requested_n_components = params["umap_n_components"]
+        logger.info(f"{'  ' * level}  → UMAP: {high_dim_data.shape[1]}D → {requested_n_components}D")
+        embeddings_reduced = self.apply_umap(high_dim_data, params, random_state=42 + level)
+        actual_n_components = embeddings_reduced.shape[1]
 
-        # Step 2: Apply HDBSCAN on 2D to find clusters
-        logger.info(f"{'  ' * level}  → HDBSCAN on 2D space")
-        labels, clusterer = self.apply_hdbscan(embeddings_2d, params)
+        # Log if parameters were adjusted for small sample size
+        if actual_n_components != requested_n_components:
+            logger.info(f"{'  ' * level}     (adjusted to {actual_n_components}D due to small sample size)")
+
+        # Step 2: Apply HDBSCAN on reduced space to find clusters
+        logger.info(f"{'  ' * level}  → HDBSCAN on {actual_n_components}D space")
+        labels, clusterer = self.apply_hdbscan(embeddings_reduced, params)
 
         # Compute metadata
-        metadata = self.compute_cluster_metadata(embeddings_2d, high_dim_data, labels)
+        metadata = self.compute_cluster_metadata(embeddings_reduced, high_dim_data, labels)
         node.metadata.update(metadata)
 
         logger.info(f"{'  ' * level}  → Found {metadata['n_clusters']} clusters, {metadata['n_noise']} noise")
 
-        # Save visualization if enabled
-        if self.save_visualizations:
-            self.save_umap_visualization(embeddings_2d, labels, cluster_id, level, data_type)
+        # Log quality metrics if available
+        if "quality_metrics" in metadata and metadata["quality_metrics"]:
+            quality = metadata["quality_metrics"]
+            if "silhouette_score" in quality and quality["silhouette_score"] is not None:
+                sil = quality['silhouette_score']
+                db = quality.get('davies_bouldin_index')
+                ch = quality.get('calinski_harabasz_score')
+
+                db_str = f"{db:.3f}" if db is not None else "N/A"
+                ch_str = f"{ch:.1f}" if ch is not None else "N/A"
+
+                logger.info(f"{'  ' * level}  → Quality: Silhouette={sil:.3f}, "
+                           f"Davies-Bouldin={db_str}, "
+                           f"Calinski-Harabasz={ch_str}")
+            elif "note" in quality:
+                logger.info(f"{'  ' * level}  → Quality: {quality['note']}")
+
+        # Save visualization if enabled (only for 2D)
+        if self.save_visualizations and actual_n_components == 2:
+            self.save_umap_visualization(embeddings_reduced, labels, cluster_id, level, data_type)
 
         # Check if recursion should continue
         if metadata['n_clusters'] == 0:
@@ -611,7 +695,8 @@ class RecursiveUMAPHDBSCAN:
         logger.info("Using FEATURE parameters:")
         logger.info(f"  UMAP: n_neighbors={self.feature_params['umap_n_neighbors']}, "
                    f"min_dist={self.feature_params['umap_min_dist']}, "
-                   f"metric={self.feature_params['umap_metric']}")
+                   f"metric={self.feature_params['umap_metric']}, "
+                   f"n_components={self.feature_params['umap_n_components']}")
         logger.info(f"  HDBSCAN: min_cluster_size={self.feature_params['hdbscan_min_cluster_size']}, "
                    f"min_samples={self.feature_params['hdbscan_min_samples']}")
 
@@ -678,7 +763,8 @@ class RecursiveUMAPHDBSCAN:
         logger.info("Using EXPLANATION parameters:")
         logger.info(f"  UMAP: n_neighbors={self.explanation_params['umap_n_neighbors']}, "
                    f"min_dist={self.explanation_params['umap_min_dist']}, "
-                   f"metric={self.explanation_params['umap_metric']}")
+                   f"metric={self.explanation_params['umap_metric']}, "
+                   f"n_components={self.explanation_params['umap_n_components']}")
         logger.info(f"  HDBSCAN: min_cluster_size={self.explanation_params['hdbscan_min_cluster_size']}, "
                    f"min_samples={self.explanation_params['hdbscan_min_samples']}")
 
@@ -726,6 +812,64 @@ class RecursiveUMAPHDBSCAN:
 
         return results
 
+    def extract_quality_metrics_summary(self, cluster_tree: Dict) -> Dict:
+        """
+        Recursively extract quality metrics from cluster tree.
+
+        Args:
+            cluster_tree: Cluster tree dictionary
+
+        Returns:
+            Dictionary with aggregated quality metrics
+        """
+        metrics_list = []
+
+        def traverse(node, level=0):
+            if "metadata" in node and "quality_metrics" in node["metadata"]:
+                quality = node["metadata"]["quality_metrics"]
+                if "silhouette_score" in quality and quality["silhouette_score"] is not None:
+                    metrics_list.append({
+                        "level": level,
+                        "cluster_id": node["cluster_id"],
+                        "n_clusters": node["metadata"]["n_clusters"],
+                        "size": node["size"],
+                        "silhouette_score": quality["silhouette_score"],
+                        "davies_bouldin_index": quality.get("davies_bouldin_index"),
+                        "calinski_harabasz_score": quality.get("calinski_harabasz_score")
+                    })
+
+            for child in node.get("children", []):
+                traverse(child, level + 1)
+
+        traverse(cluster_tree)
+
+        # Compute aggregated statistics
+        if metrics_list:
+            silhouette_scores = [m["silhouette_score"] for m in metrics_list]
+            db_scores = [m["davies_bouldin_index"] for m in metrics_list if m["davies_bouldin_index"] is not None]
+            ch_scores = [m["calinski_harabasz_score"] for m in metrics_list if m["calinski_harabasz_score"] is not None]
+
+            summary = {
+                "all_metrics": metrics_list,
+                "aggregated": {
+                    "mean_silhouette": float(np.mean(silhouette_scores)),
+                    "max_silhouette": float(np.max(silhouette_scores)),
+                    "min_silhouette": float(np.min(silhouette_scores)),
+                    "mean_davies_bouldin": float(np.mean(db_scores)) if db_scores else None,
+                    "mean_calinski_harabasz": float(np.mean(ch_scores)) if ch_scores else None,
+                    "n_evaluated_nodes": len(metrics_list)
+                }
+            }
+        else:
+            summary = {
+                "all_metrics": [],
+                "aggregated": {
+                    "note": "No quality metrics available"
+                }
+            }
+
+        return summary
+
     def save_results(
         self,
         feature_results: Optional[Dict],
@@ -751,6 +895,121 @@ class RecursiveUMAPHDBSCAN:
             json.dump(self.config, f, indent=2, ensure_ascii=False, cls=NumpyEncoder)
         logger.info(f"Config → {config_path}")
 
+        # Save hyperparameter tracking summary
+        self.save_hyperparameter_tracking(feature_results, explanation_results)
+
+    def save_hyperparameter_tracking(
+        self,
+        feature_results: Optional[Dict],
+        explanation_results: Optional[Dict]
+    ) -> None:
+        """
+        Save hyperparameters and quality scores to tracking file for comparison.
+
+        Args:
+            feature_results: Feature clustering results
+            explanation_results: Explanation clustering results
+        """
+        tracking_file = self.output_dir / "hyperparameter_tracking.jsonl"
+
+        # Create tracking entry
+        tracking_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "run_id": datetime.now().strftime("%Y%m%d_%H%M%S"),
+            "hyperparameters": {
+                "global": {
+                    "max_recursion_depth": self.max_recursion_depth,
+                    "min_cluster_percentage": self.min_cluster_percentage
+                },
+                "features": self.feature_params,
+                "explanations": self.explanation_params
+            },
+            "results": {}
+        }
+
+        # Extract quality metrics for features
+        if feature_results:
+            feature_quality = self.extract_quality_metrics_summary(feature_results["cluster_tree"])
+            tracking_entry["results"]["features"] = {
+                "n_features": feature_results["metadata"]["n_features"],
+                "original_dimensionality": feature_results["metadata"]["original_dimensionality"],
+                "quality_summary": feature_quality["aggregated"],
+                "detailed_metrics": feature_quality["all_metrics"]
+            }
+
+        # Extract quality metrics for explanations
+        if explanation_results:
+            explanation_quality = self.extract_quality_metrics_summary(explanation_results["cluster_tree"])
+            tracking_entry["results"]["explanations"] = {
+                "n_explanations": explanation_results["metadata"]["n_explanations"],
+                "original_dimensionality": explanation_results["metadata"]["original_dimensionality"],
+                "quality_summary": explanation_quality["aggregated"],
+                "detailed_metrics": explanation_quality["all_metrics"]
+            }
+
+        # Append to JSONL file (one line per run)
+        with open(tracking_file, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(tracking_entry, cls=NumpyEncoder) + '\n')
+
+        logger.info(f"Hyperparameter tracking → {tracking_file}")
+
+        # Also save a human-readable summary for latest run
+        summary_file = self.output_dir / "latest_run_summary.txt"
+        with open(summary_file, 'w', encoding='utf-8') as f:
+            f.write("="*80 + "\n")
+            f.write("RECURSIVE CLUSTERING - HYPERPARAMETER TRACKING SUMMARY\n")
+            f.write("="*80 + "\n\n")
+            f.write(f"Run ID: {tracking_entry['run_id']}\n")
+            f.write(f"Timestamp: {tracking_entry['timestamp']}\n\n")
+
+            f.write("HYPERPARAMETERS\n")
+            f.write("-" * 80 + "\n")
+            f.write(f"Global:\n")
+            f.write(f"  Max Recursion Depth: {self.max_recursion_depth}\n")
+            f.write(f"  Min Cluster Percentage: {self.min_cluster_percentage}%\n\n")
+
+            f.write(f"Features:\n")
+            for key, val in self.feature_params.items():
+                f.write(f"  {key}: {val}\n")
+            f.write("\n")
+
+            f.write(f"Explanations:\n")
+            for key, val in self.explanation_params.items():
+                f.write(f"  {key}: {val}\n")
+            f.write("\n")
+
+            f.write("QUALITY METRICS SUMMARY\n")
+            f.write("-" * 80 + "\n")
+
+            if "features" in tracking_entry["results"]:
+                f.write("Features:\n")
+                agg = tracking_entry["results"]["features"]["quality_summary"]
+                if "mean_silhouette" in agg:
+                    f.write(f"  Mean Silhouette Score: {agg['mean_silhouette']:.3f}\n")
+                    f.write(f"  Max Silhouette Score: {agg['max_silhouette']:.3f}\n")
+                    f.write(f"  Min Silhouette Score: {agg['min_silhouette']:.3f}\n")
+                    if agg.get("mean_davies_bouldin"):
+                        f.write(f"  Mean Davies-Bouldin Index: {agg['mean_davies_bouldin']:.3f}\n")
+                    if agg.get("mean_calinski_harabasz"):
+                        f.write(f"  Mean Calinski-Harabasz Score: {agg['mean_calinski_harabasz']:.1f}\n")
+                    f.write(f"  Evaluated Nodes: {agg['n_evaluated_nodes']}\n")
+                f.write("\n")
+
+            if "explanations" in tracking_entry["results"]:
+                f.write("Explanations:\n")
+                agg = tracking_entry["results"]["explanations"]["quality_summary"]
+                if "mean_silhouette" in agg:
+                    f.write(f"  Mean Silhouette Score: {agg['mean_silhouette']:.3f}\n")
+                    f.write(f"  Max Silhouette Score: {agg['max_silhouette']:.3f}\n")
+                    f.write(f"  Min Silhouette Score: {agg['min_silhouette']:.3f}\n")
+                    if agg.get("mean_davies_bouldin"):
+                        f.write(f"  Mean Davies-Bouldin Index: {agg['mean_davies_bouldin']:.3f}\n")
+                    if agg.get("mean_calinski_harabasz"):
+                        f.write(f"  Mean Calinski-Harabasz Score: {agg['mean_calinski_harabasz']:.1f}\n")
+                    f.write(f"  Evaluated Nodes: {agg['n_evaluated_nodes']}\n")
+
+        logger.info(f"Latest run summary → {summary_file}")
+
     def process_all(self) -> None:
         """Process recursive clustering for both features and explanations."""
         logger.info("="*70)
@@ -762,17 +1021,24 @@ class RecursiveUMAPHDBSCAN:
         if self.save_visualizations:
             logger.info(f"Visualization directory: {self.viz_dir}")
         logger.info("")
+        logger.info("CLUSTERING QUALITY METRICS:")
+        logger.info("  • Silhouette Score: [-1, 1], higher is better (cluster separation)")
+        logger.info("  • Davies-Bouldin Index: [0, ∞), lower is better (cluster compactness)")
+        logger.info("  • Calinski-Harabasz Score: [0, ∞), higher is better (variance ratio)")
+        logger.info("")
         logger.info("SEPARATE PARAMETER SETS:")
         logger.info("  Features (orthogonal, cosine similarity < 0.25):")
         logger.info(f"    - UMAP: n_neighbors={self.feature_params['umap_n_neighbors']}, "
                    f"min_dist={self.feature_params['umap_min_dist']}, "
-                   f"metric={self.feature_params['umap_metric']}")
+                   f"metric={self.feature_params['umap_metric']}, "
+                   f"n_components={self.feature_params['umap_n_components']}")
         logger.info(f"    - HDBSCAN: min_cluster_size={self.feature_params['hdbscan_min_cluster_size']}")
         logger.info(f"    - Recursion: min_size={self.feature_params['min_cluster_size_for_recursion']}")
         logger.info("  Explanations (higher internal similarity):")
         logger.info(f"    - UMAP: n_neighbors={self.explanation_params['umap_n_neighbors']}, "
                    f"min_dist={self.explanation_params['umap_min_dist']}, "
-                   f"metric={self.explanation_params['umap_metric']}")
+                   f"metric={self.explanation_params['umap_metric']}, "
+                   f"n_components={self.explanation_params['umap_n_components']}")
         logger.info(f"    - HDBSCAN: min_cluster_size={self.explanation_params['hdbscan_min_cluster_size']}")
         logger.info(f"    - Recursion: min_size={self.explanation_params['min_cluster_size_for_recursion']}")
 
