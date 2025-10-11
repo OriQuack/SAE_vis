@@ -272,6 +272,44 @@ def build_scores_for_latent(latent_id: str, scores_data: Dict[str, Dict]) -> Lis
     return scores
 
 
+def propagate_embedding_scores(scores: List[Dict]) -> None:
+    """
+    Propagate embedding scores across all scorers for the same explainer.
+
+    Embedding scores are calculated from explanation text (tied to explainer),
+    so all scorers evaluating the same explanation should share the same score.
+
+    Data source format: "{explainer}_e-{scorer}_s"
+    Example: "llama_e-llama_s", "llama_e-openai_s" -> both should have same embedding score
+
+    Modifies the scores list in-place.
+    """
+    # Group scores by explainer prefix
+    explainer_groups = defaultdict(list)
+
+    for score in scores:
+        data_source = score.get("data_source", "")
+        # Extract explainer prefix (everything before the last hyphen + hyphen)
+        # e.g., "llama_e-llama_s" -> "llama_e-"
+        if "-" in data_source:
+            explainer_prefix = data_source.rsplit("-", 1)[0] + "-"
+            explainer_groups[explainer_prefix].append(score)
+
+    # For each explainer group, find and propagate the embedding score
+    for explainer_prefix, group_scores in explainer_groups.items():
+        # Find the non-null embedding score in this group
+        embedding_score = None
+        for score in group_scores:
+            if score.get("score_embedding") is not None:
+                embedding_score = score["score_embedding"]
+                break
+
+        # If we found an embedding score, propagate it to all scores in this group
+        if embedding_score is not None:
+            for score in group_scores:
+                score["score_embedding"] = embedding_score
+
+
 def consolidate_latent_data(
     latent_id: str,
     sae_id: str,
@@ -285,6 +323,9 @@ def consolidate_latent_data(
     explanations = build_explanations_for_latent(latent_id, embeddings_data, explanation_mapping)
     semantic_similarities = build_semantic_similarities_for_latent(latent_id, similarities_data, explanation_mapping)
     scores = build_scores_for_latent(latent_id, scores_data)
+
+    # Propagate embedding scores across all scorers for the same explainer
+    propagate_embedding_scores(scores)
 
     detailed_json = {
         "feature_id": int(latent_id),

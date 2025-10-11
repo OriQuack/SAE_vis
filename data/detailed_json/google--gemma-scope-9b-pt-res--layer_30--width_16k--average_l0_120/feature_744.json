@@ -68,10 +68,26 @@
       "score_embedding": null
     },
     {
+      "data_source": "openai_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.675,
+      "score_detection": 0.525,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
+      "data_source": "openai_e-gwen_s",
+      "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "score_fuzz": 0.625,
+      "score_detection": 0.475,
+      "score_simulation": null,
+      "score_embedding": null
+    },
+    {
       "data_source": "llama_e-openai_s",
       "llm_scorer": "openai/gpt-oss-20b",
-      "score_fuzz": 0.5333333333333333,
-      "score_detection": 0.5428571428571428,
+      "score_fuzz": 0.5714285714285714,
+      "score_detection": 0.5,
       "score_simulation": 0.13256620856366666,
       "score_embedding": null
     },

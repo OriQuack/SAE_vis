@@ -155,9 +155,8 @@ class NodeDisplayNameGenerator:
         self, node: SankeyThreshold, split_rule, branch_index: int, base_name: str
     ) -> str:
         """Format display name for expression-based splits."""
-        should_remove_prefix = node.category in [
-            CategoryType.FEATURE_SPLITTING, CategoryType.SEMANTIC_SIMILARITY
-        ]
+        # Remove category prefix for all threshold group nodes (from threshold-group-converter)
+        should_remove_prefix = True
 
         # Check for default child first (branch_index -1 means default/others)
         if branch_index == -1 or (hasattr(split_rule, "default_child_id") and split_rule.default_child_id == node.id):
@@ -170,8 +169,12 @@ class NodeDisplayNameGenerator:
         if 0 <= branch_index < len(split_rule.branches):
             branch = split_rule.branches[branch_index]
             if branch.description:
-                # Check if description already contains the category name to avoid duplication
+                # Check if description already contains the category name
                 if branch.description.startswith(base_name + ":"):
+                    # Strip the prefix if should_remove_prefix is True
+                    if should_remove_prefix:
+                        # Remove "Category Name: " prefix (including the space after colon)
+                        return branch.description[len(base_name) + 2:]
                     return branch.description
                 return branch.description if should_remove_prefix else f"{base_name}: {branch.description}"
 

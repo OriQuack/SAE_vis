@@ -254,7 +254,7 @@ def main():
 
     # Setup output directory
     sae_id = config["sae_id"]
-    output_dir = project_root / "data" / "umap" / sae_id
+    output_dir = project_root / "data" / "umap_feature" / sae_id
 
     print(f"Output directory: {output_dir}")
 

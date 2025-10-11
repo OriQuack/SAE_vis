@@ -1,7 +1,7 @@
 {
-  "timestamp": "20251010_024207",
+  "timestamp": "20251011_181556",
   "dataset_info": {
-    "total_rows": 2471,
+    "total_rows": 7413,
     "total_columns": 13,
     "unique_features": 824
   },
@@ -21,7 +21,7 @@
       "n_unique": 1,
       "n_nulls": 0,
       "values": {
-        "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120": 2471
+        "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120": 7413
       }
     },
     "explanation_method": {
@@ -29,7 +29,7 @@
       "n_unique": 1,
       "n_nulls": 0,
       "values": {
-        "quantiles": 2471
+        "quantiles": 7413
       }
     },
     "llm_explainer": {
@@ -37,17 +37,19 @@
       "n_unique": 3,
       "n_nulls": 0,
       "values": {
-        "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8": 824,
-        "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4": 824,
-        "openai/gpt-oss-20b": 823
+        "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4": 2472,
+        "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8": 2472,
+        "openai/gpt-oss-20b": 2469
       }
     },
     "llm_scorer": {
       "dtype": "Categorical",
-      "n_unique": 1,
+      "n_unique": 3,
       "n_nulls": 0,
       "values": {
-        "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4": 2471
+        "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4": 2471,
+        "openai/gpt-oss-20b": 2471,
+        "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8": 2471
       }
     },
     "feature_splitting": {
@@ -82,38 +84,38 @@
     },
     "score_fuzz": {
       "dtype": "Float32",
-      "n_unique": 153,
-      "n_nulls": 0,
+      "n_unique": 228,
+      "n_nulls": 15,
       "range": {
-        "min": 0.125,
+        "min": 0.0,
         "max": 1.0,
-        "mean": 0.6624510126201212
+        "mean": 0.6476973759911292
       }
     },
     "score_simulation": {
       "dtype": "Float32",
-      "n_unique": 1450,
-      "n_nulls": 1022,
+      "n_unique": 3097,
+      "n_nulls": 4317,
       "range": {
-        "min": -0.2786221206188202,
-        "max": 0.9263377785682678,
-        "mean": 0.14294899370325836
+        "min": -0.294018030166626,
+        "max": 0.9442432522773743,
+        "mean": 0.18755659191737095
       }
     },
     "score_detection": {
       "dtype": "Float32",
-      "n_unique": 121,
-      "n_nulls": 0,
+      "n_unique": 204,
+      "n_nulls": 13,
       "range": {
-        "min": 0.10000000149011612,
+        "min": 0.0,
         "max": 1.0,
-        "mean": 0.5594216813681966
+        "mean": 0.5591204622679868
       }
     },
     "score_embedding": {
       "dtype": "Float32",
       "n_unique": 744,
-      "n_nulls": 1472,
+      "n_nulls": 4416,
       "range": {
         "min": 0.0803999975323677,
         "max": 0.972000002861023,

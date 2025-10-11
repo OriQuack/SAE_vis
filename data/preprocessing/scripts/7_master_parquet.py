@@ -59,11 +59,51 @@ class MasterParquetCreator:
 
         self.sae_id_filter = config.get("sae_id_filter", None)
 
+        # Auto-detect SAE ID if not specified
+        if self.sae_id_filter is None:
+            detected_sae_id = self._detect_sae_id()
+            if detected_sae_id:
+                self.sae_id_filter = detected_sae_id
+                logger.info(f"Auto-detected SAE ID: {detected_sae_id}")
+
         # Load feature similarities data
         self.feature_similarities = self._load_feature_similarities()
 
         # Ensure output directory exists
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    def _detect_sae_id(self) -> Optional[str]:
+        """
+        Auto-detect SAE ID by scanning the first detailed JSON file.
+
+        Returns:
+            SAE ID string if detected, None otherwise
+        """
+        try:
+            # Find first feature JSON file
+            json_files = list(self.detailed_json_dir.rglob("feature_*.json"))
+            if not json_files:
+                logger.warning(f"No feature JSON files found in {self.detailed_json_dir}")
+                return None
+
+            # Read first file to extract SAE ID
+            first_file = json_files[0]
+            logger.info(f"Auto-detecting SAE ID from {first_file.name}")
+
+            with open(first_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+            sae_id = data.get("sae_id")
+            if sae_id:
+                logger.info(f"Successfully detected SAE ID: {sae_id}")
+                return sae_id
+            else:
+                logger.warning(f"No 'sae_id' field found in {first_file}")
+                return None
+
+        except Exception as e:
+            logger.warning(f"Error during SAE ID auto-detection: {e}")
+            return None
 
     def process_all_features(self) -> pl.DataFrame:
         """Process all feature JSON files and return consolidated DataFrame."""
@@ -136,35 +176,37 @@ class MasterParquetCreator:
 
         rows = []
 
-        # Create a row for each explanation-score combination
+        # Create a row for each explanation-scorer combination
         for explanation in data["explanations"]:
-            # Find matching score set by data_source
-            matching_score = self._find_matching_score(
+            # Find ALL scores matching this explainer (not just exact data_source match)
+            matching_scores = self._find_all_matching_scores(
                 explanation["data_source"],
                 data.get("scores", [])
             )
 
-            if matching_score is None:
-                logger.warning(f"No matching score found for explanation {explanation['explanation_id']} "
+            if not matching_scores:
+                logger.warning(f"No matching scores found for explanation {explanation['explanation_id']} "
                              f"in feature {feature_id}")
                 continue
 
-            row = {
-                "feature_id": feature_id,
-                "sae_id": sae_id,
-                "explanation_method": explanation["explanation_method"],
-                "llm_explainer": explanation["llm_explainer"],
-                "llm_scorer": matching_score["llm_scorer"],
-                "feature_splitting": feature_splitting,
-                "semsim_mean": semsim_mean,
-                "semsim_max": semsim_max,
-                "score_fuzz": matching_score.get("score_fuzz"),
-                "score_simulation": matching_score.get("score_simulation"),
-                "score_detection": matching_score.get("score_detection"),
-                "score_embedding": matching_score.get("score_embedding"),
-                "details_path": details_path
-            }
-            rows.append(row)
+            # Create a row for each scorer that evaluated this explanation
+            for matching_score in matching_scores:
+                row = {
+                    "feature_id": feature_id,
+                    "sae_id": sae_id,
+                    "explanation_method": explanation["explanation_method"],
+                    "llm_explainer": explanation["llm_explainer"],
+                    "llm_scorer": matching_score["llm_scorer"],
+                    "feature_splitting": feature_splitting,
+                    "semsim_mean": semsim_mean,
+                    "semsim_max": semsim_max,
+                    "score_fuzz": matching_score.get("score_fuzz"),
+                    "score_simulation": matching_score.get("score_simulation"),
+                    "score_detection": matching_score.get("score_detection"),
+                    "score_embedding": matching_score.get("score_embedding"),
+                    "details_path": details_path
+                }
+                rows.append(row)
 
         return rows
 
@@ -185,12 +227,28 @@ class MasterParquetCreator:
 
         return float(sum(similarities) / len(similarities)), float(max(similarities))
 
-    def _find_matching_score(self, data_source: str, scores: List[Dict]) -> Optional[Dict]:
-        """Find score set matching the explanation's data_source."""
+    def _find_all_matching_scores(self, explanation_data_source: str, scores: List[Dict]) -> List[Dict]:
+        """
+        Find ALL scores matching this explanation's explainer.
+
+        Data source format: "{explainer}_e-{scorer}_s"
+        Examples:
+        - "llama_e-llama_s"  -> matches llama_e-*
+        - "gwen_e-openai_s"  -> matches gwen_e-*
+        - "openai_e-gwen_s"  -> matches openai_e-*
+
+        This allows matching scores from different scorers for the same explainer.
+        """
+        # Extract explainer prefix (everything up to and including "_e-")
+        explainer_prefix = explanation_data_source.rsplit("-", 1)[0] + "-"
+
+        matching_scores = []
         for score in scores:
-            if score.get("data_source") == data_source:
-                return score
-        return None
+            score_data_source = score.get("data_source", "")
+            if score_data_source.startswith(explainer_prefix):
+                matching_scores.append(score)
+
+        return matching_scores
 
     def _load_feature_similarities(self) -> Dict[int, float]:
         """Load feature similarities data and return mapping of feature_id to cosine_similarity."""
@@ -234,6 +292,10 @@ class MasterParquetCreator:
                 logger.warning(f"Feature similarity file not found: {similarity_file}")
         else:
             logger.info("No SAE ID filter specified, skipping feature similarity loading")
+
+        # Warn if no similarities were loaded
+        if not similarities:
+            logger.warning("No feature similarities loaded - all features will use fallback value 0.0")
 
         return similarities
 
@@ -312,12 +374,12 @@ class MasterParquetCreator:
                         f"{unique_combinations} unique combinations")
             return False
 
-        # Check for expected row count (assuming 2 rows per feature)
+        # Check for expected row count (3 explainers × 3 scorers = 9 rows per feature)
         unique_features = len(df.select("feature_id").unique())
-        expected_rows = unique_features * 2  # 2 explanations per feature
+        expected_rows = unique_features * 9  # 3 explainers × 3 scorers per feature
 
         logger.info(f"Unique features: {unique_features}")
-        logger.info(f"Expected rows: {expected_rows}, Actual rows: {total_rows}")
+        logger.info(f"Expected rows (3 explainers × 3 scorers): {expected_rows}, Actual rows: {total_rows}")
 
         # Log value distributions
         logger.info("Value distributions:")

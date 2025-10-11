@@ -169,17 +169,45 @@ class DataService:
         threshold_tree: Optional[ThresholdStructure] = None,
         node_id: Optional[str] = None,
         group_by: Optional[str] = None,
-        average_by: Optional[str] = None,
+        average_by: Optional[Union[str, List[str]]] = None,
         fixed_domain: Optional[tuple[float, float]] = None
     ) -> HistogramResponse:
-        """Generate histogram data for a specific metric, optionally filtered by node and/or grouped."""
+        """
+        Generate histogram data for a specific metric, optionally filtered by node and/or grouped.
+
+        Args:
+            filters: Filter criteria to apply
+            metric: Metric to analyze
+            bins: Number of histogram bins (auto-calculated if None)
+            threshold_tree: Optional threshold tree for node filtering
+            node_id: Optional node ID for node-specific filtering
+            group_by: Optional field to group histogram by
+            average_by: Optional field(s) to average by. Can be a single field (str) or multiple fields (List[str])
+            fixed_domain: Optional fixed range for histogram bins
+
+        Returns:
+            HistogramResponse with histogram data and statistics
+        """
         if not self.is_ready():
             raise RuntimeError("DataService not ready")
 
         try:
             filtered_df = self._apply_filtered_data(filters, threshold_tree, node_id)
 
-            # If averageBy is specified, average values by the specified field
+            # Automatically deduplicate feature-level metrics if no averaging specified
+            # Feature-level metrics have identical values across all explainer-scorer combinations
+            if not average_by:
+                if metric in [MetricType.FEATURE_SPLITTING, MetricType.SEMSIM_MEAN]:
+                    # For feature_splitting: same across all 9 combinations (explainers × scorers)
+                    # For semsim_mean: same across scorers, varies by explainer
+                    if metric == MetricType.FEATURE_SPLITTING:
+                        average_by = ['llm_explainer', 'llm_scorer']
+                        logger.info(f"Auto-deduplicating {metric.value} (feature-level metric)")
+                    elif metric == MetricType.SEMSIM_MEAN:
+                        average_by = 'llm_explainer'
+                        logger.info(f"Auto-deduplicating {metric.value} (explainer-level metric)")
+
+            # If averageBy is specified (or auto-assigned), average values by the specified field
             if average_by:
                 filtered_df = self._average_by_field(filtered_df, metric, average_by)
 
@@ -248,8 +276,23 @@ class DataService:
 
         return values
 
-    def _average_by_field(self, df: pl.DataFrame, metric: MetricType, average_by: str) -> pl.DataFrame:
-        """Average metric values by the specified field (e.g., llm_explainer or llm_scorer)."""
+    def _average_by_field(self, df: pl.DataFrame, metric: MetricType, average_by: Union[str, List[str]]) -> pl.DataFrame:
+        """
+        Average metric values by collapsing the specified field(s).
+
+        Args:
+            df: DataFrame with metric values
+            metric: Metric to average
+            average_by: Field(s) to collapse. Can be:
+                - Single field (str): e.g., 'llm_explainer' - collapses that dimension
+                - Multiple fields (List[str]): e.g., ['llm_explainer', 'llm_scorer'] - collapses all specified dimensions
+
+        Returns:
+            DataFrame with metric averaged per feature_id
+        """
+        # Normalize average_by to list for consistent handling
+        fields_to_collapse = [average_by] if isinstance(average_by, str) else average_by
+
         # Group by feature_id and calculate mean of the metric
         averaged_df = (
             df.group_by([COL_FEATURE_ID])
@@ -257,7 +300,10 @@ class DataService:
         )
 
         # Add back other necessary columns (take first value from each group)
-        other_columns = [col for col in df.columns if col not in [COL_FEATURE_ID, metric.value, average_by]]
+        # Exclude the fields being collapsed and the metric itself
+        columns_to_exclude = [COL_FEATURE_ID, metric.value] + fields_to_collapse
+        other_columns = [col for col in df.columns if col not in columns_to_exclude]
+
         if other_columns:
             # Get first value for each feature_id for other columns
             first_values = (
@@ -266,7 +312,9 @@ class DataService:
             )
             averaged_df = averaged_df.join(first_values, on=COL_FEATURE_ID, how="left")
 
-        logger.info(f"Averaged {metric.value} by {average_by}: {len(df)} rows -> {len(averaged_df)} features")
+        # Log the averaging operation
+        fields_str = " and ".join(fields_to_collapse)
+        logger.info(f"Averaged {metric.value} by collapsing [{fields_str}]: {len(df)} rows -> {len(averaged_df)} features")
         return averaged_df
 
     def _calculate_bins_if_needed(self, values: np.ndarray, bins: Optional[int]) -> int:
@@ -410,12 +458,16 @@ class DataService:
             logger.info(f"Generating filtered histogram panel data for {len(filtered_df)} rows (from {len(feature_ids)} feature IDs)")
 
             # Define metrics configuration matching HistogramPanel requirements
+            # Note: All metrics average to get 1 value per feature
+            # - feature_splitting: Same value for all 9 combinations, deduplicate by averaging
+            # - semsim_mean: Same across scorers, varies by explainer → average by explainer only
+            # - score metrics: Vary by both explainer and scorer → average by both dimensions
             metrics_config = [
-                (MetricType.FEATURE_SPLITTING, None, (0.0, 0.6)),
+                (MetricType.FEATURE_SPLITTING, ['llm_explainer', 'llm_scorer'], (0.0, 0.6)),
                 (MetricType.SEMSIM_MEAN, 'llm_explainer', (0.75, 1.0)),
-                (MetricType.SCORE_EMBEDDING, 'llm_scorer', (0.0, 1.0)),
-                (MetricType.SCORE_FUZZ, 'llm_scorer', (0.0, 1.0)),
-                (MetricType.SCORE_DETECTION, 'llm_scorer', (0.0, 1.0))
+                (MetricType.SCORE_EMBEDDING, ['llm_explainer', 'llm_scorer'], (0.0, 1.0)),
+                (MetricType.SCORE_FUZZ, ['llm_explainer', 'llm_scorer'], (0.0, 1.0)),
+                (MetricType.SCORE_DETECTION, ['llm_explainer', 'llm_scorer'], (0.0, 1.0))
             ]
 
             # Generate histogram for each metric

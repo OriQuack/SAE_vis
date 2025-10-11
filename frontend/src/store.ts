@@ -1124,23 +1124,55 @@ export const useStore = create<AppState>((set, get) => ({
       }
     })
 
-    // Calculate intersection of ALL selections in pending group
-    if (updatedPendingGroup.length > 0) {
-      let intersectedFeatureIds = updatedPendingGroup[0].featureIds
+    // Calculate intersection using ALL selections from ALL visible groups
+    if (updatedPendingGroup.length > 0 || state.isCreatingGroup) {
+      const currentState = get()
 
-      // Intersect with each subsequent selection
-      for (let i = 1; i < updatedPendingGroup.length; i++) {
-        const currentSet = new Set(updatedPendingGroup[i].featureIds)
-        intersectedFeatureIds = intersectedFeatureIds.filter(id => currentSet.has(id))
-      }
+      if (currentState.editingGroupId) {
+        // Editing mode: combine pending group with other visible groups
+        const otherVisibleGroups = currentState.thresholdGroups
+          .filter(g => g.visible && g.id !== currentState.editingGroupId)
+          .filter(g => g.selections.length > 0)
 
-      console.log(`[Filtering] ${updatedPendingGroup.length} selections → ${intersectedFeatureIds.length} features (intersection)`)
+        // Collect all selections: pending group + other visible groups
+        const allSelections = [
+          ...updatedPendingGroup,
+          ...otherVisibleGroups.flatMap(g => g.selections)
+        ]
 
-      // Filter histograms with intersected feature IDs
-      if (intersectedFeatureIds.length > 0) {
-        state.fetchFilteredHistogramPanelData(intersectedFeatureIds)
-      } else {
-        console.warn('[Filtering] No features match all selections - intersection is empty')
+        if (allSelections.length > 0) {
+          let intersectedFeatureIds = allSelections[0].featureIds
+          for (let i = 1; i < allSelections.length; i++) {
+            const currentSet = new Set(allSelections[i].featureIds)
+            intersectedFeatureIds = intersectedFeatureIds.filter(id => currentSet.has(id))
+          }
+
+          console.log(`[Filtering] ${updatedPendingGroup.length} pending + ${otherVisibleGroups.length} other groups = ${allSelections.length} total selections → ${intersectedFeatureIds.length} features`)
+
+          if (intersectedFeatureIds.length > 0) {
+            state.fetchFilteredHistogramPanelData(intersectedFeatureIds)
+          } else {
+            console.warn('[Filtering] No features match all selections from all visible groups')
+            state.fetchHistogramPanelData()
+          }
+        }
+      } else if (currentState.isCreatingGroup) {
+        // Creating new group: only use pending group
+        if (updatedPendingGroup.length > 0) {
+          let intersectedFeatureIds = updatedPendingGroup[0].featureIds
+          for (let i = 1; i < updatedPendingGroup.length; i++) {
+            const currentSet = new Set(updatedPendingGroup[i].featureIds)
+            intersectedFeatureIds = intersectedFeatureIds.filter(id => currentSet.has(id))
+          }
+
+          console.log(`[Filtering] ${updatedPendingGroup.length} selections → ${intersectedFeatureIds.length} features (new group)`)
+
+          if (intersectedFeatureIds.length > 0) {
+            state.fetchFilteredHistogramPanelData(intersectedFeatureIds)
+          } else {
+            console.warn('[Filtering] No features match all selections - intersection is empty')
+          }
+        }
       }
     }
   },
@@ -1253,19 +1285,29 @@ export const useStore = create<AppState>((set, get) => ({
         showGroupNameInput: false
       })
 
-      // Apply filter based on group selections (intersection)
-      if (group.selections.length > 0) {
-        let intersectedFeatureIds = group.selections[0].featureIds
+      // Apply filter based on ALL visible groups' selections (combined intersection)
+      const allVisibleGroups = state.thresholdGroups
+        .filter(g => g.id === groupId || g.visible) // Include the group we're showing
+        .filter(g => g.selections.length > 0)
 
-        for (let i = 1; i < group.selections.length; i++) {
-          const currentSet = new Set(group.selections[i].featureIds)
+      if (allVisibleGroups.length > 0) {
+        // Collect ALL selections from ALL visible groups
+        const allSelections = allVisibleGroups.flatMap(g => g.selections)
+
+        // Calculate intersection across ALL selections
+        let intersectedFeatureIds = allSelections[0].featureIds
+        for (let i = 1; i < allSelections.length; i++) {
+          const currentSet = new Set(allSelections[i].featureIds)
           intersectedFeatureIds = intersectedFeatureIds.filter(id => currentSet.has(id))
         }
 
-        console.log(`[Filtering] Showing group "${group.name}": ${group.selections.length} selections → ${intersectedFeatureIds.length} features`)
+        console.log(`[Filtering] Showing group "${group.name}": ${allVisibleGroups.length} visible groups, ${allSelections.length} total selections → ${intersectedFeatureIds.length} features`)
 
         if (intersectedFeatureIds.length > 0) {
           state.fetchFilteredHistogramPanelData(intersectedFeatureIds)
+        } else {
+          console.warn('[Filtering] No features match all selections from all visible groups')
+          state.fetchHistogramPanelData() // Reset to unfiltered if no matches
         }
       }
 
@@ -1295,18 +1337,27 @@ export const useStore = create<AppState>((set, get) => ({
 
           set(updates)
 
-          // Apply filter for the next group
-          if (nextGroup.selections.length > 0) {
-            let intersectedFeatureIds = nextGroup.selections[0].featureIds
-            for (let i = 1; i < nextGroup.selections.length; i++) {
-              const currentSet = new Set(nextGroup.selections[i].featureIds)
+          // Apply filter based on ALL remaining visible groups (combined intersection)
+          const allVisibleGroupsWithSelections = remainingVisibleGroups.filter(g => g.selections.length > 0)
+
+          if (allVisibleGroupsWithSelections.length > 0) {
+            // Collect ALL selections from ALL visible groups
+            const allSelections = allVisibleGroupsWithSelections.flatMap(g => g.selections)
+
+            // Calculate intersection across ALL selections
+            let intersectedFeatureIds = allSelections[0].featureIds
+            for (let i = 1; i < allSelections.length; i++) {
+              const currentSet = new Set(allSelections[i].featureIds)
               intersectedFeatureIds = intersectedFeatureIds.filter(id => currentSet.has(id))
             }
 
-            console.log(`[Filtering] Switched to editing group "${nextGroup.name}": ${nextGroup.selections.length} selections → ${intersectedFeatureIds.length} features`)
+            console.log(`[Filtering] Switched to editing group "${nextGroup.name}": ${allVisibleGroupsWithSelections.length} visible groups, ${allSelections.length} total selections → ${intersectedFeatureIds.length} features`)
 
             if (intersectedFeatureIds.length > 0) {
               state.fetchFilteredHistogramPanelData(intersectedFeatureIds)
+            } else {
+              console.warn('[Filtering] No features match all selections from remaining visible groups')
+              state.fetchHistogramPanelData() // Reset to unfiltered if no matches
             }
           }
         } else {
@@ -1370,6 +1421,39 @@ export const useStore = create<AppState>((set, get) => ({
             : g
         )
       })
+
+      // Recalculate intersection using ALL visible groups
+      const currentState = get()
+      const otherVisibleGroups = currentState.thresholdGroups
+        .filter(g => g.visible && g.id !== currentState.editingGroupId)
+        .filter(g => g.selections.length > 0)
+
+      // Collect all selections: updated pending group + other visible groups
+      const allSelections = [
+        ...updatedPendingGroup,
+        ...otherVisibleGroups.flatMap(g => g.selections)
+      ]
+
+      if (allSelections.length > 0) {
+        let intersectedFeatureIds = allSelections[0].featureIds
+        for (let i = 1; i < allSelections.length; i++) {
+          const currentSet = new Set(allSelections[i].featureIds)
+          intersectedFeatureIds = intersectedFeatureIds.filter(id => currentSet.has(id))
+        }
+
+        console.log(`[Filtering] After removal: ${updatedPendingGroup.length} pending + ${otherVisibleGroups.length} other groups = ${allSelections.length} total selections → ${intersectedFeatureIds.length} features`)
+
+        if (intersectedFeatureIds.length > 0) {
+          state.fetchFilteredHistogramPanelData(intersectedFeatureIds)
+        } else {
+          console.warn('[Filtering] No features match all selections from all visible groups')
+          state.fetchHistogramPanelData()
+        }
+      } else {
+        // No selections left in any visible group - reset to unfiltered
+        console.log('[Filtering] No selections remaining in any visible group - resetting to unfiltered')
+        state.fetchHistogramPanelData()
+      }
     } else if (state.isCreatingGroup) {
       // Creating mode: Remove from pendingGroup
       updatedPendingGroup = state.pendingGroup.filter(s => s.metricType !== metricType)
@@ -1377,26 +1461,25 @@ export const useStore = create<AppState>((set, get) => ({
       set({
         pendingGroup: updatedPendingGroup
       })
-    }
 
-    // Recalculate intersection after removal
-    if (updatedPendingGroup.length > 0) {
-      let intersectedFeatureIds = updatedPendingGroup[0].featureIds
+      // Recalculate intersection for new group only
+      if (updatedPendingGroup.length > 0) {
+        let intersectedFeatureIds = updatedPendingGroup[0].featureIds
+        for (let i = 1; i < updatedPendingGroup.length; i++) {
+          const currentSet = new Set(updatedPendingGroup[i].featureIds)
+          intersectedFeatureIds = intersectedFeatureIds.filter(id => currentSet.has(id))
+        }
 
-      for (let i = 1; i < updatedPendingGroup.length; i++) {
-        const currentSet = new Set(updatedPendingGroup[i].featureIds)
-        intersectedFeatureIds = intersectedFeatureIds.filter(id => currentSet.has(id))
+        console.log(`[Filtering] After removal: ${updatedPendingGroup.length} selections → ${intersectedFeatureIds.length} features (new group)`)
+
+        if (intersectedFeatureIds.length > 0) {
+          state.fetchFilteredHistogramPanelData(intersectedFeatureIds)
+        }
+      } else {
+        // No selections left in pending group - reset to unfiltered
+        console.log('[Filtering] No selections remaining in pending group - resetting to unfiltered')
+        state.fetchHistogramPanelData()
       }
-
-      console.log(`[Filtering] After removal: ${updatedPendingGroup.length} selections → ${intersectedFeatureIds.length} features`)
-
-      if (intersectedFeatureIds.length > 0) {
-        state.fetchFilteredHistogramPanelData(intersectedFeatureIds)
-      }
-    } else {
-      // No selections left - reset to unfiltered
-      console.log('[Filtering] No selections remaining - resetting to unfiltered')
-      state.fetchHistogramPanelData()
     }
   },
 

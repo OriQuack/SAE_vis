@@ -88,7 +88,7 @@ def main():
         results["columns"][col] = col_info
 
     # Save results to JSON
-    output_file = OUTPUT_DIR / f"analysis_results_{TIMESTAMP}.json"
+    output_file = OUTPUT_DIR / f"analysis_results.json"
     with open(output_file, 'w') as f:
         json.dump(results, f, indent=2)
 

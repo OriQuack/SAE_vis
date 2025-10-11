@@ -43,7 +43,7 @@ const EmptyState: React.FC<{ onAddVisualization: () => void }> = ({ onAddVisuali
   <div className="empty-state-card">
     <div className="empty-state-card__content">
       <p className="empty-state-card__text">
-        Select LLM Explainer triangles above to display Sankey diagrams
+        Select LLM Explainer on the left to display Sankey diagrams
       </p>
     </div>
   </div>

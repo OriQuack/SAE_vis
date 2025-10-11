@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, Union, Dict, Any
+from typing import Optional, Union, Dict, Any, List
 from .common import Filters, MetricType
 from .threshold import ThresholdStructure
 
@@ -31,9 +31,9 @@ class  HistogramRequest(BaseModel):
         default=None,
         description="Optional field to group histogram data by (e.g., 'llm_explainer')"
     )
-    averageBy: Optional[str] = Field(
+    averageBy: Optional[Union[str, List[str]]] = Field(
         default=None,
-        description="Optional field to average values by before creating histogram (e.g., 'llm_explainer', 'llm_scorer')"
+        description="Optional field(s) to average values by before creating histogram. Can be a single field (e.g., 'llm_explainer') or list of fields (e.g., ['llm_explainer', 'llm_scorer']) to average over multiple dimensions"
     )
     fixedDomain: Optional[tuple[float, float]] = Field(
         default=None,

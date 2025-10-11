@@ -57,7 +57,7 @@
       "score_fuzz": 0.5,
       "score_detection": 0.775,
       "score_simulation": null,
-      "score_embedding": null
+      "score_embedding": 0.8304
     },
     {
       "data_source": "llama_e-gwen_s",
@@ -65,6 +65,14 @@
       "score_fuzz": 0.81,
       "score_detection": 0.87,
       "score_simulation": 0.03581861543157574,
+      "score_embedding": null
+    },
+    {
+      "data_source": "openai_e-openai_s",
+      "llm_scorer": "openai/gpt-oss-20b",
+      "score_fuzz": 0.56,
+      "score_detection": 0.6,
+      "score_simulation": null,
       "score_embedding": null
     },
     {
@@ -78,8 +86,8 @@
     {
       "data_source": "llama_e-openai_s",
       "llm_scorer": "openai/gpt-oss-20b",
-      "score_fuzz": 0.5875,
-      "score_detection": 0.9090909090909091,
+      "score_fuzz": 0.5714285714285714,
+      "score_detection": 0.9428571428571428,
       "score_simulation": 0.056553756448043224,
       "score_embedding": null
     },
@@ -89,7 +97,7 @@
       "score_fuzz": 0.725,
       "score_detection": 0.925,
       "score_simulation": null,
-      "score_embedding": null
+      "score_embedding": 0.8304
     },
     {
       "data_source": "llama_e-llama_s",

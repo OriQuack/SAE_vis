@@ -2,5 +2,6 @@
 .claude/
 *__pycache__
 *.env
+*.png
 
 data/raw/
