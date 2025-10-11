@@ -10,7 +10,7 @@
     },
     "original_dimensionality": 3584,
     "max_recursion_depth": 3,
-    "timestamp": "2025-10-12T03:27:39.987490",
+    "timestamp": "2025-10-12T03:47:44.148602",
     "sae_model": "google/gemma-scope-9b-pt-res",
     "sae_position": "layer_30/width_16k/average_l0_120",
     "umap_parameters": {

@@ -4,5 +4,6 @@
 *.env
 *.png
 *.txt
+*.log
 
 data/raw/
