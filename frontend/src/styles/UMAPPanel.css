@@ -27,7 +27,6 @@
 
 .umap-panel__header {
   flex-shrink: 0;
-  padding: 8px 12px;
   background-color: #f9fafb;
   border-bottom: 1px solid #e5e7eb;
 }
@@ -54,7 +53,6 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 12px;
   overflow: hidden;
   min-height: 0;
 }

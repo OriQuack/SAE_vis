@@ -37,22 +37,49 @@ const CLUSTER_COLORS = [
 
 // ==================== SUB-COMPONENTS ====================
 
-const UMAPSubPanel: React.FC<{
+interface UMAPSubPanelProps {
   title: string
   data: UMAPPoint[] | null
   clusterHierarchy: Record<string, Record<string, ClusterNode>> | null
   loading: boolean
   error: string | null
   colorBy: 'source' | 'cluster'
-}> = ({ title, data, clusterHierarchy, loading, error, colorBy }) => {
+  hoveredCluster: string | null
+  clickedCluster: string | null
+  linkedFeatureIds: Set<number> | null
+  isSourcePanel: boolean
+  onClusterHover: (clusterId: string | null) => void
+  onClusterClick: (clusterId: string | null) => void
+}
+
+const UMAPSubPanel: React.FC<UMAPSubPanelProps> = ({
+  title,
+  data,
+  clusterHierarchy,
+  loading,
+  error,
+  colorBy,
+  hoveredCluster: parentHoveredCluster,
+  clickedCluster: parentClickedCluster,
+  linkedFeatureIds,
+  isSourcePanel,
+  onClusterHover,
+  onClusterClick
+}) => {
   const { ref: containerRef, size } = useResizeObserver<HTMLDivElement>({
     debugId: `umap-${title}`
   })
   const svgRef = useRef<SVGSVGElement>(null)
-  const [hoveredCluster, setHoveredCluster] = useState<string | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
   const [zoomTransform, setZoomTransform] = useState<ZoomTransform>(zoomIdentity)
   const [clusterLevel, setClusterLevel] = useState<number>(1)  // Start at level 1 (level 0 excluded)
+
+  // Use parent's hovered and clicked cluster
+  const hoveredCluster = isSourcePanel ? parentHoveredCluster : null
+  const clickedCluster = isSourcePanel ? parentClickedCluster : null
+
+  // Active cluster is either clicked (persistent) or hovered (temporary)
+  const activeCluster = clickedCluster || hoveredCluster
 
   // Debounce timer for cluster level changes
   const levelChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -186,9 +213,12 @@ const UMAPSubPanel: React.FC<{
     return []
   }, [clusterHulls, title, zoomTransform.k])
 
-  // Reset hover state when cluster level changes
+  // Reset hover and click state when cluster level changes
   useEffect(() => {
-    setHoveredCluster(null)
+    if (isSourcePanel) {
+      onClusterHover(null)
+      onClusterClick(null)
+    }
     setTooltipPosition(null)
   }, [clusterLevel])
 
@@ -311,50 +341,79 @@ const UMAPSubPanel: React.FC<{
                 {/* Zoom transform group - contains both overlays and points */}
                 <g className="umap-panel__zoom-group" transform={zoomTransform.toString()}>
                   {/* Cluster overlays (background layer) */}
-                  {clusterHulls.map((hull) => (
-                    <path
-                      key={hull.clusterId}
-                      className="umap-panel__cluster-overlay"
-                      d={hullToPath(hull.points)}
-                      fill={hull.color}
-                      fillOpacity={hoveredCluster === hull.clusterId ? 0.25 : 0.15}
-                      stroke={hull.color}
-                      strokeWidth={hoveredCluster === hull.clusterId ? 2 : 1}
-                      strokeOpacity={hoveredCluster === hull.clusterId ? 0.5 : 0.3}
-                      pointerEvents="all"
-                      style={{ cursor: 'pointer' }}
-                      onMouseEnter={(e) => {
-                        setHoveredCluster(hull.clusterId)
-                        setTooltipPosition({ x: e.clientX, y: e.clientY })
-                      }}
-                      onMouseMove={(e) => {
-                        setTooltipPosition({ x: e.clientX, y: e.clientY })
-                      }}
-                      onMouseLeave={() => {
-                        setHoveredCluster(null)
-                        setTooltipPosition(null)
-                      }}
-                    />
-                  ))}
+                  {clusterHulls.map((hull) => {
+                    // Highlight when hovered or clicked
+                    const isHighlighted = isSourcePanel && activeCluster === hull.clusterId
+                    // Thicker border only when clicked (pinned)
+                    const isClicked = isSourcePanel && clickedCluster === hull.clusterId
+
+                    return (
+                      <path
+                        key={hull.clusterId}
+                        className="umap-panel__cluster-overlay"
+                        d={hullToPath(hull.points)}
+                        fill={hull.color}
+                        fillOpacity={isHighlighted ? 0.25 : 0.10}
+                        stroke={hull.color}
+                        strokeWidth={isClicked ? 2 : 1}
+                        strokeOpacity={isHighlighted ? 0.5 : 0.3}
+                        pointerEvents="all"
+                        style={{ cursor: 'pointer' }}
+                        onMouseEnter={(e) => {
+                          onClusterHover(hull.clusterId)
+                          setTooltipPosition({ x: e.clientX, y: e.clientY })
+                        }}
+                        onMouseMove={(e) => {
+                          setTooltipPosition({ x: e.clientX, y: e.clientY })
+                        }}
+                        onMouseLeave={() => {
+                          onClusterHover(null)
+                          setTooltipPosition(null)
+                        }}
+                        onClick={() => {
+                          // Toggle: if already clicked, unclick; otherwise click
+                          if (clickedCluster === hull.clusterId) {
+                            onClusterClick(null)
+                          } else {
+                            onClusterClick(hull.clusterId)
+                          }
+                        }}
+                      />
+                    )
+                  })}
 
                   {/* Data points (middle layer) - grouped by cluster for performance */}
                   {Object.entries(pointsByCluster).map(([clusterId, clusterPoints]) => (
                     <g
                       key={clusterId}
                       className="umap-panel__point-group"
-                      opacity={hoveredCluster ? (clusterId === hoveredCluster ? 0.8 : 0.15) : 0.6}
                     >
-                      {clusterPoints.map((point, index) => (
-                        <circle
-                          key={index}
-                          className="umap-panel__point"
-                          cx={point.x}
-                          cy={point.y}
-                          r={1}
-                          fill={point.color}
-                          pointerEvents="none"
-                        />
-                      ))}
+                      {clusterPoints.map((point, index) => {
+                        // Check if this point is linked
+                        const isPointLinked = linkedFeatureIds && !isSourcePanel &&
+                          linkedFeatureIds.has(point.feature_id)
+
+                        // Check if this point is in the active cluster (clicked or hovered)
+                        const isPointInActiveCluster = isSourcePanel && clusterId === activeCluster
+
+                        // Calculate opacity for individual point
+                        const pointOpacity = activeCluster || linkedFeatureIds
+                          ? (isPointInActiveCluster || isPointLinked ? 1.0 : 0.15)
+                          : 0.6
+
+                        return (
+                          <circle
+                            key={index}
+                            className="umap-panel__point"
+                            cx={point.x}
+                            cy={point.y}
+                            r={1}
+                            fill={point.color}
+                            opacity={pointOpacity}
+                            pointerEvents="none"
+                          />
+                        )
+                      })}
                     </g>
                   ))}
 
@@ -370,7 +429,7 @@ const UMAPSubPanel: React.FC<{
                       textAnchor="middle"
                       dominantBaseline="middle"
                       pointerEvents="none"
-                      style={{ textShadow: '0 0 4px black, 0 0 2px black', userSelect: 'none' }}
+                      style={{ userSelect: 'none' }}
                     >
                       {label.text}
                     </text>
@@ -396,7 +455,7 @@ const UMAPSubPanel: React.FC<{
       </div>
 
       {/* Cluster Tooltip */}
-      {hoveredCluster && tooltipPosition && (
+      {activeCluster && tooltipPosition && (
         <div
           className="umap-panel__cluster-tooltip"
           style={{
@@ -405,10 +464,10 @@ const UMAPSubPanel: React.FC<{
           }}
         >
           <div className="umap-panel__cluster-tooltip-label">
-            {hoveredCluster}
+            {activeCluster} {clickedCluster === activeCluster && '(pinned)'}
           </div>
           <div className="umap-panel__cluster-tooltip-info">
-            {clusterHulls.find(h => h.clusterId === hoveredCluster)?.pointCount || 0} features
+            {clusterHulls.find(h => h.clusterId === activeCluster)?.pointCount || 0} features
           </div>
         </div>
       )}
@@ -421,6 +480,62 @@ export const UMAPPanel: React.FC<UMAPPanelProps> = ({ className = '' }) => {
   const [umapData, setUmapData] = useState<UMAPDataResponse | null>(null)
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Shared hover and click state for cross-panel linking
+  const [hoveredCluster, setHoveredCluster] = useState<string | null>(null)
+  const [hoveredPanel, setHoveredPanel] = useState<'feature' | 'explanation' | null>(null)
+  const [clickedCluster, setClickedCluster] = useState<string | null>(null)
+  const [clickedPanel, setClickedPanel] = useState<'feature' | 'explanation' | null>(null)
+  const [linkedFeatureIds, setLinkedFeatureIds] = useState<Set<number> | null>(null)
+
+  // Active cluster is either clicked (persistent) or hovered (temporary)
+  const activeCluster = clickedCluster || hoveredCluster
+  const activePanel = clickedPanel || hoveredPanel
+
+  // Calculate linked feature IDs when active cluster changes
+  useEffect(() => {
+    if (!activeCluster || !activePanel || !umapData) {
+      setLinkedFeatureIds(null)
+      return
+    }
+
+    // Get the data from the active panel
+    const sourceData = activePanel === 'feature' ? umapData.features : umapData.explanations
+
+    // Collect all feature_ids from the active cluster
+    const featureIds = new Set<number>()
+    sourceData.forEach(point => {
+      if (point.cluster_id === activeCluster) {
+        featureIds.add(point.feature_id)
+      }
+    })
+
+    setLinkedFeatureIds(featureIds)
+  }, [activeCluster, activePanel, umapData])
+
+  // Handler for feature panel hover
+  const handleFeatureHover = (clusterId: string | null) => {
+    setHoveredCluster(clusterId)
+    setHoveredPanel(clusterId ? 'feature' : null)
+  }
+
+  // Handler for explanation panel hover
+  const handleExplanationHover = (clusterId: string | null) => {
+    setHoveredCluster(clusterId)
+    setHoveredPanel(clusterId ? 'explanation' : null)
+  }
+
+  // Handler for feature panel click
+  const handleFeatureClick = (clusterId: string | null) => {
+    setClickedCluster(clusterId)
+    setClickedPanel(clusterId ? 'feature' : null)
+  }
+
+  // Handler for explanation panel click
+  const handleExplanationClick = (clusterId: string | null) => {
+    setClickedCluster(clusterId)
+    setClickedPanel(clusterId ? 'explanation' : null)
+  }
 
   // Fetch UMAP data on mount
   useEffect(() => {
@@ -454,6 +569,12 @@ export const UMAPPanel: React.FC<UMAPPanelProps> = ({ className = '' }) => {
         loading={loading}
         error={error}
         colorBy="cluster"
+        hoveredCluster={hoveredCluster}
+        clickedCluster={clickedCluster}
+        linkedFeatureIds={linkedFeatureIds}
+        isSourcePanel={activePanel === 'feature'}
+        onClusterHover={handleFeatureHover}
+        onClusterClick={handleFeatureClick}
       />
       <UMAPSubPanel
         title="Explanation UMAP"
@@ -462,6 +583,12 @@ export const UMAPPanel: React.FC<UMAPPanelProps> = ({ className = '' }) => {
         loading={loading}
         error={error}
         colorBy="cluster"
+        hoveredCluster={hoveredCluster}
+        clickedCluster={clickedCluster}
+        linkedFeatureIds={linkedFeatureIds}
+        isSourcePanel={activePanel === 'explanation'}
+        onClusterHover={handleExplanationHover}
+        onClusterClick={handleExplanationClick}
       />
     </div>
   )
