@@ -286,6 +286,53 @@ export interface CategoryGroup {
 }
 
 // ============================================================================
+// UMAP VISUALIZATION TYPES
+// ============================================================================
+
+export interface UMAPPoint {
+  umap_id: number
+  feature_id: number
+  umap_x: number
+  umap_y: number
+  source: string
+  llm_explainer: string | null
+  cluster_id: string
+  cluster_label: string | null
+  cluster_level: number
+}
+
+export interface ClusterNode {
+  cluster_id: string
+  level: number
+  parent_id: string | null
+  children_ids: string[]
+  point_count: number
+  is_noise: boolean
+}
+
+export interface UMAPMetadata {
+  total_points: number
+  feature_points: number
+  explanation_points: number
+  noise_points: number
+  applied_filters: Filters
+  cluster_hierarchy: Record<string, Record<string, ClusterNode>>
+}
+
+export interface UMAPDataResponse {
+  features: UMAPPoint[]
+  explanations: UMAPPoint[]
+  metadata: UMAPMetadata
+}
+
+export interface UMAPDataRequest {
+  filters: Filters
+  umap_type?: 'feature' | 'explanation' | 'both'
+  feature_ids?: number[]
+  include_noise?: boolean
+}
+
+// ============================================================================
 // UI AND STATE TYPES
 // ============================================================================
 

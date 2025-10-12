@@ -741,3 +741,201 @@ class DataService:
             },
             details_path=row[COL_DETAILS_PATH]
         )
+
+    async def get_umap_data(
+        self,
+        filters: Filters,
+        umap_type: Optional[str] = "both",
+        feature_ids: Optional[List[int]] = None,
+        include_noise: bool = True
+    ):
+        """
+        Get UMAP visualization data with cluster hierarchy.
+
+        Args:
+            filters: Filter criteria to apply
+            umap_type: Type of UMAP data ('feature', 'explanation', or 'both')
+            feature_ids: Optional list of specific feature IDs to include
+            include_noise: Whether to include noise points
+
+        Returns:
+            UMAPDataResponse with points and cluster hierarchy
+        """
+        from ..models.responses import UMAPDataResponse, UMAPPoint, UMAPMetadata, ClusterNode
+
+        if not self.is_ready():
+            raise RuntimeError("DataService not ready")
+
+        try:
+            # Load UMAP parquet file
+            umap_file = self.data_path / "master" / "umap_projections.parquet"
+            if not umap_file.exists():
+                raise FileNotFoundError(f"UMAP parquet file not found: {umap_file}")
+
+            # Load data with lazy frame
+            umap_df = pl.scan_parquet(umap_file)
+
+            # Apply filters (reusing existing filter logic for feature_analysis parquet)
+            # Note: UMAP parquet has different schema, so we filter on available columns
+            filter_conditions = []
+
+            # Filter by feature_ids if provided
+            if feature_ids:
+                filter_conditions.append(pl.col("feature_id").is_in(feature_ids))
+
+            # Filter by umap_type
+            if umap_type and umap_type != "both":
+                filter_conditions.append(pl.col("umap_type") == umap_type)
+
+            # Filter noise if requested
+            if not include_noise:
+                filter_conditions.append(pl.col("cluster_label") != "noise")
+
+            # Apply all filter conditions
+            if filter_conditions:
+                combined_condition = filter_conditions[0]
+                for condition in filter_conditions[1:]:
+                    combined_condition = combined_condition & condition
+                umap_df = umap_df.filter(combined_condition)
+
+            # Collect the data
+            df = umap_df.collect()
+
+            if len(df) == 0:
+                raise ValueError("No UMAP data available after applying filters")
+
+            logger.info(f"Loaded {len(df)} UMAP points")
+
+            # Split into features and explanations
+            features = []
+            explanations = []
+
+            for row in df.iter_rows(named=True):
+                point = UMAPPoint(
+                    umap_id=row["umap_id"],
+                    feature_id=row["feature_id"],
+                    umap_x=row["umap_x"],
+                    umap_y=row["umap_y"],
+                    source=row["source"],
+                    llm_explainer=row["llm_explainer"],
+                    cluster_id=row["cluster_id"],
+                    cluster_label=row["cluster_label"],
+                    cluster_level=row["cluster_level"]
+                )
+
+                if row["umap_type"] == "feature":
+                    features.append(point)
+                else:
+                    explanations.append(point)
+
+            # Build cluster hierarchy
+            cluster_hierarchy = self._build_cluster_hierarchy(df)
+
+            # Count noise points
+            noise_points = len(df.filter(pl.col("cluster_label") == "noise"))
+
+            # Build metadata
+            metadata = UMAPMetadata(
+                total_points=len(df),
+                feature_points=len(features),
+                explanation_points=len(explanations),
+                noise_points=noise_points,
+                applied_filters=self._build_applied_filters(filters),
+                cluster_hierarchy=cluster_hierarchy
+            )
+
+            logger.info(f"Generated UMAP response: {len(features)} features, {len(explanations)} explanations, {len(cluster_hierarchy)} clusters")
+
+            return UMAPDataResponse(
+                features=features,
+                explanations=explanations,
+                metadata=metadata
+            )
+
+        except Exception as e:
+            logger.error(f"Error generating UMAP data: {e}")
+            raise
+
+    def _build_cluster_hierarchy(self, df: pl.DataFrame) -> Dict[str, Any]:
+        """
+        Build separate cluster hierarchies for features and explanations.
+
+        Since features and explanations are clustered separately but share cluster IDs,
+        we need to build separate hierarchies to avoid conflicts.
+
+        Args:
+            df: UMAP dataframe with both features and explanations
+
+        Returns:
+            Dictionary with two hierarchies:
+            {
+                "features": {...},      # hierarchy for feature clusters
+                "explanations": {...}   # hierarchy for explanation clusters
+            }
+        """
+        from ..models.responses import ClusterNode
+
+        hierarchies = {
+            "features": {},
+            "explanations": {}
+        }
+
+        # Process each umap_type separately
+        for umap_type in ["feature", "explanation"]:
+            type_df = df.filter(pl.col("umap_type") == umap_type)
+
+            if len(type_df) == 0:
+                continue
+
+            # Get unique clusters for this umap_type
+            unique_clusters = type_df.select(
+                pl.col("cluster_id").unique()
+            ).get_column("cluster_id").to_list()
+
+            hierarchy = {}
+
+            # Build hierarchy for each cluster
+            for cluster_id in unique_clusters:
+                cluster_df = type_df.filter(pl.col("cluster_id") == cluster_id)
+
+                if len(cluster_df) == 0:
+                    continue
+
+                # Get cluster info from first row (now safe - all rows have same level)
+                first_row = cluster_df.row(0, named=True)
+                level = first_row["cluster_level"]
+                is_noise = first_row["cluster_label"] == "noise"
+                point_count = len(cluster_df)
+
+                # Determine parent from ancestors
+                parent_id = None
+                if level > 0:
+                    # Parent is at level-1, check ancestor columns
+                    if level == 1:
+                        parent_id = first_row["ancestor_level_0"]
+                    elif level == 2:
+                        parent_id = first_row["ancestor_level_1"]
+                    elif level == 3:
+                        parent_id = first_row["ancestor_level_2"]
+
+                hierarchy[cluster_id] = ClusterNode(
+                    cluster_id=cluster_id,
+                    level=level,
+                    parent_id=parent_id,
+                    children_ids=[],  # Will be filled in second pass
+                    point_count=point_count,
+                    is_noise=is_noise
+                )
+
+            # Second pass: build children_ids by looking for nodes where parent_id matches
+            for cluster_id, node in hierarchy.items():
+                for other_id, other_node in hierarchy.items():
+                    if other_node.parent_id == cluster_id:
+                        node.children_ids.append(other_id)
+
+            # Store hierarchy for this umap_type
+            hierarchies[umap_type + "s"] = hierarchy  # "features" or "explanations"
+
+        logger.info(f"Built cluster hierarchies: {len(hierarchies['features'])} feature clusters, {len(hierarchies['explanations'])} explanation clusters")
+
+        return hierarchies

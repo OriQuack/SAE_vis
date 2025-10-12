@@ -8,7 +8,9 @@ import type {
   ComparisonDataRequest,
   FeatureDetail,
   Filters,
-  LLMComparisonData
+  LLMComparisonData,
+  UMAPDataRequest,
+  UMAPDataResponse
 } from './types'
 
 // ============================================================================
@@ -22,7 +24,8 @@ const API_ENDPOINTS = {
   SANKEY_DATA: "/sankey-data",
   COMPARISON_DATA: "/comparison-data",
   FEATURE_DETAIL: "/feature",
-  LLM_COMPARISON: "/llm-comparison"
+  LLM_COMPARISON: "/llm-comparison",
+  UMAP_DATA: "/umap-data"
 } as const
 
 const API_BASE = API_BASE_URL
@@ -161,6 +164,22 @@ export async function getLLMComparisonData(filters: Filters = {}): Promise<LLMCo
   })
   if (!response.ok) {
     throw new Error(`Failed to fetch LLM comparison data: ${response.status}`)
+  }
+  return response.json()
+}
+
+export async function getUMAPData(request: UMAPDataRequest): Promise<UMAPDataResponse> {
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.UMAP_DATA}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request)
+  })
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('UMAP API error:', response.status, errorText)
+    throw new Error(`Failed to fetch UMAP data: ${response.status} - ${errorText}`)
   }
   return response.json()
 }

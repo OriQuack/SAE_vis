@@ -100,3 +100,22 @@ class LLMComparisonRequest(BaseModel):
         default_factory=lambda: Filters(),
         description="Optional filter criteria for data subset"
     )
+
+class UMAPDataRequest(BaseModel):
+    """Request model for UMAP visualization data endpoint"""
+    filters: Filters = Field(
+        default_factory=lambda: Filters(),
+        description="Optional filter criteria for data subset"
+    )
+    umap_type: Optional[str] = Field(
+        default="both",
+        description="Type of UMAP data to return: 'feature', 'explanation', or 'both'"
+    )
+    feature_ids: Optional[List[int]] = Field(
+        default=None,
+        description="Optional list of specific feature IDs to include (for Sankey linking)"
+    )
+    include_noise: bool = Field(
+        default=True,
+        description="Whether to include noise points in the response"
+    )

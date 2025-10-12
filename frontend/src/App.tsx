@@ -9,6 +9,7 @@ import HistogramPanel from './components/HistogramPanel'
 import ThresholdGroupPanel from './components/ThresholdGroupPanel'
 import ProgressBar from './components/ProgressBar'
 import LLMComparisonSelection from './components/LLMComparisonSelection'
+import UMAPPanel from './components/UMAPPanel'
 import { usePanelDataLoader } from './lib/utils'
 import * as api from './api'
 import './styles/base.css'
@@ -39,7 +40,7 @@ interface AppProps {
 // INLINE UI COMPONENTS
 // ============================================================================
 
-const EmptyState: React.FC<{ onAddVisualization: () => void }> = ({ onAddVisualization }) => (
+const EmptyState: React.FC<{ onAddVisualization: () => void }> = ({ onAddVisualization: _onAddVisualization }) => (
   <div className="empty-state-card">
     <div className="empty-state-card__content">
       <p className="empty-state-card__text">
@@ -353,9 +354,7 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
             <div className="sankey-view__analysis-container">
               {/* UMAP Panel */}
               <div className="sankey-view__umap-panel">
-                <div className="sankey-view__placeholder-text">
-                  UMAP Panel
-                </div>
+                <UMAPPanel />
               </div>
 
               {/* Analysis Right Panel */}

@@ -176,6 +176,138 @@ def map_feature_to_cluster(feature_id: int, clustering_data: Dict) -> Tuple[Opti
     return find_cluster(cluster_tree)
 
 
+def map_feature_to_all_clusters(feature_id: int, clustering_data: Dict) -> List[Tuple[str, int, bool]]:
+    """
+    Map a feature ID to ALL clusters in its hierarchy path (intermediate + leaf/noise).
+
+    Args:
+        feature_id: Feature ID (integer)
+        clustering_data: Loaded clustering JSON
+
+    Returns:
+        List of (cluster_id, level, is_noise) for each level in hierarchy.
+        Example: [
+            ("cluster_0", 0, False),
+            ("cluster_1", 1, False),
+            ("cluster_4", 2, False),
+            ("cluster_5", 3, False)
+        ]
+        Or with noise: [
+            ("cluster_0", 0, False),
+            ("cluster_1", 1, False),
+            ("noise_cluster_1", 2, True)
+        ]
+    """
+    cluster_path = []
+
+    def traverse_path(node: Dict, level: int = 0) -> bool:
+        """
+        Traverse tree and collect all clusters containing this feature.
+        Returns True if feature is in this subtree.
+        """
+        member_indices = node.get("member_indices", [])
+
+        # Check if feature is in this node
+        if feature_id not in member_indices:
+            return False
+
+        # Feature is in this node - add to path
+        cluster_id = node.get("cluster_id")
+        cluster_path.append((cluster_id, level, False))
+
+        # Check if node has children
+        if not node.get("children"):
+            # Leaf node - we're done
+            return True
+
+        # Has children - check if feature is in any child
+        found_in_child = False
+        for child in node.get("children", []):
+            if traverse_path(child, level + 1):
+                found_in_child = True
+                break
+
+        # If not found in any child, feature became noise at this level
+        if not found_in_child:
+            # Add noise cluster entry
+            noise_cluster_id = f"noise_{cluster_id}"
+            cluster_path.append((noise_cluster_id, level + 1, True))
+
+        return True
+
+    cluster_tree = clustering_data.get("cluster_tree", {})
+    traverse_path(cluster_tree)
+
+    return cluster_path
+
+
+def map_explanation_to_all_clusters(explanation_id: str, clustering_data: Dict) -> List[Tuple[str, int, bool]]:
+    """
+    Map an explanation ID to ALL clusters in its hierarchy path (intermediate + leaf/noise).
+
+    Args:
+        explanation_id: Explanation ID (e.g., "feature_0_llama_e-llama_s")
+        clustering_data: Loaded clustering JSON
+
+    Returns:
+        List of (cluster_id, level, is_noise) for each level in hierarchy
+    """
+    # Get the index from explanation_id_mapping
+    explanation_id_mapping = clustering_data.get("explanation_id_mapping", {})
+
+    # Find the index corresponding to this explanation_id
+    member_index = None
+    for idx_str, mapped_id in explanation_id_mapping.items():
+        if mapped_id == explanation_id:
+            member_index = int(idx_str)
+            break
+
+    if member_index is None:
+        return []
+
+    cluster_path = []
+
+    def traverse_path(node: Dict, level: int = 0) -> bool:
+        """
+        Traverse tree and collect all clusters containing this explanation.
+        Returns True if explanation is in this subtree.
+        """
+        member_indices = node.get("member_indices", [])
+
+        # Check if explanation is in this node
+        if member_index not in member_indices:
+            return False
+
+        # Explanation is in this node - add to path
+        cluster_id = node.get("cluster_id")
+        cluster_path.append((cluster_id, level, False))
+
+        # Check if node has children
+        if not node.get("children"):
+            # Leaf node - we're done
+            return True
+
+        # Has children - check if explanation is in any child
+        found_in_child = False
+        for child in node.get("children", []):
+            if traverse_path(child, level + 1):
+                found_in_child = True
+                break
+
+        # If not found in any child, explanation became noise at this level
+        if not found_in_child:
+            # Add noise cluster entry
+            noise_cluster_id = f"noise_{cluster_id}"
+            cluster_path.append((noise_cluster_id, level + 1, True))
+
+        return True
+
+    cluster_tree = clustering_data.get("cluster_tree", {})
+    traverse_path(cluster_tree)
+
+    return cluster_path
+
+
 def process_explanation_umap(config: Dict, project_root: Path) -> pl.DataFrame:
     """
     Process explanation UMAP data with clustering and labels.
@@ -220,60 +352,52 @@ def process_explanation_umap(config: Dict, project_root: Path) -> pl.DataFrame:
             # Build explanation_id
             explanation_id = f"{feature_key}_{source_name}"
 
-            # Map to cluster (returns cluster_id, parent_cluster_id, noise_level)
-            cluster_id, parent_cluster_id, noise_level = map_explanation_to_cluster(explanation_id, clustering_data)
+            # Get ALL clusters in hierarchy path
+            cluster_hierarchy_path = map_explanation_to_all_clusters(explanation_id, clustering_data)
 
-            # Determine cluster metadata
-            if cluster_id and cluster_id in cluster_mapping:
-                # Regular cluster assignment
-                cluster_info = cluster_mapping[cluster_id]
-                path = cluster_info["path"]
-                level = cluster_info["level"]
-
-                # Get label
-                cluster_label = None
-                if cluster_id in cluster_labels:
-                    cluster_label = cluster_labels[cluster_id].get("label")
-
-                # Pad path to 3 levels
-                ancestors = path + [None] * (3 - len(path))
-
-            elif noise_level is not None:
-                # Noise point - use special cluster_id
-                cluster_id = f"noise_{parent_cluster_id}"
-                level = noise_level + 1  # Noise is at child level
-                cluster_label = "noise"
-
-                # Build ancestors from parent cluster
-                if parent_cluster_id and parent_cluster_id in cluster_mapping:
-                    parent_path = cluster_mapping[parent_cluster_id]["path"]
-                    ancestors = parent_path + [parent_cluster_id] + [None] * (3 - len(parent_path) - 1)
-                else:
-                    ancestors = [None, None, None]
-
-            else:
-                # No mapping found - skip this point
+            if not cluster_hierarchy_path:
+                # No mapping found - skip this explanation
                 continue
 
             # Extract LLM explainer from source name
             llm_explainer = source_name  # Full source name for now
 
-            row = {
-                "umap_type": "explanation",
-                "feature_id": feature_id,
-                "source": source_name,
-                "llm_explainer": llm_explainer,
-                "umap_x": coords["x"],
-                "umap_y": coords["y"],
-                "sae_id": umap_data.get("metadata", {}).get("sources", ["unknown"])[0],
-                "cluster_id": cluster_id,
-                "cluster_level": level,
-                "cluster_label": cluster_label,
-                "ancestor_level_0": ancestors[0],
-                "ancestor_level_1": ancestors[1],
-                "ancestor_level_2": ancestors[2]
-            }
-            rows.append(row)
+            # Create one row for each cluster level in the hierarchy
+            for cluster_id, level, is_noise in cluster_hierarchy_path:
+                # Determine cluster metadata
+                cluster_label = "noise" if is_noise else None
+
+                # Get label from cluster_labels if available (non-noise clusters only)
+                if not is_noise and cluster_id in cluster_labels:
+                    cluster_label = cluster_labels[cluster_id].get("label")
+
+                # Build ancestors based on level
+                ancestors = [None, None, None]
+                if level > 0:
+                    # Get ancestors from earlier entries in cluster_hierarchy_path
+                    for i in range(min(level, 3)):
+                        if i < len(cluster_hierarchy_path):
+                            # Only use non-noise clusters as ancestors
+                            ancestor_cluster_id, ancestor_level, ancestor_is_noise = cluster_hierarchy_path[i]
+                            if not ancestor_is_noise and ancestor_level == i:
+                                ancestors[i] = ancestor_cluster_id
+
+                row = {
+                    "umap_type": "explanation",
+                    "feature_id": feature_id,
+                    "source": source_name,
+                    "llm_explainer": llm_explainer,
+                    "umap_x": coords["x"],
+                    "umap_y": coords["y"],
+                    "sae_id": umap_data.get("metadata", {}).get("sources", ["unknown"])[0],
+                    "cluster_id": cluster_id,
+                    "cluster_level": level,
+                    "cluster_label": cluster_label,
+                    "ancestor_level_0": ancestors[0],
+                    "ancestor_level_1": ancestors[1],
+                    "ancestor_level_2": ancestors[2]
+                }
+                rows.append(row)
 
     print(f"Processed {len(rows)} explanation UMAP points")
 
@@ -330,53 +454,49 @@ def process_feature_umap(config: Dict, project_root: Path) -> pl.DataFrame:
     for feature_data in feature_embeddings:
         feature_id = feature_data["feature_id"]
 
-        # Map to cluster (returns cluster_id, parent_cluster_id, noise_level)
-        cluster_id, parent_cluster_id, noise_level = map_feature_to_cluster(feature_id, clustering_data)
+        # Get ALL clusters in hierarchy path
+        cluster_hierarchy_path = map_feature_to_all_clusters(feature_id, clustering_data)
 
-        # Determine cluster metadata
-        if cluster_id and cluster_id in cluster_mapping:
-            # Regular cluster assignment
-            cluster_info = cluster_mapping[cluster_id]
-            path = cluster_info["path"]
-            level = cluster_info["level"]
-
-            # Pad path to 3 levels
-            ancestors = path + [None] * (3 - len(path))
-            cluster_label = None  # No labels yet for features
-
-        elif noise_level is not None:
-            # Noise point - use special cluster_id
-            cluster_id = f"noise_{parent_cluster_id}"
-            level = noise_level + 1  # Noise is at child level
-            cluster_label = "noise"
-
-            # Build ancestors from parent cluster
-            if parent_cluster_id and parent_cluster_id in cluster_mapping:
-                parent_path = cluster_mapping[parent_cluster_id]["path"]
-                ancestors = parent_path + [parent_cluster_id] + [None] * (3 - len(parent_path) - 1)
-            else:
-                ancestors = [None, None, None]
-
-        else:
-            # No mapping found - skip this point
+        if not cluster_hierarchy_path:
+            # No mapping found - skip this feature
             continue
 
-        row = {
-            "umap_type": "feature",
-            "feature_id": feature_id,
-            "source": "decoder",
-            "llm_explainer": None,
-            "umap_x": feature_data["umap_x"],
-            "umap_y": feature_data["umap_y"],
-            "sae_id": umap_data.get("metadata", {}).get("model_info", {}).get("model_name_or_path", "unknown"),
-            "cluster_id": cluster_id,
-            "cluster_level": level,
-            "cluster_label": cluster_label,
-            "ancestor_level_0": ancestors[0],
-            "ancestor_level_1": ancestors[1],
-            "ancestor_level_2": ancestors[2]
-        }
-        rows.append(row)
+        # Create one row for each cluster level in the hierarchy
+        for cluster_id, level, is_noise in cluster_hierarchy_path:
+            # Determine cluster metadata
+            cluster_label = "noise" if is_noise else None
+
+            # Build ancestors based on level
+            # For level 0, no ancestors
+            # For level 1, ancestor_level_0 is the cluster at level 0
+            # For level 2, ancestor_level_0/1 are clusters at levels 0/1
+            # etc.
+            ancestors = [None, None, None]
+            if level > 0:
+                # Get ancestors from earlier entries in cluster_hierarchy_path
+                for i in range(min(level, 3)):
+                    if i < len(cluster_hierarchy_path):
+                        # Only use non-noise clusters as ancestors
+                        ancestor_cluster_id, ancestor_level, ancestor_is_noise = cluster_hierarchy_path[i]
+                        if not ancestor_is_noise and ancestor_level == i:
+                            ancestors[i] = ancestor_cluster_id
+
+            row = {
+                "umap_type": "feature",
+                "feature_id": feature_id,
+                "source": "decoder",
+                "llm_explainer": None,
+                "umap_x": feature_data["umap_x"],
+                "umap_y": feature_data["umap_y"],
+                "sae_id": umap_data.get("metadata", {}).get("model_info", {}).get("model_name_or_path", "unknown"),
+                "cluster_id": cluster_id,
+                "cluster_level": level,
+                "cluster_label": cluster_label,
+                "ancestor_level_0": ancestors[0],
+                "ancestor_level_1": ancestors[1],
+                "ancestor_level_2": ancestors[2]
+            }
+            rows.append(row)
 
     print(f"Processed {len(rows)} feature UMAP points")
 

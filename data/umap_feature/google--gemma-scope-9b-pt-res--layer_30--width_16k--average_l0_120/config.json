@@ -8,7 +8,7 @@
     "comment": "Process all 16384 features. Adjust 'end' to reduce computation time for testing."
   },
   "umap_parameters": {
-    "n_neighbors": 25,
+    "n_neighbors": 5,
     "min_dist": 0.1,
     "metric": "cosine",
     "random_state": 42,

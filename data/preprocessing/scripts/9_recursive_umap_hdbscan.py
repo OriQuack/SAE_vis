@@ -152,6 +152,7 @@ class RecursiveUMAPHDBSCAN:
         self.max_recursion_depth = config.get("max_recursion_depth", 3)
         self.min_cluster_percentage = config.get("min_cluster_percentage", 0.01)
         self.save_visualizations = config.get("save_visualizations", False)
+        self.random_seed = config.get("random_seed", 42)
 
         # SAE parameters (for feature loading)
         self.sae_model_name = config.get("sae_model_name", "google/gemma-scope-9b-pt-res")
@@ -290,18 +291,21 @@ class RecursiveUMAPHDBSCAN:
 
         return embeddings_array, all_ids
 
-    def apply_umap(self, data: np.ndarray, params: Dict, random_state: int = 42) -> np.ndarray:
+    def apply_umap(self, data: np.ndarray, params: Dict, random_state: Optional[int] = None) -> np.ndarray:
         """
         Apply UMAP dimensionality reduction to high-dimensional data.
 
         Args:
             data: High-dimensional input data (n_samples, n_features)
             params: Parameter dictionary containing UMAP settings
-            random_state: Random seed for reproducibility
+            random_state: Random seed for reproducibility (uses self.random_seed if None)
 
         Returns:
             Reduced embeddings (n_samples, n_components)
         """
+        if random_state is None:
+            random_state = self.random_seed
+
         n_samples = len(data)
 
         # Adjust n_neighbors if data is too small
@@ -615,7 +619,7 @@ class RecursiveUMAPHDBSCAN:
         # Step 1: Apply UMAP to reduce high-dim → n_components
         requested_n_components = params["umap_n_components"]
         logger.info(f"{'  ' * level}  → UMAP: {high_dim_data.shape[1]}D → {requested_n_components}D")
-        embeddings_reduced = self.apply_umap(high_dim_data, params, random_state=42 + level)
+        embeddings_reduced = self.apply_umap(high_dim_data, params, random_state=self.random_seed + level)
         actual_n_components = embeddings_reduced.shape[1]
 
         # Log if parameters were adjusted for small sample size
@@ -731,6 +735,7 @@ class RecursiveUMAPHDBSCAN:
                 },
                 "original_dimensionality": int(high_dim_data.shape[1]),
                 "max_recursion_depth": self.max_recursion_depth,
+                "random_seed": self.random_seed,
                 "timestamp": datetime.now().isoformat(),
                 "sae_model": self.sae_model_name,
                 "sae_position": self.sae_position,
@@ -796,6 +801,7 @@ class RecursiveUMAPHDBSCAN:
                 "sources": self.explanation_sources,
                 "original_dimensionality": int(high_dim_data.shape[1]),
                 "max_recursion_depth": self.max_recursion_depth,
+                "random_seed": self.random_seed,
                 "timestamp": datetime.now().isoformat(),
                 "umap_parameters": {
                     "n_neighbors": self.explanation_params["umap_n_neighbors"],
@@ -1023,6 +1029,7 @@ class RecursiveUMAPHDBSCAN:
         logger.info("="*70)
         logger.info("RECURSIVE UMAP + HDBSCAN CLUSTERING (Spotify Engineering)")
         logger.info("="*70)
+        logger.info(f"Random seed: {self.random_seed}")
         logger.info(f"Max recursion depth: {self.max_recursion_depth}")
         logger.info(f"Min cluster percentage: {self.min_cluster_percentage}%")
         logger.info(f"Save visualizations: {'✓ ENABLED' if self.save_visualizations else '✗ DISABLED'}")
@@ -1084,6 +1091,7 @@ def load_config(config_path: Optional[str] = None) -> Dict:
         "max_recursion_depth": 3,
         "min_cluster_percentage": 1.0,
         "save_visualizations": False,
+        "random_seed": 42,
         "feature_parameters": {
             "umap_n_neighbors": 20,
             "umap_min_dist": 0.3,

@@ -1,0 +1,2511 @@
+{
+  "description": "Cluster labels and metadata generated using c-TF-IDF and LLM. Reference the original clustering file for full tree structure.",
+  "original_clustering_file": "data/recursive_clustering/explanation_recursive_clustering.json",
+  "generated_at": "2025-10-12T16:59:24.847444",
+  "labeling_config": {
+    "llm_model": "gpt-5",
+    "source_directories": [
+      "llama_e-llama_s",
+      "gwen_e-llama_s",
+      "openai_e-llama_s"
+    ],
+    "ctfidf_top_n_terms": 10,
+    "n_sample_explanations": 5,
+    "label_max_words": 15,
+    "sampling_method": "embedding_based_centroid"
+  },
+  "cluster_labels": {
+    "cluster_1": {
+      "label": "Parsing error cluster: unparseable or missing feature explanations",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "explanation parsed",
+            "score": 0.42761189446794945
+          },
+          {
+            "term": "parsed explanation parsed",
+            "score": 0.42212969069271933
+          },
+          {
+            "term": "parsed explanation",
+            "score": 0.42212969069271933
+          },
+          {
+            "term": "explanation parsed explanation",
+            "score": 0.42212969069271933
+          },
+          {
+            "term": "explanation",
+            "score": 0.3758774005021708
+          },
+          {
+            "term": "parsed",
+            "score": 0.3758774005021708
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_120_openai_e-llama_s",
+          "feature_777_openai_e-llama_s",
+          "feature_773_openai_e-llama_s",
+          "feature_768_openai_e-llama_s",
+          "feature_759_openai_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_120_openai_e-llama_s",
+            "text": "\"Explanation could not be parsed.\""
+          },
+          {
+            "explanation_id": "feature_777_openai_e-llama_s",
+            "text": "\"Explanation could not be parsed.\""
+          },
+          {
+            "explanation_id": "feature_773_openai_e-llama_s",
+            "text": "\"Explanation could not be parsed.\""
+          },
+          {
+            "explanation_id": "feature_768_openai_e-llama_s",
+            "text": "\"Explanation could not be parsed.\""
+          },
+          {
+            "explanation_id": "feature_759_openai_e-llama_s",
+            "text": "\"Explanation could not be parsed.\""
+          }
+        ]
+      }
+    },
+    "cluster_2": {
+      "label": "Biomedical and biochemical terminology: organisms, chemicals, diseases, proteins, enzymes, molecular processes",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "terms",
+            "score": 0.26096870663015675
+          },
+          {
+            "term": "scientific",
+            "score": 0.1981725233182828
+          },
+          {
+            "term": "medical",
+            "score": 0.19498162731666596
+          },
+          {
+            "term": "biological",
+            "score": 0.18667222607795553
+          },
+          {
+            "term": "chemical",
+            "score": 0.14708869010991635
+          },
+          {
+            "term": "laboratory",
+            "score": 0.12437590431054578
+          },
+          {
+            "term": "biological processes",
+            "score": 0.1238077601837052
+          },
+          {
+            "term": "technical",
+            "score": 0.1219190856600994
+          },
+          {
+            "term": "technical terms",
+            "score": 0.11712630639175547
+          },
+          {
+            "term": "terms related",
+            "score": 0.1122300084397582
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_868_gwen_e-llama_s",
+          "feature_868_llama_e-llama_s",
+          "feature_746_gwen_e-llama_s",
+          "feature_746_llama_e-llama_s",
+          "feature_216_llama_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_868_gwen_e-llama_s",
+            "text": "\"Scientific and technical terms, often representing names of organisms, chemicals, or biological processes, and sometimes abbreviations or prefixes/suffixes of these terms.\""
+          },
+          {
+            "explanation_id": "feature_868_llama_e-llama_s",
+            "text": "\"Scientific and technical terms, often representing names of organisms, chemicals, or biological processes, and sometimes abbreviations or prefixes/suffixes of these terms.\""
+          },
+          {
+            "explanation_id": "feature_746_gwen_e-llama_s",
+            "text": "\"Scientific and technical terms, often representing names of organisms, diseases, or biological processes, and sometimes parts of words or prefixes/suffixes of these terms.\""
+          },
+          {
+            "explanation_id": "feature_746_llama_e-llama_s",
+            "text": "\"Scientific and technical terms, often representing names of organisms, diseases, or biological processes, and sometimes parts of words or prefixes/suffixes of these terms.\""
+          },
+          {
+            "explanation_id": "feature_216_llama_e-llama_s",
+            "text": "\"Scientific and technical terms, often referring to biological or chemical concepts, such as proteins, enzymes, acids, and molecules, as well as medical conditions and treatments.\""
+          }
+        ]
+      }
+    },
+    "cluster_3": {
+      "label": "Numbers in text: dates, quantities, measurements, codes, and identifiers",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "numerical",
+            "score": 0.34396080531229223
+          },
+          {
+            "term": "digit",
+            "score": 0.2527655325735614
+          },
+          {
+            "term": "dates",
+            "score": 0.19222073087540378
+          },
+          {
+            "term": "digits",
+            "score": 0.18726814431185204
+          },
+          {
+            "term": "values",
+            "score": 0.17898089834028602
+          },
+          {
+            "term": "measurements",
+            "score": 0.16236527057965988
+          },
+          {
+            "term": "numeric",
+            "score": 0.1584576605715671
+          },
+          {
+            "term": "numerical values",
+            "score": 0.15511957886632788
+          },
+          {
+            "term": "numbers",
+            "score": 0.13750507059021197
+          },
+          {
+            "term": "values representing",
+            "score": 0.11502213018987456
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_699_llama_e-llama_s",
+          "feature_457_llama_e-llama_s",
+          "feature_463_llama_e-llama_s",
+          "feature_351_llama_e-llama_s",
+          "feature_480_llama_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_699_llama_e-llama_s",
+            "text": "\"Numerical values, often embedded within text, and sometimes used as part of a larger numerical expression or identifier.\""
+          },
+          {
+            "explanation_id": "feature_457_llama_e-llama_s",
+            "text": "\"Numerical digits embedded within text, often as part of a larger numerical value or identifier.\""
+          },
+          {
+            "explanation_id": "feature_463_llama_e-llama_s",
+            "text": "\"Numerical values, often representing years, quantities, or codes, embedded within text.\""
+          },
+          {
+            "explanation_id": "feature_351_llama_e-llama_s",
+            "text": "\"Numerical digits, often representing quantities, measurements, or identifiers, frequently appearing in scientific, mathematical, or technical contexts.\""
+          },
+          {
+            "explanation_id": "feature_480_llama_e-llama_s",
+            "text": "\"Numerical values, often representing dates, times, quantities, or identifiers, embedded within text.\""
+          }
+        ]
+      }
+    },
+    "cluster_4": {
+      "label": "Noun/adjective tokens in noun phrases, often with determiners, capitalization, or punctuation.",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "copyright copyright",
+            "score": 0.27281060940021423
+          },
+          {
+            "term": "copyright copyright copyright",
+            "score": 0.2719102443526888
+          },
+          {
+            "term": "copyright",
+            "score": 0.24138757076982092
+          },
+          {
+            "term": "met",
+            "score": 0.199881040550652
+          },
+          {
+            "term": "compens compens",
+            "score": 0.1971799454080756
+          },
+          {
+            "term": "compens compens compens",
+            "score": 0.19627958036055015
+          },
+          {
+            "term": "met met",
+            "score": 0.19447885026549924
+          },
+          {
+            "term": "met met met",
+            "score": 0.19177775512292286
+          },
+          {
+            "term": "pet",
+            "score": 0.18097337455261736
+          },
+          {
+            "term": "pet pet",
+            "score": 0.17827227941004098
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_787_openai_e-llama_s",
+          "feature_572_openai_e-llama_s",
+          "feature_104_openai_e-llama_s",
+          "feature_479_openai_e-llama_s",
+          "feature_762_openai_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_787_openai_e-llama_s",
+            "text": "\"The pattern: tokens that are important are often nouns or adjectives, often part of phrases.\""
+          },
+          {
+            "explanation_id": "feature_572_openai_e-llama_s",
+            "text": "\"The pattern might be that important tokens are nouns, adjectives, or phrases that are part of a larger phrase.\""
+          },
+          {
+            "explanation_id": "feature_104_openai_e-llama_s",
+            "text": "\"The pattern seems to be that the important tokens are nouns or noun phrases that are often part of a larger phrase, sometimes with preceding words like \\\"the\\\", \\\"a\\\", etc.\""
+          },
+          {
+            "explanation_id": "feature_479_openai_e-llama_s",
+            "text": "\"The pattern seems to be that the important tokens are often nouns or phrases that are part of a larger context, sometimes with punctuation.\""
+          },
+          {
+            "explanation_id": "feature_762_openai_e-llama_s",
+            "text": "\"The pattern might be that the important tokens are often nouns or adjectives, often capitalized, often part of names, or punctuation.\""
+          }
+        ]
+      }
+    },
+    "cluster_5": {
+      "label": "Technical notation and abbreviations in scientific/programming text, including superconformal field theory terms",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "technical",
+            "score": 0.16513912794181798
+          },
+          {
+            "term": "terms",
+            "score": 0.13571667551056985
+          },
+          {
+            "term": "abbreviations",
+            "score": 0.13571667551056985
+          },
+          {
+            "term": "superconformal",
+            "score": 0.13317141177467087
+          },
+          {
+            "term": "superconformal field",
+            "score": 0.11837458824415187
+          },
+          {
+            "term": "contexts",
+            "score": 0.11113357440892842
+          },
+          {
+            "term": "patterns",
+            "score": 0.11017499536723982
+          },
+          {
+            "term": "technical terms",
+            "score": 0.10452058675241863
+          },
+          {
+            "term": "field theories",
+            "score": 0.10357776471363288
+          },
+          {
+            "term": "superconformal field theories",
+            "score": 0.10357776471363288
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_86_gwen_e-llama_s",
+          "feature_695_llama_e-llama_s",
+          "feature_468_llama_e-llama_s",
+          "feature_290_llama_e-llama_s",
+          "feature_177_gwen_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_86_gwen_e-llama_s",
+            "text": "\"Common patterns include abbreviations, technical terms, and compound identifiers in code or academic contexts, often involving capitalized or hyphenated segments, frequently appearing in programming, scientific notation, or formal documentation.\""
+          },
+          {
+            "explanation_id": "feature_695_llama_e-llama_s",
+            "text": "\"Abbreviations and units of measurement, often in scientific or technical contexts, and proper nouns, including names of people, places, and organizations.\""
+          },
+          {
+            "explanation_id": "feature_468_llama_e-llama_s",
+            "text": "\"Special characters, punctuation, and short words or abbreviations often used in technical or formal writing, such as mathematical or programming notation, and sometimes nouns or words in specific contexts.\""
+          },
+          {
+            "explanation_id": "feature_290_llama_e-llama_s",
+            "text": "\"Special characters, abbreviations, and short words or phrases often used in technical, scientific, or programming contexts.\""
+          },
+          {
+            "explanation_id": "feature_177_gwen_e-llama_s",
+            "text": "\"Common linguistic patterns involving punctuation, abbreviations, compound terms, and contextual phrases that frequently appear in technical, legal, or structured text, often signaling specific syntactic or semantic roles such as emphasis, formatting, or reference.\""
+          }
+        ]
+      }
+    },
+    "cluster_6": {
+      "label": "Technical/formal linguistic patterns: compound terms, prepositions/possessives, punctuation-heavy sequences",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "common",
+            "score": 0.319072450887978
+          },
+          {
+            "term": "patterns",
+            "score": 0.319072450887978
+          },
+          {
+            "term": "compound",
+            "score": 0.2454403468369062
+          },
+          {
+            "term": "linguistic patterns involving",
+            "score": 0.1472642081021437
+          },
+          {
+            "term": "common patterns include",
+            "score": 0.1472642081021437
+          },
+          {
+            "term": "linguistic",
+            "score": 0.1472642081021437
+          },
+          {
+            "term": "linguistic patterns",
+            "score": 0.1472642081021437
+          },
+          {
+            "term": "patterns involving",
+            "score": 0.1472642081021437
+          },
+          {
+            "term": "include",
+            "score": 0.1472642081021437
+          },
+          {
+            "term": "common patterns",
+            "score": 0.1472642081021437
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_177_gwen_e-llama_s",
+          "feature_692_gwen_e-llama_s",
+          "feature_431_gwen_e-llama_s",
+          "feature_670_gwen_e-llama_s",
+          "feature_197_gwen_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_177_gwen_e-llama_s",
+            "text": "\"Common linguistic patterns involving punctuation, abbreviations, compound terms, and contextual phrases that frequently appear in technical, legal, or structured text, often signaling specific syntactic or semantic roles such as emphasis, formatting, or reference.\""
+          },
+          {
+            "explanation_id": "feature_692_gwen_e-llama_s",
+            "text": "\"Common linguistic patterns involving multi-token phrases, proper nouns, or technical terms that are contextually significant, often appearing in structured or formal text, including idioms, scientific notation, compound words, and punctuation-heavy sequences.\""
+          },
+          {
+            "explanation_id": "feature_431_gwen_e-llama_s",
+            "text": "\"Common linguistic patterns involving prepositions, possessives, and compound terms, often appearing in technical or descriptive contexts, with frequent emphasis on spatial, structural, or functional relationships.\""
+          },
+          {
+            "explanation_id": "feature_670_gwen_e-llama_s",
+            "text": "\"Common linguistic patterns involving prepositions, possessives, and compound terms, often indicating relationships, attributes, or technical descriptions in context.\""
+          },
+          {
+            "explanation_id": "feature_197_gwen_e-llama_s",
+            "text": "\"Common linguistic patterns involving compound nouns, technical terms, or phrases with specific structural or semantic roles, often appearing in academic, technical, or formal contexts, with emphasis on precise terminology, numerical values, or syntactic constructions.\""
+          }
+        ]
+      }
+    },
+    "cluster_7": {
+      "label": "Technical abbreviations, symbols, units; proper nouns and math/programming punctuation",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "used",
+            "score": 0.2425356250363315
+          },
+          {
+            "term": "short",
+            "score": 0.20788767860256982
+          },
+          {
+            "term": "mathematical",
+            "score": 0.13859178573504655
+          },
+          {
+            "term": "short words",
+            "score": 0.13859178573504655
+          },
+          {
+            "term": "symbols",
+            "score": 0.10394383930128491
+          },
+          {
+            "term": "words abbreviations",
+            "score": 0.10394383930128491
+          },
+          {
+            "term": "characters",
+            "score": 0.10394383930128491
+          },
+          {
+            "term": "capitalized",
+            "score": 0.10394383930128491
+          },
+          {
+            "term": "acronyms",
+            "score": 0.10394383930128491
+          },
+          {
+            "term": "used technical",
+            "score": 0.10394383930128491
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_290_llama_e-llama_s",
+          "feature_619_llama_e-llama_s",
+          "feature_695_llama_e-llama_s",
+          "feature_468_llama_e-llama_s",
+          "feature_208_llama_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_290_llama_e-llama_s",
+            "text": "\"Special characters, abbreviations, and short words or phrases often used in technical, scientific, or programming contexts.\""
+          },
+          {
+            "explanation_id": "feature_619_llama_e-llama_s",
+            "text": "\"Abbreviations, codes, and symbols often used in technical, scientific, and programming contexts.\""
+          },
+          {
+            "explanation_id": "feature_695_llama_e-llama_s",
+            "text": "\"Abbreviations and units of measurement, often in scientific or technical contexts, and proper nouns, including names of people, places, and organizations.\""
+          },
+          {
+            "explanation_id": "feature_468_llama_e-llama_s",
+            "text": "\"Special characters, punctuation, and short words or abbreviations often used in technical or formal writing, such as mathematical or programming notation, and sometimes nouns or words in specific contexts.\""
+          },
+          {
+            "explanation_id": "feature_208_llama_e-llama_s",
+            "text": "\"Abbreviations or words related to agreements, names, places, or objects, often used in formal or technical contexts.\""
+          }
+        ]
+      }
+    },
+    "cluster_8": {
+      "label": "",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "tokens",
+            "score": 0.2909840297177095
+          },
+          {
+            "term": "various tokens",
+            "score": 0.18861574668324885
+          },
+          {
+            "term": "nouns",
+            "score": 0.16010801168388658
+          },
+          {
+            "term": "various tokens including",
+            "score": 0.13112988780643298
+          },
+          {
+            "term": "tokens including",
+            "score": 0.1257438311221659
+          },
+          {
+            "term": "various",
+            "score": 0.11763153733691224
+          },
+          {
+            "term": "words",
+            "score": 0.1156474989903717
+          },
+          {
+            "term": "proper",
+            "score": 0.10998379339833494
+          },
+          {
+            "term": "tokens including nouns",
+            "score": 0.10728809002344517
+          },
+          {
+            "term": "adjectives",
+            "score": 0.10525733311826373
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_88_llama_e-llama_s",
+          "feature_483_llama_e-llama_s",
+          "feature_197_llama_e-llama_s",
+          "feature_863_llama_e-llama_s",
+          "feature_863_gwen_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_88_llama_e-llama_s",
+            "text": "\"Tokens that are often nouns, abbreviations, or words that are part of a larger phrase or sentence, sometimes indicating a proper noun, a scientific term, or a specific concept.\""
+          },
+          {
+            "explanation_id": "feature_483_llama_e-llama_s",
+            "text": "\"Tokens often represent nouns, names, or words that are part of a larger phrase or sentence, sometimes denoting a specific object, location, or concept, and can be found in various contexts such as scientific, technical, or everyday language.\""
+          },
+          {
+            "explanation_id": "feature_197_llama_e-llama_s",
+            "text": "\"Various tokens including nouns, verbs, adjectives, and numbers, often representing specific objects, concepts, or quantities, and sometimes being part of a larger phrase or sentence.\""
+          },
+          {
+            "explanation_id": "feature_863_llama_e-llama_s",
+            "text": "\"Various tokens including nouns, adjectives, adverbs, and numbers, often representing objects, concepts, or quantities, and sometimes being part of a larger phrase or sentence.\""
+          },
+          {
+            "explanation_id": "feature_863_gwen_e-llama_s",
+            "text": "\"Various tokens including nouns, adjectives, adverbs, and numbers, often representing objects, concepts, or quantities, and sometimes being part of a larger phrase or sentence.\""
+          }
+        ]
+      }
+    },
+    "cluster_9": {
+      "label": "Subword fragments of compound technical/scientific terms and proper nouns",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "partial",
+            "score": 0.2755796898287704
+          },
+          {
+            "term": "terms",
+            "score": 0.23849880057362746
+          },
+          {
+            "term": "fragments",
+            "score": 0.20348805106565893
+          },
+          {
+            "term": "technical",
+            "score": 0.18520215131359435
+          },
+          {
+            "term": "compound",
+            "score": 0.1798266497789544
+          },
+          {
+            "term": "words",
+            "score": 0.15537876693759664
+          },
+          {
+            "term": "truncated",
+            "score": 0.12412696380872702
+          },
+          {
+            "term": "partial word",
+            "score": 0.11635524941888269
+          },
+          {
+            "term": "word",
+            "score": 0.11269662184737828
+          },
+          {
+            "term": "scientific",
+            "score": 0.11012074228210382
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_597_gwen_e-llama_s",
+          "feature_491_gwen_e-llama_s",
+          "feature_559_gwen_e-llama_s",
+          "feature_2_gwen_e-llama_s",
+          "feature_640_gwen_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_597_gwen_e-llama_s",
+            "text": "\"Fragments of words or compound terms, often part of larger lexical units, where the activation is concentrated on partial or morphologically derived components, particularly in contexts involving technical, proper, or compound nouns.\""
+          },
+          {
+            "explanation_id": "feature_491_gwen_e-llama_s",
+            "text": "\"Partial or fragmented words, often at the end of a token, that are part of compound terms, proper names, or technical vocabulary, with activation patterns suggesting recognition of morphological or lexical fragments.\""
+          },
+          {
+            "explanation_id": "feature_559_gwen_e-llama_s",
+            "text": "\"Fragments of words or phrases that are part of compound terms, proper nouns, or technical expressions, often appearing in incomplete or partially tokenized form, with high activation on morphological or orthographic boundaries.\""
+          },
+          {
+            "explanation_id": "feature_2_gwen_e-llama_s",
+            "text": "\"Fragments of words or proper nouns, often part of compound terms or names, that are split across tokens and activated individually, particularly in contexts involving technical, biological, geographical, or branded terminology.\""
+          },
+          {
+            "explanation_id": "feature_640_gwen_e-llama_s",
+            "text": "\"Fragments of technical or scientific terms, often derived from compound words or abbreviations, where partial tokens (like \\\"el\\\", \\\"sub\\\", \\\"hat\\\", \\\"M\\\", \\\"fiber\\\") are activated due to their role in forming precise domain-specific terminology.\""
+          }
+        ]
+      }
+    },
+    "cluster_10": {
+      "label": "Derivational suffixes and function words in technical, compound, multisyllabic terms",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "ation",
+            "score": 0.3664370472094228
+          },
+          {
+            "term": "ation ition",
+            "score": 0.3507326023290189
+          },
+          {
+            "term": "ition",
+            "score": 0.3507326023290189
+          },
+          {
+            "term": "ation ition ation",
+            "score": 0.3454977873688843
+          },
+          {
+            "term": "ition ation ition",
+            "score": 0.3454977873688843
+          },
+          {
+            "term": "ition ation",
+            "score": 0.3454977873688843
+          },
+          {
+            "term": "commonly activated tokens",
+            "score": 0.10123261449267414
+          },
+          {
+            "term": "commonly activated",
+            "score": 0.09965102229439951
+          },
+          {
+            "term": "especially particularly",
+            "score": 0.094226669282423
+          },
+          {
+            "term": "activated tokens include",
+            "score": 0.09202964953879468
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_36_gwen_e-llama_s",
+          "feature_547_gwen_e-llama_s",
+          "feature_503_gwen_e-llama_s",
+          "feature_340_gwen_e-llama_s",
+          "feature_113_gwen_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_36_gwen_e-llama_s",
+            "text": "\"Commonly activated tokens include function words (e.g., \\\"the\\\", \\\"of\\\", \\\"and\\\"), suffixes forming comparative or derived words (e.g., \\\"er\\\", \\\"ion\\\", \\\"ation\\\"), and contextually significant nouns or adjectives related to medical, legal, or physical conditions, often appearing in compound terms or idiomatic expressions.\""
+          },
+          {
+            "explanation_id": "feature_547_gwen_e-llama_s",
+            "text": "\"Commonly activated tokens include function words (e.g., \\\"the\\\", \\\"but\\\", \\\"and\\\"), suffixes forming comparative or abstract nouns (e.g., \\\"er\\\", \\\"ibility\\\", \\\"ness\\\"), and contextually significant nouns or phrases denoting locations, concepts, or technical terms, often appearing in compound or idiomatic expressions.\""
+          },
+          {
+            "explanation_id": "feature_503_gwen_e-llama_s",
+            "text": "\"Commonly activated tokens include suffixes like \\\"er\\\", \\\"ing\\\", \\\"ly\\\", and \\\"able\\\", as well as function words like \\\"the\\\", \\\"to\\\", \\\"this\\\", \\\"that\\\", and \\\"what\\\", often appearing in comparative, descriptive, or explanatory contexts. Many activations cluster around compound or multi-syllabic words where partial segments (e.g., \\\"mis\\\", \\\"stere\\\", \\\"endos\\\", \\\"cination\\\") are individually significant, suggesting that morphological subunits of complex words are important for semantic interpretation. Additionally, common phrases like \\\"according to\\\", \\\"contrary to\\\", \\\"in the\\\", and \\\"this sort of\\\" frequently appear, indicating that functional and idiomatic expressions are key to contextual understanding.\""
+          },
+          {
+            "explanation_id": "feature_340_gwen_e-llama_s",
+            "text": "\"Commonly activated tokens include suffixes forming comparative or past-tense verbs, proper nouns, and nouns denoting physical objects or locations, often appearing in contexts involving description, measurement, or identity.\""
+          },
+          {
+            "explanation_id": "feature_113_gwen_e-llama_s",
+            "text": "\"Commonly activated tokens are often suffixes or parts of compound words, particularly in technical, scientific, or formal contexts, with frequent emphasis on specific morphological endings like \\\"-er\\\", \\\"-ing\\\", \\\"-ion\\\", \\\"-ity\\\", and \\\"-al\\\", as well as standalone terms in proper nouns, technical jargon, or domain-specific terminology.\""
+          }
+        ]
+      }
+    },
+    "cluster_11": {
+      "label": "Syntactic code tokens: identifiers, keywords, operators, punctuation, and delimiters",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "code",
+            "score": 0.3227186133267986
+          },
+          {
+            "term": "highlighted",
+            "score": 0.2857127715114971
+          },
+          {
+            "term": "highlighted tokens",
+            "score": 0.27379185177204113
+          },
+          {
+            "term": "tokens",
+            "score": 0.23043982766582188
+          },
+          {
+            "term": "keywords",
+            "score": 0.20512532745984308
+          },
+          {
+            "term": "identifiers",
+            "score": 0.19449306910249445
+          },
+          {
+            "term": "punctuation",
+            "score": 0.1414662842351863
+          },
+          {
+            "term": "names",
+            "score": 0.13479087127825518
+          },
+          {
+            "term": "delimiters",
+            "score": 0.1096993714405815
+          },
+          {
+            "term": "operators",
+            "score": 0.09872943429652337
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_267_openai_e-llama_s",
+          "feature_407_openai_e-llama_s",
+          "feature_584_openai_e-llama_s",
+          "feature_210_openai_e-llama_s",
+          "feature_321_openai_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_267_openai_e-llama_s",
+            "text": "\"The highlighted tokens are code identifiers, keywords, or syntax symbols that mark significant parts of programming constructs.\""
+          },
+          {
+            "explanation_id": "feature_407_openai_e-llama_s",
+            "text": "\"The highlighted tokens are the syntactic delimiters and key identifiers that define the structure of code fragments—punctuation, braces, semicolons, parentheses, and language keywords or variable names that mark boundaries or essential elements.\""
+          },
+          {
+            "explanation_id": "feature_584_openai_e-llama_s",
+            "text": "\"The highlighted tokens are code elements that carry syntactic or semantic weight in programming contexts—function names, variable identifiers, operators, and punctuation—often appearing within code fragments.\""
+          },
+          {
+            "explanation_id": "feature_210_openai_e-llama_s",
+            "text": "\"The highlighted tokens are syntactic elements of code—punctuation, operators, and keywords that indicate structure, method/property access, and control flow.\""
+          },
+          {
+            "explanation_id": "feature_321_openai_e-llama_s",
+            "text": "\"The highlighted tokens are syntactic markers that delineate code structure—punctuation such as semicolons, braces, parentheses, and language‑specific keywords like end, which signal the boundaries of statements, blocks, or functions.\""
+          }
+        ]
+      }
+    },
+    "cluster_12": {
+      "label": "Punctuation denoting starts/ends of quotations, sentences, sections, code, or math",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "marks",
+            "score": 0.2450416931843322
+          },
+          {
+            "term": "used",
+            "score": 0.24239319046050056
+          },
+          {
+            "term": "punctuation marks",
+            "score": 0.20222629800445832
+          },
+          {
+            "term": "punctuation",
+            "score": 0.19786474127761938
+          },
+          {
+            "term": "end",
+            "score": 0.19236971467346076
+          },
+          {
+            "term": "quotation",
+            "score": 0.1482096200316571
+          },
+          {
+            "term": "marks used",
+            "score": 0.13800039073220124
+          },
+          {
+            "term": "used denote",
+            "score": 0.1375678919082661
+          },
+          {
+            "term": "denote start",
+            "score": 0.12289468423041695
+          },
+          {
+            "term": "used denote start",
+            "score": 0.12289468423041695
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_967_llama_e-llama_s",
+          "feature_967_gwen_e-llama_s",
+          "feature_134_llama_e-llama_s",
+          "feature_312_llama_e-llama_s",
+          "feature_390_llama_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_967_llama_e-llama_s",
+            "text": "\"Punctuation marks, often used to denote the start or end of a quotation, mathematical expression, or code snippet, and sometimes used to indicate a pause or separation in text.\""
+          },
+          {
+            "explanation_id": "feature_967_gwen_e-llama_s",
+            "text": "\"Punctuation marks, often used to denote the start or end of a quotation, mathematical expression, or code snippet, and sometimes used to indicate a pause or separation in text.\""
+          },
+          {
+            "explanation_id": "feature_134_llama_e-llama_s",
+            "text": "\"Punctuation marks, often used to denote the start or end of a quotation, section, or code snippet, and sometimes used to separate items or indicate a break in thought.\""
+          },
+          {
+            "explanation_id": "feature_312_llama_e-llama_s",
+            "text": "\"Punctuation marks, often used to denote the start or end of a quotation, section, or other distinct part of a text, and sometimes used to indicate a break or transition in the text.\""
+          },
+          {
+            "explanation_id": "feature_390_llama_e-llama_s",
+            "text": "\"Punctuation marks, often used to denote the end of a sentence, quotation, or code block, and sometimes used in conjunction with other symbols to indicate a specific formatting or syntax.\""
+          }
+        ]
+      }
+    },
+    "cluster_13": {
+      "label": "Punctuation and special characters used in code, math notation, and formatting",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "special characters",
+            "score": 0.2595492321018105
+          },
+          {
+            "term": "used",
+            "score": 0.25058314858210423
+          },
+          {
+            "term": "characters",
+            "score": 0.24566230418628404
+          },
+          {
+            "term": "special",
+            "score": 0.2361169757714152
+          },
+          {
+            "term": "characters used",
+            "score": 0.1980384248955599
+          },
+          {
+            "term": "special characters used",
+            "score": 0.18672194347295648
+          },
+          {
+            "term": "symbols",
+            "score": 0.18249000442939178
+          },
+          {
+            "term": "formatting",
+            "score": 0.17174358897304243
+          },
+          {
+            "term": "punctuation",
+            "score": 0.15728017763901617
+          },
+          {
+            "term": "mathematical",
+            "score": 0.1564630562340703
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_535_llama_e-llama_s",
+          "feature_57_llama_e-llama_s",
+          "feature_15_llama_e-llama_s",
+          "feature_900_gwen_e-llama_s",
+          "feature_900_llama_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_535_llama_e-llama_s",
+            "text": "\"Punctuation and special characters, often used to denote code, formatting, or mathematical expressions.\""
+          },
+          {
+            "explanation_id": "feature_57_llama_e-llama_s",
+            "text": "\"Punctuation marks and special characters, often used to denote formatting, mathematical operations, or programming syntax.\""
+          },
+          {
+            "explanation_id": "feature_15_llama_e-llama_s",
+            "text": "\"Punctuation marks and special characters, often used to denote code syntax, mathematical expressions, or formatting in text.\""
+          },
+          {
+            "explanation_id": "feature_900_gwen_e-llama_s",
+            "text": "\"Special characters and punctuation marks used in various contexts, including mathematical notation, programming, and formatting.\""
+          },
+          {
+            "explanation_id": "feature_900_llama_e-llama_s",
+            "text": "\"Special characters and punctuation marks used in various contexts, including mathematical notation, programming, and formatting.\""
+          }
+        ]
+      }
+    },
+    "cluster_14": {
+      "label": "Programming language syntax tokens: keywords, identifiers, operators, brackets, variables/functions",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "code",
+            "score": 0.25514376635977387
+          },
+          {
+            "term": "programming",
+            "score": 0.24261901495783306
+          },
+          {
+            "term": "syntax",
+            "score": 0.19270267699872962
+          },
+          {
+            "term": "programming languages",
+            "score": 0.16205676407605146
+          },
+          {
+            "term": "various programming",
+            "score": 0.16205590108906265
+          },
+          {
+            "term": "incredibly",
+            "score": 0.14528913320499542
+          },
+          {
+            "term": "keywords",
+            "score": 0.13428523713524226
+          },
+          {
+            "term": "incredibly incredibly",
+            "score": 0.1316682769670271
+          },
+          {
+            "term": "incredibly incredibly incredibly",
+            "score": 0.127127991554371
+          },
+          {
+            "term": "variable",
+            "score": 0.11979895860860042
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_431_llama_e-llama_s",
+          "feature_420_gwen_e-llama_s",
+          "feature_236_llama_e-llama_s",
+          "feature_684_gwen_e-llama_s",
+          "feature_75_gwen_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_431_llama_e-llama_s",
+            "text": "\"Various tokens that appear to be part of a programming or coding context, including keywords, symbols, and identifiers, often used in a specific syntax or structure.\""
+          },
+          {
+            "explanation_id": "feature_420_gwen_e-llama_s",
+            "text": "\"The presence of tokens that form technical or syntactic constructs in programming languages, such as identifiers, operators, type names, and structural symbols, often indicating code structure, variable names, or function calls.\""
+          },
+          {
+            "explanation_id": "feature_236_llama_e-llama_s",
+            "text": "\"Various programming-related tokens, including variable names, function calls, and keywords, often in the context of code snippets or programming languages.\""
+          },
+          {
+            "explanation_id": "feature_684_gwen_e-llama_s",
+            "text": "\"The presence of code-specific syntax elements such as identifiers, operators, and keywords in programming contexts, often surrounded by delimiters or appearing in structured code patterns.\""
+          },
+          {
+            "explanation_id": "feature_75_gwen_e-llama_s",
+            "text": "\"Patterns involving code syntax, identifiers, and structural elements such as brackets, parentheses, and delimiters in programming contexts, often indicating variable names, function calls, or configuration settings.\""
+          }
+        ]
+      }
+    },
+    "cluster_15": {
+      "label": "Dynamic action and process verbs: change-of-state, movement, manipulation, decision-making, causal influence.",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "verbs",
+            "score": 0.41790643377627096
+          },
+          {
+            "term": "verb",
+            "score": 0.20336889125194846
+          },
+          {
+            "term": "verbs verb",
+            "score": 0.1670729052929414
+          },
+          {
+            "term": "used",
+            "score": 0.1558287519778386
+          },
+          {
+            "term": "state",
+            "score": 0.13813736009566308
+          },
+          {
+            "term": "verb phrases",
+            "score": 0.1346213376411341
+          },
+          {
+            "term": "verbs verb phrases",
+            "score": 0.12530467896970604
+          },
+          {
+            "term": "action",
+            "score": 0.11014588177049
+          },
+          {
+            "term": "verbs related",
+            "score": 0.11014473079729155
+          },
+          {
+            "term": "indicating",
+            "score": 0.10968281698265031
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_794_gwen_e-llama_s",
+          "feature_794_llama_e-llama_s",
+          "feature_490_openai_e-llama_s",
+          "feature_196_gwen_e-llama_s",
+          "feature_528_openai_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_794_gwen_e-llama_s",
+            "text": "\"Verbs related to actions, processes, or operations, often indicating a change of state, manipulation, or influence, and typically expressing a sense of agency or causality.\""
+          },
+          {
+            "explanation_id": "feature_794_llama_e-llama_s",
+            "text": "\"Verbs related to actions, processes, or operations, often indicating a change of state, manipulation, or influence, and typically expressing a sense of agency or causality.\""
+          },
+          {
+            "explanation_id": "feature_490_openai_e-llama_s",
+            "text": "\"The highlighted tokens are verbs that describe movement or transfer, often paired with prepositions indicating direction or accompaniment.\""
+          },
+          {
+            "explanation_id": "feature_196_gwen_e-llama_s",
+            "text": "\"Verbs indicating actions, states, or processes, often related to decision-making, movement, or influence, with a focus on dynamic or consequential behavior.\""
+          },
+          {
+            "explanation_id": "feature_528_openai_e-llama_s",
+            "text": "\"The highlighted tokens are verbs or participles that express an action or state, often functioning as part of a clause or phrase, sometimes following a preposition.\""
+          }
+        ]
+      }
+    },
+    "cluster_16": {
+      "label": "Academic writing verbs/adjectives for actions, states, and relations within clauses",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "sentence",
+            "score": 0.17984519167827523
+          },
+          {
+            "term": "action state",
+            "score": 0.16349562879843202
+          },
+          {
+            "term": "perception",
+            "score": 0.16349562879843202
+          },
+          {
+            "term": "academic",
+            "score": 0.1471460659185888
+          },
+          {
+            "term": "observation",
+            "score": 0.13079650303874563
+          },
+          {
+            "term": "phrase",
+            "score": 0.13079650303874563
+          },
+          {
+            "term": "verbs adjectives",
+            "score": 0.13079650303874563
+          },
+          {
+            "term": "present",
+            "score": 0.11444694015890242
+          },
+          {
+            "term": "writing",
+            "score": 0.11444694015890242
+          },
+          {
+            "term": "clause",
+            "score": 0.11444694015890242
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_338_openai_e-llama_s",
+          "feature_196_llama_e-llama_s",
+          "feature_528_openai_e-llama_s",
+          "feature_530_gwen_e-llama_s",
+          "feature_943_llama_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_338_openai_e-llama_s",
+            "text": "\"The highlighted tokens are usually verbs or prepositions that form a phrase indicating an action or relationship, often used in academic or descriptive contexts.\""
+          },
+          {
+            "explanation_id": "feature_196_llama_e-llama_s",
+            "text": "\"Verbs that express a relationship, action, or state, often in a formal or technical context, and frequently used in descriptive or explanatory writing.\""
+          },
+          {
+            "explanation_id": "feature_528_openai_e-llama_s",
+            "text": "\"The highlighted tokens are verbs or participles that express an action or state, often functioning as part of a clause or phrase, sometimes following a preposition.\""
+          },
+          {
+            "explanation_id": "feature_530_gwen_e-llama_s",
+            "text": "\"Verbs and adjectives indicating a relationship, action, or state, often used in formal or technical contexts to describe processes, outcomes, or conditions.\""
+          },
+          {
+            "explanation_id": "feature_943_llama_e-llama_s",
+            "text": "\"Verbs or adjectives describing a state of being, location, or condition, often in a formal or technical context.\""
+          }
+        ]
+      }
+    },
+    "cluster_17": {
+      "label": "Verbs of movement and process indicating change, direction, causation, and progression",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "movement",
+            "score": 0.3049087627349944
+          },
+          {
+            "term": "sense",
+            "score": 0.1765261257939441
+          },
+          {
+            "term": "phrases indicating",
+            "score": 0.14443046655868155
+          },
+          {
+            "term": "verb phrases indicating",
+            "score": 0.12838263694105026
+          },
+          {
+            "term": "phrasal verbs",
+            "score": 0.112334807323419
+          },
+          {
+            "term": "typically",
+            "score": 0.0962869777057877
+          },
+          {
+            "term": "influence",
+            "score": 0.0962869777057877
+          },
+          {
+            "term": "common",
+            "score": 0.0962869777057877
+          },
+          {
+            "term": "causation",
+            "score": 0.0962869777057877
+          },
+          {
+            "term": "progression",
+            "score": 0.08023914808815642
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_794_gwen_e-llama_s",
+          "feature_794_llama_e-llama_s",
+          "feature_490_llama_e-llama_s",
+          "feature_396_llama_e-llama_s",
+          "feature_10_llama_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_794_gwen_e-llama_s",
+            "text": "\"Verbs related to actions, processes, or operations, often indicating a change of state, manipulation, or influence, and typically expressing a sense of agency or causality.\""
+          },
+          {
+            "explanation_id": "feature_794_llama_e-llama_s",
+            "text": "\"Verbs related to actions, processes, or operations, often indicating a change of state, manipulation, or influence, and typically expressing a sense of agency or causality.\""
+          },
+          {
+            "explanation_id": "feature_490_llama_e-llama_s",
+            "text": "\"Verbs of movement or action, often involving the relocation of objects or people, sometimes with a sense of accompaniment or causation.\""
+          },
+          {
+            "explanation_id": "feature_396_llama_e-llama_s",
+            "text": "\"Verbs or verb phrases indicating movement, transition, or action, often in a physical or spatial sense, and sometimes in a more abstract sense, such as changing state or status.\""
+          },
+          {
+            "explanation_id": "feature_10_llama_e-llama_s",
+            "text": "\"Verbs or verb phrases indicating movement or direction, often in a physical or metaphorical sense, and sometimes used in idiomatic expressions.\""
+          }
+        ]
+      }
+    },
+    "cluster_18": {
+      "label": "Short high-frequency function words as grammatical glue",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "words",
+            "score": 0.23291015026466103
+          },
+          {
+            "term": "high frequency",
+            "score": 0.230053588391746
+          },
+          {
+            "term": "frequency function",
+            "score": 0.22984404217709967
+          },
+          {
+            "term": "frequency function words",
+            "score": 0.22984404217709967
+          },
+          {
+            "term": "high frequency function",
+            "score": 0.22984404217709967
+          },
+          {
+            "term": "short high frequency",
+            "score": 0.2260883872886014
+          },
+          {
+            "term": "short high",
+            "score": 0.2260883872886014
+          },
+          {
+            "term": "highlighted tokens",
+            "score": 0.21241406420462458
+          },
+          {
+            "term": "function words",
+            "score": 0.205360185612205
+          },
+          {
+            "term": "highlighted",
+            "score": 0.20295688622673572
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_327_openai_e-llama_s",
+          "feature_5_openai_e-llama_s",
+          "feature_957_openai_e-llama_s",
+          "feature_747_openai_e-llama_s",
+          "feature_465_openai_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_327_openai_e-llama_s",
+            "text": "\"The highlighted tokens are predominantly short, high‑frequency function words (conjunctions, articles, pronouns, auxiliary verbs) that serve as grammatical glue, occasionally including key nouns that anchor a phrase.\""
+          },
+          {
+            "explanation_id": "feature_5_openai_e-llama_s",
+            "text": "\"The highlighted tokens are mainly short, high‑frequency function words or components of common idiomatic collocations that carry grammatical or semantic weight in the sentence.\""
+          },
+          {
+            "explanation_id": "feature_957_openai_e-llama_s",
+            "text": "\"The highlighted tokens are consistently short, high‑frequency function words—articles, prepositions, conjunctions, and pronouns—that serve grammatical roles in the sentences.\""
+          },
+          {
+            "explanation_id": "feature_747_openai_e-llama_s",
+            "text": "\"The highlighted tokens are typically short, high‑frequency function words or small lexical items that serve as key connectors or modifiers within a phrase, often signalling a semantic or syntactic pivot in the sentence.\""
+          },
+          {
+            "explanation_id": "feature_465_openai_e-llama_s",
+            "text": "\"The highlighted tokens are consistently short, high‑frequency function words or morphological markers that serve as connectors or modifiers within common collocations or idiomatic phrases, often appearing in contiguous sequences and playing a key role in the overall meaning.\""
+          }
+        ]
+      }
+    },
+    "cluster_19": {
+      "label": "Function words before nouns: articles, prepositions, possessives",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "articles",
+            "score": 0.25355802295038427
+          },
+          {
+            "term": "precede nouns",
+            "score": 0.22656550495253053
+          },
+          {
+            "term": "nouns",
+            "score": 0.2254052772380011
+          },
+          {
+            "term": "pronouns",
+            "score": 0.1803883555412648
+          },
+          {
+            "term": "precede",
+            "score": 0.17767773835690587
+          },
+          {
+            "term": "articles precede",
+            "score": 0.17621761496307928
+          },
+          {
+            "term": "articles precede nouns",
+            "score": 0.17621761496307928
+          },
+          {
+            "term": "prepositions articles",
+            "score": 0.1576378240761393
+          },
+          {
+            "term": "possessive",
+            "score": 0.14022719887119944
+          },
+          {
+            "term": "prepositions articles precede",
+            "score": 0.13845669747099087
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_957_gwen_e-llama_s",
+          "feature_957_llama_e-llama_s",
+          "feature_907_gwen_e-llama_s",
+          "feature_907_llama_e-llama_s",
+          "feature_314_llama_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_957_gwen_e-llama_s",
+            "text": "\"Prepositions and articles often precede nouns, and sometimes other parts of speech, in various contexts, including descriptions, comparisons, and actions.\""
+          },
+          {
+            "explanation_id": "feature_957_llama_e-llama_s",
+            "text": "\"Prepositions and articles often precede nouns, and sometimes other parts of speech, in various contexts, including descriptions, comparisons, and actions.\""
+          },
+          {
+            "explanation_id": "feature_907_gwen_e-llama_s",
+            "text": "\"Function words, possessive pronouns, and articles often precede nouns or noun phrases, sometimes indicating possession or relationship.\""
+          },
+          {
+            "explanation_id": "feature_907_llama_e-llama_s",
+            "text": "\"Function words, possessive pronouns, and articles often precede nouns or noun phrases, sometimes indicating possession or relationship.\""
+          },
+          {
+            "explanation_id": "feature_314_llama_e-llama_s",
+            "text": "\"Articles, prepositions, and conjunctions, often preceding or following proper nouns, names, or specific entities.\""
+          }
+        ]
+      }
+    },
+    "cluster_20": {
+      "label": "Function words: prepositions, conjunctions, articles linking clauses and expressing relations",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "used",
+            "score": 0.25416922840565387
+          },
+          {
+            "term": "connect",
+            "score": 0.22550349458900043
+          },
+          {
+            "term": "clauses",
+            "score": 0.2006403992400325
+          },
+          {
+            "term": "prepositions",
+            "score": 0.19862177366719572
+          },
+          {
+            "term": "connect clauses",
+            "score": 0.19457580259811355
+          },
+          {
+            "term": "used connect",
+            "score": 0.18283063351158607
+          },
+          {
+            "term": "phrases",
+            "score": 0.18279802553765273
+          },
+          {
+            "term": "conjunctions",
+            "score": 0.1714219350084291
+          },
+          {
+            "term": "conjunctions used",
+            "score": 0.1543187399916073
+          },
+          {
+            "term": "connect clauses phrases",
+            "score": 0.14760922955718958
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_184_llama_e-llama_s",
+          "feature_395_llama_e-llama_s",
+          "feature_145_llama_e-llama_s",
+          "feature_999_llama_e-llama_s",
+          "feature_999_gwen_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_184_llama_e-llama_s",
+            "text": "\"Function words and common prepositions, conjunctions, and articles, often used to connect clauses or phrases, or to indicate relationships between entities.\""
+          },
+          {
+            "explanation_id": "feature_395_llama_e-llama_s",
+            "text": "\"Common conjunctions and prepositions, often used to connect words, phrases, or clauses, and sometimes nouns representing objects or locations.\""
+          },
+          {
+            "explanation_id": "feature_145_llama_e-llama_s",
+            "text": "\"Function words and prepositions often used in phrases to indicate location, time, quantity, or comparison, and sometimes used to connect clauses or phrases.\""
+          },
+          {
+            "explanation_id": "feature_999_llama_e-llama_s",
+            "text": "\"Articles, prepositions, and conjunctions, often used to connect words or phrases, or to indicate possession, location, or relationship.\""
+          },
+          {
+            "explanation_id": "feature_999_gwen_e-llama_s",
+            "text": "\"Articles, prepositions, and conjunctions, often used to connect words or phrases, or to indicate possession, location, or relationship.\""
+          }
+        ]
+      }
+    },
+    "cluster_21": {
+      "label": "Grammatical function words: articles, prepositions, and conjunctions linking words, phrases, and clauses",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "conjunctions used",
+            "score": 0.25546095790080015
+          },
+          {
+            "term": "prepositions conjunctions used",
+            "score": 0.22213996339200012
+          },
+          {
+            "term": "marks",
+            "score": 0.21103296522240012
+          },
+          {
+            "term": "punctuation marks",
+            "score": 0.21103296522240012
+          },
+          {
+            "term": "common function",
+            "score": 0.19992596705280008
+          },
+          {
+            "term": "common function words",
+            "score": 0.19992596705280008
+          },
+          {
+            "term": "words phrases",
+            "score": 0.1888189688832001
+          },
+          {
+            "term": "conjunctions used connect",
+            "score": 0.16660497254400009
+          },
+          {
+            "term": "connect words",
+            "score": 0.13328397803520006
+          },
+          {
+            "term": "connect words phrases",
+            "score": 0.13328397803520006
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_184_llama_e-llama_s",
+          "feature_136_llama_e-llama_s",
+          "feature_288_llama_e-llama_s",
+          "feature_395_llama_e-llama_s",
+          "feature_999_llama_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_184_llama_e-llama_s",
+            "text": "\"Function words and common prepositions, conjunctions, and articles, often used to connect clauses or phrases, or to indicate relationships between entities.\""
+          },
+          {
+            "explanation_id": "feature_136_llama_e-llama_s",
+            "text": "\"Prepositions and conjunctions, often used to connect clauses or phrases, and sometimes function words like articles, auxiliary verbs, and adverbs, which provide grammatical structure and context.\""
+          },
+          {
+            "explanation_id": "feature_288_llama_e-llama_s",
+            "text": "\"Articles, prepositions, and conjunctions, often used to connect phrases or clauses, and sometimes nouns representing specific objects or concepts.\""
+          },
+          {
+            "explanation_id": "feature_395_llama_e-llama_s",
+            "text": "\"Common conjunctions and prepositions, often used to connect words, phrases, or clauses, and sometimes nouns representing objects or locations.\""
+          },
+          {
+            "explanation_id": "feature_999_llama_e-llama_s",
+            "text": "\"Articles, prepositions, and conjunctions, often used to connect words or phrases, or to indicate possession, location, or relationship.\""
+          }
+        ]
+      }
+    },
+    "cluster_22": {
+      "label": "Prepositions signaling spatial location, direction, and relational context",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "spatial",
+            "score": 0.24312732053639224
+          },
+          {
+            "term": "preposition",
+            "score": 0.1989223531661391
+          },
+          {
+            "term": "indicating location",
+            "score": 0.1989223531661391
+          },
+          {
+            "term": "prepositions indicating",
+            "score": 0.17681986948101255
+          },
+          {
+            "term": "indicating location direction",
+            "score": 0.1326149021107594
+          },
+          {
+            "term": "frequently appear",
+            "score": 0.1326149021107594
+          },
+          {
+            "term": "prepositions indicating location",
+            "score": 0.1326149021107594
+          },
+          {
+            "term": "prepositions particularly used",
+            "score": 0.11051241842563285
+          },
+          {
+            "term": "prepositional phrases",
+            "score": 0.11051241842563285
+          },
+          {
+            "term": "contexts indicating",
+            "score": 0.11051241842563285
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_47_llama_e-llama_s",
+          "feature_440_gwen_e-llama_s",
+          "feature_627_llama_e-llama_s",
+          "feature_963_gwen_e-llama_s",
+          "feature_963_llama_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_47_llama_e-llama_s",
+            "text": "\"Prepositions indicating location, direction, or manner, often used to establish relationships between entities or actions in a sentence.\""
+          },
+          {
+            "explanation_id": "feature_440_gwen_e-llama_s",
+            "text": "\"Prepositions and related words (such as \\\"at\\\", \\\"in\\\", \\\"on\\\", \\\"of\\\", \\\"to\\\", \\\"from\\\", \\\"into\\\", \\\"within\\\", \\\"for\\\", \\\"via\\\", \\\"and\\\", \\\",\\\") frequently appear in context with spatial, directional, or relational descriptions, often linking locations, actions, or entities in a structured way.\""
+          },
+          {
+            "explanation_id": "feature_627_llama_e-llama_s",
+            "text": "\"Prepositions and words that describe location, direction, or relation to other objects or concepts, often indicating a spatial or contextual relationship.\""
+          },
+          {
+            "explanation_id": "feature_963_gwen_e-llama_s",
+            "text": "\"Prepositions, particularly \\\"on\\\", often used to indicate location, timing, or relationship between entities.\""
+          },
+          {
+            "explanation_id": "feature_963_llama_e-llama_s",
+            "text": "\"Prepositions, particularly \\\"on\\\", often used to indicate location, timing, or relationship between entities.\""
+          }
+        ]
+      }
+    },
+    "cluster_23": {
+      "label": "Morphological subword features: prefixes, suffixes, stems, roots",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "ns",
+            "score": 0.5190378793432279
+          },
+          {
+            "term": "ns ns",
+            "score": 0.5090563816635504
+          },
+          {
+            "term": "ns ns ns",
+            "score": 0.4990748839838729
+          },
+          {
+            "term": "sub word",
+            "score": 0.12283444939887067
+          },
+          {
+            "term": "fragments",
+            "score": 0.1130203072626713
+          },
+          {
+            "term": "model",
+            "score": 0.10635527678125632
+          },
+          {
+            "term": "sub",
+            "score": 0.09728730027326304
+          },
+          {
+            "term": "word",
+            "score": 0.09452960794883312
+          },
+          {
+            "term": "words",
+            "score": 0.09058561868437086
+          },
+          {
+            "term": "prefixes",
+            "score": 0.07356295832969842
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_276_openai_e-llama_s",
+          "feature_746_openai_e-llama_s",
+          "feature_386_openai_e-llama_s",
+          "feature_756_openai_e-llama_s",
+          "feature_646_openai_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_276_openai_e-llama_s",
+            "text": "\"The highlighted tokens are sub‑word fragments that capture the semantic core of a word—often a root, prefix, or suffix—rather than full words. These fragments, whether part of a common noun, a proper name, or a technical term, are the pieces the model deems most informative for activation.\""
+          },
+          {
+            "explanation_id": "feature_746_openai_e-llama_s",
+            "text": "\"The highlighted fragments are sub‑word units extracted from longer words—often prefixes, suffixes, or stems—and the activations reflect their relative importance in the model’s representation.\""
+          },
+          {
+            "explanation_id": "feature_386_openai_e-llama_s",
+            "text": "\"The highlighted fragments are sub‑word units that line up with meaningful morphemes—prefixes, suffixes, or stems—found in scientific terminology. They show that the model’s activations focus on these sub‑word pieces, using them to encode semantic content rather than whole words.\""
+          },
+          {
+            "explanation_id": "feature_756_openai_e-llama_s",
+            "text": "\"The highlighted fragments are sub‑word pieces that capture morphological boundaries—prefixes, suffixes, or whole words—used by the model to represent lexical items.\""
+          },
+          {
+            "explanation_id": "feature_646_openai_e-llama_s",
+            "text": "\"The highlighted fragments are sub‑word pieces that correspond to meaningful lexical roots or stems inside larger words, often appearing at word boundaries, indicating that the model is focusing on morphological subunits rather than whole words.\""
+          }
+        ]
+      }
+    },
+    "cluster_24": {
+      "label": "",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "highlighted",
+            "score": 0.26144074098915904
+          },
+          {
+            "term": "core",
+            "score": 0.24406932490721983
+          },
+          {
+            "term": "highlighted tokens",
+            "score": 0.21815077778632483
+          },
+          {
+            "term": "main",
+            "score": 0.19352858048703978
+          },
+          {
+            "term": "key",
+            "score": 0.17756682458835732
+          },
+          {
+            "term": "tokens",
+            "score": 0.17694069567367873
+          },
+          {
+            "term": "carry",
+            "score": 0.1606082069275173
+          },
+          {
+            "term": "nouns",
+            "score": 0.16007327497190538
+          },
+          {
+            "term": "words",
+            "score": 0.14871702642511644
+          },
+          {
+            "term": "carry main",
+            "score": 0.14870226125373473
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_144_openai_e-llama_s",
+          "feature_359_openai_e-llama_s",
+          "feature_592_openai_e-llama_s",
+          "feature_291_openai_e-llama_s",
+          "feature_638_openai_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_144_openai_e-llama_s",
+            "text": "\"The highlighted tokens are usually the core lexical elements of a phrase—often a noun, verb, adjective, or technical term—that carry the main semantic or functional weight in the surrounding context.\""
+          },
+          {
+            "explanation_id": "feature_359_openai_e-llama_s",
+            "text": "\"The highlighted tokens are the core lexical items that carry the main semantic content of a phrase—typically nouns, key modifiers, or technical terms—and occasionally punctuation that marks phrase boundaries.\""
+          },
+          {
+            "explanation_id": "feature_592_openai_e-llama_s",
+            "text": "\"The highlighted tokens are usually the core nouns or noun phrases that carry the main semantic content of the surrounding phrase, often representing objects, concepts, or entities, and occasionally key adjectives or prepositions that form idiomatic expressions.\""
+          },
+          {
+            "explanation_id": "feature_291_openai_e-llama_s",
+            "text": "\"The highlighted tokens are the core lexical items or sub‑word fragments that carry the main semantic content of a phrase—often the head of a noun phrase or a key part of a multi‑token expression, including suffixes, prefixes, abbreviations, or named‑entity components.\""
+          },
+          {
+            "explanation_id": "feature_638_openai_e-llama_s",
+            "text": "\"The highlighted tokens consistently capture the core lexical units that carry the main meaning of each sentence—typically nouns, noun phrases, or key verb/adjective fragments, sometimes forming idiomatic or technical multi‑word expressions, and occasionally short morphological pieces. These contiguous units are the most semantically salient elements of the text.\""
+          }
+        ]
+      }
+    },
+    "cluster_25": {
+      "label": "Noun and noun-phrase concepts carrying main meaning, often proper or multiword terms",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "concepts",
+            "score": 0.22628784823636863
+          },
+          {
+            "term": "phrases carry",
+            "score": 0.2112019916872774
+          },
+          {
+            "term": "proper nouns",
+            "score": 0.16594442204000365
+          },
+          {
+            "term": "phrases carry main",
+            "score": 0.13577270894182117
+          },
+          {
+            "term": "noun phrases carry",
+            "score": 0.13577270894182117
+          },
+          {
+            "term": "capitalized",
+            "score": 0.13577270894182117
+          },
+          {
+            "term": "serving",
+            "score": 0.13577270894182117
+          },
+          {
+            "term": "words nouns",
+            "score": 0.12068685239272993
+          },
+          {
+            "term": "tokens nouns",
+            "score": 0.1056009958436387
+          },
+          {
+            "term": "highlighted tokens nouns",
+            "score": 0.1056009958436387
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_740_openai_e-llama_s",
+          "feature_368_openai_e-llama_s",
+          "feature_615_openai_e-llama_s",
+          "feature_90_openai_e-llama_s",
+          "feature_156_openai_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_740_openai_e-llama_s",
+            "text": "\"The highlighted tokens are the key content words—mostly nouns or noun phrases, often technical terms or proper nouns—that carry the main semantic content of each sentence.\""
+          },
+          {
+            "explanation_id": "feature_368_openai_e-llama_s",
+            "text": "\"The highlighted tokens are the words or phrases that carry the main semantic content of the sentence, typically nouns, noun phrases, or key adjectives—including idiomatic expressions and domain‑specific terms—that represent the core concepts or entities around which the sentence is built.\""
+          },
+          {
+            "explanation_id": "feature_615_openai_e-llama_s",
+            "text": "\"The highlighted tokens are the core semantic units—typically nouns or noun phrases—that carry the main meaning of the sentence.\""
+          },
+          {
+            "explanation_id": "feature_90_openai_e-llama_s",
+            "text": "\"The highlighted tokens are the core content words—mostly nouns or noun phrases—that carry the main semantic load of each sentence, often serving as subjects, objects, or key concepts, and may appear as single words or multi‑word expressions.\""
+          },
+          {
+            "explanation_id": "feature_156_openai_e-llama_s",
+            "text": "\"The highlighted tokens are the core nouns or adjectives that carry the main semantic load of each sentence—often capitalized or part of a multi‑word phrase—serving as the key concepts or terms that define the subject matter.\""
+          }
+        ]
+      }
+    },
+    "cluster_26": {
+      "label": "Contiguous core lexical fragments: phrase heads, idioms, named entities, and code identifiers",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "fragments",
+            "score": 0.3516129699231236
+          },
+          {
+            "term": "contiguous",
+            "score": 0.2637097274423427
+          },
+          {
+            "term": "highlighted fragments",
+            "score": 0.24905918702887922
+          },
+          {
+            "term": "form meaningful",
+            "score": 0.13185486372117136
+          },
+          {
+            "term": "syntactic",
+            "score": 0.13185486372117136
+          },
+          {
+            "term": "fragment",
+            "score": 0.13185486372117136
+          },
+          {
+            "term": "phrase code",
+            "score": 0.11720432330770787
+          },
+          {
+            "term": "fragments core",
+            "score": 0.1025537828942444
+          },
+          {
+            "term": "idioms",
+            "score": 0.1025537828942444
+          },
+          {
+            "term": "highlighted fragments core",
+            "score": 0.1025537828942444
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_638_openai_e-llama_s",
+          "feature_291_openai_e-llama_s",
+          "feature_628_openai_e-llama_s",
+          "feature_720_openai_e-llama_s",
+          "feature_529_openai_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_638_openai_e-llama_s",
+            "text": "\"The highlighted tokens consistently capture the core lexical units that carry the main meaning of each sentence—typically nouns, noun phrases, or key verb/adjective fragments, sometimes forming idiomatic or technical multi‑word expressions, and occasionally short morphological pieces. These contiguous units are the most semantically salient elements of the text.\""
+          },
+          {
+            "explanation_id": "feature_291_openai_e-llama_s",
+            "text": "\"The highlighted tokens are the core lexical items or sub‑word fragments that carry the main semantic content of a phrase—often the head of a noun phrase or a key part of a multi‑token expression, including suffixes, prefixes, abbreviations, or named‑entity components.\""
+          },
+          {
+            "explanation_id": "feature_628_openai_e-llama_s",
+            "text": "\"The highlighted tokens are the core semantic units—main nouns, key adjectives, or essential identifiers—that carry the primary meaning or function in each snippet.\""
+          },
+          {
+            "explanation_id": "feature_720_openai_e-llama_s",
+            "text": "\"The highlighted tokens consistently represent the central lexical elements of key noun or adjective phrases—often forming or completing a named entity, technical term, or descriptive unit—capturing the most semantically salient part of the phrase, whether a whole word or a fragment that merges with another fragment.\""
+          },
+          {
+            "explanation_id": "feature_529_openai_e-llama_s",
+            "text": "\"The highlighted tokens are the core semantic units of each fragment—idiomatic phrases in prose and key identifiers, operators, or literals in code—often appearing as contiguous sequences that carry the main meaning of the sentence or statement.\""
+          }
+        ]
+      }
+    },
+    "cluster_27": {
+      "label": "Comparative and intensifying adjectives/adverbs describing degree, size, and quality.",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "adjectives",
+            "score": 0.2999198361002139
+          },
+          {
+            "term": "describing",
+            "score": 0.1963428648322816
+          },
+          {
+            "term": "used",
+            "score": 0.19266835750885544
+          },
+          {
+            "term": "qualities",
+            "score": 0.18648748309886992
+          },
+          {
+            "term": "degree",
+            "score": 0.17421483696674853
+          },
+          {
+            "term": "adverbs",
+            "score": 0.15231890314886107
+          },
+          {
+            "term": "emphasize",
+            "score": 0.13735174648156392
+          },
+          {
+            "term": "intensity",
+            "score": 0.12879849095517115
+          },
+          {
+            "term": "adjectives describing",
+            "score": 0.12582182669820727
+          },
+          {
+            "term": "adjectives adverbs",
+            "score": 0.12496805461085539
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_804_llama_e-llama_s",
+          "feature_804_gwen_e-llama_s",
+          "feature_625_llama_e-llama_s",
+          "feature_763_llama_e-llama_s",
+          "feature_763_gwen_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_804_llama_e-llama_s",
+            "text": "\"Adjectives and adverbs describing size, quality, or degree, often used to compare or emphasize something.\""
+          },
+          {
+            "explanation_id": "feature_804_gwen_e-llama_s",
+            "text": "\"Adjectives and adverbs describing size, quality, or degree, often used to compare or emphasize something.\""
+          },
+          {
+            "explanation_id": "feature_625_llama_e-llama_s",
+            "text": "\"Adjectives or adverbs describing physical properties, materials, or intensifying qualities of objects or concepts, often used to emphasize or specify characteristics.\""
+          },
+          {
+            "explanation_id": "feature_763_llama_e-llama_s",
+            "text": "\"Adjectives describing degree or magnitude, often used to emphasize or quantify the extent of a particular characteristic, quality, or effect.\""
+          },
+          {
+            "explanation_id": "feature_763_gwen_e-llama_s",
+            "text": "\"Adjectives describing degree or magnitude, often used to emphasize or quantify the extent of a particular characteristic, quality, or effect.\""
+          }
+        ]
+      }
+    },
+    "cluster_28": {
+      "label": "Proper/common nouns naming specific objects, locations, organizations, and technical or abstract concepts",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "nouns",
+            "score": 0.39942103854594063
+          },
+          {
+            "term": "objects",
+            "score": 0.18674610572314632
+          },
+          {
+            "term": "representing",
+            "score": 0.17458720481301293
+          },
+          {
+            "term": "nouns representing",
+            "score": 0.1726382321227562
+          },
+          {
+            "term": "concepts",
+            "score": 0.16197877586670417
+          },
+          {
+            "term": "proper",
+            "score": 0.14981765922069407
+          },
+          {
+            "term": "proper nouns",
+            "score": 0.14571306581738738
+          },
+          {
+            "term": "specific",
+            "score": 0.12529689706288985
+          },
+          {
+            "term": "technical",
+            "score": 0.12208415611255934
+          },
+          {
+            "term": "locations",
+            "score": 0.12022239043619165
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_518_llama_e-llama_s",
+          "feature_131_llama_e-llama_s",
+          "feature_387_llama_e-llama_s",
+          "feature_615_llama_e-llama_s",
+          "feature_536_llama_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_518_llama_e-llama_s",
+            "text": "\"Proper nouns, technical terms, and common nouns representing concepts, objects, or actions, often in formal or specialized contexts.\""
+          },
+          {
+            "explanation_id": "feature_131_llama_e-llama_s",
+            "text": "\"Proper nouns, technical terms, and common words in various contexts, often denoting specific objects, locations, concepts, or individuals.\""
+          },
+          {
+            "explanation_id": "feature_387_llama_e-llama_s",
+            "text": "\"Nouns representing various concepts, objects, or ideas, often in specific contexts or situations, such as physical locations, abstract ideas, or technical terms.\""
+          },
+          {
+            "explanation_id": "feature_615_llama_e-llama_s",
+            "text": "\"Nouns representing various concepts, objects, and entities, often denoting specific things, places, organizations, or ideas.\""
+          },
+          {
+            "explanation_id": "feature_536_llama_e-llama_s",
+            "text": "\"Nouns representing objects, locations, concepts, or ideas, often with a specific or technical meaning, and sometimes used in formal or descriptive contexts.\""
+          }
+        ]
+      }
+    },
+    "cluster_29": {
+      "label": "Proper noun entities: people, places, organizations, institutions, titles, geographic names",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "nouns names",
+            "score": 0.2572069365079313
+          },
+          {
+            "term": "proper nouns names",
+            "score": 0.2572069365079313
+          },
+          {
+            "term": "people places",
+            "score": 0.19596718972032862
+          },
+          {
+            "term": "names people",
+            "score": 0.18371924036280807
+          },
+          {
+            "term": "names people places",
+            "score": 0.17147129100528755
+          },
+          {
+            "term": "people places organizations",
+            "score": 0.16104581531403936
+          },
+          {
+            "term": "places organizations",
+            "score": 0.15922334164776697
+          },
+          {
+            "term": "nouns names people",
+            "score": 0.14697539229024645
+          },
+          {
+            "term": "individuals",
+            "score": 0.14494123378263543
+          },
+          {
+            "term": "geographic",
+            "score": 0.12883665225123148
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_658_llama_e-llama_s",
+          "feature_548_llama_e-llama_s",
+          "feature_256_llama_e-llama_s",
+          "feature_860_gwen_e-llama_s",
+          "feature_860_llama_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_658_llama_e-llama_s",
+            "text": "\"Proper nouns, names of places, organizations, and specific titles, often denoting geographical locations, institutions, or individuals.\""
+          },
+          {
+            "explanation_id": "feature_548_llama_e-llama_s",
+            "text": "\"Proper nouns, often representing names of people, places, organizations, or titles.\""
+          },
+          {
+            "explanation_id": "feature_256_llama_e-llama_s",
+            "text": "\"Proper nouns, often representing names of places, organizations, or specific entities, and sometimes including words that are part of a title or a formal name.\""
+          },
+          {
+            "explanation_id": "feature_860_gwen_e-llama_s",
+            "text": "\"Proper nouns, names of institutions, organizations, and geographical locations, often denoting specific entities or places.\""
+          },
+          {
+            "explanation_id": "feature_860_llama_e-llama_s",
+            "text": "\"Proper nouns, names of institutions, organizations, and geographical locations, often denoting specific entities or places.\""
+          }
+        ]
+      }
+    },
+    "cluster_30": {
+      "label": "Formal technical terminology: nouns and terms for concepts, entities, and actions",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "formal",
+            "score": 0.4222666611812165
+          },
+          {
+            "term": "technical",
+            "score": 0.4053759947339678
+          },
+          {
+            "term": "formal technical",
+            "score": 0.2331965640354822
+          },
+          {
+            "term": "scientific",
+            "score": 0.1773519976961109
+          },
+          {
+            "term": "academic",
+            "score": 0.1689066644724866
+          },
+          {
+            "term": "technical contexts",
+            "score": 0.1554643760236548
+          },
+          {
+            "term": "legal",
+            "score": 0.13325517944884696
+          },
+          {
+            "term": "concepts objects",
+            "score": 0.12667999835436494
+          },
+          {
+            "term": "formal technical contexts",
+            "score": 0.12215058116144305
+          },
+          {
+            "term": "nouns representing concepts",
+            "score": 0.11823466513074062
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_330_llama_e-llama_s",
+          "feature_618_llama_e-llama_s",
+          "feature_104_llama_e-llama_s",
+          "feature_518_llama_e-llama_s",
+          "feature_11_llama_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_330_llama_e-llama_s",
+            "text": "\"Various nouns representing concepts, objects, or entities, often in a technical, scientific, or formal context.\""
+          },
+          {
+            "explanation_id": "feature_618_llama_e-llama_s",
+            "text": "\"Nouns representing objects, concepts, or entities, often in a technical, scientific, or formal context.\""
+          },
+          {
+            "explanation_id": "feature_104_llama_e-llama_s",
+            "text": "\"Nouns representing concepts, entities, or objects, often in formal or technical contexts, including mathematical, scientific, and legal terminology.\""
+          },
+          {
+            "explanation_id": "feature_518_llama_e-llama_s",
+            "text": "\"Proper nouns, technical terms, and common nouns representing concepts, objects, or actions, often in formal or specialized contexts.\""
+          },
+          {
+            "explanation_id": "feature_11_llama_e-llama_s",
+            "text": "\"Verbs or nouns representing actions, concepts, or objects, often in a formal or technical context, and sometimes related to academic or professional fields.\""
+          }
+        ]
+      }
+    },
+    "cluster_31": {
+      "label": "Technical and scientific nouns for objects and concepts, often in compound terms.",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "technology",
+            "score": 0.19643118134149473
+          },
+          {
+            "term": "representing objects",
+            "score": 0.16369265111791229
+          },
+          {
+            "term": "science",
+            "score": 0.16369265111791229
+          },
+          {
+            "term": "technical context",
+            "score": 0.16369265111791229
+          },
+          {
+            "term": "representing objects concepts",
+            "score": 0.1309541208943298
+          },
+          {
+            "term": "objects concepts",
+            "score": 0.1309541208943298
+          },
+          {
+            "term": "nouns representing objects",
+            "score": 0.1309541208943298
+          },
+          {
+            "term": "related technology",
+            "score": 0.1309541208943298
+          },
+          {
+            "term": "formal technical context",
+            "score": 0.1309541208943298
+          },
+          {
+            "term": "phrase",
+            "score": 0.1309541208943298
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_618_llama_e-llama_s",
+          "feature_802_llama_e-llama_s",
+          "feature_893_gwen_e-llama_s",
+          "feature_893_llama_e-llama_s",
+          "feature_193_llama_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_618_llama_e-llama_s",
+            "text": "\"Nouns representing objects, concepts, or entities, often in a technical, scientific, or formal context.\""
+          },
+          {
+            "explanation_id": "feature_802_llama_e-llama_s",
+            "text": "\"Nouns representing concepts, objects, or actions, often in a formal or technical context, and sometimes part of a larger phrase or sentence.\""
+          },
+          {
+            "explanation_id": "feature_893_gwen_e-llama_s",
+            "text": "\"Nouns representing concepts, objects, or activities, often in technical, scientific, or formal contexts, and sometimes part of a compound term or phrase.\""
+          },
+          {
+            "explanation_id": "feature_893_llama_e-llama_s",
+            "text": "\"Nouns representing concepts, objects, or activities, often in technical, scientific, or formal contexts, and sometimes part of a compound term or phrase.\""
+          },
+          {
+            "explanation_id": "feature_193_llama_e-llama_s",
+            "text": "\"Nouns representing concepts, objects, or processes, often in technical or scientific contexts, and sometimes part of a formal or specific terminology.\""
+          }
+        ]
+      }
+    },
+    "cluster_32": {
+      "label": "Formal/technical vocabulary used in academic, scientific, legal, and programming contexts",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "academic",
+            "score": 0.3225542939892999
+          },
+          {
+            "term": "terms",
+            "score": 0.2345849410831272
+          },
+          {
+            "term": "language",
+            "score": 0.1466155881769545
+          },
+          {
+            "term": "names",
+            "score": 0.1172924705415636
+          },
+          {
+            "term": "frequently",
+            "score": 0.1172924705415636
+          },
+          {
+            "term": "adjectives",
+            "score": 0.1172924705415636
+          },
+          {
+            "term": "used academic",
+            "score": 0.1172924705415636
+          },
+          {
+            "term": "technical terms",
+            "score": 0.0879693529061727
+          },
+          {
+            "term": "programming",
+            "score": 0.0879693529061727
+          },
+          {
+            "term": "language used academic",
+            "score": 0.0879693529061727
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_730_gwen_e-llama_s",
+          "feature_730_llama_e-llama_s",
+          "feature_326_llama_e-llama_s",
+          "feature_518_llama_e-llama_s",
+          "feature_740_llama_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_730_gwen_e-llama_s",
+            "text": "\"Various nouns and words that are often used in formal or technical contexts, including scientific, academic, and official language, as well as proper nouns and words with specialized meanings.\""
+          },
+          {
+            "explanation_id": "feature_730_llama_e-llama_s",
+            "text": "\"Various nouns and words that are often used in formal or technical contexts, including scientific, academic, and official language, as well as proper nouns and words with specialized meanings.\""
+          },
+          {
+            "explanation_id": "feature_326_llama_e-llama_s",
+            "text": "\"Function words and nouns that are part of formal or technical language, often used in academic, legal, or scientific contexts.\""
+          },
+          {
+            "explanation_id": "feature_518_llama_e-llama_s",
+            "text": "\"Proper nouns, technical terms, and common nouns representing concepts, objects, or actions, often in formal or specialized contexts.\""
+          },
+          {
+            "explanation_id": "feature_740_llama_e-llama_s",
+            "text": "\"Adjectives, nouns, and adverbs that are part of technical or formal terminology, often in academic or scientific contexts.\""
+          }
+        ]
+      }
+    },
+    "cluster_33": {
+      "label": "Common and compound noun phrases: objects, places, organizations, abstract and technical terms",
+      "labeling_metadata": {
+        "ctfidf_terms": [
+          {
+            "term": "activation",
+            "score": 0.1973353410764265
+          },
+          {
+            "term": "technical",
+            "score": 0.1731676307267012
+          },
+          {
+            "term": "high activation",
+            "score": 0.16697605783389932
+          },
+          {
+            "term": "physical",
+            "score": 0.15007861329647434
+          },
+          {
+            "term": "activation values",
+            "score": 0.13661677459137217
+          },
+          {
+            "term": "values",
+            "score": 0.13661677459137217
+          },
+          {
+            "term": "nouns noun",
+            "score": 0.12698959586624753
+          },
+          {
+            "term": "nouns noun phrases",
+            "score": 0.12698959586624753
+          },
+          {
+            "term": "high",
+            "score": 0.12698959586624753
+          },
+          {
+            "term": "compound",
+            "score": 0.12698959586624753
+          }
+        ],
+        "sampled_explanation_ids": [
+          "feature_387_llama_e-llama_s",
+          "feature_989_llama_e-llama_s",
+          "feature_989_gwen_e-llama_s",
+          "feature_131_gwen_e-llama_s",
+          "feature_615_llama_e-llama_s"
+        ],
+        "sampled_explanations": [
+          {
+            "explanation_id": "feature_387_llama_e-llama_s",
+            "text": "\"Nouns representing various concepts, objects, or ideas, often in specific contexts or situations, such as physical locations, abstract ideas, or technical terms.\""
+          },
+          {
+            "explanation_id": "feature_989_llama_e-llama_s",
+            "text": "\"Various nouns and common words, often related to everyday objects, locations, or concepts, sometimes appearing in specific contexts such as names, titles, or phrases.\""
+          },
+          {
+            "explanation_id": "feature_989_gwen_e-llama_s",
+            "text": "\"Various nouns and common words, often related to everyday objects, locations, or concepts, sometimes appearing in specific contexts such as names, titles, or phrases.\""
+          },
+          {
+            "explanation_id": "feature_131_gwen_e-llama_s",
+            "text": "\"Common nouns or noun phrases representing specific locations, objects, or abstract concepts, often appearing in technical, geographical, or contextual descriptions.\""
+          },
+          {
+            "explanation_id": "feature_615_llama_e-llama_s",
+            "text": "\"Nouns representing various concepts, objects, and entities, often denoting specific things, places, organizations, or ideas.\""
+          }
+        ]
+      }
+    }
+  }
+}

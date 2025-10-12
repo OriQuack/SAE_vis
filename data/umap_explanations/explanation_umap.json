@@ -4,9 +4,9 @@
     "n_features": 824,
     "n_total_embeddings": 2471,
     "sources": [
-      "openai_e-llama_s",
+      "gwen_e-llama_s",
       "llama_e-llama_s",
-      "gwen_e-llama_s"
+      "openai_e-llama_s"
     ],
     "umap_parameters": {
       "n_neighbors": 15,

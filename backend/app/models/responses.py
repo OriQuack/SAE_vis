@@ -379,3 +379,42 @@ class LLMComparisonResponse(BaseModel):
         ...,
         description="Consistency scores between scorer pairs for each explainer"
     )
+
+class UMAPPoint(BaseModel):
+    """Individual UMAP point"""
+    umap_id: int = Field(..., description="Unique UMAP point identifier")
+    feature_id: int = Field(..., description="Feature ID for linking with other visualizations")
+    umap_x: float = Field(..., description="X coordinate in UMAP space")
+    umap_y: float = Field(..., description="Y coordinate in UMAP space")
+    source: str = Field(..., description="Data source (decoder, llama_e-llama_s, etc.)")
+    llm_explainer: Optional[str] = Field(None, description="LLM explainer (null for features)")
+    cluster_id: str = Field(..., description="Cluster assignment (includes noise clusters)")
+    cluster_label: Optional[str] = Field(None, description="Human-readable cluster label")
+    cluster_level: int = Field(..., description="Hierarchical clustering level")
+
+class ClusterNode(BaseModel):
+    """Cluster hierarchy node information"""
+    cluster_id: str = Field(..., description="Cluster identifier")
+    level: int = Field(..., description="Hierarchical level (0=root)")
+    parent_id: Optional[str] = Field(None, description="Parent cluster ID (null for root)")
+    children_ids: List[str] = Field(..., description="List of child cluster IDs (empty for leaf)")
+    point_count: int = Field(..., ge=0, description="Number of points in this cluster")
+    is_noise: bool = Field(..., description="Whether this is a noise cluster")
+
+class UMAPMetadata(BaseModel):
+    """Metadata for UMAP visualization"""
+    total_points: int = Field(..., ge=0, description="Total number of points returned")
+    feature_points: int = Field(..., ge=0, description="Number of feature points")
+    explanation_points: int = Field(..., ge=0, description="Number of explanation points")
+    noise_points: int = Field(..., ge=0, description="Number of noise points")
+    applied_filters: Dict[str, List[str]] = Field(..., description="Filters applied to data")
+    cluster_hierarchy: Dict[str, Dict[str, ClusterNode]] = Field(
+        ...,
+        description="Separate hierarchies for features and explanations: {'features': {...}, 'explanations': {...}}"
+    )
+
+class UMAPDataResponse(BaseModel):
+    """Response model for UMAP visualization data"""
+    features: List[UMAPPoint] = Field(..., description="Feature UMAP points")
+    explanations: List[UMAPPoint] = Field(..., description="Explanation UMAP points")
+    metadata: UMAPMetadata = Field(..., description="Response metadata")

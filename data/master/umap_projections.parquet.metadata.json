@@ -1,12 +1,12 @@
 {
-  "created_at": "2025-10-12T15:32:41.373432",
-  "total_rows": 3471,
-  "explanation_rows": 2471,
-  "feature_rows": 1000,
+  "created_at": "2025-10-12T20:13:00.076264",
+  "total_rows": 7918,
+  "explanation_rows": 5370,
+  "feature_rows": 2548,
   "noise_statistics": {
-    "explanation_noise_points": 617,
-    "feature_noise_points": 527,
-    "total_noise_points": 1144
+    "explanation_noise_points": 618,
+    "feature_noise_points": 375,
+    "total_noise_points": 993
   },
   "schema": {
     "umap_id": "UInt32",
