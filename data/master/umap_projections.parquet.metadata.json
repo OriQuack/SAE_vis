@@ -1,8 +1,8 @@
 {
-  "created_at": "2025-10-12T20:13:00.076264",
-  "total_rows": 7918,
-  "explanation_rows": 5370,
-  "feature_rows": 2548,
+  "created_at": "2025-10-12T21:12:21.570116",
+  "total_rows": 4447,
+  "explanation_rows": 2899,
+  "feature_rows": 1548,
   "noise_statistics": {
     "explanation_noise_points": 618,
     "feature_noise_points": 375,

@@ -8,11 +8,12 @@ import type { ClusterNode, UMAPPoint } from '../types'
 /**
  * Zoom scale thresholds for cluster level switching
  * As user zooms in, progressively show more detailed cluster levels
+ * Note: Level 0 (root cluster) is excluded as it contains all features
  */
 export const ZOOM_LEVEL_THRESHOLDS = [
-  { level: 0, minScale: 0.5, maxScale: 2.0 },   // Wide view: level 0 clusters
-  { level: 1, minScale: 2.0, maxScale: 5.0 },   // Medium zoom: level 1 clusters
-  { level: 2, minScale: 5.0, maxScale: 8.0 }    // Close zoom: level 2 clusters
+  { level: 1, minScale: 0, maxScale: 2.0 },     // Default zoom: level 1 clusters
+  { level: 2, minScale: 2.0, maxScale: 3 },   // Medium zoom: level 2 clusters
+  { level: 3, minScale: 3, maxScale: 8.0 }    // Close zoom: level 3 clusters (leaf)
 ] as const
 
 /**
@@ -21,6 +22,13 @@ export const ZOOM_LEVEL_THRESHOLDS = [
  * Small value for precise borders that closely follow point distribution
  */
 export const CLUSTER_HULL_PADDING = 5
+
+/**
+ * Outlier threshold multiplier for hull calculation
+ * Points beyond (mean + k*std) distance from centroid are excluded
+ * Higher value = more tolerant of outliers
+ */
+export const OUTLIER_THRESHOLD_MULTIPLIER = 2.5
 
 /**
  * Color palette for cluster overlays
@@ -43,6 +51,15 @@ export interface ClusterHull {
   color: string
   pointCount: number
   isNoise: boolean
+  label: string | null
+}
+
+export interface ClusterLabel {
+  clusterId: string
+  text: string
+  x: number
+  y: number
+  color: string
 }
 
 export interface ProcessedPoint {
@@ -59,7 +76,7 @@ export interface ProcessedPoint {
  * Determine current cluster level based on zoom scale
  *
  * @param zoomScale - Current d3.zoom transform scale
- * @returns Cluster level (0, 1, or 2)
+ * @returns Cluster level (1, 2, or 3) - level 0 excluded
  */
 export function getClusterLevelFromZoom(zoomScale: number): number {
   for (const threshold of ZOOM_LEVEL_THRESHOLDS) {
@@ -68,13 +85,13 @@ export function getClusterLevelFromZoom(zoomScale: number): number {
     }
   }
 
-  // If scale is beyond max, return highest level
+  // If scale is beyond max, return highest level (3)
   if (zoomScale >= ZOOM_LEVEL_THRESHOLDS[ZOOM_LEVEL_THRESHOLDS.length - 1].maxScale) {
     return ZOOM_LEVEL_THRESHOLDS[ZOOM_LEVEL_THRESHOLDS.length - 1].level
   }
 
-  // Default to level 0
-  return 0
+  // Default to level 1 (first meaningful level)
+  return 1
 }
 
 // ============================================================================
@@ -96,28 +113,161 @@ export function filterClustersByLevel(
 }
 
 /**
- * Get all points belonging to a specific cluster
+ * Filter points by cluster level
+ *
+ * Since the new parquet structure has multiple rows per feature (one per hierarchy level),
+ * we need to filter to only show points at the target level.
+ *
+ * @param points - All UMAP points
+ * @param level - Target cluster level
+ * @returns Points at the specified level
+ */
+export function filterPointsByLevel(
+  points: UMAPPoint[],
+  level: number
+): UMAPPoint[] {
+  return points.filter(point => point.cluster_level === level)
+}
+
+/**
+ * Get effective clusters for display - includes target level clusters
+ * and parent clusters that have no children at any intermediate level
+ *
+ * @param hierarchy - Complete cluster hierarchy
+ * @param targetLevel - Target cluster level for zoom
+ * @returns Clusters that should be displayed (mix of levels)
+ */
+export function getEffectiveClusters(
+  hierarchy: Record<string, ClusterNode>,
+  targetLevel: number
+): ClusterNode[] {
+  const targetLevelClusters = filterClustersByLevel(hierarchy, targetLevel)
+
+  // Find parent clusters (level < targetLevel) with no children at any level <= targetLevel
+  const parentClusters = Object.values(hierarchy).filter(node => {
+    if (node.level >= targetLevel) return false
+
+    // Check if any direct children exist at or below target level
+    // A parent should only be shown if ALL its children are beyond the target level
+    const hasChildrenAtOrBelowTarget = node.children_ids.some(childId => {
+      const child = hierarchy[childId]
+      return child && child.level <= targetLevel
+    })
+
+    return !hasChildrenAtOrBelowTarget
+  })
+
+  return [...targetLevelClusters, ...parentClusters]
+}
+
+/**
+ * Get points for effective clusters (handles mixed-level clusters)
+ *
+ * @param points - All UMAP points
+ * @param effectiveClusters - Clusters to display (from getEffectiveClusters)
+ * @returns Points belonging to effective clusters at appropriate levels
+ */
+export function getEffectivePoints(
+  points: UMAPPoint[],
+  effectiveClusters: ClusterNode[]
+): UMAPPoint[] {
+  const clusterLevelMap = new Map<string, number>()
+  effectiveClusters.forEach(cluster => {
+    clusterLevelMap.set(cluster.cluster_id, cluster.level)
+  })
+
+  return points.filter(point => {
+    const expectedLevel = clusterLevelMap.get(point.cluster_id)
+    return expectedLevel !== undefined && point.cluster_level === expectedLevel
+  })
+}
+
+/**
+ * Get most specific level for each unique UMAP point
+ * Each point (identified by umap_id) appears at multiple levels - keep only the highest level
+ *
+ * @param points - All UMAP points
+ * @returns Points at their most specific (highest) cluster level
+ */
+export function filterToMostSpecificLevel(points: UMAPPoint[]): UMAPPoint[] {
+  const byUmapId = new Map<number, UMAPPoint>()
+
+  points.forEach(point => {
+    const existing = byUmapId.get(point.umap_id)
+    if (!existing || point.cluster_level > existing.cluster_level) {
+      byUmapId.set(point.umap_id, point)
+    }
+  })
+
+  return Array.from(byUmapId.values())
+}
+
+/**
+ * Get all points belonging to a specific cluster at a specific level
  *
  * @param points - All UMAP points
  * @param clusterId - Target cluster ID
- * @returns Points in the specified cluster
+ * @param level - Target cluster level
+ * @returns Points in the specified cluster at the specified level
  */
 export function getPointsInCluster(
   points: UMAPPoint[],
-  clusterId: string
+  clusterId: string,
+  level?: number
 ): ProcessedPoint[] {
-  return points
-    .filter(point => point.cluster_id === clusterId)
-    .map(point => ({
-      x: point.umap_x,
-      y: point.umap_y,
-      clusterId: point.cluster_id
-    }))
+  let filteredPoints = points.filter(point => point.cluster_id === clusterId)
+
+  // If level is specified, filter by level as well
+  if (level !== undefined) {
+    filteredPoints = filteredPoints.filter(point => point.cluster_level === level)
+  }
+
+  return filteredPoints.map(point => ({
+    x: point.umap_x,
+    y: point.umap_y,
+    clusterId: point.cluster_id
+  }))
 }
 
 // ============================================================================
 // HULL CALCULATION UTILITIES
 // ============================================================================
+
+/**
+ * Filter outlier points based on distance from centroid
+ * Removes points that are too far from cluster center
+ *
+ * @param points - Points in pixel coordinates
+ * @param thresholdMultiplier - Multiplier for std threshold (default: OUTLIER_THRESHOLD_MULTIPLIER)
+ * @returns Filtered points without extreme outliers
+ */
+function filterOutlierPoints(
+  points: ProcessedPoint[],
+  thresholdMultiplier: number = OUTLIER_THRESHOLD_MULTIPLIER
+): ProcessedPoint[] {
+  // Need enough points for meaningful statistics
+  if (points.length < 5) return points
+
+  // Calculate centroid
+  const centroidX = points.reduce((sum, p) => sum + p.x, 0) / points.length
+  const centroidY = points.reduce((sum, p) => sum + p.y, 0) / points.length
+
+  // Calculate distances from centroid
+  const distances = points.map(p => {
+    const dx = p.x - centroidX
+    const dy = p.y - centroidY
+    return Math.sqrt(dx * dx + dy * dy)
+  })
+
+  // Calculate mean and std of distances
+  const mean = distances.reduce((sum, d) => sum + d, 0) / distances.length
+  const variance = distances.reduce((sum, d) => sum + (d - mean) ** 2, 0) / distances.length
+  const std = Math.sqrt(variance)
+
+  // Filter points within threshold
+  const threshold = mean + thresholdMultiplier * std
+  return points.filter((_, i) => distances[i] <= threshold)
+}
 
 /**
  * Calculate convex hull for a cluster with padding tolerance
@@ -138,8 +288,14 @@ export function calculateClusterHull(
     return null
   }
 
+  // Filter outliers for more expressive hull
+  const filteredPoints = filterOutlierPoints(points)
+  if (filteredPoints.length < 3) {
+    return null
+  }
+
   // Convert to [x, y] tuples for d3-polygon
-  const coords: Array<[number, number]> = points.map(p => [p.x, p.y])
+  const coords: Array<[number, number]> = filteredPoints.map(p => [p.x, p.y])
 
   // Calculate convex hull
   const hull = polygonHull(coords)
@@ -179,13 +335,15 @@ export function calculateClusterHull(
  * @param clusters - Cluster nodes at target level
  * @param colorMap - Map of cluster IDs to colors
  * @param includeNoise - Whether to include noise clusters (default: false)
+ * @param dataPoints - Original data points to extract cluster labels
  * @returns Array of cluster hulls with metadata
  */
 export function calculateClusterHulls(
   points: ProcessedPoint[],
   clusters: ClusterNode[],
   colorMap: Record<string, string>,
-  includeNoise: boolean = false
+  includeNoise: boolean = false,
+  dataPoints?: UMAPPoint[]
 ): ClusterHull[] {
   const hulls: ClusterHull[] = []
 
@@ -206,16 +364,82 @@ export function calculateClusterHulls(
       continue
     }
 
+    // Get label from data points
+    let label: string | null = null
+    if (dataPoints) {
+      const pointWithLabel = dataPoints.find(p =>
+        p.cluster_id === cluster.cluster_id &&
+        p.cluster_label &&
+        p.cluster_label !== 'noise'
+      )
+      label = pointWithLabel?.cluster_label || null
+    }
+
     hulls.push({
       clusterId: cluster.cluster_id,
       points: hullPoints,
       color: colorMap[cluster.cluster_id] || '#94a3b8',
       pointCount: clusterPoints.length,
-      isNoise: cluster.is_noise
+      isNoise: cluster.is_noise,
+      label
     })
   }
 
   return hulls
+}
+
+/**
+ * Calculate non-overlapping cluster labels
+ * Uses greedy algorithm prioritizing larger clusters
+ * Adjusts overlap detection based on zoom scale
+ *
+ * @param hulls - Cluster hulls with labels
+ * @param zoomScale - Current zoom scale (default: 1)
+ * @returns Array of positioned labels without overlaps
+ */
+export function calculateClusterLabels(hulls: ClusterHull[], zoomScale: number = 1): ClusterLabel[] {
+  const labels: ClusterLabel[] = []
+  const used: { x: number; y: number; w: number; h: number }[] = []
+
+  // Filter and sort by size (larger clusters first)
+  const sorted = [...hulls]
+    .filter(h => h.label && !h.isNoise)
+    .sort((a, b) => b.pointCount - a.pointCount)
+
+  for (const hull of sorted) {
+    const centroid = polygonCentroid(hull.points)
+    const text = hull.label!
+
+    // Adjust bounds based on zoom scale
+    // When zoomed in (scale > 1), labels take less space in data coordinates
+    // This allows more labels to fit without overlap
+    const effectiveCharWidth = 8 / zoomScale
+    const effectiveHeight = 20 / zoomScale
+
+    // Estimate bounds with zoom-adjusted dimensions
+    const w = Math.max(text.length * effectiveCharWidth, 40 / zoomScale)
+    const h = effectiveHeight
+    const bounds = { x: centroid[0] - w / 2, y: centroid[1] - h / 2, w, h }
+
+    // Check overlap
+    const overlaps = used.some(u =>
+      !(bounds.x + bounds.w < u.x || u.x + u.w < bounds.x ||
+        bounds.y + bounds.h < u.y || u.y + u.h < bounds.y)
+    )
+
+    if (!overlaps) {
+      labels.push({
+        clusterId: hull.clusterId,
+        text,
+        x: centroid[0],
+        y: centroid[1],
+        color: hull.color
+      })
+      used.push(bounds)
+    }
+  }
+
+  return labels
 }
 
 // ============================================================================

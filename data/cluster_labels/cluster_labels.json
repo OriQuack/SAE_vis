@@ -1,7 +1,7 @@
 {
   "description": "Cluster labels and metadata generated using c-TF-IDF and LLM. Reference the original clustering file for full tree structure.",
   "original_clustering_file": "data/recursive_clustering/explanation_recursive_clustering.json",
-  "generated_at": "2025-10-12T19:42:58.045165",
+  "generated_at": "2025-10-12T21:12:15.713289",
   "labeling_config": {
     "llm_model": "gpt-5-mini",
     "source_directories": [
@@ -16,7 +16,7 @@
   },
   "cluster_labels": {
     "cluster_1": {
-      "label": "explanation parsed, explanation parsed explanation, parsed explanation",
+      "label": "explanation parsed",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -76,7 +76,7 @@
       }
     },
     "cluster_2": {
-      "label": "numerical, digit, dates",
+      "label": "numerical",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -152,7 +152,7 @@
       }
     },
     "cluster_3": {
-      "label": "mathematical, equations, formulas",
+      "label": "mathematical",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -228,7 +228,7 @@
       }
     },
     "cluster_4": {
-      "label": "marks, punctuation marks, punctuation",
+      "label": "marks",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -304,7 +304,7 @@
       }
     },
     "cluster_5": {
-      "label": "high frequency, high frequency function, frequency function words",
+      "label": "high frequency",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -380,7 +380,7 @@
       }
     },
     "cluster_6": {
-      "label": "typically, tokens typically, tokens typically short",
+      "label": "typically",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -456,7 +456,7 @@
       }
     },
     "cluster_7": {
-      "label": "act grammatical, words prepositions, roles",
+      "label": "act grammatical",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -532,7 +532,7 @@
       }
     },
     "cluster_8": {
-      "label": "terms, biological, medical",
+      "label": "terms",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -608,7 +608,7 @@
       }
     },
     "cluster_9": {
-      "label": "ns, ns ns, ns ns ns",
+      "label": "ns",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -684,7 +684,7 @@
       }
     },
     "cluster_10": {
-      "label": "highlighted, core, highlighted tokens",
+      "label": "highlighted",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -760,7 +760,7 @@
       }
     },
     "cluster_11": {
-      "label": "special characters, characters, special",
+      "label": "special characters",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -836,7 +836,7 @@
       }
     },
     "cluster_12": {
-      "label": "partial, terms, fragments",
+      "label": "partial",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -912,7 +912,7 @@
       }
     },
     "cluster_13": {
-      "label": "rein, rein rein, rein rein rein",
+      "label": "rein",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -988,7 +988,7 @@
       }
     },
     "cluster_14": {
-      "label": "used, short, short words",
+      "label": "used",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -1064,7 +1064,7 @@
       }
     },
     "cluster_15": {
-      "label": "rein, rein rein, rein rein rein",
+      "label": "rein",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -1140,7 +1140,7 @@
       }
     },
     "cluster_16": {
-      "label": "copyright copyright, copyright copyright copyright, copyright",
+      "label": "copyright copyright",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -1216,7 +1216,7 @@
       }
     },
     "cluster_17": {
-      "label": "highlighted, highlighted tokens, tokens",
+      "label": "highlighted",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -1292,7 +1292,7 @@
       }
     },
     "cluster_18": {
-      "label": "code, highlighted, highlighted tokens",
+      "label": "code",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -1368,7 +1368,7 @@
       }
     },
     "cluster_19": {
-      "label": "verbs, verb, state",
+      "label": "verbs",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -1444,7 +1444,7 @@
       }
     },
     "cluster_20": {
-      "label": "technical, technical contexts, perception",
+      "label": "technical",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -1520,7 +1520,7 @@
       }
     },
     "cluster_21": {
-      "label": "movement, sense, phrasal",
+      "label": "movement",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -1596,7 +1596,7 @@
       }
     },
     "cluster_22": {
-      "label": "tokens, various tokens, nouns",
+      "label": "tokens",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -1672,7 +1672,7 @@
       }
     },
     "cluster_23": {
-      "label": "names, technical, proper",
+      "label": "names",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -1748,7 +1748,7 @@
       }
     },
     "cluster_24": {
-      "label": "various tokens, tokens including, various tokens including",
+      "label": "various tokens",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -1824,7 +1824,7 @@
       }
     },
     "cluster_25": {
-      "label": "ability, modal, possibility",
+      "label": "ability",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -1900,7 +1900,7 @@
       }
     },
     "cluster_26": {
-      "label": "suffixes, suffixes words, indicating grammatical",
+      "label": "suffixes",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -1976,7 +1976,7 @@
       }
     },
     "cluster_27": {
-      "label": "especially particularly, commonly activated tokens, especially particularly specifically",
+      "label": "especially particularly",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -2052,7 +2052,7 @@
       }
     },
     "cluster_28": {
-      "label": "incredibly, incredibly incredibly, incredibly incredibly incredibly",
+      "label": "incredibly",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -2128,7 +2128,7 @@
       }
     },
     "cluster_29": {
-      "label": "incredibly, incredibly incredibly, incredibly incredibly incredibly",
+      "label": "incredibly",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -2204,7 +2204,7 @@
       }
     },
     "cluster_30": {
-      "label": "code, snippets, code snippets",
+      "label": "code",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -2280,7 +2280,7 @@
       }
     },
     "cluster_31": {
-      "label": "adjectives, emphasize, adverbs",
+      "label": "adjectives",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -2356,7 +2356,7 @@
       }
     },
     "cluster_32": {
-      "label": "articles, nouns, precede nouns",
+      "label": "articles",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -2432,7 +2432,7 @@
       }
     },
     "cluster_33": {
-      "label": "code, programming, identifiers",
+      "label": "code",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -2508,7 +2508,7 @@
       }
     },
     "cluster_34": {
-      "label": "code, structural, formatting",
+      "label": "code",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -2584,7 +2584,7 @@
       }
     },
     "cluster_35": {
-      "label": "prepositions, location, direction",
+      "label": "prepositions",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -2660,7 +2660,7 @@
       }
     },
     "cluster_36": {
-      "label": "connect, conjunctions, clauses",
+      "label": "connect",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -2736,7 +2736,7 @@
       }
     },
     "cluster_37": {
-      "label": "proper, proper nouns, organizations",
+      "label": "proper",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -2812,7 +2812,7 @@
       }
     },
     "cluster_38": {
-      "label": "sports, activities, related",
+      "label": "sports",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -2888,7 +2888,7 @@
       }
     },
     "cluster_39": {
-      "label": "nouns, objects, common nouns",
+      "label": "nouns",
       "labeling_metadata": {
         "ctfidf_terms": [
           {
@@ -2964,7 +2964,7 @@
       }
     },
     "cluster_40": {
-      "label": "formal, nouns, technical",
+      "label": "formal",
       "labeling_metadata": {
         "ctfidf_terms": [
           {

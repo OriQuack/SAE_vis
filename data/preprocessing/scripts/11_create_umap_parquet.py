@@ -362,8 +362,12 @@ def process_explanation_umap(config: Dict, project_root: Path) -> pl.DataFrame:
             # Extract LLM explainer from source name
             llm_explainer = source_name  # Full source name for now
 
-            # Create one row for each cluster level in the hierarchy
+            # Create one row for each cluster level in the hierarchy (skip level 0)
             for cluster_id, level, is_noise in cluster_hierarchy_path:
+                # Skip level 0 (cluster_0 contains all explanations - obvious)
+                if level == 0:
+                    continue
+
                 # Determine cluster metadata
                 cluster_label = "noise" if is_noise else None
 
@@ -461,13 +465,16 @@ def process_feature_umap(config: Dict, project_root: Path) -> pl.DataFrame:
             # No mapping found - skip this feature
             continue
 
-        # Create one row for each cluster level in the hierarchy
+        # Create one row for each cluster level in the hierarchy (skip level 0)
         for cluster_id, level, is_noise in cluster_hierarchy_path:
+            # Skip level 0 (cluster_0 contains all features - obvious)
+            if level == 0:
+                continue
+
             # Determine cluster metadata
             cluster_label = "noise" if is_noise else None
 
             # Build ancestors based on level
-            # For level 0, no ancestors
             # For level 1, ancestor_level_0 is the cluster at level 0
             # For level 2, ancestor_level_0/1 are clusters at levels 0/1
             # etc.

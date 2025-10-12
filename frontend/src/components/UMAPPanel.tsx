@@ -6,8 +6,11 @@ import { getUMAPData } from '../api'
 import type { UMAPPoint, UMAPDataResponse, ClusterNode } from '../types'
 import {
   getClusterLevelFromZoom,
-  filterClustersByLevel,
+  filterToMostSpecificLevel,
+  getEffectiveClusters,
+  getEffectivePoints,
   calculateClusterHulls,
+  calculateClusterLabels,
   generateClusterColors,
   hullToPath,
   type ProcessedPoint
@@ -49,7 +52,7 @@ const UMAPSubPanel: React.FC<{
   const [hoveredCluster, setHoveredCluster] = useState<string | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
   const [zoomTransform, setZoomTransform] = useState<ZoomTransform>(zoomIdentity)
-  const [clusterLevel, setClusterLevel] = useState<number>(0)
+  const [clusterLevel, setClusterLevel] = useState<number>(1)  // Start at level 1 (level 0 excluded)
 
   // Debounce timer for cluster level changes
   const levelChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -67,13 +70,16 @@ const UMAPSubPanel: React.FC<{
       }
     }
 
+    // Keep each feature at its most specific (highest) level
+    const mostSpecificData = filterToMostSpecificLevel(data)
+
     const margin = { top: 20, right: 20, bottom: 40, left: 50 }
     const svgWidth = size.width
     const svgHeight = size.height
     const plotWidth = svgWidth - margin.left - margin.right
     const plotHeight = svgHeight - margin.top - margin.bottom
 
-    // Calculate data extents
+    // Calculate data extents from ALL data for consistent scales
     const xExtent = [
       Math.min(...data.map(d => d.umap_x)),
       Math.max(...data.map(d => d.umap_x))
@@ -96,9 +102,13 @@ const UMAPSubPanel: React.FC<{
     }
 
     // Generate point positions and colors
-    const points = data.map((point) => {
+    const points = mostSpecificData.map((point) => {
       let color: string
-      if (colorBy === 'source') {
+
+      // Noise points are always gray
+      if (point.cluster_label === 'noise') {
+        color = '#94a3b8'  // Gray for noise
+      } else if (colorBy === 'source') {
         color = SOURCE_COLORS[point.source || 'decoder'] || '#94a3b8'
       } else {
         // Color by cluster - use cluster_id hash for consistent colors
@@ -137,9 +147,9 @@ const UMAPSubPanel: React.FC<{
     return groups
   }, [points])
 
-  // Calculate cluster hulls based on current level
+  // Calculate cluster hulls based on current level with smart persistence
   const clusterHulls = useMemo(() => {
-    if (!clusterHierarchy || !data || !xScale || !yScale || points.length === 0) {
+    if (!clusterHierarchy || !data || !xScale || !yScale) {
       return []
     }
 
@@ -147,23 +157,40 @@ const UMAPSubPanel: React.FC<{
     const hierarchyKey = title.includes('Feature') ? 'features' : 'explanations'
     const panelHierarchy = clusterHierarchy[hierarchyKey] || {}
 
-    // Get clusters at current level from panel-specific hierarchy
-    const clustersAtLevel = filterClustersByLevel(panelHierarchy, clusterLevel)
+    // Get effective clusters (target level + childless parents)
+    const effectiveClusters = getEffectiveClusters(panelHierarchy, clusterLevel)
 
-    // Convert points to ProcessedPoint format with pixel coordinates
-    const processedPoints: ProcessedPoint[] = points.map(p => ({
-      x: p.x,
-      y: p.y,
+    // Get points for effective clusters at appropriate levels
+    const effectiveData = getEffectivePoints(data, effectiveClusters)
+
+    // Convert to ProcessedPoint format with pixel coordinates
+    const processedPoints: ProcessedPoint[] = effectiveData.map(p => ({
+      x: xScale(p.umap_x),
+      y: yScale(p.umap_y),
       clusterId: p.cluster_id
     }))
 
     // Generate color map for clusters
-    const clusterIds = clustersAtLevel.map(c => c.cluster_id)
+    const clusterIds = effectiveClusters.map(c => c.cluster_id)
     const colorMap = generateClusterColors(clusterIds)
 
-    // Calculate hulls (excluding noise clusters)
-    return calculateClusterHulls(processedPoints, clustersAtLevel, colorMap, false)
-  }, [clusterHierarchy, data, points, xScale, yScale, clusterLevel, title])
+    // Calculate hulls (excluding noise clusters, pass data for labels)
+    return calculateClusterHulls(processedPoints, effectiveClusters, colorMap, false, effectiveData)
+  }, [clusterHierarchy, data, xScale, yScale, clusterLevel, title])
+
+  // Calculate labels for Explanation UMAP only (zoom-aware)
+  const clusterLabels = useMemo(() => {
+    if (title.includes('Explanation')) {
+      return calculateClusterLabels(clusterHulls, zoomTransform.k)
+    }
+    return []
+  }, [clusterHulls, title, zoomTransform.k])
+
+  // Reset hover state when cluster level changes
+  useEffect(() => {
+    setHoveredCluster(null)
+    setTooltipPosition(null)
+  }, [clusterLevel])
 
   // Setup d3-zoom behavior
   useEffect(() => {
@@ -207,7 +234,7 @@ const UMAPSubPanel: React.FC<{
     if (svgRef.current) {
       select(svgRef.current).call(d3Zoom<SVGSVGElement, unknown>().transform, zoomIdentity)
       setZoomTransform(zoomIdentity)
-      setClusterLevel(0)
+      setClusterLevel(1)  // Reset to level 1 (level 0 excluded)
     }
   }, [data])
 
@@ -292,7 +319,7 @@ const UMAPSubPanel: React.FC<{
                       fill={hull.color}
                       fillOpacity={hoveredCluster === hull.clusterId ? 0.25 : 0.15}
                       stroke={hull.color}
-                      strokeWidth={hoveredCluster === hull.clusterId ? 3 : 2}
+                      strokeWidth={hoveredCluster === hull.clusterId ? 2 : 1}
                       strokeOpacity={hoveredCluster === hull.clusterId ? 0.5 : 0.3}
                       pointerEvents="all"
                       style={{ cursor: 'pointer' }}
@@ -310,7 +337,7 @@ const UMAPSubPanel: React.FC<{
                     />
                   ))}
 
-                  {/* Data points (foreground layer) - grouped by cluster for performance */}
+                  {/* Data points (middle layer) - grouped by cluster for performance */}
                   {Object.entries(pointsByCluster).map(([clusterId, clusterPoints]) => (
                     <g
                       key={clusterId}
@@ -323,12 +350,30 @@ const UMAPSubPanel: React.FC<{
                           className="umap-panel__point"
                           cx={point.x}
                           cy={point.y}
-                          r={1.5}
+                          r={1}
                           fill={point.color}
                           pointerEvents="none"
                         />
                       ))}
                     </g>
+                  ))}
+
+                  {/* Cluster labels (top layer) - fixed size regardless of zoom */}
+                  {clusterLabels.map((label) => (
+                    <text
+                      key={label.clusterId}
+                      x={label.x}
+                      y={label.y}
+                      fill={label.color}
+                      fontSize={13 / zoomTransform.k}
+                      fontWeight="600"
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      pointerEvents="none"
+                      style={{ textShadow: '0 0 4px black, 0 0 2px black', userSelect: 'none' }}
+                    >
+                      {label.text}
+                    </text>
                   ))}
                 </g>
               </g>
@@ -416,7 +461,7 @@ export const UMAPPanel: React.FC<UMAPPanelProps> = ({ className = '' }) => {
         clusterHierarchy={umapData?.metadata.cluster_hierarchy || null}
         loading={loading}
         error={error}
-        colorBy="source"
+        colorBy="cluster"
       />
     </div>
   )
