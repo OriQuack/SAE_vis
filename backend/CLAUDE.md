@@ -209,9 +209,14 @@ async def get_llm_comparison(request: LLMComparisonRequest):
 - Used for analyzing LLM explainer/scorer agreement patterns
 
 **Current Limitations:**
-- Serves global statistics (filter parameters not yet applied)
+- Serves global statistics (filter parameters not yet applied to LLM comparison)
 - Requires pre-calculated statistics file (not real-time computation)
 - Future enhancement: Real-time correlation calculation based on filter selection
+
+**Data Source Requirements:**
+- **Location**: `/data/llm_comparison/llm_comparison_stats.json`
+- **Format**: JSON file with pre-calculated explainer/scorer consistency scores
+- **Statistics**: Explainer consistency (cosine similarity), Scorer consistency (RV coefficient)
 
 ## Data Service Architecture
 
@@ -240,7 +245,7 @@ await data_service.cleanup()
 
 **Stage 1: Feature Splitting**
 ```
-Features → [feature_splitting: True|False] → Category Groups
+Features → [feature_splitting: continuous cosine similarity] → Category Groups
 ```
 
 **Stage 2: Semantic Distance Classification**
@@ -250,11 +255,13 @@ Category Groups → [semdist_mean >= threshold] → High/Low Distance
 
 **Stage 3: Score Agreement Analysis**
 ```
-Distance Groups → [fuzz, simulation, detection scores] → 4 Agreement Levels
-├── All 3 High    (all scores ≥ threshold)
-├── 2 of 3 High   (exactly 2 scores ≥ threshold)
-├── 1 of 3 High   (exactly 1 score ≥ threshold)
-└── All 3 Low     (all scores < threshold)
+Distance Groups → [fuzz, simulation, detection, embedding scores] → N Agreement Levels
+├── All N High    (all scores ≥ threshold)
+├── N-1 High      (exactly N-1 scores ≥ threshold)
+├── ...           (configurable patterns)
+└── All N Low     (all scores < threshold)
+
+Note: Supports variable number of scoring methods through configurable pattern rules
 ```
 
 ## Request/Response Architecture
@@ -331,23 +338,29 @@ allow_origins=[
 
 ### Master Parquet File
 - **Location**: `/data/master/feature_analysis.parquet`
-- **Schema**: 1,648 features with complete metadata
-- **Columns**: feature_id, sae_id, explanation_method, llm_explainer, llm_scorer, feature_splitting, semdist_mean, score_fuzz, score_simulation, score_detection, details_path
+- **Schema**: 2,471 rows covering 1,000 unique features with multiple LLM explainers
+- **Columns**: feature_id, sae_id, explanation_method, llm_explainer, llm_scorer, feature_splitting, semdist_mean, score_fuzz, score_simulation, score_detection, score_embedding, details_path
 
 ### Detailed JSON Files
 - **Location**: `/data/detailed_json/`
 - **Format**: Individual feature files referenced by `details_path`
 - **Content**: Complete feature analysis data for debug view
+- **Dataset**: 1,000 feature files with comprehensive analysis data
+
+### LLM Comparison Statistics
+- **Location**: `/data/llm_comparison/llm_comparison_stats.json`
+- **Purpose**: Pre-calculated consistency scores for LLM comparison visualization
+- **Content**: Explainer consistency (cosine similarity) and scorer consistency (RV coefficient)
 
 ## Performance Characteristics
 
 ### Current Deployment Status
-- **Dataset Size**: 1,648 features processed
+- **Dataset Size**: 2,471 rows (1,000 unique features × ~2.5 avg LLM explainers)
 - **Response Times**: Sub-second for all endpoints (20-30% faster with ParentPath optimizations)
 - **Memory Usage**: Efficient lazy loading with ~50% reduction in temporary allocations
 - **Scalability**: Designed for 16K+ features with optimized filtering
 - **Concurrency**: Async/await throughout for high throughput
-- **Frontend Support**: Powers Sankey and Alluvial visualizations
+- **Frontend Support**: Powers Sankey, Alluvial, Histogram, and LLM Comparison visualizations
 
 ### Performance Metrics (Optimized - January 2025)
 ```
@@ -659,6 +672,8 @@ API Endpoints → DataService (visualization_service.py)
 ## Critical Notes for Development
 
 1. **Data Dependency**: Backend requires master parquet file to function
+   - **Master File**: `/data/master/feature_analysis.parquet` (2,471 rows)
+   - **LLM Stats**: `/data/llm_comparison/llm_comparison_stats.json` (Phase 5)
 2. **Port Configuration**: Default 8003 matches frontend environment
 3. **Polars Version**: String cache compatibility requires exact version
 4. **Async Patterns**: All data operations are async - maintain this pattern

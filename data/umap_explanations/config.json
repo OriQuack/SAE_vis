@@ -14,7 +14,7 @@
     }
   ],
   "umap_parameters": {
-    "n_neighbors": 30,
+    "n_neighbors": 15,
     "min_dist": 0.1,
     "metric": "cosine",
     "random_state": 42

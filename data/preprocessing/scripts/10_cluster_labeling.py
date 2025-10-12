@@ -51,27 +51,38 @@ class ClusterLabelingProcessor:
         self.output_dir = self.project_root / config["output_directory"]
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
+        # Source directories
+        self.source_directories = config.get("source_directories", [])
+        if not self.source_directories:
+            raise ValueError("source_directories must be specified in config")
+
         self.layer_name = config["layer_name"]
 
         # LLM settings
         llm_config = config["llm_settings"]
-        self.llm_provider = llm_config["provider"]
-        self.llm_model = llm_config["model"]
-        self.temperature = llm_config["temperature"]
-        self.max_tokens = llm_config["max_tokens"]
-        self.system_prompt = llm_config["system_prompt"]
+        self.llm_enabled = llm_config.get("enabled", True)
+        self.llm_provider = llm_config.get("provider", "openai")
+        self.llm_model = llm_config.get("model", "gpt-5-mini")
+        self.temperature = llm_config.get("temperature", 0.3)
+        self.max_tokens = llm_config.get("max_tokens", 1000)
+        self.system_prompt = llm_config.get("system_prompt", "")
 
-        # Initialize LLM client (OpenAI v1.0+ API)
-        api_key = os.getenv(llm_config["api_key_env"])
-        if not api_key:
-            raise ValueError(f"Environment variable {llm_config['api_key_env']} not set")
+        # Initialize LLM client only if enabled
+        self.llm_client = None
+        if self.llm_enabled:
+            api_key = os.getenv(llm_config["api_key_env"])
+            if not api_key:
+                raise ValueError(f"Environment variable {llm_config['api_key_env']} not set")
 
-        from openai import OpenAI
-        self.llm_client = OpenAI(api_key=api_key)
+            from openai import OpenAI
+            self.llm_client = OpenAI(api_key=api_key)
+        else:
+            self.logger.info("LLM is disabled, will use c-TF-IDF terms for labels")
 
         # c-TF-IDF settings
         self.ctfidf_config = config["ctfidf_settings"]
         self.top_n_terms = self.ctfidf_config["top_n_terms"]
+        self.label_n_terms = self.ctfidf_config.get("label_n_terms", 3)
 
         # Labeling settings
         self.labeling_config = config["labeling_settings"]
@@ -91,7 +102,11 @@ class ClusterLabelingProcessor:
         self.logger.info(f"Raw data directory: {self.raw_data_dir}")
         self.logger.info(f"Embeddings directory: {self.embeddings_dir}")
         self.logger.info(f"Output directory: {self.output_dir}")
-        self.logger.info(f"LLM: {self.llm_provider}/{self.llm_model}")
+        self.logger.info(f"Source directories: {', '.join(self.source_directories)}")
+        if self.llm_enabled:
+            self.logger.info(f"LLM: {self.llm_provider}/{self.llm_model}")
+        else:
+            self.logger.info(f"LLM: Disabled (using top {self.label_n_terms} c-TF-IDF terms)")
 
     def load_clustering_results(self) -> Dict:
         """
@@ -159,6 +174,10 @@ class ClusterLabelingProcessor:
 
         feature_num = int(parts[1])
         source = '_'.join(parts[2:])  # Rejoin in case source has underscores
+
+        # Validate source against configured source directories
+        if source not in self.source_directories:
+            self.logger.warning(f"Source '{source}' from ID '{explanation_id}' not in configured source_directories: {self.source_directories}")
 
         return feature_num, source
 
@@ -408,6 +427,28 @@ class ClusterLabelingProcessor:
             self.logger.error(f"Error computing c-TF-IDF: {e}")
             return {}
 
+    def generate_ctfidf_label(self, cluster_idx: int, ctfidf_terms: List[Tuple[str, float]]) -> str:
+        """
+        Generate a label using only c-TF-IDF terms.
+
+        Args:
+            cluster_idx: Index of the cluster
+            ctfidf_terms: List of (term, score) tuples from c-TF-IDF
+
+        Returns:
+            Label string based on top terms
+        """
+        if not ctfidf_terms:
+            return f"Cluster {cluster_idx}"
+
+        # Take top N terms for label
+        top_terms = [term for term, _ in ctfidf_terms[:self.label_n_terms]]
+        label = ", ".join(top_terms)
+
+        self.logger.info(f"Generated c-TF-IDF label for cluster {cluster_idx}: {label}")
+
+        return label
+
     def generate_llm_label(self, cluster_idx: int, ctfidf_terms: List[Tuple[str, float]],
                           sample_texts: List[str], cluster_size: int) -> str:
         """
@@ -422,7 +463,11 @@ class ClusterLabelingProcessor:
         Returns:
             Generated label string
         """
-        self.logger.info(f"Generating label for cluster {cluster_idx} (size: {cluster_size})")
+        # If LLM is disabled, use c-TF-IDF label
+        if not self.llm_enabled:
+            return self.generate_ctfidf_label(cluster_idx, ctfidf_terms)
+
+        self.logger.info(f"Generating LLM label for cluster {cluster_idx} (size: {cluster_size})")
 
         # Build prompt
         prompt_parts = [f"Generate a concise, descriptive label (max {self.label_max_words} words) for this cluster of SAE feature explanations."]
@@ -462,18 +507,14 @@ class ClusterLabelingProcessor:
             # Clean up label (remove quotes, extra whitespace)
             label = label.strip('"\'').strip()
 
-            self.logger.info(f"Generated label for cluster {cluster_idx}: {label}")
+            self.logger.info(f"Generated LLM label for cluster {cluster_idx}: {label}")
 
             return label
 
         except Exception as e:
             self.logger.error(f"Error calling LLM API: {e}")
-            # Fallback label based on c-TF-IDF terms
-            if ctfidf_terms:
-                fallback_label = f"Cluster about {', '.join([term for term, _ in ctfidf_terms[:3]])}"
-            else:
-                fallback_label = f"Cluster {cluster_idx}"
-
+            # Fallback to c-TF-IDF label
+            fallback_label = self.generate_ctfidf_label(cluster_idx, ctfidf_terms)
             self.logger.warning(f"Using fallback label: {fallback_label}")
             return fallback_label
 
@@ -567,6 +608,7 @@ class ClusterLabelingProcessor:
                 ]
 
             # Store sampled explanation IDs that were used for LLM prompt
+            selected_ids = meta["selected_ids"]
             child["labeling_metadata"]["sampled_explanation_ids"] = selected_ids
 
             # Store sampled explanation texts (for transparency and debugging)
@@ -633,6 +675,7 @@ class ClusterLabelingProcessor:
             "generated_at": datetime.now().isoformat(),
             "labeling_config": {
                 "llm_model": self.llm_model,
+                "source_directories": self.source_directories,
                 "ctfidf_top_n_terms": self.top_n_terms,
                 "n_sample_explanations": self.n_sample_explanations,
                 "label_max_words": self.label_max_words,

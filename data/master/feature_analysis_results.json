@@ -1,5 +1,7 @@
 {
-  "timestamp": "20251011_181556",
+  "timestamp": "20251012_153328",
+  "parquet_file": "/home/dohyun/interface/data/master/feature_analysis.parquet",
+  "dataset_name": "SAE Feature Analysis",
   "dataset_info": {
     "total_rows": 7413,
     "total_columns": 13,
@@ -47,8 +49,8 @@
       "n_unique": 3,
       "n_nulls": 0,
       "values": {
-        "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4": 2471,
         "openai/gpt-oss-20b": 2471,
+        "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4": 2471,
         "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8": 2471
       }
     },

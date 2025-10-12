@@ -4,20 +4,23 @@
   "recursive_clustering_path": "data/recursive_clustering/explanation_recursive_clustering.json",
   "raw_data_directory": "data/raw",
   "embeddings_directory": "data/embeddings",
+  "source_directories": ["llama_e-llama_s", "gwen_e-llama_s", "openai_e-llama_s"],
   "layer_name": "layers.30",
   "output_directory": "data/cluster_labels",
 
   "llm_settings": {
+    "enabled": false,
     "provider": "openai",
     "model": "gpt-5-mini",
     "api_key_env": "OPENAI_API_KEY",
     "temperature": 0.3,
-    "max_tokens": 100,
+    "max_tokens": 1000,
     "system_prompt": "You are an expert at analyzing and summarizing SAE (Sparse Autoencoder) feature explanations. Generate concise, descriptive labels that capture the common themes in clusters of explanations."
   },
 
   "ctfidf_settings": {
     "top_n_terms": 10,
+    "label_n_terms": 3,
     "ngram_range": [1, 3],
     "min_df": 1,
     "max_df": 0.95,
@@ -30,5 +33,5 @@
     "include_ctfidf_in_prompt": true
   },
 
-  "comment": "This configuration controls the automatic labeling of explanation clusters. c-TF-IDF extracts distinctive terms per cluster, and an LLM generates human-readable labels based on these terms and sample explanations."
+  "comment": "This configuration controls the automatic labeling of explanation clusters. c-TF-IDF extracts distinctive terms per cluster. If llm_settings.enabled=true, an LLM generates human-readable labels. If false, labels use the top c-TF-IDF terms (controlled by ctfidf_settings.label_n_terms)."
 }

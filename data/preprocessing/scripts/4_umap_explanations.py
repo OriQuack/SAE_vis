@@ -21,6 +21,8 @@ import numpy as np
 from pathlib import Path
 from typing import Dict, List
 import umap
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 
 
 def load_config(config_path: str) -> Dict:
@@ -195,6 +197,78 @@ def format_results(
     return results
 
 
+def create_visualization(
+    embeddings_2d: np.ndarray,
+    source_map: List[tuple],
+    output_dir: str,
+    config: Dict
+) -> None:
+    """
+    Create scatter plot visualization of UMAP embeddings.
+
+    Args:
+        embeddings_2d: 2D UMAP coordinates
+        source_map: Mapping from row index to (source_name, feature_id)
+        output_dir: Directory to save the plot
+        config: Configuration for metadata
+    """
+    print("\nCreating visualization...")
+
+    # Extract sources for color coding
+    sources = [source_name for source_name, _ in source_map]
+    unique_sources = sorted(set(sources))
+
+    # Create color map
+    colors = list(mcolors.TABLEAU_COLORS.values())[:len(unique_sources)]
+    color_map = {source: colors[i] for i, source in enumerate(unique_sources)}
+    point_colors = [color_map[source] for source in sources]
+
+    # Create figure
+    fig, ax = plt.subplots(figsize=(12, 10))
+
+    # Plot points by source
+    for source in unique_sources:
+        mask = np.array([s == source for s in sources])
+        ax.scatter(
+            embeddings_2d[mask, 0],
+            embeddings_2d[mask, 1],
+            c=[color_map[source]],
+            label=source,
+            alpha=0.6,
+            s=20,
+            edgecolors='none'
+        )
+
+    # Formatting
+    ax.set_xlabel('UMAP Dimension 1', fontsize=12)
+    ax.set_ylabel('UMAP Dimension 2', fontsize=12)
+    ax.set_title('UMAP Projection of Explanation Embeddings by Source', fontsize=14, fontweight='bold')
+    ax.legend(title='Explanation Source', loc='best', frameon=True, fancybox=True)
+    ax.grid(True, alpha=0.3, linestyle='--')
+
+    # Add statistics text
+    stats_text = f"Total embeddings: {len(embeddings_2d)}\n"
+    stats_text += f"Unique features: {len(set(fid for _, fid in source_map))}\n"
+    stats_text += f"Sources: {len(unique_sources)}"
+    ax.text(
+        0.02, 0.98, stats_text,
+        transform=ax.transAxes,
+        fontsize=10,
+        verticalalignment='top',
+        bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+    )
+
+    plt.tight_layout()
+
+    # Save plot
+    os.makedirs(output_dir, exist_ok=True)
+    plot_file = os.path.join(output_dir, "umap_visualization.png")
+    plt.savefig(plot_file, dpi=300, bbox_inches='tight')
+    print(f"Saved visualization to: {plot_file}")
+
+    plt.close(fig)
+
+
 def save_results(
     results: Dict,
     output_dir: str,
@@ -283,6 +357,14 @@ def main():
         # Setup output directory
         output_dir = project_root / config["output_dir"]
         print(f"\nOutput directory: {output_dir}")
+
+        # Create visualization
+        create_visualization(
+            embeddings_2d,
+            source_map,
+            str(output_dir),
+            config
+        )
 
         # Save results
         save_results(

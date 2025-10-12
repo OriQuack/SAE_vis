@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Simple Feature Data Analysis
+Parquet Data Analysis
+Analyzes feature_analysis.parquet and umap_projections.parquet.
 Shows columns, keys, and counts only.
 """
 
@@ -9,32 +10,45 @@ import json
 from pathlib import Path
 from datetime import datetime
 
-DATA_PATH = Path("/home/dohyun/interface/data/master/feature_analysis.parquet")
 OUTPUT_DIR = Path("/home/dohyun/interface/data/master")
 TIMESTAMP = datetime.now().strftime("%Y%m%d_%H%M%S")
 
 
-def main():
-    """Analyze parquet file structure and content."""
+def analyze_parquet(parquet_path: Path, dataset_name: str) -> dict:
+    """
+    Analyze a parquet file structure and content.
+
+    Args:
+        parquet_path: Path to the parquet file
+        dataset_name: Human-readable name for the dataset
+
+    Returns:
+        Dictionary with analysis results
+    """
     print("=" * 80)
-    print("SAE FEATURE DATA ANALYSIS")
+    print(f"{dataset_name.upper()}")
     print("=" * 80)
 
     # Load data
-    print(f"\nLoading: {DATA_PATH}")
-    df = pl.read_parquet(DATA_PATH)
+    print(f"\nLoading: {parquet_path}")
+    df = pl.read_parquet(parquet_path)
     print(f"✓ Loaded {df.shape[0]:,} rows × {df.shape[1]} columns\n")
 
     # Initialize results dictionary
     results = {
         "timestamp": TIMESTAMP,
+        "parquet_file": str(parquet_path),
+        "dataset_name": dataset_name,
         "dataset_info": {
             "total_rows": df.shape[0],
-            "total_columns": df.shape[1],
-            "unique_features": df.select("feature_id").n_unique()
+            "total_columns": df.shape[1]
         },
         "columns": {}
     }
+
+    # Add feature_id unique count if column exists
+    if "feature_id" in df.columns:
+        results["dataset_info"]["unique_features"] = df.select("feature_id").n_unique()
 
     # Column information
     print("=" * 80)
@@ -87,15 +101,45 @@ def main():
 
         results["columns"][col] = col_info
 
-    # Save results to JSON
-    output_file = OUTPUT_DIR / f"analysis_results.json"
-    with open(output_file, 'w') as f:
-        json.dump(results, f, indent=2)
+    return results
 
-    print("\n" + "=" * 80)
-    print("ANALYSIS COMPLETE")
+
+def main():
+    """Analyze all parquet files."""
+    datasets = [
+        {
+            "path": Path("/home/dohyun/interface/data/master/feature_analysis.parquet"),
+            "name": "SAE Feature Analysis",
+            "output": "feature_analysis_results.json"
+        },
+        {
+            "path": Path("/home/dohyun/interface/data/master/umap_projections.parquet"),
+            "name": "UMAP Projections",
+            "output": "umap_projections_results.json"
+        }
+    ]
+
+    for dataset in datasets:
+        if not dataset["path"].exists():
+            print(f"\n⚠ Skipping {dataset['name']}: File not found at {dataset['path']}\n")
+            continue
+
+        # Analyze the dataset
+        results = analyze_parquet(dataset["path"], dataset["name"])
+
+        # Save results to JSON
+        output_file = OUTPUT_DIR / dataset["output"]
+        with open(output_file, 'w') as f:
+            json.dump(results, f, indent=2)
+
+        print("\n" + "=" * 80)
+        print("ANALYSIS COMPLETE")
+        print("=" * 80)
+        print(f"Results saved to: {output_file}")
+        print("=" * 80 + "\n")
+
     print("=" * 80)
-    print(f"\nResults saved to: {output_file}")
+    print("ALL ANALYSES COMPLETE")
     print("=" * 80 + "\n")
 
 

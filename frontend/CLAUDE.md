@@ -413,18 +413,21 @@ npm run lint
 
 ### Current Development Status (🟢 ACTIVE)
 
-**Development Server**: http://localhost:3005 (auto-adjusted from 3003)
+**Development Server**: http://localhost:3005 (development server active)
 - ✅ Hot reload with React Fast Refresh
 - ✅ TypeScript compilation with error reporting
 - ✅ Vite development server with optimized bundling
-- ✅ Backend API integration with automatic health checking
-- ✅ Histogram panel with threshold group management
+- ✅ Backend API integration with automatic health checking (port 8003)
+- ✅ Histogram panel with threshold group management (Phase 4)
+- ✅ LLM Comparison visualization with consistency scoring (Phase 5)
 
 **Performance Metrics**:
 - **Bundle Size**: Optimized with code splitting and tree shaking
 - **Load Time**: Sub-second initial load with progressive enhancement
 - **Interaction Response**: Real-time updates with smooth D3 animations
 - **Memory Usage**: Efficient with proper cleanup and garbage collection
+- **Dataset Support**: 2,471 rows (1,000 unique features × ~2.5 avg LLM explainers)
+- **API Performance**: Sub-second response times for all visualization endpoints
 
 ## Backend Integration
 
@@ -454,18 +457,23 @@ User Interaction → State Update → API Request → Data Processing → UI Upd
 ## Advanced Features
 
 ### 🎨 Interactive Visualizations
-- **Multi-Stage Sankey Diagrams**: Complex flow visualization with 4 stages
+- **Multi-Stage Sankey Diagrams**: Complex flow visualization with flexible stages (Phase 1)
+- **Alluvial Flow Diagrams**: Cross-panel feature tracking and comparison (Phase 2)
+- **Histogram Panels**: Multi-metric threshold visualization with selection mode (Phase 4)
+- **LLM Comparison Triangles**: Consistency scoring with color gradients (Phase 5)
 - **Interactive Nodes**: Click-to-expand histogram analysis
 - **Smooth Animations**: D3-powered transitions with proper timing
 - **Hover Effects**: Rich tooltips with detailed information
 - **Color-Coded Categories**: Intuitive visual categorization
 
 ### 🔄 State Management
-- **Dual-Panel Store**: Independent left/right panel state with `PanelState` interface
-- **Dynamic Tree Actions**: Store actions for runtime stage creation/removal
-- **Threshold Tree V2**: Support for range, pattern, and expression split rules
-- **Alluvial Flow Updates**: Automatic flow calculation after Sankey data changes
-- **Multi-Histogram Data**: Batch loading and management for multiple metrics
+- **Dual-Panel Store**: Independent left/right panel state with `PanelState` interface (Phase 1)
+- **Dynamic Tree Actions**: Store actions for runtime stage creation/removal (Phase 2)
+- **Threshold Tree V2**: Support for range, pattern, and expression split rules (Phase 2)
+- **Alluvial Flow Updates**: Automatic flow calculation after Sankey data changes (Phase 2)
+- **Threshold Group Management**: Named groups with visibility toggles (Phase 4)
+- **Multi-Histogram Data**: Batch loading and management for multiple metrics (Phase 4)
+- **LLM Comparison Data**: Pre-calculated consistency statistics integration (Phase 5)
 - **View State Management**: Three-state workflow (empty → filtering → visualization)
 - **Production Error Handling**: Comprehensive error boundaries and recovery
 
@@ -512,57 +520,109 @@ User Interaction → State Update → API Request → Data Processing → UI Upd
 - ✅ **Professional Styling**: Gray dotted threshold lines, black labels, color-coded areas
 
 ### ✅ Phase 5: LLM Comparison Visualization (COMPLETE - January 2025)
+
+**Purpose**: Visualize consistency between different LLM explainers and scorers using triangle-based layout with color-coded consistency scores
+
+**Components:**
 - ✅ **LLMComparisonSelection Component**: Interactive triangle visualization with hover/click
-- ✅ **Triangle Layout System**: 4 triangles (1 explainer + 3 scorers), 6 cells each (3 diamonds + 3 triangles)
+- ✅ **LLMComparisonVisualization Component**: Static display variant (currently commented out)
+
+**Visualization Architecture:**
+- ✅ **Triangle Layout System**: 4 triangles (1 left explainer + 3 right scorers), 6 cells each (3 diamonds + 3 triangles)
 - ✅ **Fixed ViewBox Architecture**: Absolute positioning (800x350) following FlowPanel pattern
 - ✅ **Consistency Color Gradient**: Green→yellow→red (d3-scale) for scores 0-1
 - ✅ **Diamond Cell Coloring**: Consistency scores visualized on diamond cells
-- ✅ **Triangle Cell Labels**: Model names (GPT-4, Claude, Gemini) centered on triangle cells
+- ✅ **Triangle Cell Labels**: Model names (Llama, Qwen, OpenAI/GPT) centered on triangle cells
 - ✅ **Gradient Legend Bar**: Visual reference showing consistency scale (0 Low to 1 High)
+
+**Technical Implementation:**
 - ✅ **d3-llm-comparison-utils.ts**: Layout calculation and color utility functions
 - ✅ **Type Definitions**: LLMComparisonData, LLMExplainerModel, LLMScorerModel, ConsistencyScore
-- ✅ **API Integration**: getLLMComparisonData() with backend endpoint IMPLEMENTED (loads pre-calculated stats)
-- ✅ **Backend Implementation**: POST /api/llm-comparison serves consistency scores from JSON file
-- ✅ **Real Data Integration**: Uses pre-calculated explainer consistency (cosine similarity) and scorer consistency (RV coefficient)
+- ✅ **API Integration**: getLLMComparisonData() with backend endpoint IMPLEMENTED
+- ✅ **Backend Endpoint**: POST /api/llm-comparison serves consistency scores from pre-calculated JSON
+- ✅ **Data Source**: `/data/llm_comparison/llm_comparison_stats.json`
+- ✅ **Statistics Methods**:
+  - Explainer consistency: Cosine similarity between explanation embeddings
+  - Scorer consistency: RV coefficient between scoring vectors
 - ✅ **Interactive Features**: Full hover/selection/click interaction logic with model filtering
 - ✅ **FlowPanel Updates**: ViewBox adjusted to 0 0 600 175 with 0.1rem top margin
 
+**Current Limitations:**
+- Uses pre-calculated global statistics (not filtered by user's current selection)
+- Future enhancement: Real-time correlation calculation based on active filters
+
 ### 📝 Future Enhancements
+
+**Visualization Improvements:**
 - **UI for Tree Builder**: Visual interface for adding/removing stages (currently API-only)
 - **Debug View**: Individual feature inspection with path visualization
 - **Cross-Visualization Interactions**: Link selections between Sankey and Alluvial diagrams
 - **Export Functionality**: Save/load custom tree and group configurations
-- **Dynamic LLM Statistics Computation**: Real-time correlation calculation instead of pre-calculated stats
-- **Dynamic LLM Selection**: User interface for selecting models to compare
+
+**LLM Comparison Enhancements:**
+- **Dynamic LLM Statistics Computation**: Real-time correlation calculation based on active filters
+- **Dynamic LLM Selection**: User interface for selecting which models to compare
+- **Filter Integration**: Apply current filters to LLM comparison statistics
+- **Drill-Down Analysis**: Click cells to see detailed comparison data
+
+**Performance & UX:**
 - **Virtual Scrolling**: Performance optimization for large node lists
 - **Advanced Caching**: Intelligent data caching strategies
 - **Group Analytics**: Statistics and insights for threshold groups
+- **Keyboard Navigation**: Enhanced accessibility for all visualizations
 
 ## Critical Development Notes
 
 1. **Backend Dependency**: Requires backend server on port 8003
+   - All 7 API endpoints must be operational
+   - LLM comparison requires `/data/llm_comparison/llm_comparison_stats.json`
 2. **Type Safety**: Maintain comprehensive TypeScript integration
 3. **Performance**: All D3 calculations optimized for smooth interactions
+   - React.memo for expensive components
+   - useMemo for D3 layout calculations
+   - useCallback for event handlers
 4. **Error Handling**: Use structured error codes for proper user messaging
 5. **State Management**: Maintain centralized state with Zustand store
+   - Dual-panel architecture with independent state
+   - Threshold groups with visibility management
 6. **API Integration**: All backend endpoints must be operational
 7. **Component Architecture**: Maintain clear separation of concerns
+   - Visualization components in `/components`
+   - D3 utilities in `/lib`
+   - API layer in `api.ts`
+   - State management in `store.ts`
 
 ## Project Assessment
 
-This React frontend represents a **production-ready research prototype** with:
+This React frontend represents a **conference-ready research prototype** with:
 
+**Core Architecture:**
 - ✅ **Modern React Architecture** with React 19.1.1 and TypeScript 5.8.3
-- ✅ **Dual-Panel System** with independent left/right panel state management
-- ✅ **Dynamic Tree Builder** with runtime stage creation/removal capabilities
-- ✅ **D3.js Visualization Suite** with Sankey, Alluvial, and LLM Comparison diagrams
-- ✅ **Threshold Tree System V2** with range, pattern, and expression split rules
-- ✅ **Split Rule Builders** with helper functions for easy rule construction
-- ✅ **LLM Comparison Visualization** with consistency scoring and color gradients
-- ✅ **Production Error Handling** with comprehensive error boundaries
-- ✅ **Alluvial Flow Tracking** with feature ID-based cross-panel comparison
-- ✅ **Responsive Design** with useResizeObserver hook and fixed viewBox patterns
-- ✅ **Developer Experience** with hot reload and TypeScript tooling
+- ✅ **Zustand State Management** with DevTools integration for debugging
+- ✅ **Vite Development Server** with hot module replacement
+- ✅ **Full TypeScript Coverage** with comprehensive type definitions
+
+**Visualization Capabilities (All 5 Phases Complete):**
+- ✅ **Phase 1 - Dual-Panel Sankey**: Independent left/right panel state management
+- ✅ **Phase 2 - Dynamic Tree Builder**: Runtime stage creation/removal capabilities
+- ✅ **Phase 3 - Performance**: 20-30% faster with ParentPath optimizations
+- ✅ **Phase 4 - Threshold Groups**: Named groups with histogram-based selection
+- ✅ **Phase 5 - LLM Comparison**: Triangle-based consistency visualization
+
+**Advanced Features:**
+- ✅ **D3.js Visualization Suite**: Sankey, Alluvial, Histogram, and LLM Comparison diagrams
+- ✅ **Threshold Tree System V2**: Range, pattern, and expression split rules
+- ✅ **Split Rule Builders**: Helper functions for easy rule construction
+- ✅ **LLM Comparison Visualization**: Consistency scoring with green→yellow→red gradients
+- ✅ **Production Error Handling**: Comprehensive error boundaries
+- ✅ **Alluvial Flow Tracking**: Feature ID-based cross-panel comparison
+- ✅ **Responsive Design**: useResizeObserver hook and fixed viewBox patterns
+- ✅ **Developer Experience**: Hot reload and TypeScript tooling
+
+**Dataset Support:**
+- ✅ **2,471 rows** covering 1,000 unique features with multiple LLM explainers
+- ✅ **3 LLM Explainers**: Llama, Qwen, OpenAI (GPT)
+- ✅ **Multiple Scoring Methods**: Fuzz, simulation, detection, embedding
 
 **Key Implementation Features:**
 - **Dynamic Tree Building**: Add/remove classification stages at runtime through store actions

@@ -551,7 +551,8 @@ class RecursiveUMAPHDBSCAN:
         data_type: str = "data",
         parent_node: Optional[ClusterNode] = None,
         level: int = 0,
-        total_data_size: Optional[int] = None
+        total_data_size: Optional[int] = None,
+        original_indices: Optional[List[int]] = None
     ) -> ClusterNode:
         """
         Recursively apply UMAP + HDBSCAN clustering on high-dimensional data.
@@ -569,12 +570,17 @@ class RecursiveUMAPHDBSCAN:
             parent_node: Parent cluster node (None for root)
             level: Current recursion level
             total_data_size: Total size of original dataset
+            original_indices: Global indices mapping to data_id_mapping (for tracking across recursion)
 
         Returns:
             Root cluster node with recursive structure
         """
         if total_data_size is None:
             total_data_size = len(high_dim_data)
+
+        # Initialize original_indices on first call
+        if original_indices is None:
+            original_indices = list(range(len(high_dim_data)))
 
         cluster_id = self._get_next_cluster_id()
         parent_id = parent_node.cluster_id if parent_node else None
@@ -583,7 +589,7 @@ class RecursiveUMAPHDBSCAN:
             cluster_id=cluster_id,
             level=level,
             parent_id=parent_id,
-            member_indices=list(range(len(high_dim_data)))
+            member_indices=original_indices  # Store global indices, not local
         )
 
         logger.info(f"{'  ' * level}Level {level}: {cluster_id} ({len(high_dim_data)} points, dim={high_dim_data.shape[1]})")
@@ -665,6 +671,7 @@ class RecursiveUMAPHDBSCAN:
             # CRITICAL: Extract high-dimensional data for this cluster
             cluster_high_dim_data = high_dim_data[mask]
             cluster_ids = [data_ids[i] for i in range(len(data_ids)) if mask[i]]
+            cluster_original_indices = [original_indices[i] for i in range(len(original_indices)) if mask[i]]
 
             # Recurse with high-dimensional subset
             child_node = self.recursive_cluster(
@@ -674,7 +681,8 @@ class RecursiveUMAPHDBSCAN:
                 data_type=data_type,
                 parent_node=node,
                 level=level + 1,
-                total_data_size=total_data_size
+                total_data_size=total_data_size,
+                original_indices=cluster_original_indices  # Pass subset of global indices
             )
 
             node.add_child(child_node)

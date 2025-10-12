@@ -16,6 +16,8 @@ from pathlib import Path
 from typing import Dict, Optional
 from huggingface_hub import hf_hub_download
 import umap
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 
 
 class JumpReluSae(nn.Module):
@@ -101,7 +103,7 @@ def apply_feature_range_filter(
     return filtered_weights, feature_indices
 
 
-def generate_umap_embeddings(config: Dict) -> Dict:
+def generate_umap_embeddings(config: Dict) -> tuple[Dict, np.ndarray, range]:
     """
     Generate 2D UMAP embeddings from SAE decoder weights.
 
@@ -109,7 +111,7 @@ def generate_umap_embeddings(config: Dict) -> Dict:
         config: Configuration dictionary
 
     Returns:
-        Dictionary with UMAP embeddings and metadata
+        Tuple of (results dict, embeddings_2d, feature_indices)
     """
     # Extract configuration parameters
     model_name_or_path = config["model_name_or_path"]
@@ -204,7 +206,74 @@ def generate_umap_embeddings(config: Dict) -> Dict:
     print(f"X range: [{statistics['x_min']:.4f}, {statistics['x_max']:.4f}]")
     print(f"Y range: [{statistics['y_min']:.4f}, {statistics['y_max']:.4f}]")
 
-    return results
+    return results, embeddings_2d, feature_indices
+
+
+def create_visualization(
+    embeddings_2d: np.ndarray,
+    feature_indices: range,
+    output_dir: str,
+    config: Dict
+) -> None:
+    """
+    Create scatter plot visualization of UMAP embeddings for SAE features.
+
+    Args:
+        embeddings_2d: 2D UMAP coordinates
+        feature_indices: Range of feature IDs
+        output_dir: Directory to save the plot
+        config: Configuration for metadata
+    """
+    print("\nCreating visualization...")
+
+    # Convert feature indices to array for color mapping
+    feature_ids = np.array(list(feature_indices))
+
+    # Create figure
+    fig, ax = plt.subplots(figsize=(12, 10))
+
+    # Create scatter plot with color gradient by feature ID
+    scatter = ax.scatter(
+        embeddings_2d[:, 0],
+        embeddings_2d[:, 1],
+        c=feature_ids,
+        cmap='viridis',
+        alpha=0.6,
+        s=20,
+        edgecolors='none'
+    )
+
+    # Add colorbar
+    cbar = plt.colorbar(scatter, ax=ax)
+    cbar.set_label('Feature ID', fontsize=12)
+
+    # Formatting
+    ax.set_xlabel('UMAP Dimension 1', fontsize=12)
+    ax.set_ylabel('UMAP Dimension 2', fontsize=12)
+    ax.set_title('UMAP Projection of SAE Feature Decoder Vectors', fontsize=14, fontweight='bold')
+    ax.grid(True, alpha=0.3, linestyle='--')
+
+    # Add statistics text
+    stats_text = f"Total features: {len(feature_ids)}\n"
+    stats_text += f"Feature range: {min(feature_ids)}-{max(feature_ids)}\n"
+    stats_text += f"Model: {config.get('sae_id', 'N/A')}"
+    ax.text(
+        0.02, 0.98, stats_text,
+        transform=ax.transAxes,
+        fontsize=9,
+        verticalalignment='top',
+        bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+    )
+
+    plt.tight_layout()
+
+    # Save plot
+    os.makedirs(output_dir, exist_ok=True)
+    plot_file = os.path.join(output_dir, "umap_visualization.png")
+    plt.savefig(plot_file, dpi=300, bbox_inches='tight')
+    print(f"Saved visualization to: {plot_file}")
+
+    plt.close(fig)
 
 
 def save_umap_results(
@@ -261,7 +330,15 @@ def main():
     try:
         # Generate UMAP embeddings
         print("Starting UMAP generation...")
-        results = generate_umap_embeddings(config)
+        results, embeddings_2d, feature_indices = generate_umap_embeddings(config)
+
+        # Create visualization
+        create_visualization(
+            embeddings_2d,
+            feature_indices,
+            str(output_dir),
+            config
+        )
 
         # Save results
         save_umap_results(
