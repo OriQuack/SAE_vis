@@ -2,7 +2,7 @@
 // D3 FLOW CHART UTILITIES - Simplified and Clean
 // ============================================================================
 
-import { COMPONENT_COLORS } from './constants'
+import { NEUTRAL_ICON_COLORS } from './constants'
 
 export interface FlowNode {
   id: string
@@ -56,17 +56,9 @@ function curve(x1: number, y1: number, x2: number, y2: number, orientation: 'hor
   }
 }
 
-// Edge color mapping based on source node type
-function getEdgeColor(sourceId: string): string {
-  const colorMap: Record<string, string> = {
-    'feature': '#475569',                      // neutral gray
-    'activating-example': '#475569',           // neutral gray
-    'decoder': COMPONENT_COLORS.DECODER,       // Decoder (green)
-    'explainer': COMPONENT_COLORS.EXPLAINER,   // LLM Explainer (orange)
-    'embedder': COMPONENT_COLORS.EMBEDDER,     // Embedder (purple)
-    'scorer': COMPONENT_COLORS.SCORER          // LLM Scorer (blue)
-  }
-  return colorMap[sourceId] || '#475569'
+// Edge color - use neutral color for all edges to avoid competing with data visualization
+function getEdgeColor(): string {
+  return NEUTRAL_ICON_COLORS.ICON_LIGHT
 }
 
 /**
@@ -76,38 +68,38 @@ export function calculateFlowLayout(): FlowLayout {
   // Node definitions with absolute coordinates (viewBox: 0 0 600 180)
   const nodes: FlowNode[] = [
     // Feature (starting point)
-    { id: 'feature', label: 'Feature', x: 10, y: 45, width: 80, height: 30 },
+    { id: 'feature', label: 'Feature', x: 10, y: 48, width: 70, height: 25 },
 
     // Activating Example (below Feature)
-    { id: 'activating-example', label: 'Activating Examples', x: 20, y: 145, width: 140, height: 17 },
+    { id: 'activating-example', label: 'Activating Examples', x: 40, y: 160, width: 120, height: 15 },
 
     // Explanation label (rotated, between explainer and outputs)
-    { id: 'explanation-label', label: 'Explanation', x: 195, y: 100, width: 90, height: 17 },
+    { id: 'explanation-label', label: 'Explanation', x: 200, y: 100, width: 76, height: 15 },
 
     // Top path: Decoder
-    { id: 'decoder', label: '', x: 150, y: 10, width: 55, height: 55, iconType: 'decoder' },
-    { id: 'feature-splitting', label: 'Feature Splitting', x: 450, y: 5, width: 145, height: 26 },
+    { id: 'decoder', label: '', x: 155, y: 15, width: 45, height: 45, iconType: 'decoder' },
+    { id: 'feature-splitting', label: 'Feature Splitting', x: 460, y: 10, width: 130, height: 22 },
 
     // Middle path: Explainer
-    { id: 'explainer', label: '', x: 150, y: 83, width: 55, height: 55, iconType: 'explainer' },
+    { id: 'explainer', label: '', x: 155, y: 88, width: 45, height: 45, iconType: 'explainer' },
 
     // Embedder branch
-    { id: 'embedder', label: '', x: 280, y: 48, width: 55, height: 55, iconType: 'embedder' },
+    { id: 'embedder', label: '', x: 285, y: 53, width: 45, height: 45, iconType: 'embedder' },
 
     // Embedding label (rotated, between embedder and embedding outputs)
-    { id: 'embedding-label', label: 'Embedding', x: 372, y: 70, width: 80, height: 17 },
+    { id: 'embedding-label', label: 'Embedding', x: 375, y: 73, width: 70, height: 15 },
 
-    { id: 'semantic-similarity', label: 'Semantic Similarity', x: 450, y: 45, width: 145, height: 26 },
-    { id: 'embedding-score', label: 'Embedding Score', x: 450, y: 74, width: 145, height: 26 },
+    { id: 'semantic-similarity', label: 'Semantic Similarity', x: 460, y: 50, width: 130, height: 22 },
+    { id: 'embedding-score', label: 'Embedding Score', x: 460, y: 76, width: 130, height: 22 },
 
     // Scorer branch
-    { id: 'scorer', label: '', x: 280, y: 118, width: 55, height: 55, iconType: 'scorer' },
+    { id: 'scorer', label: '', x: 285, y: 123, width: 45, height: 45, iconType: 'scorer' },
 
     // Score label (rotated, between scorer and score outputs)
-    { id: 'score-label', label: 'Score', x: 345, y: 135, width: 50, height: 17 },
+    { id: 'score-label', label: 'Score', x: 350, y: 138, width: 45, height: 15 },
 
-    { id: 'fuzz-score', label: 'Fuzz Score', x: 450, y: 113, width: 145, height: 26 },
-    { id: 'detection-score', label: 'Detection Score', x: 450, y: 142, width: 145, height: 26 }
+    { id: 'fuzz-score', label: 'Fuzz Score', x: 460, y: 118, width: 130, height: 22 },
+    { id: 'detection-score', label: 'Detection Score', x: 460, y: 144, width: 130, height: 22 }
   ]
 
   // Edge definitions (source → target)
@@ -119,6 +111,7 @@ export function calculateFlowLayout(): FlowLayout {
     { id: 'activating-example-to-explainer', source: 'activating-example', target: 'explainer' },
 
     { id: 'explainer-to-scorer', source: 'explainer', target: 'scorer' },
+    { id: 'activating-example-to-scorer', source: 'activating-example', target: 'scorer' },
     { id: 'scorer-to-fuzz', source: 'scorer', target: 'fuzz-score' },
     { id: 'scorer-to-detection', source: 'scorer', target: 'detection-score' },
 
@@ -139,8 +132,8 @@ export function calculateFlowLayout(): FlowLayout {
     let x1: number, y1: number, x2: number, y2: number
     let curveOrientation: 'horizontal' | 'vertical-to-horizontal' = 'horizontal'
 
-    // Special case: activating-example connects from top center to left center of target
-    if (def.source === 'activating-example') {
+    // Special case: activating-example to explainer uses vertical curve
+    if (def.source === 'activating-example' && def.target === 'explainer') {
       x1 = src.x + src.width / 2  // Center horizontally
       y1 = src.y                   // Top of the node
       x2 = tgt.x                   // Left edge of target
@@ -169,7 +162,7 @@ export function calculateFlowLayout(): FlowLayout {
       label: def.label,
       labelX,
       labelY,
-      color: getEdgeColor(def.source)
+      color: getEdgeColor()
     }
   })
 
@@ -183,12 +176,12 @@ export function getIconTransform(node: FlowNode): string {
   if (!node.iconType) return ''
 
   // Icon viewBox is 100x100, but actual content is smaller
-  // Scale down for smaller viewBox (600x180 instead of 600x300)
-  const scale = (node.width / 100) * 0.74
+  // Scale down for smaller nodes (45x45) - reduced from 0.74 to 0.60
+  const scale = (node.width / 100) * 0.75
 
   // Center the icon
-  const centerX = node.x - 75
-  const centerY = node.y + 11.5
+  const centerX = node.x - 62
+  const centerY = node.y + 10
 
   // Icon center in viewBox is (50, 50)
   return `translate(${centerX}, ${centerY}) scale(${scale}) translate(-50, -50)`

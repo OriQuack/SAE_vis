@@ -168,6 +168,39 @@ export const EUROVIS_PALETTE = {
   NEUTRAL_BLACK: OKABE_ITO_PALETTE.BLACK          // #000000
 } as const
 
+/**
+ * Neutral Icon Colors for UI Elements
+ * Used for icons, badges, and UI components to avoid competing with data visualization colors
+ *
+ * COLOR USAGE HIERARCHY:
+ * - Vibrant colors (Okabe-Ito/Paul Tol): Reserved for data encoding (metrics, categories, flows)
+ * - Neutral colors (grayscale): Used for UI elements, icons, controls, labels
+ *
+ * This separation ensures color remains an effective encoding channel for data visualization
+ */
+export const NEUTRAL_ICON_COLORS = {
+  // Icon fills and strokes
+  ICON_FILL: '#6b7280',        // Medium gray - main icon color
+  ICON_STROKE: '#475569',      // Dark gray - icon outlines
+  ICON_LIGHT: '#94a3b8',       // Light gray - secondary elements
+
+  // Backgrounds
+  BACKGROUND_LIGHT: '#f8fafc', // Very light gray - icon backgrounds
+  BACKGROUND_MEDIUM: '#f1f5f9', // Light gray - card backgrounds
+
+  // Borders
+  BORDER_LIGHT: '#e2e8f0',     // Light gray - subtle borders
+  BORDER_MEDIUM: '#cbd5e1',    // Medium gray - default borders
+
+  // Badges and labels
+  BADGE_BACKGROUND: '#475569', // Dark gray - badge backgrounds
+  BADGE_TEXT: '#ffffff',       // White - badge text
+
+  // Text
+  TEXT_PRIMARY: '#1f2937',     // Near black - primary text
+  TEXT_SECONDARY: '#64748b'    // Medium gray - secondary text
+} as const
+
 // ============================================================================
 // METRIC-SPECIFIC COLORS - Solid colors for metrics without gradients
 // Based on Okabe-Ito colorblind-safe palette with custom shades
@@ -187,14 +220,15 @@ export const METRIC_COLORS = {
 
 // ============================================================================
 // COMPONENT TYPE COLORS - Centralized color mapping for SAE components
-// EuroVIS colorblind-safe palette for different component types
+// Updated to use neutral grayscale for UI elements (Explainer, Scorer)
+// Vibrant colors reserved for data encoding only
 // Used across: FlowPanel.tsx, HistogramPanel.tsx, d3-flow-utils.ts (3+ files)
 // ============================================================================
 export const COMPONENT_COLORS = {
-  DECODER: OKABE_ITO_PALETTE.BLUISH_GREEN,   
-  EXPLAINER: OKABE_ITO_PALETTE.REDDISH_PURPLE,        
-  SCORER: OKABE_ITO_PALETTE.BLUE,            
-  EMBEDDER: OKABE_ITO_PALETTE.ORANGE,  
+  DECODER: NEUTRAL_ICON_COLORS.ICON_FILL,
+  EXPLAINER: NEUTRAL_ICON_COLORS.ICON_FILL,  // Changed to neutral gray
+  SCORER: NEUTRAL_ICON_COLORS.ICON_FILL,     // Changed to neutral gray
+  EMBEDDER: NEUTRAL_ICON_COLORS.ICON_FILL,  
 
   // Metric-specific colors (solid, no gradients)
   FEATURE_SPLITTING: METRIC_COLORS.FEATURE_SPLITTING,      // #006B52 - Dark bluish green
@@ -277,58 +311,37 @@ export const LEGEND_ITEMS = [
 // ============================================================================
 
 export const LLM_EXPLAINER_ICON_SVG = `
-  <!-- Cute robot head -->
-  <rect x="25" y="35" width="50" height="45" rx="12" fill="${COMPONENT_COLORS.EXPLAINER}" />
+  <!-- Speech bubble icon - represents explanation/communication -->
+  <!-- Main bubble body -->
+  <rect x="25" y="30" width="50" height="35" rx="6" fill="white" stroke="${NEUTRAL_ICON_COLORS.ICON_FILL}" stroke-width="2" />
 
-  <!-- Eyes - friendly teacher look -->
-  <circle cx="38" cy="53" r="6" fill="white" />
-  <circle cx="62" cy="53" r="6" fill="white" />
-  <circle cx="38" cy="53" r="3" fill="#1f2937" />
-  <circle cx="62" cy="53" r="3" fill="#1f2937" />
+  <!-- Speech bubble tail -->
+  <path d="M 40 65 L 35 75 L 45 65 Z" fill="white" stroke="${NEUTRAL_ICON_COLORS.ICON_FILL}" stroke-width="2" stroke-linejoin="round" />
 
-  <!-- Neutral mouth -->
-  <line x1="40" y1="65" x2="60" y2="65" stroke="white" stroke-width="3" stroke-linecap="round" />
-
-  <!-- Glasses - teacher style -->
-  <circle cx="38" cy="53" r="8" stroke="#1f2937" stroke-width="2" fill="none" />
-  <circle cx="62" cy="53" r="8" stroke="#1f2937" stroke-width="2" fill="none" />
-  <line x1="46" y1="53" x2="54" y2="53" stroke="#1f2937" stroke-width="2" />
-
-  <!-- Graduation cap -->
-  <rect x="35" y="25" width="30" height="6" rx="1" fill="#1f2937" />
-  <path d="M 30 25 L 70 25 L 68 20 L 32 20 Z" fill="#1f2937" />
-  <line x1="65" y1="20" x2="68" y2="15" stroke="#1f2937" stroke-width="1.5" />
-  <circle cx="68" cy="14" r="2" fill="${OKABE_ITO_PALETTE.YELLOW}" />
-
-  <!-- Book/document - teaching symbol -->
-  <rect x="70" y="40" width="18" height="24" rx="2" fill="white" stroke="${COMPONENT_COLORS.EXPLAINER}" stroke-width="2" />
-  <line x1="73" y1="47" x2="85" y2="47" stroke="${COMPONENT_COLORS.EXPLAINER}" stroke-width="1.5" />
-  <line x1="73" y1="52" x2="85" y2="52" stroke="${COMPONENT_COLORS.EXPLAINER}" stroke-width="1.5" />
-  <line x1="73" y1="57" x2="85" y2="57" stroke="${COMPONENT_COLORS.EXPLAINER}" stroke-width="1.5" />
+  <!-- Text lines inside bubble (representing explanation text) -->
+  <line x1="33" y1="40" x2="67" y2="40" stroke="${NEUTRAL_ICON_COLORS.ICON_LIGHT}" stroke-width="2" stroke-linecap="round" />
+  <line x1="33" y1="48" x2="67" y2="48" stroke="${NEUTRAL_ICON_COLORS.ICON_LIGHT}" stroke-width="2" stroke-linecap="round" />
+  <line x1="33" y1="56" x2="55" y2="56" stroke="${NEUTRAL_ICON_COLORS.ICON_LIGHT}" stroke-width="2" stroke-linecap="round" />
 `
 
 export const LLM_SCORER_ICON_SVG = `
-  <!-- Cute robot head -->
-  <rect x="25" y="35" width="50" height="45" rx="12" fill="${COMPONENT_COLORS.SCORER}" />
+  <!-- Pencil icon at 45 degrees, tip pointing to bottom left - represents solving exam problems -->
+  <g transform="rotate(45 50 50)">
+    <!-- Pencil body (main shaft) -->
+    <rect x="42" y="25" width="16" height="45" rx="2" fill="white" stroke="${NEUTRAL_ICON_COLORS.ICON_FILL}" stroke-width="2" />
 
-  <!-- Eyes - focused student look -->
-  <circle cx="38" cy="53" r="6" fill="white" />
-  <circle cx="62" cy="53" r="6" fill="white" />
-  <circle cx="40" cy="53" r="3" fill="#1f2937" />
-  <circle cx="64" cy="53" r="3" fill="#1f2937" />
+    <!-- Wooden sharpened part (spiky triangular section) -->
+    <path d="M 42 70 L 50 80 L 58 70 Z" fill="${NEUTRAL_ICON_COLORS.ICON_LIGHT}" stroke="${NEUTRAL_ICON_COLORS.ICON_FILL}" stroke-width="2" stroke-linejoin="miter" />
 
-  <!-- Sad expression - linear mouth -->
-  <line x1="38" y1="66" x2="62" y2="66" stroke="white" stroke-width="3" stroke-linecap="round" />
+    <!-- Graphite tip (dark triangular point) -->
+    <path d="M 47 77 L 50 83 L 53 77 Z" fill="${NEUTRAL_ICON_COLORS.ICON_STROKE}" />
 
-  <!-- Cute antenna -->
-  <line x1="50" y1="35" x2="50" y2="22" stroke="#1f2937" stroke-width="2" stroke-linecap="round" />
-  <circle cx="50" cy="18" r="4" fill="${OKABE_ITO_PALETTE.YELLOW}" stroke="#1f2937" stroke-width="1.5" />
+    <!-- Eraser end (pink/light gray cap) -->
+    <rect x="42" y="21" width="16" height="6" rx="1" fill="${NEUTRAL_ICON_COLORS.ICON_LIGHT}" stroke="${NEUTRAL_ICON_COLORS.ICON_FILL}" stroke-width="2" />
 
-  <!-- Pencil - upside down -->
-  <polygon points="78,30 75,35 81,35" fill="#1f2937" />
-  <rect x="75" y="35" width="6" height="26" rx="1" fill="${OKABE_ITO_PALETTE.YELLOW}" />
-  <rect x="75" y="61" width="6" height="2" fill="#9CA3AF" />
-  <rect x="75" y="63" width="6" height="5" fill="#FF6B9D" />
+    <!-- Metal ferrule (band holding eraser) -->
+    <rect x="42" y="25" width="16" height="3" fill="${NEUTRAL_ICON_COLORS.ICON_STROKE}" />
+  </g>
 `
 
 // ============================================================================

@@ -76,6 +76,19 @@ data/
 │   └── analysis_results_<timestamp>.json   # Analysis output with timestamp
 ├── llm_comparison/             # LLM comparison statistics ✅ NEW (Phase 5)
 │   └── llm_comparison_stats.json           # Pre-calculated consistency scores
+├── umap_feature/               # Feature UMAP projections ✅ NEW (Phase 6)
+│   └── google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120/
+│       ├── umap_embeddings.json            # Feature UMAP coordinates (1000 features)
+│       ├── umap_visualization.png          # Static visualization image
+│       └── config.json                     # UMAP generation config
+├── umap_explanations/          # Explanation UMAP projections ✅ NEW (Phase 6)
+│   ├── explanation_umap.json               # Explanation UMAP coordinates (2471 explanations)
+│   ├── umap_visualization.png              # Static visualization image
+│   └── config.json                         # UMAP generation config
+├── umap_clustering/            # Hierarchical cluster data ✅ NEW (Phase 6)
+│   ├── feature_clustering.json             # Feature cluster hierarchy (levels 1-4+)
+│   ├── explanation_clustering.json         # Explanation cluster hierarchy (levels 1-4+)
+│   └── config.json                         # Clustering configuration
 └── cluster_labels/             # Cluster labeling data ✅ NEW
     ├── cluster_labels.json                 # Cluster label definitions
     └── labeled_explanation_clusters.json   # Labeled cluster data
@@ -313,6 +326,15 @@ The parquet schema is optimized for multiple visualization types:
    - **Explainer Consistency**: Cosine similarity between explanation embeddings
    - **Scorer Consistency**: RV coefficient between scoring vectors
    - Frontend: Triangle-based visualization with green→yellow→red color gradient
+
+6. **UMAP Visualization** (Phase 6 - ✅ COMPLETE): Interactive dimensionality reduction with hierarchical clustering
+   - Uses: Pre-calculated UMAP projections for features and explanations
+   - **Data Sources**:
+     - `/data/umap_feature/.../umap_embeddings.json`: Feature coordinates (1000 features)
+     - `/data/umap_explanations/explanation_umap.json`: Explanation coordinates (2471 explanations)
+     - `/data/umap_clustering/`: Hierarchical cluster metadata (levels 1-4+)
+   - **Features**: Interactive zoom/pan, multi-level clustering, cross-panel linking
+   - Frontend: Dual-panel visualization with d3-zoom and d3-polygon convex hulls
 
 ### Performance Characteristics
 - **Response Times**: Sub-second for all visualization queries

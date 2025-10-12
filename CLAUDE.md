@@ -13,20 +13,21 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 **Phase 3 Complete**: ✅ Performance optimization with ParentPath-based caching and filtering
 **Phase 4 Complete**: ✅ Threshold group management with histogram-based selection (January 2025)
 **Phase 5 Complete**: ✅ LLM Comparison visualization with consistency scoring (January 2025)
-**Current State**: Advanced research prototype with Sankey, Alluvial, Histogram, and LLM Comparison visualizations
-**Active Usage**: Development servers for research demonstrations with multi-panel visualization, threshold grouping, and LLM consistency analysis
-**Technical Readiness**: Conference-ready prototype with production-grade performance, interactive threshold management, and model comparison visualization
+**Phase 6 Complete**: ✅ UMAP Visualization with hierarchical clustering and zoom functionality (October 2025)
+**Current State**: Advanced research prototype with Sankey, Alluvial, Histogram, LLM Comparison, and UMAP visualizations
+**Active Usage**: Development servers for research demonstrations with multi-panel visualization, threshold grouping, LLM consistency analysis, and interactive UMAP exploration
+**Technical Readiness**: Conference-ready prototype with production-grade performance, interactive threshold management, model comparison, and dimensionality reduction visualization
 
 ## Technology Stack & Architecture
 
 ### Core Technologies
 - **Backend**: Python 3.x, FastAPI 0.104.1, Polars 0.19.19, Uvicorn 0.24.0
 - **Frontend**: React 19.1.1, TypeScript 5.8.3, Vite 7.1.6, Zustand 5.0.8
-- **Visualization**: D3.js ecosystem (d3-sankey, d3-scale, d3-array, d3-selection, d3-transition, d3-interpolate)
-- **Advanced Visualizations**: Sankey diagrams, Alluvial diagrams, Histogram panels with threshold selection, LLM Comparison with consistency scoring, dual-panel comparisons, threshold tree interactions, threshold group management
+- **Visualization**: D3.js ecosystem (d3-sankey, d3-scale, d3-array, d3-selection, d3-transition, d3-interpolate, d3-polygon, d3-zoom)
+- **Advanced Visualizations**: Sankey diagrams, Alluvial diagrams, Histogram panels with threshold selection, LLM Comparison with consistency scoring, UMAP projections with hierarchical clustering, dual-panel comparisons, threshold tree interactions, threshold group management, interactive zoom and pan
 - **Data Processing**: Polars lazy evaluation with string cache optimization
 - **HTTP Client**: Axios 1.12.2 with interceptors and error handling
-- **Data Storage**: Parquet files for efficient columnar data storage (1,648 features processed)
+- **Data Storage**: Parquet files for efficient columnar data storage (1,648 features processed), JSON files for UMAP embeddings and cluster hierarchies
 - **Design Philosophy**: Research prototype optimized for flexibility and conference demonstration, avoiding over-engineering
 
 ### Research Prototype Architecture (Three-Tier Design)
@@ -67,13 +68,14 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 ├── backend/                          # ✅ FastAPI Backend (Production-Ready)
 │   ├── app/
 │   │   ├── main.py                  # FastAPI application with lifespan management
-│   │   ├── api/                    # Modular API endpoints (7 defined, 7 implemented)
+│   │   ├── api/                    # Modular API endpoints (8 defined, 8 implemented)
 │   │   │   ├── filters.py           # GET /api/filter-options
 │   │   │   ├── histogram.py         # POST /api/histogram-data
 │   │   │   ├── sankey.py           # POST /api/sankey-data
 │   │   │   ├── comparison.py        # POST /api/comparison-data
 │   │   │   ├── llm_comparison.py    # POST /api/llm-comparison
 │   │   │   ├── threshold_features.py # POST /api/threshold-features
+│   │   │   ├── umap.py             # POST /api/umap-data
 │   │   │   └── feature.py          # GET /api/feature/{id}
 │   │   ├── models/                 # Pydantic request/response models
 │   │   │   ├── requests.py         # API request schemas
@@ -95,7 +97,12 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 │   │   │   ├── FilterPanel.tsx     # Multi-select filter interface
 │   │   │   ├── SankeyDiagram.tsx   # D3 Sankey visualization
 │   │   │   ├── AlluvialDiagram.tsx # D3 Alluvial flow visualization
+│   │   │   ├── HistogramPanel.tsx  # Multi-histogram visualization
+│   │   │   ├── ThresholdGroupPanel.tsx # Threshold group management
 │   │   │   ├── HistogramPopover.tsx # Advanced popover system
+│   │   │   ├── ProgressBar.tsx     # Linear set visualization
+│   │   │   ├── FlowPanel.tsx       # Flow visualization panel
+│   │   │   ├── UMAPPanel.tsx       # Dual UMAP visualization with zoom
 │   │   │   ├── LLMComparisonSelection.tsx # Interactive LLM comparison with consistency
 │   │   │   └── LLMComparisonVisualization.tsx # Static LLM comparison display
 │   │   ├── lib/
@@ -104,8 +111,14 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 │   │   │   ├── d3-alluvial-utils.ts # D3 Alluvial calculations
 │   │   │   ├── d3-histogram-utils.ts # D3 Histogram calculations
 │   │   │   ├── d3-llm-comparison-utils.ts # LLM comparison layout and color utilities
+│   │   │   ├── d3-umap-utils.ts    # UMAP calculations and cluster hulls
+│   │   │   ├── d3-linear-set-utils.ts # Linear set calculations
+│   │   │   ├── d3-flow-utils.ts    # Flow visualization utilities
+│   │   │   ├── d3-threshold-group-utils.ts # Threshold group utilities
 │   │   │   ├── threshold-utils.ts   # Threshold tree operations
+│   │   │   ├── threshold-group-converter.ts # Threshold group conversion
 │   │   │   ├── dynamic-tree-builder.ts # Dynamic stage creation/removal
+│   │   │   ├── selection-utils.ts   # Threshold selection utilities
 │   │   │   ├── split-rule-builders.ts # Split rule construction helpers
 │   │   │   └── utils.ts            # General helper functions (includes useResizeObserver hook)
 │   │   ├── store.ts                # Zustand state management with dual panels
@@ -119,6 +132,10 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 │   ├── master/
 │   │   └── feature_analysis.parquet # Master data file (1,648 features)
 │   ├── detailed_json/              # Individual feature JSON files
+│   ├── umap_feature/               # Feature UMAP embeddings and visualizations
+│   ├── umap_explanations/          # Explanation UMAP embeddings
+│   ├── umap_clustering/            # Hierarchical cluster data
+│   ├── llm_comparison/             # LLM comparison statistics
 │   ├── preprocessing/              # Data processing scripts
 │   └── CLAUDE.md                  # Data layer documentation
 └── CLAUDE.md                      # ✅ This file (Project overview)
@@ -198,6 +215,7 @@ threshold tree structure. Not limited to 3 scores or fixed pipeline.
 | `POST` | `/api/comparison-data` | Alluvial comparisons | ✅ Active | Phase 2 complete |
 | `POST` | `/api/llm-comparison` | LLM consistency analysis | ✅ IMPLEMENTED | ~10ms (pre-calculated stats) |
 | `POST` | `/api/threshold-features` | Feature IDs within threshold range | ✅ Active | ~50ms (Phase 4) |
+| `POST` | `/api/umap-data` | UMAP projections with cluster hierarchy | ✅ IMPLEMENTED | ~20ms (Phase 6, cached JSON) |
 | `GET` | `/api/feature/{id}` | Individual feature details | ✅ Active | ~10ms (direct lookup) |
 
 **Additional System Endpoints:**
@@ -385,6 +403,22 @@ npm run preview
 - ✅ **Real Data Integration**: Uses pre-calculated explainer consistency (cosine similarity) and scorer consistency (RV coefficient)
 - ✅ **Correlation Methods**: Cosine similarity (explainers), RV coefficient (scorers)
 
+### ✅ Phase 6: UMAP Visualization (COMPLETE - October 2025)
+- ✅ **UMAPPanel Component**: Dual-panel UMAP visualization with feature and explanation projections
+- ✅ **Interactive Zoom & Pan**: D3-zoom integration with automatic level-of-detail adjustment
+- ✅ **Hierarchical Clustering**: Multi-level cluster hierarchy with zoom-based level switching
+- ✅ **Convex Hull Overlays**: Cluster boundaries visualized with d3-polygon convex hulls
+- ✅ **Cross-Panel Linking**: Click/hover on feature clusters highlights corresponding explanation clusters
+- ✅ **Cluster Labels**: Automatic label positioning on explanation UMAP with zoom-aware sizing
+- ✅ **Color Coding**: Configurable coloring by data source or cluster membership
+- ✅ **Performance Optimization**: Efficient rendering with point grouping and hull caching
+- ✅ **UMAP Utility Functions**: `d3-umap-utils.ts` with cluster calculations and filtering
+- ✅ **Data Loading**: Three JSON files (feature UMAP, explanation UMAP, cluster hierarchy)
+- ✅ **Backend Implementation**: POST /api/umap-data serves UMAP projections with cluster metadata
+- ✅ **Type Definitions**: UMAPPoint, UMAPDataResponse, ClusterNode, ProcessedPoint types
+- ✅ **API Function**: `getUMAPData()` in api.ts with comprehensive filtering options
+- ✅ **Smart Persistence**: Childless parent clusters remain visible when zooming past their level
+
 ### 📝 Future Enhancements
 - **UI for Tree Builder**: Visual interface for adding/removing stages (currently API-only)
 - **Debug View**: Individual feature inspection and path visualization
@@ -401,9 +435,13 @@ npm run preview
 3. **Type Safety**: Comprehensive TypeScript integration - maintain type definitions
 4. **Error Handling**: Use structured error codes for proper frontend error handling
 5. **Performance**: All data operations use async patterns - maintain this architecture
-6. **API Integration**: Frontend integrates with 7 fully operational backend endpoints (all implemented)
+6. **API Integration**: Frontend integrates with 8 fully operational backend endpoints (all implemented)
 7. **Testing**: Always run backend tests after changes to verify functionality
 8. **LLM Comparison Data**: Requires pre-calculated statistics file at `/data/llm_comparison/llm_comparison_stats.json`
+9. **UMAP Data**: Requires three JSON files:
+   - `/data/umap_feature/.../umap_embeddings.json` (feature projections)
+   - `/data/umap_explanations/explanation_umap.json` (explanation projections)
+   - `/data/umap_clustering/feature_clustering.json` & `explanation_clustering.json` (cluster hierarchies)
 
 ## Project Maturity Assessment
 

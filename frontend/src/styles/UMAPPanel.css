@@ -77,11 +77,6 @@
   cursor: grabbing;
 }
 
-/* Zoom group container */
-.umap-panel__zoom-group {
-  /* Container for zoom-transformed elements */
-}
-
 /* Cluster overlay styles */
 .umap-panel__cluster-overlay {
   transition: opacity 0.3s ease, fill-opacity 0.3s ease, stroke-opacity 0.3s ease, stroke-width 0.2s ease;
@@ -161,10 +156,7 @@
   transition: opacity 0.2s ease;
 }
 
-/* UMAP Point Styles */
-.umap-panel__point {
-  /* No transition needed - opacity controlled by parent group */
-}
+/* UMAP Point Styles - No transition needed, opacity controlled by parent group */
 
 /* Cluster Tooltip */
 .umap-panel__cluster-tooltip {

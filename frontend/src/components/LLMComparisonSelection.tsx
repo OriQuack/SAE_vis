@@ -557,21 +557,6 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
   // Destructure layout for use in rendering
   const { leftTriangle, topRightTriangle, middleRightTriangle, bottomRightTriangle } = layout
 
-  // Fixed label positions (absolute coordinates for viewBox 800x350)
-  const iconSize = 70
-  const iconTextGap = 5
-  const labelY = 35
-
-  // Left: align to left edge (icon first, then text)
-  const leftIconX = 5
-  const leftTextX = leftIconX + iconSize + iconTextGap
-
-  // Right: align to right edge (icon first, then text)
-  const estimatedTextWidth = 120
-  const rightGroupEnd = 795
-  const rightIconX = rightGroupEnd - estimatedTextWidth - iconTextGap - iconSize
-  const rightTextX = rightIconX + iconSize + iconTextGap
-
   // Helper function to calculate center of polygon from points string
   const getPolygonCenter = (points: string): { x: number; y: number } => {
     const coords = points.split(' ').map(pair => {
@@ -588,15 +573,15 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
     const triangleIndices = [0, 2, 5]
     if (!triangleIndices.includes(cellIndex)) return null
 
-    const offset = 35 // Distance from triangle
+    const offset = 40 // Distance from triangle
 
     // Left triangle (pointing right) - labels on the left
     if (cellId.startsWith('left-')) {
       return {
-        x: center.x - offset / 2,
+        x: center.x - offset,
         y: center.y,
         rotation: 0,
-        textAnchor: 'end' as const
+        textAnchor: 'middle' as const
       }
     }
 
@@ -604,19 +589,19 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
     if (cellId.startsWith('top-right-')) {
       return {
         x: center.x,
-        y: center.y - offset / 2,
+        y: center.y - offset,
         rotation: -45,
-        textAnchor: 'start' as const
+        textAnchor: 'middle' as const
       }
     }
 
     // Middle right triangle (pointing left) - labels on the right
     if (cellId.startsWith('middle-right-')) {
       return {
-        x: center.x + offset / 2,
+        x: center.x + offset,
         y: center.y,
         rotation: 0,
-        textAnchor: 'start' as const
+        textAnchor: 'middle' as const
       }
     }
 
@@ -624,9 +609,9 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
     if (cellId.startsWith('bottom-right-')) {
       return {
         x: center.x,
-        y: center.y + offset / 2,
+        y: center.y + offset,
         rotation: 45,
-        textAnchor: 'start' as const
+        textAnchor: 'middle' as const
       }
     }
 
@@ -647,7 +632,7 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
     return [text.slice(0, maxLength), text.slice(maxLength)]
   }
 
-  // Render triangle cell label with consistent dimensions
+  // Render triangle cell label with consistent dimensions and icons
   const renderTriangleCellLabel = (cellId: string, cellIndex: number, cellPoints: string, bgColor: string) => {
     const modelName = getModelName(cellId, cellIndex)
     if (!modelName) return null
@@ -660,27 +645,53 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
     const fontSize = 16
     const lineHeight = 16
     const bgPadding = 6
+    const iconSize = 75
+
+    // Determine icon type and position based on triangle
+    const isLeftTriangle = cellId.startsWith('left-')
+    const iconSvg = isLeftTriangle ? LLM_EXPLAINER_ICON_SVG : LLM_SCORER_ICON_SVG
+
+    // Calculate icon and text position based on specific triangle location
+    let iconX = labelConfig.x
+    let textX = labelConfig.x
+
+    if (cellId.startsWith('left-')) {
+      // Left triangle: icon on left, text on right (textAnchor: 'end')
+      iconX = labelConfig.x - iconSize / 2
+      textX = labelConfig.x
+    } else if (cellId.startsWith('top-right-')) {
+      // Top right triangle: rotated -45°, labels on top (textAnchor: 'start')
+      iconX = labelConfig.x - iconSize / 2
+      textX = labelConfig.x
+    } else if (cellId.startsWith('middle-right-')) {
+      // Middle right triangle: no rotation, labels on right (textAnchor: 'start')
+      iconX = labelConfig.x - iconSize / 2
+      textX = labelConfig.x
+    } else if (cellId.startsWith('bottom-right-')) {
+      // Bottom right triangle: rotated +45°, labels on bottom (textAnchor: 'start')
+      iconX = labelConfig.x - iconSize / 2
+      textX = labelConfig.x
+    }
 
     // Calculate dynamic width based on longest line
-    const bgWidth = bgPadding * 12
-    const bgHeight = lines.length * lineHeight + bgPadding * 3
+    const bgWidth = bgPadding * 10
+    const bgHeight = lines.length * lineHeight + bgPadding * 4
     const isSelected = selectedCells.has(cellId)
 
     // Position background based on triangle location
-    let bgX = labelConfig.x - bgWidth / 2
+    let bgX = labelConfig.x
     if (cellId.startsWith('left-')) {
       // Left triangle: extend to the left
-      bgX = labelConfig.x - bgWidth + 10
+      bgX = labelConfig.x - bgWidth / 2
     } else if (cellId.startsWith('top-right-')) {
       // Top right: center slightly adjusted
-      bgX = labelConfig.x - bgWidth / 2 + 25
+      bgX = labelConfig.x - bgWidth / 2
     } else if (cellId.startsWith('middle-right-')) {
       // Middle right: extend to the right
-      bgX = labelConfig.x - 10
+      bgX = labelConfig.x - bgWidth / 2
     } else if (cellId.startsWith('bottom-right-')) {
       // Bottom right: center slightly adjusted
-      bgX = labelConfig.x - bgWidth / 2 + 25
-    }
+      bgX = labelConfig.x - bgWidth / 2    }
 
     return (
       <g>
@@ -691,14 +702,27 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
             width={bgWidth}
             height={bgHeight}
             fill={bgColor}
-            fillOpacity="0.6"
+            fillOpacity="0.3"
             rx="4"
             pointerEvents="none"
             transform={labelConfig.rotation !== 0 ? `rotate(${labelConfig.rotation} ${labelConfig.x} ${labelConfig.y})` : undefined}
           />
         )}
+        {/* Icon */}
+        <svg
+          x={iconX}
+          y={labelConfig.y - iconSize / 2}
+          width={iconSize}
+          height={iconSize}
+          viewBox="0 0 100 100"
+          pointerEvents="none"
+          opacity="0.3"
+          transform={labelConfig.rotation !== 0 ? `rotate(${labelConfig.rotation} ${labelConfig.x} ${labelConfig.y})` : undefined}
+          dangerouslySetInnerHTML={{ __html: iconSvg }}
+        />
+        {/* Text */}
         <text
-          x={labelConfig.x}
+          x={textX}
           y={labelConfig.y}
           textAnchor={labelConfig.textAnchor}
           dominantBaseline="middle"
@@ -711,7 +735,7 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
           {lines.map((line, idx) => (
             <tspan
               key={idx}
-              x={labelConfig.x}
+              x={textX}
               dy={idx === 0 ? -(lines.length - 1) * lineHeight / 2 : lineHeight}
             >
               {line}
@@ -738,55 +762,35 @@ export const LLMComparisonSelection: React.FC<LLMComparisonSelectionProps> = ({ 
           </linearGradient>
         </defs>
 
-        {/* Left Label with Icon - LLM Explainer (rotated -90°) */}
-        <g className="llm-comparison-selection__label-group" transform="rotate(-90 120 110)">
-          <svg
-            x={leftIconX}
-            y={labelY - iconSize / 2}
-            width={iconSize}
-            height={iconSize}
-            viewBox="0 0 100 100"
-            className="llm-comparison-selection__icon"
-            dangerouslySetInnerHTML={{ __html: LLM_EXPLAINER_ICON_SVG }}
-          />
-          <text
-            x={leftTextX}
-            y={labelY}
-            textAnchor="start"
-            dominantBaseline="middle"
-            className="llm-comparison-selection__label"
-            fill="#333"
-            fontSize="18"
-            fontWeight="600"
-          >
-            LLM Explainer
-          </text>
-        </g>
+        {/* Left Label - LLM Explainer (rotated -90°) */}
+        <text
+          x="0"
+          y="0"
+          textAnchor="middle"
+          dominantBaseline="middle"
+          className="llm-comparison-selection__label"
+          fill="#333"
+          fontSize="18"
+          fontWeight="600"
+          transform="translate(50, 125) rotate(-90)"
+        >
+          LLM Explainer
+        </text>
 
-        {/* Right Label with Icon - LLM Scorer (rotated 90°) */}
-        <g className="llm-comparison-selection__label-group" transform="rotate(90 680 110)">
-          <svg
-            x={rightIconX}
-            y={labelY - iconSize / 2}
-            width={iconSize}
-            height={iconSize}
-            viewBox="0 0 100 100"
-            className="llm-comparison-selection__icon"
-            dangerouslySetInnerHTML={{ __html: LLM_SCORER_ICON_SVG }}
-          />
-          <text
-            x={rightTextX}
-            y={labelY}
-            textAnchor="start"
-            dominantBaseline="middle"
-            className="llm-comparison-selection__label"
-            fill="#333"
-            fontSize="18"
-            fontWeight="600"
-          >
-            LLM Scorer
-          </text>
-        </g>
+        {/* Right Label - LLM Scorer (rotated 90°) */}
+        <text
+          x="0"
+          y="0"
+          textAnchor="middle"
+          dominantBaseline="middle"
+          className="llm-comparison-selection__label"
+          fill="#333"
+          fontSize="18"
+          fontWeight="600"
+          transform="translate(750, 125) rotate(90)"
+        >
+          LLM Scorer
+        </text>
 
         {/* Left triangle cells - LLM Explainer */}
         {leftTriangle.cells.map((cell, i) => {

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { COMPONENT_COLORS, getComponentBackgroundColor, METRIC_COLORS, LLM_EXPLAINER_ICON_SVG, LLM_SCORER_ICON_SVG } from '../lib/constants'
+import { NEUTRAL_ICON_COLORS, METRIC_COLORS, LLM_EXPLAINER_ICON_SVG, LLM_SCORER_ICON_SVG } from '../lib/constants'
 import { calculateFlowLayout, getIconTransform, splitLabel, type FlowNode } from '../lib/d3-flow-utils'
 import '../styles/FlowPanel.css'
 
@@ -17,52 +17,48 @@ const LLMScorerIcon: React.FC = () => (
 
 const DecoderIcon: React.FC = () => (
   <svg viewBox="0 0 100 100" className="flow-icon">
-    {/* Neural network nodes */}
-    <circle cx="30" cy="30" r="8" fill={COMPONENT_COLORS.DECODER} />
-    <circle cx="30" cy="50" r="8" fill={COMPONENT_COLORS.DECODER} />
-    <circle cx="30" cy="70" r="8" fill={COMPONENT_COLORS.DECODER} />
+    {/* Simplified 3-layer neural network - neutral colors */}
+    {/* Input layer (3 nodes) */}
+    <circle cx="30" cy="35" r="6" fill="white" stroke={NEUTRAL_ICON_COLORS.ICON_FILL} strokeWidth="2" />
+    <circle cx="30" cy="50" r="6" fill="white" stroke={NEUTRAL_ICON_COLORS.ICON_FILL} strokeWidth="2" />
+    <circle cx="30" cy="65" r="6" fill="white" stroke={NEUTRAL_ICON_COLORS.ICON_FILL} strokeWidth="2" />
 
-    <circle cx="70" cy="40" r="10" fill={COMPONENT_COLORS.DECODER} opacity="0.8" />
-    <circle cx="70" cy="60" r="10" fill={COMPONENT_COLORS.DECODER} opacity="0.8" />
+    {/* Output layer (2 nodes) */}
+    <circle cx="70" cy="42" r="6" fill="white" stroke={NEUTRAL_ICON_COLORS.ICON_FILL} strokeWidth="2" />
+    <circle cx="70" cy="58" r="6" fill="white" stroke={NEUTRAL_ICON_COLORS.ICON_FILL} strokeWidth="2" />
 
-    {/* Connections (weights) */}
-    <line x1="38" y1="30" x2="60" y2="40" stroke={COMPONENT_COLORS.DECODER} strokeWidth="2" opacity="0.5" />
-    <line x1="38" y1="30" x2="60" y2="60" stroke={COMPONENT_COLORS.DECODER} strokeWidth="2" opacity="0.3" />
+    {/* Connections - simplified */}
+    <line x1="36" y1="35" x2="64" y2="42" stroke={NEUTRAL_ICON_COLORS.ICON_LIGHT} strokeWidth="2" />
+    <line x1="36" y1="50" x2="64" y2="42" stroke={NEUTRAL_ICON_COLORS.ICON_LIGHT} strokeWidth="2" />
+    <line x1="36" y1="65" x2="64" y2="42" stroke={NEUTRAL_ICON_COLORS.ICON_LIGHT} strokeWidth="2" />
 
-    <line x1="38" y1="50" x2="60" y2="40" stroke={COMPONENT_COLORS.DECODER} strokeWidth="3" opacity="0.7" />
-    <line x1="38" y1="50" x2="60" y2="60" stroke={COMPONENT_COLORS.DECODER} strokeWidth="3" opacity="0.7" />
-
-    <line x1="38" y1="70" x2="60" y2="40" stroke={COMPONENT_COLORS.DECODER} strokeWidth="2" opacity="0.3" />
-    <line x1="38" y1="70" x2="60" y2="60" stroke={COMPONENT_COLORS.DECODER} strokeWidth="2" opacity="0.5" />
-
-    {/* Weight indicators */}
-    <text x="45" y="35" fontSize="10" fill={COMPONENT_COLORS.DECODER} fontWeight="bold">W</text>
-    <text x="45" y="52" fontSize="10" fill={COMPONENT_COLORS.DECODER} fontWeight="bold">W</text>
-    <text x="45" y="65" fontSize="10" fill={COMPONENT_COLORS.DECODER} fontWeight="bold">W</text>
+    <line x1="36" y1="35" x2="64" y2="58" stroke={NEUTRAL_ICON_COLORS.ICON_LIGHT} strokeWidth="2" />
+    <line x1="36" y1="50" x2="64" y2="58" stroke={NEUTRAL_ICON_COLORS.ICON_LIGHT} strokeWidth="2" />
+    <line x1="36" y1="65" x2="64" y2="58" stroke={NEUTRAL_ICON_COLORS.ICON_LIGHT} strokeWidth="2" />
   </svg>
 )
 
 const EmbeddingIcon: React.FC = () => (
   <svg viewBox="0 0 100 100" className="flow-icon">
-    {/* Hub/Share icon - commonly used for embeddings/vectors */}
+    {/* Simplified hub/vector icon - neutral colors */}
     {/* Center hub */}
-    <circle cx="50" cy="50" r="8" fill={COMPONENT_COLORS.EMBEDDER} />
+    <circle cx="50" cy="50" r="6" fill="white" stroke={NEUTRAL_ICON_COLORS.ICON_FILL} strokeWidth="2" />
 
-    {/* Outer nodes */}
-    <circle cx="50" cy="20" r="6" fill={COMPONENT_COLORS.EMBEDDER} opacity="0.8" />
-    <circle cx="75" cy="35" r="6" fill={COMPONENT_COLORS.EMBEDDER} opacity="0.8" />
-    <circle cx="75" cy="65" r="6" fill={COMPONENT_COLORS.EMBEDDER} opacity="0.8" />
-    <circle cx="50" cy="80" r="6" fill={COMPONENT_COLORS.EMBEDDER} opacity="0.8" />
-    <circle cx="25" cy="65" r="6" fill={COMPONENT_COLORS.EMBEDDER} opacity="0.8" />
-    <circle cx="25" cy="35" r="6" fill={COMPONENT_COLORS.EMBEDDER} opacity="0.8" />
+    {/* Outer nodes (6 directions) */}
+    <circle cx="50" cy="25" r="5" fill="white" stroke={NEUTRAL_ICON_COLORS.ICON_FILL} strokeWidth="2" />
+    <circle cx="71" cy="38" r="5" fill="white" stroke={NEUTRAL_ICON_COLORS.ICON_FILL} strokeWidth="2" />
+    <circle cx="71" cy="62" r="5" fill="white" stroke={NEUTRAL_ICON_COLORS.ICON_FILL} strokeWidth="2" />
+    <circle cx="50" cy="75" r="5" fill="white" stroke={NEUTRAL_ICON_COLORS.ICON_FILL} strokeWidth="2" />
+    <circle cx="29" cy="62" r="5" fill="white" stroke={NEUTRAL_ICON_COLORS.ICON_FILL} strokeWidth="2" />
+    <circle cx="29" cy="38" r="5" fill="white" stroke={NEUTRAL_ICON_COLORS.ICON_FILL} strokeWidth="2" />
 
     {/* Connection lines */}
-    <line x1="50" y1="42" x2="50" y2="26" stroke={COMPONENT_COLORS.EMBEDDER} strokeWidth="3" />
-    <line x1="56" y1="44" x2="69" y2="36" stroke={COMPONENT_COLORS.EMBEDDER} strokeWidth="3" />
-    <line x1="56" y1="56" x2="69" y2="64" stroke={COMPONENT_COLORS.EMBEDDER} strokeWidth="3" />
-    <line x1="50" y1="58" x2="50" y2="74" stroke={COMPONENT_COLORS.EMBEDDER} strokeWidth="3" />
-    <line x1="44" y1="56" x2="31" y2="64" stroke={COMPONENT_COLORS.EMBEDDER} strokeWidth="3" />
-    <line x1="44" y1="44" x2="31" y2="36" stroke={COMPONENT_COLORS.EMBEDDER} strokeWidth="3" />
+    <line x1="50" y1="44" x2="50" y2="30" stroke={NEUTRAL_ICON_COLORS.ICON_LIGHT} strokeWidth="2" />
+    <line x1="55" y1="46" x2="66" y2="40" stroke={NEUTRAL_ICON_COLORS.ICON_LIGHT} strokeWidth="2" />
+    <line x1="55" y1="54" x2="66" y2="60" stroke={NEUTRAL_ICON_COLORS.ICON_LIGHT} strokeWidth="2" />
+    <line x1="50" y1="56" x2="50" y2="70" stroke={NEUTRAL_ICON_COLORS.ICON_LIGHT} strokeWidth="2" />
+    <line x1="45" y1="54" x2="34" y2="60" stroke={NEUTRAL_ICON_COLORS.ICON_LIGHT} strokeWidth="2" />
+    <line x1="45" y1="46" x2="34" y2="40" stroke={NEUTRAL_ICON_COLORS.ICON_LIGHT} strokeWidth="2" />
   </svg>
 )
 
@@ -110,31 +106,14 @@ const renderIconForNode = (node: FlowNode) => {
   }
 }
 
-const getIconBorderColor = (iconType?: string) => {
-  switch (iconType) {
-    case 'decoder':
-      return COMPONENT_COLORS.DECODER
-    case 'explainer':
-      return COMPONENT_COLORS.EXPLAINER
-    case 'scorer':
-      return COMPONENT_COLORS.SCORER
-    case 'embedder':
-      return COMPONENT_COLORS.EMBEDDER
-    default:
-      return '#6b7280'
-  }
+const getIconBorderColor = () => {
+  // Use neutral colors for all icon borders to avoid competing with data visualization
+  return NEUTRAL_ICON_COLORS.BORDER_MEDIUM
 }
 
-const getIconBackgroundColor = (iconType?: string) => {
-  switch (iconType) {
-    case 'decoder':
-    case 'explainer':
-    case 'scorer':
-    case 'embedder':
-      return getComponentBackgroundColor(iconType)
-    default:
-      return 'white'
-  }
+const getIconBackgroundColor = () => {
+  // Use neutral light background for all icons to avoid competing with data visualization
+  return NEUTRAL_ICON_COLORS.BACKGROUND_LIGHT
 }
 
 const getTextNodeBackgroundColor = (nodeId: string) => {
@@ -169,12 +148,12 @@ const getTextNodeBackgroundColor = (nodeId: string) => {
 const getTextNodeFontSize = (nodeId: string) => {
   // Smaller font for activating example and label nodes
   if (nodeId === 'activating-example' || nodeId === 'explanation-label' || nodeId === 'score-label' || nodeId === 'embedding-label') {
-    return '12'
+    return '11'
   }
   // Medium font for final output nodes
   if (nodeId === 'feature-splitting' || nodeId === 'semantic-similarity' || nodeId === 'embedding-score' ||
       nodeId === 'fuzz-score' || nodeId === 'detection-score') {
-    return '14'
+    return '12'
   }
   // Default size for other nodes
   return '16'
@@ -197,15 +176,9 @@ const getTextNodeLetterSpacing = (nodeId: string) => {
   return '0'
 }
 
-const getArrowMarker = (edgeColor: string) => {
-  const colorMap: Record<string, string> = {
-    [COMPONENT_COLORS.DECODER]: 'url(#arrow-green)',
-    [COMPONENT_COLORS.EXPLAINER]: 'url(#arrow-orange)',
-    [COMPONENT_COLORS.EMBEDDER]: 'url(#arrow-purple)',
-    [COMPONENT_COLORS.SCORER]: 'url(#arrow-blue)',
-    '#475569': 'url(#arrow-gray)'
-  }
-  return colorMap[edgeColor] || 'url(#arrow-gray)'
+const getArrowMarker = () => {
+  // Use single gray arrow marker for all edges in neutral color scheme
+  return 'url(#arrow-gray)'
 }
 
 const getBadgeText = (iconType?: string) => {
@@ -223,19 +196,9 @@ const getBadgeText = (iconType?: string) => {
   }
 }
 
-const getBadgeColor = (iconType?: string) => {
-  switch (iconType) {
-    case 'decoder':
-      return COMPONENT_COLORS.DECODER
-    case 'embedder':
-      return COMPONENT_COLORS.EMBEDDER
-    case 'scorer':
-      return COMPONENT_COLORS.SCORER
-    case 'explainer':
-      return COMPONENT_COLORS.EXPLAINER
-    default:
-      return '#6b7280'
-  }
+const getBadgeColor = () => {
+  // Use neutral dark gray for all badges to avoid competing with data visualization
+  return NEUTRAL_ICON_COLORS.BADGE_BACKGROUND
 }
 
 // ============================================================================
@@ -285,7 +248,7 @@ const FlowPanel: React.FC = () => {
       <div className="flow-panel__chart">
         <svg viewBox="0 0 600 175" preserveAspectRatio="xMidYMid meet">
           <defs>
-            {/* Arrow markers for each edge color */}
+            {/* Arrow marker - neutral color for all edges */}
             <marker
               id="arrow-gray"
               viewBox="0 0 10 10"
@@ -295,55 +258,7 @@ const FlowPanel: React.FC = () => {
               markerHeight="6"
               orient="auto"
             >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569" opacity="1.0" />
-            </marker>
-
-            <marker
-              id="arrow-green"
-              viewBox="0 0 10 10"
-              refX="9"
-              refY="5"
-              markerWidth="6"
-              markerHeight="6"
-              orient="auto"
-            >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill={COMPONENT_COLORS.DECODER} opacity="1.0" />
-            </marker>
-
-            <marker
-              id="arrow-orange"
-              viewBox="0 0 10 10"
-              refX="9"
-              refY="5"
-              markerWidth="6"
-              markerHeight="6"
-              orient="auto"
-            >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill={COMPONENT_COLORS.EXPLAINER} opacity="1.0" />
-            </marker>
-
-            <marker
-              id="arrow-purple"
-              viewBox="0 0 10 10"
-              refX="9"
-              refY="5"
-              markerWidth="6"
-              markerHeight="6"
-              orient="auto"
-            >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill={COMPONENT_COLORS.EMBEDDER} opacity="1.0" />
-            </marker>
-
-            <marker
-              id="arrow-blue"
-              viewBox="0 0 10 10"
-              refX="9"
-              refY="5"
-              markerWidth="6"
-              markerHeight="6"
-              orient="auto"
-            >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill={COMPONENT_COLORS.SCORER} opacity="1.0" />
+              <path d="M 0 0 L 10 5 L 0 10 z" fill={NEUTRAL_ICON_COLORS.ICON_FILL} opacity="1.0" />
             </marker>
           </defs>
 
@@ -353,12 +268,12 @@ const FlowPanel: React.FC = () => {
               <path
                 d={edge.path}
                 fill="none"
-                stroke={edge.color || '#475569'}
+                stroke={NEUTRAL_ICON_COLORS.ICON_LIGHT}
                 strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 opacity="0.7"
-                markerEnd={getArrowMarker(edge.color || '#475569')}
+                markerEnd={getArrowMarker()}
               />
               {edge.label && edge.labelX && edge.labelY && (
                 <text
@@ -366,7 +281,7 @@ const FlowPanel: React.FC = () => {
                   y={edge.labelY}
                   textAnchor="middle"
                   fontSize="12"
-                  fill="#64748b"
+                  fill={NEUTRAL_ICON_COLORS.TEXT_SECONDARY}
                   fontWeight="500"
                   fontStyle="italic"
                 >
@@ -388,8 +303,8 @@ const FlowPanel: React.FC = () => {
                     width={node.width}
                     height={node.height}
                     rx="6"
-                    fill={getIconBackgroundColor(node.iconType)}
-                    stroke={getIconBorderColor(node.iconType)}
+                    fill={getIconBackgroundColor()}
+                    stroke={getIconBorderColor()}
                     strokeWidth="2"
                   />
                   <g transform={getIconTransform(node)}>
@@ -404,7 +319,7 @@ const FlowPanel: React.FC = () => {
                         width="24"
                         height="18"
                         rx="9"
-                        fill={getBadgeColor(node.iconType)}
+                        fill={getBadgeColor()}
                       />
                       <text
                         x={node.x + node.width - 8}

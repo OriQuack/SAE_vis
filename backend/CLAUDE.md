@@ -136,6 +136,7 @@ curl http://localhost:8003/health
 | `POST` | `/api/comparison-data` | Phase 2 alluvial comparisons | ✅ Active |
 | `POST` | `/api/llm-comparison` | Phase 5 LLM consistency scores | ✅ Implemented |
 | `POST` | `/api/threshold-features` | Feature IDs within threshold range | ✅ Active |
+| `POST` | `/api/umap-data` | Phase 6 UMAP projections with clustering | ✅ Implemented |
 | `GET` | `/api/feature/{id}` | Debug view detail drilling | ✅ JSON linked |
 
 ### System Endpoints
@@ -217,6 +218,95 @@ async def get_llm_comparison(request: LLMComparisonRequest):
 - **Location**: `/data/llm_comparison/llm_comparison_stats.json`
 - **Format**: JSON file with pre-calculated explainer/scorer consistency scores
 - **Statistics**: Explainer consistency (cosine similarity), Scorer consistency (RV coefficient)
+
+### 📊 UMAP Endpoint (Phase 6 - IMPLEMENTED)
+
+**Endpoint**: `POST /api/umap-data`
+**Purpose**: Serves UMAP projection data with hierarchical clustering information for interactive exploration
+**Status**: ✅ Fully Implemented (October 2025)
+
+**Implementation Details:**
+```python
+# Location: app/api/umap.py
+@router.post("/umap-data", response_model=UMAPDataResponse)
+async def get_umap_data(request: UMAPDataRequest):
+    """
+    Returns UMAP projection points for features and explanations,
+    with cluster hierarchy for zoom-based level-of-detail:
+    - Feature UMAP projections (1000+ points)
+    - Explanation UMAP projections (2400+ points)
+    - Hierarchical cluster metadata (multiple levels)
+    """
+```
+
+**Data Sources:**
+- **Feature UMAP**: `/data/umap_feature/.../umap_embeddings.json`
+- **Explanation UMAP**: `/data/umap_explanations/explanation_umap.json`
+- **Cluster Hierarchy**: `/data/umap_clustering/feature_clustering.json` and `explanation_clustering.json`
+- **Format**: Pre-calculated JSON files with UMAP coordinates and cluster assignments
+- **Loading**: Global cache loaded once at startup for fast response times
+
+**Response Structure:**
+```json
+{
+  "features": [
+    {"feature_id": 0, "umap_x": -2.34, "umap_y": 1.56, "cluster_id": "L2_C1",
+     "cluster_level": 2, "cluster_label": "Features 0-199", "source": "decoder"},
+    ...
+  ],
+  "explanations": [
+    {"feature_id": 0, "umap_x": -1.23, "umap_y": 0.89, "cluster_id": "L1_C3",
+     "cluster_level": 1, "cluster_label": "Network Security", "source": "llama_e-llama_s"},
+    ...
+  ],
+  "metadata": {
+    "cluster_hierarchy": {
+      "features": {
+        "L1_C1": {"cluster_id": "L1_C1", "level": 1, "label": "...", "children": ["L2_C1", "L2_C2"]},
+        "L2_C1": {"cluster_id": "L2_C1", "level": 2, "label": "...", "children": []}
+      },
+      "explanations": { ... }
+    },
+    "total_features": 1000,
+    "total_explanations": 2471
+  }
+}
+```
+
+**Key Features:**
+- **Multi-Level Clustering**: Hierarchical cluster structure with levels 1-4+
+- **Cluster Labels**: Human-readable labels for explanation clusters
+- **Source Tracking**: Data source identification (decoder, llama_e-llama_s, etc.)
+- **Feature ID Linking**: Cross-reference between feature and explanation projections
+- **Noise Handling**: Optional inclusion/exclusion of noise points (cluster_label: "noise")
+- **Error Handling**: Proper 400/500 error responses with structured error codes
+- **Performance**: Sub-20ms response time (cached JSON data)
+
+**Request Parameters:**
+```python
+class UMAPDataRequest(BaseModel):
+    filters: Filters  # Optional filtering by sae_id, explainer, etc.
+    umap_type: Literal["features", "explanations", "both"]  # Which projections to return
+    feature_ids: Optional[List[int]]  # Filter to specific feature IDs
+    include_noise: bool = True  # Whether to include noise cluster points
+```
+
+**Frontend Integration:**
+- Powers `UMAPPanel.tsx` dual visualization
+- Enables interactive zoom with automatic cluster level switching
+- Supports cross-panel feature-explanation linking
+- Used for exploring high-dimensional embedding space
+
+**Current Limitations:**
+- Serves pre-calculated UMAP projections (not real-time computation)
+- Filter parameters available but not yet fully applied to UMAP data
+- Future enhancement: Real-time UMAP computation with user-specified parameters
+
+**Data Source Requirements:**
+- **Feature UMAP**: `/data/umap_feature/.../umap_embeddings.json` (1000+ features with x/y coordinates)
+- **Explanation UMAP**: `/data/umap_explanations/explanation_umap.json` (2471 explanations)
+- **Cluster Hierarchy**: `/data/umap_clustering/` directory with hierarchical cluster definitions
+- **Format**: JSON files with UMAP coordinates, cluster IDs, and hierarchy metadata
 
 ## Data Service Architecture
 
@@ -671,9 +761,13 @@ API Endpoints → DataService (visualization_service.py)
 
 ## Critical Notes for Development
 
-1. **Data Dependency**: Backend requires master parquet file to function
+1. **Data Dependency**: Backend requires multiple data files to function
    - **Master File**: `/data/master/feature_analysis.parquet` (2,471 rows)
    - **LLM Stats**: `/data/llm_comparison/llm_comparison_stats.json` (Phase 5)
+   - **UMAP Data** (Phase 6):
+     - `/data/umap_feature/.../umap_embeddings.json` (feature projections)
+     - `/data/umap_explanations/explanation_umap.json` (explanation projections)
+     - `/data/umap_clustering/feature_clustering.json` & `explanation_clustering.json` (cluster hierarchies)
 2. **Port Configuration**: Default 8003 matches frontend environment
 3. **Polars Version**: String cache compatibility requires exact version
 4. **Async Patterns**: All data operations are async - maintain this pattern

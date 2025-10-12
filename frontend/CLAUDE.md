@@ -9,12 +9,13 @@ This file provides comprehensive guidance to Claude Code when working with the R
 **Phase 3 Complete**: ✅ Backend performance optimization (20-30% faster classification)
 **Phase 4 Complete**: ✅ Threshold group management system with histogram visualization
 **Phase 5 Complete**: ✅ LLM Comparison visualization with consistency scoring
+**Phase 6 Complete**: ✅ UMAP Visualization with hierarchical clustering and interactive zoom (October 2025)
 **Architecture**: Modern TypeScript-based frontend with multiple visualization types and dual-panel state management
-**Status**: Conference-ready research prototype with Sankey, Alluvial, Histogram, and LLM Comparison visualizations
-**Development Server**: Active on http://localhost:3005 with hot reload
+**Status**: Conference-ready research prototype with Sankey, Alluvial, Histogram, LLM Comparison, and UMAP visualizations
+**Development Server**: Active on http://localhost:3003 with hot reload
 **Design Philosophy**: Research prototype optimized for live demonstrations with interactive visualization controls
 **Backend Integration**: Optimized API calls with ParentPath-based caching for improved performance
-**New Features**: Named threshold groups with visual indicators, histogram-based selection, LLM consistency comparison
+**New Features**: Named threshold groups with visual indicators, histogram-based selection, LLM consistency comparison, interactive UMAP exploration with clustering
 
 ## Technology Stack & Architecture
 
@@ -29,6 +30,8 @@ This file provides comprehensive guidance to Claude Code when working with the R
   - d3-selection 3.0.0: DOM selection and manipulation
   - d3-transition 3.0.1: Smooth animations and transitions
   - d3-interpolate 3.0.1: Value interpolation for animations
+  - d3-polygon 3.0.1: Convex hull calculations for cluster visualization
+  - d3-zoom 3.0.0: Interactive zoom and pan functionality
 - **Zustand 5.0.8**: Lightweight state management with DevTools integration
 - **Axios 1.12.2**: HTTP client with interceptors and comprehensive error handling
 
@@ -75,25 +78,34 @@ frontend/
 │   │   ├── HistogramPanel.tsx   # Histogram visualization with threshold selection (Phase 4)
 │   │   ├── ThresholdGroupPanel.tsx # Threshold group management UI (Phase 4)
 │   │   ├── HistogramPopover.tsx # Portal-based histogram popover with drag functionality
+│   │   ├── ProgressBar.tsx      # Linear set visualization for feature overlap
+│   │   ├── FlowPanel.tsx        # Flow visualization panel
+│   │   ├── UMAPPanel.tsx        # Dual UMAP visualization with zoom and clustering (Phase 6)
 │   │   ├── LLMComparisonSelection.tsx # Interactive LLM comparison with consistency (Phase 5)
-│   │   ├── LLMComparisonVisualization.tsx # Static variant (currently commented out)
-│   │   └── FlowPanel.tsx        # Flow visualization panel (viewBox: 0 0 600 175)
+│   │   └── LLMComparisonVisualization.tsx # Static variant (currently commented out)
 │   ├── lib/                     # Utility Libraries
 │   │   ├── constants.ts         # Centralized constant definitions
 │   │   ├── d3-sankey-utils.ts  # D3 Sankey calculations
 │   │   ├── d3-alluvial-utils.ts # D3 Alluvial calculations
 │   │   ├── d3-histogram-utils.ts # D3 Histogram calculations with grid lines
 │   │   ├── d3-llm-comparison-utils.ts # LLM comparison layout and color utilities (Phase 5)
+│   │   ├── d3-umap-utils.ts    # UMAP calculations and cluster hulls (Phase 6)
+│   │   ├── d3-linear-set-utils.ts # Linear set calculations
+│   │   ├── d3-flow-utils.ts    # Flow visualization utilities
+│   │   ├── d3-threshold-group-utils.ts # Threshold group utilities
 │   │   ├── selection-utils.ts   # Threshold selection and calculation utilities
 │   │   ├── threshold-utils.ts   # Threshold tree operations
+│   │   ├── threshold-group-converter.ts # Threshold group conversion
 │   │   ├── dynamic-tree-builder.ts # Dynamic stage creation/removal
 │   │   ├── split-rule-builders.ts # Split rule construction helpers
 │   │   └── utils.ts            # General utility functions (includes useResizeObserver hook)
 │   ├── styles/                  # Styling
+│   │   ├── base.css            # Base styles and resets
 │   │   ├── App.css             # Application-level styles
 │   │   ├── globals.css         # Global styles with responsive design patterns
 │   │   ├── HistogramPanel.css  # Histogram panel specific styles (Phase 4)
-│   │   └── ThresholdGroupPanel.css # Threshold group panel styles (Phase 4)
+│   │   ├── ThresholdGroupPanel.css # Threshold group panel styles (Phase 4)
+│   │   └── UMAPPanel.css       # UMAP panel specific styles (Phase 6)
 │   ├── store.ts                # Consolidated Zustand store with threshold groups (Phase 4)
 │   ├── types.ts                # Comprehensive TypeScript type definitions
 │   ├── api.ts                  # HTTP client and API integration layer
@@ -440,6 +452,7 @@ npm run lint
 | `POST` | `/api/comparison-data` | Phase 2 alluvial comparisons | AlluvialDiagram flow visualization |
 | `POST` | `/api/llm-comparison` | Phase 5 LLM consistency scores | LLMComparisonSelection visualization |
 | `POST` | `/api/threshold-features` | Feature IDs within threshold range | HistogramPanel filtering |
+| `POST` | `/api/umap-data` | Phase 6 UMAP projections | UMAPPanel dual visualization |
 | `GET` | `/api/feature/{id}` | Individual feature details | Future debug view |
 | `GET` | `/health` | Backend connectivity | App startup health check |
 
@@ -551,6 +564,67 @@ User Interaction → State Update → API Request → Data Processing → UI Upd
 - Uses pre-calculated global statistics (not filtered by user's current selection)
 - Future enhancement: Real-time correlation calculation based on active filters
 
+### ✅ Phase 6: UMAP Visualization (COMPLETE - October 2025)
+
+**Purpose**: Interactive dimensionality reduction visualization for exploring feature and explanation embeddings with hierarchical clustering
+
+**Components:**
+- ✅ **UMAPPanel Component**: Dual-panel component with feature and explanation UMAP projections
+- ✅ **UMAPSubPanel Component**: Reusable sub-component with zoom, cluster overlays, and tooltips
+
+**Visualization Architecture:**
+- ✅ **Dual-Panel Layout**: Side-by-side Feature UMAP and Explanation UMAP
+- ✅ **D3-Zoom Integration**: Interactive zoom and pan with scale extent [0.5, 8]
+- ✅ **Hierarchical Clustering**: Multi-level cluster hierarchy (levels 1-4+)
+- ✅ **Zoom-Based Level Switching**: Automatic cluster level adjustment based on zoom scale
+- ✅ **Convex Hull Overlays**: Cluster boundaries visualized using d3-polygon
+- ✅ **Cross-Panel Linking**: Hover/click on clusters in one panel highlights corresponding features in other panel
+- ✅ **Cluster Labels**: Automatic label positioning on Explanation UMAP with zoom-aware font sizing
+- ✅ **Color Coding Options**: Configurable coloring by data source or cluster membership
+- ✅ **Performance Optimizations**: Point grouping by cluster, hull caching, debounced level changes
+
+**Technical Implementation:**
+- ✅ **d3-umap-utils.ts**: Comprehensive UMAP calculation utilities
+  - `getClusterLevelFromZoom()`: Maps zoom scale to cluster level
+  - `filterToMostSpecificLevel()`: Keeps each feature at highest level
+  - `getEffectiveClusters()`: Gets target level clusters + childless parents
+  - `getEffectivePoints()`: Filters points for effective clusters
+  - `calculateClusterHulls()`: Computes convex hulls with d3-polygon
+  - `calculateClusterLabels()`: Generates label positions and text
+  - `generateClusterColors()`: Consistent color mapping for clusters
+  - `hullToPath()`: Converts hull points to SVG path
+- ✅ **Type Definitions**: UMAPPoint, UMAPDataResponse, ClusterNode, ProcessedPoint
+- ✅ **API Integration**: getUMAPData() with comprehensive filtering options
+- ✅ **Backend Endpoint**: POST /api/umap-data serves pre-calculated UMAP projections
+- ✅ **Data Sources**:
+  - `/data/umap_feature/.../umap_embeddings.json`: Feature projections
+  - `/data/umap_explanations/explanation_umap.json`: Explanation projections
+  - `/data/umap_clustering/`: Hierarchical cluster data for both types
+- ✅ **Smart Persistence**: Childless parent clusters remain visible when zoomed past their level
+- ✅ **Interactive Tooltips**: Cluster name and point count on hover, pin state indicator
+- ✅ **Legend System**: Source color legend when colored by data source
+
+**User Interactions:**
+- ✅ **Zoom & Pan**: Mouse wheel zoom and drag pan with smooth transforms
+- ✅ **Cluster Hover**: Hover over cluster overlays highlights cluster and shows tooltip
+- ✅ **Cluster Click**: Click to pin cluster selection (persists across pan/zoom)
+- ✅ **Cross-Panel Highlighting**: Points in inactive panel dim when cluster selected in active panel
+- ✅ **Feature ID Linking**: Clicking feature cluster highlights corresponding explanations
+
+**Performance Features:**
+- ✅ **Efficient Rendering**: Points grouped by cluster for batch rendering
+- ✅ **Hull Caching**: Convex hulls memoized with useMemo
+- ✅ **Debounced Level Changes**: 200ms debounce prevents rapid recalculation
+- ✅ **UseResizeObserver**: Automatic layout adjustment on container resize
+- ✅ **Transform Optimization**: Single transform group for zoom/pan
+
+**Current Capabilities:**
+- Visualize 1000+ features and 2400+ explanations simultaneously
+- Explore hierarchical clustering at multiple levels (1-4+)
+- Interactive zoom with automatic level-of-detail adjustment
+- Cross-panel feature-explanation linking
+- Pin cluster selections for detailed analysis
+
 ### 📝 Future Enhancements
 
 **Visualization Improvements:**
@@ -574,23 +648,31 @@ User Interaction → State Update → API Request → Data Processing → UI Upd
 ## Critical Development Notes
 
 1. **Backend Dependency**: Requires backend server on port 8003
-   - All 7 API endpoints must be operational
+   - All 8 API endpoints must be operational
    - LLM comparison requires `/data/llm_comparison/llm_comparison_stats.json`
+   - UMAP requires three JSON files (feature, explanation, clustering)
 2. **Type Safety**: Maintain comprehensive TypeScript integration
 3. **Performance**: All D3 calculations optimized for smooth interactions
    - React.memo for expensive components
    - useMemo for D3 layout calculations
    - useCallback for event handlers
+   - Point grouping and hull caching for UMAP
 4. **Error Handling**: Use structured error codes for proper user messaging
 5. **State Management**: Maintain centralized state with Zustand store
    - Dual-panel architecture with independent state
    - Threshold groups with visibility management
+   - UMAP cross-panel linking state
 6. **API Integration**: All backend endpoints must be operational
 7. **Component Architecture**: Maintain clear separation of concerns
    - Visualization components in `/components`
    - D3 utilities in `/lib`
    - API layer in `api.ts`
    - State management in `store.ts`
+8. **UMAP Specific**:
+   - Use d3-zoom for interactive pan/zoom
+   - Use d3-polygon for convex hull calculations
+   - Implement smart persistence for childless parent clusters
+   - Debounce level changes to prevent performance issues
 
 ## Project Assessment
 
