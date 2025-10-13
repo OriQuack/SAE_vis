@@ -210,7 +210,7 @@ export const METRIC_COLORS = {
   FEATURE_SPLITTING: OKABE_ITO_PALETTE.BLUISH_GREEN,  
 
   // Semantic Similarity - Medium Vermillion
-  SEMANTIC_SIMILARITY: OKABE_ITO_PALETTE.VERMILLION + '99',  // Okabe-Ito Vermillion (medium shade)
+  SEMANTIC_SIMILARITY: OKABE_ITO_PALETTE.REDDISH_PURPLE + '99',  // Okabe-Ito Vermillion (medium shade)
 
   // Score metrics - Sky Blue variants
   SCORE_FUZZ: OKABE_ITO_PALETTE.SKY_BLUE + 48,          

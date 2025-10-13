@@ -24,10 +24,16 @@ interface UMAPPanelProps {
 
 // Colors for different sources
 const SOURCE_COLORS: Record<string, string> = {
-  'decoder': '#10b981',  // green
   'llama_e-llama_s': '#3b82f6',  // blue
   'gwen_e-llama_s': '#f59e0b',  // amber
   'openai_e-llama_s': '#8b5cf6'  // purple
+}
+
+// Display names for sources
+const SOURCE_DISPLAY_NAMES: Record<string, string> = {
+  'llama_e-llama_s': 'Llama',
+  'gwen_e-llama_s': 'Qwen',
+  'openai_e-llama_s': 'OpenAI'
 }
 
 const CLUSTER_COLORS = [
@@ -48,8 +54,10 @@ interface UMAPSubPanelProps {
   clickedCluster: string | null
   linkedFeatureIds: Set<number> | null
   isSourcePanel: boolean
+  showColorToggle?: boolean
   onClusterHover: (clusterId: string | null) => void
   onClusterClick: (clusterId: string | null) => void
+  onColorModeChange?: (mode: 'cluster' | 'source') => void
 }
 
 const UMAPSubPanel: React.FC<UMAPSubPanelProps> = ({
@@ -63,8 +71,10 @@ const UMAPSubPanel: React.FC<UMAPSubPanelProps> = ({
   clickedCluster: parentClickedCluster,
   linkedFeatureIds,
   isSourcePanel,
+  showColorToggle = false,
   onClusterHover,
-  onClusterClick
+  onClusterClick,
+  onColorModeChange
 }) => {
   const { ref: containerRef, size } = useResizeObserver<HTMLDivElement>({
     debugId: `umap-${title}`
@@ -73,6 +83,10 @@ const UMAPSubPanel: React.FC<UMAPSubPanelProps> = ({
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
   const [zoomTransform, setZoomTransform] = useState<ZoomTransform>(zoomIdentity)
   const [clusterLevel, setClusterLevel] = useState<number>(1)  // Start at level 1 (level 0 excluded)
+
+  // Legend fade state
+  const [legendFaded, setLegendFaded] = useState<boolean>(false)
+  const legendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Use parent's hovered and clicked cluster
   const hoveredCluster = isSourcePanel ? parentHoveredCluster : null
@@ -83,6 +97,35 @@ const UMAPSubPanel: React.FC<UMAPSubPanelProps> = ({
 
   // Debounce timer for cluster level changes
   const levelChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Start legend fade timer
+  const startLegendFadeTimer = () => {
+    if (legendTimerRef.current) {
+      clearTimeout(legendTimerRef.current)
+    }
+    legendTimerRef.current = setTimeout(() => {
+      setLegendFaded(true)
+    }, 1000)
+  }
+
+  // Reset legend fade
+  const resetLegendFade = () => {
+    if (legendTimerRef.current) {
+      clearTimeout(legendTimerRef.current)
+    }
+    setLegendFaded(false)
+    startLegendFadeTimer()
+  }
+
+  // Initialize legend fade timer on mount
+  useEffect(() => {
+    startLegendFadeTimer()
+    return () => {
+      if (legendTimerRef.current) {
+        clearTimeout(legendTimerRef.current)
+      }
+    }
+  }, [])
 
   // Calculate SVG dimensions, scales, and points
   const { svgWidth, svgHeight, margin, points, xScale, yScale } = useMemo(() => {
@@ -132,15 +175,17 @@ const UMAPSubPanel: React.FC<UMAPSubPanelProps> = ({
     const points = mostSpecificData.map((point) => {
       let color: string
 
-      // Noise points are always gray
-      if (point.cluster_label === 'noise') {
-        color = '#94a3b8'  // Gray for noise
-      } else if (colorBy === 'source') {
-        color = SOURCE_COLORS[point.source || 'decoder'] || '#94a3b8'
+      if (colorBy === 'source') {
+        // Color by LLM source (show all points including noise)
+        color = SOURCE_COLORS[point.source || ''] || '#94a3b8'
       } else {
-        // Color by cluster - use cluster_id hash for consistent colors
-        const clusterIndex = point.cluster_id ? parseInt(point.cluster_id.replace(/\D/g, '')) % CLUSTER_COLORS.length : 0
-        color = CLUSTER_COLORS[clusterIndex]
+        // Color by cluster (noise points are gray)
+        if (point.cluster_label === 'noise') {
+          color = '#94a3b8'  // Gray for noise
+        } else {
+          const clusterIndex = point.cluster_id ? parseInt(point.cluster_id.replace(/\D/g, '')) % CLUSTER_COLORS.length : 0
+          color = CLUSTER_COLORS[clusterIndex]
+        }
       }
 
       return {
@@ -322,7 +367,23 @@ const UMAPSubPanel: React.FC<UMAPSubPanelProps> = ({
   return (
     <div className="umap-panel__subpanel">
       <div className="umap-panel__header">
-        <h3 className="umap-panel__title">{title}</h3>
+        <div className="umap-panel__title-row">
+          <h3 className="umap-panel__title">{title}</h3>
+          {showColorToggle && (
+            <div className="umap-panel__color-switch-container">
+              <span className="umap-panel__color-switch-label">Cluster</span>
+              <label className="umap-panel__color-switch">
+                <input
+                  type="checkbox"
+                  checked={colorBy === 'source'}
+                  onChange={(e) => onColorModeChange?.(e.target.checked ? 'source' : 'cluster')}
+                />
+                <span className="umap-panel__color-switch-slider"></span>
+              </label>
+              <span className="umap-panel__color-switch-label">LLM</span>
+            </div>
+          )}
+        </div>
         <div className="umap-panel__info">
           Level {clusterLevel} • {clusterHulls.length} clusters • Zoom {zoomTransform.k.toFixed(2)}x
         </div>
@@ -398,7 +459,7 @@ const UMAPSubPanel: React.FC<UMAPSubPanelProps> = ({
 
                         // Calculate opacity for individual point
                         const pointOpacity = activeCluster || linkedFeatureIds
-                          ? (isPointInActiveCluster || isPointLinked ? 1.0 : 0.15)
+                          ? (isPointInActiveCluster || isPointLinked ? 1.0 : 0.10)
                           : 0.6
 
                         return (
@@ -440,12 +501,16 @@ const UMAPSubPanel: React.FC<UMAPSubPanelProps> = ({
 
             {/* Legend */}
             {colorBy === 'source' && (
-              <div className="umap-panel__legend">
-                <div className="umap-panel__legend-title">Source</div>
+              <div
+                className={`umap-panel__legend ${legendFaded ? 'umap-panel__legend--faded' : ''}`}
+                onMouseEnter={resetLegendFade}
+                onMouseLeave={startLegendFadeTimer}
+              >
+                <div className="umap-panel__legend-title">LLM Explainer</div>
                 {Object.entries(SOURCE_COLORS).map(([source, color]) => (
                   <div key={source} className="umap-panel__legend-item">
                     <div className="umap-panel__legend-color" style={{ backgroundColor: color }} />
-                    <div className="umap-panel__legend-label">{source}</div>
+                    <div className="umap-panel__legend-label">{SOURCE_DISPLAY_NAMES[source] || source}</div>
                   </div>
                 ))}
               </div>
@@ -487,6 +552,9 @@ export const UMAPPanel: React.FC<UMAPPanelProps> = ({ className = '' }) => {
   const [clickedCluster, setClickedCluster] = useState<string | null>(null)
   const [clickedPanel, setClickedPanel] = useState<'feature' | 'explanation' | null>(null)
   const [linkedFeatureIds, setLinkedFeatureIds] = useState<Set<number> | null>(null)
+
+  // Explanation UMAP coloring mode
+  const [explanationColorMode, setExplanationColorMode] = useState<'cluster' | 'source'>('cluster')
 
   // Active cluster is either clicked (persistent) or hovered (temporary)
   const activeCluster = clickedCluster || hoveredCluster
@@ -582,13 +650,15 @@ export const UMAPPanel: React.FC<UMAPPanelProps> = ({ className = '' }) => {
         clusterHierarchy={umapData?.metadata.cluster_hierarchy || null}
         loading={loading}
         error={error}
-        colorBy="cluster"
+        colorBy={explanationColorMode}
         hoveredCluster={hoveredCluster}
         clickedCluster={clickedCluster}
         linkedFeatureIds={linkedFeatureIds}
         isSourcePanel={activePanel === 'explanation'}
+        showColorToggle={true}
         onClusterHover={handleExplanationHover}
         onClusterClick={handleExplanationClick}
+        onColorModeChange={setExplanationColorMode}
       />
     </div>
   )

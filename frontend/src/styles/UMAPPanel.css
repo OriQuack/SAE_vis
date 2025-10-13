@@ -29,6 +29,14 @@
   flex-shrink: 0;
   background-color: #f9fafb;
   border-bottom: 1px solid #e5e7eb;
+  padding: 8px 0;
+}
+
+.umap-panel__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
 }
 
 .umap-panel__title {
@@ -36,15 +44,78 @@
   font-weight: 600;
   color: #1f2937;
   margin: 0;
-  text-align: center;
 }
 
 .umap-panel__info {
   font-size: 11px;
   color: #6b7280;
-  margin-top: 2px;
+  margin-top: 4px;
   text-align: center;
   font-family: monospace;
+}
+
+/* Toggle Switch Container */
+.umap-panel__color-switch-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.umap-panel__color-switch-label {
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 500;
+  user-select: none;
+}
+
+/* Toggle Switch */
+.umap-panel__color-switch {
+  position: relative;
+  display: inline-block;
+  width: 32px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.umap-panel__color-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.umap-panel__color-switch-slider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #cbd5e1;
+  border-radius: 16px;
+  transition: background-color 0.2s ease;
+}
+
+.umap-panel__color-switch-slider:before {
+  content: "";
+  position: absolute;
+  height: 12px;
+  width: 12px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+}
+
+.umap-panel__color-switch input:checked + .umap-panel__color-switch-slider {
+  background-color: #3b82f6;
+}
+
+.umap-panel__color-switch input:checked + .umap-panel__color-switch-slider:before {
+  transform: translateX(16px);
+}
+
+.umap-panel__color-switch:hover .umap-panel__color-switch-slider {
+  opacity: 0.9;
 }
 
 .umap-panel__content {
@@ -197,6 +268,12 @@
   border: 1px solid #e5e7eb;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   font-size: 11px;
+  opacity: 1;
+  transition: opacity 0.5s ease;
+}
+
+.umap-panel__legend--faded {
+  opacity: 0.2;
 }
 
 .umap-panel__legend-title {
