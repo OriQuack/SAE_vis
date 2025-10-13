@@ -68,7 +68,8 @@ async def get_histogram_data(
             node_id=request.nodeId,
             group_by=request.groupBy,
             average_by=request.averageBy,
-            fixed_domain=request.fixedDomain
+            fixed_domain=request.fixedDomain,
+            selected_llm_explainers=request.selectedLLMExplainers
         )
 
     except ValueError as e:
@@ -159,7 +160,8 @@ async def get_filtered_histogram_panel_data(
     try:
         histograms = await data_service.get_filtered_histogram_panel_data(
             feature_ids=request.featureIds,
-            bins=request.bins
+            bins=request.bins,
+            selected_llm_explainers=request.selectedLLMExplainers
         )
 
         return FilteredHistogramPanelResponse(

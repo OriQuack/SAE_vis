@@ -669,7 +669,8 @@ export const useStore = create<AppState>((set, get) => ({
           filters: baseFilters,
           metric,
           ...(averageBy && { averageBy }), // Only include averageBy if it's not null
-          fixedDomain // Always include fixed domain for all metrics
+          fixedDomain, // Always include fixed domain for all metrics
+          ...(state.selectedLLMExplainers.length > 0 && { selectedLLMExplainers: state.selectedLLMExplainers })
         }
 
         console.log('[HistogramPanel] Sending request:', JSON.stringify(request, null, 2))
@@ -697,7 +698,10 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       console.log(`[HistogramPanel] Fetching filtered data for ${featureIds.length} features`)
 
-      const combinedData = await api.getFilteredHistogramPanelData(featureIds)
+      const combinedData = await api.getFilteredHistogramPanelData(
+        featureIds,
+        state.selectedLLMExplainers.length > 0 ? state.selectedLLMExplainers : undefined
+      )
 
       set({
         histogramPanelData: combinedData,
@@ -1052,7 +1056,7 @@ export const useStore = create<AppState>((set, get) => ({
     // Fetch feature IDs from backend
     let featureIds: number[] = []
     try {
-      // Use base filters without LLM selection for histogram panel selections
+      // Use base filters and pass selectedLLMExplainers for LLM-filtered feature IDs
       const baseFilters = {
         sae_id: [],
         explanation_method: [],
@@ -1063,10 +1067,11 @@ export const useStore = create<AppState>((set, get) => ({
         baseFilters,
         metricType,
         thresholdRange.min,
-        thresholdRange.max
+        thresholdRange.max,
+        state.selectedLLMExplainers
       )
       featureIds = result.feature_ids
-      console.log(`Fetched ${featureIds.length} feature IDs for ${metricType} in range [${thresholdRange.min}, ${thresholdRange.max}]`)
+      console.log(`Fetched ${featureIds.length} feature IDs for ${metricType} in range [${thresholdRange.min}, ${thresholdRange.max}] (LLM explainers: ${state.selectedLLMExplainers.length})`)
     } catch (error) {
       console.error('Failed to fetch feature IDs:', error)
       // Continue with empty feature IDs on error

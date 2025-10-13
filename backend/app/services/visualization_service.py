@@ -34,11 +34,13 @@ class DataService:
     def __init__(self, data_path: str = "../data"):
         self.data_path = Path(data_path)
         self.master_file = self.data_path / "master" / "feature_analysis.parquet"
+        self.pairwise_similarity_file = self.data_path / "master" / "semantic_similarity_pairwise.parquet"
         self.detailed_json_dir = self.data_path / "detailed_json"
 
         # Cache for frequently accessed data
         self._filter_options_cache: Optional[Dict[str, List[str]]] = None
         self._df_lazy: Optional[pl.LazyFrame] = None
+        self._pairwise_sim_lazy: Optional[pl.LazyFrame] = None
         self._ready = False
 
     async def initialize(self):
@@ -59,12 +61,310 @@ class DataService:
     async def cleanup(self):
         """Clean up resources."""
         self._df_lazy = None
+        self._pairwise_sim_lazy = None
         self._filter_options_cache = None
         self._ready = False
 
     def is_ready(self) -> bool:
         """Check if the service is ready for queries."""
         return self._ready and self._df_lazy is not None
+
+    def _load_pairwise_similarity_lazy(self) -> pl.LazyFrame:
+        """
+        Load and cache the pairwise similarity parquet as a LazyFrame.
+
+        Returns:
+            LazyFrame for pairwise similarity data
+        """
+        if self._pairwise_sim_lazy is None:
+            if not self.pairwise_similarity_file.exists():
+                raise FileNotFoundError(f"Pairwise similarity parquet not found: {self.pairwise_similarity_file}")
+            self._pairwise_sim_lazy = pl.scan_parquet(self.pairwise_similarity_file)
+            logger.info(f"Loaded pairwise similarity parquet: {self.pairwise_similarity_file}")
+        return self._pairwise_sim_lazy
+
+    def _compute_semsim_for_one_llm(
+        self,
+        filtered_df: pl.DataFrame,
+        selected_llm: str
+    ) -> pl.DataFrame:
+        """
+        Compute semsim_mean for one selected LLM by averaging pairwise similarities with other LLMs.
+
+        For feature in filtered_df:
+            semsim_mean = average of (selected_llm vs llm_2, selected_llm vs llm_3)
+
+        Args:
+            filtered_df: Master parquet filtered by filters and node
+            selected_llm: The selected LLM explainer name
+
+        Returns:
+            DataFrame with feature_id and computed semsim_mean
+        """
+        # Get unique feature IDs from filtered data
+        feature_ids = filtered_df.select(pl.col(COL_FEATURE_ID).unique()).get_column(COL_FEATURE_ID).to_list()
+
+        # Load pairwise similarity data
+        pairwise_lazy = self._load_pairwise_similarity_lazy()
+
+        # Filter pairwise data for features in filtered_df and where selected_llm is one of the explainers
+        pairwise_df = (
+            pairwise_lazy
+            .filter(
+                pl.col("feature_id").is_in(feature_ids) &
+                ((pl.col("explainer_1") == selected_llm) | (pl.col("explainer_2") == selected_llm))
+            )
+            .collect()
+        )
+
+        if len(pairwise_df) == 0:
+            raise ValueError(f"No pairwise similarity data found for selected LLM: {selected_llm}")
+
+        # Group by feature_id and calculate mean cosine similarity
+        semsim_df = (
+            pairwise_df
+            .group_by("feature_id")
+            .agg(pl.col("cosine_similarity").mean().alias("semsim_mean"))
+        )
+
+        logger.info(f"Computed semsim_mean for 1 LLM ({selected_llm}): {len(semsim_df)} features")
+        return semsim_df
+
+    def _compute_semsim_for_two_llms(
+        self,
+        filtered_df: pl.DataFrame,
+        llm1: str,
+        llm2: str
+    ) -> pl.DataFrame:
+        """
+        Compute semsim_mean for two selected LLMs using their direct pairwise similarity.
+
+        For feature in filtered_df:
+            semsim_mean = cosine_similarity(llm1, llm2)
+
+        Args:
+            filtered_df: Master parquet filtered by filters and node
+            llm1: First selected LLM explainer name
+            llm2: Second selected LLM explainer name
+
+        Returns:
+            DataFrame with feature_id and semsim_mean
+        """
+        # Get unique feature IDs from filtered data
+        feature_ids = filtered_df.select(pl.col(COL_FEATURE_ID).unique()).get_column(COL_FEATURE_ID).to_list()
+
+        # Load pairwise similarity data
+        pairwise_lazy = self._load_pairwise_similarity_lazy()
+
+        # Ensure alphabetical ordering for explainer pair (matching pairwise parquet convention)
+        explainer_1, explainer_2 = (llm1, llm2) if llm1 < llm2 else (llm2, llm1)
+
+        # Filter for exact pair
+        pairwise_df = (
+            pairwise_lazy
+            .filter(
+                pl.col("feature_id").is_in(feature_ids) &
+                (pl.col("explainer_1") == explainer_1) &
+                (pl.col("explainer_2") == explainer_2)
+            )
+            .select([pl.col("feature_id"), pl.col("cosine_similarity").alias("semsim_mean")])
+            .collect()
+        )
+
+        if len(pairwise_df) == 0:
+            raise ValueError(f"No pairwise similarity data found for LLM pair: {llm1}, {llm2}")
+
+        logger.info(f"Computed semsim_mean for 2 LLMs ({llm1}, {llm2}): {len(pairwise_df)} features")
+        return pairwise_df
+
+    def _filter_by_llm_explainers(
+        self,
+        df: pl.DataFrame,
+        selected_llms: List[str]
+    ) -> pl.DataFrame:
+        """
+        Filter master parquet DataFrame by selected LLM explainers.
+
+        Args:
+            df: Master parquet DataFrame
+            selected_llms: List of selected LLM explainer names (1 or 2)
+
+        Returns:
+            Filtered DataFrame containing only rows for selected LLMs
+        """
+        return df.filter(pl.col(COL_LLM_EXPLAINER).is_in(selected_llms))
+
+    def _get_llm_filtered_histogram_data(
+        self,
+        filtered_df: pl.DataFrame,
+        metric: MetricType,
+        selected_llm_explainers: List[str],
+        bins: Optional[int],
+        fixed_domain: Optional[tuple[float, float]]
+    ) -> HistogramResponse:
+        """
+        Generate histogram data with LLM filtering applied.
+
+        When 1 LLM is selected:
+        - feature_splitting: use existing logic (global metric)
+        - semsim_mean: average of 2 pairwise similarities
+        - score metrics: filter by selected LLM, average across 3 scorers
+
+        When 2 LLMs are selected:
+        - feature_splitting: use existing logic (global metric)
+        - semsim_mean: pairwise similarity between the 2 LLMs
+        - score metrics: filter by both LLMs, average across 6 combinations
+
+        Args:
+            filtered_df: Master parquet filtered by filters and node
+            metric: Metric to analyze
+            selected_llm_explainers: List of 1 or 2 selected LLM names
+            bins: Number of histogram bins
+            fixed_domain: Optional fixed domain for histogram
+
+        Returns:
+            HistogramResponse with LLM-filtered histogram data
+        """
+        num_selected = len(selected_llm_explainers)
+
+        if num_selected not in [1, 2]:
+            raise ValueError(f"Expected 1 or 2 selected LLM explainers, got {num_selected}")
+
+        # For feature_splitting, use existing logic (no LLM filtering needed)
+        if metric == MetricType.FEATURE_SPLITTING:
+            logger.info(f"Using global feature_splitting (LLM-independent)")
+            # Deduplicate by averaging across all explainer-scorer combinations
+            df_for_metric = self._average_by_field(filtered_df, metric, ['llm_explainer', 'llm_scorer'])
+
+        # For semsim_mean, use pairwise similarity parquet
+        elif metric == MetricType.SEMSIM_MEAN:
+            if num_selected == 1:
+                semsim_df = self._compute_semsim_for_one_llm(filtered_df, selected_llm_explainers[0])
+            else:  # num_selected == 2
+                semsim_df = self._compute_semsim_for_two_llms(
+                    filtered_df,
+                    selected_llm_explainers[0],
+                    selected_llm_explainers[1]
+                )
+
+            # Extract values directly from semsim_df
+            values = semsim_df.get_column("semsim_mean").drop_nulls().to_numpy()
+
+            if len(values) == 0:
+                raise ValueError(f"No semsim_mean values available for selected LLMs")
+
+            bins = self._calculate_bins_if_needed(values, bins)
+            bin_range = fixed_domain if fixed_domain else (float(np.min(values)), float(np.max(values)))
+            counts, bin_edges = np.histogram(values, bins=bins, range=bin_range)
+            bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+
+            return HistogramResponse(
+                metric=metric.value,
+                histogram={
+                    "bins": bin_centers.tolist(),
+                    "counts": counts.tolist(),
+                    "bin_edges": bin_edges.tolist()
+                },
+                statistics=self._calculate_statistics(values),
+                total_features=len(values)
+            )
+
+        # For score metrics, filter by selected LLMs and average
+        else:
+            # Filter master parquet by selected LLMs
+            llm_filtered_df = self._filter_by_llm_explainers(filtered_df, selected_llm_explainers)
+
+            if len(llm_filtered_df) == 0:
+                raise ValueError(f"No data available for selected LLM explainers: {selected_llm_explainers}")
+
+            # Average across llm_explainer and llm_scorer dimensions
+            # This gives us 1 value per feature (averaging all selected explainer-scorer combos)
+            df_for_metric = self._average_by_field(llm_filtered_df, metric, ['llm_explainer', 'llm_scorer'])
+
+        # Generate histogram for score metrics and feature_splitting
+        values = self._extract_metric_values(df_for_metric, metric)
+        bins = self._calculate_bins_if_needed(values, bins)
+        bin_range = fixed_domain if fixed_domain else (float(np.min(values)), float(np.max(values)))
+        counts, bin_edges = np.histogram(values, bins=bins, range=bin_range)
+        bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+
+        return HistogramResponse(
+            metric=metric.value,
+            histogram={
+                "bins": bin_centers.tolist(),
+                "counts": counts.tolist(),
+                "bin_edges": bin_edges.tolist()
+            },
+            statistics=self._calculate_statistics(values),
+            total_features=len(values)
+        )
+
+    def _get_llm_filtered_feature_ids(
+        self,
+        filtered_df: pl.DataFrame,
+        metric: MetricType,
+        selected_llm_explainers: List[str],
+        min_value: float,
+        max_value: float
+    ) -> List[int]:
+        """
+        Get feature IDs within threshold range with LLM filtering applied.
+
+        Args:
+            filtered_df: Master parquet filtered by filters
+            metric: Metric to check
+            selected_llm_explainers: List of 1 or 2 selected LLM names
+            min_value: Minimum threshold value
+            max_value: Maximum threshold value
+
+        Returns:
+            List of feature IDs within threshold range
+        """
+        num_selected = len(selected_llm_explainers)
+
+        # For feature_splitting, use existing logic (no LLM filtering)
+        if metric == MetricType.FEATURE_SPLITTING:
+            df_for_metric = self._average_by_field(filtered_df, metric, ['llm_explainer', 'llm_scorer'])
+
+        # For semsim_mean, use pairwise similarity parquet
+        elif metric == MetricType.SEMSIM_MEAN:
+            if num_selected == 1:
+                semsim_df = self._compute_semsim_for_one_llm(filtered_df, selected_llm_explainers[0])
+            else:
+                semsim_df = self._compute_semsim_for_two_llms(
+                    filtered_df, selected_llm_explainers[0], selected_llm_explainers[1]
+                )
+
+            # Filter by threshold range
+            threshold_filtered = semsim_df.filter(
+                (pl.col("semsim_mean") >= min_value) &
+                (pl.col("semsim_mean") <= max_value)
+            )
+
+            feature_ids = threshold_filtered.get_column("feature_id").to_list()
+            return [int(fid) for fid in feature_ids]
+
+        # For score metrics, filter by selected LLMs and average
+        else:
+            llm_filtered_df = self._filter_by_llm_explainers(filtered_df, selected_llm_explainers)
+            df_for_metric = self._average_by_field(llm_filtered_df, metric, ['llm_explainer', 'llm_scorer'])
+
+        # Filter by threshold range for feature_splitting and score metrics
+        metric_col = metric.value
+        threshold_filtered = df_for_metric.filter(
+            (pl.col(metric_col) >= min_value) &
+            (pl.col(metric_col) <= max_value)
+        )
+
+        feature_ids = (
+            threshold_filtered
+            .select(pl.col(COL_FEATURE_ID).unique())
+            .get_column(COL_FEATURE_ID)
+            .to_list()
+        )
+
+        logger.info(f"LLM-filtered feature IDs for {metric.value}: {len(feature_ids)} features in range [{min_value}, {max_value}]")
+        return [int(fid) for fid in feature_ids]
 
     async def _cache_filter_options(self):
         """Pre-compute and cache filter options for performance."""
@@ -170,7 +470,8 @@ class DataService:
         node_id: Optional[str] = None,
         group_by: Optional[str] = None,
         average_by: Optional[Union[str, List[str]]] = None,
-        fixed_domain: Optional[tuple[float, float]] = None
+        fixed_domain: Optional[tuple[float, float]] = None,
+        selected_llm_explainers: Optional[List[str]] = None
     ) -> HistogramResponse:
         """
         Generate histogram data for a specific metric, optionally filtered by node and/or grouped.
@@ -184,6 +485,7 @@ class DataService:
             group_by: Optional field to group histogram by
             average_by: Optional field(s) to average by. Can be a single field (str) or multiple fields (List[str])
             fixed_domain: Optional fixed range for histogram bins
+            selected_llm_explainers: Optional list of 1 or 2 selected LLM explainers for filtered computation
 
         Returns:
             HistogramResponse with histogram data and statistics
@@ -193,6 +495,17 @@ class DataService:
 
         try:
             filtered_df = self._apply_filtered_data(filters, threshold_tree, node_id)
+
+            # If LLM explainers are selected (1 or 2), use LLM filtering logic
+            if selected_llm_explainers and len(selected_llm_explainers) in [1, 2]:
+                logger.info(f"Using LLM-filtered histogram data for {len(selected_llm_explainers)} selected explainer(s)")
+                return self._get_llm_filtered_histogram_data(
+                    filtered_df,
+                    metric,
+                    selected_llm_explainers,
+                    bins,
+                    fixed_domain
+                )
 
             # Automatically deduplicate feature-level metrics if no averaging specified
             # Feature-level metrics have identical values across all explainer-scorer combinations
@@ -423,7 +736,8 @@ class DataService:
     async def get_filtered_histogram_panel_data(
         self,
         feature_ids: List[int],
-        bins: int = 20
+        bins: int = 20,
+        selected_llm_explainers: Optional[List[str]] = None
     ) -> Dict[str, HistogramResponse]:
         """
         Generate all histogram panel data filtered by feature IDs.
@@ -434,6 +748,8 @@ class DataService:
         Args:
             feature_ids: List of feature IDs to include
             bins: Number of histogram bins (default: 20)
+            selected_llm_explainers: Optional list of selected LLM explainers (1 or 2)
+                                     for filtered histogram computation
 
         Returns:
             Dictionary mapping metric names to HistogramResponse objects
@@ -473,13 +789,37 @@ class DataService:
             # Generate histogram for each metric
             histograms = {}
             for metric, average_by, fixed_domain in metrics_config:
-                # Apply averaging if needed
-                df_for_metric = filtered_df
-                if average_by:
-                    df_for_metric = self._average_by_field(filtered_df, metric, average_by)
+                # If LLM explainers are selected (1 or 2), use LLM filtering logic
+                if selected_llm_explainers and len(selected_llm_explainers) in [1, 2]:
+                    logger.info(f"Using LLM-filtered data for {metric.value} with {len(selected_llm_explainers)} explainer(s)")
 
-                # Extract metric values
-                values = self._extract_metric_values(df_for_metric, metric)
+                    # For feature_splitting, use existing logic (no LLM filtering)
+                    if metric == MetricType.FEATURE_SPLITTING:
+                        df_for_metric = self._average_by_field(filtered_df, metric, ['llm_explainer', 'llm_scorer'])
+                        values = self._extract_metric_values(df_for_metric, metric)
+
+                    # For semsim_mean, use pairwise similarity parquet
+                    elif metric == MetricType.SEMSIM_MEAN:
+                        if len(selected_llm_explainers) == 1:
+                            semsim_df = self._compute_semsim_for_one_llm(filtered_df, selected_llm_explainers[0])
+                        else:
+                            semsim_df = self._compute_semsim_for_two_llms(
+                                filtered_df, selected_llm_explainers[0], selected_llm_explainers[1]
+                            )
+                        values = semsim_df.get_column("semsim_mean").drop_nulls().to_numpy()
+
+                    # For score metrics, filter by selected LLMs and average
+                    else:
+                        llm_filtered_df = self._filter_by_llm_explainers(filtered_df, selected_llm_explainers)
+                        df_for_metric = self._average_by_field(llm_filtered_df, metric, ['llm_explainer', 'llm_scorer'])
+                        values = self._extract_metric_values(df_for_metric, metric)
+
+                # Otherwise use existing logic (global filtering)
+                else:
+                    df_for_metric = filtered_df
+                    if average_by:
+                        df_for_metric = self._average_by_field(filtered_df, metric, average_by)
+                    values = self._extract_metric_values(df_for_metric, metric)
 
                 # Calculate bin range
                 if fixed_domain:
@@ -515,7 +855,8 @@ class DataService:
         filters: Filters,
         metric: MetricType,
         min_value: float,
-        max_value: float
+        max_value: float,
+        selected_llm_explainers: Optional[List[str]] = None
     ) -> List[int]:
         """
         Get unique feature IDs that fall within a specific threshold range for a given metric.
@@ -528,6 +869,7 @@ class DataService:
             metric: The metric to check
             min_value: Minimum threshold value (inclusive)
             max_value: Maximum threshold value (inclusive)
+            selected_llm_explainers: Optional list of 1 or 2 selected LLM explainers for filtered computation
 
         Returns:
             List of unique feature IDs within the threshold range
@@ -542,7 +884,13 @@ class DataService:
             if len(filtered_df) == 0:
                 raise ValueError("No data available after applying filters")
 
-            # Filter by threshold range
+            # If LLM explainers are selected (1 or 2), use LLM filtering logic
+            if selected_llm_explainers and len(selected_llm_explainers) in [1, 2]:
+                return self._get_llm_filtered_feature_ids(
+                    filtered_df, metric, selected_llm_explainers, min_value, max_value
+                )
+
+            # Otherwise use existing logic (global filtering)
             metric_col = metric.value
             threshold_filtered = filtered_df.filter(
                 (pl.col(metric_col) >= min_value) &

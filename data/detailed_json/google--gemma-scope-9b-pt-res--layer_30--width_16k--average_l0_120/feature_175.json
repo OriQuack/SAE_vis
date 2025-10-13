@@ -57,15 +57,15 @@
       "score_fuzz": 0.625,
       "score_detection": 0.625,
       "score_simulation": null,
-      "score_embedding": 0.8500000000000001
+      "score_embedding": 0.6831250000000001
     },
     {
       "data_source": "llama_e-gwen_s",
       "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "score_fuzz": 0.61,
       "score_detection": 0.58,
-      "score_simulation": 0.15476891118927646,
-      "score_embedding": 0.5948000000000001
+      "score_simulation": null,
+      "score_embedding": 0.4464
     },
     {
       "data_source": "openai_e-openai_s",
@@ -73,7 +73,7 @@
       "score_fuzz": 0.625,
       "score_detection": 0.48,
       "score_simulation": null,
-      "score_embedding": null
+      "score_embedding": 0.23500000000000001
     },
     {
       "data_source": "openai_e-gwen_s",
@@ -81,15 +81,15 @@
       "score_fuzz": 0.475,
       "score_detection": 0.65,
       "score_simulation": null,
-      "score_embedding": null
+      "score_embedding": 0.23500000000000001
     },
     {
       "data_source": "llama_e-openai_s",
       "llm_scorer": "openai/gpt-oss-20b",
       "score_fuzz": 0.5,
       "score_detection": 0.5,
-      "score_simulation": 0.1218361724722254,
-      "score_embedding": 0.5948000000000001
+      "score_simulation": null,
+      "score_embedding": 0.4464
     },
     {
       "data_source": "gwen_e-gwen_s",
@@ -97,23 +97,23 @@
       "score_fuzz": 0.65,
       "score_detection": 0.675,
       "score_simulation": null,
-      "score_embedding": 0.8500000000000001
+      "score_embedding": 0.6831250000000001
     },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
       "score_fuzz": 0.6,
       "score_detection": 0.6,
-      "score_simulation": 0.17560723573137393,
-      "score_embedding": 0.5948000000000001
+      "score_simulation": null,
+      "score_embedding": 0.4464
     },
     {
       "data_source": "gwen_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
       "score_fuzz": 0.71,
       "score_detection": 0.66,
-      "score_simulation": 0.4927753335071367,
-      "score_embedding": 0.8500000000000001
+      "score_simulation": null,
+      "score_embedding": 0.6831250000000001
     },
     {
       "data_source": "openai_e-llama_s",
@@ -121,7 +121,7 @@
       "score_fuzz": 0.45,
       "score_detection": 0.35,
       "score_simulation": null,
-      "score_embedding": null
+      "score_embedding": 0.23500000000000001
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

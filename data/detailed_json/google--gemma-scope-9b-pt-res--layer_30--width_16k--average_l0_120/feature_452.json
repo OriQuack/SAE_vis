@@ -57,15 +57,15 @@
       "score_fuzz": 0.8,
       "score_detection": 0.85,
       "score_simulation": null,
-      "score_embedding": 0.7083999999999999
+      "score_embedding": 0.46124999999999994
     },
     {
       "data_source": "llama_e-gwen_s",
       "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "score_fuzz": 0.96,
       "score_detection": 0.86,
-      "score_simulation": 0.2655362723824775,
-      "score_embedding": 0.48000000000000004
+      "score_simulation": null,
+      "score_embedding": 0.45840000000000003
     },
     {
       "data_source": "openai_e-openai_s",
@@ -73,7 +73,7 @@
       "score_fuzz": 1.0,
       "score_detection": 0.8571428571428571,
       "score_simulation": null,
-      "score_embedding": null
+      "score_embedding": 0.286875
     },
     {
       "data_source": "openai_e-gwen_s",
@@ -81,15 +81,15 @@
       "score_fuzz": 0.95,
       "score_detection": 0.875,
       "score_simulation": null,
-      "score_embedding": null
+      "score_embedding": 0.286875
     },
     {
       "data_source": "llama_e-openai_s",
       "llm_scorer": "openai/gpt-oss-20b",
       "score_fuzz": 0.875,
       "score_detection": 0.85,
-      "score_simulation": 0.3004324913362706,
-      "score_embedding": 0.48000000000000004
+      "score_simulation": null,
+      "score_embedding": 0.45840000000000003
     },
     {
       "data_source": "gwen_e-gwen_s",
@@ -97,23 +97,23 @@
       "score_fuzz": 0.925,
       "score_detection": 0.825,
       "score_simulation": null,
-      "score_embedding": 0.7083999999999999
+      "score_embedding": 0.46124999999999994
     },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
       "score_fuzz": 1.0,
       "score_detection": 0.88,
-      "score_simulation": 0.09832097855166387,
-      "score_embedding": 0.48000000000000004
+      "score_simulation": null,
+      "score_embedding": 0.45840000000000003
     },
     {
       "data_source": "gwen_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
       "score_fuzz": 0.84,
       "score_detection": 0.83,
-      "score_simulation": 0.3136058060706404,
-      "score_embedding": 0.7083999999999999
+      "score_simulation": null,
+      "score_embedding": 0.46124999999999994
     },
     {
       "data_source": "openai_e-llama_s",
@@ -121,7 +121,7 @@
       "score_fuzz": 0.975,
       "score_detection": 0.8,
       "score_simulation": null,
-      "score_embedding": null
+      "score_embedding": 0.286875
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

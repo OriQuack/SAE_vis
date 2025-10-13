@@ -1,5 +1,5 @@
 {
-  "created_at": "2025-10-13T11:47:02.081904",
+  "created_at": "2025-10-13T13:22:08.706349",
   "parquet_file": "data/master/semantic_similarity_pairwise.parquet",
   "total_rows": 2470,
   "unique_features": 824,

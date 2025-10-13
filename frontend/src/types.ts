@@ -118,6 +118,7 @@ export interface HistogramDataRequest {
   groupBy?: string  // Optional grouping field, e.g., 'llm_explainer'
   averageBy?: string | null  // Optional averaging field, e.g., 'llm_explainer' or 'llm_scorer'
   fixedDomain?: [number, number]  // Optional fixed domain for histogram bins, e.g., [0.0, 1.0]
+  selectedLLMExplainers?: string[]  // Optional list of 1 or 2 selected LLM explainers from LLM Comparison panel
 }
 
 export interface SankeyDataRequest {

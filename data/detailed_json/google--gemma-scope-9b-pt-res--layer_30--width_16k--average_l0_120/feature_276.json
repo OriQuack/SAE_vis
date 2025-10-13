@@ -57,15 +57,15 @@
       "score_fuzz": 0.6285714285714286,
       "score_detection": 0.55,
       "score_simulation": null,
-      "score_embedding": 0.5276000000000001
+      "score_embedding": 0.793125
     },
     {
       "data_source": "llama_e-gwen_s",
       "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "score_fuzz": 0.78,
       "score_detection": 0.63,
-      "score_simulation": 0.013110306986019265,
-      "score_embedding": 0.5456
+      "score_simulation": null,
+      "score_embedding": 0.7612
     },
     {
       "data_source": "openai_e-openai_s",
@@ -73,7 +73,7 @@
       "score_fuzz": 0.6857142857142857,
       "score_detection": 0.475,
       "score_simulation": null,
-      "score_embedding": null
+      "score_embedding": 0.8250000000000001
     },
     {
       "data_source": "openai_e-gwen_s",
@@ -81,15 +81,15 @@
       "score_fuzz": 0.7,
       "score_detection": 0.525,
       "score_simulation": null,
-      "score_embedding": null
+      "score_embedding": 0.8250000000000001
     },
     {
       "data_source": "llama_e-openai_s",
       "llm_scorer": "openai/gpt-oss-20b",
       "score_fuzz": 0.44,
       "score_detection": 0.44,
-      "score_simulation": 0.08755808305214316,
-      "score_embedding": 0.5456
+      "score_simulation": null,
+      "score_embedding": 0.7612
     },
     {
       "data_source": "gwen_e-gwen_s",
@@ -97,23 +97,23 @@
       "score_fuzz": 0.625,
       "score_detection": 0.575,
       "score_simulation": null,
-      "score_embedding": 0.5276000000000001
+      "score_embedding": 0.793125
     },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
       "score_fuzz": 0.76,
       "score_detection": 0.59,
-      "score_simulation": 0.09052602336019376,
-      "score_embedding": 0.5456
+      "score_simulation": null,
+      "score_embedding": 0.7612
     },
     {
       "data_source": "gwen_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
       "score_fuzz": 0.88,
       "score_detection": 0.72,
-      "score_simulation": 0.07433899222576158,
-      "score_embedding": 0.5276000000000001
+      "score_simulation": null,
+      "score_embedding": 0.793125
     },
     {
       "data_source": "openai_e-llama_s",
@@ -121,7 +121,7 @@
       "score_fuzz": 0.825,
       "score_detection": 0.675,
       "score_simulation": null,
-      "score_embedding": null
+      "score_embedding": 0.8250000000000001
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

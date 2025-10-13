@@ -101,9 +101,10 @@ export async function getFeaturesInThreshold(
   filters: Filters,
   metric: string,
   minValue: number,
-  maxValue: number
+  maxValue: number,
+  selectedLLMExplainers?: string[]
 ): Promise<{ feature_ids: number[]; total_count: number }> {
-  console.log('[getFeaturesInThreshold] Request:', { filters, metric, minValue, maxValue })
+  console.log('[getFeaturesInThreshold] Request:', { filters, metric, minValue, maxValue, selectedLLMExplainers })
 
   const response = await fetch(`${API_BASE}/features-in-threshold`, {
     method: 'POST',
@@ -112,7 +113,8 @@ export async function getFeaturesInThreshold(
       filters,
       metric,
       min_value: minValue,
-      max_value: maxValue
+      max_value: maxValue,
+      ...(selectedLLMExplainers && selectedLLMExplainers.length > 0 && { selectedLLMExplainers })
     })
   })
 
@@ -136,14 +138,18 @@ export async function healthCheck(): Promise<boolean> {
 }
 
 export async function getFilteredHistogramPanelData(
-  featureIds: number[]
+  featureIds: number[],
+  selectedLLMExplainers?: string[]
 ): Promise<Record<string, HistogramData>> {
   const response = await fetch(`${API_BASE}/histogram-panel-data-filtered`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ featureIds })
+    body: JSON.stringify({
+      featureIds,
+      ...(selectedLLMExplainers && selectedLLMExplainers.length > 0 && { selectedLLMExplainers })
+    })
   })
   if (!response.ok) {
     const errorText = await response.text()

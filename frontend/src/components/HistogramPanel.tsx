@@ -476,6 +476,7 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
   const isCreatingGroup = useVisualizationStore(state => state.isCreatingGroup)
   const pendingGroup = useVisualizationStore(state => state.pendingGroup)
   const activeSelection = useVisualizationStore(state => state.activeSelection)
+  const selectedLLMExplainers = useVisualizationStore(state => state.selectedLLMExplainers)
   const { fetchHistogramPanelData, startSelection, updateSelection, completeSelection, removeThresholdForMetric } = useVisualizationStore()
 
   // Get all visible selections from groups
@@ -512,10 +513,10 @@ export const HistogramPanel: React.FC<HistogramPanelProps> = ({ className = '' }
     return () => window.removeEventListener('resize', updateSize)
   }, [])
 
-  // Fetch data on mount
+  // Fetch data on mount and when selectedLLMExplainers changes
   useEffect(() => {
     fetchHistogramPanelData()
-  }, [fetchHistogramPanelData])
+  }, [fetchHistogramPanelData, selectedLLMExplainers])
 
   // Calculate individual histogram dimensions
   const histogramHeight = useMemo(() => {

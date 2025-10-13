@@ -40,7 +40,6 @@
     "scoring_methods": [
         "fuzz",
         "detection",
-        "simulation",
         "embedding"
     ],
     "output_filename": "scores.json",

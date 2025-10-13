@@ -60,7 +60,8 @@ async def get_features_in_threshold(
             filters=request.filters,
             metric=request.metric,
             min_value=request.min_value,
-            max_value=request.max_value
+            max_value=request.max_value,
+            selected_llm_explainers=request.selectedLLMExplainers
         )
 
         return ThresholdFeatureResponse(

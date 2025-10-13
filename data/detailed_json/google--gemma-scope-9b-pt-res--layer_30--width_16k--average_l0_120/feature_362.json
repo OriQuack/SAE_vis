@@ -57,15 +57,15 @@
       "score_fuzz": 0.8,
       "score_detection": 0.575,
       "score_simulation": null,
-      "score_embedding": 0.8156
+      "score_embedding": 0.378125
     },
     {
       "data_source": "llama_e-gwen_s",
       "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "score_fuzz": 0.7,
       "score_detection": 0.54,
-      "score_simulation": 0.19998263168363067,
-      "score_embedding": 0.9171999999999999
+      "score_simulation": null,
+      "score_embedding": 0.4236
     },
     {
       "data_source": "openai_e-openai_s",
@@ -73,7 +73,7 @@
       "score_fuzz": 0.7714285714285715,
       "score_detection": 0.525,
       "score_simulation": null,
-      "score_embedding": null
+      "score_embedding": 0.42812500000000003
     },
     {
       "data_source": "openai_e-gwen_s",
@@ -81,15 +81,15 @@
       "score_fuzz": 0.7,
       "score_detection": 0.475,
       "score_simulation": null,
-      "score_embedding": null
+      "score_embedding": 0.42812500000000003
     },
     {
       "data_source": "llama_e-openai_s",
       "llm_scorer": "openai/gpt-oss-20b",
       "score_fuzz": 0.7333333333333333,
       "score_detection": 0.5,
-      "score_simulation": 0.19319905700869344,
-      "score_embedding": 0.9171999999999999
+      "score_simulation": null,
+      "score_embedding": 0.4236
     },
     {
       "data_source": "gwen_e-gwen_s",
@@ -97,23 +97,23 @@
       "score_fuzz": 0.65,
       "score_detection": 0.525,
       "score_simulation": null,
-      "score_embedding": 0.8156
+      "score_embedding": 0.378125
     },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
       "score_fuzz": 0.8,
       "score_detection": 0.67,
-      "score_simulation": 0.15452722206356018,
-      "score_embedding": 0.9171999999999999
+      "score_simulation": null,
+      "score_embedding": 0.4236
     },
     {
       "data_source": "gwen_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
       "score_fuzz": 0.81,
       "score_detection": 0.57,
-      "score_simulation": 0.15148541104092458,
-      "score_embedding": 0.8156
+      "score_simulation": null,
+      "score_embedding": 0.378125
     },
     {
       "data_source": "openai_e-llama_s",
@@ -121,7 +121,7 @@
       "score_fuzz": 0.8,
       "score_detection": 0.625,
       "score_simulation": null,
-      "score_embedding": null
+      "score_embedding": 0.42812500000000003
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

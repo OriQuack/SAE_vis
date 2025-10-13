@@ -12,7 +12,7 @@ import json
 import argparse
 import numpy as np
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict
 from datetime import datetime
 from collections import defaultdict
 
@@ -82,25 +82,25 @@ def calculate_rv_coefficient(X: np.ndarray, Y: np.ndarray) -> float:
     return float(np.clip(rv, 0.0, 1.0))  # Ensure in [0, 1] range
 
 
-def calculate_explainer_consistency(semantic_distances_dir: Path, sae_id: str) -> Dict[str, float]:
+def calculate_explainer_consistency(semantic_similarities_dir: Path, sae_id: str) -> Dict[str, float]:
     """
-    Calculate explainer consistency from semantic distances.
+    Calculate explainer consistency from semantic similarities.
 
-    Returns dictionary with pairwise consistency scores (1 - cosine_distance).
+    Returns dictionary with pairwise consistency scores (cosine similarity).
     """
     print("\n=== Calculating Explainer Consistency ===")
 
-    # Find semantic distances directory
-    distances_files = list(semantic_distances_dir.glob("**/semantic_distances.json"))
+    # Find semantic similarities directory
+    similarities_files = list(semantic_similarities_dir.glob("**/semantic_similarities.json"))
 
-    if not distances_files:
-        raise FileNotFoundError(f"No semantic_distances.json found in {semantic_distances_dir}")
+    if not similarities_files:
+        raise FileNotFoundError(f"No semantic_similarities.json found in {semantic_similarities_dir}")
 
-    # Load the semantic distances file
-    distances_file = distances_files[0]  # Should be only one for this SAE
-    print(f"Loading: {distances_file}")
+    # Load the semantic similarities file
+    similarities_file = similarities_files[0]  # Should be only one for this SAE
+    print(f"Loading: {similarities_file}")
 
-    with open(distances_file, 'r') as f:
+    with open(similarities_file, 'r') as f:
         data = json.load(f)
 
     # Verify SAE ID matches
@@ -108,26 +108,26 @@ def calculate_explainer_consistency(semantic_distances_dir: Path, sae_id: str) -
     if metadata.get("sae_id_1") != sae_id:
         raise ValueError(f"SAE ID mismatch: expected {sae_id}, got {metadata.get('sae_id_1')}")
 
-    # Extract pairwise distances
-    pairwise_distances = data.get("pairwise_distances", {})
+    # Extract pairwise similarities
+    pairwise_similarities = data.get("pairwise_similarities", {})
 
     consistency_scores = {}
 
-    for pair_name, pair_data in pairwise_distances.items():
+    for pair_name, pair_data in pairwise_similarities.items():
         source1 = pair_data.get("data_source_1", "")
         source2 = pair_data.get("data_source_2", "")
-        distances = pair_data.get("distances", {})
+        similarities = pair_data.get("similarities", {})
 
-        # Calculate mean cosine distance across all features
-        cosine_distances = [
-            d["distances"]["cosine"]
-            for d in distances.values()
-            if d.get("distances", {}).get("cosine") is not None
+        # Calculate mean cosine similarity across all features
+        cosine_similarities = [
+            d["similarities"]["cosine"]
+            for d in similarities.values()
+            if d.get("similarities", {}).get("cosine") is not None
         ]
 
-        if cosine_distances:
-            mean_distance = sum(cosine_distances) / len(cosine_distances)
-            consistency = 1.0 - mean_distance  # Convert distance to similarity
+        if cosine_similarities:
+            mean_similarity = sum(cosine_similarities) / len(cosine_similarities)
+            consistency = mean_similarity  # Similarity is already the consistency score
 
             # Create readable key
             source1_short = source1.split("_e-")[0]  # e.g., "llama"
@@ -135,7 +135,7 @@ def calculate_explainer_consistency(semantic_distances_dir: Path, sae_id: str) -
             key = f"{source1_short}_vs_{source2_short}"
 
             consistency_scores[key] = round(consistency, 4)
-            print(f"  {key}: {consistency:.4f} (from {len(cosine_distances)} features)")
+            print(f"  {key}: {consistency:.4f} (from {len(cosine_similarities)} features)")
 
     return consistency_scores
 
@@ -237,7 +237,6 @@ def calculate_scorer_consistency(scores_by_explainer_scorer: Dict[str, Dict[str,
     print("\n=== Calculating Scorer Consistency ===")
 
     consistency_scores = {}
-    scorers = ["llama", "gwen", "openai"]
 
     for explainer, scorer_data in scores_by_explainer_scorer.items():
         consistency_scores[explainer] = {}
@@ -329,13 +328,13 @@ def main():
     print(f"Processing SAE ID: {sae_id}")
 
     # Setup paths
-    semantic_distances_dir = project_root / config["semantic_distances_dir"]
+    semantic_similarities_dir = project_root / config["semantic_similarities_dir"]
     detailed_json_dir = project_root / config["detailed_json_dir"]
     output_dir = project_root / config["output_dir"]
     output_filename = config["output_filename"]
 
     # Calculate explainer consistency
-    explainer_consistency = calculate_explainer_consistency(semantic_distances_dir, sae_id)
+    explainer_consistency = calculate_explainer_consistency(semantic_similarities_dir, sae_id)
 
     # Load scores
     scores_by_explainer_scorer = load_scores_by_explainer_scorer(detailed_json_dir, sae_id)

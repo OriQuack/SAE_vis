@@ -57,15 +57,15 @@
       "score_fuzz": 0.75,
       "score_detection": 0.65,
       "score_simulation": null,
-      "score_embedding": null
+      "score_embedding": 0.631875
     },
     {
       "data_source": "llama_e-gwen_s",
       "llm_scorer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "score_fuzz": 0.7,
       "score_detection": 0.69,
-      "score_simulation": 0.3227443064583149,
-      "score_embedding": null
+      "score_simulation": null,
+      "score_embedding": 0.5752
     },
     {
       "data_source": "openai_e-openai_s",
@@ -73,7 +73,7 @@
       "score_fuzz": 0.5,
       "score_detection": 0.45714285714285713,
       "score_simulation": null,
-      "score_embedding": null
+      "score_embedding": 0.3425
     },
     {
       "data_source": "openai_e-gwen_s",
@@ -81,15 +81,15 @@
       "score_fuzz": 0.4,
       "score_detection": 0.4,
       "score_simulation": null,
-      "score_embedding": null
+      "score_embedding": 0.3425
     },
     {
       "data_source": "llama_e-openai_s",
       "llm_scorer": "openai/gpt-oss-20b",
-      "score_fuzz": 0.6533333333333333,
-      "score_detection": 0.7066666666666667,
-      "score_simulation": 0.36048959133661224,
-      "score_embedding": null
+      "score_fuzz": 0.675,
+      "score_detection": 0.625,
+      "score_simulation": null,
+      "score_embedding": 0.5752
     },
     {
       "data_source": "gwen_e-gwen_s",
@@ -97,23 +97,23 @@
       "score_fuzz": 0.775,
       "score_detection": 0.75,
       "score_simulation": null,
-      "score_embedding": null
+      "score_embedding": 0.631875
     },
     {
       "data_source": "llama_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
       "score_fuzz": 0.74,
       "score_detection": 0.73,
-      "score_simulation": -0.011262850345213812,
-      "score_embedding": null
+      "score_simulation": null,
+      "score_embedding": 0.5752
     },
     {
       "data_source": "gwen_e-llama_s",
       "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
       "score_fuzz": 0.8,
       "score_detection": 0.7,
-      "score_simulation": -0.0038189388930842424,
-      "score_embedding": null
+      "score_simulation": null,
+      "score_embedding": 0.631875
     },
     {
       "data_source": "openai_e-llama_s",
@@ -121,7 +121,7 @@
       "score_fuzz": 0.5,
       "score_detection": 0.5,
       "score_simulation": null,
-      "score_embedding": null
+      "score_embedding": 0.3425
     }
   ],
   "activating_examples": "TODO: Not implemented yet"

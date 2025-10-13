@@ -39,6 +39,10 @@ class  HistogramRequest(BaseModel):
         default=None,
         description="Optional fixed domain [min, max] for histogram bins (e.g., [0.0, 1.0] for score metrics)"
     )
+    selectedLLMExplainers: Optional[List[str]] = Field(
+        default=None,
+        description="Optional list of selected LLM explainers (1 or 2) for filtered histogram computation. When provided, computes LLM-specific metrics using pairwise similarity data."
+    )
 
 class SankeyRequest(BaseModel):
     """Request model for Sankey diagram data endpoint"""
@@ -80,6 +84,10 @@ class ThresholdFeatureRequest(BaseModel):
         ...,
         description="Maximum threshold value (inclusive)"
     )
+    selectedLLMExplainers: Optional[List[str]] = Field(
+        default=None,
+        description="Optional list of selected LLM explainers (1 or 2) for filtered feature ID retrieval"
+    )
 
 class FilteredHistogramPanelRequest(BaseModel):
     """Request model for filtered histogram panel data endpoint"""
@@ -92,6 +100,10 @@ class FilteredHistogramPanelRequest(BaseModel):
         ge=5,
         le=100,
         description="Number of histogram bins"
+    )
+    selectedLLMExplainers: Optional[List[str]] = Field(
+        default=None,
+        description="Optional list of selected LLM explainers (1 or 2) for filtered histogram computation"
     )
 
 class LLMComparisonRequest(BaseModel):
