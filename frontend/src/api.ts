@@ -8,9 +8,10 @@ import type {
   ComparisonDataRequest,
   FeatureDetail,
   Filters,
-  LLMComparisonData,
   UMAPDataRequest,
-  UMAPDataResponse
+  UMAPDataResponse,
+  TableDataRequest,
+  FeatureTableDataResponse
 } from './types'
 
 // ============================================================================
@@ -24,8 +25,8 @@ const API_ENDPOINTS = {
   SANKEY_DATA: "/sankey-data",
   COMPARISON_DATA: "/comparison-data",
   FEATURE_DETAIL: "/feature",
-  LLM_COMPARISON: "/llm-comparison",
-  UMAP_DATA: "/umap-data"
+  UMAP_DATA: "/umap-data",
+  TABLE_DATA: "/table-data"
 } as const
 
 const API_BASE = API_BASE_URL
@@ -97,37 +98,6 @@ export async function getFeatureDetail(featureId: number, params: Partial<Filter
   return response.json()
 }
 
-export async function getFeaturesInThreshold(
-  filters: Filters,
-  metric: string,
-  minValue: number,
-  maxValue: number,
-  selectedLLMExplainers?: string[]
-): Promise<{ feature_ids: number[]; total_count: number }> {
-  console.log('[getFeaturesInThreshold] Request:', { filters, metric, minValue, maxValue, selectedLLMExplainers })
-
-  const response = await fetch(`${API_BASE}/features-in-threshold`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      filters,
-      metric,
-      min_value: minValue,
-      max_value: maxValue,
-      ...(selectedLLMExplainers && selectedLLMExplainers.length > 0 && { selectedLLMExplainers })
-    })
-  })
-
-  if (!response.ok) {
-    console.error('[getFeaturesInThreshold] Error:', response.status, response.statusText)
-    throw new Error(`Failed to fetch features in threshold: ${response.status}`)
-  }
-
-  const result = await response.json()
-  console.log('[getFeaturesInThreshold] Response:', result)
-  return result
-}
-
 export async function healthCheck(): Promise<boolean> {
   try {
     const response = await fetch('/health')
@@ -135,43 +105,6 @@ export async function healthCheck(): Promise<boolean> {
   } catch {
     return false
   }
-}
-
-export async function getFilteredHistogramPanelData(
-  featureIds: number[],
-  selectedLLMExplainers?: string[]
-): Promise<Record<string, HistogramData>> {
-  const response = await fetch(`${API_BASE}/histogram-panel-data-filtered`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      featureIds,
-      ...(selectedLLMExplainers && selectedLLMExplainers.length > 0 && { selectedLLMExplainers })
-    })
-  })
-  if (!response.ok) {
-    const errorText = await response.text()
-    console.error('Filtered histogram panel API error:', response.status, errorText)
-    throw new Error(`Failed to fetch filtered histogram panel data: ${response.status} - ${errorText}`)
-  }
-  const data = await response.json()
-  return data.histograms  // Extract histograms dict from response
-}
-
-export async function getLLMComparisonData(filters: Filters = {}): Promise<LLMComparisonData> {
-  const response = await fetch(`${API_BASE}${API_ENDPOINTS.LLM_COMPARISON}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ filters })
-  })
-  if (!response.ok) {
-    throw new Error(`Failed to fetch LLM comparison data: ${response.status}`)
-  }
-  return response.json()
 }
 
 export async function getUMAPData(request: UMAPDataRequest): Promise<UMAPDataResponse> {
@@ -186,6 +119,22 @@ export async function getUMAPData(request: UMAPDataRequest): Promise<UMAPDataRes
     const errorText = await response.text()
     console.error('UMAP API error:', response.status, errorText)
     throw new Error(`Failed to fetch UMAP data: ${response.status} - ${errorText}`)
+  }
+  return response.json()
+}
+
+export async function getTableData(request: TableDataRequest): Promise<FeatureTableDataResponse> {
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.TABLE_DATA}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request)
+  })
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('Table API error:', response.status, errorText)
+    throw new Error(`Failed to fetch table data: ${response.status} - ${errorText}`)
   }
   return response.json()
 }

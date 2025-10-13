@@ -1,120 +1,12 @@
-import React, { useMemo } from 'react'
-import { NEUTRAL_ICON_COLORS, METRIC_COLORS, LLM_EXPLAINER_ICON_SVG, LLM_SCORER_ICON_SVG } from '../lib/constants'
-import { calculateFlowLayout, getIconTransform, splitLabel, type FlowNode } from '../lib/d3-flow-utils'
+import React, { useMemo, useState } from 'react'
+import { NEUTRAL_ICON_COLORS, METRIC_COLORS } from '../lib/constants'
+import { calculateFlowLayout, splitLabel, type FlowNode } from '../lib/d3-flow-utils'
+import { useVisualizationStore } from '../store'
 import '../styles/FlowPanel.css'
 
 // ============================================================================
-// ICON COMPONENTS - Cute SVG icons for each SAE method
+// NODE STYLING FUNCTIONS
 // ============================================================================
-
-const LLMExplainerIcon: React.FC = () => (
-  <svg viewBox="0 0 100 100" className="flow-icon" dangerouslySetInnerHTML={{ __html: LLM_EXPLAINER_ICON_SVG }} />
-)
-
-const LLMScorerIcon: React.FC = () => (
-  <svg viewBox="0 0 100 100" className="flow-icon" dangerouslySetInnerHTML={{ __html: LLM_SCORER_ICON_SVG }} />
-)
-
-const DecoderIcon: React.FC = () => (
-  <svg viewBox="0 0 100 100" className="flow-icon">
-    {/* Simplified 3-layer neural network - neutral colors */}
-    {/* Input layer (3 nodes) */}
-    <circle cx="30" cy="35" r="6" fill="white" stroke={NEUTRAL_ICON_COLORS.ICON_FILL} strokeWidth="2" />
-    <circle cx="30" cy="50" r="6" fill="white" stroke={NEUTRAL_ICON_COLORS.ICON_FILL} strokeWidth="2" />
-    <circle cx="30" cy="65" r="6" fill="white" stroke={NEUTRAL_ICON_COLORS.ICON_FILL} strokeWidth="2" />
-
-    {/* Output layer (2 nodes) */}
-    <circle cx="70" cy="42" r="6" fill="white" stroke={NEUTRAL_ICON_COLORS.ICON_FILL} strokeWidth="2" />
-    <circle cx="70" cy="58" r="6" fill="white" stroke={NEUTRAL_ICON_COLORS.ICON_FILL} strokeWidth="2" />
-
-    {/* Connections - simplified */}
-    <line x1="36" y1="35" x2="64" y2="42" stroke={NEUTRAL_ICON_COLORS.ICON_LIGHT} strokeWidth="2" />
-    <line x1="36" y1="50" x2="64" y2="42" stroke={NEUTRAL_ICON_COLORS.ICON_LIGHT} strokeWidth="2" />
-    <line x1="36" y1="65" x2="64" y2="42" stroke={NEUTRAL_ICON_COLORS.ICON_LIGHT} strokeWidth="2" />
-
-    <line x1="36" y1="35" x2="64" y2="58" stroke={NEUTRAL_ICON_COLORS.ICON_LIGHT} strokeWidth="2" />
-    <line x1="36" y1="50" x2="64" y2="58" stroke={NEUTRAL_ICON_COLORS.ICON_LIGHT} strokeWidth="2" />
-    <line x1="36" y1="65" x2="64" y2="58" stroke={NEUTRAL_ICON_COLORS.ICON_LIGHT} strokeWidth="2" />
-  </svg>
-)
-
-const EmbeddingIcon: React.FC = () => (
-  <svg viewBox="0 0 100 100" className="flow-icon">
-    {/* Simplified hub/vector icon - neutral colors */}
-    {/* Center hub */}
-    <circle cx="50" cy="50" r="6" fill="white" stroke={NEUTRAL_ICON_COLORS.ICON_FILL} strokeWidth="2" />
-
-    {/* Outer nodes (6 directions) */}
-    <circle cx="50" cy="25" r="5" fill="white" stroke={NEUTRAL_ICON_COLORS.ICON_FILL} strokeWidth="2" />
-    <circle cx="71" cy="38" r="5" fill="white" stroke={NEUTRAL_ICON_COLORS.ICON_FILL} strokeWidth="2" />
-    <circle cx="71" cy="62" r="5" fill="white" stroke={NEUTRAL_ICON_COLORS.ICON_FILL} strokeWidth="2" />
-    <circle cx="50" cy="75" r="5" fill="white" stroke={NEUTRAL_ICON_COLORS.ICON_FILL} strokeWidth="2" />
-    <circle cx="29" cy="62" r="5" fill="white" stroke={NEUTRAL_ICON_COLORS.ICON_FILL} strokeWidth="2" />
-    <circle cx="29" cy="38" r="5" fill="white" stroke={NEUTRAL_ICON_COLORS.ICON_FILL} strokeWidth="2" />
-
-    {/* Connection lines */}
-    <line x1="50" y1="44" x2="50" y2="30" stroke={NEUTRAL_ICON_COLORS.ICON_LIGHT} strokeWidth="2" />
-    <line x1="55" y1="46" x2="66" y2="40" stroke={NEUTRAL_ICON_COLORS.ICON_LIGHT} strokeWidth="2" />
-    <line x1="55" y1="54" x2="66" y2="60" stroke={NEUTRAL_ICON_COLORS.ICON_LIGHT} strokeWidth="2" />
-    <line x1="50" y1="56" x2="50" y2="70" stroke={NEUTRAL_ICON_COLORS.ICON_LIGHT} strokeWidth="2" />
-    <line x1="45" y1="54" x2="34" y2="60" stroke={NEUTRAL_ICON_COLORS.ICON_LIGHT} strokeWidth="2" />
-    <line x1="45" y1="46" x2="34" y2="40" stroke={NEUTRAL_ICON_COLORS.ICON_LIGHT} strokeWidth="2" />
-  </svg>
-)
-
-// ============================================================================
-// METHOD ITEM COMPONENT
-// ============================================================================
-
-// interface MethodItemProps {
-//   icon: React.ReactNode
-//   title: string
-//   color: string
-//   badge?: string
-// }
-
-// const MethodItem: React.FC<MethodItemProps> = ({ icon, title, color, badge }) => (
-//   <div className="method-item">
-//     <div className="method-item__icon-container" style={{ backgroundColor: `${color}15`, position: 'relative' }}>
-//       {icon}
-//       {badge && (
-//         <div className="method-item__badge" style={{ backgroundColor: color }}>
-//           {badge}
-//         </div>
-//       )}
-//     </div>
-//     <span className="method-item__label" style={{ color }}>{title}</span>
-//   </div>
-// )
-
-// ============================================================================
-// ICON RENDERER - Renders icon based on node type
-// ============================================================================
-
-const renderIconForNode = (node: FlowNode) => {
-  switch (node.iconType) {
-    case 'decoder':
-      return <DecoderIcon />
-    case 'explainer':
-      return <LLMExplainerIcon />
-    case 'scorer':
-      return <LLMScorerIcon />
-    case 'embedder':
-      return <EmbeddingIcon />
-    default:
-      return null
-  }
-}
-
-const getIconBorderColor = () => {
-  // Use neutral colors for all icon borders to avoid competing with data visualization
-  return NEUTRAL_ICON_COLORS.BORDER_MEDIUM
-}
-
-const getIconBackgroundColor = () => {
-  // Use neutral light background for all icons to avoid competing with data visualization
-  return NEUTRAL_ICON_COLORS.BACKGROUND_LIGHT
-}
 
 const getTextNodeBackgroundColor = (nodeId: string) => {
   // Feature splitting - dark bluish green with opacity
@@ -141,7 +33,12 @@ const getTextNodeBackgroundColor = (nodeId: string) => {
   if (nodeId === 'activating-example') {
     return 'white'
   }
-  // Default (Feature node)
+  // Special nodes - gray background
+  if (nodeId === 'feature' || nodeId === 'decoder' || nodeId === 'embedder' ||
+      nodeId === 'llm-explainer-container' || nodeId === 'llm-scorer-container') {
+    return '#e2e8f0'
+  }
+  // Default (ordinary nodes)
   return '#f8fafc'
 }
 
@@ -153,7 +50,7 @@ const getTextNodeFontSize = (nodeId: string) => {
   // Medium font for final output nodes
   if (nodeId === 'feature-splitting' || nodeId === 'semantic-similarity' || nodeId === 'embedding-score' ||
       nodeId === 'fuzz-score' || nodeId === 'detection-score') {
-    return '12'
+    return '13'
   }
   // Default size for other nodes
   return '16'
@@ -181,70 +78,68 @@ const getArrowMarker = () => {
   return 'url(#arrow-gray)'
 }
 
-const getBadgeText = (iconType?: string) => {
-  switch (iconType) {
-    case 'decoder':
-      return '×1'
-    case 'embedder':
-      return '×1'
-    case 'scorer':
-      return '×3'
-    case 'explainer':
-      return '×3'
-    default:
-      return null
-  }
-}
 
-const getBadgeColor = () => {
-  // Use neutral dark gray for all badges to avoid competing with data visualization
-  return NEUTRAL_ICON_COLORS.BADGE_BACKGROUND
-}
 
 // ============================================================================
 // MAIN FLOW PANEL COMPONENT
 // ============================================================================
 
 const FlowPanel: React.FC = () => {
-  // Calculate layout once - no dynamic resizing needed
-  const flowLayout = useMemo(() => calculateFlowLayout(), [])
+  // Get filter options and selected filters from store
+  const filterOptions = useVisualizationStore(state => state.filterOptions)
+  const leftPanelFilters = useVisualizationStore(state => state.leftPanel.filters)
+  const rightPanelFilters = useVisualizationStore(state => state.rightPanel.filters)
+  const setFilters = useVisualizationStore(state => state.setFilters)
+
+  // Hover state for list items
+  const [hoveredItem, setHoveredItem] = useState<string | null>(null)
+
+  // Get available explainer and scorer options
+  const explainerOptions = filterOptions?.llm_explainer || []
+  const scorerOptions = filterOptions?.llm_scorer || []
+
+  // Get selected items from both panels
+  const selectedExplainers = new Set([
+    ...(leftPanelFilters.llm_explainer || []),
+    ...(rightPanelFilters.llm_explainer || [])
+  ])
+  const selectedScorers = new Set([
+    ...(leftPanelFilters.llm_scorer || []),
+    ...(rightPanelFilters.llm_scorer || [])
+  ])
+
+  // Calculate layout with LLM options
+  const flowLayout = useMemo(
+    () => calculateFlowLayout(explainerOptions, scorerOptions),
+    [explainerOptions, scorerOptions]
+  )
+
+  // Handle list item click
+  const handleListItemClick = (llmType: 'explainer' | 'scorer', llmId: string) => {
+    const filterKey = llmType === 'explainer' ? 'llm_explainer' : 'llm_scorer'
+    const leftSelected = leftPanelFilters[filterKey] || []
+    const rightSelected = rightPanelFilters[filterKey] || []
+    const allSelected = new Set([...leftSelected, ...rightSelected])
+
+    const isSelected = allSelected.has(llmId)
+
+    if (isSelected) {
+      // Remove from both panels
+      setFilters({ [filterKey]: leftSelected.filter(v => v !== llmId) }, 'left')
+      setFilters({ [filterKey]: rightSelected.filter(v => v !== llmId) }, 'right')
+    } else {
+      // Add to left panel if nothing selected, otherwise add to right panel
+      if (leftSelected.length === 0) {
+        setFilters({ [filterKey]: [llmId] }, 'left')
+      } else {
+        setFilters({ [filterKey]: [...rightSelected, llmId] }, 'right')
+      }
+    }
+  }
 
   return (
     <div className="flow-panel">
-      {/* Left: Method Icons Grid
-      <div className="flow-panel__icons">
-        <div className="flow-panel__row">
-          <MethodItem
-            icon={<DecoderIcon />}
-            title="Decoder"
-            color={PAUL_TOL_BRIGHT.GREEN}
-            badge="16k"
-          />
-          <MethodItem
-            icon={<EmbeddingIcon />}
-            title="Embedding"
-            color={OKABE_ITO_PALETTE.REDDISH_PURPLE}
-            badge="1"
-          />
-        </div>
-
-        <div className="flow-panel__row">
-          <MethodItem
-            icon={<LLMScorerIcon />}
-            title="LLM Scorer"
-            color={OKABE_ITO_PALETTE.BLUE}
-            badge="3"
-          />
-          <MethodItem
-            icon={<LLMExplainerIcon />}
-            title="LLM Explainer"
-            color={OKABE_ITO_PALETTE.ORANGE}
-            badge="3"
-          />
-        </div>
-      </div> */}
-
-      {/* Right: D3-Calculated Flowchart */}
+      {/* D3-Calculated Flowchart */}
       <div className="flow-panel__chart">
         <svg viewBox="0 0 600 175" preserveAspectRatio="xMidYMid meet">
           <defs>
@@ -261,6 +156,35 @@ const FlowPanel: React.FC = () => {
               <path d="M 0 0 L 10 5 L 0 10 z" fill={NEUTRAL_ICON_COLORS.ICON_FILL} opacity="1.0" />
             </marker>
           </defs>
+
+          {/* Render container nodes first (bottom layer) */}
+          {flowLayout.nodes.filter(node =>
+            node.id === 'llm-explainer-container' || node.id === 'llm-scorer-container'
+          ).map((node) => (
+            <g key={node.id}>
+              <rect
+                x={node.x}
+                y={node.y}
+                width={node.width}
+                height={node.height}
+                rx="6"
+                fill={getTextNodeBackgroundColor(node.id)}
+                stroke="#94a3b8"
+                strokeWidth="1.5"
+                strokeDasharray="4 2"
+              />
+              <text
+                x={node.x + node.width / 2}
+                y={node.y + 15}
+                textAnchor="middle"
+                fontSize="14"
+                fill="#475569"
+                fontWeight="600"
+              >
+                {node.label}
+              </text>
+            </g>
+          ))}
 
           {/* Render edges (connections) */}
           {flowLayout.edges.map((edge) => (
@@ -291,51 +215,71 @@ const FlowPanel: React.FC = () => {
             </g>
           ))}
 
-          {/* Render nodes */}
-          {flowLayout.nodes.map((node) => (
-            <g key={node.id}>
-              {node.iconType ? (
-                <>
-                  {/* Icon node with embedded icon */}
-                  <rect
-                    x={node.x}
-                    y={node.y}
-                    width={node.width}
-                    height={node.height}
-                    rx="6"
-                    fill={getIconBackgroundColor()}
-                    stroke={getIconBorderColor()}
-                    strokeWidth="2"
-                  />
-                  <g transform={getIconTransform(node)}>
-                    {renderIconForNode(node)}
-                  </g>
-                  {/* Badge */}
-                  {getBadgeText(node.iconType) && (
-                    <>
+          {/* Render non-container nodes (top layer) */}
+          {flowLayout.nodes.filter(node =>
+            node.id !== 'llm-explainer-container' && node.id !== 'llm-scorer-container'
+          ).map((node) => {
+            // Check if this is a list item node
+            const isListItem = node.nodeType === 'list-item'
+            const isSelected = isListItem && node.llmId && (
+              node.llmType === 'explainer'
+                ? selectedExplainers.has(node.llmId)
+                : selectedScorers.has(node.llmId)
+            )
+
+            return (
+              <g key={node.id}>
+                {isListItem ? (
+                  <>
+                    {/* List item node (clickable LLM explainer/scorer) */}
+                    <g
+                      className="flow-panel__list-item"
+                      style={{
+                        cursor: 'pointer',
+                        opacity: hoveredItem === node.id ? 0.9 : 1
+                      }}
+                      onClick={() => node.llmType && node.llmId && handleListItemClick(node.llmType, node.llmId)}
+                      onMouseEnter={() => setHoveredItem(node.id)}
+                      onMouseLeave={() => setHoveredItem(null)}
+                    >
                       <rect
-                        x={node.x + node.width - 20}
-                        y={node.y - 10}
-                        width="24"
-                        height="18"
-                        rx="9"
-                        fill={getBadgeColor()}
+                        x={node.x}
+                        y={node.y}
+                        width={node.width}
+                        height={node.height}
+                        rx="3"
+                        fill={isSelected ? '#dbeafe' : '#f8fafc'}
+                        stroke={isSelected ? '#3b82f6' : '#cbd5e1'}
+                        strokeWidth={isSelected ? '2' : '1.5'}
                       />
                       <text
-                        x={node.x + node.width - 8}
-                        y={node.y - 1}
+                        x={node.x + node.width / 2}
+                        y={node.y + node.height / 2 + 1}
                         textAnchor="middle"
                         dominantBaseline="central"
-                        fontSize="10"
-                        fill="white"
-                        fontWeight="700"
+                        fontSize="11"
+                        fill={isSelected ? '#1e40af' : '#64748b'}
+                        fontWeight={isSelected ? '700' : '600'}
                       >
-                        {getBadgeText(node.iconType)}
+                        {node.label}
                       </text>
-                    </>
-                  )}
-                </>
-              ) : (
+                      {/* Selection indicator (checkmark) */}
+                      {isSelected && (
+                        <text
+                          x={node.x + node.width - 6}
+                          y={node.y + node.height / 2 + 1}
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          fontSize="10"
+                          fill="#3b82f6"
+                          fontWeight="700"
+                        >
+                          ✓
+                        </text>
+                      )}
+                    </g>
+                  </>
+                ) : (
                 <>
                   {/* Text node */}
                   {node.id === 'explanation-label' || node.id === 'score-label' || node.id === 'embedding-label' ? (
@@ -367,25 +311,29 @@ const FlowPanel: React.FC = () => {
                         ))}
                       </g>
                       {/* Badge for label nodes - horizontal (not rotated) */}
-                      <rect
-                        x={node.x + node.width / 2 - (node.id === 'score-label' ? 2 : 0)}
-                        y={node.y - (node.id === 'explanation-label' ? 50 : node.id === 'score-label' ? 30 : 45)}
-                        width={node.id === 'score-label' ? 32 : 28}
-                        height="18"
-                        rx="9"
-                        fill="#475569"
-                      />
-                      <text
-                        x={node.x + node.width / 2 + 14}
-                        y={node.y - (node.id === 'explanation-label' ? 41 : node.id === 'score-label' ? 21 : 36)}
-                        textAnchor="middle"
-                        dominantBaseline="central"
-                        fontSize="10"
-                        fill="white"
-                        fontWeight="700"
-                      >
-                        {node.id === 'explanation-label' ? '48k' : node.id === 'score-label' ? '144k' : node.id === 'embedding-label' ? '48k' : '3'}
-                      </text>
+                      {node.badge && (
+                        <>
+                          <rect
+                            x={node.badge.x}
+                            y={node.badge.y}
+                            width={node.badge.width}
+                            height={node.badge.height}
+                            rx={node.badge.rx}
+                            fill={node.badge.fill}
+                          />
+                          <text
+                            x={node.badge.textX}
+                            y={node.badge.textY}
+                            textAnchor="middle"
+                            dominantBaseline="central"
+                            fontSize="10"
+                            fill="white"
+                            fontWeight="700"
+                          >
+                            {node.badge.text}
+                          </text>
+                        </>
+                      )}
                     </>
                   ) : (
                     <>
@@ -413,36 +361,37 @@ const FlowPanel: React.FC = () => {
                           {line}
                         </text>
                       ))}
-                      {/* Badge for Feature node */}
-                      {node.id === 'feature' && (
+                      {/* Badge for node */}
+                      {node.badge && (
                         <>
                           <rect
-                            x={node.x + node.width - 20}
-                            y={node.y - 10}
-                            width="24"
-                            height="18"
-                            rx="9"
-                            fill="#475569"
+                            x={node.badge.x}
+                            y={node.badge.y}
+                            width={node.badge.width}
+                            height={node.badge.height}
+                            rx={node.badge.rx}
+                            fill={node.badge.fill}
                           />
                           <text
-                            x={node.x + node.width - 8}
-                            y={node.y-1}
+                            x={node.badge.textX}
+                            y={node.badge.textY}
                             textAnchor="middle"
                             dominantBaseline="central"
                             fontSize="10"
                             fill="white"
                             fontWeight="700"
                           >
-                            16k
+                            {node.badge.text}
                           </text>
                         </>
                       )}
                     </>
                   )}
                 </>
-              )}
-            </g>
-          ))}
+                )}
+              </g>
+            )
+          })}
         </svg>
       </div>
     </div>

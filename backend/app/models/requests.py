@@ -131,3 +131,10 @@ class UMAPDataRequest(BaseModel):
         default=True,
         description="Whether to include noise points in the response"
     )
+
+class TableDataRequest(BaseModel):
+    """Request model for table visualization data endpoint"""
+    filters: Filters = Field(
+        default_factory=lambda: Filters(),
+        description="Filter criteria for data subset"
+    )

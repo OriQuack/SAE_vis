@@ -1,0 +1,320 @@
+/* ============================================================================
+ * TABLE PANEL - Feature-Level Table with 3-Row Header
+ * ============================================================================ */
+
+.table-panel {
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0;
+  max-height: 600px;
+  display: block;
+  overflow: hidden;
+}
+
+/* Content Container - Fixed Height with Scrolling */
+.table-panel__content {
+  height: 500px;
+  overflow-x: auto;
+  overflow-y: scroll;
+  position: relative;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  display: block;
+}
+
+/* Force scrollbar to always show */
+.table-panel__content::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
+}
+
+.table-panel__content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.table-panel__content::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+  border: 2px solid #f1f1f1;
+}
+
+.table-panel__content::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Firefox scrollbar styling */
+.table-panel__content {
+  scrollbar-width: auto;
+  scrollbar-color: #888 #f1f1f1;
+}
+
+.table-panel__placeholder {
+  color: #6b7280;
+  font-size: 0.875rem;
+  font-style: italic;
+  text-align: center;
+  padding: 2rem;
+}
+
+/* ============================================================================
+ * TABLE STRUCTURE - Fixed Layout with Equal Column Widths
+ * ============================================================================ */
+
+.table-panel__table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+
+/* Sticky Header */
+.table-panel__thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.table-panel__thead tr {
+  background: white;
+}
+
+.table-panel__thead th {
+  position: relative;
+  background-clip: padding-box;
+}
+
+/* Scrollable Body */
+.table-panel__tbody {
+  display: table-row-group;
+}
+
+/* ============================================================================
+ * FEATURE ID COLUMN (First Column, Fixed Width)
+ * ============================================================================ */
+
+.table-panel__feature-id-header {
+  width: 30px;
+  min-width: 30px;
+  max-width: 30px;
+  font-weight: 600;
+  font-size: 10px;
+  color: #374151;
+  text-align: center;
+  background: #f9fafb;
+  border: 1px solid #d1d5db;
+  padding: 4px 0px;
+  vertical-align: middle;
+}
+
+.table-panel__feature-id-cell {
+  width: 30px;
+  min-width: 30px;
+  max-width: 30px;
+  font-weight: 400;
+  font-size: 9px;
+  color: #374151;
+  text-align: center;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  padding: 3px 0px;
+  vertical-align: middle;
+}
+
+/* ============================================================================
+ * HEADER ROW 1 - Explainer Names (Llama, Qwen, OpenAI)
+ * ============================================================================ */
+
+.table-panel__header-row-1 {
+  background: #f8fafc;
+}
+
+.table-panel__explainer-header {
+  font-weight: 700;
+  font-size: 12px;
+  color: #1e40af;
+  text-align: center;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 8px 6px;
+  vertical-align: middle;
+}
+
+/* ============================================================================
+ * HEADER ROW 2 - Metric Names (Embedding, Fuzz, Detection)
+ * ============================================================================ */
+
+.table-panel__header-row-2 {
+  background: #f8fafc;
+}
+
+.table-panel__metric-header {
+  font-weight: 600;
+  font-size: 10px;
+  color: #374151;
+  text-align: center;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  padding: 6px 4px;
+  vertical-align: middle;
+}
+
+/* ============================================================================
+ * HEADER ROW 3 - Scorer Labels (S1, S2, S3 or empty)
+ * ============================================================================ */
+
+.table-panel__header-row-3 {
+  background: #fafafa;
+}
+
+.table-panel__scorer-header {
+  font-weight: 500;
+  font-size: 9px;
+  color: #6b7280;
+  text-align: center;
+  background: #fafafa;
+  border: 1px solid #e5e7eb;
+  padding: 4px 2px;
+  vertical-align: middle;
+  cursor: help;
+}
+
+.table-panel__scorer-header:hover {
+  background: #f3f4f6;
+}
+
+/* ============================================================================
+ * TOOLTIP (Portal-based)
+ * ============================================================================ */
+
+.table-panel__tooltip {
+  position: fixed;
+  padding: 6px 10px;
+  background: #1f2937;
+  color: white;
+  font-size: 11px;
+  font-weight: 400;
+  white-space: nowrap;
+  border-radius: 4px;
+  z-index: 99999;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  max-width: 500px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.table-panel__tooltip-arrow {
+  position: fixed;
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid #1f2937;
+  z-index: 99999;
+  pointer-events: none;
+}
+
+/* ============================================================================
+ * DATA ROWS - Feature Rows
+ * ============================================================================ */
+
+.table-panel__feature-row {
+  border-bottom: 1px solid #f3f4f6;
+  transition: background-color 0.15s ease;
+}
+
+.table-panel__feature-row:hover {
+  background: #fafafa;
+}
+
+.table-panel__feature-row:last-child {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* ============================================================================
+ * SCORE CELLS - Equal Width, Monospace Font
+ * ============================================================================ */
+
+.table-panel__score-cell {
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 10px;
+  color: #374151;
+  text-align: center;
+  border: 1px solid #f3f4f6;
+  padding: 4px 2px;
+  vertical-align: middle;
+  background: white;
+  transition: background-color 0.1s ease;
+}
+
+.table-panel__score-cell:hover {
+  background: #f0f9ff;
+}
+
+/* ============================================================================
+ * RESPONSIVE ADJUSTMENTS
+ * ============================================================================ */
+
+@media (max-width: 1200px) {
+  .table-panel__table {
+    font-size: 11px;
+  }
+
+  .table-panel__explainer-header {
+    font-size: 12px;
+    padding: 8px 6px;
+  }
+
+  .table-panel__metric-header {
+    font-size: 11px;
+    padding: 6px 4px;
+  }
+
+  .table-panel__scorer-header {
+    font-size: 10px;
+    padding: 5px 3px;
+  }
+
+  .table-panel__score-cell {
+    font-size: 11px;
+    padding: 5px 3px;
+  }
+}
+
+@media (max-width: 768px) {
+  .table-panel__table {
+    font-size: 10px;
+  }
+
+  .table-panel__feature-id-header,
+  .table-panel__feature-id-cell {
+    width: 28px;
+    min-width: 28px;
+    max-width: 28px;
+  }
+
+  .table-panel__explainer-header {
+    font-size: 11px;
+    padding: 6px 4px;
+  }
+
+  .table-panel__metric-header {
+    font-size: 10px;
+    padding: 5px 3px;
+  }
+
+  .table-panel__scorer-header {
+    font-size: 9px;
+    padding: 4px 2px;
+  }
+
+  .table-panel__score-cell {
+    font-size: 10px;
+    padding: 4px 2px;
+  }
+}

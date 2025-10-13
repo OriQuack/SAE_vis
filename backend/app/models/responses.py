@@ -418,3 +418,31 @@ class UMAPDataResponse(BaseModel):
     features: List[UMAPPoint] = Field(..., description="Feature UMAP points")
     explanations: List[UMAPPoint] = Field(..., description="Explanation UMAP points")
     metadata: UMAPMetadata = Field(..., description="Response metadata")
+
+class ScorerScoreSet(BaseModel):
+    """Score set for each scorer (s1, s2, s3)"""
+    s1: Optional[float] = Field(None, description="Score for scorer 1")
+    s2: Optional[float] = Field(None, description="Score for scorer 2")
+    s3: Optional[float] = Field(None, description="Score for scorer 3")
+
+class ExplainerScoreData(BaseModel):
+    """Scores for a single explainer (embedding + fuzz/detection per scorer)"""
+    embedding: Optional[float] = Field(None, description="Embedding score for this explainer")
+    fuzz: ScorerScoreSet = Field(..., description="Fuzz scores for each scorer (s1, s2, s3)")
+    detection: ScorerScoreSet = Field(..., description="Detection scores for each scorer (s1, s2, s3)")
+
+class FeatureTableRow(BaseModel):
+    """Single feature row with scores for all explainers"""
+    feature_id: int = Field(..., ge=0, description="Feature ID")
+    explainers: Dict[str, ExplainerScoreData] = Field(
+        ...,
+        description="Scores for each explainer (llama, qwen, openai)"
+    )
+
+class FeatureTableDataResponse(BaseModel):
+    """Response model for feature-level table visualization data (824 rows)"""
+    features: List[FeatureTableRow] = Field(..., description="Feature-level rows (one per feature_id)")
+    total_features: int = Field(..., ge=0, description="Total number of features")
+    explainer_ids: List[str] = Field(..., description="List of explainer IDs present in data")
+    scorer_ids: List[str] = Field(..., description="List of scorer IDs present in data (for S1, S2, S3 labels)")
+    is_averaged: bool = Field(default=False, description="Whether scores are averaged across scorers (when multiple explainers selected)")

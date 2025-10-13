@@ -246,39 +246,6 @@ export interface FeatureDetail {
   details_path: string
 }
 
-// ============================================================================
-// LLM COMPARISON TYPES
-// ============================================================================
-
-export interface LLMExplainerModel {
-  id: string
-  name: string
-}
-
-export interface LLMScorerModel {
-  id: string
-  name: string
-  explainerSource: string
-}
-
-export interface ConsistencyScore {
-  value: number
-  method: 'cosine_similarity' | 'rv_coefficient'
-}
-
-export interface LLMComparisonData {
-  explainers: [LLMExplainerModel, LLMExplainerModel, LLMExplainerModel]
-  scorersForExplainer1: [LLMScorerModel, LLMScorerModel, LLMScorerModel]
-  scorersForExplainer2: [LLMScorerModel, LLMScorerModel, LLMScorerModel]
-  scorersForExplainer3: [LLMScorerModel, LLMScorerModel, LLMScorerModel]
-  explainerConsistencies: {
-    'left-1': ConsistencyScore
-    'left-3': ConsistencyScore
-    'left-4': ConsistencyScore
-  }
-  scorerConsistencies: Record<string, ConsistencyScore>
-}
-
 export interface CategoryGroup {
   id: string
   name: string
@@ -344,7 +311,6 @@ export interface LoadingStates {
   sankeyLeft: boolean
   sankeyRight: boolean
   comparison: boolean
-  histogramPanel?: boolean
 }
 
 export interface ErrorStates {
@@ -354,7 +320,6 @@ export interface ErrorStates {
   sankeyLeft: string | null
   sankeyRight: string | null
   comparison: string | null
-  histogramPanel?: string | null
 }
 
 export type ViewState = 'empty' | 'filtering' | 'visualization'
@@ -524,4 +489,37 @@ export interface AlluvialLayoutData {
     totalFeatures: number
     consistencyRate: number
   } | null
+}
+
+// ============================================================================
+// TABLE TYPES (Feature-Level Table with 824 rows)
+// ============================================================================
+
+export interface ScorerScoreSet {
+  s1: number | null
+  s2: number | null
+  s3: number | null
+}
+
+export interface ExplainerScoreData {
+  embedding: number | null
+  fuzz: ScorerScoreSet
+  detection: ScorerScoreSet
+}
+
+export interface FeatureTableRow {
+  feature_id: number
+  explainers: Record<string, ExplainerScoreData>
+}
+
+export interface TableDataRequest {
+  filters: Filters
+}
+
+export interface FeatureTableDataResponse {
+  features: FeatureTableRow[]
+  total_features: number
+  explainer_ids: string[]
+  scorer_ids: string[]
+  is_averaged: boolean
 }

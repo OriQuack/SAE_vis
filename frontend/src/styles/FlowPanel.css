@@ -100,3 +100,81 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   z-index: 10;
 }
+
+/* ============================================================================
+   INTERACTIVE ICON NODES
+   ============================================================================ */
+
+.flow-panel__icon-node {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.flow-panel__icon-node:hover {
+  opacity: 0.8 !important;
+  transform: scale(1.05);
+}
+
+/* ============================================================================
+   SELECTION MODAL
+   ============================================================================ */
+
+.flow-panel__selection-modal {
+  position: fixed;
+  background: white;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  min-width: 200px;
+  max-width: 300px;
+}
+
+.flow-panel__selection-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+  background: #f8fafc;
+  border-radius: 8px 8px 0 0;
+}
+
+.flow-panel__selection-list {
+  padding: 8px 0;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.flow-panel__selection-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.flow-panel__selection-item:hover {
+  background-color: #f1f5f9;
+}
+
+.flow-panel__selection-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  margin: 0;
+}
+
+.flow-panel__selection-item span {
+  font-size: 14px;
+  color: #334155;
+  user-select: none;
+}
+
+.flow-panel__selection-empty {
+  padding: 16px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+  font-style: italic;
+}

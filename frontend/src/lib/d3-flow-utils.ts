@@ -4,6 +4,18 @@
 
 import { NEUTRAL_ICON_COLORS } from './constants'
 
+export interface Badge {
+  x: number
+  y: number
+  width: number
+  height: number
+  rx: number
+  text: string
+  textX: number
+  textY: number
+  fill: string
+}
+
 export interface FlowNode {
   id: string
   label: string
@@ -11,7 +23,10 @@ export interface FlowNode {
   y: number
   width: number
   height: number
-  iconType?: 'decoder' | 'explainer' | 'scorer' | 'embedder'
+  nodeType?: 'text' | 'list-item'  // 'text' for regular nodes, 'list-item' for clickable LLM items
+  llmType?: 'explainer' | 'scorer'  // For list items only
+  llmId?: string  // Full LLM identifier for list items
+  badge?: Badge  // Optional badge data
 }
 
 export interface FlowEdge {
@@ -62,63 +77,297 @@ function getEdgeColor(): string {
 }
 
 /**
- * Calculate flow chart layout - SIMPLE VERSION
+ * Helper function to get display name for LLM models
  */
-export function calculateFlowLayout(): FlowLayout {
+function getLLMDisplayName(fullName: string): string {
+  if (fullName.includes('Llama')) return 'Llama'
+  if (fullName.includes('Qwen')) return 'Qwen'
+  if (fullName.includes('openai') || fullName.includes('gpt')) return 'OpenAI'
+  return fullName.split('/').pop() || fullName
+}
+
+/**
+ * Calculate badge position for a node corner
+ * @param node - Node position and dimensions
+ * @param badgeWidth - Width of the badge
+ * @param badgeHeight - Height of the badge
+ * @param isRotated - Whether the node is rotated -90 degrees
+ * @returns Badge position with text center
+ */
+function calculateBadgePosition(
+  node: { x: number; y: number; width: number; height: number },
+  badgeWidth: number,
+  badgeHeight: number,
+  isRotated: boolean
+): { x: number; y: number; textX: number; textY: number } {
+  const padding = 5 // Distance from node corner
+
+  if (isRotated) {
+    const cx = node.x + node.width / 2
+    const cy = node.y + node.height / 2
+
+    // Visual bottom-right corner after rotation
+    const visualBottomRightX = cx + node.height / 2
+    const visualBottomRightY = cy - node.width / 2
+
+    // Place badge to the right and below this corner
+    const badgeX = visualBottomRightX + padding
+    const badgeY = visualBottomRightY + padding
+
+    return {
+      x: badgeX - padding * 2,
+      y: badgeY - padding * 4,
+      textX: badgeX + badgeWidth / 2 - padding * 2,
+      textY: badgeY + badgeHeight / 2 - padding * 4
+    }
+  } else {
+    // For upright nodes, badge at top-right corner
+    const badgeX = node.x + node.width - badgeWidth / 2 - padding / 2
+    const badgeY = node.y - badgeHeight / 2 - padding / 2
+
+    return {
+      x: badgeX,
+      y: badgeY,
+      textX: badgeX + badgeWidth / 2,
+      textY: badgeY + badgeHeight / 2
+    }
+  }
+}
+
+/**
+ * Calculate badge placement for a node
+ * Returns badge data or undefined if node doesn't have a badge
+ */
+function calculateBadge(nodeId: string, node: { x: number; y: number; width: number; height: number }, isRotated: boolean = false): Badge | undefined {
+  const badgeColor = '#475569'
+  const badgeRx = 9
+
+  // Define badge content for specific nodes
+  let badgeText: string | undefined
+  let badgeWidth: number
+  let badgeHeight = 18
+
+  if (nodeId === 'feature') {
+    badgeText = '16k'
+    badgeWidth = 24
+  } else if (nodeId === 'explanation-label') {
+    badgeText = '48k'
+    badgeWidth = 28
+  } else if (nodeId === 'score-label') {
+    badgeText = '144k'
+    badgeWidth = 32
+  } else if (nodeId === 'embedding-label') {
+    badgeText = '48k'
+    badgeWidth = 28
+  } else {
+    return undefined
+  }
+
+  // Calculate position using the helper function
+  const position = calculateBadgePosition(node, badgeWidth, badgeHeight, isRotated)
+
+  return {
+    x: position.x,
+    y: position.y,
+    width: badgeWidth,
+    height: badgeHeight,
+    rx: badgeRx,
+    text: badgeText,
+    textX: position.textX,
+    textY: position.textY,
+    fill: badgeColor
+  }
+}
+
+/**
+ * Calculate flow chart layout with LLM explainer/scorer lists
+ */
+export function calculateFlowLayout(
+  explainerOptions: string[] = [],
+  scorerOptions: string[] = []
+): FlowLayout {
   // Node definitions with absolute coordinates (viewBox: 0 0 600 180)
-  const nodes: FlowNode[] = [
+  // Badges are calculated and attached after initial node definition
+  const nodeDefinitions: Array<Omit<FlowNode, 'badge'>> = [
     // Feature (starting point)
-    { id: 'feature', label: 'Feature', x: 10, y: 48, width: 70, height: 25 },
+    { id: 'feature', label: 'Feature', x: 10, y: 48, width: 70, height: 30, nodeType: 'text' },
 
     // Activating Example (below Feature)
-    { id: 'activating-example', label: 'Activating Examples', x: 40, y: 160, width: 120, height: 15 },
+    { id: 'activating-example', label: 'Activating Examples', x: 90, y: 158, width: 120, height: 15, nodeType: 'text' },
 
     // Explanation label (rotated, between explainer and outputs)
-    { id: 'explanation-label', label: 'Explanation', x: 200, y: 100, width: 76, height: 15 },
+    { id: 'explanation-label', label: 'Explanation', x: 200, y: 100, width: 76, height: 15, nodeType: 'text' },
 
-    // Top path: Decoder
-    { id: 'decoder', label: '', x: 155, y: 15, width: 45, height: 45, iconType: 'decoder' },
-    { id: 'feature-splitting', label: 'Feature Splitting', x: 460, y: 10, width: 130, height: 22 },
+    // Top path: Decoder (text node now)
+    { id: 'decoder', label: 'Decoder', x: 170, y: 10, width: 80, height: 30, nodeType: 'text' },
+    { id: 'feature-splitting', label: 'Feature Splitting', x: 460, y: 10, width: 130, height: 22, nodeType: 'text' },
 
-    // Middle path: Explainer
-    { id: 'explainer', label: '', x: 155, y: 88, width: 45, height: 45, iconType: 'explainer' },
-
-    // Embedder branch
-    { id: 'embedder', label: '', x: 285, y: 53, width: 45, height: 45, iconType: 'embedder' },
+    // Embedder branch (text node now)
+    { id: 'embedder', label: 'Embedder', x: 285, y: 45, width: 90, height: 30, nodeType: 'text' },
 
     // Embedding label (rotated, between embedder and embedding outputs)
-    { id: 'embedding-label', label: 'Embedding', x: 375, y: 73, width: 70, height: 15 },
+    { id: 'embedding-label', label: 'Embedding', x: 365, y: 65, width: 70, height: 15, nodeType: 'text' },
 
-    { id: 'semantic-similarity', label: 'Semantic Similarity', x: 460, y: 50, width: 130, height: 22 },
-    { id: 'embedding-score', label: 'Embedding Score', x: 460, y: 76, width: 130, height: 22 },
-
-    // Scorer branch
-    { id: 'scorer', label: '', x: 285, y: 123, width: 45, height: 45, iconType: 'scorer' },
+    { id: 'semantic-similarity', label: 'Semantic Similarity', x: 460, y: 50, width: 130, height: 22, nodeType: 'text' },
+    { id: 'embedding-score', label: 'Embedding Score', x: 460, y: 95, width: 130, height: 22, nodeType: 'text' },
 
     // Score label (rotated, between scorer and score outputs)
-    { id: 'score-label', label: 'Score', x: 350, y: 138, width: 45, height: 15 },
+    { id: 'score-label', label: 'Score', x: 380, y: 140, width: 50, height: 15, nodeType: 'text' },
 
-    { id: 'fuzz-score', label: 'Fuzz Score', x: 460, y: 118, width: 130, height: 22 },
-    { id: 'detection-score', label: 'Detection Score', x: 460, y: 144, width: 130, height: 22 }
+    { id: 'fuzz-score', label: 'Fuzz Score', x: 460, y: 122, width: 130, height: 22, nodeType: 'text' },
+    { id: 'detection-score', label: 'Detection Score', x: 460, y: 150, width: 130, height: 22, nodeType: 'text' }
   ]
 
+  // Calculate badges for nodes and create final node list
+  const nodes: FlowNode[] = nodeDefinitions.map(nodeDef => {
+    // Determine if node is rotated based on ID
+    const isRotated = nodeDef.id === 'explanation-label' ||
+                      nodeDef.id === 'score-label' ||
+                      nodeDef.id === 'embedding-label'
+
+    return {
+      ...nodeDef,
+      badge: calculateBadge(nodeDef.id, nodeDef, isRotated)
+    }
+  })
+
+  // Constants for list items
+  const itemHeight = 18
+  const itemSpacing = 2
+  const containerPadding = 4
+  const headerHeight = 22
+
+  // Add LLM Explainer container (rendered first so it appears behind list items)
+  const explainerStartY = 60
+  const explainerItemsHeight = explainerOptions.length * (itemHeight + itemSpacing) - itemSpacing
+  const explainerContainerHeight = headerHeight + explainerItemsHeight + containerPadding * 2
+
+  nodes.push({
+    id: 'llm-explainer-container',
+    label: 'LLM Explainer',
+    x: 120,
+    y: explainerStartY - containerPadding,
+    width: 100,
+    height: explainerContainerHeight,
+    nodeType: 'text'
+  })
+
+  // Add LLM Explainer list items (middle path)
+  explainerOptions.forEach((option, idx) => {
+    nodes.push({
+      id: `explainer-${idx}`,
+      label: getLLMDisplayName(option),
+      x: 140,
+      y: explainerStartY + headerHeight + idx * (itemHeight + itemSpacing),
+      width: 65,
+      height: itemHeight,
+      nodeType: 'list-item',
+      llmType: 'explainer',
+      llmId: option
+    })
+  })
+
+  // Add LLM Scorer container (rendered first so it appears behind list items)
+  const scorerStartY = 91
+  const scorerItemsHeight = scorerOptions.length * (itemHeight + itemSpacing) - itemSpacing
+  const scorerContainerHeight = headerHeight + scorerItemsHeight + containerPadding * 2
+
+  nodes.push({
+    id: 'llm-scorer-container',
+    label: 'LLM Scorer',
+    x: 290,
+    y: scorerStartY - containerPadding,
+    width: 85,
+    height: scorerContainerHeight,
+    nodeType: 'text'
+  })
+
+  // Add LLM Scorer list items (scorer branch)
+  scorerOptions.forEach((option, idx) => {
+    nodes.push({
+      id: `scorer-${idx}`,
+      label: getLLMDisplayName(option),
+      x: 300,
+      y: scorerStartY + headerHeight + idx * (itemHeight + itemSpacing),
+      width: 65,
+      height: itemHeight,
+      nodeType: 'list-item',
+      llmType: 'scorer',
+      llmId: option
+    })
+  })
+
   // Edge definitions (source → target)
+  // Note: Edges to explainer/scorer will be created dynamically based on list items
   const edgeDefs: EdgeDef[] = [
     { id: 'feature-to-decoder', source: 'feature', target: 'decoder' },
     { id: 'decoder-to-splitting', source: 'decoder', target: 'feature-splitting' },
 
-    { id: 'feature-to-explainer', source: 'feature', target: 'explainer' },
-    { id: 'activating-example-to-explainer', source: 'activating-example', target: 'explainer' },
-
-    { id: 'explainer-to-scorer', source: 'explainer', target: 'scorer' },
-    { id: 'activating-example-to-scorer', source: 'activating-example', target: 'scorer' },
-    { id: 'scorer-to-fuzz', source: 'scorer', target: 'fuzz-score' },
-    { id: 'scorer-to-detection', source: 'scorer', target: 'detection-score' },
-
-    { id: 'explainer-to-embedder', source: 'explainer', target: 'embedder' },
+    // Embedder connections
     { id: 'embedder-to-embedding', source: 'embedder', target: 'embedding-score' },
     { id: 'embedder-to-semantic', source: 'embedder', target: 'semantic-similarity' }
   ]
+
+  // Add edges from Feature to each explainer list item
+  explainerOptions.forEach((_, idx) => {
+    edgeDefs.push({
+      id: `feature-to-explainer-${idx}`,
+      source: 'feature',
+      target: `explainer-${idx}`
+    })
+  })
+
+  // Add edges from Activating Example to each explainer list item
+  explainerOptions.forEach((_, idx) => {
+    edgeDefs.push({
+      id: `activating-example-to-explainer-${idx}`,
+      source: 'activating-example',
+      target: `explainer-${idx}`
+    })
+  })
+
+  // Add edges from explainer list items to embedder
+  explainerOptions.forEach((_, idx) => {
+    edgeDefs.push({
+      id: `explainer-${idx}-to-embedder`,
+      source: `explainer-${idx}`,
+      target: 'embedder'
+    })
+  })
+
+  // Add edges from explainer list items to scorer list items
+  explainerOptions.forEach((_, explainerIdx) => {
+    scorerOptions.forEach((_, scorerIdx) => {
+      edgeDefs.push({
+        id: `explainer-${explainerIdx}-to-scorer-${scorerIdx}`,
+        source: `explainer-${explainerIdx}`,
+        target: `scorer-${scorerIdx}`
+      })
+    })
+  })
+
+  // Add edges from Activating Example to each scorer list item
+  scorerOptions.forEach((_, idx) => {
+    edgeDefs.push({
+      id: `activating-example-to-scorer-${idx}`,
+      source: 'activating-example',
+      target: `scorer-${idx}`
+    })
+  })
+
+  // Add edges from scorer list items to score outputs
+  scorerOptions.forEach((_, idx) => {
+    edgeDefs.push({
+      id: `scorer-${idx}-to-fuzz`,
+      source: `scorer-${idx}`,
+      target: 'fuzz-score'
+    })
+    edgeDefs.push({
+      id: `scorer-${idx}-to-detection`,
+      source: `scorer-${idx}`,
+      target: 'detection-score'
+    })
+  })
 
   // Create node lookup
   const nodeMap = new Map(nodes.map(n => [n.id, n]))
@@ -167,24 +416,6 @@ export function calculateFlowLayout(): FlowLayout {
   })
 
   return { nodes, edges }
-}
-
-/**
- * Get icon transform - centers icon in node and scales to fit
- */
-export function getIconTransform(node: FlowNode): string {
-  if (!node.iconType) return ''
-
-  // Icon viewBox is 100x100, but actual content is smaller
-  // Scale down for smaller nodes (45x45) - reduced from 0.74 to 0.60
-  const scale = (node.width / 100) * 0.75
-
-  // Center the icon
-  const centerX = node.x - 62
-  const centerY = node.y + 10
-
-  // Icon center in viewBox is (50, 50)
-  return `translate(${centerX}, ${centerY}) scale(${scale}) translate(-50, -50)`
 }
 
 /**

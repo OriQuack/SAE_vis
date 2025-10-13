@@ -5,11 +5,10 @@ import SankeyDiagram from './components/SankeyDiagram'
 import AlluvialDiagram from './components/AlluvialDiagram'
 import HistogramPopover from './components/HistogramPopover'
 import FlowPanel from './components/FlowPanel'
-import HistogramPanel from './components/HistogramPanel'
-import ThresholdGroupPanel from './components/ThresholdGroupPanel'
 import ProgressBar from './components/ProgressBar'
-import LLMComparisonSelection from './components/LLMComparisonSelection'
 import UMAPPanel from './components/UMAPPanel'
+import TablePanel from './components/TablePanel'
+import HistogramPanel from './components/HistogramPanel'
 import { usePanelDataLoader } from './lib/utils'
 import * as api from './api'
 import './styles/base.css'
@@ -254,19 +253,10 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
               <FlowPanel />
             </div>
 
-            {/* LLM Comparison Panel */}
-            <div className="sankey-view__llm-comparison-panel">
-              <LLMComparisonSelection />
-            </div>
-
-            {/* Histogram Container */}
-            <div className="sankey-view__histogram-container">
-              <div className="sankey-view__histogram-panel">
-                <HistogramPanel />
-              </div>
-              <div className="sankey-view__threshold-group-panel">
-                <ThresholdGroupPanel />
-              </div>
+            {/* Table and Histogram panels */}
+            <div className="sankey-view__new-panels">
+              <TablePanel />
+              <HistogramPanel />
             </div>
           </div>
 
