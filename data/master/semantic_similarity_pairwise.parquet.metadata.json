@@ -1,0 +1,65 @@
+{
+  "created_at": "2025-10-13T11:47:02.081904",
+  "parquet_file": "data/master/semantic_similarity_pairwise.parquet",
+  "total_rows": 2470,
+  "unique_features": 824,
+  "unique_explainers": [
+    "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+    "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+    "openai/gpt-oss-20b"
+  ],
+  "pairwise_statistics": {
+    "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8_vs_hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4": {
+      "count": 824,
+      "mean": 0.9264079167426211,
+      "min": 0.7758873105049133,
+      "max": 1.0,
+      "std": 0.052336253225803375
+    },
+    "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8_vs_openai/gpt-oss-20b": {
+      "count": 823,
+      "mean": 0.8669750830962041,
+      "min": 0.7571513056755066,
+      "max": 0.9487586617469788,
+      "std": 0.04009901359677315
+    },
+    "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4_vs_openai/gpt-oss-20b": {
+      "count": 823,
+      "mean": 0.8619687631816795,
+      "min": 0.7628927230834961,
+      "max": 0.9517881870269775,
+      "std": 0.038877930492162704
+    }
+  },
+  "schema": {
+    "feature_id": "UInt32",
+    "sae_id": "Categorical",
+    "explainer_1": "Categorical",
+    "explainer_2": "Categorical",
+    "cosine_similarity": "Float32",
+    "euclidean_similarity": "Float32"
+  },
+  "config_used": {
+    "description": "Configuration for creating pairwise semantic similarity parquet file",
+    "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+    "input_directory": "data/detailed_json/google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
+    "output_directory": "data/master",
+    "output_filename": "semantic_similarity_pairwise.parquet",
+    "schema": {
+      "feature_id": "UInt32",
+      "sae_id": "Categorical",
+      "explainer_1": "Categorical",
+      "explainer_2": "Categorical",
+      "cosine_similarity": "Float32",
+      "euclidean_similarity": "Float32"
+    },
+    "notes": {
+      "purpose": "Store pairwise semantic similarity between LLM explainers per feature",
+      "data_source": "Extracted from detailed JSON files semantic_similarity_pairs",
+      "explainer_mapping": "Maps internal explanation_id to llm_explainer using explanations array",
+      "nullable_columns": [
+        "euclidean_similarity"
+      ]
+    }
+  }
+}

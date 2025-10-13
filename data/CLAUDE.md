@@ -31,15 +31,17 @@ data/
 │   │   ├── process_scores.py                # Process scores from raw files
 │   │   ├── calculate_semantic_distances.py  # Calculate distances between embeddings
 │   │   ├── generate_detailed_json.py        # Consolidate all data per feature
-│   │   └── create_master_parquet.py         # Create master parquet from detailed JSON ✅ NEW
+│   │   ├── create_master_parquet.py         # Create master parquet from detailed JSON ✅
+│   │   └── create_pairwise_similarity_parquet.py # Create pairwise similarity parquet ✅ NEW
 │   ├── config/                 # Configuration files for processing
 │   │   ├── embedding_config.json            # Embedding generation config
 │   │   ├── score_config.json                # Score processing config
 │   │   ├── gwen_score_config.json           # Gwen-specific score config
 │   │   ├── semantic_distance_config.json    # Semantic distance config
 │   │   ├── detailed_json_config.json        # Detailed JSON consolidation config
-│   │   ├── feature_similarity_config.json   # Feature similarity calculation config ✅ NEW
-│   │   └── master_parquet_config.json       # Master parquet creation config ✅ NEW
+│   │   ├── feature_similarity_config.json   # Feature similarity calculation config ✅
+│   │   ├── master_parquet_config.json       # Master parquet creation config ✅
+│   │   └── pairwise_similarity_config.json  # Pairwise similarity config ✅ NEW
 │   └── logs/                   # Processing logs (if any)
 ├── embeddings/                 # Processed embedding vectors
 │   ├── llama_e-llama_s/        # Embeddings from Llama explanations
@@ -72,6 +74,8 @@ data/
 ├── master/                     # Master parquet files for analysis ✅ NEW
 │   ├── feature_analysis.parquet            # Master table with 2,471 rows (1,648 features)
 │   ├── feature_analysis.metadata.json      # Processing metadata and statistics
+│   ├── semantic_similarity_pairwise.parquet # Pairwise LLM similarity (2,470 rows) ✅ NEW
+│   ├── semantic_similarity_pairwise.parquet.metadata.json # Pairwise similarity metadata ✅ NEW
 │   ├── analyze_features.py                 # Simplified analysis script (103 lines)
 │   └── analysis_results_<timestamp>.json   # Analysis output with timestamp
 ├── llm_comparison/             # LLM comparison statistics ✅ NEW (Phase 5)
@@ -148,13 +152,21 @@ data/
 - **Memory Optimization**: Uses float16 precision and automatic device selection
 - Outputs: Per-feature closest cosine similarity values for feature splitting analysis
 
-#### F. Master Parquet Creation (`create_master_parquet.py`) ✅ NEW
+#### F. Master Parquet Creation (`create_master_parquet.py`) ✅
 - **Scalable Data Format**: Converts detailed JSON to optimized Polars DataFrame
 - **Enhanced Feature Splitting**: Uses cosine similarity values instead of boolean
 - **Professional Path Handling**: Generates portable relative paths without user-specific information
 - **Robust Schema**: Proper data types with Float32 feature_splitting for continuous analysis
 - **Smart Path Resolution**: Works from any directory with automatic project root detection
 - Outputs: Master parquet file ready for high-performance analysis and visualization
+
+#### G. Pairwise Similarity Parquet Creation (`create_pairwise_similarity_parquet.py`) ✅ NEW
+- **Normalized Schema**: Extracts pairwise semantic similarities from detailed JSON files
+- **LLM Explainer Mapping**: Maps internal explanation IDs to full LLM model names (exact match with master parquet)
+- **Consistent Ordering**: Alphabetically sorts explainer pairs to prevent duplicates
+- **Research-Optimized**: Scalable to any number of LLM explainers (not hardcoded to 3)
+- **Statistical Metadata**: Generates comprehensive pairwise statistics per LLM combination
+- Outputs: Normalized parquet file with 2,470 rows (824 features × 3 pairwise combinations average)
 
 ### 3. Completed Output Formats ✅
 
@@ -214,6 +226,48 @@ High-performance columnar format optimized for analysis with this schema:
 
 **Key Enhancement**: `feature_splitting` now contains **continuous cosine similarity values** instead of boolean, enabling more nuanced analysis of feature separation characteristics.
 
+#### C. Pairwise Similarity Parquet Schema ✅ NEW
+Normalized schema for querying semantic similarity between specific LLM explainers:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `feature_id` | UInt32 | SAE feature index (0-823) |
+| `sae_id` | Categorical | SAE model identifier |
+| `explainer_1` | Categorical | First LLM explainer (full model name) |
+| `explainer_2` | Categorical | Second LLM explainer (full model name) |
+| `cosine_similarity` | Float32 | Cosine similarity between explanations |
+| `euclidean_similarity` | Float32 | Euclidean similarity (nullable, currently null) |
+
+**LLM Explainer Values (matching master parquet):**
+- `hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4`
+- `Qwen/Qwen3-30B-A3B-Instruct-2507-FP8`
+- `openai/gpt-oss-20b`
+
+**Example Queries:**
+```python
+import polars as pl
+
+# Load parquet
+df = pl.read_parquet("data/master/semantic_similarity_pairwise.parquet")
+
+# Get Llama-Qwen similarities
+llama_qwen = df.filter(
+    (pl.col("explainer_1") == "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8") &
+    (pl.col("explainer_2") == "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4")
+)
+
+# Average similarity per explainer pair
+pair_stats = df.group_by(["explainer_1", "explainer_2"]).agg([
+    pl.col("cosine_similarity").mean().alias("mean_similarity"),
+    pl.col("cosine_similarity").std().alias("std_similarity")
+])
+```
+
+**Pairwise Statistics (824 features):**
+- **Qwen vs Llama**: mean=0.926, range=[0.776-1.0], std=0.052 (824 pairs)
+- **Llama vs OpenAI**: mean=0.862, range=[0.763-0.952], std=0.039 (823 pairs)
+- **Qwen vs OpenAI**: mean=0.867, range=[0.757-0.949], std=0.040 (823 pairs)
+
 ## Configuration Management
 
 All processing scripts use configuration files to ensure:
@@ -252,8 +306,11 @@ python calculate_semantic_distances.py --config ../config/semantic_distance_conf
 # 4. Consolidate all data into detailed JSON per feature
 python generate_detailed_json.py --config ../config/detailed_json_config.json
 
-# 5. ✅ NEW: Create master parquet with cosine similarity
+# 5. Create master parquet with cosine similarity
 python create_master_parquet.py --config ../config/master_parquet_config.json
+
+# 6. ✅ NEW: Create pairwise similarity parquet
+python create_pairwise_similarity_parquet.py --config ../config/pairwise_similarity_config.json
 ```
 
 ### Individual Script Usage:
@@ -261,9 +318,13 @@ python create_master_parquet.py --config ../config/master_parquet_config.json
 # Validate existing master parquet
 python create_master_parquet.py --config ../config/master_parquet_config.json --validate-only
 
+# Create pairwise similarity parquet
+python create_pairwise_similarity_parquet.py --config ../config/pairwise_similarity_config.json
+
 # Run from project root (alternative)
 cd /path/to/interface
 python data/preprocessing/scripts/create_master_parquet.py --config data/preprocessing/config/master_parquet_config.json
+python data/preprocessing/scripts/create_pairwise_similarity_parquet.py --config data/preprocessing/config/pairwise_similarity_config.json
 ```
 
 ## Pipeline Status & Next Steps
@@ -276,6 +337,7 @@ python data/preprocessing/scripts/create_master_parquet.py --config data/preproc
 5. **Detailed JSON Consolidation**: Comprehensive per-feature data ✅
 6. **Feature Similarity Analysis**: Cosine similarity computation ✅
 7. **Master Parquet Creation**: High-performance columnar format ✅
+8. **Pairwise Similarity Parquet**: Normalized LLM explainer comparison data ✅ NEW
 
 ### 🎯 Current Achievement
 - **Complete End-to-End Pipeline**: From raw SAE data to analysis-ready parquet
