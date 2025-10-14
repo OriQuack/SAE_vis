@@ -501,10 +501,19 @@ export interface ScorerScoreSet {
   s3: number | null
 }
 
+export interface ConsistencyScore {
+  value: number  // 0-1 range
+  method: string  // e.g., "coefficient_variation", "normalized_std"
+}
+
 export interface ExplainerScoreData {
   embedding: number | null
   fuzz: ScorerScoreSet
   detection: ScorerScoreSet
+  scorer_consistency?: Record<string, ConsistencyScore>  // Per-metric CV (fuzz, detection)
+  metric_consistency?: ConsistencyScore  // Cross-metric std
+  explainer_consistency?: ConsistencyScore  // Semantic consistency (avg pairwise cosine)
+  cross_explainer_metric_consistency?: Record<string, ConsistencyScore>  // Per-metric inverse CV across explainers
 }
 
 export interface FeatureTableRow {

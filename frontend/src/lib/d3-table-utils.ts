@@ -7,7 +7,7 @@
  */
 
 import { scaleLinear } from 'd3-scale'
-import type { FeatureTableRow } from '../types'
+import type { FeatureTableRow, ConsistencyScore } from '../types'
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -307,14 +307,17 @@ export function buildMetricFirstHeaderStructure(
   })
 
   // Row 2: Explainer names (repeated for each metric)
+  const metrics: Array<'embedding' | 'fuzz' | 'detection'> = ['embedding', 'fuzz', 'detection']
   for (let metricIdx = 0; metricIdx < 3; metricIdx++) {
+    const metricType = metrics[metricIdx]
     for (const explainerId of explainerIds) {
       row2.push({
         label: getExplainerDisplayName(explainerId),
         colSpan: 1,
         rowSpan: 1,
         type: 'explainer',
-        explainerId
+        explainerId,
+        metricType  // Add metricType so consistency lookup works
       })
     }
   }
@@ -597,4 +600,76 @@ export function getConsistencyGradientStops(): Array<{ offset: string; color: st
     { offset: '50%', color: '#eab308' },  // Yellow (medium)
     { offset: '100%', color: '#22c55e' }  // Green (high consistency at 1)
   ]
+}
+
+// ============================================================================
+// CONSISTENCY SCORE EXTRACTION
+// ============================================================================
+
+/**
+ * Get consistency score for a specific table cell
+ *
+ * @param row - Feature table row
+ * @param explainerId - Explainer ID (llama, qwen, openai)
+ * @param metricType - Metric type (embedding, fuzz, detection)
+ * @param scorerId - Scorer ID (s1, s2, s3) - only for fuzz/detection in non-averaged mode
+ * @param consistencyType - Type of consistency to retrieve
+ * @returns Consistency score value (0-1) or null if not available
+ */
+export function getConsistencyForCell(
+  row: FeatureTableRow,
+  explainerId: string,
+  metricType: 'embedding' | 'fuzz' | 'detection',
+  scorerId: 's1' | 's2' | 's3' | undefined,
+  consistencyType: string
+): number | null {
+  const explainerData = row.explainers[explainerId]
+  if (!explainerData) {
+    return null
+  }
+
+  // LLM Scorer Consistency: Coefficient of variation across scorers for a metric
+  if (consistencyType === 'llm_scorer_consistency') {
+    if (!explainerData.scorer_consistency) {
+      return null
+    }
+
+    // Only fuzz and detection have scorer consistency
+    if (metricType === 'fuzz' && explainerData.scorer_consistency.fuzz) {
+      return explainerData.scorer_consistency.fuzz.value
+    }
+    if (metricType === 'detection' && explainerData.scorer_consistency.detection) {
+      return explainerData.scorer_consistency.detection.value
+    }
+
+    return null
+  }
+
+  // Within-explanation Scoring Metric Consistency: Normalized std across metrics
+  if (consistencyType === 'within_explanation_score') {
+    if (!explainerData.metric_consistency) {
+      return null
+    }
+    return explainerData.metric_consistency.value
+  }
+
+  // Cross-explanation Score Consistency: Inverse CV of each metric across explainers
+  if (consistencyType === 'cross_explanation_score') {
+    if (!explainerData.cross_explainer_metric_consistency) {
+      return null
+    }
+    // Extract consistency for the specific metric
+    const consistencyScore = explainerData.cross_explainer_metric_consistency[metricType]
+    return consistencyScore?.value || null
+  }
+
+  // LLM Explainer Consistency: Average pairwise cosine similarity between explainers
+  if (consistencyType === 'llm_explainer_consistency') {
+    if (!explainerData.explainer_consistency) {
+      return null
+    }
+    return explainerData.explainer_consistency.value
+  }
+
+  return null
 }

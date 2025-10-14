@@ -10,6 +10,8 @@ import {
   extractRowScores,
   extractRowScoresMetricFirst,
   calculateColorBarLayout,
+  getConsistencyForCell,
+  getConsistencyColor,
   type HeaderStructure
 } from '../lib/d3-table-utils'
 import '../styles/TablePanel.css'
@@ -524,14 +526,54 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                   <td className="table-panel__feature-id-cell">
                     {row.feature_id}
                   </td>
-                  {scores.map((score, idx) => (
-                    <td
-                      key={`${row.feature_id}-${idx}`}
-                      className="table-panel__score-cell"
-                    >
-                      {formatTableScore(score)}
-                    </td>
-                  ))}
+                  {scores.map((score, idx) => {
+                    // Determine which cell this score belongs to using header structure
+                    // Use row3 for scorer-specific cells, row2 for metric cells
+                    let consistency: number | null = null
+
+                    // Map score index to header cell for consistency lookup
+                    if (!isAveraged && headerStructure.row3.length > 0) {
+                      // 3-row header: row3 has scorer-level cells
+                      const headerCell = headerStructure.row3[idx]
+                      if (headerCell && headerCell.explainerId && headerCell.metricType) {
+                        consistency = getConsistencyForCell(
+                          row,
+                          headerCell.explainerId,
+                          headerCell.metricType,
+                          headerCell.scorerId,
+                          selectedConsistencyType
+                        )
+                      }
+                    } else if (headerStructure.row2.length > 0) {
+                      // 2-row header: row2 has metric-level cells
+                      const headerCell = headerStructure.row2[idx]
+                      if (headerCell && headerCell.explainerId && headerCell.metricType) {
+                        consistency = getConsistencyForCell(
+                          row,
+                          headerCell.explainerId,
+                          headerCell.metricType,
+                          undefined,
+                          selectedConsistencyType
+                        )
+                      }
+                    }
+
+                    // Apply background color based on consistency
+                    const bgColor = consistency !== null ? getConsistencyColor(consistency) : 'transparent'
+
+                    return (
+                      <td
+                        key={`${row.feature_id}-${idx}`}
+                        className="table-panel__score-cell"
+                        style={{
+                          backgroundColor: bgColor,
+                          color: consistency !== null && consistency < 0.5 ? 'white' : '#374151'  // White text for dark backgrounds
+                        }}
+                      >
+                        {formatTableScore(score)}
+                      </td>
+                    )
+                  })}
                 </tr>
               )
             })}

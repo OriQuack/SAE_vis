@@ -430,6 +430,22 @@ class ExplainerScoreData(BaseModel):
     embedding: Optional[float] = Field(None, description="Embedding score for this explainer")
     fuzz: ScorerScoreSet = Field(..., description="Fuzz scores for each scorer (s1, s2, s3)")
     detection: ScorerScoreSet = Field(..., description="Detection scores for each scorer (s1, s2, s3)")
+    scorer_consistency: Optional[Dict[str, ConsistencyScore]] = Field(
+        None,
+        description="Consistency across scorers for each metric (coefficient of variation): {embedding, fuzz, detection}"
+    )
+    metric_consistency: Optional[ConsistencyScore] = Field(
+        None,
+        description="Consistency across metrics (normalized standard deviation)"
+    )
+    explainer_consistency: Optional[ConsistencyScore] = Field(
+        None,
+        description="Semantic consistency between LLM explainers (average pairwise cosine similarity)"
+    )
+    cross_explainer_metric_consistency: Optional[Dict[str, ConsistencyScore]] = Field(
+        None,
+        description="Consistency of each metric across LLM explainers (inverse coefficient of variation): {embedding, fuzz, detection}"
+    )
 
 class FeatureTableRow(BaseModel):
     """Single feature row with scores for all explainers"""
