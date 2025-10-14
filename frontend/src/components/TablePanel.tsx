@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useVisualizationStore } from '../store'
-import type { FeatureTableDataResponse, FeatureTableRow, ConsistencyType } from '../types'
+import type { FeatureTableDataResponse, FeatureTableRow, ConsistencyType, SortBy, SortDirection } from '../types'
 import {
   buildHeaderStructure,
   buildMetricFirstHeaderStructure,
@@ -12,50 +12,46 @@ import {
   calculateColorBarLayout,
   getConsistencyForCell,
   getConsistencyColor,
+  getConsistencyValueForSorting,
+  getScoreValue,
+  compareValues,
   type HeaderStructure
 } from '../lib/d3-table-utils'
 import '../styles/TablePanel.css'
 
 // ============================================================================
-// CONSISTENCY TYPE OPTIONS - Hierarchical Structure
+// CONSISTENCY TYPE OPTIONS - Flat Structure
 // ============================================================================
 
-const MAIN_CATEGORIES: Array<{
+const CONSISTENCY_OPTIONS: Array<{
   id: string
   label: string
-  value: ConsistencyType | null // null for parent categories
+  value: ConsistencyType
 }> = [
+  {
+    id: 'none',
+    label: 'None',
+    value: 'none'
+  },
   {
     id: 'llm_scorer',
     label: 'LLM Scorer',
     value: 'llm_scorer_consistency'
   },
   {
-    id: 'scoring_metric',
-    label: 'Scoring Metric',
-    value: null // parent category
+    id: 'within_exp_score',
+    label: 'Within-exp. Score',
+    value: 'within_explanation_score'
+  },
+  {
+    id: 'cross_exp_score',
+    label: 'Cross-exp. Score',
+    value: 'cross_explanation_score'
   },
   {
     id: 'llm_explainer',
     label: 'LLM Explainer',
     value: 'llm_explainer_consistency'
-  }
-]
-
-const SUB_OPTIONS: Array<{
-  value: ConsistencyType
-  label: string
-  parent: string
-}> = [
-  {
-    value: 'within_explanation_score',
-    label: 'Within-explanation',
-    parent: 'scoring_metric'
-  },
-  {
-    value: 'cross_explanation_score',
-    label: 'Cross-explanation',
-    parent: 'scoring_metric'
   }
 ]
 
@@ -74,18 +70,14 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const fetchTableData = useVisualizationStore(state => state.fetchTableData)
   const selectedConsistencyType = useVisualizationStore(state => state.selectedConsistencyType)
   const setConsistencyType = useVisualizationStore(state => state.setConsistencyType)
+  const isLoading = useVisualizationStore(state => state.loading.table)
 
   const [headerStructure, setHeaderStructure] = useState<HeaderStructure | null>(null)
   const tableContainerRef = useRef<HTMLDivElement>(null)
 
-  // Sub-options popover state
-  const [subOptionsPopover, setSubOptionsPopover] = useState<{
-    visible: boolean
-    anchorEl: HTMLElement | null
-  }>({
-    visible: false,
-    anchorEl: null
-  })
+  // Sorting state
+  const [sortBy, setSortBy] = useState<SortBy>(null)
+  const [sortDirection, setSortDirection] = useState<SortDirection>(null)
 
   // Get selected LLM explainers (needed for disabled logic)
   const selectedExplainers = new Set<string>()
@@ -99,21 +91,13 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   // Check if only one explainer is selected (for disabling certain options)
   const hasOnlyOneExplainer = selectedExplainers.size === 1
 
-  // Determine active main category based on selected consistency type
-  const getActiveMainCategory = (): string => {
-    const subOption = SUB_OPTIONS.find(opt => opt.value === selectedConsistencyType)
-    if (subOption) {
-      return subOption.parent // 'scoring_metric'
-    }
-    // Check main categories
-    const mainCat = MAIN_CATEGORIES.find(cat => cat.value === selectedConsistencyType)
-    return mainCat?.id || 'llm_scorer'
-  }
-
-  const activeMainCategory = getActiveMainCategory()
-
   // Check if a consistency type is disabled
-  const isConsistencyTypeDisabled = (type: ConsistencyType | null): boolean => {
+  const isConsistencyTypeDisabled = (type: ConsistencyType): boolean => {
+    // "None" is never disabled
+    if (type === 'none') {
+      return false
+    }
+
     // When only one explainer: disable cross-explanation and llm_explainer_consistency
     if (hasOnlyOneExplainer) {
       return type === 'cross_explanation_score' || type === 'llm_explainer_consistency'
@@ -161,75 +145,46 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     )
 
     if (shouldSwitch) {
-      setConsistencyType('within_explanation_score')
+      setConsistencyType('none')
     }
   }, [selectedExplainers.size, selectedConsistencyType, setConsistencyType, hasOnlyOneExplainer]) // Re-run when number of explainers changes
 
-  // Handle main category click
-  const handleMainCategoryClick = (
-    event: React.MouseEvent<HTMLButtonElement>,
-    categoryId: string,
-    categoryValue: ConsistencyType | null
-  ) => {
-    // Check if disabled
-    if (isConsistencyTypeDisabled(categoryValue)) {
-      return
-    }
-
-    if (categoryValue) {
-      // Direct value - select it
-      setConsistencyType(categoryValue)
-      setSubOptionsPopover({ visible: false, anchorEl: null })
-    } else if (categoryId === 'scoring_metric') {
-      // Parent category - toggle popover
-      if (!subOptionsPopover.visible) {
-        // Show popover, select default if needed
-        if (activeMainCategory !== 'scoring_metric') {
-          setConsistencyType('within_explanation_score')
-        }
-        setSubOptionsPopover({
-          visible: true,
-          anchorEl: event.currentTarget
-        })
-      } else {
-        // Hide popover
-        setSubOptionsPopover({ visible: false, anchorEl: null })
-      }
-    }
-  }
-
-  // Handle sub-option click in popover
-  const handleSubOptionClick = (value: ConsistencyType) => {
+  // Handle consistency type click
+  const handleConsistencyClick = (value: ConsistencyType) => {
     // Check if disabled
     if (isConsistencyTypeDisabled(value)) {
       return
     }
 
+    // Set consistency type
     setConsistencyType(value)
-    setSubOptionsPopover({ visible: false, anchorEl: null })
+
+    // "None" should not trigger sorting
+    if (value !== 'none') {
+      // Also handle sort for other consistency types
+      handleSort({ type: 'consistency', consistencyType: value })
+    }
   }
 
-  // Close popover when clicking outside
-  useEffect(() => {
-    if (!subOptionsPopover.visible) return
-
-    const handleClickOutside = (event: MouseEvent) => {
-      if (subOptionsPopover.anchorEl) {
-        const target = event.target as Node
-        const popoverElement = document.querySelector('.table-panel__sub-options-popover')
-
-        if (
-          !subOptionsPopover.anchorEl.contains(target) &&
-          (!popoverElement || !popoverElement.contains(target))
-        ) {
-          setSubOptionsPopover({ visible: false, anchorEl: null })
-        }
+  // Handle sort click
+  const handleSort = (newSortBy: SortBy) => {
+    // If same sort target, cycle through: null → asc → desc → null
+    if (JSON.stringify(sortBy) === JSON.stringify(newSortBy)) {
+      if (sortDirection === null) {
+        setSortDirection('asc')
+      } else if (sortDirection === 'asc') {
+        setSortDirection('desc')
+      } else {
+        // Reset to no sort
+        setSortBy(null)
+        setSortDirection(null)
       }
+    } else {
+      // New sort target, start with ascending
+      setSortBy(newSortBy)
+      setSortDirection('asc')
     }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [subOptionsPopover.visible, subOptionsPopover.anchorEl])
+  }
 
   // Tooltip state
   const [tooltip, setTooltip] = useState<{
@@ -292,6 +247,34 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     })
   }
 
+  // Sort features based on current sort settings
+  const sortedFeatures = useMemo(() => {
+    if (!tableData || !sortBy || !sortDirection) {
+      return tableData?.features || []
+    }
+
+    const features = [...tableData.features]
+
+    features.sort((a, b) => {
+      let valueA: number | null = null
+      let valueB: number | null = null
+
+      if (sortBy.type === 'consistency') {
+        // Sort by consistency value
+        valueA = getConsistencyValueForSorting(a, sortBy.consistencyType, tableData.explainer_ids)
+        valueB = getConsistencyValueForSorting(b, sortBy.consistencyType, tableData.explainer_ids)
+      } else if (sortBy.type === 'column') {
+        // Sort by column score value
+        valueA = getScoreValue(a, sortBy.explainerId, sortBy.metricType, sortBy.scorerId)
+        valueB = getScoreValue(b, sortBy.explainerId, sortBy.metricType, sortBy.scorerId)
+      }
+
+      return compareValues(valueA, valueB, sortDirection)
+    })
+
+    return features
+  }, [tableData, sortBy, sortDirection])
+
   // If no data or no explainers selected
   if (!tableData || !tableData.features || tableData.features.length === 0 || selectedExplainers.size === 0) {
     return (
@@ -320,6 +303,9 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   // Determine which header rows should be highlighted based on selected consistency type
   const getHighlightedRows = (): { row1: boolean; row2: boolean; row3: boolean } => {
     switch (selectedConsistencyType) {
+      case 'none':
+        // No consistency: no highlighting
+        return { row1: false, row2: false, row3: false }
       case 'llm_scorer_consistency':
         // LLM Scorer: highlights row 3 (scorer labels)
         return { row1: false, row2: false, row3: true }
@@ -343,25 +329,41 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   // Render table with conditional 2-row or 3-row header
   return (
     <div className={`table-panel${className ? ` ${className}` : ''}`}>
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="table-panel__loading-overlay">
+          <div className="table-panel__loading-spinner" />
+        </div>
+      )}
+
       {/* Consistency Header */}
       <div className="table-panel__header">
         {/* Title */}
         <div className="table-panel__consistency-title">Consistency</div>
 
-        {/* Main Category Buttons (3 horizontal) */}
+        {/* Consistency Type Buttons (5 horizontal) */}
         <div className="table-panel__main-categories">
-          {MAIN_CATEGORIES.map((category) => {
-            const disabled = isConsistencyTypeDisabled(category.value)
+          {CONSISTENCY_OPTIONS.map((option) => {
+            const disabled = isConsistencyTypeDisabled(option.value)
+            // Check if this button is active
+            const isActive = selectedConsistencyType === option.value
+            // Check if this button is currently sorted
+            const isSorted = sortBy?.type === 'consistency' && sortBy.consistencyType === option.value
+            // "None" should not have sorting indicator
+            const showSortIndicator = option.value !== 'none'
             return (
               <button
-                key={category.id}
+                key={option.id}
                 className={`table-panel__main-category-button ${
-                  activeMainCategory === category.id ? 'active' : ''
+                  isActive ? 'active' : ''
                 } ${disabled ? 'disabled' : ''}`}
-                onClick={(e) => handleMainCategoryClick(e, category.id, category.value)}
+                onClick={() => handleConsistencyClick(option.value)}
                 disabled={disabled}
               >
-                {category.label}
+                {option.label}
+                {showSortIndicator && (
+                  <span className={`table-panel__sort-indicator ${isSorted ? 'active' : ''} ${sortDirection || ''}`} />
+                )}
               </button>
             )
           })}
@@ -417,42 +419,10 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
         </div>
       </div>
 
-      {/* Sub-Options Popover (Portal-based) */}
-      {subOptionsPopover.visible && subOptionsPopover.anchorEl && createPortal(
-        (() => {
-          const rect = subOptionsPopover.anchorEl.getBoundingClientRect()
-          return (
-            <div
-              className="table-panel__sub-options-popover"
-              style={{
-                position: 'fixed',
-                top: `${rect.bottom + 4}px`,
-                left: `${rect.left + rect.width / 2 - 75}px`,
-                zIndex: 1000
-              }}
-            >
-              {SUB_OPTIONS.map((option) => {
-                const disabled = isConsistencyTypeDisabled(option.value)
-                return (
-                  <button
-                    key={option.value}
-                    className={`table-panel__sub-options-popover-item ${
-                      selectedConsistencyType === option.value ? 'active' : ''
-                    } ${disabled ? 'disabled' : ''}`}
-                    onClick={() => handleSubOptionClick(option.value)}
-                    disabled={disabled}
-                  >
-                    {option.label}
-                  </button>
-                )
-              })}
-            </div>
-          )
-        })(),
-        document.body
-      )}
-
-      <div className="table-panel__content" ref={tableContainerRef}>
+      <div
+        className={`table-panel__content ${isLoading ? 'loading' : ''}`}
+        ref={tableContainerRef}
+      >
         <table
           className="table-panel__table"
           key={`table-${columnCount}-${tableData?.scorer_ids.length || 0}`}
@@ -485,13 +455,35 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                 const cellClass = cell.type === 'metric'
                   ? 'table-panel__metric-header'
                   : 'table-panel__explainer-header'
+
+                // Check if this column is sortable (has explainerId and metricType)
+                const isSortable = cell.explainerId && cell.metricType
+                // Check if currently sorted
+                const isSorted = isSortable && sortBy?.type === 'column' &&
+                  sortBy.explainerId === cell.explainerId &&
+                  sortBy.metricType === cell.metricType &&
+                  !sortBy.scorerId // Row2 cells don't have scorerId
+
                 return (
                   <th
                     key={`row2-${idx}`}
                     colSpan={cell.colSpan}
-                    className={`${cellClass} ${highlightedRows.row2 ? 'highlighted' : ''}`}
+                    className={`${cellClass} ${highlightedRows.row2 ? 'highlighted' : ''} ${isSortable ? 'table-panel__sortable-header' : ''}`}
+                    onClick={() => {
+                      if (isSortable) {
+                        handleSort({
+                          type: 'column',
+                          explainerId: cell.explainerId!,
+                          metricType: cell.metricType!,
+                          scorerId: undefined
+                        })
+                      }
+                    }}
                   >
                     {cell.label}
+                    {isSortable && (
+                      <span className={`table-panel__sort-indicator ${isSorted ? 'active' : ''} ${sortDirection || ''}`} />
+                    )}
                   </th>
                 )
               })}
@@ -500,22 +492,46 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
             {/* Row 3: Scorer labels (only shown when not averaged) */}
             {!isAveraged && (
               <tr className={`table-panel__header-row-3 ${highlightedRows.row3 ? 'highlighted' : ''}`}>
-                {headerStructure.row3.map((cell, idx) => (
-                  <th
-                    key={`scorer-${idx}`}
-                    className={`table-panel__scorer-header ${highlightedRows.row3 ? 'highlighted' : ''}`}
-                    onMouseEnter={cell.title ? (e) => handleMouseEnter(e, cell.title!) : undefined}
-                    onMouseLeave={cell.title ? handleMouseLeave : undefined}
-                  >
-                    {cell.label}
-                  </th>
-                ))}
+                {headerStructure.row3.map((cell, idx) => {
+                  // Check if this column is sortable
+                  const isSortable = cell.explainerId && cell.metricType && cell.metricType !== 'embedding'
+                  // Check if currently sorted
+                  const isSorted = isSortable && sortBy?.type === 'column' &&
+                    sortBy.explainerId === cell.explainerId &&
+                    sortBy.metricType === cell.metricType &&
+                    sortBy.scorerId === cell.scorerId
+
+                  // Check if this is an embedding scorer cell (empty cell that needs diagonal line)
+                  const isEmbeddingScorer = cell.metricType === 'embedding'
+
+                  return (
+                    <th
+                      key={`scorer-${idx}`}
+                      className={`table-panel__scorer-header ${highlightedRows.row3 ? 'highlighted' : ''} ${isSortable ? 'table-panel__sortable-header' : ''} ${isEmbeddingScorer ? 'table-panel__scorer-header--empty' : ''}`}
+                      onClick={() => {
+                        if (isSortable) {
+                          handleSort({
+                            type: 'column',
+                            explainerId: cell.explainerId!,
+                            metricType: cell.metricType!,
+                            scorerId: cell.scorerId
+                          })
+                        }
+                      }}
+                    >
+                      {cell.label}
+                      {isSortable && (
+                        <span className={`table-panel__sort-indicator ${isSorted ? 'active' : ''} ${sortDirection || ''}`} />
+                      )}
+                    </th>
+                  )
+                })}
               </tr>
             )}
           </thead>
 
           <tbody className="table-panel__tbody">
-            {tableData.features.map((row: FeatureTableRow) => {
+            {sortedFeatures.map((row: FeatureTableRow) => {
               // Use metric-first extraction for cross-explanation consistency
               const scores = selectedConsistencyType === 'cross_explanation_score'
                 ? extractRowScoresMetricFirst(row, tableData.explainer_ids, isAveraged)

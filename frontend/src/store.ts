@@ -156,7 +156,8 @@ const initialState = {
     sankey: false,
     sankeyLeft: false,
     sankeyRight: false,
-    comparison: false
+    comparison: false,
+    table: false
   },
   errors: {
     filters: null,
@@ -164,7 +165,8 @@ const initialState = {
     sankey: null,
     sankeyLeft: null,
     sankeyRight: null,
-    comparison: null
+    comparison: null,
+    table: null
   },
 
   // Alluvial flows
@@ -174,7 +176,7 @@ const initialState = {
   tableData: null,
 
   // Consistency type selection (Table Panel)
-  selectedConsistencyType: 'llm_scorer_consistency' as ConsistencyType,
+  selectedConsistencyType: 'none' as ConsistencyType,
 
   // Hover state
   hoveredAlluvialNodeId: null,
@@ -707,6 +709,12 @@ export const useStore = create<AppState>((set, get) => ({
       return
     }
 
+    // Set loading state
+    set(state => ({
+      loading: { ...state.loading, table: true },
+      errors: { ...state.errors, table: null }
+    }))
+
     try {
       // Create filter with all selected explainers and scorers
       const filters = {
@@ -717,10 +725,17 @@ export const useStore = create<AppState>((set, get) => ({
       }
 
       const tableData = await api.getTableData({ filters })
-      set({ tableData })
+      set(state => ({
+        tableData,
+        loading: { ...state.loading, table: false }
+      }))
     } catch (error) {
       console.error('Failed to fetch table data:', error)
-      set({ tableData: null })
+      set(state => ({
+        tableData: null,
+        loading: { ...state.loading, table: false },
+        errors: { ...state.errors, table: error instanceof Error ? error.message : 'Failed to fetch table data' }
+      }))
     }
   },
 

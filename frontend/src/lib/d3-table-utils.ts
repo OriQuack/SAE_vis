@@ -178,10 +178,10 @@ export function buildHeaderStructure(
         explainerId
       })
 
-      // Row 2: Metric names - full names for single LLM
+      // Row 2: Metric names - abbreviated
       // Embedding (1 column)
       row2.push({
-        label: 'Embedding',
+        label: 'Emb.',
         colSpan: 1,
         rowSpan: 1,
         type: 'metric',
@@ -283,7 +283,7 @@ export function buildMetricFirstHeaderStructure(
 
   // Row 1: Metric names (each spanning number of explainers)
   row1.push({
-    label: 'Embedding',
+    label: 'Emb.',
     colSpan: numExplainers,
     rowSpan: 1,
     type: 'metric',
@@ -404,7 +404,7 @@ export function calculateTableLayout(
  * @param row - Feature table row
  * @param explainerId - Explainer ID (llama, qwen, openai)
  * @param metricType - Metric type (embedding, fuzz, detection)
- * @param scorerId - Scorer ID (s1, s2, s3) - only for fuzz/detection
+ * @param scorerId - Scorer ID (s1, s2, s3) - optional. If not provided for fuzz/detection, returns average
  * @returns Score value or null
  */
 export function getScoreValue(
@@ -422,12 +422,32 @@ export function getScoreValue(
     return explainerData.embedding
   }
 
-  if (metricType === 'fuzz' && scorerId) {
-    return explainerData.fuzz[scorerId]
+  if (metricType === 'fuzz') {
+    if (scorerId) {
+      return explainerData.fuzz[scorerId]
+    } else {
+      // No scorerId specified - return average of all available scorers
+      const values: number[] = []
+      if (explainerData.fuzz.s1 !== null) values.push(explainerData.fuzz.s1)
+      if (explainerData.fuzz.s2 !== null) values.push(explainerData.fuzz.s2)
+      if (explainerData.fuzz.s3 !== null) values.push(explainerData.fuzz.s3)
+      if (values.length === 0) return null
+      return values.reduce((sum, val) => sum + val, 0) / values.length
+    }
   }
 
-  if (metricType === 'detection' && scorerId) {
-    return explainerData.detection[scorerId]
+  if (metricType === 'detection') {
+    if (scorerId) {
+      return explainerData.detection[scorerId]
+    } else {
+      // No scorerId specified - return average of all available scorers
+      const values: number[] = []
+      if (explainerData.detection.s1 !== null) values.push(explainerData.detection.s1)
+      if (explainerData.detection.s2 !== null) values.push(explainerData.detection.s2)
+      if (explainerData.detection.s3 !== null) values.push(explainerData.detection.s3)
+      if (values.length === 0) return null
+      return values.reduce((sum, val) => sum + val, 0) / values.length
+    }
   }
 
   return null
@@ -628,6 +648,11 @@ export function getConsistencyForCell(
     return null
   }
 
+  // No consistency coloring
+  if (consistencyType === 'none') {
+    return null
+  }
+
   // LLM Scorer Consistency: Coefficient of variation across scorers for a metric
   if (consistencyType === 'llm_scorer_consistency') {
     if (!explainerData.scorer_consistency) {
@@ -672,4 +697,97 @@ export function getConsistencyForCell(
   }
 
   return null
+}
+
+// ============================================================================
+// TABLE SORTING UTILITIES
+// ============================================================================
+
+/**
+ * Get consistency value for sorting purposes
+ *
+ * For some consistency types, we need to aggregate multiple values
+ * (e.g., LLM Scorer may have both fuzz and detection consistency)
+ *
+ * @param row - Feature table row
+ * @param consistencyType - Type of consistency to extract
+ * @param explainerIds - Array of explainer IDs (for averaging across explainers)
+ * @returns Average consistency value or null
+ */
+export function getConsistencyValueForSorting(
+  row: FeatureTableRow,
+  consistencyType: string,
+  explainerIds: string[]
+): number | null {
+  // No consistency - return null (no sorting by consistency)
+  if (consistencyType === 'none') {
+    return null
+  }
+
+  const values: number[] = []
+
+  for (const explainerId of explainerIds) {
+    const explainerData = row.explainers[explainerId]
+    if (!explainerData) continue
+
+    if (consistencyType === 'llm_scorer_consistency') {
+      // Average fuzz and detection scorer consistency
+      if (explainerData.scorer_consistency?.fuzz) {
+        values.push(explainerData.scorer_consistency.fuzz.value)
+      }
+      if (explainerData.scorer_consistency?.detection) {
+        values.push(explainerData.scorer_consistency.detection.value)
+      }
+    } else if (consistencyType === 'within_explanation_score') {
+      // Within-explanation metric consistency
+      if (explainerData.metric_consistency) {
+        values.push(explainerData.metric_consistency.value)
+      }
+    } else if (consistencyType === 'cross_explanation_score') {
+      // Average across all three metrics
+      if (explainerData.cross_explainer_metric_consistency) {
+        const cem = explainerData.cross_explainer_metric_consistency
+        if (cem.embedding) values.push(cem.embedding.value)
+        if (cem.fuzz) values.push(cem.fuzz.value)
+        if (cem.detection) values.push(cem.detection.value)
+      }
+    } else if (consistencyType === 'llm_explainer_consistency') {
+      // LLM explainer semantic consistency
+      if (explainerData.explainer_consistency) {
+        values.push(explainerData.explainer_consistency.value)
+      }
+    }
+  }
+
+  // Return average of collected values, or null if no values
+  if (values.length === 0) return null
+  return values.reduce((sum, val) => sum + val, 0) / values.length
+}
+
+/**
+ * Compare two values for sorting with proper null handling
+ *
+ * Null values are always placed at the end regardless of sort direction
+ *
+ * @param a - First value
+ * @param b - Second value
+ * @param direction - Sort direction ('asc' or 'desc')
+ * @returns Comparison result (-1, 0, or 1)
+ */
+export function compareValues(
+  a: number | null,
+  b: number | null,
+  direction: 'asc' | 'desc'
+): number {
+  // Handle null cases - always push to end
+  if (a === null && b === null) return 0
+  if (a === null) return 1
+  if (b === null) return -1
+
+  // Both values are numbers
+  if (direction === 'asc') {
+    return a - b
+  } else {
+    return b - a
+  }
 }

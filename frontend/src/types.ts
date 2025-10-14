@@ -311,6 +311,7 @@ export interface LoadingStates {
   sankeyLeft: boolean
   sankeyRight: boolean
   comparison: boolean
+  table: boolean
 }
 
 export interface ErrorStates {
@@ -320,6 +321,7 @@ export interface ErrorStates {
   sankeyLeft: string | null
   sankeyRight: string | null
   comparison: string | null
+  table: string | null
 }
 
 export type ViewState = 'empty' | 'filtering' | 'visualization'
@@ -535,7 +537,16 @@ export interface FeatureTableDataResponse {
 
 // Consistency Type for Table Header
 export type ConsistencyType =
+  | 'none'                           // No consistency coloring
   | 'llm_scorer_consistency'         // LLM Scorer Consistency (within-metric consistency)
   | 'within_explanation_score'       // Within-explanation score consistency
   | 'cross_explanation_score'        // Cross-explanation score consistency
   | 'llm_explainer_consistency'      // LLM Explainer consistency (semantic consistency)
+
+// Table Sorting Types
+export type SortDirection = 'asc' | 'desc' | null
+
+export type SortBy =
+  | { type: 'consistency'; consistencyType: ConsistencyType }
+  | { type: 'column'; explainerId: string; metricType: 'embedding' | 'fuzz' | 'detection'; scorerId?: 's1' | 's2' | 's3' }
+  | null
