@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { NEUTRAL_ICON_COLORS, METRIC_COLORS } from '../lib/constants'
-import { calculateFlowLayout, splitLabel, type FlowNode } from '../lib/d3-flow-utils'
+import { calculateFlowLayout, splitLabel } from '../lib/d3-flow-utils'
 import { useVisualizationStore } from '../store'
 import '../styles/FlowPanel.css'
 
@@ -73,9 +73,9 @@ const getTextNodeLetterSpacing = (nodeId: string) => {
   return '0'
 }
 
-const getArrowMarker = () => {
-  // Use single gray arrow marker for all edges in neutral color scheme
-  return 'url(#arrow-gray)'
+const getArrowMarker = (isSelected: boolean) => {
+  // Use blue arrow marker for edges connecting selected nodes, gray otherwise
+  return isSelected ? 'url(#arrow-blue)' : 'url(#arrow-gray)'
 }
 
 
@@ -109,10 +109,68 @@ const FlowPanel: React.FC = () => {
   ])
 
   // Calculate layout with LLM options
-  const flowLayout = useMemo(
+  const baseFlowLayout = useMemo(
     () => calculateFlowLayout(explainerOptions, scorerOptions),
     [explainerOptions, scorerOptions]
   )
+
+  // Update badges dynamically based on selected LLM counts
+  const flowLayout = useMemo(() => {
+    const numExplainers = selectedExplainers.size
+    const numScorers = selectedScorers.size
+
+    // Calculate badge values
+    const explanationCount = 16 * numExplainers
+    const embeddingCount = 16 * numExplainers
+    const scoreCount = 16 * numExplainers * numScorers
+
+    // Helper function to format count as "Xk"
+    const formatCount = (count: number): string => {
+      if (count === 0) return '0'
+      return `${count}k`
+    }
+
+    // Helper function to calculate badge width based on text length
+    const getBadgeWidth = (text: string): number => {
+      return Math.max(24, text.length * 8 + 8)
+    }
+
+    // Update node badges
+    const updatedNodes = baseFlowLayout.nodes.map(node => {
+      if (node.badge) {
+        let newBadgeText: string | undefined
+
+        if (node.id === 'explanation-label') {
+          newBadgeText = formatCount(explanationCount)
+        } else if (node.id === 'embedding-label') {
+          newBadgeText = formatCount(embeddingCount)
+        } else if (node.id === 'score-label') {
+          newBadgeText = formatCount(scoreCount)
+        }
+
+        if (newBadgeText) {
+          const newBadgeWidth = getBadgeWidth(newBadgeText)
+          const widthDiff = newBadgeWidth - node.badge.width
+
+          return {
+            ...node,
+            badge: {
+              ...node.badge,
+              text: newBadgeText,
+              width: newBadgeWidth,
+              textX: node.badge.textX + widthDiff / 2
+            }
+          }
+        }
+      }
+      return node
+    })
+
+    return {
+      ...baseFlowLayout,
+      nodes: updatedNodes
+    }
+  }, [baseFlowLayout, selectedExplainers.size, selectedScorers.size])
 
   // Handle list item click
   const handleListItemClick = (llmType: 'explainer' | 'scorer', llmId: string) => {
@@ -143,7 +201,7 @@ const FlowPanel: React.FC = () => {
       <div className="flow-panel__chart">
         <svg viewBox="0 0 600 175" preserveAspectRatio="xMidYMid meet">
           <defs>
-            {/* Arrow marker - neutral color for all edges */}
+            {/* Arrow marker - neutral gray for unselected edges */}
             <marker
               id="arrow-gray"
               viewBox="0 0 10 10"
@@ -154,6 +212,18 @@ const FlowPanel: React.FC = () => {
               orient="auto"
             >
               <path d="M 0 0 L 10 5 L 0 10 z" fill={NEUTRAL_ICON_COLORS.ICON_FILL} opacity="1.0" />
+            </marker>
+            {/* Arrow marker - blue for edges connecting selected nodes */}
+            <marker
+              id="arrow-blue"
+              viewBox="0 0 10 10"
+              refX="9"
+              refY="5"
+              markerWidth="6"
+              markerHeight="6"
+              orient="auto"
+            >
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6" opacity="1.0" />
             </marker>
           </defs>
 
@@ -187,33 +257,77 @@ const FlowPanel: React.FC = () => {
           ))}
 
           {/* Render edges (connections) */}
-          {flowLayout.edges.map((edge) => (
-            <g key={edge.id}>
-              <path
-                d={edge.path}
-                fill="none"
-                stroke={NEUTRAL_ICON_COLORS.ICON_LIGHT}
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                opacity="0.7"
-                markerEnd={getArrowMarker()}
-              />
-              {edge.label && edge.labelX && edge.labelY && (
-                <text
-                  x={edge.labelX}
-                  y={edge.labelY}
-                  textAnchor="middle"
-                  fontSize="12"
-                  fill={NEUTRAL_ICON_COLORS.TEXT_SECONDARY}
-                  fontWeight="500"
-                  fontStyle="italic"
-                >
-                  {edge.label}
-                </text>
-              )}
-            </g>
-          ))}
+          {flowLayout.edges.map((edge) => {
+            // Check if source or target nodes are selected list items
+            const sourceNode = flowLayout.nodes.find(n => n.id === edge.source)
+            const targetNode = flowLayout.nodes.find(n => n.id === edge.target)
+
+            const isSourceSelected = !!(sourceNode?.nodeType === 'list-item' && sourceNode.llmId && (
+              sourceNode.llmType === 'explainer'
+                ? selectedExplainers.has(sourceNode.llmId)
+                : selectedScorers.has(sourceNode.llmId)
+            ))
+
+            const isTargetSelected = !!(targetNode?.nodeType === 'list-item' && targetNode.llmId && (
+              targetNode.llmType === 'explainer'
+                ? selectedExplainers.has(targetNode.llmId)
+                : selectedScorers.has(targetNode.llmId)
+            ))
+
+            // Always blue: Feature→Decoder→Feature-Splitting path (always active)
+            const isAlwaysBluePath = (edge.source === 'feature' && edge.target === 'decoder') ||
+                                     (edge.source === 'decoder' && edge.target === 'feature-splitting')
+
+            // Special case: Embedder outgoing edges are blue if any explainer is selected
+            const isEmbedderOutgoing = edge.source === 'embedder' && selectedExplainers.size > 0
+
+            // Special case: Explainer→Scorer edges only blue if explainer (source) is selected, not scorer (target)
+            const isExplainerToScorer = sourceNode?.llmType === 'explainer' && targetNode?.llmType === 'scorer'
+
+            // Special case: Scorer→Metric edges only blue if scorer is selected AND at least one explainer is selected
+            const isScorerToMetric = sourceNode?.llmType === 'scorer' &&
+              (edge.target === 'fuzz-score' || edge.target === 'detection-score')
+
+            // Edge selection logic:
+            // - Always blue path: feature→decoder→feature-splitting
+            // - For explainer→scorer edges: only check source (explainer) selection
+            // - For scorer→metric edges: require both scorer selection AND at least one explainer selected
+            // - For other edges: check if either source OR target is selected, OR embedder outgoing
+            const isEdgeSelected = isAlwaysBluePath ||
+              (isExplainerToScorer
+                ? isSourceSelected
+                : isScorerToMetric
+                  ? (isSourceSelected && selectedExplainers.size > 0)
+                  : (isSourceSelected || isTargetSelected || isEmbedderOutgoing))
+
+            return (
+              <g key={edge.id}>
+                <path
+                  d={edge.path}
+                  fill="none"
+                  stroke={isEdgeSelected ? '#3b82f6' : NEUTRAL_ICON_COLORS.ICON_LIGHT}
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  opacity={isEdgeSelected ? '1.0' : '0.7'}
+                  markerEnd={getArrowMarker(isEdgeSelected)}
+                />
+                {edge.label && edge.labelX && edge.labelY && (
+                  <text
+                    x={edge.labelX}
+                    y={edge.labelY}
+                    textAnchor="middle"
+                    fontSize="12"
+                    fill={NEUTRAL_ICON_COLORS.TEXT_SECONDARY}
+                    fontWeight="500"
+                    fontStyle="italic"
+                  >
+                    {edge.label}
+                  </text>
+                )}
+              </g>
+            )
+          })}
 
           {/* Render non-container nodes (top layer) */}
           {flowLayout.nodes.filter(node =>
@@ -221,11 +335,11 @@ const FlowPanel: React.FC = () => {
           ).map((node) => {
             // Check if this is a list item node
             const isListItem = node.nodeType === 'list-item'
-            const isSelected = isListItem && node.llmId && (
+            const isSelected = !!(isListItem && node.llmId && (
               node.llmType === 'explainer'
                 ? selectedExplainers.has(node.llmId)
                 : selectedScorers.has(node.llmId)
-            )
+            ))
 
             return (
               <g key={node.id}>
@@ -326,7 +440,7 @@ const FlowPanel: React.FC = () => {
                             y={node.badge.textY}
                             textAnchor="middle"
                             dominantBaseline="central"
-                            fontSize="10"
+                            fontSize="11"
                             fill="white"
                             fontWeight="700"
                           >

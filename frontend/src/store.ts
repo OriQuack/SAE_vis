@@ -15,7 +15,8 @@ import type {
   SankeyNode,
   NodeCategory,
   AddStageConfig,
-  CategoryGroup
+  CategoryGroup,
+  ConsistencyType
 } from './types'
 import { updateNodeThreshold, createRootOnlyTree, addStageToNode, removeStageFromNode } from './lib/threshold-utils'
 import { PANEL_LEFT, PANEL_RIGHT, METRIC_SEMSIM_MEAN } from './lib/constants'
@@ -100,6 +101,10 @@ interface AppState {
   // Table data actions
   fetchTableData: () => Promise<void>
 
+  // Consistency type selection (Table Panel)
+  selectedConsistencyType: ConsistencyType
+  setConsistencyType: (type: ConsistencyType) => void
+
   // Reset actions
   reset: () => void
 
@@ -167,6 +172,9 @@ const initialState = {
 
   // Table data
   tableData: null,
+
+  // Consistency type selection (Table Panel)
+  selectedConsistencyType: 'llm_scorer_consistency' as ConsistencyType,
 
   // Hover state
   hoveredAlluvialNodeId: null,
@@ -684,6 +692,15 @@ export const useStore = create<AppState>((set, get) => ({
       rightPanel.filters.llm_explainer.forEach(e => explainers.add(e))
     }
 
+    // Collect all selected LLM scorers from both panels
+    const scorers = new Set<string>()
+    if (leftPanel.filters.llm_scorer) {
+      leftPanel.filters.llm_scorer.forEach(s => scorers.add(s))
+    }
+    if (rightPanel.filters.llm_scorer) {
+      rightPanel.filters.llm_scorer.forEach(s => scorers.add(s))
+    }
+
     // If no explainers selected, don't fetch
     if (explainers.size === 0) {
       set({ tableData: null })
@@ -691,12 +708,12 @@ export const useStore = create<AppState>((set, get) => ({
     }
 
     try {
-      // Create filter with all selected explainers
+      // Create filter with all selected explainers and scorers
       const filters = {
         sae_id: [],
         explanation_method: [],
         llm_explainer: Array.from(explainers),
-        llm_scorer: []
+        llm_scorer: Array.from(scorers)
       }
 
       const tableData = await api.getTableData({ filters })
@@ -705,6 +722,11 @@ export const useStore = create<AppState>((set, get) => ({
       console.error('Failed to fetch table data:', error)
       set({ tableData: null })
     }
+  },
+
+  // Set consistency type for table panel
+  setConsistencyType: (type: ConsistencyType) => {
+    set({ selectedConsistencyType: type })
   },
 
   reset: () => {
@@ -726,30 +748,33 @@ export const useStore = create<AppState>((set, get) => ({
       return
     }
 
-    // Get first two LLM Explainers (or reuse first if only one exists)
+    // Get LLM Explainers and Scorers
     const llmExplainers = filterOptions.llm_explainer || []
+    const llmScorers = filterOptions.llm_scorer || []
+
     if (llmExplainers.length === 0) {
       console.warn('Cannot initialize default filters: no LLM Explainers available')
       return
     }
 
-    const leftLLMExplainer = llmExplainers[0]
-    const rightLLMExplainer = llmExplainers.length > 1 ? llmExplainers[1] : llmExplainers[0]
+    // Find "Llama" explainer specifically, or fall back to first explainer
+    const llamaExplainer = llmExplainers.find(e => e.toLowerCase().includes('llama')) || llmExplainers[0]
 
     console.log('🚀 Auto-initializing with default filters:', {
-      leftLLMExplainer,
-      rightLLMExplainer
+      leftLLMExplainer: llamaExplainer,
+      rightLLMExplainer: '(none - empty)',
+      allLLMScorers: llmScorers
     })
 
-    // Set filters for both panels and transition to visualization state
+    // Set filters: Only left panel gets Llama explainer, right panel stays empty
     set((state) => ({
       leftPanel: {
         ...state.leftPanel,
         filters: {
           sae_id: [],
           explanation_method: [],
-          llm_explainer: [leftLLMExplainer],
-          llm_scorer: []
+          llm_explainer: [llamaExplainer],
+          llm_scorer: llmScorers  // Select ALL LLM Scorers
         },
         viewState: 'visualization' as ViewState
       },
@@ -758,8 +783,8 @@ export const useStore = create<AppState>((set, get) => ({
         filters: {
           sae_id: [],
           explanation_method: [],
-          llm_explainer: [rightLLMExplainer],
-          llm_scorer: []
+          llm_explainer: [],  // No explainer selected in right panel
+          llm_scorer: llmScorers  // Select ALL LLM Scorers
         },
         viewState: 'visualization' as ViewState
       }

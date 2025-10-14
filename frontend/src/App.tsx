@@ -9,6 +9,7 @@ import ProgressBar from './components/ProgressBar'
 import UMAPPanel from './components/UMAPPanel'
 import TablePanel from './components/TablePanel'
 import HistogramPanel from './components/HistogramPanel'
+import VerticalBar from './components/VerticalBar'
 import { usePanelDataLoader } from './lib/utils'
 import * as api from './api'
 import './styles/base.css'
@@ -132,7 +133,8 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
     showVisualization,
     editFilters,
     removeVisualization,
-    resetFilters
+    resetFilters,
+    initializeWithDefaultFilters
   } = useVisualizationStore()
 
   // Health check function
@@ -171,7 +173,15 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
     }
   }, [healthState.isHealthy, filterOptions, autoLoad, fetchFilterOptions])
 
-
+  // Initialize with default filters after filter options are loaded
+  useEffect(() => {
+    if (filterOptions && autoLoad) {
+      // Only initialize if both panels are in empty state
+      if (leftPanel.viewState === 'empty' && rightPanel.viewState === 'empty') {
+        initializeWithDefaultFilters()
+      }
+    }
+  }, [filterOptions, autoLoad, leftPanel.viewState, rightPanel.viewState, initializeWithDefaultFilters])
 
   // Use custom hook to handle panel data loading (consolidates duplicate logic)
   usePanelDataLoader('left', leftPanel, healthState.isHealthy, fetchMultipleHistogramData, fetchSankeyData)
@@ -258,6 +268,11 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
               <TablePanel />
               <HistogramPanel />
             </div>
+          </div>
+
+          {/* Vertical Bar - Separator between control and visualization columns */}
+          <div className="sankey-view__vertical-bar">
+            <VerticalBar />
           </div>
 
           {/* Visualization Column - Contains visualizations */}

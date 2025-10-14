@@ -523,3 +523,10 @@ export interface FeatureTableDataResponse {
   scorer_ids: string[]
   is_averaged: boolean
 }
+
+// Consistency Type for Table Header
+export type ConsistencyType =
+  | 'llm_scorer_consistency'         // LLM Scorer Consistency (within-metric consistency)
+  | 'within_explanation_score'       // Within-explanation score consistency
+  | 'cross_explanation_score'        // Cross-explanation score consistency
+  | 'llm_explainer_consistency'      // LLM Explainer consistency (semantic consistency)

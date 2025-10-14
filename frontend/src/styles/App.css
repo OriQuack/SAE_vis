@@ -279,6 +279,17 @@
   min-height: 0;
 }
 
+/* Vertical Bar - Thin separator between control and visualization columns */
+.sankey-view__vertical-bar {
+  flex: 0 0 30px;
+  display: flex;
+  flex-direction: column;
+  min-width: 30px;
+  max-width: 30px;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .sankey-view__flow-panel {
   flex: 0.1;
   display: flex;

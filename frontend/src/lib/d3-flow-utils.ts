@@ -115,9 +115,9 @@ function calculateBadgePosition(
     const badgeY = visualBottomRightY + padding
 
     return {
-      x: badgeX - padding * 2,
+      x: badgeX - padding * 3,
       y: badgeY - padding * 4,
-      textX: badgeX + badgeWidth / 2 - padding * 2,
+      textX: badgeX + badgeWidth / 2 - padding * 3,
       textY: badgeY + badgeHeight / 2 - padding * 4
     }
   } else {

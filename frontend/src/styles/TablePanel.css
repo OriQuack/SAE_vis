@@ -7,9 +7,168 @@
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   padding: 0;
-  max-height: 600px;
+  max-height: 500px;
   display: block;
   overflow: hidden;
+}
+
+/* ============================================================================
+ * CONSISTENCY HEADER - Ultra-Compact Layout with Popover
+ * ============================================================================ */
+
+.table-panel__header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 12px;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  gap: 6px;
+}
+
+/* Title */
+.table-panel__consistency-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0;
+}
+
+/* Main Category Buttons (3 horizontal) */
+.table-panel__main-categories {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.table-panel__main-category-button {
+  padding: 5px 14px;
+  font-size: 11px;
+  font-weight: 500;
+  background: white;
+  border: 1.5px solid #d1d5db;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: #374151;
+  min-width: 110px;
+  text-align: center;
+}
+
+.table-panel__main-category-button:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.table-panel__main-category-button.active {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #1e40af;
+  font-weight: 600;
+  border-width: 2px;
+}
+
+.table-panel__main-category-button.disabled {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+  color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.table-panel__main-category-button.disabled:hover {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+}
+
+/* Color Bar Legend (Centered, with inline labels via D3) */
+.table-panel__consistency-legend {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.table-panel__color-bar {
+  display: block;
+}
+
+/* SVG text labels (rendered inline with bar) */
+.table-panel__color-bar-label-left,
+.table-panel__color-bar-label-right {
+  font-size: 10px;
+  fill: #6b7280;
+  font-weight: 500;
+}
+
+/* ============================================================================
+ * SUB-OPTIONS POPOVER
+ * ============================================================================ */
+
+.table-panel__sub-options-popover {
+  position: fixed;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 4px;
+  min-width: 150px;
+  z-index: 1000;
+  animation: popoverFadeIn 0.15s ease-out;
+}
+
+@keyframes popoverFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.table-panel__sub-options-popover-item {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  background: white;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+  color: #374151;
+  text-align: left;
+}
+
+.table-panel__sub-options-popover-item:hover {
+  background: #f3f4f6;
+}
+
+.table-panel__sub-options-popover-item.active {
+  background: #dbeafe;
+  color: #1e40af;
+  font-weight: 600;
+}
+
+.table-panel__sub-options-popover-item + .table-panel__sub-options-popover-item {
+  margin-top: 2px;
+}
+
+.table-panel__sub-options-popover-item.disabled {
+  background: #fafafa;
+  color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.table-panel__sub-options-popover-item.disabled:hover {
+  background: #fafafa;
 }
 
 /* Content Container - Fixed Height with Scrolling */
@@ -136,12 +295,19 @@
 .table-panel__explainer-header {
   font-weight: 700;
   font-size: 12px;
-  color: #1e40af;
+  color: #374151;
   text-align: center;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
   padding: 8px 6px;
   vertical-align: middle;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.table-panel__explainer-header.highlighted {
+  background: #dbeafe;
+  border-color: #3b82f6;
+  box-shadow: inset 0 0 0 1px #3b82f6;
 }
 
 /* ============================================================================
@@ -161,6 +327,15 @@
   border: 1px solid #d1d5db;
   padding: 6px 4px;
   vertical-align: middle;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.table-panel__metric-header.highlighted {
+  background: #dbeafe;
+  border-color: #3b82f6;
+  color: #1e40af;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px #3b82f6;
 }
 
 /* ============================================================================
@@ -181,10 +356,23 @@
   padding: 4px 2px;
   vertical-align: middle;
   cursor: help;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 .table-panel__scorer-header:hover {
   background: #f3f4f6;
+}
+
+.table-panel__scorer-header.highlighted {
+  background: #dbeafe;
+  border-color: #3b82f6;
+  color: #1e40af;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px #3b82f6;
+}
+
+.table-panel__scorer-header.highlighted:hover {
+  background: #bfdbfe;
 }
 
 /* ============================================================================
