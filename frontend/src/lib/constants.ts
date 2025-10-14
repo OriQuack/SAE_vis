@@ -307,41 +307,34 @@ export const LEGEND_ITEMS = [
 
 // ============================================================================
 // LLM ICON SVG PATHS - Reusable icon definitions for LLM components
-// Used across: FlowPanel.tsx, LLMComparisonSelection.tsx
+// Used across: FlowPanel.tsx
 // ============================================================================
 
 export const LLM_EXPLAINER_ICON_SVG = `
-  <!-- Speech bubble icon - represents explanation/communication -->
-  <!-- Main bubble body -->
-  <rect x="25" y="30" width="50" height="35" rx="6" fill="white" stroke="${NEUTRAL_ICON_COLORS.ICON_FILL}" stroke-width="2" />
-
-  <!-- Speech bubble tail -->
-  <path d="M 40 65 L 35 75 L 45 65 Z" fill="white" stroke="${NEUTRAL_ICON_COLORS.ICON_FILL}" stroke-width="2" stroke-linejoin="round" />
-
-  <!-- Text lines inside bubble (representing explanation text) -->
-  <line x1="33" y1="40" x2="67" y2="40" stroke="${NEUTRAL_ICON_COLORS.ICON_LIGHT}" stroke-width="2" stroke-linecap="round" />
-  <line x1="33" y1="48" x2="67" y2="48" stroke="${NEUTRAL_ICON_COLORS.ICON_LIGHT}" stroke-width="2" stroke-linecap="round" />
-  <line x1="33" y1="56" x2="55" y2="56" stroke="${NEUTRAL_ICON_COLORS.ICON_LIGHT}" stroke-width="2" stroke-linecap="round" />
+  <!-- Simple speech bubble - selection indicator for LLM Explainer -->
+  <!-- Bubble body (24x18 rounded rectangle centered at origin) -->
+  <rect x="-12" y="-12" width="24" height="18" rx="4" fill="#3b82f6" />
+  <!-- Bubble tail (triangle pointing to left bottom corner) -->
+  <path d="M -3 6 L -6 12 L 1 6 Z" fill="#3b82f6" />
 `
 
 export const LLM_SCORER_ICON_SVG = `
-  <!-- Pencil icon at 45 degrees, tip pointing to bottom left - represents solving exam problems -->
-  <g transform="rotate(45 50 50)">
-    <!-- Pencil body (main shaft) -->
-    <rect x="42" y="25" width="16" height="45" rx="2" fill="white" stroke="${NEUTRAL_ICON_COLORS.ICON_FILL}" stroke-width="2" />
-
-    <!-- Wooden sharpened part (spiky triangular section) -->
-    <path d="M 42 70 L 50 80 L 58 70 Z" fill="${NEUTRAL_ICON_COLORS.ICON_LIGHT}" stroke="${NEUTRAL_ICON_COLORS.ICON_FILL}" stroke-width="2" stroke-linejoin="miter" />
-
-    <!-- Graphite tip (dark triangular point) -->
-    <path d="M 47 77 L 50 83 L 53 77 Z" fill="${NEUTRAL_ICON_COLORS.ICON_STROKE}" />
-
-    <!-- Eraser end (pink/light gray cap) -->
-    <rect x="42" y="21" width="16" height="6" rx="1" fill="${NEUTRAL_ICON_COLORS.ICON_LIGHT}" stroke="${NEUTRAL_ICON_COLORS.ICON_FILL}" stroke-width="2" />
-
-    <!-- Metal ferrule (band holding eraser) -->
-    <rect x="42" y="25" width="16" height="3" fill="${NEUTRAL_ICON_COLORS.ICON_STROKE}" />
-  </g>
+  <!-- Simple puzzle piece - selection indicator for LLM Scorer -->
+  <!-- Single path defining entire puzzle piece outline with concave bottom -->
+  <!-- 24x24 square with deeper arms (radius 5), whole piece shifted up 1px, right arm additional 2px up -->
+  <path d="
+    M -12 -15
+    L -5 -15
+    A 5 5 0 0 0 5 -15
+    L 12 -15
+    L 12 -8
+    A 5 5 0 0 1 12 2
+    L 12 9
+    L 5 9
+    A 5 5 0 0 1 -5 9
+    L -12 9
+    Z
+  " fill="#3b82f6" />
 `
 
 // ============================================================================

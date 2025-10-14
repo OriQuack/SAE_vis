@@ -443,7 +443,14 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                     colSpan={cell.colSpan}
                     className={`${cellClass} ${highlightedRows.row1 ? 'highlighted' : ''}`}
                   >
-                    {cell.label}
+                    {cell.type === 'explainer' ? (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                        <span style={{ fontSize: '12px' }}>💬</span>
+                        <span>{cell.label}</span>
+                      </div>
+                    ) : (
+                      cell.label
+                    )}
                   </th>
                 )
               })}
@@ -480,9 +487,21 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                       }
                     }}
                   >
-                    {cell.label}
-                    {isSortable && (
-                      <span className={`table-panel__sort-indicator ${isSorted ? 'active' : ''} ${sortDirection || ''}`} />
+                    {cell.type === 'explainer' ? (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                        <span style={{ fontSize: '12px' }}>💬</span>
+                        <span>{cell.label}</span>
+                        {isSortable && (
+                          <span className={`table-panel__sort-indicator ${isSorted ? 'active' : ''} ${sortDirection || ''}`} />
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        {cell.label}
+                        {isSortable && (
+                          <span className={`table-panel__sort-indicator ${isSorted ? 'active' : ''} ${sortDirection || ''}`} />
+                        )}
+                      </>
                     )}
                   </th>
                 )
@@ -519,9 +538,21 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                         }
                       }}
                     >
-                      {cell.label}
-                      {isSortable && (
-                        <span className={`table-panel__sort-indicator ${isSorted ? 'active' : ''} ${sortDirection || ''}`} />
+                      {cell.type === 'scorer' && cell.label && !isEmbeddingScorer ? (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1px' }}>
+                          <span style={{ fontSize: '10px' }}>🎯</span>
+                          <span>{cell.label}</span>
+                          {isSortable && (
+                            <span className={`table-panel__sort-indicator ${isSorted ? 'active' : ''} ${sortDirection || ''}`} />
+                          )}
+                        </div>
+                      ) : (
+                        <>
+                          {cell.label}
+                          {isSortable && (
+                            <span className={`table-panel__sort-indicator ${isSorted ? 'active' : ''} ${sortDirection || ''}`} />
+                          )}
+                        </>
                       )}
                     </th>
                   )

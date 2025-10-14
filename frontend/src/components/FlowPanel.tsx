@@ -367,8 +367,8 @@ const FlowPanel: React.FC = () => {
                         strokeWidth={isSelected ? '2' : '1.5'}
                       />
                       <text
-                        x={node.x + node.width / 2}
-                        y={node.y + node.height / 2 + 1}
+                        x={node.x + node.width / 2 - 6}
+                        y={node.y + node.height / 2}
                         textAnchor="middle"
                         dominantBaseline="central"
                         fontSize="11"
@@ -377,18 +377,16 @@ const FlowPanel: React.FC = () => {
                       >
                         {node.label}
                       </text>
-                      {/* Selection indicator (checkmark) */}
+                      {/* Selection indicator (💬 for explainer, 🎯 for scorer) */}
                       {isSelected && (
                         <text
-                          x={node.x + node.width - 6}
-                          y={node.y + node.height / 2 + 1}
+                          x={node.x + node.width - 10}
+                          y={node.y + node.height / 2 - 1}
                           textAnchor="middle"
                           dominantBaseline="central"
-                          fontSize="10"
-                          fill="#3b82f6"
-                          fontWeight="700"
+                          fontSize="13"
                         >
-                          ✓
+                          {node.llmType === 'explainer' ? '💬' : '🎯'}
                         </text>
                       )}
                     </g>
