@@ -734,11 +734,43 @@
  * SAVE CELL GROUP SELECTION UI
  * ============================================================================ */
 
-/* Floating Save Button */
-.table-panel__save-button {
+/* Action Buttons Container */
+.table-panel__action-buttons {
   position: absolute;
   bottom: 20px;
   right: 20px;
+  display: flex;
+  gap: 8px;
+  z-index: 100;
+}
+
+/* Clear Button */
+.table-panel__clear-button {
+  padding: 10px 20px;
+  background: #6b7280;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3);
+  transition: all 0.2s ease;
+}
+
+.table-panel__clear-button:hover {
+  background: #4b5563;
+  box-shadow: 0 6px 16px rgba(107, 114, 128, 0.4);
+  transform: translateY(-1px);
+}
+
+.table-panel__clear-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(107, 114, 128, 0.3);
+}
+
+/* Save Button */
+.table-panel__save-button {
   padding: 10px 20px;
   background: #3b82f6;
   color: white;
@@ -749,7 +781,6 @@
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
   transition: all 0.2s ease;
-  z-index: 100;
 }
 
 .table-panel__save-button:hover {

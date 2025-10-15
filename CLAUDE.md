@@ -8,15 +8,12 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 
 ## Current Project Status: 🚀 ADVANCED RESEARCH PROTOTYPE
 
-**Phase 1 Complete**: ✅ Dual-panel Sankey visualization with dynamic tree building system
-**Phase 2 Complete**: ✅ Dynamic tree builder allowing runtime stage creation and modification
-**Phase 3 Complete**: ✅ Performance optimization with ParentPath-based caching and filtering
-**Phase 4 Complete**: ✅ Threshold group management with histogram-based selection (January 2025)
-**Phase 5 Complete**: ✅ LLM Comparison visualization with consistency scoring (January 2025)
-**Phase 6 Complete**: ✅ UMAP Visualization with hierarchical clustering and zoom functionality (October 2025)
-**Current State**: Advanced research prototype with Sankey, Alluvial, Histogram, LLM Comparison, and UMAP visualizations
-**Active Usage**: Development servers for research demonstrations with multi-panel visualization, threshold grouping, LLM consistency analysis, and interactive UMAP exploration
-**Technical Readiness**: Conference-ready prototype with production-grade performance, interactive threshold management, model comparison, and dimensionality reduction visualization
+**Phase 1-6 Complete**: ✅ Sankey, Alluvial, Histogram, LLM Comparison, UMAP visualizations
+**Phase 7 Active**: 🔨 TablePanel with feature-level scoring and consistency analysis
+**Current State**: Advanced research prototype with 7 visualization types
+**Active Usage**: Development servers on ports 8003 (backend) and 3003 (frontend)
+**Technical Readiness**: Conference-ready with production-grade performance
+**New Features**: Feature-level table with cell selection, consistency scoring, and saved groups
 
 ## Technology Stack & Architecture
 
@@ -24,7 +21,7 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 - **Backend**: Python 3.x, FastAPI 0.104.1, Polars 0.19.19, Uvicorn 0.24.0
 - **Frontend**: React 19.1.1, TypeScript 5.8.3, Vite 7.1.6, Zustand 5.0.8
 - **Visualization**: D3.js ecosystem (d3-sankey, d3-scale, d3-array, d3-selection, d3-transition, d3-interpolate, d3-polygon, d3-zoom)
-- **Advanced Visualizations**: Sankey diagrams, Alluvial diagrams, Histogram panels with threshold selection, LLM Comparison with consistency scoring, UMAP projections with hierarchical clustering, dual-panel comparisons, threshold tree interactions, threshold group management, interactive zoom and pan
+- **Advanced Visualizations**: Sankey, Alluvial, Histogram, LLM Comparison, UMAP, TablePanel (feature-level scoring)
 - **Data Processing**: Polars lazy evaluation with string cache optimization
 - **HTTP Client**: Axios 1.12.2 with interceptors and error handling
 - **Data Storage**: Parquet files for efficient columnar data storage (1,648 features processed), JSON files for UMAP embeddings and cluster hierarchies
@@ -76,6 +73,7 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 │   │   │   ├── llm_comparison.py    # POST /api/llm-comparison
 │   │   │   ├── threshold_features.py # POST /api/threshold-features
 │   │   │   ├── umap.py             # POST /api/umap-data
+│   │   │   ├── table.py            # POST /api/table-data (Phase 7)
 │   │   │   └── feature.py          # GET /api/feature/{id}
 │   │   ├── models/                 # Pydantic request/response models
 │   │   │   ├── requests.py         # API request schemas
@@ -83,6 +81,7 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 │   │   │   └── common.py           # Shared models (Filters, Thresholds, etc.)
 │   │   └── services/               # Business logic layer
 │   │       ├── visualization_service.py  # High-performance Polars visualization service
+│   │       ├── table_data_service.py     # Table data processing service (Phase 7)
 │   │       ├── feature_classifier.py     # V2 feature classification engine
 │   │       ├── rule_evaluators.py        # Split rule evaluation logic
 │   │       ├── node_labeler.py           # Sankey node display name generation
@@ -103,7 +102,10 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 │   │   │   ├── ProgressBar.tsx     # Linear set visualization
 │   │   │   ├── FlowPanel.tsx       # Flow visualization panel
 │   │   │   ├── UMAPPanel.tsx       # Dual UMAP visualization with zoom
-│   │   │   ├── LLMComparisonSelection.tsx # Interactive LLM comparison with consistency
+│   │   │   ├── TablePanel.tsx      # Feature-level scoring table (Phase 7)
+│   │   │   ├── SavedGroupsPanel.tsx # Saved group management
+│   │   │   ├── VerticalBar.tsx     # Scroll indicator
+│   │   │   ├── LLMComparisonSelection.tsx # Interactive LLM comparison
 │   │   │   └── LLMComparisonVisualization.tsx # Static LLM comparison display
 │   │   ├── lib/
 │   │   │   ├── constants.ts         # Centralized constant definitions
@@ -112,6 +114,9 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 │   │   │   ├── d3-histogram-utils.ts # D3 Histogram calculations
 │   │   │   ├── d3-llm-comparison-utils.ts # LLM comparison layout and color utilities
 │   │   │   ├── d3-umap-utils.ts    # UMAP calculations and cluster hulls
+│   │   │   ├── d3-table-utils.ts   # Table layout and consistency calculations (Phase 7)
+│   │   │   ├── table-selection-utils.ts # Cell group selection logic (Phase 7)
+│   │   │   ├── table-sort-utils.ts # Table sorting utilities (Phase 7)
 │   │   │   ├── d3-linear-set-utils.ts # Linear set calculations
 │   │   │   ├── d3-flow-utils.ts    # Flow visualization utilities
 │   │   │   ├── d3-threshold-group-utils.ts # Threshold group utilities
@@ -146,14 +151,11 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 ### ✅ BACKEND: Production-Ready FastAPI Application
 
 **Core Features:**
-- **FastAPI 0.104.1**: Modern async web framework with automatic OpenAPI documentation
-- **High-Performance Data Service**: Polars-based lazy evaluation for efficient large dataset processing
-- **Comprehensive API**: 7 core endpoints with sub-second response times (all operational)
-- **Advanced Error Handling**: Structured error responses with custom error codes
-- **Health Monitoring**: Service availability and data connectivity validation
-- **CORS Support**: Multi-port frontend development support
-- **Production Servers**: Active on ports 8003 (primary) and 8001 (development)
-- **Performance Optimizations**: ParentPath-based caching and filtering (20-30% faster)
+- **FastAPI 0.104.1**: Modern async web framework with automatic documentation
+- **Polars Data Processing**: High-performance lazy evaluation
+- **9 API Endpoints**: All operational with sub-second response times
+- **Production Servers**: Active on port 8003 (primary), 8001 (development)
+- **Performance**: 20-30% faster with ParentPath-based optimizations
 
 **Data Processing Pipeline:**
 ```
@@ -207,21 +209,18 @@ threshold tree structure. Not limited to 3 scores or fixed pipeline.
 
 ### 📊 API Endpoints (All Operational)
 
-| Method | Endpoint | Purpose | Status | Performance |
-|--------|----------|---------|--------|-------------|
-| `GET` | `/api/filter-options` | Dynamic filter population | ✅ Active | ~50ms (cached) |
-| `POST` | `/api/histogram-data` | Threshold visualization | ✅ Active | ~200ms (20 bins) |
-| `POST` | `/api/sankey-data` | Multi-stage flow diagrams | ✅ Heavy Usage | ~300ms (full pipeline) |
-| `POST` | `/api/comparison-data` | Alluvial comparisons | ✅ Active | Phase 2 complete |
-| `POST` | `/api/llm-comparison` | LLM consistency analysis | ✅ IMPLEMENTED | ~10ms (pre-calculated stats) |
-| `POST` | `/api/threshold-features` | Feature IDs within threshold range | ✅ Active | ~50ms (Phase 4) |
-| `POST` | `/api/umap-data` | UMAP projections with cluster hierarchy | ✅ IMPLEMENTED | ~20ms (Phase 6, cached JSON) |
-| `GET` | `/api/feature/{id}` | Individual feature details | ✅ Active | ~10ms (direct lookup) |
-
-**Additional System Endpoints:**
-- `GET /health` - Service monitoring and data connectivity
-- `GET /docs` - Interactive Swagger UI documentation
-- `GET /redoc` - Alternative API documentation interface
+| Endpoint | Purpose | Status |
+|----------|---------|--------|
+| `GET /api/filter-options` | Dynamic filter options | ✅ ~50ms |
+| `POST /api/histogram-data` | Threshold visualization | ✅ ~200ms |
+| `POST /api/sankey-data` | Multi-stage flow diagrams | ✅ ~300ms |
+| `POST /api/comparison-data` | Alluvial comparisons | ✅ Active |
+| `POST /api/llm-comparison` | LLM consistency stats | ✅ ~10ms |
+| `POST /api/threshold-features` | Feature IDs by threshold | ✅ ~50ms |
+| `POST /api/umap-data` | UMAP projections | ✅ ~20ms |
+| `POST /api/table-data` | Feature-level scoring table | ✅ NEW (Phase 7) |
+| `GET /api/feature/{id}` | Individual feature details | ✅ ~10ms |
+| `GET /health` | Service health check | ✅ ~5ms |
 
 ## Development Commands
 
@@ -404,44 +403,39 @@ npm run preview
 - ✅ **Correlation Methods**: Cosine similarity (explainers), RV coefficient (scorers)
 
 ### ✅ Phase 6: UMAP Visualization (COMPLETE - October 2025)
-- ✅ **UMAPPanel Component**: Dual-panel UMAP visualization with feature and explanation projections
-- ✅ **Interactive Zoom & Pan**: D3-zoom integration with automatic level-of-detail adjustment
+- ✅ **Dual-Panel UMAP**: Feature and explanation projections with interactive zoom/pan
 - ✅ **Hierarchical Clustering**: Multi-level cluster hierarchy with zoom-based level switching
-- ✅ **Convex Hull Overlays**: Cluster boundaries visualized with d3-polygon convex hulls
-- ✅ **Cross-Panel Linking**: Click/hover on feature clusters highlights corresponding explanation clusters
-- ✅ **Cluster Labels**: Automatic label positioning on explanation UMAP with zoom-aware sizing
-- ✅ **Color Coding**: Configurable coloring by data source or cluster membership
-- ✅ **Performance Optimization**: Efficient rendering with point grouping and hull caching
-- ✅ **UMAP Utility Functions**: `d3-umap-utils.ts` with cluster calculations and filtering
-- ✅ **Data Loading**: Three JSON files (feature UMAP, explanation UMAP, cluster hierarchy)
-- ✅ **Backend Implementation**: POST /api/umap-data serves UMAP projections with cluster metadata
-- ✅ **Type Definitions**: UMAPPoint, UMAPDataResponse, ClusterNode, ProcessedPoint types
-- ✅ **API Function**: `getUMAPData()` in api.ts with comprehensive filtering options
-- ✅ **Smart Persistence**: Childless parent clusters remain visible when zooming past their level
+- ✅ **Convex Hull Overlays**: Cluster boundaries with d3-polygon
+- ✅ **Cross-Panel Linking**: Feature-explanation cluster highlighting
+- ✅ **Backend**: POST /api/umap-data with pre-calculated projections
+
+### 🔨 Phase 7: TablePanel Visualization (ACTIVE - Current)
+- ✅ **Feature-Level Scoring**: 824 rows with embedding/fuzz/detection scores per explainer
+- ✅ **Consistency Types**: LLM Scorer, Within-explanation, Cross-explanation, LLM Explainer
+- ✅ **Cell Group Selection**: Drag-to-select with union/difference modes
+- ✅ **Saved Groups**: Persistent group management with color-coding
+- ✅ **Sorting**: Multi-column sorting by score or consistency
+- ✅ **Dynamic Headers**: 2-row (averaged) or 3-row (individual scorers) layouts
+- ✅ **Scroll Indicator**: VerticalBar component for navigation feedback
+- ✅ **Backend**: POST /api/table-data with consistency calculations
+- ✅ **Real-time Coloring**: Green→yellow→red consistency gradient
 
 ### 📝 Future Enhancements
-- **UI for Tree Builder**: Visual interface for adding/removing stages (currently API-only)
-- **Debug View**: Individual feature inspection and path visualization
-- **Export Functionality**: Save/load custom tree and group configurations
-- **Cross-Visualization Interactions**: Link selections between Sankey and Alluvial diagrams
-- **Dynamic LLM Statistics Computation**: Real-time correlation calculation instead of pre-calculated stats
-- **Dynamic LLM Selection**: User interface for selecting which LLM models to compare
-- **Dataset Scaling**: Further optimization for 16K+ feature datasets
+- **TablePanel**: Export selected cell groups to CSV/JSON
+- **UMAP**: Cross-visualization linking with TablePanel selections
+- **Dynamic LLM Computation**: Real-time consistency calculation instead of pre-calculated stats
+- **Debug View**: Individual feature inspection with detailed path visualization
 
 ## Important Development Notes
 
-1. **Data Dependency**: Backend requires master parquet file at `/data/master/feature_analysis.parquet`
-2. **Port Configuration**: Default backend port 8003, frontend port 3003
-3. **Type Safety**: Comprehensive TypeScript integration - maintain type definitions
-4. **Error Handling**: Use structured error codes for proper frontend error handling
-5. **Performance**: All data operations use async patterns - maintain this architecture
-6. **API Integration**: Frontend integrates with 8 fully operational backend endpoints (all implemented)
-7. **Testing**: Always run backend tests after changes to verify functionality
-8. **LLM Comparison Data**: Requires pre-calculated statistics file at `/data/llm_comparison/llm_comparison_stats.json`
-9. **UMAP Data**: Requires three JSON files:
-   - `/data/umap_feature/.../umap_embeddings.json` (feature projections)
-   - `/data/umap_explanations/explanation_umap.json` (explanation projections)
-   - `/data/umap_clustering/feature_clustering.json` & `explanation_clustering.json` (cluster hierarchies)
+1. **Data Files**:
+   - Master parquet: `/data/master/feature_analysis.parquet` (1,648 features)
+   - LLM stats: `/data/llm_comparison/llm_comparison_stats.json`
+   - UMAP projections: `/data/umap_feature/`, `/data/umap_explanations/`, `/data/umap_clustering/`
+2. **Port Configuration**: Backend 8003, Frontend 3003
+3. **Type Safety**: Full TypeScript integration - maintain type definitions
+4. **Testing**: Run `python test_api.py` after backend changes
+5. **Current Branch**: `table` (Phase 7 development)
 
 ## Project Maturity Assessment
 

@@ -4,18 +4,11 @@ This file provides comprehensive guidance to Claude Code when working with the R
 
 ## Current Status: ✅ ADVANCED MULTI-VISUALIZATION RESEARCH PROTOTYPE
 
-**Phase 1 Complete**: ✅ Dual-panel Sankey visualization with dynamic tree building
-**Phase 2 Complete**: ✅ Dynamic tree builder with runtime stage creation/removal
-**Phase 3 Complete**: ✅ Backend performance optimization (20-30% faster classification)
-**Phase 4 Complete**: ✅ Threshold group management system with histogram visualization
-**Phase 5 Complete**: ✅ LLM Comparison visualization with consistency scoring
-**Phase 6 Complete**: ✅ UMAP Visualization with hierarchical clustering and interactive zoom (October 2025)
-**Architecture**: Modern TypeScript-based frontend with multiple visualization types and dual-panel state management
-**Status**: Conference-ready research prototype with Sankey, Alluvial, Histogram, LLM Comparison, and UMAP visualizations
-**Development Server**: Active on http://localhost:3003 with hot reload
-**Design Philosophy**: Research prototype optimized for live demonstrations with interactive visualization controls
-**Backend Integration**: Optimized API calls with ParentPath-based caching for improved performance
-**New Features**: Named threshold groups with visual indicators, histogram-based selection, LLM consistency comparison, interactive UMAP exploration with clustering
+**Phase 1-6 Complete**: ✅ Sankey, Alluvial, Histogram, LLM Comparison, UMAP
+**Phase 7 Active**: 🔨 TablePanel with feature-level scoring and consistency analysis
+**Development Server**: http://localhost:3003 (active with hot reload)
+**Technology**: React 19.1.1, TypeScript 5.8.3, Zustand, D3.js
+**Status**: Conference-ready with 7 visualization types
 
 ## Technology Stack & Architecture
 
@@ -100,12 +93,13 @@ frontend/
 │   │   ├── split-rule-builders.ts # Split rule construction helpers
 │   │   └── utils.ts            # General utility functions (includes useResizeObserver hook)
 │   ├── styles/                  # Styling
-│   │   ├── base.css            # Base styles and resets
+│   │   ├── globals.css         # Global styles
 │   │   ├── App.css             # Application-level styles
-│   │   ├── globals.css         # Global styles with responsive design patterns
-│   │   ├── HistogramPanel.css  # Histogram panel specific styles (Phase 4)
-│   │   ├── ThresholdGroupPanel.css # Threshold group panel styles (Phase 4)
-│   │   └── UMAPPanel.css       # UMAP panel specific styles (Phase 6)
+│   │   ├── HistogramPanel.css  # Histogram styles
+│   │   ├── ThresholdGroupPanel.css # Threshold group styles
+│   │   ├── UMAPPanel.css       # UMAP styles
+│   │   ├── TablePanel.css      # Table panel styles (Phase 7)
+│   │   └── ... # Other component styles
 │   ├── store.ts                # Consolidated Zustand store with threshold groups (Phase 4)
 │   ├── types.ts                # Comprehensive TypeScript type definitions
 │   ├── api.ts                  # HTTP client and API integration layer
@@ -444,17 +438,18 @@ npm run lint
 ## Backend Integration
 
 ### API Endpoints (All Functional) ✅
-| Method | Endpoint | Purpose | Frontend Integration |
-|--------|----------|---------|---------------------|
-| `GET` | `/api/filter-options` | Dynamic filter population | FilterPanel dropdown options |
-| `POST` | `/api/histogram-data` | Threshold visualization | HistogramPopover data |
-| `POST` | `/api/sankey-data` | Sankey diagram generation | SankeyDiagram main visualization |
-| `POST` | `/api/comparison-data` | Phase 2 alluvial comparisons | AlluvialDiagram flow visualization |
-| `POST` | `/api/llm-comparison` | Phase 5 LLM consistency scores | LLMComparisonSelection visualization |
-| `POST` | `/api/threshold-features` | Feature IDs within threshold range | HistogramPanel filtering |
-| `POST` | `/api/umap-data` | Phase 6 UMAP projections | UMAPPanel dual visualization |
-| `GET` | `/api/feature/{id}` | Individual feature details | Future debug view |
-| `GET` | `/health` | Backend connectivity | App startup health check |
+| Endpoint | Frontend Component |
+|----------|-------------------|
+| `GET /api/filter-options` | FilterPanel |
+| `POST /api/histogram-data` | HistogramPopover |
+| `POST /api/sankey-data` | SankeyDiagram |
+| `POST /api/comparison-data` | AlluvialDiagram |
+| `POST /api/llm-comparison` | LLMComparisonSelection |
+| `POST /api/threshold-features` | HistogramPanel |
+| `POST /api/umap-data` | UMAPPanel |
+| `POST /api/table-data` | TablePanel (Phase 7) |
+| `GET /api/feature/{id}` | Future debug view |
+| `GET /health` | App startup health check |
 
 ### Error Handling Integration
 - **INVALID_FILTERS**: User-friendly filter validation messages
@@ -565,114 +560,105 @@ User Interaction → State Update → API Request → Data Processing → UI Upd
 - Future enhancement: Real-time correlation calculation based on active filters
 
 ### ✅ Phase 6: UMAP Visualization (COMPLETE - October 2025)
+- ✅ **Dual-Panel UMAP**: Feature and explanation projections with zoom/pan
+- ✅ **Hierarchical Clustering**: Multi-level clusters with zoom-based level switching
+- ✅ **Convex Hull Overlays**: Cluster boundaries with d3-polygon
+- ✅ **Cross-Panel Linking**: Feature-explanation cluster highlighting
+- ✅ **Backend**: POST /api/umap-data with pre-calculated projections
 
-**Purpose**: Interactive dimensionality reduction visualization for exploring feature and explanation embeddings with hierarchical clustering
+### 🔨 Phase 7: TablePanel Visualization (ACTIVE - Current)
+
+**Purpose**: Feature-level scoring table with consistency analysis and cell group selection
 
 **Components:**
-- ✅ **UMAPPanel Component**: Dual-panel component with feature and explanation UMAP projections
-- ✅ **UMAPSubPanel Component**: Reusable sub-component with zoom, cluster overlays, and tooltips
+- ✅ **TablePanel Component**: Main table with 824 rows (one per feature)
+- ✅ **SavedGroupsPanel Component**: Manage saved cell group selections
+- ✅ **VerticalBar Component**: Scroll position indicator for table navigation
 
-**Visualization Architecture:**
-- ✅ **Dual-Panel Layout**: Side-by-side Feature UMAP and Explanation UMAP
-- ✅ **D3-Zoom Integration**: Interactive zoom and pan with scale extent [0.5, 8]
-- ✅ **Hierarchical Clustering**: Multi-level cluster hierarchy (levels 1-4+)
-- ✅ **Zoom-Based Level Switching**: Automatic cluster level adjustment based on zoom scale
-- ✅ **Convex Hull Overlays**: Cluster boundaries visualized using d3-polygon
-- ✅ **Cross-Panel Linking**: Hover/click on clusters in one panel highlights corresponding features in other panel
-- ✅ **Cluster Labels**: Automatic label positioning on Explanation UMAP with zoom-aware font sizing
-- ✅ **Color Coding Options**: Configurable coloring by data source or cluster membership
-- ✅ **Performance Optimizations**: Point grouping by cluster, hull caching, debounced level changes
+**Key Features:**
+- ✅ **Feature-Level Scoring**: All features × all explainers × all metrics (embedding, fuzz, detection)
+- ✅ **Consistency Types**: 5 modes
+  - None: Raw scores without consistency overlay
+  - LLM Scorer: Consistency across different scorers for same explainer/metric
+  - Within-explanation: Consistency across metrics within same explainer
+  - Cross-explanation: Consistency across explainers for same metric
+  - LLM Explainer: Consistency across explainers (requires multiple explainers)
+- ✅ **Cell Group Selection**: Drag-to-select with union/difference modes
+  - Click: Toggle single group
+  - Drag: Select multiple groups at once
+  - Union mode (blue): Add groups to selection
+  - Difference mode (red): Remove groups from selection
+- ✅ **Saved Groups**: Persistent group management
+  - Name and save cell group selections
+  - Color-coded borders for active saved group
+  - Update existing saved groups
+  - Multiple saved groups with auto-generated colors
+- ✅ **Sorting**: Multi-column sorting
+  - Sort by consistency type (LLM Scorer, Within-exp, Cross-exp, LLM Explainer)
+  - Sort by individual columns (explainer + metric + scorer)
+  - Three-state cycle: null → asc → desc → null
+- ✅ **Dynamic Headers**: Adapts to data
+  - 2-row header: When averaged scores (explainer → metric)
+  - 3-row header: When individual scorers (explainer → metric → scorer)
+  - Metric-first reordering for cross-explanation consistency
+- ✅ **Real-time Coloring**: Green→yellow→red gradient based on consistency scores
+- ✅ **Scroll Tracking**: Advanced scroll position tracking for VerticalBar indicator
 
 **Technical Implementation:**
-- ✅ **d3-umap-utils.ts**: Comprehensive UMAP calculation utilities
-  - `getClusterLevelFromZoom()`: Maps zoom scale to cluster level
-  - `filterToMostSpecificLevel()`: Keeps each feature at highest level
-  - `getEffectiveClusters()`: Gets target level clusters + childless parents
-  - `getEffectivePoints()`: Filters points for effective clusters
-  - `calculateClusterHulls()`: Computes convex hulls with d3-polygon
-  - `calculateClusterLabels()`: Generates label positions and text
-  - `generateClusterColors()`: Consistent color mapping for clusters
-  - `hullToPath()`: Converts hull points to SVG path
-- ✅ **Type Definitions**: UMAPPoint, UMAPDataResponse, ClusterNode, ProcessedPoint
-- ✅ **API Integration**: getUMAPData() with comprehensive filtering options
-- ✅ **Backend Endpoint**: POST /api/umap-data serves pre-calculated UMAP projections
-- ✅ **Data Sources**:
-  - `/data/umap_feature/.../umap_embeddings.json`: Feature projections
-  - `/data/umap_explanations/explanation_umap.json`: Explanation projections
-  - `/data/umap_clustering/`: Hierarchical cluster data for both types
-- ✅ **Smart Persistence**: Childless parent clusters remain visible when zoomed past their level
-- ✅ **Interactive Tooltips**: Cluster name and point count on hover, pin state indicator
-- ✅ **Legend System**: Source color legend when colored by data source
+- ✅ **d3-table-utils.ts**: Table layout calculations
+  - `buildHeaderStructure()`: Standard explainer-first header
+  - `buildMetricFirstHeaderStructure()`: Metric-first header for cross-explanation
+  - `calculateColorBarLayout()`: Consistency legend SVG layout
+  - `getConsistencyColor()`: Maps consistency score to color gradient
+  - `extractRowScores()` / `extractRowScoresMetricFirst()`: Extract scores from response
+- ✅ **table-selection-utils.ts**: Cell group selection logic
+  - `createCellGroup()`: Create group from feature+explainer
+  - `getCellGroup()`: Check if cell belongs to a group
+  - `findGroupsInRectangle()`: Find all groups in drag selection
+  - `getExplainerForColumnIndex()`: Map column index to explainer
+- ✅ **table-sort-utils.ts**: Sorting logic
+  - `sortFeatures()`: Sort features by consistency or column value
+  - `getConsistencyValueForSorting()`: Extract consistency for sorting
+  - `getScoreValue()`: Extract score for sorting
+- ✅ **Backend Integration**: POST /api/table-data
+  - Filtered by selected LLM explainers and scorers
+  - Returns 824 rows with all scores and consistency values
+  - Includes global min/max for normalization
+- ✅ **Store Integration**: Zustand state management
+  - `tableData`: FeatureTableDataResponse
+  - `cellSelection`: Groups, start/end positions
+  - `savedCellGroupSelections`: Persistent saved groups
+  - `tableSortBy` / `tableSortDirection`: Sorting state
 
 **User Interactions:**
-- ✅ **Zoom & Pan**: Mouse wheel zoom and drag pan with smooth transforms
-- ✅ **Cluster Hover**: Hover over cluster overlays highlights cluster and shows tooltip
-- ✅ **Cluster Click**: Click to pin cluster selection (persists across pan/zoom)
-- ✅ **Cross-Panel Highlighting**: Points in inactive panel dim when cluster selected in active panel
-- ✅ **Feature ID Linking**: Clicking feature cluster highlights corresponding explanations
+- ✅ **Consistency Type Selection**: Click buttons to change consistency overlay
+- ✅ **Cell Click**: Toggle single group selection
+- ✅ **Cell Drag**: Select multiple groups with visual preview
+- ✅ **Column Sort**: Click headers to cycle through sort states
+- ✅ **Save Selection**: Name and save current cell group selection
+- ✅ **Update Saved Group**: Modify existing saved group without renaming
+- ✅ **Scroll Tracking**: Real-time scroll position feedback via VerticalBar
 
 **Performance Features:**
-- ✅ **Efficient Rendering**: Points grouped by cluster for batch rendering
-- ✅ **Hull Caching**: Convex hulls memoized with useMemo
-- ✅ **Debounced Level Changes**: 200ms debounce prevents rapid recalculation
-- ✅ **UseResizeObserver**: Automatic layout adjustment on container resize
-- ✅ **Transform Optimization**: Single transform group for zoom/pan
-
-**Current Capabilities:**
-- Visualize 1000+ features and 2400+ explanations simultaneously
-- Explore hierarchical clustering at multiple levels (1-4+)
-- Interactive zoom with automatic level-of-detail adjustment
-- Cross-panel feature-explanation linking
-- Pin cluster selections for detailed analysis
+- ✅ **ResizeObserver**: Track table height changes for scroll indicator
+- ✅ **MutationObserver**: Detect table element appearance for initial measurement
+- ✅ **RequestAnimationFrame**: Debounced scroll measurements
+- ✅ **Memoized Calculations**: useMemo for sorted features, color layouts, group calculations
 
 ### 📝 Future Enhancements
-
-**Visualization Improvements:**
-- **UI for Tree Builder**: Visual interface for adding/removing stages (currently API-only)
+- **TablePanel**: Export selected cell groups to CSV/JSON
+- **UMAP**: Cross-visualization linking with TablePanel selections
+- **Dynamic LLM Computation**: Real-time consistency calculation based on filters
 - **Debug View**: Individual feature inspection with path visualization
-- **Cross-Visualization Interactions**: Link selections between Sankey and Alluvial diagrams
-- **Export Functionality**: Save/load custom tree and group configurations
-
-**LLM Comparison Enhancements:**
-- **Dynamic LLM Statistics Computation**: Real-time correlation calculation based on active filters
-- **Dynamic LLM Selection**: User interface for selecting which models to compare
-- **Filter Integration**: Apply current filters to LLM comparison statistics
-- **Drill-Down Analysis**: Click cells to see detailed comparison data
-
-**Performance & UX:**
-- **Virtual Scrolling**: Performance optimization for large node lists
-- **Advanced Caching**: Intelligent data caching strategies
-- **Group Analytics**: Statistics and insights for threshold groups
-- **Keyboard Navigation**: Enhanced accessibility for all visualizations
 
 ## Critical Development Notes
 
-1. **Backend Dependency**: Requires backend server on port 8003
-   - All 8 API endpoints must be operational
-   - LLM comparison requires `/data/llm_comparison/llm_comparison_stats.json`
-   - UMAP requires three JSON files (feature, explanation, clustering)
-2. **Type Safety**: Maintain comprehensive TypeScript integration
-3. **Performance**: All D3 calculations optimized for smooth interactions
-   - React.memo for expensive components
-   - useMemo for D3 layout calculations
-   - useCallback for event handlers
-   - Point grouping and hull caching for UMAP
-4. **Error Handling**: Use structured error codes for proper user messaging
-5. **State Management**: Maintain centralized state with Zustand store
-   - Dual-panel architecture with independent state
-   - Threshold groups with visibility management
-   - UMAP cross-panel linking state
-6. **API Integration**: All backend endpoints must be operational
-7. **Component Architecture**: Maintain clear separation of concerns
-   - Visualization components in `/components`
-   - D3 utilities in `/lib`
-   - API layer in `api.ts`
-   - State management in `store.ts`
-8. **UMAP Specific**:
-   - Use d3-zoom for interactive pan/zoom
-   - Use d3-polygon for convex hull calculations
-   - Implement smart persistence for childless parent clusters
-   - Debounce level changes to prevent performance issues
+1. **Backend Dependency**: Requires backend on port 8003 with all 9 endpoints operational
+2. **Type Safety**: Full TypeScript integration - maintain type definitions
+3. **Performance**: D3 calculations with React.memo, useMemo, useCallback
+4. **State Management**: Centralized Zustand store with dual-panel architecture
+5. **Component Architecture**: Separation of concerns (components/lib/api/store)
+6. **Current Branch**: `table` (Phase 7 development)
 
 ## Project Assessment
 

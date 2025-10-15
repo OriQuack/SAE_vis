@@ -4,7 +4,7 @@ This file provides comprehensive guidance to Claude Code when working with the F
 
 ## Project Status: ✅ OPTIMIZED RESEARCH PROTOTYPE
 
-The backend is a production-ready FastAPI application with V2 classification engine, ParentPath-based performance optimizations, and flexible split rule evaluation optimized for research demonstrations supporting multiple frontend visualization types (Sankey, Alluvial).
+Production-ready FastAPI backend with 9 operational endpoints, V2 classification engine, and ParentPath-based performance optimizations (20-30% faster). Supports 7 visualization types: Sankey, Alluvial, Histogram, LLM Comparison, UMAP, TablePanel, and feature details.
 
 ## Architecture Overview
 
@@ -75,10 +75,11 @@ backend/
 │   │   ├── responses.py          # Response schemas with type safety
 │   │   └── common.py             # Shared models and enums
 │   └── services/
-│       ├── visualization_service.py  # 🏭 High-performance Polars visualization service
-│       ├── feature_classifier.py     # 🔧 V2 feature classification engine
-│       ├── rule_evaluators.py        # ⚙️ Split rule evaluation logic
-│       ├── node_labeler.py           # 🎨 Sankey node display name generation
+│       ├── visualization_service.py  # 🏭 Polars visualization service
+│       ├── table_data_service.py     # 📊 Table data processing (Phase 7)
+│       ├── feature_classifier.py     # 🔧 V2 classification engine
+│       ├── rule_evaluators.py        # ⚙️ Split rule evaluation
+│       ├── node_labeler.py           # 🎨 Node display name generation
 │       └── data_constants.py         # 📊 Data schema constants
 ├── docs/                         # 📚 API documentation
 ├── start.py                      # 🔧 Production startup script with CLI args
@@ -126,27 +127,18 @@ curl http://localhost:8003/health
 
 ## API Endpoints (✅ ALL IMPLEMENTED & TESTED)
 
-### Core Visualization Endpoints
-
-| Method | Endpoint | Purpose | Status |
-|--------|----------|---------|--------|
-| `GET` | `/api/filter-options` | Dynamic filter population for UI | ✅ Cached |
-| `POST` | `/api/histogram-data` | Threshold slider visualization | ✅ Optimized |
-| `POST` | `/api/sankey-data` | Phase 1 flow diagrams | ✅ Multi-stage |
-| `POST` | `/api/comparison-data` | Phase 2 alluvial comparisons | ✅ Active |
-| `POST` | `/api/llm-comparison` | Phase 5 LLM consistency scores | ✅ Implemented |
-| `POST` | `/api/threshold-features` | Feature IDs within threshold range | ✅ Active |
-| `POST` | `/api/umap-data` | Phase 6 UMAP projections with clustering | ✅ Implemented |
-| `GET` | `/api/feature/{id}` | Debug view detail drilling | ✅ JSON linked |
-
-### System Endpoints
-
-| Method | Endpoint | Purpose | Features |
-|--------|----------|---------|----------|
-| `GET` | `/health` | Service monitoring | Data service status |
-| `GET` | `/` | API information | Version & description |
-| `GET` | `/docs` | Interactive API docs | Swagger UI |
-| `GET` | `/redoc` | Alternative docs | ReDoc interface |
+| Endpoint | Purpose | Status |
+|----------|---------|--------|
+| `GET /api/filter-options` | Dynamic filter options | ✅ ~50ms |
+| `POST /api/histogram-data` | Threshold visualization | ✅ ~200ms |
+| `POST /api/sankey-data` | Multi-stage flow diagrams | ✅ ~300ms |
+| `POST /api/comparison-data` | Alluvial comparisons | ✅ Active |
+| `POST /api/llm-comparison` | LLM consistency stats | ✅ ~10ms |
+| `POST /api/threshold-features` | Feature IDs by threshold | ✅ ~50ms |
+| `POST /api/umap-data` | UMAP projections | ✅ ~20ms |
+| `POST /api/table-data` | Feature-level scoring table | ✅ NEW (Phase 7) |
+| `GET /api/feature/{id}` | Individual feature details | ✅ ~10ms |
+| `GET /health` | Service health check | ✅ ~5ms |
 
 ### 📊 LLM Comparison Endpoint (Phase 5 - IMPLEMENTED)
 
@@ -219,94 +211,111 @@ async def get_llm_comparison(request: LLMComparisonRequest):
 - **Format**: JSON file with pre-calculated explainer/scorer consistency scores
 - **Statistics**: Explainer consistency (cosine similarity), Scorer consistency (RV coefficient)
 
-### 📊 UMAP Endpoint (Phase 6 - IMPLEMENTED)
-
+### 📊 UMAP Endpoint (Phase 6)
 **Endpoint**: `POST /api/umap-data`
-**Purpose**: Serves UMAP projection data with hierarchical clustering information for interactive exploration
-**Status**: ✅ Fully Implemented (October 2025)
+**Purpose**: UMAP projections with hierarchical clustering
+**Status**: ✅ ~20ms (cached JSON)
 
-**Implementation Details:**
+**Key Features:**
+- Feature and explanation UMAP projections
+- Multi-level hierarchical clustering
+- Cross-reference between features and explanations
+- Pre-calculated data for fast response
+
+**Data Sources:**
+- `/data/umap_feature/.../umap_embeddings.json`
+- `/data/umap_explanations/explanation_umap.json`
+- `/data/umap_clustering/` hierarchy files
+
+### 📊 Table Data Endpoint (Phase 7 - NEW)
+**Endpoint**: `POST /api/table-data`
+**Purpose**: Feature-level scoring table with consistency analysis
+**Status**: ✅ Fully Implemented (Current)
+
+**Implementation:**
 ```python
-# Location: app/api/umap.py
-@router.post("/umap-data", response_model=UMAPDataResponse)
-async def get_umap_data(request: UMAPDataRequest):
+# Location: app/api/table.py
+@router.post("/table-data", response_model=FeatureTableDataResponse)
+async def get_table_data(request: TableDataRequest):
     """
-    Returns UMAP projection points for features and explanations,
-    with cluster hierarchy for zoom-based level-of-detail:
-    - Feature UMAP projections (1000+ points)
-    - Explanation UMAP projections (2400+ points)
-    - Hierarchical cluster metadata (multiple levels)
+    Returns 824 rows (one per feature) with:
+    - All scores per explainer (embedding, fuzz, detection)
+    - Consistency scores (LLM Scorer, Within-exp, Cross-exp, LLM Explainer)
+    - Global min/max for normalization
     """
 ```
 
-**Data Sources:**
-- **Feature UMAP**: `/data/umap_feature/.../umap_embeddings.json`
-- **Explanation UMAP**: `/data/umap_explanations/explanation_umap.json`
-- **Cluster Hierarchy**: `/data/umap_clustering/feature_clustering.json` and `explanation_clustering.json`
-- **Format**: Pre-calculated JSON files with UMAP coordinates and cluster assignments
-- **Loading**: Global cache loaded once at startup for fast response times
+**Service Layer:**
+```python
+# Location: app/services/table_data_service.py
+class TableDataService:
+    """
+    Processes feature-level scoring data with consistency calculations.
+
+    Key Methods:
+    - get_table_data(): Main entry point
+    - _calculate_consistency_scores(): Compute all consistency types
+    - _calculate_llm_scorer_consistency(): Scorer-level consistency
+    - _calculate_within_explanation_score(): Metric-level consistency
+    - _calculate_cross_explanation_score(): Cross-explainer consistency
+    - _calculate_llm_explainer_consistency(): Explainer-level consistency
+    """
+```
 
 **Response Structure:**
 ```json
 {
   "features": [
-    {"feature_id": 0, "umap_x": -2.34, "umap_y": 1.56, "cluster_id": "L2_C1",
-     "cluster_level": 2, "cluster_label": "Features 0-199", "source": "decoder"},
-    ...
-  ],
-  "explanations": [
-    {"feature_id": 0, "umap_x": -1.23, "umap_y": 0.89, "cluster_id": "L1_C3",
-     "cluster_level": 1, "cluster_label": "Network Security", "source": "llama_e-llama_s"},
-    ...
-  ],
-  "metadata": {
-    "cluster_hierarchy": {
-      "features": {
-        "L1_C1": {"cluster_id": "L1_C1", "level": 1, "label": "...", "children": ["L2_C1", "L2_C2"]},
-        "L2_C1": {"cluster_id": "L2_C1", "level": 2, "label": "...", "children": []}
+    {
+      "feature_id": 0,
+      "scores": {
+        "explainer_1": {
+          "embedding": 0.85,
+          "fuzz": {"scorer_1": 0.75, "scorer_2": 0.80, "scorer_3": 0.78},
+          "detection": {"scorer_1": 0.65, "scorer_2": 0.70, "scorer_3": 0.68}
+        }
       },
-      "explanations": { ... }
-    },
-    "total_features": 1000,
-    "total_explanations": 2471
-  }
+      "consistency": {
+        "llm_scorer_consistency": {"explainer_1": {"fuzz": 0.92, "detection": 0.88}},
+        "within_explanation_score": {"explainer_1": 0.85},
+        "cross_explanation_score": {"embedding": 0.90, "fuzz": 0.87, "detection": 0.83},
+        "llm_explainer_consistency": 0.88
+      }
+    }
+  ],
+  "explainer_ids": ["explainer_1", "explainer_2", "explainer_3"],
+  "scorer_ids": ["scorer_1", "scorer_2", "scorer_3"],
+  "is_averaged": false,
+  "global_min": 0.0,
+  "global_max": 1.0
 }
 ```
 
-**Key Features:**
-- **Multi-Level Clustering**: Hierarchical cluster structure with levels 1-4+
-- **Cluster Labels**: Human-readable labels for explanation clusters
-- **Source Tracking**: Data source identification (decoder, llama_e-llama_s, etc.)
-- **Feature ID Linking**: Cross-reference between feature and explanation projections
-- **Noise Handling**: Optional inclusion/exclusion of noise points (cluster_label: "noise")
-- **Error Handling**: Proper 400/500 error responses with structured error codes
-- **Performance**: Sub-20ms response time (cached JSON data)
+**Consistency Types:**
+1. **LLM Scorer Consistency**: Variance across scorers for same explainer+metric
+2. **Within-explanation Score**: Variance across metrics within same explainer
+3. **Cross-explanation Score**: Variance across explainers for same metric
+4. **LLM Explainer Consistency**: Variance across explainers (requires multiple explainers)
 
-**Request Parameters:**
-```python
-class UMAPDataRequest(BaseModel):
-    filters: Filters  # Optional filtering by sae_id, explainer, etc.
-    umap_type: Literal["features", "explanations", "both"]  # Which projections to return
-    feature_ids: Optional[List[int]]  # Filter to specific feature IDs
-    include_noise: bool = True  # Whether to include noise cluster points
-```
+**Key Features:**
+- **Feature-Level Scoring**: 824 rows with all explainer × metric × scorer combinations
+- **Real-time Consistency**: Calculates 4 types of consistency scores
+- **Filtered Data**: Respects selected LLM explainers and scorers
+- **Global Normalization**: Includes min/max for client-side color scaling
+- **Averaged Mode**: Option to average scores across scorers
+- **Performance**: ~300-500ms for full table with consistency calculations
 
 **Frontend Integration:**
-- Powers `UMAPPanel.tsx` dual visualization
-- Enables interactive zoom with automatic cluster level switching
-- Supports cross-panel feature-explanation linking
-- Used for exploring high-dimensional embedding space
+- Powers `TablePanel.tsx` with 824 rows
+- Enables drag-to-select cell groups
+- Supports 5 consistency visualization modes
+- Real-time color gradient (green→yellow→red)
 
-**Current Limitations:**
-- Serves pre-calculated UMAP projections (not real-time computation)
-- Filter parameters available but not yet fully applied to UMAP data
-- Future enhancement: Real-time UMAP computation with user-specified parameters
-
-**Data Source Requirements:**
-- **Feature UMAP**: `/data/umap_feature/.../umap_embeddings.json` (1000+ features with x/y coordinates)
-- **Explanation UMAP**: `/data/umap_explanations/explanation_umap.json` (2471 explanations)
-- **Cluster Hierarchy**: `/data/umap_clustering/` directory with hierarchical cluster definitions
-- **Format**: JSON files with UMAP coordinates, cluster IDs, and hierarchy metadata
+**Implementation Notes:**
+- Uses Polars for efficient data aggregation
+- Calculates consistency as (1 - coefficient_of_variation)
+- Handles missing values and edge cases
+- Returns structured error responses for invalid filters
 
 ## Data Service Architecture
 
@@ -747,33 +756,21 @@ API Endpoints → DataService (visualization_service.py)
 - ✅ **ParentPath Optimizations**: O(1) node lookups, path-based filtering, early termination
 - ✅ **Performance Validated**: 20-30% faster Sankey generation, 3-5x faster leaf filtering
 
-### 📝 Future Performance Optimizations
-- Request rate limiting implementation
+### 📝 Future Enhancements
 - Redis caching for frequent queries
-- Database backend option for larger datasets
-- Batch processing for bulk operations
-
-### Security & Monitoring
-- 📝 API key authentication system
-- 📝 Request/response logging enhancement
-- 📝 Metrics collection and alerting
-- 📝 Health check endpoint expansion
+- Database backend for larger datasets
+- API key authentication
+- Enhanced monitoring and metrics
 
 ## Critical Notes for Development
 
-1. **Data Dependency**: Backend requires multiple data files to function
-   - **Master File**: `/data/master/feature_analysis.parquet` (2,471 rows)
-   - **LLM Stats**: `/data/llm_comparison/llm_comparison_stats.json` (Phase 5)
-   - **UMAP Data** (Phase 6):
-     - `/data/umap_feature/.../umap_embeddings.json` (feature projections)
-     - `/data/umap_explanations/explanation_umap.json` (explanation projections)
-     - `/data/umap_clustering/feature_clustering.json` & `explanation_clustering.json` (cluster hierarchies)
-2. **Port Configuration**: Default 8003 matches frontend environment
-3. **Polars Version**: String cache compatibility requires exact version
-4. **Async Patterns**: All data operations are async - maintain this pattern
-5. **Error Handling**: Use custom error codes for frontend error handling
-6. **CORS Setup**: Frontend ports pre-configured - update for new ports
-7. **Testing**: Always run test_api.py after changes to verify functionality
+1. **Data Dependencies**:
+   - Master parquet: `/data/master/feature_analysis.parquet` (1,648 features)
+   - LLM stats: `/data/llm_comparison/llm_comparison_stats.json`
+   - UMAP files: `/data/umap_feature/`, `/data/umap_explanations/`, `/data/umap_clustering/`
+2. **Port Configuration**: Default 8003 (matches frontend)
+3. **Testing**: Run `python test_api.py` after changes
+4. **Current Branch**: `table` (Phase 7 development)
 
 The backend represents a research prototype implementation with flexible, configurable architecture, reliable error handling, and demonstration optimizations suitable for academic conference presentations and SAE research scenarios.
 

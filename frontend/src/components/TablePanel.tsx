@@ -1108,26 +1108,36 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
       {/* Save Cell Group Selection UI */}
       {cellSelection.groups.length > 0 && !showCellGroupNameInput && !showSavedMessage && (
-        <button
-          className="table-panel__save-button"
-          onClick={() => {
-            if (activeSavedGroupId) {
-              // Update existing group without prompting for name
-              updateSavedCellGroups(activeSavedGroupId)
+        <div className="table-panel__action-buttons">
+          <button
+            className="table-panel__clear-button"
+            onClick={() => {
+              clearCellSelection()
+            }}
+          >
+            Clear
+          </button>
+          <button
+            className="table-panel__save-button"
+            onClick={() => {
+              if (activeSavedGroupId) {
+                // Update existing group without prompting for name
+                updateSavedCellGroups(activeSavedGroupId)
 
-              // Show "saved ✓" message for 2 seconds
-              setShowSavedMessage(true)
-              setTimeout(() => {
-                setShowSavedMessage(false)
-              }, 2000)
-            } else {
-              // New group - show name input
-              startSavingCellGroups()
-            }
-          }}
-        >
-          {activeSavedGroupId ? 'Save Changes' : 'Save Selection'}
-        </button>
+                // Show "saved ✓" message for 2 seconds
+                setShowSavedMessage(true)
+                setTimeout(() => {
+                  setShowSavedMessage(false)
+                }, 2000)
+              } else {
+                // New group - show name input
+                startSavingCellGroups()
+              }
+            }}
+          >
+            {activeSavedGroupId ? 'Save Changes' : 'Save Selection'}
+          </button>
+        </div>
       )}
 
       {/* Saved confirmation message */}
