@@ -7,7 +7,7 @@
  */
 
 import { scaleLinear } from 'd3-scale'
-import type { FeatureTableRow, ConsistencyScore } from '../types'
+import type { FeatureTableRow } from '../types'
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -632,7 +632,6 @@ export function getConsistencyGradientStops(): Array<{ offset: string; color: st
  * @param row - Feature table row
  * @param explainerId - Explainer ID (llama, qwen, openai)
  * @param metricType - Metric type (embedding, fuzz, detection)
- * @param scorerId - Scorer ID (s1, s2, s3) - only for fuzz/detection in non-averaged mode
  * @param consistencyType - Type of consistency to retrieve
  * @returns Consistency score value (0-1) or null if not available
  */
@@ -640,7 +639,6 @@ export function getConsistencyForCell(
   row: FeatureTableRow,
   explainerId: string,
   metricType: 'embedding' | 'fuzz' | 'detection',
-  scorerId: 's1' | 's2' | 's3' | undefined,
   consistencyType: string
 ): number | null {
   const explainerData = row.explainers[explainerId]

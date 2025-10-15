@@ -101,6 +101,10 @@ interface AppState {
   // Table data actions
   fetchTableData: () => Promise<void>
 
+  // Table scroll state
+  tableScrollState: { scrollTop: number; scrollHeight: number; clientHeight: number } | null
+  setTableScrollState: (state: { scrollTop: number; scrollHeight: number; clientHeight: number } | null) => void
+
   // Consistency type selection (Table Panel)
   selectedConsistencyType: ConsistencyType
   setConsistencyType: (type: ConsistencyType) => void
@@ -174,6 +178,9 @@ const initialState = {
 
   // Table data
   tableData: null,
+
+  // Table scroll state
+  tableScrollState: null,
 
   // Consistency type selection (Table Panel)
   selectedConsistencyType: 'none' as ConsistencyType,
@@ -737,6 +744,11 @@ export const useStore = create<AppState>((set, get) => ({
         errors: { ...state.errors, table: error instanceof Error ? error.message : 'Failed to fetch table data' }
       }))
     }
+  },
+
+  // Set table scroll state
+  setTableScrollState: (state) => {
+    set({ tableScrollState: state })
   },
 
   // Set consistency type for table panel

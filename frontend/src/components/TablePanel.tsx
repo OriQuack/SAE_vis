@@ -6,7 +6,6 @@ import {
   buildHeaderStructure,
   buildMetricFirstHeaderStructure,
   formatTableScore,
-  getExplainerDisplayName,
   extractRowScores,
   extractRowScoresMetricFirst,
   calculateColorBarLayout,
@@ -70,6 +69,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const fetchTableData = useVisualizationStore(state => state.fetchTableData)
   const selectedConsistencyType = useVisualizationStore(state => state.selectedConsistencyType)
   const setConsistencyType = useVisualizationStore(state => state.setConsistencyType)
+  const setTableScrollState = useVisualizationStore(state => state.setTableScrollState)
   const isLoading = useVisualizationStore(state => state.loading.table)
 
   const [headerStructure, setHeaderStructure] = useState<HeaderStructure | null>(null)
@@ -186,8 +186,8 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     }
   }
 
-  // Tooltip state
-  const [tooltip, setTooltip] = useState<{
+  // Tooltip state (reserved for future use)
+  const [tooltip] = useState<{
     visible: boolean
     text: string
     x: number
@@ -227,25 +227,176 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     }
   }, [tableData, selectedConsistencyType])
 
-  // Tooltip handlers
-  const handleMouseEnter = (event: React.MouseEvent<HTMLTableCellElement>, fullName: string) => {
-    const rect = event.currentTarget.getBoundingClientRect()
-    setTooltip({
-      visible: true,
-      text: fullName,
-      x: rect.left + rect.width / 2,
-      y: rect.top - 10
-    })
-  }
+  // Track scroll position for vertical bar scroll indicator
+  // Professional approach: Observe inner <table> element that grows when rows are added
+  useEffect(() => {
+    const container = tableContainerRef.current
 
-  const handleMouseLeave = () => {
-    setTooltip({
-      visible: false,
-      text: '',
-      x: 0,
-      y: 0
+    console.log('[TablePanel] Scroll tracking effect running:', {
+      hasContainer: !!container,
+      featuresLength: tableData?.features.length
     })
-  }
+
+    if (!container) {
+      console.warn('[TablePanel] No container ref available, skipping scroll tracking setup')
+      return
+    }
+
+    // Track cleanup resources
+    let tableObserver: ResizeObserver | null = null
+    let containerObserver: ResizeObserver | null = null
+    let mutationObserver: MutationObserver | null = null
+    let rafId: number | null = null
+    const cleanupTimeouts: number[] = []
+
+    // Measure and update scroll state
+    const measureAndUpdate = (source: string = 'unknown') => {
+      // Cancel any pending measurement
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId)
+      }
+
+      // Use requestAnimationFrame to ensure measurement happens after layout
+      rafId = requestAnimationFrame(() => {
+        const tableElement = container.querySelector('table')
+        const scrollState = {
+          scrollTop: container.scrollTop,
+          scrollHeight: container.scrollHeight,
+          clientHeight: container.clientHeight
+        }
+
+        const isScrollable = scrollState.scrollHeight > scrollState.clientHeight
+        const scrollPercentage = isScrollable
+          ? (scrollState.scrollTop / (scrollState.scrollHeight - scrollState.clientHeight) * 100).toFixed(1)
+          : '0.0'
+
+        console.log(
+          `[TablePanel] Measured (${source}):`,
+          scrollState,
+          `hasTable: ${!!tableElement},`,
+          `isScrollable: ${isScrollable},`,
+          `scrolled: ${scrollPercentage}%`
+        )
+
+        // Only update state if dimensions are valid (non-zero)
+        // This prevents setting invalid state during transitions
+        if (scrollState.scrollHeight > 0 && scrollState.clientHeight > 0) {
+          setTableScrollState(scrollState)
+        } else {
+          console.warn('[TablePanel] Skipping state update - invalid dimensions')
+        }
+
+        rafId = null
+      })
+    }
+
+    console.log('[TablePanel] Setting up scroll tracking')
+
+    // 1. Add scroll event listener for user interactions
+    const handleScrollEvent = () => measureAndUpdate('scroll-event')
+    container.addEventListener('scroll', handleScrollEvent, { passive: true })
+
+    // 2. Observe container for viewport/size changes
+    containerObserver = new ResizeObserver(() => measureAndUpdate('container-resize'))
+    containerObserver.observe(container)
+
+    // 3. Find and observe inner <table> element (grows when rows are added)
+    // Use retry logic to handle React timing issues
+    const setupTableObserver = (): boolean => {
+      const tableElement = container.querySelector('table')
+      if (tableElement && !tableObserver) {
+        console.log('[TablePanel] Table element found, attaching ResizeObserver')
+        tableObserver = new ResizeObserver(() => measureAndUpdate('table-resize'))
+        tableObserver.observe(tableElement)
+        measureAndUpdate('initial')
+        return true
+      }
+      return false
+    }
+
+    // Try to find table immediately
+    if (!setupTableObserver()) {
+      // Table not found yet - this is common when effect runs before headerStructure is built
+      // Strategy: Retry after 100ms (gives React time to complete render cycle)
+      console.log('[TablePanel] Table not found on initial check, scheduling retry in 100ms')
+
+      const retryTimeout = window.setTimeout(() => {
+        console.log('[TablePanel] Retry: checking for table element')
+        if (!setupTableObserver()) {
+          // Still not found after retry, set up MutationObserver as final fallback
+          console.log('[TablePanel] Table still not found after retry, setting up MutationObserver')
+          mutationObserver = new MutationObserver(() => {
+            if (setupTableObserver() && mutationObserver) {
+              console.log('[TablePanel] Table detected via MutationObserver')
+              mutationObserver.disconnect()
+              mutationObserver = null
+            }
+          })
+          mutationObserver.observe(container, { childList: true, subtree: true })
+
+          // Safety: disconnect mutation observer after 5 seconds
+          const mutationTimeout = window.setTimeout(() => {
+            if (mutationObserver) {
+              console.log('[TablePanel] Disconnecting mutation observer (timeout)')
+              mutationObserver.disconnect()
+              mutationObserver = null
+            }
+          }, 5000)
+
+          cleanupTimeouts.push(mutationTimeout)
+        }
+      }, 100)
+
+      cleanupTimeouts.push(retryTimeout)
+    }
+
+    console.log('[TablePanel] Scroll tracking setup complete')
+
+    // Cleanup function
+    return () => {
+      console.log('[TablePanel] Cleaning up scroll tracking')
+      container.removeEventListener('scroll', handleScrollEvent)
+
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId)
+      }
+
+      if (containerObserver) {
+        containerObserver.disconnect()
+      }
+
+      if (tableObserver) {
+        tableObserver.disconnect()
+      }
+
+      if (mutationObserver) {
+        mutationObserver.disconnect()
+      }
+
+      // Clean up all retry/mutation timeouts
+      cleanupTimeouts.forEach(timeoutId => clearTimeout(timeoutId))
+    }
+  }, [setTableScrollState, tableData?.features.length, headerStructure])
+
+  // Tooltip handlers (reserved for future use with hover tooltips)
+  // const handleMouseEnter = (event: React.MouseEvent<HTMLTableCellElement>, fullName: string) => {
+  //   const rect = event.currentTarget.getBoundingClientRect()
+  //   setTooltip({
+  //     visible: true,
+  //     text: fullName,
+  //     x: rect.left + rect.width / 2,
+  //     y: rect.top - 10
+  //   })
+  // }
+
+  // const handleMouseLeave = () => {
+  //   setTooltip({
+  //     visible: false,
+  //     text: '',
+  //     x: 0,
+  //     y: 0
+  //   })
+  // }
 
   // Sort features based on current sort settings
   const sortedFeatures = useMemo(() => {
@@ -279,7 +430,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   if (!tableData || !tableData.features || tableData.features.length === 0 || selectedExplainers.size === 0) {
     return (
       <div className={`table-panel${className ? ` ${className}` : ''}`}>
-        <div className="table-panel__content">
+        <div className="table-panel__content" ref={tableContainerRef}>
           <p className="table-panel__placeholder">
             Select LLM explainers from the flowchart to view feature-level scoring data
           </p>
@@ -291,7 +442,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   if (!headerStructure) {
     return (
       <div className={`table-panel${className ? ` ${className}` : ''}`}>
-        <div className="table-panel__content">
+        <div className="table-panel__content" ref={tableContainerRef}>
           <p className="table-panel__placeholder">
             Loading...
           </p>
@@ -587,7 +738,6 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                           row,
                           headerCell.explainerId,
                           headerCell.metricType,
-                          headerCell.scorerId,
                           selectedConsistencyType
                         )
                       }
@@ -599,7 +749,6 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                           row,
                           headerCell.explainerId,
                           headerCell.metricType,
-                          undefined,
                           selectedConsistencyType
                         )
                       }

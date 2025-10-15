@@ -263,9 +263,13 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
               <FlowPanel />
             </div>
 
-            {/* Table and Histogram panels */}
-            <div className="sankey-view__new-panels">
+            {/* Table Panel */}
+            <div className="sankey-view__table-panel">
               <TablePanel />
+            </div>
+
+            {/* Histogram Container */}
+            <div className="sankey-view__histogram-container">
               <HistogramPanel />
             </div>
           </div>

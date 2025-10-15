@@ -271,7 +271,7 @@
 
 /* Control Column - Left side containing input controls */
 .sankey-view__control-column {
-  flex: 2;
+  flex: 2.2;
   display: flex;
   flex-direction: column;
   border-left: 1px solid #000000;
@@ -281,11 +281,10 @@
 
 /* Vertical Bar - Thin separator between control and visualization columns */
 .sankey-view__vertical-bar {
-  flex: 0 0 30px;
+  flex: 0.65;
   display: flex;
   flex-direction: column;
-  min-width: 30px;
-  max-width: 30px;
+  min-width: 0;
   min-height: 0;
   overflow: hidden;
 }
@@ -300,19 +299,6 @@
   background: white;
   padding: 0;
   min-width: 0;
-}
-
-.sankey-view__llm-comparison-panel {
-  flex: 0.75;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  overflow: visible;
-  background: white;
-  padding: 0;
-  min-width: 0;
-  border-top: 1px solid #000000;
 }
 
 .sankey-view__histogram-container {
@@ -335,19 +321,6 @@
   padding: 0;
   min-width: 0;
   min-height: 0;
-}
-
-.sankey-view__threshold-group-panel {
-  flex: 0.3;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  overflow: visible;
-  background: #f9fafb;
-  padding: 0;
-  min-width: 0;
-  border-left: 1px solid #000000;
 }
 
 /* Visualization Column - Right side containing visualizations */
@@ -412,6 +385,17 @@
   align-items: center;
   overflow: visible;
   background: #f9fafb;
+  padding: 0;
+  min-width: 0;
+  border-left: 1px solid #000000;
+}
+
+.sankey-view__table-panel {
+  flex: 3;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: white;
   padding: 0;
   min-width: 0;
   border-left: 1px solid #000000;
