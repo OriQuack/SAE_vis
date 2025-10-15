@@ -10,6 +10,7 @@ import UMAPPanel from './components/UMAPPanel'
 import TablePanel from './components/TablePanel'
 import HistogramPanel from './components/HistogramPanel'
 import VerticalBar from './components/VerticalBar'
+import SavedGroupsPanel from './components/SavedGroupsPanel'
 import { usePanelDataLoader } from './lib/utils'
 import * as api from './api'
 import './styles/base.css'
@@ -276,6 +277,7 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
 
           {/* Vertical Bar - Separator between control and visualization columns */}
           <div className="sankey-view__vertical-bar">
+            <SavedGroupsPanel />
             <VerticalBar />
           </div>
 

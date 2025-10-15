@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react'
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useVisualizationStore } from '../store'
 import type { FeatureTableDataResponse, FeatureTableRow, ConsistencyType, SortBy, SortDirection } from '../types'
@@ -16,6 +16,13 @@ import {
   compareValues,
   type HeaderStructure
 } from '../lib/d3-table-utils'
+import {
+  createCellGroup,
+  getCellGroup,
+  getExplainerForColumnIndex,
+  findGroupByKey,
+  findGroupsInRectangle
+} from '../lib/table-selection-utils'
 import '../styles/TablePanel.css'
 
 // ============================================================================
@@ -78,6 +85,25 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   // Sorting state
   const [sortBy, setSortBy] = useState<SortBy>(null)
   const [sortDirection, setSortDirection] = useState<SortDirection>(null)
+
+  // Cell selection state from store
+  const cellSelection = useVisualizationStore(state => state.cellSelection)
+  const setCellSelection = useVisualizationStore(state => state.setCellSelection)
+  const toggleCellGroup = useVisualizationStore(state => state.toggleCellGroup)
+  const clearCellSelection = useVisualizationStore(state => state.clearCellSelection)
+
+  // Saved cell group selection state from store
+  const showCellGroupNameInput = useVisualizationStore(state => state.showCellGroupNameInput)
+  const startSavingCellGroups = useVisualizationStore(state => state.startSavingCellGroups)
+  const finishSavingCellGroups = useVisualizationStore(state => state.finishSavingCellGroups)
+  const cancelSavingCellGroups = useVisualizationStore(state => state.cancelSavingCellGroups)
+
+  // Local drag state
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragMode, setDragMode] = useState<'union' | 'difference' | null>(null)
+
+  // Local state for name input
+  const [groupName, setGroupName] = useState('')
 
   // Get selected LLM explainers (needed for disabled logic)
   const selectedExplainers = new Set<string>()
@@ -398,6 +424,10 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   //   })
   // }
 
+  // ============================================================================
+  // SORTED FEATURES (MUST BE BEFORE HANDLERS THAT USE IT)
+  // ============================================================================
+
   // Sort features based on current sort settings
   const sortedFeatures = useMemo(() => {
     if (!tableData || !sortBy || !sortDirection) {
@@ -425,6 +455,259 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
     return features
   }, [tableData, sortBy, sortDirection])
+
+  // ============================================================================
+  // DRAG GROUPS CALCULATION (Real-time group preview during drag)
+  // ============================================================================
+
+  /**
+   * Calculate groups being dragged in real-time
+   * This shows group-level preview during drag before finalization
+   */
+  const dragGroups = useMemo(() => {
+    if (
+      !isDragging ||
+      !tableData ||
+      !headerStructure ||
+      cellSelection.startRow === null ||
+      cellSelection.startCol === null ||
+      cellSelection.endRow === null ||
+      cellSelection.endCol === null
+    ) {
+      return []
+    }
+
+    return findGroupsInRectangle(
+      cellSelection.startRow,
+      cellSelection.startCol,
+      cellSelection.endRow,
+      cellSelection.endCol,
+      sortedFeatures,
+      headerStructure,
+      isAveraged
+    )
+  }, [
+    isDragging,
+    tableData,
+    headerStructure,
+    cellSelection.startRow,
+    cellSelection.startCol,
+    cellSelection.endRow,
+    cellSelection.endCol,
+    sortedFeatures,
+    isAveraged
+  ])
+
+  // ============================================================================
+  // CELL SELECTION HANDLERS (Click + Drag with Group-Level Selection)
+  // ============================================================================
+
+  /**
+   * Handle mouse down on cell - start drag selection
+   */
+  const handleCellMouseDown = useCallback((rowIndex: number, colIndex: number) => {
+    if (!tableData || !headerStructure) return
+
+    // Determine drag mode based on starting cell
+    const featureRow = sortedFeatures[rowIndex]
+    if (!featureRow) return
+
+    const featureId = featureRow.feature_id
+    const explainerId = getExplainerForColumnIndex(colIndex, headerStructure, isAveraged)
+    if (!explainerId) return
+
+    // Check if starting cell's group is already selected
+    const startingGroup = findGroupByKey(featureId, explainerId, cellSelection.groups)
+    const mode = startingGroup ? 'difference' : 'union'
+    setDragMode(mode)
+
+    // Start drag selection
+    setCellSelection({
+      ...cellSelection,
+      startRow: rowIndex,
+      startCol: colIndex,
+      endRow: rowIndex,
+      endCol: colIndex
+    })
+
+    setIsDragging(true)
+  }, [tableData, headerStructure, cellSelection, setCellSelection, sortedFeatures, isAveraged])
+
+  /**
+   * Handle mouse enter on cell - update drag selection rectangle
+   */
+  const handleCellMouseEnter = useCallback((rowIndex: number, colIndex: number) => {
+    if (!isDragging) return
+
+    // Update end position
+    setCellSelection({
+      ...cellSelection,
+      endRow: rowIndex,
+      endCol: colIndex
+    })
+  }, [isDragging, cellSelection, setCellSelection])
+
+  /**
+   * Handle mouse up - finalize selection with group-level logic
+   */
+  const handleCellMouseUp = useCallback(() => {
+    if (!isDragging) return
+    if (!tableData || !headerStructure) return
+    if (
+      cellSelection.startRow === null ||
+      cellSelection.startCol === null ||
+      cellSelection.endRow === null ||
+      cellSelection.endCol === null
+    ) {
+      setIsDragging(false)
+      return
+    }
+
+    // Check if this was a click (no movement) or a drag
+    const isClick =
+      cellSelection.startRow === cellSelection.endRow &&
+      cellSelection.startCol === cellSelection.endCol
+
+    if (isClick) {
+      // Click: Toggle single group
+      const rowIndex = cellSelection.startRow
+      const colIndex = cellSelection.startCol
+
+      const featureRow = sortedFeatures[rowIndex]
+      if (!featureRow) {
+        setIsDragging(false)
+        setCellSelection({
+          ...cellSelection,
+          startRow: null,
+          startCol: null,
+          endRow: null,
+          endCol: null
+        })
+        return
+      }
+      const featureId = featureRow.feature_id
+
+      const explainerId = getExplainerForColumnIndex(colIndex, headerStructure, isAveraged)
+      if (!explainerId) {
+        setIsDragging(false)
+        setCellSelection({
+          ...cellSelection,
+          startRow: null,
+          startCol: null,
+          endRow: null,
+          endCol: null
+        })
+        return
+      }
+
+      // Check if group already selected
+      const existingGroup = findGroupByKey(featureId, explainerId, cellSelection.groups)
+
+      if (existingGroup) {
+        // Toggle off
+        toggleCellGroup(existingGroup)
+      } else {
+        // Toggle on - create new group
+        const newGroup = createCellGroup(
+          featureId,
+          explainerId,
+          headerStructure,
+          isAveraged,
+          cellSelection.groups.length
+        )
+        toggleCellGroup(newGroup)
+      }
+
+      // Clear only drag state fields (toggleCellGroup already updated groups)
+      // Get current state from store to avoid overwriting the groups that were just updated
+      const currentState = useVisualizationStore.getState()
+      setCellSelection({
+        ...currentState.cellSelection,
+        startRow: null,
+        startCol: null,
+        endRow: null,
+        endCol: null
+      })
+      setIsDragging(false)
+    } else {
+      // Drag: Find all groups in rectangle
+      const draggedGroups = findGroupsInRectangle(
+        cellSelection.startRow,
+        cellSelection.startCol,
+        cellSelection.endRow,
+        cellSelection.endCol,
+        sortedFeatures,
+        headerStructure,
+        isAveraged
+      )
+
+      const currentGroups = cellSelection.groups
+
+      // Smart multi-selection logic based on where drag started:
+      // - Started in unselected group → Union mode (add all dragged groups)
+      // - Started in selected group → Difference mode (remove all dragged groups)
+      let finalGroups: typeof currentGroups
+
+      if (dragMode === 'union') {
+        // Union: Keep all current groups + add new dragged groups (deduplicated)
+        const existingIds = new Set(currentGroups.map(g => g.id))
+        const newGroups = draggedGroups.filter(dg => !existingIds.has(dg.id))
+        finalGroups = [...currentGroups, ...newGroups]
+      } else {
+        // Difference: Remove dragged groups from current, keep others
+        const draggedIds = new Set(draggedGroups.map(dg => dg.id))
+        finalGroups = currentGroups.filter(cg => !draggedIds.has(cg.id))
+      }
+
+      // Set the selected groups with smart selection logic
+      setCellSelection({
+        groups: finalGroups,
+        startRow: null,
+        startCol: null,
+        endRow: null,
+        endCol: null
+      })
+    }
+
+    setIsDragging(false)
+    setDragMode(null)
+  }, [
+    isDragging,
+    cellSelection,
+    tableData,
+    headerStructure,
+    sortedFeatures,
+    isAveraged,
+    setCellSelection,
+    toggleCellGroup,
+    clearCellSelection,
+    dragMode
+  ])
+
+  /**
+   * Handle mouse leave from table - cancel selection
+   */
+  const handleTableMouseLeave = useCallback(() => {
+    if (isDragging) {
+      setIsDragging(false)
+      setDragMode(null)
+      clearCellSelection()
+    }
+  }, [isDragging, clearCellSelection])
+
+  // Global mouse up listener to handle mouse up outside table
+  useEffect(() => {
+    if (!isDragging) return
+
+    const handleGlobalMouseUp = () => {
+      handleCellMouseUp()
+    }
+
+    document.addEventListener('mouseup', handleGlobalMouseUp)
+    return () => {
+      document.removeEventListener('mouseup', handleGlobalMouseUp)
+    }
+  }, [isDragging, handleCellMouseUp])
 
   // If no data or no explainers selected
   if (!tableData || !tableData.features || tableData.features.length === 0 || selectedExplainers.size === 0) {
@@ -575,7 +858,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
         ref={tableContainerRef}
       >
         <table
-          className="table-panel__table"
+          className={`table-panel__table ${isDragging ? 'selecting' : ''}`}
           key={`table-${columnCount}-${tableData?.scorer_ids.length || 0}`}
         >
           <thead className="table-panel__thead">
@@ -712,8 +995,8 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
             )}
           </thead>
 
-          <tbody className="table-panel__tbody">
-            {sortedFeatures.map((row: FeatureTableRow) => {
+          <tbody className="table-panel__tbody" onMouseLeave={handleTableMouseLeave}>
+            {sortedFeatures.map((row: FeatureTableRow, rowIdx: number) => {
               // Use metric-first extraction for cross-explanation consistency
               const scores = selectedConsistencyType === 'cross_explanation_score'
                 ? extractRowScoresMetricFirst(row, tableData.explainer_ids, isAveraged)
@@ -757,14 +1040,50 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                     // Apply background color based on consistency
                     const bgColor = consistency !== null ? getConsistencyColor(consistency) : 'transparent'
 
+                    // Check if cell belongs to a finalized group OR a drag group
+                    const finalizedGroup = getCellGroup(rowIdx, idx, row.feature_id, cellSelection.groups)
+                    const dragGroup = getCellGroup(rowIdx, idx, row.feature_id, dragGroups)
+
+                    // Determine drag state for styling based on drag mode
+                    const isDraggingUnion = dragGroup && dragMode === 'union'  // Union mode: blue (will add)
+                    const isDraggingDifference = dragGroup && dragMode === 'difference'  // Difference mode: red (will remove)
+                    const isFinalized = finalizedGroup && !dragGroup  // Finalized selection (not being dragged)
+
+                    const cellGroup = finalizedGroup || dragGroup
+
+                    // Determine edge positions for group border rectangle
+                    let isLeftEdge = false
+                    let isRightEdge = false
+                    if (cellGroup) {
+                      const minColIndex = Math.min(...cellGroup.cellIndices)
+                      const maxColIndex = Math.max(...cellGroup.cellIndices)
+                      isLeftEdge = idx === minColIndex
+                      isRightEdge = idx === maxColIndex
+                    }
+
+                    // Build CSS classes with different styles for different states
+                    const cellClasses = [
+                      'table-panel__score-cell',
+                      // Add edge classes with state-specific modifiers
+                      cellGroup ? 'selected-edge-top selected-edge-bottom' : '',
+                      cellGroup && isLeftEdge ? 'selected-edge-left' : '',
+                      cellGroup && isRightEdge ? 'selected-edge-right' : '',
+                      // Add state-specific classes for styling
+                      isDraggingUnion ? 'dragging-new' : '',  // Blue border (union mode)
+                      isDraggingDifference ? 'dragging-existing' : '',  // Red border (difference mode)
+                      isFinalized ? 'finalized' : ''  // Blue border (finalized)
+                    ].filter(Boolean).join(' ')
+
                     return (
                       <td
                         key={`${row.feature_id}-${idx}`}
-                        className="table-panel__score-cell"
+                        className={cellClasses}
                         style={{
                           backgroundColor: bgColor,
                           color: consistency !== null && consistency < 0.5 ? 'white' : '#374151'  // White text for dark backgrounds
                         }}
+                        onMouseDown={() => handleCellMouseDown(rowIdx, idx)}
+                        onMouseEnter={() => handleCellMouseEnter(rowIdx, idx)}
                       >
                         {formatTableScore(score)}
                       </td>
@@ -776,6 +1095,59 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
           </tbody>
         </table>
       </div>
+
+      {/* Save Cell Group Selection UI */}
+      {cellSelection.groups.length > 0 && !showCellGroupNameInput && (
+        <button
+          className="table-panel__save-button"
+          onClick={startSavingCellGroups}
+        >
+          Save Selection
+        </button>
+      )}
+
+      {/* Name Input for Saving Cell Groups */}
+      {showCellGroupNameInput && (
+        <div className="table-panel__save-input-container">
+          <input
+            type="text"
+            className="table-panel__save-input"
+            placeholder="Enter group name..."
+            value={groupName}
+            onChange={(e) => setGroupName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                finishSavingCellGroups(groupName)
+                setGroupName('')
+              } else if (e.key === 'Escape') {
+                cancelSavingCellGroups()
+                setGroupName('')
+              }
+            }}
+            autoFocus
+          />
+          <div className="table-panel__save-input-buttons">
+            <button
+              className="table-panel__save-input-cancel"
+              onClick={() => {
+                cancelSavingCellGroups()
+                setGroupName('')
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              className="table-panel__save-input-confirm"
+              onClick={() => {
+                finishSavingCellGroups(groupName)
+                setGroupName('')
+              }}
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Portal-based tooltip */}
       {tooltip.visible && createPortal(

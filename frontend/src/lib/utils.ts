@@ -368,3 +368,16 @@ export function formatCategoryName(category: string): string {
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
 }
+
+// ============================================================================
+// COLOR UTILITIES
+// ============================================================================
+
+/**
+ * Get color for saved cell group selection based on color index
+ * Uses a 6-color palette cycling through color indices
+ */
+export function getSavedGroupColor(colorIndex: number): string {
+  const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
+  return colors[colorIndex % colors.length]
+}

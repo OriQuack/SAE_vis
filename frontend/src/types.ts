@@ -550,3 +550,40 @@ export type SortBy =
   | { type: 'consistency'; consistencyType: ConsistencyType }
   | { type: 'column'; explainerId: string; metricType: 'embedding' | 'fuzz' | 'detection'; scorerId?: 's1' | 's2' | 's3' }
   | null
+
+// ============================================================================
+// TABLE CELL SELECTION TYPES
+// ============================================================================
+
+/**
+ * Cell Group - Represents a group of selected cells with same feature_id and explainer_id
+ */
+export interface CellGroup {
+  id: string                  // Unique group ID: "{featureId}_{explainerId}"
+  featureId: number          // Feature ID (row identifier)
+  explainerId: string        // LLM Explainer ID (llama, qwen, openai)
+  cellIndices: number[]      // Array of column indices in this group
+  colorIndex: number         // Color index for visual distinction (0-2)
+}
+
+/**
+ * Cell Selection State - Tracks selected cell groups and drag selection
+ */
+export interface CellSelectionState {
+  groups: CellGroup[]        // Array of selected cell groups
+  startRow: number | null    // Starting row index of drag selection
+  startCol: number | null    // Starting column index of drag selection
+  endRow: number | null      // Ending row index of drag selection
+  endCol: number | null      // Ending column index of drag selection
+}
+
+/**
+ * Saved Cell Group Selection - Named and saved cell group selections for future use
+ */
+export interface SavedCellGroupSelection {
+  id: string                 // Unique ID (timestamp-based)
+  name: string               // User-provided name
+  groups: CellGroup[]        // Saved cell groups
+  colorIndex: number         // Color index for badge display (0-5)
+  timestamp: number          // Creation timestamp
+}

@@ -537,10 +537,313 @@
   vertical-align: middle;
   background: white;
   transition: background-color 0.1s ease;
+  cursor: crosshair;
 }
 
 .table-panel__score-cell:hover {
   background: #f0f9ff;
+}
+
+/* ============================================================================
+ * CELL SELECTION STATES
+ * ============================================================================ */
+
+/* Disable text selection when dragging */
+.table-panel__table.selecting {
+  user-select: none;
+}
+
+/* Edge borders - only show borders on outer edges of group (drag or finalized) */
+/* Using box-shadow instead of border to avoid layout shifts */
+
+/* Default: Blue border for finalized selections */
+.table-panel__score-cell.finalized.selected-edge-top {
+  box-shadow: inset 0 3px 0 0 #3b82f6;
+}
+
+.table-panel__score-cell.finalized.selected-edge-bottom {
+  box-shadow: inset 0 -3px 0 0 #3b82f6;
+}
+
+.table-panel__score-cell.finalized.selected-edge-left {
+  box-shadow: inset 3px 0 0 0 #3b82f6;
+}
+
+.table-panel__score-cell.finalized.selected-edge-right {
+  box-shadow: inset -3px 0 0 0 #3b82f6;
+}
+
+/* Combinations for finalized selections */
+.table-panel__score-cell.finalized.selected-edge-top.selected-edge-left {
+  box-shadow: inset 0 3px 0 0 #3b82f6, inset 3px 0 0 0 #3b82f6;
+}
+
+.table-panel__score-cell.finalized.selected-edge-top.selected-edge-right {
+  box-shadow: inset 0 3px 0 0 #3b82f6, inset -3px 0 0 0 #3b82f6;
+}
+
+.table-panel__score-cell.finalized.selected-edge-bottom.selected-edge-left {
+  box-shadow: inset 0 -3px 0 0 #3b82f6, inset 3px 0 0 0 #3b82f6;
+}
+
+.table-panel__score-cell.finalized.selected-edge-bottom.selected-edge-right {
+  box-shadow: inset 0 -3px 0 0 #3b82f6, inset -3px 0 0 0 #3b82f6;
+}
+
+.table-panel__score-cell.finalized.selected-edge-top.selected-edge-bottom {
+  box-shadow: inset 0 3px 0 0 #3b82f6, inset 0 -3px 0 0 #3b82f6;
+}
+
+.table-panel__score-cell.finalized.selected-edge-top.selected-edge-left.selected-edge-right {
+  box-shadow: inset 0 3px 0 0 #3b82f6, inset 3px 0 0 0 #3b82f6, inset -3px 0 0 0 #3b82f6;
+}
+
+.table-panel__score-cell.finalized.selected-edge-bottom.selected-edge-left.selected-edge-right {
+  box-shadow: inset 0 -3px 0 0 #3b82f6, inset 3px 0 0 0 #3b82f6, inset -3px 0 0 0 #3b82f6;
+}
+
+.table-panel__score-cell.finalized.selected-edge-top.selected-edge-bottom.selected-edge-left {
+  box-shadow: inset 0 3px 0 0 #3b82f6, inset 0 -3px 0 0 #3b82f6, inset 3px 0 0 0 #3b82f6;
+}
+
+.table-panel__score-cell.finalized.selected-edge-top.selected-edge-bottom.selected-edge-right {
+  box-shadow: inset 0 3px 0 0 #3b82f6, inset 0 -3px 0 0 #3b82f6, inset -3px 0 0 0 #3b82f6;
+}
+
+.table-panel__score-cell.finalized.selected-edge-top.selected-edge-bottom.selected-edge-left.selected-edge-right {
+  box-shadow: inset 0 3px 0 0 #3b82f6, inset 0 -3px 0 0 #3b82f6, inset 3px 0 0 0 #3b82f6, inset -3px 0 0 0 #3b82f6;
+}
+
+/* Dragging new groups: Blue border (will add to selection) */
+.table-panel__score-cell.dragging-new.selected-edge-top {
+  box-shadow: inset 0 3px 0 0 #3b82f6;
+}
+
+.table-panel__score-cell.dragging-new.selected-edge-bottom {
+  box-shadow: inset 0 -3px 0 0 #3b82f6;
+}
+
+.table-panel__score-cell.dragging-new.selected-edge-left {
+  box-shadow: inset 3px 0 0 0 #3b82f6;
+}
+
+.table-panel__score-cell.dragging-new.selected-edge-right {
+  box-shadow: inset -3px 0 0 0 #3b82f6;
+}
+
+/* Combinations for dragging new */
+.table-panel__score-cell.dragging-new.selected-edge-top.selected-edge-left {
+  box-shadow: inset 0 3px 0 0 #3b82f6, inset 3px 0 0 0 #3b82f6;
+}
+
+.table-panel__score-cell.dragging-new.selected-edge-top.selected-edge-right {
+  box-shadow: inset 0 3px 0 0 #3b82f6, inset -3px 0 0 0 #3b82f6;
+}
+
+.table-panel__score-cell.dragging-new.selected-edge-bottom.selected-edge-left {
+  box-shadow: inset 0 -3px 0 0 #3b82f6, inset 3px 0 0 0 #3b82f6;
+}
+
+.table-panel__score-cell.dragging-new.selected-edge-bottom.selected-edge-right {
+  box-shadow: inset 0 -3px 0 0 #3b82f6, inset -3px 0 0 0 #3b82f6;
+}
+
+.table-panel__score-cell.dragging-new.selected-edge-top.selected-edge-bottom {
+  box-shadow: inset 0 3px 0 0 #3b82f6, inset 0 -3px 0 0 #3b82f6;
+}
+
+.table-panel__score-cell.dragging-new.selected-edge-top.selected-edge-left.selected-edge-right {
+  box-shadow: inset 0 3px 0 0 #3b82f6, inset 3px 0 0 0 #3b82f6, inset -3px 0 0 0 #3b82f6;
+}
+
+.table-panel__score-cell.dragging-new.selected-edge-bottom.selected-edge-left.selected-edge-right {
+  box-shadow: inset 0 -3px 0 0 #3b82f6, inset 3px 0 0 0 #3b82f6, inset -3px 0 0 0 #3b82f6;
+}
+
+.table-panel__score-cell.dragging-new.selected-edge-top.selected-edge-bottom.selected-edge-left {
+  box-shadow: inset 0 3px 0 0 #3b82f6, inset 0 -3px 0 0 #3b82f6, inset 3px 0 0 0 #3b82f6;
+}
+
+.table-panel__score-cell.dragging-new.selected-edge-top.selected-edge-bottom.selected-edge-right {
+  box-shadow: inset 0 3px 0 0 #3b82f6, inset 0 -3px 0 0 #3b82f6, inset -3px 0 0 0 #3b82f6;
+}
+
+.table-panel__score-cell.dragging-new.selected-edge-top.selected-edge-bottom.selected-edge-left.selected-edge-right {
+  box-shadow: inset 0 3px 0 0 #3b82f6, inset 0 -3px 0 0 #3b82f6, inset 3px 0 0 0 #3b82f6, inset -3px 0 0 0 #3b82f6;
+}
+
+/* Dragging existing groups: Red border (will remove from selection) */
+.table-panel__score-cell.dragging-existing.selected-edge-top {
+  box-shadow: inset 0 3px 0 0 #ef4444;
+}
+
+.table-panel__score-cell.dragging-existing.selected-edge-bottom {
+  box-shadow: inset 0 -3px 0 0 #ef4444;
+}
+
+.table-panel__score-cell.dragging-existing.selected-edge-left {
+  box-shadow: inset 3px 0 0 0 #ef4444;
+}
+
+.table-panel__score-cell.dragging-existing.selected-edge-right {
+  box-shadow: inset -3px 0 0 0 #ef4444;
+}
+
+/* Combinations for dragging existing */
+.table-panel__score-cell.dragging-existing.selected-edge-top.selected-edge-left {
+  box-shadow: inset 0 3px 0 0 #ef4444, inset 3px 0 0 0 #ef4444;
+}
+
+.table-panel__score-cell.dragging-existing.selected-edge-top.selected-edge-right {
+  box-shadow: inset 0 3px 0 0 #ef4444, inset -3px 0 0 0 #ef4444;
+}
+
+.table-panel__score-cell.dragging-existing.selected-edge-bottom.selected-edge-left {
+  box-shadow: inset 0 -3px 0 0 #ef4444, inset 3px 0 0 0 #ef4444;
+}
+
+.table-panel__score-cell.dragging-existing.selected-edge-bottom.selected-edge-right {
+  box-shadow: inset 0 -3px 0 0 #ef4444, inset -3px 0 0 0 #ef4444;
+}
+
+.table-panel__score-cell.dragging-existing.selected-edge-top.selected-edge-bottom {
+  box-shadow: inset 0 3px 0 0 #ef4444, inset 0 -3px 0 0 #ef4444;
+}
+
+.table-panel__score-cell.dragging-existing.selected-edge-top.selected-edge-left.selected-edge-right {
+  box-shadow: inset 0 3px 0 0 #ef4444, inset 3px 0 0 0 #ef4444, inset -3px 0 0 0 #ef4444;
+}
+
+.table-panel__score-cell.dragging-existing.selected-edge-bottom.selected-edge-left.selected-edge-right {
+  box-shadow: inset 0 -3px 0 0 #ef4444, inset 3px 0 0 0 #ef4444, inset -3px 0 0 0 #ef4444;
+}
+
+.table-panel__score-cell.dragging-existing.selected-edge-top.selected-edge-bottom.selected-edge-left {
+  box-shadow: inset 0 3px 0 0 #ef4444, inset 0 -3px 0 0 #ef4444, inset 3px 0 0 0 #ef4444;
+}
+
+.table-panel__score-cell.dragging-existing.selected-edge-top.selected-edge-bottom.selected-edge-right {
+  box-shadow: inset 0 3px 0 0 #ef4444, inset 0 -3px 0 0 #ef4444, inset -3px 0 0 0 #ef4444;
+}
+
+.table-panel__score-cell.dragging-existing.selected-edge-top.selected-edge-bottom.selected-edge-left.selected-edge-right {
+  box-shadow: inset 0 3px 0 0 #ef4444, inset 0 -3px 0 0 #ef4444, inset 3px 0 0 0 #ef4444, inset -3px 0 0 0 #ef4444;
+}
+
+/* ============================================================================
+ * SAVE CELL GROUP SELECTION UI
+ * ============================================================================ */
+
+/* Floating Save Button */
+.table-panel__save-button {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  padding: 10px 20px;
+  background: #3b82f6;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  transition: all 0.2s ease;
+  z-index: 100;
+}
+
+.table-panel__save-button:hover {
+  background: #2563eb;
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+  transform: translateY(-1px);
+}
+
+.table-panel__save-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+/* Save Input Container */
+.table-panel__save-input-container {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  min-width: 280px;
+}
+
+/* Save Input Field */
+.table-panel__save-input {
+  padding: 8px 12px;
+  font-size: 13px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 6px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.table-panel__save-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.table-panel__save-input::placeholder {
+  color: #9ca3af;
+}
+
+/* Save Input Buttons Container */
+.table-panel__save-input-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* Cancel Button */
+.table-panel__save-input-cancel {
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  background: white;
+  color: #6b7280;
+  border: 1.5px solid #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.table-panel__save-input-cancel:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+  color: #374151;
+}
+
+/* Confirm Button */
+.table-panel__save-input-confirm {
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.table-panel__save-input-confirm:hover {
+  background: #2563eb;
+}
+
+.table-panel__save-input-confirm:active {
+  transform: scale(0.98);
 }
 
 /* ============================================================================
