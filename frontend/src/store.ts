@@ -19,7 +19,9 @@ import type {
   ConsistencyType,
   CellSelectionState,
   CellGroup,
-  SavedCellGroupSelection
+  SavedCellGroupSelection,
+  SortBy,
+  SortDirection
 } from './types'
 import { updateNodeThreshold, createRootOnlyTree, addStageToNode, removeStageFromNode } from './lib/threshold-utils'
 import { PANEL_LEFT, PANEL_RIGHT, METRIC_SEMSIM_MEAN } from './lib/constants'
@@ -108,6 +110,11 @@ interface AppState {
   tableScrollState: { scrollTop: number; scrollHeight: number; clientHeight: number } | null
   setTableScrollState: (state: { scrollTop: number; scrollHeight: number; clientHeight: number } | null) => void
 
+  // Table sort state
+  tableSortBy: SortBy | null
+  tableSortDirection: SortDirection | null
+  setTableSort: (sortBy: SortBy | null, sortDirection: SortDirection | null) => void
+
   // Consistency type selection (Table Panel)
   selectedConsistencyType: ConsistencyType
   setConsistencyType: (type: ConsistencyType) => void
@@ -126,6 +133,7 @@ interface AppState {
   startSavingCellGroups: () => void
   finishSavingCellGroups: (name: string) => void
   cancelSavingCellGroups: () => void
+  updateSavedCellGroups: (id: string, name?: string) => void
   deleteSavedCellGroups: (id: string) => void
   restoreSavedCellGroups: (id: string) => void
 
@@ -201,6 +209,10 @@ const initialState = {
 
   // Table scroll state
   tableScrollState: null,
+
+  // Table sort state
+  tableSortBy: null,
+  tableSortDirection: null,
 
   // Consistency type selection (Table Panel)
   selectedConsistencyType: 'none' as ConsistencyType,
@@ -786,6 +798,11 @@ export const useStore = create<AppState>((set, get) => ({
     set({ tableScrollState: state })
   },
 
+  // Set table sort state
+  setTableSort: (sortBy, sortDirection) => {
+    set({ tableSortBy: sortBy, tableSortDirection: sortDirection })
+  },
+
   // Set consistency type for table panel
   setConsistencyType: (type: ConsistencyType) => {
     set({ selectedConsistencyType: type })
@@ -881,6 +898,39 @@ export const useStore = create<AppState>((set, get) => ({
 
   cancelSavingCellGroups: () => {
     set({ showCellGroupNameInput: false, isSavingCellGroups: false })
+  },
+
+  updateSavedCellGroups: (id: string, name?: string) => {
+    const state = get()
+    const { cellSelection, savedCellGroupSelections } = state
+
+    const groupIndex = savedCellGroupSelections.findIndex(g => g.id === id)
+    if (groupIndex === -1) {
+      console.warn(`Cannot update: saved group ${id} not found`)
+      set({ showCellGroupNameInput: false, isSavingCellGroups: false })
+      return
+    }
+
+    if (cellSelection.groups.length === 0) {
+      console.warn('Cannot update: no cell groups selected')
+      set({ showCellGroupNameInput: false, isSavingCellGroups: false })
+      return
+    }
+
+    const updatedGroups = [...savedCellGroupSelections]
+    updatedGroups[groupIndex] = {
+      ...updatedGroups[groupIndex],
+      groups: [...cellSelection.groups],
+      ...(name && name.trim() !== '' && { name: name.trim() })
+    }
+
+    set({
+      savedCellGroupSelections: updatedGroups,
+      showCellGroupNameInput: false,
+      isSavingCellGroups: false
+      // Keep cellSelection as-is - do NOT clear when updating
+      // Keep activeSavedGroupId so user can continue making changes
+    })
   },
 
   deleteSavedCellGroups: (id: string) => {

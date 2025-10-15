@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react'
 import { useVisualizationStore } from '../store'
-import { useResizeObserver } from '../lib/utils'
+import { useResizeObserver, getSavedGroupColor } from '../lib/utils'
+import { sortFeatures } from '../lib/table-sort-utils'
 import type { FeatureTableRow } from '../types'
 import {
   calculateMultiBarLayout,
@@ -44,6 +45,15 @@ const VerticalBar: React.FC<VerticalBarProps> = ({ className = '' }) => {
   const tableScrollState = useVisualizationStore(state => state.tableScrollState)
   const leftPanel = useVisualizationStore(state => state.leftPanel)
   const rightPanel = useVisualizationStore(state => state.rightPanel)
+
+  // Sort state for matching table order
+  const tableSortBy = useVisualizationStore(state => state.tableSortBy)
+  const tableSortDirection = useVisualizationStore(state => state.tableSortDirection)
+
+  // Cell selection state for showing selections on vertical bar
+  const cellSelection = useVisualizationStore(state => state.cellSelection)
+  const activeSavedGroupId = useVisualizationStore(state => state.activeSavedGroupId)
+  const savedCellGroupSelections = useVisualizationStore(state => state.savedCellGroupSelections)
 
   // Use resize observer for responsive sizing (following project pattern)
   const { ref: containerRef, size: dimensions } = useResizeObserver<HTMLDivElement>({
@@ -118,6 +128,59 @@ const VerticalBar: React.FC<VerticalBarProps> = ({ className = '' }) => {
     })
   }, [tableData, selectedExplainers])
 
+  // Sort features to match table display order
+  const sortedFeatures = useMemo(() => {
+    return sortFeatures(
+      tableData?.features || [],
+      tableSortBy,
+      tableSortDirection,
+      tableData
+    )
+  }, [tableData, tableSortBy, tableSortDirection])
+
+  // Calculate selection color (matching TablePanel logic exactly)
+  const selectionColor = useMemo(() => {
+    if (activeSavedGroupId) {
+      const savedGroup = savedCellGroupSelections.find(g => g.id === activeSavedGroupId)
+      if (savedGroup) {
+        return getSavedGroupColor(savedGroup.colorIndex)
+      }
+    }
+    // Default blue for unsaved selections
+    return '#3b82f6'
+  }, [activeSavedGroupId, savedCellGroupSelections])
+
+  // Prepare selection data map: explainer ID -> {featureIndices, color}
+  // Groups selected cell groups by explainer ID
+  // IMPORTANT: Uses sortedFeatures to match table display order
+  const selectionData = useMemo(() => {
+    if (!cellSelection.groups || cellSelection.groups.length === 0) {
+      return undefined
+    }
+
+    const selectionMap = new Map<string, { featureIndices: number[]; color: string }>()
+
+    // Group selected features by explainer ID
+    cellSelection.groups.forEach(group => {
+      const explainerId = group.explainerId
+
+      // Find the row index for this feature in the SORTED array
+      // This ensures vertical bar positions match table display order
+      const featureIndex = sortedFeatures.findIndex(
+        (feature: FeatureTableRow) => feature.feature_id === group.featureId
+      )
+
+      if (featureIndex !== -1) {
+        if (!selectionMap.has(explainerId)) {
+          selectionMap.set(explainerId, { featureIndices: [], color: selectionColor })
+        }
+        selectionMap.get(explainerId)!.featureIndices.push(featureIndex)
+      }
+    })
+
+    return selectionMap.size > 0 ? selectionMap : undefined
+  }, [cellSelection.groups, sortedFeatures, selectionColor])
+
   // Calculate layout using D3 utilities (following project pattern)
   const layout: MultiBarLayout = useMemo(() => {
     if (dimensions.width === 0 || dimensions.height === 0) {
@@ -135,16 +198,23 @@ const VerticalBar: React.FC<VerticalBarProps> = ({ className = '' }) => {
       explainerData,
       dimensions.width,
       dimensions.height,
-      { top: 30, bottom: 30, left: 10, right: 10 },
-      tableScrollState
+      { top: 30, bottom: 40, left: 10, right: 10 },
+      tableScrollState,
+      selectionData,
+      sortedFeatures.length
     )
-  }, [explainerData, dimensions.width, dimensions.height, tableScrollState])
+  }, [explainerData, dimensions.width, dimensions.height, tableScrollState, selectionData, sortedFeatures.length])
 
   return (
     <div
       className={`vertical-bar${className ? ` ${className}` : ''}`}
       ref={containerRef}
     >
+      {/* Header */}
+      <div className="vertical-bar__header">
+        <span className="vertical-bar__title">LLM Explainers</span>
+      </div>
+
       <div className="vertical-bar__content">
         {/* SVG Visualization */}
         {dimensions.width > 0 && dimensions.height > 0 && (
@@ -184,6 +254,21 @@ const VerticalBar: React.FC<VerticalBarProps> = ({ className = '' }) => {
                     opacity={data.selected ? 0.7 : 0.3}
                     rx="3"
                   />
+
+                  {/* Selection segment overlays */}
+                  {barLayout.selectionSegments.map((segment, segmentIndex) => (
+                    <rect
+                      key={`selection-${data.id}-${segmentIndex}`}
+                      x={barLayout.x}
+                      y={segment.y}
+                      width={barLayout.width}
+                      height={segment.height}
+                      fill={segment.color}
+                      opacity={0.6}
+                      rx="3"
+                      className="vertical-bar__selection-overlay"
+                    />
+                  ))}
 
                   {/* Scroll indicator overlay (only for selected bars) */}
                   {data.selected && barLayout.scrollIndicator && (

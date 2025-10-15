@@ -11,7 +11,7 @@
   border-bottom: 1px solid #e5e7eb;
   padding: 8px 12px;
   width: 100%;
-  gap: 6px;
+  gap: 8px;
 }
 
 /* ============================================================================
@@ -26,7 +26,7 @@
 }
 
 .saved-groups-panel__title {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: #6b7280;
   text-transform: uppercase;
@@ -69,14 +69,31 @@
   cursor: pointer;
 }
 
+/* Selected badge - scale up to show it's active */
+.saved-groups-panel__badge.active.selected {
+  transform: scale(1.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
 .saved-groups-panel__badge.active:hover {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   transform: translateY(-1px) scale(1.1);
 }
 
+/* Selected badge hover - maintain larger size */
+.saved-groups-panel__badge.active.selected:hover {
+  transform: translateY(-1px) scale(1.25);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+}
+
 .saved-groups-panel__badge.active:active {
   transform: translateY(0) scale(1);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* Selected badge active state - maintain larger size */
+.saved-groups-panel__badge.active.selected:active {
+  transform: translateY(0) scale(1.15);
 }
 
 /* Empty (placeholder) badges */
@@ -112,7 +129,8 @@
   pointer-events: none;
 }
 
-.saved-groups-panel__badge.active:hover .saved-groups-panel__badge-delete {
+.saved-groups-panel__badge.active:hover .saved-groups-panel__badge-delete,
+.saved-groups-panel__badge.active.selected .saved-groups-panel__badge-delete {
   opacity: 1;
   pointer-events: auto;
 }

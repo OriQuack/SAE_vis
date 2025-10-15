@@ -376,8 +376,9 @@ export function clamp(value: number, min: number, max: number): number {
 /**
  * Get color for saved cell group selection based on color index
  * Uses a 6-color palette cycling through color indices
+ * Note: Blue (#3b82f6) is excluded as it's used for default drag selection
  */
 export function getSavedGroupColor(colorIndex: number): string {
-  const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
+  const colors = ['#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6']  // Green, Orange, Red, Purple, Pink, Teal
   return colors[colorIndex % colors.length]
 }

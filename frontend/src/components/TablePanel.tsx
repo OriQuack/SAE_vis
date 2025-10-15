@@ -23,6 +23,8 @@ import {
   findGroupByKey,
   findGroupsInRectangle
 } from '../lib/table-selection-utils'
+import { getSavedGroupColor } from '../lib/utils'
+import { sortFeatures } from '../lib/table-sort-utils'
 import '../styles/TablePanel.css'
 
 // ============================================================================
@@ -82,9 +84,10 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const [headerStructure, setHeaderStructure] = useState<HeaderStructure | null>(null)
   const tableContainerRef = useRef<HTMLDivElement>(null)
 
-  // Sorting state
-  const [sortBy, setSortBy] = useState<SortBy>(null)
-  const [sortDirection, setSortDirection] = useState<SortDirection>(null)
+  // Sorting state from store
+  const sortBy = useVisualizationStore(state => state.tableSortBy)
+  const sortDirection = useVisualizationStore(state => state.tableSortDirection)
+  const setTableSort = useVisualizationStore(state => state.setTableSort)
 
   // Cell selection state from store
   const cellSelection = useVisualizationStore(state => state.cellSelection)
@@ -93,9 +96,12 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const clearCellSelection = useVisualizationStore(state => state.clearCellSelection)
 
   // Saved cell group selection state from store
+  const activeSavedGroupId = useVisualizationStore(state => state.activeSavedGroupId)
+  const savedCellGroupSelections = useVisualizationStore(state => state.savedCellGroupSelections)
   const showCellGroupNameInput = useVisualizationStore(state => state.showCellGroupNameInput)
   const startSavingCellGroups = useVisualizationStore(state => state.startSavingCellGroups)
   const finishSavingCellGroups = useVisualizationStore(state => state.finishSavingCellGroups)
+  const updateSavedCellGroups = useVisualizationStore(state => state.updateSavedCellGroups)
   const cancelSavingCellGroups = useVisualizationStore(state => state.cancelSavingCellGroups)
 
   // Local drag state
@@ -104,6 +110,20 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
   // Local state for name input
   const [groupName, setGroupName] = useState('')
+
+  // Local state for "saved" message
+  const [showSavedMessage, setShowSavedMessage] = useState(false)
+
+  // Calculate active saved group and its color
+  const activeSavedGroup = useMemo(() => {
+    if (!activeSavedGroupId) return null
+    return savedCellGroupSelections.find(g => g.id === activeSavedGroupId) || null
+  }, [activeSavedGroupId, savedCellGroupSelections])
+
+  const savedGroupColor = useMemo(() => {
+    if (!activeSavedGroup) return null
+    return getSavedGroupColor(activeSavedGroup.colorIndex)
+  }, [activeSavedGroup])
 
   // Get selected LLM explainers (needed for disabled logic)
   const selectedExplainers = new Set<string>()
@@ -197,18 +217,16 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     // If same sort target, cycle through: null → asc → desc → null
     if (JSON.stringify(sortBy) === JSON.stringify(newSortBy)) {
       if (sortDirection === null) {
-        setSortDirection('asc')
+        setTableSort(newSortBy, 'asc')
       } else if (sortDirection === 'asc') {
-        setSortDirection('desc')
+        setTableSort(newSortBy, 'desc')
       } else {
         // Reset to no sort
-        setSortBy(null)
-        setSortDirection(null)
+        setTableSort(null, null)
       }
     } else {
       // New sort target, start with ascending
-      setSortBy(newSortBy)
-      setSortDirection('asc')
+      setTableSort(newSortBy, 'asc')
     }
   }
 
@@ -428,32 +446,14 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   // SORTED FEATURES (MUST BE BEFORE HANDLERS THAT USE IT)
   // ============================================================================
 
-  // Sort features based on current sort settings
+  // Sort features based on current sort settings (using shared utility)
   const sortedFeatures = useMemo(() => {
-    if (!tableData || !sortBy || !sortDirection) {
-      return tableData?.features || []
-    }
-
-    const features = [...tableData.features]
-
-    features.sort((a, b) => {
-      let valueA: number | null = null
-      let valueB: number | null = null
-
-      if (sortBy.type === 'consistency') {
-        // Sort by consistency value
-        valueA = getConsistencyValueForSorting(a, sortBy.consistencyType, tableData.explainer_ids)
-        valueB = getConsistencyValueForSorting(b, sortBy.consistencyType, tableData.explainer_ids)
-      } else if (sortBy.type === 'column') {
-        // Sort by column score value
-        valueA = getScoreValue(a, sortBy.explainerId, sortBy.metricType, sortBy.scorerId)
-        valueB = getScoreValue(b, sortBy.explainerId, sortBy.metricType, sortBy.scorerId)
-      }
-
-      return compareValues(valueA, valueB, sortDirection)
-    })
-
-    return features
+    return sortFeatures(
+      tableData?.features || [],
+      sortBy,
+      sortDirection,
+      tableData
+    )
   }, [tableData, sortBy, sortDirection])
 
   // ============================================================================
@@ -1061,26 +1061,36 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                       isRightEdge = idx === maxColIndex
                     }
 
-                    // Build CSS classes with different styles for different states
-                    const cellClasses = [
-                      'table-panel__score-cell',
-                      // Add edge classes with state-specific modifiers
-                      cellGroup ? 'selected-edge-top selected-edge-bottom' : '',
-                      cellGroup && isLeftEdge ? 'selected-edge-left' : '',
-                      cellGroup && isRightEdge ? 'selected-edge-right' : '',
-                      // Add state-specific classes for styling
-                      isDraggingUnion ? 'dragging-new' : '',  // Blue border (union mode)
-                      isDraggingDifference ? 'dragging-existing' : '',  // Red border (difference mode)
-                      isFinalized ? 'finalized' : ''  // Blue border (finalized)
-                    ].filter(Boolean).join(' ')
+                    // Determine border color based on state
+                    const borderColor = isFinalized && savedGroupColor
+                      ? savedGroupColor  // Use saved group's specific color when a saved group is active
+                      : isFinalized
+                        ? '#3b82f6'  // Default blue for finalized selections without saved group
+                        : isDraggingUnion
+                          ? '#3b82f6'  // Blue for new selections (union mode)
+                          : isDraggingDifference
+                            ? '#ef4444'  // Red for removals (difference mode)
+                            : null
+
+                    // Build dynamic box-shadow for borders
+                    const boxShadowParts: string[] = []
+                    if (cellGroup && borderColor) {
+                      if (isLeftEdge) boxShadowParts.push(`inset 3px 0 0 0 ${borderColor}`)
+                      if (isRightEdge) boxShadowParts.push(`inset -3px 0 0 0 ${borderColor}`)
+                      // All cells in group get top and bottom borders
+                      boxShadowParts.push(`inset 0 3px 0 0 ${borderColor}`)
+                      boxShadowParts.push(`inset 0 -3px 0 0 ${borderColor}`)
+                    }
+                    const boxShadow = boxShadowParts.length > 0 ? boxShadowParts.join(', ') : undefined
 
                     return (
                       <td
                         key={`${row.feature_id}-${idx}`}
-                        className={cellClasses}
+                        className="table-panel__score-cell"
                         style={{
                           backgroundColor: bgColor,
-                          color: consistency !== null && consistency < 0.5 ? 'white' : '#374151'  // White text for dark backgrounds
+                          color: consistency !== null && consistency < 0.5 ? 'white' : '#374151',  // White text for dark backgrounds
+                          boxShadow: boxShadow
                         }}
                         onMouseDown={() => handleCellMouseDown(rowIdx, idx)}
                         onMouseEnter={() => handleCellMouseEnter(rowIdx, idx)}
@@ -1097,13 +1107,34 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
       </div>
 
       {/* Save Cell Group Selection UI */}
-      {cellSelection.groups.length > 0 && !showCellGroupNameInput && (
+      {cellSelection.groups.length > 0 && !showCellGroupNameInput && !showSavedMessage && (
         <button
           className="table-panel__save-button"
-          onClick={startSavingCellGroups}
+          onClick={() => {
+            if (activeSavedGroupId) {
+              // Update existing group without prompting for name
+              updateSavedCellGroups(activeSavedGroupId)
+
+              // Show "saved ✓" message for 2 seconds
+              setShowSavedMessage(true)
+              setTimeout(() => {
+                setShowSavedMessage(false)
+              }, 2000)
+            } else {
+              // New group - show name input
+              startSavingCellGroups()
+            }
+          }}
         >
-          Save Selection
+          {activeSavedGroupId ? 'Save Changes' : 'Save Selection'}
         </button>
+      )}
+
+      {/* Saved confirmation message */}
+      {showSavedMessage && (
+        <div className="table-panel__saved-message">
+          saved ✓
+        </div>
       )}
 
       {/* Name Input for Saving Cell Groups */}

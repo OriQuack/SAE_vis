@@ -25,6 +25,12 @@ export interface ScrollIndicator {
   height: number
 }
 
+export interface SelectionSegment {
+  y: number
+  height: number
+  color: string
+}
+
 export interface BarLayout {
   x: number
   width: number
@@ -32,6 +38,7 @@ export interface BarLayout {
   barHeight: number
   labelY: number
   scrollIndicator: ScrollIndicator | null
+  selectionSegments: SelectionSegment[]
 }
 
 export interface MultiBarLayout {
@@ -71,6 +78,73 @@ export function getExplainerDisplayName(explainerId: string): string {
 }
 
 // ============================================================================
+// SELECTION SEGMENT CALCULATIONS
+// ============================================================================
+
+/**
+ * Calculate selection segments for a single bar
+ *
+ * Converts selected feature indices into visual segments on the vertical bar.
+ * Assumes features are sorted in the same order as the table.
+ * Merges consecutive selections into continuous segments for efficiency.
+ *
+ * @param selectedFeatureIndices - Array of selected feature row indices (0-based)
+ * @param totalFeatureCount - Total number of features in the table
+ * @param barY - Y position of the bar's top edge
+ * @param barHeight - Height of the bar
+ * @param color - Color for the selection segments
+ * @returns Array of selection segments with y, height, and color
+ */
+export function calculateSelectionSegments(
+  selectedFeatureIndices: number[],
+  totalFeatureCount: number,
+  barY: number,
+  barHeight: number,
+  color: string
+): SelectionSegment[] {
+  if (selectedFeatureIndices.length === 0 || totalFeatureCount === 0) {
+    return []
+  }
+
+  // Sort indices to identify consecutive ranges
+  const sortedIndices = [...selectedFeatureIndices].sort((a, b) => a - b)
+
+  // Calculate height per feature
+  const featureHeight = barHeight / totalFeatureCount
+
+  // Merge consecutive indices into continuous segments
+  const segments: SelectionSegment[] = []
+  let segmentStart = sortedIndices[0]
+  let segmentEnd = sortedIndices[0]
+
+  for (let i = 1; i < sortedIndices.length; i++) {
+    const currentIndex = sortedIndices[i]
+    if (currentIndex === segmentEnd + 1) {
+      // Consecutive - extend current segment
+      segmentEnd = currentIndex
+    } else {
+      // Gap found - finalize current segment and start new one
+      segments.push({
+        y: barY + segmentStart * featureHeight,
+        height: (segmentEnd - segmentStart + 1) * featureHeight,
+        color
+      })
+      segmentStart = currentIndex
+      segmentEnd = currentIndex
+    }
+  }
+
+  // Add final segment
+  segments.push({
+    y: barY + segmentStart * featureHeight,
+    height: (segmentEnd - segmentStart + 1) * featureHeight,
+    color
+  })
+
+  return segments
+}
+
+// ============================================================================
 // LAYOUT CALCULATIONS
 // ============================================================================
 
@@ -84,6 +158,8 @@ export function getExplainerDisplayName(explainerId: string): string {
  * @param containerHeight - Container height in pixels
  * @param padding - Padding around the visualization
  * @param scrollState - Optional scroll state for scroll indicator
+ * @param selectionData - Optional selection data: map of explainer ID to {featureIndices, color}
+ * @param totalFeatureCount - Total number of features for selection calculation
  * @returns Layout calculations for rendering
  */
 export function calculateMultiBarLayout(
@@ -96,7 +172,9 @@ export function calculateMultiBarLayout(
     left: 20,
     right: 20
   },
-  scrollState?: { scrollTop: number; scrollHeight: number; clientHeight: number } | null
+  scrollState?: { scrollTop: number; scrollHeight: number; clientHeight: number } | null,
+  selectionData?: Map<string, { featureIndices: number[]; color: string }>,
+  totalFeatureCount: number = 0
 ): MultiBarLayout {
   if (data.length === 0) {
     return {
@@ -113,7 +191,7 @@ export function calculateMultiBarLayout(
 
   // Calculate bar dimensions
   const numBars = data.length
-  const barGap = 20
+  const barGap = 10
   const totalGapWidth = barGap * (numBars - 1)
   const barWidth = (availableWidth - totalGapWidth) / numBars
 
@@ -160,6 +238,21 @@ export function calculateMultiBarLayout(
       }
     }
 
+    // Calculate selection segments if selection data is available
+    let selectionSegments: SelectionSegment[] = []
+    if (selectionData && totalFeatureCount > 0) {
+      const selection = selectionData.get(explainerData.id)
+      if (selection && selection.featureIndices.length > 0) {
+        selectionSegments = calculateSelectionSegments(
+          selection.featureIndices,
+          totalFeatureCount,
+          barY,
+          barHeight,
+          selection.color
+        )
+      }
+    }
+
     return {
       data: explainerData,
       layout: {
@@ -168,7 +261,8 @@ export function calculateMultiBarLayout(
         barY,
         barHeight,
         labelY: padding.top - 10,
-        scrollIndicator
+        scrollIndicator,
+        selectionSegments
       }
     }
   })

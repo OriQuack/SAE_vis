@@ -58,7 +58,7 @@ const SavedGroupsPanel: React.FC = () => {
               className="saved-groups-panel__slot"
             >
               <div
-                className={`saved-groups-panel__badge ${savedGroup ? 'active' : 'empty'}`}
+                className={`saved-groups-panel__badge ${savedGroup ? 'active' : 'empty'} ${isActive ? 'selected' : ''}`}
                 style={{
                   backgroundColor: savedGroup ? getSavedGroupColor(savedGroup.colorIndex) : PLACEHOLDER_COLOR,
                   opacity: shouldDim ? 0.4 : 1
