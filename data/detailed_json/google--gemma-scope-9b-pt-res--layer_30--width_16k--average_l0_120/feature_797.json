@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_658",
-      "text": "Prepositions, particularly \\\"to\\\", often used in infinitive phrases, and other function words that provide context and facilitate connections between clauses or phrases.",
+      "text": "The word \\\"to\\\" frequently appears in infinitive verb constructions, often introducing purpose or intention, and is commonly used in formal or technical writing to link actions to their goals or outcomes.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1482",
         "exp_658"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8981490386554805,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_658",
         "exp_2305"
       ],
-      "cosine_similarity": 0.9114951890145159,
+      "cosine_similarity": 0.8694527591149693,
       "euclidean_similarity": null
     }
   ],

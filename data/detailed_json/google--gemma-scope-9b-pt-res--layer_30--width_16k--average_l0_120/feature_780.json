@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_646",
-      "text": "Common words or phrases in various languages, often representing a single unit of meaning, such as nouns, adjectives, or adverbs, and sometimes indicating a transition or connection between ideas.",
+      "text": "Commonly activated tokens are morphological or syntactic elements such as suffixes, pronouns, prepositions, and determiners, often appearing in compound or multi-word expressions, particularly in contexts involving comparison, possession, location, or grammatical agreement.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1470",
         "exp_646"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8566456823432931,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_646",
         "exp_2293"
       ],
-      "cosine_similarity": 0.8310014855400147,
+      "cosine_similarity": 0.8853787328031645,
       "euclidean_similarity": null
     }
   ],

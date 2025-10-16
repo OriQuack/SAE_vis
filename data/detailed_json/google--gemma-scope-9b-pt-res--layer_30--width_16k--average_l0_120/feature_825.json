@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_681",
-      "text": "Verbs that convey a sense of causation, influence, or effect, often used in a way that describes a change, result, or consequence of an action or situation.",
+      "text": "Verbs denoting causation or effect, often used in contexts where an action leads to a specific outcome or state.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1505",
         "exp_681"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9601612858686097,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_681",
         "exp_2328"
       ],
-      "cosine_similarity": 0.86124644004673,
+      "cosine_similarity": 0.8661951822844035,
       "euclidean_similarity": null
     }
   ],

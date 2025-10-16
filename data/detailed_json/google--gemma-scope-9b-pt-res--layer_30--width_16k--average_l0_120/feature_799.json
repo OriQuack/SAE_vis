@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_660",
-      "text": "Double quotation marks often used to denote the start of a quotation or a new section of text, sometimes indicating a change in topic or speaker.",
+      "text": "The newline character (\\\"\\n\\\") frequently appears in contexts involving structured or formatted text, such as code blocks, markdown, or document sections, often preceding or following content with semantic or syntactic significance.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1484",
         "exp_660"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8336716305579573,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_660",
         "exp_2307"
       ],
-      "cosine_similarity": 0.8413329816573006,
+      "cosine_similarity": 0.8297672913813288,
       "euclidean_similarity": null
     }
   ],

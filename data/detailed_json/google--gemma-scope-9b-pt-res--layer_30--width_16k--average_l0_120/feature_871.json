@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_713",
-      "text": "Articles, adjectives, and nouns describing entities, organizations, or concepts, often indicating nationality, size, or type.",
+      "text": "Adjectives or noun phrases describing size, status, or specialization, often preceding or following a noun to provide descriptive detail.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1537",
         "exp_713"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9193742587866591,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_713",
         "exp_2360"
       ],
-      "cosine_similarity": 0.8129190268091423,
+      "cosine_similarity": 0.8071964503121363,
       "euclidean_similarity": null
     }
   ],

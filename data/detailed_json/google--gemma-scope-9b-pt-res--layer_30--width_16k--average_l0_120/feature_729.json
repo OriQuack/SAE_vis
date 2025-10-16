@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_605",
-      "text": "Words related to children, youth, or family, often in contexts of education, health, or entertainment.",
+      "text": "The text latents consistently involve possessive or plural forms related to children, often appearing in contexts of care, development, education, or family, with frequent use of \\\"children\\\" or \\\"childhood\\\" as central concepts.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1429",
         "exp_605"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9036318090053602,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_605",
         "exp_2252"
       ],
-      "cosine_similarity": 0.9176432821310627,
+      "cosine_similarity": 0.9155552786345355,
       "euclidean_similarity": null
     }
   ],

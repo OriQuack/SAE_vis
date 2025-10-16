@@ -1,5 +1,5 @@
 {
-  "created_at": "2025-10-16T19:50:16.869209",
+  "created_at": "2025-10-16T20:29:34.005967",
   "parquet_file": "data/master/explanations.parquet",
   "total_rows": 2471,
   "unique_features": 824,
@@ -19,8 +19,8 @@
   "text_length_statistics": {
     "min": 13,
     "max": 4688,
-    "mean": 201.32456495346014,
-    "median": 174.0
+    "mean": 211.4269526507487,
+    "median": 183.0
   },
   "schema": {
     "feature_id": "UInt32",

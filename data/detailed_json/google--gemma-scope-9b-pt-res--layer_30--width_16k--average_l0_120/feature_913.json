@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_749",
-      "text": "Non-verbal actions or reactions, often facial expressions or body language, that convey emotions or attitudes, typically in response to a situation or conversation.",
+      "text": "Body movements or facial expressions described through verbs and associated body parts, often indicating emotional or physical reactions.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1573",
         "exp_749"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9062185863456756,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_749",
         "exp_2396"
       ],
-      "cosine_similarity": 0.8822852090308924,
+      "cosine_similarity": 0.9142943987283804,
       "euclidean_similarity": null
     }
   ],

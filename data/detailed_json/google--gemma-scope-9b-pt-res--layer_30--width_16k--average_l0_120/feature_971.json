@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_796",
-      "text": "The token is often the first part of a word, sometimes an abbreviation, and occasionally a single letter, often at the beginning of a proper noun or a word that is being emphasized.",
+      "text": "Fragmented morphological or lexical units at word boundaries, often representing parts of compound words, affixes, or proper nouns, with high activation in contexts involving word formation, compound structure, or morphological segmentation.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1620",
         "exp_796"
       ],
-      "cosine_similarity": 0.9999999999999999,
+      "cosine_similarity": 0.8693121969404944,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_796",
         "exp_2443"
       ],
-      "cosine_similarity": 0.7784643109451892,
+      "cosine_similarity": 0.8008196134331653,
       "euclidean_similarity": null
     }
   ],

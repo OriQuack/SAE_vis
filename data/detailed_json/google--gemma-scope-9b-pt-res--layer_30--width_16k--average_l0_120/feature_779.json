@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_645",
-      "text": "Phrases indicating that something has an alternative name or is referred to in a different way, often using words such as \\\"known\\\", \\\"referred to\\\", \\\"also\\\", and \\\"called\\\".",
+      "text": "The phrase \\\"known as\\\" or variations like \\\"referred to as\\\", \\\"called\\\", or \\\"also known\\\" are used to introduce alternative names or common designations for entities, often in formal or descriptive contexts.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1469",
         "exp_645"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9492105230548876,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_645",
         "exp_2292"
       ],
-      "cosine_similarity": 0.9170055603156506,
+      "cosine_similarity": 0.9130511766574185,
       "euclidean_similarity": null
     }
   ],

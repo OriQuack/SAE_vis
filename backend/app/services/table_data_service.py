@@ -45,6 +45,9 @@ class TableDataService:
         self.pairwise_similarity_file = (
             Path(data_service.data_path) / "master" / "semantic_similarity_pairwise.parquet"
         )
+        self.explanations_file = (
+            Path(data_service.data_path) / "master" / "explanations.parquet"
+        )
 
     async def get_table_data(self, filters: Filters) -> FeatureTableDataResponse:
         """
@@ -79,6 +82,9 @@ class TableDataService:
         # Load pairwise similarity if needed
         pairwise_df = self._load_pairwise_data() if is_averaged else None
 
+        # Load explanations
+        explanations_df = self._load_explanations()
+
         # PASS 1: Collect global statistics
         global_stats = self._compute_global_stats(df, explainer_ids, feature_ids)
 
@@ -92,7 +98,7 @@ class TableDataService:
         # PASS 2: Build feature rows
         features = self._build_feature_rows(
             df, feature_ids, explainer_ids, scorer_map,
-            is_averaged, global_stats, pairwise_df, cross_explainer_map
+            is_averaged, global_stats, pairwise_df, cross_explainer_map, explanations_df
         )
 
         return FeatureTableDataResponse(
@@ -166,6 +172,21 @@ class TableDataService:
             return pairwise_df
         except Exception as e:
             logger.warning(f"Pairwise similarity data not available: {e}")
+            return None
+
+    def _load_explanations(self) -> Optional[pl.DataFrame]:
+        """
+        Load explanation text data from parquet file.
+
+        Returns:
+            DataFrame with explanations (feature_id, llm_explainer, explanation_text), or None if not available
+        """
+        try:
+            explanations_df = pl.read_parquet(self.explanations_file)
+            logger.info(f"Loaded explanations data: {len(explanations_df)} rows")
+            return explanations_df
+        except Exception as e:
+            logger.warning(f"Explanations data not available: {e}")
             return None
 
     def _compute_global_stats(
@@ -329,7 +350,8 @@ class TableDataService:
         is_averaged: bool,
         global_stats: Dict[str, Dict[str, float]],
         pairwise_df: Optional[pl.DataFrame],
-        cross_explainer_map: Dict[int, Dict[str, any]]
+        cross_explainer_map: Dict[int, Dict[str, any]],
+        explanations_df: Optional[pl.DataFrame]
     ) -> List[FeatureTableRow]:
         """
         PASS 2: Build feature rows with all consistency scores.
@@ -346,6 +368,7 @@ class TableDataService:
             global_stats: Global statistics for z-score normalization
             pairwise_df: Pairwise similarity DataFrame (if available)
             cross_explainer_map: Cross-explainer consistency map
+            explanations_df: Explanations DataFrame (if available)
 
         Returns:
             List of FeatureTableRow objects
@@ -374,12 +397,14 @@ class TableDataService:
                     # Build explainer data for averaged mode (multiple explainers)
                     explainers_dict[explainer_key] = self._build_averaged_explainer_data(
                         explainer_df, embedding_score, feature_id,
-                        explainer_ids, global_stats, pairwise_df, cross_explainer_map
+                        explainer_ids, global_stats, pairwise_df, cross_explainer_map,
+                        explainer, explanations_df
                     )
                 else:
                     # Build explainer data for individual scorer mode (single explainer)
                     explainers_dict[explainer_key] = self._build_individual_explainer_data(
-                        explainer_df, embedding_score, scorer_map, global_stats
+                        explainer_df, embedding_score, scorer_map, global_stats,
+                        explainer, feature_id, explanations_df
                     )
 
             if explainers_dict:
@@ -399,7 +424,9 @@ class TableDataService:
         explainer_ids: List[str],
         global_stats: Dict[str, Dict[str, float]],
         pairwise_df: Optional[pl.DataFrame],
-        cross_explainer_map: Dict[int, Dict[str, any]]
+        cross_explainer_map: Dict[int, Dict[str, any]],
+        explainer: str,
+        explanations_df: Optional[pl.DataFrame]
     ) -> ExplainerScoreData:
         """
         Build ExplainerScoreData for averaged mode (multiple explainers selected).
@@ -415,6 +442,8 @@ class TableDataService:
             global_stats: Global statistics
             pairwise_df: Pairwise similarity DataFrame
             cross_explainer_map: Cross-explainer consistency map
+            explainer: Explainer ID (full name)
+            explanations_df: Explanations DataFrame (if available)
 
         Returns:
             ExplainerScoreData with individual and averaged scores and consistency metrics
@@ -454,10 +483,21 @@ class TableDataService:
         # Get cross-explainer consistency for this feature (same for all explainers)
         cross_explainer_consistency = cross_explainer_map.get(feature_id)
 
+        # Look up explanation text
+        explanation_text = None
+        if explanations_df is not None:
+            explanation_rows = explanations_df.filter(
+                (pl.col("feature_id") == feature_id) &
+                (pl.col("llm_explainer") == explainer)
+            )
+            if len(explanation_rows) > 0:
+                explanation_text = explanation_rows["explanation_text"].to_list()[0]
+
         return ExplainerScoreData(
             embedding=embedding_score,
             fuzz=ScorerScoreSet(s1=fuzz_dict['s1'], s2=fuzz_dict['s2'], s3=fuzz_dict['s3']),
             detection=ScorerScoreSet(s1=detection_dict['s1'], s2=detection_dict['s2'], s3=detection_dict['s3']),
+            explanation_text=explanation_text,
             scorer_consistency=None,  # Not applicable when averaged
             metric_consistency=metric_consistency,
             explainer_consistency=explainer_consistency,
@@ -469,7 +509,10 @@ class TableDataService:
         explainer_df: pl.DataFrame,
         embedding_score: Optional[float],
         scorer_map: Dict[str, str],
-        global_stats: Dict[str, Dict[str, float]]
+        global_stats: Dict[str, Dict[str, float]],
+        explainer: str,
+        feature_id: int,
+        explanations_df: Optional[pl.DataFrame]
     ) -> ExplainerScoreData:
         """
         Build ExplainerScoreData for individual scorer mode (single explainer selected).
@@ -479,6 +522,9 @@ class TableDataService:
             embedding_score: Embedding score value
             scorer_map: Mapping from scorer ID to s1/s2/s3
             global_stats: Global statistics
+            explainer: Explainer ID (full name)
+            feature_id: Feature ID
+            explanations_df: Explanations DataFrame (if available)
 
         Returns:
             ExplainerScoreData with individual scorer scores and consistency metrics
@@ -515,6 +561,16 @@ class TableDataService:
             embedding_score, fuzz_avg, detection_avg, global_stats
         )
 
+        # Look up explanation text
+        explanation_text = None
+        if explanations_df is not None:
+            explanation_rows = explanations_df.filter(
+                (pl.col("feature_id") == feature_id) &
+                (pl.col("llm_explainer") == explainer)
+            )
+            if len(explanation_rows) > 0:
+                explanation_text = explanation_rows["explanation_text"].to_list()[0]
+
         return ExplainerScoreData(
             embedding=embedding_score,
             fuzz=ScorerScoreSet(
@@ -527,6 +583,7 @@ class TableDataService:
                 s2=detection_dict.get("s2"),
                 s3=detection_dict.get("s3")
             ),
+            explanation_text=explanation_text,
             scorer_consistency=scorer_consistency if scorer_consistency else None,
             metric_consistency=metric_consistency,
             explainer_consistency=None,  # Not applicable in single explainer mode

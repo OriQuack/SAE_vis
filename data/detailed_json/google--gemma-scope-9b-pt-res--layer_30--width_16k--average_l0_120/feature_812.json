@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_670",
-      "text": "Punctuation marks, conjunctions, and prepositions, often used to connect clauses or items in a list, as well as nouns and adjectives describing objects, places, or concepts.",
+      "text": "The token \\\"and\\\" frequently appears in lists or comparisons, often connecting items of similar grammatical structure, and is consistently activated in contexts involving conjunctions, lists, or paired attributes.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1494",
         "exp_670"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8671023100882277,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_670",
         "exp_2317"
       ],
-      "cosine_similarity": 0.8458428359708806,
+      "cosine_similarity": 0.8492492716097745,
       "euclidean_similarity": null
     }
   ],

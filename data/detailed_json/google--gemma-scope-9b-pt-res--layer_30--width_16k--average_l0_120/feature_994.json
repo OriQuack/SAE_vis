@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_819",
-      "text": "Special characters used in various programming languages and markup syntax, including XML, HTML, JavaScript, and others, often serving as delimiters, operators, or indicators of specific code structures.",
+      "text": "Specialized punctuation and syntax symbols in code, markup, or technical documentation, such as brackets, colons, slashes, and quotation marks, are frequently activated in structured text formats like XML, JSON, code snippets, and markup languages.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1643",
         "exp_819"
       ],
-      "cosine_similarity": 0.9931472435243703,
+      "cosine_similarity": 0.9114882005506478,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_819",
         "exp_2466"
       ],
-      "cosine_similarity": 0.8871430416869274,
+      "cosine_similarity": 0.8733773862861209,
       "euclidean_similarity": null
     }
   ],

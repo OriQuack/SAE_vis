@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_690",
-      "text": "Names of events, organizations, locations, and competitions, often including sports teams, tournaments, and elections.",
+      "text": "Common noun phrases or compound terms that denote specific events, locations, or concepts, often involving sports, politics, or cultural references, with frequent use of articles, prepositions, and modifiers.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1514",
         "exp_690"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9049788690729855,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_690",
         "exp_2337"
       ],
-      "cosine_similarity": 0.894147519027213,
+      "cosine_similarity": 0.8921218296160027,
       "euclidean_similarity": null
     }
   ],

@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_745",
-      "text": "Terms related to computing, electronics, and technology, including hardware, software, and programming concepts.",
+      "text": "The term \\\"computer\\\" and its variants (e.g., computing, compute, PC, PCs) are frequently activated in contexts related to technology, data processing, and digital systems, often in academic, technical, or programming-related text.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1569",
         "exp_745"
       ],
-      "cosine_similarity": 0.9999999999999999,
+      "cosine_similarity": 0.9034656051859645,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_745",
         "exp_2392"
       ],
-      "cosine_similarity": 0.8807154344650614,
+      "cosine_similarity": 0.8928956897768663,
       "euclidean_similarity": null
     }
   ],

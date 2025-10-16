@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_764",
-      "text": "Punctuation marks and special characters separating or ending sentences, clauses, or phrases, often indicating a pause or a shift in thought.",
+      "text": "The presence of whitespace tokens (spaces, tabs, or line breaks) and punctuation marks (like hyphens, quotation marks, or ellipses) that serve as structural or syntactic separators in text, often indicating formatting, emphasis, or linguistic boundaries.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1588",
         "exp_764"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.899387684795509,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_764",
         "exp_2411"
       ],
-      "cosine_similarity": 0.8482644617685956,
+      "cosine_similarity": 0.8768960242231393,
       "euclidean_similarity": null
     }
   ],

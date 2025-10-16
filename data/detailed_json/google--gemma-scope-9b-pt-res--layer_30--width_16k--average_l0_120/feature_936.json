@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_766",
-      "text": "The word \\\"finally\\\" is used to indicate a conclusion or a culmination of events, often after a period of waiting, anticipation, or struggle, and is sometimes used to add emphasis or to signal a turning point in a narrative.",
+      "text": "The word \\\"finally\\\" (or its equivalent in other languages) is used to signal the conclusion of a sequence of events, delays, or expectations, often carrying emotional or narrative weight.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1590",
         "exp_766"
       ],
-      "cosine_similarity": 0.9785309300660412,
+      "cosine_similarity": 0.9521608636827813,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_766",
         "exp_2413"
       ],
-      "cosine_similarity": 0.9196974559635605,
+      "cosine_similarity": 0.9185730826137166,
       "euclidean_similarity": null
     }
   ],

@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_663",
-      "text": "Words related to cause and effect, including nouns representing effects, verbs describing causation, and adjectives describing the effectiveness or impact of something.",
+      "text": "The word \\\"effect\\\" and its variants (e.g., \\\"effects\\\", \\\"effective\\\", \\\"affect\\\", \\\"affected\\\") are frequently activated in contexts involving causation, outcome, or influence, often in scientific, medical, or analytical writing. These tokens are central to describing outcomes, impacts, or consequences of actions, interventions, or conditions.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1487",
         "exp_663"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9004950452493955,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_663",
         "exp_2310"
       ],
-      "cosine_similarity": 0.8705600406373675,
+      "cosine_similarity": 0.8994268045220103,
       "euclidean_similarity": null
     }
   ],

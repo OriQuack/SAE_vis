@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_611",
-      "text": "Adjectives and nouns, often technical or domain-specific, that provide specific details or characteristics about a concept, object, or process.",
+      "text": "Compound nouns and technical terms formed by combining two or more words, often with hyphenation or capitalization, where each part contributes to a specific meaning in a specialized context.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1435",
         "exp_611"
       ],
-      "cosine_similarity": 0.9179377919137494,
+      "cosine_similarity": 0.9010086022231706,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_611",
         "exp_2258"
       ],
-      "cosine_similarity": 0.8681754839741876,
+      "cosine_similarity": 0.8727910660841535,
       "euclidean_similarity": null
     }
   ],

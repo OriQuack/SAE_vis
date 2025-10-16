@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_735",
-      "text": "Various HTML, CSS, and JavaScript elements, including tags, classes, properties, and functions, often used in web development.",
+      "text": "Patterns in code syntax involving identifiers, attributes, and structural elements such as tags, classes, and properties, often associated with web development languages like HTML, CSS, JavaScript, and related frameworks.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1559",
         "exp_735"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.92683947099611,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_735",
         "exp_2382"
       ],
-      "cosine_similarity": 0.8822668518185011,
+      "cosine_similarity": 0.9026600922414995,
       "euclidean_similarity": null
     }
   ],

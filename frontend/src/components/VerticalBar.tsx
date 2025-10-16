@@ -237,7 +237,7 @@ const VerticalBar: React.FC<VerticalBarProps> = ({ className = '' }) => {
       explainerData,
       dimensions.width,
       dimensions.height,
-      { top: 30, bottom: 40, left: 10, right: 10 },
+      { top: 30, bottom: 50, left: 10, right: 10 },
       tableScrollState,
       selectionData,
       sortedFeatures.length

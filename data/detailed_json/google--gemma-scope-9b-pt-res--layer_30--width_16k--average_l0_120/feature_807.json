@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_666",
-      "text": "Prepositions and articles, often preceding nouns or adjectives, and sometimes used to describe a relationship or a characteristic of the noun.",
+      "text": "Commonly activated tokens include prepositions like \\\"in\\\", \\\"of\\\", and \\\"the\\\", as well as possessive pronouns like \\\"its\\\" and adjectives such as \\\"total\\\", \\\"average\\\", \\\"same\\\", \\\"correct\\\", and \\\"variable\\\", often appearing in technical or descriptive contexts involving measurement, comparison, or specification.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1490",
         "exp_666"
       ],
-      "cosine_similarity": 0.9404342730250047,
+      "cosine_similarity": 0.891636656765645,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_666",
         "exp_2313"
       ],
-      "cosine_similarity": 0.8064001777827507,
+      "cosine_similarity": 0.7841155521053645,
       "euclidean_similarity": null
     }
   ],

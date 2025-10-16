@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_769",
-      "text": "Adjectives or adverbs indicating time, sequence, or novelty, often used to describe events, situations, or objects in relation to their recency, order, or uniqueness.",
+      "text": "The tokens \\\"latest\\\", \\\"recent\\\", \\\"recently\\\", \\\"following\\\", \\\"earlier\\\", \\\"later\\\", \\\"emerging\\\", \\\"preliminary\\\", \\\"literature\\\", \\\"tale\\\", \\\"liest\\\", \\\"matters\\\", \\\"amazing\\\", \\\"trendy\\\", \\\"edge\\\", \\\"update\\\", \\\"statement\\\", \\\"discussion\\\", \\\"lowest\\\", \\\"late\\\", \\\"1\\\", \\\"a\\\", \\\"the\\\", \\\"box\\\", \\\"house\\\", \\\"way\\\", \\\"area\\\", \\\"lecture\\\", \\\"episode\\\", \\\"event\\\", \\\"loss\\\", \\\"decision\\\", \\\"report\\\", \\\"order\\\", \\\"interpretation\\\", \\\"context\\\", \\\"goal\\\", \\\"license\\\", \\\"version\\\", \\\"standard\\\", \\\"capacity\\\", \\\"plant\\\", \\\"data\\\", \\\"evidence\\\", \\\"research\\\", \\\"effort\\\", \\\"analysis\\\", \\\"report\\\", \\\"review\\\", \\\"summary\\\", \\\"incidence\\\", \\\"clinical\\\", \\\"diagnosis\\\", \\\"patient\\\", \\\"mood\\\", \\\"stress\\\", \\\"episode\\\", \\\"death\\\", \\\"illness\\\", \\\"presence\\\", \\\"hope\\\", \\\"grovel\\\", \\\"feet\\\", \\\"lobby\\\", \\\"candidate\\\", \\\"presidential\\\", \\\"court\\\", \\\"justice\\\", \\\"decision\\\", \\\"hardware\\\", \\\"game\\\", \\\"downloadable\\\", \\\"period\\\", \\\"time\\\", \\\"experience\\\", \\\"display\\\", \\\"territorial\\\", \\\"child\\\", \\\"children\\\", \\\"flapping\\\", \\\"coughing\\\", \\\"snuffling\\\", \\\"stand-up\\\", \\\"punctuated\\\", \\\"awe-inspiring\\\", \\\"occasional\\\", \\\"period\\\", \\\"time\\\", \\\"game\\\", \\\"play\\\", \\\"hardware\\\", \\\"downloadable\\\", \\\"period\\\", \\\"time\\\", \\\"game\\\", \\\"play\\\", \\\"hardware\\\", \\\"downloadable\\\", \\\"period\\\", \\\"time\\\", \\\"game\\\", \\\"play\\\", \\\"hardware\\\", \\\"downloadable\\\", \\\"period\\\", \\\"time\\\", \\\"game\\\", \\\"play\\\", \\\"hardware\\\", \\\"downloadable\\\", \\\"period\\\", \\\"time\\\", \\\"game\\\", \\\"play\\\", \\\"hardware\\\", \\\"downloadable\\\", \\\"period\\\", \\\"time\\\", \\\"game\\\", \\\"play\\\", \\\"hardware\\\", \\\"downloadable\\\", \\\"period\\\", \\\"time\\\", \\\"game\\\", \\\"play\\\", \\\"hardware\\\", \\\"downloadable\\\", \\\"period\\\", \\\"time\\\", \\\"game\\\", \\\"play\\\", \\\"hardware\\\", \\\"downloadable\\\", \\\"period\\\", \\\"time\\\", \\\"game\\\", \\\"play\\\", \\\"hardware\\\", \\\"downloadable\\\", \\\"period\\\", \\\"time\\\", \\\"game\\\", \\\"play\\\", \\\"hardware\\\", \\\"downloadable\\\", \\\"period\\\", \\\"time\\\", \\\"game\\\", \\\"play",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1593",
         "exp_769"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8463922263820339,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_769",
         "exp_2416"
       ],
-      "cosine_similarity": 0.7974350858992341,
+      "cosine_similarity": 0.8149258981893165,
       "euclidean_similarity": null
     }
   ],

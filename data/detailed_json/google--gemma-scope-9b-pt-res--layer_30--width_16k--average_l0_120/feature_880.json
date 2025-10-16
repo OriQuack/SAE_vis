@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_722",
-      "text": "Various parts of speech, including nouns, verbs, adjectives, adverbs, and function words, often in the context of descriptive or informative writing, and sometimes in the context of dialogue or technical writing.",
+      "text": "Commonly activated tokens include function words (e.g., \\\"and\\\", \\\"is\\\", \\\"has\\\", \\\"of\\\"), possessive or descriptive modifiers (e.g., \\\"special\\\", \\\"considerable\\\", \\\"meticulously\\\"), and compound or multi-token concepts (e.g., \\\"thought and care\\\", \\\"a considerable portion of\\\") that convey effort, quality, or detail in a descriptive or evaluative context.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1546",
         "exp_722"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8597902530659391,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_722",
         "exp_2369"
       ],
-      "cosine_similarity": 0.846175139213476,
+      "cosine_similarity": 0.8734028545880804,
       "euclidean_similarity": null
     }
   ],

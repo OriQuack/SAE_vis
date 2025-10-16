@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_593",
-      "text": "Modal verbs and auxiliary verbs expressing possibility, ability, or future tense, often used in conditional or predictive statements.",
+      "text": "Modal auxiliary verbs (e.g., will, would, could, can, should, may) and their contractions (e.g., 'll, 'd, 're, 's) are frequently activated when expressing future possibility, necessity, or conditional outcomes.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1417",
         "exp_593"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9328268665032615,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_593",
         "exp_2240"
       ],
-      "cosine_similarity": 0.9357861869141506,
+      "cosine_similarity": 0.9277874232280855,
       "euclidean_similarity": null
     }
   ],

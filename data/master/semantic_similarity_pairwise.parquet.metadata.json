@@ -1,5 +1,5 @@
 {
-  "created_at": "2025-10-13T13:22:08.706349",
+  "created_at": "2025-10-16T20:28:54.361451",
   "parquet_file": "data/master/semantic_similarity_pairwise.parquet",
   "total_rows": 2470,
   "unique_features": 824,
@@ -11,17 +11,17 @@
   "pairwise_statistics": {
     "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8_vs_hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4": {
       "count": 824,
-      "mean": 0.9264079167426211,
+      "mean": 0.8983584374768062,
       "min": 0.7758873105049133,
-      "max": 1.0,
-      "std": 0.052336253225803375
+      "max": 0.9686421751976013,
+      "std": 0.0318087562918663
     },
     "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8_vs_openai/gpt-oss-20b": {
       "count": 823,
-      "mean": 0.8669750830962041,
+      "mean": 0.8694775069759364,
       "min": 0.7571513056755066,
       "max": 0.9487586617469788,
-      "std": 0.04009901359677315
+      "std": 0.04032320901751518
     },
     "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4_vs_openai/gpt-oss-20b": {
       "count": 823,

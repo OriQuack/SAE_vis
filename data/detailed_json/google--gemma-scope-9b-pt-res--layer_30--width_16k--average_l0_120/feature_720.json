@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_597",
-      "text": "Various nouns, adjectives, and adverbs, often representing objects, concepts, or ideas, and sometimes used in technical or formal contexts, or as part of idiomatic expressions.",
+      "text": "Common patterns include the use of compound nouns, descriptive adjectives, and technical or domain-specific terms, often appearing in contexts involving physical objects, abstract concepts, or specialized fields such as science, technology, and formal writing. Additionally, frequent activation of tokens like \\\"that\\\", \\\"than\\\", \\\"er\\\", and \\\"and\\\" suggests a focus on comparative, causal, or structural relationships within sentences.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1421",
         "exp_597"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8910644440618707,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_597",
         "exp_2244"
       ],
-      "cosine_similarity": 0.8526140069758693,
+      "cosine_similarity": 0.8667500475772842,
       "euclidean_similarity": null
     }
   ],

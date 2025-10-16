@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_688",
-      "text": "Various function words and common nouns, often used in formal or technical writing, including prepositions, conjunctions, articles, and nouns representing concepts or objects.",
+      "text": "Commonly activated tokens include function words (e.g., \\\"the\\\", \\\"and\\\", \\\"that\\\", \\\"which\\\"), suffixes forming abstract nouns or adjectives (e.g., \\\"-ness\\\", \\\"-ity\\\", \\\"-ance\\\", \\\"-ence\\\"), and contextually significant terms related to measurement, comparison, or logical structure, often appearing in academic, technical, or descriptive prose.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1512",
         "exp_688"
       ],
-      "cosine_similarity": 0.9999999999999998,
+      "cosine_similarity": 0.9052088058430255,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_688",
         "exp_2335"
       ],
-      "cosine_similarity": 0.8408038980301811,
+      "cosine_similarity": 0.8618192365149823,
       "euclidean_similarity": null
     }
   ],

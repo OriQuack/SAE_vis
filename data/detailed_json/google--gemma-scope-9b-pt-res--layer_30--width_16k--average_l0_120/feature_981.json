@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_806",
-      "text": "Punctuation marks, particularly periods, commas, and occasionally other marks, that typically indicate the end of a sentence or separate items in a list.",
+      "text": "The presence of punctuation marks such as periods and commas, often surrounding or following named entities, quoted text, or clauses, with high activation values indicating structural or syntactic boundaries in the text.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1630",
         "exp_806"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8992153567862659,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_806",
         "exp_2453"
       ],
-      "cosine_similarity": 0.8859068447807988,
+      "cosine_similarity": 0.896335002178223,
       "euclidean_similarity": null
     }
   ],

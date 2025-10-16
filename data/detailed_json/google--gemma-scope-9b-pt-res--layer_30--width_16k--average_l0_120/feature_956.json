@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_783",
-      "text": "Mathematical symbols and variables, often representing physical quantities or abstract concepts, in equations and formulas.",
+      "text": "Mathematical symbols and variables in LaTeX-formatted expressions, particularly subscripts, superscripts, and Greek letters, often appear in contexts involving tensor indices, differential operators, and algebraic structures.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1607",
         "exp_783"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9003305178523905,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_783",
         "exp_2430"
       ],
-      "cosine_similarity": 0.8662920634952804,
+      "cosine_similarity": 0.9033248033142617,
       "euclidean_similarity": null
     }
   ],

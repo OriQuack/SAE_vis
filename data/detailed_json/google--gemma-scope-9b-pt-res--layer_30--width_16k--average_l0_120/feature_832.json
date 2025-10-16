@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_687",
-      "text": "Units of measurement, chemical names, and laboratory terminology.",
+      "text": "Chemical and biological reagents, buffers, and experimental conditions frequently appear in scientific text with specific formatting, including units, abbreviations, and standardized nomenclature.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1511",
         "exp_687"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.89526554459986,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_687",
         "exp_2334"
       ],
-      "cosine_similarity": 0.8899237105380441,
+      "cosine_similarity": 0.8830760372358987,
       "euclidean_similarity": null
     }
   ],

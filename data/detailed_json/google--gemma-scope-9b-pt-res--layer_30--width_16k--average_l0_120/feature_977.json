@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_802",
-      "text": "Prepositions and prefixes often used in technical and scientific contexts, particularly in phrases describing mathematical operations, physical processes, and chemical reactions.",
+      "text": "Common technical terms and compound words in academic and scientific texts, often involving prefixes, suffixes, or multi-part nouns, with frequent use of \\\"of\\\", \\\"for\\\", \\\"and\\\", \\\"with\\\", and hyphenated or concatenated word parts.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1626",
         "exp_802"
       ],
-      "cosine_similarity": 0.9322053747895859,
+      "cosine_similarity": 0.8929330298163777,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_802",
         "exp_2449"
       ],
-      "cosine_similarity": 0.8747027532344719,
+      "cosine_similarity": 0.888205093800668,
       "euclidean_similarity": null
     }
   ],

@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_809",
-      "text": "Proper nouns, names of people, places, organizations, and specific titles, often written in their native languages or with special characters.",
+      "text": "Partial or fragmented tokens, often representing parts of names, places, or words, particularly in multilingual or compound contexts, with high activation on suffixes, prefixes, or phonetic segments that are part of larger lexical units.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1633",
         "exp_809"
       ],
-      "cosine_similarity": 0.9999999999999998,
+      "cosine_similarity": 0.8413824594800209,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_809",
         "exp_2456"
       ],
-      "cosine_similarity": 0.8234649797586486,
+      "cosine_similarity": 0.8729109862821874,
       "euclidean_similarity": null
     }
   ],

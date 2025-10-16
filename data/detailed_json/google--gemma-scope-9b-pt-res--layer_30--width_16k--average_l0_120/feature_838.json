@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_692",
-      "text": "Words related to food, particularly grains, and their various forms or products.",
+      "text": "Partial word fragments, often at the end of a word, that are part of compound or technical terms, particularly in scientific, agricultural, or food-related contexts.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1516",
         "exp_692"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8407366510734448,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_692",
         "exp_2339"
       ],
-      "cosine_similarity": 0.8032329764293049,
+      "cosine_similarity": 0.7854073072136787,
       "euclidean_similarity": null
     }
   ],

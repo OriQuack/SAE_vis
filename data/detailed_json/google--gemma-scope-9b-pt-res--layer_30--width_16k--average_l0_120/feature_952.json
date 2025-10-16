@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_780",
-      "text": "Nouns related to utilities, services, and infrastructure, often in the context of energy, communication, and public services.",
+      "text": "Common noun phrases related to infrastructure, utilities, or technical systems, often involving energy sources (e.g., gas, electric, power) or service delivery (e.g., service, supply, access), with frequent use of compound terms and context-specific technical or structural references.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1604",
         "exp_780"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9487317461539809,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_780",
         "exp_2427"
       ],
-      "cosine_similarity": 0.9142041635104153,
+      "cosine_similarity": 0.9200083450532622,
       "euclidean_similarity": null
     }
   ],

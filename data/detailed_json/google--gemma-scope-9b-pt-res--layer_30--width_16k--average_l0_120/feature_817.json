@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_674",
-      "text": "Punctuation marks used in various languages, including commas, periods, and question marks, often separating clauses or items in a list.",
+      "text": "Punctuation marks such as commas, periods, semicolons, and quotation marks are frequently activated in structured or segmented text, especially in lists, code comments, dialogue, and formatted documentation, indicating their role in syntactic and structural parsing.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1498",
         "exp_674"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8939669289337738,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_674",
         "exp_2321"
       ],
-      "cosine_similarity": 0.9039686697969099,
+      "cosine_similarity": 0.8765643676183873,
       "euclidean_similarity": null
     }
   ],

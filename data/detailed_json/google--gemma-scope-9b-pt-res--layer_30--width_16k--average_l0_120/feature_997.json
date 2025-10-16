@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_822",
-      "text": "Titles of books, movies, TV shows, albums, and other forms of media, often enclosed in quotation marks or italics, and sometimes including subtitles or sequels.",
+      "text": "The presence of proper nouns or titles, often enclosed in quotation marks or underscores, with emphasis on specific lexical units that denote named entities, publications, or cultural works.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1646",
         "exp_822"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8844787998907426,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_822",
         "exp_2469"
       ],
-      "cosine_similarity": 0.8286547311683184,
+      "cosine_similarity": 0.8977686409611928,
       "euclidean_similarity": null
     }
   ],

@@ -102,12 +102,11 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     const numScorers = tableData.scorer_ids.length
 
     if (isAveraged) {
-      // Averaged mode: 3 columns per explainer (embedding, fuzz, detection)
-      return numExplainers * 3
+      // Averaged mode: 4 columns per explainer (explanation, embedding, fuzz, detection)
+      return numExplainers * 4
     } else {
-      // Individual scorer mode: 1 + (numScorers * 2) columns per explainer
-      // 1 embedding + numScorers fuzz + numScorers detection
-      return numExplainers * (1 + numScorers * 2)
+      // Individual scorer mode: 1 explanation + 1 embedding + numScorers fuzz + numScorers detection
+      return numExplainers * (2 + numScorers * 2)
     }
   }, [tableData, isAveraged])
 
@@ -815,10 +814,10 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
             {sortedFeatures.map((row: FeatureTableRow, rowIdx: number) => {
               // Calculate number of columns for iteration
               const numColumns = selectedConsistencyType === 'cross_explanation_score'
-                ? tableData.explainer_ids.length * 3  // Metric-first: 3 metrics × N explainers
+                ? tableData.explainer_ids.length * 3  // Metric-first: 3 metrics × N explainers (no explanation in metric-first view)
                 : isAveraged
-                  ? tableData.explainer_ids.length * 3  // Averaged: 3 metrics per explainer
-                  : tableData.explainer_ids.length * (1 + tableData.scorer_ids.length * 2)  // Individual: 1 emb + N fuzz + N det
+                  ? tableData.explainer_ids.length * 4  // Averaged: 4 columns per explainer (explanation + embedding + fuzz + detection)
+                  : tableData.explainer_ids.length * (2 + tableData.scorer_ids.length * 2)  // Individual: 1 expl + 1 emb + N fuzz + N det
 
               return (
                 <tr key={row.feature_id} className="table-panel__feature-row">
@@ -826,8 +825,23 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                     {row.feature_id}
                   </td>
                   {Array.from({ length: numColumns }).map((_, idx) => {
-                    // Extract circles for this cell
-                    const circles = tableData.global_stats
+                    // Determine which header cell this column belongs to
+                    const headerCell = !isAveraged && headerStructure.row3.length > 0
+                      ? headerStructure.row3[idx]
+                      : headerStructure.row2[idx]
+
+                    // Check if this is an explanation column
+                    const isExplanationColumn = headerCell?.metricType === 'explanation'
+
+                    // For explanation columns, extract explanation text
+                    let explanationText: string | null = null
+                    if (isExplanationColumn && headerCell?.explainerId) {
+                      const explainerData = row.explainers[headerCell.explainerId]
+                      explanationText = explainerData?.explanation_text || null
+                    }
+
+                    // Extract circles for score cells
+                    const circles = !isExplanationColumn && tableData.global_stats
                       ? extractCellScoreCircles(row, idx, headerStructure, tableData.global_stats, isAveraged)
                       : []
 
@@ -909,15 +923,24 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                     return (
                       <td
                         key={`${row.feature_id}-${idx}`}
-                        className="table-panel__score-cell"
+                        className={isExplanationColumn ? "table-panel__explanation-cell" : "table-panel__score-cell"}
                         style={{
                           backgroundColor: bgColor,
                           boxShadow: boxShadow
                         }}
                         onMouseDown={() => handleCellMouseDown(rowIdx, idx)}
                         onMouseEnter={() => handleCellMouseEnter(rowIdx, idx)}
+                        title={isExplanationColumn && explanationText ? explanationText : undefined}
                       >
-                        {circles.length > 0 ? (
+                        {isExplanationColumn ? (
+                          explanationText ? (
+                            <div className="explanation-text">
+                              {explanationText}
+                            </div>
+                          ) : (
+                            <span className="score-placeholder">-</span>
+                          )
+                        ) : circles.length > 0 ? (
                           <div className="score-circles">
                             {circles.map((circle, i) => (
                               <svg key={i} width="12" height="12" viewBox="0 0 12 12">

@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_703",
-      "text": "Variable names often representing a quantity, size, or count, typically used in conditional statements or loops.",
+      "text": "Variable or property names in code that refer to size, count, length, or index, often used in loops or array/sequence operations.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1527",
         "exp_703"
       ],
-      "cosine_similarity": 0.9999999999999998,
+      "cosine_similarity": 0.9401932989777657,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_703",
         "exp_2350"
       ],
-      "cosine_similarity": 0.917600472820902,
+      "cosine_similarity": 0.9054551588259379,
       "euclidean_similarity": null
     }
   ],

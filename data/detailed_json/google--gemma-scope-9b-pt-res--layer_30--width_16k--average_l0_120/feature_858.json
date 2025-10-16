@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_704",
-      "text": "Prefixes or suffixes of words, often indicating a physical or chemical property, or a word part that is hyphenated or separated from the rest of the word.",
+      "text": "Partial word fragments at the start of tokens, often indicating compound or technical terms, with high activation on the initial letters of root words.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1528",
         "exp_704"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8771755567514133,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_704",
         "exp_2351"
       ],
-      "cosine_similarity": 0.8266426036627249,
+      "cosine_similarity": 0.8671127050235802,
       "euclidean_similarity": null
     }
   ],

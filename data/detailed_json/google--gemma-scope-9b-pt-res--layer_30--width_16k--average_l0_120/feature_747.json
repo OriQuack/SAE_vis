@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_618",
-      "text": "Articles, prepositions, and conjunctions often function as important tokens, sometimes indicating a shift in the sentence or a connection between ideas, and are often used in idiomatic expressions or to introduce a quotation.",
+      "text": "The definite article \\\"the\\\" frequently appears in contexts involving abstract concepts, institutions, or established entities, often preceding nouns that denote collective or systemic forces, such as \\\"mainstream,\\\" \\\"liberal establishment,\\\" or \\\"machine,\\\" and is especially common in evaluative or critical discourse.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1442",
         "exp_618"
       ],
-      "cosine_similarity": 0.9233250328141371,
+      "cosine_similarity": 0.8472637890190792,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_618",
         "exp_2265"
       ],
-      "cosine_similarity": 0.8982120253778856,
+      "cosine_similarity": 0.8029944390549292,
       "euclidean_similarity": null
     }
   ],

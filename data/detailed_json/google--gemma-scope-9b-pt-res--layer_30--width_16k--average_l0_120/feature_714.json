@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_592",
-      "text": "Various nouns, adjectives, and verbs, often representing objects, concepts, or actions, sometimes in specific contexts such as scientific or technical terms, proper nouns, or idiomatic expressions.",
+      "text": "Fragments of proper nouns, common words, or morphological variants (like suffixes or abbreviations) that appear in contextually meaningful sequences, often forming compound terms or names.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1416",
         "exp_592"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8850998758950173,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_592",
         "exp_2239"
       ],
-      "cosine_similarity": 0.838129479515358,
+      "cosine_similarity": 0.8574872972004145,
       "euclidean_similarity": null
     }
   ],

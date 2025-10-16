@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_716",
-      "text": "Numbers or special characters that are part of a reference, label, or identifier in a formal or technical context.",
+      "text": "Numbers and alphanumeric identifiers, often appearing in technical or academic contexts, such as version numbers, section references, figure/table labels, and mathematical expressions, are frequently highlighted in text for precise identification or citation.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1540",
         "exp_716"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9211075387408397,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_716",
         "exp_2363"
       ],
-      "cosine_similarity": 0.8954384933798308,
+      "cosine_similarity": 0.9065121158953414,
       "euclidean_similarity": null
     }
   ],

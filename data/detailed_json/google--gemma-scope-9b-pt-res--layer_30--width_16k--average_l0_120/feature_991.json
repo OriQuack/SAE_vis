@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_816",
-      "text": "Verbs or nouns related to movement or change in location, often implying a sense of freedom, rescue, or avoidance of confinement.",
+      "text": "Common patterns involve words related to movement or exit (e.g., escape, out, exit, get out) and actions of liberation or departure, often in contexts of physical or metaphorical confinement, with frequent use of \\\"way\\\" and \\\"out\\\" in idiomatic expressions.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1640",
         "exp_816"
       ],
-      "cosine_similarity": 0.9999999999999998,
+      "cosine_similarity": 0.913144825198977,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_816",
         "exp_2463"
       ],
-      "cosine_similarity": 0.8202672837560562,
+      "cosine_similarity": 0.8002946869372572,
       "euclidean_similarity": null
     }
   ],

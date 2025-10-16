@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_697",
-      "text": "The token \\\"for\\\" is often used in programming languages to denote a loop or iteration, and is also used in natural language to indicate a purpose or intention.",
+      "text": "The word \\\"for\\\" frequently appears in programming and formal syntax contexts, often as a keyword in loops, conditionals, or declarations, and is also used in mathematical or logical expressions to denote a range or condition.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1521",
         "exp_697"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9130378453905408,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_697",
         "exp_2344"
       ],
-      "cosine_similarity": 0.8897118477904062,
+      "cosine_similarity": 0.8857191784878231,
       "euclidean_similarity": null
     }
   ],

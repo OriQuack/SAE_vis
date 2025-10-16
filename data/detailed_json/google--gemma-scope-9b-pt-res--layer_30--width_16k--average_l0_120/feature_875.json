@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_717",
-      "text": "Prepositions, conjunctions, and articles, often in formal or technical contexts, such as academic or legal writing, and sometimes in relation to actions, processes, or states of being.",
+      "text": "Commonly activated tokens include function words (e.g., \\\"and\\\", \\\"for\\\", \\\"of\\\", \\\"to\\\", \\\"with\\\", \\\"be\\\", \\\"were\\\", \\\"been\\\") and content words related to formal processes, institutional roles, or procedural actions (e.g., \\\"approval\\\", \\\"consent\\\", \\\"study\\\", \\\"court\\\", \\\"contract\\\", \\\"manuscript\\\", \\\"ethical\\\", \\\"service\\\", \\\"treatment\\\", \\\"filed\\\", \\\"received\\\", \\\"homologated\\\", \\\"disapproved\\\"), often appearing in academic, legal, or administrative contexts.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1541",
         "exp_717"
       ],
-      "cosine_similarity": 0.9999999999999999,
+      "cosine_similarity": 0.9039971465782609,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_717",
         "exp_2364"
       ],
-      "cosine_similarity": 0.8985065446566468,
+      "cosine_similarity": 0.8911871480104353,
       "euclidean_similarity": null
     }
   ],

@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_751",
-      "text": "Various tokens and phrases from different contexts, including programming, mathematics, and everyday language, often representing standalone words or phrases, sometimes denoting specific concepts or objects.",
+      "text": "Fragments of text enclosed in delimiters often represent partial or truncated words, technical symbols, identifiers, or structured elements like code syntax, file paths, or formatting markers, with activations concentrated on the boundary or internal components of these fragments.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1575",
         "exp_751"
       ],
-      "cosine_similarity": 0.9999999999999998,
+      "cosine_similarity": 0.8743927193268948,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_751",
         "exp_2398"
       ],
-      "cosine_similarity": 0.7988266351080857,
+      "cosine_similarity": 0.8014186400889352,
       "euclidean_similarity": null
     }
   ],

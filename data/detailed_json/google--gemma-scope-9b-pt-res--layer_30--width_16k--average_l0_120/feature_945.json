@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_774",
-      "text": "Adjectives and nouns that convey importance, relevance, or impact, often describing the significance or effect of something in a particular context.",
+      "text": "Words denoting significance, impact, or importance in academic or evaluative contexts, often part of evaluative phrases like \\\"important role\\\", \\\"significant effect\\\", \\\"implications\\\", \\\"relevance\\\", or \\\"potential\\\", typically used to highlight the value or consequence of findings, processes, or features.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1598",
         "exp_774"
       ],
-      "cosine_similarity": 0.9844854268957344,
+      "cosine_similarity": 0.9320048860649753,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_774",
         "exp_2421"
       ],
-      "cosine_similarity": 0.9013735767851102,
+      "cosine_similarity": 0.9311291303356882,
       "euclidean_similarity": null
     }
   ],

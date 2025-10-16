@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_779",
-      "text": "Prepositions \\\"as\\\" and \\\"a\\\" used to describe roles, positions, or capacities that someone or something serves in.",
+      "text": "The word \\\"as\\\" frequently appears in contexts describing roles, positions, or identities, often followed by a noun or noun phrase indicating a function or title, and is commonly paired with articles like \\\"a\\\" or \\\"an\\\" when introducing a role.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1603",
         "exp_779"
       ],
-      "cosine_similarity": 0.9999999999999998,
+      "cosine_similarity": 0.9367619309429266,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_779",
         "exp_2426"
       ],
-      "cosine_similarity": 0.9206646139979336,
+      "cosine_similarity": 0.9431844255481691,
       "euclidean_similarity": null
     }
   ],

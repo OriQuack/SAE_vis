@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_797",
-      "text": "Honorific titles, mathematical and programming symbols, and punctuation marks, often used in formal or technical contexts.",
+      "text": "The token \\\"Mr\\\" frequently appears as a title preceding a name, often in formal or narrative contexts, and is consistently activated in proximity to proper names or formal references.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1621",
         "exp_797"
       ],
-      "cosine_similarity": 0.9999999999999998,
+      "cosine_similarity": 0.8636655147636733,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_797",
         "exp_2444"
       ],
-      "cosine_similarity": 0.8427725356627033,
+      "cosine_similarity": 0.8553304056888945,
       "euclidean_similarity": null
     }
   ],

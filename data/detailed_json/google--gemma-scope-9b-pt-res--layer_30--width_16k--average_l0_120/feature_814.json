@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_672",
-      "text": "The token \\\"set\\\" is often used as a verb, indicating the act of putting something in a particular position or state, and is frequently used in idiomatic expressions and technical contexts.",
+      "text": "The word \\\"set\\\" and its inflected forms appear in contexts involving establishing, configuring, or positioning something, often in technical, procedural, or abstract settings.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1496",
         "exp_672"
       ],
-      "cosine_similarity": 0.9999999999999999,
+      "cosine_similarity": 0.9214116956620576,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_672",
         "exp_2319"
       ],
-      "cosine_similarity": 0.8887108978317562,
+      "cosine_similarity": 0.9208315572384346,
       "euclidean_similarity": null
     }
   ],

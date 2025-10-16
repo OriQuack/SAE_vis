@@ -23,10 +23,10 @@ export const DEFAULT_ANIMATION = {
 } as const
 
 export const SANKEY_COLORS: Record<NodeCategory, string> = {
-  [CATEGORY_ROOT]: '#8b5cf6',
-  [CATEGORY_FEATURE_SPLITTING]: '#06b6d4',
-  [CATEGORY_SEMANTIC_SIMILARITY]: '#3b82f6',
-  [CATEGORY_SCORE_AGREEMENT]: '#10b981'
+  [CATEGORY_ROOT]: '#d1d5db',
+  [CATEGORY_FEATURE_SPLITTING]: '#9ca3af',
+  [CATEGORY_SEMANTIC_SIMILARITY]: '#6b7280',
+  [CATEGORY_SCORE_AGREEMENT]: '#4b5563'
 } as const
 
 export const DEFAULT_SANKEY_MARGIN = { top: 80, right: 40, bottom: 50, left: 80 } as const

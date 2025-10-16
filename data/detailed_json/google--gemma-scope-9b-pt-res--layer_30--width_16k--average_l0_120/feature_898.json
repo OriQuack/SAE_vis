@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_737",
-      "text": "Specialized tokens often representing constants, enumerations, or class names, typically denoted by a prefix or suffix, and sometimes used in conjunction with a dot notation.",
+      "text": "Sequences of uppercase identifiers separated by underscores, often used to denote constants, enums, or namespace-qualified names in programming contexts.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1561",
         "exp_737"
       ],
-      "cosine_similarity": 0.9860900552226888,
+      "cosine_similarity": 0.8957722373966329,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_737",
         "exp_2384"
       ],
-      "cosine_similarity": 0.8935406174834712,
+      "cosine_similarity": 0.9139987366761714,
       "euclidean_similarity": null
     }
   ],

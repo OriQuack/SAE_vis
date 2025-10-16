@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_755",
-      "text": "A quotation mark often marks the beginning or end of a passage, separating it from the rest of the text, and is sometimes used to indicate a change in topic or speaker.",
+      "text": "The newline character (\\\"\\n\\\") frequently appears at the boundary between distinct textual segments, often preceding or following quoted content, section breaks, or structural transitions in the text.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1579",
         "exp_755"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8667391754222555,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_755",
         "exp_2402"
       ],
-      "cosine_similarity": 0.7914721275631991,
+      "cosine_similarity": 0.8096983190224011,
       "euclidean_similarity": null
     }
   ],

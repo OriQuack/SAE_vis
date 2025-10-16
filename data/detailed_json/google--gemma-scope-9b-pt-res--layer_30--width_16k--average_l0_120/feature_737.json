@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_608",
-      "text": "Numerical values, often used as identifiers, codes, or quantities, and sometimes accompanied by units or context-specific information, as well as certain function words and phrases, often used in formal or technical writing.",
+      "text": "Single digits and short numerical sequences frequently appear in contexts involving data, references, labels, or formatting, often serving as identifiers, indices, or part of structured notation.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1432",
         "exp_608"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9019150745380267,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_608",
         "exp_2255"
       ],
-      "cosine_similarity": 0.852255400332776,
+      "cosine_similarity": 0.8530719680268265,
       "euclidean_similarity": null
     }
   ],

@@ -463,6 +463,7 @@ export interface ExplainerScoreData {
   embedding: number | null
   fuzz: ScorerScoreSet
   detection: ScorerScoreSet
+  explanation_text?: string | null  // Explanation text for this explainer
   scorer_consistency?: Record<string, ConsistencyScore>  // Per-metric CV (fuzz, detection)
   metric_consistency?: ConsistencyScore  // Cross-metric std
   explainer_consistency?: ConsistencyScore  // Semantic consistency (avg pairwise cosine)

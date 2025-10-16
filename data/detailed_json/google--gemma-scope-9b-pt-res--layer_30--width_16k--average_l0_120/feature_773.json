@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_641",
-      "text": "Nouns representing places, institutions, or roles, often indicating a location or position of authority.",
+      "text": "The word \\\"office\\\" and its variants (e.g., \\\"officer\\\", \\\"offence\\\", \\\"offense\\\") are frequently used in contexts related to administrative or governmental locations, roles, or functions, often appearing in proximity to terms like \\\"tourist\\\", \\\"police\\\", \\\"workplace\\\", or \\\"headquarters\\\", and are typically associated with institutional or organizational settings.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1465",
         "exp_641"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8843774979089882,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_641",
         "exp_2288"
       ],
-      "cosine_similarity": 0.830067391086374,
+      "cosine_similarity": 0.7892255157448077,
       "euclidean_similarity": null
     }
   ],

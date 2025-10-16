@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_762",
-      "text": "Whitespace characters, often used for code indentation or formatting.",
+      "text": "Patterns of whitespace sequences (spaces, tabs, or mixed) used for indentation, alignment, or formatting in structured text, code, or markup, often indicating hierarchical or syntactic structure.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1586",
         "exp_762"
       ],
-      "cosine_similarity": 0.9999999999999998,
+      "cosine_similarity": 0.9303126673515576,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_762",
         "exp_2409"
       ],
-      "cosine_similarity": 0.8928907048060508,
+      "cosine_similarity": 0.880798338641456,
       "euclidean_similarity": null
     }
   ],

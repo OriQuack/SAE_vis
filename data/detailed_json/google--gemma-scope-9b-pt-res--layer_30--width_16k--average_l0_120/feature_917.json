@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_753",
-      "text": "Retargeting messages often address the user directly, referencing their past interactions or interests, and may include personalized elements such as product recommendations or special offers, while also highlighting the unique value proposition of a product or service.",
+      "text": "The model assigns high importance to nouns and noun phrases representing people, roles, or entities (e.g., \\\"customers\\\", \\\"user\\\", \\\"employee\\\", \\\"victim\\\", \\\"child\\\") when they are central to the context of personalization, interaction, or identity, particularly in user-centric or relational scenarios.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1577",
         "exp_753"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8277281625052754,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_753",
         "exp_2400"
       ],
-      "cosine_similarity": 0.8167882750766589,
+      "cosine_similarity": 0.8911362414460917,
       "euclidean_similarity": null
     }
   ],

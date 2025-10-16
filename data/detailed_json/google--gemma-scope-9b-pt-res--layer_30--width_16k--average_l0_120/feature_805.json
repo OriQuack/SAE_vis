@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_665",
-      "text": "A delimiter or marker used to denote the start and end of a section, comment, or code block, often used in programming languages, markup languages, and other forms of text formatting.",
+      "text": "Patterns involving punctuation, delimiters, and structural markers in code or markup, often indicating syntax boundaries, comments, or formatting elements.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1489",
         "exp_665"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9084872352633091,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_665",
         "exp_2312"
       ],
-      "cosine_similarity": 0.8680830328184631,
+      "cosine_similarity": 0.8799132330994831,
       "euclidean_similarity": null
     }
   ],

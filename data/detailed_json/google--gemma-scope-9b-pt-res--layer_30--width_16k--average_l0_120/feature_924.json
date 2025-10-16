@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_758",
-      "text": "Special characters and symbols used in programming languages and markup languages, often denoting imports, libraries, or packages.",
+      "text": "Fragments of file paths, package names, or code identifiers that are split across tokens, often involving forward slashes, hyphens, or punctuation, commonly found in programming or configuration contexts.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1582",
         "exp_758"
       ],
-      "cosine_similarity": 0.9735139112158236,
+      "cosine_similarity": 0.9006924794828535,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_758",
         "exp_2405"
       ],
-      "cosine_similarity": 0.8739280168616518,
+      "cosine_similarity": 0.8762136460469833,
       "euclidean_similarity": null
     }
   ],

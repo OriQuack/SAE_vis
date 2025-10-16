@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_621",
-      "text": "Dates, times, and phrases indicating when something takes effect, happens, or is scheduled, often including month and day, and sometimes year.",
+      "text": "The presence of temporal markers such as dates, months, and prepositions like \\\"on\\\" and \\\"of\\\" that specify time-related information in legal, historical, or procedural contexts.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1445",
         "exp_621"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.912227966809395,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_621",
         "exp_2268"
       ],
-      "cosine_similarity": 0.8798698011555907,
+      "cosine_similarity": 0.9106815297408525,
       "euclidean_similarity": null
     }
   ],

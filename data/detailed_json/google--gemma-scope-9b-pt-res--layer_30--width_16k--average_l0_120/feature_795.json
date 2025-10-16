@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_657",
-      "text": "Numerical values, often representing quantities, times, or measurements, and sometimes used in addresses, phone numbers, or monetary amounts.",
+      "text": "Individual digits and punctuation symbols (like \\\".\\\", \\\":\\\", \\\"-\\\", \\\"%\\\") are frequently activated when forming time, price, date, or numerical data in structured text.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1481",
         "exp_657"
       ],
-      "cosine_similarity": 0.9955764139787371,
+      "cosine_similarity": 0.8827045463011723,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_657",
         "exp_2304"
       ],
-      "cosine_similarity": 0.8809729642446672,
+      "cosine_similarity": 0.9002129115742917,
       "euclidean_similarity": null
     }
   ],

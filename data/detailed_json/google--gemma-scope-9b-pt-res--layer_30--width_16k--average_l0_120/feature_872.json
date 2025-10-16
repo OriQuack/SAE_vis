@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_714",
-      "text": "Words related to warmth, fire, and comfort, often describing cozy settings or traditional features in homes, hotels, and restaurants.",
+      "text": "Recurring emphasis on fire-related elements (e.g., fireplaces, fires, burning, logs) and associated cozy or traditional settings, often linked to winter, comfort, or rustic ambiance.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1538",
         "exp_714"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9205807459749238,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_714",
         "exp_2361"
       ],
-      "cosine_similarity": 0.9360169720129617,
+      "cosine_similarity": 0.9041652272260542,
       "euclidean_similarity": null
     }
   ],

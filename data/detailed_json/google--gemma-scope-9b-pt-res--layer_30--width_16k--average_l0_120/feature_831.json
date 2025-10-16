@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_686",
-      "text": "Various words and phrases that are often used in everyday language, including nouns, verbs, adjectives, and adverbs, which can be related to actions, objects, or concepts, and are often used in descriptive or narrative contexts.",
+      "text": "Commonly activated tokens include nouns denoting locations, abstract concepts, or actions, often part of compound words or morphological variants (e.g., \\\"-er\\\", \\\"-ing\\\", \\\"-ed\\\"), with high activation in contextually specific or semantically rich phrases.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1510",
         "exp_686"
       ],
-      "cosine_similarity": 0.9999999999999999,
+      "cosine_similarity": 0.8761418486577812,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_686",
         "exp_2333"
       ],
-      "cosine_similarity": 0.7911658923036423,
+      "cosine_similarity": 0.7926342780989999,
       "euclidean_similarity": null
     }
   ],

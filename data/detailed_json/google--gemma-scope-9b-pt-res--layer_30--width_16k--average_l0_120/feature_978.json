@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_803",
-      "text": "Common nouns and adjectives, often representing objects, concepts, or ideas, that are integral to the meaning of a sentence or phrase.",
+      "text": "Common nouns and adjectives that denote abstract concepts, roles, locations, or measurable attributes, often appearing in contexts involving evaluation, description, or categorization.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1627",
         "exp_803"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9231737876661569,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_803",
         "exp_2450"
       ],
-      "cosine_similarity": 0.8638339940772533,
+      "cosine_similarity": 0.8580233439826948,
       "euclidean_similarity": null
     }
   ],

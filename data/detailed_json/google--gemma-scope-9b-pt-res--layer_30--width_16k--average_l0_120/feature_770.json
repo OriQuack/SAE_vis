@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_639",
-      "text": "XML/HTML tags and mathematical symbols, often denoting variables, parameters, or formatting styles.",
+      "text": "Tokens enclosed in delimiters often represent structural or semantic placeholders in code, markup, or templating languages, such as tags, attributes, identifiers, or variables, with higher activation values indicating more critical syntactic or contextual roles.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1463",
         "exp_639"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8668754991151388,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_639",
         "exp_2286"
       ],
-      "cosine_similarity": 0.8664547474597382,
+      "cosine_similarity": 0.9075533198040027,
       "euclidean_similarity": null
     }
   ],

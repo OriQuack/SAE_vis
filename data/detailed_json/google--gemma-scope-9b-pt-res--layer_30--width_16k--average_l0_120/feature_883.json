@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_725",
-      "text": "Non-printable or special characters, often used to indicate line breaks, formatting, or other non-textual elements in code or markup.",
+      "text": "The newline character (represented as \\\"\\r\\\") frequently appears at the beginning or end of code blocks, comments, or structural elements in source code, often preceding or following syntactic constructs like class declarations, function definitions, or preprocessor directives.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1549",
         "exp_725"
       ],
-      "cosine_similarity": 0.9999999999999998,
+      "cosine_similarity": 0.8736211488880846,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_725",
         "exp_2372"
       ],
-      "cosine_similarity": 0.9064918709795938,
+      "cosine_similarity": 0.8864807006042956,
       "euclidean_similarity": null
     }
   ],

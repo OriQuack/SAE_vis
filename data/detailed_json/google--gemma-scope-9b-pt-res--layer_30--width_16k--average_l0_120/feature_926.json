@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_759",
-      "text": "Prepositions, often indicating location or direction, and sometimes used to introduce a phrase or clause.",
+      "text": "Prepositions and prepositional phrases such as \\\"in\\\", \\\"on\\\", \\\"at\\\", \\\"up\\\", \\\"out\\\", \\\"within\\\", and hyphenated forms like \\\"up-to\\\" or \\\"out-of\\\" are frequently used to indicate location, time, degree, or relationship, often appearing in contexts involving measurement, comparison, or spatial/temporal reference.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1583",
         "exp_759"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9128305144208642,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_759",
         "exp_2406"
       ],
-      "cosine_similarity": 0.8674625330673525,
+      "cosine_similarity": 0.8570475046415496,
       "euclidean_similarity": null
     }
   ],

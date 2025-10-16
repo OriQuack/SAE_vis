@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_763",
-      "text": "Verbs or nouns related to evaluation, assessment, or quantification, often in a scientific, technical, or formal context.",
+      "text": "Nouns and adjectives related to measurement, evaluation, or quantification, often in technical or scientific contexts, with high activation values when describing physical, statistical, or analytical properties.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1587",
         "exp_763"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9461637942317244,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_763",
         "exp_2410"
       ],
-      "cosine_similarity": 0.8552951883594018,
+      "cosine_similarity": 0.8764288941485342,
       "euclidean_similarity": null
     }
   ],

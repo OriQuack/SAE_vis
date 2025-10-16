@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_782",
-      "text": "Various programming language syntax elements, including semicolons, parentheses, brackets, and symbols used for assignment, comparison, and mathematical operations.",
+      "text": "Semicolons, parentheses, brackets, and other syntactic punctuation marks are frequently activated in code contexts, often indicating the end of statements, function calls, or structural elements.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1606",
         "exp_782"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9101497168911364,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_782",
         "exp_2429"
       ],
-      "cosine_similarity": 0.9028261289622651,
+      "cosine_similarity": 0.9153916333062044,
       "euclidean_similarity": null
     }
   ],

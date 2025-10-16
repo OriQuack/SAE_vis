@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_747",
-      "text": "Names of individuals, often with a first name or initials, sometimes followed by a surname.",
+      "text": "Proper nouns, particularly first names or initials, are frequently activated in context, often appearing in biographical, academic, or formal references, with higher activation when part of a full name or in a formal citation.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1571",
         "exp_747"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8903611647117612,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_747",
         "exp_2394"
       ],
-      "cosine_similarity": 0.8737989503439219,
+      "cosine_similarity": 0.8775698103013311,
       "euclidean_similarity": null
     }
   ],

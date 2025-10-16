@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_793",
-      "text": "Code blocks or function bodies, often following a conditional statement, loop, or function declaration, typically denoted by an opening curly bracket.",
+      "text": "Left curly braces \\\"{\\\" in code syntax, often preceding blocks of executable code or defining scope in programming languages.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1617",
         "exp_793"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9211146201853698,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_793",
         "exp_2440"
       ],
-      "cosine_similarity": 0.8823994101339043,
+      "cosine_similarity": 0.9002808584800791,
       "euclidean_similarity": null
     }
   ],

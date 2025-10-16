@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_649",
-      "text": "Prepositions and articles often precede nouns, especially those referring to locations, organizations, and events, while some nouns are part of proper nouns or names of specific places, teams, or brands.",
+      "text": "Common patterns include location-specific nouns (e.g., stadiums, cities, landmarks) and prepositional phrases (e.g., \\\"at\\\", \\\"in\\\", \\\"of the\\\") that denote spatial or contextual relationships, often appearing in proximity to proper nouns or geographical references.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1473",
         "exp_649"
       ],
-      "cosine_similarity": 0.9999999999999998,
+      "cosine_similarity": 0.9091533765620954,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_649",
         "exp_2296"
       ],
-      "cosine_similarity": 0.8630765703516877,
+      "cosine_similarity": 0.8756351296712555,
       "euclidean_similarity": null
     }
   ],

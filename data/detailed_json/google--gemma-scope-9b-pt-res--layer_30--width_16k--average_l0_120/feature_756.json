@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_627",
-      "text": "Adjectives, prefixes, and words that are part of a compound word or a phrase, often describing a specific characteristic, property, or concept in a scientific or technical context.",
+      "text": "Prefixes or root forms of scientific, medical, or technical terms, often part of compound words, that are frequently used in biomedical and scientific text.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1451",
         "exp_627"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.922184240333439,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_627",
         "exp_2274"
       ],
-      "cosine_similarity": 0.8641915533951008,
+      "cosine_similarity": 0.8634467177327443,
       "euclidean_similarity": null
     }
   ],

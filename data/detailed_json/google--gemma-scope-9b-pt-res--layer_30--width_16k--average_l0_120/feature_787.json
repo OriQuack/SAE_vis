@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_652",
-      "text": "Mathematical notation and symbols, often used in equations and formulas, particularly in the context of physics and mathematical derivations.",
+      "text": "Mathematical notation involving subscripts, superscripts, and delimiters in LaTeX-formatted expressions, particularly around variables and operators in equations.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1476",
         "exp_652"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9051164985331864,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_652",
         "exp_2299"
       ],
-      "cosine_similarity": 0.7969752749085256,
+      "cosine_similarity": 0.8081676301374932,
       "euclidean_similarity": null
     }
   ],

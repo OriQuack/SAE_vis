@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_726",
-      "text": "Indentation or whitespace characters used for code formatting.",
+      "text": "Patterns in code syntax and structure, including indentation, delimiters, and syntactic elements like parentheses, braces, and special characters, often associated with programming language constructs and formatting.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1550",
         "exp_726"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9042651165367297,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_726",
         "exp_2373"
       ],
-      "cosine_similarity": 0.8080681480129339,
+      "cosine_similarity": 0.8298919814752584,
       "euclidean_similarity": null
     }
   ],

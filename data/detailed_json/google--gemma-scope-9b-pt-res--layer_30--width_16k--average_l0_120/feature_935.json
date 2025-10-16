@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_765",
-      "text": "Punctuation marks and short phrases that indicate dialogue, often used to separate spoken lines or to introduce a quotation.",
+      "text": "Punctuation and dialogue markers such as quotation marks, commas, and ellipses are frequently activated in conversational text, particularly around spoken dialogue, interruptions, and emotional emphasis.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1589",
         "exp_765"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9088563609547022,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_765",
         "exp_2412"
       ],
-      "cosine_similarity": 0.8909869977806137,
+      "cosine_similarity": 0.8984866450084923,
       "euclidean_similarity": null
     }
   ],

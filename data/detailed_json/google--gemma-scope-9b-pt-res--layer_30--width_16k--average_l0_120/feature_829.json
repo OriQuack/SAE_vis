@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_684",
-      "text": "Verbs or adjectives describing or modifying a noun, often indicating a change of state, appearance, or condition.",
+      "text": "Commonly activated tokens include function words (e.g., \\\"the\\\", \\\"of\\\", \\\"on\\\", \\\"in\\\", \\\"up\\\") and derivational suffixes (e.g., \\\"-ed\\\", \\\"-ing\\\", \\\"-er\\\", \\\"-ly\\\", \\\"-ized\\\", \\\"-ated\\\") that modify or connect words in syntactic or semantic roles. These tokens often appear in contextually rich phrases involving physical attributes, spatial relations, or grammatical constructions.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1508",
         "exp_684"
       ],
-      "cosine_similarity": 0.9999999999999999,
+      "cosine_similarity": 0.8366533097424755,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_684",
         "exp_2331"
       ],
-      "cosine_similarity": 0.8379891432264832,
+      "cosine_similarity": 0.880581817073652,
       "euclidean_similarity": null
     }
   ],

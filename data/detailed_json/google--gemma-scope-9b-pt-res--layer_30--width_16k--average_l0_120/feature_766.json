@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_635",
-      "text": "Punctuation and special characters, often used to denote syntax or formatting in programming languages, URLs, and other technical contexts.",
+      "text": "The presence of delimiters or special syntax markers (like << >>, parentheses, brackets, or symbols) that enclose or separate code elements, identifiers, or structural components in programming or markup contexts.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1459",
         "exp_635"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9086849458049255,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_635",
         "exp_2282"
       ],
-      "cosine_similarity": 0.8682953051658824,
+      "cosine_similarity": 0.8742005769715727,
       "euclidean_similarity": null
     }
   ],

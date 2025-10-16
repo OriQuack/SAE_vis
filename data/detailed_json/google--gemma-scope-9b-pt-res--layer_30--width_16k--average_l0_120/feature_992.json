@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_817",
-      "text": "Tokens that are part of a word or phrase, often at the beginning or end, and are separated from the rest of the word.",
+      "text": "Fragments of words or morphemes that appear at the beginning or end of tokens, often representing prefixes, suffixes, or root components in compound or inflected words across multiple languages.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1641",
         "exp_817"
       ],
-      "cosine_similarity": 0.919777968063878,
+      "cosine_similarity": 0.8705521529299451,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_817",
         "exp_2464"
       ],
-      "cosine_similarity": 0.8683975873354919,
+      "cosine_similarity": 0.9252452665824185,
       "euclidean_similarity": null
     }
   ],

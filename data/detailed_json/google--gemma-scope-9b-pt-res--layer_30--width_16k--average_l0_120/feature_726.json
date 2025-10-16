@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_602",
-      "text": "Nouns representing objects, concepts, or components, often related to technology, mechanics, or scientific terminology.",
+      "text": "Compound technical terms formed by combining two or more words, often representing specialized components, materials, or concepts in engineering, manufacturing, or scientific contexts.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1426",
         "exp_602"
       ],
-      "cosine_similarity": 0.990813565414812,
+      "cosine_similarity": 0.9065302149121375,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_602",
         "exp_2249"
       ],
-      "cosine_similarity": 0.8925178686384224,
+      "cosine_similarity": 0.8853824034531314,
       "euclidean_similarity": null
     }
   ],

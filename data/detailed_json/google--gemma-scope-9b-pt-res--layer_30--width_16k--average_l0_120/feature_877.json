@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_719",
-      "text": "Abbreviations and words related to dimensions, geography, and technical terms, often used in academic or formal contexts.",
+      "text": "The token \\\"D\\\" is frequently used in scientific and technical contexts to denote dimensionality (e.g., 1D, 2D, 3D), often in combination with numerical values or as part of compound terms. Additionally, words ending in \\\"-al\\\", \\\"-ity\\\", \\\"-ance\\\", \\\"-tion\\\", and \\\"-ance\\\" are common in abstract or technical discourse, particularly in fields like mathematics, physics, and computer science. The use of \\\"beyond\\\", \\\"additional\\\", \\\"spatial\\\", \\\"dynamic\\\", and \\\"projection\\\" reflects a pattern of abstract or conceptual terminology in academic and technical writing.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1543",
         "exp_719"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8741094254243791,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_719",
         "exp_2366"
       ],
-      "cosine_similarity": 0.8251312091117908,
+      "cosine_similarity": 0.81484016400207,
       "euclidean_similarity": null
     }
   ],

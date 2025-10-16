@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_785",
-      "text": "Punctuation marks, often used to end sentences or separate clauses, and sometimes function words or common nouns that are part of a sentence's structure.",
+      "text": "Common grammatical and structural elements in text, including auxiliary verbs, punctuation, conjunctions, and function words that support sentence coherence and syntax.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1609",
         "exp_785"
       ],
-      "cosine_similarity": 0.9433726250064547,
+      "cosine_similarity": 0.8744020779106911,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_785",
         "exp_2432"
       ],
-      "cosine_similarity": 0.8574430479024535,
+      "cosine_similarity": 0.8551595641198019,
       "euclidean_similarity": null
     }
   ],

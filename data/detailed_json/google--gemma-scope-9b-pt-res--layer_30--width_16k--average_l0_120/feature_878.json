@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_720",
-      "text": "Words related to food preparation, baking, and cooking methods, often used in culinary contexts.",
+      "text": "The word \\\"baked\\\" frequently appears in contexts related to food preparation, often associated with specific dishes or ingredients, and is commonly linked to terms like \\\"beans,\\\" \\\"soufflé,\\\" \\\"cookies,\\\" or \\\"cakes,\\\" indicating a culinary process.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1544",
         "exp_720"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9216073956432128,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_720",
         "exp_2367"
       ],
-      "cosine_similarity": 0.7916651714651489,
+      "cosine_similarity": 0.7658167985656626,
       "euclidean_similarity": null
     }
   ],

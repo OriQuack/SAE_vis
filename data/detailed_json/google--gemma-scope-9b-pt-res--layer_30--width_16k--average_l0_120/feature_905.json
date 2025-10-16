@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_742",
-      "text": "HTML, CSS, and programming language syntax elements, including tags, attributes, and file extensions.",
+      "text": "The token \\\"img\\\" frequently appears in contexts related to HTML image elements, file references, or image processing, often associated with attributes like \\\"src\\\", \\\"url\\\", or file extensions such as \\\"jpg\\\", \\\"png\\\", and \\\"svg\\\".",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1566",
         "exp_742"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8615411255033137,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_742",
         "exp_2389"
       ],
-      "cosine_similarity": 0.8972510035616323,
+      "cosine_similarity": 0.887494416069868,
       "euclidean_similarity": null
     }
   ],

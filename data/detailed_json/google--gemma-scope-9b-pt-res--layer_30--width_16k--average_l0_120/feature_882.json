@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_724",
-      "text": "Words related to travel, geography, and human activities, often referring to places, movements, or conditions.",
+      "text": "Partial word fragments at the end of tokens, often representing the latter part of compound nouns or technical terms, with high activation values indicating their importance in context.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1548",
         "exp_724"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8090317873592041,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_724",
         "exp_2371"
       ],
-      "cosine_similarity": 0.8159601254840684,
+      "cosine_similarity": 0.7973916424873805,
       "euclidean_similarity": null
     }
   ],

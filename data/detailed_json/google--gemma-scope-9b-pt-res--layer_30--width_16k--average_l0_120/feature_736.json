@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_607",
-      "text": "Verbs or nouns indicating a change, shift, or variation in a particular state, condition, or quantity, often used in formal or technical contexts.",
+      "text": "Nouns denoting measurable or conceptual shifts, transformations, or deviations, often in scientific, medical, or analytical contexts, with frequent use of abstract terms like change, difference, increase, decrease, and related morphological variants.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1431",
         "exp_607"
       ],
-      "cosine_similarity": 0.9999999999999998,
+      "cosine_similarity": 0.9248169470734814,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_607",
         "exp_2254"
       ],
-      "cosine_similarity": 0.920644904981857,
+      "cosine_similarity": 0.9343843453854693,
       "euclidean_similarity": null
     }
   ],

@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_788",
-      "text": "Verbs, adjectives, and nouns that are part of a descriptive phrase or sentence, often indicating a state, action, or characteristic, and sometimes used in a scientific or formal context.",
+      "text": "Common grammatical and semantic patterns involving possessive, prepositional, and comparative constructions, often with high activation on function words and morphological suffixes indicating relationships, states, or modifications.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1612",
         "exp_788"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8593730768140149,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_788",
         "exp_2435"
       ],
-      "cosine_similarity": 0.8245631460641393,
+      "cosine_similarity": 0.8460508911114086,
       "euclidean_similarity": null
     }
   ],

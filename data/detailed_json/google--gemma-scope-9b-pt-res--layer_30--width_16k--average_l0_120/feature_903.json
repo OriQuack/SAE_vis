@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_741",
-      "text": "Tokens that are part of a section or sequence identifier, often denoted by a number or a word such as \\\"Section\\\", \\\"Secondary\\\", \\\"sequence\\\", or \\\"See\\\", and sometimes accompanied by a symbol like \\\"§\\\" or \\\"$\\\".",
+      "text": "The token \\\"section\\\" and its variants (e.g., \\\"Sec\\\", \\\"second\\\", \\\"secondary\\\") are frequently used to denote structural divisions in documents, often in academic or technical writing, and are typically associated with hierarchical organization of content.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1565",
         "exp_741"
       ],
-      "cosine_similarity": 0.939472007245907,
+      "cosine_similarity": 0.9169533239052239,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_741",
         "exp_2388"
       ],
-      "cosine_similarity": 0.8947006090394981,
+      "cosine_similarity": 0.8679867023033538,
       "euclidean_similarity": null
     }
   ],

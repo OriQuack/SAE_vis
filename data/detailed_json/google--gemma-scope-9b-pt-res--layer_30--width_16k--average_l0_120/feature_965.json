@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_792",
-      "text": "Adjectives describing simplicity, formality, or style, often used to characterize objects, environments, or designs.",
+      "text": "The presence of words or morphemes associated with simplicity, minimalism, or basicness, often in compound or descriptive phrases, with high activation in contexts emphasizing understated elegance, functional design, or reduced complexity.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1616",
         "exp_792"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8948555773410347,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_792",
         "exp_2439"
       ],
-      "cosine_similarity": 0.9306123443657112,
+      "cosine_similarity": 0.916448304155548,
       "euclidean_similarity": null
     }
   ],

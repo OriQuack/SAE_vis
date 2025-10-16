@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_606",
-      "text": "Various nouns and words that are often used in formal or technical contexts, including scientific, academic, and official language, as well as proper nouns and words with specialized meanings.",
+      "text": "Commonly activated tokens are often parts of compound words, proper nouns, or contextually significant terms, particularly those involving prefixes, suffixes, or specific technical, geographical, or conceptual labels. Activation patterns suggest attention to morphological components (e.g., \\\"-er\\\", \\\"-ing\\\", \\\"-ed\\\"), proper names (e.g., \\\"Trump\\\", \\\"Trumbull\\\"), technical terms (e.g., \\\"training\\\", \\\"propulsion\\\"), and structural or relational words (e.g., \\\"through\\\", \\\"between\\\", \\\"tends\\\"). The most salient activations often occur at the boundaries of meaningful lexical units, especially when they form part of a larger concept, idiom, or domain-specific terminology.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1430",
         "exp_606"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8627284145823145,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_606",
         "exp_2253"
       ],
-      "cosine_similarity": 0.8334119456569186,
+      "cosine_similarity": 0.8814026092876129,
       "euclidean_similarity": null
     }
   ],

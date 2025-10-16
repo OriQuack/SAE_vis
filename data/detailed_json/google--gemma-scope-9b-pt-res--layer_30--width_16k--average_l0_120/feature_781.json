@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_647",
-      "text": "Tokens that are part of a larger numerical value, scientific notation, or mathematical expression, often including digits, mathematical operators, and units.",
+      "text": "The presence of isolated or partially extracted tokens, often representing numerical digits, abbreviations, proper nouns, or symbols, that are contextually significant but appear fragmented or non-standard within the text.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1471",
         "exp_647"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8730489447550578,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_647",
         "exp_2294"
       ],
-      "cosine_similarity": 0.8809543522162642,
+      "cosine_similarity": 0.8671303459459261,
       "euclidean_similarity": null
     }
   ],

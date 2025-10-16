@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_651",
-      "text": "Organizations, institutions, and concepts related to environmental conservation, wildlife, and natural resources, often denoted by proper nouns or specific terminology.",
+      "text": "Common patterns include compound nouns and proper nouns related to environmental, conservation, or governmental organizations, often involving terms like \\\"environmental,\\\" \\\"wildlife,\\\" \\\"conservation,\\\" \\\"protection,\\\" \\\"natural,\\\" \\\"climate,\\\" \\\"oceanic,\\\" \\\"forest,\\\" \\\"biodiversity,\\\" and institutional names such as \\\"National Trust,\\\" \\\"Environmental Protection Agency,\\\" or \\\"UN,\\\" frequently appearing in contexts related to ecological or scientific topics.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1475",
         "exp_651"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9235945095187125,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_651",
         "exp_2298"
       ],
-      "cosine_similarity": 0.8538312407044671,
+      "cosine_similarity": 0.8668041221614479,
       "euclidean_similarity": null
     }
   ],

@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_636",
-      "text": "Suffixes of words, often indicating a grammatical function or a word's part of speech.",
+      "text": "Fragments of words or morphemes that are part of larger lexical items, often appearing in compound words, suffixes, or root forms, with higher activation values typically indicating more complete or contextually salient parts of the word.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1460",
         "exp_636"
       ],
-      "cosine_similarity": 0.9999999999999999,
+      "cosine_similarity": 0.8765442044263714,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_636",
         "exp_2283"
       ],
-      "cosine_similarity": 0.894052400059637,
+      "cosine_similarity": 0.9213040101297827,
       "euclidean_similarity": null
     }
   ],

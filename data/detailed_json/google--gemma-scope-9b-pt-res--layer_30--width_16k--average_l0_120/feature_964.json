@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_791",
-      "text": "Function words and punctuation marks that serve as connectors, introducers, or separators in sentences, often preceding or following clauses, phrases, or quotes.",
+      "text": "The token \\\"to\\\" frequently appears in infinitive verb constructions, often following modal verbs or expressions of intention, while other common tokens like \\\"just\\\", \\\"is\\\", \\\"and\\\", \\\"really\\\", and punctuation such as \\\".\\\" or \\\"!\\\" mark transitions, emphasis, or grammatical structure in natural language.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1615",
         "exp_791"
       ],
-      "cosine_similarity": 0.9999999999999999,
+      "cosine_similarity": 0.8631243360435488,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_791",
         "exp_2438"
       ],
-      "cosine_similarity": 0.8378811494966537,
+      "cosine_similarity": 0.8562076414027562,
       "euclidean_similarity": null
     }
   ],

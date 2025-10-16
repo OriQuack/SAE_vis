@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_707",
-      "text": "Verbs and verb phrases indicating actions of providing, giving, paying, or attaching something, often in a context of exchange, compensation, or addition.",
+      "text": "Verbs related to financial or emotional investment, such as \\\"pay\\\", \\\"attached\\\", \\\"give\\\", \\\"laid\\\", \\\"placed\\\", often appear in contexts involving responsibility, consequences, or associations, with high activation on the core verb and surrounding words indicating action or consequence.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1531",
         "exp_707"
       ],
-      "cosine_similarity": 0.9999999999999999,
+      "cosine_similarity": 0.9088061083434046,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_707",
         "exp_2354"
       ],
-      "cosine_similarity": 0.8209276191330214,
+      "cosine_similarity": 0.8453873006697623,
       "euclidean_similarity": null
     }
   ],

@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_777",
-      "text": "Nouns representing materials or substances, often used to describe properties or characteristics of objects or products.",
+      "text": "Nouns or adjectives describing materials, properties, or structural components, often in technical or descriptive contexts, with emphasis on physical characteristics like texture, durability, or composition.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1601",
         "exp_777"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9485130467978559,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_777",
         "exp_2424"
       ],
-      "cosine_similarity": 0.9082870514572899,
+      "cosine_similarity": 0.9200933529159953,
       "euclidean_similarity": null
     }
   ],

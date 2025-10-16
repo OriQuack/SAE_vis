@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_625",
-      "text": "Code snippets in various programming languages.",
+      "text": "Fragments of code or syntax elements, including identifiers, operators, and punctuation, often appearing in programming or markup contexts, with emphasis on structural and syntactic tokens.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1449",
         "exp_625"
       ],
-      "cosine_similarity": 0.9999999999999999,
+      "cosine_similarity": 0.8913174608326603,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_625",
         "exp_2272"
       ],
-      "cosine_similarity": 0.8683462333358362,
+      "cosine_similarity": 0.9212303916494927,
       "euclidean_similarity": null
     }
   ],

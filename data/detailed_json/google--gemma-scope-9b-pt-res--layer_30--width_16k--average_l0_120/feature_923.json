@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_757",
-      "text": "Short words or abbreviations, often representing names, concepts, or units, embedded within a larger text.",
+      "text": "Partial or truncated words, often stemming from abbreviations, technical terms, or encoding artifacts, where the full word is implied but only a fragment is present.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1581",
         "exp_757"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.869040376545414,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_757",
         "exp_2404"
       ],
-      "cosine_similarity": 0.8630935914303592,
+      "cosine_similarity": 0.8686237096152054,
       "euclidean_similarity": null
     }
   ],

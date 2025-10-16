@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_632",
-      "text": "Adjectives describing degree or magnitude, often used to emphasize or quantify the extent of a particular characteristic, quality, or effect.",
+      "text": "Adjectives expressing degree or magnitude, often used to quantify impact, size, or importance in scientific, evaluative, or descriptive contexts.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1456",
         "exp_632"
       ],
-      "cosine_similarity": 0.9999999999999999,
+      "cosine_similarity": 0.9601173476828939,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_632",
         "exp_2279"
       ],
-      "cosine_similarity": 0.9126087361067997,
+      "cosine_similarity": 0.9302129986490142,
       "euclidean_similarity": null
     }
   ],

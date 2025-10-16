@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_671",
-      "text": "Common nouns representing objects, concepts, or states, often in descriptive or narrative contexts.",
+      "text": "Nouns and noun phrases denoting physical locations, objects, or abstract concepts that are contextually significant within descriptive or technical passages.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1495",
         "exp_671"
       ],
-      "cosine_similarity": 0.9999999999999999,
+      "cosine_similarity": 0.9006319823400006,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_671",
         "exp_2318"
       ],
-      "cosine_similarity": 0.8311969331088215,
+      "cosine_similarity": 0.8746605241176525,
       "euclidean_similarity": null
     }
   ],

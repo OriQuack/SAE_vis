@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_730",
-      "text": "Code snippets from various programming languages, often including syntax elements such as brackets, semicolons, and indentation, and sometimes containing specific keywords or functions.",
+      "text": "Patterns involving delimiters, brackets, and structural syntax in code or markup, often indicating code blocks, templates, or nested structures.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1554",
         "exp_730"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.903164255265473,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_730",
         "exp_2377"
       ],
-      "cosine_similarity": 0.9040678715604161,
+      "cosine_similarity": 0.8563518502904435,
       "euclidean_similarity": null
     }
   ],

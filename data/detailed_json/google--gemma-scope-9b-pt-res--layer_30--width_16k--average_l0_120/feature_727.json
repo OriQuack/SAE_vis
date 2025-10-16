@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_603",
-      "text": "Technical terms and mathematical expressions in academic papers, often related to physics and mathematics, including supersymmetry, gauge fields, and geometric algebra.",
+      "text": "Fragments of mathematical and physical notation, including subscripts, superscripts, Greek letters, and special symbols, often appearing in technical or formal contexts.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1427",
         "exp_603"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8842036581586046,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_603",
         "exp_2250"
       ],
-      "cosine_similarity": 0.8933869003461657,
+      "cosine_similarity": 0.8578479111416694,
       "euclidean_similarity": null
     }
   ],

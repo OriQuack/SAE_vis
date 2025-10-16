@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_787",
-      "text": "Adjectives describing something as being one-of-a-kind, exceptional, or standing out in some way, often used to emphasize uniqueness, distinctness, or exclusivity.",
+      "text": "Words denoting uniqueness, distinctiveness, or singularity, often used to emphasize individuality, rarity, or special characteristics in technical, scientific, or descriptive contexts.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1611",
         "exp_787"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9341724566669158,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_787",
         "exp_2434"
       ],
-      "cosine_similarity": 0.8829145985549717,
+      "cosine_similarity": 0.9171739989566381,
       "euclidean_similarity": null
     }
   ],

@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_596",
-      "text": "Punctuation and symbols used in C++ syntax, including operators, template and namespace declarations, and function calls.",
+      "text": "Patterns involving C++ syntax elements such as template declarations, class/struct definitions, member access via dots, namespace and scope resolution, and header inclusion with angle brackets.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1420",
         "exp_596"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9298646225764331,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_596",
         "exp_2243"
       ],
-      "cosine_similarity": 0.8673211762985323,
+      "cosine_similarity": 0.8607164148746989,
       "euclidean_similarity": null
     }
   ],

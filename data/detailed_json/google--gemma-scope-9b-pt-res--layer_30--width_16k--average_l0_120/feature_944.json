@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_773",
-      "text": "Tokens that are part of proper nouns, names of organizations, locations, or titles, often at the beginning of a sentence or phrase.",
+      "text": "Partial tokens (often truncated words or letters) that are part of proper nouns, identifiers, or technical terms, frequently appearing in contexts involving names, codes, locations, or structured data.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1597",
         "exp_773"
       ],
-      "cosine_similarity": 0.9999999999999998,
+      "cosine_similarity": 0.9060336127584789,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_773",
         "exp_2420"
       ],
-      "cosine_similarity": 0.8500796274276032,
+      "cosine_similarity": 0.8399465970622061,
       "euclidean_similarity": null
     }
   ],

@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_610",
-      "text": "The digit \\\"5\\\" often appears in numerical data, such as dates, times, percentages, and other quantitative values.",
+      "text": "The digit \\\"5\\\" frequently appears in numerical sequences, often as part of decimal numbers, percentages, or identifiers, with consistent activation across diverse contexts including measurements, coordinates, codes, and mathematical expressions.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1434",
         "exp_610"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9409225065878474,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_610",
         "exp_2257"
       ],
-      "cosine_similarity": 0.9146860161347364,
+      "cosine_similarity": 0.9184168432750557,
       "euclidean_similarity": null
     }
   ],

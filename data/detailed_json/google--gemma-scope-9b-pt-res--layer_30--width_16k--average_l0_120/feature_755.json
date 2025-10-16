@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_626",
-      "text": "Verbs or nouns that convey a sense of non-compliance, disobedience, or deviation from rules, laws, or norms, often in formal or technical contexts.",
+      "text": "Verbs or adjectives related to breaking, violating, or transgressing rules, laws, or norms, often in legal or moral contexts, with high activation on the root word and surrounding grammatical elements.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1450",
         "exp_626"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9365843268796299,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_626",
         "exp_2273"
       ],
-      "cosine_similarity": 0.8900727242436475,
+      "cosine_similarity": 0.9064456717472568,
       "euclidean_similarity": null
     }
   ],

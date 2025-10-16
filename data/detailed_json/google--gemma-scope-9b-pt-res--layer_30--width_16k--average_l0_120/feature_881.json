@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_723",
-      "text": "Various tokens in multiple languages, including Japanese, Chinese, and English, often representing the start or end of a code snippet, mathematical expression, or a string in a programming context.",
+      "text": "Fragments of text containing partial or split words, often due to line breaks or encoding issues, with frequent presence of punctuation, symbols, or non-continuous characters that disrupt word boundaries.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1547",
         "exp_723"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8367535163885628,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_723",
         "exp_2370"
       ],
-      "cosine_similarity": 0.7936177425319074,
+      "cosine_similarity": 0.7956996647804241,
       "euclidean_similarity": null
     }
   ],

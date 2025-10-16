@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_729",
-      "text": "Preprocessor directives and conditional compilation statements, often used for configuration, debugging, and compatibility purposes.",
+      "text": "Preprocessor directives in source code, such as #if, #ifdef, #ifndef, #elif, #else, #endif, #define, #include, #pragma, and #import, are consistently activated, with their presence indicating conditional compilation or code structure.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1553",
         "exp_729"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9088240322575414,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_729",
         "exp_2376"
       ],
-      "cosine_similarity": 0.9060748147537533,
+      "cosine_similarity": 0.9182775187005663,
       "euclidean_similarity": null
     }
   ],

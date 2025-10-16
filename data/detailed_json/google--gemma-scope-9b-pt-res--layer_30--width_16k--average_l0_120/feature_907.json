@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_743",
-      "text": "Function words, possessive pronouns, and articles often precede nouns or noun phrases, sometimes indicating possession or relationship.",
+      "text": "Possessive pronouns (e.g., \\\"their\\\", \\\"its\\\", \\\"the\\\") and prepositions (e.g., \\\"in\\\", \\\"of\\\", \\\"to\\\") frequently appear in contextually dependent, grammatically required positions, often preceding or following nouns that denote abstract or physical entities, with high activation values indicating their role in syntactic and semantic structure.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1567",
         "exp_743"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9087661451640384,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_743",
         "exp_2390"
       ],
-      "cosine_similarity": 0.8837134815116067,
+      "cosine_similarity": 0.8882766845139183,
       "euclidean_similarity": null
     }
   ],

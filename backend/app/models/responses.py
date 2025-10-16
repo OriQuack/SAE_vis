@@ -430,6 +430,7 @@ class ExplainerScoreData(BaseModel):
     embedding: Optional[float] = Field(None, description="Embedding score for this explainer")
     fuzz: ScorerScoreSet = Field(..., description="Fuzz scores for each scorer (s1, s2, s3)")
     detection: ScorerScoreSet = Field(..., description="Detection scores for each scorer (s1, s2, s3)")
+    explanation_text: Optional[str] = Field(None, description="Explanation text for this explainer")
     scorer_consistency: Optional[Dict[str, ConsistencyScore]] = Field(
         None,
         description="Consistency across scorers for each metric (coefficient of variation): {embedding, fuzz, detection}"

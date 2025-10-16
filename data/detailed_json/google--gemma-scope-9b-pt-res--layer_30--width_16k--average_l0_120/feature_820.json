@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_676",
-      "text": "Words related to friendship, relationships, and social connections.",
+      "text": "Commonly activated tokens include possessive pronouns (e.g., \\\"my\\\", \\\"your\\\", \\\"her\\\"), relational terms (e.g., \\\"friend\\\", \\\"friends\\\", \\\"family\\\"), and descriptive adjectives (e.g., \\\"best\\\", \\\"old\\\", \\\"close\\\", \\\"good\\\") used in social or emotional contexts, often in phrases denoting personal relationships or intimate connections.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1500",
         "exp_676"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8848227737929045,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_676",
         "exp_2323"
       ],
-      "cosine_similarity": 0.8935814757292908,
+      "cosine_similarity": 0.9294818568149757,
       "euclidean_similarity": null
     }
   ],

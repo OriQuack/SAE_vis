@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_706",
-      "text": "Proper nouns, names of institutions, organizations, and geographical locations, often denoting specific entities or places.",
+      "text": "Common noun phrases denoting educational institutions, geographic locations, or formal organizations, often preceded by determiners like \\\"the\\\" or \\\"a\\\", and frequently associated with proper nouns or institutional names.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1530",
         "exp_706"
       ],
-      "cosine_similarity": 0.9999999999999999,
+      "cosine_similarity": 0.9129567005301628,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_706",
         "exp_2353"
       ],
-      "cosine_similarity": 0.9032800623189218,
+      "cosine_similarity": 0.8808121520174714,
       "euclidean_similarity": null
     }
   ],

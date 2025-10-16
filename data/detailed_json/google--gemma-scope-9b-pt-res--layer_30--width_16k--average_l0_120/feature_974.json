@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_799",
-      "text": "Chemical names, units of measurement, and scientific notation, often denoted by specific prefixes, suffixes, or symbols, such as \\\"acid\\\", \\\"mM\\\", \\\"pH\\\", and chemical formulas.",
+      "text": "Chemical compounds, functional groups, and scientific terminology involving acids, pH, and molecular structures, often appearing in biochemical or laboratory contexts.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1623",
         "exp_799"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8982035750936574,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_799",
         "exp_2446"
       ],
-      "cosine_similarity": 0.8890925619496822,
+      "cosine_similarity": 0.9185573163895908,
       "euclidean_similarity": null
     }
   ],

@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_736",
-      "text": "Prepositions and words indicating direction, movement, or relation, often used to connect clauses or phrases, and sometimes used in idiomatic expressions.",
+      "text": "Prepositions and prepositional phrases indicating direction, relationship, or spatial/temporal positioning, often used to connect concepts or describe movement, comparison, or context.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1560",
         "exp_736"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9426038872447026,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_736",
         "exp_2383"
       ],
-      "cosine_similarity": 0.8155031210857436,
+      "cosine_similarity": 0.8343450574318348,
       "euclidean_similarity": null
     }
   ],

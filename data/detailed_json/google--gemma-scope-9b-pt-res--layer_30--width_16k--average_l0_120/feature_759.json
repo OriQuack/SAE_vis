@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_629",
-      "text": "Proper nouns and common nouns, often representing names of places, people, objects, and concepts, sometimes being part of titles or specific terms.",
+      "text": "Fragments of compound words or proper nouns, often appearing in contexts involving names, technical terms, or branded content, where the token is part of a larger lexical unit that is semantically or orthographically significant.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1453",
         "exp_629"
       ],
-      "cosine_similarity": 0.8728707659701995,
+      "cosine_similarity": 0.8655714438669144,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_629",
         "exp_2276"
       ],
-      "cosine_similarity": 0.7871446195094296,
+      "cosine_similarity": 0.7879786286134413,
       "euclidean_similarity": null
     }
   ],

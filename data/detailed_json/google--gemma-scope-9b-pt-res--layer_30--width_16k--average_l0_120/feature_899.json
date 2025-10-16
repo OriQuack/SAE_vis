@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_738",
-      "text": "Tokens representing prestigious awards, honors, or notable achievements, often including names of awards, medals, or titles.",
+      "text": "Nouns or noun phrases denoting prestigious awards, honors, or recognitions, often associated with titles like \\\"Medal,\\\" \\\"Prize,\\\" \\\"Award,\\\" \\\"Victory,\\\" or specific named honors such as \\\"Oscar,\\\" \\\"Victoria Cross,\\\" or \\\"Nobel Peace Prize,\\\" with high activation values on the key identifier words.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1562",
         "exp_738"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9249606905374603,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_738",
         "exp_2385"
       ],
-      "cosine_similarity": 0.941537177222919,
+      "cosine_similarity": 0.9235457750280017,
       "euclidean_similarity": null
     }
   ],

@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_589",
-      "text": "Musical instruments, particularly stringed instruments like guitars and basses, often mentioned in contexts of music performance, production, and history.",
+      "text": "The term \\\"guitar\\\" and related musical instrument terms are frequently activated in contexts involving music, particularly in discussions of musicians, instruments, and musical genres, with strong emphasis on \\\"guitar\\\" and its variants like \\\"bass guitar\\\" and \\\"stringed musical instruments.\\\"",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1413",
         "exp_589"
       ],
-      "cosine_similarity": 0.9999999999999998,
+      "cosine_similarity": 0.9278650532247776,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_589",
         "exp_2236"
       ],
-      "cosine_similarity": 0.8923159407848822,
+      "cosine_similarity": 0.923660173927182,
       "euclidean_similarity": null
     }
   ],

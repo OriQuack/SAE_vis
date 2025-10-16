@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_807",
-      "text": "Tokens that are part of a phrase or sentence that is being negated or contrasted with another idea, often using the word \\\"not\\\" or \\\"but\\\" to introduce the contrasting idea.",
+      "text": "The word \\\"not only\\\" is consistently followed by a verb or noun phrase that introduces a secondary or additional benefit, action, or characteristic, often paired with \\\"but also\\\" to emphasize a dual or layered meaning.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1631",
         "exp_807"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8415192088329594,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_807",
         "exp_2454"
       ],
-      "cosine_similarity": 0.8262945020477842,
+      "cosine_similarity": 0.8508971547199183,
       "euclidean_similarity": null
     }
   ],

@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_591",
-      "text": "Tokens representing function names, method calls, and keywords in programming languages, often followed by parentheses or colons.",
+      "text": "The token sequences often involve function or method names, file paths, or programming constructs, with high activation on specific identifiers like \\\"Write\\\", \\\"stream\\\", \\\"save\\\", \\\"persist\\\", \\\"fprintf\\\", \\\"snprintf\\\", and \\\"NET\\\", suggesting that the model is sensitive to syntactic and semantic patterns in code, particularly around function calls, file operations, and language-specific keywords.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1415",
         "exp_591"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8851552754070678,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_591",
         "exp_2238"
       ],
-      "cosine_similarity": 0.7872834770616601,
+      "cosine_similarity": 0.7923838339802243,
       "euclidean_similarity": null
     }
   ],

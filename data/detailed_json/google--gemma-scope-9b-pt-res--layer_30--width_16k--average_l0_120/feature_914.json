@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_750",
-      "text": "Punctuation marks and special characters used to denote boundaries, quotes, or formatting in text, often in a programming or coding context.",
+      "text": "Delimiters such as << >> are used to mark boundaries in text, often surrounding content that is contextually or structurally significant, including code snippets, annotations, formatting cues, or metadata, with surrounding punctuation and whitespace playing a role in token activation.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1574",
         "exp_750"
       ],
-      "cosine_similarity": 0.9934340142841765,
+      "cosine_similarity": 0.90641970698931,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_750",
         "exp_2397"
       ],
-      "cosine_similarity": 0.8929963746885407,
+      "cosine_similarity": 0.9107043495017598,
       "euclidean_similarity": null
     }
   ],

@@ -92,13 +92,13 @@ export function calculateColumnWidth(containerWidth: number, numExplainers: numb
  * Build header structure for table (2-row or 3-row based on averaging)
  *
  * When isAveraged = false (1 explainer):
- *   Row 1: Explainer names (each spanning 7 columns)
- *   Row 2: Metric names (Embedding: 1 col, Fuzz: 3 cols, Detection: 3 cols)
- *   Row 3: Scorer labels (empty, scorer1/scorer2/scorer3, scorer1/scorer2/scorer3)
+ *   Row 1: Explainer names (each spanning 8 columns)
+ *   Row 2: Metric names (Explanation: 1 col, Embedding: 1 col, Fuzz: 3 cols, Detection: 3 cols)
+ *   Row 3: Scorer labels (empty, empty, scorer1/scorer2/scorer3, scorer1/scorer2/scorer3)
  *
  * When isAveraged = true (2+ explainers):
- *   Row 1: Explainer names (each spanning 3 columns)
- *   Row 2: Metric names (Embedding: 1 col, Fuzz: 1 col, Detection: 1 col)
+ *   Row 1: Explainer names (each spanning 4 columns)
+ *   Row 2: Metric names (Explanation: 1 col, Embedding: 1 col, Fuzz: 1 col, Detection: 1 col)
  *   Row 3: [] (empty)
  *
  * @param explainerIds - Array of explainer IDs (e.g., ['llama', 'qwen', 'openai'])
@@ -118,16 +118,26 @@ export function buildHeaderStructure(
   for (const explainerId of explainerIds) {
     if (isAveraged) {
       // 2-row header: Averaged mode (2+ explainers)
-      // Row 1: Explainer name (spans 3 columns)
+      // Row 1: Explainer name (spans 4 columns)
       row1.push({
         label: getExplainerDisplayName(explainerId),
-        colSpan: 3,
+        colSpan: 4,
         rowSpan: 1,
         type: 'explainer',
         explainerId
       })
 
       // Row 2: Metric names (1 column each) - abbreviated for multiple LLMs
+      // Add explanation column first
+      row2.push({
+        label: 'Expl.',
+        colSpan: 1,
+        rowSpan: 1,
+        type: 'metric',
+        explainerId,
+        metricType: 'explanation' as any
+      })
+
       row2.push({
         label: 'Emb.',
         colSpan: 1,
@@ -159,7 +169,7 @@ export function buildHeaderStructure(
     } else {
       // 3-row header: Individual scorer mode (1 explainer)
       const numScorers = scorerIds.length
-      const totalColumns = 1 + (numScorers * 2)  // 1 embedding + numScorers fuzz + numScorers detection
+      const totalColumns = 1 + 1 + (numScorers * 2)  // 1 explanation + 1 embedding + numScorers fuzz + numScorers detection
 
       // Row 1: Explainer name (spans all columns)
       row1.push({
@@ -171,6 +181,16 @@ export function buildHeaderStructure(
       })
 
       // Row 2: Metric names - abbreviated
+      // Explanation (1 column)
+      row2.push({
+        label: 'Expl.',
+        colSpan: 1,
+        rowSpan: 1,
+        type: 'metric',
+        explainerId,
+        metricType: 'explanation' as any
+      })
+
       // Embedding (1 column)
       row2.push({
         label: 'Emb.',
@@ -202,6 +222,16 @@ export function buildHeaderStructure(
       })
 
       // Row 3: Scorer labels
+      // Empty cell for explanation
+      row3.push({
+        label: '',
+        colSpan: 1,
+        rowSpan: 1,
+        type: 'scorer',
+        explainerId,
+        metricType: 'explanation' as any
+      })
+
       // Empty cell for embedding
       row3.push({
         label: '',

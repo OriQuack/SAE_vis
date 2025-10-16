@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_709",
-      "text": "Conjunctions, nouns, and other parts of speech that are part of a phrase or sentence, often indicating a connection or relationship between entities, actions, or ideas.",
+      "text": "The word \\\"and\\\" frequently appears in sequences involving conjunctions, lists, or compound structures, often linking related concepts, items, or clauses, with high activation when connecting distinct but semantically linked elements.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1533",
         "exp_709"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.871025461474931,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_709",
         "exp_2356"
       ],
-      "cosine_similarity": 0.8603898294272978,
+      "cosine_similarity": 0.8984421145416329,
       "euclidean_similarity": null
     }
   ],

@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_650",
-      "text": "Various programming-related terms, mathematical operations, and technical concepts, often denoted by specific keywords, symbols, or abbreviations, and sometimes used in combination with numbers or variables.",
+      "text": "The token \\\"er\\\" appears in comparative forms of adjectives, often in mathematical or technical contexts, and is frequently associated with numerical or logical comparisons.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1474",
         "exp_650"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8520148914046342,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_650",
         "exp_2297"
       ],
-      "cosine_similarity": 0.8620433584108987,
+      "cosine_similarity": 0.8266759550760711,
       "euclidean_similarity": null
     }
   ],

@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_677",
-      "text": "Punctuation marks and special characters, often used to denote formatting, citations, or mathematical operations.",
+      "text": "Fragments of text containing punctuation, symbols, numbers, and special characters that often appear in technical, academic, or formatted documents, particularly around citations, references, mathematical expressions, and markup notation.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1501",
         "exp_677"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9339586439757331,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_677",
         "exp_2324"
       ],
-      "cosine_similarity": 0.8327644833297532,
+      "cosine_similarity": 0.8583993156383836,
       "euclidean_similarity": null
     }
   ],

@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_614",
-      "text": "Sentence-ending punctuation marks.",
+      "text": "The period (\\\".\\\") is frequently activated at the end of sentences, especially in structured or punctuated text, often preceding or following quotation marks, parentheses, or other punctuation, and is strongly associated with sentence boundaries in both formal and informal writing.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1438",
         "exp_614"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8835802807169701,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_614",
         "exp_2261"
       ],
-      "cosine_similarity": 0.8610685088735622,
+      "cosine_similarity": 0.8418818945865852,
       "euclidean_similarity": null
     }
   ],

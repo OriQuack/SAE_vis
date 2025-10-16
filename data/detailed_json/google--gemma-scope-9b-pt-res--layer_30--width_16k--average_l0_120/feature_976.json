@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_801",
-      "text": "Titles and names of high-ranking officials, politicians, and public figures.",
+      "text": "Named individuals in political or governmental roles, often preceded by titles like \\\"Prime Minister\\\", \\\"President\\\", \\\"Secretary\\\", or \\\"Chief Minister\\\", with emphasis on proper names and titles in formal political contexts.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1625",
         "exp_801"
       ],
-      "cosine_similarity": 0.9999999999999999,
+      "cosine_similarity": 0.9357518938825309,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_801",
         "exp_2448"
       ],
-      "cosine_similarity": 0.9157455871653205,
+      "cosine_similarity": 0.9081259212139958,
       "euclidean_similarity": null
     }
   ],

@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_818",
-      "text": "LaTeX commands and HTML tags, often used in mathematical and technical contexts.",
+      "text": "The token \\\"usepackage\\\" is consistently used in LaTeX documents to load packages, often followed by a brace-enclosed package name, and appears in sequences that structure document formatting and functionality.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1642",
         "exp_818"
       ],
-      "cosine_similarity": 0.9999999999999999,
+      "cosine_similarity": 0.8488516173869054,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_818",
         "exp_2465"
       ],
-      "cosine_similarity": 0.8619070221265828,
+      "cosine_similarity": 0.8768107162002899,
       "euclidean_similarity": null
     }
   ],

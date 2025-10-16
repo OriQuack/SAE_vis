@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_622",
-      "text": "Scientific terminology and names of biological entities, including species, cells, tissues, and proteins, often in the context of experimental research and medical studies.",
+      "text": "The token \\\"mouse\\\" and related biological terms (e.g., \\\"mice\\\", \\\"rat\\\", \\\"rats\\\", \\\"human\\\", \\\"models\\\", \\\"lung\\\", \\\"thymus\\\", \\\"bone\\\", \\\"immune\\\", \\\"intestinal\\\", \\\"hippocampal\\\") frequently appear in scientific contexts involving animal studies, cellular processes, or physiological systems, often associated with experimental conditions or anatomical references.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1446",
         "exp_622"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.897791356068685,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_622",
         "exp_2269"
       ],
-      "cosine_similarity": 0.8071334213419042,
+      "cosine_similarity": 0.8748792981685674,
       "euclidean_similarity": null
     }
   ],

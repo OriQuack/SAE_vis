@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_823",
-      "text": "Tokens often represent a distinct object, concept, or action, sometimes in a technical or formal context, and are frequently nouns, verbs, or adjectives.",
+      "text": "The token sequences often represent technical or domain-specific terms, frequently involving mathematical notation, programming identifiers, or scientific terminology, with activations concentrated on individual components or suffixes that denote structure, state, or function within formal systems.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1647",
         "exp_823"
       ],
-      "cosine_similarity": 0.9999999999999999,
+      "cosine_similarity": 0.9057933611706512,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_823",
         "exp_2470"
       ],
-      "cosine_similarity": 0.8739946834627598,
+      "cosine_similarity": 0.8641028190883856,
       "euclidean_similarity": null
     }
   ],

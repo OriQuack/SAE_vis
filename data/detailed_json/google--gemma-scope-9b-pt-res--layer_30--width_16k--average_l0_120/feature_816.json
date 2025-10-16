@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_673",
-      "text": "Loop control statements, conditional statements, and function calls, often denoted by a keyword or symbol followed by a block of code or an expression, typically enclosed in brackets or parentheses.",
+      "text": "Patterns involving code syntax with balanced parentheses, braces, and colons, often indicating structural elements in programming languages such as loops, conditionals, or function definitions.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1497",
         "exp_673"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.91513035284708,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_673",
         "exp_2320"
       ],
-      "cosine_similarity": 0.8525955419858525,
+      "cosine_similarity": 0.905373039794351,
       "euclidean_similarity": null
     }
   ],

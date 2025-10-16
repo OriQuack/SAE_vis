@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_808",
-      "text": "Prepositions and articles often precede nouns, while mathematical and programming symbols are used in equations and code snippets, respectively.",
+      "text": "Prepositions and articles (such as \\\"of\\\", \\\"to\\\", \\\"from\\\", \\\"a\\\", \\\"the\\\") frequently appear in contexts involving spatial, directional, or relational connections, often linking entities in mathematical, technical, or geographical descriptions.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1632",
         "exp_808"
       ],
-      "cosine_similarity": 0.9999999999999999,
+      "cosine_similarity": 0.8923281431601268,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_808",
         "exp_2455"
       ],
-      "cosine_similarity": 0.8551940969074834,
+      "cosine_similarity": 0.8729810047667225,
       "euclidean_similarity": null
     }
   ],

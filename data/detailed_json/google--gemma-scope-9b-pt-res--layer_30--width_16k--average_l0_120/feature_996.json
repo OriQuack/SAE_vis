@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_821",
-      "text": "Titles, names, and honorifics of individuals, often indicating respect, nobility, or prestige, as well as proper nouns such as names of organizations, locations, and awards.",
+      "text": "Proper nouns and titles, particularly those denoting individuals, institutions, or formal positions, often appear in contexts involving recognition, authority, or historical significance.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1645",
         "exp_821"
       ],
-      "cosine_similarity": 0.9999999999999999,
+      "cosine_similarity": 0.9277132465638501,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_821",
         "exp_2468"
       ],
-      "cosine_similarity": 0.7898151379466181,
+      "cosine_similarity": 0.7811465903671087,
       "euclidean_similarity": null
     }
   ],

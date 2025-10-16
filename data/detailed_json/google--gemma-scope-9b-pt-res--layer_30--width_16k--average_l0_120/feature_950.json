@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_778",
-      "text": "The term \\\"data\\\" is used in various contexts, often referring to information, facts, or statistics, and is commonly found in technical, scientific, and academic writing.",
+      "text": "The word \\\"data\\\" or its variants (e.g., \\\"Data\\\", \\\"data\\\", \\\"Dat\\\", \\\"atal\\\") frequently appears in contexts related to information, measurements, or digital content, often in technical, scientific, or computational settings, and is typically associated with processing, storage, or analysis.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1602",
         "exp_778"
       ],
-      "cosine_similarity": 0.9999999999999999,
+      "cosine_similarity": 0.9219633435225503,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_778",
         "exp_2425"
       ],
-      "cosine_similarity": 0.8716765577090271,
+      "cosine_similarity": 0.8926391545135212,
       "euclidean_similarity": null
     }
   ],

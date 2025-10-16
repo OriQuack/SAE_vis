@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_702",
-      "text": "Punctuation and special characters, often used in mathematical expressions, coding, and formatting, as well as digits and symbols used in various contexts such as scientific notation, URLs, and data representation.",
+      "text": "Individual digits and punctuation symbols in numerical sequences, often appearing in contexts involving measurements, identifiers, or formatted data.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1526",
         "exp_702"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9170072089462268,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_702",
         "exp_2349"
       ],
-      "cosine_similarity": 0.8129078501885091,
+      "cosine_similarity": 0.830771138047897,
       "euclidean_similarity": null
     }
   ],

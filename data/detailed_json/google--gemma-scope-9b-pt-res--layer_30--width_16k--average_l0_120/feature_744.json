@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_615",
-      "text": "Prepositions and conjunctions, often used in combination with other words to form phrases that indicate time, manner, or relationship, as well as nouns and adjectives that describe objects, processes, or conditions in scientific and medical contexts.",
+      "text": "Prepositional phrases and compound terms commonly used in scientific and technical writing, often describing experimental conditions, methods, or biological processes.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1439",
         "exp_615"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9174815179604637,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_615",
         "exp_2262"
       ],
-      "cosine_similarity": 0.8761342530281342,
+      "cosine_similarity": 0.8759111266645573,
       "euclidean_similarity": null
     }
   ],

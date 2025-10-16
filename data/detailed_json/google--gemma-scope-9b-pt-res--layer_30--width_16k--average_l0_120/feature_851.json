@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_700",
-      "text": "Special characters and symbols, often used in programming languages, URLs, and other technical contexts, as well as nouns representing online platforms, websites, and digital content.",
+      "text": "Common patterns include technical identifiers, file or web paths, and structured syntax elements like brackets, colons, and punctuation, often associated with code, URLs, or markup.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1524",
         "exp_700"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8890369635797485,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_700",
         "exp_2347"
       ],
-      "cosine_similarity": 0.8492954523302836,
+      "cosine_similarity": 0.839672182571227,
       "euclidean_similarity": null
     }
   ],

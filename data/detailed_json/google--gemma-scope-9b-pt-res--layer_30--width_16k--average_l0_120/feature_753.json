@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_624",
-      "text": "Verbs related to making or bringing something into existence, such as \\\"create\\\", \\\"form\\\", \\\"build\\\", \\\"establish\\\", \\\"generate\\\", and \\\"develop\\\", often used in contexts of innovation, progress, or problem-solving.",
+      "text": "Verbs like \\\"create\\\", \\\"creating\\\", \\\"created\\\", \\\"create a\\\", \\\"forming\\\", \\\"form\\\", \\\"develop\\\", \\\"generate\\\" are frequently used to describe the act of bringing something into existence, often in contexts involving innovation, construction, or the initiation of a process.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1448",
         "exp_624"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9684734228870727,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_624",
         "exp_2271"
       ],
-      "cosine_similarity": 0.9455031180462645,
+      "cosine_similarity": 0.9477372938074704,
       "euclidean_similarity": null
     }
   ],

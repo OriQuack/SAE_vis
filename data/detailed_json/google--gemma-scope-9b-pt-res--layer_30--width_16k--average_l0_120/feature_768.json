@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_637",
-      "text": "Common nouns and prepositions, often used in phrases or sentences to describe locations, actions, or objects, and sometimes used to introduce or connect ideas.",
+      "text": "Nouns or noun phrases representing specific locations, objects, or abstract concepts, often appearing in contextually meaningful or named entities, with high activation values when part of a descriptive or referential clause.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1461",
         "exp_637"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8657911615645472,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_637",
         "exp_2284"
       ],
-      "cosine_similarity": 0.8235876632355723,
+      "cosine_similarity": 0.8131486609907296,
       "euclidean_similarity": null
     }
   ],

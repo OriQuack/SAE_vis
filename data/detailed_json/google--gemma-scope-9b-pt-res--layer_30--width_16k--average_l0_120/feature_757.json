@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_628",
-      "text": "Verbs and verb forms related to existing or residing in a place or state, often used in the context of describing someone's life or circumstances.",
+      "text": "The verb \\\"live\\\" and its inflections (\\\"lived\\\", \\\"living\\\", \\\"lives\\\") are frequently activated when describing a person's current or past residence, lifestyle, or existence, often in contexts involving physical or metaphorical presence in a place or state.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1452",
         "exp_628"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.939118927569402,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_628",
         "exp_2275"
       ],
-      "cosine_similarity": 0.8974918374030354,
+      "cosine_similarity": 0.9205434895729319,
       "euclidean_similarity": null
     }
   ],

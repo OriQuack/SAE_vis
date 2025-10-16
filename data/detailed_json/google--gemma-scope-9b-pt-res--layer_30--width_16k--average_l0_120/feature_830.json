@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_685",
-      "text": "Various tokens including nouns, adjectives, adverbs, and conjunctions that appear in different contexts, often representing a distinct object, concept, or relationship, and sometimes being part of a larger phrase or sentence.",
+      "text": "Common tokens include function words (e.g., \\\"and\\\", \\\"to\\\", \\\"is\\\"), possessive pronouns (e.g., \\\"its\\\"), adverbs (e.g., \\\"finally\\\", \\\"again\\\", \\\"positively\\\"), and standalone or repeated characters (e.g., \\\"7\\\", \\\"9\\\", \\\"3\\\", \\\"2\\\") often in numerical or symbolic contexts. Additionally, multi-word phrases like \\\"Supreme Court\\\", \\\"contemporary\\\", \\\"clarity\\\", \\\"EMERGENCY\\\", and \\\"black\\\" appear in specific semantic or formatting contexts.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1509",
         "exp_685"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.8979730463110306,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_685",
         "exp_2332"
       ],
-      "cosine_similarity": 0.8623876539100893,
+      "cosine_similarity": 0.8660262854382225,
       "euclidean_similarity": null
     }
   ],

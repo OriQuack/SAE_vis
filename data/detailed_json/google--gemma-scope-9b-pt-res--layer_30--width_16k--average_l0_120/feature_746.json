@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_617",
-      "text": "Scientific and technical terms, often representing names of organisms, diseases, or biological processes, and sometimes parts of words or prefixes/suffixes of these terms.",
+      "text": "Fragments of scientific or technical terms, often derived from Latin or Greek roots, that appear in biomedical and molecular biology contexts, particularly in gene names, protein names, and chemical compound terminology.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1441",
         "exp_617"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9228308777028059,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_617",
         "exp_2264"
       ],
-      "cosine_similarity": 0.8555630996838504,
+      "cosine_similarity": 0.8599397306396194,
       "euclidean_similarity": null
     }
   ],

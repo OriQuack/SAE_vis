@@ -11,7 +11,7 @@
     },
     {
       "explanation_id": "exp_721",
-      "text": "The word \\\"all\\\" is often used to emphasize inclusivity or totality, and is sometimes used in formal or legal contexts to convey a sense of universality or completeness.",
+      "text": "The words \\\"all\\\", \\\"each\\\", and \\\"every\\\" are used to denote totality or universality in a quantified or inclusive sense, often preceding or modifying a noun phrase to emphasize completeness or generalization.",
       "explanation_method": "quantiles",
       "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
       "data_source": "gwen_e-llama_s"
@@ -30,7 +30,7 @@
         "exp_1545",
         "exp_721"
       ],
-      "cosine_similarity": 1.0,
+      "cosine_similarity": 0.9264347535093435,
       "euclidean_similarity": null
     },
     {
@@ -46,7 +46,7 @@
         "exp_721",
         "exp_2368"
       ],
-      "cosine_similarity": 0.9231393856017636,
+      "cosine_similarity": 0.9193477913443152,
       "euclidean_similarity": null
     }
   ],
