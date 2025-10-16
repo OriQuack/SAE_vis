@@ -4,8 +4,8 @@ import type {
   HistogramDataRequest,
   SankeyData,
   SankeyDataRequest,
-  ComparisonData,
-  ComparisonDataRequest,
+  AlluvialData,
+  AlluvialDataRequest,
   FeatureDetail,
   Filters,
   UMAPDataRequest,
@@ -23,7 +23,7 @@ const API_ENDPOINTS = {
   FILTER_OPTIONS: "/filter-options",
   HISTOGRAM_DATA: "/histogram-data",
   SANKEY_DATA: "/sankey-data",
-  COMPARISON_DATA: "/comparison-data",
+  ALLUVIAL_DATA: "/comparison-data", // TODO: Change to alluvial
   FEATURE_DETAIL: "/feature",
   UMAP_DATA: "/umap-data",
   TABLE_DATA: "/table-data"
@@ -69,8 +69,8 @@ export async function getSankeyData(request: SankeyDataRequest): Promise<SankeyD
   return response.json()
 }
 
-export async function getComparisonData(request: ComparisonDataRequest): Promise<ComparisonData> {
-  const response = await fetch(`${API_BASE}${API_ENDPOINTS.COMPARISON_DATA}`, {
+export async function getAlluvialData(request: AlluvialDataRequest): Promise<AlluvialData> {
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.ALLUVIAL_DATA}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

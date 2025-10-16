@@ -1,6 +1,6 @@
 import { sum } from 'd3-array'
 import { sankey, sankeyLinkHorizontal } from 'd3-sankey'
-import type { AlluvialFlow, D3SankeyNode, AlluvialSankeyNode, AlluvialSankeyLink, AlluvialLayoutData } from '../types'
+import type { AlluvialFlowData, D3SankeyNode, AlluvialSankeyNode, AlluvialSankeyLink, AlluvialLayoutData } from '../types'
 
 // ============================================================================
 // UTILS-SPECIFIC TYPES
@@ -127,7 +127,7 @@ function calculateTrivialityLevel(sourceId: string, targetId: string): Trivialit
  * This is a pure function - no DOM manipulation, just calculations
  */
 export function calculateAlluvialLayout(
-  flows: AlluvialFlow[] | null,
+  flows: AlluvialFlowData[] | null,
   width: number,
   height: number,
   leftSankeyNodes?: D3SankeyNode[],

@@ -274,32 +274,3 @@ export function calculateMultiBarLayout(
     maxCount: 0
   }
 }
-
-// ============================================================================
-// FORMATTING UTILITIES
-// ============================================================================
-
-/**
- * Format count for display
- *
- * @param count - Numeric count
- * @returns Formatted count string
- */
-export function formatCount(count: number): string {
-  if (count >= 1000) {
-    return `${(count / 1000).toFixed(1)}k`
-  }
-  return count.toString()
-}
-
-/**
- * Format percentage for display
- *
- * @param value - Value
- * @param total - Total
- * @returns Formatted percentage string
- */
-export function formatPercentage(value: number, total: number): string {
-  if (total === 0) return '0%'
-  return `${Math.round((value / total) * 100)}%`
-}

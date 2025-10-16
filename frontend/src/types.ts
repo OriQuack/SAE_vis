@@ -126,7 +126,7 @@ export interface SankeyDataRequest {
   thresholdTree: ThresholdTree
 }
 
-export interface ComparisonDataRequest {
+export interface AlluvialDataRequest {
   sankey_left: SankeyDataRequest
   sankey_right: SankeyDataRequest
 }
@@ -199,7 +199,7 @@ export interface SankeyData {
   }
 }
 
-export interface ComparisonFlow {
+export interface AlluvialFlowData {
   source_node: string
   target_node: string
   feature_count: number
@@ -215,8 +215,8 @@ export interface AlluvialFlow {
   targetCategory: string
 }
 
-export interface ComparisonData {
-  flows: ComparisonFlow[]
+export interface AlluvialData {
+  flows: AlluvialFlowData[]
   summary: {
     total_overlapping_features: number
     total_flows: number
@@ -474,7 +474,7 @@ export interface AlluvialSankeyLink {
   y0?: number
   y1?: number
   width?: number
-  flow: AlluvialFlow
+  flow: AlluvialFlowData
   color: string
   opacity: number
   id: string
