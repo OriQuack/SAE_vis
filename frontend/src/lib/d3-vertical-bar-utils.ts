@@ -49,6 +49,8 @@ export interface MultiBarLayout {
     layout: BarLayout
   }>
   maxCount: number
+  // Single scroll indicator for all three bars
+  globalScrollIndicator: ScrollIndicator | null
 }
 
 // ============================================================================
@@ -181,7 +183,8 @@ export function calculateMultiBarLayout(
       width: containerWidth,
       height: containerHeight,
       bars: [],
-      maxCount: 0
+      maxCount: 0,
+      globalScrollIndicator: null
     }
   }
 
@@ -197,44 +200,44 @@ export function calculateMultiBarLayout(
   const barHeight = availableHeight
   const barY = padding.top
 
+  // Calculate SINGLE global scroll indicator for all three bars (not per-bar)
+  let globalScrollIndicator: ScrollIndicator | null = null
+  if (scrollState) {
+    // Defensive validation: ensure scroll state has valid values
+    const hasValidValues =
+      scrollState.scrollHeight > 0 &&
+      scrollState.clientHeight > 0 &&
+      scrollState.scrollTop >= 0
+
+    if (!hasValidValues) {
+      console.warn('[d3-vertical-bar-utils] Invalid scroll state values:', scrollState)
+    }
+
+    // Only create indicator if content is scrollable
+    if (hasValidValues && scrollState.scrollHeight > scrollState.clientHeight) {
+      const scrollPercentage = scrollState.scrollTop / (scrollState.scrollHeight - scrollState.clientHeight)
+      const visiblePercentage = scrollState.clientHeight / scrollState.scrollHeight
+
+      const indicatorHeight = barHeight * visiblePercentage
+      const indicatorY = barY + (barHeight - indicatorHeight) * scrollPercentage
+
+      globalScrollIndicator = {
+        y: indicatorY,
+        height: indicatorHeight
+      }
+
+      console.log('[d3-vertical-bar-utils] Global scroll indicator calculated:', {
+        scrollPercentage,
+        visiblePercentage,
+        indicatorY,
+        indicatorHeight
+      })
+    }
+  }
+
   // Calculate layout for each bar
   const bars = data.map((explainerData, index) => {
     const x = padding.left + index * (barWidth)
-
-    // Calculate scroll indicator position if scroll state is available
-    let scrollIndicator: ScrollIndicator | null = null
-    if (scrollState) {
-      // Defensive validation: ensure scroll state has valid values
-      const hasValidValues =
-        scrollState.scrollHeight > 0 &&
-        scrollState.clientHeight > 0 &&
-        scrollState.scrollTop >= 0
-
-      if (!hasValidValues) {
-        console.warn('[d3-vertical-bar-utils] Invalid scroll state values:', scrollState)
-      }
-
-      // Only create indicator if content is scrollable
-      if (hasValidValues && scrollState.scrollHeight > scrollState.clientHeight) {
-        const scrollPercentage = scrollState.scrollTop / (scrollState.scrollHeight - scrollState.clientHeight)
-        const visiblePercentage = scrollState.clientHeight / scrollState.scrollHeight
-
-        const indicatorHeight = barHeight * visiblePercentage
-        const indicatorY = barY + (barHeight - indicatorHeight) * scrollPercentage
-
-        scrollIndicator = {
-          y: indicatorY,
-          height: indicatorHeight
-        }
-
-        console.log('[d3-vertical-bar-utils] Scroll indicator calculated:', {
-          scrollPercentage,
-          visiblePercentage,
-          indicatorY,
-          indicatorHeight
-        })
-      }
-    }
 
     // Calculate selection segments if selection data is available
     let selectionSegments: SelectionSegment[] = []
@@ -265,7 +268,7 @@ export function calculateMultiBarLayout(
         barY,
         barHeight,
         labelY: padding.top - 10,
-        scrollIndicator,
+        scrollIndicator: null,  // No longer used - replaced by globalScrollIndicator
         selectionSegments
       }
     }
@@ -275,6 +278,7 @@ export function calculateMultiBarLayout(
     width: containerWidth,
     height: containerHeight,
     bars,
-    maxCount: 0
+    maxCount: 0,
+    globalScrollIndicator
   }
 }

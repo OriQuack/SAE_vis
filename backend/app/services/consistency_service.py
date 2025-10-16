@@ -2,7 +2,8 @@
 Consistency score calculation service.
 
 Provides statistical consistency calculations for LLM scoring analysis:
-- Inverse CV (coefficient of variation) for scorer/explainer consistency
+- Standard deviation-based consistency with data-driven max_std
+- Inverse CV (coefficient of variation) for backwards compatibility
 - Normalized standard deviation for metric consistency
 - Global z-score normalization for cross-metric comparison
 - Semantic similarity aggregation for explainer consistency
@@ -12,7 +13,7 @@ All methods are stateless and can be called independently.
 
 import numpy as np
 import polars as pl
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Tuple
 
 from ..models.responses import ConsistencyScore
 
@@ -253,3 +254,224 @@ class ConsistencyService:
             value=float(round(avg_similarity, 3)),
             method="avg_pairwise_cosine"
         )
+
+    @staticmethod
+    def compute_std_consistency(
+        scores: List[Optional[float]],
+        max_std: float
+    ) -> Optional[ConsistencyScore]:
+        """
+        Compute consistency using standard deviation with data-driven max_std.
+
+        Formula: Consistency = 1 - (std / max_std)
+
+        This method is more statistically robust than inverse CV, especially
+        for values in bounded ranges like [0,1].
+
+        Args:
+            scores: List of score values (None values are filtered out)
+            max_std: Maximum standard deviation observed in the data
+
+        Returns:
+            ConsistencyScore with value 0-1 and method="std_based", or None if insufficient data
+        """
+        # Filter out None values
+        valid_scores = [s for s in scores if s is not None]
+
+        if len(valid_scores) < 2:
+            return None
+
+        scores_array = np.array(valid_scores)
+        std = np.std(scores_array, ddof=1)  # Sample std deviation
+
+        # Avoid division by zero
+        if max_std == 0 or np.isclose(max_std, 0):
+            # If max_std is 0, all values in dataset are identical
+            if std == 0 or np.isclose(std, 0):
+                return ConsistencyScore(value=1.0, method="std_based")
+            else:
+                # This shouldn't happen in practice
+                return ConsistencyScore(value=0.0, method="std_based")
+
+        consistency = 1.0 - (std / max_std)
+        consistency = np.clip(consistency, 0, 1)  # Ensure in [0,1] range
+
+        return ConsistencyScore(
+            value=float(round(consistency, 3)),
+            method="std_based"
+        )
+
+    @staticmethod
+    def compute_normalized_std_consistency(
+        values: Dict[str, Optional[float]],
+        global_stats: Dict[str, Dict[str, float]],
+        max_std: float
+    ) -> Optional[ConsistencyScore]:
+        """
+        Compute within-explanation metric consistency with normalization.
+
+        Process:
+        1. Normalize each metric to [0,1] using global min/max
+        2. Compute std of normalized values
+        3. Apply formula: 1 - (std_normalized / max_std)
+
+        Args:
+            values: Dict of metric names to values (e.g., {'embedding': 0.5, 'fuzz': 0.7, 'detection': 0.6})
+            global_stats: Dict with 'min' and 'max' for each metric
+            max_std: Maximum std of normalized values observed in data
+
+        Returns:
+            ConsistencyScore with value 0-1 and method="normalized_std", or None if insufficient data
+        """
+        normalized_values = []
+
+        for metric_name, value in values.items():
+            if value is None or metric_name not in global_stats:
+                continue
+
+            stats = global_stats[metric_name]
+            min_val = stats.get('min', 0)
+            max_val = stats.get('max', 1)
+
+            # Normalize to [0,1]
+            if max_val - min_val > 0:
+                normalized = (value - min_val) / (max_val - min_val)
+                normalized_values.append(normalized)
+
+        # Need at least 2 metrics
+        if len(normalized_values) < 2:
+            return None
+
+        # Compute std of normalized values
+        std = np.std(normalized_values, ddof=1)
+
+        # Apply consistency formula
+        if max_std == 0 or np.isclose(max_std, 0):
+            if std == 0 or np.isclose(std, 0):
+                return ConsistencyScore(value=1.0, method="normalized_std")
+            else:
+                return ConsistencyScore(value=0.0, method="normalized_std")
+
+        consistency = 1.0 - (std / max_std)
+        consistency = np.clip(consistency, 0, 1)
+
+        return ConsistencyScore(
+            value=float(round(consistency, 3)),
+            method="normalized_std"
+        )
+
+    @staticmethod
+    def compute_max_stds(
+        df: pl.DataFrame,
+        explainer_ids: List[str],
+        global_stats: Dict[str, Dict[str, float]]
+    ) -> Dict[str, float]:
+        """
+        Compute actual max_std values from data for dynamic calculation.
+
+        This is used when pre-computed values are not available (non-default configurations).
+
+        Args:
+            df: DataFrame with score data
+            explainer_ids: List of explainer IDs
+            global_stats: Global statistics for normalization
+
+        Returns:
+            Dict mapping metric types to their max_std values
+        """
+        feature_ids = sorted(df['feature_id'].unique().to_list())
+
+        # Collectors for std computation
+        scorer_stds_fuzz = []
+        scorer_stds_detection = []
+        within_explanation_stds = []
+        cross_explanation_stds_embedding = []
+        cross_explanation_stds_fuzz = []
+        cross_explanation_stds_detection = []
+
+        for feature_id in feature_ids:
+            feature_df = df.filter(pl.col("feature_id") == feature_id)
+
+            # Scorer consistency stds (per explainer)
+            for explainer in explainer_ids:
+                explainer_df = feature_df.filter(pl.col("llm_explainer") == explainer)
+                if len(explainer_df) == 0:
+                    continue
+
+                # Get scores across scorers
+                fuzz_scores = explainer_df['score_fuzz'].drop_nulls().to_list()
+                detection_scores = explainer_df['score_detection'].drop_nulls().to_list()
+
+                if len(fuzz_scores) >= 2:
+                    scorer_stds_fuzz.append(np.std(fuzz_scores, ddof=1))
+                if len(detection_scores) >= 2:
+                    scorer_stds_detection.append(np.std(detection_scores, ddof=1))
+
+                # Within-explanation consistency (normalized)
+                embedding_val = explainer_df['score_embedding'].drop_nulls().to_list()
+                embedding_val = embedding_val[0] if embedding_val else None
+
+                fuzz_val = np.mean(fuzz_scores) if fuzz_scores else None
+                detection_val = np.mean(detection_scores) if detection_scores else None
+
+                # Normalize values
+                normalized_values = []
+                if embedding_val is not None and 'embedding' in global_stats:
+                    stats = global_stats['embedding']
+                    if stats['max'] - stats['min'] > 0:
+                        normalized = (embedding_val - stats['min']) / (stats['max'] - stats['min'])
+                        normalized_values.append(normalized)
+
+                if fuzz_val is not None and 'fuzz' in global_stats:
+                    stats = global_stats['fuzz']
+                    if stats['max'] - stats['min'] > 0:
+                        normalized = (fuzz_val - stats['min']) / (stats['max'] - stats['min'])
+                        normalized_values.append(normalized)
+
+                if detection_val is not None and 'detection' in global_stats:
+                    stats = global_stats['detection']
+                    if stats['max'] - stats['min'] > 0:
+                        normalized = (detection_val - stats['min']) / (stats['max'] - stats['min'])
+                        normalized_values.append(normalized)
+
+                if len(normalized_values) >= 2:
+                    within_explanation_stds.append(np.std(normalized_values, ddof=1))
+
+            # Cross-explanation consistency (across explainers)
+            embedding_across = []
+            fuzz_across = []
+            detection_across = []
+
+            for explainer in explainer_ids:
+                explainer_df = feature_df.filter(pl.col("llm_explainer") == explainer)
+                if len(explainer_df) == 0:
+                    continue
+
+                embedding_vals = explainer_df['score_embedding'].drop_nulls().to_list()
+                if embedding_vals:
+                    embedding_across.append(embedding_vals[0])
+
+                fuzz_vals = explainer_df['score_fuzz'].drop_nulls().to_list()
+                if fuzz_vals:
+                    fuzz_across.append(np.mean(fuzz_vals))
+
+                detection_vals = explainer_df['score_detection'].drop_nulls().to_list()
+                if detection_vals:
+                    detection_across.append(np.mean(detection_vals))
+
+            if len(embedding_across) >= 2:
+                cross_explanation_stds_embedding.append(np.std(embedding_across, ddof=1))
+            if len(fuzz_across) >= 2:
+                cross_explanation_stds_fuzz.append(np.std(fuzz_across, ddof=1))
+            if len(detection_across) >= 2:
+                cross_explanation_stds_detection.append(np.std(detection_across, ddof=1))
+
+        # Compute max_stds with fallback values
+        return {
+            'scorer_fuzz': float(np.max(scorer_stds_fuzz)) if scorer_stds_fuzz else 0.5,
+            'scorer_detection': float(np.max(scorer_stds_detection)) if scorer_stds_detection else 0.5,
+            'within_explanation': float(np.max(within_explanation_stds)) if within_explanation_stds else 0.5,
+            'cross_explanation_embedding': float(np.max(cross_explanation_stds_embedding)) if cross_explanation_stds_embedding else 0.5,
+            'cross_explanation_fuzz': float(np.max(cross_explanation_stds_fuzz)) if cross_explanation_stds_fuzz else 0.5,
+            'cross_explanation_detection': float(np.max(cross_explanation_stds_detection)) if cross_explanation_stds_detection else 0.5
+        }

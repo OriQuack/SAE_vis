@@ -308,21 +308,21 @@ const VerticalBar: React.FC<VerticalBarProps> = ({ className = '' }) => {
                       className="vertical-bar__selection-overlay"
                     />
                   ))}
-
-                  {/* Scroll indicator overlay (only for selected bars) */}
-                  {data.selected && barLayout.scrollIndicator && (
-                    <rect
-                      x={barLayout.x}
-                      y={barLayout.scrollIndicator.y}
-                      width={barLayout.width}
-                      height={barLayout.scrollIndicator.height}
-                      className="vertical-bar__scroll-indicator"
-                      rx="3"
-                    />
-                  )}
                 </g>
               )
             })}
+
+            {/* Single global scroll indicator spanning all three bars */}
+            {layout.globalScrollIndicator && layout.bars.length > 0 && (
+              <rect
+                x={layout.bars[0].layout.x}
+                y={layout.globalScrollIndicator.y}
+                width={layout.bars[layout.bars.length - 1].layout.x + layout.bars[layout.bars.length - 1].layout.width - layout.bars[0].layout.x}
+                height={layout.globalScrollIndicator.height}
+                className="vertical-bar__scroll-indicator"
+                rx="3"
+              />
+            )}
 
           </svg>
         )}

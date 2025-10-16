@@ -1,0 +1,50 @@
+{
+  "created_at": "2025-10-17T01:29:34.272621",
+  "total_rows": 2471,
+  "unique_features": 824,
+  "explainers": [
+    "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+    "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+    "openai/gpt-oss-20b"
+  ],
+  "scorers": [
+    "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+    "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+    "openai/gpt-oss-20b"
+  ],
+  "global_statistics": {
+    "score_embedding": {
+      "min": 0.015625,
+      "max": 0.9879999756813049,
+      "mean": 0.4994059205055237,
+      "std": 0.1806197613477707
+    },
+    "score_fuzz": {
+      "min": 0.0,
+      "max": 1.0,
+      "mean": 0.6479650139808655,
+      "std": 0.15900766849517822
+    },
+    "score_detection": {
+      "min": 0.0,
+      "max": 1.0,
+      "mean": 0.5590797662734985,
+      "std": 0.15448401868343353
+    }
+  },
+  "max_std_values": {
+    "scorer_fuzz": 0.2886751345948129,
+    "scorer_detection": 0.2886751345948129,
+    "within_explanation": 0.47418815585621255,
+    "cross_explanation_embedding": 0.3510307957474553,
+    "cross_explanation_fuzz": 0.30426022495905874,
+    "cross_explanation_detection": 0.28580781920318515
+  },
+  "consistency_methods": {
+    "scorer_consistency": "1 - (std / max_std_actual)",
+    "within_explanation_metric_consistency": "1 - (std_normalized / max_std_normalized)",
+    "cross_explanation_consistency": "1 - (std / max_std_actual)",
+    "llm_explainer_consistency": "avg_pairwise_cosine_similarity"
+  },
+  "normalization": "Global min-max normalization for within-explanation consistency"
+}
