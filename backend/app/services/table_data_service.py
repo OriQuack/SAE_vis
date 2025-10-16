@@ -468,6 +468,19 @@ class TableDataService:
         fuzz_avg = round(sum(s for s in fuzz_scores if s is not None) / len([s for s in fuzz_scores if s is not None]), 3) if any(s is not None for s in fuzz_scores) else None
         detection_avg = round(sum(s for s in detection_scores if s is not None) / len([s for s in detection_scores if s is not None]), 3) if any(s is not None for s in detection_scores) else None
 
+        # Compute scorer consistency (CV) for each metric (same logic as individual mode)
+        fuzz_scores_list = [fuzz_dict.get("s1"), fuzz_dict.get("s2"), fuzz_dict.get("s3")]
+        detection_scores_list = [detection_dict.get("s1"), detection_dict.get("s2"), detection_dict.get("s3")]
+
+        scorer_consistency = {}
+        fuzz_cv = self.consistency.compute_inverse_cv(fuzz_scores_list)
+        if fuzz_cv:
+            scorer_consistency["fuzz"] = fuzz_cv
+
+        detection_cv = self.consistency.compute_inverse_cv(detection_scores_list)
+        if detection_cv:
+            scorer_consistency["detection"] = detection_cv
+
         # Compute metric consistency using global z-score normalization
         metric_consistency = self.consistency.compute_global_zscore_consistency(
             embedding_score, fuzz_avg, detection_avg, global_stats
@@ -498,7 +511,7 @@ class TableDataService:
             fuzz=ScorerScoreSet(s1=fuzz_dict['s1'], s2=fuzz_dict['s2'], s3=fuzz_dict['s3']),
             detection=ScorerScoreSet(s1=detection_dict['s1'], s2=detection_dict['s2'], s3=detection_dict['s3']),
             explanation_text=explanation_text,
-            scorer_consistency=None,  # Not applicable when averaged
+            scorer_consistency=scorer_consistency if scorer_consistency else None,
             metric_consistency=metric_consistency,
             explainer_consistency=explainer_consistency,
             cross_explainer_metric_consistency=cross_explainer_consistency

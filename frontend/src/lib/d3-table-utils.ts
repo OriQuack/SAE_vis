@@ -1,5 +1,6 @@
 import { scaleLinear } from 'd3-scale'
-import type { FeatureTableRow, MetricNormalizationStats } from '../types'
+import type { FeatureTableRow, MetricNormalizationStats, ConsistencyType } from '../types'
+import { CONSISTENCY_COLORS } from './constants'
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -571,11 +572,13 @@ export interface ColorBarLayout {
  *
  * @param containerWidth - Total width available for the color bar and labels
  * @param barHeight - Height of the gradient bar
+ * @param consistencyType - Type of consistency for color selection
  * @returns Layout calculations for rendering
  */
 export function calculateColorBarLayout(
   containerWidth: number = 400,
-  barHeight: number = 12
+  barHeight: number = 12,
+  consistencyType: ConsistencyType = 'none'
 ): ColorBarLayout {
   const labelWidth = 35  // Width reserved for each label ("0 Low", "1 High")
   const labelGap = 8     // Gap between label and bar
@@ -599,32 +602,54 @@ export function calculateColorBarLayout(
     leftLabelY: labelY,
     rightLabelX: containerWidth - labelWidth,
     rightLabelY: labelY,
-    gradientStops: [
-      { offset: '0%', color: '#ef4444' },   // Red (low consistency at 0)
-      { offset: '50%', color: '#eab308' },  // Yellow (medium)
-      { offset: '100%', color: '#22c55e' }  // Green (high consistency at 1)
-    ]
+    gradientStops: getConsistencyGradientStops(consistencyType)
+  }
+}
+
+/**
+ * Get consistency color gradient definition based on consistency type
+ *
+ * @param consistencyType - Type of consistency metric
+ * @returns Color gradient definition (LOW, MEDIUM, HIGH)
+ */
+function getConsistencyColorGradient(consistencyType: ConsistencyType): { LOW: string; MEDIUM: string; HIGH: string } {
+  switch (consistencyType) {
+    case 'llm_scorer_consistency':
+      return CONSISTENCY_COLORS.LLM_SCORER
+    case 'within_explanation_score':
+      return CONSISTENCY_COLORS.WITHIN_EXPLANATION
+    case 'cross_explanation_score':
+      return CONSISTENCY_COLORS.CROSS_EXPLANATION
+    case 'llm_explainer_consistency':
+      return CONSISTENCY_COLORS.LLM_EXPLAINER
+    case 'none':
+    default:
+      // Default to white (no coloring)
+      return { LOW: '#FFFFFF', MEDIUM: '#FFFFFF', HIGH: '#FFFFFF' }
   }
 }
 
 /**
  * Get color for a consistency value (0-1)
  *
- * Uses same gradient as the visualization color bar.
+ * Uses single-color gradient (white to color) based on consistency type.
  * Can be used for coloring table cells, charts, etc.
  *
  * @param value - Consistency value between 0 and 1
- * @returns RGB color string (e.g., "#22c55e")
+ * @param consistencyType - Type of consistency metric (determines color)
+ * @returns RGB color string (e.g., "#4477AA")
  */
-export function getConsistencyColor(value: number): string {
+export function getConsistencyColor(value: number, consistencyType: ConsistencyType = 'none'): string {
   // Clamp value between 0 and 1
   const clampedValue = Math.max(0, Math.min(1, value))
 
-  // Create D3 color scale
-  // 0 = red (low consistency), 0.5 = yellow, 1 = green (high consistency)
+  // Get color gradient for this consistency type
+  const gradient = getConsistencyColorGradient(consistencyType)
+
+  // Create D3 color scale: white (0) → light color (0.5) → full color (1.0)
   const colorScale = scaleLinear<string>()
     .domain([0, 0.5, 1])
-    .range(['#ef4444', '#eab308', '#22c55e'])  // Red -> Yellow -> Green
+    .range([gradient.LOW, gradient.MEDIUM, gradient.HIGH])
 
   return colorScale(clampedValue)
 }
@@ -634,13 +659,16 @@ export function getConsistencyColor(value: number): string {
  *
  * Returns array of gradient stops that can be used in SVG linearGradient
  *
+ * @param consistencyType - Type of consistency metric (determines color)
  * @returns Array of gradient stop objects
  */
-export function getConsistencyGradientStops(): Array<{ offset: string; color: string }> {
+export function getConsistencyGradientStops(consistencyType: ConsistencyType = 'none'): Array<{ offset: string; color: string }> {
+  const gradient = getConsistencyColorGradient(consistencyType)
+
   return [
-    { offset: '0%', color: '#ef4444' },   // Red (low consistency at 0)
-    { offset: '50%', color: '#eab308' },  // Yellow (medium)
-    { offset: '100%', color: '#22c55e' }  // Green (high consistency at 1)
+    { offset: '0%', color: gradient.LOW },      // White (low consistency at 0)
+    { offset: '50%', color: gradient.MEDIUM },  // Light color (medium)
+    { offset: '100%', color: gradient.HIGH }    // Full color (high consistency at 1)
   ]
 }
 

@@ -872,7 +872,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                     }
 
                     // Apply background color based on consistency
-                    const bgColor = consistency !== null ? getConsistencyColor(consistency) : 'transparent'
+                    const bgColor = consistency !== null ? getConsistencyColor(consistency, selectedConsistencyType) : 'transparent'
 
                     // Check if cell belongs to a finalized group OR a drag group
                     const finalizedGroup = getCellGroup(rowIdx, idx, row.feature_id, cellSelection.groups)

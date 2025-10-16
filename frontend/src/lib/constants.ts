@@ -206,16 +206,61 @@ export const NEUTRAL_ICON_COLORS = {
 // Based on Okabe-Ito colorblind-safe palette with custom shades
 // ============================================================================
 export const METRIC_COLORS = {
-  // Feature Splitting - Dark Bluish Green
-  FEATURE_SPLITTING: OKABE_ITO_PALETTE.BLUISH_GREEN,  
+  FEATURE_SPLITTING: OKABE_ITO_PALETTE.GRAY,
 
-  // Semantic Similarity - Medium Vermillion
-  SEMANTIC_SIMILARITY: OKABE_ITO_PALETTE.REDDISH_PURPLE + '99',  // Okabe-Ito Vermillion (medium shade)
+  SEMANTIC_SIMILARITY: OKABE_ITO_PALETTE.GRAY,
 
-  // Score metrics - Sky Blue variants
-  SCORE_FUZZ: OKABE_ITO_PALETTE.SKY_BLUE + 48,          
-  SCORE_DETECTION: OKABE_ITO_PALETTE.SKY_BLUE + 48,      
-  SCORE_EMBEDDING: OKABE_ITO_PALETTE.SKY_BLUE + '99',      
+  SCORE_FUZZ: OKABE_ITO_PALETTE.GRAY,
+  SCORE_DETECTION: OKABE_ITO_PALETTE.GRAY,
+  SCORE_EMBEDDING: OKABE_ITO_PALETTE.GRAY,
+} as const
+
+// ============================================================================
+// CONSISTENCY COLORS - Professional single-color gradients (white to color)
+// Used for visualizing consistency metrics in TablePanel
+// Based on colorblind-friendly Okabe-Ito and Paul Tol palettes
+// ============================================================================
+
+/**
+ * Consistency gradient colors: white (low) → color (high)
+ * Each consistency type has its own distinct single-color gradient using opacity
+ * Following professional visualization conference standards
+ *
+ * Uses hex color with alpha channel for systematic color blending:
+ * - LOW: 00 (0% opacity - transparent, white background shows through)
+ * - MEDIUM: 80 (50% opacity - blended with white background)
+ * - HIGH: FF (100% opacity - full color)
+ *
+ * Format: PALETTE.COLOR + hex_alpha → #RRGGBBAA
+ */
+export const CONSISTENCY_COLORS = {
+  // LLM Scorer Consistency: Sky Blue gradient (Okabe-Ito Sky Blue)
+  LLM_SCORER: {
+    LOW: OKABE_ITO_PALETTE.SKY_BLUE + '00',    // 0% opacity (transparent/white)
+    MEDIUM: OKABE_ITO_PALETTE.SKY_BLUE + '80', // 50% opacity (light blue)
+    HIGH: OKABE_ITO_PALETTE.SKY_BLUE + 'FF'    // 100% opacity (full sky blue)
+  },
+
+  // Within-explanation Score Consistency: Purple gradient (Okabe-Ito Reddish Purple)
+  WITHIN_EXPLANATION: {
+    LOW: OKABE_ITO_PALETTE.REDDISH_PURPLE + '00',    // 0% opacity (transparent/white)
+    MEDIUM: OKABE_ITO_PALETTE.REDDISH_PURPLE + '80', // 50% opacity (light purple)
+    HIGH: OKABE_ITO_PALETTE.REDDISH_PURPLE + 'FF'    // 100% opacity (full reddish purple)
+  },
+
+  // Cross-explanation Score Consistency: Orange gradient (Okabe-Ito Orange)
+  CROSS_EXPLANATION: {
+    LOW: OKABE_ITO_PALETTE.ORANGE + '00',    // 0% opacity (transparent/white)
+    MEDIUM: OKABE_ITO_PALETTE.ORANGE + '80', // 50% opacity (light orange)
+    HIGH: OKABE_ITO_PALETTE.ORANGE + 'FF'    // 100% opacity (full orange)
+  },
+
+  // LLM Explainer Consistency: Green gradient (Okabe-Ito Bluish Green)
+  LLM_EXPLAINER: {
+    LOW: OKABE_ITO_PALETTE.BLUISH_GREEN + '00',    // 0% opacity (transparent/white)
+    MEDIUM: OKABE_ITO_PALETTE.BLUISH_GREEN + '80', // 50% opacity (light green)
+    HIGH: OKABE_ITO_PALETTE.BLUISH_GREEN + 'FF'    // 100% opacity (full bluish green)
+  }
 } as const
 
 // ============================================================================
@@ -225,85 +270,13 @@ export const METRIC_COLORS = {
 // Used across: FlowPanel.tsx, HistogramPanel.tsx, d3-flow-utils.ts (3+ files)
 // ============================================================================
 export const COMPONENT_COLORS = {
-  DECODER: NEUTRAL_ICON_COLORS.ICON_FILL,
-  EXPLAINER: NEUTRAL_ICON_COLORS.ICON_FILL,  // Changed to neutral gray
-  SCORER: NEUTRAL_ICON_COLORS.ICON_FILL,     // Changed to neutral gray
-  EMBEDDER: NEUTRAL_ICON_COLORS.ICON_FILL,  
-
   // Metric-specific colors (solid, no gradients)
-  FEATURE_SPLITTING: METRIC_COLORS.FEATURE_SPLITTING,      // #006B52 - Dark bluish green
-  SEMANTIC_SIMILARITY: METRIC_COLORS.SEMANTIC_SIMILARITY,  // #D55E00 - Medium vermillion
-  SCORE_FUZZ: METRIC_COLORS.SCORE_FUZZ,                    // #87CEEB - Light sky blue
-  SCORE_DETECTION: METRIC_COLORS.SCORE_DETECTION,          // #87CEEB - Light sky blue
-  SCORE_EMBEDDING: METRIC_COLORS.SCORE_EMBEDDING,          // #56B4E9 - Medium sky blue
+  FEATURE_SPLITTING: METRIC_COLORS.FEATURE_SPLITTING,      
+  SEMANTIC_SIMILARITY: METRIC_COLORS.SEMANTIC_SIMILARITY,  
+  SCORE_FUZZ: METRIC_COLORS.SCORE_FUZZ,                    
+  SCORE_DETECTION: METRIC_COLORS.SCORE_DETECTION,          
+  SCORE_EMBEDDING: METRIC_COLORS.SCORE_EMBEDDING,        
 } as const
-
-/**
- * Get component color by type
- * @param type - Component type identifier
- * @returns Colorblind-safe color from Okabe-Ito or Paul Tol palette
- */
-export const getComponentColor = (type: 'decoder' | 'explainer' | 'scorer' | 'embedder' | 'feature_splitting'): string => {
-  const colorMap = {
-    decoder: COMPONENT_COLORS.DECODER,
-    explainer: COMPONENT_COLORS.EXPLAINER,
-    scorer: COMPONENT_COLORS.SCORER,
-    embedder: COMPONENT_COLORS.EMBEDDER,
-    feature_splitting: COMPONENT_COLORS.FEATURE_SPLITTING
-  }
-  return colorMap[type] || '#6b7280'
-}
-
-/**
- * Get metric color by type (solid colors, no gradients)
- * @param metric - Metric type identifier
- * @returns Colorblind-safe solid color
- */
-export const getMetricColor = (metric: MetricTypeValue): string => {
-  const colorMap = {
-    feature_splitting: METRIC_COLORS.FEATURE_SPLITTING,
-    semantic_similarity: METRIC_COLORS.SEMANTIC_SIMILARITY,
-    semsim_mean: METRIC_COLORS.SEMANTIC_SIMILARITY,
-    semsim_max: METRIC_COLORS.SEMANTIC_SIMILARITY,
-    score_fuzz: METRIC_COLORS.SCORE_FUZZ,
-    score_detection: METRIC_COLORS.SCORE_DETECTION,
-    score_embedding: METRIC_COLORS.SCORE_EMBEDDING,
-    score_simulation: METRIC_COLORS.SCORE_EMBEDDING,
-  }
-  return colorMap[metric] || '#6b7280'
-}
-
-/**
- * Get background color with opacity for component types
- * @param type - Component type identifier
- * @param opacity - Opacity value as hex (default: '30' for 30/255 ≈ 19%)
- * @returns Color with opacity suffix
- */
-export const getComponentBackgroundColor = (type: 'decoder' | 'explainer' | 'scorer' | 'embedder', opacity: string = '30'): string => {
-  return `${getComponentColor(type)}${opacity}`
-}
-
-// ============================================================================
-// SANKEY DIAGRAM CONFIGURATION
-// Used across: SankeyDiagram.tsx, d3-sankey-utils.ts (2+ files, visualization-specific)
-// ============================================================================
-export const SANKEY_COLORS: Record<string, string> = {
-  [CATEGORY_ROOT]: EUROVIS_PALETTE.PRIMARY_PURPLE,        // #CC79A7 - Reddish Purple
-  [CATEGORY_FEATURE_SPLITTING]: EUROVIS_PALETTE.SECONDARY_CYAN,  // #66CCEE - Cyan
-  [CATEGORY_SEMANTIC_SIMILARITY]: EUROVIS_PALETTE.PRIMARY_BLUE,    // #0072B2 - Blue
-  [CATEGORY_SCORE_AGREEMENT]: EUROVIS_PALETTE.PRIMARY_GREEN      // #009E73 - Bluish Green
-} as const
-
-// ============================================================================
-// LEGEND CONFIGURATION - Using centralized display names
-// Used across: SankeyDiagram.tsx, AlluvialDiagram.tsx (2+ files, visualization-specific)
-// ============================================================================
-export const LEGEND_ITEMS = [
-  { key: CATEGORY_ROOT, label: CATEGORY_DISPLAY_NAMES[CATEGORY_ROOT] },
-  { key: CATEGORY_FEATURE_SPLITTING, label: CATEGORY_DISPLAY_NAMES[CATEGORY_FEATURE_SPLITTING] },
-  { key: CATEGORY_SEMANTIC_SIMILARITY, label: CATEGORY_DISPLAY_NAMES[CATEGORY_SEMANTIC_SIMILARITY] },
-  { key: CATEGORY_SCORE_AGREEMENT, label: CATEGORY_DISPLAY_NAMES[CATEGORY_SCORE_AGREEMENT] }
-] as const
 
 // ============================================================================
 // LLM ICON SVG PATHS - Reusable icon definitions for LLM components

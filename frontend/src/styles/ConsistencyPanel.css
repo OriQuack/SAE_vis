@@ -53,14 +53,25 @@
   color: #374151;
 }
 
+/* Colored buttons (consistency types) - hover increases opacity */
+.consistency-panel__button.colored:hover:not(.disabled):not(.active) {
+  opacity: 0.8 !important;  /* Higher opacity on hover */
+}
+
+/* Active state for colored buttons is handled via inline styles (opacity: 1.0) */
 .consistency-panel__button.active {
+  /* Note: colored buttons use inline styles, this is for "None" button */
   background: #3b82f6;
   color: white;
   border-color: #3b82f6;
 }
 
 .consistency-panel__button.disabled {
-  opacity: 0.4;
+  /* Reset to gray styling for disabled state */
+  background: #f9fafb !important;
+  border-color: #d1d5db !important;
+  color: #6b7280 !important;
+  opacity: 0.4 !important;
   cursor: not-allowed;
 }
 

@@ -2,6 +2,7 @@ import React, { useMemo } from 'react'
 import { useVisualizationStore } from '../store'
 import type { ConsistencyType, SortBy } from '../types'
 import { calculateColorBarLayout } from '../lib/d3-table-utils'
+import { CONSISTENCY_COLORS } from '../lib/constants'
 import '../styles/ConsistencyPanel.css'
 
 // ============================================================================
@@ -71,34 +72,52 @@ const ConsistencyPanel: React.FC = () => {
       return false
     }
 
-    if (hasOnlyOneExplainer) {
-      return type === 'cross_explanation_score' || type === 'llm_explainer_consistency'
+    // LLM Scorer consistency is always available (works for any number of explainers)
+    if (type === 'llm_scorer_consistency') {
+      return false
     }
 
-    if (selectedExplainers.size > 1) {
-      return type === 'llm_scorer_consistency'
+    // Cross-explanation and LLM Explainer consistency require multiple explainers
+    if (hasOnlyOneExplainer) {
+      return type === 'cross_explanation_score' || type === 'llm_explainer_consistency'
     }
 
     return false
   }
 
-  // Calculate color bar layout
-  const colorBarLayout = useMemo(() => calculateColorBarLayout(400, 12), [])
+  // Calculate color bar layout (updates when consistency type changes)
+  const colorBarLayout = useMemo(() => calculateColorBarLayout(400, 12, selectedConsistencyType), [selectedConsistencyType])
 
   // Auto-switch from disabled consistency types when explainer count changes
   React.useEffect(() => {
     const shouldSwitch = (
-      (hasOnlyOneExplainer && (
+      hasOnlyOneExplainer && (
         selectedConsistencyType === 'cross_explanation_score' ||
         selectedConsistencyType === 'llm_explainer_consistency'
-      )) ||
-      (selectedExplainers.size > 1 && selectedConsistencyType === 'llm_scorer_consistency')
+      )
     )
 
     if (shouldSwitch) {
       setConsistencyType('none')
     }
   }, [selectedExplainers.size, selectedConsistencyType, setConsistencyType, hasOnlyOneExplainer])
+
+  // Get button color based on consistency type
+  const getButtonColor = (consistencyType: ConsistencyType): string | null => {
+    switch (consistencyType) {
+      case 'llm_scorer_consistency':
+        return CONSISTENCY_COLORS.LLM_SCORER.HIGH
+      case 'within_explanation_score':
+        return CONSISTENCY_COLORS.WITHIN_EXPLANATION.HIGH
+      case 'cross_explanation_score':
+        return CONSISTENCY_COLORS.CROSS_EXPLANATION.HIGH
+      case 'llm_explainer_consistency':
+        return CONSISTENCY_COLORS.LLM_EXPLAINER.HIGH
+      case 'none':
+      default:
+        return null
+    }
+  }
 
   // Handle consistency type click
   const handleConsistencyClick = (value: ConsistencyType) => {
@@ -140,13 +159,24 @@ const ConsistencyPanel: React.FC = () => {
           const isActive = selectedConsistencyType === option.value
           const isSorted = sortBy?.type === 'consistency' && sortBy.consistencyType === option.value
           const showSortIndicator = option.value !== 'none'
+          const buttonColor = getButtonColor(option.value)
+
+          // Compute button style based on color and active state
+          // Only apply color if button is not disabled
+          const buttonStyle: React.CSSProperties = (buttonColor && !disabled) ? {
+            backgroundColor: buttonColor,
+            borderColor: buttonColor,
+            color: 'white',
+            opacity: isActive ? 1.0 : 0.6  // Higher opacity for selectable buttons
+          } : {}
 
           return (
             <button
               key={option.id}
               className={`consistency-panel__button ${
                 isActive ? 'active' : ''
-              } ${disabled ? 'disabled' : ''}`}
+              } ${disabled ? 'disabled' : ''} ${(buttonColor && !disabled) ? 'colored' : ''}`}
+              style={buttonStyle}
               onClick={() => handleConsistencyClick(option.value)}
               disabled={disabled}
             >
@@ -167,7 +197,7 @@ const ConsistencyPanel: React.FC = () => {
           className="consistency-panel__color-bar"
         >
           <defs>
-            <linearGradient id="consistency-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <linearGradient id={`consistency-gradient-${selectedConsistencyType}`} x1="0%" y1="0%" x2="100%" y2="0%">
               {colorBarLayout.gradientStops.map((stop, idx) => (
                 <stop key={idx} offset={stop.offset} stopColor={stop.color} />
               ))}
@@ -191,7 +221,7 @@ const ConsistencyPanel: React.FC = () => {
             y={colorBarLayout.barY}
             width={colorBarLayout.barWidth}
             height={colorBarLayout.barHeight}
-            fill="url(#consistency-gradient)"
+            fill={`url(#consistency-gradient-${selectedConsistencyType})`}
             rx="2"
           />
 
