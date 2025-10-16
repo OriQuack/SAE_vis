@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { useVisualizationStore } from '../store'
-import { useResizeObserver, getSavedGroupColor } from '../lib/utils'
+import { useResizeObserver } from '../lib/utils'
 import { sortFeatures } from '../lib/table-sort-utils'
 import type { FeatureTableRow } from '../types'
 import {
@@ -49,11 +49,6 @@ const VerticalBar: React.FC<VerticalBarProps> = ({ className = '' }) => {
   // Sort state for matching table order
   const tableSortBy = useVisualizationStore(state => state.tableSortBy)
   const tableSortDirection = useVisualizationStore(state => state.tableSortDirection)
-
-  // Cell selection state for showing selections on vertical bar
-  const cellSelection = useVisualizationStore(state => state.cellSelection)
-  const activeSavedGroupId = useVisualizationStore(state => state.activeSavedGroupId)
-  const savedCellGroupSelections = useVisualizationStore(state => state.savedCellGroupSelections)
 
   // Use resize observer for responsive sizing (following project pattern)
   const { ref: containerRef, size: dimensions } = useResizeObserver<HTMLDivElement>({
@@ -138,88 +133,6 @@ const VerticalBar: React.FC<VerticalBarProps> = ({ className = '' }) => {
     )
   }, [tableData, tableSortBy, tableSortDirection])
 
-  // Calculate selection color (matching TablePanel logic exactly)
-  const selectionColor = useMemo(() => {
-    if (activeSavedGroupId) {
-      const savedGroup = savedCellGroupSelections.find(g => g.id === activeSavedGroupId)
-      if (savedGroup) {
-        return getSavedGroupColor(savedGroup.colorIndex)
-      }
-    }
-    // Default blue for unsaved selections
-    return '#3b82f6'
-  }, [activeSavedGroupId, savedCellGroupSelections])
-
-  // Prepare selection data map: explainer ID -> Array<{featureIndices, color}>
-  // Shows BOTH saved groups AND active selection
-  // IMPORTANT: Uses sortedFeatures to match table display order
-  const selectionData = useMemo(() => {
-    const selectionMap = new Map<string, Array<{ featureIndices: number[]; color: string }>>()
-
-    // First pass: Add all saved groups (each saved group is a separate array entry)
-    savedCellGroupSelections.forEach(savedGroup => {
-      const savedColor = getSavedGroupColor(savedGroup.colorIndex)
-      const groupByExplainer = new Map<string, number[]>()
-
-      // Group feature indices by explainer for this saved group
-      savedGroup.groups.forEach(group => {
-        const explainerId = group.explainerId
-
-        // Find the row index for this feature in the SORTED array
-        const featureIndex = sortedFeatures.findIndex(
-          (feature: FeatureTableRow) => feature.feature_id === group.featureId
-        )
-
-        if (featureIndex !== -1) {
-          if (!groupByExplainer.has(explainerId)) {
-            groupByExplainer.set(explainerId, [])
-          }
-          groupByExplainer.get(explainerId)!.push(featureIndex)
-        }
-      })
-
-      // Add each explainer group to the selection map
-      groupByExplainer.forEach((featureIndices, explainerId) => {
-        if (!selectionMap.has(explainerId)) {
-          selectionMap.set(explainerId, [])
-        }
-        selectionMap.get(explainerId)!.push({ featureIndices, color: savedColor })
-      })
-    })
-
-    // Second pass: Add current active selection (as a separate array entry)
-    if (cellSelection.groups && cellSelection.groups.length > 0) {
-      const activeGroupByExplainer = new Map<string, number[]>()
-
-      cellSelection.groups.forEach(group => {
-        const explainerId = group.explainerId
-
-        // Find the row index for this feature in the SORTED array
-        // This ensures vertical bar positions match table display order
-        const featureIndex = sortedFeatures.findIndex(
-          (feature: FeatureTableRow) => feature.feature_id === group.featureId
-        )
-
-        if (featureIndex !== -1) {
-          if (!activeGroupByExplainer.has(explainerId)) {
-            activeGroupByExplainer.set(explainerId, [])
-          }
-          activeGroupByExplainer.get(explainerId)!.push(featureIndex)
-        }
-      })
-
-      // Add active selection groups to the selection map
-      activeGroupByExplainer.forEach((featureIndices, explainerId) => {
-        if (!selectionMap.has(explainerId)) {
-          selectionMap.set(explainerId, [])
-        }
-        selectionMap.get(explainerId)!.push({ featureIndices, color: selectionColor })
-      })
-    }
-
-    return selectionMap.size > 0 ? selectionMap : undefined
-  }, [savedCellGroupSelections, cellSelection.groups, sortedFeatures, selectionColor])
-
   // Calculate layout using D3 utilities (following project pattern)
   const layout: MultiBarLayout = useMemo(() => {
     if (dimensions.width === 0 || dimensions.height === 0) {
@@ -227,7 +140,8 @@ const VerticalBar: React.FC<VerticalBarProps> = ({ className = '' }) => {
         width: 0,
         height: 0,
         bars: [],
-        maxCount: 0
+        maxCount: 0,
+        globalScrollIndicator: null
       }
     }
 
@@ -239,10 +153,10 @@ const VerticalBar: React.FC<VerticalBarProps> = ({ className = '' }) => {
       dimensions.height,
       { top: 30, bottom: 50, left: 10, right: 10 },
       tableScrollState,
-      selectionData,
+      undefined, // No selection data in simplified table
       sortedFeatures.length
     )
-  }, [explainerData, dimensions.width, dimensions.height, tableScrollState, selectionData, sortedFeatures.length])
+  }, [explainerData, dimensions.width, dimensions.height, tableScrollState, sortedFeatures.length])
 
   return (
     <div
@@ -293,21 +207,6 @@ const VerticalBar: React.FC<VerticalBarProps> = ({ className = '' }) => {
                     opacity={data.selected ? 0.7 : 0.3}
                     rx="3"
                   />
-
-                  {/* Selection segment overlays */}
-                  {barLayout.selectionSegments.map((segment, segmentIndex) => (
-                    <rect
-                      key={`selection-${data.id}-${segmentIndex}`}
-                      x={barLayout.x}
-                      y={segment.y}
-                      width={barLayout.width}
-                      height={segment.height}
-                      fill={segment.color}
-                      opacity={0.6}
-                      rx="3"
-                      className="vertical-bar__selection-overlay"
-                    />
-                  ))}
                 </g>
               )
             })}

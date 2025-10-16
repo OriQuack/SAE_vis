@@ -1,23 +1,12 @@
-import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react'
-import { createPortal } from 'react-dom'
+import React, { useEffect, useRef, useMemo } from 'react'
 import { useVisualizationStore } from '../store'
-import type { FeatureTableDataResponse, FeatureTableRow, SortBy } from '../types'
+import type { FeatureTableDataResponse, FeatureTableRow } from '../types'
 import {
-  buildHeaderStructure,
-  buildMetricFirstHeaderStructure,
-  getConsistencyForCell,
+  calculateOverallScore,
+  calculateOverallConsistency,
   getConsistencyColor,
-  extractCellScoreCircles,
-  type HeaderStructure
+  getOverallScoreColor
 } from '../lib/d3-table-utils'
-import {
-  createCellGroup,
-  getCellGroup,
-  getExplainerForColumnIndex,
-  findGroupByKey,
-  findGroupsInRectangle
-} from '../lib/table-selection-utils'
-import { getSavedGroupColor } from '../lib/utils'
 import { sortFeatures } from '../lib/table-sort-utils'
 import '../styles/TablePanel.css'
 
@@ -34,53 +23,15 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const leftPanel = useVisualizationStore(state => state.leftPanel)
   const rightPanel = useVisualizationStore(state => state.rightPanel)
   const fetchTableData = useVisualizationStore(state => state.fetchTableData)
-  const selectedConsistencyType = useVisualizationStore(state => state.selectedConsistencyType)
   const setTableScrollState = useVisualizationStore(state => state.setTableScrollState)
   const isLoading = useVisualizationStore(state => state.loading.table)
 
-  const [headerStructure, setHeaderStructure] = useState<HeaderStructure | null>(null)
   const tableContainerRef = useRef<HTMLDivElement>(null)
 
   // Sorting state from store
   const sortBy = useVisualizationStore(state => state.tableSortBy)
   const sortDirection = useVisualizationStore(state => state.tableSortDirection)
   const setTableSort = useVisualizationStore(state => state.setTableSort)
-
-  // Cell selection state from store
-  const cellSelection = useVisualizationStore(state => state.cellSelection)
-  const setCellSelection = useVisualizationStore(state => state.setCellSelection)
-  const toggleCellGroup = useVisualizationStore(state => state.toggleCellGroup)
-  const clearCellSelection = useVisualizationStore(state => state.clearCellSelection)
-
-  // Saved cell group selection state from store
-  const activeSavedGroupId = useVisualizationStore(state => state.activeSavedGroupId)
-  const savedCellGroupSelections = useVisualizationStore(state => state.savedCellGroupSelections)
-  const showCellGroupNameInput = useVisualizationStore(state => state.showCellGroupNameInput)
-  const startSavingCellGroups = useVisualizationStore(state => state.startSavingCellGroups)
-  const finishSavingCellGroups = useVisualizationStore(state => state.finishSavingCellGroups)
-  const updateSavedCellGroups = useVisualizationStore(state => state.updateSavedCellGroups)
-  const cancelSavingCellGroups = useVisualizationStore(state => state.cancelSavingCellGroups)
-
-  // Local drag state
-  const [isDragging, setIsDragging] = useState(false)
-  const [dragMode, setDragMode] = useState<'union' | 'difference' | null>(null)
-
-  // Local state for name input
-  const [groupName, setGroupName] = useState('')
-
-  // Local state for "saved" message
-  const [showSavedMessage, setShowSavedMessage] = useState(false)
-
-  // Calculate active saved group and its color
-  const activeSavedGroup = useMemo(() => {
-    if (!activeSavedGroupId) return null
-    return savedCellGroupSelections.find(g => g.id === activeSavedGroupId) || null
-  }, [activeSavedGroupId, savedCellGroupSelections])
-
-  const savedGroupColor = useMemo(() => {
-    if (!activeSavedGroup) return null
-    return getSavedGroupColor(activeSavedGroup.colorIndex)
-  }, [activeSavedGroup])
 
   // Get selected LLM explainers (needed for disabled logic)
   const selectedExplainers = new Set<string>()
@@ -91,52 +42,23 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     rightPanel.filters.llm_explainer.forEach(e => selectedExplainers.add(e))
   }
 
-  // Calculate if scores are averaged and column count for table key (must be before early returns)
-  const isAveraged = tableData ? tableData.is_averaged || false : false
-  const columnCount = useMemo(() => {
-    if (!tableData) return 0
-    const numExplainers = tableData.explainer_ids.length
-    const numScorers = tableData.scorer_ids.length
-
-    if (isAveraged) {
-      // Averaged mode: 4 columns per explainer (explanation, embedding, fuzz, detection)
-      return numExplainers * 4
-    } else {
-      // Individual scorer mode: 1 explanation + 1 embedding + numScorers fuzz + numScorers detection
-      return numExplainers * (2 + numScorers * 2)
-    }
-  }, [tableData, isAveraged])
-
-  // Handle sort click
-  const handleSort = (newSortBy: SortBy) => {
-    // If same sort target, cycle through: null → asc → desc → null
-    if (JSON.stringify(sortBy) === JSON.stringify(newSortBy)) {
+  // Handle sort click (simplified for new table structure)
+  const handleSort = (sortKey: 'featureId' | 'overallScore' | 'overallConsistency') => {
+    // Cycle through: null → asc → desc → null
+    if (sortBy === sortKey) {
       if (sortDirection === null) {
-        setTableSort(newSortBy, 'asc')
+        setTableSort(sortKey, 'asc')
       } else if (sortDirection === 'asc') {
-        setTableSort(newSortBy, 'desc')
+        setTableSort(sortKey, 'desc')
       } else {
         // Reset to no sort
         setTableSort(null, null)
       }
     } else {
       // New sort target, start with ascending
-      setTableSort(newSortBy, 'asc')
+      setTableSort(sortKey, 'asc')
     }
   }
-
-  // Tooltip state (reserved for future use)
-  const [tooltip] = useState<{
-    visible: boolean
-    text: string
-    x: number
-    y: number
-  }>({
-    visible: false,
-    text: '',
-    x: 0,
-    y: 0
-  })
 
   // Fetch data when component mounts or when filters change
   useEffect(() => {
@@ -149,22 +71,6 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     rightPanel.filters.llm_scorer
   ])
 
-  // Build header structure when table data changes or consistency type changes
-  useEffect(() => {
-    if (tableData && tableData.explainer_ids.length > 0) {
-      const isAveraged = tableData.is_averaged || false
-      const scorerIds = tableData.scorer_ids || []
-
-      // Use metric-first structure for cross-explanation consistency
-      const structure = selectedConsistencyType === 'cross_explanation_score'
-        ? buildMetricFirstHeaderStructure(tableData.explainer_ids, isAveraged)
-        : buildHeaderStructure(tableData.explainer_ids, isAveraged, scorerIds)
-
-      setHeaderStructure(structure)
-    } else {
-      setHeaderStructure(null)
-    }
-  }, [tableData, selectedConsistencyType])
 
   // Track scroll position for vertical bar scroll indicator
   // Professional approach: Observe inner <table> element that grows when rows are added
@@ -315,30 +221,10 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
       // Clean up all retry/mutation timeouts
       cleanupTimeouts.forEach(timeoutId => clearTimeout(timeoutId))
     }
-  }, [setTableScrollState, tableData?.features.length, headerStructure])
-
-  // Tooltip handlers (reserved for future use with hover tooltips)
-  // const handleMouseEnter = (event: React.MouseEvent<HTMLTableCellElement>, fullName: string) => {
-  //   const rect = event.currentTarget.getBoundingClientRect()
-  //   setTooltip({
-  //     visible: true,
-  //     text: fullName,
-  //     x: rect.left + rect.width / 2,
-  //     y: rect.top - 10
-  //   })
-  // }
-
-  // const handleMouseLeave = () => {
-  //   setTooltip({
-  //     visible: false,
-  //     text: '',
-  //     x: 0,
-  //     y: 0
-  //   })
-  // }
+  }, [setTableScrollState, tableData?.features.length])
 
   // ============================================================================
-  // SORTED FEATURES (MUST BE BEFORE HANDLERS THAT USE IT)
+  // SORTED FEATURES
   // ============================================================================
 
   // Sort features based on current sort settings (using shared utility)
@@ -350,259 +236,6 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
       tableData
     )
   }, [tableData, sortBy, sortDirection])
-
-  // ============================================================================
-  // DRAG GROUPS CALCULATION (Real-time group preview during drag)
-  // ============================================================================
-
-  /**
-   * Calculate groups being dragged in real-time
-   * This shows group-level preview during drag before finalization
-   */
-  const dragGroups = useMemo(() => {
-    if (
-      !isDragging ||
-      !tableData ||
-      !headerStructure ||
-      cellSelection.startRow === null ||
-      cellSelection.startCol === null ||
-      cellSelection.endRow === null ||
-      cellSelection.endCol === null
-    ) {
-      return []
-    }
-
-    return findGroupsInRectangle(
-      cellSelection.startRow,
-      cellSelection.startCol,
-      cellSelection.endRow,
-      cellSelection.endCol,
-      sortedFeatures,
-      headerStructure,
-      isAveraged
-    )
-  }, [
-    isDragging,
-    tableData,
-    headerStructure,
-    cellSelection.startRow,
-    cellSelection.startCol,
-    cellSelection.endRow,
-    cellSelection.endCol,
-    sortedFeatures,
-    isAveraged
-  ])
-
-  // ============================================================================
-  // CELL SELECTION HANDLERS (Click + Drag with Group-Level Selection)
-  // ============================================================================
-
-  /**
-   * Handle mouse down on cell - start drag selection
-   */
-  const handleCellMouseDown = useCallback((rowIndex: number, colIndex: number) => {
-    if (!tableData || !headerStructure) return
-
-    // Determine drag mode based on starting cell
-    const featureRow = sortedFeatures[rowIndex]
-    if (!featureRow) return
-
-    const featureId = featureRow.feature_id
-    const explainerId = getExplainerForColumnIndex(colIndex, headerStructure, isAveraged)
-    if (!explainerId) return
-
-    // Check if starting cell's group is already selected
-    const startingGroup = findGroupByKey(featureId, explainerId, cellSelection.groups)
-    const mode = startingGroup ? 'difference' : 'union'
-    setDragMode(mode)
-
-    // Start drag selection
-    setCellSelection({
-      ...cellSelection,
-      startRow: rowIndex,
-      startCol: colIndex,
-      endRow: rowIndex,
-      endCol: colIndex
-    })
-
-    setIsDragging(true)
-  }, [tableData, headerStructure, cellSelection, setCellSelection, sortedFeatures, isAveraged])
-
-  /**
-   * Handle mouse enter on cell - update drag selection rectangle
-   */
-  const handleCellMouseEnter = useCallback((rowIndex: number, colIndex: number) => {
-    if (!isDragging) return
-
-    // Update end position
-    setCellSelection({
-      ...cellSelection,
-      endRow: rowIndex,
-      endCol: colIndex
-    })
-  }, [isDragging, cellSelection, setCellSelection])
-
-  /**
-   * Handle mouse up - finalize selection with group-level logic
-   */
-  const handleCellMouseUp = useCallback(() => {
-    if (!isDragging) return
-    if (!tableData || !headerStructure) return
-    if (
-      cellSelection.startRow === null ||
-      cellSelection.startCol === null ||
-      cellSelection.endRow === null ||
-      cellSelection.endCol === null
-    ) {
-      setIsDragging(false)
-      return
-    }
-
-    // Check if this was a click (no movement) or a drag
-    const isClick =
-      cellSelection.startRow === cellSelection.endRow &&
-      cellSelection.startCol === cellSelection.endCol
-
-    if (isClick) {
-      // Click: Toggle single group
-      const rowIndex = cellSelection.startRow
-      const colIndex = cellSelection.startCol
-
-      const featureRow = sortedFeatures[rowIndex]
-      if (!featureRow) {
-        setIsDragging(false)
-        setCellSelection({
-          ...cellSelection,
-          startRow: null,
-          startCol: null,
-          endRow: null,
-          endCol: null
-        })
-        return
-      }
-      const featureId = featureRow.feature_id
-
-      const explainerId = getExplainerForColumnIndex(colIndex, headerStructure, isAveraged)
-      if (!explainerId) {
-        setIsDragging(false)
-        setCellSelection({
-          ...cellSelection,
-          startRow: null,
-          startCol: null,
-          endRow: null,
-          endCol: null
-        })
-        return
-      }
-
-      // Check if group already selected
-      const existingGroup = findGroupByKey(featureId, explainerId, cellSelection.groups)
-
-      if (existingGroup) {
-        // Toggle off
-        toggleCellGroup(existingGroup)
-      } else {
-        // Toggle on - create new group
-        const newGroup = createCellGroup(
-          featureId,
-          explainerId,
-          headerStructure,
-          isAveraged,
-          cellSelection.groups.length
-        )
-        toggleCellGroup(newGroup)
-      }
-
-      // Clear only drag state fields (toggleCellGroup already updated groups)
-      // Get current state from store to avoid overwriting the groups that were just updated
-      const currentState = useVisualizationStore.getState()
-      setCellSelection({
-        ...currentState.cellSelection,
-        startRow: null,
-        startCol: null,
-        endRow: null,
-        endCol: null
-      })
-      setIsDragging(false)
-    } else {
-      // Drag: Find all groups in rectangle
-      const draggedGroups = findGroupsInRectangle(
-        cellSelection.startRow,
-        cellSelection.startCol,
-        cellSelection.endRow,
-        cellSelection.endCol,
-        sortedFeatures,
-        headerStructure,
-        isAveraged
-      )
-
-      const currentGroups = cellSelection.groups
-
-      // Smart multi-selection logic based on where drag started:
-      // - Started in unselected group → Union mode (add all dragged groups)
-      // - Started in selected group → Difference mode (remove all dragged groups)
-      let finalGroups: typeof currentGroups
-
-      if (dragMode === 'union') {
-        // Union: Keep all current groups + add new dragged groups (deduplicated)
-        const existingIds = new Set(currentGroups.map(g => g.id))
-        const newGroups = draggedGroups.filter(dg => !existingIds.has(dg.id))
-        finalGroups = [...currentGroups, ...newGroups]
-      } else {
-        // Difference: Remove dragged groups from current, keep others
-        const draggedIds = new Set(draggedGroups.map(dg => dg.id))
-        finalGroups = currentGroups.filter(cg => !draggedIds.has(cg.id))
-      }
-
-      // Set the selected groups with smart selection logic
-      setCellSelection({
-        groups: finalGroups,
-        startRow: null,
-        startCol: null,
-        endRow: null,
-        endCol: null
-      })
-    }
-
-    setIsDragging(false)
-    setDragMode(null)
-  }, [
-    isDragging,
-    cellSelection,
-    tableData,
-    headerStructure,
-    sortedFeatures,
-    isAveraged,
-    setCellSelection,
-    toggleCellGroup,
-    clearCellSelection,
-    dragMode
-  ])
-
-  /**
-   * Handle mouse leave from table - cancel selection
-   */
-  const handleTableMouseLeave = useCallback(() => {
-    if (isDragging) {
-      setIsDragging(false)
-      setDragMode(null)
-      clearCellSelection()
-    }
-  }, [isDragging, clearCellSelection])
-
-  // Global mouse up listener to handle mouse up outside table
-  useEffect(() => {
-    if (!isDragging) return
-
-    const handleGlobalMouseUp = () => {
-      handleCellMouseUp()
-    }
-
-    document.addEventListener('mouseup', handleGlobalMouseUp)
-    return () => {
-      document.removeEventListener('mouseup', handleGlobalMouseUp)
-    }
-  }, [isDragging, handleCellMouseUp])
 
   // If no data or no explainers selected
   if (!tableData || !tableData.features || tableData.features.length === 0 || selectedExplainers.size === 0) {
@@ -617,45 +250,10 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     )
   }
 
-  if (!headerStructure) {
-    return (
-      <div className={`table-panel${className ? ` ${className}` : ''}`}>
-        <div className="table-panel__content" ref={tableContainerRef}>
-          <p className="table-panel__placeholder">
-            Loading...
-          </p>
-        </div>
-      </div>
-    )
-  }
+  // Get list of explainer IDs for iteration
+  const explainerIds = tableData.explainer_ids || []
 
-  // Determine which header rows should be highlighted based on selected consistency type
-  const getHighlightedRows = (): { row1: boolean; row2: boolean; row3: boolean } => {
-    switch (selectedConsistencyType) {
-      case 'none':
-        // No consistency: no highlighting
-        return { row1: false, row2: false, row3: false }
-      case 'llm_scorer_consistency':
-        // LLM Scorer: highlights row 3 (scorer labels)
-        return { row1: false, row2: false, row3: true }
-      case 'within_explanation_score':
-        // Within-explanation: highlights row 2 (metric names in normal view)
-        return { row1: false, row2: true, row3: false }
-      case 'cross_explanation_score':
-        // Cross-explanation: In reordered view, row 1 = metrics, row 2 = explainers
-        // Highlight row 2 (explainers) since we're comparing across explainers
-        return { row1: false, row2: true, row3: false }
-      case 'llm_explainer_consistency':
-        // LLM Explainer: highlights row 1 (explainer names in normal view)
-        return { row1: true, row2: false, row3: false }
-      default:
-        return { row1: false, row2: false, row3: false }
-    }
-  }
-
-  const highlightedRows = getHighlightedRows()
-
-  // Render table with conditional 2-row or 3-row header
+  // Render new simplified table with 3 sub-rows per feature
   return (
     <div className={`table-panel${className ? ` ${className}` : ''}`}>
       {/* Loading Overlay */}
@@ -669,410 +267,159 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
         className={`table-panel__content ${isLoading ? 'loading' : ''}`}
         ref={tableContainerRef}
       >
-        <table
-          className={`table-panel__table ${isDragging ? 'selecting' : ''}`}
-          key={`table-${columnCount}-${tableData?.scorer_ids.length || 0}`}
-        >
+        <table className="table-panel__table table-panel__table--simple">
           <thead className="table-panel__thead">
-            {/* Row 1: Dynamic (Explainers or Metrics depending on view) */}
-            <tr className={`table-panel__header-row-1 ${highlightedRows.row1 ? 'highlighted' : ''}`}>
-              <th className="table-panel__feature-id-header" rowSpan={isAveraged ? 2 : 3}>
+            <tr className="table-panel__header-row">
+              <th
+                className="table-panel__header-cell table-panel__header-cell--id"
+                onClick={() => handleSort('featureId')}
+              >
                 ID
+                {sortBy === 'featureId' && (
+                  <span className={`table-panel__sort-indicator ${sortDirection || ''}`} />
+                )}
               </th>
-              {headerStructure.row1.map((cell, idx) => {
-                const cellClass = cell.type === 'metric'
-                  ? 'table-panel__metric-header'
-                  : 'table-panel__explainer-header'
-                return (
-                  <th
-                    key={`row1-${idx}`}
-                    colSpan={cell.colSpan}
-                    className={`${cellClass} ${highlightedRows.row1 ? 'highlighted' : ''}`}
-                  >
-                    {cell.type === 'explainer' ? (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                        <span style={{ fontSize: '12px' }}>💬</span>
-                        <span>{cell.label}</span>
-                      </div>
-                    ) : (
-                      cell.label
-                    )}
-                  </th>
-                )
-              })}
+              <th className="table-panel__header-cell table-panel__header-cell--explainer">
+                LLM Explainer
+              </th>
+              <th
+                className="table-panel__header-cell table-panel__header-cell--score"
+                onClick={() => handleSort('overallScore')}
+              >
+                Overall Score
+                {sortBy === 'overallScore' && (
+                  <span className={`table-panel__sort-indicator ${sortDirection || ''}`} />
+                )}
+              </th>
+              <th
+                className="table-panel__header-cell table-panel__header-cell--consistency"
+                onClick={() => handleSort('overallConsistency')}
+              >
+                Overall Consistency
+                {sortBy === 'overallConsistency' && (
+                  <span className={`table-panel__sort-indicator ${sortDirection || ''}`} />
+                )}
+              </th>
+              <th className="table-panel__header-cell table-panel__header-cell--explanation">
+                Explanation
+              </th>
+              <th className="table-panel__header-cell table-panel__header-cell--empty">
+                {/* Empty column for future use */}
+              </th>
             </tr>
-
-            {/* Row 2: Dynamic (Metrics or Explainers depending on view) */}
-            <tr className={`table-panel__header-row-2 ${highlightedRows.row2 ? 'highlighted' : ''}`}>
-              {headerStructure.row2.map((cell, idx) => {
-                const cellClass = cell.type === 'metric'
-                  ? 'table-panel__metric-header'
-                  : 'table-panel__explainer-header'
-
-                // Check if this column is sortable (has explainerId and metricType, excluding explanation)
-                const isSortable = cell.explainerId && cell.metricType && cell.metricType !== 'explanation'
-                // Check if currently sorted
-                const isSorted = isSortable && sortBy?.type === 'column' &&
-                  sortBy.explainerId === cell.explainerId &&
-                  sortBy.metricType === cell.metricType &&
-                  !sortBy.scorerId // Row2 cells don't have scorerId
-
-                return (
-                  <th
-                    key={`row2-${idx}`}
-                    colSpan={cell.colSpan}
-                    className={`${cellClass} ${highlightedRows.row2 ? 'highlighted' : ''} ${isSortable ? 'table-panel__sortable-header' : ''}`}
-                    onClick={() => {
-                      if (isSortable && cell.metricType !== 'explanation') {
-                        handleSort({
-                          type: 'column',
-                          explainerId: cell.explainerId!,
-                          metricType: cell.metricType as 'embedding' | 'fuzz' | 'detection',
-                          scorerId: undefined
-                        })
-                      }
-                    }}
-                  >
-                    {cell.type === 'explainer' ? (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                        <span style={{ fontSize: '12px' }}>💬</span>
-                        <span>{cell.label}</span>
-                        {isSortable && (
-                          <span className={`table-panel__sort-indicator ${isSorted ? 'active' : ''} ${sortDirection || ''}`} />
-                        )}
-                      </div>
-                    ) : (
-                      <>
-                        {cell.label}
-                        {isSortable && (
-                          <span className={`table-panel__sort-indicator ${isSorted ? 'active' : ''} ${sortDirection || ''}`} />
-                        )}
-                      </>
-                    )}
-                  </th>
-                )
-              })}
-            </tr>
-
-            {/* Row 3: Scorer labels (only shown when not averaged) */}
-            {!isAveraged && (
-              <tr className={`table-panel__header-row-3 ${highlightedRows.row3 ? 'highlighted' : ''}`}>
-                {headerStructure.row3.map((cell, idx) => {
-                  // Check if this column is sortable (exclude embedding and explanation)
-                  const isSortable = cell.explainerId && cell.metricType && cell.metricType !== 'embedding' && cell.metricType !== 'explanation'
-                  // Check if currently sorted
-                  const isSorted = isSortable && sortBy?.type === 'column' &&
-                    sortBy.explainerId === cell.explainerId &&
-                    sortBy.metricType === cell.metricType &&
-                    sortBy.scorerId === cell.scorerId
-
-                  // Check if this is an embedding scorer cell (empty cell that needs diagonal line)
-                  const isEmbeddingScorer = cell.metricType === 'embedding'
-
-                  return (
-                    <th
-                      key={`scorer-${idx}`}
-                      className={`table-panel__scorer-header ${highlightedRows.row3 ? 'highlighted' : ''} ${isSortable ? 'table-panel__sortable-header' : ''} ${isEmbeddingScorer ? 'table-panel__scorer-header--empty' : ''}`}
-                      onClick={() => {
-                        if (isSortable && cell.metricType !== 'explanation') {
-                          handleSort({
-                            type: 'column',
-                            explainerId: cell.explainerId!,
-                            metricType: cell.metricType as 'embedding' | 'fuzz' | 'detection',
-                            scorerId: cell.scorerId
-                          })
-                        }
-                      }}
-                    >
-                      {cell.type === 'scorer' && cell.label && !isEmbeddingScorer ? (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1px' }}>
-                          <span style={{ fontSize: '10px' }}>🎯</span>
-                          <span>{cell.label}</span>
-                          {isSortable && (
-                            <span className={`table-panel__sort-indicator ${isSorted ? 'active' : ''} ${sortDirection || ''}`} />
-                          )}
-                        </div>
-                      ) : (
-                        <>
-                          {cell.label}
-                          {isSortable && (
-                            <span className={`table-panel__sort-indicator ${isSorted ? 'active' : ''} ${sortDirection || ''}`} />
-                          )}
-                        </>
-                      )}
-                    </th>
-                  )
-                })}
-              </tr>
-            )}
           </thead>
 
-          <tbody className="table-panel__tbody" onMouseLeave={handleTableMouseLeave}>
-            {sortedFeatures.map((row: FeatureTableRow, rowIdx: number) => {
-              // Calculate number of columns for iteration
-              const numColumns = selectedConsistencyType === 'cross_explanation_score'
-                ? tableData.explainer_ids.length * 3  // Metric-first: 3 metrics × N explainers (no explanation in metric-first view)
-                : isAveraged
-                  ? tableData.explainer_ids.length * 4  // Averaged: 4 columns per explainer (explanation + embedding + fuzz + detection)
-                  : tableData.explainer_ids.length * (2 + tableData.scorer_ids.length * 2)  // Individual: 1 expl + 1 emb + N fuzz + N det
+          <tbody className="table-panel__tbody">
+            {sortedFeatures.map((featureRow: FeatureTableRow) => (
+              <React.Fragment key={featureRow.feature_id}>
+                {explainerIds.map((explainerId, explainerIdx) => {
+                  const explainerData = featureRow.explainers[explainerId]
+                  if (!explainerData) return null
 
-              return (
-                <tr key={row.feature_id} className="table-panel__feature-row">
-                  <td className="table-panel__feature-id-cell">
-                    {row.feature_id}
-                  </td>
-                  {Array.from({ length: numColumns }).map((_, idx) => {
-                    // Determine which header cell this column belongs to
-                    const headerCell = !isAveraged && headerStructure.row3.length > 0
-                      ? headerStructure.row3[idx]
-                      : headerStructure.row2[idx]
+                  // Calculate overall score
+                  const overallScore = calculateOverallScore(
+                    explainerData.embedding,
+                    explainerData.fuzz,
+                    explainerData.detection,
+                    tableData.global_stats
+                  )
 
-                    // Check if this is an explanation column
-                    const isExplanationColumn = headerCell?.metricType === 'explanation'
+                  // Calculate overall consistency
+                  const overallConsistency = calculateOverallConsistency(featureRow, explainerId)
 
-                    // For explanation columns, extract explanation text
-                    let explanationText: string | null = null
-                    if (isExplanationColumn && headerCell?.explainerId) {
-                      const explainerData = row.explainers[headerCell.explainerId]
-                      explanationText = explainerData?.explanation_text || null
-                    }
+                  // Get colors for score and consistency
+                  const scoreColor = overallScore !== null
+                    ? getOverallScoreColor(overallScore)
+                    : 'transparent'
+                  const consistencyColor = overallConsistency !== null
+                    ? getConsistencyColor(overallConsistency, 'llm_scorer_consistency')
+                    : 'transparent'
 
-                    // Extract circles for score cells
-                    const circles = !isExplanationColumn && tableData.global_stats
-                      ? extractCellScoreCircles(row, idx, headerStructure, tableData.global_stats, isAveraged)
-                      : []
+                  // Get explanation text
+                  const explanationText = explainerData.explanation_text || '-'
 
-                    // Determine which cell this score belongs to using header structure
-                    // Use row3 for scorer-specific cells, row2 for metric cells
-                    let consistency: number | null = null
+                  return (
+                    <tr
+                      key={`${featureRow.feature_id}-${explainerId}`}
+                      className={`table-panel__sub-row ${explainerIdx === 0 ? 'table-panel__sub-row--first' : ''}`}
+                    >
+                      {/* Feature ID - only show on first sub-row */}
+                      {explainerIdx === 0 && (
+                        <td
+                          className="table-panel__cell table-panel__cell--id"
+                          rowSpan={explainerIds.length}
+                        >
+                          {featureRow.feature_id}
+                        </td>
+                      )}
 
-                    // Map score index to header cell for consistency lookup
-                    if (!isAveraged && headerStructure.row3.length > 0) {
-                      // 3-row header: row3 has scorer-level cells
-                      const headerCell = headerStructure.row3[idx]
-                      if (headerCell && headerCell.explainerId && headerCell.metricType && headerCell.metricType !== 'explanation') {
-                        consistency = getConsistencyForCell(
-                          row,
-                          headerCell.explainerId,
-                          headerCell.metricType as 'embedding' | 'fuzz' | 'detection',
-                          selectedConsistencyType
-                        )
-                      }
-                    } else if (headerStructure.row2.length > 0) {
-                      // 2-row header: row2 has metric-level cells
-                      const headerCell = headerStructure.row2[idx]
-                      if (headerCell && headerCell.explainerId && headerCell.metricType && headerCell.metricType !== 'explanation') {
-                        consistency = getConsistencyForCell(
-                          row,
-                          headerCell.explainerId,
-                          headerCell.metricType as 'embedding' | 'fuzz' | 'detection',
-                          selectedConsistencyType
-                        )
-                      }
-                    }
+                      {/* LLM Explainer name */}
+                      <td className="table-panel__cell table-panel__cell--explainer">
+                        {explainerId}
+                      </td>
 
-                    // Apply background color based on consistency
-                    const bgColor = consistency !== null ? getConsistencyColor(consistency, selectedConsistencyType) : 'transparent'
-
-                    // Check if cell belongs to a finalized group OR a drag group
-                    const finalizedGroup = getCellGroup(rowIdx, idx, row.feature_id, cellSelection.groups)
-                    const dragGroup = getCellGroup(rowIdx, idx, row.feature_id, dragGroups)
-
-                    // Determine drag state for styling based on drag mode
-                    const isDraggingUnion = dragGroup && dragMode === 'union'  // Union mode: blue (will add)
-                    const isDraggingDifference = dragGroup && dragMode === 'difference'  // Difference mode: red (will remove)
-                    const isFinalized = finalizedGroup && !dragGroup  // Finalized selection (not being dragged)
-
-                    const cellGroup = finalizedGroup || dragGroup
-
-                    // Determine edge positions for group border rectangle
-                    let isLeftEdge = false
-                    let isRightEdge = false
-                    if (cellGroup) {
-                      const minColIndex = Math.min(...cellGroup.cellIndices)
-                      const maxColIndex = Math.max(...cellGroup.cellIndices)
-                      isLeftEdge = idx === minColIndex
-                      isRightEdge = idx === maxColIndex
-                    }
-
-                    // Determine border color based on state
-                    const borderColor = isFinalized && savedGroupColor
-                      ? savedGroupColor  // Use saved group's specific color when a saved group is active
-                      : isFinalized
-                        ? '#3b82f6'  // Default blue for finalized selections without saved group
-                        : isDraggingUnion
-                          ? '#3b82f6'  // Blue for new selections (union mode)
-                          : isDraggingDifference
-                            ? '#ef4444'  // Red for removals (difference mode)
-                            : null
-
-                    // Build dynamic box-shadow for borders
-                    const boxShadowParts: string[] = []
-                    if (cellGroup && borderColor) {
-                      if (isLeftEdge) boxShadowParts.push(`inset 3px 0 0 0 ${borderColor}`)
-                      if (isRightEdge) boxShadowParts.push(`inset -3px 0 0 0 ${borderColor}`)
-                      // All cells in group get top and bottom borders
-                      boxShadowParts.push(`inset 0 3px 0 0 ${borderColor}`)
-                      boxShadowParts.push(`inset 0 -3px 0 0 ${borderColor}`)
-                    }
-                    const boxShadow = boxShadowParts.length > 0 ? boxShadowParts.join(', ') : undefined
-
-                    return (
+                      {/* Overall score (color-coded circle) */}
                       <td
-                        key={`${row.feature_id}-${idx}`}
-                        className={isExplanationColumn ? "table-panel__explanation-cell" : "table-panel__score-cell"}
-                        style={{
-                          backgroundColor: bgColor,
-                          boxShadow: boxShadow
-                        }}
-                        onMouseDown={() => handleCellMouseDown(rowIdx, idx)}
-                        onMouseEnter={() => handleCellMouseEnter(rowIdx, idx)}
-                        title={isExplanationColumn && explanationText ? explanationText : undefined}
+                        className="table-panel__cell table-panel__cell--score"
+                        title={overallScore !== null ? `Overall Score: ${overallScore.toFixed(3)}` : 'No score data'}
                       >
-                        {isExplanationColumn ? (
-                          explanationText ? (
-                            <div className="explanation-text">
-                              {explanationText}
-                            </div>
-                          ) : (
-                            <span className="score-placeholder">-</span>
-                          )
-                        ) : circles.length > 0 ? (
-                          <div className="score-circles">
-                            {circles.map((circle, i) => (
-                              <svg key={i} width="12" height="12" viewBox="0 0 12 12">
-                                <circle
-                                  cx="6"
-                                  cy="6"
-                                  r="5"
-                                  fill={circle.color}
-                                  stroke="#374151"
-                                  strokeWidth="0.5"
-                                />
-                              </svg>
-                            ))}
-                          </div>
+                        {overallScore !== null ? (
+                          <svg width="16" height="16" viewBox="0 0 16 16">
+                            <circle
+                              cx="8"
+                              cy="8"
+                              r="6"
+                              fill={scoreColor}
+                              stroke="#d1d5db"
+                              strokeWidth="1"
+                            />
+                          </svg>
                         ) : (
-                          <span className="score-placeholder">-</span>
+                          <span className="table-panel__no-data">-</span>
                         )}
                       </td>
-                    )
-                  })}
-                </tr>
-              )
-            })}
+
+                      {/* Overall consistency (color-coded circle) */}
+                      <td
+                        className="table-panel__cell table-panel__cell--consistency"
+                        title={overallConsistency !== null ? `Overall Consistency: ${overallConsistency.toFixed(3)}` : 'No consistency data'}
+                      >
+                        {overallConsistency !== null ? (
+                          <svg width="16" height="16" viewBox="0 0 16 16">
+                            <circle
+                              cx="8"
+                              cy="8"
+                              r="6"
+                              fill={consistencyColor}
+                              stroke="#d1d5db"
+                              strokeWidth="1"
+                            />
+                          </svg>
+                        ) : (
+                          <span className="table-panel__no-data">-</span>
+                        )}
+                      </td>
+
+                      {/* Explanation text */}
+                      <td
+                        className="table-panel__cell table-panel__cell--explanation"
+                        title={explanationText}
+                      >
+                        {explanationText}
+                      </td>
+
+                      {/* Empty cell for future use */}
+                      <td className="table-panel__cell table-panel__cell--empty">
+                        {/* Reserved for future features */}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </React.Fragment>
+            ))}
           </tbody>
         </table>
       </div>
-
-      {/* Save Cell Group Selection UI */}
-      {cellSelection.groups.length > 0 && !showCellGroupNameInput && !showSavedMessage && (
-        <div className="table-panel__action-buttons">
-          <button
-            className="table-panel__clear-button"
-            onClick={() => {
-              clearCellSelection()
-            }}
-          >
-            Clear
-          </button>
-          <button
-            className="table-panel__save-button"
-            onClick={() => {
-              if (activeSavedGroupId) {
-                // Update existing group without prompting for name
-                updateSavedCellGroups(activeSavedGroupId)
-
-                // Show "saved ✓" message for 2 seconds
-                setShowSavedMessage(true)
-                setTimeout(() => {
-                  setShowSavedMessage(false)
-                }, 2000)
-              } else {
-                // New group - show name input
-                startSavingCellGroups()
-              }
-            }}
-          >
-            {activeSavedGroupId ? 'Save Changes' : 'Save Selection'}
-          </button>
-        </div>
-      )}
-
-      {/* Saved confirmation message */}
-      {showSavedMessage && (
-        <div className="table-panel__saved-message">
-          saved ✓
-        </div>
-      )}
-
-      {/* Name Input for Saving Cell Groups */}
-      {showCellGroupNameInput && (
-        <div className="table-panel__save-input-container">
-          <input
-            type="text"
-            className="table-panel__save-input"
-            placeholder="Enter group name..."
-            value={groupName}
-            onChange={(e) => setGroupName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                finishSavingCellGroups(groupName)
-                setGroupName('')
-              } else if (e.key === 'Escape') {
-                cancelSavingCellGroups()
-                setGroupName('')
-              }
-            }}
-            autoFocus
-          />
-          <div className="table-panel__save-input-buttons">
-            <button
-              className="table-panel__save-input-cancel"
-              onClick={() => {
-                cancelSavingCellGroups()
-                setGroupName('')
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              className="table-panel__save-input-confirm"
-              onClick={() => {
-                finishSavingCellGroups(groupName)
-                setGroupName('')
-              }}
-            >
-              Save
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Portal-based tooltip */}
-      {tooltip.visible && createPortal(
-        <>
-          <div
-            className="table-panel__tooltip"
-            style={{
-              left: `${tooltip.x}px`,
-              top: `${tooltip.y}px`,
-              transform: 'translateX(-50%) translateY(-100%)'
-            }}
-          >
-            {tooltip.text}
-          </div>
-          <div
-            className="table-panel__tooltip-arrow"
-            style={{
-              left: `${tooltip.x}px`,
-              top: `${tooltip.y}px`,
-              transform: 'translateX(-50%) translateY(-100%)'
-            }}
-          />
-        </>,
-        document.body
-      )}
     </div>
   )
 }

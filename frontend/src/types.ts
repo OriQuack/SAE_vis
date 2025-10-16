@@ -503,12 +503,17 @@ export type ConsistencyType =
   | 'cross_explanation_score'        // Cross-explanation score consistency
   | 'llm_explainer_consistency'      // LLM Explainer consistency (semantic consistency)
 
-// Table Sorting Types
+// Table Sorting Types (simplified for new table structure)
 export type SortDirection = 'asc' | 'desc' | null
 
 export type SortBy =
-  | { type: 'consistency'; consistencyType: ConsistencyType }
-  | { type: 'column'; explainerId: string; metricType: 'embedding' | 'fuzz' | 'detection'; scorerId?: 's1' | 's2' | 's3' }
+  | 'featureId'
+  | 'overallScore'
+  | 'overallConsistency'
+  | 'llm_scorer_consistency'
+  | 'within_explanation_score'
+  | 'cross_explanation_score'
+  | 'llm_explainer_consistency'
   | null
 
 // ============================================================================

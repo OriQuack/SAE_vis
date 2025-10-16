@@ -264,6 +264,23 @@ export const CONSISTENCY_COLORS = {
 } as const
 
 // ============================================================================
+// OVERALL SCORE COLORS - Performance gradient for overall scores
+// Used in simplified TablePanel for displaying overall scores
+// White (low performance) → Green (high performance)
+// ============================================================================
+
+/**
+ * Overall score gradient colors: white (low) → green (high)
+ * Used for visualizing overall scores (0-1 range)
+ * Higher overall scores = more intense green color
+ */
+export const SCORE_COLORS = {
+  LOW: '#ffffff',    // White (0.0 - poor performance)
+  MEDIUM: '#86efac', // Light green (0.5 - medium performance)
+  HIGH: '#22c55e'    // Full green (1.0 - good performance)
+} as const
+
+// ============================================================================
 // COMPONENT TYPE COLORS - Centralized color mapping for SAE components
 // Updated to use neutral grayscale for UI elements (Explainer, Scorer)
 // Vibrant colors reserved for data encoding only

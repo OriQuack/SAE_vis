@@ -1,6 +1,6 @@
 import { scaleLinear } from 'd3-scale'
 import type { FeatureTableRow, MetricNormalizationStats, ConsistencyType } from '../types'
-import { CONSISTENCY_COLORS } from './constants'
+import { CONSISTENCY_COLORS, SCORE_COLORS } from './constants'
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -69,284 +69,10 @@ export function formatTableScore(score: number | null | undefined): string {
   return score.toFixed(3)
 }
 
-// ============================================================================
-// COLUMN WIDTH CALCULATION
-// ============================================================================
-
-/**
- * Calculate equal column width for all columns
- *
- * @param containerWidth - Total container width in pixels
- * @param numExplainers - Number of explainers (typically 3)
- * @returns Column width in pixels
- */
-export function calculateColumnWidth(containerWidth: number, numExplainers: number = 3): number {
-  const totalColumns = numExplainers * 7  // 7 columns per explainer (1 embedding + 3 fuzz + 3 detection)
-  return containerWidth / totalColumns
-}
 
 // ============================================================================
 // HEADER STRUCTURE GENERATION
 // ============================================================================
-
-/**
- * Build header structure for table (2-row or 3-row based on averaging)
- *
- * When isAveraged = false (1 explainer):
- *   Row 1: Explainer names (each spanning 8 columns)
- *   Row 2: Metric names (Explanation: 1 col, Embedding: 1 col, Fuzz: 3 cols, Detection: 3 cols)
- *   Row 3: Scorer labels (empty, empty, scorer1/scorer2/scorer3, scorer1/scorer2/scorer3)
- *
- * When isAveraged = true (2+ explainers):
- *   Row 1: Explainer names (each spanning 4 columns)
- *   Row 2: Metric names (Explanation: 1 col, Embedding: 1 col, Fuzz: 1 col, Detection: 1 col)
- *   Row 3: [] (empty)
- *
- * @param explainerIds - Array of explainer IDs (e.g., ['llama', 'qwen', 'openai'])
- * @param isAveraged - Whether scores are averaged across scorers
- * @param scorerIds - Array of scorer IDs (e.g., ['scorer1', 'scorer2', 'scorer3']) for row 3 labels
- * @returns Header structure with 2 or 3 rows
- */
-export function buildHeaderStructure(
-  explainerIds: string[],
-  isAveraged: boolean = false,
-  scorerIds: string[] = []
-): HeaderStructure {
-  const row1: HeaderCell[] = []
-  const row2: HeaderCell[] = []
-  const row3: HeaderCell[] = []
-
-  for (const explainerId of explainerIds) {
-    if (isAveraged) {
-      // 2-row header: Averaged mode (2+ explainers)
-      // Row 1: Explainer name (spans 4 columns)
-      row1.push({
-        label: getExplainerDisplayName(explainerId),
-        colSpan: 4,
-        rowSpan: 1,
-        type: 'explainer',
-        explainerId
-      })
-
-      // Row 2: Metric names (1 column each) - abbreviated for multiple LLMs
-      // Add explanation column first
-      row2.push({
-        label: 'Expl.',
-        colSpan: 1,
-        rowSpan: 1,
-        type: 'metric',
-        explainerId,
-        metricType: 'explanation'
-      })
-
-      row2.push({
-        label: 'Emb.',
-        colSpan: 1,
-        rowSpan: 1,
-        type: 'metric',
-        explainerId,
-        metricType: 'embedding'
-      })
-
-      row2.push({
-        label: 'Fuzz',
-        colSpan: 1,
-        rowSpan: 1,
-        type: 'metric',
-        explainerId,
-        metricType: 'fuzz'
-      })
-
-      row2.push({
-        label: 'Det.',
-        colSpan: 1,
-        rowSpan: 1,
-        type: 'metric',
-        explainerId,
-        metricType: 'detection'
-      })
-
-      // Row 3: Empty (no scorers shown)
-    } else {
-      // 3-row header: Individual scorer mode (1 explainer)
-      const numScorers = scorerIds.length
-      const totalColumns = 1 + 1 + (numScorers * 2)  // 1 explanation + 1 embedding + numScorers fuzz + numScorers detection
-
-      // Row 1: Explainer name (spans all columns)
-      row1.push({
-        label: getExplainerDisplayName(explainerId),
-        colSpan: totalColumns,
-        rowSpan: 1,
-        type: 'explainer',
-        explainerId
-      })
-
-      // Row 2: Metric names - abbreviated
-      // Explanation (1 column)
-      row2.push({
-        label: 'Expl.',
-        colSpan: 1,
-        rowSpan: 1,
-        type: 'metric',
-        explainerId,
-        metricType: 'explanation'
-      })
-
-      // Embedding (1 column)
-      row2.push({
-        label: 'Emb.',
-        colSpan: 1,
-        rowSpan: 1,
-        type: 'metric',
-        explainerId,
-        metricType: 'embedding'
-      })
-
-      // Fuzz (dynamic columns based on scorer count)
-      row2.push({
-        label: 'Fuzz',
-        colSpan: numScorers,
-        rowSpan: 1,
-        type: 'metric',
-        explainerId,
-        metricType: 'fuzz'
-      })
-
-      // Detection (dynamic columns based on scorer count)
-      row2.push({
-        label: 'Detection',
-        colSpan: numScorers,
-        rowSpan: 1,
-        type: 'metric',
-        explainerId,
-        metricType: 'detection'
-      })
-
-      // Row 3: Scorer labels
-      // Empty cell for explanation
-      row3.push({
-        label: '',
-        colSpan: 1,
-        rowSpan: 1,
-        type: 'scorer',
-        explainerId,
-        metricType: 'explanation'
-      })
-
-      // Empty cell for embedding
-      row3.push({
-        label: '',
-        colSpan: 1,
-        rowSpan: 1,
-        type: 'scorer',
-        explainerId,
-        metricType: 'embedding'
-      })
-
-      // Scorer names for fuzz (dynamic based on selected scorers)
-      for (let i = 0; i < numScorers; i++) {
-        const fullName = scorerIds[i] || `S${i + 1}`
-        const shortName = getScorerDisplayName(fullName)
-        const scorerId = (['s1', 's2', 's3'] as const)[i]
-        row3.push({
-          label: shortName,
-          title: fullName,  // Full name for hover tooltip
-          colSpan: 1,
-          rowSpan: 1,
-          type: 'scorer',
-          explainerId,
-          metricType: 'fuzz',
-          scorerId: scorerId
-        })
-      }
-
-      // Scorer names for detection (dynamic based on selected scorers)
-      for (let i = 0; i < numScorers; i++) {
-        const fullName = scorerIds[i] || `S${i + 1}`
-        const shortName = getScorerDisplayName(fullName)
-        const scorerId = (['s1', 's2', 's3'] as const)[i]
-        row3.push({
-          label: shortName,
-          title: fullName,  // Full name for hover tooltip
-          colSpan: 1,
-          rowSpan: 1,
-          type: 'scorer',
-          explainerId,
-          metricType: 'detection',
-          scorerId: scorerId
-        })
-      }
-    }
-  }
-
-  return { row1, row2, row3 }
-}
-
-/**
- * Build header structure with metrics first, then explainers (for cross-explanation view)
- *
- * Used when comparing explainers across the same metric (cross-explanation consistency).
- *
- * Row 1: Metric names (Embedding, Fuzz, Detection) - each spanning N explainer columns
- * Row 2: Explainer names (repeated for each metric)
- *
- * @param explainerIds - Array of explainer IDs
- * @param isAveraged - Whether scores are averaged (should be true for this view)
- * @returns Header structure with metrics first
- */
-export function buildMetricFirstHeaderStructure(
-  explainerIds: string[],
-  _isAveraged: boolean = true
-): HeaderStructure {
-  const row1: HeaderCell[] = []
-  const row2: HeaderCell[] = []
-  const row3: HeaderCell[] = [] // Empty for this view
-
-  const numExplainers = explainerIds.length
-
-  // Row 1: Metric names (each spanning number of explainers)
-  row1.push({
-    label: 'Emb.',
-    colSpan: numExplainers,
-    rowSpan: 1,
-    type: 'metric',
-    metricType: 'embedding'
-  })
-
-  row1.push({
-    label: 'Fuzz',
-    colSpan: numExplainers,
-    rowSpan: 1,
-    type: 'metric',
-    metricType: 'fuzz'
-  })
-
-  row1.push({
-    label: 'Detection',
-    colSpan: numExplainers,
-    rowSpan: 1,
-    type: 'metric',
-    metricType: 'detection'
-  })
-
-  // Row 2: Explainer names (repeated for each metric)
-  const metrics: Array<'embedding' | 'fuzz' | 'detection'> = ['embedding', 'fuzz', 'detection']
-  for (let metricIdx = 0; metricIdx < 3; metricIdx++) {
-    const metricType = metrics[metricIdx]
-    for (const explainerId of explainerIds) {
-      row2.push({
-        label: getExplainerDisplayName(explainerId),
-        colSpan: 1,
-        rowSpan: 1,
-        type: 'explainer',
-        explainerId,
-        metricType  // Add metricType so consistency lookup works
-      })
-    }
-  }
-
-  return { row1, row2, row3 }
-}
 
 /**
  * Extract scores in metric-first order (for cross-explanation view)
@@ -390,32 +116,6 @@ export function extractRowScoresMetricFirst(
   return scores
 }
 
-// ============================================================================
-// TABLE LAYOUT CALCULATION
-// ============================================================================
-
-/**
- * Calculate complete table layout including column widths and header structure
- *
- * @param containerWidth - Container width in pixels
- * @param explainerIds - Array of explainer IDs
- * @returns Complete table layout configuration
- */
-export function calculateTableLayout(
-  containerWidth: number,
-  explainerIds: string[]
-): TableLayout {
-  const numExplainers = explainerIds.length
-  const columnWidth = calculateColumnWidth(containerWidth, numExplainers)
-  const totalColumns = numExplainers * 7
-  const headerStructure = buildHeaderStructure(explainerIds)
-
-  return {
-    columnWidth,
-    totalColumns,
-    headerStructure
-  }
-}
 
 // ============================================================================
 // DATA EXTRACTION HELPERS
@@ -655,6 +355,27 @@ export function getConsistencyColor(value: number, consistencyType: ConsistencyT
 }
 
 /**
+ * Get color for an overall score value (0-1)
+ *
+ * Uses performance gradient: white (poor) → green (good) with increasing opacity
+ * Designed for displaying overall scores in the simplified table.
+ *
+ * @param score - Overall score value between 0 and 1
+ * @returns RGB color string with alpha
+ */
+export function getOverallScoreColor(score: number): string {
+  // Clamp value between 0 and 1
+  const clampedScore = Math.max(0, Math.min(1, score))
+
+  // Create performance color scale: white (0) → light green (0.5) → full green (1)
+  const colorScale = scaleLinear<string>()
+    .domain([0, 0.5, 1])
+    .range([SCORE_COLORS.LOW, SCORE_COLORS.MEDIUM, SCORE_COLORS.HIGH])
+
+  return colorScale(clampedScore)
+}
+
+/**
  * Get gradient stops for consistency color scale
  *
  * Returns array of gradient stops that can be used in SVG linearGradient
@@ -838,6 +559,140 @@ export function compareValues(
   } else {
     return b - a
   }
+}
+
+// ============================================================================
+// OVERALL SCORE CALCULATION (FOR NEW TABLE LAYOUT)
+// ============================================================================
+
+/**
+ * Calculate overall score from embedding, fuzz, and detection
+ *
+ * Process:
+ * 1. Normalize each score using global stats: (value - min) / (max - min)
+ * 2. Average the three normalized scores
+ *
+ * @param embedding - Embedding score
+ * @param fuzzScores - Fuzz scores from scorers (s1, s2, s3)
+ * @param detectionScores - Detection scores from scorers (s1, s2, s3)
+ * @param globalStats - Global normalization statistics
+ * @returns Overall score (0-1) or null if insufficient data
+ */
+export function calculateOverallScore(
+  embedding: number | null,
+  fuzzScores: { s1: number | null; s2: number | null; s3: number | null },
+  detectionScores: { s1: number | null; s2: number | null; s3: number | null },
+  globalStats: Record<string, MetricNormalizationStats>
+): number | null {
+  const values: number[] = []
+
+  // Normalize embedding
+  if (embedding !== null && globalStats.embedding) {
+    const { min, max } = globalStats.embedding
+    const range = max - min
+    if (range > 0) {
+      const normalized = (embedding - min) / range
+      values.push(normalized)
+    }
+  }
+
+  // Normalize fuzz (average across scorers first)
+  const fuzzValues = [fuzzScores.s1, fuzzScores.s2, fuzzScores.s3].filter(v => v !== null) as number[]
+  if (fuzzValues.length > 0 && globalStats.fuzz) {
+    const fuzzAvg = fuzzValues.reduce((sum, v) => sum + v, 0) / fuzzValues.length
+    const { min, max } = globalStats.fuzz
+    const range = max - min
+    if (range > 0) {
+      const normalized = (fuzzAvg - min) / range
+      values.push(normalized)
+    }
+  }
+
+  // Normalize detection (average across scorers first)
+  const detectionValues = [detectionScores.s1, detectionScores.s2, detectionScores.s3].filter(v => v !== null) as number[]
+  if (detectionValues.length > 0 && globalStats.detection) {
+    const detectionAvg = detectionValues.reduce((sum, v) => sum + v, 0) / detectionValues.length
+    const { min, max } = globalStats.detection
+    const range = max - min
+    if (range > 0) {
+      const normalized = (detectionAvg - min) / range
+      values.push(normalized)
+    }
+  }
+
+  // Average the normalized scores
+  if (values.length === 0) return null
+  return values.reduce((sum, v) => sum + v, 0) / values.length
+}
+
+/**
+ * Calculate overall consistency from 4 consistency types (minimum value)
+ *
+ * Consistency types:
+ * 1. LLM Scorer consistency (average of fuzz and detection)
+ * 2. Within-explanation metric consistency
+ * 3. Cross-explanation score consistency (average of embedding, fuzz, detection)
+ * 4. LLM Explainer consistency
+ *
+ * @param row - Feature table row
+ * @param explainerId - Explainer ID
+ * @returns Overall consistency value (0-1) or null if no consistency data
+ */
+export function calculateOverallConsistency(
+  row: FeatureTableRow,
+  explainerId: string
+): number | null {
+  const explainerData = row.explainers[explainerId]
+  if (!explainerData) return null
+
+  const consistencyValues: number[] = []
+
+  // 1. LLM Scorer consistency (average of fuzz and detection)
+  if (explainerData.scorer_consistency) {
+    const scorerValues: number[] = []
+    if (explainerData.scorer_consistency.fuzz) {
+      scorerValues.push(explainerData.scorer_consistency.fuzz.value)
+    }
+    if (explainerData.scorer_consistency.detection) {
+      scorerValues.push(explainerData.scorer_consistency.detection.value)
+    }
+    if (scorerValues.length > 0) {
+      const avgScorerConsistency = scorerValues.reduce((sum, v) => sum + v, 0) / scorerValues.length
+      consistencyValues.push(avgScorerConsistency)
+    }
+  }
+
+  // 2. Within-explanation metric consistency
+  if (explainerData.metric_consistency) {
+    consistencyValues.push(explainerData.metric_consistency.value)
+  }
+
+  // 3. Cross-explanation score consistency (average of embedding, fuzz, detection)
+  if (explainerData.cross_explainer_metric_consistency) {
+    const crossValues: number[] = []
+    if (explainerData.cross_explainer_metric_consistency.embedding) {
+      crossValues.push(explainerData.cross_explainer_metric_consistency.embedding.value)
+    }
+    if (explainerData.cross_explainer_metric_consistency.fuzz) {
+      crossValues.push(explainerData.cross_explainer_metric_consistency.fuzz.value)
+    }
+    if (explainerData.cross_explainer_metric_consistency.detection) {
+      crossValues.push(explainerData.cross_explainer_metric_consistency.detection.value)
+    }
+    if (crossValues.length > 0) {
+      const avgCrossConsistency = crossValues.reduce((sum, v) => sum + v, 0) / crossValues.length
+      consistencyValues.push(avgCrossConsistency)
+    }
+  }
+
+  // 4. LLM Explainer consistency
+  if (explainerData.explainer_consistency) {
+    consistencyValues.push(explainerData.explainer_consistency.value)
+  }
+
+  // Return minimum of all consistency values
+  if (consistencyValues.length === 0) return null
+  return Math.min(...consistencyValues)
 }
 
 // ============================================================================

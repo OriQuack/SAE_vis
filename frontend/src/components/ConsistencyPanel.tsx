@@ -127,14 +127,18 @@ const ConsistencyPanel: React.FC = () => {
 
     setConsistencyType(value)
 
+    // Trigger sorting when clicking on a consistency type (except 'none')
     if (value !== 'none') {
-      handleSort({ type: 'consistency', consistencyType: value })
+      // Map ConsistencyType to SortBy
+      const sortKey = value as SortBy
+      handleSort(sortKey)
     }
   }
 
-  // Handle sort click
+  // Handle sort click (cycle through: null → asc → desc → null)
   const handleSort = (newSortBy: SortBy) => {
-    if (JSON.stringify(sortBy) === JSON.stringify(newSortBy)) {
+    if (sortBy === newSortBy) {
+      // Same sort key: cycle through directions
       if (sortDirection === null) {
         setTableSort(newSortBy, 'asc')
       } else if (sortDirection === 'asc') {
@@ -143,6 +147,7 @@ const ConsistencyPanel: React.FC = () => {
         setTableSort(null, null)
       }
     } else {
+      // New sort key: start with ascending
       setTableSort(newSortBy, 'asc')
     }
   }
@@ -157,7 +162,7 @@ const ConsistencyPanel: React.FC = () => {
         {CONSISTENCY_OPTIONS.map((option) => {
           const disabled = isConsistencyTypeDisabled(option.value)
           const isActive = selectedConsistencyType === option.value
-          const isSorted = sortBy?.type === 'consistency' && sortBy.consistencyType === option.value
+          const isSorted = sortBy === option.value
           const showSortIndicator = option.value !== 'none'
           const buttonColor = getButtonColor(option.value)
 

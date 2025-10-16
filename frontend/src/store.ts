@@ -16,9 +16,6 @@ import type {
   AddStageConfig,
   CategoryGroup,
   ConsistencyType,
-  CellSelectionState,
-  CellGroup,
-  SavedCellGroupSelection,
   SortBy,
   SortDirection
 } from './types'
@@ -118,24 +115,6 @@ interface AppState {
   selectedConsistencyType: ConsistencyType
   setConsistencyType: (type: ConsistencyType) => void
 
-  // Cell selection state (Table Panel)
-  cellSelection: CellSelectionState
-  setCellSelection: (state: CellSelectionState) => void
-  toggleCellGroup: (group: CellGroup) => void
-  clearCellSelection: () => void
-
-  // Saved cell group selections (Table Panel)
-  savedCellGroupSelections: SavedCellGroupSelection[]
-  activeSavedGroupId: string | null
-  isSavingCellGroups: boolean
-  showCellGroupNameInput: boolean
-  startSavingCellGroups: () => void
-  finishSavingCellGroups: (name: string) => void
-  cancelSavingCellGroups: () => void
-  updateSavedCellGroups: (id: string, name?: string) => void
-  deleteSavedCellGroups: (id: string) => void
-  restoreSavedCellGroups: (id: string) => void
-
   // Reset actions
   reset: () => void
 
@@ -214,21 +193,6 @@ const initialState = {
 
   // Consistency type selection (Table Panel)
   selectedConsistencyType: 'none' as ConsistencyType,
-
-  // Cell selection state (Table Panel)
-  cellSelection: {
-    groups: [],
-    startRow: null,
-    startCol: null,
-    endRow: null,
-    endCol: null
-  },
-
-  // Saved cell group selections (Table Panel)
-  savedCellGroupSelections: [],
-  activeSavedGroupId: null,
-  isSavingCellGroups: false,
-  showCellGroupNameInput: false,
 
   // Hover state
   hoveredAlluvialNodeId: null,
@@ -772,170 +736,6 @@ export const useStore = create<AppState>((set, get) => ({
   // Set consistency type for table panel
   setConsistencyType: (type: ConsistencyType) => {
     set({ selectedConsistencyType: type })
-  },
-
-  // Cell selection actions (Table Panel)
-  setCellSelection: (cellSelectionState: CellSelectionState) => {
-    set({ cellSelection: cellSelectionState })
-  },
-
-  toggleCellGroup: (group: CellGroup) => {
-    set((state) => {
-      const existingIndex = state.cellSelection.groups.findIndex(g => g.id === group.id)
-
-      if (existingIndex >= 0) {
-        // Group exists - remove it (toggle off)
-        return {
-          cellSelection: {
-            ...state.cellSelection,
-            groups: state.cellSelection.groups.filter(g => g.id !== group.id)
-          }
-        }
-      } else {
-        // Group doesn't exist - add it (toggle on)
-        return {
-          cellSelection: {
-            ...state.cellSelection,
-            groups: [...state.cellSelection.groups, group]
-          }
-        }
-      }
-    })
-  },
-
-  clearCellSelection: () => {
-    set({
-      cellSelection: {
-        groups: [],
-        startRow: null,
-        startCol: null,
-        endRow: null,
-        endCol: null
-      }
-    })
-  },
-
-  // Saved cell group selection actions (Table Panel)
-  startSavingCellGroups: () => {
-    set({ showCellGroupNameInput: true, isSavingCellGroups: true })
-  },
-
-  finishSavingCellGroups: (name: string) => {
-    const state = get()
-    const { cellSelection, savedCellGroupSelections } = state
-
-    if (cellSelection.groups.length === 0) {
-      console.warn('Cannot save: no cell groups selected')
-      set({ showCellGroupNameInput: false, isSavingCellGroups: false })
-      return
-    }
-
-    // Check if we've reached the maximum of 8 saved groups
-    if (savedCellGroupSelections.length >= 8) {
-      console.warn('Cannot save: maximum of 8 saved groups reached')
-      set({ showCellGroupNameInput: false, isSavingCellGroups: false })
-      return
-    }
-
-    // Create new saved selection
-    const newSavedSelection: SavedCellGroupSelection = {
-      id: `saved_${Date.now()}`,
-      name: name || `Selection ${savedCellGroupSelections.length + 1}`,
-      groups: [...cellSelection.groups],
-      colorIndex: savedCellGroupSelections.length % 6,
-      timestamp: Date.now()
-    }
-
-    set({
-      savedCellGroupSelections: [...savedCellGroupSelections, newSavedSelection],
-      showCellGroupNameInput: false,
-      isSavingCellGroups: false,
-      activeSavedGroupId: null, // Clear active badge when saving new group
-      // Clear cell selection after saving
-      cellSelection: {
-        groups: [],
-        startRow: null,
-        startCol: null,
-        endRow: null,
-        endCol: null
-      }
-    })
-  },
-
-  cancelSavingCellGroups: () => {
-    set({ showCellGroupNameInput: false, isSavingCellGroups: false })
-  },
-
-  updateSavedCellGroups: (id: string, name?: string) => {
-    const state = get()
-    const { cellSelection, savedCellGroupSelections } = state
-
-    const groupIndex = savedCellGroupSelections.findIndex(g => g.id === id)
-    if (groupIndex === -1) {
-      console.warn(`Cannot update: saved group ${id} not found`)
-      set({ showCellGroupNameInput: false, isSavingCellGroups: false })
-      return
-    }
-
-    if (cellSelection.groups.length === 0) {
-      console.warn('Cannot update: no cell groups selected')
-      set({ showCellGroupNameInput: false, isSavingCellGroups: false })
-      return
-    }
-
-    const updatedGroups = [...savedCellGroupSelections]
-    updatedGroups[groupIndex] = {
-      ...updatedGroups[groupIndex],
-      groups: [...cellSelection.groups],
-      ...(name && name.trim() !== '' && { name: name.trim() })
-    }
-
-    set({
-      savedCellGroupSelections: updatedGroups,
-      showCellGroupNameInput: false,
-      isSavingCellGroups: false
-      // Keep cellSelection as-is - do NOT clear when updating
-      // Keep activeSavedGroupId so user can continue making changes
-    })
-  },
-
-  deleteSavedCellGroups: (id: string) => {
-    const state = get()
-    set({
-      savedCellGroupSelections: state.savedCellGroupSelections.filter(s => s.id !== id),
-      // Clear active state if deleting the active group
-      activeSavedGroupId: state.activeSavedGroupId === id ? null : state.activeSavedGroupId
-    })
-  },
-
-  restoreSavedCellGroups: (id: string) => {
-    const state = get()
-    const savedSelection = state.savedCellGroupSelections.find(s => s.id === id)
-
-    if (!savedSelection) return
-
-    // Toggle behavior: if clicking the same badge again, clear selection
-    if (state.activeSavedGroupId === id) {
-      set({
-        cellSelection: {
-          groups: [],
-          startRow: null,
-          startCol: null,
-          endRow: null,
-          endCol: null
-        },
-        activeSavedGroupId: null
-      })
-    } else {
-      // Restore selection and mark as active
-      set({
-        cellSelection: {
-          ...state.cellSelection,
-          groups: [...savedSelection.groups]
-        },
-        activeSavedGroupId: id
-      })
-    }
   },
 
   reset: () => {
