@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { useVisualizationStore } from './store'
-import FilterPanel from './components/FilterPanel'
 import SankeyDiagram from './components/SankeyDiagram'
 import AlluvialDiagram from './components/AlluvialDiagram'
 import HistogramPopover from './components/HistogramPopover'
@@ -9,7 +8,7 @@ import ProgressBar from './components/ProgressBar'
 import TablePanel from './components/TablePanel'
 import HistogramPanel from './components/HistogramPanel'
 import VerticalBar from './components/VerticalBar'
-import SavedGroupsPanel from './components/SavedGroupsPanel'
+import ConsistencyPanel from './components/ConsistencyPanel'
 import { usePanelDataLoader } from './lib/utils'
 import * as api from './api'
 import './styles/base.css'
@@ -39,43 +38,6 @@ interface AppProps {
 // ============================================================================
 // INLINE UI COMPONENTS
 // ============================================================================
-
-const EmptyState: React.FC<{ onAddVisualization: () => void }> = ({ onAddVisualization: _onAddVisualization }) => (
-  <div className="empty-state-card">
-    <div className="empty-state-card__content">
-      <p className="empty-state-card__text">
-        Select LLM Explainer on the left to display Sankey diagrams
-      </p>
-    </div>
-  </div>
-)
-
-const VisualizationActions: React.FC<{
-  onEditFilters: () => void
-  onRemove: () => void
-  className?: string
-}> = ({ onEditFilters, onRemove, className }) => (
-  <div className={`visualization-actions${className ? ` ${className}` : ''}`}>
-    <button
-      className="visualization-actions__button visualization-actions__button--edit"
-      onClick={onEditFilters}
-      title="Edit filters and recreate visualization"
-    >
-      <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
-        <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-      </svg>
-    </button>
-    <button
-      className="visualization-actions__button visualization-actions__button--remove"
-      onClick={onRemove}
-      title="Remove visualization and return to empty state"
-    >
-      <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
-        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-      </svg>
-    </button>
-  </div>
-)
 
 const LoadingSpinner: React.FC = () => (
   <div className="health-check">
@@ -129,12 +91,9 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
     fetchFilterOptions,
     fetchSankeyData,
     fetchMultipleHistogramData,
-    setViewState,
-    showVisualization,
-    editFilters,
-    removeVisualization,
-    resetFilters,
-    initializeWithDefaultFilters
+    initializeWithDefaultFilters,
+    showComparisonView,
+    toggleComparisonView
   } = useVisualizationStore()
 
   // Health check function
@@ -176,60 +135,13 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
   // Initialize with default filters after filter options are loaded
   useEffect(() => {
     if (filterOptions && autoLoad) {
-      // Only initialize if both panels are in empty state
-      if (leftPanel.viewState === 'empty' && rightPanel.viewState === 'empty') {
-        initializeWithDefaultFilters()
-      }
+      initializeWithDefaultFilters()
     }
-  }, [filterOptions, autoLoad, leftPanel.viewState, rightPanel.viewState, initializeWithDefaultFilters])
+  }, [filterOptions, autoLoad, initializeWithDefaultFilters])
 
   // Use custom hook to handle panel data loading (consolidates duplicate logic)
   usePanelDataLoader('left', leftPanel, healthState.isHealthy, fetchMultipleHistogramData, fetchSankeyData)
   usePanelDataLoader('right', rightPanel, healthState.isHealthy, fetchMultipleHistogramData, fetchSankeyData)
-
-  // Event handlers - left panel
-  const handleAddVisualizationLeft = useCallback(() => {
-    setViewState('filtering', 'left')
-  }, [setViewState])
-
-  const handleCancelFilteringLeft = useCallback(() => {
-    setViewState('empty', 'left')
-  }, [setViewState])
-
-  const handleCreateVisualizationLeft = useCallback(() => {
-    showVisualization('left')
-  }, [showVisualization])
-
-  const handleEditFiltersLeft = useCallback(() => {
-    editFilters('left')
-  }, [editFilters])
-
-  const handleRemoveVisualizationLeft = useCallback(() => {
-    removeVisualization('left')
-    resetFilters('left')
-  }, [removeVisualization, resetFilters])
-
-  // Event handlers - right panel
-  const handleAddVisualizationRight = useCallback(() => {
-    setViewState('filtering', 'right')
-  }, [setViewState])
-
-  const handleCancelFilteringRight = useCallback(() => {
-    setViewState('empty', 'right')
-  }, [setViewState])
-
-  const handleCreateVisualizationRight = useCallback(() => {
-    showVisualization('right')
-  }, [showVisualization])
-
-  const handleEditFiltersRight = useCallback(() => {
-    editFilters('right')
-  }, [editFilters])
-
-  const handleRemoveVisualizationRight = useCallback(() => {
-    removeVisualization('right')
-    resetFilters('right')
-  }, [removeVisualization, resetFilters])
 
   // Show loading/error states if health check hasn't passed
   if (!healthState.isHealthy) {
@@ -263,95 +175,62 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
               <FlowPanel />
             </div>
 
-            {/* Top Middle - Empty */}
+            {/* Top Middle - Consistency Panel */}
             <div className="sankey-view__top-middle">
-              <div className="sankey-view__placeholder-text">
-                Top Middle Panel
-              </div>
+              <ConsistencyPanel />
             </div>
 
-            {/* Top Right - Analysis Panel */}
+            {/* Top Right - Comparison Toggle */}
             <div className="sankey-view__top-right">
-              <div className="sankey-view__placeholder-text">
-                Analysis Panel
-              </div>
+              <button
+                className={`comparison-toggle ${showComparisonView ? 'comparison-toggle--active' : ''}`}
+                onClick={toggleComparisonView}
+                title={showComparisonView ? 'Hide comparison view' : 'Show comparison view'}
+              >
+                <span className="comparison-toggle__icon">
+                  {showComparisonView ? '◀' : '▶'}
+                </span>
+                <span className="comparison-toggle__text">
+                  {showComparisonView ? 'Hide' : 'Show'} Comparison
+                </span>
+              </button>
             </div>
           </div>
 
           {/* Center Panel Container - Row 2 */}
           <div className="sankey-view__center-panel-container">
-            {/* Center Left - All Sankey Diagrams */}
-            <div className="sankey-view__center-left">
+            {/* Center Left - Left Sankey Only */}
+            <div className={`sankey-view__center-left ${showComparisonView ? 'sankey-view__center-left--split' : 'sankey-view__center-left--full'}`}>
               {/* Left Sankey Diagram */}
               <div className="sankey-view__sankey-left">
-                {leftPanel.viewState === 'empty' && (
-                  <EmptyState onAddVisualization={handleAddVisualizationLeft} />
-                )}
-
-                {leftPanel.viewState === 'filtering' && (
-                  <FilterPanel
-                    onCreateVisualization={handleCreateVisualizationLeft}
-                    onCancel={handleCancelFilteringLeft}
-                    panel="left"
-                  />
-                )}
-
-                {leftPanel.viewState === 'visualization' && (
-                  <div className="sankey-view__diagram-container">
-                    <VisualizationActions
-                      onEditFilters={handleEditFiltersLeft}
-                      onRemove={handleRemoveVisualizationLeft}
-                      className="sankey-view__floating-actions"
-                    />
-                    <SankeyDiagram
-                      height={FIXED_DIAGRAM_HEIGHT}
-                      showHistogramOnClick={true}
-                      flowDirection="left-to-right"
-                      panel="left"
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Alluvial Panel - Center flow comparison */}
-              <div className="sankey-view__alluvial-panel">
-                <AlluvialDiagram
-                  height={FIXED_DIAGRAM_HEIGHT}
-                  className="sankey-view__alluvial"
+                <SankeyDiagram
+                  showHistogramOnClick={true}
+                  flowDirection="left-to-right"
+                  panel="left"
                 />
               </div>
+            </div>
 
-              {/* Right Sankey Diagram */}
-              <div className="sankey-view__sankey-right">
-                {rightPanel.viewState === 'empty' && (
-                  <EmptyState onAddVisualization={handleAddVisualizationRight} />
-                )}
+            {/* Comparison Container - Alluvial + Right Sankey (conditionally rendered) */}
+            {showComparisonView && (
+              <div className="sankey-view__comparison-container">
+                {/* Alluvial Panel - Center flow comparison */}
+                <div className="sankey-view__alluvial-panel">
+                  <AlluvialDiagram
+                    className="sankey-view__alluvial"
+                  />
+                </div>
 
-                {rightPanel.viewState === 'filtering' && (
-                  <FilterPanel
-                    onCreateVisualization={handleCreateVisualizationRight}
-                    onCancel={handleCancelFilteringRight}
+                {/* Right Sankey Diagram */}
+                <div className="sankey-view__sankey-right">
+                  <SankeyDiagram
+                    showHistogramOnClick={true}
+                    flowDirection="right-to-left"
                     panel="right"
                   />
-                )}
-
-                {rightPanel.viewState === 'visualization' && (
-                  <div className="sankey-view__diagram-container">
-                    <VisualizationActions
-                      onEditFilters={handleEditFiltersRight}
-                      onRemove={handleRemoveVisualizationRight}
-                      className="sankey-view__floating-actions"
-                    />
-                    <SankeyDiagram
-                      height={FIXED_DIAGRAM_HEIGHT}
-                      showHistogramOnClick={true}
-                      flowDirection="right-to-left"
-                      panel="right"
-                    />
-                  </div>
-                )}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Center Middle - Vertical Bar */}
             <div className="sankey-view__center-middle">
@@ -361,28 +240,6 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
             {/* Center Right - Table Panel */}
             <div className="sankey-view__center-right">
               <TablePanel />
-            </div>
-          </div>
-
-          {/* Bottom Panel Container - Row 3 */}
-          <div className="sankey-view__bottom-panel-container">
-            {/* Bottom Left - Saved Groups Panel */}
-            <div className="sankey-view__bottom-left">
-              <SavedGroupsPanel />
-            </div>
-
-            {/* Bottom Middle - Empty */}
-            <div className="sankey-view__bottom-middle">
-              <div className="sankey-view__placeholder-text">
-                Bottom Middle Panel
-              </div>
-            </div>
-
-            {/* Bottom Right - Empty */}
-            <div className="sankey-view__bottom-right">
-              <div className="sankey-view__placeholder-text">
-                Bottom Right Panel
-              </div>
             </div>
           </div>
         </div>

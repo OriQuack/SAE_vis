@@ -1,16 +1,16 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useVisualizationStore } from '../store'
-import type { FeatureTableDataResponse, FeatureTableRow, ConsistencyType, SortBy } from '../types'
+import type { FeatureTableDataResponse, FeatureTableRow, SortBy } from '../types'
 import {
   buildHeaderStructure,
   buildMetricFirstHeaderStructure,
   formatTableScore,
   extractRowScores,
   extractRowScoresMetricFirst,
-  calculateColorBarLayout,
   getConsistencyForCell,
   getConsistencyColor,
+  extractCellScoreCircles,
   type HeaderStructure
 } from '../lib/d3-table-utils'
 import {
@@ -23,42 +23,6 @@ import {
 import { getSavedGroupColor } from '../lib/utils'
 import { sortFeatures } from '../lib/table-sort-utils'
 import '../styles/TablePanel.css'
-
-// ============================================================================
-// CONSISTENCY TYPE OPTIONS - Flat Structure
-// ============================================================================
-
-const CONSISTENCY_OPTIONS: Array<{
-  id: string
-  label: string
-  value: ConsistencyType
-}> = [
-  {
-    id: 'none',
-    label: 'None',
-    value: 'none'
-  },
-  {
-    id: 'llm_scorer',
-    label: 'LLM Scorer',
-    value: 'llm_scorer_consistency'
-  },
-  {
-    id: 'within_exp_score',
-    label: 'Within-exp. Score',
-    value: 'within_explanation_score'
-  },
-  {
-    id: 'cross_exp_score',
-    label: 'Cross-exp. Score',
-    value: 'cross_explanation_score'
-  },
-  {
-    id: 'llm_explainer',
-    label: 'LLM Explainer',
-    value: 'llm_explainer_consistency'
-  }
-]
 
 // ============================================================================
 // MAIN TABLE PANEL COMPONENT
@@ -74,7 +38,6 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const rightPanel = useVisualizationStore(state => state.rightPanel)
   const fetchTableData = useVisualizationStore(state => state.fetchTableData)
   const selectedConsistencyType = useVisualizationStore(state => state.selectedConsistencyType)
-  const setConsistencyType = useVisualizationStore(state => state.setConsistencyType)
   const setTableScrollState = useVisualizationStore(state => state.setTableScrollState)
   const isLoading = useVisualizationStore(state => state.loading.table)
 
@@ -131,32 +94,6 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     rightPanel.filters.llm_explainer.forEach(e => selectedExplainers.add(e))
   }
 
-  // Check if only one explainer is selected (for disabling certain options)
-  const hasOnlyOneExplainer = selectedExplainers.size === 1
-
-  // Check if a consistency type is disabled
-  const isConsistencyTypeDisabled = (type: ConsistencyType): boolean => {
-    // "None" is never disabled
-    if (type === 'none') {
-      return false
-    }
-
-    // When only one explainer: disable cross-explanation and llm_explainer_consistency
-    if (hasOnlyOneExplainer) {
-      return type === 'cross_explanation_score' || type === 'llm_explainer_consistency'
-    }
-
-    // When multiple explainers: disable llm_scorer_consistency
-    if (selectedExplainers.size > 1) {
-      return type === 'llm_scorer_consistency'
-    }
-
-    return false
-  }
-
-  // Calculate color bar layout using D3 (following project pattern: D3 for calculations, React for rendering)
-  const colorBarLayout = useMemo(() => calculateColorBarLayout(400, 12), [])
-
   // Calculate if scores are averaged and column count for table key (must be before early returns)
   const isAveraged = tableData ? tableData.is_averaged || false : false
   const columnCount = useMemo(() => {
@@ -173,41 +110,6 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
       return numExplainers * (1 + numScorers * 2)
     }
   }, [tableData, isAveraged])
-
-  // Auto-switch from disabled consistency types when explainer count changes
-  useEffect(() => {
-    // Check if current selection becomes disabled based on explainer count
-    const shouldSwitch = (
-      // When only one explainer, these are disabled
-      (hasOnlyOneExplainer && (
-        selectedConsistencyType === 'cross_explanation_score' ||
-        selectedConsistencyType === 'llm_explainer_consistency'
-      )) ||
-      // When multiple explainers, this is disabled
-      (selectedExplainers.size > 1 && selectedConsistencyType === 'llm_scorer_consistency')
-    )
-
-    if (shouldSwitch) {
-      setConsistencyType('none')
-    }
-  }, [selectedExplainers.size, selectedConsistencyType, setConsistencyType, hasOnlyOneExplainer]) // Re-run when number of explainers changes
-
-  // Handle consistency type click
-  const handleConsistencyClick = (value: ConsistencyType) => {
-    // Check if disabled
-    if (isConsistencyTypeDisabled(value)) {
-      return
-    }
-
-    // Set consistency type
-    setConsistencyType(value)
-
-    // "None" should not trigger sorting
-    if (value !== 'none') {
-      // Also handle sort for other consistency types
-      handleSort({ type: 'consistency', consistencyType: value })
-    }
-  }
 
   // Handle sort click
   const handleSort = (newSortBy: SortBy) => {
@@ -767,89 +669,6 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
         </div>
       )}
 
-      {/* Consistency Header */}
-      <div className="table-panel__header">
-        {/* Title */}
-        <div className="table-panel__consistency-title">Consistency</div>
-
-        {/* Consistency Type Buttons (5 horizontal) */}
-        <div className="table-panel__main-categories">
-          {CONSISTENCY_OPTIONS.map((option) => {
-            const disabled = isConsistencyTypeDisabled(option.value)
-            // Check if this button is active
-            const isActive = selectedConsistencyType === option.value
-            // Check if this button is currently sorted
-            const isSorted = sortBy?.type === 'consistency' && sortBy.consistencyType === option.value
-            // "None" should not have sorting indicator
-            const showSortIndicator = option.value !== 'none'
-            return (
-              <button
-                key={option.id}
-                className={`table-panel__main-category-button ${
-                  isActive ? 'active' : ''
-                } ${disabled ? 'disabled' : ''}`}
-                onClick={() => handleConsistencyClick(option.value)}
-                disabled={disabled}
-              >
-                {option.label}
-                {showSortIndicator && (
-                  <span className={`table-panel__sort-indicator ${isSorted ? 'active' : ''} ${sortDirection || ''}`} />
-                )}
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Color Bar Legend (D3 calculated layout with inline labels) */}
-        <div className="table-panel__consistency-legend">
-          <svg
-            width={colorBarLayout.width}
-            height={colorBarLayout.height}
-            className="table-panel__color-bar"
-          >
-            <defs>
-              <linearGradient id="consistency-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                {colorBarLayout.gradientStops.map((stop, idx) => (
-                  <stop key={idx} offset={stop.offset} stopColor={stop.color} />
-                ))}
-              </linearGradient>
-            </defs>
-
-            {/* Left label */}
-            <text
-              x={colorBarLayout.leftLabelX}
-              y={colorBarLayout.leftLabelY}
-              className="table-panel__color-bar-label-left"
-              textAnchor="start"
-              dominantBaseline="central"
-            >
-              0 Low
-            </text>
-
-            {/* Gradient bar */}
-            <rect
-              x={colorBarLayout.barX}
-              y={colorBarLayout.barY}
-              width={colorBarLayout.barWidth}
-              height={colorBarLayout.barHeight}
-              fill="url(#consistency-gradient)"
-              rx="2"
-            />
-
-            {/* Right label */}
-            <text
-              x={colorBarLayout.rightLabelX}
-              y={colorBarLayout.rightLabelY}
-              className="table-panel__color-bar-label-right"
-              textAnchor="start"
-              dominantBaseline="central"
-            >
-              1 High
-            </text>
-          </svg>
-        </div>
-      </div>
-
       <div
         className={`table-panel__content ${isLoading ? 'loading' : ''}`}
         ref={tableContainerRef}
@@ -994,17 +813,24 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
           <tbody className="table-panel__tbody" onMouseLeave={handleTableMouseLeave}>
             {sortedFeatures.map((row: FeatureTableRow, rowIdx: number) => {
-              // Use metric-first extraction for cross-explanation consistency
-              const scores = selectedConsistencyType === 'cross_explanation_score'
-                ? extractRowScoresMetricFirst(row, tableData.explainer_ids, isAveraged)
-                : extractRowScores(row, tableData.explainer_ids, isAveraged, tableData.scorer_ids.length)
+              // Calculate number of columns for iteration
+              const numColumns = selectedConsistencyType === 'cross_explanation_score'
+                ? tableData.explainer_ids.length * 3  // Metric-first: 3 metrics × N explainers
+                : isAveraged
+                  ? tableData.explainer_ids.length * 3  // Averaged: 3 metrics per explainer
+                  : tableData.explainer_ids.length * (1 + tableData.scorer_ids.length * 2)  // Individual: 1 emb + N fuzz + N det
 
               return (
                 <tr key={row.feature_id} className="table-panel__feature-row">
                   <td className="table-panel__feature-id-cell">
                     {row.feature_id}
                   </td>
-                  {scores.map((score, idx) => {
+                  {Array.from({ length: numColumns }).map((_, idx) => {
+                    // Extract circles for this cell
+                    const circles = tableData.global_stats
+                      ? extractCellScoreCircles(row, idx, headerStructure, tableData.global_stats, isAveraged)
+                      : []
+
                     // Determine which cell this score belongs to using header structure
                     // Use row3 for scorer-specific cells, row2 for metric cells
                     let consistency: number | null = null
@@ -1086,13 +912,29 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                         className="table-panel__score-cell"
                         style={{
                           backgroundColor: bgColor,
-                          color: consistency !== null && consistency < 0.5 ? 'white' : '#374151',  // White text for dark backgrounds
                           boxShadow: boxShadow
                         }}
                         onMouseDown={() => handleCellMouseDown(rowIdx, idx)}
                         onMouseEnter={() => handleCellMouseEnter(rowIdx, idx)}
                       >
-                        {formatTableScore(score)}
+                        {circles.length > 0 ? (
+                          <div className="score-circles">
+                            {circles.map((circle, i) => (
+                              <svg key={i} width="12" height="12" viewBox="0 0 12 12">
+                                <circle
+                                  cx="6"
+                                  cy="6"
+                                  r="5"
+                                  fill={circle.color}
+                                  stroke="#374151"
+                                  strokeWidth="0.5"
+                                />
+                              </svg>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="score-placeholder">-</span>
+                        )}
                       </td>
                     )
                   })}

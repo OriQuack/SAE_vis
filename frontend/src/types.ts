@@ -277,8 +277,6 @@ export interface ErrorStates {
   table: string | null
 }
 
-export type ViewState = 'empty' | 'filtering' | 'visualization'
-
 export type MetricType =
   | typeof METRIC_FEATURE_SPLITTING
   | typeof METRIC_SEMSIM_MEAN
@@ -480,12 +478,20 @@ export interface TableDataRequest {
   filters: Filters
 }
 
+export interface MetricNormalizationStats {
+  mean: number
+  std: number
+  min: number
+  max: number
+}
+
 export interface FeatureTableDataResponse {
   features: FeatureTableRow[]
   total_features: number
   explainer_ids: string[]
   scorer_ids: string[]
   is_averaged: boolean
+  global_stats: Record<string, MetricNormalizationStats>
 }
 
 // Consistency Type for Table Header

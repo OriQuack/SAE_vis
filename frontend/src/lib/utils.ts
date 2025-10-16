@@ -2,7 +2,7 @@
 // Simplified implementation for research prototype
 
 import { useRef, useEffect, useState, useCallback } from 'react'
-import type { MetricType, Filters, ThresholdTree, SankeyData, HistogramData, ViewState } from '../types'
+import type { MetricType, Filters, ThresholdTree, SankeyData, HistogramData } from '../types'
 import {
   METRIC_SEMSIM_MEAN,
   METRIC_SCORE_FUZZ,
@@ -37,7 +37,6 @@ interface PanelState {
   thresholdTree: ThresholdTree
   sankeyData: SankeyData | null
   histogramData: Record<string, HistogramData> | null
-  viewState: ViewState
 }
 
 // ============================================================================
@@ -125,14 +124,14 @@ export const usePanelDataLoader = (
   fetchMultipleHistogramData: (metrics: MetricType[], nodeId?: string, panel?: 'left' | 'right') => Promise<void>,
   fetchSankeyData: (panel?: 'left' | 'right') => void
 ): void => {
-  // Watch for filter changes and fetch data when in visualization mode
+  // Watch for filter changes and fetch data
   useEffect(() => {
     const loadData = async () => {
       const hasActiveFilters = Object.values(panelState.filters).some(
         (filterArray): filterArray is string[] => filterArray !== undefined && filterArray.length > 0
       )
 
-      if (hasActiveFilters && panelState.viewState === 'visualization') {
+      if (hasActiveFilters) {
         try {
           await fetchMultipleHistogramData(
             [METRIC_FEATURE_SPLITTING, METRIC_SEMSIM_MEAN, METRIC_SCORE_FUZZ],
@@ -149,7 +148,7 @@ export const usePanelDataLoader = (
     if (isHealthy) {
       loadData()
     }
-  }, [panelState.filters, panelState.viewState, isHealthy, fetchMultipleHistogramData, fetchSankeyData, panel])
+  }, [panelState.filters, isHealthy, fetchMultipleHistogramData, fetchSankeyData, panel])
 
   // Watch for threshold changes and re-fetch Sankey data
   useEffect(() => {
@@ -157,14 +156,14 @@ export const usePanelDataLoader = (
       (filterArray): filterArray is string[] => filterArray !== undefined && filterArray.length > 0
     )
 
-    if (hasActiveFilters && panelState.viewState === 'visualization' && isHealthy) {
+    if (hasActiveFilters && isHealthy) {
       try {
         fetchSankeyData(panel)
       } catch (error) {
         console.error(`Failed to update ${panel} Sankey data:`, error)
       }
     }
-  }, [panelState.thresholdTree, panelState.filters, panelState.viewState, isHealthy, fetchSankeyData, panel])
+  }, [panelState.thresholdTree, panelState.filters, isHealthy, fetchSankeyData, panel])
 }
 
 // ============================================================================

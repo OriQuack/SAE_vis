@@ -100,7 +100,8 @@ class TableDataService:
             total_features=len(features),
             explainer_ids=[MODEL_NAME_MAP.get(exp, exp) for exp in explainer_ids],
             scorer_ids=scorer_ids,
-            is_averaged=is_averaged
+            is_averaged=is_averaged,
+            global_stats=global_stats
         )
 
     def _apply_filters(self, filters: Filters) -> pl.DataFrame:
@@ -177,7 +178,7 @@ class TableDataService:
         PASS 1: Collect global statistics for z-score normalization.
 
         Collects all metric values across features and explainers to compute
-        global mean and std for each metric (embedding, fuzz, detection).
+        global mean, std, min, and max for each metric (embedding, fuzz, detection).
 
         Args:
             df: Filtered DataFrame
@@ -185,7 +186,7 @@ class TableDataService:
             feature_ids: List of feature IDs
 
         Returns:
-            Dict with global stats: {'metric_name': {'mean': float, 'std': float}}
+            Dict with global stats: {'metric_name': {'mean': float, 'std': float, 'min': float, 'max': float}}
         """
         embedding_values = []
         fuzz_values = []
@@ -218,22 +219,28 @@ class TableDataService:
                 if detection_avg is not None:
                     detection_values.append(detection_avg)
 
-        # Compute global statistics for each metric
+        # Compute global statistics for each metric (including min/max for frontend circle coloring)
         global_stats = {}
         if len(embedding_values) >= 2:
             global_stats['embedding'] = {
                 'mean': float(np.mean(embedding_values)),
-                'std': float(np.std(embedding_values, ddof=1))
+                'std': float(np.std(embedding_values, ddof=1)),
+                'min': float(np.min(embedding_values)),
+                'max': float(np.max(embedding_values))
             }
         if len(fuzz_values) >= 2:
             global_stats['fuzz'] = {
                 'mean': float(np.mean(fuzz_values)),
-                'std': float(np.std(fuzz_values, ddof=1))
+                'std': float(np.std(fuzz_values, ddof=1)),
+                'min': float(np.min(fuzz_values)),
+                'max': float(np.max(fuzz_values))
             }
         if len(detection_values) >= 2:
             global_stats['detection'] = {
                 'mean': float(np.mean(detection_values)),
-                'std': float(np.std(detection_values, ddof=1))
+                'std': float(np.std(detection_values, ddof=1)),
+                'min': float(np.min(detection_values)),
+                'max': float(np.max(detection_values))
             }
 
         logger.info(f"Computed global statistics for {len(global_stats)} metrics")
@@ -397,6 +404,9 @@ class TableDataService:
         """
         Build ExplainerScoreData for averaged mode (multiple explainers selected).
 
+        Note: In averaged mode, we still preserve individual scorer values (s1, s2, s3)
+        for visualization purposes (colored circles), but display shows averaged value.
+
         Args:
             explainer_df: DataFrame for this explainer
             embedding_score: Embedding score value
@@ -407,9 +417,22 @@ class TableDataService:
             cross_explainer_map: Cross-explainer consistency map
 
         Returns:
-            ExplainerScoreData with averaged scores and consistency metrics
+            ExplainerScoreData with individual and averaged scores and consistency metrics
         """
-        # Average scores across all scorers for fuzz and detection
+        # Get individual fuzz and detection scores per scorer (preserve for circle visualization)
+        fuzz_dict = {'s1': None, 's2': None, 's3': None}
+        detection_dict = {'s1': None, 's2': None, 's3': None}
+
+        scorer_map = {}
+        for i, row_dict in enumerate(explainer_df.iter_rows(named=True)):
+            scorer = row_dict["llm_scorer"]
+            scorer_key = f"s{i+1}"
+            scorer_map[scorer] = scorer_key
+
+            fuzz_dict[scorer_key] = round(row_dict["score_fuzz"], 3) if row_dict["score_fuzz"] is not None else None
+            detection_dict[scorer_key] = round(row_dict["score_detection"], 3) if row_dict["score_detection"] is not None else None
+
+        # Also calculate averages for consistency computation
         fuzz_scores = explainer_df["score_fuzz"].to_list()
         detection_scores = explainer_df["score_detection"].to_list()
 
@@ -433,8 +456,8 @@ class TableDataService:
 
         return ExplainerScoreData(
             embedding=embedding_score,
-            fuzz=ScorerScoreSet(s1=fuzz_avg, s2=None, s3=None),
-            detection=ScorerScoreSet(s1=detection_avg, s2=None, s3=None),
+            fuzz=ScorerScoreSet(s1=fuzz_dict['s1'], s2=fuzz_dict['s2'], s3=fuzz_dict['s3']),
+            detection=ScorerScoreSet(s1=detection_dict['s1'], s2=detection_dict['s2'], s3=detection_dict['s3']),
             scorer_consistency=None,  # Not applicable when averaged
             metric_consistency=metric_consistency,
             explainer_consistency=explainer_consistency,

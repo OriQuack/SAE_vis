@@ -8,7 +8,6 @@ import type {
   SankeyData,
   MetricType,
   PopoverState,
-  ViewState,
   LoadingStates,
   ErrorStates,
   AlluvialFlow,
@@ -33,7 +32,6 @@ interface PanelState {
   thresholdTree: ThresholdTree
   sankeyData: SankeyData | null
   histogramData: Record<string, HistogramData> | null
-  viewState: ViewState
 }
 
 interface AppState {
@@ -53,6 +51,10 @@ interface AppState {
   hoveredAlluvialPanel: 'left' | 'right' | null
   setHoveredAlluvialNode: (nodeId: string | null, panel: 'left' | 'right' | null) => void
 
+  // Comparison view state
+  showComparisonView: boolean
+  toggleComparisonView: () => void
+
   // Data actions - now take panel parameter
   setFilters: (filters: Partial<Filters>, panel?: PanelSide) => void
   // New threshold tree actions
@@ -66,7 +68,6 @@ interface AppState {
   setSankeyData: (data: SankeyData | null, panel?: PanelSide) => void
 
   // UI actions - now take panel parameter
-  setViewState: (state: ViewState, panel?: PanelSide) => void
   showHistogramPopover: (
     nodeId: string | undefined,
     nodeName: string,
@@ -90,8 +91,6 @@ interface AppState {
 
   // View state actions - now take panel parameter
   showVisualization: (panel?: PanelSide) => void
-  editFilters: (panel?: PanelSide) => void
-  removeVisualization: (panel?: PanelSide) => void
   resetFilters: (panel?: PanelSide) => void
 
   // Alluvial flows data
@@ -166,8 +165,7 @@ const createInitialPanelState = (): PanelState => {
     },
     thresholdTree: rootOnlyTree,
     sankeyData: null,
-    histogramData: null,
-    viewState: 'empty' as ViewState
+    histogramData: null
   }
 }
 
@@ -236,6 +234,9 @@ const initialState = {
   hoveredAlluvialNodeId: null,
   hoveredAlluvialPanel: null,
 
+  // Comparison view state
+  showComparisonView: false,
+
   // Category group state
   categoryGroups: []
 }
@@ -246,6 +247,11 @@ export const useStore = create<AppState>((set, get) => ({
   // Hover state actions
   setHoveredAlluvialNode: (nodeId: string | null, panel: 'left' | 'right' | null) =>
     set({ hoveredAlluvialNodeId: nodeId, hoveredAlluvialPanel: panel }),
+
+  // Comparison view actions
+  toggleComparisonView: () => {
+    set((state) => ({ showComparisonView: !state.showComparisonView }))
+  },
 
   // Data actions
   setFilters: (newFilters, panel = PANEL_LEFT) => {
@@ -384,16 +390,6 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   // UI actions
-  setViewState: (newState, panel = PANEL_LEFT) => {
-    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
-    set((state) => ({
-      [panelKey]: {
-        ...state[panelKey],
-        viewState: newState
-      }
-    }))
-  },
-
   showHistogramPopover: (nodeId, nodeName, metrics, position, parentNodeId, parentNodeName, panel = PANEL_LEFT, nodeCategory) => {
     set(() => ({
       popoverState: {
@@ -621,38 +617,8 @@ export const useStore = create<AppState>((set, get) => ({
 
   // View state actions
   showVisualization: (panel = PANEL_LEFT) => {
-    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
-    set((state) => ({
-      [panelKey]: {
-        ...state[panelKey],
-        viewState: 'visualization'
-      }
-    }))
-  },
-
-  editFilters: (panel = PANEL_LEFT) => {
-    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
-    set((state) => ({
-      [panelKey]: {
-        ...state[panelKey],
-        viewState: 'filtering'
-      }
-    }))
-  },
-
-  removeVisualization: (panel = PANEL_LEFT) => {
-    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
-    const rootOnlyTree = createRootOnlyTree() // Reset to root-only tree for fresh start
-
-    set((state) => ({
-      [panelKey]: {
-        ...state[panelKey],
-        viewState: 'empty',
-        thresholdTree: rootOnlyTree, // Reset threshold tree to root-only
-        sankeyData: null,
-        histogramData: null
-      }
-    }))
+    // This is now a no-op since we don't track view state anymore
+    // Kept for backward compatibility with existing code
   },
 
   resetFilters: (panel = PANEL_LEFT) => {
@@ -1018,8 +984,7 @@ export const useStore = create<AppState>((set, get) => ({
           explanation_method: [],
           llm_explainer: [llamaExplainer],
           llm_scorer: llmScorers  // Select ALL LLM Scorers
-        },
-        viewState: 'visualization' as ViewState
+        }
       },
       rightPanel: {
         ...state.rightPanel,
@@ -1028,8 +993,7 @@ export const useStore = create<AppState>((set, get) => ({
           explanation_method: [],
           llm_explainer: [],  // No explainer selected in right panel
           llm_scorer: llmScorers  // Select ALL LLM Scorers
-        },
-        viewState: 'visualization' as ViewState
+        }
       }
     }))
   },

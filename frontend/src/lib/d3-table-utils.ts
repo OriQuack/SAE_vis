@@ -1,5 +1,5 @@
 import { scaleLinear } from 'd3-scale'
-import type { FeatureTableRow } from '../types'
+import type { FeatureTableRow, MetricNormalizationStats } from '../types'
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -780,4 +780,162 @@ export function compareValues(
   } else {
     return b - a
   }
+}
+
+// ============================================================================
+// SCORE CIRCLE VISUALIZATION (Z-SCORE COLORING)
+// ============================================================================
+
+export interface ScoreCircleData {
+  value: number | null
+  normalizedScore: number  // z-score
+  color: string
+  scorerId?: 's1' | 's2' | 's3'
+}
+
+/**
+ * Calculate z-score using backend-provided global statistics
+ *
+ * @param value - Raw score value
+ * @param mean - Global mean for this metric
+ * @param std - Global standard deviation for this metric
+ * @returns Z-score (number of standard deviations from mean)
+ */
+export function calculateZScore(
+  value: number,
+  mean: number,
+  std: number
+): number {
+  // Handle edge case: if std is 0, all values are the same
+  if (std === 0 || isNaN(std)) {
+    return 0
+  }
+  return (value - mean) / std
+}
+
+/**
+ * Map z-score to color using diverging scale (blue → white → red)
+ *
+ * Color encoding:
+ * - Blue (#3b82f6): Below average (z < -1)
+ * - Light gray (#e5e7eb): Average (z ≈ 0)
+ * - Red (#ef4444): Above average (z > 1)
+ *
+ * @param zScore - Z-score value
+ * @returns RGB color string
+ */
+export function getScoreCircleColor(zScore: number): string {
+  // Create diverging color scale
+  // Domain: [-2, 0, 2] with clamping for outliers
+  const colorScale = scaleLinear<string>()
+    .domain([-2, 0, 2])
+    .range(['#3b82f6', '#e5e7eb', '#ef4444'])  // Blue → Light Gray → Red
+    .clamp(true)  // Clamp values outside domain
+
+  return colorScale(zScore)
+}
+
+/**
+ * Extract circle data for a specific table cell
+ *
+ * This function determines which circles to show based on:
+ * - Column header structure (which explainer + metric)
+ * - Averaged mode (1 circle for embedding, 3 circles for fuzz/detection)
+ * - Individual mode (1 circle per cell)
+ *
+ * @param row - Feature table row
+ * @param colIndex - Column index in table
+ * @param headerStructure - Header structure for column mapping
+ * @param globalStats - Global normalization statistics
+ * @param isAveraged - Whether scores are averaged
+ * @returns Array of circle data (1 or 3 circles)
+ */
+export function extractCellScoreCircles(
+  row: FeatureTableRow,
+  colIndex: number,
+  headerStructure: HeaderStructure,
+  globalStats: Record<string, MetricNormalizationStats>,
+  isAveraged: boolean
+): ScoreCircleData[] {
+  // Determine which header cell this column belongs to
+  const headerCell = !isAveraged && headerStructure.row3.length > 0
+    ? headerStructure.row3[colIndex]  // Individual mode: use row3
+    : headerStructure.row2[colIndex]   // Averaged mode: use row2
+
+  if (!headerCell || !headerCell.explainerId || !headerCell.metricType) {
+    return []
+  }
+
+  const explainerId = headerCell.explainerId
+  const metricType = headerCell.metricType
+  const explainerData = row.explainers[explainerId]
+
+  if (!explainerData) {
+    return []
+  }
+
+  // Get global stats for this metric type
+  const stats = globalStats[metricType]
+  if (!stats) {
+    return []
+  }
+
+  const circles: ScoreCircleData[] = []
+
+  if (isAveraged) {
+    // Averaged mode: Show 3 circles for fuzz/detection (one per scorer), 1 for embedding
+    if (metricType === 'embedding') {
+      // Embedding: single circle
+      const value = explainerData.embedding
+      if (value !== null) {
+        const zScore = calculateZScore(value, stats.mean, stats.std)
+        circles.push({
+          value,
+          normalizedScore: zScore,
+          color: getScoreCircleColor(zScore)
+        })
+      }
+    } else if (metricType === 'fuzz' || metricType === 'detection') {
+      // Fuzz/Detection: 3 circles (s1, s2, s3)
+      // Note: In averaged mode, backend stores individual scores in s1/s2/s3 even though display shows average
+      const scorerSet = metricType === 'fuzz' ? explainerData.fuzz : explainerData.detection
+      const scorerIds: Array<'s1' | 's2' | 's3'> = ['s1', 's2', 's3']
+
+      for (const scorerId of scorerIds) {
+        const value = scorerSet[scorerId]
+        if (value !== null) {
+          const zScore = calculateZScore(value, stats.mean, stats.std)
+          circles.push({
+            value,
+            normalizedScore: zScore,
+            color: getScoreCircleColor(zScore),
+            scorerId
+          })
+        }
+      }
+    }
+  } else {
+    // Individual mode: single circle per cell
+    let value: number | null = null
+
+    if (metricType === 'embedding') {
+      value = explainerData.embedding
+    } else if (metricType === 'fuzz' && headerCell.scorerId) {
+      value = explainerData.fuzz[headerCell.scorerId]
+    } else if (metricType === 'detection' && headerCell.scorerId) {
+      value = explainerData.detection[headerCell.scorerId]
+    }
+
+    if (value !== null) {
+      const zScore = calculateZScore(value, stats.mean, stats.std)
+      circles.push({
+        value,
+        normalizedScore: zScore,
+        color: getScoreCircleColor(zScore),
+        scorerId: headerCell.scorerId
+      })
+    }
+  }
+
+  return circles
 }

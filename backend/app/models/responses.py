@@ -455,6 +455,13 @@ class FeatureTableRow(BaseModel):
         description="Scores for each explainer (llama, qwen, openai)"
     )
 
+class MetricNormalizationStats(BaseModel):
+    """Global normalization statistics for a metric (used for z-score color mapping)"""
+    mean: float = Field(..., description="Global mean across all features")
+    std: float = Field(..., description="Global standard deviation")
+    min: float = Field(..., description="Global minimum value")
+    max: float = Field(..., description="Global maximum value")
+
 class FeatureTableDataResponse(BaseModel):
     """Response model for feature-level table visualization data (824 rows)"""
     features: List[FeatureTableRow] = Field(..., description="Feature-level rows (one per feature_id)")
@@ -462,3 +469,4 @@ class FeatureTableDataResponse(BaseModel):
     explainer_ids: List[str] = Field(..., description="List of explainer IDs present in data")
     scorer_ids: List[str] = Field(..., description="List of scorer IDs present in data (for S1, S2, S3 labels)")
     is_averaged: bool = Field(default=False, description="Whether scores are averaged across scorers (when multiple explainers selected)")
+    global_stats: Dict[str, MetricNormalizationStats] = Field(..., description="Global normalization statistics for each metric (embedding, fuzz, detection)")

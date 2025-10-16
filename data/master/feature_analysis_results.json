@@ -1,5 +1,5 @@
 {
-  "timestamp": "20251012_153328",
+  "timestamp": "20251016_194017",
   "parquet_file": "/home/dohyun/interface/data/master/feature_analysis.parquet",
   "dataset_name": "SAE Feature Analysis",
   "dataset_info": {
@@ -49,9 +49,9 @@
       "n_unique": 3,
       "n_nulls": 0,
       "values": {
-        "openai/gpt-oss-20b": 2471,
         "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4": 2471,
-        "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8": 2471
+        "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8": 2471,
+        "openai/gpt-oss-20b": 2471
       }
     },
     "feature_splitting": {
@@ -86,42 +86,40 @@
     },
     "score_fuzz": {
       "dtype": "Float32",
-      "n_unique": 228,
-      "n_nulls": 15,
+      "n_unique": 184,
+      "n_nulls": 14,
       "range": {
         "min": 0.0,
         "max": 1.0,
-        "mean": 0.6476973759911292
+        "mean": 0.6479650262195946
       }
     },
     "score_simulation": {
       "dtype": "Float32",
-      "n_unique": 3097,
-      "n_nulls": 4317,
-      "range": {
-        "min": -0.294018030166626,
-        "max": 0.9442432522773743,
-        "mean": 0.18755659191737095
+      "n_unique": 1,
+      "n_nulls": 7413,
+      "values": {
+        "None": 7413
       }
     },
     "score_detection": {
       "dtype": "Float32",
-      "n_unique": 204,
+      "n_unique": 159,
       "n_nulls": 13,
       "range": {
         "min": 0.0,
         "max": 1.0,
-        "mean": 0.5591204622679868
+        "mean": 0.5590798085958169
       }
     },
     "score_embedding": {
       "dtype": "Float32",
-      "n_unique": 744,
-      "n_nulls": 4416,
+      "n_unique": 1493,
+      "n_nulls": 0,
       "range": {
-        "min": 0.0803999975323677,
-        "max": 0.972000002861023,
-        "mean": 0.5313005012360301
+        "min": 0.015625,
+        "max": 0.9879999756813049,
+        "mean": 0.49940593842792397
       }
     },
     "details_path": {

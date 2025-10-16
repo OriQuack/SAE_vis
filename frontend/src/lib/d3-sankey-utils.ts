@@ -152,7 +152,7 @@ export function calculateSankeyLayout(
 
   const margin = customMargin || DEFAULT_SANKEY_MARGIN
   const width = (layoutWidth || 800) - margin.left - margin.right
-  const height = (layoutHeight || 600) - margin.top - margin.bottom
+  const height = (layoutHeight || 800) - margin.top - margin.bottom
 
   // Build reference sets and maps for efficiency
   const referencedNodeIds = new Set<string>()
@@ -302,10 +302,11 @@ export function calculateSankeyLayout(
   if (sankeyLayout.links.length === 0 && sankeyLayout.nodes.length === 1) {
     const singleNode = sankeyLayout.nodes[0]
     const nodeWidth = 15 // Same as sankeyGenerator nodeWidth
-    const nodeHeight = Math.min(100, height * 0.6) // Reasonable height for single node
+    const nodeHeight = Math.min(200, height * 0.8) // Longer height to accommodate growth
 
-    // Center the single node
-    singleNode.x0 = (width - nodeWidth) / 2
+    // Position on left middle (not center)
+    const leftMargin = 20 // Small margin from left edge
+    singleNode.x0 = leftMargin
     singleNode.x1 = singleNode.x0 + nodeWidth
     singleNode.y0 = (height - nodeHeight) / 2
     singleNode.y1 = singleNode.y0 + nodeHeight
