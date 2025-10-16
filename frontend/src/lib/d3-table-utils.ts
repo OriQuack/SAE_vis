@@ -12,7 +12,7 @@ export interface HeaderCell {
   rowSpan: number
   type: 'explainer' | 'metric' | 'scorer'
   explainerId?: string
-  metricType?: 'embedding' | 'fuzz' | 'detection'
+  metricType?: 'explanation' | 'embedding' | 'fuzz' | 'detection'
   scorerId?: 's1' | 's2' | 's3'
 }
 
@@ -135,7 +135,7 @@ export function buildHeaderStructure(
         rowSpan: 1,
         type: 'metric',
         explainerId,
-        metricType: 'explanation' as any
+        metricType: 'explanation'
       })
 
       row2.push({
@@ -188,7 +188,7 @@ export function buildHeaderStructure(
         rowSpan: 1,
         type: 'metric',
         explainerId,
-        metricType: 'explanation' as any
+        metricType: 'explanation'
       })
 
       // Embedding (1 column)
@@ -229,7 +229,7 @@ export function buildHeaderStructure(
         rowSpan: 1,
         type: 'scorer',
         explainerId,
-        metricType: 'explanation' as any
+        metricType: 'explanation'
       })
 
       // Empty cell for embedding

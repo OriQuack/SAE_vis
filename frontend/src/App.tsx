@@ -4,20 +4,13 @@ import SankeyDiagram from './components/SankeyDiagram'
 import AlluvialDiagram from './components/AlluvialDiagram'
 import HistogramPopover from './components/HistogramPopover'
 import FlowPanel from './components/FlowPanel'
-import ProgressBar from './components/ProgressBar'
 import TablePanel from './components/TablePanel'
-import HistogramPanel from './components/HistogramPanel'
 import VerticalBar from './components/VerticalBar'
 import ConsistencyPanel from './components/ConsistencyPanel'
 import { usePanelDataLoader } from './lib/utils'
 import * as api from './api'
 import './styles/base.css'
 import './styles/App.css'
-
-// ============================================================================
-// CONSTANTS
-// ============================================================================
-const FIXED_DIAGRAM_HEIGHT = 500 // Fixed height for both Sankey and Alluvial diagrams
 
 // ============================================================================
 // TYPES
@@ -180,20 +173,8 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
               <ConsistencyPanel />
             </div>
 
-            {/* Top Right - Comparison Toggle */}
+            {/* Top Right - Empty (button moved to Sankey panel) */}
             <div className="sankey-view__top-right">
-              <button
-                className={`comparison-toggle ${showComparisonView ? 'comparison-toggle--active' : ''}`}
-                onClick={toggleComparisonView}
-                title={showComparisonView ? 'Hide comparison view' : 'Show comparison view'}
-              >
-                <span className="comparison-toggle__icon">
-                  {showComparisonView ? '◀' : '▶'}
-                </span>
-                <span className="comparison-toggle__text">
-                  {showComparisonView ? 'Hide' : 'Show'} Comparison
-                </span>
-              </button>
             </div>
           </div>
 
@@ -208,6 +189,19 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
                   flowDirection="left-to-right"
                   panel="left"
                 />
+                {/* Floating Comparison Toggle Button */}
+                <button
+                  className={`comparison-toggle comparison-toggle--floating ${showComparisonView ? 'comparison-toggle--active' : ''}`}
+                  onClick={toggleComparisonView}
+                  title={showComparisonView ? 'Hide comparison view' : 'Show comparison view'}
+                >
+                  <span className="comparison-toggle__icon">
+                    {showComparisonView ? '◀' : '▶'}
+                  </span>
+                  <span className="comparison-toggle__text">
+                    {showComparisonView ? 'Hide' : 'Right Sankey'}
+                  </span>
+                </button>
               </div>
             </div>
 

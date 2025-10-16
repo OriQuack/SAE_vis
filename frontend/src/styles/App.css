@@ -395,6 +395,26 @@
   white-space: nowrap;
 }
 
+/* Floating variant - positioned at bottom-left corner of Sankey panel */
+.comparison-toggle--floating {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  padding: 6px 12px;
+  font-size: 11px;
+  gap: 6px;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.comparison-toggle--floating .comparison-toggle__icon {
+  font-size: 12px;
+}
+
+.comparison-toggle--floating .comparison-toggle__text {
+  font-size: 11px;
+}
+
 /* ============================================================================
    3x2 GRID LAYOUT - CENTER ROW CELLS
    ============================================================================ */
@@ -476,6 +496,7 @@
   padding: 0;
   border: 1px solid #000000;
   min-width: 0;
+  position: relative;
 }
 
 .sankey-view__alluvial-panel {

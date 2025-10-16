@@ -5,9 +5,6 @@ import type { FeatureTableDataResponse, FeatureTableRow, SortBy } from '../types
 import {
   buildHeaderStructure,
   buildMetricFirstHeaderStructure,
-  formatTableScore,
-  extractRowScores,
-  extractRowScoresMetricFirst,
   getConsistencyForCell,
   getConsistencyColor,
   extractCellScoreCircles,
@@ -712,8 +709,8 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                   ? 'table-panel__metric-header'
                   : 'table-panel__explainer-header'
 
-                // Check if this column is sortable (has explainerId and metricType)
-                const isSortable = cell.explainerId && cell.metricType
+                // Check if this column is sortable (has explainerId and metricType, excluding explanation)
+                const isSortable = cell.explainerId && cell.metricType && cell.metricType !== 'explanation'
                 // Check if currently sorted
                 const isSorted = isSortable && sortBy?.type === 'column' &&
                   sortBy.explainerId === cell.explainerId &&
@@ -726,11 +723,11 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                     colSpan={cell.colSpan}
                     className={`${cellClass} ${highlightedRows.row2 ? 'highlighted' : ''} ${isSortable ? 'table-panel__sortable-header' : ''}`}
                     onClick={() => {
-                      if (isSortable) {
+                      if (isSortable && cell.metricType !== 'explanation') {
                         handleSort({
                           type: 'column',
                           explainerId: cell.explainerId!,
-                          metricType: cell.metricType!,
+                          metricType: cell.metricType as 'embedding' | 'fuzz' | 'detection',
                           scorerId: undefined
                         })
                       }
@@ -761,8 +758,8 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
             {!isAveraged && (
               <tr className={`table-panel__header-row-3 ${highlightedRows.row3 ? 'highlighted' : ''}`}>
                 {headerStructure.row3.map((cell, idx) => {
-                  // Check if this column is sortable
-                  const isSortable = cell.explainerId && cell.metricType && cell.metricType !== 'embedding'
+                  // Check if this column is sortable (exclude embedding and explanation)
+                  const isSortable = cell.explainerId && cell.metricType && cell.metricType !== 'embedding' && cell.metricType !== 'explanation'
                   // Check if currently sorted
                   const isSorted = isSortable && sortBy?.type === 'column' &&
                     sortBy.explainerId === cell.explainerId &&
@@ -777,11 +774,11 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                       key={`scorer-${idx}`}
                       className={`table-panel__scorer-header ${highlightedRows.row3 ? 'highlighted' : ''} ${isSortable ? 'table-panel__sortable-header' : ''} ${isEmbeddingScorer ? 'table-panel__scorer-header--empty' : ''}`}
                       onClick={() => {
-                        if (isSortable) {
+                        if (isSortable && cell.metricType !== 'explanation') {
                           handleSort({
                             type: 'column',
                             explainerId: cell.explainerId!,
-                            metricType: cell.metricType!,
+                            metricType: cell.metricType as 'embedding' | 'fuzz' | 'detection',
                             scorerId: cell.scorerId
                           })
                         }
@@ -853,22 +850,22 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                     if (!isAveraged && headerStructure.row3.length > 0) {
                       // 3-row header: row3 has scorer-level cells
                       const headerCell = headerStructure.row3[idx]
-                      if (headerCell && headerCell.explainerId && headerCell.metricType) {
+                      if (headerCell && headerCell.explainerId && headerCell.metricType && headerCell.metricType !== 'explanation') {
                         consistency = getConsistencyForCell(
                           row,
                           headerCell.explainerId,
-                          headerCell.metricType,
+                          headerCell.metricType as 'embedding' | 'fuzz' | 'detection',
                           selectedConsistencyType
                         )
                       }
                     } else if (headerStructure.row2.length > 0) {
                       // 2-row header: row2 has metric-level cells
                       const headerCell = headerStructure.row2[idx]
-                      if (headerCell && headerCell.explainerId && headerCell.metricType) {
+                      if (headerCell && headerCell.explainerId && headerCell.metricType && headerCell.metricType !== 'explanation') {
                         consistency = getConsistencyForCell(
                           row,
                           headerCell.explainerId,
-                          headerCell.metricType,
+                          headerCell.metricType as 'embedding' | 'fuzz' | 'detection',
                           selectedConsistencyType
                         )
                       }
