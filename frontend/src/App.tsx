@@ -6,7 +6,6 @@ import AlluvialDiagram from './components/AlluvialDiagram'
 import HistogramPopover from './components/HistogramPopover'
 import FlowPanel from './components/FlowPanel'
 import ProgressBar from './components/ProgressBar'
-import UMAPPanel from './components/UMAPPanel'
 import TablePanel from './components/TablePanel'
 import HistogramPanel from './components/HistogramPanel'
 import VerticalBar from './components/VerticalBar'
@@ -254,42 +253,35 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
         </div>
       </div>
 
-      {/* Main content - four-panel rendering */}
+      {/* Main content - 3x3 grid layout */}
       <div className={`sankey-view__content sankey-view__content--${layout}`}>
         <div className="sankey-view__main-content">
-          {/* Control Column - Contains input controls and histograms */}
-          <div className="sankey-view__control-column">
-            {/* Flow Panel */}
-            <div className="sankey-view__flow-panel">
+          {/* Top Panel Container - Row 1 */}
+          <div className="sankey-view__top-panel-container">
+            {/* Top Left - Flow Panel */}
+            <div className="sankey-view__top-left">
               <FlowPanel />
             </div>
 
-            {/* Table Panel */}
-            <div className="sankey-view__table-panel">
-              <TablePanel />
+            {/* Top Middle - Empty */}
+            <div className="sankey-view__top-middle">
+              <div className="sankey-view__placeholder-text">
+                Top Middle Panel
+              </div>
             </div>
 
-            {/* Histogram Container */}
-            <div className="sankey-view__histogram-container">
-              <HistogramPanel />
+            {/* Top Right - Analysis Panel */}
+            <div className="sankey-view__top-right">
+              <div className="sankey-view__placeholder-text">
+                Analysis Panel
+              </div>
             </div>
           </div>
 
-          {/* Vertical Bar - Separator between control and visualization columns */}
-          <div className="sankey-view__vertical-bar">
-            <SavedGroupsPanel />
-            <VerticalBar />
-          </div>
-
-          {/* Visualization Column - Contains visualizations */}
-          <div className="sankey-view__visualization-column">
-            {/* Linear Set Panel - Progress bar showing feature overlap */}
-            <div className="sankey-view__linear-set-panel">
-              <ProgressBar />
-            </div>
-
-            {/* Sankey Container - Dual Sankey diagrams with alluvial flow */}
-            <div className="sankey-view__sankey-container">
+          {/* Center Panel Container - Row 2 */}
+          <div className="sankey-view__center-panel-container">
+            {/* Center Left - All Sankey Diagrams */}
+            <div className="sankey-view__center-left">
               {/* Left Sankey Diagram */}
               <div className="sankey-view__sankey-left">
                 {leftPanel.viewState === 'empty' && (
@@ -361,18 +353,35 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
               </div>
             </div>
 
-            {/* Analysis Container - Additional analysis panels */}
-            <div className="sankey-view__analysis-container">
-              {/* UMAP Panel */}
-              <div className="sankey-view__umap-panel">
-                <UMAPPanel />
-              </div>
+            {/* Center Middle - Vertical Bar */}
+            <div className="sankey-view__center-middle">
+              <VerticalBar />
+            </div>
 
-              {/* Analysis Right Panel */}
-              <div className="sankey-view__analysis-right-panel">
-                <div className="sankey-view__placeholder-text">
-                  Analysis Panel
-                </div>
+            {/* Center Right - Table Panel */}
+            <div className="sankey-view__center-right">
+              <TablePanel />
+            </div>
+          </div>
+
+          {/* Bottom Panel Container - Row 3 */}
+          <div className="sankey-view__bottom-panel-container">
+            {/* Bottom Left - Saved Groups Panel */}
+            <div className="sankey-view__bottom-left">
+              <SavedGroupsPanel />
+            </div>
+
+            {/* Bottom Middle - Empty */}
+            <div className="sankey-view__bottom-middle">
+              <div className="sankey-view__placeholder-text">
+                Bottom Middle Panel
+              </div>
+            </div>
+
+            {/* Bottom Right - Empty */}
+            <div className="sankey-view__bottom-right">
+              <div className="sankey-view__placeholder-text">
+                Bottom Right Panel
               </div>
             </div>
           </div>

@@ -1,5 +1,5 @@
 /* ============================================================================
- * SAVED GROUPS PANEL - 4x2 Grid of Circular Badges
+ * SAVED GROUPS PANEL - Horizontal Row of 8 Circular Badges
  * ============================================================================ */
 
 .saved-groups-panel {
@@ -8,9 +8,9 @@
   align-items: center;
   justify-content: center;
   background: #ffffff;
-  border-bottom: 1px solid #e5e7eb;
   padding: 8px 12px;
   width: 100%;
+  height: 100%;
   gap: 8px;
 }
 
@@ -34,12 +34,13 @@
 }
 
 .saved-groups-panel__grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  grid-template-rows: repeat(2, 1fr);
-  gap: 8px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
   width: 100%;
-  max-width: 200px;
+  flex-wrap: nowrap;
 }
 
 /* ============================================================================
@@ -50,11 +51,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .saved-groups-panel__badge {
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   transition: all 0.2s ease, opacity 0.3s ease;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
@@ -62,6 +64,7 @@
   align-items: center;
   justify-content: center;
   position: relative;
+  flex-shrink: 0;
 }
 
 /* Active (filled) badges */
@@ -154,13 +157,12 @@
   }
 
   .saved-groups-panel__grid {
-    gap: 6px;
-    max-width: 160px;
+    gap: 8px;
   }
 
   .saved-groups-panel__badge {
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
   }
 
   .saved-groups-panel__badge-delete {

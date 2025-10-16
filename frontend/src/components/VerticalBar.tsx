@@ -251,7 +251,7 @@ const VerticalBar: React.FC<VerticalBarProps> = ({ className = '' }) => {
     >
       {/* Header */}
       <div className="vertical-bar__header">
-        <span className="vertical-bar__title">LLM Explainers</span>
+        <span className="vertical-bar__title">LLM Explanations</span>
       </div>
 
       <div className="vertical-bar__content">

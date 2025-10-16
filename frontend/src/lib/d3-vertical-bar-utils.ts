@@ -191,9 +191,7 @@ export function calculateMultiBarLayout(
 
   // Calculate bar dimensions
   const numBars = data.length
-  const barGap = 10
-  const totalGapWidth = barGap * (numBars - 1)
-  const barWidth = (availableWidth - totalGapWidth) / numBars
+  const barWidth = (availableWidth) / numBars
 
   // All bars have the same height (fill container)
   const barHeight = availableHeight
@@ -201,7 +199,7 @@ export function calculateMultiBarLayout(
 
   // Calculate layout for each bar
   const bars = data.map((explainerData, index) => {
-    const x = padding.left + index * (barWidth + barGap)
+    const x = padding.left + index * (barWidth)
 
     // Calculate scroll indicator position if scroll state is available
     let scrollIndicator: ScrollIndicator | null = null

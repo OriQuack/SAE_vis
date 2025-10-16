@@ -7,7 +7,7 @@ import '../styles/SavedGroupsPanel.css'
 // CONSTANTS
 // ============================================================================
 
-const MAX_SAVED_GROUPS = 8 // Maximum number of saved groups (4 cols x 2 rows)
+const MAX_SAVED_GROUPS = 8 // Maximum number of saved groups (8 horizontal)
 const PLACEHOLDER_COLOR = '#d1d5db' // Gray color for empty slots
 
 // ============================================================================
@@ -17,12 +17,12 @@ const PLACEHOLDER_COLOR = '#d1d5db' // Gray color for empty slots
 /**
  * SavedGroupsPanel Component
  *
- * Displays 8 circular slots in a 4x2 grid for saved cell group selections.
+ * Displays 8 circular slots in a horizontal row for saved cell group selections.
  * Empty slots are shown in gray, filled slots show colored circles.
  * Users can click badges to restore selections or delete them.
  *
  * Features:
- * - Fixed 4x2 grid layout (8 circles total)
+ * - Horizontal layout (8 circles in 1 row)
  * - Gray placeholder circles for empty slots
  * - Colored circles for saved groups
  * - Click to restore saved selection

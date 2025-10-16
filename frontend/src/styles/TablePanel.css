@@ -7,10 +7,12 @@
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   padding: 0;
-  max-height: 500px;
-  display: block;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   position: relative;
+  height: 100%;
+  width: 100%;
 }
 
 /* ============================================================================
@@ -205,9 +207,10 @@
   background: #fafafa;
 }
 
-/* Content Container - Fixed Height with Scrolling */
+/* Content Container - Flexible Height with Scrolling */
 .table-panel__content {
-  height: 500px;
+  flex: 1;
+  min-height: 0;
   overflow-x: auto;
   overflow-y: scroll;
   position: relative;

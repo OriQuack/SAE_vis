@@ -8,8 +8,6 @@ import type {
   AlluvialDataRequest,
   FeatureDetail,
   Filters,
-  UMAPDataRequest,
-  UMAPDataResponse,
   TableDataRequest,
   FeatureTableDataResponse
 } from './types'
@@ -25,7 +23,6 @@ const API_ENDPOINTS = {
   SANKEY_DATA: "/sankey-data",
   ALLUVIAL_DATA: "/comparison-data", // TODO: Change to alluvial
   FEATURE_DETAIL: "/feature",
-  UMAP_DATA: "/umap-data",
   TABLE_DATA: "/table-data"
 } as const
 
@@ -105,22 +102,6 @@ export async function healthCheck(): Promise<boolean> {
   } catch {
     return false
   }
-}
-
-export async function getUMAPData(request: UMAPDataRequest): Promise<UMAPDataResponse> {
-  const response = await fetch(`${API_BASE}${API_ENDPOINTS.UMAP_DATA}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(request)
-  })
-  if (!response.ok) {
-    const errorText = await response.text()
-    console.error('UMAP API error:', response.status, errorText)
-    throw new Error(`Failed to fetch UMAP data: ${response.status} - ${errorText}`)
-  }
-  return response.json()
 }
 
 export async function getTableData(request: TableDataRequest): Promise<FeatureTableDataResponse> {

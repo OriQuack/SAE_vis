@@ -3,8 +3,8 @@
    ============================================================================ */
 
 .app {
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -263,34 +263,52 @@
 .sankey-view__main-content {
   flex: 1;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   gap: 0;
   min-height: 0;
   overflow: hidden;
 }
 
-/* Control Column - Left side containing input controls */
-.sankey-view__control-column {
-  flex: 2.2;
+/* ============================================================================
+   3x3 GRID LAYOUT - ROW CONTAINERS
+   ============================================================================ */
+
+/* Top Panel Container - Row 1 */
+.sankey-view__top-panel-container {
+  flex: 2;
   display: flex;
-  flex-direction: column;
-  border-left: 1px solid #000000;
+  flex-direction: row;
+  min-width: 0;
+  min-height: 0;
+  border-bottom: 1px solid #000000;
+}
+
+/* Center Panel Container - Row 2 */
+.sankey-view__center-panel-container {
+  flex: 8;
+  display: flex;
+  flex-direction: row;
+  min-width: 0;
+  min-height: 0;
+  border-bottom: 1px solid #000000;
+}
+
+/* Bottom Panel Container - Row 3 */
+.sankey-view__bottom-panel-container {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
   min-width: 0;
   min-height: 0;
 }
 
-/* Vertical Bar - Thin separator between control and visualization columns */
-.sankey-view__vertical-bar {
-  flex: 0.65;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-}
+/* ============================================================================
+   3x3 GRID LAYOUT - TOP ROW CELLS
+   ============================================================================ */
 
-.sankey-view__flow-panel {
-  flex: 0.1;
+/* Top Left - Flow Panel */
+.sankey-view__top-left {
+  flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -299,85 +317,93 @@
   background: white;
   padding: 0;
   min-width: 0;
+  border: 1px solid #000000;
 }
 
-.sankey-view__histogram-container {
-  flex: 2;
+/* Top Middle - Saved Groups Panel */
+.sankey-view__top-middle {
+  flex: 1;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
+  overflow: hidden;
+  background: white;
+  padding: 0;
   min-width: 0;
-  min-height: 0;
-  border-top: 1px solid #000000;
+  border: 1px solid #000000;
 }
 
-.sankey-view__histogram-panel {
+/* Top Right - Analysis Panel */
+.sankey-view__top-right {
   flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  overflow: hidden;
+  overflow: visible;
   background: #f9fafb;
   padding: 0;
   min-width: 0;
-  min-height: 0;
+  border: 1px solid #000000;
 }
 
-/* Visualization Column - Right side containing visualizations */
-.sankey-view__visualization-column {
-  flex: 5;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-}
+/* ============================================================================
+   3x3 GRID LAYOUT - CENTER ROW CELLS
+   ============================================================================ */
 
-.sankey-view__linear-set-panel {
-  flex: 0.2;
+/* Center Left - All Sankey Diagrams */
+.sankey-view__center-left {
+  flex: 6;
   display: flex;
   flex-direction: row;
-  justify-content: stretch;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid #000000;
+}
+
+/* Center Middle - Vertical Bar */
+.sankey-view__center-middle {
+  flex: 1.5;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: white;
+  padding: 0;
+  min-width: 0;
+  border: 1px solid #000000;
+}
+
+/* Center Right - Table Panel */
+.sankey-view__center-right {
+  flex: 10.5;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: white;
+  padding: 0;
+  min-width: 0;
+  border: 1px solid #000000;
+}
+
+/* ============================================================================
+   3x3 GRID LAYOUT - BOTTOM ROW CELLS
+   ============================================================================ */
+
+/* Bottom Left */
+.sankey-view__bottom-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   align-items: stretch;
   overflow: visible;
-  background: white;
+  background: #f9fafb;
   padding: 0;
   min-width: 0;
-  width: 100%;
-  border-left: 1px solid #000000;
-  border-bottom: 1px solid #000000;
+  border: 1px solid #000000;
 }
 
-.sankey-view__sankey-container {
-  flex: 1.4;
-  display: flex;
-  flex-direction: row;
-  min-width: 0;
-  min-height: 0;
-}
-
-.sankey-view__analysis-container {
-  flex: 1;
-  display: flex;
-  flex-direction: row;
-  border-top: 1px solid #000000;
-  min-width: 0;
-  min-height: 0;
-}
-
-.sankey-view__umap-panel {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  overflow: visible;
-  background: white;
-  padding: 0;
-  min-width: 0;
-  border-left: 1px solid #000000;
-}
-
-.sankey-view__analysis-right-panel {
+/* Bottom Middle */
+.sankey-view__bottom-middle {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -387,18 +413,21 @@
   background: #f9fafb;
   padding: 0;
   min-width: 0;
-  border-left: 1px solid #000000;
+  border: 1px solid #000000;
 }
 
-.sankey-view__table-panel {
-  flex: 3;
+/* Bottom Right */
+.sankey-view__bottom-right {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  background: white;
+  justify-content: center;
+  align-items: center;
+  overflow: visible;
+  background: #f9fafb;
   padding: 0;
   min-width: 0;
-  border-left: 1px solid #000000;
+  border: 1px solid #000000;
 }
 
 /* Sankey Diagram Panels */
@@ -411,7 +440,7 @@
   overflow: visible;
   background: transparent;
   padding: 0;
-  border-left: 1px solid #000000;
+  border: 1px solid #000000;
   min-width: 0;
 }
 
@@ -425,8 +454,7 @@
   background: white;
   padding: 0;
   margin: 0;
-  border-left: 1px solid #000000;
-  border-right: 1px solid #000000;
+  border: 1px solid #000000;
   min-width: 0;
 }
 
@@ -439,7 +467,7 @@
   overflow: visible;
   background: transparent;
   padding: 0;
-  border-right: 1px solid #000000;
+  border: 1px solid #000000;
   min-width: 0;
 }
 

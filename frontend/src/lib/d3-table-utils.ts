@@ -1,11 +1,3 @@
-/**
- * D3 Table Utilities
- *
- * Following project pattern: "D3 for calculations, React for rendering"
- *
- * Provides utility functions for table data transformation and calculations.
- */
-
 import { scaleLinear } from 'd3-scale'
 import type { FeatureTableRow } from '../types'
 

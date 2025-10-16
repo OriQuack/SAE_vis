@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useVisualizationStore } from '../store'
-import type { FeatureTableDataResponse, FeatureTableRow, ConsistencyType, SortBy, SortDirection } from '../types'
+import type { FeatureTableDataResponse, FeatureTableRow, ConsistencyType, SortBy } from '../types'
 import {
   buildHeaderStructure,
   buildMetricFirstHeaderStructure,
@@ -11,9 +11,6 @@ import {
   calculateColorBarLayout,
   getConsistencyForCell,
   getConsistencyColor,
-  getConsistencyValueForSorting,
-  getScoreValue,
-  compareValues,
   type HeaderStructure
 } from '../lib/d3-table-utils'
 import {
