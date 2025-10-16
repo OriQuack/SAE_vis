@@ -158,7 +158,7 @@ export function calculateSelectionSegments(
  * @param containerHeight - Container height in pixels
  * @param padding - Padding around the visualization
  * @param scrollState - Optional scroll state for scroll indicator
- * @param selectionData - Optional selection data: map of explainer ID to {featureIndices, color}
+ * @param selectionData - Optional selection data: map of explainer ID to array of {featureIndices, color}
  * @param totalFeatureCount - Total number of features for selection calculation
  * @returns Layout calculations for rendering
  */
@@ -173,7 +173,7 @@ export function calculateMultiBarLayout(
     right: 20
   },
   scrollState?: { scrollTop: number; scrollHeight: number; clientHeight: number } | null,
-  selectionData?: Map<string, { featureIndices: number[]; color: string }>,
+  selectionData?: Map<string, Array<{ featureIndices: number[]; color: string }>>,
   totalFeatureCount: number = 0
 ): MultiBarLayout {
   if (data.length === 0) {
@@ -241,15 +241,21 @@ export function calculateMultiBarLayout(
     // Calculate selection segments if selection data is available
     let selectionSegments: SelectionSegment[] = []
     if (selectionData && totalFeatureCount > 0) {
-      const selection = selectionData.get(explainerData.id)
-      if (selection && selection.featureIndices.length > 0) {
-        selectionSegments = calculateSelectionSegments(
-          selection.featureIndices,
-          totalFeatureCount,
-          barY,
-          barHeight,
-          selection.color
-        )
+      const selections = selectionData.get(explainerData.id)
+      if (selections && selections.length > 0) {
+        // Iterate over all selection groups for this explainer (saved groups + active selection)
+        selections.forEach(selection => {
+          if (selection.featureIndices.length > 0) {
+            const segments = calculateSelectionSegments(
+              selection.featureIndices,
+              totalFeatureCount,
+              barY,
+              barHeight,
+              selection.color
+            )
+            selectionSegments.push(...segments)
+          }
+        })
       }
     }
 

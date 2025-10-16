@@ -150,36 +150,75 @@ const VerticalBar: React.FC<VerticalBarProps> = ({ className = '' }) => {
     return '#3b82f6'
   }, [activeSavedGroupId, savedCellGroupSelections])
 
-  // Prepare selection data map: explainer ID -> {featureIndices, color}
-  // Groups selected cell groups by explainer ID
+  // Prepare selection data map: explainer ID -> Array<{featureIndices, color}>
+  // Shows BOTH saved groups AND active selection
   // IMPORTANT: Uses sortedFeatures to match table display order
   const selectionData = useMemo(() => {
-    if (!cellSelection.groups || cellSelection.groups.length === 0) {
-      return undefined
-    }
+    const selectionMap = new Map<string, Array<{ featureIndices: number[]; color: string }>>()
 
-    const selectionMap = new Map<string, { featureIndices: number[]; color: string }>()
+    // First pass: Add all saved groups (each saved group is a separate array entry)
+    savedCellGroupSelections.forEach(savedGroup => {
+      const savedColor = getSavedGroupColor(savedGroup.colorIndex)
+      const groupByExplainer = new Map<string, number[]>()
 
-    // Group selected features by explainer ID
-    cellSelection.groups.forEach(group => {
-      const explainerId = group.explainerId
+      // Group feature indices by explainer for this saved group
+      savedGroup.groups.forEach(group => {
+        const explainerId = group.explainerId
 
-      // Find the row index for this feature in the SORTED array
-      // This ensures vertical bar positions match table display order
-      const featureIndex = sortedFeatures.findIndex(
-        (feature: FeatureTableRow) => feature.feature_id === group.featureId
-      )
+        // Find the row index for this feature in the SORTED array
+        const featureIndex = sortedFeatures.findIndex(
+          (feature: FeatureTableRow) => feature.feature_id === group.featureId
+        )
 
-      if (featureIndex !== -1) {
-        if (!selectionMap.has(explainerId)) {
-          selectionMap.set(explainerId, { featureIndices: [], color: selectionColor })
+        if (featureIndex !== -1) {
+          if (!groupByExplainer.has(explainerId)) {
+            groupByExplainer.set(explainerId, [])
+          }
+          groupByExplainer.get(explainerId)!.push(featureIndex)
         }
-        selectionMap.get(explainerId)!.featureIndices.push(featureIndex)
-      }
+      })
+
+      // Add each explainer group to the selection map
+      groupByExplainer.forEach((featureIndices, explainerId) => {
+        if (!selectionMap.has(explainerId)) {
+          selectionMap.set(explainerId, [])
+        }
+        selectionMap.get(explainerId)!.push({ featureIndices, color: savedColor })
+      })
     })
 
+    // Second pass: Add current active selection (as a separate array entry)
+    if (cellSelection.groups && cellSelection.groups.length > 0) {
+      const activeGroupByExplainer = new Map<string, number[]>()
+
+      cellSelection.groups.forEach(group => {
+        const explainerId = group.explainerId
+
+        // Find the row index for this feature in the SORTED array
+        // This ensures vertical bar positions match table display order
+        const featureIndex = sortedFeatures.findIndex(
+          (feature: FeatureTableRow) => feature.feature_id === group.featureId
+        )
+
+        if (featureIndex !== -1) {
+          if (!activeGroupByExplainer.has(explainerId)) {
+            activeGroupByExplainer.set(explainerId, [])
+          }
+          activeGroupByExplainer.get(explainerId)!.push(featureIndex)
+        }
+      })
+
+      // Add active selection groups to the selection map
+      activeGroupByExplainer.forEach((featureIndices, explainerId) => {
+        if (!selectionMap.has(explainerId)) {
+          selectionMap.set(explainerId, [])
+        }
+        selectionMap.get(explainerId)!.push({ featureIndices, color: selectionColor })
+      })
+    }
+
     return selectionMap.size > 0 ? selectionMap : undefined
-  }, [cellSelection.groups, sortedFeatures, selectionColor])
+  }, [savedCellGroupSelections, cellSelection.groups, sortedFeatures, selectionColor])
 
   // Calculate layout using D3 utilities (following project pattern)
   const layout: MultiBarLayout = useMemo(() => {

@@ -456,3 +456,4 @@ This SAE Feature Visualization platform represents a **research prototype for co
 - **Conference Ready**: Optimized for live academic presentations and research validation
 
 The platform is ready for **academic conference presentation** and designed for **flexible SAE feature analysis research** at conference demonstration scale.
+- Avoid over-engineering and reuse existing logic if possible.
