@@ -464,10 +464,10 @@ export interface ExplainerScoreData {
   fuzz: ScorerScoreSet
   detection: ScorerScoreSet
   explanation_text?: string | null  // Explanation text for this explainer
-  scorer_consistency?: Record<string, ConsistencyScore>  // Per-metric CV (fuzz, detection)
+  scorer_consistency?: Record<string, ConsistencyScore>  // Per-metric std (fuzz, detection)
   metric_consistency?: ConsistencyScore  // Cross-metric std
   explainer_consistency?: ConsistencyScore  // Semantic consistency (avg pairwise cosine)
-  cross_explainer_metric_consistency?: Record<string, ConsistencyScore>  // Per-metric inverse CV across explainers
+  cross_explainer_metric_consistency?: Record<string, ConsistencyScore>  // Per-metric inverse std across explainers
 }
 
 export interface FeatureTableRow {
