@@ -54,7 +54,6 @@ class NodeDisplayNameGenerator:
             CategoryType.ROOT: "All Features",
             CategoryType.FEATURE_SPLITTING: "Feature Splitting",
             CategoryType.SEMANTIC_SIMILARITY: "Semantic Similarity",
-            CategoryType.SCORE_AGREEMENT: "Score Agreement",
         }
         return category_names.get(category, category.value.replace("_", " ").title())
 
@@ -93,9 +92,6 @@ class NodeDisplayNameGenerator:
             elif "low" in parts:
                 return "Low"
 
-        elif node.category == CategoryType.SCORE_AGREEMENT:
-            return self._get_detailed_score_display_name(node.id)
-
         return base_name
 
     def _get_split_rule_display_name(
@@ -131,10 +127,7 @@ class NodeDisplayNameGenerator:
         self, node: SankeyThreshold, branch_index: int, base_name: str
     ) -> str:
         """Format display name for pattern-based splits."""
-        if node.category == CategoryType.SCORE_AGREEMENT:
-            return self._get_detailed_score_display_name(node.id)
-
-        # For non-score-agreement pattern rules
+        # Pattern rules with generic patterns
         all_high_match = re.search(r"all_(\d+)_high", node.id)
         if all_high_match:
             return f"{base_name}: All High"
@@ -181,109 +174,3 @@ class NodeDisplayNameGenerator:
         # Fallback to branch number
         label = f"Branch {branch_index + 1}"
         return label if should_remove_prefix else f"{base_name}: {label}"
-
-    def _get_detailed_score_display_name(self, node_id: str) -> str:
-        """
-        Generate detailed score display name with specific scoring methods.
-
-        Examples:
-        - root_2_of_3_high_fuzz_det → "2 of 3 High (Fuzz, Detection)"
-        - root_all_3_high → "All High"
-        - root_1_of_3_high_sim → "1 of 3 High (Simulation)"
-        - root_group_0 → Use pattern description from split rule (e.g., "All High")
-        - root_others → "Others"
-        """
-        # Check for CategoryGroup-based child IDs (group_N format)
-        group_match = re.search(r"group_(\d+)$", node_id)
-        if group_match:
-            # Try to get the pattern description from the parent's split rule
-            parent_info = self._get_parent_split_info(node_id)
-            if parent_info:
-                return parent_info
-            # Fallback to generic group label
-            group_num = group_match.group(1)
-            return f"Group {group_num}"
-
-        # Check for "others" child ID (used as default in CategoryGroup patterns)
-        if node_id.endswith("_others") or node_id == "others":
-            return "Others"
-
-        # All high/low patterns
-        if re.search(r"all_(\d+)_high", node_id):
-            return "All High"
-        if re.search(r"all_(\d+)_low", node_id):
-            return "All Low"
-
-        # K of N high with methods
-        match = re.search(r"(\d+)_of_(\d+)_high(?:_(.+))?", node_id)
-        if match:
-            k, n, methods_part = int(match.group(1)), int(match.group(2)), match.group(3)
-            if methods_part:
-                methods = self._format_scoring_methods(methods_part)
-                return f"{k} of {n} High ({methods})"
-            return f"{k} of {n} High"
-
-        # K of N low with methods
-        match = re.search(r"(\d+)_of_(\d+)_low(?:_(.+))?", node_id)
-        if match:
-            k, n, methods_part = int(match.group(1)), int(match.group(2)), match.group(3)
-            if methods_part:
-                methods = self._format_scoring_methods(methods_part)
-                return f"{k} of {n} Low ({methods})"
-            return f"{k} of {n} Low"
-
-        return "Score Agreement"
-
-    def _get_parent_split_info(self, node_id: str) -> Optional[str]:
-        """
-        Get the pattern description from the parent's split rule.
-        Used for CategoryGroup-based nodes to display the group name.
-        """
-        try:
-            node = self.threshold_structure.get_node_by_id(node_id)
-            if not node or not node.parent_path:
-                return None
-
-            parent_info = node.parent_path[-1]
-            parent_node = self.threshold_structure.get_node_by_id(parent_info.parent_id)
-
-            if not parent_node or not parent_node.split_rule:
-                return None
-
-            # For pattern rules, look up the pattern by branch index
-            if parent_node.split_rule.type == "pattern":
-                branch_idx = parent_info.branch_index
-                if branch_idx < len(parent_node.split_rule.patterns):
-                    pattern = parent_node.split_rule.patterns[branch_idx]
-                    if pattern.description:
-                        return pattern.description
-
-            return None
-        except Exception:
-            return None
-
-    def _format_scoring_methods(self, methods_part: str) -> str:
-        """
-        Format scoring method abbreviations into readable names.
-
-        Examples:
-        - "fuzz_det" → "Fuzz, Detection"
-        - "sim" → "Simulation"
-        - "fuzz_sim_det" → "Fuzz, Simulation, Detection"
-        """
-        method_names = {
-            "fuzz": "Fuzz",
-            "sim": "Simulation",
-            "simulation": "Simulation",
-            "det": "Detection",
-            "detection": "Detection",
-            "embed": "Embedding",
-            "embedding": "Embedding",
-        }
-
-        methods = methods_part.split("_")
-        formatted_methods = [
-            method_names.get(method.lower(), method.capitalize())
-            for method in methods
-        ]
-        return ", ".join(formatted_methods)

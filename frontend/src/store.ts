@@ -14,7 +14,6 @@ import type {
   SankeyNode,
   NodeCategory,
   AddStageConfig,
-  CategoryGroup,
   ConsistencyType,
   SortBy,
   SortDirection
@@ -121,16 +120,6 @@ interface AppState {
   // Auto-initialization with default filters
   // DEFAULT APPROACH: Auto-initialize with first two LLM Explainers (subject to change)
   initializeWithDefaultFilters: () => void
-
-  // Category group state
-  categoryGroups: CategoryGroup[]
-
-  // Category group actions
-  initializeCategoryGroups: () => void
-  addCategoryGroup: (name: string, columnIds: string[], color?: string) => void
-  removeCategoryGroup: (groupId: string) => void
-  updateCategoryGroup: (groupId: string, updates: Partial<CategoryGroup>) => void
-  moveColumnToGroup: (columnId: string, fromGroupId: string, toGroupId: string) => void
 }
 
 const createInitialPanelState = (): PanelState => {
@@ -199,10 +188,7 @@ const initialState = {
   hoveredAlluvialPanel: null,
 
   // Comparison view state
-  showComparisonView: false,
-
-  // Category group state
-  categoryGroups: []
+  showComparisonView: false
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -251,22 +237,12 @@ export const useStore = create<AppState>((set, get) => ({
     console.log('[Store.addStageToTree] Called with nodeId:', nodeId, 'stageType:', config.stageType, 'panel:', panel)
     const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
 
-    const currentState = get()
-    console.log('[Store.addStageToTree] Current categoryGroups count:', currentState.categoryGroups.length)
-
-    // Pass CategoryGroups through config for score_agreement stages
-    const enhancedConfig = config.stageType === 'score_agreement' && currentState.categoryGroups.length > 0
-      ? { ...config, customConfig: { categoryGroups: currentState.categoryGroups } }
-      : config
-
-    console.log('[Store.addStageToTree] Enhanced config with categoryGroups:', enhancedConfig.customConfig?.categoryGroups?.length || 0)
-
     set((state) => {
       try {
         const currentTree = state[panelKey].thresholdTree
         console.log('[Store.addStageToTree] Current tree nodes:', currentTree.nodes.length)
 
-        const updatedTree = addStageToNode(currentTree, nodeId, enhancedConfig)
+        const updatedTree = addStageToNode(currentTree, nodeId, config)
         console.log('[Store.addStageToTree] Updated tree nodes:', updatedTree.nodes.length)
 
         return {
@@ -580,7 +556,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   // View state actions
-  showVisualization: (panel = PANEL_LEFT) => {
+  showVisualization: (_panel = PANEL_LEFT) => {
     // This is now a no-op since we don't track view state anymore
     // Kept for backward compatibility with existing code
   },
@@ -793,52 +769,6 @@ export const useStore = create<AppState>((set, get) => ({
         }
       }
     }))
-  },
-
-  // Category group actions
-  initializeCategoryGroups: () => {
-    set({ categoryGroups: [] })
-  },
-
-  addCategoryGroup: (name: string, columnIds: string[], color: string = '#e5e7eb') => {
-    const state = get()
-    const newGroupIndex = state.categoryGroups.length
-    const newGroup: CategoryGroup = {
-      id: `group_${newGroupIndex}`,
-      name,
-      columnIds,
-      color
-    }
-    set({ categoryGroups: [...state.categoryGroups, newGroup] })
-  },
-
-  removeCategoryGroup: (groupId: string) => {
-    const state = get()
-    set({ categoryGroups: state.categoryGroups.filter(g => g.id !== groupId) })
-  },
-
-  updateCategoryGroup: (groupId: string, updates: Partial<CategoryGroup>) => {
-    const state = get()
-    set({
-      categoryGroups: state.categoryGroups.map(g =>
-        g.id === groupId ? { ...g, ...updates } : g
-      )
-    })
-  },
-
-  moveColumnToGroup: (columnId: string, fromGroupId: string, toGroupId: string) => {
-    const state = get()
-    set({
-      categoryGroups: state.categoryGroups.map(g => {
-        if (g.id === fromGroupId) {
-          return { ...g, columnIds: g.columnIds.filter(id => id !== columnId) }
-        }
-        if (g.id === toGroupId) {
-          return { ...g, columnIds: [...g.columnIds, columnId] }
-        }
-        return g
-      })
-    })
   }
 }))
 

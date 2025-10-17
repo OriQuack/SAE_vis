@@ -18,7 +18,6 @@ class CategoryType(str, Enum):
     ROOT = "root"
     FEATURE_SPLITTING = "feature_splitting"
     SEMANTIC_SIMILARITY = "semantic_similarity"
-    SCORE_AGREEMENT = "score_agreement"
 
 class ErrorResponse(BaseModel):
     """Standard error response format"""

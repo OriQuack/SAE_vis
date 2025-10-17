@@ -14,7 +14,7 @@ export interface Filters {
 // ============================================================================
 
 import {
-  CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_SIMILARITY, CATEGORY_SCORE_AGREEMENT,
+  CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_SIMILARITY, CATEGORY_CONSISTENCY,
   SPLIT_TYPE_RANGE, SPLIT_TYPE_PATTERN, SPLIT_TYPE_EXPRESSION,
   PATTERN_STATE_HIGH, PATTERN_STATE_LOW, PATTERN_STATE_IN_RANGE, PATTERN_STATE_OUT_RANGE,
   METRIC_FEATURE_SPLITTING, METRIC_SEMSIM_MEAN, METRIC_SEMSIM_MAX,
@@ -27,7 +27,7 @@ export type CategoryType =
   | typeof CATEGORY_ROOT
   | typeof CATEGORY_FEATURE_SPLITTING
   | typeof CATEGORY_SEMANTIC_SIMILARITY
-  | typeof CATEGORY_SCORE_AGREEMENT
+  | typeof CATEGORY_CONSISTENCY
 
 // Split Rule Definitions
 export interface RangeSplitRule {
@@ -246,12 +246,6 @@ export interface FeatureDetail {
   details_path: string
 }
 
-export interface CategoryGroup {
-  id: string
-  name: string
-  columnIds: string[]
-  color: string
-}
 
 // ============================================================================
 // UI AND STATE TYPES
@@ -290,7 +284,6 @@ export type NodeCategory =
   | typeof CATEGORY_ROOT
   | typeof CATEGORY_FEATURE_SPLITTING
   | typeof CATEGORY_SEMANTIC_SIMILARITY
-  | typeof CATEGORY_SCORE_AGREEMENT
 
 // ============================================================================
 // VISUALIZATION TYPES

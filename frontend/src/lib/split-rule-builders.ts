@@ -26,9 +26,12 @@ export function buildRangeSplit(
 
 /**
  * Build a pattern-based split rule for multi-metric conditions
- * Internal helper for buildFlexibleScoreAgreementSplit
+ * @param conditions Condition definitions for each metric
+ * @param patterns Pattern matching rules evaluated in order
+ * @param defaultChildId Optional default child ID when no patterns match
+ * @returns PatternSplitRule
  */
-function buildPatternSplit(
+export function buildPatternSplit(
   conditions: PatternSplitRule['conditions'],
   patterns: PatternSplitRule['patterns'],
   defaultChildId?: string
@@ -43,9 +46,12 @@ function buildPatternSplit(
 
 /**
  * Build an expression-based split rule
- * Internal helper for buildCategoryGroupPatternSplit
+ * @param branches Branch conditions evaluated in order
+ * @param defaultChildId Required default child for when all conditions are false
+ * @param availableMetrics Optional list of available metrics that can be used in expressions
+ * @returns ExpressionSplitRule
  */
-function buildExpressionSplit(
+export function buildExpressionSplit(
   branches: ExpressionSplitRule['branches'],
   defaultChildId: string,
   availableMetrics?: string[]
@@ -59,191 +65,45 @@ function buildExpressionSplit(
 }
 
 /**
- * Build a flexible score agreement pattern split with user-selected metrics
- * Generates all possible high/low combinations for N metrics (2^N patterns)
- * @param metrics Array of metric names to use (e.g., ['score_fuzz', 'score_simulation'])
- * @param thresholds Array of threshold values (same length as metrics)
- * @returns PatternSplitRule configured for score agreement patterns
+ * Build a percentile-based expression split for consistency metrics
+ * Divides a metric into N equal percentile ranges (e.g., 0-10%, 10-20%, ..., 90-100%)
+ * @param metric The metric to split on (e.g., 'llm_scorer_consistency')
+ * @param numBins Number of percentile bins (default: 10)
+ * @returns ExpressionSplitRule with percentile-based branches
  */
-export function buildFlexibleScoreAgreementSplit(
-  metrics: string[],
-  thresholds: number[]
-): PatternSplitRule {
-  if (metrics.length === 0) {
-    throw new Error('At least one metric must be provided for score agreement')
-  }
-
-  if (metrics.length !== thresholds.length) {
-    throw new Error('Number of metrics must match number of thresholds')
-  }
-
-  // Build conditions object
-  const conditions: PatternSplitRule['conditions'] = {}
-  metrics.forEach((metric, index) => {
-    conditions[metric] = { threshold: thresholds[index] }
-  })
-
-  // Generate all possible high/low combinations (2^N patterns)
-  const numPatterns = Math.pow(2, metrics.length)
-  const patterns: PatternSplitRule['patterns'] = []
-
-  for (let i = 0; i < numPatterns; i++) {
-    const match: { [metric: string]: 'high' | 'low' } = {}
-    const highMetrics: string[] = []
-
-    // Convert index to binary to determine high/low for each metric
-    for (let j = 0; j < metrics.length; j++) {
-      const isHigh = (i & (1 << (metrics.length - 1 - j))) !== 0
-      match[metrics[j]] = isHigh ? 'high' : 'low'
-      if (isHigh) {
-        highMetrics.push(getMetricShortName(metrics[j]))
-      }
-    }
-
-    // Generate child_id and description
-    const numHigh = highMetrics.length
-    let childId: string
-    let description: string
-
-    if (numHigh === metrics.length) {
-      childId = `all_${metrics.length}_high`
-      description = `All ${metrics.length} scores high`
-    } else if (numHigh === 0) {
-      childId = `all_${metrics.length}_low`
-      description = `All ${metrics.length} scores low`
-    } else {
-      const metricsList = highMetrics.join('_')
-      childId = `${numHigh}_of_${metrics.length}_high_${metricsList}`
-      description = `${numHigh} of ${metrics.length} high (${highMetrics.join(', ')})`
-    }
-
-    patterns.push({
-      match,
-      child_id: childId,
-      description
-    })
-  }
-
-  // Sort patterns by number of high scores (descending) for consistent ordering
-  // This ensures nodes appear from "all high" → "all low" in visualizations
-  patterns.sort((a, b) => {
-    const numHighA = Object.values(a.match).filter(v => v === 'high').length
-    const numHighB = Object.values(b.match).filter(v => v === 'high').length
-    return numHighB - numHighA  // Descending: more high scores first
-  })
-
-  return buildPatternSplit(conditions, patterns)
-}
-
-/**
- * Build a CategoryGroup-based expression split for score agreement
- * Creates N+1 children (N groups + "others") instead of 2^M metric combinations
- * Uses ExpressionSplitRule to support multiple columnIds per group via OR logic
- *
- * @param categoryGroups Array of CategoryGroup objects from Linear Set Diagram
- * @param metrics Array of metric names (e.g., ['score_fuzz', 'score_detection', 'score_simulation'])
- * @param thresholds Array of threshold values (same length as metrics)
- * @returns ExpressionSplitRule with OR conditions for groups with multiple columnIds
- *
- * @example
- * // If group_2 has columnIds: ["1_of_3_high_fuzz", "2_of_3_high_fuzz_sim"]
- * // Creates condition: "(fuzz >= 0.5 && detection < 0.5 && sim < 0.1) || (fuzz >= 0.5 && sim >= 0.1 && detection < 0.5)"
- */
-export function buildCategoryGroupPatternSplit(
-  categoryGroups: Array<{ id: string; name: string; columnIds: string[]; color: string }>,
-  metrics: string[],
-  thresholds: number[]
+export function buildPercentileSplit(
+  metric: string,
+  numBins: number = 10
 ): ExpressionSplitRule {
-  if (metrics.length === 0) {
-    throw new Error('At least one metric must be provided for score agreement')
+  if (numBins < 2) {
+    throw new Error('Number of bins must be at least 2')
   }
 
-  if (metrics.length !== thresholds.length) {
-    throw new Error('Number of metrics must match number of thresholds')
-  }
+  const binSize = 1.0 / numBins
+  const branches: ExpressionSplitRule['branches'] = []
 
-  if (categoryGroups.length === 0) {
-    throw new Error('At least one category group must be provided')
-  }
+  for (let i = 0; i < numBins; i++) {
+    const lowerBound = i * binSize
+    const upperBound = (i + 1) * binSize
 
-  // Helper: Parse columnId to get metric states
-  const parseColumnIdToMetricStates = (columnId: string): Record<string, 'high' | 'low'> => {
-    if (columnId.startsWith('all_') && columnId.endsWith('_high')) {
-      return metrics.reduce((acc, metric) => ({ ...acc, [metric]: 'high' as const }), {})
-    }
-    if (columnId.startsWith('all_') && columnId.endsWith('_low')) {
-      return metrics.reduce((acc, metric) => ({ ...acc, [metric]: 'low' as const }), {})
-    }
-    const match = columnId.match(/\d+_of_\d+_high_(.+)/)
-    if (match) {
-      const metricsPart = match[1]
-      const shortNames = metricsPart.split('_')
-      const highMetrics = new Set(
-        shortNames
-          .map(shortName => metrics.find(m => m.includes(shortName)))
-          .filter((m): m is string => m !== undefined)
-      )
-      return metrics.reduce((acc, metric) => ({
-        ...acc,
-        [metric]: highMetrics.has(metric) ? 'high' as const : 'low' as const
-      }), {})
-    }
-    return metrics.reduce((acc, metric) => ({ ...acc, [metric]: 'low' as const }), {})
-  }
+    // For the last bin, use <= to include 1.0
+    const condition = i === numBins - 1
+      ? `${metric} >= ${lowerBound.toFixed(2)} && ${metric} <= ${upperBound.toFixed(2)}`
+      : `${metric} >= ${lowerBound.toFixed(2)} && ${metric} < ${upperBound.toFixed(2)}`
 
-  // Helper: Build condition string for a single columnId
-  const buildConditionForColumn = (columnId: string): string => {
-    const metricStates = parseColumnIdToMetricStates(columnId)
-    const conditions: string[] = []
+    const percentLower = Math.round(lowerBound * 100)
+    const percentUpper = Math.round(upperBound * 100)
 
-    metrics.forEach((metric, idx) => {
-      const threshold = thresholds[idx]
-      const state = metricStates[metric]
-      const condition = state === 'high' ? `${metric} >= ${threshold}` : `${metric} < ${threshold}`
-      conditions.push(condition)
-    })
-
-    return `(${conditions.join(' && ')})`
-  }
-
-  // Create branches for each CategoryGroup
-  const branches: ExpressionSplitRule['branches'] = categoryGroups.map(group => {
-    if (group.columnIds.length === 0) {
-      throw new Error(`CategoryGroup ${group.id} has no columnIds`)
-    }
-
-    // Build OR condition for all columnIds in this group
-    const columnConditions = group.columnIds.map(buildConditionForColumn)
-    const condition = columnConditions.length === 1
-      ? columnConditions[0]
-      : columnConditions.join(' || ')
-
-    return {
+    branches.push({
       condition,
-      child_id: group.id,
-      description: group.name
-    }
-  })
+      child_id: `percentile_${percentLower}_${percentUpper}`,
+      description: `${percentLower}-${percentUpper}%`
+    })
+  }
 
-  // Check if all possible combinations are covered
-  const totalCombinations = Math.pow(2, metrics.length)
-  const totalColumnIds = categoryGroups.reduce((sum, group) => sum + group.columnIds.length, 0)
-  const needsOthers = totalColumnIds < totalCombinations
-
-  // Only add "others" if not all combinations are covered
-  const defaultChildId = needsOthers ? 'others' : branches[branches.length - 1].child_id
-
-  return buildExpressionSplit(branches, defaultChildId, metrics)
+  return buildExpressionSplit(branches, branches[branches.length - 1].child_id, [metric])
 }
 
-/**
- * Get short name for a metric (remove 'score_' prefix)
- * @param metric Full metric name (e.g., 'score_fuzz')
- * @returns Short name (e.g., 'fuzz')
- */
-function getMetricShortName(metric: string): string {
-  return metric.replace('score_', '')
-}
 
 /**
  * Create a SankeyThreshold node

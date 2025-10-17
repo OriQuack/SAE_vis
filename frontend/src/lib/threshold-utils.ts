@@ -8,13 +8,11 @@ import type {
   StageTypeConfig,
   AddStageConfig,
   ParentPathInfo,
-  SplitRule,
-  CategoryGroup
+  SplitRule
 } from '../types'
 import {
   buildRangeSplit,
-  buildFlexibleScoreAgreementSplit,
-  buildCategoryGroupPatternSplit,
+  buildPercentileSplit,
   createNode,
   createParentPath
 } from './split-rule-builders'
@@ -32,7 +30,7 @@ import {
   CATEGORY_ROOT,
   CATEGORY_FEATURE_SPLITTING,
   CATEGORY_SEMANTIC_SIMILARITY,
-  CATEGORY_SCORE_AGREEMENT
+  CATEGORY_CONSISTENCY
 } from './constants'
 
 // ============================================================================
@@ -79,7 +77,7 @@ function updateThresholdInCondition(condition: string, metric: string, newThresh
  * @param expressionRule ExpressionSplitRule to extract from
  * @returns Record of metric name to threshold value
  */
-function extractThresholdsFromExpressionRule(expressionRule: ExpressionSplitRule): Record<string, number> {
+export function extractThresholdsFromExpressionRule(expressionRule: ExpressionSplitRule): Record<string, number> {
   const thresholds: Record<string, number> = {}
 
   // Parse first branch condition to extract thresholds
@@ -133,62 +131,50 @@ export const AVAILABLE_STAGE_TYPES: StageTypeConfig[] = [
     defaultThresholds: [0.88]  // Updated from 0.1 (distance) to 0.88 (similarity median)
   },
   {
-    id: 'score_agreement',
-    name: 'Score Agreement',
-    description: 'Classify features based on scoring method agreement',
-    category: CATEGORY_SCORE_AGREEMENT,
-    defaultSplitRule: 'pattern'
+    id: 'llm_scorer_consistency',
+    name: 'LLM Scorer Consistency',
+    description: 'Split features into 10 percentiles by scorer consistency',
+    category: CATEGORY_CONSISTENCY,
+    defaultSplitRule: 'expression',
+    defaultMetric: 'llm_scorer_consistency'
+  },
+  {
+    id: 'within_explanation_score',
+    name: 'Within-Explanation Consistency',
+    description: 'Split features into 10 percentiles by within-explanation consistency',
+    category: CATEGORY_CONSISTENCY,
+    defaultSplitRule: 'expression',
+    defaultMetric: 'within_explanation_score'
+  },
+  {
+    id: 'cross_explanation_score',
+    name: 'Cross-Explanation Consistency',
+    description: 'Split features into 10 percentiles by cross-explanation consistency',
+    category: CATEGORY_CONSISTENCY,
+    defaultSplitRule: 'expression',
+    defaultMetric: 'cross_explanation_score'
+  },
+  {
+    id: 'cross_explanation_overall_score',
+    name: 'Cross-Explanation Overall',
+    description: 'Split features into 10 percentiles by cross-explanation overall consistency',
+    category: CATEGORY_CONSISTENCY,
+    defaultSplitRule: 'expression',
+    defaultMetric: 'cross_explanation_overall_score'
+  },
+  {
+    id: 'llm_explainer_consistency',
+    name: 'LLM Explainer Consistency',
+    description: 'Split features into 10 percentiles by explainer consistency',
+    category: CATEGORY_CONSISTENCY,
+    defaultSplitRule: 'expression',
+    defaultMetric: 'llm_explainer_consistency'
   }
 ] as const
 
 // ============================================================================
 // CORE TREE UTILITIES
 // ============================================================================
-
-/**
- * Update all score thresholds in the tree to match scoringMetricThresholds
- * This is used when thresholds are changed from Linear Set Diagram
- */
-export function updateScoreThresholdsInTree(
-  tree: ThresholdTree,
-  scoringMetricThresholds: Record<string, number>
-): ThresholdTree {
-  let updatedTree = tree
-
-  for (const node of tree.nodes) {
-    if (!node.split_rule) continue
-
-    if (node.split_rule.type === SPLIT_TYPE_PATTERN) {
-      const patternRule = node.split_rule as PatternSplitRule
-      const conditions = patternRule.conditions
-      const hasScoreMetrics = Object.keys(conditions).some(m => m.startsWith('score_'))
-
-      if (hasScoreMetrics) {
-        for (const metric of Object.keys(conditions)) {
-          if (metric.startsWith('score_') && scoringMetricThresholds[metric] !== undefined) {
-            updatedTree = updateNodeThreshold(updatedTree, node.id, [scoringMetricThresholds[metric]], metric)
-          }
-        }
-      }
-    }
-
-    if (node.split_rule.type === SPLIT_TYPE_EXPRESSION) {
-      const expressionRule = node.split_rule as ExpressionSplitRule
-      const availableMetrics = expressionRule.available_metrics || []
-      const hasScoreMetrics = availableMetrics.some(m => m.startsWith('score_'))
-
-      if (hasScoreMetrics) {
-        for (const metric of availableMetrics) {
-          if (metric.startsWith('score_') && scoringMetricThresholds[metric] !== undefined) {
-            updatedTree = updateNodeThreshold(updatedTree, node.id, [scoringMetricThresholds[metric]], metric)
-          }
-        }
-      }
-    }
-  }
-
-  return updatedTree
-}
 
 /**
  * Find a node by ID in the threshold tree
@@ -351,40 +337,6 @@ export function getEffectiveThreshold(
 }
 
 /**
- * Extract score metric thresholds from threshold tree
- * Searches for pattern rules with score metric conditions and extracts thresholds
- * @param tree The threshold tree to search
- * @returns Record of metric name to threshold value
- */
-export function extractScoreThresholdsFromTree(tree: ThresholdTree): Record<string, number> {
-  const thresholds: Record<string, number> = {}
-
-  // Search all nodes for pattern or expression rules with score metrics
-  for (const node of tree.nodes) {
-    if (!node.split_rule) continue
-
-    if (node.split_rule.type === SPLIT_TYPE_PATTERN) {
-      const patternRule = node.split_rule as PatternSplitRule
-      const conditions = patternRule.conditions
-
-      // Extract thresholds from conditions
-      for (const [metric, condition] of Object.entries(conditions)) {
-        if (metric.startsWith('score_') && condition.threshold !== undefined) {
-          thresholds[metric] = condition.threshold
-        }
-      }
-    } else if (node.split_rule.type === SPLIT_TYPE_EXPRESSION) {
-      const expressionRule = node.split_rule as ExpressionSplitRule
-      // Extract thresholds from expression rule
-      const extractedThresholds = extractThresholdsFromExpressionRule(expressionRule)
-      Object.assign(thresholds, extractedThresholds)
-    }
-  }
-
-  return thresholds
-}
-
-/**
  * Get all metrics used in the threshold structure
  * Optimized with single pass and Set for deduplication
  */
@@ -492,116 +444,31 @@ export function addStageToNode(
         createNode(childId, nextStage, stageConfig.category, parentPath, null, [])
       )
     }
-  } else if (config.splitRuleType === 'pattern' && config.stageType === 'score_agreement') {
-    const selectedMetrics = config.selectedScoreMetrics || [
-      'score_fuzz',
-      'score_simulation',
-      'score_detection'
-    ]
-    const thresholds = config.thresholds || []
-    const selectedThresholds = selectedMetrics.map((metric, i) =>
-      thresholds[i] !== undefined ? thresholds[i] : (metric === 'score_simulation' ? 0.1 : 0.5)
-    )
+  } else if (config.splitRuleType === 'expression' && stageConfig.defaultMetric) {
+    // Handle consistency metrics with percentile split (10 equal bins)
+    const metric = config.metric || stageConfig.defaultMetric
+    const numBins = config.customConfig?.numBins || 10  // Default 10, configurable in future
 
-    // Check if we should use CategoryGroups (passed through config)
-    const categoryGroups = config.customConfig?.categoryGroups || []
-    console.log('[addStageToNode] score_agreement - categoryGroups from config:', categoryGroups.length)
+    splitRule = buildPercentileSplit(metric, numBins)
+    const expressionRule = splitRule as ExpressionSplitRule
 
-    if (categoryGroups.length > 0) {
-      console.log('[addStageToNode] CategoryGroups found:', categoryGroups.map((g: CategoryGroup) => ({ id: g.id, name: g.name, columnCount: g.columnIds.length })))
-    }
+    // Create child nodes for each percentile branch
+    expressionRule.branches.forEach((branch, idx) => {
+      const childId = `${nodeId}_${branch.child_id}`
+      childrenIds.push(childId)
 
-    // Use CategoryGroup-based split if groups exist, otherwise standard flexible split
-    if (categoryGroups.length > 0) {
-      console.log('[addStageToNode] Using CategoryGroup-based split with', categoryGroups.length, 'groups')
-      const expressionRule = buildCategoryGroupPatternSplit(categoryGroups, selectedMetrics, selectedThresholds)
-      console.log('[addStageToNode] CategoryGroup expression rule branches:', expressionRule.branches.map(b => ({ child_id: b.child_id, description: b.description })))
+      const parentPath = [
+        ...parentNode.parent_path,
+        createParentPath(nodeId, 'expression', idx, {
+          condition: branch.condition,
+          description: branch.description
+        })
+      ]
 
-      // Update split rule to use prefixed child_ids for uniqueness
-      const prefixedBranches = expressionRule.branches.map(branch => ({
-        ...branch,
-        child_id: `${nodeId}_${branch.child_id}`
-      }))
-      const prefixedDefaultChildId = expressionRule.default_child_id === 'others'
-        ? `${nodeId}_others`
-        : `${nodeId}_${expressionRule.default_child_id}`
-
-      splitRule = {
-        ...expressionRule,
-        branches: prefixedBranches,
-        default_child_id: prefixedDefaultChildId
-      }
-
-      // Create child nodes for expression split (from branches)
-      // Use prefixed IDs to ensure uniqueness across the tree
-      prefixedBranches.forEach((branch, idx) => {
-        const childId = branch.child_id  // Already prefixed above
-        childrenIds.push(childId)
-
-        const parentPath = [
-          ...parentNode.parent_path,
-          createParentPath(nodeId, 'expression', idx, {
-            condition: branch.condition,
-            description: branch.description
-          })
-        ]
-
-        const childNode = createNode(
-          childId,
-          nextStage,
-          CATEGORY_SCORE_AGREEMENT,
-          parentPath,
-          null,
-          []
-        )
-        newNodes.push(childNode)
-      })
-
-      // Add "others" default child only if not all combinations are covered
-      if (expressionRule.default_child_id === 'others') {
-        const othersChildId = prefixedDefaultChildId  // Already prefixed above
-        childrenIds.push(othersChildId)
-        const othersParentPath = [
-          ...parentNode.parent_path,
-          createParentPath(nodeId, 'expression', -1, {
-            condition: 'default',
-            description: 'Others (no match)'
-          })
-        ]
-        const othersNode = createNode(
-          othersChildId,
-          nextStage,
-          CATEGORY_SCORE_AGREEMENT,
-          othersParentPath,
-          null,
-          []
-        )
-        newNodes.push(othersNode)
-      }
-    } else {
-      console.log('[addStageToNode] Using legacy flexible split (no CategoryGroups available)')
-      splitRule = buildFlexibleScoreAgreementSplit(selectedMetrics, selectedThresholds)
-      console.log('[addStageToNode] Legacy split rule patterns:', (splitRule as any).patterns.length, 'patterns')
-      const patternRule = splitRule as PatternSplitRule
-
-      // Create child nodes for pattern split
-      patternRule.patterns.forEach((pattern, idx) => {
-        const childId = `${nodeId}_${pattern.child_id}`
-        childrenIds.push(childId)
-
-        const parentPath = [
-          ...parentNode.parent_path,
-          createParentPath(nodeId, 'pattern', idx, {
-            patternIndex: idx,
-            patternDescription: pattern.description || pattern.child_id.replace(/_/g, ' ')
-          })
-        ]
-
-        newNodes.push(
-          createNode(childId, nextStage, stageConfig.category, parentPath, null, [])
-        )
-      })
-    }
+      newNodes.push(
+        createNode(childId, nextStage, stageConfig.category, parentPath, null, [])
+      )
+    })
   } else {
     throw new Error(
       `Split rule type ${config.splitRuleType} not yet implemented for stage type ${config.stageType}`
@@ -706,8 +573,19 @@ function getStageTypeFromSplitRule(splitRule: SplitRule): string | null {
     }
   }
 
-  if (splitRule.type === SPLIT_TYPE_PATTERN || splitRule.type === SPLIT_TYPE_EXPRESSION) {
-    return 'score_agreement'
+  if (splitRule.type === SPLIT_TYPE_EXPRESSION) {
+    const expressionRule = splitRule as ExpressionSplitRule
+    const metrics = expressionRule.available_metrics || []
+
+    // Check if this is a consistency metric
+    if (metrics.length === 1) {
+      const metric = metrics[0]
+      if (metric === 'llm_scorer_consistency') return 'llm_scorer_consistency'
+      if (metric === 'within_explanation_score') return 'within_explanation_score'
+      if (metric === 'cross_explanation_score') return 'cross_explanation_score'
+      if (metric === 'cross_explanation_overall_score') return 'cross_explanation_overall_score'
+      if (metric === 'llm_explainer_consistency') return 'llm_explainer_consistency'
+    }
   }
 
   return null
@@ -733,17 +611,16 @@ function getStageTypeFromParentInfo(parentPath: ParentPathInfo): string | null {
     }
   }
 
-  if (splitRule.type === 'pattern' || splitRule.type === 'expression') {
-    return 'score_agreement'
+  if (splitRule.type === 'expression' && splitRule.expression_info) {
+    const condition = splitRule.expression_info.condition
+
+    // Check if this is a consistency metric by examining the condition
+    if (condition.includes('llm_scorer_consistency')) return 'llm_scorer_consistency'
+    if (condition.includes('within_explanation_score')) return 'within_explanation_score'
+    if (condition.includes('cross_explanation_score') && !condition.includes('overall')) return 'cross_explanation_score'
+    if (condition.includes('cross_explanation_overall_score')) return 'cross_explanation_overall_score'
+    if (condition.includes('llm_explainer_consistency')) return 'llm_explainer_consistency'
   }
 
   return null
 }
-
-// ============================================================================
-// REMOVED UNUSED FUNCTIONS
-// ============================================================================
-// Previously exported but never imported/used:
-// - validateDynamicTree(): Tree structure validation (debugging utility)
-// - getTreeDescription(): Tree description generator (debugging utility)
-// - traverseTree(): Internal tree traversal (only used by removed functions)

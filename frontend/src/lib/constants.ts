@@ -13,13 +13,13 @@
 export const CATEGORY_ROOT = "root"
 export const CATEGORY_FEATURE_SPLITTING = "feature_splitting"
 export const CATEGORY_SEMANTIC_SIMILARITY = "semantic_similarity"
-export const CATEGORY_SCORE_AGREEMENT = "score_agreement"
+export const CATEGORY_CONSISTENCY = "consistency"
 
 export const CATEGORY_TYPES = {
   ROOT: CATEGORY_ROOT,
   FEATURE_SPLITTING: CATEGORY_FEATURE_SPLITTING,
   SEMANTIC_SIMILARITY: CATEGORY_SEMANTIC_SIMILARITY,
-  SCORE_AGREEMENT: CATEGORY_SCORE_AGREEMENT
+  CONSISTENCY: CATEGORY_CONSISTENCY
 } as const
 
 // ============================================================================
@@ -94,7 +94,7 @@ export const CATEGORY_DISPLAY_NAMES = {
   [CATEGORY_ROOT]: "All Features",
   [CATEGORY_FEATURE_SPLITTING]: "Feature Splitting",
   [CATEGORY_SEMANTIC_SIMILARITY]: "Semantic Similarity",
-  [CATEGORY_SCORE_AGREEMENT]: "Score Agreement"
+  [CATEGORY_CONSISTENCY]: "Consistency"
 } as const
 
 export const METRIC_DISPLAY_NAMES = {

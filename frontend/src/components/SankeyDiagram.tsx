@@ -222,94 +222,6 @@ const SankeyLink: React.FC<{
   )
 }
 
-const MetricSelectorModal: React.FC<{
-  onConfirm: (selectedMetrics: string[]) => void
-  onCancel: () => void
-}> = ({ onConfirm, onCancel }) => {
-  const [selectedMetrics, setSelectedMetrics] = useState<string[]>(['score_fuzz', 'score_simulation', 'score_detection'])
-
-  const availableMetrics = [
-    { id: 'score_fuzz', name: 'Fuzz Score', description: 'String fuzzy matching score' },
-    { id: 'score_simulation', name: 'Simulation Score', description: 'Activation simulation score' },
-    { id: 'score_detection', name: 'Detection Score', description: 'Pattern detection score' },
-    { id: 'score_embedding', name: 'Embedding Score', description: 'Semantic embedding score' }
-  ]
-
-  const toggleMetric = (metricId: string) => {
-    setSelectedMetrics(prev =>
-      prev.includes(metricId)
-        ? prev.filter(m => m !== metricId)
-        : [...prev, metricId]
-    )
-  }
-
-  const handleConfirm = () => {
-    if (selectedMetrics.length === 0) {
-      alert('Please select at least one metric')
-      return
-    }
-    onConfirm(selectedMetrics)
-  }
-
-  return (
-    <div className="sankey-metric-modal-overlay" onClick={onCancel}>
-      <div className="sankey-metric-modal" onClick={(e) => e.stopPropagation()}>
-        <h3 className="sankey-metric-modal__title">
-          Select Scoring Metrics
-        </h3>
-        <p className="sankey-metric-modal__description">
-          Choose one or more scoring metrics to compare for agreement analysis:
-        </p>
-        <div className="sankey-metric-modal__list">
-          {availableMetrics.map(metric => (
-            <label
-              key={metric.id}
-              className={`sankey-metric-modal__metric ${
-                selectedMetrics.includes(metric.id) ? 'sankey-metric-modal__metric--selected' : ''
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={selectedMetrics.includes(metric.id)}
-                onChange={() => toggleMetric(metric.id)}
-                className="sankey-metric-modal__checkbox"
-              />
-              <div className="sankey-metric-modal__metric-content">
-                <div className="sankey-metric-modal__metric-name">
-                  {metric.name}
-                </div>
-                <div className="sankey-metric-modal__metric-description">
-                  {metric.description}
-                </div>
-              </div>
-            </label>
-          ))}
-        </div>
-        <div className="sankey-metric-modal__info">
-          <strong>Selected: {selectedMetrics.length} metric{selectedMetrics.length !== 1 ? 's' : ''}</strong>
-          <br />
-          This will create {Math.pow(2, selectedMetrics.length)} categories (2^{selectedMetrics.length} combinations)
-        </div>
-        <div className="sankey-metric-modal__actions">
-          <button
-            onClick={onCancel}
-            className="sankey-metric-modal__button sankey-metric-modal__button--cancel"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleConfirm}
-            disabled={selectedMetrics.length === 0}
-            className="sankey-metric-modal__button sankey-metric-modal__button--confirm"
-          >
-            Confirm Selection
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ==================== MAIN COMPONENT ====================
 export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   width = 800,
@@ -340,11 +252,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     nodeId: string
     position: { x: number; y: number }
     availableStages: StageTypeConfig[]
-  } | null>(null)
-  const [metricSelectorState, setMetricSelectorState] = useState<{
-    nodeId: string
-    stageType: StageTypeConfig
-    position: { x: number; y: number }
   } | null>(null)
 
   // Resize observer hook with minimal debounce for responsiveness
@@ -466,12 +373,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       stageType: stageTypeId,
       splitRuleType: stageType.defaultSplitRule,
       metric: stageType.defaultMetric,
-      thresholds: stageType.defaultThresholds,
-      // Use default scoring metrics for score_agreement stage
-      ...(stageTypeId === 'score_agreement' && {
-        selectedScoreMetrics: ['score_fuzz', 'score_detection', 'score_simulation'],
-        thresholds: [0.5, 0.5, 0.1]  // Default thresholds for fuzz, detection, simulation
-      })
+      thresholds: stageType.defaultThresholds
     }
 
     addStageToTree(inlineSelector.nodeId, config, panel)
@@ -484,28 +386,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       }
     }, 500)
   }, [inlineSelector, thresholdTree, addStageToTree, panel, layout, handleNodeHistogramClick])
-
-  const handleMetricSelectionConfirm = useCallback((selectedMetrics: string[]) => {
-    if (!metricSelectorState || !thresholdTree) return
-
-    const config: AddStageConfig = {
-      stageType: 'score_agreement',
-      splitRuleType: 'pattern',
-      selectedScoreMetrics: selectedMetrics,
-      thresholds: selectedMetrics.map(() => 0.5)  // Default threshold of 0.5 for all metrics
-    }
-
-    addStageToTree(metricSelectorState.nodeId, config, panel)
-    setMetricSelectorState(null)
-
-    // Show histogram popover after adding stage
-    setTimeout(() => {
-      const parentNode = layout?.nodes.find(n => n.id === metricSelectorState.nodeId)
-      if (parentNode) {
-        handleNodeHistogramClick(parentNode)
-      }
-    }, 500)
-  }, [metricSelectorState, thresholdTree, addStageToTree, panel, layout, handleNodeHistogramClick])
 
   // Render
   if (error) {
@@ -647,14 +527,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
             ))}
           </div>
         </>
-      )}
-
-      {/* Metric Selector Modal */}
-      {metricSelectorState && (
-        <MetricSelectorModal
-          onConfirm={handleMetricSelectionConfirm}
-          onCancel={() => setMetricSelectorState(null)}
-        />
       )}
     </div>
   )
