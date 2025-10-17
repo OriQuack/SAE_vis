@@ -3,7 +3,7 @@ import { useVisualizationStore } from '../store'
 import type { FeatureTableDataResponse, FeatureTableRow } from '../types'
 import {
   calculateOverallScore,
-  calculateOverallConsistency,
+  calculateMinConsistency,
   getConsistencyColor,
   getOverallScoreColor,
   getScoreValue,
@@ -142,7 +142,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   }
 
   // Handle sort click (simplified for new table structure)
-  const handleSort = (sortKey: 'featureId' | 'overallScore' | 'overallConsistency') => {
+  const handleSort = (sortKey: 'featureId' | 'overallScore' | 'minConsistency') => {
     // Cycle through: null → asc → desc → null
     if (sortBy === sortKey) {
       if (sortDirection === null) {
@@ -416,10 +416,10 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
               </th>
               <th
                 className="table-panel__header-cell table-panel__header-cell--consistency"
-                onClick={() => handleSort('overallConsistency')}
+                onClick={() => handleSort('minConsistency')}
               >
-                Overall Cons.
-                {sortBy === 'overallConsistency' && (
+                Min Cons.
+                {sortBy === 'minConsistency' && (
                   <span className={`table-panel__sort-indicator ${sortDirection || ''}`} />
                 )}
               </th>
@@ -447,15 +447,15 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                     tableData.global_stats
                   )
 
-                  // Calculate overall consistency (returns value + weakest type)
-                  const overallConsistencyResult = calculateOverallConsistency(featureRow, explainerId)
+                  // Calculate min consistency (returns value + weakest type)
+                  const minConsistencyResult = calculateMinConsistency(featureRow, explainerId)
 
                   // Get colors for score and consistency
                   const scoreColor = overallScore !== null
                     ? getOverallScoreColor(overallScore)
                     : 'transparent'
-                  const consistencyColor = overallConsistencyResult !== null
-                    ? getConsistencyColor(overallConsistencyResult.value, overallConsistencyResult.weakestType)
+                  const consistencyColor = minConsistencyResult !== null
+                    ? getConsistencyColor(minConsistencyResult.value, minConsistencyResult.weakestType)
                     : 'transparent'
 
                   // Get explanation text
@@ -549,14 +549,14 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                         )}
                       </td>
 
-                      {/* Overall consistency (color-coded circle) */}
+                      {/* Min consistency (color-coded circle) */}
                       <td
                         className="table-panel__cell table-panel__cell--consistency"
-                        title={overallConsistencyResult !== null ? `Overall Consistency: ${overallConsistencyResult.value.toFixed(3)}` : 'No consistency data'}
-                        onClick={(e) => overallConsistencyResult !== null && handleCellClick('consistency', featureRow.feature_id, explainerId, e)}
-                        style={{ cursor: overallConsistencyResult !== null ? 'pointer' : 'default' }}
+                        title={minConsistencyResult !== null ? `Min Consistency: ${minConsistencyResult.value.toFixed(3)}` : 'No consistency data'}
+                        onClick={(e) => minConsistencyResult !== null && handleCellClick('consistency', featureRow.feature_id, explainerId, e)}
+                        style={{ cursor: minConsistencyResult !== null ? 'pointer' : 'default' }}
                       >
-                        {overallConsistencyResult !== null ? (
+                        {minConsistencyResult !== null ? (
                           <svg width="16" height="16" viewBox="0 0 16 16">
                             <circle
                               cx="8"

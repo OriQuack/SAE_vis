@@ -419,7 +419,7 @@
    3x2 GRID LAYOUT - CENTER ROW CELLS
    ============================================================================ */
 
-/* Center Left - Left Sankey Only (dynamic based on comparison view) */
+/* Center Left - Left Sankey Only */
 .sankey-view__center-left {
   flex: 6;
   display: flex;
@@ -427,37 +427,6 @@
   min-width: 0;
   min-height: 0;
   border: 1px solid #000000;
-  transition: flex 0.3s ease;
-}
-
-.sankey-view__center-left--full {
-  flex: 6;
-}
-
-.sankey-view__center-left--split {
-  flex: 3;
-}
-
-/* Comparison Container - Alluvial + Right Sankey */
-.sankey-view__comparison-container {
-  flex: 3;
-  display: flex;
-  flex-direction: row;
-  min-width: 0;
-  min-height: 0;
-  border: 1px solid #000000;
-  animation: slideIn 0.3s ease;
-}
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
 }
 
 /* Center Middle - Vertical Bar */
@@ -482,6 +451,7 @@
   padding: 0;
   min-width: 0;
   border: 1px solid #000000;
+  position: relative; /* Enable absolute positioning for overlay */
 }
 
 /* Sankey Diagram Panels */
@@ -499,7 +469,39 @@
   position: relative;
 }
 
-.sankey-view__alluvial-panel {
+/* ============================================================================
+   COMPARISON OVERLAY
+   ============================================================================ */
+
+/* Main Overlay Container */
+.comparison-overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 50%;
+  height: 100%;
+  background: white;
+  border-left: 2px solid #000000;
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: row;
+  z-index: 20;
+  animation: slideInFromRight 0.3s ease;
+}
+
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Alluvial Section */
+.comparison-overlay__alluvial {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -509,11 +511,12 @@
   background: white;
   padding: 0;
   margin: 0;
-  border: 1px solid #000000;
+  border-right: 1px solid #000000;
   min-width: 0;
 }
 
-.sankey-view__sankey-right {
+/* Right Sankey Section */
+.comparison-overlay__sankey {
   flex: 2;
   display: flex;
   flex-direction: column;
@@ -522,8 +525,44 @@
   overflow: visible;
   background: transparent;
   padding: 0;
-  border: 1px solid #000000;
   min-width: 0;
+}
+
+/* Close Button */
+.comparison-overlay__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: rgba(248, 250, 252, 0.95);
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 50%;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 30;
+  backdrop-filter: blur(8px);
+}
+
+.comparison-overlay__close:hover {
+  background: rgba(241, 245, 249, 0.98);
+  border-color: #9ca3af;
+  color: #111827;
+  transform: translateY(-1px) scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.comparison-overlay__close:active {
+  transform: translateY(0) scale(0.95);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
 }
 
 /* ============================================================================

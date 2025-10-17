@@ -1,5 +1,5 @@
 import { scaleLinear } from 'd3-scale'
-import type { FeatureTableRow, MetricNormalizationStats, ConsistencyType, OverallConsistencyResult } from '../types'
+import type { FeatureTableRow, MetricNormalizationStats, ConsistencyType, MinConsistencyResult } from '../types'
 import { CONSISTENCY_COLORS, OVERALL_SCORE_COLORS, METRIC_COLORS } from './constants'
 
 // ============================================================================
@@ -448,7 +448,7 @@ export function calculateOverallScore(
 }
 
 /**
- * Calculate overall consistency from 5 consistency types (minimum value)
+ * Calculate min consistency from 5 consistency types (minimum value)
  *
  * Consistency types:
  * 1. LLM Scorer consistency (average of fuzz and detection)
@@ -459,12 +459,12 @@ export function calculateOverallScore(
  *
  * @param row - Feature table row
  * @param explainerId - Explainer ID
- * @returns Overall consistency result with value and weakest type, or null if no consistency data
+ * @returns Min consistency result with value and weakest type, or null if no consistency data
  */
-export function calculateOverallConsistency(
+export function calculateMinConsistency(
   row: FeatureTableRow,
   explainerId: string
-): OverallConsistencyResult | null {
+): MinConsistencyResult | null {
   const explainerData = row.explainers[explainerId]
   if (!explainerData) return null
 
@@ -649,19 +649,19 @@ function calculateAvgOverallScore(
 }
 
 /**
- * Calculate minimum overall consistency across all explainers for a feature
+ * Calculate minimum min consistency across all explainers for a feature
  *
  * @param feature - Feature row
- * @returns Minimum overall consistency or null
+ * @returns Minimum min consistency or null
  */
-function calculateMinOverallConsistency(
+function calculateFeatureMinConsistency(
   feature: FeatureTableRow
 ): number | null {
   const explainerIds = Object.keys(feature.explainers)
   const consistencies: number[] = []
 
   for (const explainerId of explainerIds) {
-    const result = calculateOverallConsistency(feature, explainerId)
+    const result = calculateMinConsistency(feature, explainerId)
     if (result !== null) {
       consistencies.push(result.value)
     }
@@ -677,7 +677,7 @@ function calculateMinOverallConsistency(
  * Supports sorting by:
  * - featureId: Sort by feature ID number
  * - overallScore: Sort by overall score across all explainers
- * - overallConsistency: Sort by overall consistency across all explainers
+ * - minConsistency: Sort by min consistency across all explainers
  * - llm_scorer_consistency: Sort by LLM Scorer consistency
  * - within_explanation_score: Sort by Within-explanation score consistency
  * - cross_explanation_score: Sort by Cross-explanation score consistency
@@ -691,7 +691,7 @@ function calculateMinOverallConsistency(
  */
 export function sortFeatures(
   features: FeatureTableRow[],
-  sortBy: 'featureId' | 'overallScore' | 'overallConsistency' | string | null,
+  sortBy: 'featureId' | 'overallScore' | 'minConsistency' | string | null,
   sortDirection: 'asc' | 'desc' | null,
   tableData: { explainer_ids?: string[]; global_stats?: Record<string, MetricNormalizationStats> } | null
 ): FeatureTableRow[] {
@@ -718,11 +718,11 @@ export function sortFeatures(
       return compareValues(overallScoreA, overallScoreB, sortDirection)
     }
 
-    if (sortBy === 'overallConsistency') {
-      // Calculate overall consistency across all explainers
-      const overallConsistencyA = calculateMinOverallConsistency(a)
-      const overallConsistencyB = calculateMinOverallConsistency(b)
-      return compareValues(overallConsistencyA, overallConsistencyB, sortDirection)
+    if (sortBy === 'minConsistency') {
+      // Calculate min consistency across all explainers
+      const minConsistencyA = calculateFeatureMinConsistency(a)
+      const minConsistencyB = calculateFeatureMinConsistency(b)
+      return compareValues(minConsistencyA, minConsistencyB, sortDirection)
     }
 
     // Individual consistency metric sorting

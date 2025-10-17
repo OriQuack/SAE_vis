@@ -510,7 +510,7 @@ export type SortDirection = 'asc' | 'desc' | null
 export type SortBy =
   | 'featureId'
   | 'overallScore'
-  | 'overallConsistency'
+  | 'minConsistency'
   | 'llm_scorer_consistency'
   | 'within_explanation_score'
   | 'cross_explanation_score'
@@ -556,9 +556,9 @@ export interface SavedCellGroupSelection {
 }
 
 /**
- * Overall Consistency Result - Includes both value and type of weakest consistency
+ * Min Consistency Result - Includes both value and type of weakest consistency
  */
-export interface OverallConsistencyResult {
-  value: number              // Overall consistency value (0-1), minimum of all types
+export interface MinConsistencyResult {
+  value: number              // Min consistency value (0-1), minimum of all types
   weakestType: ConsistencyType  // Type of consistency that had the minimum value
 }

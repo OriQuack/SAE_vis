@@ -181,7 +181,7 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
           {/* Center Panel Container - Row 2 */}
           <div className="sankey-view__center-panel-container">
             {/* Center Left - Left Sankey Only */}
-            <div className={`sankey-view__center-left ${showComparisonView ? 'sankey-view__center-left--split' : 'sankey-view__center-left--full'}`}>
+            <div className="sankey-view__center-left">
               {/* Left Sankey Diagram */}
               <div className="sankey-view__sankey-left">
                 <SankeyDiagram
@@ -205,35 +205,44 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
               </div>
             </div>
 
-            {/* Comparison Container - Alluvial + Right Sankey (conditionally rendered) */}
-            {showComparisonView && (
-              <div className="sankey-view__comparison-container">
-                {/* Alluvial Panel - Center flow comparison */}
-                <div className="sankey-view__alluvial-panel">
-                  <AlluvialDiagram
-                    className="sankey-view__alluvial"
-                  />
-                </div>
-
-                {/* Right Sankey Diagram */}
-                <div className="sankey-view__sankey-right">
-                  <SankeyDiagram
-                    showHistogramOnClick={true}
-                    flowDirection="right-to-left"
-                    panel="right"
-                  />
-                </div>
-              </div>
-            )}
-
             {/* Center Middle - Vertical Bar */}
             <div className="sankey-view__center-middle">
               <VerticalBar />
             </div>
 
-            {/* Center Right - Table Panel */}
+            {/* Center Right - Table Panel with Overlay */}
             <div className="sankey-view__center-right">
               <TablePanel />
+
+              {/* Comparison Overlay - Alluvial + Right Sankey */}
+              {showComparisonView && (
+                <div className="comparison-overlay">
+                  {/* Alluvial Panel */}
+                  <div className="comparison-overlay__alluvial">
+                    <AlluvialDiagram
+                      className="sankey-view__alluvial"
+                    />
+                  </div>
+
+                  {/* Right Sankey Diagram */}
+                  <div className="comparison-overlay__sankey">
+                    <SankeyDiagram
+                      showHistogramOnClick={true}
+                      flowDirection="right-to-left"
+                      panel="right"
+                    />
+                  </div>
+
+                  {/* Close Button */}
+                  <button
+                    className="comparison-overlay__close"
+                    onClick={toggleComparisonView}
+                    title="Hide comparison view"
+                  >
+                    ◀
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

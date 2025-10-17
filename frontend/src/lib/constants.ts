@@ -232,9 +232,9 @@ export const METRIC_COLORS = {
 
   // Fuzz Score: Orange-Red gradient (Okabe-Ito Vermillion)
   SCORE_FUZZ: {
-    LOW: OKABE_ITO_PALETTE.VERMILLION + '00',    // 0% opacity (transparent/white)
-    MEDIUM: OKABE_ITO_PALETTE.VERMILLION + '80', // 50% opacity (light orange-red)
-    HIGH: OKABE_ITO_PALETTE.VERMILLION + 'FF'    // 100% opacity (full vermillion #D55E00)
+    LOW: OKABE_ITO_PALETTE.ORANGE + '00',    // 0% opacity (transparent/white)
+    MEDIUM: OKABE_ITO_PALETTE.ORANGE + '80', // 50% opacity (light orange-red)
+    HIGH: OKABE_ITO_PALETTE.ORANGE + 'FF'    // 100% opacity (full vermillion #D55E00)
   },
 
   // Detection Score: Green gradient (Paul Tol Green)
@@ -280,9 +280,9 @@ export const CONSISTENCY_COLORS = {
 
   // Cross-explanation Score Consistency: Orange gradient (Okabe-Ito Orange)
   CROSS_EXPLANATION: {
-    LOW: OKABE_ITO_PALETTE.ORANGE + '00',    // 0% opacity (transparent/white)
-    MEDIUM: OKABE_ITO_PALETTE.ORANGE + '80', // 50% opacity (light orange)
-    HIGH: OKABE_ITO_PALETTE.ORANGE + 'FF'    // 100% opacity (full orange)
+    LOW: OKABE_ITO_PALETTE.VERMILLION + '00',    // 0% opacity (transparent/white)
+    MEDIUM: OKABE_ITO_PALETTE.VERMILLION + '80', // 50% opacity (light orange)
+    HIGH: OKABE_ITO_PALETTE.VERMILLION + 'FF'    // 100% opacity (full orange)
   },
 
   // Cross-explanation Overall Score Consistency: Yellow gradient (Okabe-Ito Yellow)
