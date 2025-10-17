@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { NEUTRAL_ICON_COLORS, METRIC_COLORS } from '../lib/constants'
+import { NEUTRAL_ICON_COLORS, COMPONENT_COLORS } from '../lib/constants'
 import { calculateFlowLayout, splitLabel } from '../lib/d3-flow-utils'
 import { useVisualizationStore } from '../store'
 import '../styles/FlowPanel.css'
@@ -9,25 +9,25 @@ import '../styles/FlowPanel.css'
 // ============================================================================
 
 const getTextNodeBackgroundColor = (nodeId: string) => {
-  // Feature splitting - dark bluish green with opacity
+  // Feature splitting
   if (nodeId === 'feature-splitting') {
-    return METRIC_COLORS.FEATURE_SPLITTING
+    return COMPONENT_COLORS.FEATURE_SPLITTING
   }
-  // Semantic similarity - medium vermillion with opacity
+  // Semantic similarity
   if (nodeId === 'semantic-similarity') {
-    return METRIC_COLORS.SEMANTIC_SIMILARITY
+    return COMPONENT_COLORS.SEMANTIC_SIMILARITY
   }
-  // Embedding score - medium sky blue with opacity
+  // Embedding score - full blue
   if (nodeId === 'embedding-score') {
-    return METRIC_COLORS.SCORE_EMBEDDING
+    return COMPONENT_COLORS.SCORE_EMBEDDING
   }
-  // Fuzz score - light sky blue with opacity
+  // Fuzz score - full orange-red
   if (nodeId === 'fuzz-score') {
-    return METRIC_COLORS.SCORE_FUZZ
+    return COMPONENT_COLORS.SCORE_FUZZ
   }
-  // Detection score - light sky blue with opacity
+  // Detection score - full green
   if (nodeId === 'detection-score') {
-    return METRIC_COLORS.SCORE_DETECTION
+    return COMPONENT_COLORS.SCORE_DETECTION
   }
   // Activating Example - white background
   if (nodeId === 'activating-example') {

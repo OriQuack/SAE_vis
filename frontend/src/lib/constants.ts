@@ -202,17 +202,47 @@ export const NEUTRAL_ICON_COLORS = {
 } as const
 
 // ============================================================================
-// METRIC-SPECIFIC COLORS - Solid colors for metrics without gradients
-// Based on Okabe-Ito colorblind-safe palette with custom shades
+// METRIC-SPECIFIC COLORS - Opacity-based gradients for score metrics
+// Based on Okabe-Ito colorblind-safe palette
+// Uses same opacity pattern as consistency colors: white (low) → color (high)
 // ============================================================================
+
+/**
+ * Metric score gradient colors: white (low) → color (high)
+ * Each metric has its own distinct color gradient using opacity
+ *
+ * Uses hex color with alpha channel for systematic color blending:
+ * - LOW: 00 (0% opacity - transparent, white background shows through)
+ * - MEDIUM: 80 (50% opacity - blended with white background)
+ * - HIGH: FF (100% opacity - full color)
+ *
+ * Format: PALETTE.COLOR + hex_alpha → #RRGGBBAA
+ */
 export const METRIC_COLORS = {
   FEATURE_SPLITTING: OKABE_ITO_PALETTE.GRAY,
 
   SEMANTIC_SIMILARITY: OKABE_ITO_PALETTE.GRAY,
 
-  SCORE_FUZZ: OKABE_ITO_PALETTE.GRAY,
-  SCORE_DETECTION: OKABE_ITO_PALETTE.GRAY,
-  SCORE_EMBEDDING: OKABE_ITO_PALETTE.GRAY,
+  // Embedding Score: Blue gradient (Okabe-Ito Blue)
+  SCORE_EMBEDDING: {
+    LOW: OKABE_ITO_PALETTE.BLUE + '00',    // 0% opacity (transparent/white)
+    MEDIUM: OKABE_ITO_PALETTE.BLUE + '80', // 50% opacity (light blue)
+    HIGH: OKABE_ITO_PALETTE.BLUE + 'FF'    // 100% opacity (full blue #0072B2)
+  },
+
+  // Fuzz Score: Orange-Red gradient (Okabe-Ito Vermillion)
+  SCORE_FUZZ: {
+    LOW: OKABE_ITO_PALETTE.VERMILLION + '00',    // 0% opacity (transparent/white)
+    MEDIUM: OKABE_ITO_PALETTE.VERMILLION + '80', // 50% opacity (light orange-red)
+    HIGH: OKABE_ITO_PALETTE.VERMILLION + 'FF'    // 100% opacity (full vermillion #D55E00)
+  },
+
+  // Detection Score: Green gradient (Paul Tol Green)
+  SCORE_DETECTION: {
+    LOW: PAUL_TOL_BRIGHT.GREEN + '00',    // 0% opacity (transparent/white)
+    MEDIUM: PAUL_TOL_BRIGHT.GREEN + '80', // 50% opacity (light green)
+    HIGH: PAUL_TOL_BRIGHT.GREEN + 'FF'    // 100% opacity (full green #228833)
+  }
 } as const
 
 // ============================================================================
@@ -266,18 +296,23 @@ export const CONSISTENCY_COLORS = {
 // ============================================================================
 // OVERALL SCORE COLORS - Performance gradient for overall scores
 // Used in simplified TablePanel for displaying overall scores
-// White (low performance) → Green (high performance)
+// White (low performance) → Dark Gray (high performance)
 // ============================================================================
 
 /**
- * Overall score gradient colors: white (low) → green (high)
+ * Overall score gradient colors: white (low) → dark gray (high)
  * Used for visualizing overall scores (0-1 range)
- * Higher overall scores = more intense green color
+ * Higher overall scores = more intense dark gray color
+ *
+ * Uses hex color with alpha channel for opacity encoding:
+ * - LOW: 00 (0% opacity - transparent, white background shows through)
+ * - MEDIUM: 80 (50% opacity - medium gray)
+ * - HIGH: FF (100% opacity - full dark gray)
  */
-export const SCORE_COLORS = {
-  LOW: '#ffffff',    // White (0.0 - poor performance)
-  MEDIUM: '#86efac', // Light green (0.5 - medium performance)
-  HIGH: '#22c55e'    // Full green (1.0 - good performance)
+export const OVERALL_SCORE_COLORS = {
+  LOW: '#1f293700',    // 0% opacity (transparent/white) - 0.0 score
+  MEDIUM: '#1f293780', // 50% opacity (medium gray) - 0.5 score
+  HIGH: '#1f2937FF'    // 100% opacity (dark gray) - 1.0 score
 } as const
 
 // ============================================================================
@@ -287,12 +322,12 @@ export const SCORE_COLORS = {
 // Used across: FlowPanel.tsx, HistogramPanel.tsx, d3-flow-utils.ts (3+ files)
 // ============================================================================
 export const COMPONENT_COLORS = {
-  // Metric-specific colors (solid, no gradients)
-  FEATURE_SPLITTING: METRIC_COLORS.FEATURE_SPLITTING,      
-  SEMANTIC_SIMILARITY: METRIC_COLORS.SEMANTIC_SIMILARITY,  
-  SCORE_FUZZ: METRIC_COLORS.SCORE_FUZZ,                    
-  SCORE_DETECTION: METRIC_COLORS.SCORE_DETECTION,          
-  SCORE_EMBEDDING: METRIC_COLORS.SCORE_EMBEDDING,        
+  // Metric-specific colors (full opacity for FlowPanel node backgrounds)
+  FEATURE_SPLITTING: METRIC_COLORS.FEATURE_SPLITTING,
+  SEMANTIC_SIMILARITY: METRIC_COLORS.SEMANTIC_SIMILARITY,
+  SCORE_EMBEDDING: METRIC_COLORS.SCORE_EMBEDDING.HIGH,     // Full blue
+  SCORE_FUZZ: METRIC_COLORS.SCORE_FUZZ.HIGH,               // Full orange-red
+  SCORE_DETECTION: METRIC_COLORS.SCORE_DETECTION.HIGH,     // Full green
 } as const
 
 // ============================================================================

@@ -1,5 +1,5 @@
 /* ============================================================================
- * TABLE PANEL - Feature-Level Table with 3-Row Header
+ * TABLE PANEL - Simplified Feature-Level Table
  * ============================================================================ */
 
 .table-panel {
@@ -48,7 +48,10 @@
   }
 }
 
-/* Content Container - Flexible Height with Scrolling */
+/* ============================================================================
+ * CONTENT CONTAINER
+ * ============================================================================ */
+
 .table-panel__content {
   flex: 1;
   min-height: 0;
@@ -66,7 +69,7 @@
   pointer-events: none;
 }
 
-/* Force scrollbar to always show */
+/* Scrollbar Styling */
 .table-panel__content::-webkit-scrollbar {
   width: 14px;
   height: 14px;
@@ -102,10 +105,18 @@
 }
 
 /* ============================================================================
- * TABLE STRUCTURE - Fixed Layout with Equal Column Widths
+ * TABLE STRUCTURE
  * ============================================================================ */
 
 .table-panel__table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+
+.table-panel__table--simple {
   width: 100%;
   table-layout: fixed;
   border-collapse: separate;
@@ -137,704 +148,13 @@
 }
 
 /* ============================================================================
- * FEATURE ID COLUMN (First Column, Fixed Width)
+ * HEADER ROW
  * ============================================================================ */
 
-.table-panel__feature-id-header {
-  width: 30px;
-  min-width: 30px;
-  max-width: 30px;
-  font-weight: 600;
-  font-size: 11px;
-  color: #374151;
-  text-align: center;
-  background: #f9fafb;
-  border: 1px solid #d1d5db;
-  padding: 4px 0px;
-  vertical-align: middle;
-}
-
-.table-panel__feature-id-cell {
-  width: 30px;
-  min-width: 30px;
-  max-width: 30px;
-  font-weight: 400;
-  font-size: 9px;
-  color: #374151;
-  text-align: center;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  padding: 3px 0px;
-  vertical-align: middle;
-}
-
-/* ============================================================================
- * SORTING INDICATORS
- * ============================================================================ */
-
-.table-panel__sort-indicator {
-  display: inline-block;
-  margin-left: 6px;
-  padding-left: 0;
-  font-size: 8px;
-  transition: opacity 0.15s ease;
-  vertical-align: middle;
-  width: 8px;
-  text-align: center;
-}
-
-.table-panel__sort-indicator::after {
-  content: '⇅';
-}
-
-.table-panel__sort-indicator.active.asc::after {
-  content: '▲';
-}
-
-.table-panel__sort-indicator.active.desc::after {
-  content: '▼';
-}
-
-/* Make headers sortable/clickable */
-.table-panel__sortable-header {
-  cursor: pointer;
-  user-select: none;
-  transition: background-color 0.1s ease;
-}
-
-.table-panel__sortable-header:hover {
-  background: rgba(59, 130, 246, 0.1) !important;
-}
-
-/* ============================================================================
- * HEADER ROW 1 - Explainer Names (Llama, Qwen, OpenAI)
- * ============================================================================ */
-
-.table-panel__header-row-1 {
-  background: #f8fafc;
-}
-
-.table-panel__explainer-header {
-  font-weight: 600;
-  font-size: 11px;
-  color: #374151;
-  text-align: center;
-  background: #f3f4f6;
-  border: 1px solid #d1d5db;
-  padding: 8px 6px;
-  vertical-align: middle;
-  transition: background-color 0.2s ease, border-color 0.2s ease;
-}
-
-.table-panel__explainer-header.highlighted {
-  background: #dbeafe;
-  border-color: #3b82f6;
-  box-shadow: inset 0 0 0 1px #3b82f6;
-}
-
-/* ============================================================================
- * HEADER ROW 2 - Metric Names (Embedding, Fuzz, Detection)
- * ============================================================================ */
-
-.table-panel__header-row-2 {
-  background: #f8fafc;
-}
-
-.table-panel__metric-header {
-  font-weight: 600;
-  font-size: 11px;
-  color: #374151;
-  text-align: center;
-  background: #f3f4f6;
-  border: 1px solid #d1d5db;
-  padding: 6px 4px;
-  vertical-align: middle;
-  transition: background-color 0.2s ease, border-color 0.2s ease;
-}
-
-.table-panel__metric-header.highlighted {
-  background: #dbeafe;
-  border-color: #3b82f6;
-  color: #1e40af;
-  font-weight: 700;
-  box-shadow: inset 0 0 0 1px #3b82f6;
-}
-
-/* ============================================================================
- * HEADER ROW 3 - Scorer Labels (S1, S2, S3 or empty)
- * ============================================================================ */
-
-.table-panel__header-row-3 {
-  background: #fafafa;
-}
-
-.table-panel__scorer-header {
-  font-weight: 600;
-  font-size: 11px;
-  color: #374151;
-  text-align: center;
-  background: #fafafa;
-  border: 1px solid #e5e7eb;
-  padding: 4px 2px;
-  vertical-align: middle;
-  transition: background-color 0.2s ease, border-color 0.2s ease;
-}
-
-.table-panel__scorer-header.highlighted {
-  background: #dbeafe;
-  border-color: #3b82f6;
-  color: #1e40af;
-  font-weight: 700;
-  box-shadow: inset 0 0 0 1px #3b82f6;
-}
-
-/* Diagonal line for embedding scorer cell (N/A cell) */
-.table-panel__scorer-header--empty {
-  position: relative;
-  background: #fafafa;
-  cursor: default !important;
-}
-
-.table-panel__scorer-header--empty::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(
-    to top right,
-    transparent 0%,
-    transparent calc(50% - 0.5px),
-    #9ca3af calc(50% - 0.5px),
-    #9ca3af calc(50% + 0.5px),
-    transparent calc(50% + 0.5px),
-    transparent 100%
-  );
-  pointer-events: none;
-}
-
-.table-panel__scorer-header--empty.highlighted {
-  background: #dbeafe;
-}
-
-/* ============================================================================
- * TOOLTIP (Portal-based)
- * ============================================================================ */
-
-.table-panel__tooltip {
-  position: fixed;
-  padding: 6px 10px;
-  background: #1f2937;
-  color: white;
-  font-size: 11px;
-  font-weight: 400;
-  white-space: nowrap;
-  border-radius: 4px;
-  z-index: 99999;
-  pointer-events: none;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-  max-width: 500px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.table-panel__tooltip-arrow {
-  position: fixed;
-  width: 0;
-  height: 0;
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  border-top: 6px solid #1f2937;
-  z-index: 99999;
-  pointer-events: none;
-}
-
-/* ============================================================================
- * DATA ROWS - Feature Rows
- * ============================================================================ */
-
-.table-panel__feature-row {
-  border-bottom: 1px solid #f3f4f6;
-  transition: background-color 0.15s ease;
-}
-
-.table-panel__feature-row:hover {
-  background: #fafafa;
-}
-
-.table-panel__feature-row:last-child {
-  border-bottom: 1px solid #e5e7eb;
-}
-
-/* ============================================================================
- * SCORE CELLS - Equal Width, Monospace Font
- * ============================================================================ */
-
-.table-panel__score-cell {
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-  font-size: 10px;
-  color: #374151;
-  text-align: center;
-  border: 1px solid #f3f4f6;
-  padding: 4px 2px;
-  vertical-align: middle;
-  background: white;
-  transition: background-color 0.1s ease;
-  cursor: crosshair;
-}
-
-.table-panel__score-cell:hover {
-  background: #f0f9ff;
-}
-
-/* ============================================================================
- * SCORE CIRCLES - Z-Score Colored Circles (Blue ← Gray → Red)
- * ============================================================================ */
-
-.score-circles {
-  display: flex;
-  gap: 2px;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  padding: 2px 0;
-}
-
-.score-circles svg {
-  display: block;
-  flex-shrink: 0;
-}
-
-.score-placeholder {
-  color: #d1d5db;
-  font-weight: 400;
-}
-
-/* ============================================================================
- * EXPLANATION CELLS - Text Display with Truncation
- * ============================================================================ */
-
-.table-panel__explanation-cell {
-  font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
-  font-size: 10px;
-  color: #374151;
-  text-align: left;
-  border: 1px solid #f3f4f6;
-  padding: 4px 6px;
-  vertical-align: middle;
-  background: white;
-  transition: background-color 0.1s ease;
-  cursor: crosshair;
-  width: 200px;
-  min-width: 200px;
-  max-width: 200px;
-  overflow: hidden;
-}
-
-.table-panel__explanation-cell:hover {
-  background: #f0f9ff;
-}
-
-.explanation-text {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.4;
-  max-height: calc(1.4em * 3);
-  word-break: break-word;
-}
-
-/* ============================================================================
- * CELL SELECTION STATES
- * ============================================================================ */
-
-/* Disable text selection when dragging */
-.table-panel__table.selecting {
-  user-select: none;
-}
-
-/* Edge borders - only show borders on outer edges of group (drag or finalized) */
-/* Using box-shadow instead of border to avoid layout shifts */
-
-/* Default: Blue border for finalized selections */
-.table-panel__score-cell.finalized.selected-edge-top {
-  box-shadow: inset 0 3px 0 0 #3b82f6;
-}
-
-.table-panel__score-cell.finalized.selected-edge-bottom {
-  box-shadow: inset 0 -3px 0 0 #3b82f6;
-}
-
-.table-panel__score-cell.finalized.selected-edge-left {
-  box-shadow: inset 3px 0 0 0 #3b82f6;
-}
-
-.table-panel__score-cell.finalized.selected-edge-right {
-  box-shadow: inset -3px 0 0 0 #3b82f6;
-}
-
-/* Combinations for finalized selections */
-.table-panel__score-cell.finalized.selected-edge-top.selected-edge-left {
-  box-shadow: inset 0 3px 0 0 #3b82f6, inset 3px 0 0 0 #3b82f6;
-}
-
-.table-panel__score-cell.finalized.selected-edge-top.selected-edge-right {
-  box-shadow: inset 0 3px 0 0 #3b82f6, inset -3px 0 0 0 #3b82f6;
-}
-
-.table-panel__score-cell.finalized.selected-edge-bottom.selected-edge-left {
-  box-shadow: inset 0 -3px 0 0 #3b82f6, inset 3px 0 0 0 #3b82f6;
-}
-
-.table-panel__score-cell.finalized.selected-edge-bottom.selected-edge-right {
-  box-shadow: inset 0 -3px 0 0 #3b82f6, inset -3px 0 0 0 #3b82f6;
-}
-
-.table-panel__score-cell.finalized.selected-edge-top.selected-edge-bottom {
-  box-shadow: inset 0 3px 0 0 #3b82f6, inset 0 -3px 0 0 #3b82f6;
-}
-
-.table-panel__score-cell.finalized.selected-edge-top.selected-edge-left.selected-edge-right {
-  box-shadow: inset 0 3px 0 0 #3b82f6, inset 3px 0 0 0 #3b82f6, inset -3px 0 0 0 #3b82f6;
-}
-
-.table-panel__score-cell.finalized.selected-edge-bottom.selected-edge-left.selected-edge-right {
-  box-shadow: inset 0 -3px 0 0 #3b82f6, inset 3px 0 0 0 #3b82f6, inset -3px 0 0 0 #3b82f6;
-}
-
-.table-panel__score-cell.finalized.selected-edge-top.selected-edge-bottom.selected-edge-left {
-  box-shadow: inset 0 3px 0 0 #3b82f6, inset 0 -3px 0 0 #3b82f6, inset 3px 0 0 0 #3b82f6;
-}
-
-.table-panel__score-cell.finalized.selected-edge-top.selected-edge-bottom.selected-edge-right {
-  box-shadow: inset 0 3px 0 0 #3b82f6, inset 0 -3px 0 0 #3b82f6, inset -3px 0 0 0 #3b82f6;
-}
-
-.table-panel__score-cell.finalized.selected-edge-top.selected-edge-bottom.selected-edge-left.selected-edge-right {
-  box-shadow: inset 0 3px 0 0 #3b82f6, inset 0 -3px 0 0 #3b82f6, inset 3px 0 0 0 #3b82f6, inset -3px 0 0 0 #3b82f6;
-}
-
-/* Dragging new groups: Blue border (will add to selection) */
-.table-panel__score-cell.dragging-new.selected-edge-top {
-  box-shadow: inset 0 3px 0 0 #3b82f6;
-}
-
-.table-panel__score-cell.dragging-new.selected-edge-bottom {
-  box-shadow: inset 0 -3px 0 0 #3b82f6;
-}
-
-.table-panel__score-cell.dragging-new.selected-edge-left {
-  box-shadow: inset 3px 0 0 0 #3b82f6;
-}
-
-.table-panel__score-cell.dragging-new.selected-edge-right {
-  box-shadow: inset -3px 0 0 0 #3b82f6;
-}
-
-/* Combinations for dragging new */
-.table-panel__score-cell.dragging-new.selected-edge-top.selected-edge-left {
-  box-shadow: inset 0 3px 0 0 #3b82f6, inset 3px 0 0 0 #3b82f6;
-}
-
-.table-panel__score-cell.dragging-new.selected-edge-top.selected-edge-right {
-  box-shadow: inset 0 3px 0 0 #3b82f6, inset -3px 0 0 0 #3b82f6;
-}
-
-.table-panel__score-cell.dragging-new.selected-edge-bottom.selected-edge-left {
-  box-shadow: inset 0 -3px 0 0 #3b82f6, inset 3px 0 0 0 #3b82f6;
-}
-
-.table-panel__score-cell.dragging-new.selected-edge-bottom.selected-edge-right {
-  box-shadow: inset 0 -3px 0 0 #3b82f6, inset -3px 0 0 0 #3b82f6;
-}
-
-.table-panel__score-cell.dragging-new.selected-edge-top.selected-edge-bottom {
-  box-shadow: inset 0 3px 0 0 #3b82f6, inset 0 -3px 0 0 #3b82f6;
-}
-
-.table-panel__score-cell.dragging-new.selected-edge-top.selected-edge-left.selected-edge-right {
-  box-shadow: inset 0 3px 0 0 #3b82f6, inset 3px 0 0 0 #3b82f6, inset -3px 0 0 0 #3b82f6;
-}
-
-.table-panel__score-cell.dragging-new.selected-edge-bottom.selected-edge-left.selected-edge-right {
-  box-shadow: inset 0 -3px 0 0 #3b82f6, inset 3px 0 0 0 #3b82f6, inset -3px 0 0 0 #3b82f6;
-}
-
-.table-panel__score-cell.dragging-new.selected-edge-top.selected-edge-bottom.selected-edge-left {
-  box-shadow: inset 0 3px 0 0 #3b82f6, inset 0 -3px 0 0 #3b82f6, inset 3px 0 0 0 #3b82f6;
-}
-
-.table-panel__score-cell.dragging-new.selected-edge-top.selected-edge-bottom.selected-edge-right {
-  box-shadow: inset 0 3px 0 0 #3b82f6, inset 0 -3px 0 0 #3b82f6, inset -3px 0 0 0 #3b82f6;
-}
-
-.table-panel__score-cell.dragging-new.selected-edge-top.selected-edge-bottom.selected-edge-left.selected-edge-right {
-  box-shadow: inset 0 3px 0 0 #3b82f6, inset 0 -3px 0 0 #3b82f6, inset 3px 0 0 0 #3b82f6, inset -3px 0 0 0 #3b82f6;
-}
-
-/* Dragging existing groups: Red border (will remove from selection) */
-.table-panel__score-cell.dragging-existing.selected-edge-top {
-  box-shadow: inset 0 3px 0 0 #ef4444;
-}
-
-.table-panel__score-cell.dragging-existing.selected-edge-bottom {
-  box-shadow: inset 0 -3px 0 0 #ef4444;
-}
-
-.table-panel__score-cell.dragging-existing.selected-edge-left {
-  box-shadow: inset 3px 0 0 0 #ef4444;
-}
-
-.table-panel__score-cell.dragging-existing.selected-edge-right {
-  box-shadow: inset -3px 0 0 0 #ef4444;
-}
-
-/* Combinations for dragging existing */
-.table-panel__score-cell.dragging-existing.selected-edge-top.selected-edge-left {
-  box-shadow: inset 0 3px 0 0 #ef4444, inset 3px 0 0 0 #ef4444;
-}
-
-.table-panel__score-cell.dragging-existing.selected-edge-top.selected-edge-right {
-  box-shadow: inset 0 3px 0 0 #ef4444, inset -3px 0 0 0 #ef4444;
-}
-
-.table-panel__score-cell.dragging-existing.selected-edge-bottom.selected-edge-left {
-  box-shadow: inset 0 -3px 0 0 #ef4444, inset 3px 0 0 0 #ef4444;
-}
-
-.table-panel__score-cell.dragging-existing.selected-edge-bottom.selected-edge-right {
-  box-shadow: inset 0 -3px 0 0 #ef4444, inset -3px 0 0 0 #ef4444;
-}
-
-.table-panel__score-cell.dragging-existing.selected-edge-top.selected-edge-bottom {
-  box-shadow: inset 0 3px 0 0 #ef4444, inset 0 -3px 0 0 #ef4444;
-}
-
-.table-panel__score-cell.dragging-existing.selected-edge-top.selected-edge-left.selected-edge-right {
-  box-shadow: inset 0 3px 0 0 #ef4444, inset 3px 0 0 0 #ef4444, inset -3px 0 0 0 #ef4444;
-}
-
-.table-panel__score-cell.dragging-existing.selected-edge-bottom.selected-edge-left.selected-edge-right {
-  box-shadow: inset 0 -3px 0 0 #ef4444, inset 3px 0 0 0 #ef4444, inset -3px 0 0 0 #ef4444;
-}
-
-.table-panel__score-cell.dragging-existing.selected-edge-top.selected-edge-bottom.selected-edge-left {
-  box-shadow: inset 0 3px 0 0 #ef4444, inset 0 -3px 0 0 #ef4444, inset 3px 0 0 0 #ef4444;
-}
-
-.table-panel__score-cell.dragging-existing.selected-edge-top.selected-edge-bottom.selected-edge-right {
-  box-shadow: inset 0 3px 0 0 #ef4444, inset 0 -3px 0 0 #ef4444, inset -3px 0 0 0 #ef4444;
-}
-
-.table-panel__score-cell.dragging-existing.selected-edge-top.selected-edge-bottom.selected-edge-left.selected-edge-right {
-  box-shadow: inset 0 3px 0 0 #ef4444, inset 0 -3px 0 0 #ef4444, inset 3px 0 0 0 #ef4444, inset -3px 0 0 0 #ef4444;
-}
-
-/* ============================================================================
- * SAVE CELL GROUP SELECTION UI
- * ============================================================================ */
-
-/* Action Buttons Container */
-.table-panel__action-buttons {
-  position: absolute;
-  bottom: 20px;
-  right: 20px;
-  display: flex;
-  gap: 8px;
-  z-index: 100;
-}
-
-/* Clear Button */
-.table-panel__clear-button {
-  padding: 10px 20px;
-  background: #6b7280;
-  color: white;
-  font-size: 13px;
-  font-weight: 600;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3);
-  transition: all 0.2s ease;
-}
-
-.table-panel__clear-button:hover {
-  background: #4b5563;
-  box-shadow: 0 6px 16px rgba(107, 114, 128, 0.4);
-  transform: translateY(-1px);
-}
-
-.table-panel__clear-button:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(107, 114, 128, 0.3);
-}
-
-/* Save Button */
-.table-panel__save-button {
-  padding: 10px 20px;
-  background: #3b82f6;
-  color: white;
-  font-size: 13px;
-  font-weight: 600;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-  transition: all 0.2s ease;
-}
-
-.table-panel__save-button:hover {
-  background: #2563eb;
-  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
-  transform: translateY(-1px);
-}
-
-.table-panel__save-button:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
-}
-
-/* Saved Message */
-.table-panel__saved-message {
-  position: absolute;
-  bottom: 20px;
-  right: 20px;
-  padding: 10px 20px;
-  background: #10b981;
-  color: white;
-  font-size: 13px;
-  font-weight: 600;
-  border: none;
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-  z-index: 100;
-  animation: fadeInOut 2s ease-in-out;
-}
-
-@keyframes fadeInOut {
-  0% {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  15% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  85% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-}
-
-/* Save Input Container */
-.table-panel__save-input-container {
-  position: absolute;
-  bottom: 20px;
-  right: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  background: white;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  padding: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-  z-index: 100;
-  min-width: 280px;
-}
-
-/* Save Input Field */
-.table-panel__save-input {
-  padding: 8px 12px;
-  font-size: 13px;
-  border: 1.5px solid #d1d5db;
-  border-radius: 6px;
-  outline: none;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.table-panel__save-input:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.table-panel__save-input::placeholder {
-  color: #9ca3af;
-}
-
-/* Save Input Buttons Container */
-.table-panel__save-input-buttons {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
-/* Cancel Button */
-.table-panel__save-input-cancel {
-  padding: 8px 16px;
-  font-size: 12px;
-  font-weight: 500;
-  background: white;
-  color: #6b7280;
-  border: 1.5px solid #d1d5db;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.table-panel__save-input-cancel:hover {
-  background: #f9fafb;
-  border-color: #9ca3af;
-  color: #374151;
-}
-
-/* Confirm Button */
-.table-panel__save-input-confirm {
-  padding: 8px 16px;
-  font-size: 12px;
-  font-weight: 600;
-  background: #3b82f6;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.table-panel__save-input-confirm:hover {
-  background: #2563eb;
-}
-
-.table-panel__save-input-confirm:active {
-  transform: scale(0.98);
-}
-
-/* ============================================================================
- * SIMPLIFIED TABLE LAYOUT (New Structure)
- * ============================================================================ */
-
-.table-panel__table--simple {
-  width: 100%;
-  table-layout: fixed;
-  border-collapse: separate;
-  border-spacing: 0;
-  font-size: 13px;
-}
-
-/* Simplified Header Row */
 .table-panel__header-row {
   background: #f8fafc;
 }
 
-/* Header Cells - New Structure */
 .table-panel__header-cell {
   font-weight: 600;
   font-size: 12px;
@@ -900,7 +220,29 @@
   min-width: 100px;
 }
 
-/* Sub-Row Structure */
+/* ============================================================================
+ * SORT INDICATOR
+ * ============================================================================ */
+
+.table-panel__sort-indicator {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 10px;
+  vertical-align: middle;
+}
+
+.table-panel__sort-indicator.asc::after {
+  content: '▲';
+}
+
+.table-panel__sort-indicator.desc::after {
+  content: '▼';
+}
+
+/* ============================================================================
+ * SUB-ROW STRUCTURE
+ * ============================================================================ */
+
 .table-panel__sub-row {
   border-bottom: 1px solid #f3f4f6;
   transition: background-color 0.15s ease;
@@ -911,18 +253,27 @@
 }
 
 .table-panel__sub-row--first {
-  border-top: 2px solid #e5e7eb;
+  border-top: 3px solid #d1d5db;
 }
 
-/* Cell Styling */
+/* ============================================================================
+ * CELL STYLING
+ * ============================================================================ */
+
 .table-panel__cell {
   font-size: 12px;
   color: #374151;
   border: 1px solid #f3f4f6;
-  padding: 6px 8px;
+  padding: 6px 0;
   vertical-align: middle;
+  text-align: center;
   background: white;
   transition: background-color 0.1s ease;
+}
+
+/* Thicker top border for cells in the first sub-row of each feature */
+.table-panel__sub-row--first .table-panel__cell {
+  border-top: 3px solid #d1d5db;
 }
 
 .table-panel__cell--id {
@@ -941,6 +292,7 @@
 .table-panel__cell--score {
   text-align: center;
   padding: 4px;
+  position: relative;
 }
 
 .table-panel__cell--score svg {
@@ -951,6 +303,7 @@
 .table-panel__cell--consistency {
   text-align: center;
   padding: 4px;
+  position: relative;
 }
 
 .table-panel__cell--consistency svg {
@@ -977,32 +330,10 @@
   background: #fafafa;
 }
 
-/* Sort Indicator (simplified) */
-.table-panel__sort-indicator {
-  display: inline-block;
-  margin-left: 6px;
-  font-size: 10px;
-  vertical-align: middle;
-}
-
-.table-panel__sort-indicator.asc::after {
-  content: '▲';
-}
-
-.table-panel__sort-indicator.desc::after {
-  content: '▼';
-}
-
 /* ============================================================================
  * SCORE BREAKDOWN OVERLAY (Extended Cell)
  * ============================================================================ */
 
-/* Position context for absolute positioning */
-.table-panel__cell--score {
-  position: relative;
-}
-
-/* Score breakdown overlay - appears on top of neighboring cells */
 .table-panel__score-breakdown-overlay {
   position: absolute;
   top: 50%;
@@ -1055,12 +386,6 @@
  * CONSISTENCY BREAKDOWN OVERLAY (Extended Cell)
  * ============================================================================ */
 
-/* Position context for absolute positioning */
-.table-panel__cell--consistency {
-  position: relative;
-}
-
-/* Consistency breakdown overlay - appears on top of neighboring cells */
 .table-panel__consistency-breakdown-overlay {
   position: absolute;
   top: 50%;
@@ -1076,99 +401,4 @@
   gap: 12px;
   white-space: nowrap;
   pointer-events: all;
-}
-
-/* Individual consistency breakdown */
-.table-panel__consistency-breakdown-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-
-/* Consistency label (Scorer, Metric, Cross, Explnr) */
-.table-panel__consistency-breakdown-label {
-  font-size: 9px;
-  color: #6b7280;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  text-align: center;
-}
-
-/* Consistency value display */
-.table-panel__consistency-breakdown-value {
-  font-size: 10px;
-  color: #374151;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-  font-weight: 500;
-}
-
-/* Circle SVG styling */
-.table-panel__consistency-breakdown-item svg {
-  display: block;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
-}
-
-/* ============================================================================
- * RESPONSIVE ADJUSTMENTS
- * ============================================================================ */
-
-@media (max-width: 1200px) {
-  .table-panel__table {
-    font-size: 11px;
-  }
-
-  .table-panel__explainer-header {
-    font-size: 11px;
-    padding: 8px 6px;
-  }
-
-  .table-panel__metric-header {
-    font-size: 11px;
-    padding: 6px 4px;
-  }
-
-  .table-panel__scorer-header {
-    font-size: 11px;
-    padding: 5px 3px;
-  }
-
-  .table-panel__score-cell {
-    font-size: 11px;
-    padding: 5px 3px;
-  }
-}
-
-@media (max-width: 768px) {
-  .table-panel__table {
-    font-size: 10px;
-  }
-
-  .table-panel__feature-id-header,
-  .table-panel__feature-id-cell {
-    width: 28px;
-    min-width: 28px;
-    max-width: 28px;
-  }
-
-  .table-panel__explainer-header {
-    font-size: 11px;
-    padding: 6px 4px;
-  }
-
-  .table-panel__metric-header {
-    font-size: 11px;
-    padding: 5px 3px;
-  }
-
-  .table-panel__scorer-header {
-    font-size: 11px;
-    padding: 4px 2px;
-  }
-
-  .table-panel__score-cell {
-    font-size: 10px;
-    padding: 4px 2px;
-  }
 }

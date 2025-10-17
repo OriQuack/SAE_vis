@@ -7,8 +7,7 @@ import {
   getConsistencyColor,
   getOverallScoreColor,
   getScoreValue,
-  calculateZScore,
-  getScoreCircleColor,
+  getMetricColor,
   sortFeatures,
   getExplainerDisplayName
 } from '../lib/d3-table-utils'
@@ -445,15 +444,15 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                     tableData.global_stats
                   )
 
-                  // Calculate overall consistency
-                  const overallConsistency = calculateOverallConsistency(featureRow, explainerId)
+                  // Calculate overall consistency (returns value + weakest type)
+                  const overallConsistencyResult = calculateOverallConsistency(featureRow, explainerId)
 
                   // Get colors for score and consistency
                   const scoreColor = overallScore !== null
                     ? getOverallScoreColor(overallScore)
                     : 'transparent'
-                  const consistencyColor = overallConsistency !== null
-                    ? getConsistencyColor(overallConsistency, 'llm_scorer_consistency')
+                  const consistencyColor = overallConsistencyResult !== null
+                    ? getConsistencyColor(overallConsistencyResult.value, overallConsistencyResult.weakestType)
                     : 'transparent'
 
                   // Get explanation text
@@ -509,24 +508,39 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                             {(() => {
                               const embedding = getScoreValue(featureRow, explainerId, 'embedding')
                               if (embedding === null || !tableData.global_stats.embedding) return null
-                              const zScore = calculateZScore(embedding, tableData.global_stats.embedding.mean, tableData.global_stats.embedding.std)
-                              return renderMetricCircle('Emb', embedding, getScoreCircleColor(zScore))
+
+                              // Normalize score: (value - min) / (max - min)
+                              const { min, max } = tableData.global_stats.embedding
+                              const range = max - min
+                              const normalizedScore = range > 0 ? (embedding - min) / range : 0
+
+                              return renderMetricCircle('Emb', embedding, getMetricColor('embedding', normalizedScore))
                             })()}
 
                             {/* Fuzz score (averaged) */}
                             {(() => {
                               const fuzz = getScoreValue(featureRow, explainerId, 'fuzz')
                               if (fuzz === null || !tableData.global_stats.fuzz) return null
-                              const zScore = calculateZScore(fuzz, tableData.global_stats.fuzz.mean, tableData.global_stats.fuzz.std)
-                              return renderMetricCircle('Fuzz', fuzz, getScoreCircleColor(zScore))
+
+                              // Normalize score: (value - min) / (max - min)
+                              const { min, max } = tableData.global_stats.fuzz
+                              const range = max - min
+                              const normalizedScore = range > 0 ? (fuzz - min) / range : 0
+
+                              return renderMetricCircle('Fuzz', fuzz, getMetricColor('fuzz', normalizedScore))
                             })()}
 
                             {/* Detection score (averaged) */}
                             {(() => {
                               const detection = getScoreValue(featureRow, explainerId, 'detection')
                               if (detection === null || !tableData.global_stats.detection) return null
-                              const zScore = calculateZScore(detection, tableData.global_stats.detection.mean, tableData.global_stats.detection.std)
-                              return renderMetricCircle('Det', detection, getScoreCircleColor(zScore))
+
+                              // Normalize score: (value - min) / (max - min)
+                              const { min, max } = tableData.global_stats.detection
+                              const range = max - min
+                              const normalizedScore = range > 0 ? (detection - min) / range : 0
+
+                              return renderMetricCircle('Det', detection, getMetricColor('detection', normalizedScore))
                             })()}
                           </div>
                         )}
@@ -535,11 +549,11 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                       {/* Overall consistency (color-coded circle) */}
                       <td
                         className="table-panel__cell table-panel__cell--consistency"
-                        title={overallConsistency !== null ? `Overall Consistency: ${overallConsistency.toFixed(3)}` : 'No consistency data'}
-                        onClick={(e) => overallConsistency !== null && handleCellClick('consistency', featureRow.feature_id, explainerId, e)}
-                        style={{ cursor: overallConsistency !== null ? 'pointer' : 'default' }}
+                        title={overallConsistencyResult !== null ? `Overall Consistency: ${overallConsistencyResult.value.toFixed(3)}` : 'No consistency data'}
+                        onClick={(e) => overallConsistencyResult !== null && handleCellClick('consistency', featureRow.feature_id, explainerId, e)}
+                        style={{ cursor: overallConsistencyResult !== null ? 'pointer' : 'default' }}
                       >
-                        {overallConsistency !== null ? (
+                        {overallConsistencyResult !== null ? (
                           <svg width="16" height="16" viewBox="0 0 16 16">
                             <circle
                               cx="8"

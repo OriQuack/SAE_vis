@@ -1,6 +1,6 @@
 import { scaleLinear } from 'd3-scale'
-import type { FeatureTableRow, MetricNormalizationStats, ConsistencyType } from '../types'
-import { CONSISTENCY_COLORS, SCORE_COLORS } from './constants'
+import type { FeatureTableRow, MetricNormalizationStats, ConsistencyType, OverallConsistencyResult } from '../types'
+import { CONSISTENCY_COLORS, OVERALL_SCORE_COLORS, METRIC_COLORS } from './constants'
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -277,7 +277,7 @@ export function getOverallScoreColor(score: number): string {
   // Create performance color scale: white (0) → light green (0.5) → full green (1)
   const colorScale = scaleLinear<string>()
     .domain([0, 0.5, 1])
-    .range([SCORE_COLORS.LOW, SCORE_COLORS.MEDIUM, SCORE_COLORS.HIGH])
+    .range([OVERALL_SCORE_COLORS.LOW, OVERALL_SCORE_COLORS.MEDIUM, OVERALL_SCORE_COLORS.HIGH])
 
   return colorScale(clampedScore)
 }
@@ -435,37 +435,51 @@ export function calculateOverallScore(
  *
  * @param row - Feature table row
  * @param explainerId - Explainer ID
- * @returns Overall consistency value (0-1) or null if no consistency data
+ * @returns Overall consistency result with value and weakest type, or null if no consistency data
  */
 export function calculateOverallConsistency(
   row: FeatureTableRow,
   explainerId: string
-): number | null {
+): OverallConsistencyResult | null {
   const explainerData = row.explainers[explainerId]
   if (!explainerData) return null
 
-  const consistencyValues: (number | null)[] = []
+  // Track consistency values with their types
+  const consistencyEntries: Array<{ value: number; type: ConsistencyType }> = []
 
   // 1. LLM Scorer consistency (average of fuzz and detection)
-  consistencyValues.push(extractScorerConsistency(explainerData))
+  const scorerConsistency = extractScorerConsistency(explainerData)
+  if (scorerConsistency !== null) {
+    consistencyEntries.push({ value: scorerConsistency, type: 'llm_scorer_consistency' })
+  }
 
   // 2. Within-explanation metric consistency
   if (explainerData.metric_consistency) {
-    consistencyValues.push(explainerData.metric_consistency.value)
+    consistencyEntries.push({ value: explainerData.metric_consistency.value, type: 'within_explanation_score' })
   }
 
   // 3. Cross-explanation score consistency (average of embedding, fuzz, detection)
-  consistencyValues.push(extractCrossExplainerConsistency(explainerData))
+  const crossConsistency = extractCrossExplainerConsistency(explainerData)
+  if (crossConsistency !== null) {
+    consistencyEntries.push({ value: crossConsistency, type: 'cross_explanation_score' })
+  }
 
   // 4. LLM Explainer consistency
   if (explainerData.explainer_consistency) {
-    consistencyValues.push(explainerData.explainer_consistency.value)
+    consistencyEntries.push({ value: explainerData.explainer_consistency.value, type: 'llm_explainer_consistency' })
   }
 
-  // Return minimum of all consistency values
-  const validValues = consistencyValues.filter(v => v !== null) as number[]
-  if (validValues.length === 0) return null
-  return Math.min(...validValues)
+  // Find minimum value and its type
+  if (consistencyEntries.length === 0) return null
+
+  const weakest = consistencyEntries.reduce((min, current) =>
+    current.value < min.value ? current : min
+  )
+
+  return {
+    value: weakest.value,
+    weakestType: weakest.type
+  }
 }
 
 // ============================================================================
@@ -521,6 +535,52 @@ export function getScoreCircleColor(zScore: number): string {
   return colorScale(zScore)
 }
 
+/**
+ * Get metric-specific gradient color for score circles based on score value
+ *
+ * Uses distinct colorblind-safe colors for each metric type with opacity encoding:
+ * - Low scores (0.0): Transparent/white
+ * - Medium scores (0.5): 50% opacity
+ * - High scores (1.0): Full color opacity
+ *
+ * Metric colors:
+ * - Embedding: Blue gradient (#0072B2)
+ * - Fuzz: Orange-red gradient (#D55E00)
+ * - Detection: Green gradient (#228833)
+ *
+ * @param metricType - Type of metric (embedding, fuzz, detection)
+ * @param score - Score value (0-1 range, normalized)
+ * @returns RGB color string with opacity
+ */
+export function getMetricColor(metricType: 'embedding' | 'fuzz' | 'detection', score: number): string {
+  // Clamp score between 0 and 1
+  const clampedScore = Math.max(0, Math.min(1, score))
+
+  // Get color gradient for this metric type
+  let gradient: { LOW: string; MEDIUM: string; HIGH: string }
+
+  switch (metricType) {
+    case 'embedding':
+      gradient = METRIC_COLORS.SCORE_EMBEDDING
+      break
+    case 'fuzz':
+      gradient = METRIC_COLORS.SCORE_FUZZ
+      break
+    case 'detection':
+      gradient = METRIC_COLORS.SCORE_DETECTION
+      break
+    default:
+      return '#e5e7eb'  // Default gray
+  }
+
+  // Create D3 color scale: white (0) → light color (0.5) → full color (1.0)
+  const colorScale = scaleLinear<string>()
+    .domain([0, 0.5, 1])
+    .range([gradient.LOW, gradient.MEDIUM, gradient.HIGH])
+
+  return colorScale(clampedScore)
+}
+
 // ============================================================================
 // TABLE SORTING (CONSOLIDATED FROM table-sort-utils.ts)
 // ============================================================================
@@ -568,15 +628,17 @@ function calculateMinOverallConsistency(
   feature: FeatureTableRow
 ): number | null {
   const explainerIds = Object.keys(feature.explainers)
-  const consistencies: (number | null)[] = []
+  const consistencies: number[] = []
 
   for (const explainerId of explainerIds) {
-    consistencies.push(calculateOverallConsistency(feature, explainerId))
+    const result = calculateOverallConsistency(feature, explainerId)
+    if (result !== null) {
+      consistencies.push(result.value)
+    }
   }
 
-  const validConsistencies = consistencies.filter(c => c !== null) as number[]
-  if (validConsistencies.length === 0) return null
-  return Math.min(...validConsistencies)
+  if (consistencies.length === 0) return null
+  return Math.min(...consistencies)
 }
 
 /**
