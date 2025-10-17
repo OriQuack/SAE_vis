@@ -746,7 +746,7 @@ export const useStore = create<AppState>((set, get) => ({
     }))
   },
 
-  // DEFAULT APPROACH: Auto-initialize both panels with first two LLM Explainers
+  // DEFAULT APPROACH: Auto-initialize both panels with ALL LLM Explainers
   // This is a default configuration and is subject to change based on research needs
   initializeWithDefaultFilters: () => {
     const state = get()
@@ -766,23 +766,20 @@ export const useStore = create<AppState>((set, get) => ({
       return
     }
 
-    // Find "Llama" explainer specifically, or fall back to first explainer
-    const llamaExplainer = llmExplainers.find(e => e.toLowerCase().includes('llama')) || llmExplainers[0]
-
     console.log('🚀 Auto-initializing with default filters:', {
-      leftLLMExplainer: llamaExplainer,
+      leftLLMExplainers: llmExplainers,
       rightLLMExplainer: '(none - empty)',
       allLLMScorers: llmScorers
     })
 
-    // Set filters: Only left panel gets Llama explainer, right panel stays empty
+    // Set filters: Left panel gets ALL LLM explainers, right panel stays empty
     set((state) => ({
       leftPanel: {
         ...state.leftPanel,
         filters: {
           sae_id: [],
           explanation_method: [],
-          llm_explainer: [llamaExplainer],
+          llm_explainer: llmExplainers,  // Select ALL LLM Explainers
           llm_scorer: llmScorers  // Select ALL LLM Scorers
         }
       },

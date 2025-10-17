@@ -8,9 +8,10 @@ import {
   getOverallScoreColor,
   getScoreValue,
   calculateZScore,
-  getScoreCircleColor
+  getScoreCircleColor,
+  sortFeatures,
+  getExplainerDisplayName
 } from '../lib/d3-table-utils'
-import { sortFeatures } from '../lib/table-sort-utils'
 import '../styles/TablePanel.css'
 
 // ============================================================================
@@ -36,17 +37,98 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const sortDirection = useVisualizationStore(state => state.tableSortDirection)
   const setTableSort = useVisualizationStore(state => state.setTableSort)
 
-  // Local state for expanded score cell
-  const [expandedScoreCell, setExpandedScoreCell] = useState<{
-    featureId: number
-    explainerId: string
-  } | null>(null)
+  // ============================================================================
+  // HELPER TYPES AND FUNCTIONS
+  // ============================================================================
 
-  // Local state for expanded consistency cell
-  const [expandedConsistencyCell, setExpandedConsistencyCell] = useState<{
-    featureId: number
-    explainerId: string
-  } | null>(null)
+  // Type for cell expansion state
+  type CellType = 'score' | 'consistency'
+  type ExpandedCellState = { featureId: number; explainerId: string } | null
+
+  // Generic click-outside hook
+  const useClickOutside = (
+    isActive: boolean,
+    overlayClassName: string,
+    onClose: () => void
+  ) => {
+    useEffect(() => {
+      if (!isActive) return
+
+      const handleClickOutside = (event: MouseEvent) => {
+        const target = event.target as HTMLElement
+        if (target.closest(`.${overlayClassName}`)) return
+        onClose()
+      }
+
+      const timeoutId = setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside)
+      }, 100)
+
+      return () => {
+        clearTimeout(timeoutId)
+        document.removeEventListener('mousedown', handleClickOutside)
+      }
+    }, [isActive, overlayClassName, onClose])
+  }
+
+  // Helper to render a metric circle
+  const renderMetricCircle = (label: string, value: number, color: string) => (
+    <div className="table-panel__score-breakdown-item">
+      <span className="table-panel__score-breakdown-label">{label}</span>
+      <svg width="20" height="20" viewBox="0 0 20 20">
+        <circle cx="10" cy="10" r="8" fill={color} stroke="#d1d5db" strokeWidth="1" />
+      </svg>
+      <span className="table-panel__score-breakdown-value">{value.toFixed(3)}</span>
+    </div>
+  )
+
+  // Helper to extract consistency values from explainer data
+  const extractConsistencyValues = (explData: any) => {
+    // 1. LLM Scorer Consistency (average of fuzz and detection)
+    let scorerConsistency: number | null = null
+    if (explData.scorer_consistency) {
+      const scorerValues: number[] = []
+      if (explData.scorer_consistency.fuzz) scorerValues.push(explData.scorer_consistency.fuzz.value)
+      if (explData.scorer_consistency.detection) scorerValues.push(explData.scorer_consistency.detection.value)
+      if (scorerValues.length > 0) {
+        scorerConsistency = scorerValues.reduce((sum, v) => sum + v, 0) / scorerValues.length
+      }
+    }
+
+    // 2. Within-explanation Metric Consistency
+    const metricConsistency = explData.metric_consistency?.value || null
+
+    // 3. Cross-explanation Score Consistency (average of embedding, fuzz, detection)
+    let crossConsistency: number | null = null
+    if (explData.cross_explainer_metric_consistency) {
+      const crossValues: number[] = []
+      if (explData.cross_explainer_metric_consistency.embedding) {
+        crossValues.push(explData.cross_explainer_metric_consistency.embedding.value)
+      }
+      if (explData.cross_explainer_metric_consistency.fuzz) {
+        crossValues.push(explData.cross_explainer_metric_consistency.fuzz.value)
+      }
+      if (explData.cross_explainer_metric_consistency.detection) {
+        crossValues.push(explData.cross_explainer_metric_consistency.detection.value)
+      }
+      if (crossValues.length > 0) {
+        crossConsistency = crossValues.reduce((sum, v) => sum + v, 0) / crossValues.length
+      }
+    }
+
+    // 4. LLM Explainer Consistency
+    const explainerConsistency = explData.explainer_consistency?.value || null
+
+    return { scorerConsistency, metricConsistency, crossConsistency, explainerConsistency }
+  }
+
+  // ============================================================================
+  // STATE
+  // ============================================================================
+
+  // Local state for expanded cells (combined)
+  const [expandedScoreCell, setExpandedScoreCell] = useState<ExpandedCellState>(null)
+  const [expandedConsistencyCell, setExpandedConsistencyCell] = useState<ExpandedCellState>(null)
 
   // Get selected LLM explainers (needed for disabled logic)
   const selectedExplainers = new Set<string>()
@@ -75,29 +157,25 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     }
   }
 
-  // Handle score cell click to expand/collapse
-  const handleScoreCellClick = useCallback((featureId: number, explainerId: string, event: React.MouseEvent) => {
+  // Generic cell click handler for both score and consistency
+  const handleCellClick = useCallback((
+    cellType: CellType,
+    featureId: number,
+    explainerId: string,
+    event: React.MouseEvent
+  ) => {
     event.stopPropagation()
 
-    // Toggle: if same cell clicked, close it; otherwise open new one
-    if (expandedScoreCell?.featureId === featureId && expandedScoreCell?.explainerId === explainerId) {
-      setExpandedScoreCell(null)
-    } else {
-      setExpandedScoreCell({ featureId, explainerId })
-    }
-  }, [expandedScoreCell])
-
-  // Handle consistency cell click to expand/collapse
-  const handleConsistencyCellClick = useCallback((featureId: number, explainerId: string, event: React.MouseEvent) => {
-    event.stopPropagation()
+    const expandedCell = cellType === 'score' ? expandedScoreCell : expandedConsistencyCell
+    const setExpandedCell = cellType === 'score' ? setExpandedScoreCell : setExpandedConsistencyCell
 
     // Toggle: if same cell clicked, close it; otherwise open new one
-    if (expandedConsistencyCell?.featureId === featureId && expandedConsistencyCell?.explainerId === explainerId) {
-      setExpandedConsistencyCell(null)
+    if (expandedCell?.featureId === featureId && expandedCell?.explainerId === explainerId) {
+      setExpandedCell(null)
     } else {
-      setExpandedConsistencyCell({ featureId, explainerId })
+      setExpandedCell({ featureId, explainerId })
     }
-  }, [expandedConsistencyCell])
+  }, [expandedScoreCell, expandedConsistencyCell])
 
   // Fetch data when component mounts or when filters change
   useEffect(() => {
@@ -110,59 +188,9 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     rightPanel.filters.llm_scorer
   ])
 
-  // Handle click outside to close expanded score cell
-  useEffect(() => {
-    if (!expandedScoreCell) return
-
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement
-
-      // Don't close if clicking on the expanded overlay itself
-      if (target.closest('.table-panel__score-breakdown-overlay')) {
-        return
-      }
-
-      // Close if clicking anywhere else
-      setExpandedScoreCell(null)
-    }
-
-    // Add listener after a short delay to avoid immediate closure
-    const timeoutId = setTimeout(() => {
-      document.addEventListener('mousedown', handleClickOutside)
-    }, 100)
-
-    return () => {
-      clearTimeout(timeoutId)
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [expandedScoreCell])
-
-  // Handle click outside to close expanded consistency cell
-  useEffect(() => {
-    if (!expandedConsistencyCell) return
-
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement
-
-      // Don't close if clicking on the expanded overlay itself
-      if (target.closest('.table-panel__consistency-breakdown-overlay')) {
-        return
-      }
-
-      // Close if clicking anywhere else
-      setExpandedConsistencyCell(null)
-    }
-
-    // Add listener after a short delay to avoid immediate closure
-    const timeoutId = setTimeout(() => {
-      document.addEventListener('mousedown', handleClickOutside)
-    }, 100)
-
-    return () => {
-      clearTimeout(timeoutId)
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [expandedConsistencyCell])
+  // Click-outside handlers using custom hook
+  useClickOutside(!!expandedScoreCell, 'table-panel__score-breakdown-overlay', () => setExpandedScoreCell(null))
+  useClickOutside(!!expandedConsistencyCell, 'table-panel__consistency-breakdown-overlay', () => setExpandedConsistencyCell(null))
 
 
   // Track scroll position for vertical bar scroll indicator
@@ -388,7 +416,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                 className="table-panel__header-cell table-panel__header-cell--consistency"
                 onClick={() => handleSort('overallConsistency')}
               >
-                Overall Consistency
+                Overall Cons.
                 {sortBy === 'overallConsistency' && (
                   <span className={`table-panel__sort-indicator ${sortDirection || ''}`} />
                 )}
@@ -448,14 +476,14 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
                       {/* LLM Explainer name */}
                       <td className="table-panel__cell table-panel__cell--explainer">
-                        {explainerId}
+                        {getExplainerDisplayName(explainerId)}
                       </td>
 
                       {/* Overall score (color-coded circle) */}
                       <td
                         className="table-panel__cell table-panel__cell--score"
                         title={overallScore !== null ? `Overall Score: ${overallScore.toFixed(3)}` : 'No score data'}
-                        onClick={(e) => overallScore !== null && handleScoreCellClick(featureRow.feature_id, explainerId, e)}
+                        onClick={(e) => overallScore !== null && handleCellClick('score', featureRow.feature_id, explainerId, e)}
                         style={{ cursor: overallScore !== null ? 'pointer' : 'default' }}
                       >
                         {overallScore !== null ? (
@@ -481,96 +509,24 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                             {(() => {
                               const embedding = getScoreValue(featureRow, explainerId, 'embedding')
                               if (embedding === null || !tableData.global_stats.embedding) return null
-
-                              const zScore = calculateZScore(
-                                embedding,
-                                tableData.global_stats.embedding.mean,
-                                tableData.global_stats.embedding.std
-                              )
-                              const color = getScoreCircleColor(zScore)
-
-                              return (
-                                <div className="table-panel__score-breakdown-item">
-                                  <span className="table-panel__score-breakdown-label">Emb</span>
-                                  <svg width="20" height="20" viewBox="0 0 20 20">
-                                    <circle
-                                      cx="10"
-                                      cy="10"
-                                      r="8"
-                                      fill={color}
-                                      stroke="#d1d5db"
-                                      strokeWidth="1"
-                                    />
-                                  </svg>
-                                  <span className="table-panel__score-breakdown-value">
-                                    {embedding.toFixed(3)}
-                                  </span>
-                                </div>
-                              )
+                              const zScore = calculateZScore(embedding, tableData.global_stats.embedding.mean, tableData.global_stats.embedding.std)
+                              return renderMetricCircle('Emb', embedding, getScoreCircleColor(zScore))
                             })()}
 
                             {/* Fuzz score (averaged) */}
                             {(() => {
                               const fuzz = getScoreValue(featureRow, explainerId, 'fuzz')
                               if (fuzz === null || !tableData.global_stats.fuzz) return null
-
-                              const zScore = calculateZScore(
-                                fuzz,
-                                tableData.global_stats.fuzz.mean,
-                                tableData.global_stats.fuzz.std
-                              )
-                              const color = getScoreCircleColor(zScore)
-
-                              return (
-                                <div className="table-panel__score-breakdown-item">
-                                  <span className="table-panel__score-breakdown-label">Fuzz</span>
-                                  <svg width="20" height="20" viewBox="0 0 20 20">
-                                    <circle
-                                      cx="10"
-                                      cy="10"
-                                      r="8"
-                                      fill={color}
-                                      stroke="#d1d5db"
-                                      strokeWidth="1"
-                                    />
-                                  </svg>
-                                  <span className="table-panel__score-breakdown-value">
-                                    {fuzz.toFixed(3)}
-                                  </span>
-                                </div>
-                              )
+                              const zScore = calculateZScore(fuzz, tableData.global_stats.fuzz.mean, tableData.global_stats.fuzz.std)
+                              return renderMetricCircle('Fuzz', fuzz, getScoreCircleColor(zScore))
                             })()}
 
                             {/* Detection score (averaged) */}
                             {(() => {
                               const detection = getScoreValue(featureRow, explainerId, 'detection')
                               if (detection === null || !tableData.global_stats.detection) return null
-
-                              const zScore = calculateZScore(
-                                detection,
-                                tableData.global_stats.detection.mean,
-                                tableData.global_stats.detection.std
-                              )
-                              const color = getScoreCircleColor(zScore)
-
-                              return (
-                                <div className="table-panel__score-breakdown-item">
-                                  <span className="table-panel__score-breakdown-label">Det</span>
-                                  <svg width="20" height="20" viewBox="0 0 20 20">
-                                    <circle
-                                      cx="10"
-                                      cy="10"
-                                      r="8"
-                                      fill={color}
-                                      stroke="#d1d5db"
-                                      strokeWidth="1"
-                                    />
-                                  </svg>
-                                  <span className="table-panel__score-breakdown-value">
-                                    {detection.toFixed(3)}
-                                  </span>
-                                </div>
-                              )
+                              const zScore = calculateZScore(detection, tableData.global_stats.detection.mean, tableData.global_stats.detection.std)
+                              return renderMetricCircle('Det', detection, getScoreCircleColor(zScore))
                             })()}
                           </div>
                         )}
@@ -580,7 +536,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                       <td
                         className="table-panel__cell table-panel__cell--consistency"
                         title={overallConsistency !== null ? `Overall Consistency: ${overallConsistency.toFixed(3)}` : 'No consistency data'}
-                        onClick={(e) => overallConsistency !== null && handleConsistencyCellClick(featureRow.feature_id, explainerId, e)}
+                        onClick={(e) => overallConsistency !== null && handleCellClick('consistency', featureRow.feature_id, explainerId, e)}
                         style={{ cursor: overallConsistency !== null ? 'pointer' : 'default' }}
                       >
                         {overallConsistency !== null ? (
@@ -604,123 +560,14 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                           const explData = featureRow.explainers[explainerId]
                           if (!explData) return null
 
-                          // Extract the 4 consistency values
-                          // 1. LLM Scorer Consistency (average of fuzz and detection)
-                          let scorerConsistency: number | null = null
-                          if (explData.scorer_consistency) {
-                            const scorerValues: number[] = []
-                            if (explData.scorer_consistency.fuzz) scorerValues.push(explData.scorer_consistency.fuzz.value)
-                            if (explData.scorer_consistency.detection) scorerValues.push(explData.scorer_consistency.detection.value)
-                            if (scorerValues.length > 0) {
-                              scorerConsistency = scorerValues.reduce((sum, v) => sum + v, 0) / scorerValues.length
-                            }
-                          }
-
-                          // 2. Within-explanation Metric Consistency
-                          const metricConsistency = explData.metric_consistency?.value || null
-
-                          // 3. Cross-explanation Score Consistency (average of embedding, fuzz, detection)
-                          let crossConsistency: number | null = null
-                          if (explData.cross_explainer_metric_consistency) {
-                            const crossValues: number[] = []
-                            if (explData.cross_explainer_metric_consistency.embedding) {
-                              crossValues.push(explData.cross_explainer_metric_consistency.embedding.value)
-                            }
-                            if (explData.cross_explainer_metric_consistency.fuzz) {
-                              crossValues.push(explData.cross_explainer_metric_consistency.fuzz.value)
-                            }
-                            if (explData.cross_explainer_metric_consistency.detection) {
-                              crossValues.push(explData.cross_explainer_metric_consistency.detection.value)
-                            }
-                            if (crossValues.length > 0) {
-                              crossConsistency = crossValues.reduce((sum, v) => sum + v, 0) / crossValues.length
-                            }
-                          }
-
-                          // 4. LLM Explainer Consistency
-                          const explainerConsistency = explData.explainer_consistency?.value || null
+                          const { scorerConsistency, metricConsistency, crossConsistency, explainerConsistency } = extractConsistencyValues(explData)
 
                           return (
                             <div className="table-panel__consistency-breakdown-overlay">
-                              {/* LLM Scorer Consistency */}
-                              {scorerConsistency !== null && (
-                                <div className="table-panel__consistency-breakdown-item">
-                                  <span className="table-panel__consistency-breakdown-label">Scorer</span>
-                                  <svg width="20" height="20" viewBox="0 0 20 20">
-                                    <circle
-                                      cx="10"
-                                      cy="10"
-                                      r="8"
-                                      fill={getConsistencyColor(scorerConsistency, 'llm_scorer_consistency')}
-                                      stroke="#d1d5db"
-                                      strokeWidth="1"
-                                    />
-                                  </svg>
-                                  <span className="table-panel__consistency-breakdown-value">
-                                    {scorerConsistency.toFixed(3)}
-                                  </span>
-                                </div>
-                              )}
-
-                              {/* Within-explanation Metric Consistency */}
-                              {metricConsistency !== null && (
-                                <div className="table-panel__consistency-breakdown-item">
-                                  <span className="table-panel__consistency-breakdown-label">Metric</span>
-                                  <svg width="20" height="20" viewBox="0 0 20 20">
-                                    <circle
-                                      cx="10"
-                                      cy="10"
-                                      r="8"
-                                      fill={getConsistencyColor(metricConsistency, 'within_explanation_score')}
-                                      stroke="#d1d5db"
-                                      strokeWidth="1"
-                                    />
-                                  </svg>
-                                  <span className="table-panel__consistency-breakdown-value">
-                                    {metricConsistency.toFixed(3)}
-                                  </span>
-                                </div>
-                              )}
-
-                              {/* Cross-explanation Score Consistency */}
-                              {crossConsistency !== null && (
-                                <div className="table-panel__consistency-breakdown-item">
-                                  <span className="table-panel__consistency-breakdown-label">Cross</span>
-                                  <svg width="20" height="20" viewBox="0 0 20 20">
-                                    <circle
-                                      cx="10"
-                                      cy="10"
-                                      r="8"
-                                      fill={getConsistencyColor(crossConsistency, 'cross_explanation_score')}
-                                      stroke="#d1d5db"
-                                      strokeWidth="1"
-                                    />
-                                  </svg>
-                                  <span className="table-panel__consistency-breakdown-value">
-                                    {crossConsistency.toFixed(3)}
-                                  </span>
-                                </div>
-                              )}
-
-                              {/* LLM Explainer Consistency */}
-                              {explainerConsistency !== null && (
-                                <div className="table-panel__consistency-breakdown-item">
-                                  <span className="table-panel__consistency-breakdown-label">Explnr</span>
-                                  <svg width="20" height="20" viewBox="0 0 20 20">
-                                    <circle
-                                      cx="10"
-                                      cy="10"
-                                      r="8"
-                                      fill={getConsistencyColor(explainerConsistency, 'llm_explainer_consistency')}
-                                      stroke="#d1d5db"
-                                      strokeWidth="1"
-                                    />
-                                  </svg>
-                                  <span className="table-panel__consistency-breakdown-value">
-                                    {explainerConsistency.toFixed(3)}
-                                  </span>
-                                </div>
-                              )}
+                              {scorerConsistency !== null && renderMetricCircle('Scorer', scorerConsistency, getConsistencyColor(scorerConsistency, 'llm_scorer_consistency'))}
+                              {metricConsistency !== null && renderMetricCircle('Metric', metricConsistency, getConsistencyColor(metricConsistency, 'within_explanation_score'))}
+                              {crossConsistency !== null && renderMetricCircle('Cross', crossConsistency, getConsistencyColor(crossConsistency, 'cross_explanation_score'))}
+                              {explainerConsistency !== null && renderMetricCircle('Explnr', explainerConsistency, getConsistencyColor(explainerConsistency, 'llm_explainer_consistency'))}
                             </div>
                           )
                         })()}

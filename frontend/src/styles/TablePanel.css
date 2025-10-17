@@ -867,7 +867,7 @@
 }
 
 .table-panel__header-cell--score {
-  width: 3%;
+  width: 5%;
   min-width: 50px;
   cursor: pointer;
   user-select: none;
@@ -878,7 +878,7 @@
 }
 
 .table-panel__header-cell--consistency {
-  width: 3%;
+  width: 5%;
   min-width: 60px;
   cursor: pointer;
   user-select: none;

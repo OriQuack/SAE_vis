@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react'
 import { useVisualizationStore } from '../store'
 import { useResizeObserver } from '../lib/utils'
-import { sortFeatures } from '../lib/table-sort-utils'
+import { sortFeatures } from '../lib/d3-table-utils'
 import type { FeatureTableRow } from '../types'
 import {
   calculateMultiBarLayout,

@@ -43,77 +43,75 @@ export function getExplainerDisplayName(explainerId: string): string {
   return MODEL_NAME_MAP[explainerId] || explainerId
 }
 
+// ============================================================================
+// HELPER FUNCTIONS (INTERNAL UTILITIES)
+// ============================================================================
+
 /**
- * Get short display name for LLM scorer (same logic as FlowPanel)
- * @param fullName - Full scorer name (e.g., "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4")
- * @returns Short name (e.g., "Llama")
+ * Calculate average of non-null values
+ *
+ * This helper consolidates the repeated averaging pattern used throughout the file.
+ *
+ * @param values - Array of values (may contain nulls)
+ * @returns Average of non-null values, or null if no valid values
  */
-export function getScorerDisplayName(fullName: string): string {
-  if (fullName.includes('Llama')) return 'Llama'
-  if (fullName.includes('Qwen')) return 'Qwen'
-  if (fullName.includes('openai') || fullName.includes('gpt')) return 'OpenAI'
-  return fullName.split('/').pop() || fullName
+function averageNonNull(values: (number | null)[]): number | null {
+  const valid = values.filter(v => v !== null) as number[]
+  if (valid.length === 0) return null
+  return valid.reduce((sum, v) => sum + v, 0) / valid.length
 }
 
-// ============================================================================
-// SCORE FORMATTING
-// ============================================================================
-
 /**
- * Format score value to 3 decimal places or '-' if null
+ * Normalize a score value using min-max normalization
+ *
+ * @param value - Raw score value
+ * @param stats - Statistics containing min/max
+ * @returns Normalized value (0-1) or null if range is invalid
  */
-export function formatTableScore(score: number | null | undefined): string {
-  if (score === null || score === undefined) {
-    return '-'
-  }
-  return score.toFixed(3)
+function normalizeScore(value: number, stats: MetricNormalizationStats): number | null {
+  const { min, max } = stats
+  const range = max - min
+  if (range <= 0) return null
+  return (value - min) / range
 }
 
-
-// ============================================================================
-// HEADER STRUCTURE GENERATION
-// ============================================================================
-
 /**
- * Extract scores in metric-first order (for cross-explanation view)
+ * Extract LLM scorer consistency (average of fuzz and detection consistency)
  *
- * Order: [emb_llama, emb_qwen, fuzz_llama, fuzz_qwen, det_llama, det_qwen, ...]
- *
- * @param row - Feature table row
- * @param explainerIds - Array of explainer IDs in display order
- * @param isAveraged - Whether scores are averaged
- * @returns Array of score values in metric-first order
+ * @param explainerData - Explainer data containing scorer_consistency
+ * @returns Average scorer consistency or null
  */
-export function extractRowScoresMetricFirst(
-  row: FeatureTableRow,
-  explainerIds: string[],
-  _isAveraged: boolean = true
-): (number | null)[] {
-  const scores: (number | null)[] = []
+function extractScorerConsistency(explainerData: any): number | null {
+  if (!explainerData.scorer_consistency) return null
 
-  // For each metric, iterate through all explainers
-  const metrics: Array<'embedding' | 'fuzz' | 'detection'> = ['embedding', 'fuzz', 'detection']
-
-  for (const metric of metrics) {
-    for (const explainerId of explainerIds) {
-      const explainerData = row.explainers[explainerId]
-
-      if (!explainerData) {
-        scores.push(null)
-        continue
-      }
-
-      if (metric === 'embedding') {
-        scores.push(explainerData.embedding)
-      } else if (metric === 'fuzz') {
-        scores.push(explainerData.fuzz.s1) // s1 contains average when averaged
-      } else if (metric === 'detection') {
-        scores.push(explainerData.detection.s1) // s1 contains average when averaged
-      }
-    }
+  const values: number[] = []
+  if (explainerData.scorer_consistency.fuzz) {
+    values.push(explainerData.scorer_consistency.fuzz.value)
+  }
+  if (explainerData.scorer_consistency.detection) {
+    values.push(explainerData.scorer_consistency.detection.value)
   }
 
-  return scores
+  return averageNonNull(values)
+}
+
+/**
+ * Extract cross-explainer metric consistency (average of embedding, fuzz, detection)
+ *
+ * @param explainerData - Explainer data containing cross_explainer_metric_consistency
+ * @returns Average cross-explainer consistency or null
+ */
+function extractCrossExplainerConsistency(explainerData: any): number | null {
+  if (!explainerData.cross_explainer_metric_consistency) return null
+
+  const cem = explainerData.cross_explainer_metric_consistency
+  const values: number[] = []
+
+  if (cem.embedding) values.push(cem.embedding.value)
+  if (cem.fuzz) values.push(cem.fuzz.value)
+  if (cem.detection) values.push(cem.detection.value)
+
+  return averageNonNull(values)
 }
 
 
@@ -137,111 +135,20 @@ export function getScoreValue(
   scorerId?: 's1' | 's2' | 's3'
 ): number | null {
   const explainerData = row.explainers[explainerId]
-  if (!explainerData) {
-    return null
-  }
+  if (!explainerData) return null
 
   if (metricType === 'embedding') {
     return explainerData.embedding
   }
 
-  if (metricType === 'fuzz') {
-    if (scorerId) {
-      return explainerData.fuzz[scorerId]
-    } else {
-      // No scorerId specified - return average of all available scorers
-      const values: number[] = []
-      if (explainerData.fuzz.s1 !== null) values.push(explainerData.fuzz.s1)
-      if (explainerData.fuzz.s2 !== null) values.push(explainerData.fuzz.s2)
-      if (explainerData.fuzz.s3 !== null) values.push(explainerData.fuzz.s3)
-      if (values.length === 0) return null
-      return values.reduce((sum, val) => sum + val, 0) / values.length
-    }
+  const scores = metricType === 'fuzz' ? explainerData.fuzz : explainerData.detection
+
+  if (scorerId) {
+    return scores[scorerId]
   }
 
-  if (metricType === 'detection') {
-    if (scorerId) {
-      return explainerData.detection[scorerId]
-    } else {
-      // No scorerId specified - return average of all available scorers
-      const values: number[] = []
-      if (explainerData.detection.s1 !== null) values.push(explainerData.detection.s1)
-      if (explainerData.detection.s2 !== null) values.push(explainerData.detection.s2)
-      if (explainerData.detection.s3 !== null) values.push(explainerData.detection.s3)
-      if (values.length === 0) return null
-      return values.reduce((sum, val) => sum + val, 0) / values.length
-    }
-  }
-
-  return null
-}
-
-/**
- * Extract all score values for a feature row in column order
- *
- * When isAveraged = false (1 explainer):
- *   [llama_embedding, llama_fuzz_s1, llama_fuzz_s2, ...,
- *    llama_det_s1, llama_det_s2, ...]
- *   Number of fuzz/detection columns = numScorers
- *
- * When isAveraged = true (2+ explainers):
- *   [llama_embedding, llama_fuzz_avg, llama_det_avg,
- *    qwen_embedding, qwen_fuzz_avg, qwen_det_avg, ...]
- *
- * @param row - Feature table row
- * @param explainerIds - Array of explainer IDs in display order
- * @param isAveraged - Whether scores are averaged across scorers
- * @param numScorers - Number of scorers (only used when isAveraged = false)
- * @returns Array of score values in column order
- */
-export function extractRowScores(
-  row: FeatureTableRow,
-  explainerIds: string[],
-  isAveraged: boolean = false,
-  numScorers: number = 3
-): (number | null)[] {
-  const scores: (number | null)[] = []
-  const scorerKeys: Array<'s1' | 's2' | 's3'> = ['s1', 's2', 's3']
-
-  for (const explainerId of explainerIds) {
-    const explainerData = row.explainers[explainerId]
-
-    if (!explainerData) {
-      // Fill with nulls if explainer data is missing
-      if (isAveraged) {
-        scores.push(null, null, null)  // embedding, fuzz_avg, detection_avg
-      } else {
-        const nullCount = 1 + (numScorers * 2)  // embedding + numScorers fuzz + numScorers detection
-        for (let i = 0; i < nullCount; i++) {
-          scores.push(null)
-        }
-      }
-      continue
-    }
-
-    if (isAveraged) {
-      // Averaged mode: 3 columns per explainer
-      scores.push(explainerData.embedding)
-      scores.push(explainerData.fuzz.s1)  // s1 contains the average
-      scores.push(explainerData.detection.s1)  // s1 contains the average
-    } else {
-      // Individual scorer mode: dynamic columns based on numScorers
-      // Embedding
-      scores.push(explainerData.embedding)
-
-      // Fuzz scores (s1, s2, s3 based on numScorers)
-      for (let i = 0; i < numScorers; i++) {
-        scores.push(explainerData.fuzz[scorerKeys[i]])
-      }
-
-      // Detection scores (s1, s2, s3 based on numScorers)
-      for (let i = 0; i < numScorers; i++) {
-        scores.push(explainerData.detection[scorerKeys[i]])
-      }
-    }
-  }
-
-  return scores
+  // No scorerId specified - return average of all available scorers
+  return averageNonNull([scores.s1, scores.s2, scores.s3])
 }
 
 // ============================================================================
@@ -394,81 +301,6 @@ export function getConsistencyGradientStops(consistencyType: ConsistencyType = '
 }
 
 // ============================================================================
-// CONSISTENCY SCORE EXTRACTION
-// ============================================================================
-
-/**
- * Get consistency score for a specific table cell
- *
- * @param row - Feature table row
- * @param explainerId - Explainer ID (llama, qwen, openai)
- * @param metricType - Metric type (embedding, fuzz, detection)
- * @param consistencyType - Type of consistency to retrieve
- * @returns Consistency score value (0-1) or null if not available
- */
-export function getConsistencyForCell(
-  row: FeatureTableRow,
-  explainerId: string,
-  metricType: 'embedding' | 'fuzz' | 'detection',
-  consistencyType: string
-): number | null {
-  const explainerData = row.explainers[explainerId]
-  if (!explainerData) {
-    return null
-  }
-
-  // No consistency coloring
-  if (consistencyType === 'none') {
-    return null
-  }
-
-  // LLM Scorer Consistency: Coefficient of variation across scorers for a metric
-  if (consistencyType === 'llm_scorer_consistency') {
-    if (!explainerData.scorer_consistency) {
-      return null
-    }
-
-    // Only fuzz and detection have scorer consistency
-    if (metricType === 'fuzz' && explainerData.scorer_consistency.fuzz) {
-      return explainerData.scorer_consistency.fuzz.value
-    }
-    if (metricType === 'detection' && explainerData.scorer_consistency.detection) {
-      return explainerData.scorer_consistency.detection.value
-    }
-
-    return null
-  }
-
-  // Within-explanation Scoring Metric Consistency: Normalized std across metrics
-  if (consistencyType === 'within_explanation_score') {
-    if (!explainerData.metric_consistency) {
-      return null
-    }
-    return explainerData.metric_consistency.value
-  }
-
-  // Cross-explanation Score Consistency: Inverse CV of each metric across explainers
-  if (consistencyType === 'cross_explanation_score') {
-    if (!explainerData.cross_explainer_metric_consistency) {
-      return null
-    }
-    // Extract consistency for the specific metric
-    const consistencyScore = explainerData.cross_explainer_metric_consistency[metricType]
-    return consistencyScore?.value || null
-  }
-
-  // LLM Explainer Consistency: Average pairwise cosine similarity between explainers
-  if (consistencyType === 'llm_explainer_consistency') {
-    if (!explainerData.explainer_consistency) {
-      return null
-    }
-    return explainerData.explainer_consistency.value
-  }
-
-  return null
-}
-
-// ============================================================================
 // TABLE SORTING UTILITIES
 // ============================================================================
 
@@ -493,35 +325,21 @@ export function getConsistencyValueForSorting(
     return null
   }
 
-  const values: number[] = []
+  const values: (number | null)[] = []
 
   for (const explainerId of explainerIds) {
     const explainerData = row.explainers[explainerId]
     if (!explainerData) continue
 
     if (consistencyType === 'llm_scorer_consistency') {
-      // Average fuzz and detection scorer consistency
-      if (explainerData.scorer_consistency?.fuzz) {
-        values.push(explainerData.scorer_consistency.fuzz.value)
-      }
-      if (explainerData.scorer_consistency?.detection) {
-        values.push(explainerData.scorer_consistency.detection.value)
-      }
+      values.push(extractScorerConsistency(explainerData))
     } else if (consistencyType === 'within_explanation_score') {
-      // Within-explanation metric consistency
       if (explainerData.metric_consistency) {
         values.push(explainerData.metric_consistency.value)
       }
     } else if (consistencyType === 'cross_explanation_score') {
-      // Average across all three metrics
-      if (explainerData.cross_explainer_metric_consistency) {
-        const cem = explainerData.cross_explainer_metric_consistency
-        if (cem.embedding) values.push(cem.embedding.value)
-        if (cem.fuzz) values.push(cem.fuzz.value)
-        if (cem.detection) values.push(cem.detection.value)
-      }
+      values.push(extractCrossExplainerConsistency(explainerData))
     } else if (consistencyType === 'llm_explainer_consistency') {
-      // LLM explainer semantic consistency
       if (explainerData.explainer_consistency) {
         values.push(explainerData.explainer_consistency.value)
       }
@@ -529,8 +347,7 @@ export function getConsistencyValueForSorting(
   }
 
   // Return average of collected values, or null if no values
-  if (values.length === 0) return null
-  return values.reduce((sum, val) => sum + val, 0) / values.length
+  return averageNonNull(values)
 }
 
 /**
@@ -584,45 +401,27 @@ export function calculateOverallScore(
   detectionScores: { s1: number | null; s2: number | null; s3: number | null },
   globalStats: Record<string, MetricNormalizationStats>
 ): number | null {
-  const values: number[] = []
+  const normalizedScores: (number | null)[] = []
 
   // Normalize embedding
   if (embedding !== null && globalStats.embedding) {
-    const { min, max } = globalStats.embedding
-    const range = max - min
-    if (range > 0) {
-      const normalized = (embedding - min) / range
-      values.push(normalized)
-    }
+    normalizedScores.push(normalizeScore(embedding, globalStats.embedding))
   }
 
   // Normalize fuzz (average across scorers first)
-  const fuzzValues = [fuzzScores.s1, fuzzScores.s2, fuzzScores.s3].filter(v => v !== null) as number[]
-  if (fuzzValues.length > 0 && globalStats.fuzz) {
-    const fuzzAvg = fuzzValues.reduce((sum, v) => sum + v, 0) / fuzzValues.length
-    const { min, max } = globalStats.fuzz
-    const range = max - min
-    if (range > 0) {
-      const normalized = (fuzzAvg - min) / range
-      values.push(normalized)
-    }
+  const fuzzAvg = averageNonNull([fuzzScores.s1, fuzzScores.s2, fuzzScores.s3])
+  if (fuzzAvg !== null && globalStats.fuzz) {
+    normalizedScores.push(normalizeScore(fuzzAvg, globalStats.fuzz))
   }
 
   // Normalize detection (average across scorers first)
-  const detectionValues = [detectionScores.s1, detectionScores.s2, detectionScores.s3].filter(v => v !== null) as number[]
-  if (detectionValues.length > 0 && globalStats.detection) {
-    const detectionAvg = detectionValues.reduce((sum, v) => sum + v, 0) / detectionValues.length
-    const { min, max } = globalStats.detection
-    const range = max - min
-    if (range > 0) {
-      const normalized = (detectionAvg - min) / range
-      values.push(normalized)
-    }
+  const detectionAvg = averageNonNull([detectionScores.s1, detectionScores.s2, detectionScores.s3])
+  if (detectionAvg !== null && globalStats.detection) {
+    normalizedScores.push(normalizeScore(detectionAvg, globalStats.detection))
   }
 
   // Average the normalized scores
-  if (values.length === 0) return null
-  return values.reduce((sum, v) => sum + v, 0) / values.length
+  return averageNonNull(normalizedScores)
 }
 
 /**
@@ -645,22 +444,10 @@ export function calculateOverallConsistency(
   const explainerData = row.explainers[explainerId]
   if (!explainerData) return null
 
-  const consistencyValues: number[] = []
+  const consistencyValues: (number | null)[] = []
 
   // 1. LLM Scorer consistency (average of fuzz and detection)
-  if (explainerData.scorer_consistency) {
-    const scorerValues: number[] = []
-    if (explainerData.scorer_consistency.fuzz) {
-      scorerValues.push(explainerData.scorer_consistency.fuzz.value)
-    }
-    if (explainerData.scorer_consistency.detection) {
-      scorerValues.push(explainerData.scorer_consistency.detection.value)
-    }
-    if (scorerValues.length > 0) {
-      const avgScorerConsistency = scorerValues.reduce((sum, v) => sum + v, 0) / scorerValues.length
-      consistencyValues.push(avgScorerConsistency)
-    }
-  }
+  consistencyValues.push(extractScorerConsistency(explainerData))
 
   // 2. Within-explanation metric consistency
   if (explainerData.metric_consistency) {
@@ -668,22 +455,7 @@ export function calculateOverallConsistency(
   }
 
   // 3. Cross-explanation score consistency (average of embedding, fuzz, detection)
-  if (explainerData.cross_explainer_metric_consistency) {
-    const crossValues: number[] = []
-    if (explainerData.cross_explainer_metric_consistency.embedding) {
-      crossValues.push(explainerData.cross_explainer_metric_consistency.embedding.value)
-    }
-    if (explainerData.cross_explainer_metric_consistency.fuzz) {
-      crossValues.push(explainerData.cross_explainer_metric_consistency.fuzz.value)
-    }
-    if (explainerData.cross_explainer_metric_consistency.detection) {
-      crossValues.push(explainerData.cross_explainer_metric_consistency.detection.value)
-    }
-    if (crossValues.length > 0) {
-      const avgCrossConsistency = crossValues.reduce((sum, v) => sum + v, 0) / crossValues.length
-      consistencyValues.push(avgCrossConsistency)
-    }
-  }
+  consistencyValues.push(extractCrossExplainerConsistency(explainerData))
 
   // 4. LLM Explainer consistency
   if (explainerData.explainer_consistency) {
@@ -691,8 +463,9 @@ export function calculateOverallConsistency(
   }
 
   // Return minimum of all consistency values
-  if (consistencyValues.length === 0) return null
-  return Math.min(...consistencyValues)
+  const validValues = consistencyValues.filter(v => v !== null) as number[]
+  if (validValues.length === 0) return null
+  return Math.min(...validValues)
 }
 
 // ============================================================================
@@ -748,107 +521,149 @@ export function getScoreCircleColor(zScore: number): string {
   return colorScale(zScore)
 }
 
+// ============================================================================
+// TABLE SORTING (CONSOLIDATED FROM table-sort-utils.ts)
+// ============================================================================
+
 /**
- * Extract circle data for a specific table cell
+ * Calculate average overall score across all explainers for a feature
  *
- * This function determines which circles to show based on:
- * - Column header structure (which explainer + metric)
- * - Averaged mode (1 circle for embedding, 3 circles for fuzz/detection)
- * - Individual mode (1 circle per cell)
- *
- * @param row - Feature table row
- * @param colIndex - Column index in table
- * @param headerStructure - Header structure for column mapping
+ * @param feature - Feature row
  * @param globalStats - Global normalization statistics
- * @param isAveraged - Whether scores are averaged
- * @returns Array of circle data (1 or 3 circles)
+ * @returns Average overall score or null
  */
-export function extractCellScoreCircles(
-  row: FeatureTableRow,
-  colIndex: number,
-  headerStructure: HeaderStructure,
-  globalStats: Record<string, MetricNormalizationStats>,
-  isAveraged: boolean
-): ScoreCircleData[] {
-  // Determine which header cell this column belongs to
-  const headerCell = !isAveraged && headerStructure.row3.length > 0
-    ? headerStructure.row3[colIndex]  // Individual mode: use row3
-    : headerStructure.row2[colIndex]   // Averaged mode: use row2
+function calculateAvgOverallScore(
+  feature: FeatureTableRow,
+  globalStats: Record<string, MetricNormalizationStats> | undefined
+): number | null {
+  if (!globalStats) return null
 
-  if (!headerCell || !headerCell.explainerId || !headerCell.metricType) {
-    return []
+  const explainerIds = Object.keys(feature.explainers)
+  const scores: (number | null)[] = []
+
+  for (const explainerId of explainerIds) {
+    const explainerData = feature.explainers[explainerId]
+    if (!explainerData) continue
+
+    const score = calculateOverallScore(
+      explainerData.embedding,
+      explainerData.fuzz,
+      explainerData.detection,
+      globalStats
+    )
+
+    scores.push(score)
   }
 
-  const explainerId = headerCell.explainerId
-  const metricType = headerCell.metricType
-  const explainerData = row.explainers[explainerId]
+  return averageNonNull(scores)
+}
 
-  if (!explainerData) {
-    return []
+/**
+ * Calculate minimum overall consistency across all explainers for a feature
+ *
+ * @param feature - Feature row
+ * @returns Minimum overall consistency or null
+ */
+function calculateMinOverallConsistency(
+  feature: FeatureTableRow
+): number | null {
+  const explainerIds = Object.keys(feature.explainers)
+  const consistencies: (number | null)[] = []
+
+  for (const explainerId of explainerIds) {
+    consistencies.push(calculateOverallConsistency(feature, explainerId))
   }
 
-  // Get global stats for this metric type
-  const stats = globalStats[metricType]
-  if (!stats) {
-    return []
+  const validConsistencies = consistencies.filter(c => c !== null) as number[]
+  if (validConsistencies.length === 0) return null
+  return Math.min(...validConsistencies)
+}
+
+/**
+ * Sort features based on simplified sort configuration
+ *
+ * Supports sorting by:
+ * - featureId: Sort by feature ID number
+ * - overallScore: Sort by overall score across all explainers
+ * - overallConsistency: Sort by overall consistency across all explainers
+ * - llm_scorer_consistency: Sort by LLM Scorer consistency
+ * - within_explanation_score: Sort by Within-explanation score consistency
+ * - cross_explanation_score: Sort by Cross-explanation score consistency
+ * - llm_explainer_consistency: Sort by LLM Explainer consistency
+ *
+ * @param features - Array of features to sort
+ * @param sortBy - Sort key
+ * @param sortDirection - Sort direction (asc/desc)
+ * @param tableData - Full table data for context (global stats, explainer IDs)
+ * @returns Sorted copy of features array
+ */
+export function sortFeatures(
+  features: FeatureTableRow[],
+  sortBy: 'featureId' | 'overallScore' | 'overallConsistency' | string | null,
+  sortDirection: 'asc' | 'desc' | null,
+  tableData: { explainer_ids?: string[]; global_stats?: Record<string, MetricNormalizationStats> } | null
+): FeatureTableRow[] {
+  // If no sort config or no features, return as-is
+  if (!sortBy || !sortDirection || !features || features.length === 0) {
+    return features
   }
 
-  const circles: ScoreCircleData[] = []
+  // Create a copy to avoid mutating original
+  const sortedFeatures = [...features]
 
-  if (isAveraged) {
-    // Averaged mode: Show 3 circles for fuzz/detection (one per scorer), 1 for embedding
-    if (metricType === 'embedding') {
-      // Embedding: single circle
-      const value = explainerData.embedding
-      if (value !== null) {
-        const zScore = calculateZScore(value, stats.mean, stats.std)
-        circles.push({
-          value,
-          normalizedScore: zScore,
-          color: getScoreCircleColor(zScore)
-        })
-      }
-    } else if (metricType === 'fuzz' || metricType === 'detection') {
-      // Fuzz/Detection: 3 circles (s1, s2, s3)
-      // Note: In averaged mode, backend stores individual scores in s1/s2/s3 even though display shows average
-      const scorerSet = metricType === 'fuzz' ? explainerData.fuzz : explainerData.detection
-      const scorerIds: Array<'s1' | 's2' | 's3'> = ['s1', 's2', 's3']
-
-      for (const scorerId of scorerIds) {
-        const value = scorerSet[scorerId]
-        if (value !== null) {
-          const zScore = calculateZScore(value, stats.mean, stats.std)
-          circles.push({
-            value,
-            normalizedScore: zScore,
-            color: getScoreCircleColor(zScore),
-            scorerId
-          })
-        }
-      }
+  sortedFeatures.sort((a, b) => {
+    if (sortBy === 'featureId') {
+      // Sort by feature ID (numeric)
+      return sortDirection === 'asc'
+        ? a.feature_id - b.feature_id
+        : b.feature_id - a.feature_id
     }
-  } else {
-    // Individual mode: single circle per cell
-    let value: number | null = null
 
-    if (metricType === 'embedding') {
-      value = explainerData.embedding
-    } else if (metricType === 'fuzz' && headerCell.scorerId) {
-      value = explainerData.fuzz[headerCell.scorerId]
-    } else if (metricType === 'detection' && headerCell.scorerId) {
-      value = explainerData.detection[headerCell.scorerId]
+    if (sortBy === 'overallScore') {
+      // Calculate overall score across all explainers
+      const overallScoreA = calculateAvgOverallScore(a, tableData?.global_stats)
+      const overallScoreB = calculateAvgOverallScore(b, tableData?.global_stats)
+      return compareValues(overallScoreA, overallScoreB, sortDirection)
     }
 
-    if (value !== null) {
-      const zScore = calculateZScore(value, stats.mean, stats.std)
-      circles.push({
-        value,
-        normalizedScore: zScore,
-        color: getScoreCircleColor(zScore),
-        scorerId: headerCell.scorerId
-      })
+    if (sortBy === 'overallConsistency') {
+      // Calculate overall consistency across all explainers
+      const overallConsistencyA = calculateMinOverallConsistency(a)
+      const overallConsistencyB = calculateMinOverallConsistency(b)
+      return compareValues(overallConsistencyA, overallConsistencyB, sortDirection)
     }
-  }
 
-  return circles
+    // Individual consistency metric sorting
+    if (sortBy === 'llm_scorer_consistency') {
+      const explainerIds = tableData?.explainer_ids || []
+      const consistencyA = getConsistencyValueForSorting(a, 'llm_scorer_consistency', explainerIds)
+      const consistencyB = getConsistencyValueForSorting(b, 'llm_scorer_consistency', explainerIds)
+      return compareValues(consistencyA, consistencyB, sortDirection)
+    }
+
+    if (sortBy === 'within_explanation_score') {
+      const explainerIds = tableData?.explainer_ids || []
+      const consistencyA = getConsistencyValueForSorting(a, 'within_explanation_score', explainerIds)
+      const consistencyB = getConsistencyValueForSorting(b, 'within_explanation_score', explainerIds)
+      return compareValues(consistencyA, consistencyB, sortDirection)
+    }
+
+    if (sortBy === 'cross_explanation_score') {
+      const explainerIds = tableData?.explainer_ids || []
+      const consistencyA = getConsistencyValueForSorting(a, 'cross_explanation_score', explainerIds)
+      const consistencyB = getConsistencyValueForSorting(b, 'cross_explanation_score', explainerIds)
+      return compareValues(consistencyA, consistencyB, sortDirection)
+    }
+
+    if (sortBy === 'llm_explainer_consistency') {
+      const explainerIds = tableData?.explainer_ids || []
+      const consistencyA = getConsistencyValueForSorting(a, 'llm_explainer_consistency', explainerIds)
+      const consistencyB = getConsistencyValueForSorting(b, 'llm_explainer_consistency', explainerIds)
+      return compareValues(consistencyA, consistencyB, sortDirection)
+    }
+
+    return 0
+  })
+
+  return sortedFeatures
 }
