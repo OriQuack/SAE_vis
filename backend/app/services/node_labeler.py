@@ -151,14 +151,7 @@ class NodeDisplayNameGenerator:
         # Remove category prefix for all threshold group nodes (from threshold-group-converter)
         should_remove_prefix = True
 
-        # Check for default child first (branch_index -1 means default/others)
-        if branch_index == -1 or (hasattr(split_rule, "default_child_id") and split_rule.default_child_id == node.id):
-            # Special case for "others" node
-            if node.id == "others" or node.id.endswith("_others"):
-                return "Others" if should_remove_prefix else f"{base_name}: Others"
-            return "Default" if should_remove_prefix else f"{base_name}: Default"
-
-        # Use branch description if available
+        # FIRST: Check if this node has a branch with a description (prioritize explicit descriptions)
         if 0 <= branch_index < len(split_rule.branches):
             branch = split_rule.branches[branch_index]
             if branch.description:
@@ -170,6 +163,13 @@ class NodeDisplayNameGenerator:
                         return branch.description[len(base_name) + 2:]
                     return branch.description
                 return branch.description if should_remove_prefix else f"{base_name}: {branch.description}"
+
+        # SECOND: Check for default child (branch_index -1 means default/others, or no matching branch)
+        if branch_index == -1 or (hasattr(split_rule, "default_child_id") and split_rule.default_child_id == node.id):
+            # Special case for "others" node
+            if node.id == "others" or node.id.endswith("_others"):
+                return "Others" if should_remove_prefix else f"{base_name}: Others"
+            return "Default" if should_remove_prefix else f"{base_name}: Default"
 
         # Fallback to branch number
         label = f"Branch {branch_index + 1}"

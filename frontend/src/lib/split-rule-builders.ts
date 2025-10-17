@@ -86,17 +86,17 @@ export function buildPercentileSplit(
     const lowerBound = i * binSize
     const upperBound = (i + 1) * binSize
 
-    // For the last bin, use <= to include 1.0
-    const condition = i === numBins - 1
-      ? `${metric} >= ${lowerBound.toFixed(2)} && ${metric} <= ${upperBound.toFixed(2)}`
-      : `${metric} >= ${lowerBound.toFixed(2)} && ${metric} < ${upperBound.toFixed(2)}`
-
     const percentLower = Math.round(lowerBound * 100)
     const percentUpper = Math.round(upperBound * 100)
 
+    // Use percentile format to make it clear we're working with percentiles
+    const condition = i === numBins - 1
+      ? `${metric} >= ${percentLower}% && ${metric} <= ${percentUpper}%`
+      : `${metric} >= ${percentLower}% && ${metric} < ${percentUpper}%`
+
     branches.push({
       condition,
-      child_id: `percentile_${percentLower}_${percentUpper}`,
+      child_id: `${metric}_p${percentUpper}`,
       description: `${percentLower}-${percentUpper}%`
     })
   }

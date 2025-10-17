@@ -145,7 +145,7 @@ const VerticalBar: React.FC<VerticalBarProps> = ({ className = '' }) => {
       }
     }
 
-    console.log('[VerticalBar] Calculating layout with scroll state:', tableScrollState)
+    // console.log('[VerticalBar] Calculating layout with scroll state:', tableScrollState)
 
     return calculateMultiBarLayout(
       explainerData,

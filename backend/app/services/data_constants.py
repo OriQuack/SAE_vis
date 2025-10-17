@@ -8,6 +8,7 @@ This module contains the core constants used throughout the data service.
 CATEGORY_ROOT = "root"
 CATEGORY_FEATURE_SPLITTING = "feature_splitting"
 CATEGORY_SEMANTIC_SIMILARITY = "semantic_similarity"
+CATEGORY_CONSISTENCY = "consistency"  # For consistency-based metrics
 
 # Classification categories
 SPLITTING_TRUE = "true"

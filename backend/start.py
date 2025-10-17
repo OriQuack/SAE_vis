@@ -83,6 +83,8 @@ def main():
             host=args.host,
             port=args.port,
             reload=args.reload,
+            reload_dirs=["."],
+            reload_excludes=["**/*.log", "__pycache__", ".git"],
             log_level=args.log_level.lower(),
             access_log=True
         )

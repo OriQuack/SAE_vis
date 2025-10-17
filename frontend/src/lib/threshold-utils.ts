@@ -432,7 +432,8 @@ export function addStageToNode(
 
     // Create child nodes for range split
     for (let i = 0; i <= thresholds.length; i++) {
-      const childId = `${nodeId}_${metric}_${i}`
+      // Skip "root" prefix for simplicity
+      const childId = nodeId === NODE_ROOT_ID ? `${metric}_${i}` : `${nodeId}_${metric}_${i}`
       childrenIds.push(childId)
 
       const parentPath = [
@@ -447,14 +448,15 @@ export function addStageToNode(
   } else if (config.splitRuleType === 'expression' && stageConfig.defaultMetric) {
     // Handle consistency metrics with percentile split (10 equal bins)
     const metric = config.metric || stageConfig.defaultMetric
-    const numBins = config.customConfig?.numBins || 10  // Default 10, configurable in future
+    const numBins = config.customConfig?.numBins || 4  // Default 10, configurable in future
 
     splitRule = buildPercentileSplit(metric, numBins)
     const expressionRule = splitRule as ExpressionSplitRule
 
     // Create child nodes for each percentile branch
     expressionRule.branches.forEach((branch, idx) => {
-      const childId = `${nodeId}_${branch.child_id}`
+      // Skip "root" prefix for simplicity
+      const childId = nodeId === NODE_ROOT_ID ? branch.child_id : `${nodeId}_${branch.child_id}`
       childrenIds.push(childId)
 
       const parentPath = [

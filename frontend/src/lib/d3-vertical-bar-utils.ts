@@ -226,12 +226,12 @@ export function calculateMultiBarLayout(
         height: indicatorHeight
       }
 
-      console.log('[d3-vertical-bar-utils] Global scroll indicator calculated:', {
-        scrollPercentage,
-        visiblePercentage,
-        indicatorY,
-        indicatorHeight
-      })
+      // console.log('[d3-vertical-bar-utils] Global scroll indicator calculated:', {
+      //   scrollPercentage,
+      //   visiblePercentage,
+      //   indicatorY,
+      //   indicatorHeight
+      // })
     }
   }
 

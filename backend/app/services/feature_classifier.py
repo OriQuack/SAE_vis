@@ -9,6 +9,7 @@ This module provides the core classification functionality that:
 """
 
 import polars as pl
+import numpy as np
 import logging
 import re
 from typing import Dict, List, Any, Optional, Tuple, Set
@@ -19,6 +20,7 @@ from ..models.threshold import (
     SankeyThreshold,
     CategoryType,
     ParentPathInfo,
+    ExpressionSplitRule,
 )
 from .rule_evaluators import SplitEvaluator
 from .data_constants import COL_FEATURE_ID
@@ -43,6 +45,71 @@ class ClassificationEngine:
         # Performance optimization: cache for classification results
         self._classification_cache = {}
         self._cache_max_size = 100  # Limit cache size to avoid memory issues
+
+    def _precompute_percentile_thresholds(
+        self,
+        df: pl.DataFrame,
+        threshold_structure: ThresholdStructure
+    ) -> Dict[str, Dict[int, float]]:
+        """
+        Pre-compute percentile thresholds for all metrics used in expression rules.
+
+        This enables dynamic percentile-based classification where percentiles
+        are calculated from the current filtered dataset.
+
+        Args:
+            df: Filtered DataFrame with feature data
+            threshold_structure: V2 threshold structure
+
+        Returns:
+            Dict mapping metric_name -> percentile -> threshold_value
+            Example: {"llm_scorer_consistency": {0: 0.1, 10: 0.742, 20: 0.801, ...}}
+        """
+        percentile_thresholds = {}
+
+        # Find all metrics used in expression rules
+        metrics_used = set()
+        for node in threshold_structure.nodes:
+            if isinstance(node.split_rule, ExpressionSplitRule):
+                if node.split_rule.available_metrics:
+                    metrics_used.update(node.split_rule.available_metrics)
+
+        if not metrics_used:
+            logger.debug("No expression rules with metrics found, skipping percentile computation")
+            return percentile_thresholds
+
+        # Compute percentiles for each metric
+        for metric in metrics_used:
+            if metric not in df.columns:
+                logger.warning(f"Metric {metric} not found in dataframe, skipping")
+                continue
+
+            # IMPORTANT: Deduplicate by feature_id before computing percentiles
+            # Each feature appears multiple times (3 explainers × 3 scorers = 9 rows per feature)
+            # but llm_scorer_consistency is the same for all rows of the same feature.
+            # We need to extract only unique feature values to get correct percentile distribution.
+            unique_features_df = df.select([COL_FEATURE_ID, metric]).unique(subset=[COL_FEATURE_ID])
+            values = unique_features_df[metric].drop_nulls().to_numpy()
+
+            if len(values) == 0:
+                logger.warning(f"No values found for metric {metric}, skipping")
+                continue
+
+            # Compute percentiles 0-100 in steps of 1 for fine-grained percentile support
+            # Frontend can use expressions like "metric >= 25%" which needs accurate 25th percentile
+            percentiles_to_compute = list(range(0, 101, 1))  # [0, 1, 2, ..., 100]
+            percentile_values = np.percentile(values, percentiles_to_compute)
+
+            percentile_thresholds[metric] = {
+                p: float(v) for p, v in zip(percentiles_to_compute, percentile_values)
+            }
+
+            logger.info(f"Computed percentiles for {metric} on {len(values)} unique features: "
+                       f"25th={percentile_thresholds[metric][25]:.3f}, "
+                       f"50th={percentile_thresholds[metric][50]:.3f}, "
+                       f"75th={percentile_thresholds[metric][75]:.3f}")
+
+        return percentile_thresholds
 
     def classify_features(
         self, df: pl.DataFrame, threshold_structure: ThresholdStructure
@@ -72,6 +139,10 @@ class ClassificationEngine:
         if threshold_structure._nodes_by_id is None:
             threshold_structure._build_lookup_caches()
         nodes_by_id = threshold_structure._nodes_by_id
+
+        # Pre-compute percentile thresholds for expression rules
+        percentile_thresholds = self._precompute_percentile_thresholds(df, threshold_structure)
+        self.evaluator.set_percentile_thresholds(percentile_thresholds)
 
         # Get root node
         root = threshold_structure.get_root()

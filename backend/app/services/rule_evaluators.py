@@ -44,6 +44,21 @@ class EvaluationResult:
 class SplitEvaluator:
     """Main evaluator class for all split rule types"""
 
+    def __init__(self):
+        """Initialize the evaluator with empty percentile thresholds."""
+        self.percentile_thresholds = {}
+
+    def set_percentile_thresholds(self, thresholds: Dict[str, Dict[int, float]]):
+        """
+        Set pre-computed percentile thresholds for expression evaluation.
+
+        Args:
+            thresholds: Dict mapping metric_name -> percentile -> threshold_value
+                       Example: {"llm_scorer_consistency": {10: 0.742, 20: 0.801, ...}}
+        """
+        self.percentile_thresholds = thresholds
+        logger.debug(f"Set percentile thresholds for {len(thresholds)} metrics")
+
     def evaluate(
         self,
         feature_row: Dict[str, Any],
@@ -442,13 +457,58 @@ class SplitEvaluator:
         # No match found
         return None
 
+    def _convert_percentile_to_threshold(
+        self,
+        expression: str
+    ) -> str:
+        """
+        Convert percentile syntax to actual threshold values.
+
+        Converts expressions like "metric >= 10%" to "metric >= 0.742"
+        where 0.742 is the pre-computed 10th percentile value.
+
+        Args:
+            expression: Expression string with potential percentile syntax
+
+        Returns:
+            Expression with percentiles replaced by actual threshold values
+        """
+        # Regex to find: metric_name operator percentage%
+        # Matches patterns like: llm_scorer_consistency >= 10%
+        percentile_pattern = r'(\w+)\s*(>=|>|<=|<)\s*(\d+)%'
+
+        def replace_percentile(match):
+            metric_name = match.group(1)
+            operator = match.group(2)
+            percentile = int(match.group(3))
+
+            # Look up pre-computed threshold
+            if metric_name in self.percentile_thresholds:
+                threshold = self.percentile_thresholds[metric_name].get(percentile)
+                if threshold is not None:
+                    logger.debug(f"Converted {metric_name} {operator} {percentile}% to {metric_name} {operator} {threshold}")
+                    return f"{metric_name} {operator} {threshold}"
+
+            # Fallback: use percentage as absolute value (0-1 range)
+            absolute_value = percentile / 100.0
+            logger.warning(
+                f"No percentile data for {metric_name} at {percentile}%, "
+                f"using absolute value {absolute_value}"
+            )
+            return f"{metric_name} {operator} {absolute_value}"
+
+        return re.sub(percentile_pattern, replace_percentile, expression)
+
     def _evaluate_expression(
         self,
         expression: str,
         context: Dict[str, float]
     ) -> bool:
         """
-        Safely evaluate a boolean expression.
+        Safely evaluate a boolean expression with percentile support.
+
+        Supports percentile syntax: metric >= 10% means metric >= value_at_10th_percentile.
+        Percentile thresholds must be set via set_percentile_thresholds() before evaluation.
 
         In production, replace this with a safe expression evaluator like:
         - simpleeval
@@ -457,6 +517,9 @@ class SplitEvaluator:
 
         For now, we'll use a very restricted eval with safety checks.
         """
+        # Convert percentile syntax to actual thresholds
+        expression = self._convert_percentile_to_threshold(expression)
+
         # Replace logical operators with Python equivalents
         expression = expression.replace(EXPR_OP_AND, EXPR_OP_PYTHON_AND)
         expression = expression.replace(EXPR_OP_OR, EXPR_OP_PYTHON_OR)

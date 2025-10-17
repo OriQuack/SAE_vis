@@ -516,3 +516,109 @@ class ConsistencyService:
             'cross_explanation_detection': float(np.max(cross_explanation_stds_detection)) if cross_explanation_stds_detection else 0.5,
             'cross_explanation_overall_score': float(np.max(cross_explanation_stds_overall_score)) if cross_explanation_stds_overall_score else 0.5
         }
+
+    @staticmethod
+    def compute_cross_explanation_overall_score_per_feature(
+        df: pl.DataFrame,
+        explainer_ids: List[str],
+        feature_ids: List[int],
+        max_std: float,
+        global_stats: Dict[str, Dict[str, float]]
+    ) -> pl.DataFrame:
+        """
+        Compute cross-explanation overall score consistency per feature.
+
+        For each feature:
+        1. Compute overall_score for each explainer:
+           - Normalize embedding, fuzz_avg, detection_avg to [0,1] using global min/max
+           - overall_score = mean of normalized scores (need at least 2 metrics)
+        2. Compute consistency across explainers: 1 - (std / max_std)
+
+        This produces ONE consistency value per feature for percentile-based classification.
+
+        Args:
+            df: DataFrame with score data (feature_id, llm_explainer, llm_scorer, scores)
+            explainer_ids: List of explainer IDs to consider
+            feature_ids: List of feature IDs to process
+            max_std: Maximum standard deviation for normalization
+            global_stats: Global statistics with 'min' and 'max' for each metric
+
+        Returns:
+            DataFrame with columns [feature_id, cross_explanation_overall_score]
+        """
+        feature_consistency_map = {}
+
+        for feature_id in feature_ids:
+            feature_df = df.filter(pl.col("feature_id") == feature_id)
+
+            # Collect overall_score for each explainer
+            overall_scores_across = []
+
+            for explainer in explainer_ids:
+                explainer_df = feature_df.filter(pl.col("llm_explainer") == explainer)
+
+                if len(explainer_df) == 0:
+                    continue
+
+                # Get embedding score (one per explainer)
+                emb = explainer_df["score_embedding"].to_list()
+                embedding = emb[0] if emb and emb[0] is not None else None
+
+                # Get fuzz and detection scores (averaged across scorers)
+                fuzz = explainer_df["score_fuzz"].to_list()
+                fuzz_avg = np.mean([s for s in fuzz if s is not None]) if any(s is not None for s in fuzz) else None
+
+                det = explainer_df["score_detection"].to_list()
+                detection_avg = np.mean([s for s in det if s is not None]) if any(s is not None for s in det) else None
+
+                # Normalize each score to [0,1] using global min/max
+                normalized_scores = []
+
+                if embedding is not None and 'embedding' in global_stats:
+                    stats = global_stats['embedding']
+                    if stats['max'] - stats['min'] > 0:
+                        normalized = (embedding - stats['min']) / (stats['max'] - stats['min'])
+                        normalized_scores.append(normalized)
+
+                if fuzz_avg is not None and 'fuzz' in global_stats:
+                    stats = global_stats['fuzz']
+                    if stats['max'] - stats['min'] > 0:
+                        normalized = (fuzz_avg - stats['min']) / (stats['max'] - stats['min'])
+                        normalized_scores.append(normalized)
+
+                if detection_avg is not None and 'detection' in global_stats:
+                    stats = global_stats['detection']
+                    if stats['max'] - stats['min'] > 0:
+                        normalized = (detection_avg - stats['min']) / (stats['max'] - stats['min'])
+                        normalized_scores.append(normalized)
+
+                # Compute overall_score as average of normalized scores
+                if len(normalized_scores) >= 2:  # Need at least 2 metrics
+                    overall_score = np.mean(normalized_scores)
+                    overall_scores_across.append(overall_score)
+
+            # Compute consistency across explainers for this feature
+            if len(overall_scores_across) >= 2:
+                std = np.std(overall_scores_across, ddof=1)
+
+                # Avoid division by zero
+                if max_std == 0 or np.isclose(max_std, 0):
+                    consistency = 1.0 if (std == 0 or np.isclose(std, 0)) else 0.0
+                else:
+                    consistency = 1.0 - (std / max_std)
+                    consistency = np.clip(consistency, 0, 1)
+
+                feature_consistency_map[feature_id] = float(consistency)
+
+        # Convert to Polars DataFrame for easy joining
+        if feature_consistency_map:
+            return pl.DataFrame({
+                'feature_id': list(feature_consistency_map.keys()),
+                'cross_explanation_overall_score': list(feature_consistency_map.values())
+            })
+        else:
+            # Return empty DataFrame with correct schema
+            return pl.DataFrame({
+                'feature_id': [],
+                'cross_explanation_overall_score': []
+            })

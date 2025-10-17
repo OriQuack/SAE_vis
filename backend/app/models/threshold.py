@@ -16,21 +16,11 @@ import json
 # Import constants for consistent string management
 from ..services.data_constants import (
     SPLIT_TYPE_RANGE, SPLIT_TYPE_PATTERN, SPLIT_TYPE_EXPRESSION,
-    CONDITION_STATE_HIGH, CONDITION_STATE_LOW, CONDITION_STATE_IN_RANGE, CONDITION_STATE_OUT_RANGE,
-    CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_SIMILARITY
+    CONDITION_STATE_HIGH, CONDITION_STATE_LOW, CONDITION_STATE_IN_RANGE, CONDITION_STATE_OUT_RANGE
 )
 
-
-# ============================================================================
-# CATEGORY TYPE DEFINITION
-# ============================================================================
-
-class CategoryType(str, Enum):
-    """Node category types for Sankey diagrams and visualization"""
-    ROOT = CATEGORY_ROOT
-    FEATURE_SPLITTING = CATEGORY_FEATURE_SPLITTING
-    SEMANTIC_SIMILARITY = CATEGORY_SEMANTIC_SIMILARITY
-    # Can be extended with new categories without code changes
+# Import CategoryType from common.py (single source of truth)
+from .common import CategoryType
 
 
 # ============================================================================

@@ -8,6 +8,7 @@ import os
 import json
 import argparse
 import glob
+import numpy as np
 from pathlib import Path
 from typing import List, Dict, Optional, Set
 from collections import defaultdict
@@ -310,13 +311,261 @@ def propagate_embedding_scores(scores: List[Dict]) -> None:
                 score["score_embedding"] = embedding_score
 
 
+def calculate_global_statistics(
+    scores_data: Dict[str, Dict],
+    embeddings_data: Dict[str, Dict]
+) -> Dict[str, Dict[str, float]]:
+    """
+    Calculate global statistics (mean, std) for each metric across all features.
+
+    Returns:
+        Dict with structure: {"embedding": {"mean": X, "std": Y}, "fuzz": {...}, "detection": {...}}
+    """
+
+    # Collect all scores grouped by feature and explainer
+    # Structure: {latent_id: {explainer: {"embedding": X, "fuzz": [scores], "detection": [scores]}}}
+    feature_explainer_scores = defaultdict(lambda: defaultdict(lambda: {
+        "embedding": None,
+        "fuzz": [],
+        "detection": []
+    }))
+
+    # Extract explainer from data_source name
+    def get_explainer_from_data_source(data_source: str) -> str:
+        # Format: "{explainer}_e-{scorer}_s" -> extract "{explainer}_e"
+        if "_e-" in data_source:
+            return data_source.split("_e-")[0] + "_e"
+        return data_source
+
+    # Get explainer full name from embeddings data
+    explainer_names = {}  # {explainer_prefix: full_llm_name}
+    for data_source, data in embeddings_data.items():
+        explainer_prefix = get_explainer_from_data_source(data_source)
+        config = data.get("metadata", {}).get("config_used", {})
+        llm_explainer = config.get("llm_explainer", "unknown")
+        explainer_names[explainer_prefix] = llm_explainer
+
+    # Iterate through all scores data
+    for data_source, data in scores_data.items():
+        explainer_prefix = get_explainer_from_data_source(data_source)
+        latent_scores = data.get("latent_scores", {})
+
+        for latent_id, score_info in latent_scores.items():
+            # Add fuzz score
+            fuzz_score = score_info.get("fuzz", {}).get("average_score")
+            if fuzz_score is not None:
+                feature_explainer_scores[latent_id][explainer_prefix]["fuzz"].append(fuzz_score)
+
+            # Add detection score
+            detection_score = score_info.get("detection", {}).get("average_score")
+            if detection_score is not None:
+                feature_explainer_scores[latent_id][explainer_prefix]["detection"].append(detection_score)
+
+            # Add embedding score (only set once per explainer)
+            embedding_score = score_info.get("embedding", {}).get("average_score")
+            if embedding_score is not None and feature_explainer_scores[latent_id][explainer_prefix]["embedding"] is None:
+                feature_explainer_scores[latent_id][explainer_prefix]["embedding"] = embedding_score
+
+    # Now collect all values for global statistics
+    all_embeddings = []
+    all_fuzz_avgs = []
+    all_detection_avgs = []
+
+    for latent_id, explainers in feature_explainer_scores.items():
+        for explainer_prefix, scores in explainers.items():
+            # Embedding score (single value per explainer)
+            if scores["embedding"] is not None:
+                all_embeddings.append(scores["embedding"])
+
+            # Average fuzz scores across scorers
+            if scores["fuzz"]:
+                avg_fuzz = np.mean(scores["fuzz"])
+                all_fuzz_avgs.append(avg_fuzz)
+
+            # Average detection scores across scorers
+            if scores["detection"]:
+                avg_detection = np.mean(scores["detection"])
+                all_detection_avgs.append(avg_detection)
+
+    # Calculate global statistics
+    global_stats = {}
+
+    if all_embeddings:
+        global_stats["embedding"] = {
+            "mean": float(np.mean(all_embeddings)),
+            "std": float(np.std(all_embeddings, ddof=1))
+        }
+
+    if all_fuzz_avgs:
+        global_stats["fuzz"] = {
+            "mean": float(np.mean(all_fuzz_avgs)),
+            "std": float(np.std(all_fuzz_avgs, ddof=1))
+        }
+
+    if all_detection_avgs:
+        global_stats["detection"] = {
+            "mean": float(np.mean(all_detection_avgs)),
+            "std": float(np.std(all_detection_avgs, ddof=1))
+        }
+
+    print(f"\nGlobal Statistics:")
+    for metric, stats in global_stats.items():
+        print(f"  {metric}: mean={stats['mean']:.4f}, std={stats['std']:.4f}")
+
+    return global_stats
+
+
+def calculate_normalized_scores(
+    scores: List[Dict],
+    embeddings_data: Dict[str, Dict],
+    global_stats: Dict[str, Dict[str, float]]
+) -> List[Dict]:
+    """
+    Calculate z-scores for each metric per explainer.
+
+    Args:
+        scores: List of score dicts from build_scores_for_latent()
+        embeddings_data: Embeddings data to get llm_explainer names
+        global_stats: Global statistics from calculate_global_statistics()
+
+    Returns:
+        List of dicts with z-scores per explainer:
+        [
+            {
+                "llm_explainer": "...",
+                "z_score_embedding": 0.5,
+                "z_score_fuzz": 0.3,
+                "z_score_detection": 0.4
+            },
+            ...
+        ]
+    """
+    # Extract explainer from data_source name
+    def get_explainer_from_data_source(data_source: str) -> str:
+        if "_e-" in data_source:
+            return data_source.split("_e-")[0] + "_e"
+        return data_source
+
+    # Get explainer full names from embeddings data
+    explainer_names = {}
+    for data_source, data in embeddings_data.items():
+        explainer_prefix = get_explainer_from_data_source(data_source)
+        config = data.get("metadata", {}).get("config_used", {})
+        llm_explainer = config.get("llm_explainer", "unknown")
+        explainer_names[explainer_prefix] = llm_explainer
+
+    # Group scores by explainer
+    explainer_scores = defaultdict(lambda: {
+        "embedding": None,
+        "fuzz": [],
+        "detection": []
+    })
+
+    for score in scores:
+        data_source = score.get("data_source", "")
+        explainer_prefix = get_explainer_from_data_source(data_source)
+
+        # Collect embedding score
+        if score.get("score_embedding") is not None:
+            explainer_scores[explainer_prefix]["embedding"] = score["score_embedding"]
+
+        # Collect fuzz scores
+        if score.get("score_fuzz") is not None:
+            explainer_scores[explainer_prefix]["fuzz"].append(score["score_fuzz"])
+
+        # Collect detection scores
+        if score.get("score_detection") is not None:
+            explainer_scores[explainer_prefix]["detection"].append(score["score_detection"])
+
+    # Calculate z-scores for each explainer
+    normalized_scores = []
+
+    for explainer_prefix, scores_dict in explainer_scores.items():
+        llm_explainer = explainer_names.get(explainer_prefix, "unknown")
+
+        norm_score = {
+            "llm_explainer": llm_explainer,
+            "z_score_embedding": None,
+            "z_score_fuzz": None,
+            "z_score_detection": None
+        }
+
+        # Z-score for embedding
+        if scores_dict["embedding"] is not None and "embedding" in global_stats:
+            stats = global_stats["embedding"]
+            if stats["std"] > 0:
+                norm_score["z_score_embedding"] = (scores_dict["embedding"] - stats["mean"]) / stats["std"]
+
+        # Z-score for fuzz (average across scorers first)
+        if scores_dict["fuzz"] and "fuzz" in global_stats:
+            avg_fuzz = np.mean(scores_dict["fuzz"])
+            stats = global_stats["fuzz"]
+            if stats["std"] > 0:
+                norm_score["z_score_fuzz"] = (avg_fuzz - stats["mean"]) / stats["std"]
+
+        # Z-score for detection (average across scorers first)
+        if scores_dict["detection"] and "detection" in global_stats:
+            avg_detection = np.mean(scores_dict["detection"])
+            stats = global_stats["detection"]
+            if stats["std"] > 0:
+                norm_score["z_score_detection"] = (avg_detection - stats["mean"]) / stats["std"]
+
+        normalized_scores.append(norm_score)
+
+    return normalized_scores
+
+
+def calculate_overall_scores(normalized_scores: List[Dict]) -> List[Dict]:
+    """
+    Calculate overall score per explainer as average of z-scores.
+
+    Args:
+        normalized_scores: List of dicts from calculate_normalized_scores()
+
+    Returns:
+        List of dicts with overall scores per explainer:
+        [
+            {
+                "llm_explainer": "...",
+                "overall_score": 0.4
+            },
+            ...
+        ]
+    """
+    overall_scores = []
+
+    for norm_score in normalized_scores:
+        z_scores = []
+
+        # Collect non-null z-scores
+        if norm_score["z_score_embedding"] is not None:
+            z_scores.append(norm_score["z_score_embedding"])
+        if norm_score["z_score_fuzz"] is not None:
+            z_scores.append(norm_score["z_score_fuzz"])
+        if norm_score["z_score_detection"] is not None:
+            z_scores.append(norm_score["z_score_detection"])
+
+        # Calculate average
+        overall_score = None
+        if len(z_scores) >= 2:  # Require at least 2 metrics
+            overall_score = float(np.mean(z_scores))
+
+        overall_scores.append({
+            "llm_explainer": norm_score["llm_explainer"],
+            "overall_score": overall_score
+        })
+
+    return overall_scores
+
+
 def consolidate_latent_data(
     latent_id: str,
     sae_id: str,
     embeddings_data: Dict[str, Dict],
     scores_data: Dict[str, Dict],
     similarities_data: Dict[str, Dict],
-    explanation_mapping: Dict[str, Dict[str, str]]
+    explanation_mapping: Dict[str, Dict[str, str]],
+    global_stats: Dict[str, Dict[str, float]]
 ) -> Dict:
     """Consolidate all data for a single latent into detailed JSON format."""
 
@@ -327,12 +576,20 @@ def consolidate_latent_data(
     # Propagate embedding scores across all scorers for the same explainer
     propagate_embedding_scores(scores)
 
+    # Calculate normalized z-scores per metric per explainer
+    normalized_scores = calculate_normalized_scores(scores, embeddings_data, global_stats)
+
+    # Calculate overall scores per explainer
+    overall_scores = calculate_overall_scores(normalized_scores)
+
     detailed_json = {
         "feature_id": int(latent_id),
         "sae_id": sae_id,
         "explanations": explanations,
         "semantic_similarity_pairs": semantic_similarities,
         "scores": scores,
+        "normalized_scores": normalized_scores,
+        "overall_scores": overall_scores,
         "activating_examples": "TODO: Not implemented yet"
     }
 
@@ -423,6 +680,10 @@ def main():
     print(f"\nFound {len(all_latent_ids)} unique latents")
     print(f"Data sources - Embeddings: {len(embeddings_data)}, Scores: {len(scores_data)}, Similarities: {len(similarities_data)}")
 
+    # Calculate global statistics for z-score normalization
+    print("\nCalculating global statistics for normalization...")
+    global_stats = calculate_global_statistics(scores_data, embeddings_data)
+
     # Process each latent
     successful_consolidations = 0
 
@@ -430,7 +691,7 @@ def main():
         try:
             latent_data = consolidate_latent_data(
                 latent_id, sae_id, embeddings_data, scores_data,
-                similarities_data, explanation_mapping
+                similarities_data, explanation_mapping, global_stats
             )
 
             save_detailed_json(latent_data, output_dir, filename_pattern)

@@ -133,6 +133,51 @@ class ConsistencyPreprocessor:
                           f"mean={self.global_stats[metric]['mean']:.3f}, "
                           f"std={self.global_stats[metric]['std']:.3f}")
 
+    def _compute_overall_score(self, explainer_df: pl.DataFrame) -> Optional[float]:
+        """
+        Compute overall score for a feature-explainer combination.
+
+        Formula: avg(z_score(embedding), z_score(avg(fuzz)), z_score(avg(detection)))
+
+        Args:
+            explainer_df: DataFrame for a single feature-explainer combination
+
+        Returns:
+            Overall score or None if insufficient data
+        """
+        normalized_scores = []
+
+        # 1. Embedding score (single value)
+        embedding_vals = explainer_df['score_embedding'].drop_nulls().to_list()
+        if embedding_vals and 'score_embedding' in self.global_stats:
+            stats = self.global_stats['score_embedding']
+            if stats['std'] > 0:
+                z_score = (embedding_vals[0] - stats['mean']) / stats['std']
+                normalized_scores.append(z_score)
+
+        # 2. Average fuzz score (across 3 scorers)
+        fuzz_scores = explainer_df['score_fuzz'].drop_nulls().to_list()
+        if fuzz_scores and 'score_fuzz' in self.global_stats:
+            avg_fuzz = np.mean(fuzz_scores)
+            stats = self.global_stats['score_fuzz']
+            if stats['std'] > 0:
+                z_score = (avg_fuzz - stats['mean']) / stats['std']
+                normalized_scores.append(z_score)
+
+        # 3. Average detection score (across 3 scorers)
+        detection_scores = explainer_df['score_detection'].drop_nulls().to_list()
+        if detection_scores and 'score_detection' in self.global_stats:
+            avg_detection = np.mean(detection_scores)
+            stats = self.global_stats['score_detection']
+            if stats['std'] > 0:
+                z_score = (avg_detection - stats['mean']) / stats['std']
+                normalized_scores.append(z_score)
+
+        # Return average of z-scores
+        if len(normalized_scores) >= 2:
+            return float(np.mean(normalized_scores))
+        return None
+
     def compute_max_stds(self, df: pl.DataFrame) -> None:
         """
         Pass 1: Compute actual max_std values from the data.
@@ -152,6 +197,7 @@ class ConsistencyPreprocessor:
         cross_explanation_stds_embedding = []
         cross_explanation_stds_fuzz = []
         cross_explanation_stds_detection = []
+        cross_explanation_stds_overall = []
 
         for feature_id in feature_ids:
             feature_df = df.filter(pl.col("feature_id") == feature_id)
@@ -171,7 +217,7 @@ class ConsistencyPreprocessor:
                 if len(detection_scores) >= 2:
                     scorer_stds_detection.append(np.std(detection_scores, ddof=1))
 
-                # 2. Within-explanation metric consistency (normalized)
+                # 2. Within-explanation metric consistency (z-score normalized)
                 # Get one value per metric for this explainer
                 embedding_val = explainer_df['score_embedding'].drop_nulls().to_list()
                 embedding_val = embedding_val[0] if embedding_val else None
@@ -179,25 +225,25 @@ class ConsistencyPreprocessor:
                 fuzz_val = np.mean(fuzz_scores) if fuzz_scores else None
                 detection_val = np.mean(detection_scores) if detection_scores else None
 
-                # Normalize values to [0, 1]
+                # Normalize values using z-score
                 normalized_values = []
                 if embedding_val is not None and 'score_embedding' in self.global_stats:
                     stats = self.global_stats['score_embedding']
-                    if stats['max'] - stats['min'] > 0:
-                        normalized = (embedding_val - stats['min']) / (stats['max'] - stats['min'])
-                        normalized_values.append(normalized)
+                    if stats['std'] > 0:
+                        z_score = (embedding_val - stats['mean']) / stats['std']
+                        normalized_values.append(z_score)
 
                 if fuzz_val is not None and 'score_fuzz' in self.global_stats:
                     stats = self.global_stats['score_fuzz']
-                    if stats['max'] - stats['min'] > 0:
-                        normalized = (fuzz_val - stats['min']) / (stats['max'] - stats['min'])
-                        normalized_values.append(normalized)
+                    if stats['std'] > 0:
+                        z_score = (fuzz_val - stats['mean']) / stats['std']
+                        normalized_values.append(z_score)
 
                 if detection_val is not None and 'score_detection' in self.global_stats:
                     stats = self.global_stats['score_detection']
-                    if stats['max'] - stats['min'] > 0:
-                        normalized = (detection_val - stats['min']) / (stats['max'] - stats['min'])
-                        normalized_values.append(normalized)
+                    if stats['std'] > 0:
+                        z_score = (detection_val - stats['mean']) / stats['std']
+                        normalized_values.append(z_score)
 
                 if len(normalized_values) >= 2:
                     within_explanation_stds.append(np.std(normalized_values, ddof=1))
@@ -206,6 +252,7 @@ class ConsistencyPreprocessor:
             embedding_across = []
             fuzz_across = []
             detection_across = []
+            overall_across = []
 
             for explainer in self.explainers:
                 explainer_df = feature_df.filter(pl.col("llm_explainer") == explainer)
@@ -225,12 +272,19 @@ class ConsistencyPreprocessor:
                 if detection_vals:
                     detection_across.append(np.mean(detection_vals))
 
+                # Compute overall score for this explainer
+                overall_score = self._compute_overall_score(explainer_df)
+                if overall_score is not None:
+                    overall_across.append(overall_score)
+
             if len(embedding_across) >= 2:
                 cross_explanation_stds_embedding.append(np.std(embedding_across, ddof=1))
             if len(fuzz_across) >= 2:
                 cross_explanation_stds_fuzz.append(np.std(fuzz_across, ddof=1))
             if len(detection_across) >= 2:
                 cross_explanation_stds_detection.append(np.std(detection_across, ddof=1))
+            if len(overall_across) >= 2:
+                cross_explanation_stds_overall.append(np.std(overall_across, ddof=1))
 
         # Compute max_stds
         self.max_stds = {
@@ -239,7 +293,8 @@ class ConsistencyPreprocessor:
             'within_explanation': float(np.max(within_explanation_stds)) if within_explanation_stds else 1.0,
             'cross_explanation_embedding': float(np.max(cross_explanation_stds_embedding)) if cross_explanation_stds_embedding else 1.0,
             'cross_explanation_fuzz': float(np.max(cross_explanation_stds_fuzz)) if cross_explanation_stds_fuzz else 1.0,
-            'cross_explanation_detection': float(np.max(cross_explanation_stds_detection)) if cross_explanation_stds_detection else 1.0
+            'cross_explanation_detection': float(np.max(cross_explanation_stds_detection)) if cross_explanation_stds_detection else 1.0,
+            'cross_explanation_overall': float(np.max(cross_explanation_stds_overall)) if cross_explanation_stds_overall else 1.0
         }
 
         logger.info("Computed max_std values:")
@@ -272,6 +327,9 @@ class ConsistencyPreprocessor:
             # Cross-explanation consistency (same for all explainers of a feature)
             cross_exp_consistency = self._compute_cross_explanation_consistency(feature_df)
 
+            # Cross-explanation overall consistency
+            cross_exp_overall_consistency = self._compute_cross_explanation_overall_consistency(feature_df)
+
             # LLM explainer consistency (semantic similarity)
             llm_explainer_consistency = None
             if pairwise_df is not None:
@@ -285,6 +343,7 @@ class ConsistencyPreprocessor:
                 'cross_explanation_consistency_embedding': cross_exp_consistency.get('embedding'),
                 'cross_explanation_consistency_fuzz': cross_exp_consistency.get('fuzz'),
                 'cross_explanation_consistency_detection': cross_exp_consistency.get('detection'),
+                'cross_explanation_consistency_overall': cross_exp_overall_consistency,
                 'llm_explainer_consistency': llm_explainer_consistency
             })
 
@@ -358,7 +417,7 @@ class ConsistencyPreprocessor:
 
     def _compute_within_explanation_consistency(self, explainer_df: pl.DataFrame) -> Optional[float]:
         """
-        Compute within-explanation metric consistency: 1 - (std_normalized / max_std_normalized).
+        Compute within-explanation metric consistency: 1 - (std_z_score / max_std_z_score).
 
         Args:
             explainer_df: DataFrame for a single feature-explainer combination
@@ -376,26 +435,26 @@ class ConsistencyPreprocessor:
         detection_scores = explainer_df['score_detection'].drop_nulls().to_list()
         detection_val = np.mean(detection_scores) if detection_scores else None
 
-        # Normalize values to [0, 1]
+        # Normalize values using z-score
         normalized_values = []
 
         if embedding_val is not None and 'score_embedding' in self.global_stats:
             stats = self.global_stats['score_embedding']
-            if stats['max'] - stats['min'] > 0:
-                normalized = (embedding_val - stats['min']) / (stats['max'] - stats['min'])
-                normalized_values.append(normalized)
+            if stats['std'] > 0:
+                z_score = (embedding_val - stats['mean']) / stats['std']
+                normalized_values.append(z_score)
 
         if fuzz_val is not None and 'score_fuzz' in self.global_stats:
             stats = self.global_stats['score_fuzz']
-            if stats['max'] - stats['min'] > 0:
-                normalized = (fuzz_val - stats['min']) / (stats['max'] - stats['min'])
-                normalized_values.append(normalized)
+            if stats['std'] > 0:
+                z_score = (fuzz_val - stats['mean']) / stats['std']
+                normalized_values.append(z_score)
 
         if detection_val is not None and 'score_detection' in self.global_stats:
             stats = self.global_stats['score_detection']
-            if stats['max'] - stats['min'] > 0:
-                normalized = (detection_val - stats['min']) / (stats['max'] - stats['min'])
-                normalized_values.append(normalized)
+            if stats['std'] > 0:
+                z_score = (detection_val - stats['mean']) / stats['std']
+                normalized_values.append(z_score)
 
         if len(normalized_values) >= 2:
             std = np.std(normalized_values, ddof=1)
@@ -463,6 +522,37 @@ class ConsistencyPreprocessor:
 
         return result
 
+    def _compute_cross_explanation_overall_consistency(self, feature_df: pl.DataFrame) -> Optional[float]:
+        """
+        Compute cross-explanation overall score consistency: 1 - (std / max_std_actual).
+
+        Overall score = avg(normalized(embedding), normalized(avg(fuzz)), normalized(avg(detection)))
+
+        Args:
+            feature_df: DataFrame for a single feature across all explainers
+
+        Returns:
+            Overall consistency score or None
+        """
+        overall_scores = []
+
+        # Compute overall score for each explainer
+        for explainer in self.explainers:
+            explainer_df = feature_df.filter(pl.col("llm_explainer") == explainer)
+            if len(explainer_df) == 0:
+                continue
+
+            overall_score = self._compute_overall_score(explainer_df)
+            if overall_score is not None:
+                overall_scores.append(overall_score)
+
+        # Compute consistency
+        if len(overall_scores) >= 2:
+            std = np.std(overall_scores, ddof=1)
+            consistency = 1.0 - (std / self.max_stds['cross_explanation_overall'])
+            return float(np.clip(consistency, 0, 1).round(3))
+        return None
+
     def _compute_llm_explainer_consistency(self, feature_id: int, pairwise_df: pl.DataFrame) -> Optional[float]:
         """
         Compute LLM explainer consistency using average pairwise cosine similarity.
@@ -517,11 +607,57 @@ class ConsistencyPreprocessor:
             pl.col("cross_explanation_consistency_embedding").cast(pl.Float32),
             pl.col("cross_explanation_consistency_fuzz").cast(pl.Float32),
             pl.col("cross_explanation_consistency_detection").cast(pl.Float32),
+            pl.col("cross_explanation_consistency_overall").cast(pl.Float32),
             pl.col("llm_explainer_consistency").cast(pl.Float32)
         ])
 
         # Save parquet
         df.write_parquet(self.output_file)
+
+        # Generate column metadata
+        column_descriptions = {
+            'feature_id': 'SAE feature index (0-823)',
+            'llm_explainer': 'LLM model used for generating feature explanations',
+            'scorer_consistency_fuzz': 'Scorer consistency for fuzz metric across 3 scorers: 1 - (std / max_std_actual)',
+            'scorer_consistency_detection': 'Scorer consistency for detection metric across 3 scorers: 1 - (std / max_std_actual)',
+            'within_explanation_metric_consistency': 'Consistency across 3 metrics (embedding, fuzz, detection) within a single explainer using z-score normalization: 1 - (std_z_score / max_std_z_score)',
+            'cross_explanation_consistency_embedding': 'Consistency of embedding scores across 3 LLM explainers: 1 - (std / max_std_actual)',
+            'cross_explanation_consistency_fuzz': 'Consistency of fuzz scores across 3 LLM explainers: 1 - (std / max_std_actual)',
+            'cross_explanation_consistency_detection': 'Consistency of detection scores across 3 LLM explainers: 1 - (std / max_std_actual)',
+            'cross_explanation_consistency_overall': 'Consistency of overall scores across 3 LLM explainers, where overall_score = avg(z_score(emb), z_score(avg(fuzz)), z_score(avg(det))): 1 - (std / max_std_actual)',
+            'llm_explainer_consistency': 'Semantic similarity between explanations from different LLM explainers: average pairwise cosine similarity'
+        }
+
+        columns_metadata = {}
+        for col_name in df.columns:
+            col_data = df[col_name]
+            col_meta = {
+                'dtype': str(col_data.dtype),
+                'description': column_descriptions.get(col_name, 'No description available')
+            }
+
+            # Add statistics for numeric columns
+            if col_data.dtype in [pl.Float32, pl.Float64, pl.UInt32, pl.Int32]:
+                non_null = col_data.drop_nulls()
+                if len(non_null) > 0:
+                    col_meta['statistics'] = {
+                        'count': len(non_null),
+                        'null_count': len(col_data) - len(non_null),
+                        'min': float(non_null.min()),
+                        'max': float(non_null.max()),
+                        'mean': float(non_null.mean()),
+                        'std': float(non_null.std())
+                    }
+            # Add value counts for categorical columns
+            elif col_data.dtype == pl.Categorical:
+                value_counts = col_data.value_counts().sort(col_name, descending=False)
+                col_meta['unique_values'] = col_data.n_unique()
+                col_meta['value_counts'] = {
+                    str(row[0]): int(row[1])
+                    for row in value_counts.iter_rows()
+                }
+
+            columns_metadata[col_name] = col_meta
 
         # Save metadata
         metadata = {
@@ -530,15 +666,17 @@ class ConsistencyPreprocessor:
             'unique_features': df['feature_id'].n_unique(),
             'explainers': self.explainers,
             'scorers': self.scorers,
+            'columns': columns_metadata,
             'global_statistics': self.global_stats,
             'max_std_values': self.max_stds,
             'consistency_methods': {
                 'scorer_consistency': '1 - (std / max_std_actual)',
-                'within_explanation_metric_consistency': '1 - (std_normalized / max_std_normalized)',
+                'within_explanation_metric_consistency': '1 - (std_z_score / max_std_z_score)',
                 'cross_explanation_consistency': '1 - (std / max_std_actual)',
+                'cross_explanation_overall_consistency': '1 - (std / max_std_actual), overall_score = avg(z_score(emb), z_score(avg(fuzz)), z_score(avg(det)))',
                 'llm_explainer_consistency': 'avg_pairwise_cosine_similarity'
             },
-            'normalization': 'Global min-max normalization for within-explanation consistency'
+            'normalization': 'Z-score normalization (value - mean) / std for within-explanation consistency and overall score computation'
         }
 
         metadata_path = self.output_file.with_suffix('.parquet.metadata.json')

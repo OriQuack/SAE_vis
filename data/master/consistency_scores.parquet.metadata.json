@@ -1,5 +1,5 @@
 {
-  "created_at": "2025-10-17T01:29:34.272621",
+  "created_at": "2025-10-17T22:52:32.977901",
   "total_rows": 2471,
   "unique_features": 824,
   "explainers": [
@@ -12,6 +12,126 @@
     "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
     "openai/gpt-oss-20b"
   ],
+  "columns": {
+    "feature_id": {
+      "dtype": "UInt32",
+      "description": "SAE feature index (0-823)",
+      "statistics": {
+        "count": 2471,
+        "null_count": 0,
+        "min": 0.0,
+        "max": 999.0,
+        "mean": 499.6406313233509,
+        "std": 290.3843808052245
+      }
+    },
+    "llm_explainer": {
+      "dtype": "Categorical",
+      "description": "LLM model used for generating feature explanations",
+      "unique_values": 3,
+      "value_counts": {
+        "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4": 824,
+        "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8": 824,
+        "openai/gpt-oss-20b": 823
+      }
+    },
+    "scorer_consistency_fuzz": {
+      "dtype": "Float32",
+      "description": "Scorer consistency for fuzz metric across 3 scorers: 1 - (std / max_std_actual)",
+      "statistics": {
+        "count": 2471,
+        "null_count": 0,
+        "min": 0.0,
+        "max": 1.0,
+        "mean": 0.7711934430320426,
+        "std": 0.142067089676857
+      }
+    },
+    "scorer_consistency_detection": {
+      "dtype": "Float32",
+      "description": "Scorer consistency for detection metric across 3 scorers: 1 - (std / max_std_actual)",
+      "statistics": {
+        "count": 2471,
+        "null_count": 0,
+        "min": 0.0,
+        "max": 1.0,
+        "mean": 0.7906013750842422,
+        "std": 0.14362099766731262
+      }
+    },
+    "within_explanation_metric_consistency": {
+      "dtype": "Float32",
+      "description": "Consistency across 3 metrics (embedding, fuzz, detection) within a single explainer using z-score normalization: 1 - (std_z_score / max_std_z_score)",
+      "statistics": {
+        "count": 2471,
+        "null_count": 0,
+        "min": 0.0,
+        "max": 0.9980000257492065,
+        "mean": 0.7381995141001901,
+        "std": 0.15514284372329712
+      }
+    },
+    "cross_explanation_consistency_embedding": {
+      "dtype": "Float32",
+      "description": "Consistency of embedding scores across 3 LLM explainers: 1 - (std / max_std_actual)",
+      "statistics": {
+        "count": 2471,
+        "null_count": 0,
+        "min": 0.0,
+        "max": 0.9940000176429749,
+        "mean": 0.8178154592364966,
+        "std": 0.13132590055465698
+      }
+    },
+    "cross_explanation_consistency_fuzz": {
+      "dtype": "Float32",
+      "description": "Consistency of fuzz scores across 3 LLM explainers: 1 - (std / max_std_actual)",
+      "statistics": {
+        "count": 2471,
+        "null_count": 0,
+        "min": 0.0,
+        "max": 0.9959999918937683,
+        "mean": 0.7982982596972726,
+        "std": 0.15116965770721436
+      }
+    },
+    "cross_explanation_consistency_detection": {
+      "dtype": "Float32",
+      "description": "Consistency of detection scores across 3 LLM explainers: 1 - (std / max_std_actual)",
+      "statistics": {
+        "count": 2471,
+        "null_count": 0,
+        "min": 0.0,
+        "max": 1.0,
+        "mean": 0.7815447190315894,
+        "std": 0.17228840291500092
+      }
+    },
+    "cross_explanation_consistency_overall": {
+      "dtype": "Float32",
+      "description": "Consistency of overall scores across 3 LLM explainers, where overall_score = avg(z_score(emb), z_score(avg(fuzz)), z_score(avg(det))): 1 - (std / max_std_actual)",
+      "statistics": {
+        "count": 2471,
+        "null_count": 0,
+        "min": 0.0,
+        "max": 0.9919999837875366,
+        "mean": 0.8068543094968275,
+        "std": 0.14687228202819824
+      }
+    },
+    "llm_explainer_consistency": {
+      "dtype": "Float32",
+      "description": "Semantic similarity between explanations from different LLM explainers: average pairwise cosine similarity",
+      "statistics": {
+        "count": 2471,
+        "null_count": 0,
+        "min": 0.8009999990463257,
+        "max": 0.9539999961853027,
+        "mean": 0.8765892358937759,
+        "std": 0.030191147699952126
+      }
+    }
+  },
   "global_statistics": {
     "score_embedding": {
       "min": 0.015625,
@@ -35,16 +155,18 @@
   "max_std_values": {
     "scorer_fuzz": 0.2886751345948129,
     "scorer_detection": 0.2886751345948129,
-    "within_explanation": 0.47418815585621255,
+    "within_explanation": 2.400016351186237,
     "cross_explanation_embedding": 0.3510307957474553,
     "cross_explanation_fuzz": 0.30426022495905874,
-    "cross_explanation_detection": 0.28580781920318515
+    "cross_explanation_detection": 0.28580781920318515,
+    "cross_explanation_overall": 1.5347681508085314
   },
   "consistency_methods": {
     "scorer_consistency": "1 - (std / max_std_actual)",
-    "within_explanation_metric_consistency": "1 - (std_normalized / max_std_normalized)",
+    "within_explanation_metric_consistency": "1 - (std_z_score / max_std_z_score)",
     "cross_explanation_consistency": "1 - (std / max_std_actual)",
+    "cross_explanation_overall_consistency": "1 - (std / max_std_actual), overall_score = avg(z_score(emb), z_score(avg(fuzz)), z_score(avg(det)))",
     "llm_explainer_consistency": "avg_pairwise_cosine_similarity"
   },
-  "normalization": "Global min-max normalization for within-explanation consistency"
+  "normalization": "Z-score normalization (value - mean) / std for within-explanation consistency and overall score computation"
 }
