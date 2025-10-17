@@ -9,7 +9,7 @@
             "feature_ids": null
         },
         {
-            "id": "cross_explanation_overall_score_p25",
+            "id": "llm_scorer_consistency_p25",
             "name": "0-25%",
             "stage": 1,
             "feature_count": 824,
@@ -842,7 +842,7 @@
             ]
         },
         {
-            "id": "cross_explanation_overall_score_p50",
+            "id": "llm_scorer_consistency_p50",
             "name": "25-50%",
             "stage": 1,
             "feature_count": 0,
@@ -850,7 +850,7 @@
             "feature_ids": null
         },
         {
-            "id": "cross_explanation_overall_score_p75",
+            "id": "llm_scorer_consistency_p75",
             "name": "50-75%",
             "stage": 1,
             "feature_count": 0,
@@ -858,7 +858,7 @@
             "feature_ids": null
         },
         {
-            "id": "cross_explanation_overall_score_p100",
+            "id": "llm_scorer_consistency_p100",
             "name": "75-100%",
             "stage": 1,
             "feature_count": 0,

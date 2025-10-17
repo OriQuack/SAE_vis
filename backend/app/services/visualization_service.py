@@ -632,6 +632,9 @@ class DataService:
                     pl.col("llm_explainer").is_in(explainer_ids)
                 )
                 .collect()
+                .with_columns([
+                    pl.col("feature_id").cast(pl.UInt32)
+                ])
             )
 
             if len(consistency_df) == 0:
@@ -653,6 +656,9 @@ class DataService:
                 .agg([
                     pl.col("min_per_explainer").min().alias("llm_scorer_consistency")
                 ])
+                .with_columns([
+                    pl.col("feature_id").cast(pl.UInt32)
+                ])
             )
 
             logger.info(f"Computed min consistency for {len(min_consistency_per_feature)} features "
@@ -666,41 +672,61 @@ class DataService:
                 .agg([
                     pl.col("within_explanation_metric_consistency").min().alias("within_explanation_score")
                 ])
+                .with_columns([
+                    pl.col("feature_id").cast(pl.UInt32)
+                ])
             )
 
             logger.info(f"Computed within-explanation score for {len(within_explanation_per_feature)} features "
                        f"(min across {len(explainer_ids)} explainers)")
 
-            # Compute cross-explanation overall score if multiple explainers
+            # Get cross-explanation overall score if multiple explainers
             cross_explanation_overall_score_df = None
             if len(explainer_ids) >= 2:
-                # Step 1: Compute global stats for normalization (min/max for embedding, fuzz, detection)
-                global_stats = {}
+                # Try to use pre-computed cross_explanation_overall_score from consistency parquet
+                if 'cross_explanation_overall_score' in consistency_df.columns:
+                    # Use pre-computed values (calculated with z-score normalization)
+                    cross_explanation_overall_score_df = (
+                        consistency_df
+                        .select(['feature_id', 'cross_explanation_overall_score'])
+                        .unique(subset=['feature_id'])  # One value per feature
+                        .with_columns([
+                            pl.col("feature_id").cast(pl.UInt32)
+                        ])
+                    )
+                    logger.info(f"Using pre-computed cross_explanation_overall_score for {len(cross_explanation_overall_score_df)} features")
+                else:
+                    # Fallback: Compute cross_explanation_overall_score dynamically
+                    # (This should rarely happen for default config)
+                    logger.info(f"Pre-computed cross_explanation_overall_score not available, computing dynamically")
 
-                # Get global min/max for each metric
-                for metric_col in ['score_embedding', 'score_fuzz', 'score_detection']:
-                    metric_values = filtered_df[metric_col].drop_nulls().to_list()
-                    if len(metric_values) >= 2:
-                        global_stats[metric_col.replace('score_', '')] = {
-                            'min': float(np.min(metric_values)),
-                            'max': float(np.max(metric_values))
-                        }
+                    # Step 1: Compute global stats for normalization (mean/std for z-score, also min/max for fallback)
+                    global_stats = {}
+                    for metric_col in ['score_embedding', 'score_fuzz', 'score_detection']:
+                        metric_values = filtered_df[metric_col].drop_nulls().to_list()
+                        if len(metric_values) >= 2:
+                            global_stats[metric_col.replace('score_', '')] = {
+                                'mean': float(np.mean(metric_values)),
+                                'std': float(np.std(metric_values, ddof=1)),
+                                'min': float(np.min(metric_values)),
+                                'max': float(np.max(metric_values))
+                            }
 
-                # Step 2: Compute max_std using ConsistencyService
-                max_stds = ConsistencyService.compute_max_stds(filtered_df, explainer_ids, global_stats)
-                max_std_overall = max_stds.get('cross_explanation_overall_score', 0.5)
+                    # Step 2: Compute max_std using ConsistencyService
+                    max_stds = ConsistencyService.compute_max_stds(filtered_df, explainer_ids, global_stats)
+                    max_std_overall = max_stds.get('cross_explanation_overall_score', 0.5)
 
-                # Step 3: Compute per-feature cross_explanation_overall_score
-                cross_explanation_overall_score_df = ConsistencyService.compute_cross_explanation_overall_score_per_feature(
-                    filtered_df,
-                    explainer_ids,
-                    feature_ids,
-                    max_std_overall,
-                    global_stats
-                )
+                    # Step 3: Compute per-feature cross_explanation_overall_score
+                    cross_explanation_overall_score_df = ConsistencyService.compute_cross_explanation_overall_score_per_feature(
+                        filtered_df,
+                        explainer_ids,
+                        feature_ids,
+                        max_std_overall,
+                        global_stats
+                    )
 
-                logger.info(f"Computed cross_explanation_overall_score for {len(cross_explanation_overall_score_df)} features "
-                           f"(consistency across {len(explainer_ids)} explainers)")
+                    logger.info(f"Computed cross_explanation_overall_score for {len(cross_explanation_overall_score_df)} features "
+                               f"(consistency across {len(explainer_ids)} explainers)")
 
             # Join min consistency with filtered data
             result_df = filtered_df.join(

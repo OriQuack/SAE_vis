@@ -26,58 +26,6 @@ class ConsistencyService:
     """
 
     @staticmethod
-    def compute_inverse_cv(scores: List[Optional[float]]) -> Optional[ConsistencyScore]:
-        """
-        Compute inverse coefficient of variation for consistency measurement.
-
-        Formula: Consistency = 1 / (1 + CV) where CV = std / mean
-
-        This provides a natural 0-1 scaling:
-        - CV = 0 → consistency = 1.0 (perfect agreement)
-        - CV = 1 → consistency = 0.5 (moderate variation)
-        - CV → ∞ → consistency → 0 (high variation)
-
-        Used for:
-        - LLM Scorer consistency (within-metric consistency across scorers)
-        - Cross-explainer metric consistency (consistency of each metric across explainers)
-
-        Args:
-            scores: List of score values (None values are filtered out)
-
-        Returns:
-            ConsistencyScore with value 0-1 and method="inverse_cv", or None if insufficient data
-        """
-        # Filter out None values
-        valid_scores = [s for s in scores if s is not None]
-
-        if len(valid_scores) < 2:
-            return None
-
-        scores_array = np.array(valid_scores)
-        mean = np.mean(scores_array)
-        std = np.std(scores_array, ddof=1)  # Sample std deviation
-
-        # Handle edge cases
-        if mean == 0 or np.isclose(mean, 0):
-            # If mean is 0, CV is undefined
-            if std == 0 or np.isclose(std, 0):
-                # Both mean and std are 0 - perfect consistency
-                return ConsistencyScore(value=1.0, method="inverse_cv")
-            else:
-                # Mean is 0 but std is not - inconsistent
-                return ConsistencyScore(value=0.0, method="inverse_cv")
-
-        cv = std / abs(mean)
-
-        # Inverse CV formula: consistency = 1 / (1 + CV)
-        consistency = 1.0 / (1.0 + cv)
-
-        return ConsistencyScore(
-            value=float(round(consistency, 3)),
-            method="inverse_cv"
-        )
-
-    @staticmethod
     def compute_normalized_std(scores: List[Optional[float]]) -> Optional[ConsistencyScore]:
         """
         Compute normalized standard deviation for metric consistency.
@@ -311,13 +259,13 @@ class ConsistencyService:
         Compute within-explanation metric consistency with normalization.
 
         Process:
-        1. Normalize each metric to [0,1] using global min/max
+        1. Normalize each metric using z-score normalization
         2. Compute std of normalized values
         3. Apply formula: 1 - (std_normalized / max_std)
 
         Args:
             values: Dict of metric names to values (e.g., {'embedding': 0.5, 'fuzz': 0.7, 'detection': 0.6})
-            global_stats: Dict with 'min' and 'max' for each metric
+            global_stats: Dict with 'mean' and 'std' for each metric
             max_std: Maximum std of normalized values observed in data
 
         Returns:
@@ -330,12 +278,12 @@ class ConsistencyService:
                 continue
 
             stats = global_stats[metric_name]
-            min_val = stats.get('min', 0)
-            max_val = stats.get('max', 1)
+            mean = stats.get('mean', 0)
+            std = stats.get('std', 1)
 
-            # Normalize to [0,1]
-            if max_val - min_val > 0:
-                normalized = (value - min_val) / (max_val - min_val)
+            # Z-score normalization
+            if std > 0:
+                normalized = (value - mean) / std
                 normalized_values.append(normalized)
 
         # Need at least 2 metrics
@@ -415,24 +363,24 @@ class ConsistencyService:
                 fuzz_val = np.mean(fuzz_scores) if fuzz_scores else None
                 detection_val = np.mean(detection_scores) if detection_scores else None
 
-                # Normalize values
+                # Z-score normalization
                 normalized_values = []
                 if embedding_val is not None and 'embedding' in global_stats:
                     stats = global_stats['embedding']
-                    if stats['max'] - stats['min'] > 0:
-                        normalized = (embedding_val - stats['min']) / (stats['max'] - stats['min'])
+                    if stats['std'] > 0:
+                        normalized = (embedding_val - stats['mean']) / stats['std']
                         normalized_values.append(normalized)
 
                 if fuzz_val is not None and 'fuzz' in global_stats:
                     stats = global_stats['fuzz']
-                    if stats['max'] - stats['min'] > 0:
-                        normalized = (fuzz_val - stats['min']) / (stats['max'] - stats['min'])
+                    if stats['std'] > 0:
+                        normalized = (fuzz_val - stats['mean']) / stats['std']
                         normalized_values.append(normalized)
 
                 if detection_val is not None and 'detection' in global_stats:
                     stats = global_stats['detection']
-                    if stats['max'] - stats['min'] > 0:
-                        normalized = (detection_val - stats['min']) / (stats['max'] - stats['min'])
+                    if stats['std'] > 0:
+                        normalized = (detection_val - stats['mean']) / stats['std']
                         normalized_values.append(normalized)
 
                 if len(normalized_values) >= 2:
@@ -477,25 +425,25 @@ class ConsistencyService:
 
                 normalized_scores = []
 
-                # Normalize and add embedding if available
+                # Z-score normalization and add embedding if available
                 if i < len(embedding_across) and 'embedding' in global_stats:
                     stats = global_stats['embedding']
-                    if stats['max'] - stats['min'] > 0:
-                        normalized = (embedding_across[i] - stats['min']) / (stats['max'] - stats['min'])
+                    if stats['std'] > 0:
+                        normalized = (embedding_across[i] - stats['mean']) / stats['std']
                         normalized_scores.append(normalized)
 
-                # Normalize and add fuzz if available
+                # Z-score normalization and add fuzz if available
                 if i < len(fuzz_across) and 'fuzz' in global_stats:
                     stats = global_stats['fuzz']
-                    if stats['max'] - stats['min'] > 0:
-                        normalized = (fuzz_across[i] - stats['min']) / (stats['max'] - stats['min'])
+                    if stats['std'] > 0:
+                        normalized = (fuzz_across[i] - stats['mean']) / stats['std']
                         normalized_scores.append(normalized)
 
-                # Normalize and add detection if available
+                # Z-score normalization and add detection if available
                 if i < len(detection_across) and 'detection' in global_stats:
                     stats = global_stats['detection']
-                    if stats['max'] - stats['min'] > 0:
-                        normalized = (detection_across[i] - stats['min']) / (stats['max'] - stats['min'])
+                    if stats['std'] > 0:
+                        normalized = (detection_across[i] - stats['mean']) / stats['std']
                         normalized_scores.append(normalized)
 
                 # Calculate overall score as average of normalized scores
@@ -516,6 +464,249 @@ class ConsistencyService:
             'cross_explanation_detection': float(np.max(cross_explanation_stds_detection)) if cross_explanation_stds_detection else 0.5,
             'cross_explanation_overall_score': float(np.max(cross_explanation_stds_overall_score)) if cross_explanation_stds_overall_score else 0.5
         }
+
+    @staticmethod
+    def collect_metric_scores_per_explainer(
+        explainer_df: pl.DataFrame
+    ) -> Dict[str, Optional[float]]:
+        """
+        Collect metric scores for a single explainer.
+
+        For a given explainer's DataFrame:
+        - Embedding: Take first value (one per explainer)
+        - Fuzz: Average across all scorers
+        - Detection: Average across all scorers
+
+        Args:
+            explainer_df: DataFrame filtered for one explainer
+
+        Returns:
+            Dict with keys 'embedding', 'fuzz', 'detection' and their values (or None)
+        """
+        if len(explainer_df) == 0:
+            return {'embedding': None, 'fuzz': None, 'detection': None}
+
+        # Embedding (one per explainer)
+        emb = explainer_df["score_embedding"].to_list()
+        embedding = emb[0] if emb and emb[0] is not None else None
+
+        # Fuzz (averaged across scorers)
+        fuzz = explainer_df["score_fuzz"].to_list()
+        fuzz_avg = np.mean([s for s in fuzz if s is not None]) if any(s is not None for s in fuzz) else None
+
+        # Detection (averaged across scorers)
+        det = explainer_df["score_detection"].to_list()
+        detection_avg = np.mean([s for s in det if s is not None]) if any(s is not None for s in det) else None
+
+        return {
+            'embedding': embedding,
+            'fuzz': fuzz_avg,
+            'detection': detection_avg
+        }
+
+    @staticmethod
+    def collect_scores_across_explainers(
+        df: pl.DataFrame,
+        feature_id: int,
+        explainer_ids: List[str]
+    ) -> Dict[str, List[float]]:
+        """
+        Collect metric scores across multiple explainers for one feature.
+
+        Args:
+            df: DataFrame with score data
+            feature_id: Feature ID to process
+            explainer_ids: List of explainer IDs
+
+        Returns:
+            Dict mapping metric names to lists of scores:
+            {'embedding': [...], 'fuzz': [...], 'detection': [...]}
+        """
+        feature_df = df.filter(pl.col("feature_id") == feature_id)
+
+        embedding_scores = []
+        fuzz_scores = []
+        detection_scores = []
+
+        for explainer in explainer_ids:
+            explainer_df = feature_df.filter(pl.col("llm_explainer") == explainer)
+            scores = ConsistencyService.collect_metric_scores_per_explainer(explainer_df)
+
+            if scores['embedding'] is not None:
+                embedding_scores.append(scores['embedding'])
+            if scores['fuzz'] is not None:
+                fuzz_scores.append(scores['fuzz'])
+            if scores['detection'] is not None:
+                detection_scores.append(scores['detection'])
+
+        return {
+            'embedding': embedding_scores,
+            'fuzz': fuzz_scores,
+            'detection': detection_scores
+        }
+
+    @staticmethod
+    def compute_overall_score_zscore(
+        embedding: Optional[float],
+        fuzz_avg: Optional[float],
+        detection_avg: Optional[float],
+        global_stats: Dict[str, Dict[str, float]]
+    ) -> Optional[float]:
+        """
+        Compute overall score using z-score normalization.
+
+        Process:
+        1. Convert each metric to z-score using global mean/std
+        2. Average the z-scores (need at least 2 metrics)
+        3. Return the averaged z-score
+
+        This provides a normalized overall score that accounts for different
+        metric distributions by standardizing relative to the global dataset.
+
+        Args:
+            embedding: Embedding score value
+            fuzz_avg: Average fuzz score across scorers
+            detection_avg: Average detection score across scorers
+            global_stats: Dict with 'mean' and 'std' for each metric
+
+        Returns:
+            Overall z-score (average of individual metric z-scores), or None if insufficient data
+        """
+        z_scores = []
+
+        # Z-score for embedding
+        if embedding is not None and 'embedding' in global_stats:
+            stats = global_stats['embedding']
+            if stats['std'] > 0:
+                z_score = (embedding - stats['mean']) / stats['std']
+                z_scores.append(z_score)
+
+        # Z-score for fuzz
+        if fuzz_avg is not None and 'fuzz' in global_stats:
+            stats = global_stats['fuzz']
+            if stats['std'] > 0:
+                z_score = (fuzz_avg - stats['mean']) / stats['std']
+                z_scores.append(z_score)
+
+        # Z-score for detection
+        if detection_avg is not None and 'detection' in global_stats:
+            stats = global_stats['detection']
+            if stats['std'] > 0:
+                z_score = (detection_avg - stats['mean']) / stats['std']
+                z_scores.append(z_score)
+
+        # Need at least 2 metrics to compute overall score
+        if len(z_scores) < 2:
+            return None
+
+        return float(np.mean(z_scores))
+
+    @staticmethod
+    def compute_cross_explainer_consistency_all_metrics(
+        df: pl.DataFrame,
+        explainer_ids: List[str],
+        feature_ids: List[int],
+        max_stds: Dict[str, float],
+        global_stats: Dict[str, Dict[str, float]]
+    ) -> Dict[int, Dict[str, 'ConsistencyScore']]:
+        """
+        Compute cross-explainer metric consistency for all features.
+
+        For each feature, computes how consistent each metric (embedding, fuzz,
+        detection, overall_score) is across the selected explainers using
+        std-based consistency (1 - std/max_std).
+
+        Args:
+            df: DataFrame with score data
+            explainer_ids: List of explainer IDs
+            feature_ids: List of feature IDs to process
+            max_stds: Dict of max_std values for each metric type
+            global_stats: Global statistics for z-score normalization
+
+        Returns:
+            Dict mapping feature_id to dict of metric_name -> ConsistencyScore:
+            {
+                feature_id: {
+                    'embedding': ConsistencyScore(...),
+                    'fuzz': ConsistencyScore(...),
+                    'detection': ConsistencyScore(...),
+                    'overall_score': ConsistencyScore(...)
+                }
+            }
+        """
+        cross_explainer_consistency_map = {}
+
+        for feature_id in feature_ids:
+            # Collect scores across explainers
+            scores = ConsistencyService.collect_scores_across_explainers(
+                df, feature_id, explainer_ids
+            )
+
+            consistency_dict = {}
+
+            # Compute std-based consistency for each metric
+            emb_consistency = ConsistencyService.compute_std_consistency(
+                scores['embedding'],
+                max_stds.get('cross_explanation_embedding', 0.5)
+            )
+            if emb_consistency:
+                consistency_dict['embedding'] = emb_consistency
+
+            fuzz_consistency = ConsistencyService.compute_std_consistency(
+                scores['fuzz'],
+                max_stds.get('cross_explanation_fuzz', 0.5)
+            )
+            if fuzz_consistency:
+                consistency_dict['fuzz'] = fuzz_consistency
+
+            det_consistency = ConsistencyService.compute_std_consistency(
+                scores['detection'],
+                max_stds.get('cross_explanation_detection', 0.5)
+            )
+            if det_consistency:
+                consistency_dict['detection'] = det_consistency
+
+            # Compute overall score for each explainer and its consistency
+            feature_df = df.filter(pl.col("feature_id") == feature_id)
+            overall_scores_across = []
+
+            for explainer in explainer_ids:
+                explainer_df = feature_df.filter(pl.col("llm_explainer") == explainer)
+
+                if len(explainer_df) == 0:
+                    continue
+
+                # Try to use pre-computed overall_score if available
+                if 'overall_score' in explainer_df.columns:
+                    overall_vals = explainer_df['overall_score'].drop_nulls().to_list()
+                    if overall_vals:
+                        overall_scores_across.append(overall_vals[0])
+                        continue  # Skip manual calculation
+
+                # Fallback: Calculate overall score using z-score normalization
+                scores_dict = ConsistencyService.collect_metric_scores_per_explainer(explainer_df)
+                overall_score = ConsistencyService.compute_overall_score_zscore(
+                    scores_dict['embedding'],
+                    scores_dict['fuzz'],
+                    scores_dict['detection'],
+                    global_stats
+                )
+
+                if overall_score is not None:
+                    overall_scores_across.append(overall_score)
+
+            # Compute consistency for overall scores
+            overall_consistency = ConsistencyService.compute_std_consistency(
+                overall_scores_across,
+                max_stds.get('cross_explanation_overall_score', 0.5)
+            )
+            if overall_consistency:
+                consistency_dict['overall_score'] = overall_consistency
+
+            if consistency_dict:
+                cross_explainer_consistency_map[feature_id] = consistency_dict
+
+        return cross_explainer_consistency_map
 
     @staticmethod
     def compute_cross_explanation_overall_score_per_feature(
@@ -571,25 +762,25 @@ class ConsistencyService:
                 det = explainer_df["score_detection"].to_list()
                 detection_avg = np.mean([s for s in det if s is not None]) if any(s is not None for s in det) else None
 
-                # Normalize each score to [0,1] using global min/max
+                # Z-score normalization using global mean/std
                 normalized_scores = []
 
                 if embedding is not None and 'embedding' in global_stats:
                     stats = global_stats['embedding']
-                    if stats['max'] - stats['min'] > 0:
-                        normalized = (embedding - stats['min']) / (stats['max'] - stats['min'])
+                    if stats['std'] > 0:
+                        normalized = (embedding - stats['mean']) / stats['std']
                         normalized_scores.append(normalized)
 
                 if fuzz_avg is not None and 'fuzz' in global_stats:
                     stats = global_stats['fuzz']
-                    if stats['max'] - stats['min'] > 0:
-                        normalized = (fuzz_avg - stats['min']) / (stats['max'] - stats['min'])
+                    if stats['std'] > 0:
+                        normalized = (fuzz_avg - stats['mean']) / stats['std']
                         normalized_scores.append(normalized)
 
                 if detection_avg is not None and 'detection' in global_stats:
                     stats = global_stats['detection']
-                    if stats['max'] - stats['min'] > 0:
-                        normalized = (detection_avg - stats['min']) / (stats['max'] - stats['min'])
+                    if stats['std'] > 0:
+                        normalized = (detection_avg - stats['mean']) / stats['std']
                         normalized_scores.append(normalized)
 
                 # Compute overall_score as average of normalized scores
@@ -615,10 +806,369 @@ class ConsistencyService:
             return pl.DataFrame({
                 'feature_id': list(feature_consistency_map.keys()),
                 'cross_explanation_overall_score': list(feature_consistency_map.values())
-            })
+            }).with_columns([
+                pl.col("feature_id").cast(pl.UInt32)
+            ])
         else:
             # Return empty DataFrame with correct schema
             return pl.DataFrame({
-                'feature_id': [],
-                'cross_explanation_overall_score': []
+                'feature_id': pl.Series([], dtype=pl.UInt32),
+                'cross_explanation_overall_score': pl.Series([], dtype=pl.Float64)
             })
+
+
+    @staticmethod
+    def calculate_all_consistency(
+        df: pl.DataFrame,
+        explainer_ids: List[str],
+        feature_ids: List[int],
+        pairwise_df: Optional[pl.DataFrame] = None
+    ) -> pl.DataFrame:
+        """
+        Calculate all consistency scores for features not in pre-computed data.
+
+        This is the main entry point for calculating consistency when parquet data
+        is missing or incomplete. Returns a DataFrame with same schema as
+        consistency_scores.parquet that can be merged with existing data.
+
+        Args:
+            df: DataFrame from feature_analysis.parquet (filtered)
+            explainer_ids: List of explainer IDs to process
+            feature_ids: List of feature IDs to process
+            pairwise_df: Optional pairwise similarity DataFrame for explainer consistency
+
+        Returns:
+            DataFrame with columns [feature_id, llm_explainer, scorer_consistency_fuzz,
+            scorer_consistency_detection, within_explanation_metric_consistency,
+            cross_explanation_consistency_embedding, cross_explanation_consistency_fuzz,
+            cross_explanation_consistency_detection, cross_explanation_consistency_overall,
+            llm_explainer_consistency]
+        """
+        # Compute global statistics for normalization
+        global_stats = ConsistencyService._compute_global_stats_for_consistency(
+            df, explainer_ids, feature_ids
+        )
+
+        # Compute max_stds for std-based consistency
+        max_stds = ConsistencyService.compute_max_stds(df, explainer_ids, global_stats)
+
+        # Collect results
+        results = []
+
+        for feature_id in feature_ids:
+            feature_df = df.filter(pl.col("feature_id") == feature_id)
+
+            # Compute cross-explanation consistency (per feature, same for all explainers)
+            cross_exp_consistency = ConsistencyService._calculate_cross_explanation_consistency_for_feature(
+                feature_df, explainer_ids, max_stds, global_stats
+            )
+
+            # Compute LLM explainer consistency (per feature, same for all explainers)
+            llm_explainer_consistency = None
+            if pairwise_df is not None and len(explainer_ids) >= 2:
+                consistency_score = ConsistencyService.compute_semantic_similarity_consistency(
+                    feature_id, explainer_ids, pairwise_df
+                )
+                llm_explainer_consistency = consistency_score.value if consistency_score else None
+
+            # Per-explainer consistency scores
+            for explainer in explainer_ids:
+                explainer_df = feature_df.filter(pl.col("llm_explainer") == explainer)
+
+                if len(explainer_df) == 0:
+                    continue
+
+                # Scorer consistency (fuzz and detection)
+                fuzz_scores = explainer_df['score_fuzz'].drop_nulls().to_list()
+                detection_scores = explainer_df['score_detection'].drop_nulls().to_list()
+
+                scorer_consistency_fuzz = None
+                fuzz_consistency = ConsistencyService.compute_std_consistency(
+                    fuzz_scores, max_stds.get('scorer_fuzz', 0.5)
+                )
+                if fuzz_consistency:
+                    scorer_consistency_fuzz = fuzz_consistency.value
+
+                scorer_consistency_detection = None
+                detection_consistency = ConsistencyService.compute_std_consistency(
+                    detection_scores, max_stds.get('scorer_detection', 0.5)
+                )
+                if detection_consistency:
+                    scorer_consistency_detection = detection_consistency.value
+
+                # Within-explanation metric consistency
+                scores_dict = ConsistencyService.collect_metric_scores_per_explainer(explainer_df)
+                within_explanation_metric_consistency = None
+                metric_consistency = ConsistencyService.compute_normalized_std_consistency(
+                    scores_dict, global_stats, max_stds.get('within_explanation', 0.5)
+                )
+                if metric_consistency:
+                    within_explanation_metric_consistency = metric_consistency.value
+
+                # Add result row
+                results.append({
+                    'feature_id': feature_id,
+                    'llm_explainer': explainer,
+                    'scorer_consistency_fuzz': scorer_consistency_fuzz,
+                    'scorer_consistency_detection': scorer_consistency_detection,
+                    'within_explanation_metric_consistency': within_explanation_metric_consistency,
+                    'cross_explanation_consistency_embedding': cross_exp_consistency.get('embedding'),
+                    'cross_explanation_consistency_fuzz': cross_exp_consistency.get('fuzz'),
+                    'cross_explanation_consistency_detection': cross_exp_consistency.get('detection'),
+                    'cross_explanation_consistency_overall': cross_exp_consistency.get('overall_score'),
+                    'llm_explainer_consistency': llm_explainer_consistency
+                })
+
+        # Convert to DataFrame
+        if results:
+            return pl.DataFrame(results).with_columns([
+                pl.col("feature_id").cast(pl.UInt32),
+                pl.col("llm_explainer").cast(pl.Categorical)
+            ])
+        else:
+            # Return empty DataFrame with correct schema
+            return pl.DataFrame({
+                'feature_id': pl.Series([], dtype=pl.UInt32),
+                'llm_explainer': pl.Series([], dtype=pl.Categorical),
+                'scorer_consistency_fuzz': pl.Series([], dtype=pl.Float32),
+                'scorer_consistency_detection': pl.Series([], dtype=pl.Float32),
+                'within_explanation_metric_consistency': pl.Series([], dtype=pl.Float32),
+                'cross_explanation_consistency_embedding': pl.Series([], dtype=pl.Float32),
+                'cross_explanation_consistency_fuzz': pl.Series([], dtype=pl.Float32),
+                'cross_explanation_consistency_detection': pl.Series([], dtype=pl.Float32),
+                'cross_explanation_consistency_overall': pl.Series([], dtype=pl.Float32),
+                'llm_explainer_consistency': pl.Series([], dtype=pl.Float32)
+            })
+
+    @staticmethod
+    def _compute_global_stats_for_consistency(
+        df: pl.DataFrame,
+        explainer_ids: List[str],
+        feature_ids: List[int]
+    ) -> Dict[str, Dict[str, float]]:
+        """
+        Compute global statistics for z-score normalization.
+
+        Args:
+            df: DataFrame from feature_analysis.parquet
+            explainer_ids: List of explainer IDs
+            feature_ids: List of feature IDs
+
+        Returns:
+            Dict with global stats: {'metric_name': {'mean': float, 'std': float}}
+        """
+        embedding_values = []
+        fuzz_values = []
+        detection_values = []
+
+        for feature_id in feature_ids:
+            feature_df = df.filter(pl.col("feature_id") == feature_id)
+
+            for explainer in explainer_ids:
+                explainer_df = feature_df.filter(pl.col("llm_explainer") == explainer)
+
+                if len(explainer_df) == 0:
+                    continue
+
+                scores = ConsistencyService.collect_metric_scores_per_explainer(explainer_df)
+
+                if scores['embedding'] is not None:
+                    embedding_values.append(scores['embedding'])
+                if scores['fuzz'] is not None:
+                    fuzz_values.append(scores['fuzz'])
+                if scores['detection'] is not None:
+                    detection_values.append(scores['detection'])
+
+        # Compute global statistics
+        global_stats = {}
+        if len(embedding_values) >= 2:
+            global_stats['embedding'] = {
+                'mean': float(np.mean(embedding_values)),
+                'std': float(np.std(embedding_values, ddof=1))
+            }
+        if len(fuzz_values) >= 2:
+            global_stats['fuzz'] = {
+                'mean': float(np.mean(fuzz_values)),
+                'std': float(np.std(fuzz_values, ddof=1))
+            }
+        if len(detection_values) >= 2:
+            global_stats['detection'] = {
+                'mean': float(np.mean(detection_values)),
+                'std': float(np.std(detection_values, ddof=1))
+            }
+
+        return global_stats
+
+    @staticmethod
+    def _calculate_cross_explanation_consistency_for_feature(
+        feature_df: pl.DataFrame,
+        explainer_ids: List[str],
+        max_stds: Dict[str, float],
+        global_stats: Dict[str, Dict[str, float]]
+    ) -> Dict[str, Optional[float]]:
+        """
+        Calculate cross-explanation consistency for a single feature.
+
+        Args:
+            feature_df: DataFrame filtered for one feature
+            explainer_ids: List of explainer IDs
+            max_stds: Dict of max_std values
+            global_stats: Global statistics for normalization
+
+        Returns:
+            Dict with keys ['embedding', 'fuzz', 'detection', 'overall_score']
+        """
+        # Collect scores across explainers
+        embedding_scores = []
+        fuzz_scores = []
+        detection_scores = []
+        overall_scores = []
+
+        for explainer in explainer_ids:
+            explainer_df = feature_df.filter(pl.col("llm_explainer") == explainer)
+
+            if len(explainer_df) == 0:
+                continue
+
+            scores = ConsistencyService.collect_metric_scores_per_explainer(explainer_df)
+
+            if scores['embedding'] is not None:
+                embedding_scores.append(scores['embedding'])
+            if scores['fuzz'] is not None:
+                fuzz_scores.append(scores['fuzz'])
+            if scores['detection'] is not None:
+                detection_scores.append(scores['detection'])
+
+            # Calculate overall score using z-score normalization
+            overall_score = ConsistencyService.compute_overall_score_zscore(
+                scores['embedding'], scores['fuzz'], scores['detection'], global_stats
+            )
+            if overall_score is not None:
+                overall_scores.append(overall_score)
+
+        # Compute consistency for each metric
+        result = {}
+
+        emb_consistency = ConsistencyService.compute_std_consistency(
+            embedding_scores, max_stds.get('cross_explanation_embedding', 0.5)
+        )
+        result['embedding'] = emb_consistency.value if emb_consistency else None
+
+        fuzz_consistency = ConsistencyService.compute_std_consistency(
+            fuzz_scores, max_stds.get('cross_explanation_fuzz', 0.5)
+        )
+        result['fuzz'] = fuzz_consistency.value if fuzz_consistency else None
+
+        det_consistency = ConsistencyService.compute_std_consistency(
+            detection_scores, max_stds.get('cross_explanation_detection', 0.5)
+        )
+        result['detection'] = det_consistency.value if det_consistency else None
+
+        overall_consistency = ConsistencyService.compute_std_consistency(
+            overall_scores, max_stds.get('cross_explanation_overall_score', 0.5)
+        )
+        result['overall_score'] = overall_consistency.value if overall_consistency else None
+
+        return result
+
+
+class ExplainerDataBuilder:
+    """
+    Helper class for building explainer data responses.
+
+    Provides utility methods for extracting scores from DataFrames and
+    looking up related data (explanations, etc.).
+    """
+
+    @staticmethod
+    def extract_scores_from_explainer_df(
+        explainer_df: pl.DataFrame,
+        scorer_map: Optional[Dict[str, str]] = None
+    ) -> Tuple[Dict[str, Optional[float]], Dict[str, Optional[float]], Optional[float]]:
+        """
+        Extract score dictionaries and embedding score from explainer DataFrame.
+
+        Args:
+            explainer_df: DataFrame for one explainer
+            scorer_map: Optional mapping from scorer ID to s1/s2/s3.
+                        If None, creates automatic mapping (s1, s2, s3)
+
+        Returns:
+            Tuple of (fuzz_dict, detection_dict, embedding_score):
+            - fuzz_dict: {'s1': val, 's2': val, 's3': val}
+            - detection_dict: {'s1': val, 's2': val, 's3': val}
+            - embedding_score: float or None
+        """
+        fuzz_dict = {'s1': None, 's2': None, 's3': None}
+        detection_dict = {'s1': None, 's2': None, 's3': None}
+        embedding_score = None
+
+        if len(explainer_df) == 0:
+            return fuzz_dict, detection_dict, embedding_score
+
+        # Get embedding score (first value)
+        embedding_scores = explainer_df["score_embedding"].to_list()
+        embedding_score = round(embedding_scores[0], 3) if embedding_scores and embedding_scores[0] is not None else None
+
+        # Extract scores per scorer
+        if scorer_map is None:
+            # Auto-generate scorer mapping
+            scorer_map = {}
+            for i, row_dict in enumerate(explainer_df.iter_rows(named=True)):
+                scorer = row_dict["llm_scorer"]
+                scorer_key = f"s{i+1}"
+                scorer_map[scorer] = scorer_key
+
+                fuzz_val = row_dict.get("score_fuzz")
+                detection_val = row_dict.get("score_detection")
+
+                fuzz_dict[scorer_key] = round(fuzz_val, 3) if fuzz_val is not None else None
+                detection_dict[scorer_key] = round(detection_val, 3) if detection_val is not None else None
+        else:
+            # Use provided scorer mapping
+            for _, row in enumerate(explainer_df.iter_rows(named=True)):
+                scorer = row["llm_scorer"]
+                scorer_key = scorer_map.get(scorer)
+
+                if scorer_key:
+                    fuzz_val = row.get("score_fuzz")
+                    detection_val = row.get("score_detection")
+
+                    fuzz_dict[scorer_key] = round(fuzz_val, 3) if fuzz_val is not None else None
+                    detection_dict[scorer_key] = round(detection_val, 3) if detection_val is not None else None
+
+        return fuzz_dict, detection_dict, embedding_score
+
+    @staticmethod
+    def lookup_explanation_text(
+        feature_id: int,
+        explainer: str,
+        explanations_df: Optional[pl.DataFrame]
+    ) -> Optional[str]:
+        """
+        Look up explanation text for a feature-explainer pair.
+
+        Args:
+            feature_id: Feature ID
+            explainer: Explainer ID (full name)
+            explanations_df: DataFrame with explanations (or None if not available)
+
+        Returns:
+            Explanation text string, or None if not found
+        """
+        if explanations_df is None:
+            return None
+
+        try:
+            explanation_rows = explanations_df.filter(
+                (pl.col("feature_id") == feature_id) &
+                (pl.col("llm_explainer") == explainer)
+            )
+
+            if len(explanation_rows) > 0:
+                return explanation_rows["explanation_text"].to_list()[0]
+        except Exception:
+            # Silently fail if explanation lookup fails
+            pass
+
+        return None
