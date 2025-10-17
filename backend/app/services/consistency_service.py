@@ -388,6 +388,7 @@ class ConsistencyService:
         cross_explanation_stds_embedding = []
         cross_explanation_stds_fuzz = []
         cross_explanation_stds_detection = []
+        cross_explanation_stds_overall_score = []
 
         for feature_id in feature_ids:
             feature_df = df.filter(pl.col("feature_id") == feature_id)
@@ -466,6 +467,45 @@ class ConsistencyService:
             if len(detection_across) >= 2:
                 cross_explanation_stds_detection.append(np.std(detection_across, ddof=1))
 
+            # Cross-explanation overall score consistency
+            # Calculate overall score for each explainer (using normalized average)
+            overall_scores_across = []
+            for i, explainer in enumerate(explainer_ids):
+                # Skip if we don't have values for this explainer
+                if i >= len(embedding_across) and i >= len(fuzz_across) and i >= len(detection_across):
+                    continue
+
+                normalized_scores = []
+
+                # Normalize and add embedding if available
+                if i < len(embedding_across) and 'embedding' in global_stats:
+                    stats = global_stats['embedding']
+                    if stats['max'] - stats['min'] > 0:
+                        normalized = (embedding_across[i] - stats['min']) / (stats['max'] - stats['min'])
+                        normalized_scores.append(normalized)
+
+                # Normalize and add fuzz if available
+                if i < len(fuzz_across) and 'fuzz' in global_stats:
+                    stats = global_stats['fuzz']
+                    if stats['max'] - stats['min'] > 0:
+                        normalized = (fuzz_across[i] - stats['min']) / (stats['max'] - stats['min'])
+                        normalized_scores.append(normalized)
+
+                # Normalize and add detection if available
+                if i < len(detection_across) and 'detection' in global_stats:
+                    stats = global_stats['detection']
+                    if stats['max'] - stats['min'] > 0:
+                        normalized = (detection_across[i] - stats['min']) / (stats['max'] - stats['min'])
+                        normalized_scores.append(normalized)
+
+                # Calculate overall score as average of normalized scores
+                if len(normalized_scores) >= 2:
+                    overall_score = np.mean(normalized_scores)
+                    overall_scores_across.append(overall_score)
+
+            if len(overall_scores_across) >= 2:
+                cross_explanation_stds_overall_score.append(np.std(overall_scores_across, ddof=1))
+
         # Compute max_stds with fallback values
         return {
             'scorer_fuzz': float(np.max(scorer_stds_fuzz)) if scorer_stds_fuzz else 0.5,
@@ -473,5 +513,6 @@ class ConsistencyService:
             'within_explanation': float(np.max(within_explanation_stds)) if within_explanation_stds else 0.5,
             'cross_explanation_embedding': float(np.max(cross_explanation_stds_embedding)) if cross_explanation_stds_embedding else 0.5,
             'cross_explanation_fuzz': float(np.max(cross_explanation_stds_fuzz)) if cross_explanation_stds_fuzz else 0.5,
-            'cross_explanation_detection': float(np.max(cross_explanation_stds_detection)) if cross_explanation_stds_detection else 0.5
+            'cross_explanation_detection': float(np.max(cross_explanation_stds_detection)) if cross_explanation_stds_detection else 0.5,
+            'cross_explanation_overall_score': float(np.max(cross_explanation_stds_overall_score)) if cross_explanation_stds_overall_score else 0.5
         }

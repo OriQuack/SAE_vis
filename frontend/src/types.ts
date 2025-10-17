@@ -500,7 +500,8 @@ export type ConsistencyType =
   | 'none'                           // No consistency coloring
   | 'llm_scorer_consistency'         // LLM Scorer Consistency (within-metric consistency)
   | 'within_explanation_score'       // Within-explanation score consistency
-  | 'cross_explanation_score'        // Cross-explanation score consistency
+  | 'cross_explanation_score'        // Cross-explanation score consistency (individual metrics)
+  | 'cross_explanation_overall_score' // Cross-explanation overall score consistency
   | 'llm_explainer_consistency'      // LLM Explainer consistency (semantic consistency)
 
 // Table Sorting Types (simplified for new table structure)
@@ -513,6 +514,7 @@ export type SortBy =
   | 'llm_scorer_consistency'
   | 'within_explanation_score'
   | 'cross_explanation_score'
+  | 'cross_explanation_overall_score'
   | 'llm_explainer_consistency'
   | null
 

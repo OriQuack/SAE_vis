@@ -114,6 +114,25 @@ function extractCrossExplainerConsistency(explainerData: any): number | null {
   return averageNonNull(values)
 }
 
+/**
+ * Extract cross-explainer overall score consistency
+ *
+ * @param explainerData - Explainer data containing cross_explainer_metric_consistency
+ * @returns Overall score consistency or null
+ */
+function extractCrossExplainerOverallConsistency(explainerData: any): number | null {
+  if (!explainerData.cross_explainer_metric_consistency) return null
+
+  const cem = explainerData.cross_explainer_metric_consistency
+
+  // Return the overall_score consistency if it exists
+  if (cem.overall_score) {
+    return cem.overall_score.value
+  }
+
+  return null
+}
+
 
 // ============================================================================
 // DATA EXTRACTION HELPERS
@@ -227,6 +246,8 @@ function getConsistencyColorGradient(consistencyType: ConsistencyType): { LOW: s
       return CONSISTENCY_COLORS.WITHIN_EXPLANATION
     case 'cross_explanation_score':
       return CONSISTENCY_COLORS.CROSS_EXPLANATION
+    case 'cross_explanation_overall_score':
+      return CONSISTENCY_COLORS.CROSS_EXPLANATION_OVERALL
     case 'llm_explainer_consistency':
       return CONSISTENCY_COLORS.LLM_EXPLAINER
     case 'none':
@@ -339,6 +360,8 @@ export function getConsistencyValueForSorting(
       }
     } else if (consistencyType === 'cross_explanation_score') {
       values.push(extractCrossExplainerConsistency(explainerData))
+    } else if (consistencyType === 'cross_explanation_overall_score') {
+      values.push(extractCrossExplainerOverallConsistency(explainerData))
     } else if (consistencyType === 'llm_explainer_consistency') {
       if (explainerData.explainer_consistency) {
         values.push(explainerData.explainer_consistency.value)
@@ -425,13 +448,14 @@ export function calculateOverallScore(
 }
 
 /**
- * Calculate overall consistency from 4 consistency types (minimum value)
+ * Calculate overall consistency from 5 consistency types (minimum value)
  *
  * Consistency types:
  * 1. LLM Scorer consistency (average of fuzz and detection)
  * 2. Within-explanation metric consistency
  * 3. Cross-explanation score consistency (average of embedding, fuzz, detection)
- * 4. LLM Explainer consistency
+ * 4. Cross-explanation overall score consistency
+ * 5. LLM Explainer consistency
  *
  * @param row - Feature table row
  * @param explainerId - Explainer ID
@@ -464,7 +488,13 @@ export function calculateOverallConsistency(
     consistencyEntries.push({ value: crossConsistency, type: 'cross_explanation_score' })
   }
 
-  // 4. LLM Explainer consistency
+  // 4. Cross-explanation overall score consistency
+  const crossOverallConsistency = extractCrossExplainerOverallConsistency(explainerData)
+  if (crossOverallConsistency !== null) {
+    consistencyEntries.push({ value: crossOverallConsistency, type: 'cross_explanation_overall_score' })
+  }
+
+  // 5. LLM Explainer consistency
   if (explainerData.explainer_consistency) {
     consistencyEntries.push({ value: explainerData.explainer_consistency.value, type: 'llm_explainer_consistency' })
   }
@@ -714,6 +744,13 @@ export function sortFeatures(
       const explainerIds = tableData?.explainer_ids || []
       const consistencyA = getConsistencyValueForSorting(a, 'cross_explanation_score', explainerIds)
       const consistencyB = getConsistencyValueForSorting(b, 'cross_explanation_score', explainerIds)
+      return compareValues(consistencyA, consistencyB, sortDirection)
+    }
+
+    if (sortBy === 'cross_explanation_overall_score') {
+      const explainerIds = tableData?.explainer_ids || []
+      const consistencyA = getConsistencyValueForSorting(a, 'cross_explanation_overall_score', explainerIds)
+      const consistencyB = getConsistencyValueForSorting(b, 'cross_explanation_overall_score', explainerIds)
       return compareValues(consistencyA, consistencyB, sortDirection)
     }
 

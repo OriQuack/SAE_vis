@@ -285,6 +285,13 @@ export const CONSISTENCY_COLORS = {
     HIGH: OKABE_ITO_PALETTE.ORANGE + 'FF'    // 100% opacity (full orange)
   },
 
+  // Cross-explanation Overall Score Consistency: Yellow gradient (Okabe-Ito Yellow)
+  CROSS_EXPLANATION_OVERALL: {
+    LOW: OKABE_ITO_PALETTE.YELLOW + '00',    // 0% opacity (transparent/white)
+    MEDIUM: OKABE_ITO_PALETTE.YELLOW + '80', // 50% opacity (light yellow)
+    HIGH: OKABE_ITO_PALETTE.YELLOW + 'FF'    // 100% opacity (full yellow)
+  },
+
   // LLM Explainer Consistency: Green gradient (Okabe-Ito Bluish Green)
   LLM_EXPLAINER: {
     LOW: OKABE_ITO_PALETTE.BLUISH_GREEN + '00',    // 0% opacity (transparent/white)

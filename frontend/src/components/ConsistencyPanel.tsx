@@ -35,6 +35,11 @@ const CONSISTENCY_OPTIONS: Array<{
     value: 'cross_explanation_score'
   },
   {
+    id: 'cross_exp_overall',
+    label: 'Cross-exp. Overall',
+    value: 'cross_explanation_overall_score'
+  },
+  {
     id: 'llm_explainer',
     label: 'LLM Explainer',
     value: 'llm_explainer_consistency'
@@ -79,7 +84,9 @@ const ConsistencyPanel: React.FC = () => {
 
     // Cross-explanation and LLM Explainer consistency require multiple explainers
     if (hasOnlyOneExplainer) {
-      return type === 'cross_explanation_score' || type === 'llm_explainer_consistency'
+      return type === 'cross_explanation_score' ||
+             type === 'cross_explanation_overall_score' ||
+             type === 'llm_explainer_consistency'
     }
 
     return false
@@ -93,6 +100,7 @@ const ConsistencyPanel: React.FC = () => {
     const shouldSwitch = (
       hasOnlyOneExplainer && (
         selectedConsistencyType === 'cross_explanation_score' ||
+        selectedConsistencyType === 'cross_explanation_overall_score' ||
         selectedConsistencyType === 'llm_explainer_consistency'
       )
     )
@@ -111,6 +119,8 @@ const ConsistencyPanel: React.FC = () => {
         return CONSISTENCY_COLORS.WITHIN_EXPLANATION.HIGH
       case 'cross_explanation_score':
         return CONSISTENCY_COLORS.CROSS_EXPLANATION.HIGH
+      case 'cross_explanation_overall_score':
+        return CONSISTENCY_COLORS.CROSS_EXPLANATION_OVERALL.HIGH
       case 'llm_explainer_consistency':
         return CONSISTENCY_COLORS.LLM_EXPLAINER.HIGH
       case 'none':

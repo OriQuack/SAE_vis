@@ -127,10 +127,13 @@ class TableDataService:
 
         # PASS 1.5: Compute cross-explainer consistency (if not using pre-computed)
         cross_explainer_map = {}
-        if is_averaged and len(explainer_ids) >= 2 and not config_check['can_use_per_feature']:
-            cross_explainer_map = self._compute_cross_explainer_consistency_std(
-                df, explainer_ids, feature_ids, max_stds
-            )
+        if is_averaged and len(explainer_ids) >= 2:
+            # Always compute if not using pre-computed for all metrics
+            # OR if we need to compute overall_score (which may not be in pre-computed data yet)
+            if not config_check['can_use_per_feature'] or True:  # TODO: Remove 'or True' once pre-computed data includes overall_score
+                cross_explainer_map = self._compute_cross_explainer_consistency_std(
+                    df, explainer_ids, feature_ids, max_stds, global_stats
+                )
 
         # PASS 2: Build feature rows
         features = self._build_feature_rows_with_precomputed(
@@ -295,6 +298,12 @@ class TableDataService:
                 from ..models.responses import ConsistencyScore
                 result['cross_explanation_consistency_detection'] = ConsistencyScore(
                     value=row['cross_explanation_consistency_detection'],
+                    method="std_based"
+                )
+            if row.get('cross_explanation_consistency_overall_score') is not None:
+                from ..models.responses import ConsistencyScore
+                result['cross_explanation_consistency_overall_score'] = ConsistencyScore(
+                    value=row['cross_explanation_consistency_overall_score'],
                     method="std_based"
                 )
             if row.get('llm_explainer_consistency') is not None:
@@ -542,7 +551,8 @@ class TableDataService:
         df: pl.DataFrame,
         explainer_ids: List[str],
         feature_ids: List[int],
-        max_stds: Dict[str, float]
+        max_stds: Dict[str, float],
+        global_stats: Dict[str, Dict[str, float]]
     ) -> Dict[int, Dict[str, any]]:
         """
         Compute cross-explainer metric consistency using std-based method.
@@ -555,6 +565,7 @@ class TableDataService:
             explainer_ids: List of explainer IDs
             feature_ids: List of feature IDs
             max_stds: Dict of max_std values for each metric
+            global_stats: Global statistics for normalization
 
         Returns:
             Dict mapping feature_id to consistency scores per metric
@@ -615,6 +626,59 @@ class TableDataService:
             )
             if det_consistency:
                 consistency_dict['detection'] = det_consistency
+
+            # NEW: Compute cross-explanation overall score consistency
+            # Calculate overall score for each explainer using normalized averages
+            overall_scores_across = []
+            for explainer in explainer_ids:
+                explainer_df = feature_df.filter(pl.col("llm_explainer") == explainer)
+
+                if len(explainer_df) == 0:
+                    continue
+
+                # Get scores for this explainer
+                emb = explainer_df["score_embedding"].to_list()
+                embedding = emb[0] if emb and emb[0] is not None else None
+
+                fuzz = explainer_df["score_fuzz"].to_list()
+                fuzz_avg = np.mean([s for s in fuzz if s is not None]) if any(s is not None for s in fuzz) else None
+
+                det = explainer_df["score_detection"].to_list()
+                detection_avg = np.mean([s for s in det if s is not None]) if any(s is not None for s in det) else None
+
+                # Calculate overall score using normalization (same as frontend)
+                normalized_scores = []
+
+                if embedding is not None and 'embedding' in global_stats:
+                    stats = global_stats['embedding']
+                    if stats['max'] - stats['min'] > 0:
+                        normalized = (embedding - stats['min']) / (stats['max'] - stats['min'])
+                        normalized_scores.append(normalized)
+
+                if fuzz_avg is not None and 'fuzz' in global_stats:
+                    stats = global_stats['fuzz']
+                    if stats['max'] - stats['min'] > 0:
+                        normalized = (fuzz_avg - stats['min']) / (stats['max'] - stats['min'])
+                        normalized_scores.append(normalized)
+
+                if detection_avg is not None and 'detection' in global_stats:
+                    stats = global_stats['detection']
+                    if stats['max'] - stats['min'] > 0:
+                        normalized = (detection_avg - stats['min']) / (stats['max'] - stats['min'])
+                        normalized_scores.append(normalized)
+
+                # Average the normalized scores to get overall score
+                if len(normalized_scores) >= 2:  # Need at least 2 metrics
+                    overall_score = np.mean(normalized_scores)
+                    overall_scores_across.append(overall_score)
+
+            # Compute consistency for overall scores
+            overall_consistency = self.consistency.compute_std_consistency(
+                overall_scores_across,
+                max_stds.get('cross_explanation_overall_score', 0.5)
+            )
+            if overall_consistency:
+                consistency_dict['overall_score'] = overall_consistency
 
             if consistency_dict:
                 cross_explainer_consistency_map[feature_id] = consistency_dict
@@ -1073,10 +1137,21 @@ class TableDataService:
                 cross_explainer_consistency = {
                     'embedding': precomputed.get('cross_explanation_consistency_embedding'),
                     'fuzz': precomputed.get('cross_explanation_consistency_fuzz'),
-                    'detection': precomputed.get('cross_explanation_consistency_detection')
+                    'detection': precomputed.get('cross_explanation_consistency_detection'),
+                    'overall_score': precomputed.get('cross_explanation_consistency_overall_score')
                 }
                 # Filter out None values
                 cross_explainer_consistency = {k: v for k, v in cross_explainer_consistency.items() if v is not None}
+
+            # Merge with real-time calculation if available (prefer real-time for overall_score)
+            real_time_consistency = cross_explainer_map.get(feature_id)
+            if real_time_consistency:
+                if cross_explainer_consistency is None:
+                    cross_explainer_consistency = real_time_consistency
+                else:
+                    # Merge: prefer real-time for overall_score if it exists
+                    if 'overall_score' in real_time_consistency:
+                        cross_explainer_consistency['overall_score'] = real_time_consistency['overall_score']
         else:
             # Use from real-time calculation map
             cross_explainer_consistency = cross_explainer_map.get(feature_id)
