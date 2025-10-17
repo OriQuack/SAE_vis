@@ -133,8 +133,10 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
   }, [filterOptions, autoLoad, initializeWithDefaultFilters])
 
   // Use custom hook to handle panel data loading (consolidates duplicate logic)
-  usePanelDataLoader('left', leftPanel, healthState.isHealthy, fetchMultipleHistogramData, fetchSankeyData)
-  usePanelDataLoader('right', rightPanel, healthState.isHealthy, fetchMultipleHistogramData, fetchSankeyData)
+  // Left panel: always load when healthy
+  // Right panel: only load when comparison view is visible
+  usePanelDataLoader('left', leftPanel, healthState.isHealthy, true, fetchSankeyData)
+  usePanelDataLoader('right', rightPanel, healthState.isHealthy, showComparisonView, fetchSankeyData)
 
   // Show loading/error states if health check hasn't passed
   if (!healthState.isHealthy) {

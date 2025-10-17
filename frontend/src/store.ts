@@ -19,7 +19,7 @@ import type {
   SortDirection
 } from './types'
 import { updateNodeThreshold, createRootOnlyTree, addStageToNode, removeStageFromNode } from './lib/threshold-utils'
-import { PANEL_LEFT, PANEL_RIGHT, METRIC_SEMSIM_MEAN } from './lib/constants'
+import { PANEL_LEFT, PANEL_RIGHT, METRIC_SEMSIM_MEAN, CONSISTENCY_TYPE_NONE } from './lib/constants'
 
 type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
 
@@ -181,7 +181,7 @@ const initialState = {
   tableSortDirection: null,
 
   // Consistency type selection (Table Panel)
-  selectedConsistencyType: 'none' as ConsistencyType,
+  selectedConsistencyType: CONSISTENCY_TYPE_NONE as ConsistencyType,
 
   // Hover state
   hoveredAlluvialNodeId: null,

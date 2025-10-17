@@ -220,12 +220,12 @@ class TableDataService:
                         suffix="_existing"
                     )
                     # Coalesce each column
-                    for col in ['scorer_consistency_fuzz', 'scorer_consistency_detection',
+                    for col in ['llm_scorer_consistency_fuzz', 'llm_scorer_consistency_detection',
                                 'within_explanation_metric_consistency',
-                                'cross_explanation_consistency_embedding',
-                                'cross_explanation_consistency_fuzz',
-                                'cross_explanation_consistency_detection',
-                                'cross_explanation_consistency_overall',
+                                'cross_explanation_metric_consistency_embedding',
+                                'cross_explanation_metric_consistency_fuzz',
+                                'cross_explanation_metric_consistency_detection',
+                                'cross_explanation_overall_score_consistency',
                                 'llm_explainer_consistency']:
                         consistency_df = consistency_df.with_columns(
                             pl.coalesce([pl.col(f"{col}_existing"), pl.col(col)]).alias(col)
@@ -502,14 +502,14 @@ class TableDataService:
             return None
 
         scorer_consistency = {}
-        if consistency_row.get('scorer_consistency_fuzz') is not None:
+        if consistency_row.get('llm_scorer_consistency_fuzz') is not None:
             scorer_consistency["fuzz"] = ConsistencyScore(
-                value=consistency_row['scorer_consistency_fuzz'],
+                value=consistency_row['llm_scorer_consistency_fuzz'],
                 method="std_based"
             )
-        if consistency_row.get('scorer_consistency_detection') is not None:
+        if consistency_row.get('llm_scorer_consistency_detection') is not None:
             scorer_consistency["detection"] = ConsistencyScore(
-                value=consistency_row['scorer_consistency_detection'],
+                value=consistency_row['llm_scorer_consistency_detection'],
                 method="std_based"
             )
 
@@ -547,24 +547,24 @@ class TableDataService:
             return None
 
         cross_consistency = {}
-        if consistency_row.get('cross_explanation_consistency_embedding') is not None:
+        if consistency_row.get('cross_explanation_metric_consistency_embedding') is not None:
             cross_consistency['embedding'] = ConsistencyScore(
-                value=consistency_row['cross_explanation_consistency_embedding'],
+                value=consistency_row['cross_explanation_metric_consistency_embedding'],
                 method="std_based"
             )
-        if consistency_row.get('cross_explanation_consistency_fuzz') is not None:
+        if consistency_row.get('cross_explanation_metric_consistency_fuzz') is not None:
             cross_consistency['fuzz'] = ConsistencyScore(
-                value=consistency_row['cross_explanation_consistency_fuzz'],
+                value=consistency_row['cross_explanation_metric_consistency_fuzz'],
                 method="std_based"
             )
-        if consistency_row.get('cross_explanation_consistency_detection') is not None:
+        if consistency_row.get('cross_explanation_metric_consistency_detection') is not None:
             cross_consistency['detection'] = ConsistencyScore(
-                value=consistency_row['cross_explanation_consistency_detection'],
+                value=consistency_row['cross_explanation_metric_consistency_detection'],
                 method="std_based"
             )
-        if consistency_row.get('cross_explanation_consistency_overall') is not None:
+        if consistency_row.get('cross_explanation_overall_score_consistency') is not None:
             cross_consistency['overall_score'] = ConsistencyScore(
-                value=consistency_row['cross_explanation_consistency_overall'],
+                value=consistency_row['cross_explanation_overall_score_consistency'],
                 method="std_based"
             )
 

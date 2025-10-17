@@ -4,11 +4,11 @@ This file provides comprehensive guidance to Claude Code when working with the R
 
 ## Current Status: ✅ ADVANCED MULTI-VISUALIZATION RESEARCH PROTOTYPE
 
-**Phase 1-6 Complete**: ✅ Sankey, Alluvial, Histogram, LLM Comparison, UMAP
-**Phase 7 Active**: 🔨 TablePanel with feature-level scoring and consistency analysis
+**Phase 1-7 Complete**: ✅ Sankey, Alluvial, Histogram, LLM Comparison, UMAP, TablePanel
+**Phase 8 Active**: 🔨 Consistency Score Integration - Consistency-based Sankey classification stages
 **Development Server**: http://localhost:3003 (active with hot reload)
 **Technology**: React 19.1.1, TypeScript 5.8.3, Zustand, D3.js
-**Status**: Conference-ready with 7 visualization types
+**Status**: Conference-ready with 7 visualization types + consistency analysis
 
 ## Technology Stack & Architecture
 
@@ -566,7 +566,7 @@ User Interaction → State Update → API Request → Data Processing → UI Upd
 - ✅ **Cross-Panel Linking**: Feature-explanation cluster highlighting
 - ✅ **Backend**: POST /api/umap-data with pre-calculated projections
 
-### 🔨 Phase 7: TablePanel Visualization (ACTIVE - Current)
+### ✅ Phase 7: TablePanel Visualization (COMPLETE - October 2025)
 
 **Purpose**: Feature-level scoring table with consistency analysis and cell group selection
 
@@ -645,11 +645,43 @@ User Interaction → State Update → API Request → Data Processing → UI Upd
 - ✅ **RequestAnimationFrame**: Debounced scroll measurements
 - ✅ **Memoized Calculations**: useMemo for sorted features, color layouts, group calculations
 
+### 🔨 Phase 8: Consistency Score Integration (ACTIVE - October 2025)
+
+**Purpose**: Integrate pre-computed consistency scores into Sankey classification workflow
+
+**Backend Integration:**
+- ✅ **consistency_scores.parquet**: Pre-computed consistency data loaded by backend
+- ✅ **ConsistencyService**: Backend service with 8 consistency metrics
+- ✅ **Data Loading**: Visualization service loads consistency scores alongside feature data
+
+**Consistency Metrics Available:**
+1. **LLM Scorer Consistency** (fuzz, detection): Consistency across scorers for same explainer
+2. **Within-Explanation Metric Consistency**: Consistency across metrics within explainer
+3. **Cross-Explanation Metric Consistency** (embedding, fuzz, detection): Per-metric consistency across explainers
+4. **Cross-Explanation Overall Score Consistency**: Overall score consistency across explainers
+5. **LLM Explainer Consistency**: Semantic similarity between LLM explanations
+
+**Frontend Work (In Progress):**
+- 🔨 **Consistency Stage Addition**: Add consistency-based classification stage to Sankey
+- 🔨 **Type Definitions**: Update types.ts with consistency score types
+- 🔨 **Threshold Tree Updates**: Add consistency metrics to split rules
+- 🔨 **Sankey Node Updates**: Display consistency percentile ranges in nodes
+- 🔨 **Histogram Support**: Add consistency metric histograms for threshold selection
+
+**Implementation Plan:**
+1. Update `types.ts` with consistency-related types
+2. Modify `constants.ts` to include consistency metrics
+3. Add consistency stage support in `dynamic-tree-builder.ts`
+4. Update `d3-sankey-utils.ts` for consistency node visualization
+5. Integrate consistency histograms in `HistogramPanel.tsx`
+6. Test end-to-end consistency-based classification
+
 ### 📝 Future Enhancements
 - **TablePanel**: Export selected cell groups to CSV/JSON
 - **UMAP**: Cross-visualization linking with TablePanel selections
-- **Dynamic LLM Computation**: Real-time consistency calculation based on filters
+- **Dynamic Consistency**: Real-time consistency calculation for custom filter combinations
 - **Debug View**: Individual feature inspection with path visualization
+- **Consistency Filters**: Filter features by consistency thresholds across visualizations
 
 ## Critical Development Notes
 
@@ -658,7 +690,7 @@ User Interaction → State Update → API Request → Data Processing → UI Upd
 3. **Performance**: D3 calculations with React.memo, useMemo, useCallback
 4. **State Management**: Centralized Zustand store with dual-panel architecture
 5. **Component Architecture**: Separation of concerns (components/lib/api/store)
-6. **Current Branch**: `table` (Phase 7 development)
+6. **Current Branch**: `add_cons_stage` (Phase 8 development)
 
 ## Project Assessment
 

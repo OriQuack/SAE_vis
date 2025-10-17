@@ -30,7 +30,12 @@ import {
   CATEGORY_ROOT,
   CATEGORY_FEATURE_SPLITTING,
   CATEGORY_SEMANTIC_SIMILARITY,
-  CATEGORY_CONSISTENCY
+  CATEGORY_CONSISTENCY,
+  CONSISTENCY_TYPE_LLM_SCORER,
+  CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC,
+  CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC,
+  CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE,
+  CONSISTENCY_TYPE_LLM_EXPLAINER
 } from './constants'
 
 // ============================================================================
@@ -131,44 +136,44 @@ export const AVAILABLE_STAGE_TYPES: StageTypeConfig[] = [
     defaultThresholds: [0.88]  // Updated from 0.1 (distance) to 0.88 (similarity median)
   },
   {
-    id: 'llm_scorer_consistency',
+    id: CONSISTENCY_TYPE_LLM_SCORER,
     name: 'LLM Scorer Consistency',
     description: 'Split features into 10 percentiles by scorer consistency',
     category: CATEGORY_CONSISTENCY,
     defaultSplitRule: 'expression',
-    defaultMetric: 'llm_scorer_consistency'
+    defaultMetric: CONSISTENCY_TYPE_LLM_SCORER
   },
   {
-    id: 'within_explanation_score',
-    name: 'Within-Explanation Consistency',
-    description: 'Split features into 10 percentiles by within-explanation consistency',
+    id: CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC,
+    name: 'Within-Explanation Metric Consistency',
+    description: 'Split features into 10 percentiles by within-explanation metric consistency',
     category: CATEGORY_CONSISTENCY,
     defaultSplitRule: 'expression',
-    defaultMetric: 'within_explanation_score'
+    defaultMetric: CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC
   },
   {
-    id: 'cross_explanation_score',
-    name: 'Cross-Explanation Consistency',
-    description: 'Split features into 10 percentiles by cross-explanation consistency',
+    id: CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC,
+    name: 'Cross-Explanation Metric Consistency',
+    description: 'Split features into 10 percentiles by cross-explanation metric consistency',
     category: CATEGORY_CONSISTENCY,
     defaultSplitRule: 'expression',
-    defaultMetric: 'cross_explanation_score'
+    defaultMetric: CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC
   },
   {
-    id: 'cross_explanation_overall_score',
-    name: 'Cross-Explanation Overall',
-    description: 'Split features into 10 percentiles by cross-explanation overall consistency',
+    id: CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE,
+    name: 'Cross-Explanation Overall Score Consistency',
+    description: 'Split features into 10 percentiles by cross-explanation overall score consistency',
     category: CATEGORY_CONSISTENCY,
     defaultSplitRule: 'expression',
-    defaultMetric: 'cross_explanation_overall_score'
+    defaultMetric: CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE
   },
   {
-    id: 'llm_explainer_consistency',
+    id: CONSISTENCY_TYPE_LLM_EXPLAINER,
     name: 'LLM Explainer Consistency',
     description: 'Split features into 10 percentiles by explainer consistency',
     category: CATEGORY_CONSISTENCY,
     defaultSplitRule: 'expression',
-    defaultMetric: 'llm_explainer_consistency'
+    defaultMetric: CONSISTENCY_TYPE_LLM_EXPLAINER
   }
 ] as const
 
@@ -582,11 +587,11 @@ function getStageTypeFromSplitRule(splitRule: SplitRule): string | null {
     // Check if this is a consistency metric
     if (metrics.length === 1) {
       const metric = metrics[0]
-      if (metric === 'llm_scorer_consistency') return 'llm_scorer_consistency'
-      if (metric === 'within_explanation_score') return 'within_explanation_score'
-      if (metric === 'cross_explanation_score') return 'cross_explanation_score'
-      if (metric === 'cross_explanation_overall_score') return 'cross_explanation_overall_score'
-      if (metric === 'llm_explainer_consistency') return 'llm_explainer_consistency'
+      if (metric === CONSISTENCY_TYPE_LLM_SCORER) return CONSISTENCY_TYPE_LLM_SCORER
+      if (metric === CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC) return CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC
+      if (metric === CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC) return CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC
+      if (metric === CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE) return CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE
+      if (metric === CONSISTENCY_TYPE_LLM_EXPLAINER) return CONSISTENCY_TYPE_LLM_EXPLAINER
     }
   }
 
@@ -617,11 +622,11 @@ function getStageTypeFromParentInfo(parentPath: ParentPathInfo): string | null {
     const condition = splitRule.expression_info.condition
 
     // Check if this is a consistency metric by examining the condition
-    if (condition.includes('llm_scorer_consistency')) return 'llm_scorer_consistency'
-    if (condition.includes('within_explanation_score')) return 'within_explanation_score'
-    if (condition.includes('cross_explanation_score') && !condition.includes('overall')) return 'cross_explanation_score'
-    if (condition.includes('cross_explanation_overall_score')) return 'cross_explanation_overall_score'
-    if (condition.includes('llm_explainer_consistency')) return 'llm_explainer_consistency'
+    if (condition.includes(CONSISTENCY_TYPE_LLM_SCORER)) return CONSISTENCY_TYPE_LLM_SCORER
+    if (condition.includes(CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC)) return CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC
+    if (condition.includes(CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC) && !condition.includes('overall')) return CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC
+    if (condition.includes(CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE)) return CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE
+    if (condition.includes(CONSISTENCY_TYPE_LLM_EXPLAINER)) return CONSISTENCY_TYPE_LLM_EXPLAINER
   }
 
   return null

@@ -19,7 +19,10 @@ import {
   PATTERN_STATE_HIGH, PATTERN_STATE_LOW, PATTERN_STATE_IN_RANGE, PATTERN_STATE_OUT_RANGE,
   METRIC_FEATURE_SPLITTING, METRIC_SEMSIM_MEAN, METRIC_SEMSIM_MAX,
   METRIC_SCORE_FUZZ, METRIC_SCORE_SIMULATION, METRIC_SCORE_DETECTION, METRIC_SCORE_EMBEDDING,
-  PANEL_LEFT, PANEL_RIGHT
+  PANEL_LEFT, PANEL_RIGHT,
+  CONSISTENCY_TYPE_NONE, CONSISTENCY_TYPE_LLM_SCORER, CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC,
+  CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC, CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE,
+  CONSISTENCY_TYPE_LLM_EXPLAINER
 } from './lib/constants'
 
 // Category Type Definition
@@ -457,10 +460,10 @@ export interface ExplainerScoreData {
   fuzz: ScorerScoreSet
   detection: ScorerScoreSet
   explanation_text?: string | null  // Explanation text for this explainer
-  scorer_consistency?: Record<string, ConsistencyScore>  // Per-metric std (fuzz, detection)
-  metric_consistency?: ConsistencyScore  // Cross-metric std
-  explainer_consistency?: ConsistencyScore  // Semantic consistency (avg pairwise cosine)
-  cross_explainer_metric_consistency?: Record<string, ConsistencyScore>  // Per-metric inverse std across explainers
+  llm_scorer_consistency?: Record<string, ConsistencyScore>  // Per-metric std (fuzz, detection)
+  within_explanation_metric_consistency?: ConsistencyScore  // Cross-metric std
+  llm_explainer_consistency?: ConsistencyScore  // Semantic consistency (avg pairwise cosine)
+  cross_explanation_metric_consistency?: Record<string, ConsistencyScore>  // Per-metric inverse std across explainers
 }
 
 export interface FeatureTableRow {
@@ -490,12 +493,12 @@ export interface FeatureTableDataResponse {
 
 // Consistency Type for Table Header
 export type ConsistencyType =
-  | 'none'                           // No consistency coloring
-  | 'llm_scorer_consistency'         // LLM Scorer Consistency (within-metric consistency)
-  | 'within_explanation_score'       // Within-explanation score consistency
-  | 'cross_explanation_score'        // Cross-explanation score consistency (individual metrics)
-  | 'cross_explanation_overall_score' // Cross-explanation overall score consistency
-  | 'llm_explainer_consistency'      // LLM Explainer consistency (semantic consistency)
+  | typeof CONSISTENCY_TYPE_NONE                                    // No consistency coloring
+  | typeof CONSISTENCY_TYPE_LLM_SCORER                              // LLM Scorer Consistency (within-metric consistency)
+  | typeof CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC               // Within-explanation metric consistency
+  | typeof CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC                // Cross-explanation metric consistency (individual metrics)
+  | typeof CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE         // Cross-explanation overall score consistency
+  | typeof CONSISTENCY_TYPE_LLM_EXPLAINER                           // LLM Explainer consistency (semantic consistency)
 
 // Table Sorting Types (simplified for new table structure)
 export type SortDirection = 'asc' | 'desc' | null
@@ -504,11 +507,11 @@ export type SortBy =
   | 'featureId'
   | 'overallScore'
   | 'minConsistency'
-  | 'llm_scorer_consistency'
-  | 'within_explanation_score'
-  | 'cross_explanation_score'
-  | 'cross_explanation_overall_score'
-  | 'llm_explainer_consistency'
+  | typeof CONSISTENCY_TYPE_LLM_SCORER
+  | typeof CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC
+  | typeof CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC
+  | typeof CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE
+  | typeof CONSISTENCY_TYPE_LLM_EXPLAINER
   | null
 
 // ============================================================================

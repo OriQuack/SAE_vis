@@ -8,12 +8,12 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 
 ## Current Project Status: 🚀 ADVANCED RESEARCH PROTOTYPE
 
-**Phase 1-6 Complete**: ✅ Sankey, Alluvial, Histogram, LLM Comparison, UMAP visualizations
-**Phase 7 Active**: 🔨 TablePanel with feature-level scoring and consistency analysis
-**Current State**: Advanced research prototype with 7 visualization types
+**Phase 1-7 Complete**: ✅ Sankey, Alluvial, Histogram, LLM Comparison, UMAP, TablePanel visualizations
+**Phase 8 Active**: 🔨 Consistency Scoring Integration - Pre-computed consistency scores for Sankey classification
+**Current State**: Advanced research prototype with 7 visualization types + consistency analysis
 **Active Usage**: Development servers on ports 8003 (backend) and 3003 (frontend)
 **Technical Readiness**: Conference-ready with production-grade performance
-**New Features**: Feature-level table with cell selection, consistency scoring, and saved groups
+**New Features**: Pre-computed consistency scores, consistency-based Sankey stages, feature-level table with cell selection
 
 ## Technology Stack & Architecture
 
@@ -82,6 +82,7 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 │   │   └── services/               # Business logic layer
 │   │       ├── visualization_service.py  # High-performance Polars visualization service
 │   │       ├── table_data_service.py     # Table data processing service (Phase 7)
+│   │       ├── consistency_service.py    # Consistency score calculations (Phase 8)
 │   │       ├── feature_classifier.py     # V2 feature classification engine
 │   │       ├── rule_evaluators.py        # Split rule evaluation logic
 │   │       ├── node_labeler.py           # Sankey node display name generation
@@ -135,7 +136,8 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 │   └── CLAUDE.md                  # ✅ Frontend-specific documentation
 ├── data/                           # ✅ Data Processing Pipeline
 │   ├── master/
-│   │   └── feature_analysis.parquet # Master data file (1,648 features)
+│   │   ├── feature_analysis.parquet # Master data file (1,648 features)
+│   │   └── consistency_scores.parquet # Pre-computed consistency scores (Phase 8)
 │   ├── detailed_json/              # Individual feature JSON files
 │   ├── umap_feature/               # Feature UMAP embeddings and visualizations
 │   ├── umap_explanations/          # Explanation UMAP embeddings
@@ -169,15 +171,15 @@ Stage 0: Root (All Features: 1,648)
 Stage 1: Feature Splitting (True/False based on configurable threshold)
          ↓ [Range Rule: semdist_mean threshold]
 Stage 2: Semantic Distance (High/Low based on configurable threshold)
-         ↓ [Pattern Rule: Multi-metric scoring agreement]
-Stage 3: Score Agreement (Flexible N-way classification)
-         ├── All N High (all scores ≥ threshold)
-         ├── N-1 High (exactly N-1 scores ≥ threshold)
-         ├── ... (configurable patterns)
-         └── All N Low (all scores < threshold)
+         ↓ [Range Rule: Consistency score thresholds]
+Stage 3: Consistency (Percentile-based classification using pre-computed scores)
+         ├── High Consistency (top percentile)
+         ├── Medium Consistency (middle percentile)
+         ├── ... (configurable thresholds)
+         └── Low Consistency (bottom percentile)
 
 Note: Stage order and scoring methods are fully configurable through
-threshold tree structure. Not limited to 3 scores or fixed pipeline.
+threshold tree structure. Consistency scores are pre-computed for optimal performance.
 ```
 
 ### ✅ FRONTEND: Advanced React Application
@@ -409,7 +411,7 @@ npm run preview
 - ✅ **Cross-Panel Linking**: Feature-explanation cluster highlighting
 - ✅ **Backend**: POST /api/umap-data with pre-calculated projections
 
-### 🔨 Phase 7: TablePanel Visualization (ACTIVE - Current)
+### ✅ Phase 7: TablePanel Visualization (COMPLETE - October 2025)
 - ✅ **Feature-Level Scoring**: 824 rows with embedding/fuzz/detection scores per explainer
 - ✅ **Consistency Types**: LLM Scorer, Within-explanation, Cross-explanation, LLM Explainer
 - ✅ **Cell Group Selection**: Drag-to-select with union/difference modes
@@ -420,22 +422,38 @@ npm run preview
 - ✅ **Backend**: POST /api/table-data with consistency calculations
 - ✅ **Real-time Coloring**: Green→yellow→red consistency gradient
 
+### 🔨 Phase 8: Consistency Score Integration (ACTIVE - October 2025)
+- ✅ **Pre-computed Consistency Scores**: consistency_scores.parquet with 8 consistency metrics
+- ✅ **Consistency Service**: Backend service for consistency calculations (consistency_service.py)
+- ✅ **Consistency Types**:
+  - LLM Scorer Consistency (fuzz, detection): Consistency across different scorers
+  - Within-Explanation Metric Consistency: Consistency across metrics within same explainer
+  - Cross-Explanation Metric Consistency (embedding, fuzz, detection): Consistency across explainers per metric
+  - Cross-Explanation Overall Score Consistency: Overall score consistency across explainers
+  - LLM Explainer Consistency: Semantic similarity between explanations from different LLMs
+- ✅ **Sankey Integration**: Consistency-based classification stage replacing score agreement
+- ✅ **Preprocessing Script**: 8_precompute_consistency_scores.py for batch calculation
+- ✅ **Performance Optimization**: Pre-computed values for faster Sankey generation
+- 🔨 **Frontend Integration**: Adding consistency stage to Sankey visualization (in progress)
+
 ### 📝 Future Enhancements
+- **Consistency Stage**: Complete frontend integration with consistency-based Sankey classification
 - **TablePanel**: Export selected cell groups to CSV/JSON
 - **UMAP**: Cross-visualization linking with TablePanel selections
-- **Dynamic LLM Computation**: Real-time consistency calculation instead of pre-calculated stats
+- **Dynamic Consistency**: Real-time consistency calculation for custom filter combinations
 - **Debug View**: Individual feature inspection with detailed path visualization
 
 ## Important Development Notes
 
 1. **Data Files**:
    - Master parquet: `/data/master/feature_analysis.parquet` (1,648 features)
+   - Consistency scores: `/data/master/consistency_scores.parquet` (pre-computed, 8 metrics)
    - LLM stats: `/data/llm_comparison/llm_comparison_stats.json`
    - UMAP projections: `/data/umap_feature/`, `/data/umap_explanations/`, `/data/umap_clustering/`
 2. **Port Configuration**: Backend 8003, Frontend 3003
 3. **Type Safety**: Full TypeScript integration - maintain type definitions
 4. **Testing**: Run `python test_api.py` after backend changes
-5. **Current Branch**: `table` (Phase 7 development)
+5. **Current Branch**: `add_cons_stage` (Phase 8 development)
 
 ## Project Maturity Assessment
 

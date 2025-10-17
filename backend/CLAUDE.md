@@ -4,7 +4,7 @@ This file provides comprehensive guidance to Claude Code when working with the F
 
 ## Project Status: ✅ OPTIMIZED RESEARCH PROTOTYPE
 
-Production-ready FastAPI backend with 9 operational endpoints, V2 classification engine, and ParentPath-based performance optimizations (20-30% faster). Supports 7 visualization types: Sankey, Alluvial, Histogram, LLM Comparison, UMAP, TablePanel, and feature details.
+Production-ready FastAPI backend with 9 operational endpoints, V2 classification engine, ConsistencyService for pre-computed consistency scores, and ParentPath-based performance optimizations (20-30% faster). Supports 7 visualization types: Sankey, Alluvial, Histogram, LLM Comparison, UMAP, TablePanel, and feature details. Phase 8 active: Consistency score integration for Sankey classification.
 
 ## Architecture Overview
 
@@ -77,6 +77,7 @@ backend/
 │   └── services/
 │       ├── visualization_service.py  # 🏭 Polars visualization service
 │       ├── table_data_service.py     # 📊 Table data processing (Phase 7)
+│       ├── consistency_service.py    # 📈 Consistency score calculations (Phase 8)
 │       ├── feature_classifier.py     # 🔧 V2 classification engine
 │       ├── rule_evaluators.py        # ⚙️ Split rule evaluation
 │       ├── node_labeler.py           # 🎨 Node display name generation
@@ -316,6 +317,85 @@ class TableDataService:
 - Calculates consistency as (1 - coefficient_of_variation)
 - Handles missing values and edge cases
 - Returns structured error responses for invalid filters
+
+### 📈 Consistency Service (Phase 8 - NEW)
+
+**Purpose**: Centralized consistency score calculations for both real-time and pre-computed use cases
+
+**Location**: `app/services/consistency_service.py` (1,174 lines)
+
+**Key Features:**
+- **Pre-computed Score Support**: Loads consistency_scores.parquet with 8 pre-computed metrics
+- **Dynamic Calculation**: Falls back to real-time calculation when pre-computed data unavailable
+- **Multiple Consistency Methods**:
+  - Standard deviation-based consistency: `1 - (std / max_std_actual)`
+  - Z-score normalization for cross-metric comparison
+  - Semantic similarity aggregation for explainer consistency
+- **Stateless Architecture**: All methods are static for pure functional calculations
+
+**Consistency Types:**
+1. **LLM Scorer Consistency** (fuzz, detection):
+   - Measures consistency across different scorers for same explainer+metric
+   - Formula: `1 - (std / max_std_actual)`
+   - Separate calculations for fuzz and detection metrics
+
+2. **Within-Explanation Metric Consistency**:
+   - Measures consistency across metrics (embedding, fuzz, detection) within same explainer
+   - Uses z-score normalization to account for different metric scales
+   - Formula: `1 - (std_z_score / max_std_z_score)`
+
+3. **Cross-Explanation Metric Consistency** (embedding, fuzz, detection):
+   - Measures consistency of each metric across different explainers
+   - Separate scores for embedding, fuzz, and detection
+   - Formula: `1 - (std / max_std_actual)`
+
+4. **Cross-Explanation Overall Score Consistency**:
+   - Measures overall score consistency across explainers
+   - Overall score = avg(z_score(embedding), z_score(avg(fuzz)), z_score(avg(detection)))
+   - Formula: `1 - (std / max_std_actual)`
+
+5. **LLM Explainer Consistency**:
+   - Semantic similarity between explanations from different LLMs
+   - Uses average pairwise cosine similarity from pairwise parquet
+   - Formula: `avg_pairwise_cosine_similarity`
+
+**Data Sources:**
+- **Pre-computed**: `/data/master/consistency_scores.parquet` (2,471 rows)
+- **Pairwise Similarity**: `/data/master/semantic_similarity_pairwise.parquet` (2,470 rows)
+- **Feature Analysis**: `/data/master/feature_analysis.parquet` (for dynamic calculation)
+
+**Key Methods:**
+```python
+class ConsistencyService:
+    # Std-based consistency (main method)
+    compute_std_consistency(scores, max_std) -> ConsistencyScore
+
+    # Z-score normalization for within-explanation
+    compute_normalized_std_consistency(values, global_stats, max_std) -> ConsistencyScore
+
+    # Semantic similarity for explainer consistency
+    compute_semantic_similarity_consistency(feature_id, explainers, pairwise_df) -> ConsistencyScore
+
+    # Batch calculation for all consistency types
+    calculate_all_consistency(df, explainer_ids, feature_ids, pairwise_df) -> DataFrame
+
+    # Dynamic max_std computation
+    compute_max_stds(df, explainer_ids, global_stats) -> Dict[str, float]
+
+    # Cross-explainer consistency for all metrics
+    compute_cross_explainer_consistency_all_metrics(...) -> Dict[int, Dict[str, ConsistencyScore]]
+```
+
+**Performance Characteristics:**
+- **Pre-computed Mode**: Sub-10ms lookups from parquet
+- **Dynamic Mode**: ~100-200ms for batch calculation (all consistency types)
+- **Memory Efficient**: Uses Polars lazy evaluation
+- **Scalable**: Handles 2,471 rows × 8 consistency metrics efficiently
+
+**Integration Points:**
+- **Sankey Visualization**: Consistency scores used for percentile-based classification stage
+- **TablePanel**: Consistency overlay modes for feature-level analysis
+- **Future**: Cross-visualization consistency filtering and highlighting
 
 ## Data Service Architecture
 
@@ -752,11 +832,16 @@ API Endpoints → DataService (visualization_service.py)
 - ✅ **Comparison Endpoint**: Alluvial flow data generation (Phase 2)
 - ✅ **LLM Comparison Endpoint**: Pre-calculated consistency statistics (Phase 5)
 - ✅ **Threshold Features Endpoint**: Feature ID filtering for histogram panel (Phase 4)
+- ✅ **TablePanel Endpoint**: Feature-level scoring table with consistency analysis (Phase 7)
+- ✅ **Consistency Service**: Comprehensive consistency score calculations (Phase 8)
+- ✅ **Pre-computed Consistency**: consistency_scores.parquet with 8 metrics for performance
 - ✅ **Node Filtering**: Histogram data filtered by node path
 - ✅ **ParentPath Optimizations**: O(1) node lookups, path-based filtering, early termination
 - ✅ **Performance Validated**: 20-30% faster Sankey generation, 3-5x faster leaf filtering
 
 ### 📝 Future Enhancements
+- **Consistency Stage**: Complete integration of consistency-based Sankey classification
+- **Dynamic Consistency**: Real-time consistency calculation for custom filter combinations
 - Redis caching for frequent queries
 - Database backend for larger datasets
 - API key authentication
@@ -766,11 +851,13 @@ API Endpoints → DataService (visualization_service.py)
 
 1. **Data Dependencies**:
    - Master parquet: `/data/master/feature_analysis.parquet` (1,648 features)
+   - Consistency scores: `/data/master/consistency_scores.parquet` (2,471 rows, 8 metrics)
+   - Pairwise similarity: `/data/master/semantic_similarity_pairwise.parquet` (2,470 rows)
    - LLM stats: `/data/llm_comparison/llm_comparison_stats.json`
    - UMAP files: `/data/umap_feature/`, `/data/umap_explanations/`, `/data/umap_clustering/`
 2. **Port Configuration**: Default 8003 (matches frontend)
 3. **Testing**: Run `python test_api.py` after changes
-4. **Current Branch**: `table` (Phase 7 development)
+4. **Current Branch**: `add_cons_stage` (Phase 8 development)
 
 The backend represents a research prototype implementation with flexible, configurable architecture, reliable error handling, and demonstration optimizations suitable for academic conference presentations and SAE research scenarios.
 

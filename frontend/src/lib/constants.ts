@@ -87,6 +87,26 @@ export const PANEL_SIDES = {
 } as const
 
 // ============================================================================
+// CONSISTENCY TYPES - Table consistency type identifiers
+// Used across: types.ts, d3-table-utils.ts, TablePanel.tsx, ConsistencyPanel.tsx, threshold-utils.ts, store.ts (6+ files)
+// ============================================================================
+export const CONSISTENCY_TYPE_NONE = "none"
+export const CONSISTENCY_TYPE_LLM_SCORER = "llm_scorer_consistency"
+export const CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC = "within_explanation_metric_consistency"
+export const CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC = "cross_explanation_metric_consistency"
+export const CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE = "cross_explanation_overall_score_consistency"
+export const CONSISTENCY_TYPE_LLM_EXPLAINER = "llm_explainer_consistency"
+
+export const CONSISTENCY_TYPES = {
+  NONE: CONSISTENCY_TYPE_NONE,
+  LLM_SCORER: CONSISTENCY_TYPE_LLM_SCORER,
+  WITHIN_EXPLANATION_METRIC: CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC,
+  CROSS_EXPLANATION_METRIC: CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC,
+  CROSS_EXPLANATION_OVERALL_SCORE: CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE,
+  LLM_EXPLAINER: CONSISTENCY_TYPE_LLM_EXPLAINER
+} as const
+
+// ============================================================================
 // DISPLAY NAMES - Centralized UI string mappings
 // Used across: utils.ts, HistogramPopover.tsx, and other UI components (3+ files)
 // ============================================================================
@@ -377,3 +397,4 @@ export type SplitTypeValue = typeof SPLIT_TYPES[keyof typeof SPLIT_TYPES]
 export type PatternStateValue = typeof PATTERN_STATES[keyof typeof PATTERN_STATES]
 export type MetricTypeValue = typeof METRIC_TYPES[keyof typeof METRIC_TYPES]
 export type PanelSideValue = typeof PANEL_SIDES[keyof typeof PANEL_SIDES]
+export type ConsistencyTypeValue = typeof CONSISTENCY_TYPES[keyof typeof CONSISTENCY_TYPES]

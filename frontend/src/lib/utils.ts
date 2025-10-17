@@ -2,12 +2,7 @@
 // Simplified implementation for research prototype
 
 import { useRef, useEffect, useState, useCallback } from 'react'
-import type { MetricType, Filters, ThresholdTree, SankeyData, HistogramData } from '../types'
-import {
-  METRIC_SEMSIM_MEAN,
-  METRIC_SCORE_FUZZ,
-  METRIC_FEATURE_SPLITTING
-} from './constants'
+import type { Filters, ThresholdTree, SankeyData, HistogramData } from '../types'
 
 // ============================================================================
 // TYPES
@@ -114,56 +109,36 @@ export const useResizeObserver = <T extends HTMLElement = HTMLElement>({
 }
 
 /**
- * Hook to handle data loading for a panel (left or right)
- * Consolidates duplicate filter and threshold watching logic
+ * Hook to handle Sankey data loading for a panel (left or right)
+ * Simplified: No histogram data, single effect, smart triggering
+ * Only loads data when panel is visible to avoid unnecessary requests
  */
 export const usePanelDataLoader = (
   panel: 'left' | 'right',
   panelState: PanelState,
   isHealthy: boolean,
-  fetchMultipleHistogramData: (metrics: MetricType[], nodeId?: string, panel?: 'left' | 'right') => Promise<void>,
+  shouldLoad: boolean,  // Only load when panel is visible
   fetchSankeyData: (panel?: 'left' | 'right') => void
 ): void => {
-  // Watch for filter changes and fetch data
   useEffect(() => {
-    const loadData = async () => {
-      const hasActiveFilters = Object.values(panelState.filters).some(
-        (filterArray): filterArray is string[] => filterArray !== undefined && filterArray.length > 0
-      )
-
-      if (hasActiveFilters) {
-        try {
-          await fetchMultipleHistogramData(
-            [METRIC_FEATURE_SPLITTING, METRIC_SEMSIM_MEAN, METRIC_SCORE_FUZZ],
-            undefined,
-            panel
-          )
-          fetchSankeyData(panel)
-        } catch (error) {
-          console.error(`Failed to load ${panel} visualization data:`, error)
-        }
-      }
-    }
-
-    if (isHealthy) {
-      loadData()
-    }
-  }, [panelState.filters, isHealthy, fetchMultipleHistogramData, fetchSankeyData, panel])
-
-  // Watch for threshold changes and re-fetch Sankey data
-  useEffect(() => {
+    // Check if we have active filters
     const hasActiveFilters = Object.values(panelState.filters).some(
-      (filterArray): filterArray is string[] => filterArray !== undefined && filterArray.length > 0
+      (filterArray): filterArray is string[] =>
+        filterArray !== undefined && filterArray.length > 0
     )
 
-    if (hasActiveFilters && isHealthy) {
-      try {
-        fetchSankeyData(panel)
-      } catch (error) {
-        console.error(`Failed to update ${panel} Sankey data:`, error)
-      }
+    // Only fetch if: healthy + has filters + should load (visible)
+    if (isHealthy && hasActiveFilters && shouldLoad) {
+      fetchSankeyData(panel)
     }
-  }, [panelState.thresholdTree, panelState.filters, isHealthy, fetchSankeyData, panel])
+  }, [
+    panelState.filters,           // Re-fetch when filters change
+    panelState.thresholdTree,     // Re-fetch when thresholds change
+    isHealthy,
+    shouldLoad,                   // Re-fetch when visibility changes
+    fetchSankeyData,
+    panel
+  ])
 }
 
 // ============================================================================

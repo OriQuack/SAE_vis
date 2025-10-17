@@ -7,10 +7,11 @@ all LLM scorers are selected for each LLM explainer. Uses standard deviation-bas
 methods with actual max_std values computed from the data.
 
 Consistency Score Types:
-1. Scorer Consistency: 1 - (std / max_std_actual) across scorers
+1. LLM Scorer Consistency: 1 - (std / max_std_actual) across scorers
 2. Within-Explanation Metric Consistency: 1 - (std_normalized / max_std_normalized)
 3. Cross-Explanation Metric Consistency: 1 - (std / max_std_actual) across explainers
-4. LLM Explainer Consistency: Average pairwise cosine similarity
+4. Cross-Explanation Overall Score Consistency: 1 - (std / max_std_actual) for overall scores
+5. LLM Explainer Consistency: Average pairwise cosine similarity
 
 Output: consistency_scores.parquet with pre-computed values
 """
@@ -340,10 +341,10 @@ class ConsistencyPreprocessor:
             # Store feature-level consistency
             feature_rows.append({
                 'feature_id': feature_id,
-                'cross_explanation_consistency_embedding': cross_exp_consistency.get('embedding'),
-                'cross_explanation_consistency_fuzz': cross_exp_consistency.get('fuzz'),
-                'cross_explanation_consistency_detection': cross_exp_consistency.get('detection'),
-                'cross_explanation_consistency_overall': cross_exp_overall_consistency,
+                'cross_explanation_metric_consistency_embedding': cross_exp_consistency.get('embedding'),
+                'cross_explanation_metric_consistency_fuzz': cross_exp_consistency.get('fuzz'),
+                'cross_explanation_metric_consistency_detection': cross_exp_consistency.get('detection'),
+                'cross_explanation_overall_score_consistency': cross_exp_overall_consistency,
                 'llm_explainer_consistency': llm_explainer_consistency
             })
 
@@ -362,8 +363,8 @@ class ConsistencyPreprocessor:
                 feature_explainer_rows.append({
                     'feature_id': feature_id,
                     'llm_explainer': explainer,
-                    'scorer_consistency_fuzz': scorer_consistency.get('fuzz'),
-                    'scorer_consistency_detection': scorer_consistency.get('detection'),
+                    'llm_scorer_consistency_fuzz': scorer_consistency.get('fuzz'),
+                    'llm_scorer_consistency_detection': scorer_consistency.get('detection'),
                     'within_explanation_metric_consistency': within_consistency
                 })
 
@@ -601,13 +602,13 @@ class ConsistencyPreprocessor:
         df = df.with_columns([
             pl.col("feature_id").cast(pl.UInt32),
             pl.col("llm_explainer").cast(pl.Categorical),
-            pl.col("scorer_consistency_fuzz").cast(pl.Float32),
-            pl.col("scorer_consistency_detection").cast(pl.Float32),
+            pl.col("llm_scorer_consistency_fuzz").cast(pl.Float32),
+            pl.col("llm_scorer_consistency_detection").cast(pl.Float32),
             pl.col("within_explanation_metric_consistency").cast(pl.Float32),
-            pl.col("cross_explanation_consistency_embedding").cast(pl.Float32),
-            pl.col("cross_explanation_consistency_fuzz").cast(pl.Float32),
-            pl.col("cross_explanation_consistency_detection").cast(pl.Float32),
-            pl.col("cross_explanation_consistency_overall").cast(pl.Float32),
+            pl.col("cross_explanation_metric_consistency_embedding").cast(pl.Float32),
+            pl.col("cross_explanation_metric_consistency_fuzz").cast(pl.Float32),
+            pl.col("cross_explanation_metric_consistency_detection").cast(pl.Float32),
+            pl.col("cross_explanation_overall_score_consistency").cast(pl.Float32),
             pl.col("llm_explainer_consistency").cast(pl.Float32)
         ])
 
@@ -618,13 +619,13 @@ class ConsistencyPreprocessor:
         column_descriptions = {
             'feature_id': 'SAE feature index (0-823)',
             'llm_explainer': 'LLM model used for generating feature explanations',
-            'scorer_consistency_fuzz': 'Scorer consistency for fuzz metric across 3 scorers: 1 - (std / max_std_actual)',
-            'scorer_consistency_detection': 'Scorer consistency for detection metric across 3 scorers: 1 - (std / max_std_actual)',
+            'llm_scorer_consistency_fuzz': 'LLM scorer consistency for fuzz metric across 3 scorers: 1 - (std / max_std_actual)',
+            'llm_scorer_consistency_detection': 'LLM scorer consistency for detection metric across 3 scorers: 1 - (std / max_std_actual)',
             'within_explanation_metric_consistency': 'Consistency across 3 metrics (embedding, fuzz, detection) within a single explainer using z-score normalization: 1 - (std_z_score / max_std_z_score)',
-            'cross_explanation_consistency_embedding': 'Consistency of embedding scores across 3 LLM explainers: 1 - (std / max_std_actual)',
-            'cross_explanation_consistency_fuzz': 'Consistency of fuzz scores across 3 LLM explainers: 1 - (std / max_std_actual)',
-            'cross_explanation_consistency_detection': 'Consistency of detection scores across 3 LLM explainers: 1 - (std / max_std_actual)',
-            'cross_explanation_consistency_overall': 'Consistency of overall scores across 3 LLM explainers, where overall_score = avg(z_score(emb), z_score(avg(fuzz)), z_score(avg(det))): 1 - (std / max_std_actual)',
+            'cross_explanation_metric_consistency_embedding': 'Consistency of embedding scores across 3 LLM explainers: 1 - (std / max_std_actual)',
+            'cross_explanation_metric_consistency_fuzz': 'Consistency of fuzz scores across 3 LLM explainers: 1 - (std / max_std_actual)',
+            'cross_explanation_metric_consistency_detection': 'Consistency of detection scores across 3 LLM explainers: 1 - (std / max_std_actual)',
+            'cross_explanation_overall_score_consistency': 'Consistency of overall scores across 3 LLM explainers, where overall_score = avg(z_score(emb), z_score(avg(fuzz)), z_score(avg(det))): 1 - (std / max_std_actual)',
             'llm_explainer_consistency': 'Semantic similarity between explanations from different LLM explainers: average pairwise cosine similarity'
         }
 
@@ -670,10 +671,10 @@ class ConsistencyPreprocessor:
             'global_statistics': self.global_stats,
             'max_std_values': self.max_stds,
             'consistency_methods': {
-                'scorer_consistency': '1 - (std / max_std_actual)',
+                'llm_scorer_consistency': '1 - (std / max_std_actual)',
                 'within_explanation_metric_consistency': '1 - (std_z_score / max_std_z_score)',
-                'cross_explanation_consistency': '1 - (std / max_std_actual)',
-                'cross_explanation_overall_consistency': '1 - (std / max_std_actual), overall_score = avg(z_score(emb), z_score(avg(fuzz)), z_score(avg(det)))',
+                'cross_explanation_metric_consistency': '1 - (std / max_std_actual)',
+                'cross_explanation_overall_score_consistency': '1 - (std / max_std_actual), overall_score = avg(z_score(emb), z_score(avg(fuzz)), z_score(avg(det)))',
                 'llm_explainer_consistency': 'avg_pairwise_cosine_similarity'
             },
             'normalization': 'Z-score normalization (value - mean) / std for within-explanation consistency and overall score computation'

@@ -642,14 +642,14 @@ class DataService:
                 return filtered_df
 
             # Compute MIN consistency per feature across all explainers and metrics
-            # For each feature: min(all scorer_consistency_fuzz and scorer_consistency_detection values)
+            # For each feature: min(all llm_scorer_consistency_fuzz and llm_scorer_consistency_detection values)
             min_consistency_per_feature = (
                 consistency_df
                 .select([
                     pl.col("feature_id"),
                     pl.min_horizontal([
-                        pl.col("scorer_consistency_fuzz"),
-                        pl.col("scorer_consistency_detection")
+                        pl.col("llm_scorer_consistency_fuzz"),
+                        pl.col("llm_scorer_consistency_detection")
                     ]).alias("min_per_explainer")
                 ])
                 .group_by("feature_id")
@@ -756,12 +756,6 @@ class DataService:
                 on=["feature_id", "llm_explainer"],
                 how="left"
             )
-
-            # Add column aliases for frontend compatibility
-            result_df = result_df.with_columns([
-                pl.col("scorer_consistency_fuzz").alias("llm_scorer_consistency_fuzz"),
-                pl.col("scorer_consistency_detection").alias("llm_scorer_consistency_detection")
-            ])
 
             metrics_computed = "llm_scorer_consistency, within_explanation_score"
             if cross_explanation_overall_score_df is not None and len(cross_explanation_overall_score_df) > 0:

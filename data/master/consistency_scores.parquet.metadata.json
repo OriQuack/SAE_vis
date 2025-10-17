@@ -1,5 +1,5 @@
 {
-  "created_at": "2025-10-17T22:52:32.977901",
+  "created_at": "2025-10-18T01:40:16.535863",
   "total_rows": 2471,
   "unique_features": 824,
   "explainers": [
@@ -30,14 +30,14 @@
       "description": "LLM model used for generating feature explanations",
       "unique_values": 3,
       "value_counts": {
-        "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4": 824,
         "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8": 824,
-        "openai/gpt-oss-20b": 823
+        "openai/gpt-oss-20b": 823,
+        "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4": 824
       }
     },
-    "scorer_consistency_fuzz": {
+    "llm_scorer_consistency_fuzz": {
       "dtype": "Float32",
-      "description": "Scorer consistency for fuzz metric across 3 scorers: 1 - (std / max_std_actual)",
+      "description": "LLM scorer consistency for fuzz metric across 3 scorers: 1 - (std / max_std_actual)",
       "statistics": {
         "count": 2471,
         "null_count": 0,
@@ -47,9 +47,9 @@
         "std": 0.142067089676857
       }
     },
-    "scorer_consistency_detection": {
+    "llm_scorer_consistency_detection": {
       "dtype": "Float32",
-      "description": "Scorer consistency for detection metric across 3 scorers: 1 - (std / max_std_actual)",
+      "description": "LLM scorer consistency for detection metric across 3 scorers: 1 - (std / max_std_actual)",
       "statistics": {
         "count": 2471,
         "null_count": 0,
@@ -71,7 +71,7 @@
         "std": 0.15514284372329712
       }
     },
-    "cross_explanation_consistency_embedding": {
+    "cross_explanation_metric_consistency_embedding": {
       "dtype": "Float32",
       "description": "Consistency of embedding scores across 3 LLM explainers: 1 - (std / max_std_actual)",
       "statistics": {
@@ -83,7 +83,7 @@
         "std": 0.13132590055465698
       }
     },
-    "cross_explanation_consistency_fuzz": {
+    "cross_explanation_metric_consistency_fuzz": {
       "dtype": "Float32",
       "description": "Consistency of fuzz scores across 3 LLM explainers: 1 - (std / max_std_actual)",
       "statistics": {
@@ -95,7 +95,7 @@
         "std": 0.15116965770721436
       }
     },
-    "cross_explanation_consistency_detection": {
+    "cross_explanation_metric_consistency_detection": {
       "dtype": "Float32",
       "description": "Consistency of detection scores across 3 LLM explainers: 1 - (std / max_std_actual)",
       "statistics": {
@@ -107,7 +107,7 @@
         "std": 0.17228840291500092
       }
     },
-    "cross_explanation_consistency_overall": {
+    "cross_explanation_overall_score_consistency": {
       "dtype": "Float32",
       "description": "Consistency of overall scores across 3 LLM explainers, where overall_score = avg(z_score(emb), z_score(avg(fuzz)), z_score(avg(det))): 1 - (std / max_std_actual)",
       "statistics": {
@@ -162,10 +162,10 @@
     "cross_explanation_overall": 1.5347681508085314
   },
   "consistency_methods": {
-    "scorer_consistency": "1 - (std / max_std_actual)",
+    "llm_scorer_consistency": "1 - (std / max_std_actual)",
     "within_explanation_metric_consistency": "1 - (std_z_score / max_std_z_score)",
-    "cross_explanation_consistency": "1 - (std / max_std_actual)",
-    "cross_explanation_overall_consistency": "1 - (std / max_std_actual), overall_score = avg(z_score(emb), z_score(avg(fuzz)), z_score(avg(det)))",
+    "cross_explanation_metric_consistency": "1 - (std / max_std_actual)",
+    "cross_explanation_overall_score_consistency": "1 - (std / max_std_actual), overall_score = avg(z_score(emb), z_score(avg(fuzz)), z_score(avg(det)))",
     "llm_explainer_consistency": "avg_pairwise_cosine_similarity"
   },
   "normalization": "Z-score normalization (value - mean) / std for within-explanation consistency and overall score computation"

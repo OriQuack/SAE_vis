@@ -330,13 +330,13 @@ class ConsistencyService:
         feature_ids = sorted(df['feature_id'].unique().to_list())
 
         # Collectors for std computation
-        scorer_stds_fuzz = []
-        scorer_stds_detection = []
+        llm_scorer_stds_fuzz = []
+        llm_scorer_stds_detection = []
         within_explanation_stds = []
-        cross_explanation_stds_embedding = []
-        cross_explanation_stds_fuzz = []
-        cross_explanation_stds_detection = []
-        cross_explanation_stds_overall_score = []
+        cross_explanation_metric_consistency_stds_embedding = []
+        cross_explanation_metric_consistency_stds_fuzz = []
+        cross_explanation_metric_consistency_stds_detection = []
+        cross_explanation_overall_score_consistency_stds = []
 
         for feature_id in feature_ids:
             feature_df = df.filter(pl.col("feature_id") == feature_id)
@@ -352,9 +352,9 @@ class ConsistencyService:
                 detection_scores = explainer_df['score_detection'].drop_nulls().to_list()
 
                 if len(fuzz_scores) >= 2:
-                    scorer_stds_fuzz.append(np.std(fuzz_scores, ddof=1))
+                    llm_scorer_stds_fuzz.append(np.std(fuzz_scores, ddof=1))
                 if len(detection_scores) >= 2:
-                    scorer_stds_detection.append(np.std(detection_scores, ddof=1))
+                    llm_scorer_stds_detection.append(np.std(detection_scores, ddof=1))
 
                 # Within-explanation consistency (normalized)
                 embedding_val = explainer_df['score_embedding'].drop_nulls().to_list()
@@ -409,11 +409,11 @@ class ConsistencyService:
                     detection_across.append(np.mean(detection_vals))
 
             if len(embedding_across) >= 2:
-                cross_explanation_stds_embedding.append(np.std(embedding_across, ddof=1))
+                cross_explanation_metric_consistency_stds_embedding.append(np.std(embedding_across, ddof=1))
             if len(fuzz_across) >= 2:
-                cross_explanation_stds_fuzz.append(np.std(fuzz_across, ddof=1))
+                cross_explanation_metric_consistency_stds_fuzz.append(np.std(fuzz_across, ddof=1))
             if len(detection_across) >= 2:
-                cross_explanation_stds_detection.append(np.std(detection_across, ddof=1))
+                cross_explanation_metric_consistency_stds_detection.append(np.std(detection_across, ddof=1))
 
             # Cross-explanation overall score consistency
             # Calculate overall score for each explainer (using normalized average)
@@ -452,17 +452,17 @@ class ConsistencyService:
                     overall_scores_across.append(overall_score)
 
             if len(overall_scores_across) >= 2:
-                cross_explanation_stds_overall_score.append(np.std(overall_scores_across, ddof=1))
+                cross_explanation_overall_score_consistency_stds.append(np.std(overall_scores_across, ddof=1))
 
         # Compute max_stds with fallback values
         return {
-            'scorer_fuzz': float(np.max(scorer_stds_fuzz)) if scorer_stds_fuzz else 0.5,
-            'scorer_detection': float(np.max(scorer_stds_detection)) if scorer_stds_detection else 0.5,
+            'llm_scorer_fuzz': float(np.max(llm_scorer_stds_fuzz)) if llm_scorer_stds_fuzz else 0.5,
+            'llm_scorer_detection': float(np.max(llm_scorer_stds_detection)) if llm_scorer_stds_detection else 0.5,
             'within_explanation': float(np.max(within_explanation_stds)) if within_explanation_stds else 0.5,
-            'cross_explanation_embedding': float(np.max(cross_explanation_stds_embedding)) if cross_explanation_stds_embedding else 0.5,
-            'cross_explanation_fuzz': float(np.max(cross_explanation_stds_fuzz)) if cross_explanation_stds_fuzz else 0.5,
-            'cross_explanation_detection': float(np.max(cross_explanation_stds_detection)) if cross_explanation_stds_detection else 0.5,
-            'cross_explanation_overall_score': float(np.max(cross_explanation_stds_overall_score)) if cross_explanation_stds_overall_score else 0.5
+            'cross_explanation_metric_consistency_embedding': float(np.max(cross_explanation_metric_consistency_stds_embedding)) if cross_explanation_metric_consistency_stds_embedding else 0.5,
+            'cross_explanation_metric_consistency_fuzz': float(np.max(cross_explanation_metric_consistency_stds_fuzz)) if cross_explanation_metric_consistency_stds_fuzz else 0.5,
+            'cross_explanation_metric_consistency_detection': float(np.max(cross_explanation_metric_consistency_stds_detection)) if cross_explanation_metric_consistency_stds_detection else 0.5,
+            'cross_explanation_overall_score_consistency': float(np.max(cross_explanation_overall_score_consistency_stds)) if cross_explanation_overall_score_consistency_stds else 0.5
         }
 
     @staticmethod
@@ -647,21 +647,21 @@ class ConsistencyService:
             # Compute std-based consistency for each metric
             emb_consistency = ConsistencyService.compute_std_consistency(
                 scores['embedding'],
-                max_stds.get('cross_explanation_embedding', 0.5)
+                max_stds.get('cross_explanation_metric_consistency_embedding', 0.5)
             )
             if emb_consistency:
                 consistency_dict['embedding'] = emb_consistency
 
             fuzz_consistency = ConsistencyService.compute_std_consistency(
                 scores['fuzz'],
-                max_stds.get('cross_explanation_fuzz', 0.5)
+                max_stds.get('cross_explanation_metric_consistency_fuzz', 0.5)
             )
             if fuzz_consistency:
                 consistency_dict['fuzz'] = fuzz_consistency
 
             det_consistency = ConsistencyService.compute_std_consistency(
                 scores['detection'],
-                max_stds.get('cross_explanation_detection', 0.5)
+                max_stds.get('cross_explanation_metric_consistency_detection', 0.5)
             )
             if det_consistency:
                 consistency_dict['detection'] = det_consistency
@@ -698,7 +698,7 @@ class ConsistencyService:
             # Compute consistency for overall scores
             overall_consistency = ConsistencyService.compute_std_consistency(
                 overall_scores_across,
-                max_stds.get('cross_explanation_overall_score', 0.5)
+                max_stds.get('cross_explanation_overall_score_consistency', 0.5)
             )
             if overall_consistency:
                 consistency_dict['overall_score'] = overall_consistency
@@ -838,10 +838,10 @@ class ConsistencyService:
             pairwise_df: Optional pairwise similarity DataFrame for explainer consistency
 
         Returns:
-            DataFrame with columns [feature_id, llm_explainer, scorer_consistency_fuzz,
-            scorer_consistency_detection, within_explanation_metric_consistency,
-            cross_explanation_consistency_embedding, cross_explanation_consistency_fuzz,
-            cross_explanation_consistency_detection, cross_explanation_consistency_overall,
+            DataFrame with columns [feature_id, llm_explainer, llm_scorer_consistency_fuzz,
+            llm_scorer_consistency_detection, within_explanation_metric_consistency,
+            cross_explanation_metric_consistency_embedding, cross_explanation_metric_consistency_fuzz,
+            cross_explanation_metric_consistency_detection, cross_explanation_overall_score_consistency,
             llm_explainer_consistency]
         """
         # Compute global statistics for normalization
@@ -882,19 +882,19 @@ class ConsistencyService:
                 fuzz_scores = explainer_df['score_fuzz'].drop_nulls().to_list()
                 detection_scores = explainer_df['score_detection'].drop_nulls().to_list()
 
-                scorer_consistency_fuzz = None
+                llm_scorer_consistency_fuzz = None
                 fuzz_consistency = ConsistencyService.compute_std_consistency(
-                    fuzz_scores, max_stds.get('scorer_fuzz', 0.5)
+                    fuzz_scores, max_stds.get('llm_scorer_fuzz', 0.5)
                 )
                 if fuzz_consistency:
-                    scorer_consistency_fuzz = fuzz_consistency.value
+                    llm_scorer_consistency_fuzz = fuzz_consistency.value
 
-                scorer_consistency_detection = None
+                llm_scorer_consistency_detection = None
                 detection_consistency = ConsistencyService.compute_std_consistency(
-                    detection_scores, max_stds.get('scorer_detection', 0.5)
+                    detection_scores, max_stds.get('llm_scorer_detection', 0.5)
                 )
                 if detection_consistency:
-                    scorer_consistency_detection = detection_consistency.value
+                    llm_scorer_consistency_detection = detection_consistency.value
 
                 # Within-explanation metric consistency
                 scores_dict = ConsistencyService.collect_metric_scores_per_explainer(explainer_df)
@@ -909,13 +909,13 @@ class ConsistencyService:
                 results.append({
                     'feature_id': feature_id,
                     'llm_explainer': explainer,
-                    'scorer_consistency_fuzz': scorer_consistency_fuzz,
-                    'scorer_consistency_detection': scorer_consistency_detection,
+                    'llm_scorer_consistency_fuzz': llm_scorer_consistency_fuzz,
+                    'llm_scorer_consistency_detection': llm_scorer_consistency_detection,
                     'within_explanation_metric_consistency': within_explanation_metric_consistency,
-                    'cross_explanation_consistency_embedding': cross_exp_consistency.get('embedding'),
-                    'cross_explanation_consistency_fuzz': cross_exp_consistency.get('fuzz'),
-                    'cross_explanation_consistency_detection': cross_exp_consistency.get('detection'),
-                    'cross_explanation_consistency_overall': cross_exp_consistency.get('overall_score'),
+                    'cross_explanation_metric_consistency_embedding': cross_exp_consistency.get('embedding'),
+                    'cross_explanation_metric_consistency_fuzz': cross_exp_consistency.get('fuzz'),
+                    'cross_explanation_metric_consistency_detection': cross_exp_consistency.get('detection'),
+                    'cross_explanation_overall_score_consistency': cross_exp_consistency.get('overall_score'),
                     'llm_explainer_consistency': llm_explainer_consistency
                 })
 
@@ -930,13 +930,13 @@ class ConsistencyService:
             return pl.DataFrame({
                 'feature_id': pl.Series([], dtype=pl.UInt32),
                 'llm_explainer': pl.Series([], dtype=pl.Categorical),
-                'scorer_consistency_fuzz': pl.Series([], dtype=pl.Float32),
-                'scorer_consistency_detection': pl.Series([], dtype=pl.Float32),
+                'llm_scorer_consistency_fuzz': pl.Series([], dtype=pl.Float32),
+                'llm_scorer_consistency_detection': pl.Series([], dtype=pl.Float32),
                 'within_explanation_metric_consistency': pl.Series([], dtype=pl.Float32),
-                'cross_explanation_consistency_embedding': pl.Series([], dtype=pl.Float32),
-                'cross_explanation_consistency_fuzz': pl.Series([], dtype=pl.Float32),
-                'cross_explanation_consistency_detection': pl.Series([], dtype=pl.Float32),
-                'cross_explanation_consistency_overall': pl.Series([], dtype=pl.Float32),
+                'cross_explanation_metric_consistency_embedding': pl.Series([], dtype=pl.Float32),
+                'cross_explanation_metric_consistency_fuzz': pl.Series([], dtype=pl.Float32),
+                'cross_explanation_metric_consistency_detection': pl.Series([], dtype=pl.Float32),
+                'cross_explanation_overall_score_consistency': pl.Series([], dtype=pl.Float32),
                 'llm_explainer_consistency': pl.Series([], dtype=pl.Float32)
             })
 
@@ -1050,22 +1050,22 @@ class ConsistencyService:
         result = {}
 
         emb_consistency = ConsistencyService.compute_std_consistency(
-            embedding_scores, max_stds.get('cross_explanation_embedding', 0.5)
+            embedding_scores, max_stds.get('cross_explanation_metric_consistency_embedding', 0.5)
         )
         result['embedding'] = emb_consistency.value if emb_consistency else None
 
         fuzz_consistency = ConsistencyService.compute_std_consistency(
-            fuzz_scores, max_stds.get('cross_explanation_fuzz', 0.5)
+            fuzz_scores, max_stds.get('cross_explanation_metric_consistency_fuzz', 0.5)
         )
         result['fuzz'] = fuzz_consistency.value if fuzz_consistency else None
 
         det_consistency = ConsistencyService.compute_std_consistency(
-            detection_scores, max_stds.get('cross_explanation_detection', 0.5)
+            detection_scores, max_stds.get('cross_explanation_metric_consistency_detection', 0.5)
         )
         result['detection'] = det_consistency.value if det_consistency else None
 
         overall_consistency = ConsistencyService.compute_std_consistency(
-            overall_scores, max_stds.get('cross_explanation_overall_score', 0.5)
+            overall_scores, max_stds.get('cross_explanation_overall_score_consistency', 0.5)
         )
         result['overall_score'] = overall_consistency.value if overall_consistency else None
 

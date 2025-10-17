@@ -11,6 +11,13 @@ import {
   sortFeatures,
   getExplainerDisplayName
 } from '../lib/d3-table-utils'
+import {
+  CONSISTENCY_TYPE_LLM_SCORER,
+  CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC,
+  CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC,
+  CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE,
+  CONSISTENCY_TYPE_LLM_EXPLAINER
+} from '../lib/constants'
 import '../styles/TablePanel.css'
 
 // ============================================================================
@@ -581,11 +588,11 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
                           return (
                             <div className="table-panel__consistency-breakdown-overlay">
-                              {scorerConsistency !== null && renderMetricCircle('Scorer', scorerConsistency, getConsistencyColor(scorerConsistency, 'llm_scorer_consistency'))}
-                              {metricConsistency !== null && renderMetricCircle('Metric', metricConsistency, getConsistencyColor(metricConsistency, 'within_explanation_score'))}
-                              {crossConsistency !== null && renderMetricCircle('Cross', crossConsistency, getConsistencyColor(crossConsistency, 'cross_explanation_score'))}
-                              {crossOverallConsistency !== null && renderMetricCircle('OvrlScr', crossOverallConsistency, getConsistencyColor(crossOverallConsistency, 'cross_explanation_overall_score'))}
-                              {explainerConsistency !== null && renderMetricCircle('Explnr', explainerConsistency, getConsistencyColor(explainerConsistency, 'llm_explainer_consistency'))}
+                              {scorerConsistency !== null && renderMetricCircle('Scorer', scorerConsistency, getConsistencyColor(scorerConsistency, CONSISTENCY_TYPE_LLM_SCORER))}
+                              {metricConsistency !== null && renderMetricCircle('Metric', metricConsistency, getConsistencyColor(metricConsistency, CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC))}
+                              {crossConsistency !== null && renderMetricCircle('Cross', crossConsistency, getConsistencyColor(crossConsistency, CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC))}
+                              {crossOverallConsistency !== null && renderMetricCircle('OvrlScr', crossOverallConsistency, getConsistencyColor(crossOverallConsistency, CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE))}
+                              {explainerConsistency !== null && renderMetricCircle('Explnr', explainerConsistency, getConsistencyColor(explainerConsistency, CONSISTENCY_TYPE_LLM_EXPLAINER))}
                             </div>
                           )
                         })()}
