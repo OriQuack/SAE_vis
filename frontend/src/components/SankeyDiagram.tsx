@@ -12,6 +12,7 @@ import {
   applyRightToLeftTransform,
   RIGHT_SANKEY_MARGIN
 } from '../lib/d3-sankey-utils'
+import { calculateVerticalBarNodeLayout } from '../lib/d3-vertical-bar-sankey-utils'
 import { useResizeObserver } from '../lib/utils'
 import { findNodeById, getNodeMetrics, canAddStageToNode, getAvailableStageTypes } from '../lib/threshold-utils'
 import type { D3SankeyNode, D3SankeyLink, AddStageConfig, StageTypeConfig } from '../types'
@@ -222,6 +223,140 @@ const SankeyLink: React.FC<{
   )
 }
 
+const VerticalBarSankeyNode: React.FC<{
+  node: D3SankeyNode
+  scrollState: { scrollTop: number; scrollHeight: number; clientHeight: number } | null
+  onAddStage?: (e: React.MouseEvent) => void
+  onRemoveStage?: (e: React.MouseEvent) => void
+  canAddStage: boolean
+  canRemoveStage: boolean
+  flowDirection: 'left-to-right' | 'right-to-left'
+  animationDuration: number
+}> = ({ node, scrollState, onAddStage, onRemoveStage, canAddStage, canRemoveStage, flowDirection, animationDuration: _animationDuration }) => {
+  const layout = calculateVerticalBarNodeLayout(node, scrollState, 0)
+
+  // Calculate button position (same logic as standard nodes)
+  const isRightToLeft = flowDirection === 'right-to-left'
+  const buttonX = isRightToLeft && node.x0 !== undefined ? node.x0 - 15 : (node.x1 !== undefined ? node.x1 + 15 : 0)
+  const buttonY = node.y0 !== undefined && node.y1 !== undefined ? (node.y0 + node.y1) / 2 : 0
+
+  return (
+    <g className="sankey-vertical-bar-node">
+      {/* Render three vertical bars */}
+      {layout.subNodes.map((subNode) => (
+        <g key={subNode.id}>
+          {/* Bar rectangle */}
+          <rect
+            x={subNode.x}
+            y={subNode.y}
+            width={subNode.width}
+            height={subNode.height}
+            fill={subNode.color}
+            opacity={subNode.selected ? 0.7 : 0.3}
+            stroke="#e5e7eb"
+            strokeWidth={0.5}
+            rx={3}
+          />
+          {/* Model name label */}
+          <text
+            x={subNode.x + subNode.width / 2}
+            y={subNode.y - 10}
+            textAnchor="middle"
+            fontSize={12}
+            fontWeight={subNode.selected ? 600 : 500}
+            fill="#374151"
+            opacity={subNode.selected ? 1.0 : 0.5}
+            style={{ pointerEvents: 'none', userSelect: 'none' }}
+          >
+            {subNode.modelName}
+          </text>
+        </g>
+      ))}
+
+      {/* Global scroll indicator spanning all three bars */}
+      {layout.scrollIndicator && layout.subNodes.length > 0 && (
+        <rect
+          x={layout.subNodes[0].x}
+          y={layout.scrollIndicator.y}
+          width={layout.totalWidth}
+          height={layout.scrollIndicator.height}
+          fill="rgba(30, 41, 59, 0.25)"
+          stroke="#1e293b"
+          strokeWidth={1.5}
+          rx={3}
+          style={{ pointerEvents: 'none' }}
+        />
+      )}
+
+      {/* Add stage button */}
+      {canAddStage && (
+        <g className="sankey-node-add-stage">
+          <circle
+            cx={buttonX}
+            cy={buttonY}
+            r={12}
+            fill="#3b82f6"
+            stroke="#ffffff"
+            strokeWidth={2}
+            style={{
+              cursor: 'pointer',
+              opacity: 0.7,
+            //   transition: `all ${animationDuration}ms ease-out`
+            }}
+            onClick={onAddStage}
+            onMouseEnter={(e) => e.stopPropagation()}
+          />
+          <text
+            x={buttonX}
+            y={buttonY}
+            dy="0.35em"
+            fontSize={14}
+            fill="#ffffff"
+            fontWeight="bold"
+            textAnchor="middle"
+            style={{ pointerEvents: 'none', userSelect: 'none' }}
+          >
+            +
+          </text>
+        </g>
+      )}
+
+      {/* Remove stage button */}
+      {canRemoveStage && (
+        <g className="sankey-node-remove-stage">
+          <circle
+            cx={buttonX}
+            cy={buttonY}
+            r={12}
+            fill="#ef4444"
+            stroke="#ffffff"
+            strokeWidth={2}
+            style={{
+              cursor: 'pointer',
+              opacity: 0.7,
+            //   transition: `all ${animationDuration}ms ease-out`
+            }}
+            onClick={onRemoveStage}
+            onMouseEnter={(e) => e.stopPropagation()}
+          />
+          <text
+            x={buttonX}
+            y={buttonY}
+            dy="0.35em"
+            fontSize={16}
+            fill="#ffffff"
+            fontWeight="bold"
+            textAnchor="middle"
+            style={{ pointerEvents: 'none', userSelect: 'none' }}
+          >
+            ×
+          </text>
+        </g>
+      )}
+    </g>
+  )
+}
+
 // ==================== MAIN COMPONENT ====================
 export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   width = 800,
@@ -242,6 +377,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const error = useVisualizationStore(state => state.errors[errorKey])
   const hoveredAlluvialNodeId = useVisualizationStore(state => state.hoveredAlluvialNodeId)
   const hoveredAlluvialPanel = useVisualizationStore(state => state.hoveredAlluvialPanel)
+  const tableScrollState = useVisualizationStore(state => state.tableScrollState)
   const { showHistogramPopover, addStageToTree, removeStageFromTree } = useVisualizationStore()
 
   // Track previous data for smooth transitions
@@ -467,6 +603,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
             {/* Nodes */}
             <g className="sankey-diagram__nodes">
               {layout.nodes.map((node) => {
+                // Calculate common props for both node types
                 const canAdd = thresholdTree && canAddStageToNode(thresholdTree, node.id) &&
                                getAvailableStageTypes(thresholdTree, node.id).length > 0
                 const treeNode = thresholdTree && findNodeById(thresholdTree, node.id)
@@ -474,6 +611,24 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                 const isHighlighted = hoveredAlluvialNodeId === node.id &&
                                     hoveredAlluvialPanel === (panel === PANEL_LEFT ? 'left' : 'right')
 
+                // Check if this is a vertical bar node
+                if (node.node_type === 'vertical_bar') {
+                  return (
+                    <VerticalBarSankeyNode
+                      key={node.id}
+                      node={node}
+                      scrollState={tableScrollState}
+                      onAddStage={canAdd ? (e) => handleAddStageClick(e, node) : undefined}
+                      onRemoveStage={canRemove ? (e) => handleRemoveStageClick(e, node) : undefined}
+                      canAddStage={!!canAdd}
+                      canRemoveStage={!!canRemove}
+                      flowDirection={flowDirection}
+                      animationDuration={animationDuration}
+                    />
+                  )
+                }
+
+                // Otherwise render standard node
                 return (
                   <SankeyNode
                     key={node.id}

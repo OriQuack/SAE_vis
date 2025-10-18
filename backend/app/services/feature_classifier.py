@@ -288,6 +288,34 @@ class ClassificationEngine:
         # Calculate max_stage once (used by all aggregation methods)
         max_stage = max(node.stage for node in threshold_structure.nodes)
 
+        # SPECIAL CASE: Root-only tree (no children)
+        # Return 2-node layout: root (standard) + vertical_bar placeholder
+        root = threshold_structure.get_root()
+        if root and len(root.children_ids) == 0:
+            logger.info("Root-only tree detected - generating 2-node layout (root + vertical_bar)")
+            total_features = len(classified_df)
+
+            nodes = [
+                {
+                    "id": "root",
+                    "name": "All Features",
+                    "stage": 0,
+                    "feature_count": total_features,
+                    "category": root.category.value,
+                    "node_type": "standard"
+                },
+                {
+                    "id": "vertical_bar_placeholder",
+                    "name": "Table View",
+                    "stage": 1,
+                    "feature_count": total_features,
+                    "category": root.category.value,
+                    "node_type": "vertical_bar"
+                }
+            ]
+            links = []  # No links between nodes
+            return nodes, links
+
         # Single-pass aggregation: get both counts and feature IDs
         aggregated_node_counts, feature_ids_by_node = self._aggregate_node_data(
             classified_df, max_stage
@@ -324,6 +352,10 @@ class ClassificationEngine:
                 feature_ids = feature_ids_by_node.get(node_id, [])
                 if feature_ids:
                     node_dict["feature_ids"] = feature_ids
+
+            # Mark final stage nodes as vertical_bar type
+            if node.stage == max_stage:
+                node_dict["node_type"] = "vertical_bar"
 
             nodes.append(node_dict)
 

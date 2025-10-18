@@ -162,6 +162,7 @@ export interface SankeyNode {
   feature_count: number
   category: NodeCategory
   feature_ids?: number[]
+  node_type?: 'standard' | 'vertical_bar'
 }
 
 export interface D3SankeyNode extends SankeyNode {

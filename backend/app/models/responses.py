@@ -127,6 +127,10 @@ class SankeyNode(BaseModel):
         default=None,
         description="List of feature IDs in this node (included only for leaf nodes to enable alluvial diagrams)"
     )
+    node_type: Optional[str] = Field(
+        default="standard",
+        description="Node rendering type: 'standard' for regular nodes, 'vertical_bar' for three-column vertical bar visualization"
+    )
 
 class SankeyLink(BaseModel):
     """Individual link in Sankey diagram"""

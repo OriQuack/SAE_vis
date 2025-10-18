@@ -159,7 +159,8 @@ export function calculateSankeyLayout(
     throw new Error('No valid nodes found for Sankey diagram')
   }
 
-  if (transformedLinks.length === 0 && filteredNodes.length > 1) {
+  // Allow 1-node (root-only) or 2-node (root + vertical_bar) cases with no links
+  if (transformedLinks.length === 0 && filteredNodes.length > 2) {
     throw new Error('No valid links found for Sankey diagram')
   }
 
@@ -253,18 +254,41 @@ export function calculateSankeyLayout(
     links: transformedLinks
   })
 
-  // Handle single-node case (root-only tree) where d3-sankey can't position nodes properly
-  if (sankeyLayout.links.length === 0 && sankeyLayout.nodes.length === 1) {
-    const singleNode = sankeyLayout.nodes[0]
-    const nodeWidth = 15 // Same as sankeyGenerator nodeWidth
-    const nodeHeight = Math.min(200, height * 0.8) // Longer height to accommodate growth
+  // Handle special cases where d3-sankey can't position nodes properly
+  if (sankeyLayout.links.length === 0) {
+    if (sankeyLayout.nodes.length === 1) {
+      // Single-node case (root-only tree)
+      const singleNode = sankeyLayout.nodes[0]
+      const nodeWidth = 15 // Same as sankeyGenerator nodeWidth
+      const nodeHeight = Math.min(200, height * 0.8) // Longer height to accommodate growth
 
-    // Position on left middle (not center)
-    const leftMargin = 20 // Small margin from left edge
-    singleNode.x0 = leftMargin
-    singleNode.x1 = singleNode.x0 + nodeWidth
-    singleNode.y0 = (height - nodeHeight) / 2
-    singleNode.y1 = singleNode.y0 + nodeHeight
+      // Position on left middle (not center)
+      const leftMargin = 20 // Small margin from left edge
+      singleNode.x0 = leftMargin
+      singleNode.x1 = singleNode.x0 + nodeWidth
+      singleNode.y0 = (height - nodeHeight) / 2
+      singleNode.y1 = singleNode.y0 + nodeHeight
+    } else if (sankeyLayout.nodes.length === 2) {
+      // Two-node case (root + vertical_bar placeholder)
+      const [rootNode, verticalBarNode] = sankeyLayout.nodes
+      const nodeWidth = 15 // Same as sankeyGenerator nodeWidth
+      const nodeHeight = Math.min(200, height * 0.8) // Longer height
+
+      // Position root on left
+      const leftMargin = 20
+      rootNode.x0 = leftMargin
+      rootNode.x1 = rootNode.x0 + nodeWidth
+      rootNode.y0 = (height - nodeHeight) / 2
+      rootNode.y1 = rootNode.y0 + nodeHeight
+
+      // Position vertical bar on right (3x width for 3 bars)
+      const rightMargin = 20
+      const verticalBarWidth = nodeWidth * 3
+      verticalBarNode.x0 = width - rightMargin - verticalBarWidth
+      verticalBarNode.x1 = verticalBarNode.x0 + verticalBarWidth
+      verticalBarNode.y0 = (height - nodeHeight) / 2
+      verticalBarNode.y1 = verticalBarNode.y0 + nodeHeight
+    }
   }
 
   return {
@@ -342,6 +366,8 @@ export function validateSankeyData(data: any): string[] {
 
   const errors: string[] = []
 
+  // Allow 1-node (root-only) or 2-node (root + vertical_bar) cases with no links
+  // Only validate link structure if links exist
   if (data.nodes.length > 0 && data.links.length > 0) {
     // Build node ID map
     const nodeIdToIndex = new Map<string, number>()
