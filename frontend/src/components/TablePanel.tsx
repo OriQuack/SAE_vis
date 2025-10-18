@@ -8,6 +8,7 @@ import {
   getOverallScoreColor,
   getScoreValue,
   getMetricColor,
+  normalizeScore,
   sortFeatures,
   getExplainerDisplayName
 } from '../lib/d3-table-utils'
@@ -519,12 +520,10 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                               const embedding = getScoreValue(featureRow, explainerId, 'embedding')
                               if (embedding === null || !tableData.global_stats.embedding) return null
 
-                              // Normalize score: (value - min) / (max - min)
-                              const { min, max } = tableData.global_stats.embedding
-                              const range = max - min
-                              const normalizedScore = range > 0 ? (embedding - min) / range : 0
+                              const normalized = normalizeScore(embedding, tableData.global_stats.embedding)
+                              if (normalized === null) return null
 
-                              return renderMetricCircle('Emb', embedding, getMetricColor('embedding', normalizedScore))
+                              return renderMetricCircle('Emb', embedding, getMetricColor('embedding', normalized))
                             })()}
 
                             {/* Fuzz score (averaged) */}
@@ -532,12 +531,10 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                               const fuzz = getScoreValue(featureRow, explainerId, 'fuzz')
                               if (fuzz === null || !tableData.global_stats.fuzz) return null
 
-                              // Normalize score: (value - min) / (max - min)
-                              const { min, max } = tableData.global_stats.fuzz
-                              const range = max - min
-                              const normalizedScore = range > 0 ? (fuzz - min) / range : 0
+                              const normalized = normalizeScore(fuzz, tableData.global_stats.fuzz)
+                              if (normalized === null) return null
 
-                              return renderMetricCircle('Fuzz', fuzz, getMetricColor('fuzz', normalizedScore))
+                              return renderMetricCircle('Fuzz', fuzz, getMetricColor('fuzz', normalized))
                             })()}
 
                             {/* Detection score (averaged) */}
@@ -545,12 +542,10 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                               const detection = getScoreValue(featureRow, explainerId, 'detection')
                               if (detection === null || !tableData.global_stats.detection) return null
 
-                              // Normalize score: (value - min) / (max - min)
-                              const { min, max } = tableData.global_stats.detection
-                              const range = max - min
-                              const normalizedScore = range > 0 ? (detection - min) / range : 0
+                              const normalized = normalizeScore(detection, tableData.global_stats.detection)
+                              if (normalized === null) return null
 
-                              return renderMetricCircle('Det', detection, getMetricColor('detection', normalizedScore))
+                              return renderMetricCircle('Det', detection, getMetricColor('detection', normalized))
                             })()}
                           </div>
                         )}

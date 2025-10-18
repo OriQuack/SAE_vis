@@ -481,6 +481,8 @@ export interface MetricNormalizationStats {
   std: number
   min: number
   max: number
+  z_min: number  // Min z-score for min-max normalization
+  z_max: number  // Max z-score for min-max normalization
 }
 
 export interface FeatureTableDataResponse {

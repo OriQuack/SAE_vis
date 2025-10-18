@@ -466,6 +466,8 @@ class MetricNormalizationStats(BaseModel):
     std: float = Field(..., description="Global standard deviation")
     min: float = Field(..., description="Global minimum value")
     max: float = Field(..., description="Global maximum value")
+    z_min: float = Field(..., description="Minimum z-score for min-max normalization")
+    z_max: float = Field(..., description="Maximum z-score for min-max normalization")
 
 class FeatureTableDataResponse(BaseModel):
     """Response model for feature-level table visualization data (824 rows)"""

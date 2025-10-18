@@ -72,17 +72,24 @@ function averageNonNull(values: (number | null)[]): number | null {
 }
 
 /**
- * Normalize a score value using min-max normalization
+ * Normalize a score value using z-score + min-max normalization
+ *
+ * Flow: value -> z-score -> min-max normalization
  *
  * @param value - Raw score value
- * @param stats - Statistics containing min/max
+ * @param stats - Statistics containing mean, std, z_min, z_max
  * @returns Normalized value (0-1) or null if range is invalid
  */
-function normalizeScore(value: number, stats: MetricNormalizationStats): number | null {
-  const { min, max } = stats
-  const range = max - min
-  if (range <= 0) return null
-  return (value - min) / range
+export function normalizeScore(value: number, stats: MetricNormalizationStats): number | null {
+  const { mean, std, z_min, z_max } = stats
+
+  // Step 1: Calculate z-score
+  const zScore = std > 0 ? (value - mean) / std : 0
+
+  // Step 2: Min-max normalization of z-score
+  const zRange = z_max - z_min
+  if (zRange <= 0) return null
+  return (zScore - z_min) / zRange
 }
 
 /**
@@ -412,13 +419,14 @@ export function compareValues(
  * Calculate overall score from embedding, fuzz, and detection
  *
  * Process:
- * 1. Normalize each score using global stats: (value - min) / (max - min)
- * 2. Average the three normalized scores
+ * 1. Calculate z-score for each metric: (value - mean) / std
+ * 2. Average the three z-scores
+ * 3. Apply min-max normalization to averaged z-score using overall.z_min and overall.z_max
  *
  * @param embedding - Embedding score
  * @param fuzzScores - Fuzz scores from scorers (s1, s2, s3)
  * @param detectionScores - Detection scores from scorers (s1, s2, s3)
- * @param globalStats - Global normalization statistics
+ * @param globalStats - Global normalization statistics (includes overall.z_min, overall.z_max)
  * @returns Overall score (0-1) or null if insufficient data
  */
 export function calculateOverallScore(
@@ -427,27 +435,48 @@ export function calculateOverallScore(
   detectionScores: { s1: number | null; s2: number | null; s3: number | null },
   globalStats: Record<string, MetricNormalizationStats>
 ): number | null {
-  const normalizedScores: (number | null)[] = []
+  const zScores: number[] = []
 
-  // Normalize embedding
+  // Calculate z-score for embedding (not normalized yet)
   if (embedding !== null && globalStats.embedding) {
-    normalizedScores.push(normalizeScore(embedding, globalStats.embedding))
+    const { mean, std } = globalStats.embedding
+    const zScore = std > 0 ? (embedding - mean) / std : 0
+    zScores.push(zScore)
   }
 
-  // Normalize fuzz (average across scorers first)
+  // Calculate z-score for fuzz (average across scorers first)
   const fuzzAvg = averageNonNull([fuzzScores.s1, fuzzScores.s2, fuzzScores.s3])
   if (fuzzAvg !== null && globalStats.fuzz) {
-    normalizedScores.push(normalizeScore(fuzzAvg, globalStats.fuzz))
+    const { mean, std } = globalStats.fuzz
+    const zScore = std > 0 ? (fuzzAvg - mean) / std : 0
+    zScores.push(zScore)
   }
 
-  // Normalize detection (average across scorers first)
+  // Calculate z-score for detection (average across scorers first)
   const detectionAvg = averageNonNull([detectionScores.s1, detectionScores.s2, detectionScores.s3])
   if (detectionAvg !== null && globalStats.detection) {
-    normalizedScores.push(normalizeScore(detectionAvg, globalStats.detection))
+    const { mean, std } = globalStats.detection
+    const zScore = std > 0 ? (detectionAvg - mean) / std : 0
+    zScores.push(zScore)
   }
 
-  // Average the normalized scores
-  return averageNonNull(normalizedScores)
+  // No valid z-scores
+  if (zScores.length === 0) return null
+
+  // Average the z-scores
+  const avgZScore = zScores.reduce((sum, z) => sum + z, 0) / zScores.length
+
+  // Normalize the averaged z-score using overall z_min and z_max
+  if (!globalStats.overall || !globalStats.overall.z_min || !globalStats.overall.z_max) {
+    // Fallback: if no overall stats, return null
+    return null
+  }
+
+  const { z_min, z_max } = globalStats.overall
+  const zRange = z_max - z_min
+  if (zRange <= 0) return null
+
+  return (avgZScore - z_min) / zRange
 }
 
 /**

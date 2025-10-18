@@ -1,10 +1,10 @@
 {
-  "timestamp": "20251016_194017",
+  "timestamp": "20251018_142326",
   "parquet_file": "/home/dohyun/interface/data/master/feature_analysis.parquet",
   "dataset_name": "SAE Feature Analysis",
   "dataset_info": {
     "total_rows": 7413,
-    "total_columns": 13,
+    "total_columns": 17,
     "unique_features": 824
   },
   "columns": {
@@ -49,9 +49,9 @@
       "n_unique": 3,
       "n_nulls": 0,
       "values": {
+        "openai/gpt-oss-20b": 2471,
         "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4": 2471,
-        "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8": 2471,
-        "openai/gpt-oss-20b": 2471
+        "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8": 2471
       }
     },
     "feature_splitting": {
@@ -70,18 +70,18 @@
       "n_nulls": 0,
       "range": {
         "min": 0.8011028170585632,
-        "max": 0.9636687636375427,
-        "mean": 0.885100756975766
+        "max": 0.9539046287536621,
+        "mean": 0.8765806123246456
       }
     },
     "semsim_max": {
       "dtype": "Float32",
-      "n_unique": 607,
+      "n_unique": 824,
       "n_nulls": 0,
       "range": {
         "min": 0.8030591011047363,
-        "max": 1.0,
-        "mean": 0.9315835890717856
+        "max": 0.9686421751976013,
+        "mean": 0.905444477333901
       }
     },
     "score_fuzz": {
@@ -120,6 +120,46 @@
         "min": 0.015625,
         "max": 0.9879999756813049,
         "mean": 0.49940593842792397
+      }
+    },
+    "z_score_embedding": {
+      "dtype": "Float32",
+      "n_unique": 1493,
+      "n_nulls": 0,
+      "range": {
+        "min": -2.6785292625427246,
+        "max": 2.7044098377227783,
+        "mean": -0.0003820337828241955
+      }
+    },
+    "z_score_fuzz": {
+      "dtype": "Float32",
+      "n_unique": 984,
+      "n_nulls": 0,
+      "range": {
+        "min": -3.0932371616363525,
+        "max": 2.3596925735473633,
+        "mean": 0.00020163558083342352
+      }
+    },
+    "z_score_detection": {
+      "dtype": "Float32",
+      "n_unique": 666,
+      "n_nulls": 0,
+      "range": {
+        "min": -2.6247215270996094,
+        "max": 2.9450316429138184,
+        "mean": 0.0007117904194275265
+      }
+    },
+    "overall_score": {
+      "dtype": "Float32",
+      "n_unique": 2471,
+      "n_nulls": 0,
+      "range": {
+        "min": -2.1565420627593994,
+        "max": 2.5442397594451904,
+        "mean": 0.00017713086011709108
       }
     },
     "details_path": {
