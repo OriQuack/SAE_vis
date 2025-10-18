@@ -463,7 +463,8 @@ export interface ExplainerScoreData {
   llm_scorer_consistency?: Record<string, ConsistencyScore>  // Per-metric std (fuzz, detection)
   within_explanation_metric_consistency?: ConsistencyScore  // Cross-metric std
   llm_explainer_consistency?: ConsistencyScore  // Semantic consistency (avg pairwise cosine)
-  cross_explanation_metric_consistency?: Record<string, ConsistencyScore>  // Per-metric inverse std across explainers
+  cross_explanation_metric_consistency?: Record<string, ConsistencyScore>  // Per-metric inverse std across explainers (embedding, fuzz, detection)
+  cross_explanation_overall_score_consistency?: ConsistencyScore  // Overall score inverse std across explainers (same value for all explainers within a feature)
 }
 
 export interface FeatureTableRow {
@@ -487,7 +488,6 @@ export interface FeatureTableDataResponse {
   total_features: number
   explainer_ids: string[]
   scorer_ids: string[]
-  is_averaged: boolean
   global_stats: Record<string, MetricNormalizationStats>
 }
 

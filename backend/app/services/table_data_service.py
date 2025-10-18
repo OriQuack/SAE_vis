@@ -82,6 +82,14 @@ class TableDataService:
         if not self.data_service.is_ready():
             raise RuntimeError("DataService not ready")
 
+        # Validate filters are default (all 3 explainers/scorers selected)
+        if not self._is_default_configuration(filters, self.DEFAULT_EXPLAINERS):
+            raise ValueError(
+                "Only default filters are supported. "
+                "All three explainers and scorers must be selected, "
+                "with no sae_id or explanation_method filters applied."
+            )
+
         # STEP 1: Fetch scores from feature_analysis.parquet
         scores_df = self._fetch_scores(filters)
 
@@ -89,7 +97,6 @@ class TableDataService:
         feature_ids = sorted(scores_df["feature_id"].unique().to_list())
         explainer_ids = scores_df["llm_explainer"].unique().to_list()
         scorer_ids = sorted(scores_df["llm_scorer"].unique().to_list())
-        is_averaged = len(explainer_ids) > 1
 
         # Create scorer mapping
         scorer_map = {scorer: f"s{i+1}" for i, scorer in enumerate(scorer_ids)}
@@ -103,7 +110,7 @@ class TableDataService:
         # STEP 4: Build response (pure assembly, no calculations)
         features = self._build_feature_rows_simple(
             scores_df, consistency_df, explanations_df,
-            feature_ids, explainer_ids, scorer_map, is_averaged
+            feature_ids, explainer_ids, scorer_map
         )
 
         # Compute global stats for frontend normalization
@@ -114,7 +121,6 @@ class TableDataService:
             total_features=len(features),
             explainer_ids=[MODEL_NAME_MAP.get(exp, exp) for exp in explainer_ids],
             scorer_ids=scorer_ids,
-            is_averaged=is_averaged,
             global_stats=global_stats
         )
 
@@ -122,29 +128,38 @@ class TableDataService:
         """
         STEP 1: Fetch scores from feature_analysis.parquet with filters applied.
 
+        NOTE: Assumes default filters (all 3 explainers/scorers). Validation done in get_table_data().
+
         Args:
-            filters: Filter criteria
+            filters: Filter criteria (validated to be default)
 
         Returns:
             DataFrame with scores (feature_id, llm_explainer, llm_scorer, scores, z_scores)
         """
         lf = self.data_service._df_lazy
 
-        # Apply filters
-        filter_conditions = []
-        if filters.sae_id and len(filters.sae_id) > 0:
-            filter_conditions.append(pl.col("sae_id").is_in(filters.sae_id))
-        if filters.explanation_method and len(filters.explanation_method) > 0:
-            filter_conditions.append(pl.col("explanation_method").is_in(filters.explanation_method))
-        if filters.llm_explainer and len(filters.llm_explainer) > 0:
-            filter_conditions.append(pl.col("llm_explainer").is_in(filters.llm_explainer))
-        if filters.llm_scorer and len(filters.llm_scorer) > 0:
-            filter_conditions.append(pl.col("llm_scorer").is_in(filters.llm_scorer))
+        # Default-only mode: filter to DEFAULT_EXPLAINERS and DEFAULT_SCORERS
+        lf = lf.filter(
+            pl.col("llm_explainer").is_in(self.DEFAULT_EXPLAINERS) &
+            pl.col("llm_scorer").is_in(self.DEFAULT_SCORERS)
+        )
 
-        # Apply all filters
-        if filter_conditions:
-            for condition in filter_conditions:
-                lf = lf.filter(condition)
+        # COMMENTED OUT: Dynamic filter application (unused in default-only mode)
+        # # Apply filters
+        # filter_conditions = []
+        # if filters.sae_id and len(filters.sae_id) > 0:
+        #     filter_conditions.append(pl.col("sae_id").is_in(filters.sae_id))
+        # if filters.explanation_method and len(filters.explanation_method) > 0:
+        #     filter_conditions.append(pl.col("explanation_method").is_in(filters.explanation_method))
+        # if filters.llm_explainer and len(filters.llm_explainer) > 0:
+        #     filter_conditions.append(pl.col("llm_explainer").is_in(filters.llm_explainer))
+        # if filters.llm_scorer and len(filters.llm_scorer) > 0:
+        #     filter_conditions.append(pl.col("llm_scorer").is_in(filters.llm_scorer))
+        #
+        # # Apply all filters
+        # if filter_conditions:
+        #     for condition in filter_conditions:
+        #         lf = lf.filter(condition)
 
         # Select needed columns
         df = lf.select([
@@ -165,22 +180,19 @@ class TableDataService:
         scores_df: pl.DataFrame
     ) -> pl.DataFrame:
         """
-        STEP 2: Fetch consistency from consistency_scores.parquet, calculate if missing.
+        STEP 2: Fetch consistency from consistency_scores.parquet.
 
-        Uses pre-computed data when filters match defaults, calculates otherwise.
+        NOTE: Assumes default filters, uses pre-computed data only.
 
         Args:
-            filters: Filter criteria
+            filters: Filter criteria (validated to be default)
             feature_ids: List of feature IDs from scores
             explainer_ids: List of explainer IDs from scores
-            scores_df: Scores DataFrame for calculating missing consistency
+            scores_df: Scores DataFrame (unused in default-only mode)
 
         Returns:
             DataFrame with consistency scores (all rows for feature_ids × explainer_ids)
         """
-        # Check if filters match defaults
-        is_default_config = self._is_default_configuration(filters, explainer_ids)
-
         try:
             # Load pre-computed consistency
             pl.enable_string_cache()
@@ -192,64 +204,75 @@ class TableDataService:
                 pl.col("llm_explainer").is_in(explainer_ids)
             )
 
-            # If default configuration, use parquet data directly
-            if is_default_config:
-                logger.info(f"Using pre-computed consistency scores (default config): {len(consistency_df)} rows")
-                return consistency_df
-
-            # For non-default configs, check if we need to calculate
-            expected_rows = len(feature_ids) * len(explainer_ids)
-            actual_rows = len(consistency_df)
-
-            if actual_rows < expected_rows:
-                logger.info(f"Consistency scores incomplete ({actual_rows}/{expected_rows}), calculating missing")
-
-                # Calculate all consistency scores
-                pairwise_df = self._load_pairwise_data() if len(explainer_ids) > 1 else None
-                calculated_df = ConsistencyService.calculate_all_consistency(
-                    scores_df, explainer_ids, feature_ids, pairwise_df
-                )
-
-                # Merge with existing consistency (prefer existing if available)
-                if len(consistency_df) > 0:
-                    # Join and coalesce: use existing values when available, calculated otherwise
-                    consistency_df = calculated_df.join(
-                        consistency_df,
-                        on=["feature_id", "llm_explainer"],
-                        how="left",
-                        suffix="_existing"
-                    )
-                    # Coalesce each column
-                    for col in ['llm_scorer_consistency_fuzz', 'llm_scorer_consistency_detection',
-                                'within_explanation_metric_consistency',
-                                'cross_explanation_metric_consistency_embedding',
-                                'cross_explanation_metric_consistency_fuzz',
-                                'cross_explanation_metric_consistency_detection',
-                                'cross_explanation_overall_score_consistency',
-                                'llm_explainer_consistency']:
-                        consistency_df = consistency_df.with_columns(
-                            pl.coalesce([pl.col(f"{col}_existing"), pl.col(col)]).alias(col)
-                        ).drop(f"{col}_existing")
-                else:
-                    consistency_df = calculated_df
-
-                logger.info(f"Consistency scores complete after calculation: {len(consistency_df)} rows")
-            else:
-                logger.info(f"Using pre-computed consistency scores: {len(consistency_df)} rows")
-
+            logger.info(f"Using pre-computed consistency scores (default config): {len(consistency_df)} rows")
             return consistency_df
 
         except Exception as e:
-            logger.warning(f"Could not load consistency_scores.parquet: {e}, calculating all")
-
-            # Calculate all consistency scores from scratch
-            pairwise_df = self._load_pairwise_data() if len(explainer_ids) > 1 else None
-            consistency_df = ConsistencyService.calculate_all_consistency(
-                scores_df, explainer_ids, feature_ids, pairwise_df
+            logger.error(f"Could not load consistency_scores.parquet: {e}")
+            raise RuntimeError(
+                f"Pre-computed consistency scores not available. "
+                f"Ensure consistency_scores.parquet exists at {self.consistency_scores_file}"
             )
 
-            logger.info(f"Calculated consistency scores: {len(consistency_df)} rows")
-            return consistency_df
+        # COMMENTED OUT: Fallback calculation logic (unused in default-only mode)
+        # # Check if filters match defaults
+        # is_default_config = self._is_default_configuration(filters, explainer_ids)
+        #
+        # # If default configuration, use parquet data directly
+        # if is_default_config:
+        #     logger.info(f"Using pre-computed consistency scores (default config): {len(consistency_df)} rows")
+        #     return consistency_df
+        #
+        # # For non-default configs, check if we need to calculate
+        # expected_rows = len(feature_ids) * len(explainer_ids)
+        # actual_rows = len(consistency_df)
+        #
+        # if actual_rows < expected_rows:
+        #     logger.info(f"Consistency scores incomplete ({actual_rows}/{expected_rows}), calculating missing")
+        #
+        #     # Calculate all consistency scores
+        #     pairwise_df = self._load_pairwise_data() if len(explainer_ids) > 1 else None
+        #     calculated_df = ConsistencyService.calculate_all_consistency(
+        #         scores_df, explainer_ids, feature_ids, pairwise_df
+        #     )
+        #
+        #     # Merge with existing consistency (prefer existing if available)
+        #     if len(consistency_df) > 0:
+        #         # Join and coalesce: use existing values when available, calculated otherwise
+        #         consistency_df = calculated_df.join(
+        #             consistency_df,
+        #             on=["feature_id", "llm_explainer"],
+        #             how="left",
+        #             suffix="_existing"
+        #         )
+        #         # Coalesce each column
+        #         for col in ['llm_scorer_consistency_fuzz', 'llm_scorer_consistency_detection',
+        #                     'within_explanation_metric_consistency',
+        #                     'cross_explanation_metric_consistency_embedding',
+        #                     'cross_explanation_metric_consistency_fuzz',
+        #                     'cross_explanation_metric_consistency_detection',
+        #                     'cross_explanation_overall_score_consistency',
+        #                     'llm_explainer_consistency']:
+        #             consistency_df = consistency_df.with_columns(
+        #                 pl.coalesce([pl.col(f"{col}_existing"), pl.col(col)]).alias(col)
+        #             ).drop(f"{col}_existing")
+        #     else:
+        #         consistency_df = calculated_df
+        #
+        #     logger.info(f"Consistency scores complete after calculation: {len(consistency_df)} rows")
+        # else:
+        #     logger.info(f"Using pre-computed consistency scores: {len(consistency_df)} rows")
+        #
+        # return consistency_df
+        #
+        # # Calculate all consistency scores from scratch
+        # pairwise_df = self._load_pairwise_data() if len(explainer_ids) > 1 else None
+        # consistency_df = ConsistencyService.calculate_all_consistency(
+        #     scores_df, explainer_ids, feature_ids, pairwise_df
+        # )
+        #
+        # logger.info(f"Calculated consistency scores: {len(consistency_df)} rows")
+        # return consistency_df
 
     def _is_default_configuration(self, filters: Filters, explainer_ids: List[str]) -> bool:
         """
@@ -289,8 +312,10 @@ class TableDataService:
         """
         STEP 3: Fetch explanations from explanations.parquet.
 
+        NOTE: Assumes default filters, no filtering applied.
+
         Args:
-            filters: Filter criteria (to match explainers)
+            filters: Filter criteria (validated to be default)
 
         Returns:
             DataFrame with explanations (feature_id, llm_explainer, explanation_text)
@@ -298,11 +323,17 @@ class TableDataService:
         try:
             explanations_df = pl.read_parquet(self.explanations_file)
 
-            # Filter to match selected explainers if provided
-            if filters.llm_explainer and len(filters.llm_explainer) > 0:
-                explanations_df = explanations_df.filter(
-                    pl.col("llm_explainer").is_in(filters.llm_explainer)
-                )
+            # Default-only mode: filter to DEFAULT_EXPLAINERS
+            explanations_df = explanations_df.filter(
+                pl.col("llm_explainer").is_in(self.DEFAULT_EXPLAINERS)
+            )
+
+            # COMMENTED OUT: Dynamic explainer filtering (unused in default-only mode)
+            # # Filter to match selected explainers if provided
+            # if filters.llm_explainer and len(filters.llm_explainer) > 0:
+            #     explanations_df = explanations_df.filter(
+            #         pl.col("llm_explainer").is_in(filters.llm_explainer)
+            #     )
 
             logger.info(f"Fetched explanations: {len(explanations_df)} rows")
             return explanations_df
@@ -389,8 +420,7 @@ class TableDataService:
         explanations_df: Optional[pl.DataFrame],
         feature_ids: List[int],
         explainer_ids: List[str],
-        scorer_map: Dict[str, str],
-        is_averaged: bool
+        scorer_map: Dict[str, str]
     ) -> List[FeatureTableRow]:
         """
         STEP 4: Build feature rows (pure assembly, no calculations).
@@ -402,7 +432,6 @@ class TableDataService:
             feature_ids: List of feature IDs
             explainer_ids: List of explainer IDs
             scorer_map: Mapping from scorer ID to s1/s2/s3
-            is_averaged: Whether to average across scorers
 
         Returns:
             List of FeatureTableRow objects
@@ -425,7 +454,7 @@ class TableDataService:
 
                 # Extract scores using helper
                 fuzz_dict, detection_dict, embedding_score = ExplainerDataBuilder.extract_scores_from_explainer_df(
-                    explainer_scores, scorer_map if not is_averaged else None
+                    explainer_scores, scorer_map
                 )
 
                 # Get consistency scores from DataFrame
@@ -439,53 +468,32 @@ class TableDataService:
                 # Build explainer data
                 explainer_key = MODEL_NAME_MAP.get(explainer, explainer)
 
-                if is_averaged:
-                    # Averaged mode: average scores across scorers
-                    fuzz_scores_list = [fuzz_dict.get("s1"), fuzz_dict.get("s2"), fuzz_dict.get("s3")]
-                    detection_scores_list = [detection_dict.get("s1"), detection_dict.get("s2"), detection_dict.get("s3")]
+                # Build consistency scores
+                scorer_consistency = self._build_scorer_consistency(consistency_row)
+                metric_consistency = self._build_metric_consistency(consistency_row)
+                explainer_consistency = self._build_explainer_consistency(consistency_row)
+                cross_explainer_consistency = self._build_cross_explainer_consistency(consistency_row)
+                cross_explainer_overall_score_consistency = self._build_cross_explainer_overall_score_consistency(consistency_row)
 
-                    fuzz_avg = round(np.mean([s for s in fuzz_scores_list if s is not None]), 3) if any(s is not None for s in fuzz_scores_list) else None
-                    detection_avg = round(np.mean([s for s in detection_scores_list if s is not None]), 3) if any(s is not None for s in detection_scores_list) else None
-
-                    # Build consistency scores
-                    scorer_consistency = self._build_scorer_consistency(consistency_row)
-                    metric_consistency = self._build_metric_consistency(consistency_row)
-                    explainer_consistency = self._build_explainer_consistency(consistency_row)
-                    cross_explainer_consistency = self._build_cross_explainer_consistency(consistency_row)
-
-                    explainers_dict[explainer_key] = ExplainerScoreData(
-                        embedding=embedding_score,
-                        fuzz=ScorerScoreSet(s1=fuzz_dict['s1'], s2=fuzz_dict['s2'], s3=fuzz_dict['s3']),
-                        detection=ScorerScoreSet(s1=detection_dict['s1'], s2=detection_dict['s2'], s3=detection_dict['s3']),
-                        explanation_text=explanation_text,
-                        scorer_consistency=scorer_consistency,
-                        metric_consistency=metric_consistency,
-                        explainer_consistency=explainer_consistency,
-                        cross_explainer_metric_consistency=cross_explainer_consistency
-                    )
-                else:
-                    # Individual mode: show individual scorer values
-                    scorer_consistency = self._build_scorer_consistency(consistency_row)
-                    metric_consistency = self._build_metric_consistency(consistency_row)
-
-                    explainers_dict[explainer_key] = ExplainerScoreData(
-                        embedding=embedding_score,
-                        fuzz=ScorerScoreSet(
-                            s1=fuzz_dict.get("s1"),
-                            s2=fuzz_dict.get("s2"),
-                            s3=fuzz_dict.get("s3")
-                        ),
-                        detection=ScorerScoreSet(
-                            s1=detection_dict.get("s1"),
-                            s2=detection_dict.get("s2"),
-                            s3=detection_dict.get("s3")
-                        ),
-                        explanation_text=explanation_text,
-                        scorer_consistency=scorer_consistency,
-                        metric_consistency=metric_consistency,
-                        explainer_consistency=None,
-                        cross_explainer_metric_consistency=None
-                    )
+                explainers_dict[explainer_key] = ExplainerScoreData(
+                    embedding=embedding_score,
+                    fuzz=ScorerScoreSet(
+                        s1=fuzz_dict.get("s1"),
+                        s2=fuzz_dict.get("s2"),
+                        s3=fuzz_dict.get("s3")
+                    ),
+                    detection=ScorerScoreSet(
+                        s1=detection_dict.get("s1"),
+                        s2=detection_dict.get("s2"),
+                        s3=detection_dict.get("s3")
+                    ),
+                    explanation_text=explanation_text,
+                    llm_scorer_consistency=scorer_consistency,
+                    within_explanation_metric_consistency=metric_consistency,
+                    llm_explainer_consistency=explainer_consistency,
+                    cross_explanation_metric_consistency=cross_explainer_consistency,
+                    cross_explanation_overall_score_consistency=cross_explainer_overall_score_consistency
+                )
 
             if explainers_dict:
                 features.append(FeatureTableRow(
@@ -542,7 +550,7 @@ class TableDataService:
         return None
 
     def _build_cross_explainer_consistency(self, consistency_row: Dict) -> Optional[Dict[str, ConsistencyScore]]:
-        """Build cross-explainer consistency dict from consistency row."""
+        """Build cross-explainer metric consistency dict from consistency row (embedding, fuzz, detection only)."""
         if not consistency_row:
             return None
 
@@ -562,25 +570,34 @@ class TableDataService:
                 value=consistency_row['cross_explanation_metric_consistency_detection'],
                 method="std_based"
             )
+
+        return cross_consistency if cross_consistency else None
+
+    def _build_cross_explainer_overall_score_consistency(self, consistency_row: Dict) -> Optional[ConsistencyScore]:
+        """Build cross-explainer overall score consistency from consistency row."""
+        if not consistency_row:
+            return None
+
         if consistency_row.get('cross_explanation_overall_score_consistency') is not None:
-            cross_consistency['overall_score'] = ConsistencyScore(
+            return ConsistencyScore(
                 value=consistency_row['cross_explanation_overall_score_consistency'],
                 method="std_based"
             )
 
-        return cross_consistency if cross_consistency else None
+        return None
 
-    def _load_pairwise_data(self) -> Optional[pl.DataFrame]:
-        """
-        Load pairwise semantic similarity data if available.
-
-        Returns:
-            DataFrame with pairwise similarities, or None if not available
-        """
-        try:
-            pairwise_df = pl.read_parquet(self.pairwise_similarity_file)
-            logger.info(f"Loaded pairwise similarity data: {len(pairwise_df)} rows")
-            return pairwise_df
-        except Exception as e:
-            logger.warning(f"Pairwise similarity data not available: {e}")
-            return None
+    # COMMENTED OUT: _load_pairwise_data() - unused in default-only mode (only for dynamic consistency calculation)
+    # def _load_pairwise_data(self) -> Optional[pl.DataFrame]:
+    #     """
+    #     Load pairwise semantic similarity data if available.
+    #
+    #     Returns:
+    #         DataFrame with pairwise similarities, or None if not available
+    #     """
+    #     try:
+    #         pairwise_df = pl.read_parquet(self.pairwise_similarity_file)
+    #         logger.info(f"Loaded pairwise similarity data: {len(pairwise_df)} rows")
+    #         return pairwise_df
+    #     except Exception as e:
+    #         logger.warning(f"Pairwise similarity data not available: {e}")
+    #         return None

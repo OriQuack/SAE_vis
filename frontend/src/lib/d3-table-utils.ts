@@ -88,18 +88,18 @@ function normalizeScore(value: number, stats: MetricNormalizationStats): number 
 /**
  * Extract LLM scorer consistency (average of fuzz and detection consistency)
  *
- * @param explainerData - Explainer data containing scorer_consistency
+ * @param explainerData - Explainer data containing llm_scorer_consistency
  * @returns Average scorer consistency or null
  */
 function extractScorerConsistency(explainerData: any): number | null {
-  if (!explainerData.scorer_consistency) return null
+  if (!explainerData.llm_scorer_consistency) return null
 
   const values: number[] = []
-  if (explainerData.scorer_consistency.fuzz) {
-    values.push(explainerData.scorer_consistency.fuzz.value)
+  if (explainerData.llm_scorer_consistency.fuzz) {
+    values.push(explainerData.llm_scorer_consistency.fuzz.value)
   }
-  if (explainerData.scorer_consistency.detection) {
-    values.push(explainerData.scorer_consistency.detection.value)
+  if (explainerData.llm_scorer_consistency.detection) {
+    values.push(explainerData.llm_scorer_consistency.detection.value)
   }
 
   return averageNonNull(values)
@@ -108,13 +108,13 @@ function extractScorerConsistency(explainerData: any): number | null {
 /**
  * Extract cross-explainer metric consistency (average of embedding, fuzz, detection)
  *
- * @param explainerData - Explainer data containing cross_explainer_metric_consistency
+ * @param explainerData - Explainer data containing cross_explanation_metric_consistency
  * @returns Average cross-explainer consistency or null
  */
 function extractCrossExplainerConsistency(explainerData: any): number | null {
-  if (!explainerData.cross_explainer_metric_consistency) return null
+  if (!explainerData.cross_explanation_metric_consistency) return null
 
-  const cem = explainerData.cross_explainer_metric_consistency
+  const cem = explainerData.cross_explanation_metric_consistency
   const values: number[] = []
 
   if (cem.embedding) values.push(cem.embedding.value)
@@ -127,20 +127,13 @@ function extractCrossExplainerConsistency(explainerData: any): number | null {
 /**
  * Extract cross-explainer overall score consistency
  *
- * @param explainerData - Explainer data containing cross_explainer_metric_consistency
+ * @param explainerData - Explainer data containing cross_explanation_overall_score_consistency
  * @returns Overall score consistency or null
  */
 function extractCrossExplainerOverallConsistency(explainerData: any): number | null {
-  if (!explainerData.cross_explainer_metric_consistency) return null
+  if (!explainerData.cross_explanation_overall_score_consistency) return null
 
-  const cem = explainerData.cross_explainer_metric_consistency
-
-  // Return the overall_score consistency if it exists
-  if (cem.overall_score) {
-    return cem.overall_score.value
-  }
-
-  return null
+  return explainerData.cross_explanation_overall_score_consistency.value
 }
 
 

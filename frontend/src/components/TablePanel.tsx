@@ -92,30 +92,30 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const extractConsistencyValues = (explData: any) => {
     // 1. LLM Scorer Consistency (average of fuzz and detection)
     let scorerConsistency: number | null = null
-    if (explData.scorer_consistency) {
+    if (explData.llm_scorer_consistency) {
       const scorerValues: number[] = []
-      if (explData.scorer_consistency.fuzz) scorerValues.push(explData.scorer_consistency.fuzz.value)
-      if (explData.scorer_consistency.detection) scorerValues.push(explData.scorer_consistency.detection.value)
+      if (explData.llm_scorer_consistency.fuzz) scorerValues.push(explData.llm_scorer_consistency.fuzz.value)
+      if (explData.llm_scorer_consistency.detection) scorerValues.push(explData.llm_scorer_consistency.detection.value)
       if (scorerValues.length > 0) {
         scorerConsistency = scorerValues.reduce((sum, v) => sum + v, 0) / scorerValues.length
       }
     }
 
     // 2. Within-explanation Metric Consistency
-    const metricConsistency = explData.metric_consistency?.value || null
+    const metricConsistency = explData.within_explanation_metric_consistency?.value || null
 
     // 3. Cross-explanation Score Consistency (average of embedding, fuzz, detection)
     let crossConsistency: number | null = null
-    if (explData.cross_explainer_metric_consistency) {
+    if (explData.cross_explanation_metric_consistency) {
       const crossValues: number[] = []
-      if (explData.cross_explainer_metric_consistency.embedding) {
-        crossValues.push(explData.cross_explainer_metric_consistency.embedding.value)
+      if (explData.cross_explanation_metric_consistency.embedding) {
+        crossValues.push(explData.cross_explanation_metric_consistency.embedding.value)
       }
-      if (explData.cross_explainer_metric_consistency.fuzz) {
-        crossValues.push(explData.cross_explainer_metric_consistency.fuzz.value)
+      if (explData.cross_explanation_metric_consistency.fuzz) {
+        crossValues.push(explData.cross_explanation_metric_consistency.fuzz.value)
       }
-      if (explData.cross_explainer_metric_consistency.detection) {
-        crossValues.push(explData.cross_explainer_metric_consistency.detection.value)
+      if (explData.cross_explanation_metric_consistency.detection) {
+        crossValues.push(explData.cross_explanation_metric_consistency.detection.value)
       }
       if (crossValues.length > 0) {
         crossConsistency = crossValues.reduce((sum, v) => sum + v, 0) / crossValues.length
@@ -123,10 +123,10 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     }
 
     // 4. Cross-explanation Overall Score Consistency
-    const crossOverallConsistency = explData.cross_explainer_metric_consistency?.overall_score?.value || null
+    const crossOverallConsistency = explData.cross_explanation_overall_score_consistency?.value || null
 
     // 5. LLM Explainer Consistency
-    const explainerConsistency = explData.explainer_consistency?.value || null
+    const explainerConsistency = explData.llm_explainer_consistency?.value || null
 
     return { scorerConsistency, metricConsistency, crossConsistency, crossOverallConsistency, explainerConsistency }
   }

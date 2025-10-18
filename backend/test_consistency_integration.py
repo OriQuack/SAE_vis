@@ -69,12 +69,12 @@ async def test_default_configuration():
             if exp_data.llm_scorer_consistency:
                 for metric, score in exp_data.llm_scorer_consistency.items():
                     logger.info(f"  Scorer consistency ({metric}): {score.value:.3f} [{score.method}]")
-            if exp_data.metric_consistency:
-                logger.info(f"  Within-explanation consistency: {exp_data.metric_consistency.value:.3f} [{exp_data.metric_consistency.method}]")
-            if exp_data.explainer_consistency:
-                logger.info(f"  LLM explainer consistency: {exp_data.explainer_consistency.value:.3f} [{exp_data.explainer_consistency.method}]")
-            if exp_data.cross_explainer_metric_consistency:
-                for metric, score in exp_data.cross_explainer_metric_consistency.items():
+            if exp_data.within_explanation_metric_consistency:
+                logger.info(f"  Within-explanation consistency: {exp_data.within_explanation_metric_consistency.value:.3f} [{exp_data.within_explanation_metric_consistency.method}]")
+            if exp_data.llm_explainer_consistency:
+                logger.info(f"  LLM explainer consistency: {exp_data.llm_explainer_consistency.value:.3f} [{exp_data.llm_explainer_consistency.method}]")
+            if exp_data.cross_explanation_metric_consistency:
+                for metric, score in exp_data.cross_explanation_metric_consistency.items():
                     logger.info(f"  Cross-explanation ({metric}): {score.value:.3f} [{score.method}]")
 
     return response
@@ -119,9 +119,9 @@ async def test_partial_configuration():
                 # Should be std_based (pre-computed)
                 for metric, score in exp_data.llm_scorer_consistency.items():
                     logger.info(f"  Scorer consistency ({metric}): {score.method} - {'✓ Pre-computed' if score.method == 'std_based' else '✗ Real-time'}")
-            if exp_data.cross_explainer_metric_consistency:
+            if exp_data.cross_explanation_metric_consistency:
                 # Should be std_based (real-time calculated)
-                for metric, score in exp_data.cross_explainer_metric_consistency.items():
+                for metric, score in exp_data.cross_explanation_metric_consistency.items():
                     logger.info(f"  Cross-explanation ({metric}): {score.method}")
 
     return response
@@ -158,8 +158,8 @@ async def test_single_explainer():
         feature = response.features[0]
         for exp_name, exp_data in feature.explainers.items():
             logger.info(f"\nExplainer: {exp_name}")
-            logger.info(f"  Cross-explainer consistency: {exp_data.cross_explainer_metric_consistency} (should be None)")
-            logger.info(f"  Explainer consistency: {exp_data.explainer_consistency} (should be None)")
+            logger.info(f"  Cross-explainer consistency: {exp_data.cross_explanation_metric_consistency} (should be None)")
+            logger.info(f"  Explainer consistency: {exp_data.llm_explainer_consistency} (should be None)")
             if exp_data.llm_scorer_consistency:
                 for metric, score in exp_data.llm_scorer_consistency.items():
                     logger.info(f"  Scorer consistency ({metric}): {score.value:.3f} [{score.method}]")

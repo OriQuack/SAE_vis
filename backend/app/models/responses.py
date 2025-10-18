@@ -435,17 +435,21 @@ class ExplainerScoreData(BaseModel):
         None,
         description="Consistency across LLM scorers for each metric (coefficient of variation): {fuzz, detection}"
     )
-    metric_consistency: Optional[ConsistencyScore] = Field(
+    within_explanation_metric_consistency: Optional[ConsistencyScore] = Field(
         None,
         description="Consistency across metrics (normalized standard deviation)"
     )
-    explainer_consistency: Optional[ConsistencyScore] = Field(
+    llm_explainer_consistency: Optional[ConsistencyScore] = Field(
         None,
         description="Semantic consistency between LLM explainers (average pairwise cosine similarity)"
     )
-    cross_explainer_metric_consistency: Optional[Dict[str, ConsistencyScore]] = Field(
+    cross_explanation_metric_consistency: Optional[Dict[str, ConsistencyScore]] = Field(
         None,
         description="Consistency of each metric across LLM explainers (inverse coefficient of variation): {embedding, fuzz, detection}"
+    )
+    cross_explanation_overall_score_consistency: Optional[ConsistencyScore] = Field(
+        None,
+        description="Consistency of overall score across LLM explainers (inverse coefficient of variation). Same value for all explainers within a feature."
     )
 
 class FeatureTableRow(BaseModel):
@@ -469,5 +473,4 @@ class FeatureTableDataResponse(BaseModel):
     total_features: int = Field(..., ge=0, description="Total number of features")
     explainer_ids: List[str] = Field(..., description="List of explainer IDs present in data")
     scorer_ids: List[str] = Field(..., description="List of scorer IDs present in data (for S1, S2, S3 labels)")
-    is_averaged: bool = Field(default=False, description="Whether scores are averaged across scorers (when multiple explainers selected)")
     global_stats: Dict[str, MetricNormalizationStats] = Field(..., description="Global normalization statistics for each metric (embedding, fuzz, detection)")

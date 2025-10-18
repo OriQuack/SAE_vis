@@ -83,7 +83,6 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
     filterOptions,
     fetchFilterOptions,
     fetchSankeyData,
-    fetchMultipleHistogramData,
     initializeWithDefaultFilters,
     showComparisonView,
     toggleComparisonView
