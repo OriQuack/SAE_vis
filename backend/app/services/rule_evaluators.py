@@ -225,14 +225,22 @@ class SplitEvaluator:
         self, rule: PatternSplitRule, children_ids: List[str], triggering_values: Dict[str, Any]
     ) -> EvaluationResult:
         """Build evaluation result for default case (no pattern matched)."""
-        child_id = rule.default_child_id if rule.default_child_id else (
+        default_child_id = rule.default_child_id if rule.default_child_id else (
             children_ids[-1] if children_ids else "unknown"
         )
 
-        try:
-            branch_index = children_ids.index(child_id)
-        except ValueError:
+        # Use suffix matching to find the actual child ID (handles prefixed IDs)
+        matching_child = self._find_matching_child(default_child_id, children_ids)
+
+        if matching_child:
+            branch_index = children_ids.index(matching_child)
+        else:
+            logger.warning(
+                f"Default child_id '{default_child_id}' not found in children_ids: {children_ids}. "
+                f"Using last child as fallback."
+            )
             branch_index = len(children_ids) - 1 if children_ids else 0
+            matching_child = children_ids[branch_index] if children_ids else default_child_id
 
         split_info = ParentSplitRuleInfo(
             type='pattern',
@@ -244,7 +252,7 @@ class SplitEvaluator:
         )
 
         return EvaluationResult(
-            child_id=child_id,
+            child_id=matching_child,
             branch_index=branch_index,
             split_info=split_info,
             triggering_values=triggering_values
@@ -299,11 +307,18 @@ class SplitEvaluator:
         self, branch, branch_index: int, children_ids: List[str], triggering_values: Dict[str, float]
     ) -> EvaluationResult:
         """Build evaluation result for matched expression branch."""
-        try:
-            child_branch_index = children_ids.index(branch.child_id)
-        except ValueError:
-            logger.warning(f"Branch child_id '{branch.child_id}' not in children_ids")
+        # Use suffix matching to find the actual child ID (handles prefixed IDs)
+        matching_child = self._find_matching_child(branch.child_id, children_ids)
+
+        if matching_child:
+            child_branch_index = children_ids.index(matching_child)
+        else:
+            logger.warning(
+                f"Branch child_id '{branch.child_id}' not found in children_ids: {children_ids}. "
+                f"Using first child as fallback."
+            )
             child_branch_index = 0
+            matching_child = children_ids[0] if children_ids else branch.child_id
 
         split_info = ParentSplitRuleInfo(
             type=SPLIT_TYPE_EXPRESSION,
@@ -315,7 +330,7 @@ class SplitEvaluator:
         )
 
         return EvaluationResult(
-            child_id=branch.child_id,
+            child_id=matching_child,
             branch_index=child_branch_index,
             split_info=split_info,
             triggering_values=triggering_values
@@ -325,11 +340,18 @@ class SplitEvaluator:
         self, rule: ExpressionSplitRule, children_ids: List[str], triggering_values: Dict[str, float]
     ) -> EvaluationResult:
         """Build evaluation result for default case (no expression matched)."""
-        child_id = rule.default_child_id
-        try:
-            branch_index = children_ids.index(child_id)
-        except ValueError:
+        # Use suffix matching to find the actual child ID (handles prefixed IDs)
+        matching_child = self._find_matching_child(rule.default_child_id, children_ids)
+
+        if matching_child:
+            branch_index = children_ids.index(matching_child)
+        else:
+            logger.warning(
+                f"Default child_id '{rule.default_child_id}' not found in children_ids: {children_ids}. "
+                f"Using last child as fallback."
+            )
             branch_index = len(children_ids) - 1 if children_ids else 0
+            matching_child = children_ids[branch_index] if children_ids else rule.default_child_id
 
         split_info = ParentSplitRuleInfo(
             type=SPLIT_TYPE_EXPRESSION,
@@ -341,7 +363,7 @@ class SplitEvaluator:
         )
 
         return EvaluationResult(
-            child_id=child_id,
+            child_id=matching_child,
             branch_index=branch_index,
             split_info=split_info,
             triggering_values=triggering_values

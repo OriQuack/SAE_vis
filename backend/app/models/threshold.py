@@ -284,11 +284,17 @@ class SankeyThreshold(BaseModel):
 
             elif isinstance(split_rule, ExpressionSplitRule):
                 # Expression rules need at least the branch children + default
+                # Allow for prefixed child IDs (frontend compatibility)
                 branch_child_ids = {b.child_id for b in split_rule.branches}
                 branch_child_ids.add(split_rule.default_child_id)
 
-                if not branch_child_ids.issubset(set(v)):
-                    missing = branch_child_ids - set(v)
+                # Check if each branch child_id exists as a suffix in actual children_ids
+                missing = set()
+                for branch_id in branch_child_ids:
+                    if not any(child_id.endswith(branch_id) for child_id in v):
+                        missing.add(branch_id)
+
+                if missing:
                     raise ValueError(f"ExpressionSplitRule missing children: {missing}")
 
         elif len(v) > 0:
