@@ -138,3 +138,19 @@ class TableDataRequest(BaseModel):
         default_factory=lambda: Filters(),
         description="Filter criteria for data subset"
     )
+
+class FeatureGroupRequest(BaseModel):
+    """Request model for feature groups endpoint"""
+    filters: Filters = Field(
+        default_factory=lambda: Filters(),
+        description="Filter criteria for data subset"
+    )
+    metric: str = Field(
+        ...,
+        description="Metric name to group by (e.g., 'score_fuzz', 'consistency_llm_scorer')"
+    )
+    thresholds: List[float] = Field(
+        ...,
+        min_items=1,
+        description="List of threshold values (N thresholds create N+1 groups)"
+    )

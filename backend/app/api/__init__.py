@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from . import filters, histogram, sankey, comparison, feature, threshold_features, llm_comparison, umap, table
+from . import filters, histogram, sankey, comparison, feature, threshold_features, llm_comparison, umap, table, feature_groups
 
 router = APIRouter()
 
@@ -12,3 +12,4 @@ router.include_router(threshold_features.router, tags=["threshold"])
 router.include_router(llm_comparison.router, tags=["llm-comparison"])
 router.include_router(umap.router, tags=["umap"])
 router.include_router(table.router, tags=["table"])
+router.include_router(feature_groups.router, tags=["feature-groups"])

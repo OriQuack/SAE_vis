@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 
 from .api import router as api_router
 from .services.visualization_service import DataService
+from .api import feature_groups
 
 # Configure logging for the application
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -41,9 +42,14 @@ async def lifespan(app: FastAPI):
         data_service = DataService()
         await data_service.initialize()
         logger.info("Data service initialized successfully")
+
+        # Initialize feature groups service
+        feature_groups.initialize_service()
+        logger.info("Feature groups service initialized successfully")
+
         yield
     except Exception as e:
-        logger.error(f"Failed to initialize data service: {e}")
+        logger.error(f"Failed to initialize services: {e}")
         raise
     finally:
         if data_service:
