@@ -181,34 +181,37 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
 
           {/* Center Panel Container - Row 2 */}
           <div className="sankey-view__center-panel-container">
-            {/* Center Left - Left Sankey Only */}
-            <div className="sankey-view__center-left">
-              {/* Left Sankey Diagram */}
-              <div className="sankey-view__sankey-left">
-                <SankeyDiagram
-                  showHistogramOnClick={true}
-                  flowDirection="left-to-right"
-                  panel="left"
-                />
-                {/* Floating Comparison Toggle Button */}
-                <button
-                  className={`comparison-toggle comparison-toggle--floating ${showComparisonView ? 'comparison-toggle--active' : ''}`}
-                  onClick={toggleComparisonView}
-                  title={showComparisonView ? 'Hide comparison view' : 'Show comparison view'}
-                >
-                  <span className="comparison-toggle__icon">
-                    {showComparisonView ? '◀' : '▶'}
-                  </span>
-                  <span className="comparison-toggle__text">
-                    {showComparisonView ? 'Hide' : 'Right Sankey'}
-                  </span>
-                </button>
+            {/* Sankey + Vertical Bar Wrapper */}
+            <div className="sankey-view__sankey-vertical-wrapper">
+              {/* Center Left - Left Sankey Only */}
+              <div className="sankey-view__center-left">
+                {/* Left Sankey Diagram */}
+                <div className="sankey-view__sankey-left">
+                  <SankeyDiagram
+                    showHistogramOnClick={true}
+                    flowDirection="left-to-right"
+                    panel="left"
+                  />
+                  {/* Floating Comparison Toggle Button */}
+                  <button
+                    className={`comparison-toggle comparison-toggle--floating ${showComparisonView ? 'comparison-toggle--active' : ''}`}
+                    onClick={toggleComparisonView}
+                    title={showComparisonView ? 'Hide comparison view' : 'Show comparison view'}
+                  >
+                    <span className="comparison-toggle__icon">
+                      {showComparisonView ? '◀' : '▶'}
+                    </span>
+                    <span className="comparison-toggle__text">
+                      {showComparisonView ? 'Hide' : 'Right Sankey'}
+                    </span>
+                  </button>
+                </div>
               </div>
-            </div>
 
-            {/* Center Middle - Vertical Bar */}
-            <div className="sankey-view__center-middle">
-              <VerticalBar />
+              {/* Center Middle - Vertical Bar */}
+              <div className="sankey-view__center-middle">
+                <VerticalBar />
+              </div>
             </div>
 
             {/* Center Right - Table Panel with Overlay */}

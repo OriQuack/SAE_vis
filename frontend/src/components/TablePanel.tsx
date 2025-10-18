@@ -103,7 +103,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     }
 
     // 2. Within-explanation Metric Consistency
-    const metricConsistency = explData.within_explanation_metric_consistency?.value || null
+    const metricConsistency = explData.within_explanation_metric_consistency?.value ?? null
 
     // 3. Cross-explanation Score Consistency (average of embedding, fuzz, detection)
     let crossConsistency: number | null = null
@@ -124,10 +124,10 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     }
 
     // 4. Cross-explanation Overall Score Consistency
-    const crossOverallConsistency = explData.cross_explanation_overall_score_consistency?.value || null
+    const crossOverallConsistency = explData.cross_explanation_overall_score_consistency?.value ?? null
 
     // 5. LLM Explainer Consistency
-    const explainerConsistency = explData.llm_explainer_consistency?.value || null
+    const explainerConsistency = explData.llm_explainer_consistency?.value ?? null
 
     return { scorerConsistency, metricConsistency, crossConsistency, crossOverallConsistency, explainerConsistency }
   }

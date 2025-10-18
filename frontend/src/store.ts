@@ -19,9 +19,140 @@ import type {
   SortDirection
 } from './types'
 import { updateNodeThreshold, createRootOnlyTree, addStageToNode, removeStageFromNode } from './lib/threshold-utils'
-import { PANEL_LEFT, PANEL_RIGHT, METRIC_SEMSIM_MEAN, CONSISTENCY_TYPE_NONE } from './lib/constants'
+import {
+  PANEL_LEFT,
+  PANEL_RIGHT,
+  METRIC_SEMSIM_MEAN,
+  CONSISTENCY_TYPE_NONE,
+  CONSISTENCY_TYPE_LLM_SCORER,
+  CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC,
+  CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC,
+  CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE,
+  CONSISTENCY_TYPE_LLM_EXPLAINER,
+  CONSISTENCY_THRESHOLDS,
+  CATEGORY_CONSISTENCY,
+  SPLIT_TYPE_EXPRESSION,
+  SPLIT_TYPE_RANGE
+} from './lib/constants'
 
 type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
+
+// ============================================================================
+// HELPER FUNCTIONS FOR SANKEY-TABLE SYNC
+// ============================================================================
+
+/**
+ * Check if a sortBy value is a consistency type (excluding NONE)
+ */
+function isConsistencyType(sortBy: SortBy | null): boolean {
+  if (!sortBy) return false
+  return [
+    CONSISTENCY_TYPE_LLM_SCORER,
+    CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC,
+    CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC,
+    CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE,
+    CONSISTENCY_TYPE_LLM_EXPLAINER
+  ].includes(sortBy as any)
+}
+
+/**
+ * Check if a stage config represents a consistency stage
+ */
+function isConsistencyStageConfig(config: AddStageConfig): boolean {
+  // Check if stageType is a consistency type
+  if (isConsistencyType(config.stageType as any)) {
+    return true
+  }
+  // Check if metric is a consistency type (fallback)
+  if (config.metric && isConsistencyType(config.metric as any)) {
+    return true
+  }
+  return false
+}
+
+/**
+ * Extract consistency type from stage config
+ */
+function getConsistencyTypeFromConfig(config: AddStageConfig): string | null {
+  // Check stageType first (primary method)
+  if (isConsistencyType(config.stageType as any)) {
+    return config.stageType
+  }
+  // Check metric as fallback
+  if (config.metric && isConsistencyType(config.metric as any)) {
+    return config.metric
+  }
+  return null
+}
+
+/**
+ * Build consistency stage config from consistency type
+ */
+function buildConsistencyStageConfig(consistencyType: string): AddStageConfig {
+  // Type guard - only valid consistency types (excluding NONE)
+  const validTypes = [
+    CONSISTENCY_TYPE_LLM_SCORER,
+    CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC,
+    CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC,
+    CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE,
+    CONSISTENCY_TYPE_LLM_EXPLAINER
+  ]
+
+  if (!validTypes.includes(consistencyType)) {
+    throw new Error(`Invalid consistency type: ${consistencyType}`)
+  }
+
+  const thresholdsMap: Record<string, readonly number[]> = CONSISTENCY_THRESHOLDS
+  const thresholds = thresholdsMap[consistencyType] || [0.25, 0.5, 0.75]
+
+  return {
+    stageType: consistencyType,  // Use the consistency type as the stage type ID
+    splitRuleType: 'expression',  // Consistency stages use expression split rules
+    metric: consistencyType,
+    customConfig: {
+      customThresholds: [...thresholds]  // Copy array to make it mutable
+    }
+  }
+}
+
+/**
+ * Check if a threshold tree already has a consistency stage
+ */
+function hasConsistencyStage(tree: ThresholdTree): boolean {
+  return tree.nodes.some(node => node.category === CATEGORY_CONSISTENCY)
+}
+
+/**
+ * Find the node ID of the first consistency stage in the tree
+ * Returns null if no consistency stage exists
+ */
+function findConsistencyStageNodeId(tree: ThresholdTree): string | null {
+  const consistencyNode = tree.nodes.find(node => node.category === CATEGORY_CONSISTENCY)
+  return consistencyNode ? consistencyNode.id : null
+}
+
+/**
+ * Check if tree has a specific consistency type
+ */
+function hasSpecificConsistencyType(tree: ThresholdTree, consistencyType: ConsistencyType): boolean {
+  for (const node of tree.nodes) {
+    if (node.category === CATEGORY_CONSISTENCY && node.split_rule) {
+      if (node.split_rule.type === SPLIT_TYPE_EXPRESSION) {
+        const rule = node.split_rule as any
+        const metrics = rule.available_metrics || []
+        if (metrics.includes(consistencyType)) {
+          return true
+        }
+      } else if (node.split_rule.type === SPLIT_TYPE_RANGE) {
+        const rule = node.split_rule as any
+        if (rule.metric === consistencyType) {
+          return true
+        }
+      }
+    }
+  }
+  return false
+}
 
 interface PanelState {
   filters: Filters
@@ -245,6 +376,19 @@ export const useStore = create<AppState>((set, get) => ({
         const updatedTree = addStageToNode(currentTree, nodeId, config)
         console.log('[Store.addStageToTree] Updated tree nodes:', updatedTree.nodes.length)
 
+        // NEW: Sync table sort if this is a consistency stage in LEFT panel only
+        let newTableSort = state.tableSortBy
+        let newTableSortDirection = state.tableSortDirection
+
+        if (panel === PANEL_LEFT && isConsistencyStageConfig(config)) {
+          const consistencyType = getConsistencyTypeFromConfig(config)
+          if (consistencyType && state.tableSortBy !== consistencyType) {
+            console.log('[Store.addStageToTree] Consistency stage detected in left panel, syncing table sort to:', consistencyType)
+            newTableSort = consistencyType as SortBy
+            newTableSortDirection = 'asc'
+          }
+        }
+
         return {
           [panelKey]: {
             ...state[panelKey],
@@ -252,7 +396,9 @@ export const useStore = create<AppState>((set, get) => ({
             // Clear existing data to trigger refresh
             sankeyData: null,
             histogramData: null
-          }
+          },
+          tableSortBy: newTableSort,
+          tableSortDirection: newTableSortDirection
         }
       } catch (error) {
         console.error('[Store.addStageToTree] Failed to add stage to tree:', error)
@@ -264,10 +410,24 @@ export const useStore = create<AppState>((set, get) => ({
 
   removeStageFromTree: (nodeId, panel = PANEL_LEFT) => {
     const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
+
     set((state) => {
       try {
         const currentTree = state[panelKey].thresholdTree
         const updatedTree = removeStageFromNode(currentTree, nodeId)
+
+        // NEW: Check if we removed a consistency stage from LEFT panel only
+        const removedConsistencyStage = hasConsistencyStage(currentTree) && !hasConsistencyStage(updatedTree)
+
+        // Reset table sort if LEFT panel had consistency stage removed
+        let newTableSort = state.tableSortBy
+        let newTableSortDirection = state.tableSortDirection
+
+        if (panel === PANEL_LEFT && removedConsistencyStage && isConsistencyType(state.tableSortBy)) {
+          console.log('[Store.removeStageFromTree] Consistency stage removed from left panel, resetting table sort')
+          newTableSort = null
+          newTableSortDirection = null
+        }
 
         return {
           [panelKey]: {
@@ -280,7 +440,9 @@ export const useStore = create<AppState>((set, get) => ({
           // Close histogram popover if it's open for the current panel
           popoverState: {
             histogram: state.popoverState.histogram?.panel === panel ? null : state.popoverState.histogram
-          }
+          },
+          tableSortBy: newTableSort,
+          tableSortDirection: newTableSortDirection
         }
       } catch (error) {
         console.error('Failed to remove stage from tree:', error)
@@ -520,9 +682,13 @@ export const useStore = create<AppState>((set, get) => ({
         thresholdTree,
       }
 
+      // Add stack trace to identify caller
+      const stack = new Error().stack
       console.log('📤 Sending Sankey request:', {
+        panel,
         filters,
         thresholdTree: JSON.stringify(thresholdTree, null, 2),
+        calledFrom: stack?.split('\n')[2] // Show caller
       })
 
       const sankeyData = await api.getSankeyData(requestData)
@@ -706,7 +872,66 @@ export const useStore = create<AppState>((set, get) => ({
 
   // Set table sort state
   setTableSort: (sortBy, sortDirection) => {
-    set({ tableSortBy: sortBy, tableSortDirection: sortDirection })
+    const state = get()
+
+    // Track if left panel needs fetching
+    let shouldFetchLeft = false
+
+    // Prepare state updates
+    const stateUpdates: any = {
+      tableSortBy: sortBy,
+      tableSortDirection: sortDirection
+    }
+
+    // NEW: Sync Sankey stages if sorting by consistency type (LEFT PANEL ONLY)
+    if (sortBy && isConsistencyType(sortBy)) {
+      console.log('[Store.setTableSort] Consistency type detected, syncing left Sankey:', sortBy)
+
+      const stageConfig = buildConsistencyStageConfig(sortBy)
+
+      // Handle left panel only
+      if (!hasSpecificConsistencyType(state.leftPanel.thresholdTree, sortBy as ConsistencyType)) {
+        console.log('[Store.setTableSort] Updating consistency stage in left panel')
+
+        let workingTree = state.leftPanel.thresholdTree
+
+        // Remove existing consistency stage if present
+        if (hasConsistencyStage(workingTree)) {
+          const consistencyNodeId = findConsistencyStageNodeId(workingTree)
+          if (consistencyNodeId) {
+            // Find parent of consistency node to remove from
+            const consistencyNode = workingTree.nodes.find(n => n.id === consistencyNodeId)
+            if (consistencyNode && consistencyNode.parent_path.length > 0) {
+              const parentId = consistencyNode.parent_path[consistencyNode.parent_path.length - 1].parent_id
+              workingTree = removeStageFromNode(workingTree, parentId)
+            }
+          }
+        }
+
+        // Add new consistency stage
+        const rootNode = workingTree.nodes.find(n => n.id === 'root')
+        if (rootNode) {
+          const updatedTreeLeft = addStageToNode(workingTree, rootNode.id, stageConfig)
+          stateUpdates.leftPanel = {
+            ...state.leftPanel,
+            thresholdTree: updatedTreeLeft,
+            sankeyData: null,
+            histogramData: null
+          }
+          shouldFetchLeft = true
+        }
+      }
+    }
+
+    // Single state update with all changes
+    set(stateUpdates)
+
+    // Fetch data only for left panel if it changed (use fresh state reference)
+    const freshState = get()
+    if (shouldFetchLeft) {
+      console.log('[Store.setTableSort] Fetching Sankey data for left panel')
+      freshState.fetchSankeyData(PANEL_LEFT)
+    }
   },
 
   // Set consistency type for table panel
