@@ -1,17 +1,298 @@
 {
-    "filters": {
-        "sae_id": [],
-        "explanation_method": [],
-        "llm_explainer": [
-            "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
-            "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
-            "openai/gpt-oss-20b"
+  "nodes": [
+    {
+      "id": "root",
+      "stage": 0,
+      "category": "root",
+      "parent_path": [],
+      "split_rule": {
+        "type": "expression",
+        "available_metrics": [
+          "cross_explanation_overall_score_consistency"
         ],
-        "llm_scorer": [
-            "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
-            "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
-            "openai/gpt-oss-20b"
-        ]
+        "branches": [
+          {
+            "condition": "cross_explanation_overall_score_consistency >= 0.00 && cross_explanation_overall_score_consistency < 0.25",
+            "child_id": "cross_explanation_overall_score_consistency_0_25",
+            "description": "0.00-0.25"
+          },
+          {
+            "condition": "cross_explanation_overall_score_consistency >= 0.25 && cross_explanation_overall_score_consistency < 0.50",
+            "child_id": "cross_explanation_overall_score_consistency_0_50",
+            "description": "0.25-0.50"
+          },
+          {
+            "condition": "cross_explanation_overall_score_consistency >= 0.50 && cross_explanation_overall_score_consistency < 0.75",
+            "child_id": "cross_explanation_overall_score_consistency_0_75",
+            "description": "0.50-0.75"
+          },
+          {
+            "condition": "cross_explanation_overall_score_consistency >= 0.75 && cross_explanation_overall_score_consistency <= 1.00",
+            "child_id": "cross_explanation_overall_score_consistency_1_00",
+            "description": "0.75-1.00"
+          }
+        ],
+        "default_child_id": "cross_explanation_overall_score_consistency_1_00"
+      },
+      "children_ids": [
+        "cross_explanation_overall_score_consistency_0_25",
+        "cross_explanation_overall_score_consistency_0_50",
+        "cross_explanation_overall_score_consistency_0_75",
+        "cross_explanation_overall_score_consistency_1_00"
+      ]
     },
-    "thresholdTree": "{\n  \"nodes\": [\n    {\n      \"id\": \"root\",\n      \"stage\": 0,\n      \"category\": \"root\",\n      \"parent_path\": [],\n      \"split_rule\": {\n        \"type\": \"expression\",\n        \"available_metrics\": [\n          \"llm_scorer_consistency\"\n        ],\n        \"branches\": [\n          {\n            \"condition\": \"llm_scorer_consistency >= 0% && llm_scorer_consistency < 25%\",\n            \"child_id\": \"llm_scorer_consistency_p25\",\n            \"description\": \"0-25%\"\n          },\n          {\n            \"condition\": \"llm_scorer_consistency >= 25% && llm_scorer_consistency < 50%\",\n            \"child_id\": \"llm_scorer_consistency_p50\",\n            \"description\": \"25-50%\"\n          },\n          {\n            \"condition\": \"llm_scorer_consistency >= 50% && llm_scorer_consistency < 75%\",\n            \"child_id\": \"llm_scorer_consistency_p75\",\n            \"description\": \"50-75%\"\n          },\n          {\n            \"condition\": \"llm_scorer_consistency >= 75% && llm_scorer_consistency <= 100%\",\n            \"child_id\": \"llm_scorer_consistency_p100\",\n            \"description\": \"75-100%\"\n          }\n        ],\n        \"default_child_id\": \"llm_scorer_consistency_p100\"\n      },\n      \"children_ids\": [\n        \"llm_scorer_consistency_p25\",\n        \"llm_scorer_consistency_p50\",\n        \"llm_scorer_consistency_p75\",\n        \"llm_scorer_consistency_p100\"\n      ]\n    },\n    {\n      \"id\": \"llm_scorer_consistency_p25\",\n      \"stage\": 1,\n      \"category\": \"consistency\",\n      \"parent_path\": [\n        {\n          \"parent_id\": \"root\",\n          \"parent_split_rule\": {\n            \"type\": \"expression\",\n            \"expression_info\": {\n              \"branch_index\": 0,\n              \"condition\": \"llm_scorer_consistency >= 0% && llm_scorer_consistency < 25%\",\n              \"description\": \"0-25%\"\n            }\n          },\n          \"branch_index\": 0\n        }\n      ],\n      \"split_rule\": null,\n      \"children_ids\": []\n    },\n    {\n      \"id\": \"llm_scorer_consistency_p50\",\n      \"stage\": 1,\n      \"category\": \"consistency\",\n      \"parent_path\": [\n        {\n          \"parent_id\": \"root\",\n          \"parent_split_rule\": {\n            \"type\": \"expression\",\n            \"expression_info\": {\n              \"branch_index\": 1,\n              \"condition\": \"llm_scorer_consistency >= 25% && llm_scorer_consistency < 50%\",\n              \"description\": \"25-50%\"\n            }\n          },\n          \"branch_index\": 1\n        }\n      ],\n      \"split_rule\": null,\n      \"children_ids\": []\n    },\n    {\n      \"id\": \"llm_scorer_consistency_p75\",\n      \"stage\": 1,\n      \"category\": \"consistency\",\n      \"parent_path\": [\n        {\n          \"parent_id\": \"root\",\n          \"parent_split_rule\": {\n            \"type\": \"expression\",\n            \"expression_info\": {\n              \"branch_index\": 2,\n              \"condition\": \"llm_scorer_consistency >= 50% && llm_scorer_consistency < 75%\",\n              \"description\": \"50-75%\"\n            }\n          },\n          \"branch_index\": 2\n        }\n      ],\n      \"split_rule\": null,\n      \"children_ids\": []\n    },\n    {\n      \"id\": \"llm_scorer_consistency_p100\",\n      \"stage\": 1,\n      \"category\": \"consistency\",\n      \"parent_path\": [\n        {\n          \"parent_id\": \"root\",\n          \"parent_split_rule\": {\n            \"type\": \"expression\",\n            \"expression_info\": {\n              \"branch_index\": 3,\n              \"condition\": \"llm_scorer_consistency >= 75% && llm_scorer_consistency <= 100%\",\n              \"description\": \"75-100%\"\n            }\n          },\n          \"branch_index\": 3\n        }\n      ],\n      \"split_rule\": null,\n      \"children_ids\": []\n    }\n  ],\n  \"metrics\": [\n    \"llm_scorer_consistency\"\n  ]\n}"
+    {
+      "id": "cross_explanation_overall_score_consistency_0_25",
+      "stage": 1,
+      "category": "consistency",
+      "parent_path": [
+        {
+          "parent_id": "root",
+          "parent_split_rule": {
+            "type": "expression",
+            "expression_info": {
+              "branch_index": 0,
+              "condition": "cross_explanation_overall_score_consistency >= 0.00 && cross_explanation_overall_score_consistency < 0.25",
+              "description": "0.00-0.25"
+            }
+          },
+          "branch_index": 0
+        }
+      ],
+      "split_rule": null,
+      "children_ids": []
+    },
+    {
+      "id": "cross_explanation_overall_score_consistency_0_50",
+      "stage": 1,
+      "category": "consistency",
+      "parent_path": [
+        {
+          "parent_id": "root",
+          "parent_split_rule": {
+            "type": "expression",
+            "expression_info": {
+              "branch_index": 1,
+              "condition": "cross_explanation_overall_score_consistency >= 0.25 && cross_explanation_overall_score_consistency < 0.50",
+              "description": "0.25-0.50"
+            }
+          },
+          "branch_index": 1
+        }
+      ],
+      "split_rule": null,
+      "children_ids": []
+    },
+    {
+      "id": "cross_explanation_overall_score_consistency_0_75",
+      "stage": 1,
+      "category": "consistency",
+      "parent_path": [
+        {
+          "parent_id": "root",
+          "parent_split_rule": {
+            "type": "expression",
+            "expression_info": {
+              "branch_index": 2,
+              "condition": "cross_explanation_overall_score_consistency >= 0.50 && cross_explanation_overall_score_consistency < 0.75",
+              "description": "0.50-0.75"
+            }
+          },
+          "branch_index": 2
+        }
+      ],
+      "split_rule": null,
+      "children_ids": []
+    },
+    {
+      "id": "cross_explanation_overall_score_consistency_1_00",
+      "stage": 1,
+      "category": "consistency",
+      "parent_path": [
+        {
+          "parent_id": "root",
+          "parent_split_rule": {
+            "type": "expression",
+            "expression_info": {
+              "branch_index": 3,
+              "condition": "cross_explanation_overall_score_consistency >= 0.75 && cross_explanation_overall_score_consistency <= 1.00",
+              "description": "0.75-1.00"
+            }
+          },
+          "branch_index": 3
+        }
+      ],
+      "split_rule": {
+        "type": "expression",
+        "available_metrics": [
+          "llm_scorer_consistency"
+        ],
+        "branches": [
+          {
+            "condition": "llm_scorer_consistency >= 0.00 && llm_scorer_consistency < 0.25",
+            "child_id": "llm_scorer_consistency_0_25",
+            "description": "0.00-0.25"
+          },
+          {
+            "condition": "llm_scorer_consistency >= 0.25 && llm_scorer_consistency < 0.50",
+            "child_id": "llm_scorer_consistency_0_50",
+            "description": "0.25-0.50"
+          },
+          {
+            "condition": "llm_scorer_consistency >= 0.50 && llm_scorer_consistency < 0.75",
+            "child_id": "llm_scorer_consistency_0_75",
+            "description": "0.50-0.75"
+          },
+          {
+            "condition": "llm_scorer_consistency >= 0.75 && llm_scorer_consistency <= 1.00",
+            "child_id": "llm_scorer_consistency_1_00",
+            "description": "0.75-1.00"
+          }
+        ],
+        "default_child_id": "llm_scorer_consistency_1_00"
+      },
+      "children_ids": [
+        "cross_explanation_overall_score_consistency_1_00_llm_scorer_consistency_0_25",
+        "cross_explanation_overall_score_consistency_1_00_llm_scorer_consistency_0_50",
+        "cross_explanation_overall_score_consistency_1_00_llm_scorer_consistency_0_75",
+        "cross_explanation_overall_score_consistency_1_00_llm_scorer_consistency_1_00"
+      ]
+    },
+    {
+      "id": "cross_explanation_overall_score_consistency_1_00_llm_scorer_consistency_0_25",
+      "stage": 2,
+      "category": "consistency",
+      "parent_path": [
+        {
+          "parent_id": "root",
+          "parent_split_rule": {
+            "type": "expression",
+            "expression_info": {
+              "branch_index": 3,
+              "condition": "cross_explanation_overall_score_consistency >= 0.75 && cross_explanation_overall_score_consistency <= 1.00",
+              "description": "0.75-1.00"
+            }
+          },
+          "branch_index": 3
+        },
+        {
+          "parent_id": "cross_explanation_overall_score_consistency_1_00",
+          "parent_split_rule": {
+            "type": "expression",
+            "expression_info": {
+              "branch_index": 0,
+              "condition": "llm_scorer_consistency >= 0.00 && llm_scorer_consistency < 0.25",
+              "description": "0.00-0.25"
+            }
+          },
+          "branch_index": 0
+        }
+      ],
+      "split_rule": null,
+      "children_ids": []
+    },
+    {
+      "id": "cross_explanation_overall_score_consistency_1_00_llm_scorer_consistency_0_50",
+      "stage": 2,
+      "category": "consistency",
+      "parent_path": [
+        {
+          "parent_id": "root",
+          "parent_split_rule": {
+            "type": "expression",
+            "expression_info": {
+              "branch_index": 3,
+              "condition": "cross_explanation_overall_score_consistency >= 0.75 && cross_explanation_overall_score_consistency <= 1.00",
+              "description": "0.75-1.00"
+            }
+          },
+          "branch_index": 3
+        },
+        {
+          "parent_id": "cross_explanation_overall_score_consistency_1_00",
+          "parent_split_rule": {
+            "type": "expression",
+            "expression_info": {
+              "branch_index": 1,
+              "condition": "llm_scorer_consistency >= 0.25 && llm_scorer_consistency < 0.50",
+              "description": "0.25-0.50"
+            }
+          },
+          "branch_index": 1
+        }
+      ],
+      "split_rule": null,
+      "children_ids": []
+    },
+    {
+      "id": "cross_explanation_overall_score_consistency_1_00_llm_scorer_consistency_0_75",
+      "stage": 2,
+      "category": "consistency",
+      "parent_path": [
+        {
+          "parent_id": "root",
+          "parent_split_rule": {
+            "type": "expression",
+            "expression_info": {
+              "branch_index": 3,
+              "condition": "cross_explanation_overall_score_consistency >= 0.75 && cross_explanation_overall_score_consistency <= 1.00",
+              "description": "0.75-1.00"
+            }
+          },
+          "branch_index": 3
+        },
+        {
+          "parent_id": "cross_explanation_overall_score_consistency_1_00",
+          "parent_split_rule": {
+            "type": "expression",
+            "expression_info": {
+              "branch_index": 2,
+              "condition": "llm_scorer_consistency >= 0.50 && llm_scorer_consistency < 0.75",
+              "description": "0.50-0.75"
+            }
+          },
+          "branch_index": 2
+        }
+      ],
+      "split_rule": null,
+      "children_ids": []
+    },
+    {
+      "id": "cross_explanation_overall_score_consistency_1_00_llm_scorer_consistency_1_00",
+      "stage": 2,
+      "category": "consistency",
+      "parent_path": [
+        {
+          "parent_id": "root",
+          "parent_split_rule": {
+            "type": "expression",
+            "expression_info": {
+              "branch_index": 3,
+              "condition": "cross_explanation_overall_score_consistency >= 0.75 && cross_explanation_overall_score_consistency <= 1.00",
+              "description": "0.75-1.00"
+            }
+          },
+          "branch_index": 3
+        },
+        {
+          "parent_id": "cross_explanation_overall_score_consistency_1_00",
+          "parent_split_rule": {
+            "type": "expression",
+            "expression_info": {
+              "branch_index": 3,
+              "condition": "llm_scorer_consistency >= 0.75 && llm_scorer_consistency <= 1.00",
+              "description": "0.75-1.00"
+            }
+          },
+          "branch_index": 3
+        }
+      ],
+      "split_rule": null,
+      "children_ids": []
+    }
+  ],
+  "metrics": [
+    "cross_explanation_overall_score_consistency",
+    "llm_scorer_consistency"
+  ]
 }

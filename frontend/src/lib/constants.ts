@@ -107,6 +107,26 @@ export const CONSISTENCY_TYPES = {
 } as const
 
 // ============================================================================
+// CUSTOM CONSISTENCY THRESHOLDS - Per-metric custom threshold configurations
+// Used for creating custom value splits with explicit threshold boundaries
+// ============================================================================
+
+/**
+ * Custom threshold values for each consistency metric
+ * These define the bin boundaries for classification in Sankey diagrams
+ *
+ * N thresholds create N+1 bins:
+ * - [0.15, 0.45, 0.75] creates 4 bins: [0-0.15), [0.15-0.45), [0.45-0.75), [0.75-1.0]
+ */
+export const CONSISTENCY_THRESHOLDS = {
+  [CONSISTENCY_TYPE_LLM_SCORER]: [0.25, 0.50, 0.75],                    // 4 bins for LLM Scorer Consistency
+  [CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC]: [0.25, 0.5, 0.75],     // 4 bins for Within-Explanation Metric
+  [CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC]: [0.8],   // 5 bins for Cross-Explanation Metric
+[CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE]: [0.25, 0.50, 0.75],      // 3 bins for Overall Score
+  [CONSISTENCY_TYPE_LLM_EXPLAINER]: [0.8, 0.85, 0.9]                         // 3 bins for LLM Explainer
+} as const
+
+// ============================================================================
 // DISPLAY NAMES - Centralized UI string mappings
 // Used across: utils.ts, HistogramPopover.tsx, and other UI components (3+ files)
 // ============================================================================

@@ -104,6 +104,105 @@ export function buildPercentileSplit(
   return buildExpressionSplit(branches, branches[branches.length - 1].child_id, [metric])
 }
 
+/**
+ * Build an absolute value-based expression split for consistency metrics
+ * Divides a metric into N equal-width bins using absolute thresholds (e.g., 0-0.25, 0.25-0.5, 0.5-0.75, 0.75-1.0)
+ * @param metric The metric to split on (e.g., 'llm_scorer_consistency')
+ * @param numBins Number of bins for splitting (default: 4)
+ * @returns ExpressionSplitRule with absolute value-based branches
+ */
+export function buildAbsoluteValueSplit(
+  metric: string,
+  numBins: number = 4
+): ExpressionSplitRule {
+  if (numBins < 2) {
+    throw new Error('Number of bins must be at least 2')
+  }
+
+  const binSize = 1.0 / numBins
+  const branches: ExpressionSplitRule['branches'] = []
+
+  for (let i = 0; i < numBins; i++) {
+    const lowerBound = i * binSize
+    const upperBound = (i + 1) * binSize
+
+    // Format thresholds with 2 decimal places for readability
+    const lowerStr = lowerBound.toFixed(2)
+    const upperStr = upperBound.toFixed(2)
+
+    // Use absolute value conditions
+    const condition = i === numBins - 1
+      ? `${metric} >= ${lowerStr} && ${metric} <= ${upperStr}`
+      : `${metric} >= ${lowerStr} && ${metric} < ${upperStr}`
+
+    branches.push({
+      condition,
+      child_id: `${metric}_${upperStr.replace('.', '_')}`,
+      description: `${lowerStr}-${upperStr}`
+    })
+  }
+
+  return buildExpressionSplit(branches, branches[branches.length - 1].child_id, [metric])
+}
+
+/**
+ * Build a custom value-based expression split with explicit threshold values
+ * Creates bins using provided threshold values instead of auto-calculating equal-width bins
+ * @param metric The metric to split on (e.g., 'llm_scorer_consistency')
+ * @param thresholds Array of explicit threshold values (must be sorted ascending and in range [0, 1])
+ * @returns ExpressionSplitRule with custom value-based branches
+ * @example
+ * // Creates 4 bins: [0-0.2), [0.2-0.5), [0.5-0.8), [0.8-1.0]
+ * buildCustomValueSplit('llm_scorer_consistency', [0.2, 0.5, 0.8])
+ */
+export function buildCustomValueSplit(
+  metric: string,
+  thresholds: number[]
+): ExpressionSplitRule {
+  // Validate inputs
+  if (thresholds.length < 1) {
+    throw new Error('At least one threshold value is required')
+  }
+
+  // Validate thresholds are sorted and in valid range
+  for (let i = 0; i < thresholds.length; i++) {
+    const threshold = thresholds[i]
+
+    if (threshold < 0 || threshold > 1) {
+      throw new Error(`Threshold value ${threshold} is out of valid range [0, 1]`)
+    }
+
+    if (i > 0 && threshold <= thresholds[i - 1]) {
+      throw new Error(`Thresholds must be sorted in ascending order. Found ${thresholds[i - 1]} followed by ${threshold}`)
+    }
+  }
+
+  const branches: ExpressionSplitRule['branches'] = []
+  const numBins = thresholds.length + 1
+
+  for (let i = 0; i < numBins; i++) {
+    const lowerBound = i === 0 ? 0 : thresholds[i - 1]
+    const upperBound = i === numBins - 1 ? 1 : thresholds[i]
+
+    // Format thresholds with 2 decimal places for readability
+    const lowerStr = lowerBound.toFixed(2)
+    const upperStr = upperBound.toFixed(2)
+
+    // Use absolute value conditions
+    const condition = i === numBins - 1
+      ? `${metric} >= ${lowerStr} && ${metric} <= ${upperStr}`
+      : `${metric} >= ${lowerStr} && ${metric} < ${upperStr}`
+
+    branches.push({
+      condition,
+      child_id: `${metric}_${upperStr.replace('.', '_')}`,
+      description: `${lowerStr}-${upperStr}`
+    })
+  }
+
+  return buildExpressionSplit(branches, branches[branches.length - 1].child_id, [metric])
+}
+
 
 /**
  * Create a SankeyThreshold node

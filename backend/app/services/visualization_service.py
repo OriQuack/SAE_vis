@@ -24,7 +24,6 @@ from ..models.responses import (
 )
 from .data_constants import *
 from .feature_classifier import ClassificationEngine
-from .consistency_service import ConsistencyService
 
 logger = logging.getLogger(__name__)
 
@@ -599,25 +598,28 @@ class DataService:
         """
         Join consistency scores with filtered data and compute min consistency per feature.
 
+        Assumes exactly 3 LLM explainers and 3 LLM scorers are present in the data.
+        All consistency scores must be pre-computed in the consistency_scores.parquet file.
+
         For each feature:
         - llm_scorer_consistency: MIN across all scorer_consistency values
           (3 explainers × 2 metrics = 6 values per feature)
         - within_explanation_score: MIN of within_explanation_metric_consistency across explainers
           (3 explainer values per feature)
-        - cross_explanation_overall_score: Consistency of overall_score across explainers
-          (computed using normalized averages of embedding, fuzz, detection scores)
-
-        All metrics are used for percentile-based classification.
+        - cross_explanation_overall_score: Pre-computed consistency of overall_score across explainers
+          (from consistency parquet with z-score normalization)
 
         Args:
-            filtered_df: DataFrame after applying filters
+            filtered_df: DataFrame after applying filters (must have 3 explainers and 3 scorers)
 
         Returns:
             DataFrame with consistency scores joined and computed per feature
+
+        Raises:
+            ValueError: If consistency scores are not available or missing required columns
         """
         if self._consistency_lazy is None:
-            logger.warning("Consistency scores not available - skipping join")
-            return filtered_df
+            raise ValueError("Consistency scores parquet file not available")
 
         try:
             # Get unique feature IDs and explainers from filtered data
@@ -638,8 +640,7 @@ class DataService:
             )
 
             if len(consistency_df) == 0:
-                logger.warning("No matching consistency scores found for filtered data")
-                return filtered_df
+                raise ValueError("No matching consistency scores found for filtered data")
 
             # Compute MIN consistency per feature across all explainers and metrics
             # For each feature: min(all llm_scorer_consistency_fuzz and llm_scorer_consistency_detection values)
@@ -680,94 +681,39 @@ class DataService:
             logger.info(f"Computed within-explanation score for {len(within_explanation_per_feature)} features "
                        f"(min across {len(explainer_ids)} explainers)")
 
-            # Get cross-explanation overall score if multiple explainers
-            cross_explanation_overall_score_df = None
-            if len(explainer_ids) >= 2:
-                # Try to use pre-computed cross_explanation_overall_score from consistency parquet
-                if 'cross_explanation_overall_score' in consistency_df.columns:
-                    # Use pre-computed values (calculated with z-score normalization)
-                    cross_explanation_overall_score_df = (
-                        consistency_df
-                        .select(['feature_id', 'cross_explanation_overall_score'])
-                        .unique(subset=['feature_id'])  # One value per feature
-                        .with_columns([
-                            pl.col("feature_id").cast(pl.UInt32)
-                        ])
-                    )
-                    logger.info(f"Using pre-computed cross_explanation_overall_score for {len(cross_explanation_overall_score_df)} features")
-                else:
-                    # Fallback: Compute cross_explanation_overall_score dynamically
-                    # (This should rarely happen for default config)
-                    logger.info(f"Pre-computed cross_explanation_overall_score not available, computing dynamically")
+            # Extract pre-computed cross_explanation_overall_score from consistency parquet
+            # The column is named cross_explanation_overall_score_consistency in the parquet
+            if 'cross_explanation_overall_score_consistency' not in consistency_df.columns:
+                raise ValueError("Pre-computed cross_explanation_overall_score_consistency not found in consistency parquet")
 
-                    # Step 1: Compute global stats for normalization (mean/std for z-score, also min/max for fallback)
-                    global_stats = {}
-                    for metric_col in ['score_embedding', 'score_fuzz', 'score_detection']:
-                        metric_values = filtered_df[metric_col].drop_nulls().to_list()
-                        if len(metric_values) >= 2:
-                            global_stats[metric_col.replace('score_', '')] = {
-                                'mean': float(np.mean(metric_values)),
-                                'std': float(np.std(metric_values, ddof=1)),
-                                'min': float(np.min(metric_values)),
-                                'max': float(np.max(metric_values))
-                            }
+            cross_explanation_overall_score_df = (
+                consistency_df
+                .select([
+                    'feature_id',
+                    pl.col('cross_explanation_overall_score_consistency').alias('cross_explanation_overall_score')
+                ])
+                .unique(subset=['feature_id'])  # One value per feature
+                .with_columns([
+                    pl.col("feature_id").cast(pl.UInt32)
+                ])
+            )
+            logger.info(f"Using pre-computed cross_explanation_overall_score for {len(cross_explanation_overall_score_df)} features")
 
-                    # Step 2: Compute max_std using ConsistencyService
-                    max_stds = ConsistencyService.compute_max_stds(filtered_df, explainer_ids, global_stats)
-                    max_std_overall = max_stds.get('cross_explanation_overall_score', 0.5)
-
-                    # Step 3: Compute per-feature cross_explanation_overall_score
-                    cross_explanation_overall_score_df = ConsistencyService.compute_cross_explanation_overall_score_per_feature(
-                        filtered_df,
-                        explainer_ids,
-                        feature_ids,
-                        max_std_overall,
-                        global_stats
-                    )
-
-                    logger.info(f"Computed cross_explanation_overall_score for {len(cross_explanation_overall_score_df)} features "
-                               f"(consistency across {len(explainer_ids)} explainers)")
-
-            # Join min consistency with filtered data
-            result_df = filtered_df.join(
-                min_consistency_per_feature,
-                on="feature_id",
-                how="left"
+            # Join all consistency scores with filtered data
+            result_df = (
+                filtered_df
+                .join(min_consistency_per_feature, on="feature_id", how="left")
+                .join(within_explanation_per_feature, on="feature_id", how="left")
+                .join(cross_explanation_overall_score_df, on="feature_id", how="left")
+                .join(consistency_df, on=["feature_id", "llm_explainer"], how="left")
             )
 
-            # Join within-explanation score
-            result_df = result_df.join(
-                within_explanation_per_feature,
-                on="feature_id",
-                how="left"
-            )
-
-            # Join cross-explanation overall score if computed
-            if cross_explanation_overall_score_df is not None and len(cross_explanation_overall_score_df) > 0:
-                result_df = result_df.join(
-                    cross_explanation_overall_score_df,
-                    on="feature_id",
-                    how="left"
-                )
-
-            # Also join full consistency data for individual metric access
-            result_df = result_df.join(
-                consistency_df,
-                on=["feature_id", "llm_explainer"],
-                how="left"
-            )
-
-            metrics_computed = "llm_scorer_consistency, within_explanation_score"
-            if cross_explanation_overall_score_df is not None and len(cross_explanation_overall_score_df) > 0:
-                metrics_computed += ", cross_explanation_overall_score"
-
-            logger.info(f"Joined consistency scores: {len(result_df)} rows with {metrics_computed}")
+            logger.info(f"Joined consistency scores: {len(result_df)} rows with llm_scorer_consistency, within_explanation_score, cross_explanation_overall_score")
             return result_df
 
         except Exception as e:
             logger.error(f"Error joining consistency scores: {e}")
-            # Return original data if join fails
-            return filtered_df
+            raise
 
     def _extract_metric_values(self, df: pl.DataFrame, metric: MetricType) -> np.ndarray:
         """Extract and validate metric values from DataFrame."""
@@ -1126,6 +1072,16 @@ class DataService:
 
         if len(filtered_df) == 0:
             raise ValueError("No data available after applying filters")
+
+        # Validate that exactly 3 LLM explainers and 3 scorers are present
+        num_explainers = filtered_df.select(pl.col(COL_LLM_EXPLAINER).n_unique()).item()
+        num_scorers = filtered_df.select(pl.col(COL_LLM_SCORER).n_unique()).item()
+
+        if num_explainers != 3 or num_scorers != 3:
+            raise ValueError(
+                f"Consistency analysis requires exactly 3 LLM explainers and 3 LLM scorers. "
+                f"Found {num_explainers} explainer(s) and {num_scorers} scorer(s)."
+            )
 
         # Join consistency scores for percentile-based classification
         filtered_df = self._join_consistency_scores(filtered_df)

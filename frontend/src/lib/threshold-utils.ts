@@ -13,6 +13,8 @@ import type {
 import {
   buildRangeSplit,
   buildPercentileSplit,
+  buildAbsoluteValueSplit,
+  buildCustomValueSplit,
   createNode,
   createParentPath
 } from './split-rule-builders'
@@ -35,7 +37,8 @@ import {
   CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC,
   CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC,
   CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE,
-  CONSISTENCY_TYPE_LLM_EXPLAINER
+  CONSISTENCY_TYPE_LLM_EXPLAINER,
+  CONSISTENCY_THRESHOLDS
 } from './constants'
 
 // ============================================================================
@@ -138,7 +141,7 @@ export const AVAILABLE_STAGE_TYPES: StageTypeConfig[] = [
   {
     id: CONSISTENCY_TYPE_LLM_SCORER,
     name: 'LLM Scorer Consistency',
-    description: 'Split features into 10 percentiles by scorer consistency',
+    description: 'Consistency of scores across different LLM scorers for the same explainer and metric',
     category: CATEGORY_CONSISTENCY,
     defaultSplitRule: 'expression',
     defaultMetric: CONSISTENCY_TYPE_LLM_SCORER
@@ -146,7 +149,7 @@ export const AVAILABLE_STAGE_TYPES: StageTypeConfig[] = [
   {
     id: CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC,
     name: 'Within-Explanation Metric Consistency',
-    description: 'Split features into 10 percentiles by within-explanation metric consistency',
+    description: 'Consistency across different scoring metrics within the same explainer',
     category: CATEGORY_CONSISTENCY,
     defaultSplitRule: 'expression',
     defaultMetric: CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC
@@ -154,7 +157,7 @@ export const AVAILABLE_STAGE_TYPES: StageTypeConfig[] = [
   {
     id: CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC,
     name: 'Cross-Explanation Metric Consistency',
-    description: 'Split features into 10 percentiles by cross-explanation metric consistency',
+    description: 'Consistency of individual metrics across different explainers',
     category: CATEGORY_CONSISTENCY,
     defaultSplitRule: 'expression',
     defaultMetric: CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC
@@ -162,7 +165,7 @@ export const AVAILABLE_STAGE_TYPES: StageTypeConfig[] = [
   {
     id: CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE,
     name: 'Cross-Explanation Overall Score Consistency',
-    description: 'Split features into 10 percentiles by cross-explanation overall score consistency',
+    description: 'Consistency of overall scores across different explainers',
     category: CATEGORY_CONSISTENCY,
     defaultSplitRule: 'expression',
     defaultMetric: CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE
@@ -170,7 +173,7 @@ export const AVAILABLE_STAGE_TYPES: StageTypeConfig[] = [
   {
     id: CONSISTENCY_TYPE_LLM_EXPLAINER,
     name: 'LLM Explainer Consistency',
-    description: 'Split features into 10 percentiles by explainer consistency',
+    description: 'Semantic similarity between explanations from different LLM explainers',
     category: CATEGORY_CONSISTENCY,
     defaultSplitRule: 'expression',
     defaultMetric: CONSISTENCY_TYPE_LLM_EXPLAINER
@@ -451,14 +454,35 @@ export function addStageToNode(
       )
     }
   } else if (config.splitRuleType === 'expression' && stageConfig.defaultMetric) {
-    // Handle consistency metrics with percentile split (10 equal bins)
+    // Handle consistency metrics with configurable split method
     const metric = config.metric || stageConfig.defaultMetric
-    const numBins = config.customConfig?.numBins || 4  // Default 10, configurable in future
 
-    splitRule = buildPercentileSplit(metric, numBins)
+    // Priority for determining thresholds:
+    // 1. Explicit customThresholds in config (user override)
+    // 2. Pre-configured CONSISTENCY_THRESHOLDS (default for consistency metrics)
+    // 3. Fallback to numBins with splitMethod (backward compatibility)
+    const customThresholds = config.customConfig?.customThresholds
+    const defaultThresholds = CONSISTENCY_THRESHOLDS[metric as keyof typeof CONSISTENCY_THRESHOLDS]
+    const splitMethod = config.customConfig?.splitMethod || 'absolute'  // Default to 'absolute'
+    const numBins = config.customConfig?.numBins || 4  // Default 4 bins (quartiles)
+
+    // Choose split method based on configuration priority
+    if (customThresholds && customThresholds.length > 0) {
+      // 1. Use explicit custom threshold values (highest priority)
+      splitRule = buildCustomValueSplit(metric, customThresholds)
+    } else if (defaultThresholds) {
+      // 2. Use pre-configured default thresholds from CONSISTENCY_THRESHOLDS (new default)
+      splitRule = buildCustomValueSplit(metric, [...defaultThresholds])
+    } else if (splitMethod === 'percentile') {
+      // 3. Fallback: Use percentile-based equal bins
+      splitRule = buildPercentileSplit(metric, numBins)
+    } else {
+      // 4. Fallback: Use absolute value equal-width bins
+      splitRule = buildAbsoluteValueSplit(metric, numBins)
+    }
     const expressionRule = splitRule as ExpressionSplitRule
 
-    // Create child nodes for each percentile branch
+    // Create child nodes for each branch (percentile or absolute value)
     expressionRule.branches.forEach((branch, idx) => {
       // Skip "root" prefix for simplicity
       const childId = nodeId === NODE_ROOT_ID ? branch.child_id : `${nodeId}_${branch.child_id}`
@@ -557,6 +581,48 @@ export function getAvailableStageTypes(tree: ThresholdTree, nodeId: string): Sta
   }
 
   return AVAILABLE_STAGE_TYPES.filter(stageType => !usedStageTypes.has(stageType.id))
+}
+
+/**
+ * Add a consistency stage with pre-configured custom thresholds
+ * This is a convenience wrapper around addStageToNode that automatically applies
+ * the custom threshold values defined in CONSISTENCY_THRESHOLDS
+ *
+ * @param tree Current threshold tree
+ * @param nodeId ID of the node to add the stage to
+ * @param consistencyType Type of consistency metric (e.g., CONSISTENCY_TYPE_LLM_SCORER)
+ * @returns Updated threshold tree with the consistency stage added
+ *
+ * @example
+ * ```typescript
+ * // Add LLM Scorer Consistency stage with custom thresholds [0.15, 0.45, 0.75]
+ * const tree = addConsistencyStageWithCustomThresholds(
+ *   currentTree,
+ *   'root',
+ *   CONSISTENCY_TYPE_LLM_SCORER
+ * )
+ * ```
+ */
+export function addConsistencyStageWithCustomThresholds(
+  tree: ThresholdTree,
+  nodeId: string,
+  consistencyType: string
+): ThresholdTree {
+  // Get custom thresholds for this consistency type
+  const customThresholds = CONSISTENCY_THRESHOLDS[consistencyType as keyof typeof CONSISTENCY_THRESHOLDS]
+
+  if (!customThresholds) {
+    throw new Error(`No custom thresholds defined for consistency type: ${consistencyType}`)
+  }
+
+  // Add stage with custom thresholds
+  return addStageToNode(tree, nodeId, {
+    stageType: consistencyType,
+    splitRuleType: 'expression',
+    customConfig: {
+      customThresholds: [...customThresholds] // Create a copy to avoid mutations
+    }
+  })
 }
 
 // ============================================================================

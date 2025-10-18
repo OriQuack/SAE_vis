@@ -388,13 +388,19 @@ export interface StageTypeConfig {
   defaultThresholds?: number[]
 }
 
+export interface CustomStageConfig {
+  splitMethod?: 'percentile' | 'absolute'  // Default: 'absolute'
+  numBins?: number  // Number of bins for splitting (default: 4)
+  customThresholds?: number[]  // Explicit threshold values for custom splits (overrides numBins)
+}
+
 export interface AddStageConfig {
   stageType: string
   splitRuleType: 'range' | 'pattern' | 'expression'
   metric?: string
   thresholds?: number[]
   selectedScoreMetrics?: string[]
-  customConfig?: any
+  customConfig?: CustomStageConfig
 }
 
 // ============================================================================
