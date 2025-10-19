@@ -4,14 +4,16 @@ import type { FeatureTableDataResponse, FeatureTableRow } from '../types'
 import {
   calculateOverallScore,
   calculateMinConsistency,
-  getConsistencyColor,
-  getOverallScoreColor,
   getScoreValue,
-  getMetricColor,
   normalizeScore,
   sortFeatures,
   getExplainerDisplayName
 } from '../lib/d3-table-utils'
+import {
+  getConsistencyColor,
+  getOverallScoreColor,
+  getMetricColor
+} from '../lib/utils'
 import {
   METRIC_LLM_SCORER_CONSISTENCY,
   METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,

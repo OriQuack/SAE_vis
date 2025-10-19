@@ -258,28 +258,8 @@ export const METRIC_COLORS = {
     LOW: PAUL_TOL_BRIGHT.GREEN + '00',    // 0% opacity (transparent/white)
     MEDIUM: PAUL_TOL_BRIGHT.GREEN + '80', // 50% opacity (light green)
     HIGH: PAUL_TOL_BRIGHT.GREEN + 'FF'    // 100% opacity (full green #228833)
-  }
-} as const
+  },
 
-// ============================================================================
-// CONSISTENCY COLORS - Professional single-color gradients (white to color)
-// Used for visualizing consistency metrics in TablePanel
-// Based on colorblind-friendly Okabe-Ito and Paul Tol palettes
-// ============================================================================
-
-/**
- * Consistency gradient colors: white (low) → color (high)
- * Each consistency type has its own distinct single-color gradient using opacity
- * Following professional visualization conference standards
- *
- * Uses hex color with alpha channel for systematic color blending:
- * - LOW: 00 (0% opacity - transparent, white background shows through)
- * - MEDIUM: 80 (50% opacity - blended with white background)
- * - HIGH: FF (100% opacity - full color)
- *
- * Format: PALETTE.COLOR + hex_alpha → #RRGGBBAA
- */
-export const CONSISTENCY_COLORS = {
   // LLM Scorer Consistency: Sky Blue gradient (Okabe-Ito Sky Blue)
   LLM_SCORER: {
     LOW: OKABE_ITO_PALETTE.SKY_BLUE + '00',    // 0% opacity (transparent/white)
@@ -313,29 +293,13 @@ export const CONSISTENCY_COLORS = {
     LOW: OKABE_ITO_PALETTE.BLUISH_GREEN + '00',    // 0% opacity (transparent/white)
     MEDIUM: OKABE_ITO_PALETTE.BLUISH_GREEN + '80', // 50% opacity (light green)
     HIGH: OKABE_ITO_PALETTE.BLUISH_GREEN + 'FF'    // 100% opacity (full bluish green)
-  }
-} as const
-
-// ============================================================================
-// OVERALL SCORE COLORS - Performance gradient for overall scores
-// Used in simplified TablePanel for displaying overall scores
-// White (low performance) → Dark Gray (high performance)
-// ============================================================================
-
-/**
- * Overall score gradient colors: white (low) → dark gray (high)
- * Used for visualizing overall scores (0-1 range)
- * Higher overall scores = more intense dark gray color
- *
- * Uses hex color with alpha channel for opacity encoding:
- * - LOW: 00 (0% opacity - transparent, white background shows through)
- * - MEDIUM: 80 (50% opacity - medium gray)
- * - HIGH: FF (100% opacity - full dark gray)
- */
-export const OVERALL_SCORE_COLORS = {
+  },
+  
+  OVERALL_SCORE_COLORS: {
   LOW: '#1f293700',    // 0% opacity (transparent/white) - 0.0 score
   MEDIUM: '#1f293780', // 50% opacity (medium gray) - 0.5 score
   HIGH: '#1f2937FF'    // 100% opacity (dark gray) - 1.0 score
+  }
 } as const
 
 // ============================================================================

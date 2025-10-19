@@ -3,7 +3,7 @@ import { useVisualizationStore } from '../store'
 import type { ConsistencyType, SortBy } from '../types'
 import { calculateColorBarLayout } from '../lib/d3-table-utils'
 import {
-  CONSISTENCY_COLORS,
+  METRIC_COLORS,
   CONSISTENCY_TYPE_NONE,
   METRIC_LLM_SCORER_CONSISTENCY,
   METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
@@ -122,15 +122,15 @@ const ConsistencyPanel: React.FC = () => {
   const getButtonColor = (consistencyType: ConsistencyType): string | null => {
     switch (consistencyType) {
       case METRIC_LLM_SCORER_CONSISTENCY:
-        return CONSISTENCY_COLORS.LLM_SCORER.HIGH
+        return METRIC_COLORS.LLM_SCORER.HIGH
       case METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY:
-        return CONSISTENCY_COLORS.WITHIN_EXPLANATION.HIGH
+        return METRIC_COLORS.WITHIN_EXPLANATION.HIGH
       case METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY:
-        return CONSISTENCY_COLORS.CROSS_EXPLANATION.HIGH
+        return METRIC_COLORS.CROSS_EXPLANATION.HIGH
       case METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY:
-        return CONSISTENCY_COLORS.CROSS_EXPLANATION_OVERALL.HIGH
+        return METRIC_COLORS.CROSS_EXPLANATION_OVERALL.HIGH
       case METRIC_LLM_EXPLAINER_CONSISTENCY:
-        return CONSISTENCY_COLORS.LLM_EXPLAINER.HIGH
+        return METRIC_COLORS.LLM_EXPLAINER.HIGH
       case CONSISTENCY_TYPE_NONE:
       default:
         return null
