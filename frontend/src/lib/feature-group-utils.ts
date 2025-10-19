@@ -340,40 +340,27 @@ export function processFeatureGroupResponse(response: {
 /**
  * Get metrics that should be shown in histogram popover for a node.
  *
+ * Shows the metric used for the NEXT stage (children), not the current node's metric.
+ * This allows users to see the distribution of the metric they'll use for splitting.
+ *
  * @param node - SankeyTreeNode to get metrics for
  * @param tree - Full tree map for reference
  * @returns Array of metrics to display in histogram
  */
 export function getNodeMetrics(
   node: SankeyTreeNode,
-  _tree: Map<string, SankeyTreeNode>
+  tree: Map<string, SankeyTreeNode>
 ): MetricType[] {
-  // Root node: show all 11 available metrics
-  if (node.depth === 0) {
-    return [
-      // Standard metrics
-      METRIC_FEATURE_SPLITTING,
-      METRIC_SEMSIM_MEAN,
-      METRIC_SCORE_FUZZ,
-      METRIC_SCORE_DETECTION,
-      METRIC_SCORE_EMBEDDING,
-      // Consistency metrics
-      METRIC_LLM_SCORER_CONSISTENCY,
-      METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
-      METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
-      METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
-      METRIC_LLM_EXPLAINER_CONSISTENCY,
-      // Computed metric
-      METRIC_OVERALL_SCORE
-    ] as MetricType[]
+  // If node has children, show the metric used for the next stage
+  if (node.children.length > 0) {
+    // Get first child to determine what metric was used for split
+    const firstChild = tree.get(node.children[0])
+    if (firstChild?.metric) {
+      return [firstChild.metric as MetricType]
+    }
   }
 
-  // Non-root node: show the metric it was split on
-  if (node.metric) {
-    return [node.metric as MetricType]
-  }
-
-  // Fallback: empty array
+  // Leaf node (no children): show nothing
   return []
 }
 

@@ -32,12 +32,20 @@ export async function getFilterOptions(): Promise<FilterOptions> {
 }
 
 export async function getHistogramData(request: HistogramDataRequest): Promise<HistogramData> {
+  const backendRequest = {
+    ...request,
+    thresholdPath: request.thresholdPath?.map(constraint => ({
+      metric: constraint.metric,
+      range_label: constraint.rangeLabel
+    }))
+  }
+
   const response = await fetch(`${API_BASE}${API_ENDPOINTS.HISTOGRAM_DATA}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(request)
+    body: JSON.stringify(backendRequest)
   })
   if (!response.ok) {
     const errorText = await response.text()

@@ -12,14 +12,21 @@ from ..services.data_constants import (
 
 class MetricType(str, Enum):
     """Supported metric types for histogram analysis"""
+    # Standard metrics
     FEATURE_SPLITTING = "feature_splitting"
     SEMSIM_MEAN = "semsim_mean"
-    SEMSIM_MAX = "semsim_max"
     SCORE_FUZZ = "score_fuzz"
-    SCORE_SIMULATION = "score_simulation"
     SCORE_DETECTION = "score_detection"
     SCORE_EMBEDDING = "score_embedding"
     SCORE_COMBINED = "score_combined"
+
+    # Consistency metrics (Phase 8)
+    LLM_SCORER_CONSISTENCY = "llm_scorer_consistency"
+    WITHIN_EXPLANATION_METRIC_CONSISTENCY = "within_explanation_metric_consistency"
+    CROSS_EXPLANATION_METRIC_CONSISTENCY = "cross_explanation_metric_consistency"
+    CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY = "cross_explanation_overall_score_consistency"
+    LLM_EXPLAINER_CONSISTENCY = "llm_explainer_consistency"
+    OVERALL_SCORE = "overall_score"
 
 class CategoryType(str, Enum):
     """Node category types for Sankey diagrams and visualization"""

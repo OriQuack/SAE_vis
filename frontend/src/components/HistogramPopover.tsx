@@ -16,7 +16,7 @@ import {
   calculateGridLines,
   calculateSliderPosition
 } from '../lib/d3-histogram-utils'
-import { getNodeThresholds, getNodeThresholdPath } from '../lib/feature-group-utils'
+import { getNodeThresholds } from '../lib/feature-group-utils'
 import { CATEGORY_DISPLAY_NAMES } from '../lib/constants'
 import type { HistogramData, HistogramChart, NodeCategory } from '../types'
 
@@ -345,13 +345,6 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     const nodeId = popoverData?.nodeId
     if (!nodeId || !sankeyTree) return []
     return getNodeThresholds(nodeId, sankeyTree)
-  }, [popoverData?.nodeId, sankeyTree])
-
-  // Get node's path constraints (for displaying intersection info)
-  const pathConstraints = useMemo(() => {
-    const nodeId = popoverData?.nodeId
-    if (!nodeId || !sankeyTree) return []
-    return getNodeThresholdPath(nodeId, sankeyTree)
   }, [popoverData?.nodeId, sankeyTree])
 
   // Get effective threshold value for display (first threshold or mean)
