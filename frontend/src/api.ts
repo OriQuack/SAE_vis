@@ -2,10 +2,6 @@ import type {
   FilterOptions,
   HistogramData,
   HistogramDataRequest,
-  SankeyData,
-  SankeyDataRequest,
-  AlluvialData,
-  AlluvialDataRequest,
   FeatureDetail,
   Filters,
   TableDataRequest,
@@ -20,8 +16,6 @@ const API_BASE_URL = "/api"
 const API_ENDPOINTS = {
   FILTER_OPTIONS: "/filter-options",
   HISTOGRAM_DATA: "/histogram-data",
-  SANKEY_DATA: "/sankey-data",
-  ALLUVIAL_DATA: "/comparison-data", // TODO: Change to alluvial
   FEATURE_DETAIL: "/feature",
   TABLE_DATA: "/table-data",
   FEATURE_GROUPS: "/feature-groups"
@@ -49,34 +43,6 @@ export async function getHistogramData(request: HistogramDataRequest): Promise<H
     const errorText = await response.text()
     console.error('Histogram API error:', response.status, errorText)
     throw new Error(`Failed to fetch histogram data: ${response.status} - ${errorText}`)
-  }
-  return response.json()
-}
-
-export async function getSankeyData(request: SankeyDataRequest): Promise<SankeyData> {
-  const response = await fetch(`${API_BASE}${API_ENDPOINTS.SANKEY_DATA}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(request)
-  })
-  if (!response.ok) {
-    throw new Error(`Failed to fetch sankey data: ${response.status}`)
-  }
-  return response.json()
-}
-
-export async function getAlluvialData(request: AlluvialDataRequest): Promise<AlluvialData> {
-  const response = await fetch(`${API_BASE}${API_ENDPOINTS.ALLUVIAL_DATA}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(request)
-  })
-  if (!response.ok) {
-    throw new Error(`Failed to fetch comparison data: ${response.status}`)
   }
   return response.json()
 }

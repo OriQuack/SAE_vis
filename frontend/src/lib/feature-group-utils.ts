@@ -13,13 +13,22 @@ import type {
   FeatureGroup,
   ComputedSankeyStructure,
   SankeyTreeNode,
-  TreeBasedSankeyStructure
+  TreeBasedSankeyStructure,
+  MetricType
 } from '../types'
-
-// ============================================================================
-// TYPE DEFINITIONS
-// ============================================================================
-
+import {
+  METRIC_FEATURE_SPLITTING,
+  METRIC_SEMSIM_MEAN,
+  METRIC_SCORE_FUZZ,
+  METRIC_SCORE_DETECTION,
+  METRIC_SCORE_EMBEDDING,
+  METRIC_LLM_SCORER_CONSISTENCY,
+  METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
+  METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
+  METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
+  METRIC_LLM_EXPLAINER_CONSISTENCY,
+  METRIC_OVERALL_SCORE
+} from './constants'
 
 
 // ============================================================================
@@ -322,4 +331,170 @@ export function processFeatureGroupResponse(response: {
       featureCount: group.feature_count
     }
   })
+}
+
+// ============================================================================
+// TREE NODE HELPERS FOR SANKEY DIAGRAM
+// ============================================================================
+
+/**
+ * Get metrics that should be shown in histogram popover for a node.
+ *
+ * @param node - SankeyTreeNode to get metrics for
+ * @param tree - Full tree map for reference
+ * @returns Array of metrics to display in histogram
+ */
+export function getNodeMetrics(
+  node: SankeyTreeNode,
+  _tree: Map<string, SankeyTreeNode>
+): MetricType[] {
+  // Root node: show all 11 available metrics
+  if (node.depth === 0) {
+    return [
+      // Standard metrics
+      METRIC_FEATURE_SPLITTING,
+      METRIC_SEMSIM_MEAN,
+      METRIC_SCORE_FUZZ,
+      METRIC_SCORE_DETECTION,
+      METRIC_SCORE_EMBEDDING,
+      // Consistency metrics
+      METRIC_LLM_SCORER_CONSISTENCY,
+      METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
+      METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
+      METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
+      METRIC_LLM_EXPLAINER_CONSISTENCY,
+      // Computed metric
+      METRIC_OVERALL_SCORE
+    ] as MetricType[]
+  }
+
+  // Non-root node: show the metric it was split on
+  if (node.metric) {
+    return [node.metric as MetricType]
+  }
+
+  // Fallback: empty array
+  return []
+}
+
+/**
+ * Get all metrics used in the path from root to this node.
+ * Helper function for getAvailableStages.
+ *
+ * @param node - SankeyTreeNode to start from
+ * @param tree - Full tree map
+ * @returns Set of metric names used in ancestor path
+ */
+export function getMetricsInPath(
+  node: SankeyTreeNode,
+  tree: Map<string, SankeyTreeNode>
+): Set<string> {
+  const metrics = new Set<string>()
+  let currentNode: SankeyTreeNode | undefined = node
+
+  // Traverse up the tree to root
+  while (currentNode) {
+    if (currentNode.metric) {
+      metrics.add(currentNode.metric)
+    }
+
+    // Move to parent
+    if (currentNode.parentId) {
+      currentNode = tree.get(currentNode.parentId)
+    } else {
+      break
+    }
+  }
+
+  return metrics
+}
+
+/**
+ * Get available stages that can be added to this node.
+ * Filters out stages whose metrics are already used in the path from root to this node.
+ *
+ * @param node - SankeyTreeNode to check
+ * @param tree - Full tree map
+ * @param allStages - All possible stage options
+ * @returns Array of available stages that can be added
+ */
+export function getAvailableStages<T extends { metric: string }>(
+  node: SankeyTreeNode,
+  tree: Map<string, SankeyTreeNode>,
+  allStages: T[]
+): T[] {
+  // Get metrics already used in this path
+  const usedMetrics = getMetricsInPath(node, tree)
+
+  // Filter out stages with metrics already in use
+  return allStages.filter(stage => !usedMetrics.has(stage.metric))
+}
+
+/**
+ * Check if a stage can be added to this node.
+ * In the new tree-based system, any node can have children.
+ *
+ * @param node - SankeyTreeNode to check
+ * @returns Always true (any node can have stages added)
+ */
+export function canAddStage(_node: SankeyTreeNode): boolean {
+  return true
+}
+
+/**
+ * Check if a node has children.
+ * Used to determine if remove button should be shown.
+ *
+ * @param node - SankeyTreeNode to check
+ * @returns True if node has children
+ */
+export function hasChildren(node: SankeyTreeNode): boolean {
+  return node.children.length > 0
+}
+
+/**
+ * Get the path of metric constraints from root to this node.
+ * Returns the sequence of metric ranges that define this node's feature set.
+ * This represents the intersection of all parent constraints.
+ *
+ * @param nodeId - Node ID to get path constraints for
+ * @param tree - SankeyTreeNode map
+ * @returns Array of metric constraints from root to node
+ */
+export function getNodeThresholdPath(
+  nodeId: string,
+  tree: Map<string, SankeyTreeNode>
+): Array<{ metric: string; rangeLabel: string }> {
+  const constraints: Array<{ metric: string; rangeLabel: string }> = []
+  let currentNode = tree.get(nodeId)
+
+  // Walk up to root, collecting constraints
+  while (currentNode && currentNode.depth > 0) {
+    if (currentNode.metric && currentNode.rangeLabel) {
+      constraints.unshift({
+        metric: currentNode.metric,
+        rangeLabel: currentNode.rangeLabel
+      })
+    }
+    currentNode = currentNode.parentId ? tree.get(currentNode.parentId) : undefined
+  }
+
+  return constraints
+}
+
+/**
+ * Get ALL threshold values for a node.
+ * These are the thresholds THIS node uses to split into children.
+ * Returns empty array if node has no thresholds.
+ *
+ * @param nodeId - Node ID to get thresholds for
+ * @param tree - SankeyTreeNode map
+ * @returns Array of threshold values
+ */
+export function getNodeThresholds(
+  nodeId: string,
+  tree: Map<string, SankeyTreeNode>
+): number[] {
+  const node = tree.get(nodeId)
+  return node?.thresholds || []
 }

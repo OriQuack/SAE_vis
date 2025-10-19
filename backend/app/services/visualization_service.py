@@ -16,16 +16,49 @@ from pathlib import Path
 pl.enable_string_cache()
 
 from ..models.common import Filters, MetricType
-from ..models.threshold import ThresholdStructure, PatternSplitRule
-from .rule_evaluators import SplitEvaluator
+# Legacy system removed - ThresholdStructure, PatternSplitRule, SplitEvaluator, ClassificationEngine
 from ..models.responses import (
     FilterOptionsResponse, HistogramResponse, SankeyResponse,
     ComparisonResponse, FeatureResponse
 )
 from .data_constants import *
-from .feature_classifier import ClassificationEngine
 
 logger = logging.getLogger(__name__)
+
+
+def parse_range_label(range_label: str) -> tuple[Optional[float], Optional[float]]:
+    """
+    Parse range label to extract min/max bounds for filtering.
+
+    Examples:
+        "< 0.5" → (None, 0.5)
+        ">= 0.5" → (0.5, None)
+        "[0.3, 0.8)" → (0.3, 0.8)
+        "[0, 0.3)" → (0.0, 0.3)
+
+    Args:
+        range_label: Range label string from threshold path constraint
+
+    Returns:
+        Tuple of (min_value, max_value) where None means no bound on that side
+    """
+    import re
+
+    # Pattern: "< X" or "<= X"
+    if match := re.match(r'^<\s*=?\s*([\d.]+)$', range_label):
+        return (None, float(match.group(1)))
+
+    # Pattern: "> X" or ">= X"
+    if match := re.match(r'^>\s*=?\s*([\d.]+)$', range_label):
+        return (float(match.group(1)), None)
+
+    # Pattern: "[X, Y)" or "[X, Y]" or "(X, Y)" etc.
+    if match := re.match(r'^[\[\(]\s*([\d.]+)\s*,\s*([\d.]+)\s*[\]\)]$', range_label):
+        return (float(match.group(1)), float(match.group(2)))
+
+    # Default: no constraints
+    logger.warning(f"Could not parse range label: {range_label}, returning no constraints")
+    return (None, None)
 
 
 class DataService:
@@ -478,26 +511,20 @@ class DataService:
         filters: Filters,
         metric: MetricType,
         bins: Optional[int] = None,
-        threshold_tree: Optional[ThresholdStructure] = None,
         node_id: Optional[str] = None,
-        group_by: Optional[str] = None,
-        average_by: Optional[Union[str, List[str]]] = None,
         fixed_domain: Optional[tuple[float, float]] = None,
-        selected_llm_explainers: Optional[List[str]] = None
+        threshold_path: Optional[List[Dict[str, str]]] = None
     ) -> HistogramResponse:
         """
-        Generate histogram data for a specific metric, optionally filtered by node and/or grouped.
+        Generate histogram data for a specific metric with optional threshold path filtering.
 
         Args:
             filters: Filter criteria to apply
             metric: Metric to analyze
             bins: Number of histogram bins (auto-calculated if None)
-            threshold_tree: Optional threshold tree for node filtering
-            node_id: Optional node ID for node-specific filtering
-            group_by: Optional field to group histogram by
-            average_by: Optional field(s) to average by. Can be a single field (str) or multiple fields (List[str])
+            node_id: Optional node ID for reference (not used for filtering)
             fixed_domain: Optional fixed range for histogram bins
-            selected_llm_explainers: Optional list of 1 or 2 selected LLM explainers for filtered computation
+            threshold_path: Optional threshold path constraints from root to node for filtering
 
         Returns:
             HistogramResponse with histogram data and statistics
@@ -506,41 +533,50 @@ class DataService:
             raise RuntimeError("DataService not ready")
 
         try:
-            filtered_df = self._apply_filtered_data(filters, threshold_tree, node_id)
+            # Start with base filtered dataframe
+            filtered_df = self._apply_filters(self._df_lazy, filters).collect()
 
-            # If LLM explainers are selected (1 or 2), use LLM filtering logic
-            if selected_llm_explainers and len(selected_llm_explainers) in [1, 2]:
-                logger.info(f"Using LLM-filtered histogram data for {len(selected_llm_explainers)} selected explainer(s)")
-                return self._get_llm_filtered_histogram_data(
-                    filtered_df,
-                    metric,
-                    selected_llm_explainers,
-                    bins,
-                    fixed_domain
-                )
+            # Apply threshold path constraints if provided
+            if threshold_path:
+                logger.info(f"Applying threshold path filtering with {len(threshold_path)} constraints")
+                for constraint in threshold_path:
+                    metric_col = constraint.get('metric')
+                    range_label = constraint.get('rangeLabel')
 
-            # Automatically deduplicate feature-level metrics if no averaging specified
+                    if not metric_col or not range_label:
+                        logger.warning(f"Skipping invalid constraint: {constraint}")
+                        continue
+
+                    min_val, max_val = parse_range_label(range_label)
+
+                    if min_val is not None:
+                        filtered_df = filtered_df.filter(pl.col(metric_col) >= min_val)
+                        logger.debug(f"Applied constraint: {metric_col} >= {min_val}")
+
+                    if max_val is not None:
+                        filtered_df = filtered_df.filter(pl.col(metric_col) < max_val)
+                        logger.debug(f"Applied constraint: {metric_col} < {max_val}")
+
+                logger.info(f"After threshold path filtering: {len(filtered_df)} rows")
+
+            # Automatically deduplicate feature-level metrics
             # Feature-level metrics have identical values across all explainer-scorer combinations
-            if not average_by:
-                if metric in [MetricType.FEATURE_SPLITTING, MetricType.SEMSIM_MEAN]:
-                    # For feature_splitting: same across all 9 combinations (explainers × scorers)
-                    # For semsim_mean: same across scorers, varies by explainer
-                    if metric == MetricType.FEATURE_SPLITTING:
-                        average_by = ['llm_explainer', 'llm_scorer']
-                        logger.info(f"Auto-deduplicating {metric.value} (feature-level metric)")
-                    elif metric == MetricType.SEMSIM_MEAN:
-                        average_by = 'llm_explainer'
-                        logger.info(f"Auto-deduplicating {metric.value} (explainer-level metric)")
+            average_by = None
+            if metric in [MetricType.FEATURE_SPLITTING, MetricType.SEMSIM_MEAN]:
+                # For feature_splitting: same across all 9 combinations (explainers × scorers)
+                # For semsim_mean: same across scorers, varies by explainer
+                if metric == MetricType.FEATURE_SPLITTING:
+                    average_by = ['llm_explainer', 'llm_scorer']
+                    logger.info(f"Auto-deduplicating {metric.value} (feature-level metric)")
+                elif metric == MetricType.SEMSIM_MEAN:
+                    average_by = 'llm_explainer'
+                    logger.info(f"Auto-deduplicating {metric.value} (explainer-level metric)")
 
-            # If averageBy is specified (or auto-assigned), average values by the specified field
+            # If averageBy is needed, average values by the specified field
             if average_by:
                 filtered_df = self._average_by_field(filtered_df, metric, average_by)
 
-            # If groupBy is specified, generate grouped histograms
-            if group_by:
-                return self._generate_grouped_histogram(filtered_df, metric, bins, group_by, fixed_domain)
-
-            # Otherwise, generate regular histogram
+            # Generate regular histogram
             values = self._extract_metric_values(filtered_df, metric)
             bins = self._calculate_bins_if_needed(values, bins)
 
@@ -572,7 +608,7 @@ class DataService:
     def _apply_filtered_data(
         self,
         filters: Filters,
-        threshold_tree: Optional[ThresholdStructure],
+        threshold_tree: Optional[Any],
         node_id: Optional[str]
     ) -> pl.DataFrame:
         """Apply filters and node-specific filtering to get final dataset."""
@@ -581,13 +617,10 @@ class DataService:
         if len(filtered_df) == 0:
             raise ValueError("No data available after applying filters")
 
+        # Legacy system removed - threshold_tree and node_id filtering no longer supported
+        # Frontend now uses tree-based filtering with Set intersection
         if threshold_tree or node_id:
-            logger.debug(f"Applying node-specific filtering for node: {node_id}")
-            engine = ClassificationEngine()
-            filtered_df = engine.filter_features_for_node(filtered_df, threshold_tree, node_id)
-
-            if len(filtered_df) == 0:
-                raise ValueError(f"No data available for node '{node_id}' after applying thresholds")
+            logger.warning(f"Legacy threshold_tree filtering requested but not supported (node: {node_id})")
 
         return filtered_df
 
@@ -1047,392 +1080,3 @@ class DataService:
         except Exception as e:
             logger.error(f"Error getting features in threshold range: {e}")
             raise
-
-    async def get_sankey_data(
-        self,
-        filters: Filters,
-        threshold_data: Union[ThresholdStructure, Dict[str, Any]],
-        use_v2: Optional[bool] = None
-    ) -> SankeyResponse:
-        """
-        Generate Sankey diagram data using the v2 threshold system.
-
-        Args:
-            filters: Filter criteria
-            threshold_data: ThresholdStructure as dict or ThresholdStructure object
-            use_v2: Legacy parameter (ignored, always uses v2)
-
-        Returns:
-            SankeyResponse with nodes, links, and metadata
-        """
-        if not self.is_ready():
-            raise RuntimeError("DataService not ready")
-
-        filtered_df = self._apply_filters(self._df_lazy, filters).collect()
-
-        if len(filtered_df) == 0:
-            raise ValueError("No data available after applying filters")
-
-        # Validate that exactly 3 LLM explainers and 3 scorers are present
-        num_explainers = filtered_df.select(pl.col(COL_LLM_EXPLAINER).n_unique()).item()
-        num_scorers = filtered_df.select(pl.col(COL_LLM_SCORER).n_unique()).item()
-
-        if num_explainers != 3 or num_scorers != 3:
-            raise ValueError(
-                f"Consistency analysis requires exactly 3 LLM explainers and 3 LLM scorers. "
-                f"Found {num_explainers} explainer(s) and {num_scorers} scorer(s)."
-            )
-
-        # Join consistency scores for percentile-based classification
-        filtered_df = self._join_consistency_scores(filtered_df)
-
-        return await self._get_sankey_data_impl(filtered_df, filters, threshold_data)
-
-    async def _get_sankey_data_impl(
-        self,
-        filtered_df: pl.DataFrame,
-        filters: Filters,
-        threshold_data: Union[Dict[str, Any], ThresholdStructure]
-    ) -> SankeyResponse:
-        """Internal implementation using v2 classification engine."""
-        threshold_structure = self._ensure_threshold_structure(threshold_data)
-
-        engine = ClassificationEngine()
-        classified_df = engine.classify_features(filtered_df, threshold_structure)
-        nodes, links = engine.build_sankey_data(classified_df, threshold_structure)
-
-        metadata = {
-            "total_features": filtered_df.select(pl.col("feature_id")).n_unique(),
-            "applied_filters": self._build_applied_filters(filters),
-            "applied_thresholds": self._extract_applied_thresholds(threshold_structure)
-        }
-
-        return SankeyResponse(nodes=nodes, links=links, metadata=metadata)
-
-    def _ensure_threshold_structure(
-        self, threshold_data: Union[Dict[str, Any], ThresholdStructure]
-    ) -> ThresholdStructure:
-        """Convert threshold_data to ThresholdStructure if needed."""
-        if isinstance(threshold_data, dict):
-            return ThresholdStructure.from_dict(threshold_data)
-        return threshold_data
-
-    def _build_applied_filters(self, filters: Filters) -> Dict[str, List[str]]:
-        """Build dictionary of applied filters."""
-        applied_filters = {}
-        filter_mapping = [
-            (filters.sae_id, COL_SAE_ID),
-            (filters.explanation_method, COL_EXPLANATION_METHOD),
-            (filters.llm_explainer, COL_LLM_EXPLAINER),
-            (filters.llm_scorer, COL_LLM_SCORER)
-        ]
-
-        for filter_value, column_name in filter_mapping:
-            if filter_value:
-                applied_filters[column_name] = filter_value
-
-        return applied_filters
-
-    def _extract_applied_thresholds(self, threshold_structure: ThresholdStructure) -> Dict[str, float]:
-        """Extract threshold values from the threshold structure."""
-        applied_thresholds = {}
-
-        for node in threshold_structure.nodes:
-            if not (hasattr(node, 'split_rule') and node.split_rule):
-                continue
-
-            # Range split rule
-            if hasattr(node.split_rule, 'metric') and hasattr(node.split_rule, 'thresholds'):
-                metric = node.split_rule.metric
-                thresholds = node.split_rule.thresholds
-                if thresholds:
-                    if len(thresholds) == 1:
-                        applied_thresholds[metric] = float(thresholds[0])
-                    else:
-                        for i, threshold in enumerate(thresholds):
-                            applied_thresholds[f"{metric}_{i}"] = float(threshold)
-
-            # Pattern split rule
-            elif hasattr(node.split_rule, 'conditions') and node.split_rule.conditions:
-                for metric_name, pattern_condition in node.split_rule.conditions.items():
-                    if hasattr(pattern_condition, 'threshold') and pattern_condition.threshold is not None:
-                        applied_thresholds[metric_name] = float(pattern_condition.threshold)
-                    elif hasattr(pattern_condition, 'value') and pattern_condition.value is not None:
-                        applied_thresholds[metric_name] = float(pattern_condition.value)
-
-        return applied_thresholds
-
-    async def get_feature_data(
-        self,
-        feature_id: int,
-        sae_id: Optional[str] = None,
-        explanation_method: Optional[str] = None,
-        llm_explainer: Optional[str] = None,
-        llm_scorer: Optional[str] = None
-    ) -> FeatureResponse:
-        """Get detailed data for a specific feature."""
-        if not self.is_ready():
-            raise RuntimeError("DataService not ready")
-
-        try:
-            combined_condition = self._build_feature_conditions(
-                feature_id, sae_id, explanation_method, llm_explainer, llm_scorer
-            )
-
-            result_df = self._df_lazy.filter(combined_condition).collect()
-
-            if len(result_df) == 0:
-                raise ValueError(f"Feature {feature_id} not found with specified parameters")
-
-            row = result_df.row(0, named=True)
-            return self._build_feature_response(row)
-
-        except Exception as e:
-            logger.error(f"Error retrieving feature data: {e}")
-            raise
-
-    def _build_feature_conditions(
-        self,
-        feature_id: int,
-        sae_id: Optional[str],
-        explanation_method: Optional[str],
-        llm_explainer: Optional[str],
-        llm_scorer: Optional[str]
-    ):
-        """Build combined condition for feature query."""
-        conditions = [pl.col(COL_FEATURE_ID) == feature_id]
-
-        filter_params = [
-            (sae_id, COL_SAE_ID),
-            (explanation_method, COL_EXPLANATION_METHOD),
-            (llm_explainer, COL_LLM_EXPLAINER),
-            (llm_scorer, COL_LLM_SCORER)
-        ]
-
-        for param_value, column_name in filter_params:
-            if param_value:
-                conditions.append(pl.col(column_name) == param_value)
-
-        combined_condition = conditions[0]
-        for condition in conditions[1:]:
-            combined_condition = combined_condition & condition
-
-        return combined_condition
-
-    def _build_feature_response(self, row: Dict[str, Any]) -> FeatureResponse:
-        """Build FeatureResponse from row data."""
-        return FeatureResponse(
-            feature_id=row[COL_FEATURE_ID],
-            sae_id=row[COL_SAE_ID],
-            explanation_method=row[COL_EXPLANATION_METHOD],
-            llm_explainer=row[COL_LLM_EXPLAINER],
-            llm_scorer=row[COL_LLM_SCORER],
-            feature_splitting=row[COL_FEATURE_SPLITTING],
-            semsim_mean=row[COL_SEMSIM_MEAN],
-            semsim_max=row[COL_SEMSIM_MAX],
-            scores={
-                "fuzz": row[COL_SCORE_FUZZ] or 0.0,
-                "simulation": row[COL_SCORE_SIMULATION] or 0.0,
-                "detection": row[COL_SCORE_DETECTION] or 0.0,
-                "embedding": row[COL_SCORE_EMBEDDING] or 0.0
-            },
-            details_path=row[COL_DETAILS_PATH]
-        )
-
-    async def get_umap_data(
-        self,
-        filters: Filters,
-        umap_type: Optional[str] = "both",
-        feature_ids: Optional[List[int]] = None,
-        include_noise: bool = True
-    ):
-        """
-        Get UMAP visualization data with cluster hierarchy.
-
-        Args:
-            filters: Filter criteria to apply
-            umap_type: Type of UMAP data ('feature', 'explanation', or 'both')
-            feature_ids: Optional list of specific feature IDs to include
-            include_noise: Whether to include noise points
-
-        Returns:
-            UMAPDataResponse with points and cluster hierarchy
-        """
-        from ..models.responses import UMAPDataResponse, UMAPPoint, UMAPMetadata, ClusterNode
-
-        if not self.is_ready():
-            raise RuntimeError("DataService not ready")
-
-        try:
-            # Load UMAP parquet file
-            umap_file = self.data_path / "master" / "umap_projections.parquet"
-            if not umap_file.exists():
-                raise FileNotFoundError(f"UMAP parquet file not found: {umap_file}")
-
-            # Load data with lazy frame
-            umap_df = pl.scan_parquet(umap_file)
-
-            # Apply filters (reusing existing filter logic for feature_analysis parquet)
-            # Note: UMAP parquet has different schema, so we filter on available columns
-            filter_conditions = []
-
-            # Filter by feature_ids if provided
-            if feature_ids:
-                filter_conditions.append(pl.col("feature_id").is_in(feature_ids))
-
-            # Filter by umap_type
-            if umap_type and umap_type != "both":
-                filter_conditions.append(pl.col("umap_type") == umap_type)
-
-            # Filter noise if requested
-            if not include_noise:
-                filter_conditions.append(pl.col("cluster_label") != "noise")
-
-            # Apply all filter conditions
-            if filter_conditions:
-                combined_condition = filter_conditions[0]
-                for condition in filter_conditions[1:]:
-                    combined_condition = combined_condition & condition
-                umap_df = umap_df.filter(combined_condition)
-
-            # Collect the data
-            df = umap_df.collect()
-
-            if len(df) == 0:
-                raise ValueError("No UMAP data available after applying filters")
-
-            logger.info(f"Loaded {len(df)} UMAP points")
-
-            # Split into features and explanations
-            features = []
-            explanations = []
-
-            for row in df.iter_rows(named=True):
-                point = UMAPPoint(
-                    umap_id=row["umap_id"],
-                    feature_id=row["feature_id"],
-                    umap_x=row["umap_x"],
-                    umap_y=row["umap_y"],
-                    source=row["source"],
-                    llm_explainer=row["llm_explainer"],
-                    cluster_id=row["cluster_id"],
-                    cluster_label=row["cluster_label"],
-                    cluster_level=row["cluster_level"]
-                )
-
-                if row["umap_type"] == "feature":
-                    features.append(point)
-                else:
-                    explanations.append(point)
-
-            # Build cluster hierarchy
-            cluster_hierarchy = self._build_cluster_hierarchy(df)
-
-            # Count noise points
-            noise_points = len(df.filter(pl.col("cluster_label") == "noise"))
-
-            # Build metadata
-            metadata = UMAPMetadata(
-                total_points=len(df),
-                feature_points=len(features),
-                explanation_points=len(explanations),
-                noise_points=noise_points,
-                applied_filters=self._build_applied_filters(filters),
-                cluster_hierarchy=cluster_hierarchy
-            )
-
-            logger.info(f"Generated UMAP response: {len(features)} features, {len(explanations)} explanations, {len(cluster_hierarchy)} clusters")
-
-            return UMAPDataResponse(
-                features=features,
-                explanations=explanations,
-                metadata=metadata
-            )
-
-        except Exception as e:
-            logger.error(f"Error generating UMAP data: {e}")
-            raise
-
-    def _build_cluster_hierarchy(self, df: pl.DataFrame) -> Dict[str, Any]:
-        """
-        Build separate cluster hierarchies for features and explanations.
-
-        Since features and explanations are clustered separately but share cluster IDs,
-        we need to build separate hierarchies to avoid conflicts.
-
-        Args:
-            df: UMAP dataframe with both features and explanations
-
-        Returns:
-            Dictionary with two hierarchies:
-            {
-                "features": {...},      # hierarchy for feature clusters
-                "explanations": {...}   # hierarchy for explanation clusters
-            }
-        """
-        from ..models.responses import ClusterNode
-
-        hierarchies = {
-            "features": {},
-            "explanations": {}
-        }
-
-        # Process each umap_type separately
-        for umap_type in ["feature", "explanation"]:
-            type_df = df.filter(pl.col("umap_type") == umap_type)
-
-            if len(type_df) == 0:
-                continue
-
-            # Get unique clusters for this umap_type
-            unique_clusters = type_df.select(
-                pl.col("cluster_id").unique()
-            ).get_column("cluster_id").to_list()
-
-            hierarchy = {}
-
-            # Build hierarchy for each cluster
-            for cluster_id in unique_clusters:
-                cluster_df = type_df.filter(pl.col("cluster_id") == cluster_id)
-
-                if len(cluster_df) == 0:
-                    continue
-
-                # Get cluster info from first row (now safe - all rows have same level)
-                first_row = cluster_df.row(0, named=True)
-                level = first_row["cluster_level"]
-                is_noise = first_row["cluster_label"] == "noise"
-                point_count = len(cluster_df)
-
-                # Determine parent from ancestors
-                parent_id = None
-                if level > 0:
-                    # Parent is at level-1, check ancestor columns
-                    if level == 1:
-                        parent_id = first_row["ancestor_level_0"]
-                    elif level == 2:
-                        parent_id = first_row["ancestor_level_1"]
-                    elif level == 3:
-                        parent_id = first_row["ancestor_level_2"]
-
-                hierarchy[cluster_id] = ClusterNode(
-                    cluster_id=cluster_id,
-                    level=level,
-                    parent_id=parent_id,
-                    children_ids=[],  # Will be filled in second pass
-                    point_count=point_count,
-                    is_noise=is_noise
-                )
-
-            # Second pass: build children_ids by looking for nodes where parent_id matches
-            for cluster_id, node in hierarchy.items():
-                for other_id, other_node in hierarchy.items():
-                    if other_node.parent_id == cluster_id:
-                        node.children_ids.append(other_id)
-
-            # Store hierarchy for this umap_type
-            hierarchies[umap_type + "s"] = hierarchy  # "features" or "explanations"
-
-        logger.info(f"Built cluster hierarchies: {len(hierarchies['features'])} feature clusters, {len(hierarchies['explanations'])} explanation clusters")
-
-        return hierarchies

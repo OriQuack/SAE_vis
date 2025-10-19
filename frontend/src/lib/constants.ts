@@ -15,63 +15,38 @@ export const CATEGORY_FEATURE_SPLITTING = "feature_splitting"
 export const CATEGORY_SEMANTIC_SIMILARITY = "semantic_similarity"
 export const CATEGORY_CONSISTENCY = "consistency"
 
-export const CATEGORY_TYPES = {
-  ROOT: CATEGORY_ROOT,
-  FEATURE_SPLITTING: CATEGORY_FEATURE_SPLITTING,
-  SEMANTIC_SIMILARITY: CATEGORY_SEMANTIC_SIMILARITY,
-  CONSISTENCY: CATEGORY_CONSISTENCY
-} as const
-
-// ============================================================================
-// SPLIT RULE TYPES - Must match backend data_constants.py
-// Used across: types.ts, threshold-utils.ts, dynamic-tree-builder.ts (3+ files)
-// ============================================================================
-export const SPLIT_TYPE_RANGE = "range"
-export const SPLIT_TYPE_PATTERN = "pattern"
-export const SPLIT_TYPE_EXPRESSION = "expression"
-
-export const SPLIT_TYPES = {
-  RANGE: SPLIT_TYPE_RANGE,
-  PATTERN: SPLIT_TYPE_PATTERN,
-  EXPRESSION: SPLIT_TYPE_EXPRESSION
-} as const
-
-// ============================================================================
-// PATTERN MATCH STATES - Must match backend data_constants.py
-// Used across: types.ts and other pattern-related files
-// ============================================================================
-export const PATTERN_STATE_HIGH = "high"
-export const PATTERN_STATE_LOW = "low"
-export const PATTERN_STATE_IN_RANGE = "in_range"
-export const PATTERN_STATE_OUT_RANGE = "out_range"
-
-export const PATTERN_STATES = {
-  HIGH: PATTERN_STATE_HIGH,
-  LOW: PATTERN_STATE_LOW,
-  IN_RANGE: PATTERN_STATE_IN_RANGE,
-  OUT_RANGE: PATTERN_STATE_OUT_RANGE
-} as const
-
 // ============================================================================
 // METRIC TYPES - Must match backend data_constants.py
 // Used across: types.ts, utils.ts, threshold-utils.ts, store.ts (5+ files)
 // ============================================================================
 export const METRIC_FEATURE_SPLITTING = "feature_splitting"
 export const METRIC_SEMSIM_MEAN = "semsim_mean"
-export const METRIC_SEMSIM_MAX = "semsim_max"
 export const METRIC_SCORE_FUZZ = "score_fuzz"
-export const METRIC_SCORE_SIMULATION = "score_simulation"
 export const METRIC_SCORE_DETECTION = "score_detection"
 export const METRIC_SCORE_EMBEDDING = "score_embedding"
+
+// Consistency metrics (pre-computed)
+export const METRIC_LLM_SCORER_CONSISTENCY = "llm_scorer_consistency"
+export const METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY = "within_explanation_metric_consistency"
+export const METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY = "cross_explanation_metric_consistency"
+export const METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY = "cross_explanation_overall_score_consistency"
+export const METRIC_LLM_EXPLAINER_CONSISTENCY = "llm_explainer_consistency"
+
+// Computed metric
+export const METRIC_OVERALL_SCORE = "overall_score"
 
 export const METRIC_TYPES = {
   FEATURE_SPLITTING: METRIC_FEATURE_SPLITTING,
   SEMSIM_MEAN: METRIC_SEMSIM_MEAN,
-  SEMSIM_MAX: METRIC_SEMSIM_MAX,
   SCORE_FUZZ: METRIC_SCORE_FUZZ,
-  SCORE_SIMULATION: METRIC_SCORE_SIMULATION,
   SCORE_DETECTION: METRIC_SCORE_DETECTION,
-  SCORE_EMBEDDING: METRIC_SCORE_EMBEDDING
+  SCORE_EMBEDDING: METRIC_SCORE_EMBEDDING,
+  LLM_SCORER_CONSISTENCY: METRIC_LLM_SCORER_CONSISTENCY,
+  WITHIN_EXPLANATION_METRIC_CONSISTENCY: METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
+  CROSS_EXPLANATION_METRIC_CONSISTENCY: METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
+  CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY: METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
+  LLM_EXPLAINER_CONSISTENCY: METRIC_LLM_EXPLAINER_CONSISTENCY,
+  OVERALL_SCORE: METRIC_OVERALL_SCORE
 } as const
 
 // ============================================================================
@@ -89,22 +64,18 @@ export const PANEL_SIDES = {
 // ============================================================================
 // CONSISTENCY TYPES - Table consistency type identifiers
 // Used across: types.ts, d3-table-utils.ts, TablePanel.tsx, ConsistencyPanel.tsx, threshold-utils.ts, store.ts (6+ files)
+// Note: Uses METRIC_* constants for consistency metrics (single source of truth)
 // ============================================================================
 export const CONSISTENCY_TYPE_NONE = "none"
-export const CONSISTENCY_TYPE_LLM_SCORER = "llm_scorer_consistency"
-export const CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC = "within_explanation_metric_consistency"
-export const CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC = "cross_explanation_metric_consistency"
-export const CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE = "cross_explanation_overall_score_consistency"
-export const CONSISTENCY_TYPE_LLM_EXPLAINER = "llm_explainer_consistency"
 
-export const CONSISTENCY_TYPES = {
-  NONE: CONSISTENCY_TYPE_NONE,
-  LLM_SCORER: CONSISTENCY_TYPE_LLM_SCORER,
-  WITHIN_EXPLANATION_METRIC: CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC,
-  CROSS_EXPLANATION_METRIC: CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC,
-  CROSS_EXPLANATION_OVERALL_SCORE: CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE,
-  LLM_EXPLAINER: CONSISTENCY_TYPE_LLM_EXPLAINER
-} as const
+// Array of consistency metric types (excludes "none" which is just UI state)
+export const CONSISTENCY_TYPES = [
+  METRIC_LLM_SCORER_CONSISTENCY,
+  METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
+  METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
+  METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
+  METRIC_LLM_EXPLAINER_CONSISTENCY
+] as const
 
 // ============================================================================
 // CUSTOM CONSISTENCY THRESHOLDS - Per-metric custom threshold configurations
@@ -119,11 +90,12 @@ export const CONSISTENCY_TYPES = {
  * - [0.15, 0.45, 0.75] creates 4 bins: [0-0.15), [0.15-0.45), [0.45-0.75), [0.75-1.0]
  */
 export const CONSISTENCY_THRESHOLDS = {
-  [CONSISTENCY_TYPE_LLM_SCORER]: [0.25, 0.50, 0.75],                    // 4 bins for LLM Scorer Consistency
-  [CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC]: [0.25, 0.5, 0.75],     // 4 bins for Within-Explanation Metric
-  [CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC]: [0.8],   // 5 bins for Cross-Explanation Metric
-[CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE]: [0.25, 0.50, 0.75],      // 3 bins for Overall Score
-  [CONSISTENCY_TYPE_LLM_EXPLAINER]: [0.8, 0.85, 0.9]                         // 3 bins for LLM Explainer
+  [METRIC_LLM_SCORER_CONSISTENCY]: [0.25, 0.50, 0.75],                    // 4 bins for LLM Scorer Consistency
+  [METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY]: [0.25, 0.5, 0.75],     // 4 bins for Within-Explanation Metric
+  [METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY]: [0.8],                   // 2 bins for Cross-Explanation Metric
+  [METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY]: [0.25, 0.50, 0.75], // 4 bins for Overall Score
+  [METRIC_LLM_EXPLAINER_CONSISTENCY]: [0.8, 0.85, 0.9],                   // 4 bins for LLM Explainer
+  [METRIC_OVERALL_SCORE]: [0.5]  // 2 bins for Overall Score (computed metric)
 } as const
 
 // ============================================================================
@@ -140,11 +112,15 @@ export const CATEGORY_DISPLAY_NAMES = {
 export const METRIC_DISPLAY_NAMES = {
   [METRIC_FEATURE_SPLITTING]: "Feature Splitting",
   [METRIC_SEMSIM_MEAN]: "Semantic Similarity (Mean)",
-  [METRIC_SEMSIM_MAX]: "Semantic Similarity (Max)",
   [METRIC_SCORE_FUZZ]: "Fuzz Score",
-  [METRIC_SCORE_SIMULATION]: "Simulation Score",
   [METRIC_SCORE_DETECTION]: "Detection Score",
-  [METRIC_SCORE_EMBEDDING]: "Embedding Score"
+  [METRIC_SCORE_EMBEDDING]: "Embedding Score",
+  [METRIC_LLM_SCORER_CONSISTENCY]: "LLM Scorer Consistency",
+  [METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY]: "Within-Explanation Consistency",
+  [METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY]: "Cross-Explanation Metric Consistency",
+  [METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY]: "Cross-Explanation Overall Score",
+  [METRIC_LLM_EXPLAINER_CONSISTENCY]: "LLM Explainer Consistency",
+  [METRIC_OVERALL_SCORE]: "Overall Score"
 } as const
 
 // ============================================================================
@@ -408,13 +384,3 @@ export const LLM_SCORER_ICON_SVG = `
     Z
   " fill="#3b82f6" />
 `
-
-// ============================================================================
-// TYPE EXPORTS - For better TypeScript integration
-// ============================================================================
-export type CategoryTypeValue = typeof CATEGORY_TYPES[keyof typeof CATEGORY_TYPES]
-export type SplitTypeValue = typeof SPLIT_TYPES[keyof typeof SPLIT_TYPES]
-export type PatternStateValue = typeof PATTERN_STATES[keyof typeof PATTERN_STATES]
-export type MetricTypeValue = typeof METRIC_TYPES[keyof typeof METRIC_TYPES]
-export type PanelSideValue = typeof PANEL_SIDES[keyof typeof PANEL_SIDES]
-export type ConsistencyTypeValue = typeof CONSISTENCY_TYPES[keyof typeof CONSISTENCY_TYPES]

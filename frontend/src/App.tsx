@@ -6,7 +6,6 @@ import HistogramPopover from './components/HistogramPopover'
 import FlowPanel from './components/FlowPanel'
 import TablePanel from './components/TablePanel'
 import ConsistencyPanel from './components/ConsistencyPanel'
-import { usePanelDataLoader } from './lib/utils'
 import * as api from './api'
 import './styles/base.css'
 import './styles/App.css'
@@ -77,11 +76,8 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
 
   // Store state - now with dual panel support
   const {
-    leftPanel,
-    rightPanel,
     filterOptions,
     fetchFilterOptions,
-    fetchSankeyData,
     initializeWithDefaultFilters,
     showComparisonView,
     toggleComparisonView
@@ -129,12 +125,6 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
       initializeWithDefaultFilters()
     }
   }, [filterOptions, autoLoad, initializeWithDefaultFilters])
-
-  // Use custom hook to handle panel data loading (consolidates duplicate logic)
-  // Left panel: always load when healthy
-  // Right panel: only load when comparison view is visible
-  usePanelDataLoader('left', leftPanel, healthState.isHealthy, true, fetchSankeyData)
-  usePanelDataLoader('right', rightPanel, healthState.isHealthy, showComparisonView, fetchSankeyData)
 
   // Show loading/error states if health check hasn't passed
   if (!healthState.isHealthy) {

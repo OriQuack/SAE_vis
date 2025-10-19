@@ -41,6 +41,22 @@ class ErrorResponse(BaseModel):
         }
     )
 
+class ThresholdPathConstraint(BaseModel):
+    """
+    Threshold path constraint for filtering features by parent node ranges.
+    Represents one step in the path from root to node.
+    """
+    metric: str = Field(
+        ...,
+        description="Metric name (e.g., 'feature_splitting', 'overall_score')",
+        example="feature_splitting"
+    )
+    range_label: str = Field(
+        ...,
+        description="Range label (e.g., '[0, 0.3)', '>= 0.5', '< 0.5')",
+        example="[0, 0.3)"
+    )
+
 class Filters(BaseModel):
     """Common filter structure used across endpoints"""
     sae_id: Optional[List[str]] = Field(

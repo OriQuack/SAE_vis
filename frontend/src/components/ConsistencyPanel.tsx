@@ -5,11 +5,11 @@ import { calculateColorBarLayout } from '../lib/d3-table-utils'
 import {
   CONSISTENCY_COLORS,
   CONSISTENCY_TYPE_NONE,
-  CONSISTENCY_TYPE_LLM_SCORER,
-  CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC,
-  CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC,
-  CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE,
-  CONSISTENCY_TYPE_LLM_EXPLAINER
+  METRIC_LLM_SCORER_CONSISTENCY,
+  METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
+  METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
+  METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
+  METRIC_LLM_EXPLAINER_CONSISTENCY
 } from '../lib/constants'
 import '../styles/ConsistencyPanel.css'
 
@@ -30,27 +30,27 @@ const CONSISTENCY_OPTIONS: Array<{
   {
     id: 'llm_scorer',
     label: 'LLM Scorer',
-    value: CONSISTENCY_TYPE_LLM_SCORER
+    value: METRIC_LLM_SCORER_CONSISTENCY
   },
   {
     id: 'within_exp_metric',
     label: 'Within-exp. Metric',
-    value: CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC
+    value: METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY
   },
   {
     id: 'cross_exp_metric',
     label: 'Cross-exp. Metric',
-    value: CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC
+    value: METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY
   },
   {
     id: 'cross_exp_overall',
     label: 'Cross-exp. Overall',
-    value: CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE
+    value: METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY
   },
   {
     id: 'llm_explainer',
     label: 'LLM Explainer',
-    value: CONSISTENCY_TYPE_LLM_EXPLAINER
+    value: METRIC_LLM_EXPLAINER_CONSISTENCY
   }
 ]
 
@@ -86,15 +86,15 @@ const ConsistencyPanel: React.FC = () => {
     }
 
     // LLM Scorer consistency is always available (works for any number of explainers)
-    if (type === CONSISTENCY_TYPE_LLM_SCORER) {
+    if (type === METRIC_LLM_SCORER_CONSISTENCY) {
       return false
     }
 
     // Cross-explanation and LLM Explainer consistency require multiple explainers
     if (hasOnlyOneExplainer) {
-      return type === CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC ||
-             type === CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE ||
-             type === CONSISTENCY_TYPE_LLM_EXPLAINER
+      return type === METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY ||
+             type === METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY ||
+             type === METRIC_LLM_EXPLAINER_CONSISTENCY
     }
 
     return false
@@ -107,9 +107,9 @@ const ConsistencyPanel: React.FC = () => {
   React.useEffect(() => {
     const shouldSwitch = (
       hasOnlyOneExplainer && (
-        selectedConsistencyType === CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC ||
-        selectedConsistencyType === CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE ||
-        selectedConsistencyType === CONSISTENCY_TYPE_LLM_EXPLAINER
+        selectedConsistencyType === METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY ||
+        selectedConsistencyType === METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY ||
+        selectedConsistencyType === METRIC_LLM_EXPLAINER_CONSISTENCY
       )
     )
 
@@ -121,15 +121,15 @@ const ConsistencyPanel: React.FC = () => {
   // Get button color based on consistency type
   const getButtonColor = (consistencyType: ConsistencyType): string | null => {
     switch (consistencyType) {
-      case CONSISTENCY_TYPE_LLM_SCORER:
+      case METRIC_LLM_SCORER_CONSISTENCY:
         return CONSISTENCY_COLORS.LLM_SCORER.HIGH
-      case CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC:
+      case METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY:
         return CONSISTENCY_COLORS.WITHIN_EXPLANATION.HIGH
-      case CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC:
+      case METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY:
         return CONSISTENCY_COLORS.CROSS_EXPLANATION.HIGH
-      case CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE:
+      case METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY:
         return CONSISTENCY_COLORS.CROSS_EXPLANATION_OVERALL.HIGH
-      case CONSISTENCY_TYPE_LLM_EXPLAINER:
+      case METRIC_LLM_EXPLAINER_CONSISTENCY:
         return CONSISTENCY_COLORS.LLM_EXPLAINER.HIGH
       case CONSISTENCY_TYPE_NONE:
       default:

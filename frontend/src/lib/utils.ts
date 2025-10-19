@@ -2,7 +2,6 @@
 // Simplified implementation for research prototype
 
 import { useRef, useEffect, useState, useCallback } from 'react'
-import type { Filters, ThresholdTree, SankeyData, HistogramData } from '../types'
 
 // ============================================================================
 // TYPES
@@ -24,17 +23,6 @@ interface UseResizeObserverOptions {
 interface UseResizeObserverReturn<T extends HTMLElement = HTMLElement> {
   ref: (node: T | null) => void
   size: Size
-}
-
-// Panel State (matches store.ts PanelState)
-interface PanelState {
-  filters: Filters
-  thresholdTree: ThresholdTree
-  sankeyData: SankeyData | null
-  histogramData: Record<string, HistogramData> | null
-  // Tree-based system fields
-  sankeyTree?: Map<string, any>
-  computedSankey?: any
 }
 
 // ============================================================================
@@ -109,67 +97,6 @@ export const useResizeObserver = <T extends HTMLElement = HTMLElement>({
   }, [])
 
   return { ref: callbackRef, size }
-}
-
-/**
- * Hook to handle Sankey data loading for a panel (left or right)
- * Simplified: No histogram data, single effect, smart triggering
- * Only loads data when panel is visible to avoid unnecessary requests
- *
- * NOTE: Skips old API calls if panel uses tree-based system (computedSankey exists)
- */
-export const usePanelDataLoader = (
-  panel: 'left' | 'right',
-  panelState: PanelState,
-  isHealthy: boolean,
-  shouldLoad: boolean,  // Only load when panel is visible
-  fetchSankeyData: (panel?: 'left' | 'right') => void
-): void => {
-  useEffect(() => {
-    console.log(`[usePanelDataLoader ${panel}] Effect triggered:`, {
-      hasComputedSankey: panelState.computedSankey !== undefined,
-      hasSankeyTree: !!panelState.sankeyTree,
-      sankeyTreeSize: panelState.sankeyTree?.size,
-      isHealthy,
-      shouldLoad,
-      hasActiveFilters: Object.values(panelState.filters).some(
-        (filterArray): filterArray is string[] =>
-          filterArray !== undefined && filterArray.length > 0
-      )
-    })
-
-    // Skip if using tree-based system (computedSankey exists)
-    if (panelState.computedSankey !== undefined) {
-      console.log(`[usePanelDataLoader ${panel}] ✅ SKIPPING old API - tree-based system active`)
-      return
-    }
-
-    // Check if we have active filters
-    const hasActiveFilters = Object.values(panelState.filters).some(
-      (filterArray): filterArray is string[] =>
-        filterArray !== undefined && filterArray.length > 0
-    )
-
-    // Only fetch if: healthy + has filters + should load (visible)
-    if (isHealthy && hasActiveFilters && shouldLoad) {
-      console.log(`[usePanelDataLoader ${panel}] 📤 Fetching Sankey data via OLD API`)
-      fetchSankeyData(panel)
-    } else {
-      console.log(`[usePanelDataLoader ${panel}] ⏸️  Not fetching:`, {
-        isHealthy,
-        hasActiveFilters,
-        shouldLoad
-      })
-    }
-  }, [
-    panelState.filters,           // Re-fetch when filters change
-    panelState.thresholdTree,     // Re-fetch when thresholds change
-    panelState.computedSankey,    // Skip if using tree-based system
-    isHealthy,
-    shouldLoad,                   // Re-fetch when visibility changes
-    fetchSankeyData,
-    panel
-  ])
 }
 
 // ============================================================================

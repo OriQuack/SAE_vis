@@ -5,11 +5,11 @@ import {
   OVERALL_SCORE_COLORS,
   METRIC_COLORS,
   CONSISTENCY_TYPE_NONE,
-  CONSISTENCY_TYPE_LLM_SCORER,
-  CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC,
-  CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC,
-  CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE,
-  CONSISTENCY_TYPE_LLM_EXPLAINER
+  METRIC_LLM_SCORER_CONSISTENCY,
+  METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
+  METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
+  METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
+  METRIC_LLM_EXPLAINER_CONSISTENCY
 } from './constants'
 
 // ============================================================================
@@ -250,15 +250,15 @@ export function calculateColorBarLayout(
  */
 function getConsistencyColorGradient(consistencyType: ConsistencyType): { LOW: string; MEDIUM: string; HIGH: string } {
   switch (consistencyType) {
-    case CONSISTENCY_TYPE_LLM_SCORER:
+    case METRIC_LLM_SCORER_CONSISTENCY:
       return CONSISTENCY_COLORS.LLM_SCORER
-    case CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC:
+    case METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY:
       return CONSISTENCY_COLORS.WITHIN_EXPLANATION
-    case CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC:
+    case METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY:
       return CONSISTENCY_COLORS.CROSS_EXPLANATION
-    case CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE:
+    case METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY:
       return CONSISTENCY_COLORS.CROSS_EXPLANATION_OVERALL
-    case CONSISTENCY_TYPE_LLM_EXPLAINER:
+    case METRIC_LLM_EXPLAINER_CONSISTENCY:
       return CONSISTENCY_COLORS.LLM_EXPLAINER
     case CONSISTENCY_TYPE_NONE:
     default:
@@ -362,17 +362,17 @@ export function getConsistencyValueForSorting(
     const explainerData = row.explainers[explainerId]
     if (!explainerData) continue
 
-    if (consistencyType === CONSISTENCY_TYPE_LLM_SCORER) {
+    if (consistencyType === METRIC_LLM_SCORER_CONSISTENCY) {
       values.push(extractScorerConsistency(explainerData))
-    } else if (consistencyType === CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC) {
+    } else if (consistencyType === METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY) {
       if (explainerData.within_explanation_metric_consistency) {
         values.push(explainerData.within_explanation_metric_consistency.value)
       }
-    } else if (consistencyType === CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC) {
+    } else if (consistencyType === METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY) {
       values.push(extractCrossExplainerConsistency(explainerData))
-    } else if (consistencyType === CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE) {
+    } else if (consistencyType === METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY) {
       values.push(extractCrossExplainerOverallConsistency(explainerData))
-    } else if (consistencyType === CONSISTENCY_TYPE_LLM_EXPLAINER) {
+    } else if (consistencyType === METRIC_LLM_EXPLAINER_CONSISTENCY) {
       if (explainerData.llm_explainer_consistency) {
         values.push(explainerData.llm_explainer_consistency.value)
       }
@@ -506,29 +506,29 @@ export function calculateMinConsistency(
   // 1. LLM Scorer consistency (average of fuzz and detection)
   const scorerConsistency = extractScorerConsistency(explainerData)
   if (scorerConsistency !== null) {
-    consistencyEntries.push({ value: scorerConsistency, type: CONSISTENCY_TYPE_LLM_SCORER })
+    consistencyEntries.push({ value: scorerConsistency, type: METRIC_LLM_SCORER_CONSISTENCY })
   }
 
   // 2. Within-explanation metric consistency
   if (explainerData.within_explanation_metric_consistency) {
-    consistencyEntries.push({ value: explainerData.within_explanation_metric_consistency.value, type: CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC })
+    consistencyEntries.push({ value: explainerData.within_explanation_metric_consistency.value, type: METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY })
   }
 
   // 3. Cross-explanation score consistency (average of embedding, fuzz, detection)
   const crossConsistency = extractCrossExplainerConsistency(explainerData)
   if (crossConsistency !== null) {
-    consistencyEntries.push({ value: crossConsistency, type: CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC })
+    consistencyEntries.push({ value: crossConsistency, type: METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY })
   }
 
   // 4. Cross-explanation overall score consistency
   const crossOverallConsistency = extractCrossExplainerOverallConsistency(explainerData)
   if (crossOverallConsistency !== null) {
-    consistencyEntries.push({ value: crossOverallConsistency, type: CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE })
+    consistencyEntries.push({ value: crossOverallConsistency, type: METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY })
   }
 
   // 5. LLM Explainer consistency
   if (explainerData.llm_explainer_consistency) {
-    consistencyEntries.push({ value: explainerData.llm_explainer_consistency.value, type: CONSISTENCY_TYPE_LLM_EXPLAINER })
+    consistencyEntries.push({ value: explainerData.llm_explainer_consistency.value, type: METRIC_LLM_EXPLAINER_CONSISTENCY })
   }
 
   // Find minimum value and its type
@@ -710,11 +710,11 @@ function calculateFeatureMinConsistency(
  * - featureId: Sort by feature ID number
  * - overallScore: Sort by overall score across all explainers
  * - minConsistency: Sort by min consistency across all explainers
- * - CONSISTENCY_TYPE_LLM_SCORER: Sort by LLM Scorer consistency
- * - CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC: Sort by Within-explanation metric consistency
- * - CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC: Sort by Cross-explanation metric consistency
- * - CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE: Sort by Cross-explanation overall score consistency
- * - CONSISTENCY_TYPE_LLM_EXPLAINER: Sort by LLM Explainer consistency
+ * - METRIC_LLM_SCORER_CONSISTENCY: Sort by LLM Scorer consistency
+ * - METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY: Sort by Within-explanation metric consistency
+ * - METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY: Sort by Cross-explanation metric consistency
+ * - METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY: Sort by Cross-explanation overall score consistency
+ * - METRIC_LLM_EXPLAINER_CONSISTENCY: Sort by LLM Explainer consistency
  *
  * @param features - Array of features to sort
  * @param sortBy - Sort key
@@ -759,38 +759,38 @@ export function sortFeatures(
     }
 
     // Individual consistency metric sorting
-    if (sortBy === CONSISTENCY_TYPE_LLM_SCORER) {
+    if (sortBy === METRIC_LLM_SCORER_CONSISTENCY) {
       const explainerIds = tableData?.explainer_ids || []
-      const consistencyA = getConsistencyValueForSorting(a, CONSISTENCY_TYPE_LLM_SCORER, explainerIds)
-      const consistencyB = getConsistencyValueForSorting(b, CONSISTENCY_TYPE_LLM_SCORER, explainerIds)
+      const consistencyA = getConsistencyValueForSorting(a, METRIC_LLM_SCORER_CONSISTENCY, explainerIds)
+      const consistencyB = getConsistencyValueForSorting(b, METRIC_LLM_SCORER_CONSISTENCY, explainerIds)
       return compareValues(consistencyA, consistencyB, sortDirection)
     }
 
-    if (sortBy === CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC) {
+    if (sortBy === METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY) {
       const explainerIds = tableData?.explainer_ids || []
-      const consistencyA = getConsistencyValueForSorting(a, CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC, explainerIds)
-      const consistencyB = getConsistencyValueForSorting(b, CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC, explainerIds)
+      const consistencyA = getConsistencyValueForSorting(a, METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY, explainerIds)
+      const consistencyB = getConsistencyValueForSorting(b, METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY, explainerIds)
       return compareValues(consistencyA, consistencyB, sortDirection)
     }
 
-    if (sortBy === CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC) {
+    if (sortBy === METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY) {
       const explainerIds = tableData?.explainer_ids || []
-      const consistencyA = getConsistencyValueForSorting(a, CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC, explainerIds)
-      const consistencyB = getConsistencyValueForSorting(b, CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC, explainerIds)
+      const consistencyA = getConsistencyValueForSorting(a, METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY, explainerIds)
+      const consistencyB = getConsistencyValueForSorting(b, METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY, explainerIds)
       return compareValues(consistencyA, consistencyB, sortDirection)
     }
 
-    if (sortBy === CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE) {
+    if (sortBy === METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY) {
       const explainerIds = tableData?.explainer_ids || []
-      const consistencyA = getConsistencyValueForSorting(a, CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE, explainerIds)
-      const consistencyB = getConsistencyValueForSorting(b, CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE, explainerIds)
+      const consistencyA = getConsistencyValueForSorting(a, METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY, explainerIds)
+      const consistencyB = getConsistencyValueForSorting(b, METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY, explainerIds)
       return compareValues(consistencyA, consistencyB, sortDirection)
     }
 
-    if (sortBy === CONSISTENCY_TYPE_LLM_EXPLAINER) {
+    if (sortBy === METRIC_LLM_EXPLAINER_CONSISTENCY) {
       const explainerIds = tableData?.explainer_ids || []
-      const consistencyA = getConsistencyValueForSorting(a, CONSISTENCY_TYPE_LLM_EXPLAINER, explainerIds)
-      const consistencyB = getConsistencyValueForSorting(b, CONSISTENCY_TYPE_LLM_EXPLAINER, explainerIds)
+      const consistencyA = getConsistencyValueForSorting(a, METRIC_LLM_EXPLAINER_CONSISTENCY, explainerIds)
+      const consistencyB = getConsistencyValueForSorting(b, METRIC_LLM_EXPLAINER_CONSISTENCY, explainerIds)
       return compareValues(consistencyA, consistencyB, sortDirection)
     }
 

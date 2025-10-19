@@ -15,14 +15,13 @@ export interface Filters {
 
 import {
   CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_SIMILARITY, CATEGORY_CONSISTENCY,
-  SPLIT_TYPE_RANGE, SPLIT_TYPE_PATTERN, SPLIT_TYPE_EXPRESSION,
-  PATTERN_STATE_HIGH, PATTERN_STATE_LOW, PATTERN_STATE_IN_RANGE, PATTERN_STATE_OUT_RANGE,
-  METRIC_FEATURE_SPLITTING, METRIC_SEMSIM_MEAN, METRIC_SEMSIM_MAX,
-  METRIC_SCORE_FUZZ, METRIC_SCORE_SIMULATION, METRIC_SCORE_DETECTION, METRIC_SCORE_EMBEDDING,
+  METRIC_FEATURE_SPLITTING, METRIC_SEMSIM_MEAN,
+  METRIC_SCORE_FUZZ, METRIC_SCORE_DETECTION, METRIC_SCORE_EMBEDDING,
+  METRIC_LLM_SCORER_CONSISTENCY, METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
+  METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY, METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
+  METRIC_LLM_EXPLAINER_CONSISTENCY,
   PANEL_LEFT, PANEL_RIGHT,
-  CONSISTENCY_TYPE_NONE, CONSISTENCY_TYPE_LLM_SCORER, CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC,
-  CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC, CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE,
-  CONSISTENCY_TYPE_LLM_EXPLAINER
+  CONSISTENCY_TYPE_NONE
 } from './lib/constants'
 
 // Category Type Definition
@@ -32,77 +31,8 @@ export type CategoryType =
   | typeof CATEGORY_SEMANTIC_SIMILARITY
   | typeof CATEGORY_CONSISTENCY
 
-// Split Rule Definitions
-export interface RangeSplitRule {
-  type: typeof SPLIT_TYPE_RANGE
-  metric: string
-  thresholds: number[]
-}
-
-export interface PatternSplitRule {
-  type: typeof SPLIT_TYPE_PATTERN
-  conditions: {
-    [metric: string]: {
-      threshold?: number
-      min?: number
-      max?: number
-      operator?: '>' | '>=' | '<' | '<=' | '==' | '!='
-    }
-  }
-  patterns: Array<{
-    match: {
-      [metric: string]: typeof PATTERN_STATE_HIGH | typeof PATTERN_STATE_LOW | typeof PATTERN_STATE_IN_RANGE | typeof PATTERN_STATE_OUT_RANGE | undefined
-    }
-    child_id: string
-    description?: string
-  }>
-  default_child_id?: string
-}
-
-export interface ExpressionSplitRule {
-  type: typeof SPLIT_TYPE_EXPRESSION
-  available_metrics?: string[]
-  branches: Array<{
-    condition: string
-    child_id: string
-    description?: string
-  }>
-  default_child_id: string
-}
-
-export type SplitRule = RangeSplitRule | PatternSplitRule | ExpressionSplitRule
-
-// Parent Path Information
-export interface ParentPathInfo {
-  parent_id: string
-  parent_split_rule: {
-    type: typeof SPLIT_TYPE_RANGE | typeof SPLIT_TYPE_PATTERN | typeof SPLIT_TYPE_EXPRESSION
-    range_info?: { metric: string; thresholds: number[] }
-    pattern_info?: { pattern_index: number; pattern_description?: string }
-    expression_info?: { branch_index: number; condition: string; description?: string }
-  }
-  branch_index: number
-  triggering_values?: { [metric: string]: number }
-}
-
-// Main Node Definition
-export interface SankeyThreshold {
-  id: string
-  stage: number
-  category: CategoryType
-  parent_path: ParentPathInfo[]
-  split_rule: SplitRule | null
-  children_ids: string[]
-}
-
-// New Threshold Tree Structure for V2
-export interface ThresholdTree {
-  nodes: SankeyThreshold[]
-  metrics: string[]
-}
-
 // ============================================================================
-// SIMPLIFIED THRESHOLD SYSTEM (Feature Group + Intersection)
+// NEW TREE-BASED THRESHOLD SYSTEM (Feature Group + Intersection)
 // ============================================================================
 
 /**
@@ -182,26 +112,22 @@ export interface FilterOptions {
 // API REQUEST TYPES
 // ============================================================================
 
+/**
+ * Threshold path constraint - represents one step in the path from root to node
+ * Each constraint filters features by a metric range from parent nodes
+ */
+export interface ThresholdPathConstraint {
+  metric: string      // Metric name (e.g., "feature_splitting", "overall_score")
+  rangeLabel: string  // Display label (e.g., "[0, 0.3)", ">= 0.5", "< 0.5")
+}
+
 export interface HistogramDataRequest {
   filters: Filters
   metric: string
   bins?: number
   nodeId?: string
-  thresholdTree?: ThresholdTree
-  groupBy?: string  // Optional grouping field, e.g., 'llm_explainer'
-  averageBy?: string | null  // Optional averaging field, e.g., 'llm_explainer' or 'llm_scorer'
   fixedDomain?: [number, number]  // Optional fixed domain for histogram bins, e.g., [0.0, 1.0]
-  selectedLLMExplainers?: string[]  // Optional list of 1 or 2 selected LLM explainers from LLM Comparison panel
-}
-
-export interface SankeyDataRequest {
-  filters: Filters
-  thresholdTree: ThresholdTree
-}
-
-export interface AlluvialDataRequest {
-  sankey_left: SankeyDataRequest
-  sankey_right: SankeyDataRequest
+  thresholdPath?: ThresholdPathConstraint[]  // Optional array of parent node constraints for filtering
 }
 
 // ============================================================================
@@ -269,7 +195,6 @@ export interface SankeyData {
   metadata: {
     total_features: number
     applied_filters: Filters
-    applied_thresholds: ThresholdTree
   }
 }
 
@@ -348,9 +273,7 @@ export interface ErrorStates {
 export type MetricType =
   | typeof METRIC_FEATURE_SPLITTING
   | typeof METRIC_SEMSIM_MEAN
-  | typeof METRIC_SEMSIM_MAX
   | typeof METRIC_SCORE_FUZZ
-  | typeof METRIC_SCORE_SIMULATION
   | typeof METRIC_SCORE_DETECTION
   | typeof METRIC_SCORE_EMBEDDING
 
@@ -443,35 +366,6 @@ export interface HistogramPopoverData {
 
 export interface PopoverState {
   histogram: HistogramPopoverData | null
-}
-
-// ============================================================================
-// DYNAMIC TREE BUILDER TYPES
-// ============================================================================
-
-export interface StageTypeConfig {
-  id: string
-  name: string
-  description: string
-  category: CategoryType
-  defaultSplitRule: 'range' | 'pattern' | 'expression'
-  defaultMetric?: string
-  defaultThresholds?: number[]
-}
-
-export interface CustomStageConfig {
-  splitMethod?: 'percentile' | 'absolute'  // Default: 'absolute'
-  numBins?: number  // Number of bins for splitting (default: 4)
-  customThresholds?: number[]  // Explicit threshold values for custom splits (overrides numBins)
-}
-
-export interface AddStageConfig {
-  stageType: string
-  splitRuleType: 'range' | 'pattern' | 'expression'
-  metric?: string
-  thresholds?: number[]
-  selectedScoreMetrics?: string[]
-  customConfig?: CustomStageConfig
 }
 
 // ============================================================================
@@ -573,11 +467,11 @@ export interface FeatureTableDataResponse {
 // Consistency Type for Table Header
 export type ConsistencyType =
   | typeof CONSISTENCY_TYPE_NONE                                    // No consistency coloring
-  | typeof CONSISTENCY_TYPE_LLM_SCORER                              // LLM Scorer Consistency (within-metric consistency)
-  | typeof CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC               // Within-explanation metric consistency
-  | typeof CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC                // Cross-explanation metric consistency (individual metrics)
-  | typeof CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE         // Cross-explanation overall score consistency
-  | typeof CONSISTENCY_TYPE_LLM_EXPLAINER                           // LLM Explainer consistency (semantic consistency)
+  | typeof METRIC_LLM_SCORER_CONSISTENCY                            // LLM Scorer Consistency (within-metric consistency)
+  | typeof METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY             // Within-explanation metric consistency
+  | typeof METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY              // Cross-explanation metric consistency (individual metrics)
+  | typeof METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY       // Cross-explanation overall score consistency
+  | typeof METRIC_LLM_EXPLAINER_CONSISTENCY                         // LLM Explainer consistency (semantic consistency)
 
 // Table Sorting Types (simplified for new table structure)
 export type SortDirection = 'asc' | 'desc' | null
@@ -586,11 +480,11 @@ export type SortBy =
   | 'featureId'
   | 'overallScore'
   | 'minConsistency'
-  | typeof CONSISTENCY_TYPE_LLM_SCORER
-  | typeof CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC
-  | typeof CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC
-  | typeof CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE
-  | typeof CONSISTENCY_TYPE_LLM_EXPLAINER
+  | typeof METRIC_LLM_SCORER_CONSISTENCY
+  | typeof METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY
+  | typeof METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY
+  | typeof METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY
+  | typeof METRIC_LLM_EXPLAINER_CONSISTENCY
   | null
 
 // ============================================================================

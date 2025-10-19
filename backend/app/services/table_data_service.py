@@ -144,23 +144,6 @@ class TableDataService:
             pl.col("llm_scorer").is_in(self.DEFAULT_SCORERS)
         )
 
-        # COMMENTED OUT: Dynamic filter application (unused in default-only mode)
-        # # Apply filters
-        # filter_conditions = []
-        # if filters.sae_id and len(filters.sae_id) > 0:
-        #     filter_conditions.append(pl.col("sae_id").is_in(filters.sae_id))
-        # if filters.explanation_method and len(filters.explanation_method) > 0:
-        #     filter_conditions.append(pl.col("explanation_method").is_in(filters.explanation_method))
-        # if filters.llm_explainer and len(filters.llm_explainer) > 0:
-        #     filter_conditions.append(pl.col("llm_explainer").is_in(filters.llm_explainer))
-        # if filters.llm_scorer and len(filters.llm_scorer) > 0:
-        #     filter_conditions.append(pl.col("llm_scorer").is_in(filters.llm_scorer))
-        #
-        # # Apply all filters
-        # if filter_conditions:
-        #     for condition in filter_conditions:
-        #         lf = lf.filter(condition)
-
         # Select needed columns
         df = lf.select([
             "feature_id", "llm_explainer", "llm_scorer",

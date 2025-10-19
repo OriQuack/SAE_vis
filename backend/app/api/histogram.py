@@ -60,16 +60,21 @@ async def get_histogram_data(
                       insufficient data, or server errors
     """
     try:
+        # Convert thresholdPath from Pydantic models to dicts if present
+        threshold_path = None
+        if request.thresholdPath:
+            threshold_path = [
+                {"metric": constraint.metric, "rangeLabel": constraint.range_label}
+                for constraint in request.thresholdPath
+            ]
+
         return await data_service.get_histogram_data(
             filters=request.filters,
             metric=request.metric,
             bins=request.bins,
-            threshold_tree=request.thresholdTree,
             node_id=request.nodeId,
-            group_by=request.groupBy,
-            average_by=request.averageBy,
             fixed_domain=request.fixedDomain,
-            selected_llm_explainers=request.selectedLLMExplainers
+            threshold_path=threshold_path
         )
 
     except ValueError as e:

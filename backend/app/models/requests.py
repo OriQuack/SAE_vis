@@ -1,10 +1,9 @@
 from pydantic import BaseModel, Field
 from typing import Optional, Union, Dict, Any, List
-from .common import Filters, MetricType
-from .threshold import ThresholdStructure
+from .common import Filters, MetricType, ThresholdPathConstraint
 
 class  HistogramRequest(BaseModel):
-    """Request model for histogram data endpoint"""
+    """Simplified request model for histogram data endpoint with threshold path filtering"""
     filters: Filters = Field(
         ...,
         description="Filter criteria for data subset"
@@ -19,51 +18,17 @@ class  HistogramRequest(BaseModel):
         le=100,
         description="Number of histogram bins (auto-calculated if not provided)"
     )
-    thresholdTree: Optional[ThresholdStructure] = Field(
-        default=None,
-        description="Optional threshold tree for node-specific histogram filtering (v2 format only)"
-    )
     nodeId: Optional[str] = Field(
         default=None,
-        description="Optional node ID to filter features for specific node in threshold tree"
-    )
-    groupBy: Optional[str] = Field(
-        default=None,
-        description="Optional field to group histogram data by (e.g., 'llm_explainer')"
-    )
-    averageBy: Optional[Union[str, List[str]]] = Field(
-        default=None,
-        description="Optional field(s) to average values by before creating histogram. Can be a single field (e.g., 'llm_explainer') or list of fields (e.g., ['llm_explainer', 'llm_scorer']) to average over multiple dimensions"
+        description="Optional node ID for reference (not used for filtering)"
     )
     fixedDomain: Optional[tuple[float, float]] = Field(
         default=None,
         description="Optional fixed domain [min, max] for histogram bins (e.g., [0.0, 1.0] for score metrics)"
     )
-    selectedLLMExplainers: Optional[List[str]] = Field(
+    thresholdPath: Optional[List[ThresholdPathConstraint]] = Field(
         default=None,
-        description="Optional list of selected LLM explainers (1 or 2) for filtered histogram computation. When provided, computes LLM-specific metrics using pairwise similarity data."
-    )
-
-class SankeyRequest(BaseModel):
-    """Request model for Sankey diagram data endpoint"""
-    filters: Filters = Field(
-        ...,
-        description="Filter criteria for data subset"
-    )
-    thresholdTree: ThresholdStructure = Field(
-        ...,
-        description="Threshold tree structure for hierarchical classification (v2 format only)"
-    )
-
-class ComparisonRequest(BaseModel):
-    """Request model for comparison/alluvial diagram data endpoint"""
-    sankey_left: SankeyRequest = Field(
-        ...,
-        description="Configuration for left Sankey diagram"
-    )
-    sankey_right: SankeyRequest = Field(
-        ...,
-        description="Configuration for right Sankey diagram"
+        description="Optional threshold path constraints from root to node for filtering features by parent ranges"
     )
 
 class ThresholdFeatureRequest(BaseModel):
@@ -154,3 +119,11 @@ class FeatureGroupRequest(BaseModel):
         min_items=0,
         description="List of threshold values (N thresholds create N+1 groups). Empty list returns all features as single group (root node)."
     )
+
+class ComparisonRequest(BaseModel):
+    """Request model for comparison endpoint (Phase 2 - not yet implemented)"""
+    filters: Filters = Field(
+        default_factory=lambda: Filters(),
+        description="Filter criteria for data subset"
+    )
+    # Minimal model for API compatibility - actual implementation pending
