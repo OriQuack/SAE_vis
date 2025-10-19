@@ -671,7 +671,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
     if (metric && thresholds) {
       console.log('[SankeyDiagram.handleStageSelect] ✅ Calling addStageToNode with:', { metric, thresholds })
-      await addStageToNode(inlineSelector.nodeId, metric, thresholds, panel)
+      await addStageToNode(inlineSelector.nodeId, metric, [...thresholds], panel)
 
       // Show histogram popover after adding stage
       setTimeout(() => {

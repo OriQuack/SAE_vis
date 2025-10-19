@@ -392,7 +392,7 @@ export interface AlluvialSankeyLink {
   y0?: number
   y1?: number
   width?: number
-  flow: AlluvialFlowData
+  flow: AlluvialFlow
   color: string
   opacity: number
   id: string

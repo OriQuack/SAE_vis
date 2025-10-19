@@ -138,8 +138,8 @@ const AlluvialDiagram: React.FC<AlluvialDiagramProps> = ({
 }) => {
   // Get data from store
   const alluvialFlows = useVisualizationStore(state => state.alluvialFlows)
-  const leftSankeyData = useVisualizationStore(state => state.leftPanel.sankeyData)
-  const rightSankeyData = useVisualizationStore(state => state.rightPanel.sankeyData)
+  const leftSankeyData = useVisualizationStore(state => state.leftPanel.computedSankey)
+  const rightSankeyData = useVisualizationStore(state => state.rightPanel.computedSankey)
   const setHoveredAlluvialNode = useVisualizationStore(state => state.setHoveredAlluvialNode)
 
   // State for interactions
