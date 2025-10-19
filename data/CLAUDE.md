@@ -32,7 +32,8 @@ data/
 │   │   ├── calculate_semantic_distances.py  # Calculate distances between embeddings
 │   │   ├── generate_detailed_json.py        # Consolidate all data per feature
 │   │   ├── create_master_parquet.py         # Create master parquet from detailed JSON ✅
-│   │   └── create_pairwise_similarity_parquet.py # Create pairwise similarity parquet ✅ NEW
+│   │   ├── create_pairwise_similarity_parquet.py # Create pairwise similarity parquet ✅ NEW
+│   │   └── 8_precompute_consistency_scores.py # Pre-compute consistency scores ✅ Phase 8
 │   ├── config/                 # Configuration files for processing
 │   │   ├── embedding_config.json            # Embedding generation config
 │   │   ├── score_config.json                # Score processing config
@@ -76,6 +77,8 @@ data/
 │   ├── feature_analysis.metadata.json      # Processing metadata and statistics
 │   ├── semantic_similarity_pairwise.parquet # Pairwise LLM similarity (2,470 rows) ✅ NEW
 │   ├── semantic_similarity_pairwise.parquet.metadata.json # Pairwise similarity metadata ✅ NEW
+│   ├── consistency_scores.parquet          # Pre-computed consistency scores (2,471 rows) ✅ Phase 8
+│   ├── consistency_scores.parquet.metadata.json # Consistency scores metadata ✅ Phase 8
 │   ├── analyze_features.py                 # Simplified analysis script (103 lines)
 │   └── analysis_results_<timestamp>.json   # Analysis output with timestamp
 ├── llm_comparison/             # LLM comparison statistics ✅ NEW (Phase 5)
@@ -167,6 +170,20 @@ data/
 - **Research-Optimized**: Scalable to any number of LLM explainers (not hardcoded to 3)
 - **Statistical Metadata**: Generates comprehensive pairwise statistics per LLM combination
 - Outputs: Normalized parquet file with 2,470 rows (824 features × 3 pairwise combinations average)
+
+#### H. Consistency Score Pre-computation (`8_precompute_consistency_scores.py`) ✅ Phase 8 - NEW
+- **Comprehensive Consistency Calculation**: Pre-computes 8 consistency metrics for all features
+- **Performance Optimization**: Batch calculation reduces Sankey generation time by avoiding runtime computation
+- **Consistency Types**:
+  - LLM Scorer Consistency (fuzz, detection): Consistency across scorers for same explainer+metric
+  - Within-Explanation Metric Consistency: Consistency across metrics within same explainer (z-score normalized)
+  - Cross-Explanation Metric Consistency (embedding, fuzz, detection): Per-metric consistency across explainers
+  - Cross-Explanation Overall Score Consistency: Overall score consistency across explainers
+  - LLM Explainer Consistency: Semantic similarity between explanations from different LLMs
+- **Data-Driven max_std Values**: Computes actual max standard deviation from data for normalization
+- **Z-score Normalization**: Uses global statistics for fair cross-metric comparison
+- **Metadata Generation**: Comprehensive metadata with column descriptions, statistics, and consistency methods
+- Outputs: consistency_scores.parquet (2,471 rows × 8 consistency columns) with metadata JSON
 
 ### 3. Completed Output Formats ✅
 
@@ -268,6 +285,42 @@ pair_stats = df.group_by(["explainer_1", "explainer_2"]).agg([
 - **Llama vs OpenAI**: mean=0.862, range=[0.763-0.952], std=0.039 (823 pairs)
 - **Qwen vs OpenAI**: mean=0.867, range=[0.757-0.949], std=0.040 (823 pairs)
 
+#### D. Consistency Scores Parquet Schema ✅ Phase 8 - NEW
+Pre-computed consistency scores for performance optimization:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `feature_id` | UInt32 | SAE feature index (0-823) |
+| `llm_explainer` | Categorical | LLM model used for explanations |
+| `llm_scorer_consistency_fuzz` | Float32 | Consistency across scorers for fuzz metric: `1 - (std / max_std_actual)` |
+| `llm_scorer_consistency_detection` | Float32 | Consistency across scorers for detection metric: `1 - (std / max_std_actual)` |
+| `within_explanation_metric_consistency` | Float32 | Consistency across 3 metrics within explainer (z-score normalized): `1 - (std_z / max_std_z)` |
+| `cross_explanation_metric_consistency_embedding` | Float32 | Embedding consistency across explainers: `1 - (std / max_std_actual)` |
+| `cross_explanation_metric_consistency_fuzz` | Float32 | Fuzz consistency across explainers: `1 - (std / max_std_actual)` |
+| `cross_explanation_metric_consistency_detection` | Float32 | Detection consistency across explainers: `1 - (std / max_std_actual)` |
+| `cross_explanation_overall_score_consistency` | Float32 | Overall score consistency across explainers: `1 - (std / max_std_actual)` |
+| `llm_explainer_consistency` | Float32 | Semantic similarity between explanations: `avg_pairwise_cosine_similarity` |
+
+**Consistency Formulas:**
+- **Std-based consistency**: `1 - (std / max_std_actual)` where max_std_actual is data-driven
+- **Z-score normalization**: For within-explanation, uses `(value - global_mean) / global_std`
+- **Semantic similarity**: Average pairwise cosine similarity from pairwise parquet
+
+**Statistics (2,471 rows):**
+- **LLM Scorer Consistency (fuzz)**: mean=0.771, std=0.142, range=[0.0-1.0]
+- **LLM Scorer Consistency (detection)**: mean=0.791, std=0.144, range=[0.0-1.0]
+- **Within-Explanation Metric Consistency**: mean=0.738, std=0.155, range=[0.0-0.998]
+- **Cross-Explanation Embedding**: mean=0.818, std=0.131, range=[0.0-0.994]
+- **Cross-Explanation Fuzz**: mean=0.798, std=0.151, range=[0.0-0.996]
+- **Cross-Explanation Detection**: mean=0.782, std=0.172, range=[0.0-1.0]
+- **Cross-Explanation Overall Score**: mean=0.807, std=0.147, range=[0.0-0.992]
+- **LLM Explainer Consistency**: mean=0.877, std=0.030, range=[0.801-0.954]
+
+**Usage:**
+- **Sankey Classification**: Use consistency scores for percentile-based feature classification
+- **TablePanel**: Overlay consistency values on feature-level scoring table
+- **Performance**: Pre-computed values eliminate runtime calculation overhead
+
 ## Configuration Management
 
 All processing scripts use configuration files to ensure:
@@ -309,8 +362,11 @@ python generate_detailed_json.py --config ../config/detailed_json_config.json
 # 5. Create master parquet with cosine similarity
 python create_master_parquet.py --config ../config/master_parquet_config.json
 
-# 6. ✅ NEW: Create pairwise similarity parquet
+# 6. Create pairwise similarity parquet
 python create_pairwise_similarity_parquet.py --config ../config/pairwise_similarity_config.json
+
+# 7. ✅ Phase 8: Pre-compute consistency scores
+python 8_precompute_consistency_scores.py
 ```
 
 ### Individual Script Usage:
@@ -321,10 +377,14 @@ python create_master_parquet.py --config ../config/master_parquet_config.json --
 # Create pairwise similarity parquet
 python create_pairwise_similarity_parquet.py --config ../config/pairwise_similarity_config.json
 
+# Pre-compute consistency scores (Phase 8)
+python 8_precompute_consistency_scores.py
+
 # Run from project root (alternative)
 cd /path/to/interface
 python data/preprocessing/scripts/create_master_parquet.py --config data/preprocessing/config/master_parquet_config.json
 python data/preprocessing/scripts/create_pairwise_similarity_parquet.py --config data/preprocessing/config/pairwise_similarity_config.json
+python data/preprocessing/scripts/8_precompute_consistency_scores.py
 ```
 
 ## Pipeline Status & Next Steps
@@ -337,11 +397,13 @@ python data/preprocessing/scripts/create_pairwise_similarity_parquet.py --config
 5. **Detailed JSON Consolidation**: Comprehensive per-feature data ✅
 6. **Feature Similarity Analysis**: Cosine similarity computation ✅
 7. **Master Parquet Creation**: High-performance columnar format ✅
-8. **Pairwise Similarity Parquet**: Normalized LLM explainer comparison data ✅ NEW
+8. **Pairwise Similarity Parquet**: Normalized LLM explainer comparison data ✅
+9. **Consistency Score Pre-computation**: 8 consistency metrics for Sankey classification ✅ Phase 8
 
 ### 🎯 Current Achievement
-- **Complete End-to-End Pipeline**: From raw SAE data to analysis-ready parquet
+- **Complete End-to-End Pipeline**: From raw SAE data to analysis-ready parquet with pre-computed consistency
 - **Advanced Feature Analysis**: Cosine similarity-based feature splitting detection
+- **Consistency Pre-computation**: 8 consistency metrics for performance-optimized Sankey classification
 - **Production-Grade Code**: Professional path handling, robust error handling, portable configuration
 - **Optimized Performance**: Polars DataFrame with proper schema and categorical types
 - **Full Documentation**: Comprehensive usage examples and schema documentation
@@ -360,11 +422,12 @@ The data processing pipeline is now **complete and production-ready** for compre
 The master parquet file (`feature_analysis.parquet`) is the primary data source for the FastAPI backend:
 
 ### Backend Integration (✅ ACTIVE)
-- **Location**: `/data/master/feature_analysis.parquet`
-- **Backend Service**: Loaded by `DataService` (`backend/app/services/visualization_service.py`)
+- **Location**: `/data/master/feature_analysis.parquet` and `/data/master/consistency_scores.parquet`
+- **Backend Service**: Loaded by `DataService` (`backend/app/services/visualization_service.py`) and `ConsistencyService`
 - **Lazy Loading**: Polars LazyFrame with string cache optimization
 - **Dataset Size**: 1,648 features processed (824 from llama_e-llama_s + 824 from gwen_e-llama_s)
-- **Usage**: Powers all visualization endpoints (Sankey, Histogram, Alluvial, Linear Set, LLM Comparison)
+- **Consistency Scores**: 2,471 rows × 8 pre-computed consistency metrics for optimal performance
+- **Usage**: Powers all visualization endpoints (Sankey, Histogram, Alluvial, Linear Set, LLM Comparison, TablePanel)
 
 ### Visualization Support
 The parquet schema is optimized for multiple visualization types:

@@ -124,5 +124,39 @@
       "score_embedding": 0.294375
     }
   ],
+  "normalized_scores": [
+    {
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "z_score_embedding": -1.0212288673228815,
+      "z_score_fuzz": -1.6642722737313933,
+      "z_score_detection": -1.5365134289467242
+    },
+    {
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "z_score_embedding": -0.5927527269392926,
+      "z_score_fuzz": -0.8754837169022026,
+      "z_score_detection": -0.4834088633565995
+    },
+    {
+      "llm_explainer": "openai/gpt-oss-20b",
+      "z_score_embedding": -1.1354061334134693,
+      "z_score_fuzz": -1.1269815176303504,
+      "z_score_detection": 0.815420100871221
+    }
+  ],
+  "overall_scores": [
+    {
+      "llm_explainer": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+      "overall_score": -1.407338190000333
+    },
+    {
+      "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+      "overall_score": -0.6505484357326982
+    },
+    {
+      "llm_explainer": "openai/gpt-oss-20b",
+      "overall_score": -0.48232251672419957
+    }
+  ],
   "activating_examples": "TODO: Not implemented yet"
 }

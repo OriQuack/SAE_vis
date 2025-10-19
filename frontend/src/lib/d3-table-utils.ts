@@ -1,6 +1,17 @@
-import { scaleLinear } from 'd3-scale'
 import type { FeatureTableRow, MetricNormalizationStats, ConsistencyType, MinConsistencyResult } from '../types'
-import { CONSISTENCY_COLORS, OVERALL_SCORE_COLORS, METRIC_COLORS } from './constants'
+import {
+  CONSISTENCY_TYPE_NONE,
+  METRIC_LLM_SCORER_CONSISTENCY,
+  METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
+  METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
+  METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
+  METRIC_LLM_EXPLAINER_CONSISTENCY
+} from './constants'
+import {
+  getConsistencyColor,
+  getOverallScoreColor,
+  getConsistencyGradientStops,
+} from './utils'
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -62,34 +73,41 @@ function averageNonNull(values: (number | null)[]): number | null {
 }
 
 /**
- * Normalize a score value using min-max normalization
+ * Normalize a score value using z-score + min-max normalization
+ *
+ * Flow: value -> z-score -> min-max normalization
  *
  * @param value - Raw score value
- * @param stats - Statistics containing min/max
+ * @param stats - Statistics containing mean, std, z_min, z_max
  * @returns Normalized value (0-1) or null if range is invalid
  */
-function normalizeScore(value: number, stats: MetricNormalizationStats): number | null {
-  const { min, max } = stats
-  const range = max - min
-  if (range <= 0) return null
-  return (value - min) / range
+export function normalizeScore(value: number, stats: MetricNormalizationStats): number | null {
+  const { mean, std, z_min, z_max } = stats
+
+  // Step 1: Calculate z-score
+  const zScore = std > 0 ? (value - mean) / std : 0
+
+  // Step 2: Min-max normalization of z-score
+  const zRange = z_max - z_min
+  if (zRange <= 0) return null
+  return (zScore - z_min) / zRange
 }
 
 /**
  * Extract LLM scorer consistency (average of fuzz and detection consistency)
  *
- * @param explainerData - Explainer data containing scorer_consistency
+ * @param explainerData - Explainer data containing llm_scorer_consistency
  * @returns Average scorer consistency or null
  */
 function extractScorerConsistency(explainerData: any): number | null {
-  if (!explainerData.scorer_consistency) return null
+  if (!explainerData.llm_scorer_consistency) return null
 
   const values: number[] = []
-  if (explainerData.scorer_consistency.fuzz) {
-    values.push(explainerData.scorer_consistency.fuzz.value)
+  if (explainerData.llm_scorer_consistency.fuzz) {
+    values.push(explainerData.llm_scorer_consistency.fuzz.value)
   }
-  if (explainerData.scorer_consistency.detection) {
-    values.push(explainerData.scorer_consistency.detection.value)
+  if (explainerData.llm_scorer_consistency.detection) {
+    values.push(explainerData.llm_scorer_consistency.detection.value)
   }
 
   return averageNonNull(values)
@@ -98,13 +116,13 @@ function extractScorerConsistency(explainerData: any): number | null {
 /**
  * Extract cross-explainer metric consistency (average of embedding, fuzz, detection)
  *
- * @param explainerData - Explainer data containing cross_explainer_metric_consistency
+ * @param explainerData - Explainer data containing cross_explanation_metric_consistency
  * @returns Average cross-explainer consistency or null
  */
 function extractCrossExplainerConsistency(explainerData: any): number | null {
-  if (!explainerData.cross_explainer_metric_consistency) return null
+  if (!explainerData.cross_explanation_metric_consistency) return null
 
-  const cem = explainerData.cross_explainer_metric_consistency
+  const cem = explainerData.cross_explanation_metric_consistency
   const values: number[] = []
 
   if (cem.embedding) values.push(cem.embedding.value)
@@ -117,20 +135,13 @@ function extractCrossExplainerConsistency(explainerData: any): number | null {
 /**
  * Extract cross-explainer overall score consistency
  *
- * @param explainerData - Explainer data containing cross_explainer_metric_consistency
+ * @param explainerData - Explainer data containing cross_explanation_overall_score_consistency
  * @returns Overall score consistency or null
  */
 function extractCrossExplainerOverallConsistency(explainerData: any): number | null {
-  if (!explainerData.cross_explainer_metric_consistency) return null
+  if (!explainerData.cross_explanation_overall_score_consistency) return null
 
-  const cem = explainerData.cross_explainer_metric_consistency
-
-  // Return the overall_score consistency if it exists
-  if (cem.overall_score) {
-    return cem.overall_score.value
-  }
-
-  return null
+  return explainerData.cross_explanation_overall_score_consistency.value
 }
 
 
@@ -204,7 +215,7 @@ export interface ColorBarLayout {
 export function calculateColorBarLayout(
   containerWidth: number = 400,
   barHeight: number = 12,
-  consistencyType: ConsistencyType = 'none'
+  consistencyType: ConsistencyType = CONSISTENCY_TYPE_NONE
 ): ColorBarLayout {
   const labelWidth = 35  // Width reserved for each label ("0 Low", "1 High")
   const labelGap = 8     // Gap between label and bar
@@ -232,94 +243,9 @@ export function calculateColorBarLayout(
   }
 }
 
-/**
- * Get consistency color gradient definition based on consistency type
- *
- * @param consistencyType - Type of consistency metric
- * @returns Color gradient definition (LOW, MEDIUM, HIGH)
- */
-function getConsistencyColorGradient(consistencyType: ConsistencyType): { LOW: string; MEDIUM: string; HIGH: string } {
-  switch (consistencyType) {
-    case 'llm_scorer_consistency':
-      return CONSISTENCY_COLORS.LLM_SCORER
-    case 'within_explanation_score':
-      return CONSISTENCY_COLORS.WITHIN_EXPLANATION
-    case 'cross_explanation_score':
-      return CONSISTENCY_COLORS.CROSS_EXPLANATION
-    case 'cross_explanation_overall_score':
-      return CONSISTENCY_COLORS.CROSS_EXPLANATION_OVERALL
-    case 'llm_explainer_consistency':
-      return CONSISTENCY_COLORS.LLM_EXPLAINER
-    case 'none':
-    default:
-      // Default to white (no coloring)
-      return { LOW: '#FFFFFF', MEDIUM: '#FFFFFF', HIGH: '#FFFFFF' }
-  }
-}
-
-/**
- * Get color for a consistency value (0-1)
- *
- * Uses single-color gradient (white to color) based on consistency type.
- * Can be used for coloring table cells, charts, etc.
- *
- * @param value - Consistency value between 0 and 1
- * @param consistencyType - Type of consistency metric (determines color)
- * @returns RGB color string (e.g., "#4477AA")
- */
-export function getConsistencyColor(value: number, consistencyType: ConsistencyType = 'none'): string {
-  // Clamp value between 0 and 1
-  const clampedValue = Math.max(0, Math.min(1, value))
-
-  // Get color gradient for this consistency type
-  const gradient = getConsistencyColorGradient(consistencyType)
-
-  // Create D3 color scale: white (0) → light color (0.5) → full color (1.0)
-  const colorScale = scaleLinear<string>()
-    .domain([0, 0.5, 1])
-    .range([gradient.LOW, gradient.MEDIUM, gradient.HIGH])
-
-  return colorScale(clampedValue)
-}
-
-/**
- * Get color for an overall score value (0-1)
- *
- * Uses performance gradient: white (poor) → green (good) with increasing opacity
- * Designed for displaying overall scores in the simplified table.
- *
- * @param score - Overall score value between 0 and 1
- * @returns RGB color string with alpha
- */
-export function getOverallScoreColor(score: number): string {
-  // Clamp value between 0 and 1
-  const clampedScore = Math.max(0, Math.min(1, score))
-
-  // Create performance color scale: white (0) → light green (0.5) → full green (1)
-  const colorScale = scaleLinear<string>()
-    .domain([0, 0.5, 1])
-    .range([OVERALL_SCORE_COLORS.LOW, OVERALL_SCORE_COLORS.MEDIUM, OVERALL_SCORE_COLORS.HIGH])
-
-  return colorScale(clampedScore)
-}
-
-/**
- * Get gradient stops for consistency color scale
- *
- * Returns array of gradient stops that can be used in SVG linearGradient
- *
- * @param consistencyType - Type of consistency metric (determines color)
- * @returns Array of gradient stop objects
- */
-export function getConsistencyGradientStops(consistencyType: ConsistencyType = 'none'): Array<{ offset: string; color: string }> {
-  const gradient = getConsistencyColorGradient(consistencyType)
-
-  return [
-    { offset: '0%', color: gradient.LOW },      // White (low consistency at 0)
-    { offset: '50%', color: gradient.MEDIUM },  // Light color (medium)
-    { offset: '100%', color: gradient.HIGH }    // Full color (high consistency at 1)
-  ]
-}
+// Color encoding functions moved to utils.ts and imported above
+// Re-exported for backward compatibility
+export { getConsistencyColor, getOverallScoreColor, getConsistencyGradientStops }
 
 // ============================================================================
 // TABLE SORTING UTILITIES
@@ -342,7 +268,7 @@ export function getConsistencyValueForSorting(
   explainerIds: string[]
 ): number | null {
   // No consistency - return null (no sorting by consistency)
-  if (consistencyType === 'none') {
+  if (consistencyType === CONSISTENCY_TYPE_NONE) {
     return null
   }
 
@@ -352,19 +278,19 @@ export function getConsistencyValueForSorting(
     const explainerData = row.explainers[explainerId]
     if (!explainerData) continue
 
-    if (consistencyType === 'llm_scorer_consistency') {
+    if (consistencyType === METRIC_LLM_SCORER_CONSISTENCY) {
       values.push(extractScorerConsistency(explainerData))
-    } else if (consistencyType === 'within_explanation_score') {
-      if (explainerData.metric_consistency) {
-        values.push(explainerData.metric_consistency.value)
+    } else if (consistencyType === METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY) {
+      if (explainerData.within_explanation_metric_consistency) {
+        values.push(explainerData.within_explanation_metric_consistency.value)
       }
-    } else if (consistencyType === 'cross_explanation_score') {
+    } else if (consistencyType === METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY) {
       values.push(extractCrossExplainerConsistency(explainerData))
-    } else if (consistencyType === 'cross_explanation_overall_score') {
+    } else if (consistencyType === METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY) {
       values.push(extractCrossExplainerOverallConsistency(explainerData))
-    } else if (consistencyType === 'llm_explainer_consistency') {
-      if (explainerData.explainer_consistency) {
-        values.push(explainerData.explainer_consistency.value)
+    } else if (consistencyType === METRIC_LLM_EXPLAINER_CONSISTENCY) {
+      if (explainerData.llm_explainer_consistency) {
+        values.push(explainerData.llm_explainer_consistency.value)
       }
     }
   }
@@ -409,13 +335,14 @@ export function compareValues(
  * Calculate overall score from embedding, fuzz, and detection
  *
  * Process:
- * 1. Normalize each score using global stats: (value - min) / (max - min)
- * 2. Average the three normalized scores
+ * 1. Calculate z-score for each metric: (value - mean) / std
+ * 2. Average the three z-scores
+ * 3. Apply min-max normalization to averaged z-score using overall.z_min and overall.z_max
  *
  * @param embedding - Embedding score
  * @param fuzzScores - Fuzz scores from scorers (s1, s2, s3)
  * @param detectionScores - Detection scores from scorers (s1, s2, s3)
- * @param globalStats - Global normalization statistics
+ * @param globalStats - Global normalization statistics (includes overall.z_min, overall.z_max)
  * @returns Overall score (0-1) or null if insufficient data
  */
 export function calculateOverallScore(
@@ -424,27 +351,48 @@ export function calculateOverallScore(
   detectionScores: { s1: number | null; s2: number | null; s3: number | null },
   globalStats: Record<string, MetricNormalizationStats>
 ): number | null {
-  const normalizedScores: (number | null)[] = []
+  const zScores: number[] = []
 
-  // Normalize embedding
+  // Calculate z-score for embedding (not normalized yet)
   if (embedding !== null && globalStats.embedding) {
-    normalizedScores.push(normalizeScore(embedding, globalStats.embedding))
+    const { mean, std } = globalStats.embedding
+    const zScore = std > 0 ? (embedding - mean) / std : 0
+    zScores.push(zScore)
   }
 
-  // Normalize fuzz (average across scorers first)
+  // Calculate z-score for fuzz (average across scorers first)
   const fuzzAvg = averageNonNull([fuzzScores.s1, fuzzScores.s2, fuzzScores.s3])
   if (fuzzAvg !== null && globalStats.fuzz) {
-    normalizedScores.push(normalizeScore(fuzzAvg, globalStats.fuzz))
+    const { mean, std } = globalStats.fuzz
+    const zScore = std > 0 ? (fuzzAvg - mean) / std : 0
+    zScores.push(zScore)
   }
 
-  // Normalize detection (average across scorers first)
+  // Calculate z-score for detection (average across scorers first)
   const detectionAvg = averageNonNull([detectionScores.s1, detectionScores.s2, detectionScores.s3])
   if (detectionAvg !== null && globalStats.detection) {
-    normalizedScores.push(normalizeScore(detectionAvg, globalStats.detection))
+    const { mean, std } = globalStats.detection
+    const zScore = std > 0 ? (detectionAvg - mean) / std : 0
+    zScores.push(zScore)
   }
 
-  // Average the normalized scores
-  return averageNonNull(normalizedScores)
+  // No valid z-scores
+  if (zScores.length === 0) return null
+
+  // Average the z-scores
+  const avgZScore = zScores.reduce((sum, z) => sum + z, 0) / zScores.length
+
+  // Normalize the averaged z-score using overall z_min and z_max
+  if (!globalStats.overall || !globalStats.overall.z_min || !globalStats.overall.z_max) {
+    // Fallback: if no overall stats, return null
+    return null
+  }
+
+  const { z_min, z_max } = globalStats.overall
+  const zRange = z_max - z_min
+  if (zRange <= 0) return null
+
+  return (avgZScore - z_min) / zRange
 }
 
 /**
@@ -474,29 +422,29 @@ export function calculateMinConsistency(
   // 1. LLM Scorer consistency (average of fuzz and detection)
   const scorerConsistency = extractScorerConsistency(explainerData)
   if (scorerConsistency !== null) {
-    consistencyEntries.push({ value: scorerConsistency, type: 'llm_scorer_consistency' })
+    consistencyEntries.push({ value: scorerConsistency, type: METRIC_LLM_SCORER_CONSISTENCY })
   }
 
   // 2. Within-explanation metric consistency
-  if (explainerData.metric_consistency) {
-    consistencyEntries.push({ value: explainerData.metric_consistency.value, type: 'within_explanation_score' })
+  if (explainerData.within_explanation_metric_consistency) {
+    consistencyEntries.push({ value: explainerData.within_explanation_metric_consistency.value, type: METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY })
   }
 
   // 3. Cross-explanation score consistency (average of embedding, fuzz, detection)
   const crossConsistency = extractCrossExplainerConsistency(explainerData)
   if (crossConsistency !== null) {
-    consistencyEntries.push({ value: crossConsistency, type: 'cross_explanation_score' })
+    consistencyEntries.push({ value: crossConsistency, type: METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY })
   }
 
   // 4. Cross-explanation overall score consistency
   const crossOverallConsistency = extractCrossExplainerOverallConsistency(explainerData)
   if (crossOverallConsistency !== null) {
-    consistencyEntries.push({ value: crossOverallConsistency, type: 'cross_explanation_overall_score' })
+    consistencyEntries.push({ value: crossOverallConsistency, type: METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY })
   }
 
   // 5. LLM Explainer consistency
-  if (explainerData.explainer_consistency) {
-    consistencyEntries.push({ value: explainerData.explainer_consistency.value, type: 'llm_explainer_consistency' })
+  if (explainerData.llm_explainer_consistency) {
+    consistencyEntries.push({ value: explainerData.llm_explainer_consistency.value, type: METRIC_LLM_EXPLAINER_CONSISTENCY })
   }
 
   // Find minimum value and its type
@@ -521,94 +469,6 @@ export interface ScoreCircleData {
   normalizedScore: number  // z-score
   color: string
   scorerId?: 's1' | 's2' | 's3'
-}
-
-/**
- * Calculate z-score using backend-provided global statistics
- *
- * @param value - Raw score value
- * @param mean - Global mean for this metric
- * @param std - Global standard deviation for this metric
- * @returns Z-score (number of standard deviations from mean)
- */
-export function calculateZScore(
-  value: number,
-  mean: number,
-  std: number
-): number {
-  // Handle edge case: if std is 0, all values are the same
-  if (std === 0 || isNaN(std)) {
-    return 0
-  }
-  return (value - mean) / std
-}
-
-/**
- * Map z-score to color using diverging scale (blue → white → red)
- *
- * Color encoding:
- * - Blue (#3b82f6): Below average (z < -1)
- * - Light gray (#e5e7eb): Average (z ≈ 0)
- * - Red (#ef4444): Above average (z > 1)
- *
- * @param zScore - Z-score value
- * @returns RGB color string
- */
-export function getScoreCircleColor(zScore: number): string {
-  // Create diverging color scale
-  // Domain: [-2, 0, 2] with clamping for outliers
-  const colorScale = scaleLinear<string>()
-    .domain([-2, 0, 2])
-    .range(['#3b82f6', '#e5e7eb', '#ef4444'])  // Blue → Light Gray → Red
-    .clamp(true)  // Clamp values outside domain
-
-  return colorScale(zScore)
-}
-
-/**
- * Get metric-specific gradient color for score circles based on score value
- *
- * Uses distinct colorblind-safe colors for each metric type with opacity encoding:
- * - Low scores (0.0): Transparent/white
- * - Medium scores (0.5): 50% opacity
- * - High scores (1.0): Full color opacity
- *
- * Metric colors:
- * - Embedding: Blue gradient (#0072B2)
- * - Fuzz: Orange-red gradient (#D55E00)
- * - Detection: Green gradient (#228833)
- *
- * @param metricType - Type of metric (embedding, fuzz, detection)
- * @param score - Score value (0-1 range, normalized)
- * @returns RGB color string with opacity
- */
-export function getMetricColor(metricType: 'embedding' | 'fuzz' | 'detection', score: number): string {
-  // Clamp score between 0 and 1
-  const clampedScore = Math.max(0, Math.min(1, score))
-
-  // Get color gradient for this metric type
-  let gradient: { LOW: string; MEDIUM: string; HIGH: string }
-
-  switch (metricType) {
-    case 'embedding':
-      gradient = METRIC_COLORS.SCORE_EMBEDDING
-      break
-    case 'fuzz':
-      gradient = METRIC_COLORS.SCORE_FUZZ
-      break
-    case 'detection':
-      gradient = METRIC_COLORS.SCORE_DETECTION
-      break
-    default:
-      return '#e5e7eb'  // Default gray
-  }
-
-  // Create D3 color scale: white (0) → light color (0.5) → full color (1.0)
-  const colorScale = scaleLinear<string>()
-    .domain([0, 0.5, 1])
-    .range([gradient.LOW, gradient.MEDIUM, gradient.HIGH])
-
-  return colorScale(clampedScore)
 }
 
 // ============================================================================
@@ -678,10 +538,11 @@ function calculateFeatureMinConsistency(
  * - featureId: Sort by feature ID number
  * - overallScore: Sort by overall score across all explainers
  * - minConsistency: Sort by min consistency across all explainers
- * - llm_scorer_consistency: Sort by LLM Scorer consistency
- * - within_explanation_score: Sort by Within-explanation score consistency
- * - cross_explanation_score: Sort by Cross-explanation score consistency
- * - llm_explainer_consistency: Sort by LLM Explainer consistency
+ * - METRIC_LLM_SCORER_CONSISTENCY: Sort by LLM Scorer consistency
+ * - METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY: Sort by Within-explanation metric consistency
+ * - METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY: Sort by Cross-explanation metric consistency
+ * - METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY: Sort by Cross-explanation overall score consistency
+ * - METRIC_LLM_EXPLAINER_CONSISTENCY: Sort by LLM Explainer consistency
  *
  * @param features - Array of features to sort
  * @param sortBy - Sort key
@@ -726,38 +587,38 @@ export function sortFeatures(
     }
 
     // Individual consistency metric sorting
-    if (sortBy === 'llm_scorer_consistency') {
+    if (sortBy === METRIC_LLM_SCORER_CONSISTENCY) {
       const explainerIds = tableData?.explainer_ids || []
-      const consistencyA = getConsistencyValueForSorting(a, 'llm_scorer_consistency', explainerIds)
-      const consistencyB = getConsistencyValueForSorting(b, 'llm_scorer_consistency', explainerIds)
+      const consistencyA = getConsistencyValueForSorting(a, METRIC_LLM_SCORER_CONSISTENCY, explainerIds)
+      const consistencyB = getConsistencyValueForSorting(b, METRIC_LLM_SCORER_CONSISTENCY, explainerIds)
       return compareValues(consistencyA, consistencyB, sortDirection)
     }
 
-    if (sortBy === 'within_explanation_score') {
+    if (sortBy === METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY) {
       const explainerIds = tableData?.explainer_ids || []
-      const consistencyA = getConsistencyValueForSorting(a, 'within_explanation_score', explainerIds)
-      const consistencyB = getConsistencyValueForSorting(b, 'within_explanation_score', explainerIds)
+      const consistencyA = getConsistencyValueForSorting(a, METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY, explainerIds)
+      const consistencyB = getConsistencyValueForSorting(b, METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY, explainerIds)
       return compareValues(consistencyA, consistencyB, sortDirection)
     }
 
-    if (sortBy === 'cross_explanation_score') {
+    if (sortBy === METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY) {
       const explainerIds = tableData?.explainer_ids || []
-      const consistencyA = getConsistencyValueForSorting(a, 'cross_explanation_score', explainerIds)
-      const consistencyB = getConsistencyValueForSorting(b, 'cross_explanation_score', explainerIds)
+      const consistencyA = getConsistencyValueForSorting(a, METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY, explainerIds)
+      const consistencyB = getConsistencyValueForSorting(b, METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY, explainerIds)
       return compareValues(consistencyA, consistencyB, sortDirection)
     }
 
-    if (sortBy === 'cross_explanation_overall_score') {
+    if (sortBy === METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY) {
       const explainerIds = tableData?.explainer_ids || []
-      const consistencyA = getConsistencyValueForSorting(a, 'cross_explanation_overall_score', explainerIds)
-      const consistencyB = getConsistencyValueForSorting(b, 'cross_explanation_overall_score', explainerIds)
+      const consistencyA = getConsistencyValueForSorting(a, METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY, explainerIds)
+      const consistencyB = getConsistencyValueForSorting(b, METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY, explainerIds)
       return compareValues(consistencyA, consistencyB, sortDirection)
     }
 
-    if (sortBy === 'llm_explainer_consistency') {
+    if (sortBy === METRIC_LLM_EXPLAINER_CONSISTENCY) {
       const explainerIds = tableData?.explainer_ids || []
-      const consistencyA = getConsistencyValueForSorting(a, 'llm_explainer_consistency', explainerIds)
-      const consistencyB = getConsistencyValueForSorting(b, 'llm_explainer_consistency', explainerIds)
+      const consistencyA = getConsistencyValueForSorting(a, METRIC_LLM_EXPLAINER_CONSISTENCY, explainerIds)
+      const consistencyB = getConsistencyValueForSorting(b, METRIC_LLM_EXPLAINER_CONSISTENCY, explainerIds)
       return compareValues(consistencyA, consistencyB, sortDirection)
     }
 

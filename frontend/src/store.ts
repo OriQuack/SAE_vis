@@ -2,10 +2,8 @@ import { create } from 'zustand'
 import * as api from './api'
 import type {
   Filters,
-  ThresholdTree,
   FilterOptions,
   HistogramData,
-  SankeyData,
   MetricType,
   PopoverState,
   LoadingStates,
@@ -13,22 +11,31 @@ import type {
   AlluvialFlow,
   SankeyNode,
   NodeCategory,
-  AddStageConfig,
-  CategoryGroup,
   ConsistencyType,
   SortBy,
-  SortDirection
+  SortDirection,
+  FeatureGroup,
+  SankeyTreeNode,
+  CachedFeatureGroups,
+  TreeBasedSankeyStructure
 } from './types'
-import { updateNodeThreshold, createRootOnlyTree, addStageToNode, removeStageFromNode } from './lib/threshold-utils'
-import { PANEL_LEFT, PANEL_RIGHT, METRIC_SEMSIM_MEAN } from './lib/constants'
+import { processFeatureGroupResponse, convertTreeToSankeyStructure, getNodeThresholdPath } from './lib/threshold-utils'
+import {
+  PANEL_LEFT,
+  PANEL_RIGHT,
+  METRIC_SEMSIM_MEAN,
+  CONSISTENCY_TYPE_NONE
+} from './lib/constants'
 
 type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
 
 interface PanelState {
   filters: Filters
-  thresholdTree: ThresholdTree
-  sankeyData: SankeyData | null
   histogramData: Record<string, HistogramData> | null
+
+  // NEW tree-based system
+  sankeyTree: Map<string, SankeyTreeNode>  // Node ID to node mapping
+  computedSankey?: TreeBasedSankeyStructure  // Tree-based Sankey structure
 }
 
 interface AppState {
@@ -43,6 +50,9 @@ interface AppState {
   loading: LoadingStates & { sankeyLeft?: boolean; sankeyRight?: boolean }
   errors: ErrorStates & { sankeyLeft?: string | null; sankeyRight?: string | null }
 
+  // Global cache for feature groups (shared across panels)
+  cachedGroups: CachedFeatureGroups
+
   // Hover state for cross-component highlighting
   hoveredAlluvialNodeId: string | null
   hoveredAlluvialPanel: 'left' | 'right' | null
@@ -52,17 +62,20 @@ interface AppState {
   showComparisonView: boolean
   toggleComparisonView: () => void
 
-  // Data actions - now take panel parameter
+  // Data actions
   setFilters: (filters: Partial<Filters>, panel?: PanelSide) => void
-  // New threshold tree actions
-  updateThreshold: (nodeId: string, thresholds: number[], panel?: PanelSide, metric?: string) => void
-  // Dynamic tree actions
-  addStageToTree: (nodeId: string, config: AddStageConfig, panel?: PanelSide) => void
-  removeStageFromTree: (nodeId: string, panel?: PanelSide) => void
-  resetToRootOnlyTree: (panel?: PanelSide) => void
+
+  // NEW tree-based threshold system actions
+  addStageToNode: (nodeId: string, metric: string, thresholds: number[], panel?: PanelSide) => Promise<void>
+  updateNodeThresholds: (nodeId: string, thresholds: number[], panel?: PanelSide) => Promise<void>
+  recomputeSankeyTree: (panel?: PanelSide) => void
+  removeNodeStage: (nodeId: string, panel?: PanelSide) => void
+  initializeSankeyTree: (panel?: PanelSide) => void
+  loadRootFeatures: (panel?: PanelSide) => Promise<void>
+
+  // Data setters
   setCurrentMetric: (metric: MetricType) => void
   setHistogramData: (data: Record<string, HistogramData> | null, panel?: PanelSide) => void
-  setSankeyData: (data: SankeyData | null, panel?: PanelSide) => void
 
   // UI actions - now take panel parameter
   showHistogramPopover: (
@@ -80,11 +93,10 @@ interface AppState {
   setError: (key: keyof ErrorStates, error: string | null) => void
   clearError: (key: keyof ErrorStates) => void
 
-  // API actions - now take panel parameter
+  // API actions
   fetchFilterOptions: () => Promise<void>
   fetchHistogramData: (metric?: MetricType, nodeId?: string, panel?: PanelSide) => Promise<void>
   fetchMultipleHistogramData: (metrics: MetricType[], nodeId?: string, panel?: PanelSide) => Promise<void>
-  fetchSankeyData: (panel?: PanelSide) => Promise<void>
 
   // View state actions - now take panel parameter
   showVisualization: (panel?: PanelSide) => void
@@ -121,20 +133,22 @@ interface AppState {
   // Auto-initialization with default filters
   // DEFAULT APPROACH: Auto-initialize with first two LLM Explainers (subject to change)
   initializeWithDefaultFilters: () => void
-
-  // Category group state
-  categoryGroups: CategoryGroup[]
-
-  // Category group actions
-  initializeCategoryGroups: () => void
-  addCategoryGroup: (name: string, columnIds: string[], color?: string) => void
-  removeCategoryGroup: (groupId: string) => void
-  updateCategoryGroup: (groupId: string, updates: Partial<CategoryGroup>) => void
-  moveColumnToGroup: (columnId: string, fromGroupId: string, toGroupId: string) => void
 }
 
 const createInitialPanelState = (): PanelState => {
-  const rootOnlyTree = createRootOnlyTree() // Start with just the root node
+  // Initialize NEW tree-based system with root node
+  const rootNode: SankeyTreeNode = {
+    id: 'root',
+    parentId: null,
+    metric: null,
+    thresholds: [],
+    depth: 0,
+    children: [],
+    featureIds: new Set(),
+    featureCount: 0,
+    rangeLabel: 'All Features'
+  }
+
   return {
     filters: {
       sae_id: [],
@@ -142,9 +156,8 @@ const createInitialPanelState = (): PanelState => {
       llm_explainer: [],
       llm_scorer: []
     },
-    thresholdTree: rootOnlyTree,
-    sankeyData: null,
-    histogramData: null
+    histogramData: null,
+    sankeyTree: new Map([['root', rootNode]])
   }
 }
 
@@ -178,6 +191,9 @@ const initialState = {
     table: null
   },
 
+  // Global cache for feature groups
+  cachedGroups: {} as CachedFeatureGroups,
+
   // Alluvial flows
   alluvialFlows: null,
 
@@ -192,17 +208,14 @@ const initialState = {
   tableSortDirection: null,
 
   // Consistency type selection (Table Panel)
-  selectedConsistencyType: 'none' as ConsistencyType,
+  selectedConsistencyType: CONSISTENCY_TYPE_NONE as ConsistencyType,
 
   // Hover state
   hoveredAlluvialNodeId: null,
   hoveredAlluvialPanel: null,
 
   // Comparison view state
-  showComparisonView: false,
-
-  // Category group state
-  categoryGroups: []
+  showComparisonView: false
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -229,106 +242,6 @@ export const useStore = create<AppState>((set, get) => ({
     }))
   },
 
-  // NEW THRESHOLD TREE ACTIONS
-  updateThreshold: (nodeId, thresholds, panel = PANEL_LEFT, metric) => {
-    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
-    set((state) => {
-      const currentTree = state[panelKey].thresholdTree
-      const updatedTree = updateNodeThreshold(currentTree, nodeId, thresholds, metric)
-
-      return {
-        [panelKey]: {
-          ...state[panelKey],
-          thresholdTree: updatedTree
-        }
-      }
-    })
-  },
-
-
-  // DYNAMIC TREE ACTIONS
-  addStageToTree: (nodeId, config, panel = PANEL_LEFT) => {
-    console.log('[Store.addStageToTree] Called with nodeId:', nodeId, 'stageType:', config.stageType, 'panel:', panel)
-    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
-
-    const currentState = get()
-    console.log('[Store.addStageToTree] Current categoryGroups count:', currentState.categoryGroups.length)
-
-    // Pass CategoryGroups through config for score_agreement stages
-    const enhancedConfig = config.stageType === 'score_agreement' && currentState.categoryGroups.length > 0
-      ? { ...config, customConfig: { categoryGroups: currentState.categoryGroups } }
-      : config
-
-    console.log('[Store.addStageToTree] Enhanced config with categoryGroups:', enhancedConfig.customConfig?.categoryGroups?.length || 0)
-
-    set((state) => {
-      try {
-        const currentTree = state[panelKey].thresholdTree
-        console.log('[Store.addStageToTree] Current tree nodes:', currentTree.nodes.length)
-
-        const updatedTree = addStageToNode(currentTree, nodeId, enhancedConfig)
-        console.log('[Store.addStageToTree] Updated tree nodes:', updatedTree.nodes.length)
-
-        return {
-          [panelKey]: {
-            ...state[panelKey],
-            thresholdTree: updatedTree,
-            // Clear existing data to trigger refresh
-            sankeyData: null,
-            histogramData: null
-          }
-        }
-      } catch (error) {
-        console.error('[Store.addStageToTree] Failed to add stage to tree:', error)
-        // Return unchanged state on error
-        return state
-      }
-    })
-  },
-
-  removeStageFromTree: (nodeId, panel = PANEL_LEFT) => {
-    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
-    set((state) => {
-      try {
-        const currentTree = state[panelKey].thresholdTree
-        const updatedTree = removeStageFromNode(currentTree, nodeId)
-
-        return {
-          [panelKey]: {
-            ...state[panelKey],
-            thresholdTree: updatedTree,
-            // Clear existing data to trigger refresh
-            sankeyData: null,
-            histogramData: null
-          },
-          // Close histogram popover if it's open for the current panel
-          popoverState: {
-            histogram: state.popoverState.histogram?.panel === panel ? null : state.popoverState.histogram
-          }
-        }
-      } catch (error) {
-        console.error('Failed to remove stage from tree:', error)
-        // Return unchanged state on error
-        return state
-      }
-    })
-  },
-
-  resetToRootOnlyTree: (panel = PANEL_LEFT) => {
-    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
-    const rootOnlyTree = createRootOnlyTree()
-
-    set((state) => ({
-      [panelKey]: {
-        ...state[panelKey],
-        thresholdTree: rootOnlyTree,
-        // Clear existing data to trigger refresh
-        sankeyData: null,
-        histogramData: null
-      }
-    }))
-  },
-
   setCurrentMetric: (metric) => {
     set(() => ({ currentMetric: metric }))
   },
@@ -339,16 +252,6 @@ export const useStore = create<AppState>((set, get) => ({
       [panelKey]: {
         ...state[panelKey],
         histogramData: data
-      }
-    }))
-  },
-
-  setSankeyData: (data, panel = PANEL_LEFT) => {
-    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
-    set((state) => ({
-      [panelKey]: {
-        ...state[panelKey],
-        sankeyData: data
       }
     }))
   },
@@ -428,7 +331,8 @@ export const useStore = create<AppState>((set, get) => ({
     const state = get()
     const targetMetric = metric || state.currentMetric
     const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
-    const { filters, thresholdTree } = state[panelKey]
+    const panelState = state[panelKey]
+    const { filters } = panelState
 
     const hasActiveFilters = Object.values(filters).some(
       filterArray => filterArray && filterArray.length > 0
@@ -442,12 +346,16 @@ export const useStore = create<AppState>((set, get) => ({
     state.clearError('histogram')
 
     try {
+      // Compute threshold path if nodeId provided
+      const thresholdPath = nodeId
+        ? getNodeThresholdPath(nodeId, panelState.sankeyTree)
+        : undefined
+
       const request = {
         filters,
         metric: targetMetric,
         nodeId,
-        // Include thresholdTree when nodeId is provided for node-specific filtering
-        ...(nodeId && { thresholdTree })
+        thresholdPath
       }
 
       const histogramData = await api.getHistogramData(request)
@@ -465,7 +373,8 @@ export const useStore = create<AppState>((set, get) => ({
   fetchMultipleHistogramData: async (metrics, nodeId?: string, panel = PANEL_LEFT) => {
     const state = get()
     const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
-    const { filters, thresholdTree } = state[panelKey]
+    const panelState = state[panelKey]
+    const { filters } = panelState
 
     console.log('[HistogramPopover] fetchMultipleHistogramData called:', {
       metrics,
@@ -487,13 +396,17 @@ export const useStore = create<AppState>((set, get) => ({
     state.clearError('histogram')
 
     try {
+      // Compute threshold path if nodeId provided
+      const thresholdPath = nodeId
+        ? getNodeThresholdPath(nodeId, panelState.sankeyTree)
+        : undefined
+
       const histogramPromises = metrics.map(async (metric) => {
         const request = {
           filters,
           metric,
           nodeId,
-          // Include thresholdTree when nodeId is provided for node-specific filtering
-          ...(nodeId && { thresholdTree })
+          thresholdPath
         }
 
         console.log('[HistogramPopover] Request for metric:', metric, request)
@@ -520,67 +433,8 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  fetchSankeyData: async (panel = PANEL_LEFT) => {
-    const state = get()
-    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
-    const { filters, thresholdTree } = state[panelKey]
-    const loadingKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight' as keyof LoadingStates
-    const errorKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight' as keyof ErrorStates
-
-    const hasActiveFilters = Object.values(filters).some(
-      filterArray => filterArray && filterArray.length > 0
-    )
-
-    if (!hasActiveFilters) {
-      return
-    }
-
-    state.setLoading(loadingKey, true)
-    state.clearError(errorKey)
-
-    try {
-      const requestData = {
-        filters,
-        thresholdTree,
-      }
-
-      console.log('📤 Sending Sankey request:', {
-        filters,
-        thresholdTree: JSON.stringify(thresholdTree, null, 2),
-      })
-
-      const sankeyData = await api.getSankeyData(requestData)
-
-      console.log('📥 Received Sankey response:', {
-        nodes: sankeyData.nodes,
-        links: sankeyData.links,
-        metadata: sankeyData.metadata,
-        nodeCount: sankeyData.nodes.length,
-        linkCount: sankeyData.links.length
-      })
-
-      state.setSankeyData(sankeyData, panel)
-      state.setLoading(loadingKey, false)
-      // For backward compatibility
-      if (panel === PANEL_LEFT) {
-        state.setLoading('sankey', false)
-      }
-
-      // Update alluvial flows after successful data fetch
-      state.updateAlluvialFlows()
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch Sankey data'
-      state.setError(errorKey, errorMessage)
-      state.setLoading(loadingKey, false)
-      if (panel === PANEL_LEFT) {
-        state.setError('sankey', errorMessage)
-        state.setLoading('sankey', false)
-      }
-    }
-  },
-
   // View state actions
-  showVisualization: (panel = PANEL_LEFT) => {
+  showVisualization: (_panel = PANEL_LEFT) => {
     // This is now a no-op since we don't track view state anymore
     // Kept for backward compatibility with existing code
   },
@@ -596,33 +450,30 @@ export const useStore = create<AppState>((set, get) => ({
           llm_explainer: [],
           llm_scorer: []
         },
-        sankeyData: null,
         histogramData: null
       }
     }))
   },
 
-  // Update alluvial flows from both panel data
+  // Update alluvial flows from both panel data (NEW SYSTEM - uses computedSankey)
   updateAlluvialFlows: () => {
     const state = get()
     const { leftPanel, rightPanel } = state
 
-
     // Return null if either panel doesn't have visualization data
-    if (!leftPanel.sankeyData || !rightPanel.sankeyData) {
+    if (!leftPanel.computedSankey || !rightPanel.computedSankey) {
       set({ alluvialFlows: null })
       return
     }
 
     // Extract leaf nodes (nodes with feature_ids) from both panels
     // Leaf nodes are identified by having feature_ids, not by stage number
-    const leftFinalNodes = leftPanel.sankeyData.nodes.filter((node: SankeyNode) =>
+    const leftFinalNodes = leftPanel.computedSankey.nodes.filter((node: SankeyNode) =>
       node.feature_ids && node.feature_ids.length > 0
     )
-    const rightFinalNodes = rightPanel.sankeyData.nodes.filter((node: SankeyNode) =>
+    const rightFinalNodes = rightPanel.computedSankey.nodes.filter((node: SankeyNode) =>
       node.feature_ids && node.feature_ids.length > 0
     )
-
 
     // If no final nodes with feature IDs, return empty array
     if (leftFinalNodes.length === 0 || rightFinalNodes.length === 0) {
@@ -643,8 +494,6 @@ export const useStore = create<AppState>((set, get) => ({
         )
 
         if (commonFeatures.length > 0) {
-          // Use the category field from nodes for proper stage comparison
-          // This identifies the actual stage (root, feature_splitting, semantic_similarity, score_agreement)
           const leftCategory = leftNode.category
           const rightCategory = rightNode.category
 
@@ -659,7 +508,6 @@ export const useStore = create<AppState>((set, get) => ({
         }
       }
     }
-
 
     set({ alluvialFlows: flows })
   },
@@ -730,7 +578,423 @@ export const useStore = create<AppState>((set, get) => ({
 
   // Set table sort state
   setTableSort: (sortBy, sortDirection) => {
-    set({ tableSortBy: sortBy, tableSortDirection: sortDirection })
+    set({
+      tableSortBy: sortBy,
+      tableSortDirection: sortDirection
+    })
+  },
+
+  // ============================================================================
+  // TREE-BASED THRESHOLD SYSTEM ACTIONS
+  // ============================================================================
+
+  /**
+   * Initialize the Sankey tree with root node containing all features.
+   * Gets initial feature count from filters.
+   */
+  initializeSankeyTree: (panel = PANEL_LEFT) => {
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
+
+    const rootNode: SankeyTreeNode = {
+      id: 'root',
+      parentId: null,
+      metric: null,
+      thresholds: [],
+      depth: 0,
+      children: [],
+      featureIds: new Set(),
+      featureCount: 0,
+      rangeLabel: 'All Features'
+    }
+
+    set((state) => ({
+      [panelKey]: {
+        ...state[panelKey],
+        sankeyTree: new Map([['root', rootNode]])
+      }
+    }))
+  },
+
+  /**
+   * Load actual feature IDs for the root node from the backend.
+   * Calls /api/feature-groups with empty thresholds to get all features.
+   */
+  loadRootFeatures: async (panel = PANEL_LEFT) => {
+    const state = get()
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
+    const { filters, sankeyTree } = state[panelKey]
+
+    console.log(`[Store.loadRootFeatures] 🌱 Loading root features for ${panel}`)
+
+    if (!sankeyTree || !sankeyTree.has('root')) {
+      console.error('[Store.loadRootFeatures] ❌ Root node not found in tree')
+      return
+    }
+
+    try {
+      // Call API with empty thresholds to get all features
+      const response = await api.getFeatureGroups({
+        filters,
+        metric: 'root',
+        thresholds: []
+      })
+
+      // Process response - should have single group with all features
+      const groups = processFeatureGroupResponse(response)
+      if (groups.length === 0) {
+        console.warn('[Store.loadRootFeatures] ⚠️  No groups returned from API')
+        return
+      }
+
+      const rootGroup = groups[0]
+      console.log(`[Store.loadRootFeatures] ✅ Loaded ${rootGroup.featureCount} features for root node`)
+
+      // Update root node with actual feature IDs
+      const updatedRoot: SankeyTreeNode = {
+        ...sankeyTree.get('root')!,
+        featureIds: rootGroup.featureIds,
+        featureCount: rootGroup.featureCount
+      }
+
+      const newTree = new Map(sankeyTree)
+      newTree.set('root', updatedRoot)
+
+      set((state) => ({
+        [panelKey]: {
+          ...state[panelKey],
+          sankeyTree: newTree
+        }
+      }))
+
+      // Compute Sankey tree to activate tree-based system immediately
+      console.log(`[Store.loadRootFeatures] 🔄 Computing Sankey tree to activate tree-based system...`)
+      get().recomputeSankeyTree(panel)
+      console.log(`[Store.loadRootFeatures] ✅ Tree-based system now active - old API will be skipped`)
+    } catch (error) {
+      console.error('[Store.loadRootFeatures] ❌ Failed to load root features:', error)
+    }
+  },
+
+  /**
+   * Add a new stage to a specific node in the tree.
+   * Supports branching - different nodes can have different metrics at the same depth.
+   */
+  addStageToNode: async (nodeId, metric, thresholds, panel = PANEL_LEFT) => {
+    const state = get()
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
+    const loadingKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
+    const errorKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
+    const { filters, sankeyTree } = state[panelKey]
+
+    console.log(`[Store.addStageToNode] 🎯 Called for ${panel}:`, {
+      nodeId,
+      metric,
+      thresholds,
+      hasSankeyTree: !!sankeyTree,
+      treeSize: sankeyTree?.size
+    })
+
+    if (!sankeyTree || !sankeyTree.has(nodeId)) {
+      console.error(`[Store.addStageToNode] ❌ Node ${nodeId} not found in tree`)
+      return
+    }
+
+    state.setLoading(loadingKey, true)
+    state.clearError(errorKey)
+
+    try {
+      // Create cache key for this metric and thresholds
+      const cacheKey = `${metric}:${thresholds.join(',')}`
+
+      let groups: FeatureGroup[]
+
+      // Check if we already have these groups cached
+      if (state.cachedGroups[cacheKey]) {
+        groups = state.cachedGroups[cacheKey]
+        console.log(`[Store.addStageToNode] Using cached groups for ${cacheKey}`)
+      } else {
+        // Fetch feature groups from backend
+        const response = await api.getFeatureGroups({ filters, metric, thresholds })
+        groups = processFeatureGroupResponse(response)
+
+        // Cache the groups globally
+        set((state) => ({
+          cachedGroups: {
+            ...state.cachedGroups,
+            [cacheKey]: groups
+          }
+        }))
+        console.log(`[Store.addStageToNode] Cached groups for ${cacheKey}`)
+      }
+
+      // Now build child nodes by intersecting parent features with groups
+      const parentNode = sankeyTree.get(nodeId)!
+      const newDepth = parentNode.depth + 1
+      const newTree = new Map(sankeyTree)
+      const childIds: string[] = []
+
+      groups.forEach((group, index) => {
+        // Intersect parent features with group features
+        const intersectedFeatures = new Set<number>()
+        if (parentNode.featureCount === 0 && parentNode.depth === 0) {
+          // Root node - use all features from the group
+          intersectedFeatures.clear()
+          group.featureIds.forEach(id => intersectedFeatures.add(id))
+        } else {
+          // Non-root - intersect with parent
+          for (const id of group.featureIds) {
+            if (parentNode.featureIds.has(id)) {
+              intersectedFeatures.add(id)
+            }
+          }
+        }
+
+        // Create child node
+        const childId = `${nodeId}_stage${newDepth}_group${index}`
+        const childNode: SankeyTreeNode = {
+          id: childId,
+          parentId: nodeId,
+          metric,
+          thresholds,
+          depth: newDepth,
+          children: [],
+          featureIds: intersectedFeatures,
+          featureCount: intersectedFeatures.size,
+          rangeLabel: group.rangeLabel
+        }
+
+        newTree.set(childId, childNode)
+        childIds.push(childId)
+      })
+
+      // Update parent's children
+      parentNode.children = childIds
+      newTree.set(nodeId, { ...parentNode })
+
+      set((state) => ({
+        [panelKey]: {
+          ...state[panelKey],
+          sankeyTree: newTree
+        }
+      }))
+
+      console.log(`[Store.addStageToNode] 🌳 Tree updated with ${childIds.length} new children for node ${nodeId}`)
+
+      // Recompute Sankey structure
+      console.log(`[Store.addStageToNode] 🔄 Now calling recomputeSankeyTree to activate tree-based system...`)
+      get().recomputeSankeyTree(panel)
+
+      state.setLoading(loadingKey, false)
+      console.log(`[Store.addStageToNode] ✅ Stage addition complete - tree-based system should now be active!`)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to add stage'
+      state.setError(errorKey, errorMessage)
+      state.setLoading(loadingKey, false)
+    }
+  },
+
+  /**
+   * Update thresholds for a node and its descendants.
+   * Uses cached groups for instant updates.
+   */
+  updateNodeThresholds: async (nodeId: string, thresholds: number[], panel = PANEL_LEFT) => {
+    const state = get()
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
+    const loadingKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
+    const errorKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
+    const { filters, sankeyTree } = state[panelKey]
+
+    if (!sankeyTree || !sankeyTree.has(nodeId)) {
+      console.error(`[Store.updateNodeThresholds] Node ${nodeId} not found`)
+      return
+    }
+
+    const node = sankeyTree.get(nodeId)!
+    if (!node.metric) {
+      console.error(`[Store.updateNodeThresholds] Node ${nodeId} has no metric`)
+      return
+    }
+
+    state.setLoading(loadingKey, true)
+    state.clearError(errorKey)
+
+    try {
+      // Create cache key
+      const cacheKey = `${node.metric}:${thresholds.join(',')}`
+
+      let groups: FeatureGroup[]
+
+      // Check cache first
+      if (state.cachedGroups[cacheKey]) {
+        groups = state.cachedGroups[cacheKey]
+        console.log(`[Store.updateNodeThresholds] Using cached groups for ${cacheKey}`)
+      } else {
+        // Fetch new groups
+        const response = await api.getFeatureGroups({ filters, metric: node.metric, thresholds })
+        groups = processFeatureGroupResponse(response)
+
+        // Cache them
+        set((state) => ({
+          cachedGroups: {
+            ...state.cachedGroups,
+            [cacheKey]: groups
+          }
+        }))
+      }
+
+      // Rebuild this node and its descendants
+      const rebuildNodeAndDescendants = (tree: Map<string, SankeyTreeNode>, nodeId: string, newGroups: FeatureGroup[]): void => {
+        const node = tree.get(nodeId)!
+        const parentNode = node.parentId ? tree.get(node.parentId) : null
+
+        // Remove old children
+        node.children.forEach(childId => tree.delete(childId))
+        node.children = []
+
+        // Build new children
+        newGroups.forEach((group, index) => {
+          const intersectedFeatures = new Set<number>()
+
+          if (!parentNode || (parentNode.featureCount === 0 && parentNode.depth === 0)) {
+            // Root node or parent is root - use all features from group
+            group.featureIds.forEach(id => intersectedFeatures.add(id))
+          } else {
+            // Intersect with parent features
+            for (const id of group.featureIds) {
+              if (parentNode.featureIds.has(id)) {
+                intersectedFeatures.add(id)
+              }
+            }
+          }
+
+          const childId = `${nodeId}_stage${node.depth + 1}_group${index}`
+          const childNode: SankeyTreeNode = {
+            id: childId,
+            parentId: nodeId,
+            metric: node.metric,
+            thresholds,
+            depth: node.depth + 1,
+            children: [],
+            featureIds: intersectedFeatures,
+            featureCount: intersectedFeatures.size,
+            rangeLabel: group.rangeLabel
+          }
+
+          tree.set(childId, childNode)
+          node.children.push(childId)
+        })
+
+        // Update the node's thresholds
+        node.thresholds = thresholds
+      }
+
+      // Update the tree
+      const newTree = new Map(sankeyTree)
+      rebuildNodeAndDescendants(newTree, nodeId, groups)
+
+      set((state) => ({
+        [panelKey]: {
+          ...state[panelKey],
+          sankeyTree: newTree
+        }
+      }))
+
+      // Recompute Sankey
+      get().recomputeSankeyTree(panel)
+
+      state.setLoading(loadingKey, false)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update thresholds'
+      state.setError(errorKey, errorMessage)
+      state.setLoading(loadingKey, false)
+    }
+  },
+
+  /**
+   * Recompute Sankey structure from the tree.
+   * Converts tree to flat nodes and links for D3 rendering.
+   */
+  recomputeSankeyTree: (panel = PANEL_LEFT) => {
+    const state = get()
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
+    const { sankeyTree } = state[panelKey]
+
+    console.log(`[Store.recomputeSankeyTree] 🔄 Called for ${panel}:`, {
+      hasSankeyTree: !!sankeyTree,
+      treeSize: sankeyTree?.size
+    })
+
+    if (!sankeyTree) {
+      console.warn('[Store.recomputeSankeyTree] ⚠️  No tree available')
+      return
+    }
+
+    try {
+      // Use the utility function to convert tree to Sankey structure
+      const computedSankey = convertTreeToSankeyStructure(sankeyTree)
+
+      console.log(`[Store.recomputeSankeyTree] ✅ Computed Sankey for ${panel}:`, {
+        nodes: computedSankey.nodes.length,
+        links: computedSankey.links.length,
+        maxDepth: computedSankey.maxDepth
+      })
+
+      set((state) => ({
+        [panelKey]: {
+          ...state[panelKey],
+          computedSankey
+        }
+      }))
+
+      console.log(`[Store.recomputeSankeyTree] 💾 Stored computedSankey in ${panelKey}`)
+
+      // Update alluvial flows if both panels have data
+      get().updateAlluvialFlows()
+    } catch (error) {
+      console.error('[Store.recomputeSankeyTree] ❌ Failed to recompute Sankey:', error)
+    }
+  },
+
+  /**
+   * Remove a node's children (stage removal).
+   * Removes all descendants of the specified node.
+   */
+  removeNodeStage: (nodeId: string, panel = PANEL_LEFT) => {
+    const state = get()
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
+    const { sankeyTree } = state[panelKey]
+
+    if (!sankeyTree || !sankeyTree.has(nodeId)) {
+      console.error(`[Store.removeNodeStage] Node ${nodeId} not found`)
+      return
+    }
+
+    const newTree = new Map(sankeyTree)
+
+    // Recursive function to remove all descendants
+    const removeDescendants = (nodeId: string) => {
+      const node = newTree.get(nodeId)
+      if (!node) return
+
+      node.children.forEach(childId => {
+        removeDescendants(childId)
+        newTree.delete(childId)
+      })
+      node.children = []
+    }
+
+    // Remove all descendants
+    removeDescendants(nodeId)
+
+    set((state) => ({
+      [panelKey]: {
+        ...state[panelKey],
+        sankeyTree: newTree
+      }
+    }))
+
+    // Recompute Sankey
+    get().recomputeSankeyTree(panel)
   },
 
   // Set consistency type for table panel
@@ -772,6 +1036,8 @@ export const useStore = create<AppState>((set, get) => ({
       allLLMScorers: llmScorers
     })
 
+    console.log('🌳 Initializing tree-based system with empty root nodes (no computedSankey yet)')
+
     // Set filters: Left panel gets ALL LLM explainers, right panel stays empty
     set((state) => ({
       leftPanel: {
@@ -781,7 +1047,19 @@ export const useStore = create<AppState>((set, get) => ({
           explanation_method: [],
           llm_explainer: llmExplainers,  // Select ALL LLM Explainers
           llm_scorer: llmScorers  // Select ALL LLM Scorers
-        }
+        },
+        // Initialize tree-based system with root node
+        sankeyTree: new Map([['root', {
+          id: 'root',
+          parentId: null,
+          metric: null,
+          thresholds: [],
+          depth: 0,
+          children: [],
+          featureIds: new Set(),
+          featureCount: 0,
+          rangeLabel: 'All Features'
+        }]])
       },
       rightPanel: {
         ...state.rightPanel,
@@ -790,55 +1068,29 @@ export const useStore = create<AppState>((set, get) => ({
           explanation_method: [],
           llm_explainer: [],  // No explainer selected in right panel
           llm_scorer: llmScorers  // Select ALL LLM Scorers
-        }
+        },
+        // Initialize tree-based system with root node
+        sankeyTree: new Map([['root', {
+          id: 'root',
+          parentId: null,
+          metric: null,
+          thresholds: [],
+          depth: 0,
+          children: [],
+          featureIds: new Set(),
+          featureCount: 0,
+          rangeLabel: 'All Features'
+        }]])
       }
     }))
-  },
 
-  // Category group actions
-  initializeCategoryGroups: () => {
-    set({ categoryGroups: [] })
-  },
+    // Don't compute Sankey tree yet - let old system handle initial display
+    // Tree-based system will take over when user adds first stage
+    console.log('✅ Initialization complete - OLD system will handle initial Sankey, tree-based system ready for stage additions')
 
-  addCategoryGroup: (name: string, columnIds: string[], color: string = '#e5e7eb') => {
-    const state = get()
-    const newGroupIndex = state.categoryGroups.length
-    const newGroup: CategoryGroup = {
-      id: `group_${newGroupIndex}`,
-      name,
-      columnIds,
-      color
-    }
-    set({ categoryGroups: [...state.categoryGroups, newGroup] })
-  },
-
-  removeCategoryGroup: (groupId: string) => {
-    const state = get()
-    set({ categoryGroups: state.categoryGroups.filter(g => g.id !== groupId) })
-  },
-
-  updateCategoryGroup: (groupId: string, updates: Partial<CategoryGroup>) => {
-    const state = get()
-    set({
-      categoryGroups: state.categoryGroups.map(g =>
-        g.id === groupId ? { ...g, ...updates } : g
-      )
-    })
-  },
-
-  moveColumnToGroup: (columnId: string, fromGroupId: string, toGroupId: string) => {
-    const state = get()
-    set({
-      categoryGroups: state.categoryGroups.map(g => {
-        if (g.id === fromGroupId) {
-          return { ...g, columnIds: g.columnIds.filter(id => id !== columnId) }
-        }
-        if (g.id === toGroupId) {
-          return { ...g, columnIds: [...g.columnIds, columnId] }
-        }
-        return g
-      })
-    })
+    // Load actual root features from API
+    console.log('🌱 Now loading root features from API...')
+    get().loadRootFeatures(PANEL_LEFT)
   }
 }))
 

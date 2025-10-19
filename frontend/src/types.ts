@@ -14,12 +14,14 @@ export interface Filters {
 // ============================================================================
 
 import {
-  CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_SIMILARITY, CATEGORY_SCORE_AGREEMENT,
-  SPLIT_TYPE_RANGE, SPLIT_TYPE_PATTERN, SPLIT_TYPE_EXPRESSION,
-  PATTERN_STATE_HIGH, PATTERN_STATE_LOW, PATTERN_STATE_IN_RANGE, PATTERN_STATE_OUT_RANGE,
-  METRIC_FEATURE_SPLITTING, METRIC_SEMSIM_MEAN, METRIC_SEMSIM_MAX,
-  METRIC_SCORE_FUZZ, METRIC_SCORE_SIMULATION, METRIC_SCORE_DETECTION, METRIC_SCORE_EMBEDDING,
-  PANEL_LEFT, PANEL_RIGHT
+  CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_SIMILARITY, CATEGORY_CONSISTENCY,
+  METRIC_FEATURE_SPLITTING, METRIC_SEMSIM_MEAN,
+  METRIC_SCORE_FUZZ, METRIC_SCORE_DETECTION, METRIC_SCORE_EMBEDDING,
+  METRIC_LLM_SCORER_CONSISTENCY, METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
+  METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY, METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
+  METRIC_LLM_EXPLAINER_CONSISTENCY,
+  PANEL_LEFT, PANEL_RIGHT,
+  CONSISTENCY_TYPE_NONE
 } from './lib/constants'
 
 // Category Type Definition
@@ -27,75 +29,76 @@ export type CategoryType =
   | typeof CATEGORY_ROOT
   | typeof CATEGORY_FEATURE_SPLITTING
   | typeof CATEGORY_SEMANTIC_SIMILARITY
-  | typeof CATEGORY_SCORE_AGREEMENT
+  | typeof CATEGORY_CONSISTENCY
 
-// Split Rule Definitions
-export interface RangeSplitRule {
-  type: typeof SPLIT_TYPE_RANGE
+// ============================================================================
+// NEW TREE-BASED THRESHOLD SYSTEM (Feature Group + Intersection)
+// ============================================================================
+
+/**
+ * Stage Definition - Simplified stage configuration for new system
+ */
+export interface StageDefinition {
+  index: number
   metric: string
   thresholds: number[]
 }
 
-export interface PatternSplitRule {
-  type: typeof SPLIT_TYPE_PATTERN
-  conditions: {
-    [metric: string]: {
-      threshold?: number
-      min?: number
-      max?: number
-      operator?: '>' | '>=' | '<' | '<=' | '==' | '!='
-    }
-  }
-  patterns: Array<{
-    match: {
-      [metric: string]: typeof PATTERN_STATE_HIGH | typeof PATTERN_STATE_LOW | typeof PATTERN_STATE_IN_RANGE | typeof PATTERN_STATE_OUT_RANGE | undefined
-    }
-    child_id: string
-    description?: string
-  }>
-  default_child_id?: string
+/**
+ * Feature Group - Group of features within threshold range
+ */
+export interface FeatureGroup {
+  groupIndex: number
+  rangeLabel: string
+  featureIds: Set<number>
+  featureCount: number
 }
 
-export interface ExpressionSplitRule {
-  type: typeof SPLIT_TYPE_EXPRESSION
-  available_metrics?: string[]
-  branches: Array<{
-    condition: string
-    child_id: string
-    description?: string
-  }>
-  default_child_id: string
+/**
+ * Computed Sankey Structure - Result of local intersection computation
+ */
+export interface ComputedSankeyStructure {
+  nodes: SankeyNode[]
+  links: SankeyLink[]
+  nodeFeatures: Map<string, Set<number>>
 }
 
-export type SplitRule = RangeSplitRule | PatternSplitRule | ExpressionSplitRule
+// ============================================================================
+// TREE-BASED SANKEY SYSTEM (Node-specific stage addition)
+// ============================================================================
 
-// Parent Path Information
-export interface ParentPathInfo {
-  parent_id: string
-  parent_split_rule: {
-    type: typeof SPLIT_TYPE_RANGE | typeof SPLIT_TYPE_PATTERN | typeof SPLIT_TYPE_EXPRESSION
-    range_info?: { metric: string; thresholds: number[] }
-    pattern_info?: { pattern_index: number; pattern_description?: string }
-    expression_info?: { branch_index: number; condition: string; description?: string }
-  }
-  branch_index: number
-  triggering_values?: { [metric: string]: number }
+/**
+ * Sankey Tree Node - Represents a node in the tree-based Sankey structure
+ * Supports branching where different nodes at the same depth can have different metrics
+ */
+export interface SankeyTreeNode {
+  id: string                          // Unique node ID (e.g., "root", "stage0_group1", etc.)
+  parentId: string | null             // Parent node ID (null for root)
+  metric: string | null               // Metric used for this node's stage (null for root)
+  thresholds: number[]                // Threshold values for this node
+  depth: number                       // Depth in tree (0 for root)
+  children: string[]                  // Child node IDs
+  featureIds: Set<number>             // Feature IDs at this node
+  featureCount: number                // Count of features
+  rangeLabel: string                  // Display label (e.g., "< 0.5", "0.5-0.8", "> 0.8")
 }
 
-// Main Node Definition
-export interface SankeyThreshold {
-  id: string
-  stage: number
-  category: CategoryType
-  parent_path: ParentPathInfo[]
-  split_rule: SplitRule | null
-  children_ids: string[]
+/**
+ * Cached Feature Groups - Global cache for feature groups to avoid redundant backend calls
+ * Key format: "metric:threshold1,threshold2,..."
+ */
+export interface CachedFeatureGroups {
+  [key: string]: FeatureGroup[]      // Cached groups indexed by metric and thresholds
 }
 
-// New Threshold Tree Structure for V2
-export interface ThresholdTree {
-  nodes: SankeyThreshold[]
-  metrics: string[]
+/**
+ * Tree-based Sankey Structure - Complete tree representation for Sankey diagram
+ */
+export interface TreeBasedSankeyStructure {
+  tree: Map<string, SankeyTreeNode>    // Node ID to node mapping
+  nodes: SankeyNode[]                  // Flat array of nodes for D3 rendering
+  links: SankeyLink[]                  // Links between nodes
+  maxDepth: number                     // Maximum depth in the tree
 }
 
 export interface FilterOptions {
@@ -109,26 +112,22 @@ export interface FilterOptions {
 // API REQUEST TYPES
 // ============================================================================
 
+/**
+ * Threshold path constraint - represents one step in the path from root to node
+ * Each constraint filters features by a metric range from parent nodes
+ */
+export interface ThresholdPathConstraint {
+  metric: string      // Metric name (e.g., "feature_splitting", "overall_score")
+  rangeLabel: string  // Display label (e.g., "[0, 0.3)", ">= 0.5", "< 0.5")
+}
+
 export interface HistogramDataRequest {
   filters: Filters
   metric: string
   bins?: number
   nodeId?: string
-  thresholdTree?: ThresholdTree
-  groupBy?: string  // Optional grouping field, e.g., 'llm_explainer'
-  averageBy?: string | null  // Optional averaging field, e.g., 'llm_explainer' or 'llm_scorer'
   fixedDomain?: [number, number]  // Optional fixed domain for histogram bins, e.g., [0.0, 1.0]
-  selectedLLMExplainers?: string[]  // Optional list of 1 or 2 selected LLM explainers from LLM Comparison panel
-}
-
-export interface SankeyDataRequest {
-  filters: Filters
-  thresholdTree: ThresholdTree
-}
-
-export interface AlluvialDataRequest {
-  sankey_left: SankeyDataRequest
-  sankey_right: SankeyDataRequest
+  thresholdPath?: ThresholdPathConstraint[]  // Optional array of parent node constraints for filtering
 }
 
 // ============================================================================
@@ -159,6 +158,7 @@ export interface SankeyNode {
   feature_count: number
   category: NodeCategory
   feature_ids?: number[]
+  node_type?: 'standard' | 'vertical_bar'
 }
 
 export interface D3SankeyNode extends SankeyNode {
@@ -195,7 +195,6 @@ export interface SankeyData {
   metadata: {
     total_features: number
     applied_filters: Filters
-    applied_thresholds: ThresholdTree
   }
 }
 
@@ -246,12 +245,6 @@ export interface FeatureDetail {
   details_path: string
 }
 
-export interface CategoryGroup {
-  id: string
-  name: string
-  columnIds: string[]
-  color: string
-}
 
 // ============================================================================
 // UI AND STATE TYPES
@@ -280,9 +273,7 @@ export interface ErrorStates {
 export type MetricType =
   | typeof METRIC_FEATURE_SPLITTING
   | typeof METRIC_SEMSIM_MEAN
-  | typeof METRIC_SEMSIM_MAX
   | typeof METRIC_SCORE_FUZZ
-  | typeof METRIC_SCORE_SIMULATION
   | typeof METRIC_SCORE_DETECTION
   | typeof METRIC_SCORE_EMBEDDING
 
@@ -290,7 +281,6 @@ export type NodeCategory =
   | typeof CATEGORY_ROOT
   | typeof CATEGORY_FEATURE_SPLITTING
   | typeof CATEGORY_SEMANTIC_SIMILARITY
-  | typeof CATEGORY_SCORE_AGREEMENT
 
 // ============================================================================
 // VISUALIZATION TYPES
@@ -379,29 +369,6 @@ export interface PopoverState {
 }
 
 // ============================================================================
-// DYNAMIC TREE BUILDER TYPES
-// ============================================================================
-
-export interface StageTypeConfig {
-  id: string
-  name: string
-  description: string
-  category: CategoryType
-  defaultSplitRule: 'range' | 'pattern' | 'expression'
-  defaultMetric?: string
-  defaultThresholds?: number[]
-}
-
-export interface AddStageConfig {
-  stageType: string
-  splitRuleType: 'range' | 'pattern' | 'expression'
-  metric?: string
-  thresholds?: number[]
-  selectedScoreMetrics?: string[]
-  customConfig?: any
-}
-
-// ============================================================================
 // ALLUVIAL DIAGRAM TYPES
 // ============================================================================
 
@@ -425,7 +392,7 @@ export interface AlluvialSankeyLink {
   y0?: number
   y1?: number
   width?: number
-  flow: AlluvialFlowData
+  flow: AlluvialFlow
   color: string
   opacity: number
   id: string
@@ -464,10 +431,11 @@ export interface ExplainerScoreData {
   fuzz: ScorerScoreSet
   detection: ScorerScoreSet
   explanation_text?: string | null  // Explanation text for this explainer
-  scorer_consistency?: Record<string, ConsistencyScore>  // Per-metric std (fuzz, detection)
-  metric_consistency?: ConsistencyScore  // Cross-metric std
-  explainer_consistency?: ConsistencyScore  // Semantic consistency (avg pairwise cosine)
-  cross_explainer_metric_consistency?: Record<string, ConsistencyScore>  // Per-metric inverse std across explainers
+  llm_scorer_consistency?: Record<string, ConsistencyScore>  // Per-metric std (fuzz, detection)
+  within_explanation_metric_consistency?: ConsistencyScore  // Cross-metric std
+  llm_explainer_consistency?: ConsistencyScore  // Semantic consistency (avg pairwise cosine)
+  cross_explanation_metric_consistency?: Record<string, ConsistencyScore>  // Per-metric inverse std across explainers (embedding, fuzz, detection)
+  cross_explanation_overall_score_consistency?: ConsistencyScore  // Overall score inverse std across explainers (same value for all explainers within a feature)
 }
 
 export interface FeatureTableRow {
@@ -484,6 +452,8 @@ export interface MetricNormalizationStats {
   std: number
   min: number
   max: number
+  z_min: number  // Min z-score for min-max normalization
+  z_max: number  // Max z-score for min-max normalization
 }
 
 export interface FeatureTableDataResponse {
@@ -491,18 +461,17 @@ export interface FeatureTableDataResponse {
   total_features: number
   explainer_ids: string[]
   scorer_ids: string[]
-  is_averaged: boolean
   global_stats: Record<string, MetricNormalizationStats>
 }
 
 // Consistency Type for Table Header
 export type ConsistencyType =
-  | 'none'                           // No consistency coloring
-  | 'llm_scorer_consistency'         // LLM Scorer Consistency (within-metric consistency)
-  | 'within_explanation_score'       // Within-explanation score consistency
-  | 'cross_explanation_score'        // Cross-explanation score consistency (individual metrics)
-  | 'cross_explanation_overall_score' // Cross-explanation overall score consistency
-  | 'llm_explainer_consistency'      // LLM Explainer consistency (semantic consistency)
+  | typeof CONSISTENCY_TYPE_NONE                                    // No consistency coloring
+  | typeof METRIC_LLM_SCORER_CONSISTENCY                            // LLM Scorer Consistency (within-metric consistency)
+  | typeof METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY             // Within-explanation metric consistency
+  | typeof METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY              // Cross-explanation metric consistency (individual metrics)
+  | typeof METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY       // Cross-explanation overall score consistency
+  | typeof METRIC_LLM_EXPLAINER_CONSISTENCY                         // LLM Explainer consistency (semantic consistency)
 
 // Table Sorting Types (simplified for new table structure)
 export type SortDirection = 'asc' | 'desc' | null
@@ -511,11 +480,11 @@ export type SortBy =
   | 'featureId'
   | 'overallScore'
   | 'minConsistency'
-  | 'llm_scorer_consistency'
-  | 'within_explanation_score'
-  | 'cross_explanation_score'
-  | 'cross_explanation_overall_score'
-  | 'llm_explainer_consistency'
+  | typeof METRIC_LLM_SCORER_CONSISTENCY
+  | typeof METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY
+  | typeof METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY
+  | typeof METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY
+  | typeof METRIC_LLM_EXPLAINER_CONSISTENCY
   | null
 
 // ============================================================================

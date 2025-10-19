@@ -127,6 +127,10 @@ class SankeyNode(BaseModel):
         default=None,
         description="List of feature IDs in this node (included only for leaf nodes to enable alluvial diagrams)"
     )
+    node_type: Optional[str] = Field(
+        default="standard",
+        description="Node rendering type: 'standard' for regular nodes, 'vertical_bar' for three-column vertical bar visualization"
+    )
 
 class SankeyLink(BaseModel):
     """Individual link in Sankey diagram"""
@@ -431,21 +435,25 @@ class ExplainerScoreData(BaseModel):
     fuzz: ScorerScoreSet = Field(..., description="Fuzz scores for each scorer (s1, s2, s3)")
     detection: ScorerScoreSet = Field(..., description="Detection scores for each scorer (s1, s2, s3)")
     explanation_text: Optional[str] = Field(None, description="Explanation text for this explainer")
-    scorer_consistency: Optional[Dict[str, ConsistencyScore]] = Field(
+    llm_scorer_consistency: Optional[Dict[str, ConsistencyScore]] = Field(
         None,
-        description="Consistency across scorers for each metric (coefficient of variation): {embedding, fuzz, detection}"
+        description="Consistency across LLM scorers for each metric (coefficient of variation): {fuzz, detection}"
     )
-    metric_consistency: Optional[ConsistencyScore] = Field(
+    within_explanation_metric_consistency: Optional[ConsistencyScore] = Field(
         None,
         description="Consistency across metrics (normalized standard deviation)"
     )
-    explainer_consistency: Optional[ConsistencyScore] = Field(
+    llm_explainer_consistency: Optional[ConsistencyScore] = Field(
         None,
         description="Semantic consistency between LLM explainers (average pairwise cosine similarity)"
     )
-    cross_explainer_metric_consistency: Optional[Dict[str, ConsistencyScore]] = Field(
+    cross_explanation_metric_consistency: Optional[Dict[str, ConsistencyScore]] = Field(
         None,
         description="Consistency of each metric across LLM explainers (inverse coefficient of variation): {embedding, fuzz, detection}"
+    )
+    cross_explanation_overall_score_consistency: Optional[ConsistencyScore] = Field(
+        None,
+        description="Consistency of overall score across LLM explainers (inverse coefficient of variation). Same value for all explainers within a feature."
     )
 
 class FeatureTableRow(BaseModel):
@@ -462,6 +470,8 @@ class MetricNormalizationStats(BaseModel):
     std: float = Field(..., description="Global standard deviation")
     min: float = Field(..., description="Global minimum value")
     max: float = Field(..., description="Global maximum value")
+    z_min: float = Field(..., description="Minimum z-score for min-max normalization")
+    z_max: float = Field(..., description="Maximum z-score for min-max normalization")
 
 class FeatureTableDataResponse(BaseModel):
     """Response model for feature-level table visualization data (824 rows)"""
@@ -469,5 +479,24 @@ class FeatureTableDataResponse(BaseModel):
     total_features: int = Field(..., ge=0, description="Total number of features")
     explainer_ids: List[str] = Field(..., description="List of explainer IDs present in data")
     scorer_ids: List[str] = Field(..., description="List of scorer IDs present in data (for S1, S2, S3 labels)")
-    is_averaged: bool = Field(default=False, description="Whether scores are averaged across scorers (when multiple explainers selected)")
     global_stats: Dict[str, MetricNormalizationStats] = Field(..., description="Global normalization statistics for each metric (embedding, fuzz, detection)")
+
+class FeatureGroup(BaseModel):
+    """Single group of features within a threshold range"""
+    group_index: int = Field(..., ge=0, description="Group index (0, 1, 2, ...)")
+    range_label: str = Field(..., description="Human-readable range label (e.g., '< 0.50', '0.50 - 0.80')")
+    feature_ids: Optional[List[int]] = Field(
+        default=None,
+        description="Feature IDs in this group (used for standard metrics)"
+    )
+    feature_ids_by_source: Optional[Dict[str, List[int]]] = Field(
+        default=None,
+        description="Feature IDs grouped by source_min (used for consistency metrics). Key is explainer name or metric name."
+    )
+    feature_count: int = Field(..., ge=0, description="Total number of unique features in this group")
+
+class FeatureGroupResponse(BaseModel):
+    """Response model for feature groups endpoint"""
+    metric: str = Field(..., description="Metric used for grouping")
+    groups: List[FeatureGroup] = Field(..., description="Feature groups created by threshold ranges")
+    total_features: int = Field(..., ge=0, description="Total unique features after filtering")

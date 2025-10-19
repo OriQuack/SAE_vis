@@ -13,44 +13,7 @@
 export const CATEGORY_ROOT = "root"
 export const CATEGORY_FEATURE_SPLITTING = "feature_splitting"
 export const CATEGORY_SEMANTIC_SIMILARITY = "semantic_similarity"
-export const CATEGORY_SCORE_AGREEMENT = "score_agreement"
-
-export const CATEGORY_TYPES = {
-  ROOT: CATEGORY_ROOT,
-  FEATURE_SPLITTING: CATEGORY_FEATURE_SPLITTING,
-  SEMANTIC_SIMILARITY: CATEGORY_SEMANTIC_SIMILARITY,
-  SCORE_AGREEMENT: CATEGORY_SCORE_AGREEMENT
-} as const
-
-// ============================================================================
-// SPLIT RULE TYPES - Must match backend data_constants.py
-// Used across: types.ts, threshold-utils.ts, dynamic-tree-builder.ts (3+ files)
-// ============================================================================
-export const SPLIT_TYPE_RANGE = "range"
-export const SPLIT_TYPE_PATTERN = "pattern"
-export const SPLIT_TYPE_EXPRESSION = "expression"
-
-export const SPLIT_TYPES = {
-  RANGE: SPLIT_TYPE_RANGE,
-  PATTERN: SPLIT_TYPE_PATTERN,
-  EXPRESSION: SPLIT_TYPE_EXPRESSION
-} as const
-
-// ============================================================================
-// PATTERN MATCH STATES - Must match backend data_constants.py
-// Used across: types.ts and other pattern-related files
-// ============================================================================
-export const PATTERN_STATE_HIGH = "high"
-export const PATTERN_STATE_LOW = "low"
-export const PATTERN_STATE_IN_RANGE = "in_range"
-export const PATTERN_STATE_OUT_RANGE = "out_range"
-
-export const PATTERN_STATES = {
-  HIGH: PATTERN_STATE_HIGH,
-  LOW: PATTERN_STATE_LOW,
-  IN_RANGE: PATTERN_STATE_IN_RANGE,
-  OUT_RANGE: PATTERN_STATE_OUT_RANGE
-} as const
+export const CATEGORY_CONSISTENCY = "consistency"
 
 // ============================================================================
 // METRIC TYPES - Must match backend data_constants.py
@@ -58,20 +21,32 @@ export const PATTERN_STATES = {
 // ============================================================================
 export const METRIC_FEATURE_SPLITTING = "feature_splitting"
 export const METRIC_SEMSIM_MEAN = "semsim_mean"
-export const METRIC_SEMSIM_MAX = "semsim_max"
 export const METRIC_SCORE_FUZZ = "score_fuzz"
-export const METRIC_SCORE_SIMULATION = "score_simulation"
 export const METRIC_SCORE_DETECTION = "score_detection"
 export const METRIC_SCORE_EMBEDDING = "score_embedding"
+
+// Consistency metrics (pre-computed)
+export const METRIC_LLM_SCORER_CONSISTENCY = "llm_scorer_consistency"
+export const METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY = "within_explanation_metric_consistency"
+export const METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY = "cross_explanation_metric_consistency"
+export const METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY = "cross_explanation_overall_score_consistency"
+export const METRIC_LLM_EXPLAINER_CONSISTENCY = "llm_explainer_consistency"
+
+// Computed metric
+export const METRIC_OVERALL_SCORE = "overall_score"
 
 export const METRIC_TYPES = {
   FEATURE_SPLITTING: METRIC_FEATURE_SPLITTING,
   SEMSIM_MEAN: METRIC_SEMSIM_MEAN,
-  SEMSIM_MAX: METRIC_SEMSIM_MAX,
   SCORE_FUZZ: METRIC_SCORE_FUZZ,
-  SCORE_SIMULATION: METRIC_SCORE_SIMULATION,
   SCORE_DETECTION: METRIC_SCORE_DETECTION,
-  SCORE_EMBEDDING: METRIC_SCORE_EMBEDDING
+  SCORE_EMBEDDING: METRIC_SCORE_EMBEDDING,
+  LLM_SCORER_CONSISTENCY: METRIC_LLM_SCORER_CONSISTENCY,
+  WITHIN_EXPLANATION_METRIC_CONSISTENCY: METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
+  CROSS_EXPLANATION_METRIC_CONSISTENCY: METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
+  CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY: METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
+  LLM_EXPLAINER_CONSISTENCY: METRIC_LLM_EXPLAINER_CONSISTENCY,
+  OVERALL_SCORE: METRIC_OVERALL_SCORE
 } as const
 
 // ============================================================================
@@ -87,6 +62,43 @@ export const PANEL_SIDES = {
 } as const
 
 // ============================================================================
+// CONSISTENCY TYPES - Table consistency type identifiers
+// Used across: types.ts, d3-table-utils.ts, TablePanel.tsx, ConsistencyPanel.tsx, threshold-utils.ts, store.ts (6+ files)
+// Note: Uses METRIC_* constants for consistency metrics (single source of truth)
+// ============================================================================
+export const CONSISTENCY_TYPE_NONE = "none"
+
+// Array of consistency metric types (excludes "none" which is just UI state)
+export const CONSISTENCY_TYPES = [
+  METRIC_LLM_SCORER_CONSISTENCY,
+  METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
+  METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
+  METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
+  METRIC_LLM_EXPLAINER_CONSISTENCY
+] as const
+
+// ============================================================================
+// CUSTOM CONSISTENCY THRESHOLDS - Per-metric custom threshold configurations
+// Used for creating custom value splits with explicit threshold boundaries
+// ============================================================================
+
+/**
+ * Custom threshold values for each consistency metric
+ * These define the bin boundaries for classification in Sankey diagrams
+ *
+ * N thresholds create N+1 bins:
+ * - [0.15, 0.45, 0.75] creates 4 bins: [0-0.15), [0.15-0.45), [0.45-0.75), [0.75-1.0]
+ */
+export const CONSISTENCY_THRESHOLDS = {
+  [METRIC_LLM_SCORER_CONSISTENCY]: [0.25, 0.50, 0.75],                    // 4 bins for LLM Scorer Consistency
+  [METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY]: [0.25, 0.5, 0.75],     // 4 bins for Within-Explanation Metric
+  [METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY]: [0.8],                   // 2 bins for Cross-Explanation Metric
+  [METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY]: [0.25, 0.50, 0.75], // 4 bins for Overall Score
+  [METRIC_LLM_EXPLAINER_CONSISTENCY]: [0.8, 0.85, 0.9],                   // 4 bins for LLM Explainer
+  [METRIC_OVERALL_SCORE]: [0.5]  // 2 bins for Overall Score (computed metric)
+} as const
+
+// ============================================================================
 // DISPLAY NAMES - Centralized UI string mappings
 // Used across: utils.ts, HistogramPopover.tsx, and other UI components (3+ files)
 // ============================================================================
@@ -94,17 +106,21 @@ export const CATEGORY_DISPLAY_NAMES = {
   [CATEGORY_ROOT]: "All Features",
   [CATEGORY_FEATURE_SPLITTING]: "Feature Splitting",
   [CATEGORY_SEMANTIC_SIMILARITY]: "Semantic Similarity",
-  [CATEGORY_SCORE_AGREEMENT]: "Score Agreement"
+  [CATEGORY_CONSISTENCY]: "Consistency"
 } as const
 
 export const METRIC_DISPLAY_NAMES = {
   [METRIC_FEATURE_SPLITTING]: "Feature Splitting",
   [METRIC_SEMSIM_MEAN]: "Semantic Similarity (Mean)",
-  [METRIC_SEMSIM_MAX]: "Semantic Similarity (Max)",
   [METRIC_SCORE_FUZZ]: "Fuzz Score",
-  [METRIC_SCORE_SIMULATION]: "Simulation Score",
   [METRIC_SCORE_DETECTION]: "Detection Score",
-  [METRIC_SCORE_EMBEDDING]: "Embedding Score"
+  [METRIC_SCORE_EMBEDDING]: "Embedding Score",
+  [METRIC_LLM_SCORER_CONSISTENCY]: "LLM Scorer Consistency",
+  [METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY]: "Within-Explanation Consistency",
+  [METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY]: "Cross-Explanation Metric Consistency",
+  [METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY]: "Cross-Explanation Overall Score",
+  [METRIC_LLM_EXPLAINER_CONSISTENCY]: "LLM Explainer Consistency",
+  [METRIC_OVERALL_SCORE]: "Overall Score"
 } as const
 
 // ============================================================================
@@ -242,28 +258,8 @@ export const METRIC_COLORS = {
     LOW: PAUL_TOL_BRIGHT.GREEN + '00',    // 0% opacity (transparent/white)
     MEDIUM: PAUL_TOL_BRIGHT.GREEN + '80', // 50% opacity (light green)
     HIGH: PAUL_TOL_BRIGHT.GREEN + 'FF'    // 100% opacity (full green #228833)
-  }
-} as const
+  },
 
-// ============================================================================
-// CONSISTENCY COLORS - Professional single-color gradients (white to color)
-// Used for visualizing consistency metrics in TablePanel
-// Based on colorblind-friendly Okabe-Ito and Paul Tol palettes
-// ============================================================================
-
-/**
- * Consistency gradient colors: white (low) → color (high)
- * Each consistency type has its own distinct single-color gradient using opacity
- * Following professional visualization conference standards
- *
- * Uses hex color with alpha channel for systematic color blending:
- * - LOW: 00 (0% opacity - transparent, white background shows through)
- * - MEDIUM: 80 (50% opacity - blended with white background)
- * - HIGH: FF (100% opacity - full color)
- *
- * Format: PALETTE.COLOR + hex_alpha → #RRGGBBAA
- */
-export const CONSISTENCY_COLORS = {
   // LLM Scorer Consistency: Sky Blue gradient (Okabe-Ito Sky Blue)
   LLM_SCORER: {
     LOW: OKABE_ITO_PALETTE.SKY_BLUE + '00',    // 0% opacity (transparent/white)
@@ -297,29 +293,13 @@ export const CONSISTENCY_COLORS = {
     LOW: OKABE_ITO_PALETTE.BLUISH_GREEN + '00',    // 0% opacity (transparent/white)
     MEDIUM: OKABE_ITO_PALETTE.BLUISH_GREEN + '80', // 50% opacity (light green)
     HIGH: OKABE_ITO_PALETTE.BLUISH_GREEN + 'FF'    // 100% opacity (full bluish green)
-  }
-} as const
-
-// ============================================================================
-// OVERALL SCORE COLORS - Performance gradient for overall scores
-// Used in simplified TablePanel for displaying overall scores
-// White (low performance) → Dark Gray (high performance)
-// ============================================================================
-
-/**
- * Overall score gradient colors: white (low) → dark gray (high)
- * Used for visualizing overall scores (0-1 range)
- * Higher overall scores = more intense dark gray color
- *
- * Uses hex color with alpha channel for opacity encoding:
- * - LOW: 00 (0% opacity - transparent, white background shows through)
- * - MEDIUM: 80 (50% opacity - medium gray)
- * - HIGH: FF (100% opacity - full dark gray)
- */
-export const OVERALL_SCORE_COLORS = {
+  },
+  
+  OVERALL_SCORE_COLORS: {
   LOW: '#1f293700',    // 0% opacity (transparent/white) - 0.0 score
   MEDIUM: '#1f293780', // 50% opacity (medium gray) - 0.5 score
   HIGH: '#1f2937FF'    // 100% opacity (dark gray) - 1.0 score
+  }
 } as const
 
 // ============================================================================
@@ -368,12 +348,3 @@ export const LLM_SCORER_ICON_SVG = `
     Z
   " fill="#3b82f6" />
 `
-
-// ============================================================================
-// TYPE EXPORTS - For better TypeScript integration
-// ============================================================================
-export type CategoryTypeValue = typeof CATEGORY_TYPES[keyof typeof CATEGORY_TYPES]
-export type SplitTypeValue = typeof SPLIT_TYPES[keyof typeof SPLIT_TYPES]
-export type PatternStateValue = typeof PATTERN_STATES[keyof typeof PATTERN_STATES]
-export type MetricTypeValue = typeof METRIC_TYPES[keyof typeof METRIC_TYPES]
-export type PanelSideValue = typeof PANEL_SIDES[keyof typeof PANEL_SIDES]

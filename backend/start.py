@@ -18,18 +18,29 @@ import logging
 import sys
 from pathlib import Path
 
-def setup_logging(log_level: str = "info"):
+def setup_logging(log_level: str = "info", log_file: str = None):
     """Setup logging configuration"""
     numeric_level = getattr(logging, log_level.upper(), None)
     if not isinstance(numeric_level, int):
         raise ValueError(f'Invalid log level: {log_level}')
 
+    handlers = [
+        logging.StreamHandler(sys.stdout),
+    ]
+
+    # Add file handler if log_file is specified
+    if log_file:
+        file_handler = logging.FileHandler(log_file, mode='a')
+        file_handler.setFormatter(
+            logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        )
+        handlers.append(file_handler)
+
     logging.basicConfig(
         level=numeric_level,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.StreamHandler(sys.stdout),
-        ]
+        handlers=handlers,
+        force=True  # Override any existing configuration
     )
 
 def check_data_files():
@@ -53,11 +64,12 @@ def main():
     parser.add_argument("--reload", action="store_true", help="Enable auto-reload for development")
     parser.add_argument("--log-level", default="info", choices=["debug", "info", "warning", "error"],
                        help="Log level")
+    parser.add_argument("--log-file", type=str, help="Log file path (optional)")
 
     args = parser.parse_args()
 
     # Setup logging
-    setup_logging(args.log_level)
+    setup_logging(args.log_level, args.log_file)
 
     # Check data files
     print("🔍 Checking data files...")
@@ -74,8 +86,15 @@ def main():
     print(f"   Port: {args.port}")
     print(f"   Reload: {args.reload}")
     print(f"   Log level: {args.log_level}")
+    if args.log_file:
+        print(f"   Log file: {args.log_file}")
     print(f"\n📖 API docs will be available at: http://{args.host}:{args.port}/docs")
     print(f"📊 Health check: http://{args.host}:{args.port}/health")
+
+    # Configure uvicorn log config
+    log_config = uvicorn.config.LOGGING_CONFIG
+    log_config["formatters"]["default"]["fmt"] = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    log_config["formatters"]["access"]["fmt"] = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
     try:
         uvicorn.run(
@@ -83,7 +102,10 @@ def main():
             host=args.host,
             port=args.port,
             reload=args.reload,
+            reload_dirs=["."],
+            reload_excludes=["**/*.log", "__pycache__", ".git"],
             log_level=args.log_level.lower(),
+            log_config=log_config,
             access_log=True
         )
     except KeyboardInterrupt:

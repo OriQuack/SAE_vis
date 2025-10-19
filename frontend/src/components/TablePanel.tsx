@@ -4,13 +4,23 @@ import type { FeatureTableDataResponse, FeatureTableRow } from '../types'
 import {
   calculateOverallScore,
   calculateMinConsistency,
-  getConsistencyColor,
-  getOverallScoreColor,
   getScoreValue,
-  getMetricColor,
+  normalizeScore,
   sortFeatures,
   getExplainerDisplayName
 } from '../lib/d3-table-utils'
+import {
+  getConsistencyColor,
+  getOverallScoreColor,
+  getMetricColor
+} from '../lib/utils'
+import {
+  METRIC_LLM_SCORER_CONSISTENCY,
+  METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
+  METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
+  METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
+  METRIC_LLM_EXPLAINER_CONSISTENCY
+} from '../lib/constants'
 import '../styles/TablePanel.css'
 
 // ============================================================================
@@ -85,30 +95,30 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const extractConsistencyValues = (explData: any) => {
     // 1. LLM Scorer Consistency (average of fuzz and detection)
     let scorerConsistency: number | null = null
-    if (explData.scorer_consistency) {
+    if (explData.llm_scorer_consistency) {
       const scorerValues: number[] = []
-      if (explData.scorer_consistency.fuzz) scorerValues.push(explData.scorer_consistency.fuzz.value)
-      if (explData.scorer_consistency.detection) scorerValues.push(explData.scorer_consistency.detection.value)
+      if (explData.llm_scorer_consistency.fuzz) scorerValues.push(explData.llm_scorer_consistency.fuzz.value)
+      if (explData.llm_scorer_consistency.detection) scorerValues.push(explData.llm_scorer_consistency.detection.value)
       if (scorerValues.length > 0) {
         scorerConsistency = scorerValues.reduce((sum, v) => sum + v, 0) / scorerValues.length
       }
     }
 
     // 2. Within-explanation Metric Consistency
-    const metricConsistency = explData.metric_consistency?.value || null
+    const metricConsistency = explData.within_explanation_metric_consistency?.value ?? null
 
     // 3. Cross-explanation Score Consistency (average of embedding, fuzz, detection)
     let crossConsistency: number | null = null
-    if (explData.cross_explainer_metric_consistency) {
+    if (explData.cross_explanation_metric_consistency) {
       const crossValues: number[] = []
-      if (explData.cross_explainer_metric_consistency.embedding) {
-        crossValues.push(explData.cross_explainer_metric_consistency.embedding.value)
+      if (explData.cross_explanation_metric_consistency.embedding) {
+        crossValues.push(explData.cross_explanation_metric_consistency.embedding.value)
       }
-      if (explData.cross_explainer_metric_consistency.fuzz) {
-        crossValues.push(explData.cross_explainer_metric_consistency.fuzz.value)
+      if (explData.cross_explanation_metric_consistency.fuzz) {
+        crossValues.push(explData.cross_explanation_metric_consistency.fuzz.value)
       }
-      if (explData.cross_explainer_metric_consistency.detection) {
-        crossValues.push(explData.cross_explainer_metric_consistency.detection.value)
+      if (explData.cross_explanation_metric_consistency.detection) {
+        crossValues.push(explData.cross_explanation_metric_consistency.detection.value)
       }
       if (crossValues.length > 0) {
         crossConsistency = crossValues.reduce((sum, v) => sum + v, 0) / crossValues.length
@@ -116,10 +126,10 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     }
 
     // 4. Cross-explanation Overall Score Consistency
-    const crossOverallConsistency = explData.cross_explainer_metric_consistency?.overall_score?.value || null
+    const crossOverallConsistency = explData.cross_explanation_overall_score_consistency?.value ?? null
 
     // 5. LLM Explainer Consistency
-    const explainerConsistency = explData.explainer_consistency?.value || null
+    const explainerConsistency = explData.llm_explainer_consistency?.value ?? null
 
     return { scorerConsistency, metricConsistency, crossConsistency, crossOverallConsistency, explainerConsistency }
   }
@@ -512,12 +522,10 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                               const embedding = getScoreValue(featureRow, explainerId, 'embedding')
                               if (embedding === null || !tableData.global_stats.embedding) return null
 
-                              // Normalize score: (value - min) / (max - min)
-                              const { min, max } = tableData.global_stats.embedding
-                              const range = max - min
-                              const normalizedScore = range > 0 ? (embedding - min) / range : 0
+                              const normalized = normalizeScore(embedding, tableData.global_stats.embedding)
+                              if (normalized === null) return null
 
-                              return renderMetricCircle('Emb', embedding, getMetricColor('embedding', normalizedScore))
+                              return renderMetricCircle('Emb', embedding, getMetricColor('embedding', normalized))
                             })()}
 
                             {/* Fuzz score (averaged) */}
@@ -525,12 +533,10 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                               const fuzz = getScoreValue(featureRow, explainerId, 'fuzz')
                               if (fuzz === null || !tableData.global_stats.fuzz) return null
 
-                              // Normalize score: (value - min) / (max - min)
-                              const { min, max } = tableData.global_stats.fuzz
-                              const range = max - min
-                              const normalizedScore = range > 0 ? (fuzz - min) / range : 0
+                              const normalized = normalizeScore(fuzz, tableData.global_stats.fuzz)
+                              if (normalized === null) return null
 
-                              return renderMetricCircle('Fuzz', fuzz, getMetricColor('fuzz', normalizedScore))
+                              return renderMetricCircle('Fuzz', fuzz, getMetricColor('fuzz', normalized))
                             })()}
 
                             {/* Detection score (averaged) */}
@@ -538,12 +544,10 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                               const detection = getScoreValue(featureRow, explainerId, 'detection')
                               if (detection === null || !tableData.global_stats.detection) return null
 
-                              // Normalize score: (value - min) / (max - min)
-                              const { min, max } = tableData.global_stats.detection
-                              const range = max - min
-                              const normalizedScore = range > 0 ? (detection - min) / range : 0
+                              const normalized = normalizeScore(detection, tableData.global_stats.detection)
+                              if (normalized === null) return null
 
-                              return renderMetricCircle('Det', detection, getMetricColor('detection', normalizedScore))
+                              return renderMetricCircle('Det', detection, getMetricColor('detection', normalized))
                             })()}
                           </div>
                         )}
@@ -581,11 +585,11 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
                           return (
                             <div className="table-panel__consistency-breakdown-overlay">
-                              {scorerConsistency !== null && renderMetricCircle('Scorer', scorerConsistency, getConsistencyColor(scorerConsistency, 'llm_scorer_consistency'))}
-                              {metricConsistency !== null && renderMetricCircle('Metric', metricConsistency, getConsistencyColor(metricConsistency, 'within_explanation_score'))}
-                              {crossConsistency !== null && renderMetricCircle('Cross', crossConsistency, getConsistencyColor(crossConsistency, 'cross_explanation_score'))}
-                              {crossOverallConsistency !== null && renderMetricCircle('OvrlScr', crossOverallConsistency, getConsistencyColor(crossOverallConsistency, 'cross_explanation_overall_score'))}
-                              {explainerConsistency !== null && renderMetricCircle('Explnr', explainerConsistency, getConsistencyColor(explainerConsistency, 'llm_explainer_consistency'))}
+                              {scorerConsistency !== null && renderMetricCircle('Scorer', scorerConsistency, getConsistencyColor(scorerConsistency, METRIC_LLM_SCORER_CONSISTENCY))}
+                              {metricConsistency !== null && renderMetricCircle('Metric', metricConsistency, getConsistencyColor(metricConsistency, METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY))}
+                              {crossConsistency !== null && renderMetricCircle('Cross', crossConsistency, getConsistencyColor(crossConsistency, METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY))}
+                              {crossOverallConsistency !== null && renderMetricCircle('OvrlScr', crossOverallConsistency, getConsistencyColor(crossOverallConsistency, METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY))}
+                              {explainerConsistency !== null && renderMetricCircle('Explnr', explainerConsistency, getConsistencyColor(explainerConsistency, METRIC_LLM_EXPLAINER_CONSISTENCY))}
                             </div>
                           )
                         })()}

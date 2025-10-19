@@ -2,7 +2,15 @@ import React, { useMemo } from 'react'
 import { useVisualizationStore } from '../store'
 import type { ConsistencyType, SortBy } from '../types'
 import { calculateColorBarLayout } from '../lib/d3-table-utils'
-import { CONSISTENCY_COLORS } from '../lib/constants'
+import {
+  METRIC_COLORS,
+  CONSISTENCY_TYPE_NONE,
+  METRIC_LLM_SCORER_CONSISTENCY,
+  METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
+  METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
+  METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
+  METRIC_LLM_EXPLAINER_CONSISTENCY
+} from '../lib/constants'
 import '../styles/ConsistencyPanel.css'
 
 // ============================================================================
@@ -17,32 +25,32 @@ const CONSISTENCY_OPTIONS: Array<{
   {
     id: 'none',
     label: 'None',
-    value: 'none'
+    value: CONSISTENCY_TYPE_NONE
   },
   {
     id: 'llm_scorer',
     label: 'LLM Scorer',
-    value: 'llm_scorer_consistency'
+    value: METRIC_LLM_SCORER_CONSISTENCY
   },
   {
-    id: 'within_exp_score',
-    label: 'Within-exp. Score',
-    value: 'within_explanation_score'
+    id: 'within_exp_metric',
+    label: 'Within-exp. Metric',
+    value: METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY
   },
   {
-    id: 'cross_exp_score',
-    label: 'Cross-exp. Score',
-    value: 'cross_explanation_score'
+    id: 'cross_exp_metric',
+    label: 'Cross-exp. Metric',
+    value: METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY
   },
   {
     id: 'cross_exp_overall',
     label: 'Cross-exp. Overall',
-    value: 'cross_explanation_overall_score'
+    value: METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY
   },
   {
     id: 'llm_explainer',
     label: 'LLM Explainer',
-    value: 'llm_explainer_consistency'
+    value: METRIC_LLM_EXPLAINER_CONSISTENCY
   }
 ]
 
@@ -73,20 +81,20 @@ const ConsistencyPanel: React.FC = () => {
 
   // Check if a consistency type is disabled
   const isConsistencyTypeDisabled = (type: ConsistencyType): boolean => {
-    if (type === 'none') {
+    if (type === CONSISTENCY_TYPE_NONE) {
       return false
     }
 
     // LLM Scorer consistency is always available (works for any number of explainers)
-    if (type === 'llm_scorer_consistency') {
+    if (type === METRIC_LLM_SCORER_CONSISTENCY) {
       return false
     }
 
     // Cross-explanation and LLM Explainer consistency require multiple explainers
     if (hasOnlyOneExplainer) {
-      return type === 'cross_explanation_score' ||
-             type === 'cross_explanation_overall_score' ||
-             type === 'llm_explainer_consistency'
+      return type === METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY ||
+             type === METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY ||
+             type === METRIC_LLM_EXPLAINER_CONSISTENCY
     }
 
     return false
@@ -99,31 +107,31 @@ const ConsistencyPanel: React.FC = () => {
   React.useEffect(() => {
     const shouldSwitch = (
       hasOnlyOneExplainer && (
-        selectedConsistencyType === 'cross_explanation_score' ||
-        selectedConsistencyType === 'cross_explanation_overall_score' ||
-        selectedConsistencyType === 'llm_explainer_consistency'
+        selectedConsistencyType === METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY ||
+        selectedConsistencyType === METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY ||
+        selectedConsistencyType === METRIC_LLM_EXPLAINER_CONSISTENCY
       )
     )
 
     if (shouldSwitch) {
-      setConsistencyType('none')
+      setConsistencyType(CONSISTENCY_TYPE_NONE)
     }
   }, [selectedExplainers.size, selectedConsistencyType, setConsistencyType, hasOnlyOneExplainer])
 
   // Get button color based on consistency type
   const getButtonColor = (consistencyType: ConsistencyType): string | null => {
     switch (consistencyType) {
-      case 'llm_scorer_consistency':
-        return CONSISTENCY_COLORS.LLM_SCORER.HIGH
-      case 'within_explanation_score':
-        return CONSISTENCY_COLORS.WITHIN_EXPLANATION.HIGH
-      case 'cross_explanation_score':
-        return CONSISTENCY_COLORS.CROSS_EXPLANATION.HIGH
-      case 'cross_explanation_overall_score':
-        return CONSISTENCY_COLORS.CROSS_EXPLANATION_OVERALL.HIGH
-      case 'llm_explainer_consistency':
-        return CONSISTENCY_COLORS.LLM_EXPLAINER.HIGH
-      case 'none':
+      case METRIC_LLM_SCORER_CONSISTENCY:
+        return METRIC_COLORS.LLM_SCORER.HIGH
+      case METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY:
+        return METRIC_COLORS.WITHIN_EXPLANATION.HIGH
+      case METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY:
+        return METRIC_COLORS.CROSS_EXPLANATION.HIGH
+      case METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY:
+        return METRIC_COLORS.CROSS_EXPLANATION_OVERALL.HIGH
+      case METRIC_LLM_EXPLAINER_CONSISTENCY:
+        return METRIC_COLORS.LLM_EXPLAINER.HIGH
+      case CONSISTENCY_TYPE_NONE:
       default:
         return null
     }
@@ -138,7 +146,7 @@ const ConsistencyPanel: React.FC = () => {
     setConsistencyType(value)
 
     // Trigger sorting when clicking on a consistency type (except 'none')
-    if (value !== 'none') {
+    if (value !== CONSISTENCY_TYPE_NONE) {
       // Map ConsistencyType to SortBy
       const sortKey = value as SortBy
       handleSort(sortKey)
@@ -173,7 +181,7 @@ const ConsistencyPanel: React.FC = () => {
           const disabled = isConsistencyTypeDisabled(option.value)
           const isActive = selectedConsistencyType === option.value
           const isSorted = sortBy === option.value
-          const showSortIndicator = option.value !== 'none'
+          const showSortIndicator = option.value !== CONSISTENCY_TYPE_NONE
           const buttonColor = getButtonColor(option.value)
 
           // Compute button style based on color and active state

@@ -1,6 +1,6 @@
 import { sankey, sankeyLinkHorizontal } from 'd3-sankey'
 import type { NodeCategory, D3SankeyNode, D3SankeyLink, SankeyLayout } from '../types'
-import { CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_SIMILARITY, CATEGORY_SCORE_AGREEMENT } from './constants'
+import { CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_SIMILARITY } from './constants'
 
 // ============================================================================
 // UTILS-SPECIFIC TYPES (Internal use only - not exported)
@@ -25,8 +25,7 @@ export const DEFAULT_ANIMATION = {
 export const SANKEY_COLORS: Record<NodeCategory, string> = {
   [CATEGORY_ROOT]: '#d1d5db',
   [CATEGORY_FEATURE_SPLITTING]: '#9ca3af',
-  [CATEGORY_SEMANTIC_SIMILARITY]: '#6b7280',
-  [CATEGORY_SCORE_AGREEMENT]: '#4b5563'
+  [CATEGORY_SEMANTIC_SIMILARITY]: '#6b7280'
 } as const
 
 export const DEFAULT_SANKEY_MARGIN = { top: 80, right: 40, bottom: 50, left: 80 } as const
@@ -40,8 +39,7 @@ export const MIN_CONTAINER_HEIGHT = 150
 const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
   [CATEGORY_ROOT]: 'All Features',
   [CATEGORY_FEATURE_SPLITTING]: 'Feature Splitting',
-  [CATEGORY_SEMANTIC_SIMILARITY]: 'Semantic Similarity',
-  [CATEGORY_SCORE_AGREEMENT]: 'Score Agreement'
+  [CATEGORY_SEMANTIC_SIMILARITY]: 'Semantic Similarity'
 } as const
 
 // ============================================================================
@@ -68,47 +66,8 @@ function extractParentId(nodeId: string): string {
     return parts.slice(0, -1).join('_')
   }
 
-  // For score agreement patterns "all_N_high" or "all_N_low"
-  const allPatternMatch = nodeId.match(/_all_\d+_(high|low)$/)
-  if (allPatternMatch) {
-    return nodeId.slice(0, allPatternMatch.index)
-  }
-
-  // For score agreement patterns "X_of_N_high_[metrics]"
-  const partialPatternMatch = nodeId.match(/_\d+_of_\d+_high_[a-z_]+$/)
-  if (partialPatternMatch) {
-    return nodeId.slice(0, partialPatternMatch.index)
-  }
-
   // Fallback: remove last component
   return parts.slice(0, -1).join('_')
-}
-
-/**
- * Get sorting priority for score agreement nodes (lower number = higher priority)
- */
-function getScoreAgreementPriority(nodeId: string): number {
-  // Match "all_N_high" pattern
-  if (nodeId.match(/all_(\d+)_high/)) {
-    return 0  // Highest priority - all scores high
-  }
-
-  // Match "all_N_low" pattern
-  const allLowMatch = nodeId.match(/all_(\d+)_low/)
-  if (allLowMatch) {
-    const totalScores = parseInt(allLowMatch[1])
-    return totalScores + 1  // Lowest priority - all scores low
-  }
-
-  // Match "X_of_N_high_..." pattern
-  const partialMatch = nodeId.match(/(\d+)_of_(\d+)_high/)
-  if (partialMatch) {
-    const numHigh = parseInt(partialMatch[1])
-    const totalScores = parseInt(partialMatch[2])
-    return totalScores - numHigh + 1
-  }
-
-  return 999 // Fallback for unknown patterns
 }
 
 /**
@@ -123,10 +82,6 @@ function getCategorySortOrder(nodeId: string, category: string): number {
     case CATEGORY_SEMANTIC_SIMILARITY:
       // semsim_mean_0 (Low) before semsim_mean_1 (High)
       return nodeId.includes('_0') ? 0 : 1
-
-    case CATEGORY_SCORE_AGREEMENT:
-      // Use score agreement priority (most agreement first)
-      return getScoreAgreementPriority(nodeId)
 
     default:
       return 0
@@ -204,7 +159,8 @@ export function calculateSankeyLayout(
     throw new Error('No valid nodes found for Sankey diagram')
   }
 
-  if (transformedLinks.length === 0 && filteredNodes.length > 1) {
+  // Allow 1-node (root-only) or 2-node (root + vertical_bar) cases with no links
+  if (transformedLinks.length === 0 && filteredNodes.length > 2) {
     throw new Error('No valid links found for Sankey diagram')
   }
 
@@ -298,18 +254,41 @@ export function calculateSankeyLayout(
     links: transformedLinks
   })
 
-  // Handle single-node case (root-only tree) where d3-sankey can't position nodes properly
-  if (sankeyLayout.links.length === 0 && sankeyLayout.nodes.length === 1) {
-    const singleNode = sankeyLayout.nodes[0]
-    const nodeWidth = 15 // Same as sankeyGenerator nodeWidth
-    const nodeHeight = Math.min(200, height * 0.8) // Longer height to accommodate growth
+  // Handle special cases where d3-sankey can't position nodes properly
+  if (sankeyLayout.links.length === 0) {
+    if (sankeyLayout.nodes.length === 1) {
+      // Single-node case (root-only tree)
+      const singleNode = sankeyLayout.nodes[0]
+      const nodeWidth = 15 // Same as sankeyGenerator nodeWidth
+      const nodeHeight = Math.min(200, height * 0.8) // Longer height to accommodate growth
 
-    // Position on left middle (not center)
-    const leftMargin = 20 // Small margin from left edge
-    singleNode.x0 = leftMargin
-    singleNode.x1 = singleNode.x0 + nodeWidth
-    singleNode.y0 = (height - nodeHeight) / 2
-    singleNode.y1 = singleNode.y0 + nodeHeight
+      // Position on left middle (not center)
+      const leftMargin = 20 // Small margin from left edge
+      singleNode.x0 = leftMargin
+      singleNode.x1 = singleNode.x0 + nodeWidth
+      singleNode.y0 = (height - nodeHeight) / 2
+      singleNode.y1 = singleNode.y0 + nodeHeight
+    } else if (sankeyLayout.nodes.length === 2) {
+      // Two-node case (root + vertical_bar placeholder)
+      const [rootNode, verticalBarNode] = sankeyLayout.nodes
+      const nodeWidth = 15 // Same as sankeyGenerator nodeWidth
+      const nodeHeight = Math.min(200, height * 0.8) // Longer height
+
+      // Position root on left
+      const leftMargin = 20
+      rootNode.x0 = leftMargin
+      rootNode.x1 = rootNode.x0 + nodeWidth
+      rootNode.y0 = (height - nodeHeight) / 2
+      rootNode.y1 = rootNode.y0 + nodeHeight
+
+      // Position vertical bar on right (3x width for 3 bars)
+      const rightMargin = 20
+      const verticalBarWidth = nodeWidth * 3
+      verticalBarNode.x0 = width - rightMargin - verticalBarWidth
+      verticalBarNode.x1 = verticalBarNode.x0 + verticalBarWidth
+      verticalBarNode.y0 = (height - nodeHeight) / 2
+      verticalBarNode.y1 = verticalBarNode.y0 + nodeHeight
+    }
   }
 
   return {
@@ -387,6 +366,8 @@ export function validateSankeyData(data: any): string[] {
 
   const errors: string[] = []
 
+  // Allow 1-node (root-only) or 2-node (root + vertical_bar) cases with no links
+  // Only validate link structure if links exist
   if (data.nodes.length > 0 && data.links.length > 0) {
     // Build node ID map
     const nodeIdToIndex = new Map<string, number>()

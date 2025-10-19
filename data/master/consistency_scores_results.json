@@ -1,0 +1,112 @@
+{
+  "timestamp": "20251018_142326",
+  "parquet_file": "/home/dohyun/interface/data/master/consistency_scores.parquet",
+  "dataset_name": "Consistency Scores",
+  "dataset_info": {
+    "total_rows": 2471,
+    "total_columns": 10,
+    "unique_features": 824
+  },
+  "columns": {
+    "feature_id": {
+      "dtype": "UInt32",
+      "n_unique": 824,
+      "n_nulls": 0,
+      "range": {
+        "min": 0.0,
+        "max": 999.0,
+        "mean": 499.6406313233509
+      }
+    },
+    "llm_explainer": {
+      "dtype": "Categorical",
+      "n_unique": 3,
+      "n_nulls": 0,
+      "values": {
+        "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4": 824,
+        "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8": 824,
+        "openai/gpt-oss-20b": 823
+      }
+    },
+    "llm_scorer_consistency_fuzz": {
+      "dtype": "Float32",
+      "n_unique": 514,
+      "n_nulls": 0,
+      "range": {
+        "min": 0.0,
+        "max": 1.0,
+        "mean": 0.7711934430320426
+      }
+    },
+    "llm_scorer_consistency_detection": {
+      "dtype": "Float32",
+      "n_unique": 455,
+      "n_nulls": 0,
+      "range": {
+        "min": 0.0,
+        "max": 1.0,
+        "mean": 0.7906013750842422
+      }
+    },
+    "within_explanation_metric_consistency": {
+      "dtype": "Float32",
+      "n_unique": 609,
+      "n_nulls": 0,
+      "range": {
+        "min": 0.0,
+        "max": 0.9980000257492065,
+        "mean": 0.7381995141001901
+      }
+    },
+    "cross_explanation_metric_consistency_embedding": {
+      "dtype": "Float32",
+      "n_unique": 341,
+      "n_nulls": 0,
+      "range": {
+        "min": 0.0,
+        "max": 0.9940000176429749,
+        "mean": 0.8178154592364966
+      }
+    },
+    "cross_explanation_metric_consistency_fuzz": {
+      "dtype": "Float32",
+      "n_unique": 374,
+      "n_nulls": 0,
+      "range": {
+        "min": 0.0,
+        "max": 0.9959999918937683,
+        "mean": 0.7982982596972726
+      }
+    },
+    "cross_explanation_metric_consistency_detection": {
+      "dtype": "Float32",
+      "n_unique": 409,
+      "n_nulls": 0,
+      "range": {
+        "min": 0.0,
+        "max": 1.0,
+        "mean": 0.7815447190315894
+      }
+    },
+    "cross_explanation_overall_score_consistency": {
+      "dtype": "Float32",
+      "n_unique": 367,
+      "n_nulls": 0,
+      "range": {
+        "min": 0.0,
+        "max": 0.9919999837875366,
+        "mean": 0.8068543094968275
+      }
+    },
+    "llm_explainer_consistency": {
+      "dtype": "Float32",
+      "n_unique": 141,
+      "n_nulls": 0,
+      "range": {
+        "min": 0.8009999990463257,
+        "max": 0.9539999961853027,
+        "mean": 0.8765892358937759
+      }
+    }
+  }
+}

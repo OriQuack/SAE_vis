@@ -4,25 +4,11 @@ Essential constants for data processing and visualization.
 This module contains the core constants used throughout the data service.
 """
 
-# Score agreement categories
-AGREE_ALL = "agree_all"
-AGREE_2OF3 = "agree_2of3"
-AGREE_1OF3 = "agree_1of3"
-AGREE_NONE = "agree_none"
-
-# Score agreement display names
-AGREEMENT_NAMES = {
-    AGREE_ALL: "All 3 Scores High",
-    AGREE_2OF3: "2 of 3 Scores High",
-    AGREE_1OF3: "1 of 3 Scores High",
-    AGREE_NONE: "All 3 Scores Low"
-}
-
 # Category types
 CATEGORY_ROOT = "root"
 CATEGORY_FEATURE_SPLITTING = "feature_splitting"
 CATEGORY_SEMANTIC_SIMILARITY = "semantic_similarity"
-CATEGORY_SCORE_AGREEMENT = "score_agreement"
+CATEGORY_CONSISTENCY = "consistency"  # For consistency-based metrics
 
 # Classification categories
 SPLITTING_TRUE = "true"
@@ -53,13 +39,6 @@ COL_DETAILS_PATH = "details_path"
 # Computed column names
 COL_SPLITTING_CATEGORY = "splitting_category"
 COL_SEMSIM_CATEGORY = "semsim_category"
-COL_SCORE_AGREEMENT = "score_agreement"
-COL_HIGH_SCORE_COUNT = "high_score_count"
-
-# Threshold column names
-COL_THRESHOLD_FUZZ = "threshold_fuzz"
-COL_THRESHOLD_SIMULATION = "threshold_simulation"
-COL_THRESHOLD_DETECTION = "threshold_detection"
 
 # Default values
 DEFAULT_HISTOGRAM_BINS = 20
@@ -68,14 +47,12 @@ DEFAULT_HISTOGRAM_BINS = 20
 STAGE_ROOT = 0
 STAGE_SPLITTING = 1
 STAGE_SEMANTIC = 2
-STAGE_AGREEMENT = 3
 
 # Stage names
 STAGE_NAMES = {
     STAGE_ROOT: "All Features",
     STAGE_SPLITTING: "Feature Splitting",
-    STAGE_SEMANTIC: "Semantic Distance",
-    STAGE_AGREEMENT: "Score Agreement"
+    STAGE_SEMANTIC: "Semantic Distance"
 }
 
 # Filter columns
@@ -84,7 +61,6 @@ FILTER_COLUMNS = [COL_SAE_ID, COL_EXPLANATION_METHOD, COL_LLM_EXPLAINER, COL_LLM
 # Custom ordering for Sankey nodes
 SPLITTING_ORDER = [SPLITTING_FALSE, SPLITTING_TRUE]  # false at the top
 SEMDIST_ORDER = [SEMDIST_HIGH, SEMDIST_LOW]  # high at the top
-AGREEMENT_ORDER = [AGREE_ALL, AGREE_2OF3, AGREE_1OF3, AGREE_NONE]  # all high first
 
 # Default threshold values
 DEFAULT_THRESHOLDS = {
@@ -126,44 +102,3 @@ SCORE_COLUMNS_MAPPING = {
     SCORE_NAME_DETECTION: COL_SCORE_DETECTION,
     SCORE_NAME_EMBEDDING: COL_SCORE_EMBEDDING
 }
-
-# ============================================================================
-# REGEX PATTERNS - Centralized Pattern Management
-# ============================================================================
-PATTERN_ALL_N_HIGH = r'all_(\d+)_high'
-PATTERN_ALL_N_LOW = r'all_(\d+)_low'
-PATTERN_K_OF_N_HIGH = r'(\d+)_of_(\d+)_high'
-PATTERN_SCORE_DETAILED = r'(\d+)_of_(\d+)_high_\w+(_\w+)?'
-PATTERN_SINGLE_SCORE_DETAILED = r'(\d+)_of_(\d+)_high_\w+'
-PATTERN_SEMSIM_KEYWORD = r'_semsim_'
-
-# ============================================================================
-# NODE CONTENT KEYWORDS
-# ============================================================================
-NODE_KEYWORD_SEMSIM = "semsim"
-NODE_SPLIT_TRUE = "split_true"
-NODE_SPLIT_FALSE = "split_false"
-
-# ============================================================================
-# EXPRESSION OPERATORS
-# ============================================================================
-EXPR_OP_AND = "&&"
-EXPR_OP_OR = "||"
-EXPR_OP_NOT = "!"
-EXPR_OP_PYTHON_AND = " and "
-EXPR_OP_PYTHON_OR = " or "
-EXPR_OP_PYTHON_NOT = " not "
-
-# ============================================================================
-# DISPLAY NAMES - Centralized UI Strings
-# ============================================================================
-BOOLEAN_DISPLAY_NAMES = {
-    SPLITTING_TRUE: "True",
-    SPLITTING_FALSE: "False",
-    SEMDIST_HIGH: "High",
-    SEMDIST_LOW: "Low"
-}
-
-# Score agreement patterns for flexible N-score systems
-SCORE_PATTERN_PREFIXES = ['2_of_3_high_fuzz_det', '2_of_3_high_fuzz_sim', '2_of_3_high_sim_det']
-SINGLE_SCORE_PATTERNS = ['1_of_3_high_fuzz', '1_of_3_high_sim', '1_of_3_high_det']

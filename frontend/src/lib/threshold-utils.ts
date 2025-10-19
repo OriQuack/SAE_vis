@@ -1,688 +1,126 @@
+/**
+ * Feature Group Utilities
+ *
+ * Core algorithms for building Sankey diagrams from feature groups via Set intersection.
+ * Replaces backend classification with frontend computation for instant threshold updates.
+ */
+
 import type {
-  SankeyThreshold,
-  ThresholdTree,
-  RangeSplitRule,
-  PatternSplitRule,
-  ExpressionSplitRule,
-  MetricType,
-  StageTypeConfig,
-  AddStageConfig,
-  ParentPathInfo,
-  SplitRule,
-  CategoryGroup
+  SankeyNode,
+  SankeyLink,
+  NodeCategory,
+  StageDefinition,
+  FeatureGroup,
+  ComputedSankeyStructure,
+  SankeyTreeNode,
+  TreeBasedSankeyStructure,
+  MetricType
 } from '../types'
-import {
-  buildRangeSplit,
-  buildFlexibleScoreAgreementSplit,
-  buildCategoryGroupPatternSplit,
-  createNode,
-  createParentPath
-} from './split-rule-builders'
-import {
-  SPLIT_TYPE_RANGE,
-  SPLIT_TYPE_PATTERN,
-  SPLIT_TYPE_EXPRESSION,
-  METRIC_FEATURE_SPLITTING,
-  METRIC_SEMSIM_MEAN,
-  METRIC_SEMSIM_MAX,
-  METRIC_SCORE_FUZZ,
-  METRIC_SCORE_SIMULATION,
-  METRIC_SCORE_DETECTION,
-  METRIC_SCORE_EMBEDDING,
-  CATEGORY_ROOT,
-  CATEGORY_FEATURE_SPLITTING,
-  CATEGORY_SEMANTIC_SIMILARITY,
-  CATEGORY_SCORE_AGREEMENT
-} from './constants'
+
 
 // ============================================================================
-// CONSTANTS
-// ============================================================================
-const NODE_ROOT_ID = "root"
-
-// ============================================================================
-// EXPRESSION SPLIT RULE HELPERS
+// CORE ALGORITHM
 // ============================================================================
 
 /**
- * Parse threshold value for a specific metric from an ExpressionSplitRule condition string
- * @param condition Condition string like "(score_fuzz >= 0.5 && score_detection >= 0.5)"
- * @param metric Metric name to extract threshold for
- * @returns Threshold value if found, null otherwise
+ * Compute Sankey structure from stage definitions and feature groups.
+ *
+ * This is the heart of the new system - builds the entire Sankey tree
+ * by computing intersections at each level.
+ *
+ * @param stages - Ordered list of stage definitions
+ * @param metricGroups - Map of metric name to feature groups
+ * @param allFeatures - Complete set of feature IDs after filtering
+ * @returns Complete Sankey structure with nodes, links, and feature sets
  */
-function parseThresholdFromCondition(condition: string, metric: string): number | null {
-  // Match patterns like "score_fuzz >= 0.5" or "score_fuzz < 0.5"
-  const regex = new RegExp(`${metric}\\s*(?:>=|<)\\s*([0-9.]+)`, 'g')
-  const match = regex.exec(condition)
+export function computeSankeyStructure(
+  stages: StageDefinition[],
+  metricGroups: Map<string, FeatureGroup[]>,
+  allFeatures: Set<number>
+): ComputedSankeyStructure {
+  const nodes: SankeyNode[] = []
+  const links: SankeyLink[] = []
+  const nodeFeatures = new Map<string, Set<number>>()
 
-  if (match && match[1]) {
-    return parseFloat(match[1])
+  // Root node contains all features
+  const rootNode: SankeyNode = {
+    id: 'root',
+    name: 'All Features',
+    stage: 0,
+    feature_count: allFeatures.size,
+    category: 'root' as NodeCategory,
+    feature_ids: Array.from(allFeatures)
+  }
+  nodes.push(rootNode)
+  nodeFeatures.set('root', new Set(allFeatures))
+
+  // If no stages, return root-only structure
+  if (stages.length === 0) {
+    return { nodes, links, nodeFeatures }
   }
 
-  return null
-}
+  // Build tree level by level
+  let currentLevelNodes = [rootNode]
 
-/**
- * Update threshold value for a specific metric in a condition string
- * @param condition Condition string to update
- * @param metric Metric name to update threshold for
- * @param newThreshold New threshold value
- * @returns Updated condition string
- */
-function updateThresholdInCondition(condition: string, metric: string, newThreshold: number): string {
-  const regex = new RegExp(`(${metric}\\s*(?:>=|<))\\s*[0-9.]+`, 'g')
-  return condition.replace(regex, `$1 ${newThreshold}`)
-}
+  for (const stage of stages) {
+    const nextLevelNodes: SankeyNode[] = []
+    const groups = metricGroups.get(stage.metric)
 
-/**
- * Extract all score metric thresholds from ExpressionSplitRule condition strings
- * @param expressionRule ExpressionSplitRule to extract from
- * @returns Record of metric name to threshold value
- */
-function extractThresholdsFromExpressionRule(expressionRule: ExpressionSplitRule): Record<string, number> {
-  const thresholds: Record<string, number> = {}
+    if (!groups || groups.length === 0) {
+      continue
+    }
 
-  // Parse first branch condition to extract thresholds
-  // (all branches should have same thresholds for each metric, just different operators)
-  if (expressionRule.branches.length > 0) {
-    const firstCondition = expressionRule.branches[0].condition
-    const metrics = expressionRule.available_metrics || []
+    let stageTotal = 0
 
-    for (const metric of metrics) {
-      if (metric.startsWith('score_')) {
-        const threshold = parseThresholdFromCondition(firstCondition, metric)
-        if (threshold !== null) {
-          thresholds[metric] = threshold
+    // For each node in current level
+    for (const parentNode of currentLevelNodes) {
+      const parentFeatures = nodeFeatures.get(parentNode.id)!
+
+      // Create child nodes by intersecting with each group
+      for (const group of groups) {
+        const childFeatures = intersection(parentFeatures, group.featureIds)
+
+        // Skip empty nodes
+        if (childFeatures.size === 0) {
+          continue
         }
-      }
-    }
-  }
+        stageTotal += childFeatures.size
 
-  return thresholds
-}
+        // Generate child node ID
+        const childId = buildNodeId(parentNode.id, stage.index, group.groupIndex)
 
-// Valid metric types for filtering
-const VALID_METRICS = [
-  METRIC_FEATURE_SPLITTING,
-  METRIC_SEMSIM_MEAN,
-  METRIC_SEMSIM_MAX,
-  METRIC_SCORE_FUZZ,
-  METRIC_SCORE_SIMULATION,
-  METRIC_SCORE_DETECTION,
-  METRIC_SCORE_EMBEDDING
-] as const
-
-// Available stage configurations for dynamic tree building
-export const AVAILABLE_STAGE_TYPES: StageTypeConfig[] = [
-  {
-    id: 'feature_splitting',
-    name: 'Feature Splitting',
-    description: 'Split features based on feature_splitting metric',
-    category: CATEGORY_FEATURE_SPLITTING,
-    defaultSplitRule: 'range',
-    defaultMetric: METRIC_FEATURE_SPLITTING,
-    defaultThresholds: [0.3]
-  },
-  {
-    id: 'semantic_similarity',
-    name: 'Semantic Similarity',
-    description: 'Split features based on semantic similarity',
-    category: CATEGORY_SEMANTIC_SIMILARITY,
-    defaultSplitRule: 'range',
-    defaultMetric: METRIC_SEMSIM_MEAN,
-    defaultThresholds: [0.88]  // Updated from 0.1 (distance) to 0.88 (similarity median)
-  },
-  {
-    id: 'score_agreement',
-    name: 'Score Agreement',
-    description: 'Classify features based on scoring method agreement',
-    category: CATEGORY_SCORE_AGREEMENT,
-    defaultSplitRule: 'pattern'
-  }
-] as const
-
-// ============================================================================
-// CORE TREE UTILITIES
-// ============================================================================
-
-/**
- * Update all score thresholds in the tree to match scoringMetricThresholds
- * This is used when thresholds are changed from Linear Set Diagram
- */
-export function updateScoreThresholdsInTree(
-  tree: ThresholdTree,
-  scoringMetricThresholds: Record<string, number>
-): ThresholdTree {
-  let updatedTree = tree
-
-  for (const node of tree.nodes) {
-    if (!node.split_rule) continue
-
-    if (node.split_rule.type === SPLIT_TYPE_PATTERN) {
-      const patternRule = node.split_rule as PatternSplitRule
-      const conditions = patternRule.conditions
-      const hasScoreMetrics = Object.keys(conditions).some(m => m.startsWith('score_'))
-
-      if (hasScoreMetrics) {
-        for (const metric of Object.keys(conditions)) {
-          if (metric.startsWith('score_') && scoringMetricThresholds[metric] !== undefined) {
-            updatedTree = updateNodeThreshold(updatedTree, node.id, [scoringMetricThresholds[metric]], metric)
-          }
+        // Create child node
+        const childNode: SankeyNode = {
+          id: childId,
+          name: group.rangeLabel,
+          stage: stage.index + 1,
+          feature_count: childFeatures.size,
+          category: getCategoryForMetric(stage.metric),
+          feature_ids: Array.from(childFeatures)
         }
+
+        nodes.push(childNode)
+        nodeFeatures.set(childId, childFeatures)
+        nextLevelNodes.push(childNode)
+
+        // Create link from parent to child
+        links.push({
+          source: parentNode.id,
+          target: childId,
+          value: childFeatures.size
+        })
       }
     }
 
-    if (node.split_rule.type === SPLIT_TYPE_EXPRESSION) {
-      const expressionRule = node.split_rule as ExpressionSplitRule
-      const availableMetrics = expressionRule.available_metrics || []
-      const hasScoreMetrics = availableMetrics.some(m => m.startsWith('score_'))
+    currentLevelNodes = nextLevelNodes
 
-      if (hasScoreMetrics) {
-        for (const metric of availableMetrics) {
-          if (metric.startsWith('score_') && scoringMetricThresholds[metric] !== undefined) {
-            updatedTree = updateNodeThreshold(updatedTree, node.id, [scoringMetricThresholds[metric]], metric)
-          }
-        }
-      }
+    // Early exit if no nodes at this level
+    if (currentLevelNodes.length === 0) {
+      break
     }
   }
 
-  return updatedTree
-}
-
-/**
- * Find a node by ID in the threshold tree
- * Optimized with early return
- */
-export function findNodeById(
-  tree: ThresholdTree,
-  nodeId: string
-): SankeyThreshold | null {
-  return tree.nodes.find(node => node.id === nodeId) || null
-}
-
-
-/**
- * Update thresholds for a specific node
- * Optimized with single pass and early returns
- */
-export function updateNodeThreshold(
-  tree: ThresholdTree,
-  nodeId: string,
-  thresholds: number[],
-  metric?: string
-): ThresholdTree {
-  const node = findNodeById(tree, nodeId)
-  if (!node || !node.split_rule) return tree
-
-  const updatedNodes = tree.nodes.map(n => {
-    if (n.id !== nodeId) return n
-
-    const { split_rule } = n
-    if (!split_rule) return n  // TypeScript guard
-
-    if (split_rule.type === SPLIT_TYPE_RANGE) {
-      return {
-        ...n,
-        split_rule: {
-          ...split_rule as RangeSplitRule,
-          thresholds
-        }
-      }
-    }
-
-    if (split_rule.type === SPLIT_TYPE_PATTERN) {
-      const rule = split_rule as PatternSplitRule
-      const updatedConditions = { ...rule.conditions }
-
-      if (metric && updatedConditions[metric]) {
-        updatedConditions[metric] = {
-          ...updatedConditions[metric],
-          threshold: thresholds[0]
-        }
-      } else {
-        const metrics = Object.keys(rule.conditions)
-        const len = Math.min(metrics.length, thresholds.length)
-        for (let i = 0; i < len; i++) {
-          updatedConditions[metrics[i]] = {
-            ...updatedConditions[metrics[i]],
-            threshold: thresholds[i]
-          }
-        }
-      }
-
-      return {
-        ...n,
-        split_rule: {
-          ...rule,
-          conditions: updatedConditions
-        }
-      }
-    }
-
-    if (split_rule.type === SPLIT_TYPE_EXPRESSION) {
-      const rule = split_rule as ExpressionSplitRule
-
-      if (!metric) {
-        return n
-      }
-
-      const updatedBranches = rule.branches.map(branch => ({
-        ...branch,
-        condition: updateThresholdInCondition(branch.condition, metric, thresholds[0])
-      }))
-
-      return {
-        ...n,
-        split_rule: {
-          ...rule,
-          branches: updatedBranches
-        }
-      }
-    }
-
-    return n
-  })
-
-  return { ...tree, nodes: updatedNodes }
-}
-
-/**
- * Get all metrics used in a node
- * Optimized with direct return and type safety
- */
-export function getNodeMetrics(node: SankeyThreshold): MetricType[] {
-  if (!node.split_rule) return []
-
-  const { type } = node.split_rule
-  let metrics: string[] = []
-
-  if (type === SPLIT_TYPE_RANGE) {
-    metrics = [(node.split_rule as RangeSplitRule).metric]
-  } else if (type === SPLIT_TYPE_PATTERN) {
-    metrics = Object.keys((node.split_rule as PatternSplitRule).conditions)
-  } else if (type === SPLIT_TYPE_EXPRESSION) {
-    const rule = node.split_rule as ExpressionSplitRule
-    metrics = rule.available_metrics || []
-  }
-
-  // Filter to only valid metric types
-  return metrics.filter(m => VALID_METRICS.includes(m as any)) as MetricType[]
-}
-
-/**
- * Get effective threshold values for a node and metric
- * Optimized with early returns and reduced conditionals
- */
-export function getEffectiveThreshold(
-  tree: ThresholdTree,
-  nodeId: string,
-  metric: string
-): number | number[] | null {
-  const node = findNodeById(tree, nodeId)
-  if (!node?.split_rule) return null
-
-  const { split_rule } = node
-
-  if (split_rule.type === SPLIT_TYPE_RANGE) {
-    const rangeRule = split_rule as RangeSplitRule
-    if (rangeRule.metric === metric) {
-      const { thresholds } = rangeRule
-      return thresholds.length === 1 ? thresholds[0] : thresholds
-    }
-  } else if (split_rule.type === SPLIT_TYPE_PATTERN) {
-    const patternRule = split_rule as PatternSplitRule
-    const condition = patternRule.conditions[metric]
-    if (condition?.threshold !== undefined) {
-      return condition.threshold
-    }
-  } else if (split_rule.type === SPLIT_TYPE_EXPRESSION) {
-    const expressionRule = split_rule as ExpressionSplitRule
-    // Parse threshold from first branch condition
-    if (expressionRule.branches.length > 0) {
-      const threshold = parseThresholdFromCondition(expressionRule.branches[0].condition, metric)
-      if (threshold !== null) {
-        return threshold
-      }
-    }
-  }
-
-  return null
-}
-
-/**
- * Extract score metric thresholds from threshold tree
- * Searches for pattern rules with score metric conditions and extracts thresholds
- * @param tree The threshold tree to search
- * @returns Record of metric name to threshold value
- */
-export function extractScoreThresholdsFromTree(tree: ThresholdTree): Record<string, number> {
-  const thresholds: Record<string, number> = {}
-
-  // Search all nodes for pattern or expression rules with score metrics
-  for (const node of tree.nodes) {
-    if (!node.split_rule) continue
-
-    if (node.split_rule.type === SPLIT_TYPE_PATTERN) {
-      const patternRule = node.split_rule as PatternSplitRule
-      const conditions = patternRule.conditions
-
-      // Extract thresholds from conditions
-      for (const [metric, condition] of Object.entries(conditions)) {
-        if (metric.startsWith('score_') && condition.threshold !== undefined) {
-          thresholds[metric] = condition.threshold
-        }
-      }
-    } else if (node.split_rule.type === SPLIT_TYPE_EXPRESSION) {
-      const expressionRule = node.split_rule as ExpressionSplitRule
-      // Extract thresholds from expression rule
-      const extractedThresholds = extractThresholdsFromExpressionRule(expressionRule)
-      Object.assign(thresholds, extractedThresholds)
-    }
-  }
-
-  return thresholds
-}
-
-/**
- * Get all metrics used in the threshold structure
- * Optimized with single pass and Set for deduplication
- */
-function getAllMetrics(nodes: SankeyThreshold[]): string[] {
-  const metrics = new Set<string>()
-
-  for (const node of nodes) {
-    if (!node.split_rule) continue
-
-    const { type } = node.split_rule
-
-    if (type === SPLIT_TYPE_RANGE) {
-      metrics.add((node.split_rule as RangeSplitRule).metric)
-    } else if (type === SPLIT_TYPE_PATTERN) {
-      const conditions = (node.split_rule as PatternSplitRule).conditions
-      for (const metric of Object.keys(conditions)) {
-        metrics.add(metric)
-      }
-    } else if (type === SPLIT_TYPE_EXPRESSION) {
-      const rule = node.split_rule as ExpressionSplitRule
-      if (rule.available_metrics) {
-        for (const metric of rule.available_metrics) {
-          metrics.add(metric)
-        }
-      }
-    }
-  }
-
-  return Array.from(metrics)
-}
-
-// ============================================================================
-// DYNAMIC TREE BUILDER
-// ============================================================================
-
-/**
- * Create a minimal threshold tree with only the root node
- */
-export function createRootOnlyTree(): ThresholdTree {
-  return {
-    nodes: [
-      createNode(NODE_ROOT_ID, 0, CATEGORY_ROOT, [], null, [])
-    ],
-    metrics: []
-  }
-}
-
-/**
- * Check if a node can have stages added to it
- * Optimized with inline conditionals
- */
-export function canAddStageToNode(tree: ThresholdTree, nodeId: string): boolean {
-  const node = findNodeById(tree, nodeId)
-  return node !== null && node.split_rule === null && node.children_ids.length === 0
-}
-
-/**
- * Add a new stage to a specific node
- * Optimized with reduced object spreads and better error handling
- */
-export function addStageToNode(
-  tree: ThresholdTree,
-  nodeId: string,
-  config: AddStageConfig
-): ThresholdTree {
-  const parentNode = findNodeById(tree, nodeId)
-  if (!parentNode) {
-    throw new Error(`Node ${nodeId} not found in tree`)
-  }
-
-  if (!canAddStageToNode(tree, nodeId)) {
-    throw new Error(`Cannot add stage to node ${nodeId} - it already has children`)
-  }
-
-  const stageConfig = AVAILABLE_STAGE_TYPES.find(s => s.id === config.stageType)
-  if (!stageConfig) {
-    throw new Error(`Unknown stage type: ${config.stageType}`)
-  }
-
-  const nextStage = parentNode.stage + 1
-  const newNodes: SankeyThreshold[] = []
-  let splitRule: SplitRule | null = null
-  const childrenIds: string[] = []
-
-  if (config.splitRuleType === 'range') {
-    const metric = config.metric || stageConfig.defaultMetric
-    if (!metric) {
-      throw new Error('Metric required for range split rule')
-    }
-
-    const thresholds = config.thresholds || stageConfig.defaultThresholds || [0.5]
-    splitRule = buildRangeSplit(metric, thresholds)
-
-    // Create child nodes for range split
-    for (let i = 0; i <= thresholds.length; i++) {
-      const childId = `${nodeId}_${metric}_${i}`
-      childrenIds.push(childId)
-
-      const parentPath = [
-        ...parentNode.parent_path,
-        createParentPath(nodeId, 'range', i, { metric, thresholds })
-      ]
-
-      newNodes.push(
-        createNode(childId, nextStage, stageConfig.category, parentPath, null, [])
-      )
-    }
-  } else if (config.splitRuleType === 'pattern' && config.stageType === 'score_agreement') {
-    const selectedMetrics = config.selectedScoreMetrics || [
-      'score_fuzz',
-      'score_simulation',
-      'score_detection'
-    ]
-    const thresholds = config.thresholds || []
-    const selectedThresholds = selectedMetrics.map((metric, i) =>
-      thresholds[i] !== undefined ? thresholds[i] : (metric === 'score_simulation' ? 0.1 : 0.5)
-    )
-
-    // Check if we should use CategoryGroups (passed through config)
-    const categoryGroups = config.customConfig?.categoryGroups || []
-    console.log('[addStageToNode] score_agreement - categoryGroups from config:', categoryGroups.length)
-
-    if (categoryGroups.length > 0) {
-      console.log('[addStageToNode] CategoryGroups found:', categoryGroups.map((g: CategoryGroup) => ({ id: g.id, name: g.name, columnCount: g.columnIds.length })))
-    }
-
-    // Use CategoryGroup-based split if groups exist, otherwise standard flexible split
-    if (categoryGroups.length > 0) {
-      console.log('[addStageToNode] Using CategoryGroup-based split with', categoryGroups.length, 'groups')
-      const expressionRule = buildCategoryGroupPatternSplit(categoryGroups, selectedMetrics, selectedThresholds)
-      console.log('[addStageToNode] CategoryGroup expression rule branches:', expressionRule.branches.map(b => ({ child_id: b.child_id, description: b.description })))
-
-      // Update split rule to use prefixed child_ids for uniqueness
-      const prefixedBranches = expressionRule.branches.map(branch => ({
-        ...branch,
-        child_id: `${nodeId}_${branch.child_id}`
-      }))
-      const prefixedDefaultChildId = expressionRule.default_child_id === 'others'
-        ? `${nodeId}_others`
-        : `${nodeId}_${expressionRule.default_child_id}`
-
-      splitRule = {
-        ...expressionRule,
-        branches: prefixedBranches,
-        default_child_id: prefixedDefaultChildId
-      }
-
-      // Create child nodes for expression split (from branches)
-      // Use prefixed IDs to ensure uniqueness across the tree
-      prefixedBranches.forEach((branch, idx) => {
-        const childId = branch.child_id  // Already prefixed above
-        childrenIds.push(childId)
-
-        const parentPath = [
-          ...parentNode.parent_path,
-          createParentPath(nodeId, 'expression', idx, {
-            condition: branch.condition,
-            description: branch.description
-          })
-        ]
-
-        const childNode = createNode(
-          childId,
-          nextStage,
-          CATEGORY_SCORE_AGREEMENT,
-          parentPath,
-          null,
-          []
-        )
-        newNodes.push(childNode)
-      })
-
-      // Add "others" default child only if not all combinations are covered
-      if (expressionRule.default_child_id === 'others') {
-        const othersChildId = prefixedDefaultChildId  // Already prefixed above
-        childrenIds.push(othersChildId)
-        const othersParentPath = [
-          ...parentNode.parent_path,
-          createParentPath(nodeId, 'expression', -1, {
-            condition: 'default',
-            description: 'Others (no match)'
-          })
-        ]
-        const othersNode = createNode(
-          othersChildId,
-          nextStage,
-          CATEGORY_SCORE_AGREEMENT,
-          othersParentPath,
-          null,
-          []
-        )
-        newNodes.push(othersNode)
-      }
-    } else {
-      console.log('[addStageToNode] Using legacy flexible split (no CategoryGroups available)')
-      splitRule = buildFlexibleScoreAgreementSplit(selectedMetrics, selectedThresholds)
-      console.log('[addStageToNode] Legacy split rule patterns:', (splitRule as any).patterns.length, 'patterns')
-      const patternRule = splitRule as PatternSplitRule
-
-      // Create child nodes for pattern split
-      patternRule.patterns.forEach((pattern, idx) => {
-        const childId = `${nodeId}_${pattern.child_id}`
-        childrenIds.push(childId)
-
-        const parentPath = [
-          ...parentNode.parent_path,
-          createParentPath(nodeId, 'pattern', idx, {
-            patternIndex: idx,
-            patternDescription: pattern.description || pattern.child_id.replace(/_/g, ' ')
-          })
-        ]
-
-        newNodes.push(
-          createNode(childId, nextStage, stageConfig.category, parentPath, null, [])
-        )
-      })
-    }
-  } else {
-    throw new Error(
-      `Split rule type ${config.splitRuleType} not yet implemented for stage type ${config.stageType}`
-    )
-  }
-
-  // Update parent node and add new nodes
-  const updatedNodes = tree.nodes.map(node =>
-    node.id === nodeId
-      ? { ...node, split_rule: splitRule, children_ids: childrenIds }
-      : node
-  ).concat(newNodes)
-
-  return {
-    nodes: updatedNodes,
-    metrics: getAllMetrics(updatedNodes)
-  }
-}
-
-/**
- * Remove a stage from a node
- * Optimized with iterative descendant collection
- */
-export function removeStageFromNode(tree: ThresholdTree, nodeId: string): ThresholdTree {
-  const node = findNodeById(tree, nodeId)
-  if (!node || !node.split_rule) return tree
-
-  // Collect all descendant IDs iteratively
-  const descendantIds = new Set<string>()
-  const toProcess = [...node.children_ids]
-
-  while (toProcess.length > 0) {
-    const childId = toProcess.pop()!
-    if (descendantIds.has(childId)) continue
-
-    descendantIds.add(childId)
-    const child = findNodeById(tree, childId)
-    if (child) {
-      toProcess.push(...child.children_ids)
-    }
-  }
-
-  // Filter out descendants and update the target node
-  const updatedNodes = tree.nodes
-    .filter(n => !descendantIds.has(n.id))
-    .map(n => n.id === nodeId
-      ? { ...n, split_rule: null, children_ids: [] }
-      : n
-    )
-
-  return {
-    nodes: updatedNodes,
-    metrics: getAllMetrics(updatedNodes)
-  }
-}
-
-/**
- * Get available stage types that can be added to a node
- * Optimized with helper functions and early returns
- */
-export function getAvailableStageTypes(tree: ThresholdTree, nodeId: string): StageTypeConfig[] {
-  if (!canAddStageToNode(tree, nodeId)) return []
-
-  const node = findNodeById(tree, nodeId)
-  if (!node) return []
-
-  const usedStageTypes = new Set<string>()
-
-  // Collect used stage types from parent path
-  for (const parent of node.parent_path) {
-    const stageType = getStageTypeFromParentInfo(parent)
-    if (stageType) usedStageTypes.add(stageType)
-  }
-
-  // Check current node's split rule
-  if (node.split_rule) {
-    const stageType = getStageTypeFromSplitRule(node.split_rule)
-    if (stageType) usedStageTypes.add(stageType)
-  }
-
-  return AVAILABLE_STAGE_TYPES.filter(stageType => !usedStageTypes.has(stageType.id))
+  return { nodes, links, nodeFeatures }
 }
 
 // ============================================================================
@@ -690,60 +128,348 @@ export function getAvailableStageTypes(tree: ThresholdTree, nodeId: string): Sta
 // ============================================================================
 
 /**
- * Extract stage type from split rule
- * Optimized with switch statement
+ * Fast Set intersection using JavaScript Set.
+ * Iterates over the smaller set for optimal performance.
+ *
+ * @param setA - First set
+ * @param setB - Second set
+ * @returns Intersection of both sets
  */
-function getStageTypeFromSplitRule(splitRule: SplitRule): string | null {
-  if (splitRule.type === SPLIT_TYPE_RANGE) {
-    const metric = (splitRule as RangeSplitRule).metric
-    switch (metric) {
-      case METRIC_FEATURE_SPLITTING:
-        return 'feature_splitting'
-      case METRIC_SEMSIM_MEAN:
-        return 'semantic_similarity'
-      default:
-        return null
+export function intersection(setA: Set<number>, setB: Set<number>): Set<number> {
+  const result = new Set<number>()
+
+  // Iterate over smaller set for performance
+  const smaller = setA.size < setB.size ? setA : setB
+  const larger = setA.size < setB.size ? setB : setA  // FIXED: Swap setB and setA for larger
+
+  for (const item of smaller) {
+    if (larger.has(item)) {
+      result.add(item)
     }
   }
 
-  if (splitRule.type === SPLIT_TYPE_PATTERN || splitRule.type === SPLIT_TYPE_EXPRESSION) {
-    return 'score_agreement'
-  }
-
-  return null
+  return result
 }
 
 /**
- * Extract stage type from parent path info
- * Optimized with direct property access
+ * Build node ID following convention: root, stage0_group0, stage0_group0_stage1_group0
+ *
+ * @param parentId - Parent node ID
+ * @param stageIndex - Stage index (0-based)
+ * @param groupIndex - Group index within stage (0-based)
+ * @returns Node ID string
  */
-function getStageTypeFromParentInfo(parentPath: ParentPathInfo): string | null {
-  const splitRule = parentPath.parent_split_rule
-  if (!splitRule) return null
+function buildNodeId(parentId: string, stageIndex: number, groupIndex: number): string {
+  if (parentId === 'root') {
+    return `stage${stageIndex}_group${groupIndex}`
+  }
+  return `${parentId}_stage${stageIndex}_group${groupIndex}`
+}
 
-  if (splitRule.type === 'range' && splitRule.range_info?.metric) {
-    const metric = splitRule.range_info.metric
-    switch (metric) {
-      case METRIC_FEATURE_SPLITTING:
-        return 'feature_splitting'
-      case METRIC_SEMSIM_MEAN:
-        return 'semantic_similarity'
-      default:
-        return null
-    }
+/**
+ * Get category for metric (for node coloring).
+ *
+ * @param metric - Metric name
+ * @returns Node category
+ */
+function getCategoryForMetric(metric: string): NodeCategory {
+  // Feature splitting metrics
+  if (metric === 'feature_splitting') {
+    return 'feature_splitting' as NodeCategory
   }
 
-  if (splitRule.type === 'pattern' || splitRule.type === 'expression') {
-    return 'score_agreement'
+  // Semantic distance metrics
+  if (metric === 'semdist_mean' || metric === 'semdist_max') {
+    return 'semantic_similarity' as NodeCategory
   }
 
-  return null
+  // Score metrics (standard)
+  if (metric.startsWith('score_')) {
+    return 'score_agreement' as NodeCategory
+  }
+
+  // Consistency metrics
+  if (metric.includes('consistency') || metric === 'overall_score') {
+    return 'consistency' as NodeCategory
+  }
+
+  // Fallback
+  return 'root' as NodeCategory
 }
 
 // ============================================================================
-// REMOVED UNUSED FUNCTIONS
+// TREE-BASED SANKEY BUILDING
 // ============================================================================
-// Previously exported but never imported/used:
-// - validateDynamicTree(): Tree structure validation (debugging utility)
-// - getTreeDescription(): Tree description generator (debugging utility)
-// - traverseTree(): Internal tree traversal (only used by removed functions)
+
+/**
+ * Convert a tree of SankeyTreeNodes to D3-compatible Sankey structure.
+ * This function traverses the tree and creates the flat nodes/links arrays needed by D3.
+ *
+ * @param tree - Map of node ID to SankeyTreeNode
+ * @returns TreeBasedSankeyStructure with nodes, links, and metadata
+ */
+export function convertTreeToSankeyStructure(tree: Map<string, SankeyTreeNode>): TreeBasedSankeyStructure {
+  const nodes: SankeyNode[] = []
+  const links: SankeyLink[] = []
+  let maxDepth = 0
+
+  // Walk the tree to build nodes and links
+  tree.forEach((node) => {
+    // Create node for D3
+    const sankeyNode: SankeyNode = {
+      id: node.id,
+      name: node.rangeLabel,
+      stage: node.depth,
+      feature_count: node.featureCount,
+      category: getNodeCategory(node),
+      feature_ids: Array.from(node.featureIds)
+    }
+    nodes.push(sankeyNode)
+
+    // Track max depth
+    if (node.depth > maxDepth) {
+      maxDepth = node.depth
+    }
+
+    // Create links to children
+    if (node.children.length > 0) {
+      node.children.forEach(childId => {
+        const child = tree.get(childId)
+        if (child && child.featureCount > 0) {
+          links.push({
+            source: node.id,
+            target: childId,
+            value: child.featureCount
+          })
+        }
+      })
+    }
+  })
+
+  return {
+    tree,
+    nodes,
+    links,
+    maxDepth
+  }
+}
+
+/**
+ * Get the category for a tree node based on its position and metric.
+ *
+ * @param node - SankeyTreeNode
+ * @returns NodeCategory for coloring
+ */
+function getNodeCategory(node: SankeyTreeNode): NodeCategory {
+  // Root node
+  if (node.depth === 0) {
+    return 'root' as NodeCategory
+  }
+
+  // Use metric to determine category
+  if (node.metric) {
+    return getCategoryForMetric(node.metric)
+  }
+
+  // Default fallback
+  return 'feature_splitting' as NodeCategory
+}
+
+// ============================================================================
+// BACKEND RESPONSE PROCESSING
+// ============================================================================
+
+/**
+ * Convert backend FeatureGroupResponse to FeatureGroup[] with Sets.
+ * Handles both standard metrics (feature_ids) and consistency metrics (feature_ids_by_source).
+ *
+ * @param response - Backend response
+ * @returns Array of FeatureGroup with Sets
+ */
+export function processFeatureGroupResponse(response: {
+  metric: string
+  groups: Array<{
+    group_index: number
+    range_label: string
+    feature_ids?: number[]
+    feature_ids_by_source?: Record<string, number[]>
+    feature_count: number
+  }>
+  total_features: number
+}): FeatureGroup[] {
+  return response.groups.map(group => {
+    let featureIds: Set<number>
+
+    if (group.feature_ids) {
+      // Standard metric: direct feature_ids
+      featureIds = new Set(group.feature_ids)
+    } else if (group.feature_ids_by_source) {
+      // Consistency metric: flatten feature_ids_by_source
+      const allIds = Object.values(group.feature_ids_by_source).flat()
+      featureIds = new Set(allIds)
+    } else {
+      // Empty group
+      featureIds = new Set()
+    }
+
+    return {
+      groupIndex: group.group_index,
+      rangeLabel: group.range_label,
+      featureIds,
+      featureCount: group.feature_count
+    }
+  })
+}
+
+// ============================================================================
+// TREE NODE HELPERS FOR SANKEY DIAGRAM
+// ============================================================================
+
+/**
+ * Get metrics that should be shown in histogram popover for a node.
+ *
+ * Shows the metric used for the NEXT stage (children), not the current node's metric.
+ * This allows users to see the distribution of the metric they'll use for splitting.
+ *
+ * @param node - SankeyTreeNode to get metrics for
+ * @param tree - Full tree map for reference
+ * @returns Array of metrics to display in histogram
+ */
+export function getNodeMetrics(
+  node: SankeyTreeNode,
+  tree: Map<string, SankeyTreeNode>
+): MetricType[] {
+  // If node has children, show the metric used for the next stage
+  if (node.children.length > 0) {
+    // Get first child to determine what metric was used for split
+    const firstChild = tree.get(node.children[0])
+    if (firstChild?.metric) {
+      return [firstChild.metric as MetricType]
+    }
+  }
+
+  // Leaf node (no children): show nothing
+  return []
+}
+
+/**
+ * Get all metrics used in the path from root to this node.
+ * Helper function for getAvailableStages.
+ *
+ * @param node - SankeyTreeNode to start from
+ * @param tree - Full tree map
+ * @returns Set of metric names used in ancestor path
+ */
+export function getMetricsInPath(
+  node: SankeyTreeNode,
+  tree: Map<string, SankeyTreeNode>
+): Set<string> {
+  const metrics = new Set<string>()
+  let currentNode: SankeyTreeNode | undefined = node
+
+  // Traverse up the tree to root
+  while (currentNode) {
+    if (currentNode.metric) {
+      metrics.add(currentNode.metric)
+    }
+
+    // Move to parent
+    if (currentNode.parentId) {
+      currentNode = tree.get(currentNode.parentId)
+    } else {
+      break
+    }
+  }
+
+  return metrics
+}
+
+/**
+ * Get available stages that can be added to this node.
+ * Filters out stages whose metrics are already used in the path from root to this node.
+ *
+ * @param node - SankeyTreeNode to check
+ * @param tree - Full tree map
+ * @param allStages - All possible stage options
+ * @returns Array of available stages that can be added
+ */
+export function getAvailableStages<T extends { metric: string }>(
+  node: SankeyTreeNode,
+  tree: Map<string, SankeyTreeNode>,
+  allStages: T[]
+): T[] {
+  // Get metrics already used in this path
+  const usedMetrics = getMetricsInPath(node, tree)
+
+  // Filter out stages with metrics already in use
+  return allStages.filter(stage => !usedMetrics.has(stage.metric))
+}
+
+/**
+ * Check if a stage can be added to this node.
+ * In the new tree-based system, any node can have children.
+ *
+ * @param node - SankeyTreeNode to check
+ * @returns Always true (any node can have stages added)
+ */
+export function canAddStage(_node: SankeyTreeNode): boolean {
+  return true
+}
+
+/**
+ * Check if a node has children.
+ * Used to determine if remove button should be shown.
+ *
+ * @param node - SankeyTreeNode to check
+ * @returns True if node has children
+ */
+export function hasChildren(node: SankeyTreeNode): boolean {
+  return node.children.length > 0
+}
+
+/**
+ * Get the path of metric constraints from root to this node.
+ * Returns the sequence of metric ranges that define this node's feature set.
+ * This represents the intersection of all parent constraints.
+ *
+ * @param nodeId - Node ID to get path constraints for
+ * @param tree - SankeyTreeNode map
+ * @returns Array of metric constraints from root to node
+ */
+export function getNodeThresholdPath(
+  nodeId: string,
+  tree: Map<string, SankeyTreeNode>
+): Array<{ metric: string; rangeLabel: string }> {
+  const constraints: Array<{ metric: string; rangeLabel: string }> = []
+  let currentNode = tree.get(nodeId)
+
+  // Walk up to root, collecting constraints
+  while (currentNode && currentNode.depth > 0) {
+    if (currentNode.metric && currentNode.rangeLabel) {
+      constraints.unshift({
+        metric: currentNode.metric,
+        rangeLabel: currentNode.rangeLabel
+      })
+    }
+    currentNode = currentNode.parentId ? tree.get(currentNode.parentId) : undefined
+  }
+
+  return constraints
+}
+
+/**
+ * Get ALL threshold values for a node.
+ * These are the thresholds THIS node uses to split into children.
+ * Returns empty array if node has no thresholds.
+ *
+ * @param nodeId - Node ID to get thresholds for
+ * @param tree - SankeyTreeNode map
+ * @returns Array of threshold values
+ */
+export function getNodeThresholds(
+  nodeId: string,
+  tree: Map<string, SankeyTreeNode>
+): number[] {
+  const node = tree.get(nodeId)
+  return node?.thresholds || []
+}

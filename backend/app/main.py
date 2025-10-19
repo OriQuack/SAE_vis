@@ -2,10 +2,34 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import logging
+import sys
+import os
 from contextlib import asynccontextmanager
 
 from .api import router as api_router
 from .services.visualization_service import DataService
+from .api import feature_groups
+
+# Configure logging for the application
+log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+log_file = os.getenv("LOG_FILE")
+
+handlers = [logging.StreamHandler(sys.stdout)]
+
+# Add file handler if LOG_FILE environment variable is set
+if log_file:
+    file_handler = logging.FileHandler(log_file, mode='a')
+    file_handler.setFormatter(
+        logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    )
+    handlers.append(file_handler)
+
+logging.basicConfig(
+    level=getattr(logging, log_level, logging.INFO),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=handlers,
+    force=True
+)
 
 logger = logging.getLogger(__name__)
 
@@ -18,9 +42,14 @@ async def lifespan(app: FastAPI):
         data_service = DataService()
         await data_service.initialize()
         logger.info("Data service initialized successfully")
+
+        # Initialize feature groups service
+        feature_groups.initialize_service()
+        logger.info("Feature groups service initialized successfully")
+
         yield
     except Exception as e:
-        logger.error(f"Failed to initialize data service: {e}")
+        logger.error(f"Failed to initialize services: {e}")
         raise
     finally:
         if data_service:

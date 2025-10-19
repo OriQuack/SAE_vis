@@ -153,6 +153,22 @@ class MasterParquetCreator:
             data.get("semantic_similarity_pairs", [])
         )
 
+        # Extract normalized scores and overall scores
+        normalized_scores_map = {}
+        overall_scores_map = {}
+
+        for norm_score in data.get("normalized_scores", []):
+            llm_explainer = norm_score["llm_explainer"]
+            normalized_scores_map[llm_explainer] = {
+                "z_score_embedding": norm_score.get("z_score_embedding"),
+                "z_score_fuzz": norm_score.get("z_score_fuzz"),
+                "z_score_detection": norm_score.get("z_score_detection")
+            }
+
+        for overall_score in data.get("overall_scores", []):
+            llm_explainer = overall_score["llm_explainer"]
+            overall_scores_map[llm_explainer] = overall_score.get("overall_score")
+
         # Create portable relative path for details_path
         try:
             # Try to make relative to project root first
@@ -191,6 +207,10 @@ class MasterParquetCreator:
 
             # Create a row for each scorer that evaluated this explanation
             for matching_score in matching_scores:
+                # Get normalized scores and overall score for this explainer
+                norm_scores = normalized_scores_map.get(explanation["llm_explainer"], {})
+                overall_score = overall_scores_map.get(explanation["llm_explainer"])
+
                 row = {
                     "feature_id": feature_id,
                     "sae_id": sae_id,
@@ -204,6 +224,10 @@ class MasterParquetCreator:
                     "score_simulation": matching_score.get("score_simulation"),
                     "score_detection": matching_score.get("score_detection"),
                     "score_embedding": matching_score.get("score_embedding"),
+                    "z_score_embedding": norm_scores.get("z_score_embedding"),
+                    "z_score_fuzz": norm_scores.get("z_score_fuzz"),
+                    "z_score_detection": norm_scores.get("z_score_detection"),
+                    "overall_score": overall_score,
                     "details_path": details_path
                 }
                 rows.append(row)
@@ -331,6 +355,10 @@ class MasterParquetCreator:
             pl.col("score_simulation").cast(pl.Float32),
             pl.col("score_detection").cast(pl.Float32),
             pl.col("score_embedding").cast(pl.Float32),
+            pl.col("z_score_embedding").cast(pl.Float32),
+            pl.col("z_score_fuzz").cast(pl.Float32),
+            pl.col("z_score_detection").cast(pl.Float32),
+            pl.col("overall_score").cast(pl.Float32),
             pl.col("details_path").cast(pl.Utf8)
         ])
 
@@ -352,6 +380,10 @@ class MasterParquetCreator:
                 "score_simulation": pl.Float32,
                 "score_detection": pl.Float32,
                 "score_embedding": pl.Float32,
+                "z_score_embedding": pl.Float32,
+                "z_score_fuzz": pl.Float32,
+                "z_score_detection": pl.Float32,
+                "overall_score": pl.Float32,
                 "details_path": pl.Utf8
             }
         )

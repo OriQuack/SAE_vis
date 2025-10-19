@@ -5,9 +5,7 @@ import AlluvialDiagram from './components/AlluvialDiagram'
 import HistogramPopover from './components/HistogramPopover'
 import FlowPanel from './components/FlowPanel'
 import TablePanel from './components/TablePanel'
-import VerticalBar from './components/VerticalBar'
 import ConsistencyPanel from './components/ConsistencyPanel'
-import { usePanelDataLoader } from './lib/utils'
 import * as api from './api'
 import './styles/base.css'
 import './styles/App.css'
@@ -78,12 +76,8 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
 
   // Store state - now with dual panel support
   const {
-    leftPanel,
-    rightPanel,
     filterOptions,
     fetchFilterOptions,
-    fetchSankeyData,
-    fetchMultipleHistogramData,
     initializeWithDefaultFilters,
     showComparisonView,
     toggleComparisonView
@@ -132,10 +126,6 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
     }
   }, [filterOptions, autoLoad, initializeWithDefaultFilters])
 
-  // Use custom hook to handle panel data loading (consolidates duplicate logic)
-  usePanelDataLoader('left', leftPanel, healthState.isHealthy, fetchMultipleHistogramData, fetchSankeyData)
-  usePanelDataLoader('right', rightPanel, healthState.isHealthy, fetchMultipleHistogramData, fetchSankeyData)
-
   // Show loading/error states if health check hasn't passed
   if (!healthState.isHealthy) {
     if (healthState.isChecking) {
@@ -180,7 +170,7 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
 
           {/* Center Panel Container - Row 2 */}
           <div className="sankey-view__center-panel-container">
-            {/* Center Left - Left Sankey Only */}
+            {/* Center Left - Left Sankey */}
             <div className="sankey-view__center-left">
               {/* Left Sankey Diagram */}
               <div className="sankey-view__sankey-left">
@@ -203,11 +193,6 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
                   </span>
                 </button>
               </div>
-            </div>
-
-            {/* Center Middle - Vertical Bar */}
-            <div className="sankey-view__center-middle">
-              <VerticalBar />
             </div>
 
             {/* Center Right - Table Panel with Overlay */}

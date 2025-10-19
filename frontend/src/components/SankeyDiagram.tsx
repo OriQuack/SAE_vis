@@ -12,11 +12,125 @@ import {
   applyRightToLeftTransform,
   RIGHT_SANKEY_MARGIN
 } from '../lib/d3-sankey-utils'
+import { calculateVerticalBarNodeLayout } from '../lib/d3-vertical-bar-sankey-utils'
+import {
+  getNodeMetrics,
+  getAvailableStages,
+  canAddStage,
+  hasChildren
+} from '../lib/threshold-utils'
 import { useResizeObserver } from '../lib/utils'
-import { findNodeById, getNodeMetrics, canAddStageToNode, getAvailableStageTypes } from '../lib/threshold-utils'
-import type { D3SankeyNode, D3SankeyLink, AddStageConfig, StageTypeConfig } from '../types'
-import { PANEL_LEFT, PANEL_RIGHT } from '../lib/constants'
+import type { D3SankeyNode, D3SankeyLink } from '../types'
+import {
+  PANEL_LEFT,
+  PANEL_RIGHT,
+  METRIC_FEATURE_SPLITTING,
+  METRIC_SEMSIM_MEAN,
+  METRIC_SCORE_FUZZ,
+  METRIC_SCORE_DETECTION,
+  METRIC_SCORE_EMBEDDING,
+  METRIC_LLM_SCORER_CONSISTENCY,
+  METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
+  METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
+  METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
+  METRIC_LLM_EXPLAINER_CONSISTENCY,
+  METRIC_OVERALL_SCORE,
+  CONSISTENCY_THRESHOLDS
+} from '../lib/constants'
 import '../styles/SankeyDiagram.css'
+
+// Simple stage configuration for inline selector
+interface StageOption {
+  id: string
+  name: string
+  description: string
+  metric: string
+  thresholds: readonly number[]
+}
+
+// Available stages for the NEW system - all 11 metrics
+const AVAILABLE_STAGES: StageOption[] = [
+  // Standard metrics (5)
+  {
+    id: 'feature_splitting',
+    name: 'Feature Splitting',
+    description: 'Split by feature splitting score',
+    metric: METRIC_FEATURE_SPLITTING,
+    thresholds: [0.3]
+  },
+  {
+    id: 'semantic_similarity',
+    name: 'Semantic Similarity',
+    description: 'Split by semantic similarity',
+    metric: METRIC_SEMSIM_MEAN,
+    thresholds: [0.88]
+  },
+  {
+    id: 'fuzz_score',
+    name: 'Fuzz Score',
+    description: 'Split by fuzz score',
+    metric: METRIC_SCORE_FUZZ,
+    thresholds: [0.5]
+  },
+  {
+    id: 'detection_score',
+    name: 'Detection Score',
+    description: 'Split by detection score',
+    metric: METRIC_SCORE_DETECTION,
+    thresholds: [0.5]
+  },
+  {
+    id: 'embedding_score',
+    name: 'Embedding Score',
+    description: 'Split by embedding score',
+    metric: METRIC_SCORE_EMBEDDING,
+    thresholds: [0.5]
+  },
+  // Consistency metrics (5)
+  {
+    id: 'llm_scorer_consistency',
+    name: 'LLM Scorer Consistency',
+    description: 'Split by scorer consistency',
+    metric: METRIC_LLM_SCORER_CONSISTENCY,
+    thresholds: CONSISTENCY_THRESHOLDS[METRIC_LLM_SCORER_CONSISTENCY]
+  },
+  {
+    id: 'within_explanation_consistency',
+    name: 'Within-Explanation Consistency',
+    description: 'Split by within-explanation consistency',
+    metric: METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
+    thresholds: CONSISTENCY_THRESHOLDS[METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY]
+  },
+  {
+    id: 'cross_explanation_metric_consistency',
+    name: 'Cross-Explanation Metric',
+    description: 'Split by cross-explanation metric consistency',
+    metric: METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
+    thresholds: CONSISTENCY_THRESHOLDS[METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY]
+  },
+  {
+    id: 'cross_explanation_overall_consistency',
+    name: 'Cross-Explanation Overall',
+    description: 'Split by cross-explanation overall consistency',
+    metric: METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
+    thresholds: CONSISTENCY_THRESHOLDS[METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY]
+  },
+  {
+    id: 'llm_explainer_consistency',
+    name: 'LLM Explainer Consistency',
+    description: 'Split by explainer consistency',
+    metric: METRIC_LLM_EXPLAINER_CONSISTENCY,
+    thresholds: CONSISTENCY_THRESHOLDS[METRIC_LLM_EXPLAINER_CONSISTENCY]
+  },
+  // Computed metric (1)
+  {
+    id: 'overall_score',
+    name: 'Overall Score',
+    description: 'Split by overall score',
+    metric: METRIC_OVERALL_SCORE,
+    thresholds: CONSISTENCY_THRESHOLDS[METRIC_OVERALL_SCORE]
+  }
+]
 
 // ==================== COMPONENT-SPECIFIC TYPES ====================
 interface SankeyDiagramProps {
@@ -222,91 +336,137 @@ const SankeyLink: React.FC<{
   )
 }
 
-const MetricSelectorModal: React.FC<{
-  onConfirm: (selectedMetrics: string[]) => void
-  onCancel: () => void
-}> = ({ onConfirm, onCancel }) => {
-  const [selectedMetrics, setSelectedMetrics] = useState<string[]>(['score_fuzz', 'score_simulation', 'score_detection'])
+const VerticalBarSankeyNode: React.FC<{
+  node: D3SankeyNode
+  scrollState: { scrollTop: number; scrollHeight: number; clientHeight: number } | null
+  onAddStage?: (e: React.MouseEvent) => void
+  onRemoveStage?: (e: React.MouseEvent) => void
+  canAddStage: boolean
+  canRemoveStage: boolean
+  flowDirection: 'left-to-right' | 'right-to-left'
+  animationDuration: number
+}> = ({ node, scrollState, onAddStage, onRemoveStage, canAddStage, canRemoveStage, flowDirection, animationDuration: _animationDuration }) => {
+  const layout = calculateVerticalBarNodeLayout(node, scrollState, 0)
 
-  const availableMetrics = [
-    { id: 'score_fuzz', name: 'Fuzz Score', description: 'String fuzzy matching score' },
-    { id: 'score_simulation', name: 'Simulation Score', description: 'Activation simulation score' },
-    { id: 'score_detection', name: 'Detection Score', description: 'Pattern detection score' },
-    { id: 'score_embedding', name: 'Embedding Score', description: 'Semantic embedding score' }
-  ]
-
-  const toggleMetric = (metricId: string) => {
-    setSelectedMetrics(prev =>
-      prev.includes(metricId)
-        ? prev.filter(m => m !== metricId)
-        : [...prev, metricId]
-    )
-  }
-
-  const handleConfirm = () => {
-    if (selectedMetrics.length === 0) {
-      alert('Please select at least one metric')
-      return
-    }
-    onConfirm(selectedMetrics)
-  }
+  // Calculate button position (same logic as standard nodes)
+  const isRightToLeft = flowDirection === 'right-to-left'
+  const buttonX = isRightToLeft && node.x0 !== undefined ? node.x0 - 15 : (node.x1 !== undefined ? node.x1 + 15 : 0)
+  const buttonY = node.y0 !== undefined && node.y1 !== undefined ? (node.y0 + node.y1) / 2 : 0
 
   return (
-    <div className="sankey-metric-modal-overlay" onClick={onCancel}>
-      <div className="sankey-metric-modal" onClick={(e) => e.stopPropagation()}>
-        <h3 className="sankey-metric-modal__title">
-          Select Scoring Metrics
-        </h3>
-        <p className="sankey-metric-modal__description">
-          Choose one or more scoring metrics to compare for agreement analysis:
-        </p>
-        <div className="sankey-metric-modal__list">
-          {availableMetrics.map(metric => (
-            <label
-              key={metric.id}
-              className={`sankey-metric-modal__metric ${
-                selectedMetrics.includes(metric.id) ? 'sankey-metric-modal__metric--selected' : ''
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={selectedMetrics.includes(metric.id)}
-                onChange={() => toggleMetric(metric.id)}
-                className="sankey-metric-modal__checkbox"
-              />
-              <div className="sankey-metric-modal__metric-content">
-                <div className="sankey-metric-modal__metric-name">
-                  {metric.name}
-                </div>
-                <div className="sankey-metric-modal__metric-description">
-                  {metric.description}
-                </div>
-              </div>
-            </label>
-          ))}
-        </div>
-        <div className="sankey-metric-modal__info">
-          <strong>Selected: {selectedMetrics.length} metric{selectedMetrics.length !== 1 ? 's' : ''}</strong>
-          <br />
-          This will create {Math.pow(2, selectedMetrics.length)} categories (2^{selectedMetrics.length} combinations)
-        </div>
-        <div className="sankey-metric-modal__actions">
-          <button
-            onClick={onCancel}
-            className="sankey-metric-modal__button sankey-metric-modal__button--cancel"
+    <g className="sankey-vertical-bar-node">
+      {/* Render three vertical bars */}
+      {layout.subNodes.map((subNode) => (
+        <g key={subNode.id}>
+          {/* Bar rectangle */}
+          <rect
+            x={subNode.x}
+            y={subNode.y}
+            width={subNode.width}
+            height={subNode.height}
+            fill={subNode.color}
+            opacity={subNode.selected ? 0.7 : 0.3}
+            stroke="#e5e7eb"
+            strokeWidth={0.5}
+            rx={3}
+          />
+          {/* Model name label */}
+          <text
+            x={subNode.x + subNode.width / 2}
+            y={subNode.y - 10}
+            textAnchor="middle"
+            fontSize={12}
+            fontWeight={subNode.selected ? 600 : 500}
+            fill="#374151"
+            opacity={subNode.selected ? 1.0 : 0.5}
+            style={{ pointerEvents: 'none', userSelect: 'none' }}
           >
-            Cancel
-          </button>
-          <button
-            onClick={handleConfirm}
-            disabled={selectedMetrics.length === 0}
-            className="sankey-metric-modal__button sankey-metric-modal__button--confirm"
+            {subNode.modelName}
+          </text>
+        </g>
+      ))}
+
+      {/* Global scroll indicator spanning all three bars */}
+      {layout.scrollIndicator && layout.subNodes.length > 0 && (
+        <rect
+          x={layout.subNodes[0].x}
+          y={layout.scrollIndicator.y}
+          width={layout.totalWidth}
+          height={layout.scrollIndicator.height}
+          fill="rgba(30, 41, 59, 0.25)"
+          stroke="#1e293b"
+          strokeWidth={1.5}
+          rx={3}
+          style={{ pointerEvents: 'none' }}
+        />
+      )}
+
+      {/* Add stage button */}
+      {canAddStage && (
+        <g className="sankey-node-add-stage">
+          <circle
+            cx={buttonX}
+            cy={buttonY}
+            r={12}
+            fill="#3b82f6"
+            stroke="#ffffff"
+            strokeWidth={2}
+            style={{
+              cursor: 'pointer',
+              opacity: 0.7,
+            //   transition: `all ${animationDuration}ms ease-out`
+            }}
+            onClick={onAddStage}
+            onMouseEnter={(e) => e.stopPropagation()}
+          />
+          <text
+            x={buttonX}
+            y={buttonY}
+            dy="0.35em"
+            fontSize={14}
+            fill="#ffffff"
+            fontWeight="bold"
+            textAnchor="middle"
+            style={{ pointerEvents: 'none', userSelect: 'none' }}
           >
-            Confirm Selection
-          </button>
-        </div>
-      </div>
-    </div>
+            +
+          </text>
+        </g>
+      )}
+
+      {/* Remove stage button */}
+      {canRemoveStage && (
+        <g className="sankey-node-remove-stage">
+          <circle
+            cx={buttonX}
+            cy={buttonY}
+            r={12}
+            fill="#ef4444"
+            stroke="#ffffff"
+            strokeWidth={2}
+            style={{
+              cursor: 'pointer',
+              opacity: 0.7,
+            //   transition: `all ${animationDuration}ms ease-out`
+            }}
+            onClick={onRemoveStage}
+            onMouseEnter={(e) => e.stopPropagation()}
+          />
+          <text
+            x={buttonX}
+            y={buttonY}
+            dy="0.35em"
+            fontSize={16}
+            fill="#ffffff"
+            fontWeight="bold"
+            textAnchor="middle"
+            style={{ pointerEvents: 'none', userSelect: 'none' }}
+          >
+            ×
+          </text>
+        </g>
+      )}
+    </g>
   )
 }
 
@@ -324,13 +484,41 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const loadingKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
   const errorKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
 
-  const data = useVisualizationStore(state => state[panelKey].sankeyData)
-  const thresholdTree = useVisualizationStore(state => state[panelKey].thresholdTree)
+  // Get data from store - NEW TREE-BASED SYSTEM ONLY
+  const computedSankey = useVisualizationStore(state => state[panelKey].computedSankey)
+  const filters = useVisualizationStore(state => state[panelKey].filters)
   const loading = useVisualizationStore(state => state.loading[loadingKey])
   const error = useVisualizationStore(state => state.errors[errorKey])
   const hoveredAlluvialNodeId = useVisualizationStore(state => state.hoveredAlluvialNodeId)
   const hoveredAlluvialPanel = useVisualizationStore(state => state.hoveredAlluvialPanel)
-  const { showHistogramPopover, addStageToTree, removeStageFromTree } = useVisualizationStore()
+  const tableScrollState = useVisualizationStore(state => state.tableScrollState)
+  const sankeyTree = useVisualizationStore(state => state[panelKey].sankeyTree)
+  const { showHistogramPopover, addStageToNode, removeNodeStage } = useVisualizationStore()
+
+  // NEW TREE-BASED SYSTEM: use computedSankey directly
+  const data = useMemo(() => {
+    if (!computedSankey) {
+      console.log(`[SankeyDiagram ${panel}] ⚠️ No computed sankey data`)
+      return null
+    }
+
+    console.log(`[SankeyDiagram ${panel}] ✅ Using TREE-BASED system`, {
+      nodes: computedSankey.nodes.length,
+      links: computedSankey.links.length,
+      maxDepth: computedSankey.maxDepth,
+      sankeyTreeSize: sankeyTree?.size
+    })
+
+    // Return computed structure in SankeyData format
+    return {
+      nodes: computedSankey.nodes,
+      links: computedSankey.links,
+      metadata: {
+        total_features: computedSankey.nodes.find(n => n.id === 'root')?.feature_count || 0,
+        applied_filters: filters
+      }
+    }
+  }, [computedSankey, filters, panel, sankeyTree])
 
   // Track previous data for smooth transitions
   const [displayData, setDisplayData] = useState(data)
@@ -339,12 +527,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const [inlineSelector, setInlineSelector] = useState<{
     nodeId: string
     position: { x: number; y: number }
-    availableStages: StageTypeConfig[]
-  } | null>(null)
-  const [metricSelectorState, setMetricSelectorState] = useState<{
-    nodeId: string
-    stageType: StageTypeConfig
-    position: { x: number; y: number }
+    availableStages: StageOption[]
   } | null>(null)
 
   // Resize observer hook with minimal debounce for responsiveness
@@ -409,13 +592,14 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
   // Event handlers
   const handleNodeHistogramClick = useCallback((node: D3SankeyNode) => {
-    if (!showHistogramOnClick || !thresholdTree) return
+    if (!showHistogramOnClick || !sankeyTree) return
 
-    const treeNode = findNodeById(thresholdTree, node.id)
+    const treeNode = sankeyTree.get(node.id)
     if (!treeNode) return
 
-    const metrics = getNodeMetrics(treeNode)
-    if (!metrics || metrics.length === 0) return
+    // Get metrics for this node (root shows all, others show their metric)
+    const metrics = getNodeMetrics(treeNode, sankeyTree)
+    if (metrics.length === 0) return
 
     const containerRect = containerElementRef.current?.getBoundingClientRect()
     const position = {
@@ -424,7 +608,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     }
 
     showHistogramPopover(node.id, node.name, metrics, position, undefined, undefined, panel, node.category)
-  }, [showHistogramOnClick, showHistogramPopover, thresholdTree, panel])
+  }, [showHistogramOnClick, showHistogramPopover, sankeyTree, panel])
 
   const handleLinkHistogramClick = useCallback((link: D3SankeyLink) => {
     const sourceNode = typeof link.source === 'object' ? link.source : null
@@ -433,13 +617,17 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   }, [handleNodeHistogramClick])
 
   const handleAddStageClick = useCallback((event: React.MouseEvent, node: D3SankeyNode) => {
-    if (!thresholdTree) return
-
     event.stopPropagation()
 
-    if (!canAddStageToNode(thresholdTree, node.id)) return
+    // NEW TREE SYSTEM: get available stages (filter out already-used metrics)
+    if (!sankeyTree || !computedSankey) return
 
-    const availableStages = getAvailableStageTypes(thresholdTree, node.id)
+    const treeNode = sankeyTree.get(node.id)
+    if (!treeNode) return
+
+    const availableStages = getAvailableStages(treeNode, sankeyTree, AVAILABLE_STAGES)
+    if (availableStages.length === 0) return
+
     const rect = event.currentTarget.getBoundingClientRect()
 
     setInlineSelector({
@@ -447,65 +635,59 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       position: { x: rect.left + rect.width + 10, y: rect.top },
       availableStages
     })
-  }, [thresholdTree])
+  }, [sankeyTree, computedSankey])
 
   const handleRemoveStageClick = useCallback((event: React.MouseEvent, node: D3SankeyNode) => {
     event.stopPropagation()
-    removeStageFromTree(node.id, panel)
-  }, [removeStageFromTree, panel])
 
-  const handleStageSelect = useCallback((stageTypeId: string) => {
-    if (!inlineSelector || !thresholdTree) return
+    // Use tree-based system for both panels
+    if (sankeyTree) {
+      // Remove all descendants of this node
+      removeNodeStage(node.id, panel)
+    }
+  }, [removeNodeStage, panel, sankeyTree])
+
+  const handleStageSelect = useCallback(async (stageTypeId: string) => {
+    if (!inlineSelector) return
 
     const stageType = inlineSelector.availableStages.find(s => s.id === stageTypeId)
-    if (!stageType) return
+    if (!stageType) {
+      console.error('[SankeyDiagram.handleStageSelect] ❌ Stage type not found:', stageTypeId)
+      return
+    }
+
+    console.log('[SankeyDiagram.handleStageSelect] 🎯 Stage selected:', {
+      stageTypeId,
+      stageType,
+      metric: stageType.metric,
+      thresholds: stageType.thresholds
+    })
 
     setInlineSelector(null)
 
-    const config: AddStageConfig = {
-      stageType: stageTypeId,
-      splitRuleType: stageType.defaultSplitRule,
-      metric: stageType.defaultMetric,
-      thresholds: stageType.defaultThresholds,
-      // Use default scoring metrics for score_agreement stage
-      ...(stageTypeId === 'score_agreement' && {
-        selectedScoreMetrics: ['score_fuzz', 'score_detection', 'score_simulation'],
-        thresholds: [0.5, 0.5, 0.1]  // Default thresholds for fuzz, detection, simulation
+    // Use tree-based system
+    const metric = stageType.metric
+    const thresholds = stageType.thresholds
+
+    if (metric && thresholds) {
+      console.log('[SankeyDiagram.handleStageSelect] ✅ Calling addStageToNode with:', { metric, thresholds })
+      await addStageToNode(inlineSelector.nodeId, metric, [...thresholds], panel)
+
+      // Show histogram popover after adding stage
+      setTimeout(() => {
+        const parentNode = layout?.nodes.find(n => n.id === inlineSelector.nodeId)
+        if (parentNode) {
+          handleNodeHistogramClick(parentNode)
+        }
+      }, 500)
+    } else {
+      console.error('[SankeyDiagram.handleStageSelect] ❌ Missing metric or thresholds:', {
+        metric,
+        thresholds,
+        stageType
       })
     }
-
-    addStageToTree(inlineSelector.nodeId, config, panel)
-
-    // Show histogram popover after adding stage
-    setTimeout(() => {
-      const parentNode = layout?.nodes.find(n => n.id === inlineSelector.nodeId)
-      if (parentNode) {
-        handleNodeHistogramClick(parentNode)
-      }
-    }, 500)
-  }, [inlineSelector, thresholdTree, addStageToTree, panel, layout, handleNodeHistogramClick])
-
-  const handleMetricSelectionConfirm = useCallback((selectedMetrics: string[]) => {
-    if (!metricSelectorState || !thresholdTree) return
-
-    const config: AddStageConfig = {
-      stageType: 'score_agreement',
-      splitRuleType: 'pattern',
-      selectedScoreMetrics: selectedMetrics,
-      thresholds: selectedMetrics.map(() => 0.5)  // Default threshold of 0.5 for all metrics
-    }
-
-    addStageToTree(metricSelectorState.nodeId, config, panel)
-    setMetricSelectorState(null)
-
-    // Show histogram popover after adding stage
-    setTimeout(() => {
-      const parentNode = layout?.nodes.find(n => n.id === metricSelectorState.nodeId)
-      if (parentNode) {
-        handleNodeHistogramClick(parentNode)
-      }
-    }, 500)
-  }, [metricSelectorState, thresholdTree, addStageToTree, panel, layout, handleNodeHistogramClick])
+  }, [inlineSelector, addStageToNode, panel, layout, handleNodeHistogramClick])
 
   // Render
   if (error) {
@@ -587,13 +769,41 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
             {/* Nodes */}
             <g className="sankey-diagram__nodes">
               {layout.nodes.map((node) => {
-                const canAdd = thresholdTree && canAddStageToNode(thresholdTree, node.id) &&
-                               getAvailableStageTypes(thresholdTree, node.id).length > 0
-                const treeNode = thresholdTree && findNodeById(thresholdTree, node.id)
-                const canRemove = treeNode && treeNode.children_ids.length > 0
+                // Calculate common props for both node types
+                // Use tree-based system for button visibility
+                let canAdd = false
+                let canRemove = false
+
+                if (sankeyTree && computedSankey) {
+                  // Tree-based system: check if node exists and can have children
+                  const treeNode = sankeyTree.get(node.id)
+                  if (treeNode) {
+                    canAdd = canAddStage(treeNode)
+                    canRemove = hasChildren(treeNode)
+                  }
+                }
+
                 const isHighlighted = hoveredAlluvialNodeId === node.id &&
                                     hoveredAlluvialPanel === (panel === PANEL_LEFT ? 'left' : 'right')
 
+                // Check if this is a vertical bar node
+                if (node.node_type === 'vertical_bar') {
+                  return (
+                    <VerticalBarSankeyNode
+                      key={node.id}
+                      node={node}
+                      scrollState={tableScrollState}
+                      onAddStage={canAdd ? (e) => handleAddStageClick(e, node) : undefined}
+                      onRemoveStage={canRemove ? (e) => handleRemoveStageClick(e, node) : undefined}
+                      canAddStage={!!canAdd}
+                      canRemoveStage={!!canRemove}
+                      flowDirection={flowDirection}
+                      animationDuration={animationDuration}
+                    />
+                  )
+                }
+
+                // Otherwise render standard node
                 return (
                   <SankeyNode
                     key={node.id}
@@ -647,14 +857,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
             ))}
           </div>
         </>
-      )}
-
-      {/* Metric Selector Modal */}
-      {metricSelectorState && (
-        <MetricSelectorModal
-          onConfirm={handleMetricSelectionConfirm}
-          onCancel={() => setMetricSelectorState(null)}
-        />
       )}
     </div>
   )

@@ -8,12 +8,11 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 
 ## Current Project Status: 🚀 ADVANCED RESEARCH PROTOTYPE
 
-**Phase 1-6 Complete**: ✅ Sankey, Alluvial, Histogram, LLM Comparison, UMAP visualizations
-**Phase 7 Active**: 🔨 TablePanel with feature-level scoring and consistency analysis
-**Current State**: Advanced research prototype with 7 visualization types
+**Phase 1-8 Complete**: ✅ Sankey, Alluvial, Histogram, LLM Comparison, UMAP, TablePanel, Consistency Integration
+**Current State**: Advanced research prototype with simplified architecture - feature grouping + frontend intersection
 **Active Usage**: Development servers on ports 8003 (backend) and 3003 (frontend)
-**Technical Readiness**: Conference-ready with production-grade performance
-**New Features**: Feature-level table with cell selection, consistency scoring, and saved groups
+**Technical Readiness**: Conference-ready with instant threshold updates
+**Architecture**: Simplified feature grouping API with tree-based frontend Sankey building
 
 ## Technology Stack & Architecture
 
@@ -27,7 +26,7 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 - **Data Storage**: Parquet files for efficient columnar data storage (1,648 features processed), JSON files for UMAP embeddings and cluster hierarchies
 - **Design Philosophy**: Research prototype optimized for flexibility and conference demonstration, avoiding over-engineering
 
-### Research Prototype Architecture (Three-Tier Design)
+### Research Prototype Architecture (Feature Grouping + Frontend Intersection)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -35,25 +34,28 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐   │
 │  │   React 19.1.1  │ │   Zustand       │ │   D3.js         │   │
 │  │   TypeScript    │ │   State Store   │ │   Visualizations│   │
-│  │   Components    │ │   (Slice-based) │ │   (Advanced)    │   │
+│  │   Tree Building │ │   Global Cache  │ │   (Advanced)    │   │
+│  │   Set Intersect │ │   Feature Groups│ │   Sankey, UMAP  │   │
 │  └─────────────────┘ └─────────────────┘ └─────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
-                                 ↕ REST API (JSON/HTTP)
+                                 ↕ POST /api/feature-groups
+                                   {metric, thresholds, filters}
+                                 ↕ {groups: [{feature_ids, range_label}]}
 ┌─────────────────────────────────────────────────────────────────┐
 │                     FastAPI Backend Layer                       │
 │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐   │
-│  │   DataService   │ │   Async Ops     │ │   ThresholdMgr  │   │
-│  │   (Polars)      │ │   & Lifecycle   │ │   SankeyBuilder │   │
-│  │   Lazy Loading  │ │   Management    │ │   Classification│   │
+│  │FeatureGroupSvc  │ │   Async Ops     │ │   Filter Mgr    │   │
+│  │ Simple Grouping │ │   & Lifecycle   │ │   Validation    │   │
+│  │ N→N+1 Branches  │ │   Management    │ │   String Cache  │   │
 │  └─────────────────┘ └─────────────────┘ └─────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
-                                 ↕ Lazy Loading & String Cache
+                                 ↕ Polars LazyFrame Operations
 ┌─────────────────────────────────────────────────────────────────┐
 │                       Data Storage Layer                        │
 │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐   │
-│  │ Master Parquet  │ │   Detailed      │ │  String Cache   │   │
-│  │ 1,648 features  │ │   JSON Files    │ │   Optimization  │   │
-│  │ feature_analysis│ │   Individual    │ │   Categorical   │   │
+│  │ Master Parquet  │ │   Consistency   │ │  UMAP + LLM     │   │
+│  │ 1,648 features  │ │   Scores        │ │  Comparison     │   │
+│  │ feature_analysis│ │   Pre-computed  │ │  JSON Data      │   │
 │  └─────────────────┘ └─────────────────┘ └─────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -65,26 +67,24 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 ├── backend/                          # ✅ FastAPI Backend (Production-Ready)
 │   ├── app/
 │   │   ├── main.py                  # FastAPI application with lifespan management
-│   │   ├── api/                    # Modular API endpoints (8 defined, 8 implemented)
+│   │   ├── api/                    # Modular API endpoints
 │   │   │   ├── filters.py           # GET /api/filter-options
 │   │   │   ├── histogram.py         # POST /api/histogram-data
-│   │   │   ├── sankey.py           # POST /api/sankey-data
+│   │   │   ├── feature_groups.py    # POST /api/feature-groups (PRIMARY ENDPOINT)
 │   │   │   ├── comparison.py        # POST /api/comparison-data
 │   │   │   ├── llm_comparison.py    # POST /api/llm-comparison
-│   │   │   ├── threshold_features.py # POST /api/threshold-features
 │   │   │   ├── umap.py             # POST /api/umap-data
 │   │   │   ├── table.py            # POST /api/table-data (Phase 7)
 │   │   │   └── feature.py          # GET /api/feature/{id}
 │   │   ├── models/                 # Pydantic request/response models
 │   │   │   ├── requests.py         # API request schemas
 │   │   │   ├── responses.py        # API response schemas
-│   │   │   └── common.py           # Shared models (Filters, Thresholds, etc.)
+│   │   │   └── common.py           # Shared models (Filters, etc.)
 │   │   └── services/               # Business logic layer
-│   │       ├── visualization_service.py  # High-performance Polars visualization service
+│   │       ├── feature_group_service.py  # Feature grouping by threshold ranges
+│   │       ├── visualization_service.py  # Histogram and visualization data
 │   │       ├── table_data_service.py     # Table data processing service (Phase 7)
-│   │       ├── feature_classifier.py     # V2 feature classification engine
-│   │       ├── rule_evaluators.py        # Split rule evaluation logic
-│   │       ├── node_labeler.py           # Sankey node display name generation
+│   │       ├── consistency_service.py    # Consistency score calculations (Phase 8)
 │   │       └── data_constants.py         # Data schema constants
 │   ├── docs/                       # API documentation
 │   ├── start.py                    # Production startup script
@@ -120,11 +120,8 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 │   │   │   ├── d3-linear-set-utils.ts # Linear set calculations
 │   │   │   ├── d3-flow-utils.ts    # Flow visualization utilities
 │   │   │   ├── d3-threshold-group-utils.ts # Threshold group utilities
-│   │   │   ├── threshold-utils.ts   # Threshold tree operations
-│   │   │   ├── threshold-group-converter.ts # Threshold group conversion
-│   │   │   ├── dynamic-tree-builder.ts # Dynamic stage creation/removal
+│   │   │   ├── threshold-utils.ts   # Tree-based Sankey computation with set intersection
 │   │   │   ├── selection-utils.ts   # Threshold selection utilities
-│   │   │   ├── split-rule-builders.ts # Split rule construction helpers
 │   │   │   └── utils.ts            # General helper functions (includes useResizeObserver hook)
 │   │   ├── store.ts                # Zustand state management with dual panels
 │   │   ├── types.ts               # TypeScript type definitions
@@ -135,7 +132,8 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 │   └── CLAUDE.md                  # ✅ Frontend-specific documentation
 ├── data/                           # ✅ Data Processing Pipeline
 │   ├── master/
-│   │   └── feature_analysis.parquet # Master data file (1,648 features)
+│   │   ├── feature_analysis.parquet # Master data file (1,648 features)
+│   │   └── consistency_scores.parquet # Pre-computed consistency scores (Phase 8)
 │   ├── detailed_json/              # Individual feature JSON files
 │   ├── umap_feature/               # Feature UMAP embeddings and visualizations
 │   ├── umap_explanations/          # Explanation UMAP embeddings
@@ -153,31 +151,31 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 **Core Features:**
 - **FastAPI 0.104.1**: Modern async web framework with automatic documentation
 - **Polars Data Processing**: High-performance lazy evaluation
-- **9 API Endpoints**: All operational with sub-second response times
+- **8 API Endpoints**: All operational with sub-second response times
 - **Production Servers**: Active on port 8003 (primary), 8001 (development)
-- **Performance**: 20-30% faster with ParentPath-based optimizations
+- **Simplified Architecture**: Feature grouping with frontend-driven tree building
 
 **Data Processing Pipeline:**
 ```
-Raw Data → Polars LazyFrame → Feature Classification → Hierarchical Thresholds → Sankey Response
+User Filters → Polars LazyFrame → Feature Grouping (N→N+1) → Feature IDs by Range → Frontend
 ```
 
-**Flexible Classification Pipeline Example (Current Configuration):**
+**Feature Grouping Logic:**
 ```
-Stage 0: Root (All Features: 1,648)
-         ↓ [Range Rule: feature_splitting threshold]
-Stage 1: Feature Splitting (True/False based on configurable threshold)
-         ↓ [Range Rule: semdist_mean threshold]
-Stage 2: Semantic Distance (High/Low based on configurable threshold)
-         ↓ [Pattern Rule: Multi-metric scoring agreement]
-Stage 3: Score Agreement (Flexible N-way classification)
-         ├── All N High (all scores ≥ threshold)
-         ├── N-1 High (exactly N-1 scores ≥ threshold)
-         ├── ... (configurable patterns)
-         └── All N Low (all scores < threshold)
+Backend Endpoint: POST /api/feature-groups
+Request: { filters, metric, thresholds: [0.3, 0.7] }
+Response: {
+  groups: [
+    { group_index: 0, range_label: "< 0.30", feature_ids: [1,5,12,...], count: 245 },
+    { group_index: 1, range_label: "0.30 - 0.70", feature_ids: [2,8,15,...], count: 892 },
+    { group_index: 2, range_label: ">= 0.70", feature_ids: [3,9,18,...], count: 511 }
+  ]
+}
 
-Note: Stage order and scoring methods are fully configurable through
-threshold tree structure. Not limited to 3 scores or fixed pipeline.
+Frontend builds Sankey tree by:
+1. Caching feature groups by metric+thresholds
+2. Building tree structure level-by-level
+3. Computing child nodes via set intersection: parent_features ∩ group_features
 ```
 
 ### ✅ FRONTEND: Advanced React Application
@@ -192,8 +190,9 @@ threshold tree structure. Not limited to 3 scores or fixed pipeline.
 
 **Current Implementation:**
 - **Dual-Panel Architecture**: Left/right panel system for comparison visualization with independent state
-- **Dynamic Tree Builder**: Runtime stage creation/removal with `dynamic-tree-builder.ts`
-- **Threshold Tree System V2**: Flexible threshold tree with configurable split rules (range, pattern, expression)
+- **Tree-Based Sankey Building**: Frontend builds Sankey structure using set intersection algorithm
+- **Feature Group Caching**: Global cache by metric+thresholds for instant threshold updates
+- **Set Intersection Logic**: Efficient child node computation via parent ∩ group features
 - **Sankey Flow Visualization**: Multi-stage hierarchical flow diagrams
 - **Alluvial Flow Visualization**: Cross-panel flow comparison with feature ID tracking
 - **Advanced Filtering**: Multi-select dropdowns with dynamic options from backend
@@ -213,12 +212,11 @@ threshold tree structure. Not limited to 3 scores or fixed pipeline.
 |----------|---------|--------|
 | `GET /api/filter-options` | Dynamic filter options | ✅ ~50ms |
 | `POST /api/histogram-data` | Threshold visualization | ✅ ~200ms |
-| `POST /api/sankey-data` | Multi-stage flow diagrams | ✅ ~300ms |
+| `POST /api/feature-groups` | Feature IDs grouped by thresholds | ✅ ~50ms (PRIMARY) |
 | `POST /api/comparison-data` | Alluvial comparisons | ✅ Active |
 | `POST /api/llm-comparison` | LLM consistency stats | ✅ ~10ms |
-| `POST /api/threshold-features` | Feature IDs by threshold | ✅ ~50ms |
 | `POST /api/umap-data` | UMAP projections | ✅ ~20ms |
-| `POST /api/table-data` | Feature-level scoring table | ✅ NEW (Phase 7) |
+| `POST /api/table-data` | Feature-level scoring table | ✅ ~300ms (Phase 7) |
 | `GET /api/feature/{id}` | Individual feature details | ✅ ~10ms |
 | `GET /health` | Service health check | ✅ ~5ms |
 
@@ -290,26 +288,23 @@ npm run preview
 - **Schema**: feature_id, sae_id, explanation_method, llm_explainer, llm_scorer, feature_splitting, semdist_mean, semdist_max, scores (fuzz, simulation, detection, embedding), details_path
 - **Size**: 1,648 features with complete metadata
 
-### Dynamic Threshold Tree System (Current Architecture)
-- **Dynamic Tree Builder**: Runtime stage creation and removal through `dynamic-tree-builder.ts`
-  - `createRootOnlyTree()`: Initialize with root-only tree
-  - `addStageToNode()`: Add new classification stage to any node at runtime
+### Tree-Based Sankey System (Current Architecture)
+- **Frontend Tree Building**: Sankey structure computed locally using feature group intersection
+- **Feature Group Caching**: Global cache by `metric:thresholds` key for instant updates
+- **Set Intersection Algorithm**: Child nodes created via `parent_features ∩ group_features`
+- **Tree Structure**: Map-based tree with `SankeyTreeNode` containing feature IDs and metadata
+- **Threshold Path Support**: Histogram requests include threshold path for accurate filtering
+- **Dynamic Stage Management**: Runtime stage creation/removal via store actions
+  - `loadRootFeatures()`: Initialize root node with all features
+  - `addStageToNode()`: Add stage by fetching groups and computing intersections
   - `removeStageFromNode()`: Remove stage and collapse subtree
-- **Split Rule Types**: Three types of split rules for maximum flexibility:
-  - **Range Rules**: Single metric with N threshold values creating N+1 branches
-  - **Pattern Rules**: Multi-metric pattern matching with configurable conditions
-  - **Expression Rules**: Complex logical expressions for advanced splitting logic
-- **Split Rule Builders**: Helper functions in `split-rule-builders.ts` for easy rule construction
-- **Flexible Scoring Methods**: Support for any number of scoring methods (not limited to 3)
-- **Parent Path Tracking**: Complete path information from root to any node
-- **Research-Oriented Design**: Optimized for conference demonstration with live tree modification
-
+- **Research-Oriented Design**: Optimized for flexibility with instant threshold updates
 
 ### Data Processing Features
 - **Polars Lazy Evaluation**: Efficient query processing for large datasets
 - **String Cache Optimization**: Enhanced categorical data operations
 - **Multi-column Filtering**: Boolean logic for complex filter combinations
-- **Hierarchical Aggregation**: Three-stage Sankey data generation
+- **Feature Grouping**: N thresholds → N+1 groups with range labels
 - **Comprehensive Validation**: Data integrity checks and error reporting
 
 ## Key Technical Achievements
@@ -320,11 +315,11 @@ npm run preview
 - **String cache optimization** for categorical data processing
 - **Client-side memoization** for expensive D3 calculations
 - **Debounced interactions** for smooth user experience
-- **ParentPath-Based Caching (NEW)**: O(1) node lookups with cached dictionaries
-- **Path-Based Filtering (NEW)**: Direct filtering for leaf nodes without full classification (3-5x faster)
-- **Early Termination (NEW)**: Stops classification at target stage for intermediate nodes (2-3x faster)
-- **Memory Optimization (NEW)**: ~50% reduction in temporary allocations
-- **Overall Performance Gain**: 20-30% faster Sankey generation for typical threshold trees
+- **Feature Group Caching**: Global cache by metric+thresholds prevents redundant backend calls
+- **Set Intersection**: O(min(|A|, |B|)) complexity for child node computation
+- **Instant Threshold Updates**: Cached groups enable local tree rebuilding without backend roundtrip
+- **Stateless Backend**: Simple feature grouping scales horizontally
+- **Overall Performance Gain**: Instant Sankey updates for threshold changes, ~50ms for new metric groups
 
 ### 🏗️ Research-Oriented Architecture
 - **Modular component system** with clear separation of concerns (avoiding over-engineering)
@@ -334,7 +329,7 @@ npm run preview
 - **Conference demonstration** configuration
 
 ### 🎯 Advanced User Experience
-- **Interactive Sankey diagrams** with flexible threshold tree V2 management
+- **Interactive Sankey diagrams** with dynamic tree building and instant threshold updates
 - **Portal-based popovers** with advanced positioning and drag functionality
 - **Real-time data updates** with loading states and error handling
 - **Responsive design** with adaptive layouts
@@ -355,21 +350,21 @@ npm run preview
 - ✅ **Filter System**: Multi-select filters with backend integration
 - ✅ **Histogram Popovers**: Interactive threshold visualization
 
-### ✅ Phase 2: Dynamic Tree Builder (COMPLETE)
-- ✅ **Runtime Stage Creation**: `addStageToNode()` for dynamic tree building
+### ✅ Phase 2: Tree-Based Sankey Building (COMPLETE)
+- ✅ **Tree-Based Architecture**: Map-based tree structure with `SankeyTreeNode`
+- ✅ **Feature Group Caching**: Global cache by metric+thresholds for instant updates
+- ✅ **Set Intersection Algorithm**: Efficient child node computation
+- ✅ **Runtime Stage Creation**: `addStageToNode()` fetches groups and computes intersections
 - ✅ **Runtime Stage Removal**: `removeStageFromNode()` for tree simplification
-- ✅ **Root-Only Mode**: `createRootOnlyTree()` for starting fresh
-- ✅ **Split Rule Builders**: Helper functions for easy rule construction
 - ✅ **Alluvial Flows**: Cross-panel feature tracking and flow visualization
-- ✅ **Classification Engine**: V2 classification with split evaluators
 
 ### ✅ Phase 3: Performance Optimization (COMPLETE - January 2025)
-- ✅ **Node Lookup Caching**: O(1) node access with `_nodes_by_id` and `_nodes_by_stage` caches
-- ✅ **Path Constraint Extraction**: `get_path_constraints()` method for direct filtering
-- ✅ **Path-Based Filtering**: Optimized `_filter_by_path_constraints()` for leaf nodes
-- ✅ **Early Termination**: `_filter_by_targeted_classification()` stops at target stage
-- ✅ **Cache Utilization**: All methods use cached lookups from `ThresholdStructure`
-- ✅ **Performance Validation**: 20-30% faster Sankey generation, 3-5x faster leaf node filtering
+- ✅ **Feature Group Caching**: Global cache prevents redundant API calls for same metric+thresholds
+- ✅ **Set Intersection**: O(min(|A|, |B|)) algorithm for efficient child node computation
+- ✅ **Instant Updates**: Threshold changes trigger local tree rebuild without backend roundtrip
+- ✅ **Stateless Backend**: Simple grouping API enables horizontal scaling
+- ✅ **Cache Invalidation**: Filter changes clear cache for fresh data
+- ✅ **Performance Validation**: Instant Sankey updates, ~50ms for new groups
 
 ### ✅ Phase 4: Threshold Group Management (COMPLETE - January 2025)
 - ✅ **HistogramPanel Component**: Multi-histogram visualization with 5 metrics (Feature Splitting, Semantic Similarity, Embedding/Fuzz/Detection Scores)
@@ -409,7 +404,7 @@ npm run preview
 - ✅ **Cross-Panel Linking**: Feature-explanation cluster highlighting
 - ✅ **Backend**: POST /api/umap-data with pre-calculated projections
 
-### 🔨 Phase 7: TablePanel Visualization (ACTIVE - Current)
+### ✅ Phase 7: TablePanel Visualization (COMPLETE - October 2025)
 - ✅ **Feature-Level Scoring**: 824 rows with embedding/fuzz/detection scores per explainer
 - ✅ **Consistency Types**: LLM Scorer, Within-explanation, Cross-explanation, LLM Explainer
 - ✅ **Cell Group Selection**: Drag-to-select with union/difference modes
@@ -420,22 +415,38 @@ npm run preview
 - ✅ **Backend**: POST /api/table-data with consistency calculations
 - ✅ **Real-time Coloring**: Green→yellow→red consistency gradient
 
+### ✅ Phase 8: Consistency Score Integration (COMPLETE - October 2025)
+- ✅ **Pre-computed Consistency Scores**: consistency_scores.parquet with 8 consistency metrics
+- ✅ **Consistency Service**: Backend service for consistency calculations (consistency_service.py)
+- ✅ **Consistency Types**:
+  - LLM Scorer Consistency (fuzz, detection): Consistency across different scorers
+  - Within-Explanation Metric Consistency: Consistency across metrics within same explainer
+  - Cross-Explanation Metric Consistency (embedding, fuzz, detection): Consistency across explainers per metric
+  - Cross-Explanation Overall Score Consistency: Overall score consistency across explainers
+  - LLM Explainer Consistency: Semantic similarity between explanations from different LLMs
+- ✅ **Feature Grouping**: Consistency metrics supported by POST /api/feature-groups
+- ✅ **Preprocessing Script**: 8_precompute_consistency_scores.py for batch calculation
+- ✅ **Performance Optimization**: Pre-computed values for fast feature grouping
+- ✅ **Frontend Integration**: Consistency metrics available for Sankey stage creation
+
 ### 📝 Future Enhancements
 - **TablePanel**: Export selected cell groups to CSV/JSON
 - **UMAP**: Cross-visualization linking with TablePanel selections
-- **Dynamic LLM Computation**: Real-time consistency calculation instead of pre-calculated stats
+- **Dynamic Consistency**: Real-time consistency calculation for custom filter combinations
 - **Debug View**: Individual feature inspection with detailed path visualization
+- **Advanced Tree Operations**: Tree serialization/deserialization for saving/loading configurations
 
 ## Important Development Notes
 
 1. **Data Files**:
    - Master parquet: `/data/master/feature_analysis.parquet` (1,648 features)
+   - Consistency scores: `/data/master/consistency_scores.parquet` (pre-computed, 8 metrics)
    - LLM stats: `/data/llm_comparison/llm_comparison_stats.json`
    - UMAP projections: `/data/umap_feature/`, `/data/umap_explanations/`, `/data/umap_clustering/`
 2. **Port Configuration**: Backend 8003, Frontend 3003
 3. **Type Safety**: Full TypeScript integration - maintain type definitions
 4. **Testing**: Run `python test_api.py` after backend changes
-5. **Current Branch**: `table` (Phase 7 development)
+5. **Architecture**: Simplified feature grouping + frontend intersection for maximum flexibility
 
 ## Project Maturity Assessment
 
@@ -447,13 +458,14 @@ This SAE Feature Visualization platform represents a **research prototype for co
 - ✅ **Reliable error handling** and graceful degradation for live demonstrations
 - ✅ **Full-stack TypeScript integration** with excellent developer experience
 - ✅ **Conference demonstration readiness** with stable local deployment
-- ✅ **Flexible threshold system** supporting dynamic stage ordering and variable scoring methods
+- ✅ **Simplified architecture** with feature grouping + frontend intersection for instant updates
 
 **Important Design Philosophy:**
 - **Research Prototype**: Designed for conference demonstration, not production deployment
-- **Flexibility Over Enterprise Features**: Prioritizes research flexibility over enterprise-grade scalability
-- **Maintainability**: Avoids over-engineering to ensure readability and ease of modification
+- **Simplicity First**: Backend does simple feature grouping, frontend handles tree building
+- **Maintainability**: Clean separation of concerns with minimal complexity
+- **Flexibility**: Instant threshold updates without backend recomputation
 - **Conference Ready**: Optimized for live academic presentations and research validation
 
 The platform is ready for **academic conference presentation** and designed for **flexible SAE feature analysis research** at conference demonstration scale.
-- Avoid over-engineering and reuse existing logic if possible.
+- Simplified architecture prioritizes clarity and instant updates over complex classification.
