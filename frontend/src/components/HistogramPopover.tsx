@@ -298,12 +298,14 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
   const svgRef = useRef<SVGSVGElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
 
-  // RAF and drag state refs for performance
-  const rafIdRef = useRef<number | null>(null)
-  const sliderRafIdRef = useRef<number | null>(null)
-  const isDraggingPopoverRef = useRef(false)
-  const dragOffsetRef = useRef<{ x: number; y: number } | null>(null)
-  const currentDragPositionRef = useRef<{ x: number; y: number } | null>(null)
+  // Performance Optimization: RAF and drag state refs
+  // Using refs instead of state prevents re-renders during drag operations
+  // This ensures smooth 60fps dragging by batching updates with requestAnimationFrame
+  const rafIdRef = useRef<number | null>(null) // RAF ID for popover dragging
+  const sliderRafIdRef = useRef<number | null>(null) // RAF ID for slider dragging
+  const isDraggingPopoverRef = useRef(false) // Tracks if popover is being dragged
+  const dragOffsetRef = useRef<{ x: number; y: number } | null>(null) // Mouse offset from popover origin
+  const currentDragPositionRef = useRef<{ x: number; y: number } | null>(null) // Current drag position (updated via RAF)
 
   // Local state for dragging
   const [draggedPosition, setDraggedPosition] = useState<{ x: number; y: number } | null>(null)
@@ -432,6 +434,65 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
       popoverRef.current.style.cursor = 'grabbing'
     }
     document.body.style.userSelect = 'none'
+
+    // Performance-Optimized Popover Dragging
+    // Uses requestAnimationFrame + direct DOM manipulation for smooth 60fps dragging
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingPopoverRef.current || !dragOffsetRef.current) return
+
+      // Cancel any pending RAF to ensure only one update per frame
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current)
+      }
+
+      // Schedule update on next animation frame (max 60fps)
+      rafIdRef.current = requestAnimationFrame(() => {
+        const newPosition = {
+          x: e.clientX - dragOffsetRef.current!.x,
+          y: e.clientY - dragOffsetRef.current!.y
+        }
+
+        currentDragPositionRef.current = newPosition
+
+        // Apply transform directly to DOM for immediate visual feedback
+        if (popoverRef.current) {
+          popoverRef.current.style.transform = `translate(${newPosition.x}px, ${newPosition.y}px)`
+        }
+      })
+    }
+
+    const handleMouseUp = () => {
+      // Cancel any pending RAF
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current)
+        rafIdRef.current = null
+      }
+
+      isDraggingPopoverRef.current = false
+
+      // Update state with final position (triggers single re-render)
+      if (currentDragPositionRef.current) {
+        setDraggedPosition(currentDragPositionRef.current)
+      }
+
+      // Reset drag optimizations: re-enable transitions, reset cursor
+      if (popoverRef.current) {
+        popoverRef.current.classList.remove('histogram-popover--dragging')
+        popoverRef.current.style.cursor = ''
+      }
+      document.body.style.userSelect = ''
+
+      // Clean up refs
+      dragOffsetRef.current = null
+
+      // Remove event listeners
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    // Attach event listeners when drag starts
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
   }, [draggedPosition, calculatedPosition, popoverData?.position])
 
   // Handle retry
@@ -442,11 +503,13 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     }
   }, [popoverData, clearError, fetchMultipleHistogramData, panel])
 
-  // Handle global mouse events for slider dragging (optimized with RAF)
+  // Performance-Optimized Slider Dragging
+  // Uses requestAnimationFrame to throttle store updates to max 60fps
+  // Prevents excessive re-renders and Sankey tree recalculations during drag
   useEffect(() => {
     if (!isDraggingSlider) return
 
-    let lastValue: number | null = null
+    let lastValue: number | null = null // Track last value to skip redundant updates
 
     const handleMouseMove = (event: MouseEvent) => {
       const chart = draggingChartRef.current
@@ -504,74 +567,6 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     }
   }, [isDraggingSlider, histogramData, popoverData?.nodeId, nodeThresholds, draggingThresholdIndex, updateNodeThresholds, panel])
 
-  // Handle popover dragging (optimized with RAF)
-  useEffect(() => {
-    if (!isDraggingPopoverRef.current) return
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDraggingPopoverRef.current || !dragOffsetRef.current) return
-
-      // Cancel any pending RAF
-      if (rafIdRef.current !== null) {
-        cancelAnimationFrame(rafIdRef.current)
-      }
-
-      // Schedule update on next frame
-      rafIdRef.current = requestAnimationFrame(() => {
-        const newPosition = {
-          x: e.clientX - dragOffsetRef.current!.x,
-          y: e.clientY - dragOffsetRef.current!.y
-        }
-
-        currentDragPositionRef.current = newPosition
-
-        // Apply transform directly to DOM for immediate visual feedback
-        if (popoverRef.current) {
-          popoverRef.current.style.transform = `translate(${newPosition.x}px, ${newPosition.y}px)`
-        }
-      })
-    }
-
-    const handleMouseUp = () => {
-      // Cancel any pending RAF
-      if (rafIdRef.current !== null) {
-        cancelAnimationFrame(rafIdRef.current)
-        rafIdRef.current = null
-      }
-
-      isDraggingPopoverRef.current = false
-
-      // Update state with final position (triggers single re-render)
-      if (currentDragPositionRef.current) {
-        setDraggedPosition(currentDragPositionRef.current)
-      }
-
-      // Reset drag optimizations: re-enable transitions, reset cursor
-      if (popoverRef.current) {
-        popoverRef.current.classList.remove('histogram-popover--dragging')
-        popoverRef.current.style.cursor = ''
-      }
-      document.body.style.userSelect = ''
-
-      // Clean up refs
-      dragOffsetRef.current = null
-    }
-
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-
-      // Clean up RAF
-      if (rafIdRef.current !== null) {
-        cancelAnimationFrame(rafIdRef.current)
-        rafIdRef.current = null
-      }
-    }
-  }, []) // Empty deps - uses refs for all state
-
   // Reset dragged position when popover closes
   useEffect(() => {
     if (!popoverData?.visible) {
@@ -593,6 +588,21 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
       document.body.style.userSelect = ''
     }
   }, [popoverData?.visible])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      // Cancel any pending RAF operations
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current)
+      }
+      if (sliderRafIdRef.current !== null) {
+        cancelAnimationFrame(sliderRafIdRef.current)
+      }
+      // Reset user-select
+      document.body.style.userSelect = ''
+    }
+  }, [])
 
   // Handle click outside to close
   useEffect(() => {

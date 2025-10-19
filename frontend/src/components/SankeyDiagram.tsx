@@ -25,7 +25,6 @@ import {
   PANEL_LEFT,
   PANEL_RIGHT,
   METRIC_FEATURE_SPLITTING,
-  METRIC_SEMSIM_MEAN,
   METRIC_SCORE_FUZZ,
   METRIC_SCORE_DETECTION,
   METRIC_SCORE_EMBEDDING,
@@ -46,89 +45,95 @@ interface StageOption {
   description: string
   metric: string
   thresholds: readonly number[]
+  category: 'Feature Splitting' | 'Score' | 'Consistency'
 }
 
-// Available stages for the NEW system - all 11 metrics
+// Available stages for the NEW system - categorized by type
 const AVAILABLE_STAGES: StageOption[] = [
-  // Standard metrics (5)
+  // Feature Splitting (1 metric)
   {
     id: 'feature_splitting',
     name: 'Feature Splitting',
     description: 'Split by feature splitting score',
     metric: METRIC_FEATURE_SPLITTING,
-    thresholds: [0.3]
+    thresholds: [0.3],
+    category: 'Feature Splitting'
   },
-  {
-    id: 'semantic_similarity',
-    name: 'Semantic Similarity',
-    description: 'Split by semantic similarity',
-    metric: METRIC_SEMSIM_MEAN,
-    thresholds: [0.88]
-  },
+
+  // Score metrics (4 metrics)
   {
     id: 'fuzz_score',
     name: 'Fuzz Score',
     description: 'Split by fuzz score',
     metric: METRIC_SCORE_FUZZ,
-    thresholds: [0.5]
+    thresholds: [0.5],
+    category: 'Score'
   },
   {
     id: 'detection_score',
     name: 'Detection Score',
     description: 'Split by detection score',
     metric: METRIC_SCORE_DETECTION,
-    thresholds: [0.5]
+    thresholds: [0.5],
+    category: 'Score'
   },
   {
     id: 'embedding_score',
     name: 'Embedding Score',
     description: 'Split by embedding score',
     metric: METRIC_SCORE_EMBEDDING,
-    thresholds: [0.5]
+    thresholds: [0.5],
+    category: 'Score'
   },
-  // Consistency metrics (5)
-  {
-    id: 'llm_scorer_consistency',
-    name: 'LLM Scorer Consistency',
-    description: 'Split by scorer consistency',
-    metric: METRIC_LLM_SCORER_CONSISTENCY,
-    thresholds: CONSISTENCY_THRESHOLDS[METRIC_LLM_SCORER_CONSISTENCY]
-  },
-  {
-    id: 'within_explanation_consistency',
-    name: 'Within-Explanation Consistency',
-    description: 'Split by within-explanation consistency',
-    metric: METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
-    thresholds: CONSISTENCY_THRESHOLDS[METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY]
-  },
-  {
-    id: 'cross_explanation_metric_consistency',
-    name: 'Cross-Explanation Metric',
-    description: 'Split by cross-explanation metric consistency',
-    metric: METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
-    thresholds: CONSISTENCY_THRESHOLDS[METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY]
-  },
-  {
-    id: 'cross_explanation_overall_consistency',
-    name: 'Cross-Explanation Overall',
-    description: 'Split by cross-explanation overall consistency',
-    metric: METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
-    thresholds: CONSISTENCY_THRESHOLDS[METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY]
-  },
-  {
-    id: 'llm_explainer_consistency',
-    name: 'LLM Explainer Consistency',
-    description: 'Split by explainer consistency',
-    metric: METRIC_LLM_EXPLAINER_CONSISTENCY,
-    thresholds: CONSISTENCY_THRESHOLDS[METRIC_LLM_EXPLAINER_CONSISTENCY]
-  },
-  // Computed metric (1)
   {
     id: 'overall_score',
     name: 'Overall Score',
     description: 'Split by overall score',
     metric: METRIC_OVERALL_SCORE,
-    thresholds: CONSISTENCY_THRESHOLDS[METRIC_OVERALL_SCORE]
+    thresholds: CONSISTENCY_THRESHOLDS[METRIC_OVERALL_SCORE],
+    category: 'Score'
+  },
+
+  // Consistency metrics (5 metrics)
+  {
+    id: 'llm_scorer_consistency',
+    name: 'LLM Scorer',
+    description: 'Consistency across different scorers',
+    metric: METRIC_LLM_SCORER_CONSISTENCY,
+    thresholds: CONSISTENCY_THRESHOLDS[METRIC_LLM_SCORER_CONSISTENCY],
+    category: 'Consistency'
+  },
+  {
+    id: 'within_explanation_consistency',
+    name: 'Within-Explanation Metric',
+    description: 'Consistency across metrics within explainer',
+    metric: METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
+    thresholds: CONSISTENCY_THRESHOLDS[METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY],
+    category: 'Consistency'
+  },
+  {
+    id: 'cross_explanation_metric_consistency',
+    name: 'Cross-Explanation Metric',
+    description: 'Consistency across explainers per metric',
+    metric: METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
+    thresholds: CONSISTENCY_THRESHOLDS[METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY],
+    category: 'Consistency'
+  },
+  {
+    id: 'cross_explanation_overall_consistency',
+    name: 'Cross-Explanation Overall Score',
+    description: 'Overall score consistency across explainers',
+    metric: METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
+    thresholds: CONSISTENCY_THRESHOLDS[METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY],
+    category: 'Consistency'
+  },
+  {
+    id: 'llm_explainer_consistency',
+    name: 'LLM Explainer',
+    description: 'Semantic similarity between explanations',
+    metric: METRIC_LLM_EXPLAINER_CONSISTENCY,
+    thresholds: CONSISTENCY_THRESHOLDS[METRIC_LLM_EXPLAINER_CONSISTENCY],
+    category: 'Consistency'
   }
 ]
 
@@ -644,9 +649,13 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
     const rect = event.currentTarget.getBoundingClientRect()
 
+    // Position popup next to button with center Y aligned
     setInlineSelector({
       nodeId: node.id,
-      position: { x: rect.left + rect.width + 10, y: rect.top },
+      position: {
+        x: rect.left + rect.width + 10,
+        y: rect.top + rect.height / 2  // Center Y of button
+      },
       availableStages
     })
   }, [sankeyTree, computedSankey])
@@ -875,24 +884,41 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
           <div
             className="sankey-stage-selector"
             style={{
-              left: Math.min(inlineSelector.position.x, window.innerWidth - 200),
-              top: Math.min(inlineSelector.position.y, window.innerHeight - 200)
+              left: Math.min(inlineSelector.position.x, window.innerWidth - 280),
+              top: inlineSelector.position.y,
+              transform: 'translateY(-50%)'
             }}
           >
-            {inlineSelector.availableStages.map((stageType) => (
-              <div
-                key={stageType.id}
-                onClick={() => handleStageSelect(stageType.id)}
-                className="sankey-stage-selector__item"
-              >
-                <div className="sankey-stage-selector__item-title">
-                  {stageType.name}
+            {/* Group stages by category */}
+            {['Feature Splitting', 'Score', 'Consistency'].map((category) => {
+              const stagesInCategory = inlineSelector.availableStages.filter(
+                (stage) => stage.category === category
+              )
+
+              if (stagesInCategory.length === 0) return null
+
+              return (
+                <div key={category} className="sankey-stage-selector__category-group">
+                  <div className="sankey-stage-selector__category-header">
+                    {category}
+                  </div>
+                  {stagesInCategory.map((stageType) => (
+                    <div
+                      key={stageType.id}
+                      onClick={() => handleStageSelect(stageType.id)}
+                      className="sankey-stage-selector__item"
+                    >
+                      <div className="sankey-stage-selector__item-title">
+                        {stageType.name}
+                      </div>
+                      <div className="sankey-stage-selector__item-description">
+                        {stageType.description}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="sankey-stage-selector__item-description">
-                  {stageType.description}
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </>
       )}
