@@ -14,8 +14,8 @@ import {
 } from '../lib/d3-sankey-utils'
 import { calculateVerticalBarNodeLayout } from '../lib/d3-vertical-bar-sankey-utils'
 import { useResizeObserver } from '../lib/utils'
-import { findNodeById, getNodeMetrics, canAddStageToNode, getAvailableStageTypes } from '../lib/threshold-utils'
-import type { D3SankeyNode, D3SankeyLink, AddStageConfig, StageTypeConfig } from '../types'
+import { findNodeById, getNodeMetrics, canAddStageToNode, getAvailableStageTypes, AVAILABLE_STAGE_TYPES } from '../lib/threshold-utils'
+import type { D3SankeyNode, D3SankeyLink, StageTypeConfig } from '../types'
 import { PANEL_LEFT, PANEL_RIGHT } from '../lib/constants'
 import '../styles/SankeyDiagram.css'
 
@@ -371,14 +371,55 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const loadingKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
   const errorKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
 
-  const data = useVisualizationStore(state => state[panelKey].sankeyData)
+  // Get data from store - use new system for left panel if available
+  const sankeyData = useVisualizationStore(state => state[panelKey].sankeyData)
+  const computedSankey = useVisualizationStore(state => state[panelKey].computedSankey)
+  const filters = useVisualizationStore(state => state[panelKey].filters)
   const thresholdTree = useVisualizationStore(state => state[panelKey].thresholdTree)
   const loading = useVisualizationStore(state => state.loading[loadingKey])
   const error = useVisualizationStore(state => state.errors[errorKey])
   const hoveredAlluvialNodeId = useVisualizationStore(state => state.hoveredAlluvialNodeId)
   const hoveredAlluvialPanel = useVisualizationStore(state => state.hoveredAlluvialPanel)
   const tableScrollState = useVisualizationStore(state => state.tableScrollState)
-  const { showHistogramPopover, addStageToTree, removeStageFromTree } = useVisualizationStore()
+  const sankeyTree = useVisualizationStore(state => state[panelKey].sankeyTree)
+  const { showHistogramPopover, addStageToNode, removeNodeStage } = useVisualizationStore()
+
+  // Determine data source based on availability (new system preferred)
+  const data = useMemo(() => {
+    console.log(`[SankeyDiagram ${panel}] Data source check:`, {
+      hasComputedSankey: !!computedSankey,
+      hasSankeyData: !!sankeyData,
+      computedSankeyNodes: computedSankey?.nodes.length,
+      sankeyDataNodes: sankeyData?.nodes.length,
+      sankeyTreeExists: !!sankeyTree,
+      sankeyTreeSize: sankeyTree?.size
+    })
+
+    if (computedSankey) {
+      console.log(`[SankeyDiagram ${panel}] ✅ Using TREE-BASED system`, {
+        nodes: computedSankey.nodes.length,
+        links: computedSankey.links.length,
+        maxDepth: computedSankey.maxDepth
+      })
+      // New simplified system: wrap computed structure in SankeyData format
+      return {
+        nodes: computedSankey.nodes,
+        links: computedSankey.links,
+        metadata: {
+          total_features: computedSankey.nodes.find(n => n.id === 'root')?.feature_count || 0,
+          applied_filters: filters,
+          applied_thresholds: thresholdTree
+        }
+      }
+    }
+
+    console.log(`[SankeyDiagram ${panel}] ⚠️  Using OLD system (fallback)`, {
+      nodes: sankeyData?.nodes.length || 0,
+      links: sankeyData?.links.length || 0
+    })
+    // Fallback to old system if computed data not available
+    return sankeyData
+  }, [computedSankey, sankeyData, filters, thresholdTree, panel, sankeyTree])
 
   // Track previous data for smooth transitions
   const [displayData, setDisplayData] = useState(data)
@@ -476,13 +517,23 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   }, [handleNodeHistogramClick])
 
   const handleAddStageClick = useCallback((event: React.MouseEvent, node: D3SankeyNode) => {
-    if (!thresholdTree) return
-
     event.stopPropagation()
 
-    if (!canAddStageToNode(thresholdTree, node.id)) return
+    let availableStages: StageTypeConfig[] = []
 
-    const availableStages = getAvailableStageTypes(thresholdTree, node.id)
+    if (sankeyTree && computedSankey) {
+      // Tree-based system: all stage types are available for any node
+      availableStages = [...AVAILABLE_STAGE_TYPES]
+    } else if (thresholdTree) {
+      // Old system: check which stages can be added to this node
+      if (!canAddStageToNode(thresholdTree, node.id)) return
+      availableStages = getAvailableStageTypes(thresholdTree, node.id)
+    } else {
+      return
+    }
+
+    if (availableStages.length === 0) return
+
     const rect = event.currentTarget.getBoundingClientRect()
 
     setInlineSelector({
@@ -490,38 +541,61 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       position: { x: rect.left + rect.width + 10, y: rect.top },
       availableStages
     })
-  }, [thresholdTree])
+  }, [sankeyTree, computedSankey, thresholdTree])
 
   const handleRemoveStageClick = useCallback((event: React.MouseEvent, node: D3SankeyNode) => {
     event.stopPropagation()
-    removeStageFromTree(node.id, panel)
-  }, [removeStageFromTree, panel])
 
-  const handleStageSelect = useCallback((stageTypeId: string) => {
-    if (!inlineSelector || !thresholdTree) return
+    // Use tree-based system for both panels
+    if (sankeyTree) {
+      // Remove all descendants of this node
+      removeNodeStage(node.id, panel)
+    }
+  }, [removeNodeStage, panel, sankeyTree])
+
+  const handleStageSelect = useCallback(async (stageTypeId: string) => {
+    if (!inlineSelector) return
 
     const stageType = inlineSelector.availableStages.find(s => s.id === stageTypeId)
-    if (!stageType) return
+    if (!stageType) {
+      console.error('[SankeyDiagram.handleStageSelect] ❌ Stage type not found:', stageTypeId)
+      return
+    }
+
+    console.log('[SankeyDiagram.handleStageSelect] 🎯 Stage selected:', {
+      stageTypeId,
+      stageType,
+      defaultMetric: stageType.defaultMetric,
+      defaultThresholds: stageType.defaultThresholds
+    })
 
     setInlineSelector(null)
 
-    const config: AddStageConfig = {
-      stageType: stageTypeId,
-      splitRuleType: stageType.defaultSplitRule,
-      metric: stageType.defaultMetric,
-      thresholds: stageType.defaultThresholds
-    }
+    // Use tree-based system
+    const metric = stageType.defaultMetric
+    const thresholds = stageType.defaultThresholds
 
-    addStageToTree(inlineSelector.nodeId, config, panel)
+    if (metric && thresholds) {
+      console.log('[SankeyDiagram.handleStageSelect] ✅ Calling addStageToNode with:', { metric, thresholds })
+      await addStageToNode(inlineSelector.nodeId, metric, thresholds, panel)
 
-    // Show histogram popover after adding stage
-    setTimeout(() => {
-      const parentNode = layout?.nodes.find(n => n.id === inlineSelector.nodeId)
-      if (parentNode) {
-        handleNodeHistogramClick(parentNode)
+      // Show histogram popover after adding stage (only if old system is active)
+      if (thresholdTree) {
+        setTimeout(() => {
+          const parentNode = layout?.nodes.find(n => n.id === inlineSelector.nodeId)
+          if (parentNode) {
+            handleNodeHistogramClick(parentNode)
+          }
+        }, 500)
       }
-    }, 500)
-  }, [inlineSelector, thresholdTree, addStageToTree, panel, layout, handleNodeHistogramClick])
+    } else {
+      console.error('[SankeyDiagram.handleStageSelect] ❌ Missing metric or thresholds:', {
+        metric,
+        thresholds,
+        stageType
+      })
+    }
+  }, [inlineSelector, thresholdTree, addStageToNode, panel, layout, handleNodeHistogramClick])
 
   // Render
   if (error) {
@@ -604,10 +678,24 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
             <g className="sankey-diagram__nodes">
               {layout.nodes.map((node) => {
                 // Calculate common props for both node types
-                const canAdd = thresholdTree && canAddStageToNode(thresholdTree, node.id) &&
-                               getAvailableStageTypes(thresholdTree, node.id).length > 0
-                const treeNode = thresholdTree && findNodeById(thresholdTree, node.id)
-                const canRemove = treeNode && treeNode.children_ids.length > 0
+                // Use tree-based system for button visibility
+                let canAdd = false
+                let canRemove = false
+
+                if (sankeyTree && computedSankey) {
+                  // Tree-based system: any node can have children added
+                  const treeNode = sankeyTree.get(node.id)
+                  canAdd = treeNode !== undefined
+                  // Node can be removed if it has children
+                  canRemove = treeNode !== undefined && treeNode.children.length > 0
+                } else if (thresholdTree) {
+                  // Old system fallback
+                  canAdd = canAddStageToNode(thresholdTree, node.id) &&
+                           getAvailableStageTypes(thresholdTree, node.id).length > 0
+                  const treeNode = findNodeById(thresholdTree, node.id)
+                  canRemove = !!treeNode && treeNode.children_ids.length > 0
+                }
+
                 const isHighlighted = hoveredAlluvialNodeId === node.id &&
                                     hoveredAlluvialPanel === (panel === PANEL_LEFT ? 'left' : 'right')
 

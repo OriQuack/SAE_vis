@@ -303,11 +303,13 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
   const loading = useVisualizationStore(state => state.loading.histogram)
   const error = useVisualizationStore(state => state.errors.histogram)
   const thresholdTree = useVisualizationStore(state => state[panelKey].thresholdTree)
+  const stages = useVisualizationStore(state => state[panelKey].stages)
 
   const {
     hideHistogramPopover,
     fetchMultipleHistogramData,
     updateThreshold,
+    updateStageThresholds,
     clearError
   } = useVisualizationStore()
 
@@ -327,6 +329,17 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     barIndex: number;
     chart: HistogramChart;
   } | null>(null)
+
+  // Helper function to find stage index for a metric
+  const findStageIndexForMetric = useCallback((metric: string) => {
+    if (!stages || stages.length === 0) return -1
+    return stages.findIndex(s => s.metric === metric)
+  }, [stages])
+
+  // Determine if we should use new system (any panel with stages)
+  const shouldUseNewSystem = useMemo(() => {
+    return stages !== undefined
+  }, [stages])
 
   // Calculate container size
   const containerSize = useMemo(() =>
@@ -416,8 +429,14 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
 
     const newValue = calculateThresholdFromMouseEvent(event, svgRef.current, chart, data.statistics.min, data.statistics.max)
     if (newValue !== null) {
-      if (popoverData?.nodeId) {
-        // Has nodeId: update tree node threshold
+      if (shouldUseNewSystem) {
+        // New system: update stage thresholds
+        const stageIndex = findStageIndexForMetric(metric)
+        if (stageIndex >= 0) {
+          updateStageThresholds(stageIndex, [newValue], panel)
+        }
+      } else if (popoverData?.nodeId) {
+        // Old system: update tree node threshold
         const scoreMetrics = ['score_fuzz', 'score_detection', 'score_simulation']
         if (scoreMetrics.includes(metric)) {
           updateThreshold(popoverData.nodeId, [newValue], panel, metric)
@@ -428,7 +447,7 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     }
 
     event.preventDefault()
-  }, [histogramData, updateThreshold, popoverData?.nodeId, panel])
+  }, [histogramData, shouldUseNewSystem, findStageIndexForMetric, updateStageThresholds, updateThreshold, popoverData?.nodeId, panel])
 
   // Handle header drag start
   const handleHeaderMouseDown = useCallback((event: React.MouseEvent) => {
@@ -468,8 +487,14 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
       const newValue = calculateThresholdFromMouseEvent(event, svgRef.current, chart, data.statistics.min, data.statistics.max)
 
       if (newValue !== null) {
-        if (popoverData?.nodeId) {
-          // Has nodeId: update tree node threshold
+        if (shouldUseNewSystem) {
+          // New system: update stage thresholds
+          const stageIndex = findStageIndexForMetric(metric)
+          if (stageIndex >= 0) {
+            updateStageThresholds(stageIndex, [newValue], panel)
+          }
+        } else if (popoverData?.nodeId) {
+          // Old system: update tree node threshold
           const scoreMetrics = ['score_fuzz', 'score_detection', 'score_simulation']
           if (scoreMetrics.includes(metric)) {
             updateThreshold(popoverData.nodeId, [newValue], panel, metric)
@@ -493,7 +518,7 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [isDraggingSlider, histogramData, updateThreshold, popoverData?.nodeId, panel])
+  }, [isDraggingSlider, histogramData, shouldUseNewSystem, findStageIndexForMetric, updateStageThresholds, updateThreshold, popoverData?.nodeId, panel])
 
   // Handle popover dragging
   useEffect(() => {

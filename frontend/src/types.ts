@@ -101,6 +101,76 @@ export interface ThresholdTree {
   metrics: string[]
 }
 
+// ============================================================================
+// SIMPLIFIED THRESHOLD SYSTEM (Feature Group + Intersection)
+// ============================================================================
+
+/**
+ * Stage Definition - Simplified stage configuration for new system
+ */
+export interface StageDefinition {
+  index: number
+  metric: string
+  thresholds: number[]
+}
+
+/**
+ * Feature Group - Group of features within threshold range
+ */
+export interface FeatureGroup {
+  groupIndex: number
+  rangeLabel: string
+  featureIds: Set<number>
+  featureCount: number
+}
+
+/**
+ * Computed Sankey Structure - Result of local intersection computation
+ */
+export interface ComputedSankeyStructure {
+  nodes: SankeyNode[]
+  links: SankeyLink[]
+  nodeFeatures: Map<string, Set<number>>
+}
+
+// ============================================================================
+// TREE-BASED SANKEY SYSTEM (Node-specific stage addition)
+// ============================================================================
+
+/**
+ * Sankey Tree Node - Represents a node in the tree-based Sankey structure
+ * Supports branching where different nodes at the same depth can have different metrics
+ */
+export interface SankeyTreeNode {
+  id: string                          // Unique node ID (e.g., "root", "stage0_group1", etc.)
+  parentId: string | null             // Parent node ID (null for root)
+  metric: string | null               // Metric used for this node's stage (null for root)
+  thresholds: number[]                // Threshold values for this node
+  depth: number                       // Depth in tree (0 for root)
+  children: string[]                  // Child node IDs
+  featureIds: Set<number>             // Feature IDs at this node
+  featureCount: number                // Count of features
+  rangeLabel: string                  // Display label (e.g., "< 0.5", "0.5-0.8", "> 0.8")
+}
+
+/**
+ * Cached Feature Groups - Global cache for feature groups to avoid redundant backend calls
+ * Key format: "metric:threshold1,threshold2,..."
+ */
+export interface CachedFeatureGroups {
+  [key: string]: FeatureGroup[]      // Cached groups indexed by metric and thresholds
+}
+
+/**
+ * Tree-based Sankey Structure - Complete tree representation for Sankey diagram
+ */
+export interface TreeBasedSankeyStructure {
+  tree: Map<string, SankeyTreeNode>    // Node ID to node mapping
+  nodes: SankeyNode[]                  // Flat array of nodes for D3 rendering
+  links: SankeyLink[]                  // Links between nodes
+  maxDepth: number                     // Maximum depth in the tree
+}
+
 export interface FilterOptions {
   sae_id: string[]
   explanation_method: string[]

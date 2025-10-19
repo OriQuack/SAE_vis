@@ -144,7 +144,8 @@ export const AVAILABLE_STAGE_TYPES: StageTypeConfig[] = [
     description: 'Consistency of scores across different LLM scorers for the same explainer and metric',
     category: CATEGORY_CONSISTENCY,
     defaultSplitRule: 'expression',
-    defaultMetric: CONSISTENCY_TYPE_LLM_SCORER
+    defaultMetric: CONSISTENCY_TYPE_LLM_SCORER,
+    defaultThresholds: [...CONSISTENCY_THRESHOLDS[CONSISTENCY_TYPE_LLM_SCORER]]
   },
   {
     id: CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC,
@@ -152,7 +153,8 @@ export const AVAILABLE_STAGE_TYPES: StageTypeConfig[] = [
     description: 'Consistency across different scoring metrics within the same explainer',
     category: CATEGORY_CONSISTENCY,
     defaultSplitRule: 'expression',
-    defaultMetric: CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC
+    defaultMetric: CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC,
+    defaultThresholds: [...CONSISTENCY_THRESHOLDS[CONSISTENCY_TYPE_WITHIN_EXPLANATION_METRIC]]
   },
   {
     id: CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC,
@@ -160,7 +162,8 @@ export const AVAILABLE_STAGE_TYPES: StageTypeConfig[] = [
     description: 'Consistency of individual metrics across different explainers',
     category: CATEGORY_CONSISTENCY,
     defaultSplitRule: 'expression',
-    defaultMetric: CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC
+    defaultMetric: CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC,
+    defaultThresholds: [...CONSISTENCY_THRESHOLDS[CONSISTENCY_TYPE_CROSS_EXPLANATION_METRIC]]
   },
   {
     id: CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE,
@@ -168,7 +171,8 @@ export const AVAILABLE_STAGE_TYPES: StageTypeConfig[] = [
     description: 'Consistency of overall scores across different explainers',
     category: CATEGORY_CONSISTENCY,
     defaultSplitRule: 'expression',
-    defaultMetric: CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE
+    defaultMetric: CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE,
+    defaultThresholds: [...CONSISTENCY_THRESHOLDS[CONSISTENCY_TYPE_CROSS_EXPLANATION_OVERALL_SCORE]]
   },
   {
     id: CONSISTENCY_TYPE_LLM_EXPLAINER,
@@ -176,7 +180,8 @@ export const AVAILABLE_STAGE_TYPES: StageTypeConfig[] = [
     description: 'Semantic similarity between explanations from different LLM explainers',
     category: CATEGORY_CONSISTENCY,
     defaultSplitRule: 'expression',
-    defaultMetric: CONSISTENCY_TYPE_LLM_EXPLAINER
+    defaultMetric: CONSISTENCY_TYPE_LLM_EXPLAINER,
+    defaultThresholds: [...CONSISTENCY_THRESHOLDS[CONSISTENCY_TYPE_LLM_EXPLAINER]]
   }
 ] as const
 

@@ -66,6 +66,7 @@ class FeatureGroupService:
             filters: User-defined filters (explainer, scorer, etc.)
             metric: Metric name to group by
             thresholds: List of threshold values (N → N+1 groups)
+                       Empty list [] returns all features as single group (root node case)
 
         Returns:
             FeatureGroupResponse with groups
@@ -77,6 +78,11 @@ class FeatureGroupService:
 
         # Apply filters to get base dataframe
         filtered_df = self._apply_filters(filters)
+
+        # Special case: Empty thresholds means "all features" (root node initialization)
+        if len(thresholds) == 0:
+            logger.info("Empty thresholds - returning all features as single group (root node)")
+            return self._get_root_group(filtered_df, metric)
 
         # Route to appropriate handler based on metric type
         # List of consistency metrics (using actual column names from consistency_scores.parquet)
@@ -401,3 +407,40 @@ class FeatureGroupService:
         """
         # overall_score already exists in the parquet, just use it like any standard metric
         return self._get_standard_groups(df, 'overall_score', thresholds)
+
+    def _get_root_group(
+        self,
+        df: pl.LazyFrame,
+        metric: str
+    ) -> FeatureGroupResponse:
+        """
+        Special handler for root node initialization (empty thresholds).
+        Returns all features matching filters as a single group.
+
+        Args:
+            df: Filtered dataframe
+            metric: Metric name (for response, not used in filtering)
+
+        Returns:
+            FeatureGroupResponse with single group containing all features
+        """
+        # Collect and get unique feature IDs
+        df_collected = df.collect()
+        unique_ids = df_collected[COL_FEATURE_ID].unique().sort().to_list()
+        total_features = len(unique_ids)
+
+        logger.info(f"Root group: {total_features} features")
+
+        # Create single group with all features
+        groups = [FeatureGroup(
+            group_index=0,
+            range_label="All Features",
+            feature_ids=unique_ids,
+            feature_count=total_features
+        )]
+
+        return FeatureGroupResponse(
+            metric=metric,
+            groups=groups,
+            total_features=total_features
+        )

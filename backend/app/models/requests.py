@@ -151,6 +151,6 @@ class FeatureGroupRequest(BaseModel):
     )
     thresholds: List[float] = Field(
         ...,
-        min_items=1,
-        description="List of threshold values (N thresholds create N+1 groups)"
+        min_items=0,
+        description="List of threshold values (N thresholds create N+1 groups). Empty list returns all features as single group (root node)."
     )

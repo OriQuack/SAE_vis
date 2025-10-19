@@ -23,7 +23,8 @@ const API_ENDPOINTS = {
   SANKEY_DATA: "/sankey-data",
   ALLUVIAL_DATA: "/comparison-data", // TODO: Change to alluvial
   FEATURE_DETAIL: "/feature",
-  TABLE_DATA: "/table-data"
+  TABLE_DATA: "/table-data",
+  FEATURE_GROUPS: "/feature-groups"
 } as const
 
 const API_BASE = API_BASE_URL
@@ -116,6 +117,36 @@ export async function getTableData(request: TableDataRequest): Promise<FeatureTa
     const errorText = await response.text()
     console.error('Table API error:', response.status, errorText)
     throw new Error(`Failed to fetch table data: ${response.status} - ${errorText}`)
+  }
+  return response.json()
+}
+
+export async function getFeatureGroups(request: {
+  filters: Filters
+  metric: string
+  thresholds: number[]
+}): Promise<{
+  metric: string
+  groups: Array<{
+    group_index: number
+    range_label: string
+    feature_ids?: number[]
+    feature_ids_by_source?: Record<string, number[]>
+    feature_count: number
+  }>
+  total_features: number
+}> {
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.FEATURE_GROUPS}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request)
+  })
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('Feature groups API error:', response.status, errorText)
+    throw new Error(`Failed to fetch feature groups: ${response.status} - ${errorText}`)
   }
   return response.json()
 }
