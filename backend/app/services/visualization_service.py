@@ -16,6 +16,7 @@ pl.enable_string_cache()
 from ..models.responses import (
     FilterOptionsResponse,
 )
+from ..models.common import Filters
 from .data_constants import *
 
 logger = logging.getLogger(__name__)
@@ -105,6 +106,30 @@ class DataService:
         except Exception as e:
             logger.error(f"Failed to cache filter options: {e}")
             raise
+
+    def apply_filters(self, lazy_df: pl.LazyFrame, filters: Filters) -> pl.LazyFrame:
+        """Apply filters to lazy DataFrame efficiently."""
+        filter_mapping = [
+            (filters.sae_id, COL_SAE_ID),
+            (filters.explanation_method, COL_EXPLANATION_METHOD),
+            (filters.llm_explainer, COL_LLM_EXPLAINER),
+            (filters.llm_scorer, COL_LLM_SCORER)
+        ]
+
+        conditions = [
+            pl.col(column).is_in(values)
+            for values, column in filter_mapping
+            if values
+        ]
+
+        if not conditions:
+            return lazy_df
+
+        combined_condition = conditions[0]
+        for condition in conditions[1:]:
+            combined_condition = combined_condition & condition
+
+        return lazy_df.filter(combined_condition)
 
     async def get_filter_options(self) -> FilterOptionsResponse:
         """Get all available filter options."""

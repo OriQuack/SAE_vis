@@ -13,7 +13,7 @@ All calculation logic is in ConsistencyService for maintainability.
 import polars as pl
 import numpy as np
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, TYPE_CHECKING
 from pathlib import Path
 
 from ..models.common import Filters
@@ -22,6 +22,10 @@ from ..models.responses import (
     ExplainerScoreData, ScorerScoreSet, ConsistencyScore
 )
 from .consistency_service import ConsistencyService, ExplainerDataBuilder
+
+# Import for type hints only (avoids circular imports)
+if TYPE_CHECKING:
+    from .visualization_service import DataService
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +48,7 @@ class TableDataService:
     ]
     DEFAULT_SCORERS = DEFAULT_EXPLAINERS  # Same models used as scorers
 
-    def __init__(self, data_service):
+    def __init__(self, data_service: "DataService"):
         """
         Initialize TableDataService.
 

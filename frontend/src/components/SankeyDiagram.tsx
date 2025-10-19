@@ -18,7 +18,7 @@ import {
   getAvailableStages,
   canAddStage,
   hasChildren
-} from '../lib/feature-group-utils'
+} from '../lib/threshold-utils'
 import { useResizeObserver } from '../lib/utils'
 import type { D3SankeyNode, D3SankeyLink } from '../types'
 import {

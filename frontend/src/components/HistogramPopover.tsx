@@ -16,7 +16,7 @@ import {
   calculateGridLines,
   calculateSliderPosition
 } from '../lib/d3-histogram-utils'
-import { getNodeThresholds } from '../lib/feature-group-utils'
+import { getNodeThresholds } from '../lib/threshold-utils'
 import { CATEGORY_DISPLAY_NAMES } from '../lib/constants'
 import type { HistogramData, HistogramChart, NodeCategory } from '../types'
 

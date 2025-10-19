@@ -42,6 +42,9 @@ export function computeSankeyStructure(
   const links: SankeyLink[] = []
   const nodeFeatures = new Map<string, Set<number>>()
 
+  console.log(`[computeSankeyStructure] Starting with ${allFeatures.size} total features`)
+  console.log(`  Stages to process: ${stages.map(s => s.metric).join(' -> ')}`)
+
   // Root node contains all features
   const rootNode: SankeyNode = {
     id: 'root',
@@ -63,6 +66,7 @@ export function computeSankeyStructure(
   let currentLevelNodes = [rootNode]
 
   for (const stage of stages) {
+    console.log(`\n[Stage ${stage.index}] Processing metric: ${stage.metric}`)
     const nextLevelNodes: SankeyNode[] = []
     const groups = metricGroups.get(stage.metric)
 
@@ -71,18 +75,26 @@ export function computeSankeyStructure(
       continue
     }
 
+    console.log(`  Found ${groups.length} groups for this metric`)
+    let stageTotal = 0
+
     // For each node in current level
     for (const parentNode of currentLevelNodes) {
       const parentFeatures = nodeFeatures.get(parentNode.id)!
+      console.log(`  Parent node "${parentNode.name}" has ${parentFeatures.size} features`)
 
       // Create child nodes by intersecting with each group
       for (const group of groups) {
+        console.log(`    Intersecting with group "${group.rangeLabel}" (${group.featureIds.size} features)`)
         const childFeatures = intersection(parentFeatures, group.featureIds)
 
         // Skip empty nodes
         if (childFeatures.size === 0) {
+          console.log(`      -> Empty intersection, skipping`)
           continue
         }
+        console.log(`      -> Intersection has ${childFeatures.size} features`)
+        stageTotal += childFeatures.size
 
         // Generate child node ID
         const childId = buildNodeId(parentNode.id, stage.index, group.groupIndex)
@@ -117,7 +129,21 @@ export function computeSankeyStructure(
       console.warn(`No features at stage ${stage.index}`)
       break
     }
+
+    console.log(`  Stage ${stage.index} summary: ${nextLevelNodes.length} nodes, ${stageTotal} total features`)
+
+    // Check for duplication
+    const parentTotal = Array.from(currentLevelNodes).reduce((sum, node) => {
+      const features = nodeFeatures.get(node.id)
+      return sum + (features?.size || 0)
+    }, 0)
+
+    if (stageTotal > parentTotal && parentTotal > 0) {
+      console.error(`  ERROR: Feature duplication detected! Children have ${stageTotal} but parents only have ${parentTotal}`)
+    }
   }
+
+  console.log(`\n[computeSankeyStructure] Complete: ${nodes.length} nodes, ${links.length} links`)
 
   return { nodes, links, nodeFeatures }
 }
@@ -139,12 +165,17 @@ export function intersection(setA: Set<number>, setB: Set<number>): Set<number> 
 
   // Iterate over smaller set for performance
   const smaller = setA.size < setB.size ? setA : setB
-  const larger = setA.size < setB.size ? setA : setB
+  const larger = setA.size < setB.size ? setB : setA  // FIXED: Swap setB and setA for larger
 
   for (const item of smaller) {
     if (larger.has(item)) {
       result.add(item)
     }
+  }
+
+  // Sanity check: intersection cannot be larger than the smallest input set
+  if (result.size > Math.min(setA.size, setB.size)) {
+    console.error(`[intersection] ERROR: Result size ${result.size} > min(${setA.size}, ${setB.size})`)
   }
 
   return result
@@ -296,19 +327,41 @@ export function processFeatureGroupResponse(response: {
   }>
   total_features: number
 }): FeatureGroup[] {
+  console.log(`[processFeatureGroupResponse] Processing ${response.metric}:`)
+  console.log(`  Total features from backend: ${response.total_features}`)
+  console.log(`  Number of groups: ${response.groups.length}`)
+
   return response.groups.map(group => {
     let featureIds: Set<number>
 
     if (group.feature_ids) {
       // Standard metric: direct feature_ids
       featureIds = new Set(group.feature_ids)
+      console.log(`  Group ${group.group_index} (${group.range_label}): ${group.feature_ids.length} ids -> Set size ${featureIds.size}`)
     } else if (group.feature_ids_by_source) {
       // Consistency metric: flatten feature_ids_by_source
       const allIds = Object.values(group.feature_ids_by_source).flat()
+      const uniqueBefore = new Set(allIds)
       featureIds = new Set(allIds)
+      console.log(`  Group ${group.group_index} (${group.range_label}): ${allIds.length} ids (${uniqueBefore.size} unique) -> Set size ${featureIds.size}`)
+
+      // Check for duplicates
+      if (allIds.length !== uniqueBefore.size) {
+        console.warn(`    WARNING: Duplicates found! ${allIds.length - uniqueBefore.size} duplicate IDs`)
+        // Show which sources contribute duplicates
+        for (const [source, ids] of Object.entries(group.feature_ids_by_source)) {
+          console.log(`      Source "${source}": ${ids.length} ids`)
+        }
+      }
     } else {
       // Empty group
       featureIds = new Set()
+      console.log(`  Group ${group.group_index} (${group.range_label}): EMPTY`)
+    }
+
+    // Verify feature_count matches
+    if (featureIds.size !== group.feature_count) {
+      console.error(`  ERROR: Size mismatch! Set has ${featureIds.size} but feature_count is ${group.feature_count}`)
     }
 
     return {

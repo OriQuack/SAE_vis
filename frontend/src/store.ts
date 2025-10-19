@@ -19,7 +19,7 @@ import type {
   CachedFeatureGroups,
   TreeBasedSankeyStructure
 } from './types'
-import { processFeatureGroupResponse, convertTreeToSankeyStructure, getNodeThresholdPath } from './lib/feature-group-utils'
+import { processFeatureGroupResponse, convertTreeToSankeyStructure, getNodeThresholdPath } from './lib/threshold-utils'
 import {
   PANEL_LEFT,
   PANEL_RIGHT,

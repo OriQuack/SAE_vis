@@ -145,6 +145,36 @@ class FeatureGroupService:
         if metric not in df_collected.columns:
             raise ValueError(f"Metric '{metric}' not found in dataset")
 
+        # CRITICAL FIX: For score metrics that vary by explainer/scorer,
+        # we need to aggregate BEFORE grouping to avoid duplicate features in groups
+
+        # Determine which metrics need aggregation (same logic as histogram_service)
+        score_metrics = {'score_fuzz', 'score_detection', 'score_embedding', 'overall_score'}
+
+        if metric in score_metrics:
+            logger.info(f"Aggregating {metric} by feature_id before grouping (avoiding duplicates)")
+
+            # For score_fuzz and score_detection: these vary by scorer, aggregate by feature_id
+            # For score_embedding and overall_score: these vary by explainer, aggregate by feature_id
+            # In all cases, we take the mean across all rows for each feature
+            df_aggregated = (
+                df_collected
+                .group_by([COL_FEATURE_ID])
+                .agg([
+                    pl.col(metric).mean().alias(metric),
+                    # Keep first value of other columns for reference
+                    pl.col(COL_SAE_ID).first(),
+                    pl.col(COL_EXPLANATION_METHOD).first(),
+                    pl.col(COL_LLM_EXPLAINER).first(),
+                    pl.col(COL_LLM_SCORER).first()
+                ])
+            )
+            logger.info(f"Aggregated {len(df_collected)} rows to {len(df_aggregated)} unique features")
+        else:
+            # For metrics that don't vary (feature_splitting, semdist_mean),
+            # we can use the data as-is but will still deduplicate feature IDs later
+            df_aggregated = df_collected
+
         sorted_thresholds = sorted(thresholds)
         groups = []
 
@@ -153,21 +183,22 @@ class FeatureGroupService:
             # Determine range and label
             if i == 0:
                 # First group: < threshold[0]
-                range_df = df_collected.filter(pl.col(metric) < sorted_thresholds[0])
+                range_df = df_aggregated.filter(pl.col(metric) < sorted_thresholds[0])
                 label = f"< {sorted_thresholds[0]:.2f}"
             elif i == len(sorted_thresholds):
                 # Last group: >= threshold[-1]
-                range_df = df_collected.filter(pl.col(metric) >= sorted_thresholds[-1])
+                range_df = df_aggregated.filter(pl.col(metric) >= sorted_thresholds[-1])
                 label = f">= {sorted_thresholds[-1]:.2f}"
             else:
                 # Middle groups: threshold[i-1] <= x < threshold[i]
-                range_df = df_collected.filter(
+                range_df = df_aggregated.filter(
                     (pl.col(metric) >= sorted_thresholds[i-1]) &
                     (pl.col(metric) < sorted_thresholds[i])
                 )
                 label = f"{sorted_thresholds[i-1]:.2f} - {sorted_thresholds[i]:.2f}"
 
-            # Deduplicate feature IDs (critical - each feature appears multiple times)
+            # Now feature IDs are already unique (one row per feature after aggregation)
+            # But we still extract them for consistency
             unique_ids = range_df[COL_FEATURE_ID].unique().sort().to_list()
 
             groups.append(FeatureGroup(
@@ -177,7 +208,13 @@ class FeatureGroupService:
                 feature_count=len(unique_ids)
             ))
 
-        total_features = df_collected[COL_FEATURE_ID].n_unique()
+        # Use aggregated dataframe for total count (will be same as collected for non-aggregated metrics)
+        total_features = df_aggregated[COL_FEATURE_ID].n_unique()
+
+        # Verify groups are mutually exclusive (sum should equal total)
+        group_sum = sum(len(g.feature_ids) for g in groups)
+        if group_sum != total_features:
+            logger.warning(f"Group sum ({group_sum}) != total features ({total_features}) for metric {metric}")
 
         return groups, total_features
 

@@ -14,7 +14,7 @@ import polars as pl
 import numpy as np
 import logging
 import re
-from typing import Dict, List, Optional, Union, Any
+from typing import Dict, List, Optional, Union, Any, TYPE_CHECKING
 
 from ..models.common import Filters, MetricType
 from ..models.responses import HistogramResponse, GroupedHistogramData
@@ -25,6 +25,10 @@ from .data_constants import (
     COL_LLM_EXPLAINER,
     COL_LLM_SCORER
 )
+
+# Import for type hints only (avoids circular imports)
+if TYPE_CHECKING:
+    from .visualization_service import DataService
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +76,7 @@ def parse_range_label(range_label: str) -> tuple[Optional[float], Optional[float
 class HistogramService:
     """Service for generating histogram visualization data."""
 
-    def __init__(self, data_service):
+    def __init__(self, data_service: "DataService"):
         """
         Initialize HistogramService.
 
@@ -158,7 +162,7 @@ class HistogramService:
             Filtered DataFrame ready for histogram generation
         """
         # Apply filters to get base dataframe
-        filtered_df = self.data_service._apply_filters(
+        filtered_df = self.data_service.apply_filters(
             self.data_service._df_lazy, filters
         ).collect()
 
@@ -214,13 +218,20 @@ class HistogramService:
 
             logger.info(f"After consistency join: {len(filtered_df)} rows")
 
-        # Automatically deduplicate feature-level metrics
+        # Automatically deduplicate feature-level and score metrics
         average_by = None
-        if metric in [MetricType.FEATURE_SPLITTING, MetricType.SEMSIM_MEAN]:
+        if metric in [MetricType.FEATURE_SPLITTING, MetricType.SEMSIM_MEAN,
+                      MetricType.SCORE_FUZZ, MetricType.SCORE_DETECTION,
+                      MetricType.SCORE_EMBEDDING, MetricType.OVERALL_SCORE]:
             if metric == MetricType.FEATURE_SPLITTING:
                 average_by = ['llm_explainer', 'llm_scorer']
                 logger.info(f"Auto-deduplicating {metric.value} (feature-level metric)")
-            elif metric == MetricType.SEMSIM_MEAN:
+            elif metric in [MetricType.SCORE_FUZZ, MetricType.SCORE_DETECTION]:
+                # Scorer-level metrics: vary by scorer, so average by both
+                average_by = ['llm_explainer', 'llm_scorer']
+                logger.info(f"Auto-deduplicating {metric.value} (scorer-level metric)")
+            elif metric in [MetricType.SEMSIM_MEAN, MetricType.SCORE_EMBEDDING, MetricType.OVERALL_SCORE]:
+                # Explainer-level metrics: same value across scorers, so average by explainer only
                 average_by = 'llm_explainer'
                 logger.info(f"Auto-deduplicating {metric.value} (explainer-level metric)")
 
