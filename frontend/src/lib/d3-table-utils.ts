@@ -103,7 +103,7 @@ export function normalizeScore(value: number, stats: MetricNormalizationStats): 
  * @returns Average scorer consistency or null
  */
 function extractScorerConsistency(explainerData: any): number | null {
-  if (!explainerData.llm_scorer_consistency) return null
+  if (!explainerData || !explainerData.llm_scorer_consistency) return null
 
   const values: number[] = []
   if (explainerData.llm_scorer_consistency.fuzz) {
@@ -123,7 +123,7 @@ function extractScorerConsistency(explainerData: any): number | null {
  * @returns Average cross-explainer consistency or null
  */
 function extractCrossExplainerConsistency(explainerData: any): number | null {
-  if (!explainerData.cross_explanation_metric_consistency) return null
+  if (!explainerData || !explainerData.cross_explanation_metric_consistency) return null
 
   const cem = explainerData.cross_explanation_metric_consistency
   const values: number[] = []
@@ -142,7 +142,7 @@ function extractCrossExplainerConsistency(explainerData: any): number | null {
  * @returns Overall score consistency or null
  */
 function extractCrossExplainerOverallConsistency(explainerData: any): number | null {
-  if (!explainerData.cross_explanation_overall_score_consistency) return null
+  if (!explainerData || !explainerData.cross_explanation_overall_score_consistency) return null
 
   return explainerData.cross_explanation_overall_score_consistency.value
 }

@@ -711,6 +711,11 @@ const VerticalBarSankeyNode: React.FC<{
   const buttonX = isRightToLeft && node.x0 !== undefined ? node.x0 - 15 : (node.x1 !== undefined ? node.x1 + 15 : 0)
   const buttonY = node.y0 !== undefined && node.y1 !== undefined ? (node.y0 + node.y1) / 2 : 0
 
+  // Calculate label position (same as normal nodes)
+  const labelX = isRightToLeft && node.x1 !== undefined ? node.x1 + 6 : (node.x0 !== undefined ? node.x0 - 6 : 0)
+  const textAnchor = isRightToLeft ? 'start' : 'end'
+  const labelY = node.y0 !== undefined && node.y1 !== undefined ? (node.y0 + node.y1) / 2 : 0
+
   return (
     <g className="sankey-vertical-bar-node">
       {/* Render three vertical bars */}
@@ -765,6 +770,35 @@ const VerticalBarSankeyNode: React.FC<{
           rx={3}
           style={{ pointerEvents: 'none' }}
         />
+      )}
+
+      {/* Node name and feature count labels (same as normal nodes) */}
+      {!isPlaceholder && (
+        <>
+          <text
+            x={labelX}
+            y={labelY}
+            dy="0.35em"
+            fontSize={12}
+            fill="#374151"
+            fontWeight={400}
+            textAnchor={textAnchor}
+            style={{ pointerEvents: 'none' }}
+          >
+            {node.name}
+          </text>
+          <text
+            x={labelX}
+            y={labelY + 14}
+            dy="0.35em"
+            fontSize={10}
+            fill="#6b7280"
+            textAnchor={textAnchor}
+            style={{ pointerEvents: 'none' }}
+          >
+            ({node.feature_count.toLocaleString()})
+          </text>
+        </>
       )}
 
       {/* Add stage button - not shown for placeholder */}

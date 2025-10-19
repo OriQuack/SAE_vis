@@ -671,6 +671,25 @@ export const useStore = create<AppState>((set, get) => ({
       tableSortKey
     })
 
+    // Determine if this is a score metric or consistency metric for column swap
+    const scoreMetrics = [
+      'overallScore',
+      METRIC_SCORE_EMBEDDING,
+      METRIC_SCORE_FUZZ,
+      METRIC_SCORE_DETECTION
+    ]
+
+    const isScoreMetric = scoreMetrics.includes(tableSortKey)
+    const columnType = isScoreMetric ? 'score' : 'consistency'
+
+    console.log('[Store.syncTableSortWithMaxStage] Swapping column display:', {
+      columnType,
+      metric: tableSortKey
+    })
+
+    // Swap the metric display to show the selected metric prominently
+    state.swapMetricDisplay(columnType, tableSortKey)
+
     // Update table sort, skip Sankey sync to prevent recursion
     state.setTableSort(tableSortKey as SortBy, 'asc', true)
   },

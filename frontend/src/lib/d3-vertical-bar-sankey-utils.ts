@@ -3,14 +3,20 @@
  *
  * Handles layout calculations for rendering vertical bar nodes within Sankey diagrams.
  * Vertical bar nodes show three columns (one per LLM explainer) instead of a single rectangular node.
+ *
+ * Following project pattern: "D3 for calculations, React for rendering"
  */
 
 import type { D3SankeyNode } from '../types'
-import type { ScrollIndicator } from './d3-vertical-bar-utils'
 
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
+
+export interface ScrollIndicator {
+  y: number
+  height: number
+}
 
 export interface VerticalBarSubNode {
   id: string                  // e.g., "llama", "qwen", "openai"
@@ -41,7 +47,7 @@ const LLM_EXPLAINERS = [
   { id: 'openai', name: 'OpenAI' }
 ]
 
-const BAR_COLOR = '#9ca3af'  // Gray-400 (same as standalone vertical bar)
+const BAR_COLOR = '#9ca3af'  // Gray-400
 
 // ============================================================================
 // LAYOUT CALCULATIONS

@@ -71,7 +71,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
       case 'minConsistency': return 'Min Cons.'
       case METRIC_SCORE_EMBEDDING: return 'Emb.'
       case METRIC_SCORE_FUZZ: return 'Fuzz'
-      case METRIC_SCORE_DETECTION: return 'Detection'
+      case METRIC_SCORE_DETECTION: return 'Det.'
       case METRIC_LLM_SCORER_CONSISTENCY: return 'LLM Scorer'
       case METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY: return 'W-E Metric'
       case METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY: return 'C-E Metric'
@@ -530,10 +530,21 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
           </thead>
 
           <tbody className="table-panel__tbody">
-            {sortedFeatures.map((featureRow: FeatureTableRow) => (
+            {sortedFeatures.map((featureRow: FeatureTableRow) => {
+              // Count explainers with valid data for this feature (for correct rowSpan)
+              const validExplainerIds = explainerIds.filter(explainerId => {
+                const data = featureRow.explainers[explainerId]
+                return data !== undefined && data !== null
+              })
+
+              // Skip features with no valid explainers
+              if (validExplainerIds.length === 0) return null
+
+              return (
               <React.Fragment key={featureRow.feature_id}>
-                {explainerIds.map((explainerId, explainerIdx) => {
+                {validExplainerIds.map((explainerId, explainerIdx) => {
                   const explainerData = featureRow.explainers[explainerId]
+                  // explainerData should always exist here due to filter above, but keep check for safety
                   if (!explainerData) return null
 
                   // Calculate display values based on current column settings
@@ -644,8 +655,8 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                       break
                   }
 
-                  // Get explanation text
-                  const explanationText = explainerData.explanation_text || '-'
+                  // Get explanation text (safely handle null/undefined)
+                  const explanationText = explainerData.explanation_text ?? '-'
 
                   return (
                     <tr
@@ -656,7 +667,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                       {explainerIdx === 0 && (
                         <td
                           className="table-panel__cell table-panel__cell--id"
-                          rowSpan={explainerIds.length}
+                          rowSpan={validExplainerIds.length}
                         >
                           {featureRow.feature_id}
                         </td>
@@ -814,7 +825,8 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                   )
                 })}
               </React.Fragment>
-            ))}
+            )
+            })}
           </tbody>
         </table>
       </div>
