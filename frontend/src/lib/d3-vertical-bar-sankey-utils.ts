@@ -81,28 +81,42 @@ export function calculateVerticalBarNodeLayout(
 
   // Calculate if this node should show scroll indicator
   let scrollIndicator: ScrollIndicator | null = null
-  if (scrollState && scrollState.scrollHeight > scrollState.clientHeight && totalFeatureCount > 0) {
+  if (scrollState && scrollState.scrollHeight > scrollState.clientHeight) {
     const scrollPercentage = scrollState.scrollTop / (scrollState.scrollHeight - scrollState.clientHeight)
     const visiblePercentage = scrollState.clientHeight / scrollState.scrollHeight
 
-    // Calculate which features are visible in the table (0-indexed)
-    const visibleStart = Math.floor(scrollPercentage * totalFeatureCount)
-    const visibleEnd = Math.ceil((scrollPercentage + visiblePercentage) * totalFeatureCount)
+    // Special case: placeholder node always shows indicator (represents all features)
+    const isPlaceholder = node.id === 'placeholder_vertical_bar'
 
-    const nodeEndIndex = nodeStartIndex + node.feature_count
-
-    // Check if this node contains any visible features
-    if (visibleStart < nodeEndIndex && visibleEnd > nodeStartIndex) {
-      // Calculate indicator position within this node
-      const nodeVisibleStart = Math.max(0, visibleStart - nodeStartIndex)
-      const nodeVisibleEnd = Math.min(node.feature_count, visibleEnd - nodeStartIndex)
-
-      const startPercent = nodeVisibleStart / node.feature_count
-      const endPercent = nodeVisibleEnd / node.feature_count
+    if (isPlaceholder) {
+      // For placeholder, show indicator based on full scroll state
+      const indicatorHeight = totalHeight * visiblePercentage
+      const indicatorY = node.y0! + (totalHeight - indicatorHeight) * scrollPercentage
 
       scrollIndicator = {
-        y: node.y0! + (totalHeight * startPercent),
-        height: totalHeight * (endPercent - startPercent)
+        y: indicatorY,
+        height: indicatorHeight
+      }
+    } else if (totalFeatureCount > 0) {
+      // For regular nodes, check if this node contains any visible features
+      const visibleStart = Math.floor(scrollPercentage * totalFeatureCount)
+      const visibleEnd = Math.ceil((scrollPercentage + visiblePercentage) * totalFeatureCount)
+
+      const nodeEndIndex = nodeStartIndex + node.feature_count
+
+      // Check if this node contains any visible features
+      if (visibleStart < nodeEndIndex && visibleEnd > nodeStartIndex) {
+        // Calculate indicator position within this node
+        const nodeVisibleStart = Math.max(0, visibleStart - nodeStartIndex)
+        const nodeVisibleEnd = Math.min(node.feature_count, visibleEnd - nodeStartIndex)
+
+        const startPercent = nodeVisibleStart / node.feature_count
+        const endPercent = nodeVisibleEnd / node.feature_count
+
+        scrollIndicator = {
+          y: node.y0! + (totalHeight * startPercent),
+          height: totalHeight * (endPercent - startPercent)
+        }
       }
     }
   }

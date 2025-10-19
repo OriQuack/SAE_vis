@@ -12,6 +12,11 @@
   transition: all 300ms ease-out;
 }
 
+/* Disable transitions during drag for smooth 60fps performance */
+.histogram-popover--dragging {
+  transition: none !important;
+}
+
 .histogram-popover__container {
   /* Size set via inline style (dynamic) */
 }

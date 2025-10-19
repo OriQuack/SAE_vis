@@ -17,8 +17,8 @@ import {
   calculateSliderPosition
 } from '../lib/d3-histogram-utils'
 import { getNodeThresholds } from '../lib/threshold-utils'
-import { CATEGORY_DISPLAY_NAMES } from '../lib/constants'
-import type { HistogramData, HistogramChart, NodeCategory } from '../types'
+import { METRIC_DISPLAY_NAMES } from '../lib/constants'
+import type { HistogramData, HistogramChart } from '../types'
 
 // ============================================================================
 // COMPONENT-SPECIFIC CONSTANTS
@@ -61,34 +61,16 @@ interface HistogramPopoverProps {
 // SUB-COMPONENTS
 // ============================================================================
 const PopoverHeader: React.FC<{
-  nodeName: string
-  nodeCategory?: NodeCategory
-  parentNodeName?: string
-  metrics: string[]
+  metric: string
   onClose: () => void
   onMouseDown: (e: React.MouseEvent) => void
-}> = ({ nodeName, nodeCategory, parentNodeName, metrics, onClose, onMouseDown }) => {
-  const formatMetricText = (metrics: string[]) => {
-    if (metrics.length === 1) {
-      return metrics[0].replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
-    }
-    return `${metrics.length} Score Metrics`
-  }
-
+}> = ({ metric, onClose, onMouseDown }) => {
   return (
     <div className="histogram-popover__header" onMouseDown={onMouseDown}>
       <div className="histogram-popover__header-content">
         <h4 className="histogram-popover__node-title">
-          {nodeCategory ? CATEGORY_DISPLAY_NAMES[nodeCategory] : 'Node'}: {nodeName}
+          {METRIC_DISPLAY_NAMES[metric as keyof typeof METRIC_DISPLAY_NAMES] || metric}
         </h4>
-        {parentNodeName && (
-          <span className="histogram-popover__parent-label">
-            Thresholds for: {parentNodeName}
-          </span>
-        )}
-        <span className="histogram-popover__metric-label">
-          {formatMetricText(metrics)}
-        </span>
       </div>
       <button onClick={onClose} className="histogram-popover__close-button">
         ×
@@ -314,10 +296,17 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
   // Refs
   const containerRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
+  const popoverRef = useRef<HTMLDivElement>(null)
+
+  // RAF and drag state refs for performance
+  const rafIdRef = useRef<number | null>(null)
+  const sliderRafIdRef = useRef<number | null>(null)
+  const isDraggingPopoverRef = useRef(false)
+  const dragOffsetRef = useRef<{ x: number; y: number } | null>(null)
+  const currentDragPositionRef = useRef<{ x: number; y: number } | null>(null)
 
   // Local state for dragging
   const [draggedPosition, setDraggedPosition] = useState<{ x: number; y: number } | null>(null)
-  const [dragStartOffset, setDragStartOffset] = useState<{ x: number; y: number } | null>(null)
   const [isDraggingSlider, setIsDraggingSlider] = useState(false)
   const [draggingThresholdIndex, setDraggingThresholdIndex] = useState<number>(0)
   const draggingChartRef = useRef<HistogramChart | null>(null)
@@ -419,7 +408,7 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     event.preventDefault()
   }, [histogramData, popoverData?.nodeId, nodeThresholds, updateNodeThresholds, panel])
 
-  // Handle header drag start
+  // Handle header drag start (optimized with RAF)
   const handleHeaderMouseDown = useCallback((event: React.MouseEvent) => {
     if ((event.target as HTMLElement).closest('button')) {
       return
@@ -430,10 +419,19 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
       y: calculatedPosition?.y || popoverData?.position?.y || 0
     }
 
-    setDragStartOffset({
+    isDraggingPopoverRef.current = true
+    dragOffsetRef.current = {
       x: event.clientX - currentPosition.x,
       y: event.clientY - currentPosition.y
-    })
+    }
+    currentDragPositionRef.current = currentPosition
+
+    // Optimize for drag: disable transitions, change cursor, prevent selection
+    if (popoverRef.current) {
+      popoverRef.current.classList.add('histogram-popover--dragging')
+      popoverRef.current.style.cursor = 'grabbing'
+    }
+    document.body.style.userSelect = 'none'
   }, [draggedPosition, calculatedPosition, popoverData?.position])
 
   // Handle retry
@@ -444,9 +442,11 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     }
   }, [popoverData, clearError, fetchMultipleHistogramData, panel])
 
-  // Handle global mouse events for slider dragging
+  // Handle global mouse events for slider dragging (optimized with RAF)
   useEffect(() => {
     if (!isDraggingSlider) return
+
+    let lastValue: number | null = null
 
     const handleMouseMove = (event: MouseEvent) => {
       const chart = draggingChartRef.current
@@ -456,17 +456,35 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
       const data = histogramData?.[metric]
       if (!data) return
 
-      const newValue = calculateThresholdFromMouseEvent(event, svgRef.current, chart, data.statistics.min, data.statistics.max)
-
-      if (newValue !== null) {
-        // Update threshold at specific index
-        const updatedThresholds = [...nodeThresholds]
-        updatedThresholds[draggingThresholdIndex] = newValue
-        updateNodeThresholds(popoverData.nodeId, updatedThresholds, panel)
+      // Cancel any pending RAF
+      if (sliderRafIdRef.current !== null) {
+        cancelAnimationFrame(sliderRafIdRef.current)
       }
+
+      // Schedule update on next frame (throttles to 60fps max)
+      sliderRafIdRef.current = requestAnimationFrame(() => {
+        const newValue = calculateThresholdFromMouseEvent(event, svgRef.current, chart, data.statistics.min, data.statistics.max)
+
+        if (newValue !== null && newValue !== lastValue && popoverData?.nodeId) {
+          lastValue = newValue
+
+          // Update threshold at specific index
+          const updatedThresholds = [...nodeThresholds]
+          updatedThresholds[draggingThresholdIndex] = newValue
+          updateNodeThresholds(popoverData.nodeId, updatedThresholds, panel)
+        }
+
+        sliderRafIdRef.current = null
+      })
     }
 
     const handleMouseUp = () => {
+      // Cancel any pending RAF
+      if (sliderRafIdRef.current !== null) {
+        cancelAnimationFrame(sliderRafIdRef.current)
+        sliderRafIdRef.current = null
+      }
+
       setIsDraggingSlider(false)
       draggingChartRef.current = null
     }
@@ -477,22 +495,66 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     return () => {
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
+
+      // Clean up RAF
+      if (sliderRafIdRef.current !== null) {
+        cancelAnimationFrame(sliderRafIdRef.current)
+        sliderRafIdRef.current = null
+      }
     }
   }, [isDraggingSlider, histogramData, popoverData?.nodeId, nodeThresholds, draggingThresholdIndex, updateNodeThresholds, panel])
 
-  // Handle popover dragging
+  // Handle popover dragging (optimized with RAF)
   useEffect(() => {
-    if (!dragStartOffset) return
+    if (!isDraggingPopoverRef.current) return
 
     const handleMouseMove = (e: MouseEvent) => {
-      setDraggedPosition({
-        x: e.clientX - dragStartOffset.x,
-        y: e.clientY - dragStartOffset.y
+      if (!isDraggingPopoverRef.current || !dragOffsetRef.current) return
+
+      // Cancel any pending RAF
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current)
+      }
+
+      // Schedule update on next frame
+      rafIdRef.current = requestAnimationFrame(() => {
+        const newPosition = {
+          x: e.clientX - dragOffsetRef.current!.x,
+          y: e.clientY - dragOffsetRef.current!.y
+        }
+
+        currentDragPositionRef.current = newPosition
+
+        // Apply transform directly to DOM for immediate visual feedback
+        if (popoverRef.current) {
+          popoverRef.current.style.transform = `translate(${newPosition.x}px, ${newPosition.y}px)`
+        }
       })
     }
 
     const handleMouseUp = () => {
-      setDragStartOffset(null)
+      // Cancel any pending RAF
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current)
+        rafIdRef.current = null
+      }
+
+      isDraggingPopoverRef.current = false
+
+      // Update state with final position (triggers single re-render)
+      if (currentDragPositionRef.current) {
+        setDraggedPosition(currentDragPositionRef.current)
+      }
+
+      // Reset drag optimizations: re-enable transitions, reset cursor
+      if (popoverRef.current) {
+        popoverRef.current.classList.remove('histogram-popover--dragging')
+        popoverRef.current.style.cursor = ''
+      }
+      document.body.style.userSelect = ''
+
+      // Clean up refs
+      dragOffsetRef.current = null
     }
 
     document.addEventListener('mousemove', handleMouseMove)
@@ -501,14 +563,34 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     return () => {
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
+
+      // Clean up RAF
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current)
+        rafIdRef.current = null
+      }
     }
-  }, [dragStartOffset])
+  }, []) // Empty deps - uses refs for all state
 
   // Reset dragged position when popover closes
   useEffect(() => {
     if (!popoverData?.visible) {
       setDraggedPosition(null)
-      setDragStartOffset(null)
+      isDraggingPopoverRef.current = false
+      dragOffsetRef.current = null
+      currentDragPositionRef.current = null
+
+      // Cancel any pending RAF
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current)
+        rafIdRef.current = null
+      }
+
+      // Clean up drag state
+      if (popoverRef.current) {
+        popoverRef.current.classList.remove('histogram-popover--dragging')
+      }
+      document.body.style.userSelect = ''
     }
   }, [popoverData?.visible])
 
@@ -517,27 +599,40 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     if (!popoverData?.visible) return
 
     const handleClickOutside = (event: MouseEvent) => {
+      // Don't close while dragging slider
       if (isDraggingSlider) return
 
       const target = event.target as HTMLElement
-      if (target.closest('circle') || target.closest('rect[style*="cursor: pointer"]')) {
+
+      // If click is inside the popover container, don't close
+      if (containerRef.current && containerRef.current.contains(target)) {
         return
       }
 
-      if (containerRef.current && !containerRef.current.contains(target)) {
-        hideHistogramPopover()
-      }
+      // Click is outside, close the popover
+      hideHistogramPopover()
     }
 
-    const timeoutId = setTimeout(() => {
-      document.addEventListener('mouseup', handleClickOutside)
-    }, 100)
+    // Use mousedown for immediate response
+    document.addEventListener('mousedown', handleClickOutside)
 
     return () => {
-      clearTimeout(timeoutId)
-      document.removeEventListener('mouseup', handleClickOutside)
+      document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [popoverData?.visible, isDraggingSlider, hideHistogramPopover])
+
+  // Initialize popover position when it opens
+  useEffect(() => {
+    if (popoverData?.visible && popoverRef.current && !isDraggingPopoverRef.current) {
+      const finalPosition = draggedPosition || {
+        x: calculatedPosition?.x || popoverData.position.x,
+        y: calculatedPosition?.y || popoverData.position.y
+      }
+
+      // Set initial position via transform for consistency with drag behavior
+      popoverRef.current.style.transform = `translate(${finalPosition.x}px, ${finalPosition.y}px)`
+    }
+  }, [popoverData?.visible, draggedPosition, calculatedPosition, popoverData?.position])
 
   // Fetch data when popover opens
   useEffect(() => {
@@ -565,19 +660,12 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     return null
   }
 
-  const finalPosition = draggedPosition || {
-    x: calculatedPosition?.x || popoverData.position.x,
-    y: calculatedPosition?.y || popoverData.position.y
-  }
-
+  // Note: Position is applied via transform in useEffect and during drag
+  // This provides better performance than updating via state on every frame
   return (
     <div
+      ref={popoverRef}
       className="histogram-popover"
-      style={{
-        left: finalPosition.x,
-        top: finalPosition.y,
-        transform: calculatedPosition?.transform || 'translate(0%, 0%)'
-      }}
     >
       <div
         ref={containerRef}
@@ -586,10 +674,7 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
       >
         {/* Header */}
         <PopoverHeader
-          nodeName={popoverData.nodeName}
-          nodeCategory={popoverData.nodeCategory}
-          parentNodeName={popoverData.parentNodeName}
-          metrics={popoverData.metrics}
+          metric={popoverData.metrics[0]}
           onClose={hideHistogramPopover}
           onMouseDown={handleHeaderMouseDown}
         />

@@ -31,6 +31,9 @@ import {
   METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
   METRIC_LLM_EXPLAINER_CONSISTENCY,
   METRIC_OVERALL_SCORE,
+  METRIC_SCORE_EMBEDDING,
+  METRIC_SCORE_FUZZ,
+  METRIC_SCORE_DETECTION,
   CONSISTENCY_THRESHOLDS
 } from './lib/constants'
 
@@ -54,7 +57,11 @@ const mapTableSortToSankeyMetric = (sortBy: string | null): string | null => {
     [METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY]: METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
     [METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY]: METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
     [METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY]: METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
-    [METRIC_LLM_EXPLAINER_CONSISTENCY]: METRIC_LLM_EXPLAINER_CONSISTENCY
+    [METRIC_LLM_EXPLAINER_CONSISTENCY]: METRIC_LLM_EXPLAINER_CONSISTENCY,
+    // Score metrics map directly
+    [METRIC_SCORE_EMBEDDING]: METRIC_SCORE_EMBEDDING,
+    [METRIC_SCORE_FUZZ]: METRIC_SCORE_FUZZ,
+    [METRIC_SCORE_DETECTION]: METRIC_SCORE_DETECTION
   }
 
   return mappings[sortBy] || null
@@ -74,7 +81,11 @@ const mapSankeyMetricToTableSort = (metric: string | null): string | null => {
     [METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY]: METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
     [METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY]: METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
     [METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY]: METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
-    [METRIC_LLM_EXPLAINER_CONSISTENCY]: METRIC_LLM_EXPLAINER_CONSISTENCY
+    [METRIC_LLM_EXPLAINER_CONSISTENCY]: METRIC_LLM_EXPLAINER_CONSISTENCY,
+    // Score metrics map directly
+    [METRIC_SCORE_EMBEDDING]: METRIC_SCORE_EMBEDDING,
+    [METRIC_SCORE_FUZZ]: METRIC_SCORE_FUZZ,
+    [METRIC_SCORE_DETECTION]: METRIC_SCORE_DETECTION
   }
 
   return mappings[metric] || null
@@ -170,6 +181,10 @@ interface AppState {
   // Get rightmost stage feature IDs for table filtering
   getRightmostStageFeatureIds: () => Set<number> | null
 
+  // Get max stage metric and sync table sort
+  getMaxStageMetric: () => string | null
+  syncTableSortWithMaxStage: () => void
+
   // Table data
   tableData: any | null
 
@@ -184,6 +199,11 @@ interface AppState {
   tableSortBy: SortBy | null
   tableSortDirection: SortDirection | null
   setTableSort: (sortBy: SortBy | null, sortDirection: SortDirection | null, skipSankeySync?: boolean) => void
+
+  // Table column display state (what metric is shown in the column)
+  scoreColumnDisplay: 'overallScore' | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION
+  consistencyColumnDisplay: 'minConsistency' | typeof METRIC_LLM_SCORER_CONSISTENCY | typeof METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY | typeof METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY | typeof METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY | typeof METRIC_LLM_EXPLAINER_CONSISTENCY
+  swapMetricDisplay: (columnType: 'score' | 'consistency', newMetric: string) => void
 
   // Consistency type selection (Table Panel)
   selectedConsistencyType: ConsistencyType
@@ -268,6 +288,10 @@ const initialState = {
   // Table sort state
   tableSortBy: null,
   tableSortDirection: null,
+
+  // Table column display state
+  scoreColumnDisplay: 'overallScore' as 'overallScore',
+  consistencyColumnDisplay: 'minConsistency' as 'minConsistency',
 
   // Consistency type selection (Table Panel)
   selectedConsistencyType: CONSISTENCY_TYPE_NONE as ConsistencyType,
@@ -603,6 +627,54 @@ export const useStore = create<AppState>((set, get) => ({
     return featureIds
   },
 
+  // Get the metric used by the maximum stage nodes
+  getMaxStageMetric: () => {
+    const state = get()
+    const { leftPanel } = state
+
+    if (!leftPanel.computedSankey || leftPanel.computedSankey.nodes.length === 0) {
+      return null
+    }
+
+    // Find maximum stage (depth)
+    const maxStage = Math.max(...leftPanel.computedSankey.nodes.map(n => n.stage))
+
+    // Get nodes at maximum stage
+    const maxStageNodes = leftPanel.computedSankey.nodes.filter(n => n.stage === maxStage)
+
+    // Return the metric used by max stage nodes (should be consistent)
+    // Root nodes have null metric, so skip them
+    const nodeWithMetric = maxStageNodes.find(n => n.metric)
+    return nodeWithMetric?.metric || null
+  },
+
+  // Synchronize table sort with the maximum Sankey stage
+  syncTableSortWithMaxStage: () => {
+    const state = get()
+    const maxStageMetric = state.getMaxStageMetric()
+
+    if (!maxStageMetric) {
+      console.log('[Store.syncTableSortWithMaxStage] No max stage metric found')
+      return
+    }
+
+    // Map metric to table sort key
+    const tableSortKey = mapSankeyMetricToTableSort(maxStageMetric)
+
+    if (!tableSortKey) {
+      console.log('[Store.syncTableSortWithMaxStage] Metric not mappable to table sort:', maxStageMetric)
+      return
+    }
+
+    console.log('[Store.syncTableSortWithMaxStage] Syncing table sort to max stage:', {
+      maxStageMetric,
+      tableSortKey
+    })
+
+    // Update table sort, skip Sankey sync to prevent recursion
+    state.setTableSort(tableSortKey as SortBy, 'asc', true)
+  },
+
   // Fetch table data
   fetchTableData: async () => {
     const state = get()
@@ -698,6 +770,38 @@ export const useStore = create<AppState>((set, get) => ({
           state.addStageToNode('root', sankeyMetric, thresholds, PANEL_LEFT)
         }
       }
+    }
+  },
+
+  swapMetricDisplay: (columnType, newMetric) => {
+    const state = get()
+
+    if (columnType === 'score') {
+      // Store the current display metric
+      const currentDisplay = state.scoreColumnDisplay
+
+      // Set the new display metric
+      set({
+        scoreColumnDisplay: newMetric as typeof state.scoreColumnDisplay
+      })
+
+      console.log('[Store.swapMetricDisplay] Swapped score column:', {
+        from: currentDisplay,
+        to: newMetric
+      })
+    } else {
+      // Store the current display metric
+      const currentDisplay = state.consistencyColumnDisplay
+
+      // Set the new display metric
+      set({
+        consistencyColumnDisplay: newMetric as typeof state.consistencyColumnDisplay
+      })
+
+      console.log('[Store.swapMetricDisplay] Swapped consistency column:', {
+        from: currentDisplay,
+        to: newMetric
+      })
     }
   },
 
@@ -897,21 +1001,9 @@ export const useStore = create<AppState>((set, get) => ({
 
       console.log(`[Store.addStageToNode] 🌳 Tree updated with ${childIds.length} new children for node ${nodeId}`)
 
-      // Recompute Sankey structure
+      // Recompute Sankey structure (this will also sync table sort via syncTableSortWithMaxStage)
       console.log(`[Store.addStageToNode] 🔄 Now calling recomputeSankeyTree to activate tree-based system...`)
       get().recomputeSankeyTree(panel)
-
-      // Sync with table sorting if applicable
-      const tableSortKey = mapSankeyMetricToTableSort(metric)
-      if (tableSortKey && !state.tableSortBy) {
-        // Only sync if table is not already sorted
-        console.log('[Store.addStageToNode] Syncing table sort with Sankey stage:', {
-          metric,
-          tableSortKey
-        })
-        // Set table sort to ascending by default, skip Sankey sync to prevent recursion
-        get().setTableSort(tableSortKey as SortBy, 'asc', true)
-      }
 
       state.setLoading(loadingKey, false)
       console.log(`[Store.addStageToNode] ✅ Stage addition complete - tree-based system should now be active!`)
@@ -1079,6 +1171,11 @@ export const useStore = create<AppState>((set, get) => ({
 
       // Update alluvial flows if both panels have data
       get().updateAlluvialFlows()
+
+      // Sync table sort with max stage (only for left panel)
+      if (panel === PANEL_LEFT) {
+        get().syncTableSortWithMaxStage()
+      }
     } catch (error) {
       console.error('[Store.recomputeSankeyTree] ❌ Failed to recompute Sankey:', error)
     }

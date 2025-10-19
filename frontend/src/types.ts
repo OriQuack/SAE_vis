@@ -481,6 +481,9 @@ export type SortBy =
   | 'featureId'
   | 'overallScore'
   | 'minConsistency'
+  | typeof METRIC_SCORE_DETECTION
+  | typeof METRIC_SCORE_FUZZ
+  | typeof METRIC_SCORE_EMBEDDING
   | typeof METRIC_LLM_SCORER_CONSISTENCY
   | typeof METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY
   | typeof METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY

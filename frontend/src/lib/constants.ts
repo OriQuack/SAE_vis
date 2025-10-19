@@ -63,7 +63,7 @@ export const PANEL_SIDES = {
 
 // ============================================================================
 // CONSISTENCY TYPES - Table consistency type identifiers
-// Used across: types.ts, d3-table-utils.ts, TablePanel.tsx, ConsistencyPanel.tsx, threshold-utils.ts, store.ts (6+ files)
+// Used across: types.ts, d3-table-utils.ts, TablePanel.tsx, threshold-utils.ts, store.ts (5+ files)
 // Note: Uses METRIC_* constants for consistency metrics (single source of truth)
 // ============================================================================
 export const CONSISTENCY_TYPE_NONE = "none"

@@ -19,8 +19,13 @@ import {
   METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
   METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
   METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
-  METRIC_LLM_EXPLAINER_CONSISTENCY
+  METRIC_LLM_EXPLAINER_CONSISTENCY,
+  METRIC_SCORE_DETECTION,
+  METRIC_SCORE_FUZZ,
+  METRIC_SCORE_EMBEDDING,
+  CONSISTENCY_TYPE_NONE
 } from '../lib/constants'
+import type { ConsistencyType } from '../types'
 import '../styles/TablePanel.css'
 
 // ============================================================================
@@ -46,6 +51,11 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const sortDirection = useVisualizationStore(state => state.tableSortDirection)
   const setTableSort = useVisualizationStore(state => state.setTableSort)
 
+  // Column display state from store
+  const scoreColumnDisplay = useVisualizationStore(state => state.scoreColumnDisplay)
+  const consistencyColumnDisplay = useVisualizationStore(state => state.consistencyColumnDisplay)
+  const swapMetricDisplay = useVisualizationStore(state => state.swapMetricDisplay)
+
   // ============================================================================
   // HELPER TYPES AND FUNCTIONS
   // ============================================================================
@@ -53,6 +63,23 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   // Type for cell expansion state
   type CellType = 'score' | 'consistency'
   type ExpandedCellState = { featureId: number; explainerId: string } | null
+
+  // Helper to get display name for a metric
+  const getMetricDisplayName = (metric: string): string => {
+    switch(metric) {
+      case 'overallScore': return 'Overall Score'
+      case 'minConsistency': return 'Min Cons.'
+      case METRIC_SCORE_EMBEDDING: return 'Emb.'
+      case METRIC_SCORE_FUZZ: return 'Fuzz'
+      case METRIC_SCORE_DETECTION: return 'Detection'
+      case METRIC_LLM_SCORER_CONSISTENCY: return 'LLM Scorer'
+      case METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY: return 'W-E Metric'
+      case METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY: return 'C-E Metric'
+      case METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY: return 'C-E OvrlScr'
+      case METRIC_LLM_EXPLAINER_CONSISTENCY: return 'LLM Explnr'
+      default: return metric
+    }
+  }
 
   // Generic click-outside hook
   const useClickOutside = (
@@ -81,13 +108,32 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   }
 
   // Helper to render a metric circle
-  const renderMetricCircle = (label: string, value: number, color: string) => (
-    <div className="table-panel__score-breakdown-item">
-      <span className="table-panel__score-breakdown-label">{label}</span>
+  const renderMetricCircle = (
+    label: React.ReactNode,
+    _value: number,
+    color: string,
+    sortKey?: 'overallScore' | 'minConsistency'
+      | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION
+      | typeof METRIC_LLM_SCORER_CONSISTENCY
+      | typeof METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY
+      | typeof METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY
+      | typeof METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY
+      | typeof METRIC_LLM_EXPLAINER_CONSISTENCY
+  ) => (
+    <div
+      className={`table-panel__score-breakdown-item${sortKey ? ' clickable' : ''}`}
+      onClick={sortKey ? (e) => { e.stopPropagation(); handleSort(sortKey); } : undefined}
+      title={sortKey ? `Click to sort by this metric` : undefined}
+    >
+      <span className="table-panel__score-breakdown-label">
+        {label}
+        {sortKey && sortBy === sortKey && (
+          <span className={`table-panel__sort-indicator ${sortDirection || ''}`} />
+        )}
+      </span>
       <svg width="20" height="20" viewBox="0 0 20 20">
         <circle cx="10" cy="10" r="8" fill={color} stroke="#d1d5db" strokeWidth="1" />
       </svg>
-      <span className="table-panel__score-breakdown-value">{value.toFixed(3)}</span>
     </div>
   )
 
@@ -152,7 +198,36 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   }
 
   // Handle sort click (simplified for new table structure)
-  const handleSort = (sortKey: 'featureId' | 'overallScore' | 'minConsistency') => {
+  const handleSort = (sortKey: 'featureId' | 'overallScore' | 'minConsistency'
+    | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION
+    | typeof METRIC_LLM_SCORER_CONSISTENCY
+    | typeof METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY
+    | typeof METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY
+    | typeof METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY
+    | typeof METRIC_LLM_EXPLAINER_CONSISTENCY) => {
+
+    // Check if this is a breakdown metric being sorted (not main column metrics)
+    const scoreMetrics = [METRIC_SCORE_EMBEDDING, METRIC_SCORE_FUZZ, METRIC_SCORE_DETECTION]
+    const consistencyMetrics = [
+      METRIC_LLM_SCORER_CONSISTENCY,
+      METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
+      METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
+      METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
+      METRIC_LLM_EXPLAINER_CONSISTENCY
+    ]
+
+    const isScoreMetric = scoreMetrics.includes(sortKey as any)
+    const isConsistencyMetric = consistencyMetrics.includes(sortKey as any)
+    const isOverallScore = sortKey === 'overallScore'
+    const isMinConsistency = sortKey === 'minConsistency'
+
+    // If clicking a breakdown metric or swapped main metric, perform swap
+    if (isScoreMetric || isOverallScore) {
+      swapMetricDisplay('score', sortKey)
+    } else if (isConsistencyMetric || isMinConsistency) {
+      swapMetricDisplay('consistency', sortKey)
+    }
+
     // Cycle through: null → asc → desc → null
     if (sortBy === sortKey) {
       if (sortDirection === null) {
@@ -425,23 +500,23 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                 )}
               </th>
               <th className="table-panel__header-cell table-panel__header-cell--explainer">
-                LLM Explainer
+                LLM Explnr
               </th>
               <th
                 className="table-panel__header-cell table-panel__header-cell--score"
-                onClick={() => handleSort('overallScore')}
+                onClick={() => handleSort(scoreColumnDisplay)}
               >
-                Overall Score
-                {sortBy === 'overallScore' && (
+                {getMetricDisplayName(scoreColumnDisplay)}
+                {sortBy === scoreColumnDisplay && (
                   <span className={`table-panel__sort-indicator ${sortDirection || ''}`} />
                 )}
               </th>
               <th
                 className="table-panel__header-cell table-panel__header-cell--consistency"
-                onClick={() => handleSort('minConsistency')}
+                onClick={() => handleSort(consistencyColumnDisplay)}
               >
-                Min Cons.
-                {sortBy === 'minConsistency' && (
+                {getMetricDisplayName(consistencyColumnDisplay)}
+                {sortBy === consistencyColumnDisplay && (
                   <span className={`table-panel__sort-indicator ${sortDirection || ''}`} />
                 )}
               </th>
@@ -461,24 +536,113 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                   const explainerData = featureRow.explainers[explainerId]
                   if (!explainerData) return null
 
-                  // Calculate overall score
-                  const overallScore = calculateOverallScore(
-                    explainerData.embedding,
-                    explainerData.fuzz,
-                    explainerData.detection,
-                    tableData.global_stats
-                  )
+                  // Calculate display values based on current column settings
+                  let scoreValue: number | null = null
+                  let scoreColor = 'transparent'
 
-                  // Calculate min consistency (returns value + weakest type)
-                  const minConsistencyResult = calculateMinConsistency(featureRow, explainerId)
+                  // Get score column value
+                  switch(scoreColumnDisplay) {
+                    case 'overallScore':
+                      scoreValue = calculateOverallScore(
+                        explainerData.embedding,
+                        explainerData.fuzz,
+                        explainerData.detection,
+                        tableData.global_stats
+                      )
+                      scoreColor = scoreValue !== null ? getOverallScoreColor(scoreValue) : 'transparent'
+                      break
+                    case METRIC_SCORE_EMBEDDING:
+                      scoreValue = getScoreValue(featureRow, explainerId, METRIC_SCORE_EMBEDDING)
+                      if (scoreValue !== null && tableData.global_stats.embedding) {
+                        const normalized = normalizeScore(scoreValue, tableData.global_stats.embedding)
+                        scoreColor = normalized !== null ? getMetricColor('embedding', normalized) : 'transparent'
+                      }
+                      break
+                    case METRIC_SCORE_FUZZ:
+                      scoreValue = getScoreValue(featureRow, explainerId, METRIC_SCORE_FUZZ)
+                      if (scoreValue !== null && tableData.global_stats.fuzz) {
+                        const normalized = normalizeScore(scoreValue, tableData.global_stats.fuzz)
+                        scoreColor = normalized !== null ? getMetricColor('fuzz', normalized) : 'transparent'
+                      }
+                      break
+                    case METRIC_SCORE_DETECTION:
+                      scoreValue = getScoreValue(featureRow, explainerId, METRIC_SCORE_DETECTION)
+                      if (scoreValue !== null && tableData.global_stats.detection) {
+                        const normalized = normalizeScore(scoreValue, tableData.global_stats.detection)
+                        scoreColor = normalized !== null ? getMetricColor('detection', normalized) : 'transparent'
+                      }
+                      break
+                  }
 
-                  // Get colors for score and consistency
-                  const scoreColor = overallScore !== null
-                    ? getOverallScoreColor(overallScore)
-                    : 'transparent'
-                  const consistencyColor = minConsistencyResult !== null
-                    ? getConsistencyColor(minConsistencyResult.value, minConsistencyResult.weakestType)
-                    : 'transparent'
+                  // Get consistency column value
+                  let consistencyValue: number | null = null
+                  let consistencyColor = 'transparent'
+                  let consistencyType: ConsistencyType = CONSISTENCY_TYPE_NONE
+
+                  switch(consistencyColumnDisplay) {
+                    case 'minConsistency':
+                      const minResult = calculateMinConsistency(featureRow, explainerId)
+                      if (minResult) {
+                        consistencyValue = minResult.value
+                        consistencyType = minResult.weakestType
+                        consistencyColor = getConsistencyColor(consistencyValue, consistencyType)
+                      }
+                      break
+                    case METRIC_LLM_SCORER_CONSISTENCY:
+                      // Extract LLM Scorer consistency
+                      if (explainerData.llm_scorer_consistency) {
+                        const values: number[] = []
+                        if (explainerData.llm_scorer_consistency.fuzz) values.push(explainerData.llm_scorer_consistency.fuzz.value)
+                        if (explainerData.llm_scorer_consistency.detection) values.push(explainerData.llm_scorer_consistency.detection.value)
+                        if (values.length > 0) {
+                          consistencyValue = values.reduce((sum, v) => sum + v, 0) / values.length
+                          consistencyType = METRIC_LLM_SCORER_CONSISTENCY as ConsistencyType
+                          consistencyColor = getConsistencyColor(consistencyValue, consistencyType)
+                        }
+                      }
+                      break
+                    case METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY:
+                      consistencyValue = explainerData.within_explanation_metric_consistency?.value ?? null
+                      if (consistencyValue !== null) {
+                        consistencyType = METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY as ConsistencyType
+                        consistencyColor = getConsistencyColor(consistencyValue, consistencyType)
+                      }
+                      break
+                    case METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY:
+                      // Average of cross-explanation metric consistencies
+                      if (explainerData.cross_explanation_metric_consistency) {
+                        const values: number[] = []
+                        if (explainerData.cross_explanation_metric_consistency.embedding) {
+                          values.push(explainerData.cross_explanation_metric_consistency.embedding.value)
+                        }
+                        if (explainerData.cross_explanation_metric_consistency.fuzz) {
+                          values.push(explainerData.cross_explanation_metric_consistency.fuzz.value)
+                        }
+                        if (explainerData.cross_explanation_metric_consistency.detection) {
+                          values.push(explainerData.cross_explanation_metric_consistency.detection.value)
+                        }
+                        if (values.length > 0) {
+                          consistencyValue = values.reduce((sum, v) => sum + v, 0) / values.length
+                          consistencyType = METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY as ConsistencyType
+                          consistencyColor = getConsistencyColor(consistencyValue, consistencyType)
+                        }
+                      }
+                      break
+                    case METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY:
+                      consistencyValue = explainerData.cross_explanation_overall_score_consistency?.value ?? null
+                      if (consistencyValue !== null) {
+                        consistencyType = METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY as ConsistencyType
+                        consistencyColor = getConsistencyColor(consistencyValue, consistencyType)
+                      }
+                      break
+                    case METRIC_LLM_EXPLAINER_CONSISTENCY:
+                      consistencyValue = explainerData.llm_explainer_consistency?.value ?? null
+                      if (consistencyValue !== null) {
+                        consistencyType = METRIC_LLM_EXPLAINER_CONSISTENCY as ConsistencyType
+                        consistencyColor = getConsistencyColor(consistencyValue, consistencyType)
+                      }
+                      break
+                  }
 
                   // Get explanation text
                   const explanationText = explainerData.explanation_text || '-'
@@ -503,14 +667,14 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                         {getExplainerDisplayName(explainerId)}
                       </td>
 
-                      {/* Overall score (color-coded circle) */}
+                      {/* Score column (color-coded circle) */}
                       <td
                         className="table-panel__cell table-panel__cell--score"
-                        title={overallScore !== null ? `Overall Score: ${overallScore.toFixed(3)}` : 'No score data'}
-                        onClick={(e) => overallScore !== null && handleCellClick('score', featureRow.feature_id, explainerId, e)}
-                        style={{ cursor: overallScore !== null ? 'pointer' : 'default' }}
+                        title={scoreValue !== null ? `${getMetricDisplayName(scoreColumnDisplay)}: ${scoreValue.toFixed(3)}` : 'No score data'}
+                        onClick={(e) => scoreValue !== null && handleCellClick('score', featureRow.feature_id, explainerId, e)}
+                        style={{ cursor: scoreValue !== null ? 'pointer' : 'default' }}
                       >
-                        {overallScore !== null ? (
+                        {scoreValue !== null ? (
                           <svg width="16" height="16" viewBox="0 0 16 16">
                             <circle
                               cx="8"
@@ -529,50 +693,63 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                         {expandedScoreCell?.featureId === featureRow.feature_id &&
                          expandedScoreCell?.explainerId === explainerId && (
                           <div className="table-panel__score-breakdown-overlay">
-                            {/* Embedding score */}
-                            {(() => {
-                              const embedding = getScoreValue(featureRow, explainerId, 'embedding')
+                            {/* If a specific metric is displayed in column, show overall score in breakdown */}
+                            {scoreColumnDisplay !== 'overallScore' && (() => {
+                              const overallScore = calculateOverallScore(
+                                explainerData.embedding,
+                                explainerData.fuzz,
+                                explainerData.detection,
+                                tableData.global_stats
+                              )
+                              if (overallScore === null) return null
+                              const color = getOverallScoreColor(overallScore)
+                              return renderMetricCircle('Overall', overallScore, color, 'overallScore')
+                            })()}
+
+                            {/* Embedding score - show if not currently displayed in column */}
+                            {scoreColumnDisplay !== METRIC_SCORE_EMBEDDING && (() => {
+                              const embedding = getScoreValue(featureRow, explainerId, METRIC_SCORE_EMBEDDING)
                               if (embedding === null || !tableData.global_stats.embedding) return null
 
                               const normalized = normalizeScore(embedding, tableData.global_stats.embedding)
                               if (normalized === null) return null
 
-                              return renderMetricCircle('Emb', embedding, getMetricColor('embedding', normalized))
+                              return renderMetricCircle('Emb', embedding, getMetricColor('embedding', normalized), METRIC_SCORE_EMBEDDING)
                             })()}
 
-                            {/* Fuzz score (averaged) */}
-                            {(() => {
-                              const fuzz = getScoreValue(featureRow, explainerId, 'fuzz')
+                            {/* Fuzz score - show if not currently displayed in column */}
+                            {scoreColumnDisplay !== METRIC_SCORE_FUZZ && (() => {
+                              const fuzz = getScoreValue(featureRow, explainerId, METRIC_SCORE_FUZZ)
                               if (fuzz === null || !tableData.global_stats.fuzz) return null
 
                               const normalized = normalizeScore(fuzz, tableData.global_stats.fuzz)
                               if (normalized === null) return null
 
-                              return renderMetricCircle('Fuzz', fuzz, getMetricColor('fuzz', normalized))
+                              return renderMetricCircle('Fuzz', fuzz, getMetricColor('fuzz', normalized), METRIC_SCORE_FUZZ)
                             })()}
 
-                            {/* Detection score (averaged) */}
-                            {(() => {
-                              const detection = getScoreValue(featureRow, explainerId, 'detection')
+                            {/* Detection score - show if not currently displayed in column */}
+                            {scoreColumnDisplay !== METRIC_SCORE_DETECTION && (() => {
+                              const detection = getScoreValue(featureRow, explainerId, METRIC_SCORE_DETECTION)
                               if (detection === null || !tableData.global_stats.detection) return null
 
                               const normalized = normalizeScore(detection, tableData.global_stats.detection)
                               if (normalized === null) return null
 
-                              return renderMetricCircle('Det', detection, getMetricColor('detection', normalized))
+                              return renderMetricCircle('Det', detection, getMetricColor('detection', normalized), METRIC_SCORE_DETECTION)
                             })()}
                           </div>
                         )}
                       </td>
 
-                      {/* Min consistency (color-coded circle) */}
+                      {/* Consistency column (color-coded circle) */}
                       <td
                         className="table-panel__cell table-panel__cell--consistency"
-                        title={minConsistencyResult !== null ? `Min Consistency: ${minConsistencyResult.value.toFixed(3)}` : 'No consistency data'}
-                        onClick={(e) => minConsistencyResult !== null && handleCellClick('consistency', featureRow.feature_id, explainerId, e)}
-                        style={{ cursor: minConsistencyResult !== null ? 'pointer' : 'default' }}
+                        title={consistencyValue !== null ? `${getMetricDisplayName(consistencyColumnDisplay)}: ${consistencyValue.toFixed(3)}` : 'No consistency data'}
+                        onClick={(e) => consistencyValue !== null && handleCellClick('consistency', featureRow.feature_id, explainerId, e)}
+                        style={{ cursor: consistencyValue !== null ? 'pointer' : 'default' }}
                       >
-                        {minConsistencyResult !== null ? (
+                        {consistencyValue !== null ? (
                           <svg width="16" height="16" viewBox="0 0 16 16">
                             <circle
                               cx="8"
@@ -597,11 +774,25 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
                           return (
                             <div className="table-panel__consistency-breakdown-overlay">
-                              {scorerConsistency !== null && renderMetricCircle('Scorer', scorerConsistency, getConsistencyColor(scorerConsistency, METRIC_LLM_SCORER_CONSISTENCY))}
-                              {metricConsistency !== null && renderMetricCircle('Metric', metricConsistency, getConsistencyColor(metricConsistency, METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY))}
-                              {crossConsistency !== null && renderMetricCircle('Cross', crossConsistency, getConsistencyColor(crossConsistency, METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY))}
-                              {crossOverallConsistency !== null && renderMetricCircle('OvrlScr', crossOverallConsistency, getConsistencyColor(crossOverallConsistency, METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY))}
-                              {explainerConsistency !== null && renderMetricCircle('Explnr', explainerConsistency, getConsistencyColor(explainerConsistency, METRIC_LLM_EXPLAINER_CONSISTENCY))}
+                              {/* If a specific consistency is displayed in column, show min consistency in breakdown */}
+                              {consistencyColumnDisplay !== 'minConsistency' && (() => {
+                                const minResult = calculateMinConsistency(featureRow, explainerId)
+                                if (!minResult) return null
+                                const color = getConsistencyColor(minResult.value, minResult.weakestType)
+                                return renderMetricCircle(<>Min<br />Cons.</>, minResult.value, color, 'minConsistency')
+                              })()}
+
+                              {/* Show other consistency metrics except the one currently displayed */}
+                              {consistencyColumnDisplay !== METRIC_LLM_SCORER_CONSISTENCY && scorerConsistency !== null &&
+                                renderMetricCircle(<>LLM<br />Scorer</>, scorerConsistency, getConsistencyColor(scorerConsistency, METRIC_LLM_SCORER_CONSISTENCY), METRIC_LLM_SCORER_CONSISTENCY)}
+                              {consistencyColumnDisplay !== METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY && metricConsistency !== null &&
+                                renderMetricCircle(<>Within-Exp<br />Metric</>, metricConsistency, getConsistencyColor(metricConsistency, METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY), METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY)}
+                              {consistencyColumnDisplay !== METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY && crossConsistency !== null &&
+                                renderMetricCircle(<>Cross-Exp<br />Metric</>, crossConsistency, getConsistencyColor(crossConsistency, METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY), METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY)}
+                              {consistencyColumnDisplay !== METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY && crossOverallConsistency !== null &&
+                                renderMetricCircle(<>Cross-Exp<br />OvrlScr</>, crossOverallConsistency, getConsistencyColor(crossOverallConsistency, METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY), METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY)}
+                              {consistencyColumnDisplay !== METRIC_LLM_EXPLAINER_CONSISTENCY && explainerConsistency !== null &&
+                                renderMetricCircle(<>LLM<br />EXPLNR</>, explainerConsistency, getConsistencyColor(explainerConsistency, METRIC_LLM_EXPLAINER_CONSISTENCY), METRIC_LLM_EXPLAINER_CONSISTENCY)}
                             </div>
                           )
                         })()}

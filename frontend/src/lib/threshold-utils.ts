@@ -252,8 +252,8 @@ export function convertTreeToSankeyStructure(tree: Map<string, SankeyTreeNode>):
 
   // Second pass: Build nodes and links
   tree.forEach((node) => {
-    // Check if this node is at the rightmost stage (has no children)
-    const isRightmost = node.children.length === 0 && node.depth > 0
+    // Check if this node is at the maximum depth (rightmost stage)
+    const isAtMaxDepth = node.depth === maxDepth && node.depth > 0
 
     // Create node for D3
     const sankeyNode: SankeyNode = {
@@ -264,8 +264,8 @@ export function convertTreeToSankeyStructure(tree: Map<string, SankeyTreeNode>):
       category: getNodeCategory(node),
       metric: node.metric,  // Include metric for stage labels
       feature_ids: Array.from(node.featureIds),
-      // Mark rightmost nodes as vertical_bar type
-      node_type: isRightmost ? 'vertical_bar' : 'standard'
+      // Mark nodes at maximum depth as vertical_bar type
+      node_type: isAtMaxDepth ? 'vertical_bar' : 'standard'
     }
     nodes.push(sankeyNode)
 

@@ -5,7 +5,6 @@ import AlluvialDiagram from './components/AlluvialDiagram'
 import HistogramPopover from './components/HistogramPopover'
 import FlowPanel from './components/FlowPanel'
 import TablePanel from './components/TablePanel'
-import ConsistencyPanel from './components/ConsistencyPanel'
 import * as api from './api'
 import './styles/base.css'
 import './styles/App.css'
@@ -158,12 +157,11 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
               <FlowPanel />
             </div>
 
-            {/* Top Middle - Consistency Panel */}
+            {/* Top Middle - Empty */}
             <div className="sankey-view__top-middle">
-              <ConsistencyPanel />
             </div>
 
-            {/* Top Right - Empty (button moved to Sankey panel) */}
+            {/* Top Right - Empty */}
             <div className="sankey-view__top-right">
             </div>
           </div>

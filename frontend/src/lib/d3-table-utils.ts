@@ -5,7 +5,10 @@ import {
   METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
   METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
   METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
-  METRIC_LLM_EXPLAINER_CONSISTENCY
+  METRIC_LLM_EXPLAINER_CONSISTENCY,
+  METRIC_SCORE_DETECTION,
+  METRIC_SCORE_EMBEDDING,
+  METRIC_SCORE_FUZZ,
 } from './constants'
 import {
   getConsistencyColor,
@@ -161,17 +164,17 @@ function extractCrossExplainerOverallConsistency(explainerData: any): number | n
 export function getScoreValue(
   row: FeatureTableRow,
   explainerId: string,
-  metricType: 'embedding' | 'fuzz' | 'detection',
+  metricType: typeof METRIC_SCORE_DETECTION | typeof METRIC_SCORE_EMBEDDING| typeof METRIC_SCORE_FUZZ,
   scorerId?: 's1' | 's2' | 's3'
 ): number | null {
   const explainerData = row.explainers[explainerId]
   if (!explainerData) return null
 
-  if (metricType === 'embedding') {
+  if (metricType === METRIC_SCORE_EMBEDDING) {
     return explainerData.embedding
   }
 
-  const scores = metricType === 'fuzz' ? explainerData.fuzz : explainerData.detection
+  const scores = metricType === METRIC_SCORE_FUZZ ? explainerData.fuzz : explainerData.detection
 
   if (scorerId) {
     return scores[scorerId]
@@ -532,12 +535,40 @@ function calculateFeatureMinConsistency(
 }
 
 /**
+ * Calculate average score across all explainers for a specific metric
+ *
+ * @param row - Feature row
+ * @param metricType - Metric type constant (score_embedding, score_fuzz, score_detection)
+ * @param explainerIds - List of explainer IDs
+ * @returns Average score or null if no valid scores
+ */
+function calculateAvgScoreAcrossExplainers(
+  row: FeatureTableRow,
+  metricType: typeof METRIC_SCORE_DETECTION | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ,
+  explainerIds: string[]
+): number | null {
+  const scores: number[] = []
+
+  explainerIds.forEach(explainerId => {
+    const score = getScoreValue(row, explainerId, metricType)
+    if (score !== null) {
+      scores.push(score)
+    }
+  })
+
+  return scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : null
+}
+
+/**
  * Sort features based on simplified sort configuration
  *
  * Supports sorting by:
  * - featureId: Sort by feature ID number
  * - overallScore: Sort by overall score across all explainers
  * - minConsistency: Sort by min consistency across all explainers
+ * - embedding: Sort by average embedding score across all explainers
+ * - fuzz: Sort by average fuzz score across all explainers
+ * - detection: Sort by average detection score across all explainers
  * - METRIC_LLM_SCORER_CONSISTENCY: Sort by LLM Scorer consistency
  * - METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY: Sort by Within-explanation metric consistency
  * - METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY: Sort by Cross-explanation metric consistency
@@ -584,6 +615,14 @@ export function sortFeatures(
       const minConsistencyA = calculateFeatureMinConsistency(a)
       const minConsistencyB = calculateFeatureMinConsistency(b)
       return compareValues(minConsistencyA, minConsistencyB, sortDirection)
+    }
+
+    // Individual score metric sorting (embedding, fuzz, detection)
+    if (sortBy === METRIC_SCORE_DETECTION || sortBy === METRIC_SCORE_EMBEDDING || sortBy === METRIC_SCORE_FUZZ) {
+      const explainerIds = tableData?.explainer_ids || []
+      const scoreA = calculateAvgScoreAcrossExplainers(a, sortBy, explainerIds)
+      const scoreB = calculateAvgScoreAcrossExplainers(b, sortBy, explainerIds)
+      return compareValues(scoreA, scoreB, sortDirection)
     }
 
     // Individual consistency metric sorting

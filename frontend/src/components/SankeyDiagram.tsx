@@ -401,7 +401,7 @@ const VerticalBarSankeyNode: React.FC<{
       })}
 
       {/* Global scroll indicator spanning all three bars */}
-      {layout.scrollIndicator && layout.subNodes.length > 0 && !isPlaceholder && (
+      {layout.scrollIndicator && layout.subNodes.length > 0 && (
         <rect
           x={layout.subNodes[0].x}
           y={layout.scrollIndicator.y}
@@ -413,21 +413,6 @@ const VerticalBarSankeyNode: React.FC<{
           rx={3}
           style={{ pointerEvents: 'none' }}
         />
-      )}
-
-      {/* Placeholder label */}
-      {isPlaceholder && (
-        <text
-          x={node.x0 !== undefined && node.x1 !== undefined ? (node.x0 + node.x1) / 2 : 0}
-          y={node.y1 !== undefined ? node.y1 + 20 : 0}
-          textAnchor="middle"
-          fontSize={11}
-          fill="#9ca3af"
-          fontStyle="italic"
-          style={{ pointerEvents: 'none', userSelect: 'none' }}
-        >
-          Add stages to explore features
-        </text>
       )}
 
       {/* Add stage button - not shown for placeholder */}
