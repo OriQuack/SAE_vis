@@ -1,6 +1,11 @@
 import { sankey, sankeyLinkHorizontal } from 'd3-sankey'
 import type { NodeCategory, D3SankeyNode, D3SankeyLink, SankeyLayout } from '../types'
-import { CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_SIMILARITY } from './constants'
+import {
+  CATEGORY_ROOT,
+  CATEGORY_FEATURE_SPLITTING,
+  CATEGORY_SEMANTIC_SIMILARITY,
+  METRIC_DISPLAY_NAMES
+} from './constants'
 
 // ============================================================================
 // UTILS-SPECIFIC TYPES (Internal use only - not exported)
@@ -28,8 +33,8 @@ export const SANKEY_COLORS: Record<NodeCategory, string> = {
   [CATEGORY_SEMANTIC_SIMILARITY]: '#6b7280'
 } as const
 
-export const DEFAULT_SANKEY_MARGIN = { top: 80, right: 40, bottom: 50, left: 80 } as const
-export const RIGHT_SANKEY_MARGIN = { top: 80, right: 80, bottom: 50, left: 40 } as const
+export const DEFAULT_SANKEY_MARGIN = { top: 60, right: 110, bottom: 60, left: 80 } as const
+export const RIGHT_SANKEY_MARGIN = { top: 80, right: 80, bottom: 50, left: 120 } as const
 
 // Validation constants
 export const MIN_CONTAINER_WIDTH = 200
@@ -254,6 +259,16 @@ export function calculateSankeyLayout(
     links: transformedLinks
   })
 
+  // Expand width of vertical bar nodes (3x for three LLM explainer bars)
+  const nodeWidth = 15 // Same as sankeyGenerator nodeWidth
+  sankeyLayout.nodes.forEach(node => {
+    if (node.node_type === 'vertical_bar' && node.x0 !== undefined && node.x1 !== undefined) {
+      const newWidth = nodeWidth * 6
+      // Expand to the right (keep x0, increase x1)
+      node.x1 = node.x0 + newWidth
+    }
+  })
+
   // Handle special cases where d3-sankey can't position nodes properly
   if (sankeyLayout.links.length === 0) {
     if (sankeyLayout.nodes.length === 1) {
@@ -281,9 +296,9 @@ export function calculateSankeyLayout(
       rootNode.y0 = (height - nodeHeight) / 2
       rootNode.y1 = rootNode.y0 + nodeHeight
 
-      // Position vertical bar on right (3x width for 3 bars)
-      const rightMargin = 20
-      const verticalBarWidth = nodeWidth * 3
+      // Position vertical bar on right (6x width for better visibility)
+      const rightMargin = 20  // Increased margin to show full width
+      const verticalBarWidth = nodeWidth * 6
       verticalBarNode.x0 = width - rightMargin - verticalBarWidth
       verticalBarNode.x1 = verticalBarNode.x0 + verticalBarWidth
       verticalBarNode.y0 = (height - nodeHeight) / 2
@@ -440,14 +455,23 @@ export function calculateStageLabels(
   nodesByStage.forEach((nodes, stage) => {
     if (nodes.length === 0) return
 
-    // Get category from the first node in the stage
-    const category = nodes[0].category
-    const label = CATEGORY_DISPLAY_NAMES[category] || category
+    // Get metric from the first node in the stage
+    const metric = nodes[0].metric
+    let label: string
+
+    if (metric && metric !== null) {
+      // Use metric display name for non-root nodes
+      label = METRIC_DISPLAY_NAMES[metric as keyof typeof METRIC_DISPLAY_NAMES] || metric
+    } else {
+      // Root node has no metric, use category display name
+      const category = nodes[0].category
+      label = CATEGORY_DISPLAY_NAMES[category] || category
+    }
 
     // Calculate x position (average of all nodes in the stage)
     const avgX = nodes.reduce((sum, node) => sum + ((node.x0 || 0) + (node.x1 || 0)) / 2, 0) / nodes.length
 
-    labels.push({ x: avgX, y: -30, label, stage })
+    labels.push({ x: avgX, y: -40, label, stage })
   })
 
   return labels

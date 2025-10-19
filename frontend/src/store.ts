@@ -24,10 +24,69 @@ import {
   PANEL_LEFT,
   PANEL_RIGHT,
   METRIC_SEMSIM_MEAN,
-  CONSISTENCY_TYPE_NONE
+  CONSISTENCY_TYPE_NONE,
+  METRIC_LLM_SCORER_CONSISTENCY,
+  METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
+  METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
+  METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
+  METRIC_LLM_EXPLAINER_CONSISTENCY,
+  METRIC_OVERALL_SCORE,
+  CONSISTENCY_THRESHOLDS
 } from './lib/constants'
 
 type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
+
+// ============================================================================
+// METRIC MAPPING UTILITIES
+// ============================================================================
+
+/**
+ * Maps table sort keys to Sankey metrics
+ * Returns null if no mapping exists
+ */
+const mapTableSortToSankeyMetric = (sortBy: string | null): string | null => {
+  if (!sortBy) return null
+
+  const mappings: Record<string, string> = {
+    'overallScore': METRIC_OVERALL_SCORE,
+    // Consistency metrics map directly
+    [METRIC_LLM_SCORER_CONSISTENCY]: METRIC_LLM_SCORER_CONSISTENCY,
+    [METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY]: METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
+    [METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY]: METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
+    [METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY]: METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
+    [METRIC_LLM_EXPLAINER_CONSISTENCY]: METRIC_LLM_EXPLAINER_CONSISTENCY
+  }
+
+  return mappings[sortBy] || null
+}
+
+/**
+ * Maps Sankey metrics to table sort keys
+ * Returns null if no mapping exists
+ */
+const mapSankeyMetricToTableSort = (metric: string | null): string | null => {
+  if (!metric) return null
+
+  const mappings: Record<string, string> = {
+    [METRIC_OVERALL_SCORE]: 'overallScore',
+    // Consistency metrics map directly
+    [METRIC_LLM_SCORER_CONSISTENCY]: METRIC_LLM_SCORER_CONSISTENCY,
+    [METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY]: METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
+    [METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY]: METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
+    [METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY]: METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
+    [METRIC_LLM_EXPLAINER_CONSISTENCY]: METRIC_LLM_EXPLAINER_CONSISTENCY
+  }
+
+  return mappings[metric] || null
+}
+
+/**
+ * Get default thresholds for a metric from CONSISTENCY_THRESHOLDS
+ */
+const getDefaultThresholdsForMetric = (metric: string): number[] => {
+  const thresholds = CONSISTENCY_THRESHOLDS[metric as keyof typeof CONSISTENCY_THRESHOLDS]
+  return thresholds ? [...thresholds] : [0.5]
+}
 
 interface PanelState {
   filters: Filters
@@ -108,6 +167,9 @@ interface AppState {
   // Alluvial flow actions
   updateAlluvialFlows: () => void
 
+  // Get rightmost stage feature IDs for table filtering
+  getRightmostStageFeatureIds: () => Set<number> | null
+
   // Table data
   tableData: any | null
 
@@ -121,7 +183,7 @@ interface AppState {
   // Table sort state
   tableSortBy: SortBy | null
   tableSortDirection: SortDirection | null
-  setTableSort: (sortBy: SortBy | null, sortDirection: SortDirection | null) => void
+  setTableSort: (sortBy: SortBy | null, sortDirection: SortDirection | null, skipSankeySync?: boolean) => void
 
   // Consistency type selection (Table Panel)
   selectedConsistencyType: ConsistencyType
@@ -512,6 +574,35 @@ export const useStore = create<AppState>((set, get) => ({
     set({ alluvialFlows: flows })
   },
 
+  // Get feature IDs from rightmost stage nodes for table filtering
+  getRightmostStageFeatureIds: () => {
+    const state = get()
+    const { leftPanel } = state
+
+    // Use left panel's computed Sankey (main visualization)
+    if (!leftPanel.computedSankey) {
+      return null
+    }
+
+    // Find rightmost stage (maximum stage number)
+    const nodes = leftPanel.computedSankey.nodes
+    const maxStage = Math.max(...nodes.map(n => n.stage))
+
+    // Get all nodes at rightmost stage
+    const rightmostNodes = nodes.filter(n => n.stage === maxStage)
+
+    // Collect all feature IDs from rightmost nodes
+    const featureIds = new Set<number>()
+    rightmostNodes.forEach(node => {
+      if (node.feature_ids) {
+        node.feature_ids.forEach(id => featureIds.add(id))
+      }
+    })
+
+    console.log(`[Store] Rightmost stage has ${featureIds.size} features across ${rightmostNodes.length} nodes`)
+    return featureIds
+  },
+
   // Fetch table data
   fetchTableData: async () => {
     const state = get()
@@ -576,12 +667,38 @@ export const useStore = create<AppState>((set, get) => ({
     set({ tableScrollState: state })
   },
 
-  // Set table sort state
-  setTableSort: (sortBy, sortDirection) => {
+  // Set table sort state - with optional Sankey synchronization
+  setTableSort: (sortBy, sortDirection, skipSankeySync = false) => {
+    const state = get()
+
+    // Update table sort state
     set({
       tableSortBy: sortBy,
       tableSortDirection: sortDirection
     })
+
+    // Sync with Sankey if sorting by a mappable metric (unless skipped to prevent recursion)
+    if (!skipSankeySync && sortBy && sortDirection) {
+      const sankeyMetric = mapTableSortToSankeyMetric(sortBy)
+      if (sankeyMetric) {
+        // Check if left panel already has this metric in its tree
+        const leftPanelTree = state.leftPanel.sankeyTree
+        const hasMetricInTree = Array.from(leftPanelTree.values()).some(
+          node => node.metric === sankeyMetric
+        )
+
+        // If metric not already in tree, add it to root node
+        if (!hasMetricInTree) {
+          const thresholds = getDefaultThresholdsForMetric(sankeyMetric)
+          console.log('[Store.setTableSort] Adding Sankey stage for table sort:', {
+            metric: sankeyMetric,
+            thresholds
+          })
+          // Add stage to root node in left panel
+          state.addStageToNode('root', sankeyMetric, thresholds, PANEL_LEFT)
+        }
+      }
+    }
   },
 
   // ============================================================================
@@ -783,6 +900,18 @@ export const useStore = create<AppState>((set, get) => ({
       // Recompute Sankey structure
       console.log(`[Store.addStageToNode] 🔄 Now calling recomputeSankeyTree to activate tree-based system...`)
       get().recomputeSankeyTree(panel)
+
+      // Sync with table sorting if applicable
+      const tableSortKey = mapSankeyMetricToTableSort(metric)
+      if (tableSortKey && !state.tableSortBy) {
+        // Only sync if table is not already sorted
+        console.log('[Store.addStageToNode] Syncing table sort with Sankey stage:', {
+          metric,
+          tableSortKey
+        })
+        // Set table sort to ascending by default, skip Sankey sync to prevent recursion
+        get().setTableSort(tableSortKey as SortBy, 'asc', true)
+      }
 
       state.setLoading(loadingKey, false)
       console.log(`[Store.addStageToNode] ✅ Stage addition complete - tree-based system should now be active!`)

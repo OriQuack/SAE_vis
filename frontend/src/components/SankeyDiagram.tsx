@@ -345,8 +345,14 @@ const VerticalBarSankeyNode: React.FC<{
   canRemoveStage: boolean
   flowDirection: 'left-to-right' | 'right-to-left'
   animationDuration: number
-}> = ({ node, scrollState, onAddStage, onRemoveStage, canAddStage, canRemoveStage, flowDirection, animationDuration: _animationDuration }) => {
-  const layout = calculateVerticalBarNodeLayout(node, scrollState, 0)
+  showLabels?: boolean
+  totalFeatureCount?: number
+  nodeStartIndex?: number
+}> = ({ node, scrollState, onAddStage, onRemoveStage, canAddStage, canRemoveStage, flowDirection, animationDuration: _animationDuration, showLabels = false, totalFeatureCount = 0, nodeStartIndex = 0 }) => {
+  const layout = calculateVerticalBarNodeLayout(node, scrollState, totalFeatureCount, nodeStartIndex)
+
+  // Check if this is a placeholder node
+  const isPlaceholder = node.id === 'placeholder_vertical_bar'
 
   // Calculate button position (same logic as standard nodes)
   const isRightToLeft = flowDirection === 'right-to-left'
@@ -356,38 +362,46 @@ const VerticalBarSankeyNode: React.FC<{
   return (
     <g className="sankey-vertical-bar-node">
       {/* Render three vertical bars */}
-      {layout.subNodes.map((subNode) => (
-        <g key={subNode.id}>
-          {/* Bar rectangle */}
-          <rect
-            x={subNode.x}
-            y={subNode.y}
-            width={subNode.width}
-            height={subNode.height}
-            fill={subNode.color}
-            opacity={subNode.selected ? 0.7 : 0.3}
-            stroke="#e5e7eb"
-            strokeWidth={0.5}
-            rx={3}
-          />
-          {/* Model name label */}
-          <text
-            x={subNode.x + subNode.width / 2}
-            y={subNode.y - 10}
-            textAnchor="middle"
-            fontSize={12}
-            fontWeight={subNode.selected ? 600 : 500}
-            fill="#374151"
-            opacity={subNode.selected ? 1.0 : 0.5}
-            style={{ pointerEvents: 'none', userSelect: 'none' }}
-          >
-            {subNode.modelName}
-          </text>
-        </g>
-      ))}
+      {layout.subNodes.map((subNode, index) => {
+        // Calculate horizontal offset for label spacing: left (-15), center (0), right (+15)
+        const labelXOffset = (index - 1) * 8
+
+        return (
+          <g key={subNode.id}>
+            {/* Bar rectangle */}
+            <rect
+              x={subNode.x}
+              y={subNode.y}
+              width={subNode.width}
+              height={subNode.height}
+              fill={subNode.color}
+              opacity={isPlaceholder ? 0.4 : (subNode.selected ? 0.7 : 0.3)}
+              stroke="#e5e7eb"
+              strokeWidth={0.5}
+              strokeDasharray={isPlaceholder ? "3,3" : undefined}
+              rx={3}
+            />
+            {/* Model name label - only shown on topmost vertical bar node */}
+            {showLabels && (
+              <text
+                x={subNode.x + subNode.width / 2 + labelXOffset}
+                y={subNode.y - 10}
+                textAnchor="middle"
+                fontSize={10}
+                fontWeight={subNode.selected ? 600 : 500}
+                fill="#374151"
+                opacity={isPlaceholder ? 0.6 : (subNode.selected ? 1.0 : 0.5)}
+                style={{ pointerEvents: 'none', userSelect: 'none' }}
+              >
+                {subNode.modelName}
+              </text>
+            )}
+          </g>
+        )
+      })}
 
       {/* Global scroll indicator spanning all three bars */}
-      {layout.scrollIndicator && layout.subNodes.length > 0 && (
+      {layout.scrollIndicator && layout.subNodes.length > 0 && !isPlaceholder && (
         <rect
           x={layout.subNodes[0].x}
           y={layout.scrollIndicator.y}
@@ -401,8 +415,23 @@ const VerticalBarSankeyNode: React.FC<{
         />
       )}
 
-      {/* Add stage button */}
-      {canAddStage && (
+      {/* Placeholder label */}
+      {isPlaceholder && (
+        <text
+          x={node.x0 !== undefined && node.x1 !== undefined ? (node.x0 + node.x1) / 2 : 0}
+          y={node.y1 !== undefined ? node.y1 + 20 : 0}
+          textAnchor="middle"
+          fontSize={11}
+          fill="#9ca3af"
+          fontStyle="italic"
+          style={{ pointerEvents: 'none', userSelect: 'none' }}
+        >
+          Add stages to explore features
+        </text>
+      )}
+
+      {/* Add stage button - not shown for placeholder */}
+      {canAddStage && !isPlaceholder && (
         <g className="sankey-node-add-stage">
           <circle
             cx={buttonX}
@@ -434,8 +463,8 @@ const VerticalBarSankeyNode: React.FC<{
         </g>
       )}
 
-      {/* Remove stage button */}
-      {canRemoveStage && (
+      {/* Remove stage button - not shown for placeholder */}
+      {canRemoveStage && !isPlaceholder && (
         <g className="sankey-node-remove-stage">
           <circle
             cx={buttonX}
@@ -768,40 +797,63 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
             {/* Nodes */}
             <g className="sankey-diagram__nodes">
-              {layout.nodes.map((node) => {
-                // Calculate common props for both node types
-                // Use tree-based system for button visibility
-                let canAdd = false
-                let canRemove = false
+              {(() => {
+                // Get all vertical bar nodes sorted by y position (top to bottom)
+                const verticalBarNodes = layout.nodes
+                  .filter(n => n.node_type === 'vertical_bar')
+                  .sort((a, b) => (a.y0 || 0) - (b.y0 || 0))
 
-                if (sankeyTree && computedSankey) {
-                  // Tree-based system: check if node exists and can have children
-                  const treeNode = sankeyTree.get(node.id)
-                  if (treeNode) {
-                    canAdd = canAddStage(treeNode)
-                    canRemove = hasChildren(treeNode)
+                // Find the topmost vertical bar node for label display
+                const topmostVerticalBarNode = verticalBarNodes[0]
+
+                // Calculate total features and cumulative indices for vertical bars
+                const totalFeatures = verticalBarNodes.reduce((sum, node) => sum + (node.feature_count || 0), 0)
+                const nodeIndices = new Map<string, number>()
+                let cumulativeIndex = 0
+                verticalBarNodes.forEach(node => {
+                  nodeIndices.set(node.id, cumulativeIndex)
+                  cumulativeIndex += node.feature_count || 0
+                })
+
+                return layout.nodes.map((node) => {
+                  // Calculate common props for both node types
+                  // Use tree-based system for button visibility
+                  let canAdd = false
+                  let canRemove = false
+
+                  if (sankeyTree && computedSankey) {
+                    // Tree-based system: check if node exists and can have children
+                    const treeNode = sankeyTree.get(node.id)
+                    if (treeNode) {
+                      canAdd = canAddStage(treeNode)
+                      canRemove = hasChildren(treeNode)
+                    }
                   }
-                }
 
-                const isHighlighted = hoveredAlluvialNodeId === node.id &&
-                                    hoveredAlluvialPanel === (panel === PANEL_LEFT ? 'left' : 'right')
+                  const isHighlighted = hoveredAlluvialNodeId === node.id &&
+                                      hoveredAlluvialPanel === (panel === PANEL_LEFT ? 'left' : 'right')
 
-                // Check if this is a vertical bar node
-                if (node.node_type === 'vertical_bar') {
-                  return (
-                    <VerticalBarSankeyNode
-                      key={node.id}
-                      node={node}
-                      scrollState={tableScrollState}
-                      onAddStage={canAdd ? (e) => handleAddStageClick(e, node) : undefined}
-                      onRemoveStage={canRemove ? (e) => handleRemoveStageClick(e, node) : undefined}
-                      canAddStage={!!canAdd}
-                      canRemoveStage={!!canRemove}
-                      flowDirection={flowDirection}
-                      animationDuration={animationDuration}
-                    />
-                  )
-                }
+                  // Check if this is a vertical bar node
+                  if (node.node_type === 'vertical_bar') {
+                    const isTopmostVerticalBar = topmostVerticalBarNode && node.id === topmostVerticalBarNode.id
+                    const nodeStartIndex = nodeIndices.get(node.id) || 0
+                    return (
+                      <VerticalBarSankeyNode
+                        key={node.id}
+                        node={node}
+                        scrollState={tableScrollState}
+                        onAddStage={canAdd ? (e) => handleAddStageClick(e, node) : undefined}
+                        onRemoveStage={canRemove ? (e) => handleRemoveStageClick(e, node) : undefined}
+                        canAddStage={!!canAdd}
+                        canRemoveStage={!!canRemove}
+                        flowDirection={flowDirection}
+                        animationDuration={animationDuration}
+                        showLabels={isTopmostVerticalBar}
+                        totalFeatureCount={totalFeatures}
+                        nodeStartIndex={nodeStartIndex}
+                      />
+                    )
+                  }
 
                 // Otherwise render standard node
                 return (
@@ -821,7 +873,8 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                     animationDuration={animationDuration}
                   />
                 )
-              })}
+              })
+            })()}
             </g>
           </g>
         </svg>

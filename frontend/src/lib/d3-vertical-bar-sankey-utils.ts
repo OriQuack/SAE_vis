@@ -55,7 +55,8 @@ const BAR_COLOR = '#9ca3af'  // Gray-400 (same as standalone vertical bar)
 export function calculateVerticalBarNodeLayout(
   node: D3SankeyNode,
   scrollState?: { scrollTop: number; scrollHeight: number; clientHeight: number } | null,
-  _totalFeatureCount: number = 0
+  totalFeatureCount: number = 0,
+  nodeStartIndex: number = 0
 ): VerticalBarNodeLayout {
   if (node.x0 === undefined || node.x1 === undefined ||
       node.y0 === undefined || node.y1 === undefined) {
@@ -78,18 +79,31 @@ export function calculateVerticalBarNodeLayout(
     selected: true  // TODO: Get from filter state
   }))
 
-  // Calculate scroll indicator (spans all three bars)
+  // Calculate if this node should show scroll indicator
   let scrollIndicator: ScrollIndicator | null = null
-  if (scrollState && scrollState.scrollHeight > scrollState.clientHeight) {
+  if (scrollState && scrollState.scrollHeight > scrollState.clientHeight && totalFeatureCount > 0) {
     const scrollPercentage = scrollState.scrollTop / (scrollState.scrollHeight - scrollState.clientHeight)
     const visiblePercentage = scrollState.clientHeight / scrollState.scrollHeight
 
-    const indicatorHeight = totalHeight * visiblePercentage
-    const indicatorY = node.y0! + (totalHeight - indicatorHeight) * scrollPercentage
+    // Calculate which features are visible in the table (0-indexed)
+    const visibleStart = Math.floor(scrollPercentage * totalFeatureCount)
+    const visibleEnd = Math.ceil((scrollPercentage + visiblePercentage) * totalFeatureCount)
 
-    scrollIndicator = {
-      y: indicatorY,
-      height: indicatorHeight
+    const nodeEndIndex = nodeStartIndex + node.feature_count
+
+    // Check if this node contains any visible features
+    if (visibleStart < nodeEndIndex && visibleEnd > nodeStartIndex) {
+      // Calculate indicator position within this node
+      const nodeVisibleStart = Math.max(0, visibleStart - nodeStartIndex)
+      const nodeVisibleEnd = Math.min(node.feature_count, visibleEnd - nodeStartIndex)
+
+      const startPercent = nodeVisibleStart / node.feature_count
+      const endPercent = nodeVisibleEnd / node.feature_count
+
+      scrollIndicator = {
+        y: node.y0! + (totalHeight * startPercent),
+        height: totalHeight * (endPercent - startPercent)
+      }
     }
   }
 

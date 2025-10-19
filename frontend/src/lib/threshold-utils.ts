@@ -49,13 +49,34 @@ export function computeSankeyStructure(
     stage: 0,
     feature_count: allFeatures.size,
     category: 'root' as NodeCategory,
+    metric: null,  // Root has no metric
     feature_ids: Array.from(allFeatures)
   }
   nodes.push(rootNode)
   nodeFeatures.set('root', new Set(allFeatures))
 
-  // If no stages, return root-only structure
+  // If no stages, add placeholder vertical bar
   if (stages.length === 0) {
+    const placeholderNode: SankeyNode = {
+      id: 'placeholder_vertical_bar',
+      name: 'Feature Explorer',
+      stage: 1,
+      feature_count: allFeatures.size,
+      category: 'root' as NodeCategory,
+      metric: null,
+      feature_ids: Array.from(allFeatures),
+      node_type: 'vertical_bar'
+    }
+    nodes.push(placeholderNode)
+    nodeFeatures.set('placeholder_vertical_bar', new Set(allFeatures))
+
+    // Add link from root to placeholder
+    links.push({
+      source: 'root',
+      target: 'placeholder_vertical_bar',
+      value: allFeatures.size
+    })
+
     return { nodes, links, nodeFeatures }
   }
 
@@ -96,6 +117,7 @@ export function computeSankeyStructure(
           stage: stage.index + 1,
           feature_count: childFeatures.size,
           category: getCategoryForMetric(stage.metric),
+          metric: stage.metric,  // Include metric for stage labels
           feature_ids: Array.from(childFeatures)
         }
 
@@ -119,6 +141,14 @@ export function computeSankeyStructure(
       break
     }
   }
+
+  // Mark rightmost nodes (leaf nodes) as vertical bars
+  const maxStage = Math.max(...nodes.map(n => n.stage))
+  nodes.forEach(node => {
+    if (node.stage === maxStage && node.id !== 'root') {
+      node.node_type = 'vertical_bar'
+    }
+  })
 
   return { nodes, links, nodeFeatures }
 }
@@ -213,8 +243,18 @@ export function convertTreeToSankeyStructure(tree: Map<string, SankeyTreeNode>):
   const links: SankeyLink[] = []
   let maxDepth = 0
 
-  // Walk the tree to build nodes and links
+  // First pass: Find maximum depth
   tree.forEach((node) => {
+    if (node.depth > maxDepth) {
+      maxDepth = node.depth
+    }
+  })
+
+  // Second pass: Build nodes and links
+  tree.forEach((node) => {
+    // Check if this node is at the rightmost stage (has no children)
+    const isRightmost = node.children.length === 0 && node.depth > 0
+
     // Create node for D3
     const sankeyNode: SankeyNode = {
       id: node.id,
@@ -222,14 +262,12 @@ export function convertTreeToSankeyStructure(tree: Map<string, SankeyTreeNode>):
       stage: node.depth,
       feature_count: node.featureCount,
       category: getNodeCategory(node),
-      feature_ids: Array.from(node.featureIds)
+      metric: node.metric,  // Include metric for stage labels
+      feature_ids: Array.from(node.featureIds),
+      // Mark rightmost nodes as vertical_bar type
+      node_type: isRightmost ? 'vertical_bar' : 'standard'
     }
     nodes.push(sankeyNode)
-
-    // Track max depth
-    if (node.depth > maxDepth) {
-      maxDepth = node.depth
-    }
 
     // Create links to children
     if (node.children.length > 0) {
@@ -245,6 +283,30 @@ export function convertTreeToSankeyStructure(tree: Map<string, SankeyTreeNode>):
       })
     }
   })
+
+  // Special case: If only root node exists, add a placeholder vertical bar
+  if (nodes.length === 1 && nodes[0].id === 'root') {
+    const placeholderNode: SankeyNode = {
+      id: 'placeholder_vertical_bar',
+      name: 'Feature Explorer',
+      stage: 1,
+      feature_count: nodes[0].feature_count,
+      category: 'root' as NodeCategory,
+      metric: null,
+      feature_ids: nodes[0].feature_ids,
+      node_type: 'vertical_bar'
+    }
+    nodes.push(placeholderNode)
+
+    // Add link from root to placeholder
+    links.push({
+      source: 'root',
+      target: 'placeholder_vertical_bar',
+      value: nodes[0].feature_count
+    })
+
+    maxDepth = 1
+  }
 
   return {
     tree,

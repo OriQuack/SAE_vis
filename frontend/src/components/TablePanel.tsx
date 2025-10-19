@@ -360,15 +360,27 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   // SORTED FEATURES
   // ============================================================================
 
+  // Get rightmost stage feature IDs for filtering
+  const getRightmostStageFeatureIds = useVisualizationStore(state => state.getRightmostStageFeatureIds)
+  const rightmostFeatureIds = getRightmostStageFeatureIds()
+
   // Sort features based on current sort settings (using shared utility)
   const sortedFeatures = useMemo(() => {
+    let features = tableData?.features || []
+
+    // Filter to only rightmost stage features if available and not all features are present
+    if (rightmostFeatureIds && rightmostFeatureIds.size > 0 && rightmostFeatureIds.size < features.length) {
+      features = features.filter(f => rightmostFeatureIds.has(f.feature_id))
+      console.log(`[TablePanel] Filtered to ${features.length} features from rightmost stage`)
+    }
+
     return sortFeatures(
-      tableData?.features || [],
+      features,
       sortBy,
       sortDirection,
       tableData
     )
-  }, [tableData, sortBy, sortDirection])
+  }, [tableData, sortBy, sortDirection, rightmostFeatureIds])
 
   // If no data or no explainers selected
   if (!tableData || !tableData.features || tableData.features.length === 0 || selectedExplainers.size === 0) {

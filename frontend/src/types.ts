@@ -157,6 +157,7 @@ export interface SankeyNode {
   stage: number
   feature_count: number
   category: NodeCategory
+  metric?: string | null  // Metric used for this node's stage (null for root)
   feature_ids?: number[]
   node_type?: 'standard' | 'vertical_bar'
 }

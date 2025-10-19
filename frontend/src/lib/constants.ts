@@ -111,14 +111,14 @@ export const CATEGORY_DISPLAY_NAMES = {
 
 export const METRIC_DISPLAY_NAMES = {
   [METRIC_FEATURE_SPLITTING]: "Feature Splitting",
-  [METRIC_SEMSIM_MEAN]: "Semantic Similarity (Mean)",
+  [METRIC_SEMSIM_MEAN]: "Semantic Similarity",
   [METRIC_SCORE_FUZZ]: "Fuzz Score",
   [METRIC_SCORE_DETECTION]: "Detection Score",
   [METRIC_SCORE_EMBEDDING]: "Embedding Score",
   [METRIC_LLM_SCORER_CONSISTENCY]: "LLM Scorer Consistency",
   [METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY]: "Within-Explanation Consistency",
   [METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY]: "Cross-Explanation Metric Consistency",
-  [METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY]: "Cross-Explanation Overall Score",
+  [METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY]: "Cross-Explanation Overall Score Consistency",
   [METRIC_LLM_EXPLAINER_CONSISTENCY]: "LLM Explainer Consistency",
   [METRIC_OVERALL_SCORE]: "Overall Score"
 } as const
