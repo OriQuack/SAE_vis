@@ -71,6 +71,20 @@
   margin: 8px 0;
 }
 
+/* Metric Overlay Panel */
+.sankey-metric-overlay {
+  pointer-events: all;
+}
+
+.sankey-metric-overlay__item {
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sankey-metric-overlay__item:hover rect {
+  fill: #eff6ff;
+}
+
 /* Stage Selector Popup */
 .sankey-stage-selector-overlay {
   position: fixed;
@@ -131,6 +145,25 @@
 
 .sankey-stage-selector__item:hover {
   background-color: #eff6ff;
+}
+
+/* Item Content Layout */
+.sankey-stage-selector__item-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+/* Metric Color Circle */
+.sankey-stage-selector__item-circle {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* Text Content */
+.sankey-stage-selector__item-text {
+  flex: 1;
+  min-width: 0;
 }
 
 .sankey-stage-selector__item-title {

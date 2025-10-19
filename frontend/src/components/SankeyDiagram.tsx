@@ -34,7 +34,8 @@ import {
   METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
   METRIC_LLM_EXPLAINER_CONSISTENCY,
   METRIC_OVERALL_SCORE,
-  CONSISTENCY_THRESHOLDS
+  CONSISTENCY_THRESHOLDS,
+  METRIC_COLORS
 } from '../lib/constants'
 import '../styles/SankeyDiagram.css'
 
@@ -137,6 +138,39 @@ const AVAILABLE_STAGES: StageOption[] = [
   }
 ]
 
+// ==================== HELPER FUNCTIONS ====================
+
+/**
+ * Get display color for a metric in the stage selector
+ * Maps metric constants to their corresponding HIGH color values from METRIC_COLORS
+ */
+function getMetricColorForDisplay(metric: string): string {
+  switch (metric) {
+    case METRIC_FEATURE_SPLITTING:
+      return METRIC_COLORS.FEATURE_SPLITTING
+    case METRIC_SCORE_FUZZ:
+      return METRIC_COLORS.SCORE_FUZZ.HIGH
+    case METRIC_SCORE_DETECTION:
+      return METRIC_COLORS.SCORE_DETECTION.HIGH
+    case METRIC_SCORE_EMBEDDING:
+      return METRIC_COLORS.SCORE_EMBEDDING.HIGH
+    case METRIC_OVERALL_SCORE:
+      return METRIC_COLORS.OVERALL_SCORE_COLORS.HIGH
+    case METRIC_LLM_SCORER_CONSISTENCY:
+      return METRIC_COLORS.LLM_SCORER.HIGH
+    case METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY:
+      return METRIC_COLORS.WITHIN_EXPLANATION.HIGH
+    case METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY:
+      return METRIC_COLORS.CROSS_EXPLANATION.HIGH
+    case METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY:
+      return METRIC_COLORS.CROSS_EXPLANATION_OVERALL.HIGH
+    case METRIC_LLM_EXPLAINER_CONSISTENCY:
+      return METRIC_COLORS.LLM_EXPLAINER.HIGH
+    default:
+      return '#9ca3af' // Default gray
+  }
+}
+
 // ==================== COMPONENT-SPECIFIC TYPES ====================
 interface SankeyDiagramProps {
   width?: number
@@ -154,6 +188,319 @@ const ErrorMessage: React.FC<{ message: string }> = ({ message }) => (
     {message}
   </div>
 )
+
+// Metric overlay panel component
+interface MetricOverlayPanelProps {
+  rootNode: D3SankeyNode
+  availableStages: StageOption[]
+  onMetricClick: (metric: string, thresholds: readonly number[]) => void
+}
+
+const MetricOverlayPanel: React.FC<MetricOverlayPanelProps> = ({
+  rootNode,
+  availableStages,
+  onMetricClick
+}) => {
+  const [hoveredMetric, setHoveredMetric] = React.useState<string | null>(null)
+
+  // Group stages by category
+  const categories: Array<{ name: string; stages: StageOption[] }> = [
+    {
+      name: 'FEATURE SPLITTING',
+      stages: availableStages.filter(s => s.category === 'Feature Splitting')
+    },
+    {
+      name: 'SCORE',
+      stages: availableStages.filter(s => s.category === 'Score')
+    },
+    {
+      name: 'CONSISTENCY',
+      stages: availableStages.filter(s => s.category === 'Consistency')
+    }
+  ].filter(cat => cat.stages.length > 0)
+
+  // Layout constants
+  const itemHeight = 26
+  const categoryHeaderHeight = 20
+  const categoryPadding = 8  // Reduced padding for Feature Splitting and Score
+  const categoryPaddingLarge = 12  // Normal padding for Consistency
+  const categorySpacing = 10
+  const instructionHeight = 20
+  const instructionSpacing = 16
+  const categoryBoxWidth = 180
+  const categoryBoxWidthConsistency = 230  // Wider box for Consistency
+  const verticalSpacing = 10  // Spacing between Feature Splitting and Score
+
+  // Get individual category objects
+  const featureSplittingCat = categories.find(c => c.name === 'FEATURE SPLITTING')
+  const scoreCat = categories.find(c => c.name === 'SCORE')
+  const consistencyCat = categories.find(c => c.name === 'CONSISTENCY')
+
+  // Calculate heights for left column (Feature Splitting + Score)
+  const featureSplittingHeight = featureSplittingCat
+    ? categoryHeaderHeight + categoryPadding + (featureSplittingCat.stages.length * itemHeight) + categoryPadding
+    : 0
+  const scoreHeight = scoreCat
+    ? categoryHeaderHeight + categoryPadding + (scoreCat.stages.length * itemHeight) + categoryPadding
+    : 0
+  const leftColumnHeight = featureSplittingHeight + verticalSpacing + scoreHeight
+
+  // Calculate consistency height to match left column
+  const consistencyHeight = leftColumnHeight
+
+  // Position overlay to the right of root node
+  const overlayX = (rootNode.x1 || 0) + 30
+  const totalHeight = instructionHeight + instructionSpacing + consistencyHeight
+  const overlayY = ((rootNode.y0 || 0) + (rootNode.y1 || 0)) / 2 - totalHeight / 2
+
+  return (
+    <g className="sankey-metric-overlay">
+      {/* Instruction header */}
+      <text
+        x={overlayX}
+        y={overlayY}
+        dy="0.8em"
+        fontSize="14"
+        fontWeight="600"
+        fill="#374151"
+        style={{ userSelect: 'none' }}
+      >
+        Select a metric to begin:
+      </text>
+
+      {/* Left column: Feature Splitting */}
+      {featureSplittingCat && (
+        <g key="feature-splitting">
+          {/* Dotted container */}
+          <rect
+            x={overlayX}
+            y={overlayY + instructionHeight + instructionSpacing}
+            width={categoryBoxWidth}
+            height={featureSplittingHeight}
+            fill="transparent"
+            stroke="#d1d5db"
+            strokeWidth="1.5"
+            strokeDasharray="4,4"
+            rx="6"
+          />
+
+          {/* Category header */}
+          <text
+            x={overlayX + categoryPadding}
+            y={overlayY + instructionHeight + instructionSpacing + categoryPadding}
+            dy="0.8em"
+            fontSize="11"
+            fontWeight="700"
+            fill="#6b7280"
+            letterSpacing="0.5"
+            style={{ textTransform: 'uppercase', userSelect: 'none' }}
+          >
+            {featureSplittingCat.name}
+          </text>
+
+          {/* Metrics */}
+          {featureSplittingCat.stages.map((stage, stageIndex) => {
+            const itemY = overlayY + instructionHeight + instructionSpacing + categoryHeaderHeight + categoryPadding + (stageIndex * itemHeight)
+            const isHovered = hoveredMetric === stage.id
+
+            return (
+              <g
+                key={stage.id}
+                className="sankey-metric-overlay__item"
+                onClick={() => onMetricClick(stage.metric, stage.thresholds)}
+                onMouseEnter={() => setHoveredMetric(stage.id)}
+                onMouseLeave={() => setHoveredMetric(null)}
+                style={{ cursor: 'pointer' }}
+              >
+                <rect
+                  x={overlayX + 4}
+                  y={itemY}
+                  width={categoryBoxWidth - 8}
+                  height={itemHeight}
+                  fill={isHovered ? '#eff6ff' : 'transparent'}
+                  rx="3"
+                />
+                <circle
+                  cx={overlayX + categoryPadding + 7}
+                  cy={itemY + itemHeight / 2}
+                  r="7"
+                  fill={getMetricColorForDisplay(stage.metric)}
+                  stroke="#d1d5db"
+                  strokeWidth="0.5"
+                />
+                <text
+                  x={overlayX + categoryPadding + 22}
+                  y={itemY + itemHeight / 2}
+                  dy="0.35em"
+                  fontSize="12"
+                  fontWeight="500"
+                  fill="#1f2937"
+                  style={{ userSelect: 'none' }}
+                >
+                  {stage.name}
+                </text>
+              </g>
+            )
+          })}
+        </g>
+      )}
+
+      {/* Left column: Score (below Feature Splitting) */}
+      {scoreCat && (
+        <g key="score">
+          {/* Dotted container */}
+          <rect
+            x={overlayX}
+            y={overlayY + instructionHeight + instructionSpacing + featureSplittingHeight + verticalSpacing}
+            width={categoryBoxWidth}
+            height={scoreHeight}
+            fill="transparent"
+            stroke="#d1d5db"
+            strokeWidth="1.5"
+            strokeDasharray="4,4"
+            rx="6"
+          />
+
+          {/* Category header */}
+          <text
+            x={overlayX + categoryPadding}
+            y={overlayY + instructionHeight + instructionSpacing + featureSplittingHeight + verticalSpacing + categoryPadding}
+            dy="0.8em"
+            fontSize="11"
+            fontWeight="700"
+            fill="#6b7280"
+            letterSpacing="0.5"
+            style={{ textTransform: 'uppercase', userSelect: 'none' }}
+          >
+            {scoreCat.name}
+          </text>
+
+          {/* Metrics */}
+          {scoreCat.stages.map((stage, stageIndex) => {
+            const itemY = overlayY + instructionHeight + instructionSpacing + featureSplittingHeight + verticalSpacing + categoryHeaderHeight + categoryPadding + (stageIndex * itemHeight)
+            const isHovered = hoveredMetric === stage.id
+
+            return (
+              <g
+                key={stage.id}
+                className="sankey-metric-overlay__item"
+                onClick={() => onMetricClick(stage.metric, stage.thresholds)}
+                onMouseEnter={() => setHoveredMetric(stage.id)}
+                onMouseLeave={() => setHoveredMetric(null)}
+                style={{ cursor: 'pointer' }}
+              >
+                <rect
+                  x={overlayX + 4}
+                  y={itemY}
+                  width={categoryBoxWidth - 8}
+                  height={itemHeight}
+                  fill={isHovered ? '#eff6ff' : 'transparent'}
+                  rx="3"
+                />
+                <circle
+                  cx={overlayX + categoryPadding + 7}
+                  cy={itemY + itemHeight / 2}
+                  r="7"
+                  fill={getMetricColorForDisplay(stage.metric)}
+                  stroke="#d1d5db"
+                  strokeWidth="0.5"
+                />
+                <text
+                  x={overlayX + categoryPadding + 22}
+                  y={itemY + itemHeight / 2}
+                  dy="0.35em"
+                  fontSize="12"
+                  fontWeight="500"
+                  fill="#1f2937"
+                  style={{ userSelect: 'none' }}
+                >
+                  {stage.name}
+                </text>
+              </g>
+            )
+          })}
+        </g>
+      )}
+
+      {/* Right column: Consistency (full height) */}
+      {consistencyCat && (
+        <g key="consistency">
+          {/* Dotted container */}
+          <rect
+            x={overlayX + categoryBoxWidth + categorySpacing}
+            y={overlayY + instructionHeight + instructionSpacing}
+            width={categoryBoxWidthConsistency}
+            height={consistencyHeight}
+            fill="transparent"
+            stroke="#d1d5db"
+            strokeWidth="1.5"
+            strokeDasharray="4,4"
+            rx="6"
+          />
+
+          {/* Category header */}
+          <text
+            x={overlayX + categoryBoxWidth + categorySpacing + categoryPaddingLarge}
+            y={overlayY + instructionHeight + instructionSpacing + categoryPaddingLarge}
+            dy="0.8em"
+            fontSize="11"
+            fontWeight="700"
+            fill="#6b7280"
+            letterSpacing="0.5"
+            style={{ textTransform: 'uppercase', userSelect: 'none' }}
+          >
+            {consistencyCat.name}
+          </text>
+
+          {/* Metrics */}
+          {consistencyCat.stages.map((stage, stageIndex) => {
+            const itemY = overlayY + instructionHeight + instructionSpacing + categoryHeaderHeight + categoryPaddingLarge + (stageIndex * itemHeight)
+            const isHovered = hoveredMetric === stage.id
+
+            return (
+              <g
+                key={stage.id}
+                className="sankey-metric-overlay__item"
+                onClick={() => onMetricClick(stage.metric, stage.thresholds)}
+                onMouseEnter={() => setHoveredMetric(stage.id)}
+                onMouseLeave={() => setHoveredMetric(null)}
+                style={{ cursor: 'pointer' }}
+              >
+                <rect
+                  x={overlayX + categoryBoxWidth + categorySpacing + 4}
+                  y={itemY}
+                  width={categoryBoxWidthConsistency - 8}
+                  height={itemHeight}
+                  fill={isHovered ? '#eff6ff' : 'transparent'}
+                  rx="3"
+                />
+                <circle
+                  cx={overlayX + categoryBoxWidth + categorySpacing + categoryPaddingLarge + 7}
+                  cy={itemY + itemHeight / 2}
+                  r="7"
+                  fill={getMetricColorForDisplay(stage.metric)}
+                  stroke="#d1d5db"
+                  strokeWidth="0.5"
+                />
+                <text
+                  x={overlayX + categoryBoxWidth + categorySpacing + categoryPaddingLarge + 22}
+                  y={itemY + itemHeight / 2}
+                  dy="0.35em"
+                  fontSize="12"
+                  fontWeight="500"
+                  fill="#1f2937"
+                  style={{ userSelect: 'none' }}
+                >
+                  {stage.name}
+                </text>
+              </g>
+            )
+          })}
+        </g>
+      )}
+    </g>
+  )
+}
 
 const SankeyNode: React.FC<{
   node: D3SankeyNode
@@ -712,6 +1059,24 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     }
   }, [inlineSelector, addStageToNode, panel, layout, handleNodeHistogramClick])
 
+  const handleOverlayMetricClick = useCallback(async (metric: string, thresholds: readonly number[]) => {
+    console.log('[SankeyDiagram.handleOverlayMetricClick] 🎯 Metric clicked:', {
+      metric,
+      thresholds
+    })
+
+    // Add stage to root node
+    await addStageToNode('root', metric, [...thresholds], panel)
+
+    // Show histogram popover after adding stage
+    setTimeout(() => {
+      const rootNode = layout?.nodes.find(n => n.id === 'root')
+      if (rootNode) {
+        handleNodeHistogramClick(rootNode)
+      }
+    }, 500)
+  }, [addStageToNode, panel, layout, handleNodeHistogramClick])
+
   // Render
   if (error) {
     return <ErrorMessage message={error} />
@@ -819,7 +1184,12 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                     // Tree-based system: check if node exists and can have children
                     const treeNode = sankeyTree.get(node.id)
                     if (treeNode) {
-                      canAdd = canAddStage(treeNode)
+                      // Don't show + button on root when it has no children (overlay is showing)
+                      if (node.id === 'root' && treeNode.children.length === 0) {
+                        canAdd = false
+                      } else {
+                        canAdd = canAddStage(treeNode)
+                      }
                       canRemove = hasChildren(treeNode)
                     }
                   }
@@ -870,6 +1240,29 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
               })
             })()}
             </g>
+
+            {/* Metric Overlay Panel - Visible only when root has no children (initial state) */}
+            {(() => {
+              const rootNode = layout.nodes.find(n => n.id === 'root')
+              if (!rootNode || !sankeyTree) return null
+
+              const treeNode = sankeyTree.get('root')
+              if (!treeNode) return null
+
+              // Only show when root has no children (initial state)
+              if (treeNode.children.length > 0) return null
+
+              const availableStages = getAvailableStages(treeNode, sankeyTree, AVAILABLE_STAGES)
+              if (availableStages.length === 0) return null
+
+              return (
+                <MetricOverlayPanel
+                  rootNode={rootNode}
+                  availableStages={availableStages}
+                  onMetricClick={handleOverlayMetricClick}
+                />
+              )
+            })()}
           </g>
         </svg>
       </div>
@@ -908,11 +1301,30 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                       onClick={() => handleStageSelect(stageType.id)}
                       className="sankey-stage-selector__item"
                     >
-                      <div className="sankey-stage-selector__item-title">
-                        {stageType.name}
-                      </div>
-                      <div className="sankey-stage-selector__item-description">
-                        {stageType.description}
+                      <div className="sankey-stage-selector__item-content">
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 20 20"
+                          className="sankey-stage-selector__item-circle"
+                        >
+                          <circle
+                            cx="10"
+                            cy="10"
+                            r="8"
+                            fill={getMetricColorForDisplay(stageType.metric)}
+                            stroke="#d1d5db"
+                            strokeWidth="1"
+                          />
+                        </svg>
+                        <div className="sankey-stage-selector__item-text">
+                          <div className="sankey-stage-selector__item-title">
+                            {stageType.name}
+                          </div>
+                          <div className="sankey-stage-selector__item-description">
+                            {stageType.description}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ))}
