@@ -2,36 +2,38 @@
 
 This file provides comprehensive guidance to Claude Code when working with the FastAPI backend for the SAE Feature Visualization project.
 
-## Project Status: ✅ OPTIMIZED RESEARCH PROTOTYPE
+## Project Status: ✅ SIMPLIFIED RESEARCH PROTOTYPE
 
-Production-ready FastAPI backend with 9 operational endpoints, V2 classification engine, ConsistencyService for pre-computed consistency scores, and ParentPath-based performance optimizations (20-30% faster). Supports 7 visualization types: Sankey, Alluvial, Histogram, LLM Comparison, UMAP, TablePanel, and feature details. Phase 8 active: Consistency score integration for Sankey classification.
+Production-ready FastAPI backend with 8 operational endpoints, simplified feature grouping architecture, and ConsistencyService for pre-computed consistency scores. Supports 7 visualization types through simple feature grouping API: Sankey, Alluvial, Histogram, LLM Comparison, UMAP, TablePanel, and feature details. Phase 8 complete: Consistency scores integrated with feature grouping.
 
 ## Architecture Overview
 
-### 🏗️ Three-Tier Architecture (✅ FULLY IMPLEMENTED)
+### 🏗️ Simplified Architecture (✅ FULLY IMPLEMENTED)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                     FastAPI Application Layer                   │
 │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐   │
 │  │   API Router    │ │  Exception      │ │   CORS &        │   │
-│  │ (7 Endpoints)   │ │  Handling       │ │   Lifespan      │   │
+│  │ (8 Endpoints)   │ │  Handling       │ │   Lifespan      │   │
 │  └─────────────────┘ └─────────────────┘ └─────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
                                  ↕
 ┌─────────────────────────────────────────────────────────────────┐
 │                     Service Layer                               │
 │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐   │
-│  │   DataService   │ │   Async Init    │ │   Filter Cache  │   │
-│  │   (Polars)      │ │   & Cleanup     │ │   & Validation  │   │
+│  │FeatureGroupSvc  │ │   Async Init    │ │   Filter Mgr    │   │
+│  │ Simple Grouping │ │   & Cleanup     │ │   Validation    │   │
+│  │ N→N+1 Branches  │ │   Management    │ │   String Cache  │   │
 │  └─────────────────┘ └─────────────────┘ └─────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
                                  ↕
 ┌─────────────────────────────────────────────────────────────────┐
 │                       Data Layer                                │
 │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐   │
-│  │ Master Parquet  │ │   Lazy Frame    │ │  String Cache   │   │
-│  │ (1,648 features)│ │   Evaluation    │ │   Enabled       │   │
+│  │ Master Parquet  │ │   Consistency   │ │  UMAP + LLM     │   │
+│  │ 1,648 features  │ │   Scores        │ │  Comparison     │   │
+│  │ feature_analysis│ │   Pre-computed  │ │  JSON Data      │   │
 │  └─────────────────┘ └─────────────────┘ └─────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -65,22 +67,21 @@ backend/
 │   │   ├── __init__.py           # 📡 API router aggregation
 │   │   ├── filters.py            # ✅ GET /api/filter-options
 │   │   ├── histogram.py          # ✅ POST /api/histogram-data
-│   │   ├── sankey.py             # ✅ POST /api/sankey-data
+│   │   ├── feature_groups.py     # ✅ POST /api/feature-groups (PRIMARY ENDPOINT)
 │   │   ├── comparison.py         # ✅ POST /api/comparison-data (Phase 2)
-│   │   ├── llm_comparison.py     # ✅ POST /api/llm-comparison (Phase 5 - IMPLEMENTED)
-│   │   ├── threshold_features.py # ✅ POST /api/threshold-features (Phase 4)
+│   │   ├── llm_comparison.py     # ✅ POST /api/llm-comparison (Phase 5)
+│   │   ├── umap.py               # ✅ POST /api/umap-data (Phase 6)
+│   │   ├── table.py              # ✅ POST /api/table-data (Phase 7)
 │   │   └── feature.py            # ✅ GET /api/feature/{id}
 │   ├── models/                   # 📋 Pydantic model definitions
 │   │   ├── requests.py           # Request schemas with validation
 │   │   ├── responses.py          # Response schemas with type safety
-│   │   └── common.py             # Shared models and enums
+│   │   └── common.py             # Shared models (Filters, etc.)
 │   └── services/
-│       ├── visualization_service.py  # 🏭 Polars visualization service
+│       ├── feature_group_service.py  # 🏭 Feature grouping by threshold ranges
+│       ├── visualization_service.py  # 📊 Histogram and visualization data
 │       ├── table_data_service.py     # 📊 Table data processing (Phase 7)
 │       ├── consistency_service.py    # 📈 Consistency score calculations (Phase 8)
-│       ├── feature_classifier.py     # 🔧 V2 classification engine
-│       ├── rule_evaluators.py        # ⚙️ Split rule evaluation
-│       ├── node_labeler.py           # 🎨 Node display name generation
 │       └── data_constants.py         # 📊 Data schema constants
 ├── docs/                         # 📚 API documentation
 ├── start.py                      # 🔧 Production startup script with CLI args
@@ -132,12 +133,11 @@ curl http://localhost:8003/health
 |----------|---------|--------|
 | `GET /api/filter-options` | Dynamic filter options | ✅ ~50ms |
 | `POST /api/histogram-data` | Threshold visualization | ✅ ~200ms |
-| `POST /api/sankey-data` | Multi-stage flow diagrams | ✅ ~300ms |
+| `POST /api/feature-groups` | Feature IDs grouped by thresholds | ✅ ~50ms (PRIMARY) |
 | `POST /api/comparison-data` | Alluvial comparisons | ✅ Active |
 | `POST /api/llm-comparison` | LLM consistency stats | ✅ ~10ms |
-| `POST /api/threshold-features` | Feature IDs by threshold | ✅ ~50ms |
 | `POST /api/umap-data` | UMAP projections | ✅ ~20ms |
-| `POST /api/table-data` | Feature-level scoring table | ✅ NEW (Phase 7) |
+| `POST /api/table-data` | Feature-level scoring table | ✅ ~300ms (Phase 7) |
 | `GET /api/feature/{id}` | Individual feature details | ✅ ~10ms |
 | `GET /health` | Service health check | ✅ ~5ms |
 
@@ -422,26 +422,25 @@ await data_service.cleanup()
 
 #### Data Processing Pipeline
 
-**Stage 1: Feature Splitting**
+**Feature Grouping Logic (Simplified)**
 ```
-Features → [feature_splitting: continuous cosine similarity] → Category Groups
+User Request: { filters, metric, thresholds: [0.3, 0.7] }
+         ↓
+Apply Filters: Filter features by sae_id, llm_explainer, etc.
+         ↓
+Group by Thresholds: N thresholds → N+1 groups
+         ├── Group 0: metric < 0.3
+         ├── Group 1: 0.3 ≤ metric < 0.7
+         └── Group 2: metric ≥ 0.7
+         ↓
+Return Feature IDs: { groups: [{group_index, range_label, feature_ids, count}] }
 ```
 
-**Stage 2: Semantic Distance Classification**
-```
-Category Groups → [semdist_mean >= threshold] → High/Low Distance
-```
-
-**Stage 3: Score Agreement Analysis**
-```
-Distance Groups → [fuzz, simulation, detection, embedding scores] → N Agreement Levels
-├── All N High    (all scores ≥ threshold)
-├── N-1 High      (exactly N-1 scores ≥ threshold)
-├── ...           (configurable patterns)
-└── All N Low     (all scores < threshold)
-
-Note: Supports variable number of scoring methods through configurable pattern rules
-```
+**Key Features:**
+- **Simple Grouping**: N thresholds always create N+1 groups
+- **Range Labels**: Auto-generated (e.g., "< 0.30", "0.30 - 0.70", ">= 0.70")
+- **Stateless**: No classification state, just filter + group + return
+- **Consistency Support**: Works with both standard and consistency metrics
 
 ## Request/Response Architecture
 
@@ -592,9 +591,9 @@ For future scaling beyond Parquet:
 
 ## Advanced Implementation Details
 
-### 🧠 V2 Classification Engine (Production Implementation)
+### 🏭 Feature Grouping Service (Simplified Architecture)
 
-The backend implements a **production-ready V2 classification engine** with modular architecture:
+The backend implements a **simple feature grouping service** for stateless operation:
 
 #### Core Components:
 - **ClassificationEngine** (`feature_classifier.py`): Main classification orchestrator

@@ -4,11 +4,11 @@ This file provides comprehensive guidance to Claude Code when working with the R
 
 ## Current Status: ✅ ADVANCED MULTI-VISUALIZATION RESEARCH PROTOTYPE
 
-**Phase 1-7 Complete**: ✅ Sankey, Alluvial, Histogram, LLM Comparison, UMAP, TablePanel
-**Phase 8 Active**: 🔨 Consistency Score Integration - Consistency-based Sankey classification stages
+**Phase 1-8 Complete**: ✅ Sankey, Alluvial, Histogram, LLM Comparison, UMAP, TablePanel, Consistency Integration
 **Development Server**: http://localhost:3003 (active with hot reload)
 **Technology**: React 19.1.1, TypeScript 5.8.3, Zustand, D3.js
-**Status**: Conference-ready with 7 visualization types + consistency analysis
+**Architecture**: Tree-based Sankey building with feature group caching + set intersection
+**Status**: Conference-ready with instant threshold updates and 7 visualization types
 
 ## Technology Stack & Architecture
 
@@ -87,10 +87,7 @@ frontend/
 │   │   ├── d3-flow-utils.ts    # Flow visualization utilities
 │   │   ├── d3-threshold-group-utils.ts # Threshold group utilities
 │   │   ├── selection-utils.ts   # Threshold selection and calculation utilities
-│   │   ├── threshold-utils.ts   # Threshold tree operations
-│   │   ├── threshold-group-converter.ts # Threshold group conversion
-│   │   ├── dynamic-tree-builder.ts # Dynamic stage creation/removal
-│   │   ├── split-rule-builders.ts # Split rule construction helpers
+│   │   ├── threshold-utils.ts   # Tree-based Sankey computation with set intersection
 │   │   └── utils.ts            # General utility functions (includes useResizeObserver hook)
 │   ├── styles/                  # Styling
 │   │   ├── globals.css         # Global styles
@@ -161,10 +158,22 @@ interface AppState {
 
 interface PanelState {
   filters: Filters
-  thresholdTree: ThresholdTree  // Threshold tree system
-  sankeyData: SankeyData | null
+  sankeyTree: Map<string, SankeyTreeNode>  // Tree-based Sankey structure
+  computedSankey?: TreeBasedSankeyStructure // Computed D3-compatible structure
   histogramData: Record<string, HistogramData> | null
   viewState: ViewState
+}
+
+interface SankeyTreeNode {
+  id: string                    // e.g., "root", "stage0_group1"
+  parentId: string | null
+  metric: string | null         // Metric used for this stage
+  thresholds: number[]          // Threshold values
+  depth: number                 // Tree depth (0 for root)
+  children: string[]            // Child node IDs
+  featureIds: Set<number>       // Feature IDs at this node
+  featureCount: number
+  rangeLabel: string            // e.g., "< 0.50", "0.50 - 0.80"
 }
 
 interface ThresholdGroup {
@@ -178,15 +187,15 @@ interface ThresholdGroup {
 
 **Key Features:**
 - **Dual-Panel Architecture**: Independent left/right panel state management with `PanelState` interface
-- **Dynamic Tree Builder**: Runtime stage creation/removal through store actions
-  - `addStageToTree()`: Add new classification stage to any node
-  - `removeStageFromTree()`: Remove stage and collapse subtree
-  - `resetToRootOnlyTree()`: Reset to root-only configuration
-- **Threshold Tree System V2**: Flexible threshold tree with split rules
-  - **Range Rules**: Single metric, multiple thresholds (N thresholds → N+1 branches)
-  - **Pattern Rules**: Multi-metric pattern matching with flexible conditions
-  - **Expression Rules**: Complex logical expressions for advanced scenarios
-- **Split Rule Builders**: Helper functions in `split-rule-builders.ts` for easy rule construction
+- **Tree-Based Sankey Building**: Map-based tree structure with `SankeyTreeNode` containing feature IDs
+- **Feature Group Caching**: Global cache by `metric:thresholds` key prevents redundant API calls
+- **Set Intersection Algorithm**: Child nodes computed via `parent_features ∩ group_features`
+- **Runtime Stage Management**: Store actions for dynamic tree modification
+  - `loadRootFeatures()`: Initialize root node with all features from backend
+  - `addStageToNode()`: Fetch feature groups, compute intersections, create child nodes
+  - `removeStageFromNode()`: Remove stage and collapse subtree
+  - `recomputeSankeyTree()`: Convert tree to D3-compatible flat structure
+- **Instant Threshold Updates**: Cached groups enable local tree rebuilding without backend call
 - **Alluvial Flow Support**: Cross-panel flow visualization with feature ID tracking
 - **Panel-Aware Operations**: All store actions support panel-specific targeting (leftPanel/rightPanel)
 - **Production-Ready Error Handling**: Comprehensive error boundaries and graceful degradation
@@ -286,21 +295,11 @@ const layout = useMemo(
 - **Statistical Analysis**: Mean, median, quartile calculations
 
 **threshold-utils.ts**
-- **Threshold Tree Operations**: Tree traversal and node lookup
-- **Threshold Updates**: `updateNodeThreshold()` for modifying thresholds
-- **Node Path Resolution**: Complete parent path tracking from root to any node
-- **Default Tree**: `buildDefaultTree()` for standard three-stage configuration
-
-**dynamic-tree-builder.ts (New)**
-- **Root-Only Tree**: `createRootOnlyTree()` for starting with just root node
-- **Add Stage**: `addStageToNode()` for runtime stage addition
-- **Remove Stage**: `removeStageFromNode()` for stage removal and subtree collapse
-- **Stage Configuration**: `AddStageConfig` interface for flexible stage creation
-
-**split-rule-builders.ts (New)**
-- **Range Rule Builder**: Helper for creating range-based split rules
-- **Pattern Rule Builder**: Helper for creating pattern-based split rules
-- **Expression Rule Builder**: Helper for creating expression-based split rules
+- **Tree-Based Sankey Computation**: `computeSankeyStructure()` builds Sankey from tree + feature groups
+- **Set Intersection**: Efficient `intersection()` function with O(min(|A|, |B|)) complexity
+- **Feature Group Processing**: `processFeatureGroupResponse()` handles standard and consistency metrics
+- **Tree Conversion**: Converts Map-based tree to D3-compatible flat nodes/links structure
+- **Node ID Generation**: `buildNodeId()` creates hierarchical node identifiers
 
 **selection-utils.ts (Phase 4)**
 - **Threshold Calculation**: `calculateThresholdFromMouseX()` for exact mouse-to-threshold conversion
@@ -334,14 +333,21 @@ useEffect(() => {
 
 **API Endpoints Integration:**
 ```typescript
-// All backend endpoints integrated (7 defined, 7 operational) ✅
+// Primary endpoint for tree building ✅
+export const getFeatureGroups = (
+  filters: Filters,
+  metric: string,
+  thresholds: number[]
+): Promise<FeatureGroupResponse>
+
+// Other endpoints ✅
 export const getFilterOptions = (): Promise<FilterOptions>
 export const getHistogramData = (request: HistogramDataRequest): Promise<HistogramData>
-export const getSankeyData = (request: SankeyDataRequest): Promise<SankeyData>
 export const getComparisonData = (request: ComparisonDataRequest): Promise<ComparisonData>
-export const getLLMComparisonData = (filters: Filters): Promise<LLMComparisonData>  // ✅ IMPLEMENTED
+export const getLLMComparisonData = (filters: Filters): Promise<LLMComparisonData>
+export const getUMAPData = (filters: Filters): Promise<UMAPDataResponse>
+export const getTableData = (request: TableDataRequest): Promise<FeatureTableDataResponse>
 export const getFeatureData = (featureId: number): Promise<FeatureDetail>
-export const getFeaturesInThreshold = (filters: Filters, metric: string, min: number, max: number): Promise<{feature_ids: number[]}>
 export const healthCheck = (): Promise<boolean>
 ```
 
@@ -500,20 +506,21 @@ User Interaction → State Update → API Request → Data Processing → UI Upd
 - ✅ **Filter System**: Multi-select filters with backend integration
 - ✅ **Histogram Popovers**: Interactive threshold visualization
 
-### ✅ Phase 2: Dynamic Tree Builder (COMPLETE)
-- ✅ **Runtime Stage Creation**: `addStageToNode()` for dynamic tree building
+### ✅ Phase 2: Tree-Based Sankey Building (COMPLETE)
+- ✅ **Tree-Based Architecture**: Map-based tree structure with `SankeyTreeNode`
+- ✅ **Feature Group Caching**: Global cache by metric+thresholds for instant updates
+- ✅ **Set Intersection Algorithm**: Efficient child node computation
+- ✅ **Runtime Stage Creation**: `addStageToNode()` fetches groups and computes intersections
 - ✅ **Runtime Stage Removal**: `removeStageFromNode()` for tree simplification
-- ✅ **Root-Only Mode**: `createRootOnlyTree()` for starting fresh
-- ✅ **Split Rule Builders**: Helper functions for easy rule construction
 - ✅ **Alluvial Flows**: Cross-panel feature tracking and flow visualization
-- ✅ **Classification Engine**: V2 classification with split evaluators
 
 ### ✅ Phase 3: Performance Optimization (COMPLETE)
-- ✅ **Node Lookup Caching**: O(1) node access with cached dictionaries
-- ✅ **Path Constraint Extraction**: Direct filtering for leaf nodes
-- ✅ **Path-Based Filtering**: 3-5x faster for leaf node operations
-- ✅ **Early Termination**: 2-3x faster for intermediate nodes
-- ✅ **Overall Performance**: 20-30% faster Sankey generation
+- ✅ **Feature Group Caching**: Global cache prevents redundant API calls for same metric+thresholds
+- ✅ **Set Intersection**: O(min(|A|, |B|)) algorithm for efficient child node computation
+- ✅ **Instant Updates**: Threshold changes trigger local tree rebuild without backend roundtrip
+- ✅ **Stateless Backend**: Simple grouping API enables horizontal scaling
+- ✅ **Cache Invalidation**: Filter changes clear cache for fresh data
+- ✅ **Performance Validation**: Instant Sankey updates, ~50ms for new groups
 
 ### ✅ Phase 4: Threshold Group Management (COMPLETE - January 2025)
 - ✅ **HistogramPanel Component**: Multi-histogram visualization with selection mode
@@ -645,14 +652,15 @@ User Interaction → State Update → API Request → Data Processing → UI Upd
 - ✅ **RequestAnimationFrame**: Debounced scroll measurements
 - ✅ **Memoized Calculations**: useMemo for sorted features, color layouts, group calculations
 
-### 🔨 Phase 8: Consistency Score Integration (ACTIVE - October 2025)
+### ✅ Phase 8: Consistency Score Integration (COMPLETE - October 2025)
 
-**Purpose**: Integrate pre-computed consistency scores into Sankey classification workflow
+**Purpose**: Integrate pre-computed consistency scores into Sankey visualization workflow
 
 **Backend Integration:**
 - ✅ **consistency_scores.parquet**: Pre-computed consistency data loaded by backend
 - ✅ **ConsistencyService**: Backend service with 8 consistency metrics
 - ✅ **Data Loading**: Visualization service loads consistency scores alongside feature data
+- ✅ **Feature Grouping**: Consistency metrics supported by POST /api/feature-groups
 
 **Consistency Metrics Available:**
 1. **LLM Scorer Consistency** (fuzz, detection): Consistency across scorers for same explainer
@@ -661,36 +669,28 @@ User Interaction → State Update → API Request → Data Processing → UI Upd
 4. **Cross-Explanation Overall Score Consistency**: Overall score consistency across explainers
 5. **LLM Explainer Consistency**: Semantic similarity between LLM explanations
 
-**Frontend Work (In Progress):**
-- 🔨 **Consistency Stage Addition**: Add consistency-based classification stage to Sankey
-- 🔨 **Type Definitions**: Update types.ts with consistency score types
-- 🔨 **Threshold Tree Updates**: Add consistency metrics to split rules
-- 🔨 **Sankey Node Updates**: Display consistency percentile ranges in nodes
-- 🔨 **Histogram Support**: Add consistency metric histograms for threshold selection
-
-**Implementation Plan:**
-1. Update `types.ts` with consistency-related types
-2. Modify `constants.ts` to include consistency metrics
-3. Add consistency stage support in `dynamic-tree-builder.ts`
-4. Update `d3-sankey-utils.ts` for consistency node visualization
-5. Integrate consistency histograms in `HistogramPanel.tsx`
-6. Test end-to-end consistency-based classification
+**Frontend Integration:**
+- ✅ **Consistency Stage Support**: Consistency metrics available for Sankey stage creation via `addStageToNode()`
+- ✅ **Type Definitions**: Consistency score types integrated into types.ts
+- ✅ **Constants**: Consistency metrics added to metric definitions
+- ✅ **Histogram Support**: Consistency metric histograms available for threshold selection
+- ✅ **Feature Grouping**: Backend returns consistency-based feature groups for tree building
 
 ### 📝 Future Enhancements
 - **TablePanel**: Export selected cell groups to CSV/JSON
 - **UMAP**: Cross-visualization linking with TablePanel selections
 - **Dynamic Consistency**: Real-time consistency calculation for custom filter combinations
 - **Debug View**: Individual feature inspection with path visualization
-- **Consistency Filters**: Filter features by consistency thresholds across visualizations
+- **Tree Serialization**: Save/load tree configurations for research reproducibility
 
 ## Critical Development Notes
 
-1. **Backend Dependency**: Requires backend on port 8003 with all 9 endpoints operational
+1. **Backend Dependency**: Requires backend on port 8003 with POST /api/feature-groups operational
 2. **Type Safety**: Full TypeScript integration - maintain type definitions
 3. **Performance**: D3 calculations with React.memo, useMemo, useCallback
-4. **State Management**: Centralized Zustand store with dual-panel architecture
+4. **State Management**: Tree-based Zustand store with feature group caching
 5. **Component Architecture**: Separation of concerns (components/lib/api/store)
-6. **Current Branch**: `add_cons_stage` (Phase 8 development)
+6. **Architecture**: Simplified feature grouping + frontend intersection for instant updates
 
 ## Project Assessment
 
@@ -702,17 +702,20 @@ This React frontend represents a **conference-ready research prototype** with:
 - ✅ **Vite Development Server** with hot module replacement
 - ✅ **Full TypeScript Coverage** with comprehensive type definitions
 
-**Visualization Capabilities (All 5 Phases Complete):**
+**Visualization Capabilities (All 8 Phases Complete):**
 - ✅ **Phase 1 - Dual-Panel Sankey**: Independent left/right panel state management
-- ✅ **Phase 2 - Dynamic Tree Builder**: Runtime stage creation/removal capabilities
-- ✅ **Phase 3 - Performance**: 20-30% faster with ParentPath optimizations
+- ✅ **Phase 2 - Tree-Based Building**: Feature group caching + set intersection
+- ✅ **Phase 3 - Performance**: Instant threshold updates with ~50ms for new groups
 - ✅ **Phase 4 - Threshold Groups**: Named groups with histogram-based selection
 - ✅ **Phase 5 - LLM Comparison**: Triangle-based consistency visualization
+- ✅ **Phase 6 - UMAP**: Dual-panel projection with hierarchical clustering
+- ✅ **Phase 7 - TablePanel**: Feature-level scoring with cell group selection
+- ✅ **Phase 8 - Consistency Integration**: Pre-computed consistency scores
 
 **Advanced Features:**
-- ✅ **D3.js Visualization Suite**: Sankey, Alluvial, Histogram, and LLM Comparison diagrams
-- ✅ **Threshold Tree System V2**: Range, pattern, and expression split rules
-- ✅ **Split Rule Builders**: Helper functions for easy rule construction
+- ✅ **D3.js Visualization Suite**: Sankey, Alluvial, Histogram, UMAP, Table, and LLM Comparison
+- ✅ **Tree-Based Sankey Building**: Set intersection algorithm for instant updates
+- ✅ **Feature Group Caching**: Global cache by metric+thresholds
 - ✅ **LLM Comparison Visualization**: Consistency scoring with green→yellow→red gradients
 - ✅ **Production Error Handling**: Comprehensive error boundaries
 - ✅ **Alluvial Flow Tracking**: Feature ID-based cross-panel comparison
@@ -725,17 +728,19 @@ This React frontend represents a **conference-ready research prototype** with:
 - ✅ **Multiple Scoring Methods**: Fuzz, simulation, detection, embedding
 
 **Key Implementation Features:**
-- **Dynamic Tree Building**: Add/remove classification stages at runtime through store actions
-- **Three Split Rule Types**: Range, pattern, and expression-based splitting
-- **Multiple Visualization Types**: Sankey and Alluvial diagrams for different analytical perspectives
-- **Dual-Panel State**: Independent threshold trees and data for left/right panels
+- **Tree-Based Sankey Building**: Frontend builds Sankey structure using feature group intersection
+- **Feature Group Caching**: Global cache by metric+thresholds for instant threshold updates
+- **Set Intersection Algorithm**: O(min(|A|, |B|)) complexity for efficient child node computation
+- **Multiple Visualization Types**: Sankey, Alluvial, UMAP, Table, Histogram, LLM Comparison
+- **Dual-Panel State**: Independent tree structures and data for left/right panels
 - **Responsive Layout**: useResizeObserver hook ensures all visualizations adapt to container size
 - **Conference Ready**: Optimized for live demonstrations with reliable error handling
 
 **Design Philosophy:**
 - **Research Prototype**: Built for conference demonstration and research flexibility
+- **Simplicity First**: Frontend handles tree building, backend does simple feature grouping
 - **Production-Ready Code**: Comprehensive error handling and type safety
-- **Maintainable Architecture**: Clear separation of concerns with modular design
-- **Flexibility Focus**: Dynamic tree building without requiring code changes
+- **Maintainable Architecture**: Clear separation of concerns with minimal complexity
+- **Instant Updates**: Cached feature groups enable threshold changes without backend calls
 
-The application is ready for **academic conference presentation** with fully functional dynamic tree building designed for **SAE feature analysis research** demonstrations.
+The application is ready for **academic conference presentation** with simplified architecture designed for **SAE feature analysis research** demonstrations.
