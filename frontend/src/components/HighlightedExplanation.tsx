@@ -7,17 +7,17 @@ interface HighlightedExplanationProps {
 }
 
 /**
- * Renders explanation text with syntax highlighting showing alignment across LLM explainers.
+ * Renders explanation text with background highlighting showing alignment across LLM explainers.
  *
- * Highlighting styles:
- * - Exact matches: Green color (from segment.color)
- * - Semantic matches: Bold font weight
- * - Both exact and semantic: Green color + bold
+ * Highlighting styles (semantic similarity based):
+ * - similarity >= 0.9: Dark green background (full opacity) + white text + bold (Strong Match)
+ * - similarity >= 0.8: Dark green background (0.75 opacity) + white text + bold (Medium Match)
+ * - similarity >= 0.7: Dark green background (0.5 opacity) + white text + bold (Weak Match)
+ * - similarity < 0.7: Plain text (no highlight)
  *
  * Hover tooltips show:
- * - Match type (Exact/Semantic/Both)
- * - Similarity score (for semantic matches)
- * - N-gram length (for exact matches)
+ * - Match strength label (Strong/Medium/Weak)
+ * - Similarity score
  * - Explainer names that share this match
  */
 export const HighlightedExplanation: React.FC<HighlightedExplanationProps> = React.memo(({
@@ -36,40 +36,21 @@ export const HighlightedExplanation: React.FC<HighlightedExplanationProps> = Rea
       return ''
     }
 
-    const {
-      match_type,
-      similarity,
-      ngram_length,
-      shared_with,
-      also_exact,
-      exact_ngram_length,
-      also_semantic,  // Legacy
-      semantic_similarity  // Legacy
-    } = segment.metadata
+    const { similarity, shared_with } = segment.metadata
     const lines: string[] = []
 
-    // Match type (handle both new and legacy structures)
-    const hasBothTypes = also_exact || also_semantic
-    if (hasBothTypes) {
-      lines.push('Match Type: Semantic + Exact')
-    } else {
-      lines.push(`Match Type: ${match_type === 'exact' ? 'Exact' : 'Semantic'}`)
-    }
+    // Match strength label based on similarity
+    if (similarity !== undefined) {
+      let strength = 'Weak Match'
+      if (similarity >= 0.9) {
+        strength = 'Strong Match'
+      } else if (similarity >= 0.8) {
+        strength = 'Medium Match'
+      }
+      lines.push(strength)
 
-    // Similarity/N-gram info
-    if (match_type === 'semantic' && similarity !== undefined) {
+      // Similarity score
       lines.push(`Similarity: ${similarity.toFixed(3)}`)
-    }
-    if (match_type === 'exact' && ngram_length !== undefined) {
-      lines.push(`N-gram Length: ${ngram_length}`)
-    }
-
-    // Additional info for segments with both types
-    if (also_exact && exact_ngram_length !== undefined) {
-      lines.push(`Exact N-gram Length: ${exact_ngram_length}`)
-    }
-    if (also_semantic && semantic_similarity !== undefined) {
-      lines.push(`Semantic Similarity: ${semantic_similarity.toFixed(3)}`)
     }
 
     // Shared explainers
@@ -93,12 +74,28 @@ export const HighlightedExplanation: React.FC<HighlightedExplanationProps> = Rea
 
     const style: React.CSSProperties = {}
 
-    // Apply color for exact matches
-    if (segment.color) {
-      style.color = segment.color
+    // Calculate dark green background with opacity based on similarity
+    const similarity = segment.metadata?.similarity
+    if (similarity !== undefined) {
+      let opacity = 0.7  // Default for similarity >= 0.7 (Weak)
+      if (similarity >= 0.9) {
+        opacity = 1.0  // Strong match - full opacity
+      } else if (similarity >= 0.8) {
+        opacity = 0.85  // Medium match
+      }
+
+      // Apply dark green background (#16a34a - green-600) with calculated opacity
+      style.backgroundColor = `rgba(22, 163, 74, ${opacity})`
+
+      // White text for better visibility on dark green background
+      style.color = 'white'
+
+      // Add subtle padding for highlighter effect
+      style.padding = '1px 2px'
+      style.borderRadius = '2px'
     }
 
-    // Apply bold for semantic matches
+    // Always apply bold for highlighted segments
     if (segment.style === 'bold') {
       style.fontWeight = 'bold'
     }
@@ -116,21 +113,16 @@ export const HighlightedExplanation: React.FC<HighlightedExplanationProps> = Rea
 
     const classes: string[] = []
 
-    // Handle both new and legacy structures
-    const hasBothTypes = segment.metadata?.also_exact || segment.metadata?.also_semantic
-
-    if (segment.metadata?.match_type === 'exact') {
-      classes.push('highlighted-segment--exact')
-    }
-    if (segment.metadata?.match_type === 'semantic' || segment.metadata?.also_semantic) {
-      classes.push('highlighted-segment--semantic')
-    }
-    // Add exact class if segment has both types (new structure: semantic + also_exact)
-    if (segment.metadata?.also_exact) {
-      classes.push('highlighted-segment--exact')
-    }
-    if (hasBothTypes) {
-      classes.push('highlighted-segment--both')
+    // Add strength-based class based on similarity
+    const similarity = segment.metadata?.similarity
+    if (similarity !== undefined) {
+      if (similarity >= 0.9) {
+        classes.push('highlighted-segment--strong')
+      } else if (similarity >= 0.8) {
+        classes.push('highlighted-segment--medium')
+      } else if (similarity >= 0.7) {
+        classes.push('highlighted-segment--weak')
+      }
     }
 
     return classes.join(' ')

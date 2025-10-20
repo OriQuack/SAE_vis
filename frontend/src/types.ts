@@ -430,17 +430,12 @@ export interface ConsistencyScore {
 export interface HighlightSegment {
   text: string
   highlight: boolean
-  color?: string  // For exact matches (green gradient)
-  style?: 'bold'  // For semantic matches
+  color?: string  // Unused - background color calculated on frontend based on similarity
+  style?: 'bold'  // All semantic matches are bold
   metadata?: {
-    match_type: 'exact' | 'semantic'
-    similarity?: number     // For semantic matches
-    ngram_length?: number  // For exact matches
+    match_type: 'semantic'  // Only semantic matches supported
+    similarity?: number     // Semantic similarity score (0.7 - 1.0)
     shared_with: number[]  // Explainer indices sharing this match
-    also_exact?: boolean  // For segments that are both semantic and exact
-    exact_ngram_length?: number  // N-gram length if both types
-    also_semantic?: boolean  // Legacy: For segments that are both exact and semantic (deprecated)
-    semantic_similarity?: number  // Legacy: Semantic similarity if both types (deprecated)
   }
 }
 

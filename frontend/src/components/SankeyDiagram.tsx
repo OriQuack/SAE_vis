@@ -900,6 +900,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const tableSortBy = useVisualizationStore(state => state.tableSortBy)
   const tableSortDirection = useVisualizationStore(state => state.tableSortDirection)
   const sankeyTree = useVisualizationStore(state => state[panelKey].sankeyTree)
+  const getRightmostStageFeatureIds = useVisualizationStore(state => state.getRightmostStageFeatureIds)
   const { showHistogramPopover, addStageToNode, removeNodeStage } = useVisualizationStore()
 
   // NEW TREE-BASED SYSTEM: use computedSankey directly
@@ -1015,22 +1016,15 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       return null
     }
 
-    // Collect ALL features from rightmost vertical bar nodes
-    const allRightmostFeatureIds: number[] = []
-    rightmostNodes.forEach(node => {
-      if (node.feature_ids) {
-        allRightmostFeatureIds.push(...node.feature_ids)
-      }
-    })
+    // Get features and filter to only rightmost stage features (same as TablePanel)
+    let sortedFeatures = [...tableData.features]
 
-    if (allRightmostFeatureIds.length === 0) {
-      return null
+    // Filter to only rightmost stage features
+    const rightmostFeatureIds = getRightmostStageFeatureIds()
+    if (rightmostFeatureIds && rightmostFeatureIds.size > 0 && rightmostFeatureIds.size < sortedFeatures.length) {
+      sortedFeatures = sortedFeatures.filter(f => rightmostFeatureIds.has(f.feature_id))
+      console.log(`[SankeyDiagram] Filtered gradient to ${sortedFeatures.length} rightmost features (from ${tableData.features.length} total)`)
     }
-
-    // Filter table features to only rightmost features
-    let sortedFeatures = tableData.features.filter((f: any) =>
-      allRightmostFeatureIds.includes(f.feature_id)
-    )
 
     // Apply sorting
     sortedFeatures = sortFeatures(
@@ -1039,6 +1033,18 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       tableSortDirection,
       tableData
     )
+
+    // Collect feature count from rightmost nodes for distribution calculation
+    let totalFeatures = 0
+    rightmostNodes.forEach(node => {
+      if (node.feature_ids) {
+        totalFeatures += node.feature_ids.length
+      }
+    })
+
+    if (totalFeatures === 0) {
+      return null
+    }
 
     // Calculate ONE master gradient for all features
     const masterGradientStops = calculateLinkGradientStops(sortedFeatures, tableSortBy, tableData)
@@ -1055,7 +1061,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
     // Calculate cumulative feature distribution
     let cumulativeFeatures = 0
-    const totalFeatures = allRightmostFeatureIds.length
 
     layout.links.forEach((link, index) => {
       const targetNode = typeof link.target === 'object' ? link.target : null
@@ -1064,28 +1069,31 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       if (targetNode && rightmostNodes.some(n => n.id === targetNode.id)) {
         const linkFeatureCount = targetNode.feature_ids?.length || 0
 
-        // Calculate this link's portion of the gradient
-        const startOffset = cumulativeFeatures / totalFeatures
-        const endOffset = (cumulativeFeatures + linkFeatureCount) / totalFeatures
+        // Find this link's position in the overall gradient
+        const startRatio = cumulativeFeatures / totalFeatures
+        const endRatio = (cumulativeFeatures + linkFeatureCount) / totalFeatures
 
-        // Create gradient stops for this link's portion
-        const linkStops = masterGradientStops.map(stop => {
-          // Parse the original offset (e.g., "50%" -> 0.5)
-          const originalOffset = parseFloat(stop.offset) / 100
+        // Extract only the gradient stops for this link's portion
+        const linkStops = []
+        const totalStops = masterGradientStops.length
+        const startStopIndex = Math.floor(startRatio * totalStops)
+        const endStopIndex = Math.ceil(endRatio * totalStops)
 
-          // Map to this link's range
-          const adjustedOffset = startOffset + (originalOffset * (endOffset - startOffset))
+        // Extract and remap the relevant stops
+        for (let i = startStopIndex; i <= endStopIndex && i < totalStops; i++) {
+          const localProgress = (i - startStopIndex) / Math.max(1, endStopIndex - startStopIndex)
+          linkStops.push({
+            ...masterGradientStops[i],
+            offset: `${localProgress * 100}%`
+          })
+        }
 
-          return {
-            ...stop,
-            offset: `${adjustedOffset * 100}%`
-          }
-        })
-
-        gradients.push({
-          id: `gradient-${panel}-link-${index}`,
-          stops: linkStops
-        })
+        if (linkStops.length > 0) {
+          gradients.push({
+            id: `gradient-${panel}-link-${index}`,
+            stops: linkStops
+          })
+        }
 
         cumulativeFeatures += linkFeatureCount
       }
