@@ -26,6 +26,7 @@ import {
   CONSISTENCY_TYPE_NONE
 } from '../lib/constants'
 import type { ConsistencyType } from '../types'
+import { HighlightedExplanation } from './HighlightedExplanation'
 import '../styles/TablePanel.css'
 
 // ============================================================================
@@ -657,6 +658,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
                   // Get explanation text (safely handle null/undefined)
                   const explanationText = explainerData.explanation_text ?? '-'
+                  const highlightedExplanation = explainerData.highlighted_explanation
 
                   return (
                     <tr
@@ -812,9 +814,16 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                       {/* Explanation text */}
                       <td
                         className="table-panel__cell table-panel__cell--explanation"
-                        title={explanationText}
+                        title={!highlightedExplanation ? explanationText : undefined}
                       >
-                        {explanationText}
+                        {highlightedExplanation ? (
+                          <HighlightedExplanation
+                            segments={highlightedExplanation.segments}
+                            explainerNames={['Llama', 'Qwen', 'OpenAI']}
+                          />
+                        ) : (
+                          explanationText
+                        )}
                       </td>
 
                       {/* Empty cell for future use */}

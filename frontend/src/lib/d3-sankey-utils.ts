@@ -1,11 +1,21 @@
 import { sankey, sankeyLinkHorizontal } from 'd3-sankey'
-import type { NodeCategory, D3SankeyNode, D3SankeyLink, SankeyLayout } from '../types'
+import type {
+  NodeCategory,
+  D3SankeyNode,
+  D3SankeyLink,
+  SankeyLayout,
+  FeatureTableRow,
+  FeatureTableDataResponse
+} from '../types'
 import {
   CATEGORY_ROOT,
   CATEGORY_FEATURE_SPLITTING,
   CATEGORY_SEMANTIC_SIMILARITY,
   METRIC_DISPLAY_NAMES
 } from './constants'
+import {
+  calculateFeatureColor
+} from './d3-table-utils'
 
 // ============================================================================
 // UTILS-SPECIFIC TYPES (Internal use only - not exported)
@@ -111,8 +121,8 @@ export function calculateSankeyLayout(
   }
 
   const margin = customMargin || DEFAULT_SANKEY_MARGIN
-  const width = (layoutWidth || 800) - margin.left - margin.right
-  const height = (layoutHeight || 800) - margin.top - margin.bottom
+  const width = (layoutWidth ?? 800) - margin.left - margin.right
+  const height = (layoutHeight ?? 800) - margin.top - margin.bottom
 
   // Build reference sets and maps for efficiency
   const referencedNodeIds = new Set<string>()
@@ -521,5 +531,63 @@ export function applyRightToLeftTransform(
     height: layout.height,
     margin: layout.margin
   }
+}
+
+// ============================================================================
+// GRADIENT CALCULATION FOR SANKEY LINKS
+// ============================================================================
+
+export interface GradientStop {
+  offset: string
+  color: string
+  opacity: number
+}
+
+/**
+ * Calculate gradient stops for Sankey link based on sorted features and selected metric
+ *
+ * @param sortedFeatures - Features sorted by current metric
+ * @param sortBy - Current sort metric (e.g., 'overallScore', 'minConsistency', metric constants)
+ * @param tableData - Full table data with global stats and explainer IDs
+ * @returns Array of gradient stops or null if no valid data
+ */
+export function calculateLinkGradientStops(
+  sortedFeatures: FeatureTableRow[] | null,
+  sortBy: string | null,
+  tableData: FeatureTableDataResponse | null
+): GradientStop[] | null {
+  // Validate inputs
+  if (!sortedFeatures || sortedFeatures.length === 0 || !sortBy || !tableData) {
+    return null
+  }
+
+  // Determine sampling count (max 100 samples)
+  const maxSamples = 100
+  const sampleCount = Math.min(maxSamples, sortedFeatures.length)
+  const sampleInterval = sortedFeatures.length / sampleCount
+
+  const stops: GradientStop[] = []
+
+  // Process each sample point
+  for (let i = 0; i < sampleCount; i++) {
+    // Calculate which feature to sample (evenly distributed)
+    const featureIndex = Math.floor(i * sampleInterval)
+    const feature = sortedFeatures[featureIndex]
+
+    // Calculate offset percentage for this stop
+    const offset = `${(i / (sampleCount - 1)) * 100}%`
+
+    // Get the exact same color that TablePanel would use
+    const color = calculateFeatureColor(feature, sortBy, tableData)
+
+    // Use full opacity to show the color clearly
+    stops.push({
+      offset,
+      color,
+      opacity: 1.0
+    })
+  }
+
+  return stops
 }
 

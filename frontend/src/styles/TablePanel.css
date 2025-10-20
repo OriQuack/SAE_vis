@@ -449,3 +449,44 @@
   font-weight: 500;
   white-space: nowrap;
 }
+
+/* ========================================================================== */
+/* HIGHLIGHTED EXPLANATION STYLES                                            */
+/* ========================================================================== */
+
+/* Container for highlighted explanation */
+.highlighted-explanation {
+  display: inline;
+  word-wrap: break-word;
+  white-space: normal;
+}
+
+/* Base highlighted segment styling */
+.highlighted-segment--exact,
+.highlighted-segment--semantic,
+.highlighted-segment--both {
+  cursor: help;
+  transition: opacity 0.2s ease;
+}
+
+/* Hover effect for highlighted segments */
+.highlighted-segment--exact:hover,
+.highlighted-segment--semantic:hover,
+.highlighted-segment--both:hover {
+  opacity: 0.8;
+}
+
+/* Exact match styling (green color, applied via inline style) */
+.highlighted-segment--exact {
+  /* Color is applied inline from segment.color */
+}
+
+/* Semantic match styling (bold text) */
+.highlighted-segment--semantic {
+  font-weight: bold;
+}
+
+/* Both exact and semantic (green color + bold, handled by component) */
+.highlighted-segment--both {
+  /* Color and font-weight applied inline */
+}

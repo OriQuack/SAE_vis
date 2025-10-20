@@ -1,4 +1,4 @@
-import type { FeatureTableRow, MetricNormalizationStats, ConsistencyType, MinConsistencyResult } from '../types'
+import type { FeatureTableRow, FeatureTableDataResponse, MetricNormalizationStats, ConsistencyType, MinConsistencyResult } from '../types'
 import {
   CONSISTENCY_TYPE_NONE,
   METRIC_LLM_SCORER_CONSISTENCY,
@@ -14,6 +14,7 @@ import {
   getConsistencyColor,
   getOverallScoreColor,
   getConsistencyGradientStops,
+  getMetricColor
 } from './utils'
 
 // ============================================================================
@@ -461,6 +462,174 @@ export function calculateMinConsistency(
     value: weakest.value,
     weakestType: weakest.type
   }
+}
+
+// ============================================================================
+// FEATURE COLOR CALCULATION (For Gradient and Table Consistency)
+// ============================================================================
+
+/**
+ * Calculate the aggregated color for a feature based on the selected metric.
+ * This ensures consistency between table display and gradient visualization.
+ *
+ * @param feature - The feature row with all explainer data
+ * @param sortBy - The metric to calculate color for
+ * @param tableData - Full table data with global stats
+ * @returns Color string for the feature, or transparent if no data
+ */
+export function calculateFeatureColor(
+  feature: FeatureTableRow,
+  sortBy: string,
+  tableData: FeatureTableDataResponse
+): string {
+  // Consistency metrics
+  const consistencyMetrics = [
+    'minConsistency',
+    METRIC_LLM_SCORER_CONSISTENCY,
+    METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
+    METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
+    METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
+    METRIC_LLM_EXPLAINER_CONSISTENCY
+  ]
+
+  // Score metrics
+  const scoreMetrics = [
+    'overallScore',
+    METRIC_SCORE_EMBEDDING,
+    METRIC_SCORE_FUZZ,
+    METRIC_SCORE_DETECTION
+  ]
+
+  if (consistencyMetrics.includes(sortBy)) {
+    // Handle consistency metrics - take minimum across explainers
+    if (sortBy === 'minConsistency') {
+      // Find the minimum consistency across all explainers
+      let minValue: number | null = null
+      let weakestType: ConsistencyType = METRIC_LLM_SCORER_CONSISTENCY as ConsistencyType
+
+      for (const explainerId of Object.keys(feature.explainers)) {
+        const result = calculateMinConsistency(feature, explainerId)
+        if (result && (minValue === null || result.value < minValue)) {
+          minValue = result.value
+          weakestType = result.weakestType
+        }
+      }
+
+      return minValue !== null ? getConsistencyColor(minValue, weakestType) : 'transparent'
+    } else {
+      // Handle specific consistency metrics - take minimum across explainers
+      const values: number[] = []
+
+      for (const explainerId of Object.keys(feature.explainers)) {
+        const explainerData = feature.explainers[explainerId]
+        if (!explainerData) continue
+
+        let metricValue: number | null = null
+
+        switch (sortBy) {
+          case METRIC_LLM_SCORER_CONSISTENCY:
+            if (explainerData.llm_scorer_consistency) {
+              const scorerValues: number[] = []
+              if (explainerData.llm_scorer_consistency.fuzz) {
+                scorerValues.push(explainerData.llm_scorer_consistency.fuzz.value)
+              }
+              if (explainerData.llm_scorer_consistency.detection) {
+                scorerValues.push(explainerData.llm_scorer_consistency.detection.value)
+              }
+              if (scorerValues.length > 0) {
+                metricValue = scorerValues.reduce((sum, v) => sum + v, 0) / scorerValues.length
+              }
+            }
+            break
+          case METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY:
+            metricValue = explainerData.within_explanation_metric_consistency?.value ?? null
+            break
+          case METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY:
+            if (explainerData.cross_explanation_metric_consistency) {
+              const crossValues: number[] = []
+              if (explainerData.cross_explanation_metric_consistency.embedding) {
+                crossValues.push(explainerData.cross_explanation_metric_consistency.embedding.value)
+              }
+              if (explainerData.cross_explanation_metric_consistency.fuzz) {
+                crossValues.push(explainerData.cross_explanation_metric_consistency.fuzz.value)
+              }
+              if (explainerData.cross_explanation_metric_consistency.detection) {
+                crossValues.push(explainerData.cross_explanation_metric_consistency.detection.value)
+              }
+              if (crossValues.length > 0) {
+                metricValue = crossValues.reduce((sum, v) => sum + v, 0) / crossValues.length
+              }
+            }
+            break
+          case METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY:
+            metricValue = explainerData.cross_explanation_overall_score_consistency?.value ?? null
+            break
+          case METRIC_LLM_EXPLAINER_CONSISTENCY:
+            metricValue = explainerData.llm_explainer_consistency?.value ?? null
+            break
+        }
+
+        if (metricValue !== null) {
+          values.push(metricValue)
+        }
+      }
+
+      // Use minimum value for consistency
+      if (values.length > 0) {
+        const minValue = Math.min(...values)
+        return getConsistencyColor(minValue, sortBy as ConsistencyType)
+      }
+    }
+  } else if (scoreMetrics.includes(sortBy)) {
+    // Handle score metrics - average across explainers
+    if (sortBy === 'overallScore') {
+      // Calculate overall score averaged across explainers
+      const scores: number[] = []
+
+      for (const explainerId of Object.keys(feature.explainers)) {
+        const explainerData = feature.explainers[explainerId]
+        if (!explainerData) continue
+
+        const score = calculateOverallScore(
+          explainerData.embedding,
+          explainerData.fuzz,
+          explainerData.detection,
+          tableData.global_stats
+        )
+
+        if (score !== null) {
+          scores.push(score)
+        }
+      }
+
+      if (scores.length > 0) {
+        const avgScore = scores.reduce((sum, s) => sum + s, 0) / scores.length
+        return getOverallScoreColor(avgScore)
+      }
+    } else {
+      // Handle individual score metrics
+      const scores: number[] = []
+      const metricType = sortBy === METRIC_SCORE_EMBEDDING ? 'embedding' :
+                        sortBy === METRIC_SCORE_FUZZ ? 'fuzz' : 'detection'
+
+      for (const explainerId of Object.keys(feature.explainers)) {
+        const scoreValue = getScoreValue(feature, explainerId, sortBy as any)
+        if (scoreValue !== null && tableData.global_stats[metricType]) {
+          const normalized = normalizeScore(scoreValue, tableData.global_stats[metricType])
+          if (normalized !== null) {
+            scores.push(normalized)
+          }
+        }
+      }
+
+      if (scores.length > 0) {
+        const avgScore = scores.reduce((sum, s) => sum + s, 0) / scores.length
+        return getMetricColor(metricType as any, avgScore)
+      }
+    }
+  }
+
+  return 'transparent'
 }
 
 // ============================================================================

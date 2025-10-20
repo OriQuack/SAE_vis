@@ -429,12 +429,41 @@ class ScorerScoreSet(BaseModel):
     s2: Optional[float] = Field(None, description="Score for scorer 2")
     s3: Optional[float] = Field(None, description="Score for scorer 3")
 
+class HighlightSegment(BaseModel):
+    """
+    A single text segment with optional syntax highlighting.
+
+    Used for displaying explanation text with visual highlights showing
+    alignment between different LLM explainers.
+    """
+    text: str = Field(..., description="The text content of this segment")
+    highlight: bool = Field(False, description="Whether this segment should be highlighted")
+    color: Optional[str] = Field(None, description="Color for exact matches (green gradient)")
+    style: Optional[str] = Field(None, description="Style for semantic matches ('bold')")
+    metadata: Optional[Dict] = Field(
+        None,
+        description="Additional metadata: match_type ('exact'|'semantic'), similarity, ngram_length, shared_with (explainer indices)"
+    )
+
+class HighlightedExplanation(BaseModel):
+    """
+    Complete highlighted explanation with all text segments.
+
+    Represents an explanation broken into segments, where some segments
+    are highlighted to show alignment with other LLM explanations.
+    """
+    segments: List[HighlightSegment] = Field(..., description="List of text segments with highlight information")
+
 class ExplainerScoreData(BaseModel):
     """Scores for a single explainer (embedding + fuzz/detection per scorer)"""
     embedding: Optional[float] = Field(None, description="Embedding score for this explainer")
     fuzz: ScorerScoreSet = Field(..., description="Fuzz scores for each scorer (s1, s2, s3)")
     detection: ScorerScoreSet = Field(..., description="Detection scores for each scorer (s1, s2, s3)")
     explanation_text: Optional[str] = Field(None, description="Explanation text for this explainer")
+    highlighted_explanation: Optional[HighlightedExplanation] = Field(
+        None,
+        description="Highlighted explanation with syntax highlighting showing alignment across LLM explainers"
+    )
     llm_scorer_consistency: Optional[Dict[str, ConsistencyScore]] = Field(
         None,
         description="Consistency across LLM scorers for each metric (coefficient of variation): {fuzz, detection}"

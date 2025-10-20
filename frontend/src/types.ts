@@ -427,11 +427,33 @@ export interface ConsistencyScore {
   method: string  // e.g., "coefficient_variation", "normalized_std"
 }
 
+export interface HighlightSegment {
+  text: string
+  highlight: boolean
+  color?: string  // For exact matches (green gradient)
+  style?: 'bold'  // For semantic matches
+  metadata?: {
+    match_type: 'exact' | 'semantic'
+    similarity?: number     // For semantic matches
+    ngram_length?: number  // For exact matches
+    shared_with: number[]  // Explainer indices sharing this match
+    also_exact?: boolean  // For segments that are both semantic and exact
+    exact_ngram_length?: number  // N-gram length if both types
+    also_semantic?: boolean  // Legacy: For segments that are both exact and semantic (deprecated)
+    semantic_similarity?: number  // Legacy: Semantic similarity if both types (deprecated)
+  }
+}
+
+export interface HighlightedExplanation {
+  segments: HighlightSegment[]
+}
+
 export interface ExplainerScoreData {
   embedding: number | null
   fuzz: ScorerScoreSet
   detection: ScorerScoreSet
   explanation_text?: string | null  // Explanation text for this explainer
+  highlighted_explanation?: HighlightedExplanation | null  // Highlighted explanation with syntax highlighting
   llm_scorer_consistency?: Record<string, ConsistencyScore>  // Per-metric std (fuzz, detection)
   within_explanation_metric_consistency?: ConsistencyScore  // Cross-metric std
   llm_explainer_consistency?: ConsistencyScore  // Semantic consistency (avg pairwise cosine)

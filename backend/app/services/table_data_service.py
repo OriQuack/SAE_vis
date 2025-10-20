@@ -19,9 +19,11 @@ from pathlib import Path
 from ..models.common import Filters
 from ..models.responses import (
     FeatureTableDataResponse, FeatureTableRow,
-    ExplainerScoreData, ScorerScoreSet, ConsistencyScore
+    ExplainerScoreData, ScorerScoreSet, ConsistencyScore,
+    HighlightedExplanation
 )
 from .consistency_service import ConsistencyService, ExplainerDataBuilder
+from .alignment_service import AlignmentService
 
 # Import for type hints only (avoids circular imports)
 if TYPE_CHECKING:
@@ -48,14 +50,16 @@ class TableDataService:
     ]
     DEFAULT_SCORERS = DEFAULT_EXPLAINERS  # Same models used as scorers
 
-    def __init__(self, data_service: "DataService"):
+    def __init__(self, data_service: "DataService", alignment_service: Optional[AlignmentService] = None):
         """
         Initialize TableDataService.
 
         Args:
             data_service: Instance of DataService for raw data access
+            alignment_service: Optional AlignmentService for explanation highlighting
         """
         self.data_service = data_service
+        self.alignment_service = alignment_service
         self.consistency = ConsistencyService()
         self.pairwise_similarity_file = (
             Path(data_service.data_path) / "master" / "semantic_similarity_pairwise.parquet"
@@ -518,6 +522,18 @@ class TableDataService:
                     feature_id, explainer, explanations_df
                 )
 
+                # Get highlighted explanation if alignment service available
+                highlighted_explanation = None
+                if self.alignment_service and self.alignment_service.is_ready:
+                    try:
+                        segments = self.alignment_service.get_highlighted_explanation(
+                            feature_id, explainer, explainer_ids
+                        )
+                        if segments:
+                            highlighted_explanation = HighlightedExplanation(segments=segments)
+                    except Exception as e:
+                        logger.debug(f"Could not get highlighted explanation for feature {feature_id}, explainer {explainer}: {e}")
+
                 # Build explainer data
                 explainer_key = MODEL_NAME_MAP.get(explainer, explainer)
 
@@ -541,6 +557,7 @@ class TableDataService:
                         s3=detection_dict.get("s3")
                     ),
                     explanation_text=explanation_text,
+                    highlighted_explanation=highlighted_explanation,
                     llm_scorer_consistency=scorer_consistency,
                     within_explanation_metric_consistency=metric_consistency,
                     llm_explainer_consistency=explainer_consistency,

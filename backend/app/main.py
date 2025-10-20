@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 
 from .api import router as api_router
 from .services.visualization_service import DataService
+from .services.alignment_service import AlignmentService
 from .api import feature_groups
 
 # Configure logging for the application
@@ -34,14 +35,23 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 data_service = None
+alignment_service = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global data_service
+    global data_service, alignment_service
     try:
         data_service = DataService()
         await data_service.initialize()
         logger.info("Data service initialized successfully")
+
+        # Initialize alignment service
+        alignment_service = AlignmentService()
+        success = await alignment_service.initialize()
+        if success:
+            logger.info("Alignment service initialized successfully")
+        else:
+            logger.warning("Alignment service initialization failed - explanations will not be highlighted")
 
         # Initialize feature groups service
         feature_groups.initialize_service()
@@ -54,6 +64,8 @@ async def lifespan(app: FastAPI):
     finally:
         if data_service:
             await data_service.cleanup()
+        if alignment_service:
+            await alignment_service.cleanup()
 
 app = FastAPI(
     title="SAE Feature Visualization API",

@@ -448,12 +448,11 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
   overflow: visible;
   background: transparent;
   padding: 0;
   min-width: 0;
+  min-height: 0;
   position: relative;
 }
 
@@ -493,14 +492,13 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
   overflow: visible;
   background: white;
   padding: 0;
   margin: 0;
   border-right: 1px solid #000000;
   min-width: 0;
+  min-height: 0;
 }
 
 /* Right Sankey Section */
@@ -508,12 +506,11 @@
   flex: 2;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
   overflow: visible;
   background: transparent;
   padding: 0;
   min-width: 0;
+  min-height: 0;
 }
 
 /* Close Button */
