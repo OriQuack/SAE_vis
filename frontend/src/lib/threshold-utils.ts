@@ -91,7 +91,7 @@ export function computeSankeyStructure(
       continue
     }
 
-    let stageTotal = 0
+    let _stageTotal = 0
 
     // For each node in current level
     for (const parentNode of currentLevelNodes) {
@@ -105,7 +105,7 @@ export function computeSankeyStructure(
         if (childFeatures.size === 0) {
           continue
         }
-        stageTotal += childFeatures.size
+        _stageTotal += childFeatures.size
 
         // Generate child node ID
         const childId = buildNodeId(parentNode.id, stage.index, group.groupIndex)

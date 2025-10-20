@@ -4,25 +4,32 @@ import type { HighlightSegment } from '../types'
 interface HighlightedExplanationProps {
   segments: HighlightSegment[]
   explainerNames?: string[]  // e.g., ['Llama', 'Qwen', 'OpenAI']
+  // Truncation props
+  truncated?: boolean  // Enable truncation mode (default: false) - shows all highlighted segments ordered by similarity
 }
 
 /**
  * Renders explanation text with background highlighting showing alignment across LLM explainers.
  *
  * Highlighting styles (semantic similarity based):
- * - similarity >= 0.9: Dark green background (full opacity) + white text + bold (Strong Match)
- * - similarity >= 0.8: Dark green background (0.75 opacity) + white text + bold (Medium Match)
- * - similarity >= 0.7: Dark green background (0.5 opacity) + white text + bold (Weak Match)
+ * - similarity >= 0.85: Dark green background (full opacity) + white text (Higher Match)
+ * - similarity >= 0.7: Dark green background (0.7 opacity) + white text (Lower Match)
  * - similarity < 0.7: Plain text (no highlight)
  *
+ * Truncation mode (truncated=true):
+ * - Shows all highlighted segments ordered by similarity (highest to lowest)
+ * - No ellipsis, single space between segments
+ * - CSS handles natural cutoff at row boundary
+ *
  * Hover tooltips show:
- * - Match strength label (Strong/Medium/Weak)
+ * - Match strength label (Higher/Lower)
  * - Similarity score
  * - Explainer names that share this match
  */
 export const HighlightedExplanation: React.FC<HighlightedExplanationProps> = React.memo(({
   segments,
-  explainerNames = ['Llama', 'Qwen', 'OpenAI']
+  explainerNames = ['Llama', 'Qwen', 'OpenAI'],
+  truncated = false
 }) => {
   if (!segments || segments.length === 0) {
     return <span>-</span>
@@ -41,11 +48,9 @@ export const HighlightedExplanation: React.FC<HighlightedExplanationProps> = Rea
 
     // Match strength label based on similarity
     if (similarity !== undefined) {
-      let strength = 'Weak Match'
-      if (similarity >= 0.9) {
-        strength = 'Strong Match'
-      } else if (similarity >= 0.8) {
-        strength = 'Medium Match'
+      let strength = 'Lower Match'
+      if (similarity >= 0.85) {
+        strength = 'Higher Match'
       }
       lines.push(strength)
 
@@ -77,11 +82,9 @@ export const HighlightedExplanation: React.FC<HighlightedExplanationProps> = Rea
     // Calculate dark green background with opacity based on similarity
     const similarity = segment.metadata?.similarity
     if (similarity !== undefined) {
-      let opacity = 0.7  // Default for similarity >= 0.7 (Weak)
-      if (similarity >= 0.9) {
-        opacity = 1.0  // Strong match - full opacity
-      } else if (similarity >= 0.8) {
-        opacity = 0.85  // Medium match
+      let opacity = 0.7  // Default for similarity >= 0.7 (Lower match)
+      if (similarity >= 0.85) {
+        opacity = 1.0  // Higher match - full opacity
       }
 
       // Apply dark green background (#16a34a - green-600) with calculated opacity
@@ -90,14 +93,15 @@ export const HighlightedExplanation: React.FC<HighlightedExplanationProps> = Rea
       // White text for better visibility on dark green background
       style.color = 'white'
 
-      // Add subtle padding for highlighter effect
-      style.padding = '1px 2px'
+      // Add padding for better visual spacing and readability
+      style.padding = '2px 4px'
       style.borderRadius = '2px'
-    }
 
-    // Always apply bold for highlighted segments
-    if (segment.style === 'bold') {
-      style.fontWeight = 'bold'
+      // Ensure inline display for proper text flow
+      style.display = 'inline'
+
+      // Add slight margin for breathing room between consecutive segments
+      style.margin = '0 1px'
     }
 
     return style
@@ -116,12 +120,10 @@ export const HighlightedExplanation: React.FC<HighlightedExplanationProps> = Rea
     // Add strength-based class based on similarity
     const similarity = segment.metadata?.similarity
     if (similarity !== undefined) {
-      if (similarity >= 0.9) {
-        classes.push('highlighted-segment--strong')
-      } else if (similarity >= 0.8) {
-        classes.push('highlighted-segment--medium')
+      if (similarity >= 0.85) {
+        classes.push('highlighted-segment--higher')
       } else if (similarity >= 0.7) {
-        classes.push('highlighted-segment--weak')
+        classes.push('highlighted-segment--lower')
       }
     }
 
@@ -158,39 +160,68 @@ export const HighlightedExplanation: React.FC<HighlightedExplanationProps> = Rea
     return true
   }
 
+  // Render a single segment with all features (used by both truncated and full views)
+  const renderSegment = (segment: HighlightSegment, index: number, addSpaceAfter: boolean = true) => {
+    if (!segment.highlight) {
+      // Plain text segment
+      return (
+        <React.Fragment key={index}>
+          <span>{segment.text}</span>
+          {addSpaceAfter && needsSpaceAfter(segment, index) && ' '}
+        </React.Fragment>
+      )
+    }
+
+    // Highlighted segment with tooltip
+    const tooltipText = getTooltipText(segment)
+    const style = getSegmentStyle(segment)
+    const className = getSegmentClass(segment)
+
+    return (
+      <React.Fragment key={index}>
+        <span
+          className={className}
+          style={style}
+          title={tooltipText}
+        >
+          {segment.text}
+        </span>
+        {addSpaceAfter && needsSpaceAfter(segment, index) && ' '}
+      </React.Fragment>
+    )
+  }
+
+  // Render truncated view (all segments ordered by similarity)
+  if (truncated) {
+    // Get highlighted segments with similarity scores and sort by similarity (descending)
+    const topSegmentsByScore = segments
+      .map((seg, idx) => ({ seg, idx }))
+      .filter(({ seg }) => seg.highlight && seg.metadata?.similarity)
+      .sort((a, b) => (b.seg.metadata?.similarity || 0) - (a.seg.metadata?.similarity || 0))
+
+    // If no highlighted segments, show plain text with ellipsis truncation
+    if (topSegmentsByScore.length === 0) {
+      const plainText = segments.map(s => s.text).join('')
+      return <span className="highlighted-explanation highlighted-explanation--plain-truncated">{plainText}</span>
+    }
+
+    // Render all segments in similarity order with single space between
+    return (
+      <span className="highlighted-explanation">
+        {topSegmentsByScore.map(({ seg, idx }, arrIdx) => (
+          <React.Fragment key={idx}>
+            {arrIdx > 0 && ' '}
+            {renderSegment(seg, idx, false)}
+          </React.Fragment>
+        ))}
+      </span>
+    )
+  }
+
+  // Render full view (all segments)
   return (
     <span className="highlighted-explanation">
-      {segments.map((segment, index) => {
-        const addSpace = needsSpaceAfter(segment, index)
-
-        if (!segment.highlight) {
-          // Plain text segment
-          return (
-            <React.Fragment key={index}>
-              <span>{segment.text}</span>
-              {addSpace && ' '}
-            </React.Fragment>
-          )
-        }
-
-        // Highlighted segment with tooltip
-        const tooltipText = getTooltipText(segment)
-        const style = getSegmentStyle(segment)
-        const className = getSegmentClass(segment)
-
-        return (
-          <React.Fragment key={index}>
-            <span
-              className={className}
-              style={style}
-              title={tooltipText}
-            >
-              {segment.text}
-            </span>
-            {addSpace && ' '}
-          </React.Fragment>
-        )
-      })}
+      {segments.map((segment, index) => renderSegment(segment, index))}
     </span>
   )
 })

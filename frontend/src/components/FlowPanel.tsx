@@ -29,10 +29,6 @@ const getTextNodeBackgroundColor = (nodeId: string) => {
   if (nodeId === 'detection-score') {
     return COMPONENT_COLORS.SCORE_DETECTION
   }
-  // Activating Example - white background
-  if (nodeId === 'activating-example') {
-    return 'white'
-  }
   // Special nodes - gray background
   if (nodeId === 'feature' || nodeId === 'decoder' || nodeId === 'embedder' ||
       nodeId === 'llm-explainer-container' || nodeId === 'llm-scorer-container') {
@@ -43,8 +39,8 @@ const getTextNodeBackgroundColor = (nodeId: string) => {
 }
 
 const getTextNodeFontSize = (nodeId: string) => {
-  // Smaller font for activating example and label nodes
-  if (nodeId === 'activating-example' || nodeId === 'explanation-label' || nodeId === 'score-label' || nodeId === 'embedding-label') {
+  // Smaller font for label nodes
+  if (nodeId === 'explanation-label' || nodeId === 'score-label' || nodeId === 'embedding-label') {
     return '11'
   }
   // Medium font for final output nodes
@@ -57,8 +53,8 @@ const getTextNodeFontSize = (nodeId: string) => {
 }
 
 const getTextNodeFontWeight = (nodeId: string) => {
-  // Medium weight for activating example and label nodes
-  if (nodeId === 'activating-example' || nodeId === 'explanation-label' || nodeId === 'score-label' || nodeId === 'embedding-label') {
+  // Medium weight for label nodes
+  if (nodeId === 'explanation-label' || nodeId === 'score-label' || nodeId === 'embedding-label') {
     return '600'
   }
   // Bold for other nodes
@@ -94,9 +90,9 @@ const FlowPanel: React.FC = () => {
   // Hover state for list items
   const [hoveredItem, setHoveredItem] = useState<string | null>(null)
 
-  // Get available explainer and scorer options
-  const explainerOptions = filterOptions?.llm_explainer || []
-  const scorerOptions = filterOptions?.llm_scorer || []
+  // Get available explainer and scorer options (memoized to prevent unnecessary recalculations)
+  const explainerOptions = useMemo(() => filterOptions?.llm_explainer || [], [filterOptions?.llm_explainer])
+  const scorerOptions = useMemo(() => filterOptions?.llm_scorer || [], [filterOptions?.llm_scorer])
 
   // Get selected items from both panels
   const selectedExplainers = new Set([
@@ -309,7 +305,7 @@ const FlowPanel: React.FC = () => {
                   strokeWidth="2.5"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  opacity={isEdgeSelected ? '1.0' : '0.7'}
+                  opacity="0.7"
                   markerEnd={getArrowMarker(isEdgeSelected)}
                 />
                 {edge.label && edge.labelX && edge.labelY && (

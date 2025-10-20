@@ -192,9 +192,6 @@ export function calculateFlowLayout(
     // Feature (starting point)
     { id: 'feature', label: 'Feature', x: 10, y: 48, width: 70, height: 30, nodeType: 'text' },
 
-    // Activating Example (below Feature)
-    { id: 'activating-example', label: 'Activating Examples', x: 90, y: 158, width: 120, height: 15, nodeType: 'text' },
-
     // Explanation label (rotated, between explainer and outputs)
     { id: 'explanation-label', label: 'Explanation', x: 200, y: 100, width: 76, height: 15, nodeType: 'text' },
 
@@ -317,15 +314,6 @@ export function calculateFlowLayout(
     })
   })
 
-  // Add edges from Activating Example to each explainer list item
-  explainerOptions.forEach((_, idx) => {
-    edgeDefs.push({
-      id: `activating-example-to-explainer-${idx}`,
-      source: 'activating-example',
-      target: `explainer-${idx}`
-    })
-  })
-
   // Add edges from explainer list items to embedder
   explainerOptions.forEach((_, idx) => {
     edgeDefs.push({
@@ -343,15 +331,6 @@ export function calculateFlowLayout(
         source: `explainer-${explainerIdx}`,
         target: `scorer-${scorerIdx}`
       })
-    })
-  })
-
-  // Add edges from Activating Example to each scorer list item
-  scorerOptions.forEach((_, idx) => {
-    edgeDefs.push({
-      id: `activating-example-to-scorer-${idx}`,
-      source: 'activating-example',
-      target: `scorer-${idx}`
     })
   })
 
@@ -381,20 +360,11 @@ export function calculateFlowLayout(
     let x1: number, y1: number, x2: number, y2: number
     let curveOrientation: 'horizontal' | 'vertical-to-horizontal' = 'horizontal'
 
-    // Special case: activating-example to explainer uses vertical curve
-    if (def.source === 'activating-example' && def.target === 'explainer') {
-      x1 = src.x + src.width / 2  // Center horizontally
-      y1 = src.y                   // Top of the node
-      x2 = tgt.x                   // Left edge of target
-      y2 = tgt.y + tgt.height / 2  // Center vertically of target
-      curveOrientation = 'vertical-to-horizontal'
-    } else {
-      // Default: right edge of source, left edge of target
-      x1 = src.x + src.width
-      y1 = src.y + src.height / 2
-      x2 = tgt.x
-      y2 = tgt.y + tgt.height / 2
-    }
+    // Default: right edge of source, left edge of target
+    x1 = src.x + src.width
+    y1 = src.y + src.height / 2
+    x2 = tgt.x
+    y2 = tgt.y + tgt.height / 2
 
     // Create path
     const path = curve(x1, y1, x2, y2, curveOrientation)

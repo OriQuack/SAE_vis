@@ -189,6 +189,12 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const [expandedScoreCell, setExpandedScoreCell] = useState<ExpandedCellState>(null)
   const [expandedConsistencyCell, setExpandedConsistencyCell] = useState<ExpandedCellState>(null)
 
+  // State for explanation hover interactions
+  const [hoveredFeatureId, setHoveredFeatureId] = useState<number | null>(null)
+  const [popoverPosition, setPopoverPosition] = useState<'above' | 'below'>('above')
+  const [popoverMaxHeight, setPopoverMaxHeight] = useState<number>(300)
+  const [popoverLeft, setPopoverLeft] = useState<number>(0)
+
   // Get selected LLM explainers (needed for disabled logic)
   const selectedExplainers = new Set<string>()
   if (leftPanel.filters.llm_explainer) {
@@ -265,6 +271,35 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     }
   }, [expandedScoreCell, expandedConsistencyCell])
 
+  // Handler for explanation hover interactions
+  const handleFeatureHover = useCallback((featureId: number | null, rowElement?: HTMLElement | null) => {
+    setHoveredFeatureId(featureId)
+
+    if (featureId !== null && rowElement && tableContainerRef.current) {
+      const containerRect = tableContainerRef.current.getBoundingClientRect()
+      const rowRect = rowElement.getBoundingClientRect()
+      const spaceAbove = rowRect.top - containerRect.top
+
+      // Measure the explanation cell width
+      const explanationCell = rowElement.querySelector('.table-panel__cell--explanation') as HTMLElement
+      const cellWidth = explanationCell ? explanationCell.offsetWidth : 300
+
+      // Calculate left offset of explanation cell relative to the row
+      let leftOffset = 0
+      if (explanationCell) {
+        const cellRect = explanationCell.getBoundingClientRect()
+        leftOffset = cellRect.left - rowRect.left
+      }
+
+      // Set popover dimensions and position
+      setPopoverMaxHeight(cellWidth)
+      setPopoverLeft(leftOffset)
+
+      // Use dynamic height for threshold calculation
+      setPopoverPosition(spaceAbove < cellWidth ? 'below' : 'above')
+    }
+  }, [])
+
   // Fetch data when component mounts or when filters change
   useEffect(() => {
     fetchTableData()
@@ -304,7 +339,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     const cleanupTimeouts: number[] = []
 
     // Measure and update scroll state
-    const measureAndUpdate = (source: string = 'unknown') => {
+    const measureAndUpdate = (_source: string = 'unknown') => {
       // Cancel any pending measurement
       if (rafId !== null) {
         cancelAnimationFrame(rafId)
@@ -312,7 +347,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
       // Use requestAnimationFrame to ensure measurement happens after layout
       rafId = requestAnimationFrame(() => {
-        const tableElement = container.querySelector('table')
+        const _tableElement = container.querySelector('table')
         const scrollState = {
           scrollTop: container.scrollTop,
           scrollHeight: container.scrollHeight,
@@ -320,7 +355,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
         }
 
         const isScrollable = scrollState.scrollHeight > scrollState.clientHeight
-        const scrollPercentage = isScrollable
+        const _scrollPercentage = isScrollable
           ? (scrollState.scrollTop / (scrollState.scrollHeight - scrollState.clientHeight) * 100).toFixed(1)
           : '0.0'
 
@@ -483,6 +518,9 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
         <table className="table-panel__table table-panel__table--simple">
           <thead className="table-panel__thead">
             <tr className="table-panel__header-row">
+              <th className="table-panel__header-cell table-panel__header-cell--index">
+                {/* Empty header - no text */}
+              </th>
               <th
                 className="table-panel__header-cell table-panel__header-cell--id"
                 onClick={() => handleSort('featureId')}
@@ -491,9 +529,6 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                 {sortBy === 'featureId' && (
                   <span className={`table-panel__sort-indicator ${sortDirection || ''}`} />
                 )}
-              </th>
-              <th className="table-panel__header-cell table-panel__header-cell--explainer">
-                LLM Explnr
               </th>
               <th
                 className="table-panel__header-cell table-panel__header-cell--score"
@@ -519,15 +554,11 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                   <span className="table-panel__highlight-legend-prefix">Semantic similarity:</span>
                   <span className="table-panel__highlight-legend-item">
                     <span className="table-panel__highlight-legend-swatch" style={{ backgroundColor: 'rgba(22, 163, 74, 1.0)' }} />
-                    <span className="table-panel__highlight-legend-label">0.9+</span>
-                  </span>
-                  <span className="table-panel__highlight-legend-item">
-                    <span className="table-panel__highlight-legend-swatch" style={{ backgroundColor: 'rgba(22, 163, 74, 0.85)' }} />
-                    <span className="table-panel__highlight-legend-label">0.8-0.9</span>
+                    <span className="table-panel__highlight-legend-label">0.85-1.0</span>
                   </span>
                   <span className="table-panel__highlight-legend-item">
                     <span className="table-panel__highlight-legend-swatch" style={{ backgroundColor: 'rgba(22, 163, 74, 0.7)' }} />
-                    <span className="table-panel__highlight-legend-label">0.7-0.8</span>
+                    <span className="table-panel__highlight-legend-label">0.7-0.85</span>
                   </span>
                 </span>
               </th>
@@ -538,7 +569,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
           </thead>
 
           <tbody className="table-panel__tbody">
-            {sortedFeatures.map((featureRow: FeatureTableRow) => {
+            {sortedFeatures.map((featureRow: FeatureTableRow, featureIndex: number) => {
               // Count explainers with valid data for this feature (for correct rowSpan)
               const validExplainerIds = explainerIds.filter(explainerId => {
                 const data = featureRow.explainers[explainerId]
@@ -548,8 +579,46 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
               // Skip features with no valid explainers
               if (validExplainerIds.length === 0) return null
 
+              // Check if this feature is being hovered
+              const isFeatureHovered = hoveredFeatureId === featureRow.feature_id
+
               return (
               <React.Fragment key={featureRow.feature_id}>
+                {/* Unified explanation popover for this feature row - shown above */}
+                {isFeatureHovered && (
+                  <tr className="table-panel__popover-row">
+                    <td colSpan={6} className={`table-panel__popover-cell table-panel__popover-cell--${popoverPosition}`}>
+                      <div className="table-panel__explanation-popover" style={{ maxHeight: `${popoverMaxHeight}px`, width: `${popoverMaxHeight}px`, left: `${popoverLeft}px` }}>
+                        {validExplainerIds.map((explId) => {
+                          const explData = featureRow.explainers[explId]
+                          if (!explData) return null
+
+                          const explanation = explData.highlighted_explanation
+                          const plainText = explData.explanation_text ?? '-'
+
+                          return (
+                            <div key={explId} className="table-panel__popover-explanation">
+                              <div className="table-panel__popover-explainer-name">
+                                {getExplainerDisplayName(explId)}:
+                              </div>
+                              <div className="table-panel__popover-text">
+                                {explanation ? (
+                                  <HighlightedExplanation
+                                    segments={explanation.segments}
+                                    explainerNames={['Llama', 'Qwen', 'OpenAI']}
+                                    truncated={false}
+                                  />
+                                ) : (
+                                  plainText
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </td>
+                  </tr>
+                )}
                 {validExplainerIds.map((explainerId, explainerIdx) => {
                   const explainerData = featureRow.explainers[explainerId]
                   // explainerData should always exist here due to filter above, but keep check for safety
@@ -599,7 +668,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                   let consistencyType: ConsistencyType = CONSISTENCY_TYPE_NONE
 
                   switch(consistencyColumnDisplay) {
-                    case 'minConsistency':
+                    case 'minConsistency': {
                       const minResult = calculateMinConsistency(featureRow, explainerId)
                       if (minResult) {
                         consistencyValue = minResult.value
@@ -607,6 +676,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                         consistencyColor = getConsistencyColor(consistencyValue, consistencyType)
                       }
                       break
+                    }
                     case METRIC_LLM_SCORER_CONSISTENCY:
                       // Extract LLM Scorer consistency
                       if (explainerData.llm_scorer_consistency) {
@@ -672,6 +742,16 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                       key={`${featureRow.feature_id}-${explainerId}`}
                       className={`table-panel__sub-row ${explainerIdx === 0 ? 'table-panel__sub-row--first' : ''}`}
                     >
+                      {/* Index - only show on first sub-row */}
+                      {explainerIdx === 0 && (
+                        <td
+                          className="table-panel__cell table-panel__cell--index"
+                          rowSpan={validExplainerIds.length}
+                        >
+                          {featureIndex + 1}
+                        </td>
+                      )}
+
                       {/* Feature ID - only show on first sub-row */}
                       {explainerIdx === 0 && (
                         <td
@@ -681,11 +761,6 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                           {featureRow.feature_id}
                         </td>
                       )}
-
-                      {/* LLM Explainer name */}
-                      <td className="table-panel__cell table-panel__cell--explainer">
-                        {getExplainerDisplayName(explainerId)}
-                      </td>
 
                       {/* Score column (color-coded circle) */}
                       <td
@@ -822,11 +897,14 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                       <td
                         className="table-panel__cell table-panel__cell--explanation"
                         title={!highlightedExplanation ? explanationText : undefined}
+                        onMouseEnter={(e) => handleFeatureHover(featureRow.feature_id, e.currentTarget.parentElement)}
+                        onMouseLeave={() => handleFeatureHover(null)}
                       >
                         {highlightedExplanation ? (
                           <HighlightedExplanation
                             segments={highlightedExplanation.segments}
                             explainerNames={['Llama', 'Qwen', 'OpenAI']}
+                            truncated={true}
                           />
                         ) : (
                           explanationText

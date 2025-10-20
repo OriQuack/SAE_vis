@@ -1127,7 +1127,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     console.log(`[SankeyDiagram ${panel}] Created ${gradients.length} link gradients`)
 
     return gradients.length > 0 ? gradients : null
-  }, [layout, tableData, tableSortBy, tableSortDirection, panel])
+  }, [layout, tableData, tableSortBy, tableSortDirection, panel, getRightmostStageFeatureIds])
 
   // Event handlers
   const handleNodeHistogramClick = useCallback((node: D3SankeyNode) => {

@@ -56,7 +56,7 @@
   flex: 1;
   min-height: 0;
   overflow-x: hidden;
-  overflow-y: scroll;
+  overflow-y: auto;
   position: relative;
   border: 1px solid #e5e7eb;
   border-radius: 4px;
@@ -107,14 +107,6 @@
 /* ============================================================================
  * TABLE STRUCTURE
  * ============================================================================ */
-
-.table-panel__table {
-  width: 100%;
-  table-layout: fixed;
-  border-collapse: separate;
-  border-spacing: 0;
-  font-size: 13px;
-}
 
 .table-panel__table--simple {
   width: 100%;
@@ -170,6 +162,13 @@
   background-clip: padding-box;
 }
 
+.table-panel__header-cell--index {
+  width: 40px;
+  min-width: 40px;
+  text-align: center;
+  background: #f9fafb;
+}
+
 .table-panel__header-cell--id {
   width: 3%;
   min-width: 40px;
@@ -179,11 +178,6 @@
 
 .table-panel__header-cell--id:hover {
   background: rgba(59, 130, 246, 0.1);
-}
-
-.table-panel__header-cell--explainer {
-  width: 5%;
-  min-width: 60px;
 }
 
 .table-panel__header-cell--score {
@@ -240,31 +234,13 @@
 }
 
 /* ============================================================================
- * SUB-ROW STRUCTURE
- * ============================================================================ */
-
-.table-panel__sub-row {
-  border-bottom: 1px solid #f3f4f6;
-  transition: background-color 0.15s ease;
-}
-
-.table-panel__sub-row:hover {
-  background: #fafafa;
-}
-
-.table-panel__sub-row--first {
-  border-top: 3px solid #d1d5db;
-}
-
-/* ============================================================================
  * CELL STYLING
  * ============================================================================ */
 
 .table-panel__cell {
   font-size: 12px;
   color: #374151;
-  border: 1px solid #f3f4f6;
-  padding: 6px 0;
+  padding: 0px 0;
   vertical-align: middle;
   text-align: center;
   background: white;
@@ -273,7 +249,16 @@
 
 /* Thicker top border for cells in the first sub-row of each feature */
 .table-panel__sub-row--first .table-panel__cell {
-  border-top: 3px solid #d1d5db;
+  border-top: 2px solid #d1d5db;
+}
+
+.table-panel__cell--index {
+  text-align: center;
+  font-weight: 500;
+  font-size: 11px;
+  background: #f9fafb;
+  border-right: 2px solid #d1d5db;
+  width: 40px;
 }
 
 .table-panel__cell--id {
@@ -284,25 +269,9 @@
   border-right: 2px solid #d1d5db;
 }
 
-.table-panel__cell--explainer {
-  text-align: center;
-  font-weight: 400;
-}
-
-.table-panel__cell--score {
-  text-align: center;
-  padding: 4px;
-  position: relative;
-}
-
-.table-panel__cell--score svg {
-  display: block;
-  margin: 0 auto;
-}
-
 .table-panel__cell--consistency {
   text-align: center;
-  padding: 4px;
+  padding: 2px;
   position: relative;
 }
 
@@ -321,8 +290,15 @@
   text-align: left;
   font-size: 11px;
   line-height: 1.4;
+  position: relative;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Ensure highlighted-explanation in table cells stays single-line */
+.table-panel__cell--explanation .highlighted-explanation {
+  display: inline;
   white-space: nowrap;
 }
 
@@ -402,14 +378,6 @@
   text-align: center;
 }
 
-/* Score value display */
-.table-panel__score-breakdown-value {
-  font-size: 10px;
-  color: #374151;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-  font-weight: 500;
-}
-
 /* Circle SVG styling */
 .table-panel__score-breakdown-item svg {
   display: block;
@@ -451,14 +419,107 @@
 }
 
 /* ========================================================================== */
+/* EXPLANATION POPOVER (FULL TEXT) - UNIFIED FOR FEATURE ROW               */
+/* ========================================================================== */
+
+.table-panel__popover-row {
+  position: relative;
+}
+
+.table-panel__popover-cell {
+  padding: 0 !important;
+  border: none !important;
+  position: relative;
+}
+
+.table-panel__explanation-popover {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  transform: none;
+  z-index: 200;
+  background: white;
+  border: 1.5px solid #000000;
+  border-radius: 4px;
+  padding: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+}
+
+/* Popover positioning variants */
+.table-panel__popover-cell--above .table-panel__explanation-popover {
+  bottom: 0;
+}
+
+.table-panel__popover-cell--below .table-panel__explanation-popover {
+  top: 0;
+  bottom: auto;
+}
+
+.table-panel__popover-explanation {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.table-panel__popover-explanation:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.table-panel__popover-explainer-name {
+  font-weight: 600;
+  font-size: 10px;
+  color: #334155;
+}
+
+.table-panel__popover-text {
+  font-size: 10px;
+  line-height: 1.4;
+  color: #475569;
+  white-space: normal;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+/* Context-specific: highlighted-explanation in popover should flow inline */
+.table-panel__popover-text .highlighted-explanation {
+  display: inline;
+  white-space: normal;
+  word-wrap: break-word;
+}
+
+/* Context-specific: segments in popover need better spacing */
+.table-panel__popover-text .highlighted-segment--higher,
+.table-panel__popover-text .highlighted-segment--lower {
+  display: inline;
+  margin: 0 1px;
+}
+
+/* ========================================================================== */
 /* HIGHLIGHTED EXPLANATION STYLES                                            */
 /* ========================================================================== */
 
 /* Container for highlighted explanation */
 .highlighted-explanation {
-  display: inline;
+  display: inline-flex;
   word-wrap: break-word;
   white-space: normal;
+}
+
+/* Plain text truncation (for explanations with no matches) */
+.highlighted-explanation--plain-truncated {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Base highlighted segment styling */
@@ -476,10 +537,30 @@
   opacity: 0.8;
 }
 
+/* Emphasized segment styling (cross-row hover) */
+.highlighted-segment--emphasized {
+  outline: 2px solid #3b82f6;
+  outline-offset: 1px;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.3);
+}
 
-/* Semantic match styling (bold text) */
-.highlighted-segment--semantic {
-  font-weight: bold;
+/* Higher/lower match styling classes (for new 2-group system) */
+.highlighted-segment--higher,
+.highlighted-segment--lower {
+  cursor: help;
+  transition: opacity 0.2s ease, outline 0.15s ease;
+}
+
+.highlighted-segment--higher:hover,
+.highlighted-segment--lower:hover {
+  opacity: 0.9;
+}
+
+/* Truncated ellipsis styling */
+.highlighted-segment--truncated {
+  cursor: default;
+  margin: 0 1px;
 }
 
 
