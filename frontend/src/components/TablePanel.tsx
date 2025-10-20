@@ -324,14 +324,6 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
           ? (scrollState.scrollTop / (scrollState.scrollHeight - scrollState.clientHeight) * 100).toFixed(1)
           : '0.0'
 
-        console.log(
-          `[TablePanel] Measured (${source}):`,
-          scrollState,
-          `hasTable: ${!!tableElement},`,
-          `isScrollable: ${isScrollable},`,
-          `scrolled: ${scrollPercentage}%`
-        )
-
         // Only update state if dimensions are valid (non-zero)
         // This prevents setting invalid state during transitions
         if (scrollState.scrollHeight > 0 && scrollState.clientHeight > 0) {
@@ -523,6 +515,21 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
               </th>
               <th className="table-panel__header-cell table-panel__header-cell--explanation">
                 Explanation
+                <span className="table-panel__highlight-legend">
+                  <span className="table-panel__highlight-legend-prefix">Semantic similarity:</span>
+                  <span className="table-panel__highlight-legend-item">
+                    <span className="table-panel__highlight-legend-swatch" style={{ backgroundColor: 'rgba(22, 163, 74, 1.0)' }} />
+                    <span className="table-panel__highlight-legend-label">0.9+</span>
+                  </span>
+                  <span className="table-panel__highlight-legend-item">
+                    <span className="table-panel__highlight-legend-swatch" style={{ backgroundColor: 'rgba(22, 163, 74, 0.85)' }} />
+                    <span className="table-panel__highlight-legend-label">0.8-0.9</span>
+                  </span>
+                  <span className="table-panel__highlight-legend-item">
+                    <span className="table-panel__highlight-legend-swatch" style={{ backgroundColor: 'rgba(22, 163, 74, 0.7)' }} />
+                    <span className="table-panel__highlight-legend-label">0.7-0.8</span>
+                  </span>
+                </span>
               </th>
               <th className="table-panel__header-cell table-panel__header-cell--empty">
                 {/* Empty column for future use */}

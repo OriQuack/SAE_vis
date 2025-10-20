@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from . import filters, histogram, comparison, feature, llm_comparison, umap, table, feature_groups
+from . import filters, histogram, comparison, feature, llm_comparison, table, feature_groups
 
 router = APIRouter()
 
@@ -8,6 +8,5 @@ router.include_router(histogram.router, tags=["histogram"])
 router.include_router(comparison.router, tags=["comparison"])
 router.include_router(feature.router, tags=["feature"])
 router.include_router(llm_comparison.router, tags=["llm-comparison"])
-router.include_router(umap.router, tags=["umap"])
 router.include_router(table.router, tags=["table"])
 router.include_router(feature_groups.router, tags=["feature-groups"])

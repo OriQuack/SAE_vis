@@ -558,13 +558,26 @@ export function calculateLinkGradientStops(
 ): GradientStop[] | null {
   // Validate inputs
   if (!sortedFeatures || sortedFeatures.length === 0 || !sortBy || !tableData) {
+    console.log('[calculateLinkGradientStops] Invalid inputs:', {
+      hasSortedFeatures: !!sortedFeatures,
+      featureCount: sortedFeatures?.length || 0,
+      sortBy,
+      hasTableData: !!tableData
+    })
     return null
   }
 
-  // Determine sampling count (max 100 samples)
-  const maxSamples = 100
+  // Determine sampling count (max 10 samples for debugging)
+  const maxSamples = 10
   const sampleCount = Math.min(maxSamples, sortedFeatures.length)
   const sampleInterval = sortedFeatures.length / sampleCount
+
+  console.log('[calculateLinkGradientStops] Sampling configuration:', {
+    totalFeatures: sortedFeatures.length,
+    sampleCount,
+    sampleInterval,
+    sortBy
+  })
 
   const stops: GradientStop[] = []
 
@@ -580,6 +593,14 @@ export function calculateLinkGradientStops(
     // Get the exact same color that TablePanel would use
     const color = calculateFeatureColor(feature, sortBy, tableData)
 
+    console.log(`[calculateLinkGradientStops] Sample ${i}/${sampleCount}:`, {
+      featureIndex,
+      featureId: feature.feature_id,
+      offset,
+      color,
+      explainerIds: Object.keys(feature.explainers)
+    })
+
     // Use full opacity to show the color clearly
     stops.push({
       offset,
@@ -587,6 +608,8 @@ export function calculateLinkGradientStops(
       opacity: 1.0
     })
   }
+
+  console.log('[calculateLinkGradientStops] Created gradient stops:', stops.length)
 
   return stops
 }

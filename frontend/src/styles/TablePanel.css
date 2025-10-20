@@ -476,17 +476,49 @@
   opacity: 0.8;
 }
 
-/* Exact match styling (green color, applied via inline style) */
-.highlighted-segment--exact {
-  /* Color is applied inline from segment.color */
-}
 
 /* Semantic match styling (bold text) */
 .highlighted-segment--semantic {
   font-weight: bold;
 }
 
-/* Both exact and semantic (green color + bold, handled by component) */
-.highlighted-segment--both {
-  /* Color and font-weight applied inline */
+
+/* ========================================================================== */
+/* HIGHLIGHT LEGEND (INLINE WITH EXPLANATION HEADER)                        */
+/* ========================================================================== */
+
+.table-panel__highlight-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 50px;
+  font-size: 10px;
+  font-weight: 400;
+  color: #6b7280;
+}
+
+.table-panel__highlight-legend-prefix {
+  font-size: 10px;
+  color: #6b7280;
+  margin-right: 2px;
+}
+
+.table-panel__highlight-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.table-panel__highlight-legend-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 8px;
+  border-radius: 2px;
+  border: 0.5px solid #d1d5db;
+}
+
+.table-panel__highlight-legend-label {
+  font-size: 10px;
+  color: #6b7280;
+  white-space: nowrap;
 }

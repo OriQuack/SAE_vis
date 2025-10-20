@@ -623,7 +623,7 @@ export const useStore = create<AppState>((set, get) => ({
       }
     })
 
-    console.log(`[Store] Rightmost stage has ${featureIds.size} features across ${rightmostNodes.length} nodes`)
+    // console.log(`[Store] Rightmost stage has ${featureIds.size} features across ${rightmostNodes.length} nodes`)
     return featureIds
   },
 

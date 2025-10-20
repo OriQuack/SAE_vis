@@ -568,7 +568,8 @@ const SankeyNode: React.FC<{
         y={(node.y0 + node.y1) / 2}
         dy="0.35em"
         fontSize={12}
-        fill="#374151"
+        fill="#000000"
+        opacity={1}
         fontWeight={isHovered ? 600 : 400}
         textAnchor={textAnchor}
         style={{
@@ -584,7 +585,8 @@ const SankeyNode: React.FC<{
         y={(node.y0 + node.y1) / 2 + 14}
         dy="0.35em"
         fontSize={10}
-        fill="#6b7280"
+        fill="#000000"
+        opacity={1}
         textAnchor={textAnchor}
         style={{ pointerEvents: 'none' }}
       >
@@ -782,7 +784,8 @@ const VerticalBarSankeyNode: React.FC<{
             y={labelY}
             dy="0.35em"
             fontSize={12}
-            fill="#374151"
+            fill="#000000"
+            opacity={1}
             fontWeight={400}
             textAnchor={textAnchor}
             style={{ pointerEvents: 'none' }}
@@ -794,7 +797,8 @@ const VerticalBarSankeyNode: React.FC<{
             y={labelY + 14}
             dy="0.35em"
             fontSize={10}
-            fill="#6b7280"
+            fill="#000000"
+            opacity={1}
             textAnchor={textAnchor}
             style={{ pointerEvents: 'none' }}
           >
@@ -1034,24 +1038,30 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       tableData
     )
 
+    console.log(`[SankeyDiagram ${panel}] Sorted features (first 10):`,
+      sortedFeatures.slice(0, 10).map(f => ({
+        id: f.feature_id,
+        explainers: Object.keys(f.explainers)
+      }))
+    )
+
     // Collect feature count from rightmost nodes for distribution calculation
-    let totalFeatures = 0
-    rightmostNodes.forEach(node => {
-      if (node.feature_ids) {
-        totalFeatures += node.feature_ids.length
-      }
-    })
+    let totalFeatures = sortedFeatures.length
 
     if (totalFeatures === 0) {
       return null
     }
 
     // Calculate ONE master gradient for all features
+    console.log(`[SankeyDiagram ${panel}] Creating master gradient from ${sortedFeatures.length} sorted features`)
     const masterGradientStops = calculateLinkGradientStops(sortedFeatures, tableSortBy, tableData)
 
     if (!masterGradientStops) {
+      console.log(`[SankeyDiagram ${panel}] No master gradient stops created`)
       return null
     }
+
+    console.log(`[SankeyDiagram ${panel}] Master gradient created with ${masterGradientStops.length} stops`)
 
     // Now distribute this gradient proportionally across links to rightmost nodes
     const gradients: Array<{
@@ -1061,6 +1071,8 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
     // Calculate cumulative feature distribution
     let cumulativeFeatures = 0
+
+    console.log(`[SankeyDiagram ${panel}] Distributing gradient across ${layout.links.length} links`)
 
     layout.links.forEach((link, index) => {
       const targetNode = typeof link.target === 'object' ? link.target : null
@@ -1079,6 +1091,16 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
         const startStopIndex = Math.floor(startRatio * totalStops)
         const endStopIndex = Math.ceil(endRatio * totalStops)
 
+        console.log(`[SankeyDiagram ${panel}] Link ${index} (${targetNode.id}):`, {
+          featureCount: linkFeatureCount,
+          cumulativeStart: cumulativeFeatures,
+          startRatio: startRatio.toFixed(3),
+          endRatio: endRatio.toFixed(3),
+          startStopIndex,
+          endStopIndex,
+          extractedStops: (endStopIndex - startStopIndex + 1)
+        })
+
         // Extract and remap the relevant stops
         for (let i = startStopIndex; i <= endStopIndex && i < totalStops; i++) {
           const localProgress = (i - startStopIndex) / Math.max(1, endStopIndex - startStopIndex)
@@ -1089,6 +1111,9 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
         }
 
         if (linkStops.length > 0) {
+          console.log(`[SankeyDiagram ${panel}] Link ${index} gradient stops:`,
+            linkStops.map(s => ({ offset: s.offset, color: s.color }))
+          )
           gradients.push({
             id: `gradient-${panel}-link-${index}`,
             stops: linkStops
@@ -1098,6 +1123,8 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
         cumulativeFeatures += linkFeatureCount
       }
     })
+
+    console.log(`[SankeyDiagram ${panel}] Created ${gradients.length} link gradients`)
 
     return gradients.length > 0 ? gradients : null
   }, [layout, tableData, tableSortBy, tableSortDirection, panel])
