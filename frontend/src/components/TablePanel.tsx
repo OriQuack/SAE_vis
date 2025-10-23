@@ -551,7 +551,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
               <th className="table-panel__header-cell table-panel__header-cell--explanation">
                 Explanation
                 <span className="table-panel__highlight-legend">
-                  <span className="table-panel__highlight-legend-prefix">Semantic similarity:</span>
+                  <span className="table-panel__highlight-legend-prefix">Segment similarity:</span>
                   <span className="table-panel__highlight-legend-item">
                     <span className="table-panel__highlight-legend-swatch" style={{ backgroundColor: 'rgba(22, 163, 74, 1.0)' }} />
                     <span className="table-panel__highlight-legend-label">0.85-1.0</span>

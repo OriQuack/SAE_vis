@@ -10,10 +10,8 @@ import {
   getSankeyPath,
   calculateStageLabels,
   applyRightToLeftTransform,
-  RIGHT_SANKEY_MARGIN,
-  calculateLinkGradientStops
+  RIGHT_SANKEY_MARGIN
 } from '../lib/d3-sankey-utils'
-import { sortFeatures } from '../lib/d3-table-utils'
 import { calculateVerticalBarNodeLayout } from '../lib/d3-vertical-bar-sankey-utils'
 import {
   getNodeMetrics,
@@ -898,13 +896,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const hoveredAlluvialNodeId = useVisualizationStore(state => state.hoveredAlluvialNodeId)
   const hoveredAlluvialPanel = useVisualizationStore(state => state.hoveredAlluvialPanel)
   const tableScrollState = useVisualizationStore(state => state.tableScrollState)
-
-  // Access table data and sorting state for gradient generation
-  const tableData = useVisualizationStore(state => state.tableData)
-  const tableSortBy = useVisualizationStore(state => state.tableSortBy)
-  const tableSortDirection = useVisualizationStore(state => state.tableSortDirection)
   const sankeyTree = useVisualizationStore(state => state[panelKey].sankeyTree)
-  const getRightmostStageFeatureIds = useVisualizationStore(state => state.getRightmostStageFeatureIds)
   const { showHistogramPopover, addStageToNode, removeNodeStage } = useVisualizationStore()
 
   // NEW TREE-BASED SYSTEM: use computedSankey directly
@@ -1001,133 +993,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const stageLabels = useMemo(() => {
     return calculateStageLabels(layout, displayData)
   }, [layout, displayData])
-
-  // Calculate gradients for links based on table sorting
-  const linkGradients = useMemo(() => {
-    if (!layout || !tableData || !tableSortBy || !tableSortDirection) {
-      return null
-    }
-
-    // Get rightmost stage number
-    const maxStage = Math.max(...layout.nodes.map(n => n.stage))
-
-    // Get all rightmost vertical bar nodes
-    const rightmostNodes = layout.nodes.filter(n =>
-      n.stage === maxStage && n.node_type === 'vertical_bar'
-    )
-
-    if (rightmostNodes.length === 0) {
-      return null
-    }
-
-    // Get features and filter to only rightmost stage features (same as TablePanel)
-    let sortedFeatures = [...tableData.features]
-
-    // Filter to only rightmost stage features
-    const rightmostFeatureIds = getRightmostStageFeatureIds()
-    if (rightmostFeatureIds && rightmostFeatureIds.size > 0 && rightmostFeatureIds.size < sortedFeatures.length) {
-      sortedFeatures = sortedFeatures.filter(f => rightmostFeatureIds.has(f.feature_id))
-      console.log(`[SankeyDiagram] Filtered gradient to ${sortedFeatures.length} rightmost features (from ${tableData.features.length} total)`)
-    }
-
-    // Apply sorting
-    sortedFeatures = sortFeatures(
-      sortedFeatures,
-      tableSortBy,
-      tableSortDirection,
-      tableData
-    )
-
-    console.log(`[SankeyDiagram ${panel}] Sorted features (first 10):`,
-      sortedFeatures.slice(0, 10).map(f => ({
-        id: f.feature_id,
-        explainers: Object.keys(f.explainers)
-      }))
-    )
-
-    // Collect feature count from rightmost nodes for distribution calculation
-    let totalFeatures = sortedFeatures.length
-
-    if (totalFeatures === 0) {
-      return null
-    }
-
-    // Calculate ONE master gradient for all features
-    console.log(`[SankeyDiagram ${panel}] Creating master gradient from ${sortedFeatures.length} sorted features`)
-    const masterGradientStops = calculateLinkGradientStops(sortedFeatures, tableSortBy, tableData)
-
-    if (!masterGradientStops) {
-      console.log(`[SankeyDiagram ${panel}] No master gradient stops created`)
-      return null
-    }
-
-    console.log(`[SankeyDiagram ${panel}] Master gradient created with ${masterGradientStops.length} stops`)
-
-    // Now distribute this gradient proportionally across links to rightmost nodes
-    const gradients: Array<{
-      id: string
-      stops: Array<{ offset: string; color: string; opacity: number }>
-    }> = []
-
-    // Calculate cumulative feature distribution
-    let cumulativeFeatures = 0
-
-    console.log(`[SankeyDiagram ${panel}] Distributing gradient across ${layout.links.length} links`)
-
-    layout.links.forEach((link, index) => {
-      const targetNode = typeof link.target === 'object' ? link.target : null
-
-      // Only create gradient for links to rightmost vertical bar nodes
-      if (targetNode && rightmostNodes.some(n => n.id === targetNode.id)) {
-        const linkFeatureCount = targetNode.feature_ids?.length || 0
-
-        // Find this link's position in the overall gradient
-        const startRatio = cumulativeFeatures / totalFeatures
-        const endRatio = (cumulativeFeatures + linkFeatureCount) / totalFeatures
-
-        // Extract only the gradient stops for this link's portion
-        const linkStops = []
-        const totalStops = masterGradientStops.length
-        const startStopIndex = Math.floor(startRatio * totalStops)
-        const endStopIndex = Math.ceil(endRatio * totalStops)
-
-        console.log(`[SankeyDiagram ${panel}] Link ${index} (${targetNode.id}):`, {
-          featureCount: linkFeatureCount,
-          cumulativeStart: cumulativeFeatures,
-          startRatio: startRatio.toFixed(3),
-          endRatio: endRatio.toFixed(3),
-          startStopIndex,
-          endStopIndex,
-          extractedStops: (endStopIndex - startStopIndex + 1)
-        })
-
-        // Extract and remap the relevant stops
-        for (let i = startStopIndex; i <= endStopIndex && i < totalStops; i++) {
-          const localProgress = (i - startStopIndex) / Math.max(1, endStopIndex - startStopIndex)
-          linkStops.push({
-            ...masterGradientStops[i],
-            offset: `${localProgress * 100}%`
-          })
-        }
-
-        if (linkStops.length > 0) {
-          console.log(`[SankeyDiagram ${panel}] Link ${index} gradient stops:`,
-            linkStops.map(s => ({ offset: s.offset, color: s.color }))
-          )
-          gradients.push({
-            id: `gradient-${panel}-link-${index}`,
-            stops: linkStops
-          })
-        }
-
-        cumulativeFeatures += linkFeatureCount
-      }
-    })
-
-    console.log(`[SankeyDiagram ${panel}] Created ${gradients.length} link gradients`)
-
-    return gradients.length > 0 ? gradients : null
-  }, [layout, tableData, tableSortBy, tableSortDirection, panel, getRightmostStageFeatureIds])
 
   // Event handlers
   const handleNodeHistogramClick = useCallback((node: D3SankeyNode) => {
@@ -1293,31 +1158,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
         <svg width={containerSize.width} height={containerSize.height} className="sankey-diagram__svg">
           <rect width={containerSize.width} height={containerSize.height} fill="#ffffff" />
 
-          {/* Gradient definitions for links */}
-          {linkGradients && (
-            <defs>
-              {linkGradients.map(gradient => (
-                <linearGradient
-                  key={gradient.id}
-                  id={gradient.id}
-                  x1="0%"
-                  y1="0%"
-                  x2="0%"
-                  y2="100%"
-                >
-                  {gradient.stops.map((stop, i) => (
-                    <stop
-                      key={i}
-                      offset={stop.offset}
-                      stopColor={stop.color}
-                      stopOpacity={stop.opacity}
-                    />
-                  ))}
-                </linearGradient>
-              ))}
-            </defs>
-          )}
-
           <g transform={`translate(${layout.margin.left},${layout.margin.top})`}>
             {/* Stage labels */}
             <g className="sankey-diagram__stage-labels">
@@ -1339,22 +1179,16 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
             {/* Links */}
             <g className="sankey-diagram__links">
-              {layout.links.map((link, index) => {
-                // Check if this specific link has a gradient
-                const hasGradient = linkGradients?.some(g => g.id === `gradient-${panel}-link-${index}`)
-
-                return (
-                  <SankeyLink
-                    key={`link-${index}`}
-                    link={link}
-                    animationDuration={animationDuration}
-                    onMouseEnter={() => setHoveredLinkIndex(index)}
-                    onMouseLeave={() => setHoveredLinkIndex(null)}
-                    onClick={showHistogramOnClick ? () => handleLinkHistogramClick(link) : undefined}
-                    gradientId={hasGradient ? `gradient-${panel}-link-${index}` : undefined}
-                  />
-                )
-              })}
+              {layout.links.map((link, index) => (
+                <SankeyLink
+                  key={`link-${index}`}
+                  link={link}
+                  animationDuration={animationDuration}
+                  onMouseEnter={() => setHoveredLinkIndex(index)}
+                  onMouseLeave={() => setHoveredLinkIndex(null)}
+                  onClick={showHistogramOnClick ? () => handleLinkHistogramClick(link) : undefined}
+                />
+              ))}
             </g>
 
             {/* Nodes */}
