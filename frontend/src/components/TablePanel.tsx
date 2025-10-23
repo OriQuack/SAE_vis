@@ -13,6 +13,7 @@ import {
   METRIC_QUALITY_SCORE
 } from '../lib/constants'
 import { HighlightedExplanation } from './HighlightedExplanation'
+import QualityScoreBreakdown from './QualityScoreBreakdown'
 import '../styles/TablePanel.css'
 
 // ============================================================================
@@ -50,6 +51,10 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const [popoverMaxHeight, setPopoverMaxHeight] = useState<number>(300)
   const [popoverLeft, setPopoverLeft] = useState<number>(0)
 
+  // State for quality score breakdown panel
+  const [hoveredQualityScore, setHoveredQualityScore] = useState<number | null>(null)
+  const [qualityScorePopoverPosition, setQualityScorePopoverPosition] = useState<'above' | 'below'>('above')
+
   // Get selected LLM explainers (needed for disabled logic)
   const selectedExplainers = new Set<string>()
   if (leftPanel.filters.llm_explainer) {
@@ -76,6 +81,21 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
       setTableSort(sortKey, 'asc')
     }
   }
+
+  // Handler for quality score hover
+  const handleQualityScoreHover = useCallback((featureId: number | null, cellElement?: HTMLElement | null) => {
+    setHoveredQualityScore(featureId)
+
+    if (featureId !== null && cellElement && tableContainerRef.current) {
+      const containerRect = tableContainerRef.current.getBoundingClientRect()
+      const cellRect = cellElement.getBoundingClientRect()
+      const spaceAbove = cellRect.top - containerRect.top
+
+      // Use smaller height for quality score breakdown (120px)
+      const breakdownHeight = 120
+      setQualityScorePopoverPosition(spaceAbove < breakdownHeight ? 'below' : 'above')
+    }
+  }, [])
 
   // Handler for explanation hover interactions
   const handleFeatureHover = useCallback((featureId: number | null, rowElement?: HTMLElement | null) => {
@@ -126,6 +146,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
       }
     }
   }, [tableData])
+
 
   // Track scroll position for vertical bar scroll indicator
   // Professional approach: Observe inner <table> element that grows when rows are added
@@ -415,6 +436,17 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                     </td>
                   </tr>
                 )}
+                {/* Quality score breakdown popover - shown when hovering */}
+                {hoveredQualityScore === featureRow.feature_id && tableData && (
+                  <tr className="table-panel__quality-popover-row">
+                    <td colSpan={6} className={`table-panel__quality-popover-cell table-panel__quality-popover-cell--${qualityScorePopoverPosition}`}>
+                      <QualityScoreBreakdown
+                        feature={featureRow}
+                        globalStats={tableData.global_stats}
+                      />
+                    </td>
+                  </tr>
+                )}
                 {/* Calculate quality score stats once per feature (for pill visualization) */}
                 {(() => {
                   const qualityScoreStats = calculateQualityScoreStats(featureRow, tableData.global_stats)
@@ -460,7 +492,9 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                           className="table-panel__cell table-panel__cell--score"
                           rowSpan={validExplainerIds.length}
                           title={qualityScoreStats ? `Quality Score: ${qualityScoreStats.avg.toFixed(3)} (${qualityScoreStats.min.toFixed(3)} - ${qualityScoreStats.max.toFixed(3)})` : 'No quality score data'}
-                          style={{ cursor: 'default', position: 'relative' }}
+                          onMouseEnter={(e) => qualityScoreStats && handleQualityScoreHover(featureRow.feature_id, e.currentTarget)}
+                          onMouseLeave={() => handleQualityScoreHover(null)}
+                          style={{ cursor: qualityScoreStats ? 'pointer' : 'default', position: 'relative' }}
                         >
                           {qualityScoreStats ? (
                             <svg width="16" height="100%" viewBox={`0 0 16 ${cellHeight}`} style={{ display: 'block', maxHeight: '100%' }}>
@@ -536,6 +570,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
           </tbody>
         </table>
       </div>
+
     </div>
   )
 }

@@ -312,6 +312,43 @@
 }
 
 /* ========================================================================== */
+/* QUALITY SCORE BREAKDOWN POPOVER                                         */
+/* ========================================================================== */
+
+.table-panel__quality-popover-row {
+  position: relative;
+}
+
+.table-panel__quality-popover-cell {
+  padding: 0 !important;
+  border: none !important;
+  position: relative;
+}
+
+.table-panel__quality-breakdown {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  z-index: 200;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  padding: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+}
+
+/* Popover positioning for quality score */
+.table-panel__quality-popover-cell--above .table-panel__quality-breakdown {
+  bottom: 0;
+}
+
+.table-panel__quality-popover-cell--below .table-panel__quality-breakdown {
+  top: 0;
+  bottom: auto;
+}
+
+/* ========================================================================== */
 /* EXPLANATION POPOVER (FULL TEXT) - UNIFIED FOR FEATURE ROW               */
 /* ========================================================================== */
 
