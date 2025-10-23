@@ -3,6 +3,7 @@ import {
   METRIC_SCORE_DETECTION,
   METRIC_SCORE_EMBEDDING,
   METRIC_SCORE_FUZZ,
+  METRIC_QUALITY_SCORE,
 } from './constants'
 import {
   getQualityScoreColor,
@@ -248,7 +249,7 @@ export function calculateFeatureColor(
 ): string {
   // Score metrics
   const scoreMetrics = [
-    'overallScore',
+    METRIC_QUALITY_SCORE,
     METRIC_SCORE_EMBEDDING,
     METRIC_SCORE_FUZZ,
     METRIC_SCORE_DETECTION
@@ -256,7 +257,7 @@ export function calculateFeatureColor(
 
   if (scoreMetrics.includes(sortBy)) {
     // Handle score metrics - average across explainers
-    if (sortBy === 'overallScore') {
+    if (sortBy === METRIC_QUALITY_SCORE) {
       // Calculate quality score averaged across explainers
       const scores: number[] = []
 
@@ -428,7 +429,7 @@ function calculateAvgScoreAcrossExplainers(
  *
  * Supports sorting by:
  * - featureId: Sort by feature ID number
- * - overallScore: Sort by quality score across all explainers
+ * - quality_score: Sort by quality score across all explainers
  * - embedding: Sort by average embedding score across all explainers
  * - fuzz: Sort by average fuzz score across all explainers
  * - detection: Sort by average detection score across all explainers
@@ -441,7 +442,7 @@ function calculateAvgScoreAcrossExplainers(
  */
 export function sortFeatures(
   features: FeatureTableRow[],
-  sortBy: 'featureId' | 'overallScore' | string | null,
+  sortBy: 'featureId' | typeof METRIC_QUALITY_SCORE | string | null,
   sortDirection: 'asc' | 'desc' | null,
   tableData: { explainer_ids?: string[]; global_stats?: Record<string, MetricNormalizationStats> } | null
 ): FeatureTableRow[] {
@@ -461,11 +462,11 @@ export function sortFeatures(
         : b.feature_id - a.feature_id
     }
 
-    if (sortBy === 'overallScore') {
+    if (sortBy === METRIC_QUALITY_SCORE) {
       // Calculate quality score across all explainers
-      const overallScoreA = calculateAvgQualityScore(a, tableData?.global_stats)
-      const overallScoreB = calculateAvgQualityScore(b, tableData?.global_stats)
-      return compareValues(overallScoreA, overallScoreB, sortDirection)
+      const qualityScoreA = calculateAvgQualityScore(a, tableData?.global_stats)
+      const qualityScoreB = calculateAvgQualityScore(b, tableData?.global_stats)
+      return compareValues(qualityScoreA, qualityScoreB, sortDirection)
     }
 
     // Individual score metric sorting (embedding, fuzz, detection)

@@ -9,6 +9,26 @@ import type {
 } from './types'
 
 // ============================================================================
+// METRIC NAME MAPPING (Frontend → Backend)
+// ============================================================================
+
+/**
+ * Map frontend metric names to backend metric names
+ * Frontend uses "quality_score" for display, but backend expects "overall_score"
+ */
+const FRONTEND_TO_BACKEND_METRIC: Record<string, string> = {
+  'quality_score': 'overall_score'
+  // All other metrics (feature_splitting, semsim_mean, score_embedding, etc.) use same name
+}
+
+/**
+ * Convert frontend metric name to backend metric name
+ */
+function mapMetricToBackend(metric: string): string {
+  return FRONTEND_TO_BACKEND_METRIC[metric] || metric
+}
+
+// ============================================================================
 // API CONFIGURATION
 // ============================================================================
 const API_BASE_URL = "/api"
@@ -34,8 +54,9 @@ export async function getFilterOptions(): Promise<FilterOptions> {
 export async function getHistogramData(request: HistogramDataRequest): Promise<HistogramData> {
   const backendRequest = {
     ...request,
+    metric: mapMetricToBackend(request.metric),  // Map frontend metric to backend metric
     thresholdPath: request.thresholdPath?.map(constraint => ({
-      metric: constraint.metric,
+      metric: mapMetricToBackend(constraint.metric),  // Map threshold path metrics too
       range_label: constraint.rangeLabel
     }))
   }
@@ -110,12 +131,18 @@ export async function getFeatureGroups(request: {
   }>
   total_features: number
 }> {
+  // Map frontend metric to backend metric before sending request
+  const backendRequest = {
+    ...request,
+    metric: mapMetricToBackend(request.metric)
+  }
+
   const response = await fetch(`${API_BASE}${API_ENDPOINTS.FEATURE_GROUPS}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(request)
+    body: JSON.stringify(backendRequest)
   })
   if (!response.ok) {
     const errorText = await response.text()
