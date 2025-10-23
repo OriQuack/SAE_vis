@@ -11,7 +11,6 @@ import type {
   AlluvialFlow,
   SankeyNode,
   NodeCategory,
-  ConsistencyType,
   SortBy,
   SortDirection,
   FeatureGroup,
@@ -24,17 +23,10 @@ import {
   PANEL_LEFT,
   PANEL_RIGHT,
   METRIC_SEMSIM_MEAN,
-  CONSISTENCY_TYPE_NONE,
-  METRIC_LLM_SCORER_CONSISTENCY,
-  METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
-  METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
-  METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
-  METRIC_LLM_EXPLAINER_CONSISTENCY,
   METRIC_OVERALL_SCORE,
   METRIC_SCORE_EMBEDDING,
   METRIC_SCORE_FUZZ,
-  METRIC_SCORE_DETECTION,
-  CONSISTENCY_THRESHOLDS
+  METRIC_SCORE_DETECTION
 } from './lib/constants'
 
 type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
@@ -52,12 +44,6 @@ const mapTableSortToSankeyMetric = (sortBy: string | null): string | null => {
 
   const mappings: Record<string, string> = {
     'overallScore': METRIC_OVERALL_SCORE,
-    // Consistency metrics map directly
-    [METRIC_LLM_SCORER_CONSISTENCY]: METRIC_LLM_SCORER_CONSISTENCY,
-    [METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY]: METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
-    [METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY]: METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
-    [METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY]: METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
-    [METRIC_LLM_EXPLAINER_CONSISTENCY]: METRIC_LLM_EXPLAINER_CONSISTENCY,
     // Score metrics map directly
     [METRIC_SCORE_EMBEDDING]: METRIC_SCORE_EMBEDDING,
     [METRIC_SCORE_FUZZ]: METRIC_SCORE_FUZZ,
@@ -76,12 +62,6 @@ const mapSankeyMetricToTableSort = (metric: string | null): string | null => {
 
   const mappings: Record<string, string> = {
     [METRIC_OVERALL_SCORE]: 'overallScore',
-    // Consistency metrics map directly
-    [METRIC_LLM_SCORER_CONSISTENCY]: METRIC_LLM_SCORER_CONSISTENCY,
-    [METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY]: METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
-    [METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY]: METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
-    [METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY]: METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
-    [METRIC_LLM_EXPLAINER_CONSISTENCY]: METRIC_LLM_EXPLAINER_CONSISTENCY,
     // Score metrics map directly
     [METRIC_SCORE_EMBEDDING]: METRIC_SCORE_EMBEDDING,
     [METRIC_SCORE_FUZZ]: METRIC_SCORE_FUZZ,
@@ -92,11 +72,11 @@ const mapSankeyMetricToTableSort = (metric: string | null): string | null => {
 }
 
 /**
- * Get default thresholds for a metric from CONSISTENCY_THRESHOLDS
+ * Get default thresholds for a metric
  */
 const getDefaultThresholdsForMetric = (metric: string): number[] => {
-  const thresholds = CONSISTENCY_THRESHOLDS[metric as keyof typeof CONSISTENCY_THRESHOLDS]
-  return thresholds ? [...thresholds] : [0.5]
+  // Default to single threshold at 0.5 for all metrics
+  return [0.5]
 }
 
 interface PanelState {
@@ -202,12 +182,7 @@ interface AppState {
 
   // Table column display state (what metric is shown in the column)
   scoreColumnDisplay: 'overallScore' | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION
-  consistencyColumnDisplay: 'minConsistency' | typeof METRIC_LLM_SCORER_CONSISTENCY | typeof METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY | typeof METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY | typeof METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY | typeof METRIC_LLM_EXPLAINER_CONSISTENCY
-  swapMetricDisplay: (columnType: 'score' | 'consistency', newMetric: string) => void
-
-  // Consistency type selection (Table Panel)
-  selectedConsistencyType: ConsistencyType
-  setConsistencyType: (type: ConsistencyType) => void
+  swapMetricDisplay: (newMetric: string) => void
 
   // Reset actions
   reset: () => void
@@ -291,10 +266,6 @@ const initialState = {
 
   // Table column display state
   scoreColumnDisplay: 'overallScore' as 'overallScore',
-  consistencyColumnDisplay: 'minConsistency' as 'minConsistency',
-
-  // Consistency type selection (Table Panel)
-  selectedConsistencyType: CONSISTENCY_TYPE_NONE as ConsistencyType,
 
   // Hover state
   hoveredAlluvialNodeId: null,
@@ -671,24 +642,8 @@ export const useStore = create<AppState>((set, get) => ({
       tableSortKey
     })
 
-    // Determine if this is a score metric or consistency metric for column swap
-    const scoreMetrics = [
-      'overallScore',
-      METRIC_SCORE_EMBEDDING,
-      METRIC_SCORE_FUZZ,
-      METRIC_SCORE_DETECTION
-    ]
-
-    const isScoreMetric = scoreMetrics.includes(tableSortKey)
-    const columnType = isScoreMetric ? 'score' : 'consistency'
-
-    console.log('[Store.syncTableSortWithMaxStage] Swapping column display:', {
-      columnType,
-      metric: tableSortKey
-    })
-
     // Swap the metric display to show the selected metric prominently
-    state.swapMetricDisplay(columnType, tableSortKey)
+    state.swapMetricDisplay(tableSortKey)
 
     // Update table sort, skip Sankey sync to prevent recursion
     state.setTableSort(tableSortKey as SortBy, 'asc', true)
@@ -792,36 +747,21 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  swapMetricDisplay: (columnType, newMetric) => {
+  swapMetricDisplay: (newMetric) => {
     const state = get()
 
-    if (columnType === 'score') {
-      // Store the current display metric
-      const currentDisplay = state.scoreColumnDisplay
+    // Store the current display metric
+    const currentDisplay = state.scoreColumnDisplay
 
-      // Set the new display metric
-      set({
-        scoreColumnDisplay: newMetric as typeof state.scoreColumnDisplay
-      })
+    // Set the new display metric
+    set({
+      scoreColumnDisplay: newMetric as typeof state.scoreColumnDisplay
+    })
 
-      console.log('[Store.swapMetricDisplay] Swapped score column:', {
-        from: currentDisplay,
-        to: newMetric
-      })
-    } else {
-      // Store the current display metric
-      const currentDisplay = state.consistencyColumnDisplay
-
-      // Set the new display metric
-      set({
-        consistencyColumnDisplay: newMetric as typeof state.consistencyColumnDisplay
-      })
-
-      console.log('[Store.swapMetricDisplay] Swapped consistency column:', {
-        from: currentDisplay,
-        to: newMetric
-      })
-    }
+    console.log('[Store.swapMetricDisplay] Swapped score column:', {
+      from: currentDisplay,
+      to: newMetric
+    })
   },
 
   // ============================================================================
@@ -1240,11 +1180,6 @@ export const useStore = create<AppState>((set, get) => ({
 
     // Recompute Sankey
     get().recomputeSankeyTree(panel)
-  },
-
-  // Set consistency type for table panel
-  setConsistencyType: (type: ConsistencyType) => {
-    set({ selectedConsistencyType: type })
   },
 
   reset: () => {

@@ -14,14 +14,10 @@ export interface Filters {
 // ============================================================================
 
 import {
-  CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_SIMILARITY, CATEGORY_CONSISTENCY,
+  CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_SIMILARITY,
   METRIC_FEATURE_SPLITTING, METRIC_SEMSIM_MEAN,
   METRIC_SCORE_FUZZ, METRIC_SCORE_DETECTION, METRIC_SCORE_EMBEDDING,
-  METRIC_LLM_SCORER_CONSISTENCY, METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
-  METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY, METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
-  METRIC_LLM_EXPLAINER_CONSISTENCY,
-  PANEL_LEFT, PANEL_RIGHT,
-  CONSISTENCY_TYPE_NONE
+  PANEL_LEFT, PANEL_RIGHT
 } from './lib/constants'
 
 // Category Type Definition
@@ -29,7 +25,6 @@ export type CategoryType =
   | typeof CATEGORY_ROOT
   | typeof CATEGORY_FEATURE_SPLITTING
   | typeof CATEGORY_SEMANTIC_SIMILARITY
-  | typeof CATEGORY_CONSISTENCY
 
 // ============================================================================
 // NEW TREE-BASED THRESHOLD SYSTEM (Feature Group + Intersection)
@@ -453,7 +448,7 @@ export interface ExplainerScoreData {
   within_explanation_metric_consistency?: ConsistencyScore  // Cross-metric std
   llm_explainer_consistency?: ConsistencyScore  // Semantic consistency (avg pairwise cosine)
   cross_explanation_metric_consistency?: Record<string, ConsistencyScore>  // Per-metric inverse std across explainers (embedding, fuzz, detection)
-  cross_explanation_overall_score_consistency?: ConsistencyScore  // Overall score inverse std across explainers (same value for all explainers within a feature)
+  cross_explanation_overall_score_consistency?: ConsistencyScore  // Quality score inverse std across explainers (same value for all explainers within a feature)
 }
 
 export interface FeatureTableRow {
@@ -482,30 +477,15 @@ export interface FeatureTableDataResponse {
   global_stats: Record<string, MetricNormalizationStats>
 }
 
-// Consistency Type for Table Header
-export type ConsistencyType =
-  | typeof CONSISTENCY_TYPE_NONE                                    // No consistency coloring
-  | typeof METRIC_LLM_SCORER_CONSISTENCY                            // LLM Scorer Consistency (within-metric consistency)
-  | typeof METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY             // Within-explanation metric consistency
-  | typeof METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY              // Cross-explanation metric consistency (individual metrics)
-  | typeof METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY       // Cross-explanation overall score consistency
-  | typeof METRIC_LLM_EXPLAINER_CONSISTENCY                         // LLM Explainer consistency (semantic consistency)
-
 // Table Sorting Types (simplified for new table structure)
 export type SortDirection = 'asc' | 'desc' | null
 
 export type SortBy =
   | 'featureId'
   | 'overallScore'
-  | 'minConsistency'
   | typeof METRIC_SCORE_DETECTION
   | typeof METRIC_SCORE_FUZZ
   | typeof METRIC_SCORE_EMBEDDING
-  | typeof METRIC_LLM_SCORER_CONSISTENCY
-  | typeof METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY
-  | typeof METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY
-  | typeof METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY
-  | typeof METRIC_LLM_EXPLAINER_CONSISTENCY
   | null
 
 // ============================================================================
@@ -545,10 +525,3 @@ export interface SavedCellGroupSelection {
   timestamp: number          // Creation timestamp
 }
 
-/**
- * Min Consistency Result - Includes both value and type of weakest consistency
- */
-export interface MinConsistencyResult {
-  value: number              // Min consistency value (0-1), minimum of all types
-  weakestType: ConsistencyType  // Type of consistency that had the minimum value
-}

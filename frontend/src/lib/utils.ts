@@ -3,15 +3,8 @@
 
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { scaleLinear } from 'd3-scale'
-import type { ConsistencyType } from '../types'
 import {
-  METRIC_COLORS,
-  CONSISTENCY_TYPE_NONE,
-  METRIC_LLM_SCORER_CONSISTENCY,
-  METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
-  METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
-  METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
-  METRIC_LLM_EXPLAINER_CONSISTENCY
+  METRIC_COLORS
 } from './constants'
 
 // ============================================================================
@@ -115,66 +108,16 @@ export const useResizeObserver = <T extends HTMLElement = HTMLElement>({
 // ============================================================================
 
 // ============================================================================
-// COLOR ENCODING UTILITIES (for scores and consistency)
+// COLOR ENCODING UTILITIES (for scores)
 // ============================================================================
 
 /**
- * Get consistency color gradient definition based on consistency type
- *
- * @param consistencyType - Type of consistency metric
- * @returns Color gradient definition (LOW, MEDIUM, HIGH)
- */
-export function getConsistencyColorGradient(consistencyType: ConsistencyType): { LOW: string; MEDIUM: string; HIGH: string } {
-  switch (consistencyType) {
-    case METRIC_LLM_SCORER_CONSISTENCY:
-      return METRIC_COLORS.LLM_SCORER
-    case METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY:
-      return METRIC_COLORS.WITHIN_EXPLANATION
-    case METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY:
-      return METRIC_COLORS.CROSS_EXPLANATION
-    case METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY:
-      return METRIC_COLORS.CROSS_EXPLANATION_OVERALL
-    case METRIC_LLM_EXPLAINER_CONSISTENCY:
-      return METRIC_COLORS.LLM_EXPLAINER
-    case CONSISTENCY_TYPE_NONE:
-    default:
-      // Default to white (no coloring)
-      return { LOW: '#FFFFFF', MEDIUM: '#FFFFFF', HIGH: '#FFFFFF' }
-  }
-}
-
-/**
- * Get color for a consistency value (0-1)
- *
- * Uses single-color gradient (white to color) based on consistency type.
- * Can be used for coloring table cells, charts, etc.
- *
- * @param value - Consistency value between 0 and 1
- * @param consistencyType - Type of consistency metric (determines color)
- * @returns RGB color string (e.g., "#4477AA")
- */
-export function getConsistencyColor(value: number, consistencyType: ConsistencyType = CONSISTENCY_TYPE_NONE): string {
-  // Clamp value between 0 and 1
-  const clampedValue = Math.max(0, Math.min(1, value))
-
-  // Get color gradient for this consistency type
-  const gradient = getConsistencyColorGradient(consistencyType)
-
-  // Create D3 color scale: white (0) → light color (0.5) → full color (1.0)
-  const colorScale = scaleLinear<string>()
-    .domain([0, 0.5, 1])
-    .range([gradient.LOW, gradient.MEDIUM, gradient.HIGH])
-
-  return colorScale(clampedValue)
-}
-
-/**
- * Get color for an overall score value (0-1)
+ * Get color for a quality score value (0-1)
  *
  * Uses performance gradient: white (poor) → green (good) with increasing opacity
- * Designed for displaying overall scores in the simplified table.
+ * Designed for displaying quality scores in the simplified table.
  *
- * @param score - Overall score value between 0 and 1
+ * @param score - Quality score value between 0 and 1
  * @returns RGB color string with alpha
  */
 export function getOverallScoreColor(score: number): string {
@@ -187,24 +130,6 @@ export function getOverallScoreColor(score: number): string {
     .range([METRIC_COLORS.OVERALL_SCORE_COLORS.LOW, METRIC_COLORS.OVERALL_SCORE_COLORS.MEDIUM, METRIC_COLORS.OVERALL_SCORE_COLORS.HIGH])
 
   return colorScale(clampedScore)
-}
-
-/**
- * Get gradient stops for consistency color scale
- *
- * Returns array of gradient stops that can be used in SVG linearGradient
- *
- * @param consistencyType - Type of consistency metric (determines color)
- * @returns Array of gradient stop objects
- */
-export function getConsistencyGradientStops(consistencyType: ConsistencyType = CONSISTENCY_TYPE_NONE): Array<{ offset: string; color: string }> {
-  const gradient = getConsistencyColorGradient(consistencyType)
-
-  return [
-    { offset: '0%', color: gradient.LOW },      // White (low consistency at 0)
-    { offset: '50%', color: gradient.MEDIUM },  // Light color (medium)
-    { offset: '100%', color: gradient.HIGH }    // Full color (high consistency at 1)
-  ]
 }
 
 /**

@@ -25,14 +25,10 @@ import {
   PANEL_LEFT,
   PANEL_RIGHT,
   METRIC_FEATURE_SPLITTING,
+  METRIC_SEMSIM_MEAN,
   METRIC_SCORE_FUZZ,
   METRIC_SCORE_DETECTION,
   METRIC_SCORE_EMBEDDING,
-  METRIC_LLM_SCORER_CONSISTENCY,
-  METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
-  METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
-  METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
-  METRIC_LLM_EXPLAINER_CONSISTENCY,
   METRIC_OVERALL_SCORE,
   CONSISTENCY_THRESHOLDS,
   METRIC_COLORS
@@ -46,7 +42,7 @@ interface StageOption {
   description: string
   metric: string
   thresholds: readonly number[]
-  category: 'Feature Splitting' | 'Score' | 'Consistency'
+  category: 'Feature Splitting' | 'Score'
 }
 
 // Available stages for the NEW system - categorized by type
@@ -59,6 +55,16 @@ const AVAILABLE_STAGES: StageOption[] = [
     metric: METRIC_FEATURE_SPLITTING,
     thresholds: [0.3],
     category: 'Feature Splitting'
+  },
+
+  // Semantic Similarity (1 metric)
+  {
+    id: 'semantic_similarity',
+    name: 'Semantic Similarity',
+    description: 'Split by semantic similarity score',
+    metric: METRIC_SEMSIM_MEAN,
+    thresholds: [0.5],
+    category: 'Score'
   },
 
   // Score metrics (4 metrics)
@@ -88,53 +94,11 @@ const AVAILABLE_STAGES: StageOption[] = [
   },
   {
     id: 'overall_score',
-    name: 'Overall Score',
-    description: 'Split by overall score',
+    name: 'Quality Score',
+    description: 'Split by quality score',
     metric: METRIC_OVERALL_SCORE,
     thresholds: CONSISTENCY_THRESHOLDS[METRIC_OVERALL_SCORE],
     category: 'Score'
-  },
-
-  // Consistency metrics (5 metrics)
-  {
-    id: 'llm_scorer_consistency',
-    name: 'LLM Scorer',
-    description: 'Consistency across different scorers',
-    metric: METRIC_LLM_SCORER_CONSISTENCY,
-    thresholds: CONSISTENCY_THRESHOLDS[METRIC_LLM_SCORER_CONSISTENCY],
-    category: 'Consistency'
-  },
-  {
-    id: 'within_explanation_consistency',
-    name: 'Within-Explanation Metric',
-    description: 'Consistency across metrics within explainer',
-    metric: METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
-    thresholds: CONSISTENCY_THRESHOLDS[METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY],
-    category: 'Consistency'
-  },
-  {
-    id: 'cross_explanation_metric_consistency',
-    name: 'Cross-Explanation Metric',
-    description: 'Consistency across explainers per metric',
-    metric: METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
-    thresholds: CONSISTENCY_THRESHOLDS[METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY],
-    category: 'Consistency'
-  },
-  {
-    id: 'cross_explanation_overall_consistency',
-    name: 'Cross-Explanation Overall Score',
-    description: 'Overall score consistency across explainers',
-    metric: METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
-    thresholds: CONSISTENCY_THRESHOLDS[METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY],
-    category: 'Consistency'
-  },
-  {
-    id: 'llm_explainer_consistency',
-    name: 'LLM Explainer',
-    description: 'Semantic similarity between explanations',
-    metric: METRIC_LLM_EXPLAINER_CONSISTENCY,
-    thresholds: CONSISTENCY_THRESHOLDS[METRIC_LLM_EXPLAINER_CONSISTENCY],
-    category: 'Consistency'
   }
 ]
 
@@ -148,6 +112,8 @@ function getMetricColorForDisplay(metric: string): string {
   switch (metric) {
     case METRIC_FEATURE_SPLITTING:
       return METRIC_COLORS.FEATURE_SPLITTING
+    case METRIC_SEMSIM_MEAN:
+      return METRIC_COLORS.SEMANTIC_SIMILARITY
     case METRIC_SCORE_FUZZ:
       return METRIC_COLORS.SCORE_FUZZ.HIGH
     case METRIC_SCORE_DETECTION:
@@ -156,16 +122,6 @@ function getMetricColorForDisplay(metric: string): string {
       return METRIC_COLORS.SCORE_EMBEDDING.HIGH
     case METRIC_OVERALL_SCORE:
       return METRIC_COLORS.OVERALL_SCORE_COLORS.HIGH
-    case METRIC_LLM_SCORER_CONSISTENCY:
-      return METRIC_COLORS.LLM_SCORER.HIGH
-    case METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY:
-      return METRIC_COLORS.WITHIN_EXPLANATION.HIGH
-    case METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY:
-      return METRIC_COLORS.CROSS_EXPLANATION.HIGH
-    case METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY:
-      return METRIC_COLORS.CROSS_EXPLANATION_OVERALL.HIGH
-    case METRIC_LLM_EXPLAINER_CONSISTENCY:
-      return METRIC_COLORS.LLM_EXPLAINER.HIGH
     default:
       return '#9ca3af' // Default gray
   }

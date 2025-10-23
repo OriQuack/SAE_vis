@@ -13,7 +13,6 @@
 export const CATEGORY_ROOT = "root"
 export const CATEGORY_FEATURE_SPLITTING = "feature_splitting"
 export const CATEGORY_SEMANTIC_SIMILARITY = "semantic_similarity"
-export const CATEGORY_CONSISTENCY = "consistency"
 
 // ============================================================================
 // METRIC TYPES - Must match backend data_constants.py
@@ -25,13 +24,6 @@ export const METRIC_SCORE_FUZZ = "score_fuzz"
 export const METRIC_SCORE_DETECTION = "score_detection"
 export const METRIC_SCORE_EMBEDDING = "score_embedding"
 
-// Consistency metrics (pre-computed)
-export const METRIC_LLM_SCORER_CONSISTENCY = "llm_scorer_consistency"
-export const METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY = "within_explanation_metric_consistency"
-export const METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY = "cross_explanation_metric_consistency"
-export const METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY = "cross_explanation_overall_score_consistency"
-export const METRIC_LLM_EXPLAINER_CONSISTENCY = "llm_explainer_consistency"
-
 // Computed metric
 export const METRIC_OVERALL_SCORE = "overall_score"
 
@@ -41,11 +33,6 @@ export const METRIC_TYPES = {
   SCORE_FUZZ: METRIC_SCORE_FUZZ,
   SCORE_DETECTION: METRIC_SCORE_DETECTION,
   SCORE_EMBEDDING: METRIC_SCORE_EMBEDDING,
-  LLM_SCORER_CONSISTENCY: METRIC_LLM_SCORER_CONSISTENCY,
-  WITHIN_EXPLANATION_METRIC_CONSISTENCY: METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
-  CROSS_EXPLANATION_METRIC_CONSISTENCY: METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
-  CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY: METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
-  LLM_EXPLAINER_CONSISTENCY: METRIC_LLM_EXPLAINER_CONSISTENCY,
   OVERALL_SCORE: METRIC_OVERALL_SCORE
 } as const
 
@@ -62,40 +49,19 @@ export const PANEL_SIDES = {
 } as const
 
 // ============================================================================
-// CONSISTENCY TYPES - Table consistency type identifiers
-// Used across: types.ts, d3-table-utils.ts, TablePanel.tsx, threshold-utils.ts, store.ts (5+ files)
-// Note: Uses METRIC_* constants for consistency metrics (single source of truth)
-// ============================================================================
-export const CONSISTENCY_TYPE_NONE = "none"
-
-// Array of consistency metric types (excludes "none" which is just UI state)
-export const CONSISTENCY_TYPES = [
-  METRIC_LLM_SCORER_CONSISTENCY,
-  METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY,
-  METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY,
-  METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
-  METRIC_LLM_EXPLAINER_CONSISTENCY
-] as const
-
-// ============================================================================
-// CUSTOM CONSISTENCY THRESHOLDS - Per-metric custom threshold configurations
+// CUSTOM THRESHOLDS - Per-metric custom threshold configurations
 // Used for creating custom value splits with explicit threshold boundaries
 // ============================================================================
 
 /**
- * Custom threshold values for each consistency metric
+ * Custom threshold values for metrics
  * These define the bin boundaries for classification in Sankey diagrams
  *
  * N thresholds create N+1 bins:
  * - [0.15, 0.45, 0.75] creates 4 bins: [0-0.15), [0.15-0.45), [0.45-0.75), [0.75-1.0]
  */
 export const CONSISTENCY_THRESHOLDS = {
-  [METRIC_LLM_SCORER_CONSISTENCY]: [0.25, 0.50, 0.75],                    // 4 bins for LLM Scorer Consistency
-  [METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY]: [0.25, 0.5, 0.75],     // 4 bins for Within-Explanation Metric
-  [METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY]: [0.8],                   // 2 bins for Cross-Explanation Metric
-  [METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY]: [0.25, 0.50, 0.75], // 4 bins for Overall Score
-  [METRIC_LLM_EXPLAINER_CONSISTENCY]: [0.8, 0.85, 0.9],                   // 4 bins for LLM Explainer
-  [METRIC_OVERALL_SCORE]: [0.5]  // 2 bins for Overall Score (computed metric)
+  [METRIC_OVERALL_SCORE]: [0.5]  // 2 bins for Quality Score (computed metric)
 } as const
 
 // ============================================================================
@@ -105,8 +71,7 @@ export const CONSISTENCY_THRESHOLDS = {
 export const CATEGORY_DISPLAY_NAMES = {
   [CATEGORY_ROOT]: "All Features",
   [CATEGORY_FEATURE_SPLITTING]: "Feature Splitting",
-  [CATEGORY_SEMANTIC_SIMILARITY]: "Semantic Similarity",
-  [CATEGORY_CONSISTENCY]: "Consistency"
+  [CATEGORY_SEMANTIC_SIMILARITY]: "Semantic Similarity"
 } as const
 
 export const METRIC_DISPLAY_NAMES = {
@@ -115,12 +80,7 @@ export const METRIC_DISPLAY_NAMES = {
   [METRIC_SCORE_FUZZ]: "Fuzz Score",
   [METRIC_SCORE_DETECTION]: "Detection Score",
   [METRIC_SCORE_EMBEDDING]: "Embedding Score",
-  [METRIC_LLM_SCORER_CONSISTENCY]: "LLM Scorer Consistency",
-  [METRIC_WITHIN_EXPLANATION_METRIC_CONSISTENCY]: "Within-Explanation Consistency",
-  [METRIC_CROSS_EXPLANATION_METRIC_CONSISTENCY]: "Cross-Explanation Metric Consistency",
-  [METRIC_CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY]: "Cross-Explanation Overall Score Consistency",
-  [METRIC_LLM_EXPLAINER_CONSISTENCY]: "LLM Explainer Consistency",
-  [METRIC_OVERALL_SCORE]: "Overall Score"
+  [METRIC_OVERALL_SCORE]: "Quality Score"
 } as const
 
 // ============================================================================
@@ -260,41 +220,6 @@ export const METRIC_COLORS = {
     HIGH: PAUL_TOL_BRIGHT.GREEN + 'FF'    // 100% opacity (full green #228833)
   },
 
-  // LLM Scorer Consistency: Sky Blue gradient (Okabe-Ito Sky Blue)
-  LLM_SCORER: {
-    LOW: OKABE_ITO_PALETTE.SKY_BLUE + '00',    // 0% opacity (transparent/white)
-    MEDIUM: OKABE_ITO_PALETTE.SKY_BLUE + '80', // 50% opacity (light blue)
-    HIGH: OKABE_ITO_PALETTE.SKY_BLUE + 'FF'    // 100% opacity (full sky blue)
-  },
-
-  // Within-explanation Score Consistency: Purple gradient (Okabe-Ito Reddish Purple)
-  WITHIN_EXPLANATION: {
-    LOW: OKABE_ITO_PALETTE.REDDISH_PURPLE + '00',    // 0% opacity (transparent/white)
-    MEDIUM: OKABE_ITO_PALETTE.REDDISH_PURPLE + '80', // 50% opacity (light purple)
-    HIGH: OKABE_ITO_PALETTE.REDDISH_PURPLE + 'FF'    // 100% opacity (full reddish purple)
-  },
-
-  // Cross-explanation Score Consistency: Orange gradient (Okabe-Ito Orange)
-  CROSS_EXPLANATION: {
-    LOW: OKABE_ITO_PALETTE.VERMILLION + '00',    // 0% opacity (transparent/white)
-    MEDIUM: OKABE_ITO_PALETTE.VERMILLION + '80', // 50% opacity (light orange)
-    HIGH: OKABE_ITO_PALETTE.VERMILLION + 'FF'    // 100% opacity (full orange)
-  },
-
-  // Cross-explanation Overall Score Consistency: Yellow gradient (Okabe-Ito Yellow)
-  CROSS_EXPLANATION_OVERALL: {
-    LOW: OKABE_ITO_PALETTE.YELLOW + '00',    // 0% opacity (transparent/white)
-    MEDIUM: OKABE_ITO_PALETTE.YELLOW + '80', // 50% opacity (light yellow)
-    HIGH: OKABE_ITO_PALETTE.YELLOW + 'FF'    // 100% opacity (full yellow)
-  },
-
-  // LLM Explainer Consistency: Green gradient (Okabe-Ito Bluish Green)
-  LLM_EXPLAINER: {
-    LOW: OKABE_ITO_PALETTE.BLUISH_GREEN + '00',    // 0% opacity (transparent/white)
-    MEDIUM: OKABE_ITO_PALETTE.BLUISH_GREEN + '80', // 50% opacity (light green)
-    HIGH: OKABE_ITO_PALETTE.BLUISH_GREEN + 'FF'    // 100% opacity (full bluish green)
-  },
-  
   OVERALL_SCORE_COLORS: {
   LOW: '#1f293700',    // 0% opacity (transparent/white) - 0.0 score
   MEDIUM: '#1f293780', // 50% opacity (medium gray) - 0.5 score

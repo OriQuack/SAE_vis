@@ -163,7 +163,7 @@
 }
 
 .table-panel__header-cell--index {
-  width: 40px;
+  width: 3%;
   min-width: 40px;
   text-align: center;
   background: #f9fafb;
@@ -191,17 +191,6 @@
   background: rgba(59, 130, 246, 0.1);
 }
 
-.table-panel__header-cell--consistency {
-  width: 5%;
-  min-width: 60px;
-  cursor: pointer;
-  user-select: none;
-}
-
-.table-panel__header-cell--consistency:hover {
-  background: rgba(59, 130, 246, 0.1);
-}
-
 .table-panel__header-cell--explanation {
   width: 50%;
   min-width: 200px;
@@ -210,7 +199,7 @@
 }
 
 .table-panel__header-cell--empty {
-  width: 36%;
+  width: 43%;
   min-width: 100px;
 }
 
@@ -275,7 +264,6 @@
   font-size: 11px;
   background: #f9fafb;
   border-right: 2px solid #d1d5db;
-  width: 40px;
 }
 
 .table-panel__cell--id {
@@ -293,17 +281,6 @@
 }
 
 .table-panel__cell--score svg {
-  display: block;
-  margin: 0 auto;
-}
-
-.table-panel__cell--consistency {
-  text-align: center;
-  padding: 2px;
-  position: relative;
-}
-
-.table-panel__cell--consistency svg {
   display: block;
   margin: 0 auto;
 }
@@ -410,40 +387,6 @@
 .table-panel__score-breakdown-item svg {
   display: block;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
-}
-
-/* ============================================================================
- * CONSISTENCY BREAKDOWN OVERLAY (Extended Cell)
- * ============================================================================ */
-
-.table-panel__consistency-breakdown-overlay {
-  position: absolute;
-  top: 50%;
-  left: calc(100% + 4px);
-  transform: translateY(-50%);
-  z-index: 200;
-  background: white;
-  border: 1.5px solid #000000;
-  border-radius: 6px;
-  padding: 4px 4px;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
-  display: flex;
-  gap: 2px;
-  white-space: nowrap;
-  pointer-events: all;
-}
-
-/* Hint text for consistency breakdown */
-.table-panel__consistency-breakdown-overlay::after {
-  content: 'Click to sort';
-  position: absolute;
-  bottom: -18px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 9px;
-  color: #9ca3af;
-  font-weight: 500;
-  white-space: nowrap;
 }
 
 /* ========================================================================== */
