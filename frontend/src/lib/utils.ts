@@ -120,14 +120,14 @@ export const useResizeObserver = <T extends HTMLElement = HTMLElement>({
  * @param score - Quality score value between 0 and 1
  * @returns RGB color string with alpha
  */
-export function getOverallScoreColor(score: number): string {
+export function getQualityScoreColor(score: number): string {
   // Clamp value between 0 and 1
   const clampedScore = Math.max(0, Math.min(1, score))
 
   // Create performance color scale: white (0) → light green (0.5) → full green (1)
   const colorScale = scaleLinear<string>()
     .domain([0, 0.5, 1])
-    .range([METRIC_COLORS.OVERALL_SCORE_COLORS.LOW, METRIC_COLORS.OVERALL_SCORE_COLORS.MEDIUM, METRIC_COLORS.OVERALL_SCORE_COLORS.HIGH])
+    .range([METRIC_COLORS.QUALITY_SCORE_COLORS.LOW, METRIC_COLORS.QUALITY_SCORE_COLORS.MEDIUM, METRIC_COLORS.QUALITY_SCORE_COLORS.HIGH])
 
   return colorScale(clampedScore)
 }

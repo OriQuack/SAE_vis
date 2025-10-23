@@ -23,7 +23,7 @@ import {
   PANEL_LEFT,
   PANEL_RIGHT,
   METRIC_SEMSIM_MEAN,
-  METRIC_OVERALL_SCORE,
+  METRIC_QUALITY_SCORE,
   METRIC_SCORE_EMBEDDING,
   METRIC_SCORE_FUZZ,
   METRIC_SCORE_DETECTION
@@ -43,8 +43,7 @@ const mapTableSortToSankeyMetric = (sortBy: string | null): string | null => {
   if (!sortBy) return null
 
   const mappings: Record<string, string> = {
-    'overallScore': METRIC_OVERALL_SCORE,
-    // Score metrics map directly
+    [METRIC_QUALITY_SCORE]: METRIC_QUALITY_SCORE,
     [METRIC_SCORE_EMBEDDING]: METRIC_SCORE_EMBEDDING,
     [METRIC_SCORE_FUZZ]: METRIC_SCORE_FUZZ,
     [METRIC_SCORE_DETECTION]: METRIC_SCORE_DETECTION
@@ -61,8 +60,7 @@ const mapSankeyMetricToTableSort = (metric: string | null): string | null => {
   if (!metric) return null
 
   const mappings: Record<string, string> = {
-    [METRIC_OVERALL_SCORE]: 'overallScore',
-    // Score metrics map directly
+    [METRIC_QUALITY_SCORE]: METRIC_QUALITY_SCORE,
     [METRIC_SCORE_EMBEDDING]: METRIC_SCORE_EMBEDDING,
     [METRIC_SCORE_FUZZ]: METRIC_SCORE_FUZZ,
     [METRIC_SCORE_DETECTION]: METRIC_SCORE_DETECTION
@@ -74,7 +72,7 @@ const mapSankeyMetricToTableSort = (metric: string | null): string | null => {
 /**
  * Get default thresholds for a metric
  */
-const getDefaultThresholdsForMetric = (metric: string): number[] => {
+const getDefaultThresholdsForMetric = (_metric: string): number[] => {
   // Default to single threshold at 0.5 for all metrics
   return [0.5]
 }
@@ -181,8 +179,8 @@ interface AppState {
   setTableSort: (sortBy: SortBy | null, sortDirection: SortDirection | null, skipSankeySync?: boolean) => void
 
   // Table column display state (what metric is shown in the column)
-  scoreColumnDisplay: 'overallScore' | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION
-  swapMetricDisplay: (newMetric: string) => void
+  scoreColumnDisplay: typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION
+  swapMetricDisplay: (newMetric: typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION) => void
 
   // Reset actions
   reset: () => void
@@ -265,7 +263,7 @@ const initialState = {
   tableSortDirection: null,
 
   // Table column display state
-  scoreColumnDisplay: 'overallScore' as 'overallScore',
+  scoreColumnDisplay: METRIC_QUALITY_SCORE as typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION,
 
   // Hover state
   hoveredAlluvialNodeId: null,
@@ -643,7 +641,7 @@ export const useStore = create<AppState>((set, get) => ({
     })
 
     // Swap the metric display to show the selected metric prominently
-    state.swapMetricDisplay(tableSortKey)
+    state.swapMetricDisplay(tableSortKey as typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION)
 
     // Update table sort, skip Sankey sync to prevent recursion
     state.setTableSort(tableSortKey as SortBy, 'asc', true)

@@ -2,20 +2,22 @@ import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react'
 import { useVisualizationStore } from '../store'
 import type { FeatureTableDataResponse, FeatureTableRow } from '../types'
 import {
-  calculateOverallScore,
+  calculateQualityScore,
+  calculateQualityScoreStats,
   getScoreValue,
   normalizeScore,
   sortFeatures,
   getExplainerDisplayName
 } from '../lib/d3-table-utils'
 import {
-  getOverallScoreColor,
+  getQualityScoreColor,
   getMetricColor
 } from '../lib/utils'
 import {
   METRIC_SCORE_DETECTION,
   METRIC_SCORE_FUZZ,
-  METRIC_SCORE_EMBEDDING
+  METRIC_SCORE_EMBEDDING,
+  METRIC_QUALITY_SCORE
 } from '../lib/constants'
 import { HighlightedExplanation } from './HighlightedExplanation'
 import '../styles/TablePanel.css'
@@ -57,7 +59,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   // Helper to get display name for a metric
   const getMetricDisplayName = (metric: string): string => {
     switch(metric) {
-      case 'overallScore': return 'Quality Score'
+      case METRIC_QUALITY_SCORE: return 'Quality Score'
       case METRIC_SCORE_EMBEDDING: return 'Emb.'
       case METRIC_SCORE_FUZZ: return 'Fuzz'
       case METRIC_SCORE_DETECTION: return 'Det.'
@@ -96,7 +98,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     label: React.ReactNode,
     _value: number,
     color: string,
-    sortKey?: 'overallScore'
+    sortKey?: typeof METRIC_QUALITY_SCORE
       | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION
   ) => (
     <div
@@ -139,18 +141,18 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   }
 
   // Handle sort click (simplified for new table structure)
-  const handleSort = (sortKey: 'featureId' | 'overallScore'
+  const handleSort = (sortKey: 'featureId' | typeof METRIC_QUALITY_SCORE
     | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION) => {
 
     // Check if this is a breakdown metric being sorted (not main column metrics)
     const scoreMetrics = [METRIC_SCORE_EMBEDDING, METRIC_SCORE_FUZZ, METRIC_SCORE_DETECTION]
 
     const isScoreMetric = scoreMetrics.includes(sortKey as any)
-    const isOverallScore = sortKey === 'overallScore'
+    const isQualityScore = sortKey === METRIC_QUALITY_SCORE
 
     // If clicking a breakdown metric or swapped main metric, perform swap
-    if (isScoreMetric || isOverallScore) {
-      swapMetricDisplay(sortKey)
+    if (isScoreMetric || isQualityScore) {
+      swapMetricDisplay(sortKey as typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION)
     }
 
     // Cycle through: null → asc → desc → null
@@ -260,17 +262,11 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
       // Use requestAnimationFrame to ensure measurement happens after layout
       rafId = requestAnimationFrame(() => {
-        const _tableElement = container.querySelector('table')
         const scrollState = {
           scrollTop: container.scrollTop,
           scrollHeight: container.scrollHeight,
           clientHeight: container.clientHeight
         }
-
-        const isScrollable = scrollState.scrollHeight > scrollState.clientHeight
-        const _scrollPercentage = isScrollable
-          ? (scrollState.scrollTop / (scrollState.scrollHeight - scrollState.clientHeight) * 100).toFixed(1)
-          : '0.0'
 
         // Only update state if dimensions are valid (non-zero)
         // This prevents setting invalid state during transitions
@@ -523,25 +519,31 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                     </td>
                   </tr>
                 )}
-                {validExplainerIds.map((explainerId, explainerIdx) => {
-                  const explainerData = featureRow.explainers[explainerId]
-                  // explainerData should always exist here due to filter above, but keep check for safety
-                  if (!explainerData) return null
+                {/* Calculate quality score stats once per feature (for error bar visualization) */}
+                {(() => {
+                  const qualityScoreStats = scoreColumnDisplay === METRIC_QUALITY_SCORE
+                    ? calculateQualityScoreStats(featureRow, tableData.global_stats)
+                    : null
 
-                  // Calculate display values based on current column settings
-                  let scoreValue: number | null = null
-                  let scoreColor = 'transparent'
+                  return validExplainerIds.map((explainerId, explainerIdx) => {
+                    const explainerData = featureRow.explainers[explainerId]
+                    // explainerData should always exist here due to filter above, but keep check for safety
+                    if (!explainerData) return null
+
+                    // Calculate display values based on current column settings
+                    let scoreValue: number | null = null
+                    let scoreColor = 'transparent'
 
                   // Get score column value
                   switch(scoreColumnDisplay) {
-                    case 'overallScore':
-                      scoreValue = calculateOverallScore(
+                    case METRIC_QUALITY_SCORE:
+                      scoreValue = calculateQualityScore(
                         explainerData.embedding,
                         explainerData.fuzz,
                         explainerData.detection,
                         tableData.global_stats
                       )
-                      scoreColor = scoreValue !== null ? getOverallScoreColor(scoreValue) : 'transparent'
+                      scoreColor = scoreValue !== null ? getQualityScoreColor(scoreValue) : 'transparent'
                       break
                     case METRIC_SCORE_EMBEDDING:
                       scoreValue = getScoreValue(featureRow, explainerId, METRIC_SCORE_EMBEDDING)
@@ -595,80 +597,148 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                         </td>
                       )}
 
-                      {/* Score column (color-coded circle) */}
-                      <td
-                        className="table-panel__cell table-panel__cell--score"
-                        title={scoreValue !== null ? `${getMetricDisplayName(scoreColumnDisplay)}: ${scoreValue.toFixed(3)}` : 'No score data'}
-                        onClick={(e) => scoreValue !== null && handleCellClick(featureRow.feature_id, explainerId, e)}
-                        style={{ cursor: scoreValue !== null ? 'pointer' : 'default' }}
-                      >
-                        {scoreValue !== null ? (
-                          <svg width="16" height="16" viewBox="0 0 16 16">
-                            <circle
-                              cx="8"
-                              cy="8"
-                              r="6"
-                              fill={scoreColor}
-                              stroke="#d1d5db"
-                              strokeWidth="1"
-                            />
-                          </svg>
-                        ) : (
-                          <span className="table-panel__no-data">-</span>
-                        )}
+                      {/* Score column - conditional rendering for quality score vs other metrics */}
+                      {scoreColumnDisplay === METRIC_QUALITY_SCORE ? (
+                        // Quality Score: Show ONE merged cell with error bar (only on first sub-row)
+                        explainerIdx === 0 && (
+                          <td
+                            className="table-panel__cell table-panel__cell--score"
+                            rowSpan={validExplainerIds.length}
+                            title={qualityScoreStats ? `Quality Score: ${qualityScoreStats.avg.toFixed(3)} (${qualityScoreStats.min.toFixed(3)} - ${qualityScoreStats.max.toFixed(3)})` : 'No quality score data'}
+                            style={{ cursor: 'default', position: 'relative' }}
+                          >
+                            {qualityScoreStats ? (
+                              <svg width="16" height="100%" viewBox="0 0 16 100" preserveAspectRatio="none" style={{ display: 'block' }}>
+                                {(() => {
+                                  // Calculate positions - cell height represents score range 0.0 to 1.0
+                                  const minY = (1 - qualityScoreStats.min) * 100  // Invert: high scores at top
+                                  const maxY = (1 - qualityScoreStats.max) * 100
+                                  const avgY = (1 - qualityScoreStats.avg) * 100
+                                  const color = getQualityScoreColor(qualityScoreStats.avg)
 
-                        {/* Extended score breakdown overlay */}
-                        {expandedScoreCell?.featureId === featureRow.feature_id &&
-                         expandedScoreCell?.explainerId === explainerId && (
-                          <div className="table-panel__score-breakdown-overlay">
-                            {/* If a specific metric is displayed in column, show quality score in breakdown */}
-                            {scoreColumnDisplay !== 'overallScore' && (() => {
-                              const overallScore = calculateOverallScore(
-                                explainerData.embedding,
-                                explainerData.fuzz,
-                                explainerData.detection,
-                                tableData.global_stats
-                              )
-                              if (overallScore === null) return null
-                              const color = getOverallScoreColor(overallScore)
-                              return renderMetricCircle('Quality', overallScore, color, 'overallScore')
-                            })()}
+                                  return (
+                                    <g>
+                                      {/* Vertical error bar line */}
+                                      <line
+                                        x1="8"
+                                        y1={maxY}
+                                        x2="8"
+                                        y2={minY}
+                                        stroke="#6b7280"
+                                        strokeWidth="1.5"
+                                      />
+                                      {/* Top cap (max score) */}
+                                      <line
+                                        x1="5"
+                                        y1={maxY}
+                                        x2="11"
+                                        y2={maxY}
+                                        stroke="#6b7280"
+                                        strokeWidth="1.5"
+                                      />
+                                      {/* Bottom cap (min score) */}
+                                      <line
+                                        x1="5"
+                                        y1={minY}
+                                        x2="11"
+                                        y2={minY}
+                                        stroke="#6b7280"
+                                        strokeWidth="1.5"
+                                      />
+                                      {/* Circle at average - convert to SVG circle with fixed radius */}
+                                      <circle
+                                        cx="8"
+                                        cy={avgY}
+                                        r="6"
+                                        fill={color}
+                                        stroke="#d1d5db"
+                                        strokeWidth="1"
+                                      />
+                                    </g>
+                                  )
+                                })()}
+                              </svg>
+                            ) : (
+                              <span className="table-panel__no-data">-</span>
+                            )}
+                          </td>
+                        )
+                      ) : (
+                        // Other metrics: Show individual circles per explainer (existing behavior)
+                        <td
+                          className="table-panel__cell table-panel__cell--score"
+                          title={scoreValue !== null ? `${getMetricDisplayName(scoreColumnDisplay)}: ${scoreValue.toFixed(3)}` : 'No score data'}
+                          onClick={(e) => scoreValue !== null && handleCellClick(featureRow.feature_id, explainerId, e)}
+                          style={{ cursor: scoreValue !== null ? 'pointer' : 'default' }}
+                        >
+                          {scoreValue !== null ? (
+                            <svg width="16" height="16" viewBox="0 0 16 16">
+                              <circle
+                                cx="8"
+                                cy="8"
+                                r="6"
+                                fill={scoreColor}
+                                stroke="#d1d5db"
+                                strokeWidth="1"
+                              />
+                            </svg>
+                          ) : (
+                            <span className="table-panel__no-data">-</span>
+                          )}
 
-                            {/* Embedding score - show if not currently displayed in column */}
-                            {scoreColumnDisplay !== METRIC_SCORE_EMBEDDING && (() => {
-                              const embedding = getScoreValue(featureRow, explainerId, METRIC_SCORE_EMBEDDING)
-                              if (embedding === null || !tableData.global_stats.embedding) return null
+                          {/* Extended score breakdown overlay */}
+                          {expandedScoreCell?.featureId === featureRow.feature_id &&
+                           expandedScoreCell?.explainerId === explainerId && (
+                            <div className="table-panel__score-breakdown-overlay">
+                              {/* Quality score - always show in breakdown (we're in non-quality-score branch) */}
+                              {(() => {
+                                const qualityScore = calculateQualityScore(
+                                  explainerData.embedding,
+                                  explainerData.fuzz,
+                                  explainerData.detection,
+                                  tableData.global_stats
+                                )
+                                if (qualityScore === null) return null
+                                const color = getQualityScoreColor(qualityScore)
+                                return renderMetricCircle('Quality', qualityScore, color, METRIC_QUALITY_SCORE)
+                              })()}
 
-                              const normalized = normalizeScore(embedding, tableData.global_stats.embedding)
-                              if (normalized === null) return null
+                              {/* Embedding score - show if not currently displayed in column */}
+                              {scoreColumnDisplay !== METRIC_SCORE_EMBEDDING && (() => {
+                                const embedding = getScoreValue(featureRow, explainerId, METRIC_SCORE_EMBEDDING)
+                                if (embedding === null || !tableData.global_stats.embedding) return null
 
-                              return renderMetricCircle('Emb', embedding, getMetricColor('embedding', normalized), METRIC_SCORE_EMBEDDING)
-                            })()}
+                                const normalized = normalizeScore(embedding, tableData.global_stats.embedding)
+                                if (normalized === null) return null
 
-                            {/* Fuzz score - show if not currently displayed in column */}
-                            {scoreColumnDisplay !== METRIC_SCORE_FUZZ && (() => {
-                              const fuzz = getScoreValue(featureRow, explainerId, METRIC_SCORE_FUZZ)
-                              if (fuzz === null || !tableData.global_stats.fuzz) return null
+                                return renderMetricCircle('Emb', embedding, getMetricColor('embedding', normalized), METRIC_SCORE_EMBEDDING)
+                              })()}
 
-                              const normalized = normalizeScore(fuzz, tableData.global_stats.fuzz)
-                              if (normalized === null) return null
+                              {/* Fuzz score - show if not currently displayed in column */}
+                              {scoreColumnDisplay !== METRIC_SCORE_FUZZ && (() => {
+                                const fuzz = getScoreValue(featureRow, explainerId, METRIC_SCORE_FUZZ)
+                                if (fuzz === null || !tableData.global_stats.fuzz) return null
 
-                              return renderMetricCircle('Fuzz', fuzz, getMetricColor('fuzz', normalized), METRIC_SCORE_FUZZ)
-                            })()}
+                                const normalized = normalizeScore(fuzz, tableData.global_stats.fuzz)
+                                if (normalized === null) return null
 
-                            {/* Detection score - show if not currently displayed in column */}
-                            {scoreColumnDisplay !== METRIC_SCORE_DETECTION && (() => {
-                              const detection = getScoreValue(featureRow, explainerId, METRIC_SCORE_DETECTION)
-                              if (detection === null || !tableData.global_stats.detection) return null
+                                return renderMetricCircle('Fuzz', fuzz, getMetricColor('fuzz', normalized), METRIC_SCORE_FUZZ)
+                              })()}
 
-                              const normalized = normalizeScore(detection, tableData.global_stats.detection)
-                              if (normalized === null) return null
+                              {/* Detection score - show if not currently displayed in column */}
+                              {scoreColumnDisplay !== METRIC_SCORE_DETECTION && (() => {
+                                const detection = getScoreValue(featureRow, explainerId, METRIC_SCORE_DETECTION)
+                                if (detection === null || !tableData.global_stats.detection) return null
 
-                              return renderMetricCircle('Det', detection, getMetricColor('detection', normalized), METRIC_SCORE_DETECTION)
-                            })()}
-                          </div>
-                        )}
-                      </td>
+                                const normalized = normalizeScore(detection, tableData.global_stats.detection)
+                                if (normalized === null) return null
+
+                                return renderMetricCircle('Det', detection, getMetricColor('detection', normalized), METRIC_SCORE_DETECTION)
+                              })()}
+                            </div>
+                          )}
+                        </td>
+                      )}
 
                       {/* Explanation text */}
                       <td
@@ -694,7 +764,8 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                       </td>
                     </tr>
                   )
-                })}
+                })
+              })()}
               </React.Fragment>
             )
             })}

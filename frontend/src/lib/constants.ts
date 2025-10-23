@@ -25,7 +25,7 @@ export const METRIC_SCORE_DETECTION = "score_detection"
 export const METRIC_SCORE_EMBEDDING = "score_embedding"
 
 // Computed metric
-export const METRIC_OVERALL_SCORE = "overall_score"
+export const METRIC_QUALITY_SCORE = "quality_score"
 
 export const METRIC_TYPES = {
   FEATURE_SPLITTING: METRIC_FEATURE_SPLITTING,
@@ -33,7 +33,7 @@ export const METRIC_TYPES = {
   SCORE_FUZZ: METRIC_SCORE_FUZZ,
   SCORE_DETECTION: METRIC_SCORE_DETECTION,
   SCORE_EMBEDDING: METRIC_SCORE_EMBEDDING,
-  OVERALL_SCORE: METRIC_OVERALL_SCORE
+  QUALITY_SCORE: METRIC_QUALITY_SCORE
 } as const
 
 // ============================================================================
@@ -61,7 +61,7 @@ export const PANEL_SIDES = {
  * - [0.15, 0.45, 0.75] creates 4 bins: [0-0.15), [0.15-0.45), [0.45-0.75), [0.75-1.0]
  */
 export const CONSISTENCY_THRESHOLDS = {
-  [METRIC_OVERALL_SCORE]: [0.5]  // 2 bins for Quality Score (computed metric)
+  [METRIC_QUALITY_SCORE]: [0.5]  // 2 bins for Quality Score (computed metric)
 } as const
 
 // ============================================================================
@@ -80,7 +80,7 @@ export const METRIC_DISPLAY_NAMES = {
   [METRIC_SCORE_FUZZ]: "Fuzz Score",
   [METRIC_SCORE_DETECTION]: "Detection Score",
   [METRIC_SCORE_EMBEDDING]: "Embedding Score",
-  [METRIC_OVERALL_SCORE]: "Quality Score"
+  [METRIC_QUALITY_SCORE]: "Quality Score"
 } as const
 
 // ============================================================================
@@ -220,7 +220,7 @@ export const METRIC_COLORS = {
     HIGH: PAUL_TOL_BRIGHT.GREEN + 'FF'    // 100% opacity (full green #228833)
   },
 
-  OVERALL_SCORE_COLORS: {
+  QUALITY_SCORE_COLORS: {
   LOW: '#1f293700',    // 0% opacity (transparent/white) - 0.0 score
   MEDIUM: '#1f293780', // 50% opacity (medium gray) - 0.5 score
   HIGH: '#1f2937FF'    // 100% opacity (dark gray) - 1.0 score

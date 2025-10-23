@@ -29,7 +29,7 @@ import {
   METRIC_SCORE_FUZZ,
   METRIC_SCORE_DETECTION,
   METRIC_SCORE_EMBEDDING,
-  METRIC_OVERALL_SCORE,
+  METRIC_QUALITY_SCORE,
   CONSISTENCY_THRESHOLDS,
   METRIC_COLORS
 } from '../lib/constants'
@@ -96,8 +96,8 @@ const AVAILABLE_STAGES: StageOption[] = [
     id: 'overall_score',
     name: 'Quality Score',
     description: 'Split by quality score',
-    metric: METRIC_OVERALL_SCORE,
-    thresholds: CONSISTENCY_THRESHOLDS[METRIC_OVERALL_SCORE],
+    metric: METRIC_QUALITY_SCORE,
+    thresholds: CONSISTENCY_THRESHOLDS[METRIC_QUALITY_SCORE],
     category: 'Score'
   }
 ]
@@ -120,8 +120,8 @@ function getMetricColorForDisplay(metric: string): string {
       return METRIC_COLORS.SCORE_DETECTION.HIGH
     case METRIC_SCORE_EMBEDDING:
       return METRIC_COLORS.SCORE_EMBEDDING.HIGH
-    case METRIC_OVERALL_SCORE:
-      return METRIC_COLORS.OVERALL_SCORE_COLORS.HIGH
+    case METRIC_QUALITY_SCORE:
+      return METRIC_COLORS.QUALITY_SCORE_COLORS.HIGH
     default:
       return '#9ca3af' // Default gray
   }

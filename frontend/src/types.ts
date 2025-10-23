@@ -15,7 +15,7 @@ export interface Filters {
 
 import {
   CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_SIMILARITY,
-  METRIC_FEATURE_SPLITTING, METRIC_SEMSIM_MEAN,
+  METRIC_FEATURE_SPLITTING, METRIC_SEMSIM_MEAN, METRIC_QUALITY_SCORE,
   METRIC_SCORE_FUZZ, METRIC_SCORE_DETECTION, METRIC_SCORE_EMBEDDING,
   PANEL_LEFT, PANEL_RIGHT
 } from './lib/constants'
@@ -112,7 +112,7 @@ export interface FilterOptions {
  * Each constraint filters features by a metric range from parent nodes
  */
 export interface ThresholdPathConstraint {
-  metric: string      // Metric name (e.g., "feature_splitting", "overall_score")
+  metric: string      // Metric name (e.g., "feature_splitting", "quality_score")
   rangeLabel: string  // Display label (e.g., "[0, 0.3)", ">= 0.5", "< 0.5")
 }
 
@@ -482,7 +482,7 @@ export type SortDirection = 'asc' | 'desc' | null
 
 export type SortBy =
   | 'featureId'
-  | 'overallScore'
+  | typeof METRIC_QUALITY_SCORE
   | typeof METRIC_SCORE_DETECTION
   | typeof METRIC_SCORE_FUZZ
   | typeof METRIC_SCORE_EMBEDDING

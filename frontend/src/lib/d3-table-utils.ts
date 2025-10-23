@@ -5,7 +5,7 @@ import {
   METRIC_SCORE_FUZZ,
 } from './constants'
 import {
-  getOverallScoreColor,
+  getQualityScoreColor,
   getMetricColor
 } from './utils'
 
@@ -127,10 +127,6 @@ export function getScoreValue(
   return averageNonNull([scores.s1, scores.s2, scores.s3])
 }
 
-// Color encoding functions moved to utils.ts and imported above
-// Re-exported for backward compatibility
-export { getOverallScoreColor }
-
 // ============================================================================
 // TABLE SORTING UTILITIES
 // ============================================================================
@@ -173,15 +169,15 @@ export function compareValues(
  * Process:
  * 1. Calculate z-score for each metric: (value - mean) / std
  * 2. Average the three z-scores
- * 3. Apply min-max normalization to averaged z-score using overall.z_min and overall.z_max
+ * 3. Apply min-max normalization to averaged z-score using quality.z_min and quality.z_max
  *
  * @param embedding - Embedding score
  * @param fuzzScores - Fuzz scores from scorers (s1, s2, s3)
  * @param detectionScores - Detection scores from scorers (s1, s2, s3)
- * @param globalStats - Global normalization statistics (includes overall.z_min, overall.z_max)
+ * @param globalStats - Global normalization statistics (includes quality.z_min, quality.z_max)
  * @returns Quality score (0-1) or null if insufficient data
  */
-export function calculateOverallScore(
+export function calculateQualityScore(
   embedding: number | null,
   fuzzScores: { s1: number | null; s2: number | null; s3: number | null },
   detectionScores: { s1: number | null; s2: number | null; s3: number | null },
@@ -218,7 +214,7 @@ export function calculateOverallScore(
   // Average the z-scores
   const avgZScore = zScores.reduce((sum, z) => sum + z, 0) / zScores.length
 
-  // Normalize the averaged z-score using overall z_min and z_max
+  // Normalize the averaged z-score using quality z_min and z_max
   if (!globalStats.overall || !globalStats.overall.z_min || !globalStats.overall.z_max) {
     // Fallback: if no overall stats, return null
     return null
@@ -268,7 +264,7 @@ export function calculateFeatureColor(
         const explainerData = feature.explainers[explainerId]
         if (!explainerData) continue
 
-        const score = calculateOverallScore(
+        const score = calculateQualityScore(
           explainerData.embedding,
           explainerData.fuzz,
           explainerData.detection,
@@ -282,7 +278,7 @@ export function calculateFeatureColor(
 
       if (scores.length > 0) {
         const avgScore = scores.reduce((sum, s) => sum + s, 0) / scores.length
-        return getOverallScoreColor(avgScore)
+        return getQualityScoreColor(avgScore)
       }
     } else {
       // Handle individual score metrics
@@ -332,7 +328,7 @@ export interface ScoreCircleData {
  * @param globalStats - Global normalization statistics
  * @returns Average quality score or null
  */
-function calculateAvgOverallScore(
+function calculateAvgQualityScore(
   feature: FeatureTableRow,
   globalStats: Record<string, MetricNormalizationStats> | undefined
 ): number | null {
@@ -345,7 +341,7 @@ function calculateAvgOverallScore(
     const explainerData = feature.explainers[explainerId]
     if (!explainerData) continue
 
-    const score = calculateOverallScore(
+    const score = calculateQualityScore(
       explainerData.embedding,
       explainerData.fuzz,
       explainerData.detection,
@@ -356,6 +352,49 @@ function calculateAvgOverallScore(
   }
 
   return averageNonNull(scores)
+}
+
+/**
+ * Calculate quality score statistics across all explainers for a feature
+ * Used for error bar visualization showing min, max, and average
+ *
+ * @param feature - Feature row
+ * @param globalStats - Global normalization statistics
+ * @returns Object with min, max, avg, count or null if no valid scores
+ */
+export function calculateQualityScoreStats(
+  feature: FeatureTableRow,
+  globalStats: Record<string, MetricNormalizationStats> | undefined
+): { min: number; max: number; avg: number; count: number } | null {
+  if (!globalStats) return null
+
+  const explainerIds = Object.keys(feature.explainers)
+  const scores: number[] = []
+
+  for (const explainerId of explainerIds) {
+    const explainerData = feature.explainers[explainerId]
+    if (!explainerData) continue
+
+    const score = calculateQualityScore(
+      explainerData.embedding,
+      explainerData.fuzz,
+      explainerData.detection,
+      globalStats
+    )
+
+    if (score !== null) {
+      scores.push(score)
+    }
+  }
+
+  if (scores.length === 0) return null
+
+  return {
+    min: Math.min(...scores),
+    max: Math.max(...scores),
+    avg: scores.reduce((a, b) => a + b, 0) / scores.length,
+    count: scores.length
+  }
 }
 
 
@@ -424,8 +463,8 @@ export function sortFeatures(
 
     if (sortBy === 'overallScore') {
       // Calculate quality score across all explainers
-      const overallScoreA = calculateAvgOverallScore(a, tableData?.global_stats)
-      const overallScoreB = calculateAvgOverallScore(b, tableData?.global_stats)
+      const overallScoreA = calculateAvgQualityScore(a, tableData?.global_stats)
+      const overallScoreB = calculateAvgQualityScore(b, tableData?.global_stats)
       return compareValues(overallScoreA, overallScoreB, sortDirection)
     }
 
