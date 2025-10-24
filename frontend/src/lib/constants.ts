@@ -1,11 +1,3 @@
-/**
- * Shared constants for SAE Feature Visualization Frontend
- *
- * This file contains constants that are used across multiple files (4+ references).
- * Component-specific constants should be co-located with their usage.
- * Maintains alignment with backend constants for better maintainability.
- */
-
 // ============================================================================
 // CATEGORY TYPES - Must match backend data_constants.py
 // Used across: types.ts, utils.ts, threshold-utils.ts, d3-sankey-utils.ts, split-rule-builders.ts (5+ files)
@@ -52,14 +44,6 @@ export const PANEL_SIDES = {
 // CUSTOM THRESHOLDS - Per-metric custom threshold configurations
 // Used for creating custom value splits with explicit threshold boundaries
 // ============================================================================
-
-/**
- * Custom threshold values for metrics
- * These define the bin boundaries for classification in Sankey diagrams
- *
- * N thresholds create N+1 bins:
- * - [0.15, 0.45, 0.75] creates 4 bins: [0-0.15), [0.15-0.45), [0.45-0.75), [0.75-1.0]
- */
 export const CONSISTENCY_THRESHOLDS = {
   [METRIC_QUALITY_SCORE]: [0.5]  // 2 bins for Quality Score (computed metric)
 } as const
@@ -87,13 +71,6 @@ export const METRIC_DISPLAY_NAMES = {
 // ACADEMIC VISUALIZATION COLOR SCHEMES (EuroVIS/IEEE VIS Standards)
 // Colorblind-friendly palettes for research papers and conference demonstrations
 // ============================================================================
-
-/**
- * Okabe-Ito Palette (Recommended for EuroVIS/IEEE VIS submissions)
- * Source: Masataka Okabe and Kei Ito, Color Universal Design (CUD)
- * - Accessible to people with all forms of color vision deficiency
- * - 8 vivid colors corresponding to major primary and secondary colors
- */
 export const OKABE_ITO_PALETTE = {
   BLACK: '#000000',
   ORANGE: '#E69F00',
@@ -106,13 +83,6 @@ export const OKABE_ITO_PALETTE = {
   GRAY: '#999999'
 } as const
 
-/**
- * Paul Tol Bright Palette (Recommended for EuroVIS/IEEE VIS submissions)
- * Source: Paul Tol's Technical Note (SRON)
- * - Colorblind-safe qualitative scheme with 7 colors
- * - Distinct for all viewers including colorblind readers
- * - Optimized for both screen and print
- */
 export const PAUL_TOL_BRIGHT = {
   BLUE: '#4477AA',
   CYAN: '#66CCEE',
@@ -144,16 +114,7 @@ export const EUROVIS_PALETTE = {
   NEUTRAL_BLACK: OKABE_ITO_PALETTE.BLACK          // #000000
 } as const
 
-/**
- * Neutral Icon Colors for UI Elements
- * Used for icons, badges, and UI components to avoid competing with data visualization colors
- *
- * COLOR USAGE HIERARCHY:
- * - Vibrant colors (Okabe-Ito/Paul Tol): Reserved for data encoding (metrics, categories, flows)
- * - Neutral colors (grayscale): Used for UI elements, icons, controls, labels
- *
- * This separation ensures color remains an effective encoding channel for data visualization
- */
+
 export const NEUTRAL_ICON_COLORS = {
   // Icon fills and strokes
   ICON_FILL: '#6b7280',        // Medium gray - main icon color
@@ -182,18 +143,6 @@ export const NEUTRAL_ICON_COLORS = {
 // Based on Okabe-Ito colorblind-safe palette
 // Uses same opacity pattern as consistency colors: white (low) → color (high)
 // ============================================================================
-
-/**
- * Metric score gradient colors: white (low) → color (high)
- * Each metric has its own distinct color gradient using opacity
- *
- * Uses hex color with alpha channel for systematic color blending:
- * - LOW: 00 (0% opacity - transparent, white background shows through)
- * - MEDIUM: 80 (50% opacity - blended with white background)
- * - HIGH: FF (100% opacity - full color)
- *
- * Format: PALETTE.COLOR + hex_alpha → #RRGGBBAA
- */
 export const METRIC_COLORS = {
   FEATURE_SPLITTING: PAUL_TOL_BRIGHT.RED,
 
@@ -226,6 +175,36 @@ export const METRIC_COLORS = {
     HIGH: '#1f2937FF'    // 100% opacity (dark gray) - 1.0 score
   }
 } as const
+
+/**
+ * Get the base 6-digit hex color for a metric (without alpha channel)
+ * Handles both simple colors and gradient objects
+ *
+ * Single source of truth for metric colors - change colors in METRIC_COLORS
+ * and all visualizations update automatically
+ *
+ * @param metric - Metric type
+ * @returns 6-digit hex color string (e.g., '#0072B2')
+ */
+export function getMetricBaseColor(metric: string): string {
+  switch (metric) {
+    case METRIC_FEATURE_SPLITTING:
+      return METRIC_COLORS.FEATURE_SPLITTING
+    case METRIC_SEMANTIC_SIMILARITY:
+      return METRIC_COLORS.SEMANTIC_SIMILARITY
+    case METRIC_SCORE_EMBEDDING:
+      // Extract base color from HIGH value (strip 'FF' alpha)
+      return METRIC_COLORS.SCORE_EMBEDDING.HIGH.slice(0, 7)
+    case METRIC_SCORE_FUZZ:
+      return METRIC_COLORS.SCORE_FUZZ.HIGH.slice(0, 7)
+    case METRIC_SCORE_DETECTION:
+      return METRIC_COLORS.SCORE_DETECTION.HIGH.slice(0, 7)
+    case METRIC_QUALITY_SCORE:
+      return METRIC_COLORS.QUALITY_SCORE_COLORS.HIGH.slice(0, 7)
+    default:
+      return '#6b7280'  // Default gray
+  }
+}
 
 // ============================================================================
 // COMPONENT TYPE COLORS - Centralized color mapping for SAE components

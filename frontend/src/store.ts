@@ -22,6 +22,7 @@ import { processFeatureGroupResponse, convertTreeToSankeyStructure, getNodeThres
 import {
   PANEL_LEFT,
   PANEL_RIGHT,
+  METRIC_FEATURE_SPLITTING,
   METRIC_SEMANTIC_SIMILARITY,
   METRIC_QUALITY_SCORE,
   METRIC_SCORE_EMBEDDING,
@@ -43,6 +44,8 @@ const mapTableSortToSankeyMetric = (sortBy: string | null): string | null => {
   if (!sortBy) return null
 
   const mappings: Record<string, string> = {
+    [METRIC_FEATURE_SPLITTING]: METRIC_FEATURE_SPLITTING,
+    [METRIC_SEMANTIC_SIMILARITY]: METRIC_SEMANTIC_SIMILARITY,
     [METRIC_QUALITY_SCORE]: METRIC_QUALITY_SCORE,
     [METRIC_SCORE_EMBEDDING]: METRIC_SCORE_EMBEDDING,
     [METRIC_SCORE_FUZZ]: METRIC_SCORE_FUZZ,
@@ -60,6 +63,8 @@ const mapSankeyMetricToTableSort = (metric: string | null): string | null => {
   if (!metric) return null
 
   const mappings: Record<string, string> = {
+    [METRIC_FEATURE_SPLITTING]: METRIC_FEATURE_SPLITTING,
+    [METRIC_SEMANTIC_SIMILARITY]: METRIC_SEMANTIC_SIMILARITY,
     [METRIC_QUALITY_SCORE]: METRIC_QUALITY_SCORE,
     [METRIC_SCORE_EMBEDDING]: METRIC_SCORE_EMBEDDING,
     [METRIC_SCORE_FUZZ]: METRIC_SCORE_FUZZ,

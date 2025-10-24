@@ -149,7 +149,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
         setCellHeight(height)
       }
     }
-  }, [tableData])
+  }, [])
 
 
   // Track scroll position for vertical bar scroll indicator

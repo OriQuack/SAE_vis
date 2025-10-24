@@ -9,7 +9,8 @@ import {
   CATEGORY_ROOT,
   CATEGORY_FEATURE_SPLITTING,
   CATEGORY_SEMANTIC_SIMILARITY,
-  METRIC_DISPLAY_NAMES
+  METRIC_DISPLAY_NAMES,
+  getMetricBaseColor
 } from './constants'
 
 // ============================================================================
@@ -341,25 +342,24 @@ export function getNodeColor(node: D3SankeyNode): string {
 
 export function getLinkColor(link: D3SankeyLink): string {
   // Defensive checks for d3-sankey processed data
-  if (!link?.source) {
-    console.warn('getLinkColor: Link source is undefined, using default color')
-    return '#6b728080'
+  if (!link?.target) {
+    console.warn('getLinkColor: Link target is undefined, using default color')
+    return '#6b728040'  // 25% opacity
   }
 
-  const sourceNode = link.source as D3SankeyNode
+  const targetNode = link.target as D3SankeyNode
 
-  // Check if category exists on the source node
-  if (!sourceNode?.category) {
-    console.warn('getLinkColor: Source node category is undefined:', {
-      sourceNode,
-      hasCategory: 'category' in sourceNode,
-      nodeKeys: Object.keys(sourceNode)
-    })
-    return '#6b728080' // Default gray with transparency
+  // Get metric from target node (links inherit the metric of the stage they flow into)
+  const metric = targetNode?.metric
+
+  if (!metric) {
+    // No metric: use default gray (root node or nodes without metrics)
+    return '#6b728040'  // 25% opacity
   }
 
-  const baseColor = SANKEY_COLORS[sourceNode.category] || '#6b7280'
-  return `${baseColor}80` // Add transparency
+  // Get base color from centralized source and apply 25% opacity
+  const baseColor = getMetricBaseColor(metric)
+  return `${baseColor}40`  // Add 25% opacity (hex '40' = 64/255)
 }
 
 // ============================================================================

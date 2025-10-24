@@ -50,40 +50,24 @@ const QualityScoreBreakdown: React.FC<QualityScoreBreakdownProps> = React.memo((
     const detectionZMax = detectionZScores.length > 0 ? Math.max(...detectionZScores) : null
     const detectionZAvg = detectionZScores.length > 0 ? detectionZScores.reduce((a, b) => a + b, 0) / detectionZScores.length : null
 
-    // Calculate normalized scores for opacity (using z-score averages for normalization)
-    const embeddingNormalized = explainerData.embedding !== null && globalStats.embedding
-      ? Math.max(0, Math.min(1, (embeddingZScore! - globalStats.embedding.z_min) / (globalStats.embedding.z_max - globalStats.embedding.z_min)))
-      : null
-
-    const fuzzNormalized = fuzzZAvg !== null && globalStats.fuzz
-      ? Math.max(0, Math.min(1, (fuzzZAvg - globalStats.fuzz.z_min) / (globalStats.fuzz.z_max - globalStats.fuzz.z_min)))
-      : null
-
-    const detectionNormalized = detectionZAvg !== null && globalStats.detection
-      ? Math.max(0, Math.min(1, (detectionZAvg - globalStats.detection.z_min) / (globalStats.detection.z_max - globalStats.detection.z_min)))
-      : null
-
     return {
       id: explainerId,
       name: getExplainerDisplayName(explainerId),
       embedding: {
         zScore: embeddingZScore,
-        normalized: embeddingNormalized,
-        color: embeddingNormalized !== null ? getMetricColor('embedding', embeddingNormalized) : '#cccccc'
+        color: embeddingZScore !== null ? getMetricColor('embedding', 0.5) : '#cccccc'
       },
       fuzz: {
         zMin: fuzzZMin,
         zMax: fuzzZMax,
         zAvg: fuzzZAvg,
-        normalized: fuzzNormalized,
-        color: fuzzNormalized !== null ? getMetricColor('fuzz', fuzzNormalized) : '#cccccc'
+        color: fuzzZAvg !== null ? getMetricColor('fuzz', 0.5) : '#cccccc'
       },
       detection: {
         zMin: detectionZMin,
         zMax: detectionZMax,
         zAvg: detectionZAvg,
-        normalized: detectionNormalized,
-        color: detectionNormalized !== null ? getMetricColor('detection', detectionNormalized) : '#cccccc'
+        color: detectionZAvg !== null ? getMetricColor('detection', 0.5) : '#cccccc'
       }
     }
   }).filter(m => m !== null)
@@ -180,7 +164,7 @@ const QualityScoreBreakdown: React.FC<QualityScoreBreakdownProps> = React.memo((
               stroke="#000000"
               strokeWidth={1}
               strokeDasharray="4,2"
-              opacity={0.4}
+              opacity={1}
             />
           )}
 
@@ -231,7 +215,7 @@ const QualityScoreBreakdown: React.FC<QualityScoreBreakdownProps> = React.memo((
                     rx={pillWidth / 2}
                     ry={pillWidth / 2}
                     fill={metrics.fuzz.color}
-                    opacity={0.8}
+                    opacity={1}
                   />
                 )}
 
@@ -245,7 +229,7 @@ const QualityScoreBreakdown: React.FC<QualityScoreBreakdownProps> = React.memo((
                     rx={pillWidth / 2}
                     ry={pillWidth / 2}
                     fill={metrics.detection.color}
-                    opacity={0.8}
+                    opacity={1}
                   />
                 )}
 

@@ -499,7 +499,7 @@ const SankeyNodeHistogram: React.FC<{
           width={bar.width}
           height={bar.height}
           fill={bar.color}
-          fillOpacity={0.45}
+          fillOpacity={0.75}
           stroke="white"
           strokeWidth={0.3}
           strokeOpacity={0.6}

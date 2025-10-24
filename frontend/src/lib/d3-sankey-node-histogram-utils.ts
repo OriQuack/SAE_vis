@@ -11,6 +11,15 @@
 import { scaleLinear } from 'd3-scale'
 import { max } from 'd3-array'
 import type { D3SankeyNode, D3SankeyLink, HistogramData } from '../types'
+import {
+  METRIC_COLORS,
+  METRIC_FEATURE_SPLITTING,
+  METRIC_SEMANTIC_SIMILARITY,
+  METRIC_SCORE_FUZZ,
+  METRIC_SCORE_DETECTION,
+  METRIC_SCORE_EMBEDDING,
+  METRIC_QUALITY_SCORE
+} from './constants'
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -44,13 +53,36 @@ export interface NodeHistogramLayout {
 // CONSTANTS
 // ============================================================================
 
-const HISTOGRAM_BAR_COLOR = '#94a3b8'  // Gray-blue
 const HISTOGRAM_MAX_WIDTH = 80         // Maximum width of histogram bars
 const HISTOGRAM_MARGIN = 5             // Space between node and histogram
 
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
+
+/**
+ * Get the color for a histogram based on its metric
+ * Returns metric-specific color with higher opacity for better visibility
+ */
+function getHistogramColorForMetric(metric: string): string {
+  switch (metric) {
+    case METRIC_FEATURE_SPLITTING:
+      return METRIC_COLORS.FEATURE_SPLITTING
+    case METRIC_SEMANTIC_SIMILARITY:
+      return METRIC_COLORS.SEMANTIC_SIMILARITY
+    case METRIC_SCORE_EMBEDDING:
+      return METRIC_COLORS.SCORE_EMBEDDING.HIGH
+    case METRIC_SCORE_FUZZ:
+      return METRIC_COLORS.SCORE_FUZZ.HIGH
+    case METRIC_SCORE_DETECTION:
+      return METRIC_COLORS.SCORE_DETECTION.HIGH
+    case METRIC_QUALITY_SCORE:
+      return METRIC_COLORS.QUALITY_SCORE_COLORS.HIGH
+    default:
+      // Fallback to gray-blue for unknown metrics
+      return '#94a3b8'
+  }
+}
 
 /**
  * Check if a node has outgoing links (is a source node)
@@ -67,19 +99,16 @@ export function hasOutgoingLinks(
 
 /**
  * Get the metric for a node's histogram
- * For root node, use the target nodes' metric
- * For other nodes, use the node's own metric
+ * ALWAYS uses the target nodes' (children's) metric
+ * This shows what metric will be used to split this node into children
  */
 export function getNodeHistogramMetric(
   node: D3SankeyNode,
   links: D3SankeyLink[]
 ): string | null {
-  // If node has a metric, use it
-  if (node.metric) {
-    return node.metric
-  }
-
-  // For root node (no metric), get metric from first target node
+  // ALWAYS get metric from target nodes (children)
+  // This shows "what metric splits this node into children"
+  // NOT the metric used to create this node from its parent
   const firstOutgoingLink = links.find(link => {
     const sourceId = typeof link.source === 'object' ? link.source.id : link.source
     return sourceId === node.id
@@ -111,7 +140,8 @@ export function getNodeHistogramMetric(
 function calculateNodeHistogramBars(
   data: HistogramData,
   node: D3SankeyNode,
-  maxBarWidth: number
+  maxBarWidth: number,
+  metric: string
 ): NodeHistogramBar[] {
   if (!data.histogram?.counts || data.histogram.counts.length === 0) {
     return []
@@ -135,6 +165,9 @@ function calculateNodeHistogramBars(
     .domain([data.statistics.min, data.statistics.max])
     .range([nodeY0, nodeY1])  // min at top, max at bottom
 
+  // Get metric-specific color
+  const barColor = getHistogramColorForMetric(metric)
+
   // Calculate bars
   const bars: NodeHistogramBar[] = data.histogram.counts.map((count, i) => {
     const binStart = data.histogram.bin_edges[i]
@@ -156,7 +189,7 @@ function calculateNodeHistogramBars(
       y: y,
       width: barWidth,
       height: Math.max(1, barHeight - 0.5), // Small gap between bars
-      color: HISTOGRAM_BAR_COLOR,
+      color: barColor,
       binData: {
         x0: binStart,
         x1: binEnd,
@@ -203,11 +236,12 @@ export function calculateNodeHistogramLayout(
   // Calculate node dimensions
   const nodeHeight = node.y1 - node.y0
 
-  // Calculate bars
+  // Calculate bars with metric-specific colors
   const bars = calculateNodeHistogramBars(
     histogramData,
     node,
-    HISTOGRAM_MAX_WIDTH
+    HISTOGRAM_MAX_WIDTH,
+    metric
   )
 
   return {
