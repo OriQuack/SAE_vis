@@ -79,14 +79,6 @@ export interface SankeyTreeNode {
 }
 
 /**
- * Cached Feature Groups - Global cache for feature groups to avoid redundant backend calls
- * Key format: "metric:threshold1,threshold2,..."
- */
-export interface CachedFeatureGroups {
-  [key: string]: FeatureGroup[]      // Cached groups indexed by metric and thresholds
-}
-
-/**
  * Tree-based Sankey Structure - Complete tree representation for Sankey diagram
  */
 export interface TreeBasedSankeyStructure {

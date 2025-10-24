@@ -11,8 +11,7 @@ import type {
   SankeyNode,
   NodeCategory,
   SortBy,
-  SortDirection,
-  CachedFeatureGroups
+  SortDirection
 } from '../types'
 import { getNodeThresholdPath } from '../lib/threshold-utils'
 import {
@@ -42,9 +41,6 @@ interface AppState {
   loading: LoadingStates & { sankeyLeft?: boolean; sankeyRight?: boolean }
   errors: ErrorStates & { sankeyLeft?: string | null; sankeyRight?: string | null }
 
-  // Global cache for feature groups (shared across panels)
-  cachedGroups: CachedFeatureGroups
-
   // Hover state for cross-component highlighting
   hoveredAlluvialNodeId: string | null
   hoveredAlluvialPanel: 'left' | 'right' | null
@@ -66,7 +62,7 @@ interface AppState {
   loadRootFeatures: (panel?: PanelSide) => Promise<void>
 
   // Data setters
-  setHistogramData: (data: Record<string, HistogramData> | null, panel?: PanelSide) => void
+  setHistogramData: (data: Record<string, HistogramData> | null, panel?: PanelSide, nodeId?: string) => void
 
   // UI actions
   showHistogramPopover: (
@@ -151,9 +147,6 @@ const initialState = {
     table: null
   },
 
-  // Global cache for feature groups
-  cachedGroups: {} as CachedFeatureGroups,
-
   // Alluvial flows
   alluvialFlows: null,
 
@@ -207,7 +200,7 @@ export const useStore = create<AppState>((set, get) => ({
     }))
   },
 
-  setHistogramData: (data, panel = PANEL_LEFT) => {
+  setHistogramData: (data, panel = PANEL_LEFT, nodeId?: string) => {
     const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
     set((state) => ({
       [panelKey]: {
@@ -215,7 +208,14 @@ export const useStore = create<AppState>((set, get) => ({
         // Merge new histogram data with existing data instead of replacing
         histogramData: data ? {
           ...state[panelKey].histogramData,
-          ...data
+          // Transform data keys to include nodeId if provided
+          ...Object.fromEntries(
+            Object.entries(data).map(([metric, histData]) => {
+              // Create composite key: "metric:nodeId" or just "metric" if no nodeId
+              const key = nodeId ? `${metric}:${nodeId}` : metric
+              return [key, histData]
+            })
+          )
         } : null
       }
     }))
@@ -325,7 +325,7 @@ export const useStore = create<AppState>((set, get) => ({
 
       const histogramData = await api.getHistogramData(request)
 
-      state.setHistogramData({ [targetMetric]: histogramData }, panel)
+      state.setHistogramData({ [targetMetric]: histogramData }, panel, nodeId)
 
       state.setLoading('histogram', false)
     } catch (error) {
@@ -388,7 +388,7 @@ export const useStore = create<AppState>((set, get) => ({
       const results = await Promise.all(histogramPromises)
       const combinedData = results.reduce((acc, result) => ({ ...acc, ...result }), {})
 
-      state.setHistogramData(combinedData, panel)
+      state.setHistogramData(combinedData, panel, nodeId)
 
       state.setLoading('histogram', false)
     } catch (error) {

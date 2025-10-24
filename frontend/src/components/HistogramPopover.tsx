@@ -343,15 +343,19 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     if (nodeThresholds.length > thresholdIndex) {
       return nodeThresholds[thresholdIndex]
     }
-    return histogramData?.[metric]?.statistics?.mean || 0.5
-  }, [nodeThresholds, histogramData])
+    const nodeId = popoverData?.nodeId || ''
+    const compositeKey = nodeId ? `${metric}:${nodeId}` : metric
+    return histogramData?.[compositeKey]?.statistics?.mean || 0.5
+  }, [nodeThresholds, histogramData, popoverData?.nodeId])
 
   // Validation
   const validationErrors = useMemo(() => {
     const errors: string[] = []
     if (histogramData && popoverData?.metrics) {
+      const nodeId = popoverData?.nodeId || ''
       popoverData.metrics.forEach(metric => {
-        const metricData = histogramData[metric]
+        const compositeKey = nodeId ? `${metric}:${nodeId}` : metric
+        const metricData = histogramData[compositeKey]
         if (metricData) {
           errors.push(...validateHistogramData(metricData))
         } else {
@@ -361,7 +365,7 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     }
     errors.push(...validateDimensions(containerSize.width, containerSize.height))
     return errors
-  }, [histogramData, popoverData?.metrics, containerSize])
+  }, [histogramData, popoverData?.metrics, popoverData?.nodeId, containerSize])
 
   // Calculate layout - filter histogram data to only show requested metrics
   const layout = useMemo(() => {
@@ -371,9 +375,11 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
 
     // Filter histogram data to only include the metrics that should be displayed
     const filteredHistogramData: Record<string, HistogramData> = {}
+    const nodeId = popoverData?.nodeId || ''
     popoverData.metrics.forEach(metric => {
-      if (histogramData[metric]) {
-        filteredHistogramData[metric] = histogramData[metric]
+      const compositeKey = nodeId ? `${metric}:${nodeId}` : metric
+      if (histogramData[compositeKey]) {
+        filteredHistogramData[metric] = histogramData[compositeKey]
       }
     })
 
@@ -742,7 +748,9 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
 
               {layout.charts.map(chart => {
                 const metric = chart.metric
-                const data = histogramData[metric]
+                const nodeId = popoverData?.nodeId || ''
+                const compositeKey = nodeId ? `${metric}:${nodeId}` : metric
+                const data = histogramData[compositeKey]
                 const threshold = getEffectiveThresholdValue(metric, 0)  // Use first threshold (index 0)
 
                 if (!data) return null
@@ -765,7 +773,9 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
               {hoveredBarInfo && histogramData && (() => {
                 const { barIndex, chart } = hoveredBarInfo
                 const metric = chart.metric
-                const data = histogramData[metric]
+                const nodeId = popoverData?.nodeId || ''
+                const compositeKey = nodeId ? `${metric}:${nodeId}` : metric
+                const data = histogramData[compositeKey]
                 const threshold = getEffectiveThresholdValue(metric, 0)  // Use first threshold (index 0)
 
                 if (!data) return null

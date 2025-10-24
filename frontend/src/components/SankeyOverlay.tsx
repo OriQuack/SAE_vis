@@ -149,6 +149,7 @@ function calculateThresholdFromHandleY(
 
 /**
  * Determine if node should show threshold slider handles
+ * Only show handles on rightmost stage parents (whose children are all leaf nodes)
  */
 function shouldShowHandles(
   node: D3SankeyNode,
@@ -157,9 +158,15 @@ function shouldShowHandles(
   if (!sankeyTree) return false
 
   const treeNode = sankeyTree.get(node.id)
-  if (!treeNode) return false
+  if (!treeNode || treeNode.children.length === 0) return false
 
-  return treeNode.children.length > 0  // Has been split
+  // Check if ALL children are leaf nodes (no grandchildren exist)
+  const allChildrenAreLeaves = treeNode.children.every((childId: string) => {
+    const child = sankeyTree.get(childId)
+    return child && child.children.length === 0
+  })
+
+  return allChildrenAreLeaves
 }
 
 // ============================================================================
@@ -733,8 +740,9 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
 
           if (!metric) return null
 
-          // Get histogram data for the metric
-          const metricHistogramData = histogramData?.[metric] || null
+          // Get histogram data for the metric using composite key (metric:nodeId)
+          const compositeKey = `${metric}:${node.id}`
+          const metricHistogramData = histogramData?.[compositeKey] || null
 
           // Only render if we should display histogram for this node
           if (!shouldDisplayNodeHistogram(node, layout.links, histogramData)) return null
@@ -768,8 +776,9 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
             return null
           }
 
-          // Get histogram data for min/max values
-          const metricHistogramData = histogramData?.[metric]
+          // Get histogram data for min/max values using composite key (metric:nodeId)
+          const compositeKey = `${metric}:${node.id}`
+          const metricHistogramData = histogramData?.[compositeKey]
 
           if (!metricHistogramData) {
             return null

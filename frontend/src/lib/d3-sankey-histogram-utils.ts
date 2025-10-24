@@ -251,7 +251,7 @@ export function calculateNodeHistogramLayout(
  * Criteria:
  * - Node has outgoing links (is a source)
  * - Node or its targets have a metric
- * - Histogram data exists for that metric
+ * - Histogram data exists for that metric using composite key (metric:nodeId)
  */
 export function shouldDisplayNodeHistogram(
   node: D3SankeyNode,
@@ -269,8 +269,13 @@ export function shouldDisplayNodeHistogram(
     return false
   }
 
-  // Check if histogram data exists for this metric
-  if (!histogramData || !histogramData[metric]) {
+  // Check if histogram data exists using composite key (metric:nodeId)
+  if (!histogramData) {
+    return false
+  }
+
+  const compositeKey = `${metric}:${node.id}`
+  if (!histogramData[compositeKey]) {
     return false
   }
 
