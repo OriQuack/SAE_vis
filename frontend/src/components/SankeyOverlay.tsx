@@ -8,7 +8,9 @@ import {
   METRIC_SCORE_EMBEDDING,
   METRIC_QUALITY_SCORE,
   CONSISTENCY_THRESHOLDS,
-  METRIC_COLORS
+  METRIC_COLORS,
+  OKABE_ITO_PALETTE,
+  NEUTRAL_ICON_COLORS
 } from '../lib/constants'
 import {
   calculateNodeHistogramLayout,
@@ -179,19 +181,50 @@ const NodeThresholdSliders: React.FC<NodeThresholdSlidersProps> = ({
   onThresholdUpdate
 }) => {
   const [draggingHandle, setDraggingHandle] = useState<number | null>(null)
+  const [hoveredHandle, setHoveredHandle] = useState<number | null>(null)
   const [tempThresholds, setTempThresholds] = useState<number[]>(thresholds)
   const rafIdRef = useRef<number | null>(null)
+  const svgElementRef = useRef<SVGSVGElement | null>(null)
+  const marginTopRef = useRef<number>(0)
+  const justUpdatedRef = useRef<boolean>(false)
 
-  // Update temp thresholds when props change
+  // Update temp thresholds when props change (but NOT if we just updated them ourselves)
+  // This prevents the "snap back" effect when releasing the mouse
   React.useEffect(() => {
+    // If we just updated the thresholds ourselves, skip syncing back from props
+    if (justUpdatedRef.current) {
+      justUpdatedRef.current = false
+      return
+    }
+
+    // Only sync from props when not dragging
     if (draggingHandle === null) {
       setTempThresholds(thresholds)
     }
   }, [thresholds, draggingHandle])
 
+  // Keep displaying temp thresholds until props update
+  const displayThresholds = tempThresholds
+
   const handleMouseDown = useCallback((handleIndex: number) => (e: React.MouseEvent) => {
     e.stopPropagation()
     e.preventDefault()  // Prevent text selection
+
+    // Store SVG element and margin for use during drag
+    const svgElement = (e.target as Element).closest('svg') as SVGSVGElement
+    if (svgElement) {
+      svgElementRef.current = svgElement
+    }
+
+    // Get margin from parent g element
+    const parentG = (e.target as Element).closest('g[transform]')
+    if (parentG) {
+      const transform = parentG.getAttribute('transform')
+      const match = transform?.match(/translate\([^,]+,\s*(\d+)\)/)
+      if (match) {
+        marginTopRef.current = parseInt(match[1])
+      }
+    }
 
     // Disable selection globally during drag
     document.body.style.userSelect = 'none'
@@ -211,25 +244,15 @@ const NodeThresholdSliders: React.FC<NodeThresholdSlidersProps> = ({
     }
 
     rafIdRef.current = requestAnimationFrame(() => {
-      // Get SVG element to calculate correct coordinates
-      const svgElement = (e.target as Element).closest('svg')
+      // Use stored SVG element reference (captured at drag start)
+      const svgElement = svgElementRef.current
       if (!svgElement) return
 
       const svgRect = svgElement.getBoundingClientRect()
       const svgY = e.clientY - svgRect.top
 
-      // Account for margin transform (get margin from parent g element)
-      const parentG = (e.target as Element).closest('g[transform]')
-      let marginTop = 0
-      if (parentG) {
-        const transform = parentG.getAttribute('transform')
-        const match = transform?.match(/translate\([^,]+,\s*(\d+)\)/)
-        if (match) {
-          marginTop = parseInt(match[1])
-        }
-      }
-
-      const adjustedY = svgY - marginTop
+      // Use stored margin (captured at drag start)
+      const adjustedY = svgY - marginTopRef.current
 
       // Clamp Y within node bounds
       const clampedY = Math.max(node.y0!, Math.min(node.y1!, adjustedY))
@@ -275,6 +298,13 @@ const NodeThresholdSliders: React.FC<NodeThresholdSlidersProps> = ({
       rafIdRef.current = null
     }
 
+    // Clear stored references
+    svgElementRef.current = null
+    marginTopRef.current = 0
+
+    // Mark that we're updating the thresholds ourselves (to prevent snap-back)
+    justUpdatedRef.current = true
+
     // Call update with final thresholds
     onThresholdUpdate(node.id || '', tempThresholds)
     setDraggingHandle(null)
@@ -297,8 +327,6 @@ const NodeThresholdSliders: React.FC<NodeThresholdSlidersProps> = ({
     return null
   }
 
-  const displayThresholds = draggingHandle !== null ? tempThresholds : thresholds
-
   return (
     <g className="sankey-threshold-sliders">
       {displayThresholds.map((threshold, index) => {
@@ -309,49 +337,117 @@ const NodeThresholdSliders: React.FC<NodeThresholdSlidersProps> = ({
           node.y0!,
           node.y1!
         )
-        const isHovered = draggingHandle === index
+        const isDragging = draggingHandle === index
+        const isHovered = hoveredHandle === index && !isDragging
+
+        // Professional color states
+        const lineColor = isDragging || isHovered ? OKABE_ITO_PALETTE.BLUE : NEUTRAL_ICON_COLORS.ICON_FILL
+        const lineOpacity = isDragging ? 1.0 : isHovered ? 0.8 : 0.4
+        const handleFillColor = isDragging || isHovered ? OKABE_ITO_PALETTE.BLUE : NEUTRAL_ICON_COLORS.ICON_FILL
+        const handleFillOpacity = isDragging ? 1.0 : isHovered ? 0.9 : 0.6
+        const handleStrokeColor = isDragging || isHovered ? OKABE_ITO_PALETTE.BLUE : NEUTRAL_ICON_COLORS.ICON_STROKE
+        const handleStrokeOpacity = isDragging ? 1.0 : isHovered ? 0.8 : 0.5
+        const gripColor = '#ffffff'
+        const gripOpacity = isDragging || isHovered ? 1.0 : 0.8
+
+        // Handle dimensions
+        const handleWidth = 20
+        const handleHeight = 16
+        const handleX = node.x0! - handleWidth / 2
 
         return (
           <g key={index}>
-            {/* Horizontal line */}
+            {/* Threshold line spanning full node width */}
             <line
               x1={node.x0!}
               y1={y}
-              x2={node.x0! - 10}
+              x2={node.x1!}
               y2={y}
-              stroke="#3b82f6"
-              strokeWidth={2}
-              opacity={isHovered ? 1 : 0.8}
-              style={{ pointerEvents: 'none' }}
+              stroke={lineColor}
+              strokeWidth={isDragging ? 2 : 1.5}
+              strokeDasharray={isDragging ? 'none' : '4,3'}
+              opacity={lineOpacity}
+              style={{
+                pointerEvents: 'none',
+                transition: 'stroke 150ms ease-out, stroke-width 150ms ease-out, opacity 150ms ease-out'
+              }}
             />
 
-            {/* Drag handle */}
-            <circle
-              cx={node.x0! - 10}
-              cy={y}
-              r={8}
-              fill="#3b82f6"
-              stroke="#ffffff"
-              strokeWidth={2}
-              opacity={isHovered ? 0.9 : 0.8}
-              style={{ cursor: 'ns-resize' }}
+            {/* Professional grip-style handle - rounded rectangle with 3 grip lines */}
+            <g
               onMouseDown={handleMouseDown(index)}
-            />
+              onMouseEnter={() => setHoveredHandle(index)}
+              onMouseLeave={() => setHoveredHandle(null)}
+              style={{ cursor: 'ns-resize' }}
+            >
+              {/* Handle background (rounded rectangle) */}
+              <rect
+                x={handleX}
+                y={y - handleHeight / 2}
+                width={handleWidth}
+                height={handleHeight}
+                rx={3}
+                fill={handleFillColor}
+                fillOpacity={handleFillOpacity}
+                stroke={handleStrokeColor}
+                strokeWidth={1}
+                strokeOpacity={handleStrokeOpacity}
+                style={{
+                  transition: 'fill 150ms ease-out, fill-opacity 150ms ease-out, stroke 150ms ease-out, stroke-opacity 150ms ease-out'
+                }}
+              />
 
-            {/* Threshold value label (show when dragging) */}
-            {isHovered && (
-              <text
-                x={node.x0! - 25}
-                y={y}
-                dy="0.35em"
-                fontSize="11"
-                fontFamily="monospace"
-                fill="#1f2937"
-                textAnchor="end"
-                style={{ pointerEvents: 'none', userSelect: 'none' }}
-              >
-                {threshold.toFixed(3)}
-              </text>
+              {/* Grip lines (3 horizontal lines) */}
+              {[-4, 0, 4].map((offset, i) => (
+                <line
+                  key={i}
+                  x1={handleX + 5}
+                  y1={y + offset}
+                  x2={handleX + handleWidth - 5}
+                  y2={y + offset}
+                  stroke={gripColor}
+                  strokeWidth={1.5}
+                  strokeOpacity={gripOpacity}
+                  strokeLinecap="round"
+                  style={{
+                    pointerEvents: 'none',
+                    transition: 'stroke-opacity 150ms ease-out'
+                  }}
+                />
+              ))}
+            </g>
+
+            {/* Threshold value label (show only when dragging, with background for contrast) */}
+            {isDragging && (
+              <g>
+                {/* Background rectangle for contrast */}
+                <rect
+                  x={node.x0! - 58}
+                  y={y - 10}
+                  width={50}
+                  height={20}
+                  rx={3}
+                  fill={NEUTRAL_ICON_COLORS.BACKGROUND_MEDIUM}
+                  stroke={NEUTRAL_ICON_COLORS.BORDER_MEDIUM}
+                  strokeWidth={1}
+                  opacity={0.95}
+                  style={{ pointerEvents: 'none' }}
+                />
+                {/* Threshold value text */}
+                <text
+                  x={node.x0! - 33}
+                  y={y}
+                  dy="0.35em"
+                  fontSize="11"
+                  fontFamily="monospace"
+                  fontWeight="600"
+                  fill={NEUTRAL_ICON_COLORS.TEXT_PRIMARY}
+                  textAnchor="middle"
+                  style={{ pointerEvents: 'none', userSelect: 'none' }}
+                >
+                  {threshold.toFixed(3)}
+                </text>
+              </g>
             )}
           </g>
         )
@@ -684,15 +780,15 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
 
           // ALWAYS show exactly 2 sliders (top and bottom handles)
           let displayThresholds: number[]
-          let metricMin = min
-          let metricMax = max
+
+          // ALWAYS extend the range by 0.01 on both sides to prevent selecting features at exact min/max
+          const metricMin = min - 0.01
+          const metricMax = max + 0.01
 
           if (!thresholds || thresholds.length < 2) {
             // No thresholds or less than 2: place handles beyond data range to prevent accidental splits
             // Top handle at min - 0.01, bottom handle at max + 0.01
-            displayThresholds = [min - 0.01, max + 0.01]
-            metricMin = min - 0.01
-            metricMax = max + 0.01
+            displayThresholds = [metricMin, metricMax]
           } else {
             // Use first two thresholds only (always exactly 2 sliders)
             displayThresholds = [thresholds[0], thresholds[1]]

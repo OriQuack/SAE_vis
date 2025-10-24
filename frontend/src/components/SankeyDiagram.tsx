@@ -51,12 +51,8 @@ const SankeyNode: React.FC<{
   onMouseEnter: (e: React.MouseEvent) => void
   onMouseLeave: () => void
   onClick?: (e: React.MouseEvent) => void
-  onAddStage?: (e: React.MouseEvent) => void
-  onRemoveStage?: (e: React.MouseEvent) => void
   isHovered: boolean
   isHighlighted: boolean
-  canAddStage: boolean
-  canRemoveStage: boolean
   flowDirection: 'left-to-right' | 'right-to-left'
   animationDuration: number
 }> = ({
@@ -64,12 +60,8 @@ const SankeyNode: React.FC<{
   onMouseEnter,
   onMouseLeave,
   onClick,
-  onAddStage,
-  onRemoveStage,
   isHovered,
   isHighlighted,
-  canAddStage,
-  canRemoveStage,
   flowDirection,
   animationDuration
 }) => {
@@ -83,7 +75,6 @@ const SankeyNode: React.FC<{
   const isRightToLeft = flowDirection === 'right-to-left'
   const labelX = isRightToLeft ? node.x1 + 6 : node.x0 - 6
   const textAnchor = isRightToLeft ? 'start' : 'end'
-  const buttonX = isRightToLeft ? node.x0 - 15 : node.x1 + 15
 
   return (
     <g className="sankey-node">
@@ -134,70 +125,6 @@ const SankeyNode: React.FC<{
       >
         ({node.feature_count.toLocaleString()})
       </text>
-
-      {canAddStage && (
-        <g className="sankey-node-add-stage">
-          <circle
-            cx={buttonX}
-            cy={(node.y0 + node.y1) / 2}
-            r={12}
-            fill="#3b82f6"
-            stroke="#ffffff"
-            strokeWidth={2}
-            style={{
-              cursor: 'pointer',
-              opacity: isHovered ? 1 : 0.7,
-            //   transition: `all ${animationDuration}ms ease-out`
-            }}
-            onClick={onAddStage}
-            onMouseEnter={(e) => e.stopPropagation()}
-          />
-          <text
-            x={buttonX}
-            y={(node.y0 + node.y1) / 2}
-            dy="0.35em"
-            fontSize={14}
-            fill="#ffffff"
-            fontWeight="bold"
-            textAnchor="middle"
-            style={{ pointerEvents: 'none', userSelect: 'none' }}
-          >
-            +
-          </text>
-        </g>
-      )}
-
-      {canRemoveStage && (
-        <g className="sankey-node-remove-stage">
-          <circle
-            cx={buttonX}
-            cy={(node.y0 + node.y1) / 2}
-            r={12}
-            fill="#ef4444"
-            stroke="#ffffff"
-            strokeWidth={2}
-            style={{
-              cursor: 'pointer',
-              opacity: isHovered ? 1 : 0.7,
-            //   transition: `all ${animationDuration}ms ease-out`
-            }}
-            onClick={onRemoveStage}
-            onMouseEnter={(e) => e.stopPropagation()}
-          />
-          <text
-            x={buttonX}
-            y={(node.y0 + node.y1) / 2}
-            dy="0.35em"
-            fontSize={16}
-            fill="#ffffff"
-            fontWeight="bold"
-            textAnchor="middle"
-            style={{ pointerEvents: 'none', userSelect: 'none' }}
-          >
-            ×
-          </text>
-        </g>
-      )}
     </g>
   )
 }
@@ -251,29 +178,79 @@ const SankeyLink: React.FC<{
   )
 }
 
+// Button data interface for deferred rendering
+interface NodeButton {
+  nodeId: string
+  x: number
+  y: number
+  type: 'add' | 'remove'
+  isHovered: boolean
+  onClick: (e: React.MouseEvent) => void
+}
+
+// Standalone button rendering component
+const NodeButtons: React.FC<{
+  buttons: NodeButton[]
+  animationDuration: number
+}> = ({ buttons, animationDuration }) => {
+  return (
+    <g className="sankey-node-buttons">
+      {buttons.map((button) => {
+        const isAdd = button.type === 'add'
+        const buttonColor = isAdd ? '#3b82f6' : '#ef4444'
+        const buttonSymbol = isAdd ? '+' : '×'
+        const buttonFontSize = isAdd ? 14 : 16
+
+        return (
+          <g key={`${button.nodeId}-${button.type}`} className={`sankey-node-${button.type}-stage`}>
+            <circle
+              cx={button.x}
+              cy={button.y}
+              r={12}
+              fill={buttonColor}
+              stroke="#ffffff"
+              strokeWidth={2}
+              style={{
+                cursor: 'pointer',
+                opacity: button.isHovered ? 1 : 0.7,
+              //   transition: `all ${animationDuration}ms ease-out`
+              }}
+              onClick={button.onClick}
+              onMouseEnter={(e) => e.stopPropagation()}
+            />
+            <text
+              x={button.x}
+              y={button.y}
+              dy="0.35em"
+              fontSize={buttonFontSize}
+              fill="#ffffff"
+              fontWeight="bold"
+              textAnchor="middle"
+              style={{ pointerEvents: 'none', userSelect: 'none' }}
+            >
+              {buttonSymbol}
+            </text>
+          </g>
+        )
+      })}
+    </g>
+  )
+}
+
 const VerticalBarSankeyNode: React.FC<{
   node: D3SankeyNode
   scrollState: { scrollTop: number; scrollHeight: number; clientHeight: number } | null
-  onAddStage?: (e: React.MouseEvent) => void
-  onRemoveStage?: (e: React.MouseEvent) => void
-  canAddStage: boolean
-  canRemoveStage: boolean
   flowDirection: 'left-to-right' | 'right-to-left'
-  animationDuration: number
   totalFeatureCount?: number
   nodeStartIndex?: number
-}> = ({ node, scrollState, onAddStage, onRemoveStage, canAddStage, canRemoveStage, flowDirection, animationDuration: _animationDuration, totalFeatureCount = 0, nodeStartIndex = 0 }) => {
+}> = ({ node, scrollState, flowDirection, totalFeatureCount = 0, nodeStartIndex = 0 }) => {
   const layout = calculateVerticalBarNodeLayout(node, scrollState, totalFeatureCount, nodeStartIndex)
 
   // Check if this is a placeholder node
   const isPlaceholder = node.id === 'placeholder_vertical_bar'
 
-  // Calculate button position (same logic as standard nodes)
-  const isRightToLeft = flowDirection === 'right-to-left'
-  const buttonX = isRightToLeft && node.x0 !== undefined ? node.x0 - 15 : (node.x1 !== undefined ? node.x1 + 15 : 0)
-  const buttonY = node.y0 !== undefined && node.y1 !== undefined ? (node.y0 + node.y1) / 2 : 0
-
   // Calculate label position (same as normal nodes)
+  const isRightToLeft = flowDirection === 'right-to-left'
   const labelX = isRightToLeft && node.x1 !== undefined ? node.x1 + 6 : (node.x0 !== undefined ? node.x0 - 6 : 0)
   const textAnchor = isRightToLeft ? 'start' : 'end'
   const labelY = node.y0 !== undefined && node.y1 !== undefined ? (node.y0 + node.y1) / 2 : 0
@@ -345,72 +322,6 @@ const VerticalBarSankeyNode: React.FC<{
             ({node.feature_count.toLocaleString()})
           </text>
         </>
-      )}
-
-      {/* Add stage button - not shown for placeholder */}
-      {canAddStage && !isPlaceholder && (
-        <g className="sankey-node-add-stage">
-          <circle
-            cx={buttonX}
-            cy={buttonY}
-            r={12}
-            fill="#3b82f6"
-            stroke="#ffffff"
-            strokeWidth={2}
-            style={{
-              cursor: 'pointer',
-              opacity: 0.7,
-            //   transition: `all ${animationDuration}ms ease-out`
-            }}
-            onClick={onAddStage}
-            onMouseEnter={(e) => e.stopPropagation()}
-          />
-          <text
-            x={buttonX}
-            y={buttonY}
-            dy="0.35em"
-            fontSize={14}
-            fill="#ffffff"
-            fontWeight="bold"
-            textAnchor="middle"
-            style={{ pointerEvents: 'none', userSelect: 'none' }}
-          >
-            +
-          </text>
-        </g>
-      )}
-
-      {/* Remove stage button - not shown for placeholder */}
-      {canRemoveStage && !isPlaceholder && (
-        <g className="sankey-node-remove-stage">
-          <circle
-            cx={buttonX}
-            cy={buttonY}
-            r={12}
-            fill="#ef4444"
-            stroke="#ffffff"
-            strokeWidth={2}
-            style={{
-              cursor: 'pointer',
-              opacity: 0.7,
-            //   transition: `all ${animationDuration}ms ease-out`
-            }}
-            onClick={onRemoveStage}
-            onMouseEnter={(e) => e.stopPropagation()}
-          />
-          <text
-            x={buttonX}
-            y={buttonY}
-            dy="0.35em"
-            fontSize={16}
-            fill="#ffffff"
-            fontWeight="bold"
-            textAnchor="middle"
-            style={{ pointerEvents: 'none', userSelect: 'none' }}
-          >
-            ×
-          </text>
-        </g>
       )}
     </g>
   )
@@ -766,13 +677,75 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                 })
 
                 return layout.nodes.map((node) => {
-                  // Calculate common props for both node types
-                  // Use tree-based system for button visibility
+                  const isHighlighted = hoveredAlluvialNodeId === node.id &&
+                                      hoveredAlluvialPanel === (panel === PANEL_LEFT ? 'left' : 'right')
+
+                  // Check if this is a vertical bar node
+                  if (node.node_type === 'vertical_bar') {
+                    const nodeStartIndex = nodeIndices.get(node.id) || 0
+                    return (
+                      <VerticalBarSankeyNode
+                        key={node.id}
+                        node={node}
+                        scrollState={tableScrollState}
+                        flowDirection={flowDirection}
+                        totalFeatureCount={totalFeatures}
+                        nodeStartIndex={nodeStartIndex}
+                      />
+                    )
+                  }
+
+                  // Otherwise render standard node
+                  return (
+                    <SankeyNode
+                      key={node.id}
+                      node={node}
+                      isHovered={hoveredNodeId === node.id}
+                      isHighlighted={isHighlighted}
+                      onMouseEnter={() => setHoveredNodeId(node.id)}
+                      onMouseLeave={() => setHoveredNodeId(null)}
+                      onClick={showHistogramOnClick ? () => handleNodeHistogramClick(node) : undefined}
+                      flowDirection={flowDirection}
+                      animationDuration={animationDuration}
+                    />
+                  )
+                })
+              })()}
+            </g>
+
+            {/* Sankey Overlay - histograms, metric overlay, threshold sliders */}
+            <SankeyOverlay
+              layout={layout}
+              histogramData={histogramData}
+              animationDuration={animationDuration}
+              sankeyTree={sankeyTree}
+              onMetricClick={handleOverlayMetricClick}
+              onThresholdUpdate={handleThresholdUpdate}
+            />
+
+            {/* Node Buttons - rendered after overlay to appear on top */}
+            <g className="sankey-diagram__node-buttons">
+              {(() => {
+                const buttons: NodeButton[] = []
+                const isRightToLeft = flowDirection === 'right-to-left'
+
+                layout.nodes.forEach((node) => {
+                  // Skip placeholder nodes
+                  if (node.id === 'placeholder_vertical_bar') return
+
+                  // Calculate button position
+                  if (node.x0 === undefined || node.x1 === undefined || node.y0 === undefined || node.y1 === undefined) {
+                    return
+                  }
+
+                  const buttonX = isRightToLeft ? node.x0 - 15 : node.x1 + 15
+                  const buttonY = (node.y0 + node.y1) / 2
+
+                  // Determine button visibility using tree-based system
                   let canAdd = false
                   let canRemove = false
 
                   if (sankeyTree && computedSankey) {
-                    // Tree-based system: check if node exists and can have children
                     const treeNode = sankeyTree.get(node.id)
                     if (treeNode) {
                       // Don't show + button on root when it has no children (overlay is showing)
@@ -785,60 +758,34 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                     }
                   }
 
-                  const isHighlighted = hoveredAlluvialNodeId === node.id &&
-                                      hoveredAlluvialPanel === (panel === PANEL_LEFT ? 'left' : 'right')
-
-                  // Check if this is a vertical bar node
-                  if (node.node_type === 'vertical_bar') {
-                    const nodeStartIndex = nodeIndices.get(node.id) || 0
-                    return (
-                      <VerticalBarSankeyNode
-                        key={node.id}
-                        node={node}
-                        scrollState={tableScrollState}
-                        onAddStage={canAdd ? (e) => handleAddStageClick(e, node) : undefined}
-                        onRemoveStage={canRemove ? (e) => handleRemoveStageClick(e, node) : undefined}
-                        canAddStage={!!canAdd}
-                        canRemoveStage={!!canRemove}
-                        flowDirection={flowDirection}
-                        animationDuration={animationDuration}
-                        totalFeatureCount={totalFeatures}
-                        nodeStartIndex={nodeStartIndex}
-                      />
-                    )
+                  // Add button if applicable
+                  if (canAdd) {
+                    buttons.push({
+                      nodeId: node.id || '',
+                      x: buttonX,
+                      y: buttonY,
+                      type: 'add',
+                      isHovered: hoveredNodeId === node.id,
+                      onClick: (e) => handleAddStageClick(e, node)
+                    })
                   }
 
-                // Otherwise render standard node
-                return (
-                  <SankeyNode
-                    key={node.id}
-                    node={node}
-                    isHovered={hoveredNodeId === node.id}
-                    isHighlighted={isHighlighted}
-                    onMouseEnter={() => setHoveredNodeId(node.id)}
-                    onMouseLeave={() => setHoveredNodeId(null)}
-                    onClick={showHistogramOnClick ? () => handleNodeHistogramClick(node) : undefined}
-                    onAddStage={canAdd ? (e) => handleAddStageClick(e, node) : undefined}
-                    onRemoveStage={canRemove ? (e) => handleRemoveStageClick(e, node) : undefined}
-                    canAddStage={!!canAdd}
-                    canRemoveStage={!!canRemove}
-                    flowDirection={flowDirection}
-                    animationDuration={animationDuration}
-                  />
-                )
-              })
-            })()}
-            </g>
+                  // Remove button if applicable
+                  if (canRemove) {
+                    buttons.push({
+                      nodeId: node.id || '',
+                      x: buttonX,
+                      y: buttonY,
+                      type: 'remove',
+                      isHovered: hoveredNodeId === node.id,
+                      onClick: (e) => handleRemoveStageClick(e, node)
+                    })
+                  }
+                })
 
-            {/* Sankey Overlay - histograms, metric overlay, threshold sliders */}
-            <SankeyOverlay
-              layout={layout}
-              histogramData={histogramData}
-              animationDuration={animationDuration}
-              sankeyTree={sankeyTree}
-              onMetricClick={handleOverlayMetricClick}
-              onThresholdUpdate={handleThresholdUpdate}
-            />
+                return <NodeButtons buttons={buttons} animationDuration={animationDuration} />
+              })()}
+            </g>
           </g>
         </svg>
       </div>

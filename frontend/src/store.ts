@@ -953,26 +953,80 @@ export const useStore = create<AppState>((set, get) => ({
         }))
       }
 
-      // Rebuild this node and its descendants
-      const rebuildNodeAndDescendants = (tree: Map<string, SankeyTreeNode>, nodeId: string, newGroups: FeatureGroup[]): void => {
-        const node = tree.get(nodeId)!
-        const parentNode = node.parentId ? tree.get(node.parentId) : null
+      // Interface to capture entire subtree structure before deletion
+      interface SubtreeSplitState {
+        nodeId: string
+        metric: string | null
+        thresholds: number[]
+        featureIds: Set<number>
+        rangeLabel: string
+        children: SubtreeSplitState[]
+      }
 
-        // Remove old children
-        node.children.forEach(childId => tree.delete(childId))
+      // Helper to collect entire subtree structure before any modifications
+      const collectSubtreeStructure = (tree: Map<string, SankeyTreeNode>, nodeId: string): SubtreeSplitState[] => {
+        const node = tree.get(nodeId)
+        if (!node || node.children.length === 0) return []
+
+        return node.children.map(childId => {
+          const child = tree.get(childId)
+          if (!child) return null
+
+          return {
+            nodeId: childId,
+            metric: child.metric,
+            thresholds: child.thresholds,
+            featureIds: new Set(child.featureIds),
+            rangeLabel: child.rangeLabel,
+            children: collectSubtreeStructure(tree, childId) // Recursively collect grandchildren
+          }
+        }).filter((item): item is SubtreeSplitState => item !== null)
+      }
+
+      // Rebuild this node and its descendants
+      const rebuildNodeAndDescendants = async (
+        tree: Map<string, SankeyTreeNode>,
+        nodeId: string,
+        newGroups: FeatureGroup[],
+        oldSubtreeStructure?: SubtreeSplitState[]
+      ): Promise<Array<{nodeId: string, metric: string}>> => {
+        const node = tree.get(nodeId)!
+
+        // Track nodes that need histogram refresh
+        const nodesToRefreshHistograms: Array<{nodeId: string, metric: string}> = []
+
+        // Collect structure ONLY if not provided (this is the root call)
+        const subtreeStructure = oldSubtreeStructure !== undefined
+          ? oldSubtreeStructure
+          : collectSubtreeStructure(tree, nodeId)
+
+        // Recursively delete all descendants
+        const deleteDescendants = (targetNodeId: string) => {
+          const targetNode = tree.get(targetNodeId)
+          if (!targetNode) return
+          targetNode.children.forEach(childId => {
+            deleteDescendants(childId)
+            tree.delete(childId)
+          })
+        }
+        node.children.forEach(childId => {
+          deleteDescendants(childId)
+          tree.delete(childId)
+        })
         node.children = []
 
-        // Build new children
-        newGroups.forEach((group, index) => {
+        // Step 2: Build new children and match with old structure
+        for (const [index, group] of newGroups.entries()) {
           const intersectedFeatures = new Set<number>()
 
-          if (!parentNode || (parentNode.featureCount === 0 && parentNode.depth === 0)) {
-            // Root node or parent is root - use all features from group
+          if (node.id === 'root' || node.featureCount === 0) {
+            // Root node - use all features from group
             group.featureIds.forEach(id => intersectedFeatures.add(id))
           } else {
-            // Intersect with parent features
+            // Intersect with CURRENT node's features (not parent's!)
+            // This ensures children only contain features from their parent's subset
             for (const id of group.featureIds) {
-              if (parentNode.featureIds.has(id)) {
+              if (node.featureIds.has(id)) {
                 intersectedFeatures.add(id)
               }
             }
@@ -982,8 +1036,8 @@ export const useStore = create<AppState>((set, get) => ({
           const childNode: SankeyTreeNode = {
             id: childId,
             parentId: nodeId,
-            metric: null,  // Child has no metric (not being split)
-            thresholds: [],  // Children don't need thresholds
+            metric: null,  // Child has no metric initially (not being split yet)
+            thresholds: [],  // Children don't need thresholds initially
             depth: node.depth + 1,
             children: [],
             featureIds: intersectedFeatures,
@@ -993,15 +1047,88 @@ export const useStore = create<AppState>((set, get) => ({
 
           tree.set(childId, childNode)
           node.children.push(childId)
-        })
+
+          // Step 3: Find best matching old child by feature overlap (not by index!)
+          let bestMatch: SubtreeSplitState | null = null
+          let bestOverlap = 0
+
+          for (const oldChild of subtreeStructure) {
+            // Calculate overlap between new child's features and old child's features
+            const overlap = [...intersectedFeatures].filter(id => oldChild.featureIds.has(id)).length
+            if (overlap > bestOverlap) {
+              bestOverlap = overlap
+              bestMatch = oldChild
+            }
+          }
+
+          // Step 4: If found matching old child with splits, rebuild recursively
+          if (bestMatch && bestMatch.metric && bestOverlap > 0) {
+            const cacheKey = `${bestMatch.metric}:${bestMatch.thresholds.join(',')}`
+
+            // Get cached groups or fetch if not cached
+            let childGroups = state.cachedGroups[cacheKey]
+            if (!childGroups) {
+              console.log(`[updateNodeThresholds.rebuild] Fetching groups for child: ${cacheKey}`)
+              const response = await api.getFeatureGroups({
+                filters,
+                metric: bestMatch.metric,
+                thresholds: bestMatch.thresholds
+              })
+              childGroups = processFeatureGroupResponse(response)
+
+              // Update cache
+              set((currentState) => ({
+                cachedGroups: {
+                  ...currentState.cachedGroups,
+                  [cacheKey]: childGroups
+                }
+              }))
+            } else {
+              console.log(`[updateNodeThresholds.rebuild] Using cached groups for child: ${cacheKey}`)
+            }
+
+            // Set metric on child before recursive rebuild
+            childNode.metric = bestMatch.metric
+            // Temporarily restore old thresholds - we'll check if they're valid after rebuilding
+            childNode.thresholds = bestMatch.thresholds
+            tree.set(childId, childNode)
+
+            // Track this node for histogram refresh
+            nodesToRefreshHistograms.push({nodeId: childId, metric: bestMatch.metric})
+
+            // Recursively rebuild this child's children WITH its subtree structure
+            console.log(`[updateNodeThresholds.rebuild] Recursively rebuilding child: ${childId} with ${bestMatch.children.length} old grandchildren`)
+            const grandchildrenToRefresh = await rebuildNodeAndDescendants(tree, childId, childGroups, bestMatch.children)
+
+            // NOW check if the rebuilt child has only 0-1 grandchildren (unsplit after intersection)
+            // This detects nodes that had thresholds but became unsplit due to parent feature changes
+            const rebuiltChild = tree.get(childId)!
+            if (rebuiltChild.children.length <= 1 && rebuiltChild.thresholds.length > 0) {
+              // Node had thresholds but resulted in 0-1 non-empty children after rebuild
+              // This means thresholds were boundary values or became invalid - reset them
+              rebuiltChild.thresholds = []
+              tree.set(childId, rebuiltChild)
+              console.log(`[updateNodeThresholds.rebuild] Reset boundary thresholds for child: ${childId} (${rebuiltChild.children.length} children after rebuild)`)
+            }
+
+            // Collect histogram refresh requests from recursive calls
+            nodesToRefreshHistograms.push(...grandchildrenToRefresh)
+          }
+        }
 
         // Update the node's thresholds
         node.thresholds = thresholds
+
+        // Return list of nodes that need histogram refresh
+        return nodesToRefreshHistograms
       }
 
       // Update the tree
       const newTree = new Map(sankeyTree)
-      rebuildNodeAndDescendants(newTree, nodeId, groups)
+      // Collect entire subtree structure BEFORE any modifications
+      const subtreeStructure = collectSubtreeStructure(newTree, nodeId)
+      console.log(`[updateNodeThresholds] Collected subtree structure with ${subtreeStructure.length} direct children`)
+      const nodesToRefresh = await rebuildNodeAndDescendants(newTree, nodeId, groups, subtreeStructure)
 
       set((state) => ({
         [panelKey]: {
@@ -1009,6 +1136,18 @@ export const useStore = create<AppState>((set, get) => ({
           sankeyTree: newTree
         }
       }))
+
+      // Refresh histogram data for all rebuilt nodes with metrics
+      // This ensures slider positioning is correct after parent threshold changes
+      if (nodesToRefresh.length > 0) {
+        console.log(`[updateNodeThresholds] Refreshing histograms for ${nodesToRefresh.length} nodes`)
+        await Promise.all(
+          nodesToRefresh.map(({nodeId: refreshNodeId, metric}) => {
+            console.log(`[updateNodeThresholds] Refreshing histogram for node ${refreshNodeId}, metric ${metric}`)
+            return state.fetchHistogramData(metric as MetricType, refreshNodeId, panel)
+          })
+        )
+      }
 
       // Recompute Sankey
       get().recomputeSankeyTree(panel)
