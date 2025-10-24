@@ -35,6 +35,7 @@ interface StageOption {
 }
 
 // Available stages for the NEW system - categorized by type
+// eslint-disable-next-line react-refresh/only-export-components
 export const AVAILABLE_STAGES: StageOption[] = [
   // Feature Splitting (1 metric)
   {

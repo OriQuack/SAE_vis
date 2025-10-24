@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react'
-import { useVisualizationStore } from '../store'
+import { useVisualizationStore } from '../store/index'
 import type { FeatureTableDataResponse, FeatureTableRow } from '../types'
 import {
   calculateQualityScoreStats,

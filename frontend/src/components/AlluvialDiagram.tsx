@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback } from 'react'
-import { useVisualizationStore } from '../store'
+import { useVisualizationStore } from '../store/index'
 import {
   calculateAlluvialLayout,
   getNodeColor,

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react'
-import { useVisualizationStore } from '../store'
+import { useVisualizationStore } from '../store/index'
 import {
   DEFAULT_ANIMATION,
   calculateSankeyLayout,
@@ -192,7 +192,7 @@ interface NodeButton {
 const NodeButtons: React.FC<{
   buttons: NodeButton[]
   animationDuration: number
-}> = ({ buttons, animationDuration }) => {
+}> = ({ buttons, animationDuration: _animationDuration }) => {
   return (
     <g className="sankey-node-buttons">
       {buttons.map((button) => {
@@ -372,7 +372,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       nodes: computedSankey.nodes,
       links: computedSankey.links,
       metadata: {
-        total_features: computedSankey.nodes.find(n => n.id === 'root')?.feature_count || 0,
+        total_features: computedSankey.nodes.find((n: any) => n.id === 'root')?.feature_count || 0,
         applied_filters: filters
       }
     }
@@ -560,7 +560,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
         stageType
       })
     }
-  }, [inlineSelector, addUnsplitStageToNode, panel, layout, handleNodeHistogramClick])
+  }, [inlineSelector, addUnsplitStageToNode, panel])
 
   const handleOverlayMetricClick = useCallback(async (metric: string) => {
     console.log('[SankeyDiagram.handleOverlayMetricClick] 🎯 Metric clicked:', {

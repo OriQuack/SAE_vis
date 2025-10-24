@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useMemo, useCallback, useState } from 'react'
-import { useVisualizationStore } from '../store'
+import { useVisualizationStore } from '../store/index'
 import '../styles/HistogramPopover.css'
 import {
   calculateHistogramLayout,

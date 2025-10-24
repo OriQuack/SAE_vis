@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { NEUTRAL_ICON_COLORS, COMPONENT_COLORS } from '../lib/constants'
 import { calculateFlowLayout, splitLabel } from '../lib/d3-flow-utils'
-import { useVisualizationStore } from '../store'
+import { useVisualizationStore } from '../store/index'
 import '../styles/FlowPanel.css'
 
 // ============================================================================
