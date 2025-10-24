@@ -306,7 +306,11 @@ export const useStore = create<AppState>((set, get) => ({
     set((state) => ({
       [panelKey]: {
         ...state[panelKey],
-        histogramData: data
+        // Merge new histogram data with existing data instead of replacing
+        histogramData: data ? {
+          ...state[panelKey].histogramData,
+          ...data
+        } : null
       }
     }))
   },
@@ -958,7 +962,18 @@ export const useStore = create<AppState>((set, get) => ({
 
       console.log(`[Store.addStageToNode] 🌳 Tree updated with ${childIds.length} new children for node ${nodeId}`)
 
+      // Automatically fetch histogram data for the new metric BEFORE recomputing (for link histograms)
+      console.log(`[Store.addStageToNode] 📊 Fetching histogram data for metric: ${metric}`)
+      try {
+        await state.fetchHistogramData(metric as MetricType, nodeId, panel)
+        console.log(`[Store.addStageToNode] ✅ Histogram data fetched for metric: ${metric}`)
+      } catch (error) {
+        console.warn(`[Store.addStageToNode] ⚠️ Failed to fetch histogram data:`, error)
+        // Don't fail the entire operation if histogram fetch fails
+      }
+
       // Recompute Sankey structure (this will also sync table sort via syncTableSortWithMaxStage)
+      // Do this AFTER fetching histogram data so it's available when rendering
       console.log(`[Store.addStageToNode] 🔄 Now calling recomputeSankeyTree to activate tree-based system...`)
       get().recomputeSankeyTree(panel)
 

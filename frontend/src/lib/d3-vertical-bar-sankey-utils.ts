@@ -2,7 +2,7 @@
  * D3 Vertical Bar Sankey Integration Utilities
  *
  * Handles layout calculations for rendering vertical bar nodes within Sankey diagrams.
- * Vertical bar nodes show three columns (one per LLM explainer) instead of a single rectangular node.
+ * Vertical bar nodes display as a single wide bar instead of a standard rectangular node.
  *
  * Following project pattern: "D3 for calculations, React for rendering"
  */
@@ -31,9 +31,9 @@ export interface VerticalBarSubNode {
 
 export interface VerticalBarNodeLayout {
   node: D3SankeyNode         // Original Sankey node
-  subNodes: VerticalBarSubNode[]  // Three vertical bars
+  subNodes: VerticalBarSubNode[]  // Vertical bar (single bar)
   scrollIndicator: ScrollIndicator | null  // Global scroll indicator
-  totalWidth: number         // Total width of all three bars
+  totalWidth: number         // Total width of the bar
   totalHeight: number        // Total height
 }
 
@@ -56,7 +56,7 @@ const BAR_COLOR = '#9ca3af'  // Gray-400
 /**
  * Calculate layout for a vertical bar node within Sankey diagram
  *
- * Takes a Sankey node's position (x0, x1, y0, y1) and splits it into three vertical bars
+ * Creates a single vertical bar spanning the full node width
  */
 export function calculateVerticalBarNodeLayout(
   node: D3SankeyNode,
@@ -71,19 +71,18 @@ export function calculateVerticalBarNodeLayout(
 
   const totalWidth = node.x1 - node.x0
   const totalHeight = node.y1 - node.y0
-  const barWidth = totalWidth / 3
 
-  // Calculate layout for each vertical bar
-  const subNodes: VerticalBarSubNode[] = LLM_EXPLAINERS.map((explainer, index) => ({
-    id: explainer.id,
-    modelName: explainer.name,
-    x: node.x0! + (index * barWidth),
+  // Create a single bar spanning the full width
+  const subNodes: VerticalBarSubNode[] = [{
+    id: 'vertical-bar',
+    modelName: 'Vertical Bar',
+    x: node.x0!,
     y: node.y0!,
-    width: barWidth,
+    width: totalWidth,
     height: totalHeight,
     color: BAR_COLOR,
-    selected: true  // TODO: Get from filter state
-  }))
+    selected: true
+  }]
 
   // Calculate if this node should show scroll indicator
   let scrollIndicator: ScrollIndicator | null = null

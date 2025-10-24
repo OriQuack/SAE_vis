@@ -19,8 +19,14 @@ import {
   canAddStage,
   hasChildren
 } from '../lib/threshold-utils'
+import {
+  calculateNodeHistogramLayout,
+  shouldDisplayNodeHistogram,
+  getNodeHistogramMetric,
+  hasOutgoingLinks
+} from '../lib/d3-sankey-node-histogram-utils'
 import { useResizeObserver } from '../lib/utils'
-import type { D3SankeyNode, D3SankeyLink } from '../types'
+import type { D3SankeyNode, D3SankeyLink, HistogramData } from '../types'
 import {
   PANEL_LEFT,
   PANEL_RIGHT,
@@ -462,6 +468,47 @@ const SankeyLink: React.FC<{
   )
 }
 
+const SankeyNodeHistogram: React.FC<{
+  node: D3SankeyNode
+  histogramData: HistogramData | null
+  links: D3SankeyLink[]
+  animationDuration: number
+}> = ({ node, histogramData, links, animationDuration }) => {
+  // Calculate histogram layout
+  const layout = useMemo(() => {
+    if (!histogramData) return null
+    return calculateNodeHistogramLayout(node, histogramData, links)
+  }, [node, histogramData, links])
+
+  if (!layout) return null
+
+  return (
+    <g
+      transform={`translate(${layout.x}, ${layout.y})`}
+      style={{
+        pointerEvents: 'none', // Don't interfere with interactions
+        transition: `opacity ${animationDuration}ms ease-out`
+      }}
+    >
+      {/* Render horizontal histogram bars */}
+      {layout.bars.map((bar, i) => (
+        <rect
+          key={i}
+          x={bar.x}
+          y={bar.y - layout.y}  // Adjust y relative to group transform
+          width={bar.width}
+          height={bar.height}
+          fill={bar.color}
+          fillOpacity={0.45}
+          stroke="white"
+          strokeWidth={0.3}
+          strokeOpacity={0.6}
+        />
+      ))}
+    </g>
+  )
+}
+
 const VerticalBarSankeyNode: React.FC<{
   node: D3SankeyNode
   scrollState: { scrollTop: number; scrollHeight: number; clientHeight: number } | null
@@ -471,10 +518,9 @@ const VerticalBarSankeyNode: React.FC<{
   canRemoveStage: boolean
   flowDirection: 'left-to-right' | 'right-to-left'
   animationDuration: number
-  showLabels?: boolean
   totalFeatureCount?: number
   nodeStartIndex?: number
-}> = ({ node, scrollState, onAddStage, onRemoveStage, canAddStage, canRemoveStage, flowDirection, animationDuration: _animationDuration, showLabels = false, totalFeatureCount = 0, nodeStartIndex = 0 }) => {
+}> = ({ node, scrollState, onAddStage, onRemoveStage, canAddStage, canRemoveStage, flowDirection, animationDuration: _animationDuration, totalFeatureCount = 0, nodeStartIndex = 0 }) => {
   const layout = calculateVerticalBarNodeLayout(node, scrollState, totalFeatureCount, nodeStartIndex)
 
   // Check if this is a placeholder node
@@ -492,11 +538,8 @@ const VerticalBarSankeyNode: React.FC<{
 
   return (
     <g className="sankey-vertical-bar-node">
-      {/* Render three vertical bars */}
-      {layout.subNodes.map((subNode, index) => {
-        // Calculate horizontal offset for label spacing: left (-15), center (0), right (+15)
-        const labelXOffset = (index - 1) * 8
-
+      {/* Render vertical bar */}
+      {layout.subNodes.map((subNode) => {
         return (
           <g key={subNode.id}>
             {/* Bar rectangle */}
@@ -512,26 +555,11 @@ const VerticalBarSankeyNode: React.FC<{
               strokeDasharray={isPlaceholder ? "3,3" : undefined}
               rx={3}
             />
-            {/* Model name label - only shown on topmost vertical bar node */}
-            {showLabels && (
-              <text
-                x={subNode.x + subNode.width / 2 + labelXOffset}
-                y={subNode.y - 10}
-                textAnchor="middle"
-                fontSize={10}
-                fontWeight={subNode.selected ? 600 : 500}
-                fill="#374151"
-                opacity={isPlaceholder ? 0.6 : (subNode.selected ? 1.0 : 0.5)}
-                style={{ pointerEvents: 'none', userSelect: 'none' }}
-              >
-                {subNode.modelName}
-              </text>
-            )}
           </g>
         )
       })}
 
-      {/* Global scroll indicator spanning all three bars */}
+      {/* Global scroll indicator */}
       {layout.scrollIndicator && layout.subNodes.length > 0 && (
         <rect
           x={layout.subNodes[0].x}
@@ -663,6 +691,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   // Get data from store - NEW TREE-BASED SYSTEM ONLY
   const computedSankey = useVisualizationStore(state => state[panelKey].computedSankey)
   const filters = useVisualizationStore(state => state[panelKey].filters)
+  const histogramData = useVisualizationStore(state => state[panelKey].histogramData)
   const loading = useVisualizationStore(state => state.loading[loadingKey])
   const error = useVisualizationStore(state => state.errors[errorKey])
   const hoveredAlluvialNodeId = useVisualizationStore(state => state.hoveredAlluvialNodeId)
@@ -963,6 +992,45 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
               ))}
             </g>
 
+            {/* Node Histograms - One per source node */}
+            <g className="sankey-diagram__node-histograms">
+              {layout.nodes.map((node, index) => {
+                // Only render histogram for nodes with outgoing links
+                if (!hasOutgoingLinks(node, layout.links)) return null
+
+                // Get metric for this node
+                const metric = getNodeHistogramMetric(node, layout.links)
+
+                // Debug logging
+                if (index === 0 && metric) {
+                  console.log('[SankeyDiagram] Node histogram debug:', {
+                    nodeId: node.id,
+                    metric,
+                    histogramDataKeys: histogramData ? Object.keys(histogramData) : null,
+                    shouldDisplay: shouldDisplayNodeHistogram(node, layout.links, histogramData)
+                  })
+                }
+
+                if (!metric) return null
+
+                // Get histogram data for the metric
+                const metricHistogramData = histogramData?.[metric] || null
+
+                // Only render if we should display histogram for this node
+                if (!shouldDisplayNodeHistogram(node, layout.links, histogramData)) return null
+
+                return (
+                  <SankeyNodeHistogram
+                    key={`node-histogram-${node.id}`}
+                    node={node}
+                    histogramData={metricHistogramData}
+                    links={layout.links}
+                    animationDuration={animationDuration}
+                  />
+                )
+              })}
+            </g>
+
             {/* Nodes */}
             <g className="sankey-diagram__nodes">
               {(() => {
@@ -970,9 +1038,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                 const verticalBarNodes = layout.nodes
                   .filter(n => n.node_type === 'vertical_bar')
                   .sort((a, b) => (a.y0 || 0) - (b.y0 || 0))
-
-                // Find the topmost vertical bar node for label display
-                const topmostVerticalBarNode = verticalBarNodes[0]
 
                 // Calculate total features and cumulative indices for vertical bars
                 const totalFeatures = verticalBarNodes.reduce((sum, node) => sum + (node.feature_count || 0), 0)
@@ -1008,7 +1073,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
                   // Check if this is a vertical bar node
                   if (node.node_type === 'vertical_bar') {
-                    const isTopmostVerticalBar = topmostVerticalBarNode && node.id === topmostVerticalBarNode.id
                     const nodeStartIndex = nodeIndices.get(node.id) || 0
                     return (
                       <VerticalBarSankeyNode
@@ -1021,7 +1085,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                         canRemoveStage={!!canRemove}
                         flowDirection={flowDirection}
                         animationDuration={animationDuration}
-                        showLabels={isTopmostVerticalBar}
                         totalFeatureCount={totalFeatures}
                         nodeStartIndex={nodeStartIndex}
                       />
