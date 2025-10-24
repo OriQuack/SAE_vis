@@ -54,7 +54,7 @@ export interface NodeHistogramLayout {
 // ============================================================================
 
 const HISTOGRAM_MAX_WIDTH = 80         // Maximum width of histogram bars
-const HISTOGRAM_MARGIN = 5             // Space between node and histogram
+const HISTOGRAM_MARGIN = 0             // Space between node and histogram
 
 // ============================================================================
 // HELPER FUNCTIONS

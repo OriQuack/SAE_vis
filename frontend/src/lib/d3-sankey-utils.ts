@@ -24,6 +24,30 @@ interface StageLabel {
   stage: number
 }
 
+export interface ScrollIndicator {
+  y: number
+  height: number
+}
+
+export interface VerticalBarSubNode {
+  id: string                  // e.g., "llama", "qwen", "openai"
+  modelName: string          // Display name (e.g., "Llama", "Qwen", "OpenAI")
+  x: number                  // Left edge x-coordinate
+  y: number                  // Top edge y-coordinate
+  width: number              // Bar width
+  height: number             // Bar height
+  color: string              // Bar color
+  selected: boolean          // Whether this explainer is selected
+}
+
+export interface VerticalBarNodeLayout {
+  node: D3SankeyNode         // Original Sankey node
+  subNodes: VerticalBarSubNode[]  // Vertical bar (single bar)
+  scrollIndicator: ScrollIndicator | null  // Global scroll indicator
+  totalWidth: number         // Total width of the bar
+  totalHeight: number        // Total height
+}
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================
@@ -93,13 +117,13 @@ function getCategorySortOrder(nodeId: string, category: string): number {
     case CATEGORY_SEMANTIC_SIMILARITY:
       // semsim_mean_0 (Low) before semsim_mean_1 (High)
       return nodeId.includes('_0') ? 0 : 1
-
-    default:
-      return 0
-  }
-}
-
-// ============================================================================
+      
+      default:
+        return 0
+      }
+    }
+    
+    // ============================================================================
 // MAIN SANKEY CALCULATION
 // ============================================================================
 
@@ -525,6 +549,95 @@ export function applyRightToLeftTransform(
     width: layout.width,
     height: layout.height,
     margin: layout.margin
+  }
+}
+
+// ============================================================================
+// VERTICAL BAR NODE UTILITIES
+// ============================================================================
+
+
+const BAR_COLOR = '#9ca3af'  // Gray-400
+
+/**
+ * Calculate layout for a vertical bar node within Sankey diagram
+ *
+ * Creates a single vertical bar spanning the full node width
+ */
+export function calculateVerticalBarNodeLayout(
+  node: D3SankeyNode,
+  scrollState?: { scrollTop: number; scrollHeight: number; clientHeight: number } | null,
+  totalFeatureCount: number = 0,
+  nodeStartIndex: number = 0
+): VerticalBarNodeLayout {
+  if (node.x0 === undefined || node.x1 === undefined ||
+      node.y0 === undefined || node.y1 === undefined) {
+    throw new Error('Sankey node missing position information')
+  }
+
+  const totalWidth = node.x1 - node.x0
+  const totalHeight = node.y1 - node.y0
+
+  // Create a single bar spanning the full width
+  const subNodes: VerticalBarSubNode[] = [{
+    id: 'vertical-bar',
+    modelName: 'Vertical Bar',
+    x: node.x0!,
+    y: node.y0!,
+    width: totalWidth,
+    height: totalHeight,
+    color: BAR_COLOR,
+    selected: true
+  }]
+
+  // Calculate if this node should show scroll indicator
+  let scrollIndicator: ScrollIndicator | null = null
+  if (scrollState && scrollState.scrollHeight > scrollState.clientHeight) {
+    const scrollPercentage = scrollState.scrollTop / (scrollState.scrollHeight - scrollState.clientHeight)
+    const visiblePercentage = scrollState.clientHeight / scrollState.scrollHeight
+
+    // Special case: placeholder node always shows indicator (represents all features)
+    const isPlaceholder = node.id === 'placeholder_vertical_bar'
+
+    if (isPlaceholder) {
+      // For placeholder, show indicator based on full scroll state
+      const indicatorHeight = totalHeight * visiblePercentage
+      const indicatorY = node.y0! + (totalHeight - indicatorHeight) * scrollPercentage
+
+      scrollIndicator = {
+        y: indicatorY,
+        height: indicatorHeight
+      }
+    } else if (totalFeatureCount > 0) {
+      // For regular nodes, check if this node contains any visible features
+      const visibleStart = Math.floor(scrollPercentage * totalFeatureCount)
+      const visibleEnd = Math.ceil((scrollPercentage + visiblePercentage) * totalFeatureCount)
+
+      const nodeEndIndex = nodeStartIndex + node.feature_count
+
+      // Check if this node contains any visible features
+      if (visibleStart < nodeEndIndex && visibleEnd > nodeStartIndex) {
+        // Calculate indicator position within this node
+        const nodeVisibleStart = Math.max(0, visibleStart - nodeStartIndex)
+        const nodeVisibleEnd = Math.min(node.feature_count, visibleEnd - nodeStartIndex)
+
+        const startPercent = nodeVisibleStart / node.feature_count
+        const endPercent = nodeVisibleEnd / node.feature_count
+
+        scrollIndicator = {
+          y: node.y0! + (totalHeight * startPercent),
+          height: totalHeight * (endPercent - startPercent)
+        }
+      }
+    }
+  }
+
+  return {
+    node,
+    subNodes,
+    scrollIndicator,
+    totalWidth,
+    totalHeight
   }
 }
 

@@ -363,16 +363,24 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     return errors
   }, [histogramData, popoverData?.metrics, containerSize])
 
-  // Calculate layout
+  // Calculate layout - filter histogram data to only show requested metrics
   const layout = useMemo(() => {
     if (!histogramData || validationErrors.length > 0 || !popoverData?.metrics) {
       return null
     }
 
+    // Filter histogram data to only include the metrics that should be displayed
+    const filteredHistogramData: Record<string, HistogramData> = {}
+    popoverData.metrics.forEach(metric => {
+      if (histogramData[metric]) {
+        filteredHistogramData[metric] = histogramData[metric]
+      }
+    })
+
     const chartWidth = containerSize.width - 16
     const chartHeight = containerSize.height - 64
 
-    return calculateHistogramLayout(histogramData, chartWidth, chartHeight)
+    return calculateHistogramLayout(filteredHistogramData, chartWidth, chartHeight)
   }, [histogramData, containerSize, validationErrors, popoverData?.metrics])
 
   // Handle bar hover
@@ -631,16 +639,13 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     }
   }, [popoverData?.visible, isDraggingSlider, hideHistogramPopover])
 
-  // Initialize popover position when it opens
-  useEffect(() => {
-    if (popoverData?.visible && popoverRef.current && !isDraggingPopoverRef.current) {
-      const finalPosition = draggedPosition || {
-        x: calculatedPosition?.x || popoverData.position.x,
-        y: calculatedPosition?.y || popoverData.position.y
-      }
+  // Calculate initial position for rendering (prevents "fly-in" animation)
+  const initialPosition = useMemo(() => {
+    if (!popoverData?.visible) return null
 
-      // Set initial position via transform for consistency with drag behavior
-      popoverRef.current.style.transform = `translate(${finalPosition.x}px, ${finalPosition.y}px)`
+    return draggedPosition || {
+      x: calculatedPosition?.x || popoverData.position.x,
+      y: calculatedPosition?.y || popoverData.position.y
     }
   }, [popoverData?.visible, draggedPosition, calculatedPosition, popoverData?.position])
 
@@ -670,12 +675,15 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     return null
   }
 
-  // Note: Position is applied via transform in useEffect and during drag
-  // This provides better performance than updating via state on every frame
+  // Note: Initial position is applied directly in style to prevent "fly-in" animation
+  // Transform is updated during drag operations for better performance
   return (
     <div
       ref={popoverRef}
       className="histogram-popover"
+      style={{
+        transform: initialPosition ? `translate(${initialPosition.x}px, ${initialPosition.y}px)` : undefined
+      }}
     >
       <div
         ref={containerRef}

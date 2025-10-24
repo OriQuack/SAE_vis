@@ -12,126 +12,21 @@ import {
   applyRightToLeftTransform,
   RIGHT_SANKEY_MARGIN
 } from '../lib/d3-sankey-utils'
-import { calculateVerticalBarNodeLayout } from '../lib/d3-vertical-bar-sankey-utils'
+import { calculateVerticalBarNodeLayout } from '../lib/d3-sankey-utils'
 import {
   getNodeMetrics,
   getAvailableStages,
   canAddStage,
   hasChildren
 } from '../lib/threshold-utils'
-import {
-  calculateNodeHistogramLayout,
-  shouldDisplayNodeHistogram,
-  getNodeHistogramMetric,
-  hasOutgoingLinks
-} from '../lib/d3-sankey-node-histogram-utils'
 import { useResizeObserver } from '../lib/utils'
-import type { D3SankeyNode, D3SankeyLink, HistogramData } from '../types'
+import type { D3SankeyNode, D3SankeyLink } from '../types'
 import {
   PANEL_LEFT,
-  PANEL_RIGHT,
-  METRIC_FEATURE_SPLITTING,
-  METRIC_SEMANTIC_SIMILARITY,
-  METRIC_SCORE_FUZZ,
-  METRIC_SCORE_DETECTION,
-  METRIC_SCORE_EMBEDDING,
-  METRIC_QUALITY_SCORE,
-  CONSISTENCY_THRESHOLDS,
-  METRIC_COLORS
+  PANEL_RIGHT
 } from '../lib/constants'
+import { SankeyOverlay, AVAILABLE_STAGES } from './SankeyOverlay'
 import '../styles/SankeyDiagram.css'
-
-// Simple stage configuration for inline selector
-interface StageOption {
-  id: string
-  name: string
-  description: string
-  metric: string
-  thresholds: readonly number[]
-  category: 'Feature Splitting' | 'Score'
-}
-
-// Available stages for the NEW system - categorized by type
-const AVAILABLE_STAGES: StageOption[] = [
-  // Feature Splitting (1 metric)
-  {
-    id: 'feature_splitting',
-    name: 'Feature Splitting',
-    description: 'Split by feature splitting score',
-    metric: METRIC_FEATURE_SPLITTING,
-    thresholds: [0.3],
-    category: 'Feature Splitting'
-  },
-
-  // Semantic Similarity (1 metric)
-  {
-    id: 'semantic_similarity',
-    name: 'Semantic Similarity',
-    description: 'Split by semantic similarity score',
-    metric: METRIC_SEMANTIC_SIMILARITY,
-    thresholds: [0.5],
-    category: 'Score'
-  },
-
-  // Score metrics (4 metrics)
-  {
-    id: 'fuzz_score',
-    name: 'Fuzz Score',
-    description: 'Split by fuzz score',
-    metric: METRIC_SCORE_FUZZ,
-    thresholds: [0.5],
-    category: 'Score'
-  },
-  {
-    id: 'detection_score',
-    name: 'Detection Score',
-    description: 'Split by detection score',
-    metric: METRIC_SCORE_DETECTION,
-    thresholds: [0.5],
-    category: 'Score'
-  },
-  {
-    id: 'embedding_score',
-    name: 'Embedding Score',
-    description: 'Split by embedding score',
-    metric: METRIC_SCORE_EMBEDDING,
-    thresholds: [0.5],
-    category: 'Score'
-  },
-  {
-    id: 'overall_score',
-    name: 'Quality Score',
-    description: 'Split by quality score',
-    metric: METRIC_QUALITY_SCORE,
-    thresholds: CONSISTENCY_THRESHOLDS[METRIC_QUALITY_SCORE],
-    category: 'Score'
-  }
-]
-
-// ==================== HELPER FUNCTIONS ====================
-
-/**
- * Get display color for a metric in the stage selector
- * Maps metric constants to their corresponding HIGH color values from METRIC_COLORS
- */
-function getMetricColorForDisplay(metric: string): string {
-  switch (metric) {
-    case METRIC_FEATURE_SPLITTING:
-      return METRIC_COLORS.FEATURE_SPLITTING
-    case METRIC_SEMANTIC_SIMILARITY:
-      return METRIC_COLORS.SEMANTIC_SIMILARITY
-    case METRIC_SCORE_FUZZ:
-      return METRIC_COLORS.SCORE_FUZZ.HIGH
-    case METRIC_SCORE_DETECTION:
-      return METRIC_COLORS.SCORE_DETECTION.HIGH
-    case METRIC_SCORE_EMBEDDING:
-      return METRIC_COLORS.SCORE_EMBEDDING.HIGH
-    case METRIC_QUALITY_SCORE:
-      return METRIC_COLORS.QUALITY_SCORE_COLORS.HIGH
-    default:
-      return '#9ca3af' // Default gray
-  }
-}
 
 // ==================== COMPONENT-SPECIFIC TYPES ====================
 interface SankeyDiagramProps {
@@ -150,135 +45,6 @@ const ErrorMessage: React.FC<{ message: string }> = ({ message }) => (
     {message}
   </div>
 )
-
-// Metric overlay panel component
-interface MetricOverlayPanelProps {
-  rootNode: D3SankeyNode
-  availableStages: StageOption[]
-  onMetricClick: (metric: string) => void
-}
-
-const MetricOverlayPanel: React.FC<MetricOverlayPanelProps> = ({
-  rootNode,
-  availableStages,
-  onMetricClick
-}) => {
-  const [hoveredMetric, setHoveredMetric] = React.useState<string | null>(null)
-
-  // Group stages by category (for metric overlay panel)
-  const categories: Array<{ name: string; stages: StageOption[] }> = [
-    {
-      name: 'FEATURE SPLITTING',
-      stages: availableStages.filter(s => s.category === 'Feature Splitting')
-    },
-    {
-      name: 'SCORE',
-      stages: availableStages.filter(s => s.category === 'Score')
-    }
-  ].filter(cat => cat.stages.length > 0)
-
-  // Layout constants
-  const itemHeight = 26
-  const categoryPadding = 8
-  const instructionHeight = 20
-  const instructionSpacing = 16
-  const categoryBoxWidth = 180
-
-  // Calculate total height for single merged container
-  const allStages = categories.flatMap(cat => cat.stages)
-  const containerHeight = categoryPadding + (allStages.length * itemHeight) + categoryPadding
-
-  // Position overlay to the right of root node
-  const overlayX = (rootNode.x1 || 0) + 30
-  const totalHeight = instructionHeight + instructionSpacing + containerHeight
-  const overlayY = ((rootNode.y0 || 0) + (rootNode.y1 || 0)) / 2 - totalHeight / 2
-
-  return (
-    <g className="sankey-metric-overlay">
-      {/* Instruction header */}
-      <text
-        x={overlayX}
-        y={overlayY}
-        dy="0.8em"
-        fontSize="14"
-        fontWeight="600"
-        fill="#374151"
-        style={{ userSelect: 'none' }}
-      >
-        Select a metric to begin:
-      </text>
-
-      {/* Single container for all stages */}
-      {categories.length > 0 && (() => {
-        // Combine all stages from all categories into flat list
-        const allStages = categories.flatMap(cat => cat.stages)
-        const containerHeight = categoryPadding + (allStages.length * itemHeight) + categoryPadding
-
-        return (
-          <g key="all-stages">
-            {/* Single container */}
-            <rect
-              x={overlayX}
-              y={overlayY + instructionHeight + instructionSpacing}
-              width={categoryBoxWidth}
-              height={containerHeight}
-              fill="transparent"
-              stroke="#d1d5db"
-              strokeWidth="1.5"
-              strokeDasharray="4,4"
-              rx="6"
-            />
-
-            {/* All stages in flat list */}
-            {allStages.map((stage, stageIndex) => {
-              const itemY = overlayY + instructionHeight + instructionSpacing + categoryPadding + (stageIndex * itemHeight)
-              const isHovered = hoveredMetric === stage.id
-
-              return (
-                <g
-                  key={stage.id}
-                  className="sankey-metric-overlay__item"
-                  onClick={() => onMetricClick(stage.metric)}
-                  onMouseEnter={() => setHoveredMetric(stage.id)}
-                  onMouseLeave={() => setHoveredMetric(null)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <rect
-                    x={overlayX + 4}
-                    y={itemY}
-                    width={categoryBoxWidth - 8}
-                    height={itemHeight}
-                    fill={isHovered ? '#eff6ff' : 'transparent'}
-                    rx="3"
-                  />
-                  <circle
-                    cx={overlayX + categoryPadding + 7}
-                    cy={itemY + itemHeight / 2}
-                    r="7"
-                    fill={getMetricColorForDisplay(stage.metric)}
-                    stroke="#d1d5db"
-                    strokeWidth="0.5"
-                  />
-                  <text
-                    x={overlayX + categoryPadding + 22}
-                    y={itemY + itemHeight / 2}
-                    dy="0.35em"
-                    fontSize="12"
-                    fontWeight="500"
-                    fill="#1f2937"
-                    style={{ userSelect: 'none' }}
-                  >
-                    {stage.name}
-                  </text>
-                </g>
-              )
-            })}
-          </g>
-        )
-      })()}
-    </g>
-  )
-}
 
 const SankeyNode: React.FC<{
   node: D3SankeyNode
@@ -443,12 +209,29 @@ const SankeyLink: React.FC<{
   onClick?: (e: React.MouseEvent) => void
   animationDuration: number
   gradientId?: string
-}> = ({ link, onMouseEnter, onMouseLeave, onClick, animationDuration, gradientId }) => {
+  isHovered: boolean
+}> = ({ link, onMouseEnter, onMouseLeave, onClick, animationDuration, gradientId, isHovered }) => {
   const sourceNode = typeof link.source === 'object' ? link.source : null
   if (!sourceNode) return null
 
   const path = getSankeyPath(link)
-  const color = gradientId ? `url(#${gradientId})` : getLinkColor(link)
+  const baseColor = gradientId ? `url(#${gradientId})` : getLinkColor(link)
+
+  // Check if this is initial state root link (root → placeholder)
+  const targetNode = typeof link.target === 'object' ? link.target : null
+  const isInitialStateRootLink = sourceNode.id === 'root' && targetNode?.id === 'placeholder_vertical_bar'
+
+  // Apply opacity:
+  // - Initial state root links: 15% opacity ('26' hex), no hover effect
+  // - Regular links: 25% opacity ('40' hex), hover to 37.5% ('60' hex)
+  let color: string
+  if (isInitialStateRootLink) {
+    color = baseColor.replace('40', '26')  // Initial state: 15%, no hover
+  } else if (isHovered) {
+    color = baseColor.replace('40', '60')  // Hover: 37.5%
+  } else {
+    color = baseColor  // Normal: 25%
+  }
 
   return (
     <path
@@ -458,54 +241,13 @@ const SankeyLink: React.FC<{
       strokeWidth={Math.max(1, link.width || 0)}
       opacity={1.0}
       style={{
-        transition: `opacity ${animationDuration}ms ease-out, stroke ${animationDuration}ms ease-out`,
+        transition: `stroke ${animationDuration}ms ease-out`,
         cursor: onClick ? 'pointer' : 'default'
       }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       onClick={onClick}
     />
-  )
-}
-
-const SankeyNodeHistogram: React.FC<{
-  node: D3SankeyNode
-  histogramData: HistogramData | null
-  links: D3SankeyLink[]
-  animationDuration: number
-}> = ({ node, histogramData, links, animationDuration }) => {
-  // Calculate histogram layout
-  const layout = useMemo(() => {
-    if (!histogramData) return null
-    return calculateNodeHistogramLayout(node, histogramData, links)
-  }, [node, histogramData, links])
-
-  if (!layout) return null
-
-  return (
-    <g
-      transform={`translate(${layout.x}, ${layout.y})`}
-      style={{
-        pointerEvents: 'none', // Don't interfere with interactions
-        transition: `opacity ${animationDuration}ms ease-out`
-      }}
-    >
-      {/* Render horizontal histogram bars */}
-      {layout.bars.map((bar, i) => (
-        <rect
-          key={i}
-          x={bar.x}
-          y={bar.y - layout.y}  // Adjust y relative to group transform
-          width={bar.width}
-          height={bar.height}
-          fill={bar.color}
-          fillOpacity={0.75}
-          stroke="white"
-          strokeWidth={0.3}
-          strokeOpacity={0.6}
-        />
-      ))}
-    </g>
   )
 }
 
@@ -728,11 +470,11 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   // Track previous data for smooth transitions
   const [displayData, setDisplayData] = useState(data)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
-  const [_hoveredLinkIndex, setHoveredLinkIndex] = useState<number | null>(null)
+  const [hoveredLinkIndex, setHoveredLinkIndex] = useState<number | null>(null)
   const [inlineSelector, setInlineSelector] = useState<{
     nodeId: string
     position: { x: number; y: number }
-    availableStages: StageOption[]
+    availableStages: any[]
   } | null>(null)
 
   // Resize observer hook with minimal debounce for responsiveness
@@ -816,10 +558,30 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   }, [showHistogramOnClick, showHistogramPopover, sankeyTree, panel])
 
   const handleLinkHistogramClick = useCallback((link: D3SankeyLink) => {
+    if (!showHistogramOnClick || !sankeyTree) return
+
     const sourceNode = typeof link.source === 'object' ? link.source : null
-    if (!sourceNode) return
-    handleNodeHistogramClick(sourceNode)
-  }, [handleNodeHistogramClick])
+    const targetNode = typeof link.target === 'object' ? link.target : null
+
+    if (!sourceNode || !targetNode) return
+
+    // Get the metric from the target node (the stage the link flows into)
+    const metric = targetNode.metric
+    if (!metric) {
+      // If no metric, fall back to showing all metrics for the source node
+      handleNodeHistogramClick(sourceNode)
+      return
+    }
+
+    // Show histogram for only this specific metric
+    const containerRect = containerElementRef.current?.getBoundingClientRect()
+    const position = {
+      x: containerRect ? containerRect.right + 20 : window.innerWidth - 600,
+      y: containerRect ? containerRect.top + containerRect.height / 2 : window.innerHeight / 2
+    }
+
+    showHistogramPopover(sourceNode.id, sourceNode.name, [metric as any], position, undefined, undefined, panel, sourceNode.category)
+  }, [showHistogramOnClick, showHistogramPopover, sankeyTree, panel, handleNodeHistogramClick])
 
   const handleAddStageClick = useCallback((event: React.MouseEvent, node: D3SankeyNode) => {
     event.stopPropagation()
@@ -984,47 +746,9 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                   onMouseEnter={() => setHoveredLinkIndex(index)}
                   onMouseLeave={() => setHoveredLinkIndex(null)}
                   onClick={showHistogramOnClick ? () => handleLinkHistogramClick(link) : undefined}
+                  isHovered={hoveredLinkIndex === index}
                 />
               ))}
-            </g>
-
-            {/* Node Histograms - One per source node */}
-            <g className="sankey-diagram__node-histograms">
-              {layout.nodes.map((node, index) => {
-                // Only render histogram for nodes with outgoing links
-                if (!hasOutgoingLinks(node, layout.links)) return null
-
-                // Get metric for this node
-                const metric = getNodeHistogramMetric(node, layout.links)
-
-                // Debug logging
-                if (index === 0 && metric) {
-                  console.log('[SankeyDiagram] Node histogram debug:', {
-                    nodeId: node.id,
-                    metric,
-                    histogramDataKeys: histogramData ? Object.keys(histogramData) : null,
-                    shouldDisplay: shouldDisplayNodeHistogram(node, layout.links, histogramData)
-                  })
-                }
-
-                if (!metric) return null
-
-                // Get histogram data for the metric
-                const metricHistogramData = histogramData?.[metric] || null
-
-                // Only render if we should display histogram for this node
-                if (!shouldDisplayNodeHistogram(node, layout.links, histogramData)) return null
-
-                return (
-                  <SankeyNodeHistogram
-                    key={`node-histogram-${node.id}`}
-                    node={node}
-                    histogramData={metricHistogramData}
-                    links={layout.links}
-                    animationDuration={animationDuration}
-                  />
-                )
-              })}
             </g>
 
             {/* Nodes */}
@@ -1109,84 +833,20 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
             })()}
             </g>
 
-            {/* Metric Overlay Panel - Visible only when root has no children (initial state) */}
-            {(() => {
-              const rootNode = layout.nodes.find(n => n.id === 'root')
-              if (!rootNode || !sankeyTree) return null
-
-              const treeNode = sankeyTree.get('root')
-              if (!treeNode) return null
-
-              // Only show when root has no children (initial state)
-              if (treeNode.children.length > 0) return null
-
-              const availableStages = getAvailableStages(treeNode, sankeyTree, AVAILABLE_STAGES)
-              if (availableStages.length === 0) return null
-
-              return (
-                <MetricOverlayPanel
-                  rootNode={rootNode}
-                  availableStages={availableStages}
-                  onMetricClick={handleOverlayMetricClick}
-                />
-              )
-            })()}
+            {/* Sankey Overlay - histograms, metric overlay, stage selector */}
+            <SankeyOverlay
+              layout={layout}
+              histogramData={histogramData}
+              animationDuration={animationDuration}
+              sankeyTree={sankeyTree}
+              inlineSelector={inlineSelector}
+              onMetricClick={handleOverlayMetricClick}
+              onStageSelect={handleStageSelect}
+              onSelectorClose={() => setInlineSelector(null)}
+            />
           </g>
         </svg>
       </div>
-
-      {/* Inline Stage Selector */}
-      {inlineSelector && (
-        <>
-          <div
-            className="sankey-stage-selector-overlay"
-            onClick={() => setInlineSelector(null)}
-          />
-          <div
-            className="sankey-stage-selector"
-            style={{
-              left: Math.min(inlineSelector.position.x, window.innerWidth - 280),
-              top: inlineSelector.position.y,
-              transform: 'translateY(-50%)'
-            }}
-          >
-            {/* Flat list of all available stages */}
-            {inlineSelector.availableStages.map((stageType) => (
-              <div
-                key={stageType.id}
-                onClick={() => handleStageSelect(stageType.id)}
-                className="sankey-stage-selector__item"
-              >
-                <div className="sankey-stage-selector__item-content">
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 20 20"
-                    className="sankey-stage-selector__item-circle"
-                  >
-                    <circle
-                      cx="10"
-                      cy="10"
-                      r="8"
-                      fill={getMetricColorForDisplay(stageType.metric)}
-                      stroke="#d1d5db"
-                      strokeWidth="1"
-                    />
-                  </svg>
-                  <div className="sankey-stage-selector__item-text">
-                    <div className="sankey-stage-selector__item-title">
-                      {stageType.name}
-                    </div>
-                    <div className="sankey-stage-selector__item-description">
-                      {stageType.description}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
     </div>
   )
 }
