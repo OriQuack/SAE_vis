@@ -69,14 +69,6 @@ const mapSankeyMetricToTableSort = (metric: string | null): string | null => {
   return mappings[metric] || null
 }
 
-/**
- * Get default thresholds for a metric
- */
-const getDefaultThresholdsForMetric = (_metric: string): number[] => {
-  // Default to single threshold at 0.5 for all metrics
-  return [0.5]
-}
-
 interface PanelState {
   filters: Filters
   histogramData: Record<string, HistogramData> | null
@@ -114,7 +106,7 @@ interface AppState {
   setFilters: (filters: Partial<Filters>, panel?: PanelSide) => void
 
   // NEW tree-based threshold system actions
-  addStageToNode: (nodeId: string, metric: string, thresholds: number[], panel?: PanelSide) => Promise<void>
+  addUnsplitStageToNode: (nodeId: string, metric: string, panel?: PanelSide) => Promise<void>
   updateNodeThresholds: (nodeId: string, thresholds: number[], panel?: PanelSide) => Promise<void>
   recomputeSankeyTree: (panel?: PanelSide) => void
   removeNodeStage: (nodeId: string, panel?: PanelSide) => void
@@ -122,7 +114,6 @@ interface AppState {
   loadRootFeatures: (panel?: PanelSide) => Promise<void>
 
   // Data setters
-  setCurrentMetric: (metric: MetricType) => void
   setHistogramData: (data: Record<string, HistogramData> | null, panel?: PanelSide) => void
 
   // UI actions - now take panel parameter
@@ -145,10 +136,6 @@ interface AppState {
   fetchFilterOptions: () => Promise<void>
   fetchHistogramData: (metric?: MetricType, nodeId?: string, panel?: PanelSide) => Promise<void>
   fetchMultipleHistogramData: (metrics: MetricType[], nodeId?: string, panel?: PanelSide) => Promise<void>
-
-  // View state actions - now take panel parameter
-  showVisualization: (panel?: PanelSide) => void
-  resetFilters: (panel?: PanelSide) => void
 
   // Alluvial flows data
   alluvialFlows: AlluvialFlow[] | null
@@ -181,9 +168,6 @@ interface AppState {
   // Table column display state (what metric is shown in the column)
   scoreColumnDisplay: typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION
   swapMetricDisplay: (newMetric: typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION) => void
-
-  // Reset actions
-  reset: () => void
 
   // Auto-initialization with default filters
   // DEFAULT APPROACH: Auto-initialize with first two LLM Explainers (subject to change)
@@ -291,14 +275,9 @@ export const useStore = create<AppState>((set, get) => ({
       [panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel']: {
         ...state[panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'],
         filters: { ...state[panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'].filters, ...newFilters },
-        histogramData: null,
-        sankeyData: null
+        histogramData: null
       }
     }))
-  },
-
-  setCurrentMetric: (metric) => {
-    set(() => ({ currentMetric: metric }))
   },
 
   setHistogramData: (data, panel = PANEL_LEFT) => {
@@ -490,28 +469,6 @@ export const useStore = create<AppState>((set, get) => ({
       state.setError('histogram', errorMessage)
       state.setLoading('histogram', false)
     }
-  },
-
-  // View state actions
-  showVisualization: (_panel = PANEL_LEFT) => {
-    // This is now a no-op since we don't track view state anymore
-    // Kept for backward compatibility with existing code
-  },
-
-  resetFilters: (panel = PANEL_LEFT) => {
-    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
-    set((state) => ({
-      [panelKey]: {
-        ...state[panelKey],
-        filters: {
-          sae_id: [],
-          explanation_method: [],
-          llm_explainer: [],
-          llm_scorer: []
-        },
-        histogramData: null
-      }
-    }))
   },
 
   // Update alluvial flows from both panel data (NEW SYSTEM - uses computedSankey)
@@ -737,13 +694,11 @@ export const useStore = create<AppState>((set, get) => ({
 
         // If metric not already in tree, add it to root node
         if (!hasMetricInTree) {
-          const thresholds = getDefaultThresholdsForMetric(sankeyMetric)
           console.log('[Store.setTableSort] Adding Sankey stage for table sort:', {
-            metric: sankeyMetric,
-            thresholds
+            metric: sankeyMetric
           })
-          // Add stage to root node in left panel
-          state.addStageToNode('root', sankeyMetric, thresholds, PANEL_LEFT)
+          // Add unsplit stage to root node in left panel
+          state.addUnsplitStageToNode('root', sankeyMetric, PANEL_LEFT)
         }
       }
     }
@@ -858,26 +813,26 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   /**
-   * Add a new stage to a specific node in the tree.
-   * Supports branching - different nodes can have different metrics at the same depth.
+   * Add a new unsplit stage to a specific node in the tree.
+   * Creates a single child node with all parent features, without splitting by thresholds.
+   * User can later set thresholds via histogram to split the node.
    */
-  addStageToNode: async (nodeId, metric, thresholds, panel = PANEL_LEFT) => {
+  addUnsplitStageToNode: async (nodeId, metric, panel = PANEL_LEFT) => {
     const state = get()
     const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
     const loadingKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
     const errorKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
-    const { filters, sankeyTree } = state[panelKey]
+    const { sankeyTree } = state[panelKey]
 
-    console.log(`[Store.addStageToNode] 🎯 Called for ${panel}:`, {
+    console.log(`[Store.addUnsplitStageToNode] 🎯 Called for ${panel}:`, {
       nodeId,
       metric,
-      thresholds,
       hasSankeyTree: !!sankeyTree,
       treeSize: sankeyTree?.size
     })
 
     if (!sankeyTree || !sankeyTree.has(nodeId)) {
-      console.error(`[Store.addStageToNode] ❌ Node ${nodeId} not found in tree`)
+      console.error(`[Store.addUnsplitStageToNode] ❌ Node ${nodeId} not found in tree`)
       return
     }
 
@@ -885,72 +840,28 @@ export const useStore = create<AppState>((set, get) => ({
     state.clearError(errorKey)
 
     try {
-      // Create cache key for this metric and thresholds
-      const cacheKey = `${metric}:${thresholds.join(',')}`
-
-      let groups: FeatureGroup[]
-
-      // Check if we already have these groups cached
-      if (state.cachedGroups[cacheKey]) {
-        groups = state.cachedGroups[cacheKey]
-        console.log(`[Store.addStageToNode] Using cached groups for ${cacheKey}`)
-      } else {
-        // Fetch feature groups from backend
-        const response = await api.getFeatureGroups({ filters, metric, thresholds })
-        groups = processFeatureGroupResponse(response)
-
-        // Cache the groups globally
-        set((state) => ({
-          cachedGroups: {
-            ...state.cachedGroups,
-            [cacheKey]: groups
-          }
-        }))
-        console.log(`[Store.addStageToNode] Cached groups for ${cacheKey}`)
-      }
-
-      // Now build child nodes by intersecting parent features with groups
       const parentNode = sankeyTree.get(nodeId)!
       const newDepth = parentNode.depth + 1
       const newTree = new Map(sankeyTree)
-      const childIds: string[] = []
 
-      groups.forEach((group, index) => {
-        // Intersect parent features with group features
-        const intersectedFeatures = new Set<number>()
-        if (parentNode.featureCount === 0 && parentNode.depth === 0) {
-          // Root node - use all features from the group
-          intersectedFeatures.clear()
-          group.featureIds.forEach(id => intersectedFeatures.add(id))
-        } else {
-          // Non-root - intersect with parent
-          for (const id of group.featureIds) {
-            if (parentNode.featureIds.has(id)) {
-              intersectedFeatures.add(id)
-            }
-          }
-        }
+      // Create a single child node with all parent features (no splitting)
+      const childId = `${nodeId}_stage${newDepth}_group0`
+      const childNode: SankeyTreeNode = {
+        id: childId,
+        parentId: nodeId,
+        metric,
+        thresholds: [], // Empty thresholds - no split yet
+        depth: newDepth,
+        children: [],
+        featureIds: new Set(parentNode.featureIds), // Copy all parent features
+        featureCount: parentNode.featureCount,
+        rangeLabel: 'All' // Label for unsplit node
+      }
 
-        // Create child node
-        const childId = `${nodeId}_stage${newDepth}_group${index}`
-        const childNode: SankeyTreeNode = {
-          id: childId,
-          parentId: nodeId,
-          metric,
-          thresholds,
-          depth: newDepth,
-          children: [],
-          featureIds: intersectedFeatures,
-          featureCount: intersectedFeatures.size,
-          rangeLabel: group.rangeLabel
-        }
-
-        newTree.set(childId, childNode)
-        childIds.push(childId)
-      })
+      newTree.set(childId, childNode)
 
       // Update parent's children
-      parentNode.children = childIds
+      parentNode.children = [childId]
       newTree.set(nodeId, { ...parentNode })
 
       set((state) => ({
@@ -960,27 +871,26 @@ export const useStore = create<AppState>((set, get) => ({
         }
       }))
 
-      console.log(`[Store.addStageToNode] 🌳 Tree updated with ${childIds.length} new children for node ${nodeId}`)
+      console.log(`[Store.addUnsplitStageToNode] 🌳 Tree updated with 1 unsplit child for node ${nodeId}`)
 
-      // Automatically fetch histogram data for the new metric BEFORE recomputing (for link histograms)
-      console.log(`[Store.addStageToNode] 📊 Fetching histogram data for metric: ${metric}`)
+      // Fetch histogram data for the new metric (for visualization)
+      console.log(`[Store.addUnsplitStageToNode] 📊 Fetching histogram data for metric: ${metric}`)
       try {
         await state.fetchHistogramData(metric as MetricType, nodeId, panel)
-        console.log(`[Store.addStageToNode] ✅ Histogram data fetched for metric: ${metric}`)
+        console.log(`[Store.addUnsplitStageToNode] ✅ Histogram data fetched for metric: ${metric}`)
       } catch (error) {
-        console.warn(`[Store.addStageToNode] ⚠️ Failed to fetch histogram data:`, error)
+        console.warn(`[Store.addUnsplitStageToNode] ⚠️ Failed to fetch histogram data:`, error)
         // Don't fail the entire operation if histogram fetch fails
       }
 
-      // Recompute Sankey structure (this will also sync table sort via syncTableSortWithMaxStage)
-      // Do this AFTER fetching histogram data so it's available when rendering
-      console.log(`[Store.addStageToNode] 🔄 Now calling recomputeSankeyTree to activate tree-based system...`)
+      // Recompute Sankey structure
+      console.log(`[Store.addUnsplitStageToNode] 🔄 Now calling recomputeSankeyTree...`)
       get().recomputeSankeyTree(panel)
 
       state.setLoading(loadingKey, false)
-      console.log(`[Store.addStageToNode] ✅ Stage addition complete - tree-based system should now be active!`)
+      console.log(`[Store.addUnsplitStageToNode] ✅ Unsplit stage addition complete!`)
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to add stage'
+      const errorMessage = error instanceof Error ? error.message : 'Failed to add unsplit stage'
       state.setError(errorKey, errorMessage)
       state.setLoading(loadingKey, false)
     }
@@ -1193,14 +1103,6 @@ export const useStore = create<AppState>((set, get) => ({
 
     // Recompute Sankey
     get().recomputeSankeyTree(panel)
-  },
-
-  reset: () => {
-    set(() => ({
-      ...initialState,
-      leftPanel: createInitialPanelState(),
-      rightPanel: createInitialPanelState()
-    }))
   },
 
   // DEFAULT APPROACH: Auto-initialize both panels with ALL LLM Explainers

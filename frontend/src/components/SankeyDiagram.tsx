@@ -155,7 +155,7 @@ const ErrorMessage: React.FC<{ message: string }> = ({ message }) => (
 interface MetricOverlayPanelProps {
   rootNode: D3SankeyNode
   availableStages: StageOption[]
-  onMetricClick: (metric: string, thresholds: readonly number[]) => void
+  onMetricClick: (metric: string) => void
 }
 
 const MetricOverlayPanel: React.FC<MetricOverlayPanelProps> = ({
@@ -238,7 +238,7 @@ const MetricOverlayPanel: React.FC<MetricOverlayPanelProps> = ({
                 <g
                   key={stage.id}
                   className="sankey-metric-overlay__item"
-                  onClick={() => onMetricClick(stage.metric, stage.thresholds)}
+                  onClick={() => onMetricClick(stage.metric)}
                   onMouseEnter={() => setHoveredMetric(stage.id)}
                   onMouseLeave={() => setHoveredMetric(null)}
                   style={{ cursor: 'pointer' }}
@@ -698,7 +698,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const hoveredAlluvialPanel = useVisualizationStore(state => state.hoveredAlluvialPanel)
   const tableScrollState = useVisualizationStore(state => state.tableScrollState)
   const sankeyTree = useVisualizationStore(state => state[panelKey].sankeyTree)
-  const { showHistogramPopover, addStageToNode, removeNodeStage } = useVisualizationStore()
+  const { showHistogramPopover, addUnsplitStageToNode, removeNodeStage } = useVisualizationStore()
 
   // NEW TREE-BASED SYSTEM: use computedSankey directly
   const data = useMemo(() => {
@@ -868,19 +868,17 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     console.log('[SankeyDiagram.handleStageSelect] 🎯 Stage selected:', {
       stageTypeId,
       stageType,
-      metric: stageType.metric,
-      thresholds: stageType.thresholds
+      metric: stageType.metric
     })
 
     setInlineSelector(null)
 
-    // Use tree-based system
+    // Use tree-based system with unsplit stage (no thresholds initially)
     const metric = stageType.metric
-    const thresholds = stageType.thresholds
 
-    if (metric && thresholds) {
-      console.log('[SankeyDiagram.handleStageSelect] ✅ Calling addStageToNode with:', { metric, thresholds })
-      await addStageToNode(inlineSelector.nodeId, metric, [...thresholds], panel)
+    if (metric) {
+      console.log('[SankeyDiagram.handleStageSelect] ✅ Calling addUnsplitStageToNode with:', { metric })
+      await addUnsplitStageToNode(inlineSelector.nodeId, metric, panel)
 
       // Show histogram popover after adding stage
       setTimeout(() => {
@@ -890,22 +888,20 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
         }
       }, 500)
     } else {
-      console.error('[SankeyDiagram.handleStageSelect] ❌ Missing metric or thresholds:', {
+      console.error('[SankeyDiagram.handleStageSelect] ❌ Missing metric:', {
         metric,
-        thresholds,
         stageType
       })
     }
-  }, [inlineSelector, addStageToNode, panel, layout, handleNodeHistogramClick])
+  }, [inlineSelector, addUnsplitStageToNode, panel, layout, handleNodeHistogramClick])
 
-  const handleOverlayMetricClick = useCallback(async (metric: string, thresholds: readonly number[]) => {
+  const handleOverlayMetricClick = useCallback(async (metric: string) => {
     console.log('[SankeyDiagram.handleOverlayMetricClick] 🎯 Metric clicked:', {
-      metric,
-      thresholds
+      metric
     })
 
-    // Add stage to root node
-    await addStageToNode('root', metric, [...thresholds], panel)
+    // Add unsplit stage to root node (no thresholds initially)
+    await addUnsplitStageToNode('root', metric, panel)
 
     // Show histogram popover after adding stage
     setTimeout(() => {
@@ -914,7 +910,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
         handleNodeHistogramClick(rootNode)
       }
     }, 500)
-  }, [addStageToNode, panel, layout, handleNodeHistogramClick])
+  }, [addUnsplitStageToNode, panel, layout, handleNodeHistogramClick])
 
   // Render
   if (error) {
