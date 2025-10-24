@@ -159,7 +159,7 @@ const MetricOverlayPanel: React.FC<MetricOverlayPanelProps> = ({
 }) => {
   const [hoveredMetric, setHoveredMetric] = React.useState<string | null>(null)
 
-  // Group stages by category
+  // Group stages by category (for metric overlay panel)
   const categories: Array<{ name: string; stages: StageOption[] }> = [
     {
       name: 'FEATURE SPLITTING',
@@ -168,45 +168,23 @@ const MetricOverlayPanel: React.FC<MetricOverlayPanelProps> = ({
     {
       name: 'SCORE',
       stages: availableStages.filter(s => s.category === 'Score')
-    },
-    {
-      name: 'CONSISTENCY',
-      stages: availableStages.filter(s => s.category === 'Consistency')
     }
   ].filter(cat => cat.stages.length > 0)
 
   // Layout constants
   const itemHeight = 26
-  const categoryHeaderHeight = 20
-  const categoryPadding = 8  // Reduced padding for Feature Splitting and Score
-  const categoryPaddingLarge = 12  // Normal padding for Consistency
-  const categorySpacing = 10
+  const categoryPadding = 8
   const instructionHeight = 20
   const instructionSpacing = 16
   const categoryBoxWidth = 180
-  const categoryBoxWidthConsistency = 230  // Wider box for Consistency
-  const verticalSpacing = 10  // Spacing between Feature Splitting and Score
 
-  // Get individual category objects
-  const featureSplittingCat = categories.find(c => c.name === 'FEATURE SPLITTING')
-  const scoreCat = categories.find(c => c.name === 'SCORE')
-  const consistencyCat = categories.find(c => c.name === 'CONSISTENCY')
-
-  // Calculate heights for left column (Feature Splitting + Score)
-  const featureSplittingHeight = featureSplittingCat
-    ? categoryHeaderHeight + categoryPadding + (featureSplittingCat.stages.length * itemHeight) + categoryPadding
-    : 0
-  const scoreHeight = scoreCat
-    ? categoryHeaderHeight + categoryPadding + (scoreCat.stages.length * itemHeight) + categoryPadding
-    : 0
-  const leftColumnHeight = featureSplittingHeight + verticalSpacing + scoreHeight
-
-  // Calculate consistency height to match left column
-  const consistencyHeight = leftColumnHeight
+  // Calculate total height for single merged container
+  const allStages = categories.flatMap(cat => cat.stages)
+  const containerHeight = categoryPadding + (allStages.length * itemHeight) + categoryPadding
 
   // Position overlay to the right of root node
   const overlayX = (rootNode.x1 || 0) + 30
-  const totalHeight = instructionHeight + instructionSpacing + consistencyHeight
+  const totalHeight = instructionHeight + instructionSpacing + containerHeight
   const overlayY = ((rootNode.y0 || 0) + (rootNode.y1 || 0)) / 2 - totalHeight / 2
 
   return (
@@ -224,236 +202,74 @@ const MetricOverlayPanel: React.FC<MetricOverlayPanelProps> = ({
         Select a metric to begin:
       </text>
 
-      {/* Left column: Feature Splitting */}
-      {featureSplittingCat && (
-        <g key="feature-splitting">
-          {/* Dotted container */}
-          <rect
-            x={overlayX}
-            y={overlayY + instructionHeight + instructionSpacing}
-            width={categoryBoxWidth}
-            height={featureSplittingHeight}
-            fill="transparent"
-            stroke="#d1d5db"
-            strokeWidth="1.5"
-            strokeDasharray="4,4"
-            rx="6"
-          />
+      {/* Single container for all stages */}
+      {categories.length > 0 && (() => {
+        // Combine all stages from all categories into flat list
+        const allStages = categories.flatMap(cat => cat.stages)
+        const containerHeight = categoryPadding + (allStages.length * itemHeight) + categoryPadding
 
-          {/* Category header */}
-          <text
-            x={overlayX + categoryPadding}
-            y={overlayY + instructionHeight + instructionSpacing + categoryPadding}
-            dy="0.8em"
-            fontSize="11"
-            fontWeight="700"
-            fill="#6b7280"
-            letterSpacing="0.5"
-            style={{ textTransform: 'uppercase', userSelect: 'none' }}
-          >
-            {featureSplittingCat.name}
-          </text>
+        return (
+          <g key="all-stages">
+            {/* Single container */}
+            <rect
+              x={overlayX}
+              y={overlayY + instructionHeight + instructionSpacing}
+              width={categoryBoxWidth}
+              height={containerHeight}
+              fill="transparent"
+              stroke="#d1d5db"
+              strokeWidth="1.5"
+              strokeDasharray="4,4"
+              rx="6"
+            />
 
-          {/* Metrics */}
-          {featureSplittingCat.stages.map((stage, stageIndex) => {
-            const itemY = overlayY + instructionHeight + instructionSpacing + categoryHeaderHeight + categoryPadding + (stageIndex * itemHeight)
-            const isHovered = hoveredMetric === stage.id
+            {/* All stages in flat list */}
+            {allStages.map((stage, stageIndex) => {
+              const itemY = overlayY + instructionHeight + instructionSpacing + categoryPadding + (stageIndex * itemHeight)
+              const isHovered = hoveredMetric === stage.id
 
-            return (
-              <g
-                key={stage.id}
-                className="sankey-metric-overlay__item"
-                onClick={() => onMetricClick(stage.metric, stage.thresholds)}
-                onMouseEnter={() => setHoveredMetric(stage.id)}
-                onMouseLeave={() => setHoveredMetric(null)}
-                style={{ cursor: 'pointer' }}
-              >
-                <rect
-                  x={overlayX + 4}
-                  y={itemY}
-                  width={categoryBoxWidth - 8}
-                  height={itemHeight}
-                  fill={isHovered ? '#eff6ff' : 'transparent'}
-                  rx="3"
-                />
-                <circle
-                  cx={overlayX + categoryPadding + 7}
-                  cy={itemY + itemHeight / 2}
-                  r="7"
-                  fill={getMetricColorForDisplay(stage.metric)}
-                  stroke="#d1d5db"
-                  strokeWidth="0.5"
-                />
-                <text
-                  x={overlayX + categoryPadding + 22}
-                  y={itemY + itemHeight / 2}
-                  dy="0.35em"
-                  fontSize="12"
-                  fontWeight="500"
-                  fill="#1f2937"
-                  style={{ userSelect: 'none' }}
+              return (
+                <g
+                  key={stage.id}
+                  className="sankey-metric-overlay__item"
+                  onClick={() => onMetricClick(stage.metric, stage.thresholds)}
+                  onMouseEnter={() => setHoveredMetric(stage.id)}
+                  onMouseLeave={() => setHoveredMetric(null)}
+                  style={{ cursor: 'pointer' }}
                 >
-                  {stage.name}
-                </text>
-              </g>
-            )
-          })}
-        </g>
-      )}
-
-      {/* Left column: Score (below Feature Splitting) */}
-      {scoreCat && (
-        <g key="score">
-          {/* Dotted container */}
-          <rect
-            x={overlayX}
-            y={overlayY + instructionHeight + instructionSpacing + featureSplittingHeight + verticalSpacing}
-            width={categoryBoxWidth}
-            height={scoreHeight}
-            fill="transparent"
-            stroke="#d1d5db"
-            strokeWidth="1.5"
-            strokeDasharray="4,4"
-            rx="6"
-          />
-
-          {/* Category header */}
-          <text
-            x={overlayX + categoryPadding}
-            y={overlayY + instructionHeight + instructionSpacing + featureSplittingHeight + verticalSpacing + categoryPadding}
-            dy="0.8em"
-            fontSize="11"
-            fontWeight="700"
-            fill="#6b7280"
-            letterSpacing="0.5"
-            style={{ textTransform: 'uppercase', userSelect: 'none' }}
-          >
-            {scoreCat.name}
-          </text>
-
-          {/* Metrics */}
-          {scoreCat.stages.map((stage, stageIndex) => {
-            const itemY = overlayY + instructionHeight + instructionSpacing + featureSplittingHeight + verticalSpacing + categoryHeaderHeight + categoryPadding + (stageIndex * itemHeight)
-            const isHovered = hoveredMetric === stage.id
-
-            return (
-              <g
-                key={stage.id}
-                className="sankey-metric-overlay__item"
-                onClick={() => onMetricClick(stage.metric, stage.thresholds)}
-                onMouseEnter={() => setHoveredMetric(stage.id)}
-                onMouseLeave={() => setHoveredMetric(null)}
-                style={{ cursor: 'pointer' }}
-              >
-                <rect
-                  x={overlayX + 4}
-                  y={itemY}
-                  width={categoryBoxWidth - 8}
-                  height={itemHeight}
-                  fill={isHovered ? '#eff6ff' : 'transparent'}
-                  rx="3"
-                />
-                <circle
-                  cx={overlayX + categoryPadding + 7}
-                  cy={itemY + itemHeight / 2}
-                  r="7"
-                  fill={getMetricColorForDisplay(stage.metric)}
-                  stroke="#d1d5db"
-                  strokeWidth="0.5"
-                />
-                <text
-                  x={overlayX + categoryPadding + 22}
-                  y={itemY + itemHeight / 2}
-                  dy="0.35em"
-                  fontSize="12"
-                  fontWeight="500"
-                  fill="#1f2937"
-                  style={{ userSelect: 'none' }}
-                >
-                  {stage.name}
-                </text>
-              </g>
-            )
-          })}
-        </g>
-      )}
-
-      {/* Right column: Consistency (full height) */}
-      {consistencyCat && (
-        <g key="consistency">
-          {/* Dotted container */}
-          <rect
-            x={overlayX + categoryBoxWidth + categorySpacing}
-            y={overlayY + instructionHeight + instructionSpacing}
-            width={categoryBoxWidthConsistency}
-            height={consistencyHeight}
-            fill="transparent"
-            stroke="#d1d5db"
-            strokeWidth="1.5"
-            strokeDasharray="4,4"
-            rx="6"
-          />
-
-          {/* Category header */}
-          <text
-            x={overlayX + categoryBoxWidth + categorySpacing + categoryPaddingLarge}
-            y={overlayY + instructionHeight + instructionSpacing + categoryPaddingLarge}
-            dy="0.8em"
-            fontSize="11"
-            fontWeight="700"
-            fill="#6b7280"
-            letterSpacing="0.5"
-            style={{ textTransform: 'uppercase', userSelect: 'none' }}
-          >
-            {consistencyCat.name}
-          </text>
-
-          {/* Metrics */}
-          {consistencyCat.stages.map((stage, stageIndex) => {
-            const itemY = overlayY + instructionHeight + instructionSpacing + categoryHeaderHeight + categoryPaddingLarge + (stageIndex * itemHeight)
-            const isHovered = hoveredMetric === stage.id
-
-            return (
-              <g
-                key={stage.id}
-                className="sankey-metric-overlay__item"
-                onClick={() => onMetricClick(stage.metric, stage.thresholds)}
-                onMouseEnter={() => setHoveredMetric(stage.id)}
-                onMouseLeave={() => setHoveredMetric(null)}
-                style={{ cursor: 'pointer' }}
-              >
-                <rect
-                  x={overlayX + categoryBoxWidth + categorySpacing + 4}
-                  y={itemY}
-                  width={categoryBoxWidthConsistency - 8}
-                  height={itemHeight}
-                  fill={isHovered ? '#eff6ff' : 'transparent'}
-                  rx="3"
-                />
-                <circle
-                  cx={overlayX + categoryBoxWidth + categorySpacing + categoryPaddingLarge + 7}
-                  cy={itemY + itemHeight / 2}
-                  r="7"
-                  fill={getMetricColorForDisplay(stage.metric)}
-                  stroke="#d1d5db"
-                  strokeWidth="0.5"
-                />
-                <text
-                  x={overlayX + categoryBoxWidth + categorySpacing + categoryPaddingLarge + 22}
-                  y={itemY + itemHeight / 2}
-                  dy="0.35em"
-                  fontSize="12"
-                  fontWeight="500"
-                  fill="#1f2937"
-                  style={{ userSelect: 'none' }}
-                >
-                  {stage.name}
-                </text>
-              </g>
-            )
-          })}
-        </g>
-      )}
+                  <rect
+                    x={overlayX + 4}
+                    y={itemY}
+                    width={categoryBoxWidth - 8}
+                    height={itemHeight}
+                    fill={isHovered ? '#eff6ff' : 'transparent'}
+                    rx="3"
+                  />
+                  <circle
+                    cx={overlayX + categoryPadding + 7}
+                    cy={itemY + itemHeight / 2}
+                    r="7"
+                    fill={getMetricColorForDisplay(stage.metric)}
+                    stroke="#d1d5db"
+                    strokeWidth="0.5"
+                  />
+                  <text
+                    x={overlayX + categoryPadding + 22}
+                    y={itemY + itemHeight / 2}
+                    dy="0.35em"
+                    fontSize="12"
+                    fontWeight="500"
+                    fill="#1f2937"
+                    style={{ userSelect: 'none' }}
+                  >
+                    {stage.name}
+                  </text>
+                </g>
+              )
+            })}
+          </g>
+        )
+      })()}
     </g>
   )
 }
@@ -1275,55 +1091,40 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
               transform: 'translateY(-50%)'
             }}
           >
-            {/* Group stages by category */}
-            {['Feature Splitting', 'Score', 'Consistency'].map((category) => {
-              const stagesInCategory = inlineSelector.availableStages.filter(
-                (stage) => stage.category === category
-              )
-
-              if (stagesInCategory.length === 0) return null
-
-              return (
-                <div key={category} className="sankey-stage-selector__category-group">
-                  <div className="sankey-stage-selector__category-header">
-                    {category}
-                  </div>
-                  {stagesInCategory.map((stageType) => (
-                    <div
-                      key={stageType.id}
-                      onClick={() => handleStageSelect(stageType.id)}
-                      className="sankey-stage-selector__item"
-                    >
-                      <div className="sankey-stage-selector__item-content">
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 20 20"
-                          className="sankey-stage-selector__item-circle"
-                        >
-                          <circle
-                            cx="10"
-                            cy="10"
-                            r="8"
-                            fill={getMetricColorForDisplay(stageType.metric)}
-                            stroke="#d1d5db"
-                            strokeWidth="1"
-                          />
-                        </svg>
-                        <div className="sankey-stage-selector__item-text">
-                          <div className="sankey-stage-selector__item-title">
-                            {stageType.name}
-                          </div>
-                          <div className="sankey-stage-selector__item-description">
-                            {stageType.description}
-                          </div>
-                        </div>
-                      </div>
+            {/* Flat list of all available stages */}
+            {inlineSelector.availableStages.map((stageType) => (
+              <div
+                key={stageType.id}
+                onClick={() => handleStageSelect(stageType.id)}
+                className="sankey-stage-selector__item"
+              >
+                <div className="sankey-stage-selector__item-content">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 20 20"
+                    className="sankey-stage-selector__item-circle"
+                  >
+                    <circle
+                      cx="10"
+                      cy="10"
+                      r="8"
+                      fill={getMetricColorForDisplay(stageType.metric)}
+                      stroke="#d1d5db"
+                      strokeWidth="1"
+                    />
+                  </svg>
+                  <div className="sankey-stage-selector__item-text">
+                    <div className="sankey-stage-selector__item-title">
+                      {stageType.name}
                     </div>
-                  ))}
+                    <div className="sankey-stage-selector__item-description">
+                      {stageType.description}
+                    </div>
+                  </div>
                 </div>
-              )
-            })}
+              </div>
+            ))}
           </div>
         </>
       )}

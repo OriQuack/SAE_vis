@@ -12,7 +12,9 @@ import {
   calculateAvgSemanticSimilarity
 } from '../lib/utils'
 import {
-  METRIC_QUALITY_SCORE
+  METRIC_QUALITY_SCORE,
+  METRIC_FEATURE_SPLITTING,
+  METRIC_SEMANTIC_SIMILARITY
 } from '../lib/constants'
 import { HighlightedExplanation } from './HighlightedExplanation'
 import QualityScoreBreakdown from './QualityScoreBreakdown'
@@ -67,7 +69,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   }
 
   // Handle sort click
-  const handleSort = (sortKey: 'featureId' | typeof METRIC_QUALITY_SCORE) => {
+  const handleSort = (sortKey: 'featureId' | typeof METRIC_QUALITY_SCORE | typeof METRIC_FEATURE_SPLITTING | typeof METRIC_SEMANTIC_SIMILARITY) => {
     // Cycle through: null → asc → desc → null
     if (sortBy === sortKey) {
       if (sortDirection === null) {
@@ -313,7 +315,18 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     )
   }, [tableData, sortBy, sortDirection, rightmostFeatureIds])
 
-  // If no data or no explainers selected
+  // Show loading indicator during initial fetch
+  if (isLoading && (!tableData || !tableData.features || tableData.features.length === 0)) {
+    return (
+      <div className={`table-panel${className ? ` ${className}` : ''}`}>
+        <div className="table-panel__loading-overlay">
+          <div className="table-panel__loading-spinner" />
+        </div>
+      </div>
+    )
+  }
+
+  // If no data or no explainers selected (and not loading)
   if (!tableData || !tableData.features || tableData.features.length === 0 || selectedExplainers.size === 0) {
     return (
       <div className={`table-panel${className ? ` ${className}` : ''}`}>
@@ -360,15 +373,23 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
               </th>
               <th
                 className="table-panel__header-cell table-panel__header-cell--score"
+                onClick={() => handleSort(METRIC_FEATURE_SPLITTING)}
                 title="Feature Splitting"
               >
                 FS
+                {sortBy === METRIC_FEATURE_SPLITTING && (
+                  <span className={`table-panel__sort-indicator ${sortDirection || ''}`} />
+                )}
               </th>
               <th
                 className="table-panel__header-cell table-panel__header-cell--score"
+                onClick={() => handleSort(METRIC_SEMANTIC_SIMILARITY)}
                 title="Semantic Similarity"
               >
                 SS
+                {sortBy === METRIC_SEMANTIC_SIMILARITY && (
+                  <span className={`table-panel__sort-indicator ${sortDirection || ''}`} />
+                )}
               </th>
               <th
                 className="table-panel__header-cell table-panel__header-cell--score"

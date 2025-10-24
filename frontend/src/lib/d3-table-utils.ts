@@ -4,6 +4,8 @@ import {
   METRIC_SCORE_EMBEDDING,
   METRIC_SCORE_FUZZ,
   METRIC_QUALITY_SCORE,
+  METRIC_FEATURE_SPLITTING,
+  METRIC_SEMANTIC_SIMILARITY
 } from './constants'
 import {
   getQualityScoreColor,
@@ -425,6 +427,35 @@ function calculateAvgScoreAcrossExplainers(
 }
 
 /**
+ * Calculate average semantic similarity across all explainers for a feature
+ *
+ * Aggregates all pairwise semantic similarities from all explainers for this feature
+ * and returns the average value for sorting.
+ *
+ * @param row - Feature row
+ * @param explainerIds - List of explainer IDs
+ * @returns Average semantic similarity or null if no valid scores
+ */
+function calculateAvgSemanticSimilarityForSort(
+  row: FeatureTableRow,
+  explainerIds: string[]
+): number | null {
+  const similarities: number[] = []
+
+  explainerIds.forEach(explainerId => {
+    const explainerData = row.explainers[explainerId]
+    if (!explainerData?.semantic_similarity) return
+
+    // Collect all pairwise similarities for this explainer
+    Object.values(explainerData.semantic_similarity).forEach(sim => {
+      similarities.push(sim)
+    })
+  })
+
+  return similarities.length > 0 ? similarities.reduce((a, b) => a + b, 0) / similarities.length : null
+}
+
+/**
  * Sort features based on simplified sort configuration
  *
  * Supports sorting by:
@@ -433,6 +464,8 @@ function calculateAvgScoreAcrossExplainers(
  * - embedding: Sort by average embedding score across all explainers
  * - fuzz: Sort by average fuzz score across all explainers
  * - detection: Sort by average detection score across all explainers
+ * - feature_splitting: Sort by feature splitting score (same across all explainers)
+ * - semantic_similarity: Sort by average semantic similarity across all explainers
  *
  * @param features - Array of features to sort
  * @param sortBy - Sort key
@@ -475,6 +508,21 @@ export function sortFeatures(
       const scoreA = calculateAvgScoreAcrossExplainers(a, sortBy, explainerIds)
       const scoreB = calculateAvgScoreAcrossExplainers(b, sortBy, explainerIds)
       return compareValues(scoreA, scoreB, sortDirection)
+    }
+
+    // Feature Splitting sorting (single value per feature)
+    if (sortBy === METRIC_FEATURE_SPLITTING) {
+      const fsA = a.feature_splitting ?? null
+      const fsB = b.feature_splitting ?? null
+      return compareValues(fsA, fsB, sortDirection)
+    }
+
+    // Semantic Similarity sorting (average across all explainers)
+    if (sortBy === METRIC_SEMANTIC_SIMILARITY) {
+      const explainerIds = tableData?.explainer_ids || []
+      const ssA = calculateAvgSemanticSimilarityForSort(a, explainerIds)
+      const ssB = calculateAvgSemanticSimilarityForSort(b, explainerIds)
+      return compareValues(ssA, ssB, sortDirection)
     }
 
     return 0

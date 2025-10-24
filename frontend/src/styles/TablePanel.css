@@ -192,14 +192,14 @@
 }
 
 .table-panel__header-cell--explanation {
-  width: 50%;
+  width: 40%;
   min-width: 200px;
   text-align: left;
   padding-left: 12px;
 }
 
 .table-panel__header-cell--empty {
-  width: 43%;
+  width: 45%;
   min-width: 100px;
 }
 

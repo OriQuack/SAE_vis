@@ -488,6 +488,8 @@ export type SortBy =
   | typeof METRIC_SCORE_DETECTION
   | typeof METRIC_SCORE_FUZZ
   | typeof METRIC_SCORE_EMBEDDING
+  | typeof METRIC_FEATURE_SPLITTING
+  | typeof METRIC_SEMANTIC_SIMILARITY
   | null
 
 // ============================================================================
