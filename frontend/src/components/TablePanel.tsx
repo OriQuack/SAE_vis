@@ -7,7 +7,9 @@ import {
   getExplainerDisplayName
 } from '../lib/d3-table-utils'
 import {
-  getQualityScoreColor
+  getQualityScoreColor,
+  getMetricColor,
+  calculateAvgSemanticSimilarity
 } from '../lib/utils'
 import {
   METRIC_QUALITY_SCORE
@@ -358,9 +360,22 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
               </th>
               <th
                 className="table-panel__header-cell table-panel__header-cell--score"
-                onClick={() => handleSort(METRIC_QUALITY_SCORE)}
+                title="Feature Splitting"
               >
-                Quality Score
+                FS
+              </th>
+              <th
+                className="table-panel__header-cell table-panel__header-cell--score"
+                title="Semantic Similarity"
+              >
+                SS
+              </th>
+              <th
+                className="table-panel__header-cell table-panel__header-cell--score"
+                onClick={() => handleSort(METRIC_QUALITY_SCORE)}
+                title="Quality Score"
+              >
+                QS
                 {sortBy === METRIC_QUALITY_SCORE && (
                   <span className={`table-panel__sort-indicator ${sortDirection || ''}`} />
                 )}
@@ -404,7 +419,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                 {/* Unified explanation popover for this feature row - shown above */}
                 {isFeatureHovered && (
                   <tr className="table-panel__popover-row">
-                    <td colSpan={6} className={`table-panel__popover-cell table-panel__popover-cell--${popoverPosition}`}>
+                    <td colSpan={8} className={`table-panel__popover-cell table-panel__popover-cell--${popoverPosition}`}>
                       <div className="table-panel__explanation-popover" style={{ maxHeight: `${popoverMaxHeight}px`, width: `${popoverMaxHeight}px`, left: `${popoverLeft}px` }}>
                         {validExplainerIds.map((explId) => {
                           const explData = featureRow.explainers[explId]
@@ -439,7 +454,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                 {/* Quality score breakdown popover - shown when hovering */}
                 {hoveredQualityScore === featureRow.feature_id && tableData && (
                   <tr className="table-panel__quality-popover-row">
-                    <td colSpan={6} className={`table-panel__quality-popover-cell table-panel__quality-popover-cell--${qualityScorePopoverPosition}`}>
+                    <td colSpan={8} className={`table-panel__quality-popover-cell table-panel__quality-popover-cell--${qualityScorePopoverPosition}`}>
                       <QualityScoreBreakdown
                         feature={featureRow}
                         globalStats={tableData.global_stats}
@@ -484,6 +499,82 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                           {featureRow.feature_id}
                         </td>
                       )}
+
+                      {/* Feature Splitting column - Simple circle (only on first sub-row) */}
+                      {explainerIdx === 0 && (
+                        <td
+                          className="table-panel__cell table-panel__cell--score"
+                          rowSpan={validExplainerIds.length}
+                          title={featureRow.feature_splitting !== null && featureRow.feature_splitting !== undefined
+                            ? `Feature Splitting: ${featureRow.feature_splitting.toFixed(3)}`
+                            : 'No data'}
+                        >
+                          {featureRow.feature_splitting !== null && featureRow.feature_splitting !== undefined ? (
+                            <svg width="12" height="12" style={{ display: 'block', margin: '0 auto' }}>
+                              <circle
+                                cx="6"
+                                cy="6"
+                                r="5"
+                                fill={getMetricColor('feature_splitting', featureRow.feature_splitting)}
+                                stroke="none"
+                              />
+                            </svg>
+                          ) : (
+                            <span className="table-panel__no-data">-</span>
+                          )}
+                        </td>
+                      )}
+
+                      {/* Semantic Similarity column - Pill with range (only on first sub-row) */}
+                      {explainerIdx === 0 && (() => {
+                        const simStats = calculateAvgSemanticSimilarity(featureRow)
+
+                        return (
+                          <td
+                            className="table-panel__cell table-panel__cell--score"
+                            rowSpan={validExplainerIds.length}
+                            title={simStats
+                              ? `Semantic Similarity: ${simStats.avg.toFixed(3)} (${simStats.min.toFixed(3)} - ${simStats.max.toFixed(3)})`
+                              : 'No data'}
+                            style={{ position: 'relative' }}
+                          >
+                            {simStats ? (
+                              <svg width="16" height="100%" viewBox={`0 0 16 ${cellHeight}`} style={{ display: 'block', maxHeight: '100%' }}>
+                                {(() => {
+                                  const svgHeight = cellHeight
+                                  const centerY = svgHeight / 2
+                                  const scaleFactor = svgHeight / 0.4
+
+                                  const maxDeviation = (simStats.max - simStats.avg) * scaleFactor
+                                  const minDeviation = (simStats.avg - simStats.min) * scaleFactor
+
+                                  const topY = centerY - maxDeviation
+                                  const bottomY = centerY + minDeviation
+                                  const color = getMetricColor('semantic_similarity', simStats.avg)
+
+                                  const pillWidth = 10
+                                  const pillHeight = Math.max(bottomY - topY, pillWidth)
+                                  const pillTop = centerY - pillHeight / 2
+
+                                  return (
+                                    <rect
+                                      x={8 - pillWidth / 2}
+                                      y={pillTop}
+                                      width={pillWidth}
+                                      height={pillHeight}
+                                      rx={pillWidth / 2}
+                                      ry={pillWidth / 2}
+                                      fill={color}
+                                    />
+                                  )
+                                })()}
+                              </svg>
+                            ) : (
+                              <span className="table-panel__no-data">-</span>
+                            )}
+                          </td>
+                        )
+                      })()}
 
                       {/* Quality Score column - Show ONE merged cell with pill shape (only on first sub-row) */}
                       {explainerIdx === 0 && (

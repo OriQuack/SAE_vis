@@ -25,7 +25,7 @@ import {
   PANEL_LEFT,
   PANEL_RIGHT,
   METRIC_FEATURE_SPLITTING,
-  METRIC_SEMSIM_MEAN,
+  METRIC_SEMANTIC_SIMILARITY,
   METRIC_SCORE_FUZZ,
   METRIC_SCORE_DETECTION,
   METRIC_SCORE_EMBEDDING,
@@ -62,7 +62,7 @@ const AVAILABLE_STAGES: StageOption[] = [
     id: 'semantic_similarity',
     name: 'Semantic Similarity',
     description: 'Split by semantic similarity score',
-    metric: METRIC_SEMSIM_MEAN,
+    metric: METRIC_SEMANTIC_SIMILARITY,
     thresholds: [0.5],
     category: 'Score'
   },
@@ -112,7 +112,7 @@ function getMetricColorForDisplay(metric: string): string {
   switch (metric) {
     case METRIC_FEATURE_SPLITTING:
       return METRIC_COLORS.FEATURE_SPLITTING
-    case METRIC_SEMSIM_MEAN:
+    case METRIC_SEMANTIC_SIMILARITY:
       return METRIC_COLORS.SEMANTIC_SIMILARITY
     case METRIC_SCORE_FUZZ:
       return METRIC_COLORS.SCORE_FUZZ.HIGH

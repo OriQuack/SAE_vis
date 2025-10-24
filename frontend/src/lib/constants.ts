@@ -19,7 +19,7 @@ export const CATEGORY_SEMANTIC_SIMILARITY = "semantic_similarity"
 // Used across: types.ts, utils.ts, threshold-utils.ts, store.ts (5+ files)
 // ============================================================================
 export const METRIC_FEATURE_SPLITTING = "feature_splitting"
-export const METRIC_SEMSIM_MEAN = "semsim_mean"
+export const METRIC_SEMANTIC_SIMILARITY = "semantic_similarity"
 export const METRIC_SCORE_FUZZ = "score_fuzz"
 export const METRIC_SCORE_DETECTION = "score_detection"
 export const METRIC_SCORE_EMBEDDING = "score_embedding"
@@ -29,7 +29,7 @@ export const METRIC_QUALITY_SCORE = "quality_score"
 
 export const METRIC_TYPES = {
   FEATURE_SPLITTING: METRIC_FEATURE_SPLITTING,
-  SEMSIM_MEAN: METRIC_SEMSIM_MEAN,
+  SEMANTIC_SIMILARITY: METRIC_SEMANTIC_SIMILARITY,
   SCORE_FUZZ: METRIC_SCORE_FUZZ,
   SCORE_DETECTION: METRIC_SCORE_DETECTION,
   SCORE_EMBEDDING: METRIC_SCORE_EMBEDDING,
@@ -76,7 +76,7 @@ export const CATEGORY_DISPLAY_NAMES = {
 
 export const METRIC_DISPLAY_NAMES = {
   [METRIC_FEATURE_SPLITTING]: "Feature Splitting",
-  [METRIC_SEMSIM_MEAN]: "Semantic Similarity",
+  [METRIC_SEMANTIC_SIMILARITY]: "Semantic Similarity",
   [METRIC_SCORE_FUZZ]: "Fuzz Score",
   [METRIC_SCORE_DETECTION]: "Detection Score",
   [METRIC_SCORE_EMBEDDING]: "Embedding Score",
@@ -195,9 +195,9 @@ export const NEUTRAL_ICON_COLORS = {
  * Format: PALETTE.COLOR + hex_alpha → #RRGGBBAA
  */
 export const METRIC_COLORS = {
-  FEATURE_SPLITTING: PAUL_TOL_BRIGHT.CYAN,
+  FEATURE_SPLITTING: PAUL_TOL_BRIGHT.RED,
 
-  SEMANTIC_SIMILARITY: OKABE_ITO_PALETTE.GRAY,
+  SEMANTIC_SIMILARITY: OKABE_ITO_PALETTE.REDDISH_PURPLE,
 
   // Embedding Score: Blue gradient (Okabe-Ito Blue)
   SCORE_EMBEDDING: {
@@ -221,9 +221,9 @@ export const METRIC_COLORS = {
   },
 
   QUALITY_SCORE_COLORS: {
-  LOW: '#1f293700',    // 0% opacity (transparent/white) - 0.0 score
-  MEDIUM: '#1f293780', // 50% opacity (medium gray) - 0.5 score
-  HIGH: '#1f2937FF'    // 100% opacity (dark gray) - 1.0 score
+    LOW: '#1f293700',    // 0% opacity (transparent/white) - 0.0 score
+    MEDIUM: '#1f293780', // 50% opacity (medium gray) - 0.5 score
+    HIGH: '#1f2937FF'    // 100% opacity (dark gray) - 1.0 score
   }
 } as const
 

@@ -28,7 +28,7 @@ from .data_constants import (
 
 # Import for type hints only (avoids circular imports)
 if TYPE_CHECKING:
-    from .visualization_service import DataService
+    from .data_service import DataService
 
 logger = logging.getLogger(__name__)
 

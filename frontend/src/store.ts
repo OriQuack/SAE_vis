@@ -22,7 +22,7 @@ import { processFeatureGroupResponse, convertTreeToSankeyStructure, getNodeThres
 import {
   PANEL_LEFT,
   PANEL_RIGHT,
-  METRIC_SEMSIM_MEAN,
+  METRIC_SEMANTIC_SIMILARITY,
   METRIC_QUALITY_SCORE,
   METRIC_SCORE_EMBEDDING,
   METRIC_SCORE_FUZZ,
@@ -223,7 +223,7 @@ const initialState = {
 
   // Shared state
   filterOptions: null,
-  currentMetric: METRIC_SEMSIM_MEAN as MetricType,
+  currentMetric: METRIC_SEMANTIC_SIMILARITY as MetricType,
   popoverState: {
     histogram: null
   },

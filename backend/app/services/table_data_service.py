@@ -27,7 +27,7 @@ from .alignment_service import AlignmentService
 
 # Import for type hints only (avoids circular imports)
 if TYPE_CHECKING:
-    from .visualization_service import DataService
+    from .data_service import DataService
 
 logger = logging.getLogger(__name__)
 
@@ -115,9 +115,12 @@ class TableDataService:
         # STEP 3: Fetch explanations from explanations.parquet
         explanations_df = self._fetch_explanations(filters)
 
+        # STEP 3.5: Fetch pairwise semantic similarity data
+        pairwise_df = self._fetch_pairwise_similarity(feature_ids, explainer_ids)
+
         # STEP 4: Build response (pure assembly, no calculations)
         features = self._build_feature_rows_simple(
-            scores_df, consistency_df, explanations_df,
+            scores_df, consistency_df, explanations_df, pairwise_df,
             feature_ids, explainer_ids, scorer_map
         )
 
@@ -155,6 +158,7 @@ class TableDataService:
         # Select needed columns
         df = lf.select([
             "feature_id", "llm_explainer", "llm_scorer",
+            "feature_splitting",
             "score_embedding", "score_fuzz", "score_detection",
             "z_score_embedding", "z_score_fuzz", "z_score_detection",
             "overall_score"
@@ -332,6 +336,41 @@ class TableDataService:
             logger.warning(f"Explanations data not available: {e}")
             return None
 
+    def _fetch_pairwise_similarity(
+        self,
+        feature_ids: List[int],
+        explainer_ids: List[str]
+    ) -> Optional[pl.DataFrame]:
+        """
+        Fetch pairwise semantic similarity data.
+
+        Args:
+            feature_ids: List of feature IDs to filter
+            explainer_ids: List of explainer IDs to filter
+
+        Returns:
+            DataFrame with pairwise similarities (feature_id, explainer_1, explainer_2, cosine_similarity)
+            or None if data not available
+        """
+        try:
+            pl.enable_string_cache()
+            pairwise_df = pl.read_parquet(self.pairwise_similarity_file)
+
+            # Filter to match feature_ids and explainer_ids
+            pairwise_df = pairwise_df.filter(
+                pl.col("feature_id").is_in(feature_ids) &
+                (
+                    (pl.col("explainer_1").is_in(explainer_ids) & pl.col("explainer_2").is_in(explainer_ids)) |
+                    (pl.col("explainer_2").is_in(explainer_ids) & pl.col("explainer_1").is_in(explainer_ids))
+                )
+            )
+
+            logger.info(f"Fetched pairwise similarity: {len(pairwise_df)} rows")
+            return pairwise_df
+        except Exception as e:
+            logger.warning(f"Pairwise similarity data not available: {e}")
+            return None
+
     def _compute_global_stats(
         self,
         scores_df: pl.DataFrame,
@@ -475,6 +514,7 @@ class TableDataService:
         scores_df: pl.DataFrame,
         consistency_df: pl.DataFrame,
         explanations_df: Optional[pl.DataFrame],
+        pairwise_df: Optional[pl.DataFrame],
         feature_ids: List[int],
         explainer_ids: List[str],
         scorer_map: Dict[str, str]
@@ -486,6 +526,7 @@ class TableDataService:
             scores_df: Scores DataFrame from feature_analysis.parquet
             consistency_df: Consistency DataFrame (pre-computed or calculated)
             explanations_df: Explanations DataFrame (optional)
+            pairwise_df: Pairwise similarity DataFrame (optional)
             feature_ids: List of feature IDs
             explainer_ids: List of explainer IDs
             scorer_map: Mapping from scorer ID to s1/s2/s3
@@ -499,6 +540,14 @@ class TableDataService:
             # Filter data for this feature
             feature_scores = scores_df.filter(pl.col("feature_id") == feature_id)
             feature_consistency = consistency_df.filter(pl.col("feature_id") == feature_id)
+            feature_pairwise = pairwise_df.filter(pl.col("feature_id") == feature_id) if pairwise_df is not None else None
+
+            # Extract feature_splitting (same for all explainers)
+            feature_splitting = None
+            if len(feature_scores) > 0 and "feature_splitting" in feature_scores.columns:
+                feature_splitting_values = feature_scores["feature_splitting"].unique().to_list()
+                if len(feature_splitting_values) > 0:
+                    feature_splitting = float(feature_splitting_values[0])
 
             explainers_dict = {}
             for explainer in explainer_ids:
@@ -544,6 +593,11 @@ class TableDataService:
                 cross_explainer_consistency = self._build_cross_explainer_consistency(consistency_row)
                 cross_explainer_overall_score_consistency = self._build_cross_explainer_overall_score_consistency(consistency_row)
 
+                # Build semantic similarity dict for this explainer
+                semantic_similarity = self._build_semantic_similarity(
+                    explainer, explainer_ids, feature_pairwise
+                )
+
                 explainers_dict[explainer_key] = ExplainerScoreData(
                     embedding=embedding_score,
                     fuzz=ScorerScoreSet(
@@ -558,6 +612,7 @@ class TableDataService:
                     ),
                     explanation_text=explanation_text,
                     highlighted_explanation=highlighted_explanation,
+                    semantic_similarity=semantic_similarity,
                     llm_scorer_consistency=scorer_consistency,
                     within_explanation_metric_consistency=metric_consistency,
                     llm_explainer_consistency=explainer_consistency,
@@ -568,6 +623,7 @@ class TableDataService:
             if explainers_dict:
                 features.append(FeatureTableRow(
                     feature_id=feature_id,
+                    feature_splitting=feature_splitting,
                     explainers=explainers_dict
                 ))
 
@@ -655,6 +711,49 @@ class TableDataService:
             )
 
         return None
+
+    def _build_semantic_similarity(
+        self,
+        current_explainer: str,
+        all_explainer_ids: List[str],
+        pairwise_df: Optional[pl.DataFrame]
+    ) -> Optional[Dict[str, float]]:
+        """
+        Build semantic similarity dict for current explainer.
+
+        Args:
+            current_explainer: Current explainer ID (full model name)
+            all_explainer_ids: List of all explainer IDs
+            pairwise_df: Pairwise similarity DataFrame for this feature
+
+        Returns:
+            Dict mapping other explainer names (mapped) to cosine similarity values, or None if no data
+        """
+        if pairwise_df is None or len(pairwise_df) == 0:
+            return None
+
+        similarity_dict = {}
+
+        # Iterate through all explainers to find pairwise similarities
+        for other_explainer in all_explainer_ids:
+            if other_explainer == current_explainer:
+                continue
+
+            # Look for row where current_explainer and other_explainer are paired
+            # Check both orderings: (explainer_1=current, explainer_2=other) or vice versa
+            pair_row = pairwise_df.filter(
+                ((pl.col("explainer_1") == current_explainer) & (pl.col("explainer_2") == other_explainer)) |
+                ((pl.col("explainer_1") == other_explainer) & (pl.col("explainer_2") == current_explainer))
+            )
+
+            if len(pair_row) > 0:
+                cosine_sim = pair_row["cosine_similarity"].to_list()[0]
+                if cosine_sim is not None:
+                    # Map other_explainer to display name
+                    other_explainer_key = MODEL_NAME_MAP.get(other_explainer, other_explainer)
+                    similarity_dict[other_explainer_key] = float(cosine_sim)
+
+        return similarity_dict if similarity_dict else None
 
     # COMMENTED OUT: _load_pairwise_data() - unused in default-only mode (only for dynamic consistency calculation)
     # def _load_pairwise_data(self) -> Optional[pl.DataFrame]:

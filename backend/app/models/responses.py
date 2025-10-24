@@ -425,6 +425,10 @@ class ExplainerScoreData(BaseModel):
         None,
         description="Highlighted explanation with syntax highlighting showing alignment across LLM explainers"
     )
+    semantic_similarity: Optional[Dict[str, float]] = Field(
+        None,
+        description="Pairwise cosine similarity to other explainers. Key: other explainer name (e.g., 'qwen', 'openai'), Value: cosine similarity (0-1)"
+    )
     llm_scorer_consistency: Optional[Dict[str, ConsistencyScore]] = Field(
         None,
         description="Consistency across LLM scorers for each metric (coefficient of variation): {fuzz, detection}"
@@ -449,6 +453,10 @@ class ExplainerScoreData(BaseModel):
 class FeatureTableRow(BaseModel):
     """Single feature row with scores for all explainers"""
     feature_id: int = Field(..., ge=0, description="Feature ID")
+    feature_splitting: Optional[float] = Field(
+        None,
+        description="Feature splitting cosine similarity score (same across all explainers for this feature)"
+    )
     explainers: Dict[str, ExplainerScoreData] = Field(
         ...,
         description="Scores for each explainer (llama, qwen, openai)"

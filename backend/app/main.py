@@ -7,7 +7,7 @@ import os
 from contextlib import asynccontextmanager
 
 from .api import router as api_router
-from .services.visualization_service import DataService
+from .services.data_service import DataService
 from .services.alignment_service import AlignmentService
 from .api import feature_groups
 

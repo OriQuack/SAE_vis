@@ -14,8 +14,7 @@ const METRIC_TITLES: Record<string, string> = {
   score_detection: 'Detection Score',
   score_fuzz: 'Fuzz Score',
   score_simulation: 'Simulation Score',
-  semsim_mean: 'Semantic Similarity (Mean)',
-  semsim_max: 'Semantic Similarity (Max)',
+  semantic_simialrity: 'Semantic Similarity',
   score_embedding: 'Embedding Score',
   feature_splitting: 'Feature Splitting'
 }

@@ -15,7 +15,7 @@ export interface Filters {
 
 import {
   CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_SIMILARITY,
-  METRIC_FEATURE_SPLITTING, METRIC_SEMSIM_MEAN, METRIC_QUALITY_SCORE,
+  METRIC_FEATURE_SPLITTING, METRIC_SEMANTIC_SIMILARITY, METRIC_QUALITY_SCORE,
   METRIC_SCORE_FUZZ, METRIC_SCORE_DETECTION, METRIC_SCORE_EMBEDDING,
   PANEL_LEFT, PANEL_RIGHT
 } from './lib/constants'
@@ -268,7 +268,7 @@ export interface ErrorStates {
 
 export type MetricType =
   | typeof METRIC_FEATURE_SPLITTING
-  | typeof METRIC_SEMSIM_MEAN
+  | typeof METRIC_SEMANTIC_SIMILARITY
   | typeof METRIC_SCORE_FUZZ
   | typeof METRIC_SCORE_DETECTION
   | typeof METRIC_SCORE_EMBEDDING
@@ -444,6 +444,7 @@ export interface ExplainerScoreData {
   detection: ScorerScoreSet
   explanation_text?: string | null  // Explanation text for this explainer
   highlighted_explanation?: HighlightedExplanation | null  // Highlighted explanation with syntax highlighting
+  semantic_similarity?: Record<string, number> | null  // Pairwise cosine similarity to other explainers (e.g., {"qwen": 0.931, "openai": 0.871})
   llm_scorer_consistency?: Record<string, ConsistencyScore>  // Per-metric std (fuzz, detection)
   within_explanation_metric_consistency?: ConsistencyScore  // Cross-metric std
   llm_explainer_consistency?: ConsistencyScore  // Semantic consistency (avg pairwise cosine)
@@ -453,6 +454,7 @@ export interface ExplainerScoreData {
 
 export interface FeatureTableRow {
   feature_id: number
+  feature_splitting?: number | null  // Feature splitting cosine similarity score (same across all explainers)
   explainers: Record<string, ExplainerScoreData>
 }
 

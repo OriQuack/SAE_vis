@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 import logging
-from ..services.visualization_service import DataService
+from ..services.data_service import DataService
 from ..services.histogram_service import HistogramService
 from ..models.requests import HistogramRequest, FilteredHistogramPanelRequest
 from ..models.responses import HistogramResponse, FilteredHistogramPanelResponse

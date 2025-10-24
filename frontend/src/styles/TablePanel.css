@@ -181,8 +181,8 @@
 }
 
 .table-panel__header-cell--score {
-  width: 5%;
-  min-width: 50px;
+  width: 3%;
+  min-width: 40px;
   cursor: pointer;
   user-select: none;
 }

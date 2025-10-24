@@ -6,6 +6,7 @@ import { scaleLinear } from 'd3-scale'
 import {
   METRIC_COLORS
 } from './constants'
+import type { FeatureTableRow } from '../types'
 
 // ============================================================================
 // TYPES
@@ -142,14 +143,19 @@ export function getQualityScoreColor(score: number): string {
  *
  * Metric colors:
  * - Embedding: Blue gradient (#0072B2)
- * - Fuzz: Orange-red gradient (#D55E00)
+ * - Fuzz: Orange-red gradient (#E69F00)
  * - Detection: Green gradient (#228833)
+ * - Feature Splitting: Cyan gradient (#66CCEE)
+ * - Semantic Similarity: Gray gradient (#999999)
  *
- * @param metricType - Type of metric (embedding, fuzz, detection)
+ * @param metricType - Type of metric (embedding, fuzz, detection, feature_splitting, semantic_similarity)
  * @param score - Score value (0-1 range, normalized)
  * @returns RGB color string with opacity
  */
-export function getMetricColor(metricType: 'embedding' | 'fuzz' | 'detection', score: number): string {
+export function getMetricColor(
+  metricType: 'embedding' | 'fuzz' | 'detection' | 'feature_splitting' | 'semantic_similarity',
+  score: number
+): string {
   // Clamp score between 0 and 1
   const clampedScore = Math.max(0, Math.min(1, score))
 
@@ -166,6 +172,22 @@ export function getMetricColor(metricType: 'embedding' | 'fuzz' | 'detection', s
     case 'detection':
       gradient = METRIC_COLORS.SCORE_DETECTION
       break
+    case 'feature_splitting':
+      // Create gradient inline for feature splitting (cyan)
+      gradient = {
+        LOW: METRIC_COLORS.FEATURE_SPLITTING + '00',    // 0% opacity
+        MEDIUM: METRIC_COLORS.FEATURE_SPLITTING + '80', // 50% opacity
+        HIGH: METRIC_COLORS.FEATURE_SPLITTING + 'FF'    // 100% opacity
+      }
+      break
+    case 'semantic_similarity':
+      // Create gradient inline for semantic similarity (gray)
+      gradient = {
+        LOW: METRIC_COLORS.SEMANTIC_SIMILARITY + '00',    // 0% opacity
+        MEDIUM: METRIC_COLORS.SEMANTIC_SIMILARITY + '80', // 50% opacity
+        HIGH: METRIC_COLORS.SEMANTIC_SIMILARITY + 'FF'    // 100% opacity
+      }
+      break
     default:
       return '#e5e7eb'  // Default gray
   }
@@ -176,4 +198,39 @@ export function getMetricColor(metricType: 'embedding' | 'fuzz' | 'detection', s
     .range([gradient.LOW, gradient.MEDIUM, gradient.HIGH])
 
   return colorScale(clampedScore)
+}
+
+/**
+ * Calculate average semantic similarity statistics for a feature across all explainers
+ *
+ * Aggregates all pairwise semantic similarities from all explainers for this feature
+ * and returns min, max, average, and count statistics.
+ *
+ * @param feature - Feature table row containing explainer data
+ * @returns Statistics object with min, max, avg, count or null if no similarity data
+ */
+export function calculateAvgSemanticSimilarity(
+  feature: FeatureTableRow
+): { min: number; max: number; avg: number; count: number } | null {
+  const explainerIds = Object.keys(feature.explainers)
+  const similarities: number[] = []
+
+  for (const explainerId of explainerIds) {
+    const explainerData = feature.explainers[explainerId]
+    if (!explainerData?.semantic_similarity) continue
+
+    // Collect all pairwise similarities for this explainer
+    Object.values(explainerData.semantic_similarity).forEach(sim => {
+      similarities.push(sim)
+    })
+  }
+
+  if (similarities.length === 0) return null
+
+  return {
+    min: Math.min(...similarities),
+    max: Math.max(...similarities),
+    avg: similarities.reduce((a, b) => a + b, 0) / similarities.length,
+    count: similarities.length
+  }
 }

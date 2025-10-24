@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 import logging
-from ..services.visualization_service import DataService
+from ..services.data_service import DataService
 from ..models.requests import UMAPDataRequest
 from ..models.responses import UMAPDataResponse
 from ..models.common import ErrorResponse

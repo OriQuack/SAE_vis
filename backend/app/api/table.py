@@ -10,7 +10,7 @@ from typing import Optional
 
 from app.models.requests import TableDataRequest
 from app.models.responses import FeatureTableDataResponse
-from app.services.visualization_service import DataService
+from app.services.data_service import DataService
 from app.services.table_data_service import TableDataService
 from app.services.alignment_service import AlignmentService
 
