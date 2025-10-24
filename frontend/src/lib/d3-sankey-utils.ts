@@ -9,7 +9,6 @@ import {
   CATEGORY_ROOT,
   CATEGORY_FEATURE_SPLITTING,
   CATEGORY_SEMANTIC_SIMILARITY,
-  METRIC_DISPLAY_NAMES,
   getMetricBaseColor
 } from './constants'
 
@@ -366,15 +365,15 @@ export function getNodeColor(node: D3SankeyNode): string {
 
 export function getLinkColor(link: D3SankeyLink): string {
   // Defensive checks for d3-sankey processed data
-  if (!link?.target) {
-    console.warn('getLinkColor: Link target is undefined, using default color')
+  if (!link?.source) {
+    console.warn('getLinkColor: Link source is undefined, using default color')
     return '#6b728040'  // 25% opacity
   }
 
-  const targetNode = link.target as D3SankeyNode
+  const sourceNode = link.source as D3SankeyNode
 
-  // Get metric from target node (links inherit the metric of the stage they flow into)
-  const metric = targetNode?.metric
+  // Get metric from source node (links are colored by the metric that created them)
+  const metric = sourceNode?.metric
 
   if (!metric) {
     // No metric: use default gray (root node or nodes without metrics)
@@ -484,15 +483,15 @@ export function calculateStageLabels(
   nodesByStage.forEach((nodes, stage) => {
     if (nodes.length === 0) return
 
-    // Get metric from the first node in the stage
-    const metric = nodes[0].metric
     let label: string
 
-    if (metric && metric !== null) {
-      // Use metric display name for non-root nodes
-      label = METRIC_DISPLAY_NAMES[metric as keyof typeof METRIC_DISPLAY_NAMES] || metric
+    if (stage === 0) {
+      // Stage 0 (root): always use category display name
+      const category = nodes[0].category
+      label = CATEGORY_DISPLAY_NAMES[category] || category
     } else {
-      // Root node has no metric, use category display name
+      // Other stages: use category display name (derived from parent metric)
+      // With new architecture, children don't have metric, but category is derived from parent
       const category = nodes[0].category
       label = CATEGORY_DISPLAY_NAMES[category] || category
     }

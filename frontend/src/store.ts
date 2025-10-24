@@ -854,7 +854,7 @@ export const useStore = create<AppState>((set, get) => ({
       const childNode: SankeyTreeNode = {
         id: childId,
         parentId: nodeId,
-        metric,
+        metric: null, // Child has no metric (not being split)
         thresholds: [], // Empty thresholds - no split yet
         depth: newDepth,
         children: [],
@@ -865,8 +865,10 @@ export const useStore = create<AppState>((set, get) => ({
 
       newTree.set(childId, childNode)
 
-      // Update parent's children
+      // Update parent's children AND set the metric/thresholds on parent
       parentNode.children = [childId]
+      parentNode.metric = metric           // Set metric on parent (how parent splits)
+      parentNode.thresholds = []           // Empty thresholds (unsplit state)
       newTree.set(nodeId, { ...parentNode })
 
       set((state) => ({
@@ -878,7 +880,8 @@ export const useStore = create<AppState>((set, get) => ({
 
       console.log(`[Store.addUnsplitStageToNode] 🌳 Tree updated with 1 unsplit child for node ${nodeId}`)
 
-      // Fetch histogram data for the new metric (for visualization)
+      // Fetch histogram data for the new metric (for node overlay visualization)
+      // This displays small histogram bars on the node, but does NOT open the popover
       console.log(`[Store.addUnsplitStageToNode] 📊 Fetching histogram data for metric: ${metric}`)
       try {
         await state.fetchHistogramData(metric as MetricType, nodeId, panel)
@@ -979,8 +982,8 @@ export const useStore = create<AppState>((set, get) => ({
           const childNode: SankeyTreeNode = {
             id: childId,
             parentId: nodeId,
-            metric: node.metric,
-            thresholds,
+            metric: null,  // Child has no metric (not being split)
+            thresholds: [],  // Children don't need thresholds
             depth: node.depth + 1,
             children: [],
             featureIds: intersectedFeatures,
@@ -1099,10 +1102,24 @@ export const useStore = create<AppState>((set, get) => ({
     // Remove all descendants
     removeDescendants(nodeId)
 
+    // Clear metric and thresholds from parent node
+    const parentNode = newTree.get(nodeId)
+    if (parentNode) {
+      parentNode.metric = null
+      parentNode.thresholds = []
+      newTree.set(nodeId, { ...parentNode })
+    }
+
     set((state) => ({
       [panelKey]: {
         ...state[panelKey],
-        sankeyTree: newTree
+        sankeyTree: newTree,
+        // Also clear histogram data for this node
+        histogramData: Object.fromEntries(
+          Object.entries(state[panelKey].histogramData || {}).filter(
+            ([key]) => !key.startsWith(`${nodeId}_`)
+          )
+        )
       }
     }))
 

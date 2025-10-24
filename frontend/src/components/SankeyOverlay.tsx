@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState, useRef, useCallback } from 'react'
 import type { D3SankeyNode, D3SankeyLink, HistogramData, SankeyLayout } from '../types'
 import {
   METRIC_FEATURE_SPLITTING,
@@ -16,6 +16,7 @@ import {
   getNodeHistogramMetric,
   hasOutgoingLinks
 } from '../lib/d3-sankey-histogram-utils'
+import { getNodeThresholds } from '../lib/threshold-utils'
 
 // ============================================================================
 // CONSTANTS & TYPES
@@ -115,9 +116,249 @@ function getMetricColorForDisplay(metric: string): string {
   }
 }
 
+/**
+ * Maps threshold value to Y coordinate on node
+ */
+function calculateHandleYFromThreshold(
+  threshold: number,
+  metricMin: number,
+  metricMax: number,
+  nodeY0: number,
+  nodeY1: number
+): number {
+  const ratio = (threshold - metricMin) / (metricMax - metricMin)
+  return nodeY0 + ratio * (nodeY1 - nodeY0)
+}
+
+/**
+ * Maps Y coordinate to threshold value
+ */
+function calculateThresholdFromHandleY(
+  y: number,
+  metricMin: number,
+  metricMax: number,
+  nodeY0: number,
+  nodeY1: number
+): number {
+  const ratio = (y - nodeY0) / (nodeY1 - nodeY0)
+  return metricMin + ratio * (metricMax - metricMin)
+}
+
+/**
+ * Determine if node should show threshold slider handles
+ */
+function shouldShowHandles(
+  node: D3SankeyNode,
+  sankeyTree: Map<string, any> | null
+): boolean {
+  if (!sankeyTree) return false
+
+  const treeNode = sankeyTree.get(node.id)
+  if (!treeNode) return false
+
+  return treeNode.children.length > 0  // Has been split
+}
+
 // ============================================================================
 // SUB-COMPONENTS
 // ============================================================================
+
+interface NodeThresholdSlidersProps {
+  node: D3SankeyNode
+  thresholds: number[]
+  metricMin: number
+  metricMax: number
+  onThresholdUpdate: (nodeId: string, newThresholds: number[]) => void
+}
+
+const NodeThresholdSliders: React.FC<NodeThresholdSlidersProps> = ({
+  node,
+  thresholds,
+  metricMin,
+  metricMax,
+  onThresholdUpdate
+}) => {
+  const [draggingHandle, setDraggingHandle] = useState<number | null>(null)
+  const [tempThresholds, setTempThresholds] = useState<number[]>(thresholds)
+  const rafIdRef = useRef<number | null>(null)
+
+  // Update temp thresholds when props change
+  React.useEffect(() => {
+    if (draggingHandle === null) {
+      setTempThresholds(thresholds)
+    }
+  }, [thresholds, draggingHandle])
+
+  const handleMouseDown = useCallback((handleIndex: number) => (e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()  // Prevent text selection
+
+    // Disable selection globally during drag
+    document.body.style.userSelect = 'none'
+    document.body.style.cursor = 'ns-resize'
+
+    setDraggingHandle(handleIndex)
+  }, [])
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (draggingHandle === null || !node.y0 || !node.y1) return
+
+    e.preventDefault()  // Prevent any default drag behavior
+
+    // Cancel any pending RAF
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current)
+    }
+
+    rafIdRef.current = requestAnimationFrame(() => {
+      // Get SVG element to calculate correct coordinates
+      const svgElement = (e.target as Element).closest('svg')
+      if (!svgElement) return
+
+      const svgRect = svgElement.getBoundingClientRect()
+      const svgY = e.clientY - svgRect.top
+
+      // Account for margin transform (get margin from parent g element)
+      const parentG = (e.target as Element).closest('g[transform]')
+      let marginTop = 0
+      if (parentG) {
+        const transform = parentG.getAttribute('transform')
+        const match = transform?.match(/translate\([^,]+,\s*(\d+)\)/)
+        if (match) {
+          marginTop = parseInt(match[1])
+        }
+      }
+
+      const adjustedY = svgY - marginTop
+
+      // Clamp Y within node bounds
+      const clampedY = Math.max(node.y0!, Math.min(node.y1!, adjustedY))
+
+      // Convert to threshold value
+      const newThreshold = calculateThresholdFromHandleY(
+        clampedY,
+        metricMin,
+        metricMax,
+        node.y0!,
+        node.y1!
+      )
+
+      // Update temp thresholds with constraints
+      setTempThresholds(prev => {
+        const updated = [...prev]
+        updated[draggingHandle] = newThreshold
+
+        // Ensure thresholds stay ordered
+        if (draggingHandle === 0 && updated.length > 1) {
+          // Top handle: must be less than bottom handle
+          updated[0] = Math.min(updated[0], updated[1] - 0.01)
+        } else if (draggingHandle === 1 && updated.length > 1) {
+          // Bottom handle: must be greater than top handle
+          updated[1] = Math.max(updated[1], updated[0] + 0.01)
+        }
+
+        return updated
+      })
+    })
+  }, [draggingHandle, node, metricMin, metricMax])
+
+  const handleMouseUp = useCallback(() => {
+    if (draggingHandle === null) return
+
+    // Restore global styles
+    document.body.style.userSelect = ''
+    document.body.style.cursor = ''
+
+    // Cancel any pending RAF
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current)
+      rafIdRef.current = null
+    }
+
+    // Call update with final thresholds
+    onThresholdUpdate(node.id || '', tempThresholds)
+    setDraggingHandle(null)
+  }, [draggingHandle, tempThresholds, onThresholdUpdate, node.id])
+
+  // Global mouse event listeners during drag
+  React.useEffect(() => {
+    if (draggingHandle === null) return
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [draggingHandle, handleMouseMove, handleMouseUp])
+
+  if (!node.x0 || !node.y0 || !node.y1) {
+    return null
+  }
+
+  const displayThresholds = draggingHandle !== null ? tempThresholds : thresholds
+
+  return (
+    <g className="sankey-threshold-sliders">
+      {displayThresholds.map((threshold, index) => {
+        const y = calculateHandleYFromThreshold(
+          threshold,
+          metricMin,
+          metricMax,
+          node.y0!,
+          node.y1!
+        )
+        const isHovered = draggingHandle === index
+
+        return (
+          <g key={index}>
+            {/* Horizontal line */}
+            <line
+              x1={node.x0!}
+              y1={y}
+              x2={node.x0! - 10}
+              y2={y}
+              stroke="#3b82f6"
+              strokeWidth={2}
+              opacity={isHovered ? 1 : 0.8}
+              style={{ pointerEvents: 'none' }}
+            />
+
+            {/* Drag handle */}
+            <circle
+              cx={node.x0! - 10}
+              cy={y}
+              r={8}
+              fill="#3b82f6"
+              stroke="#ffffff"
+              strokeWidth={2}
+              opacity={isHovered ? 0.9 : 0.8}
+              style={{ cursor: 'ns-resize' }}
+              onMouseDown={handleMouseDown(index)}
+            />
+
+            {/* Threshold value label (show when dragging) */}
+            {isHovered && (
+              <text
+                x={node.x0! - 25}
+                y={y}
+                dy="0.35em"
+                fontSize="11"
+                fontFamily="monospace"
+                fill="#1f2937"
+                textAnchor="end"
+                style={{ pointerEvents: 'none', userSelect: 'none' }}
+              >
+                {threshold.toFixed(3)}
+              </text>
+            )}
+          </g>
+        )
+      })}
+    </g>
+  )
+}
 
 interface SankeyNodeHistogramProps {
   node: D3SankeyNode
@@ -225,10 +466,6 @@ const MetricOverlayPanel: React.FC<MetricOverlayPanelProps> = ({
 
       {/* Single container for all stages */}
       {categories.length > 0 && (() => {
-        // Combine all stages from all categories into flat list
-        const allStages = categories.flatMap(cat => cat.stages)
-        const containerHeight = categoryPadding + (allStages.length * itemHeight) + categoryPadding
-
         return (
           <g key="all-stages">
             {/* Single container */}
@@ -305,7 +542,7 @@ interface SankeyInlineSelectorProps {
   onClose: () => void
 }
 
-const SankeyInlineSelector: React.FC<SankeyInlineSelectorProps> = ({
+export const SankeyInlineSelector: React.FC<SankeyInlineSelectorProps> = ({
   selector,
   onStageSelect,
   onClose
@@ -372,14 +609,8 @@ interface SankeyOverlayProps {
   histogramData: Record<string, HistogramData> | null
   animationDuration: number
   sankeyTree: Map<string, any> | null
-  inlineSelector: {
-    nodeId: string
-    position: { x: number; y: number }
-    availableStages: StageOption[]
-  } | null
   onMetricClick: (metric: string) => void
-  onStageSelect: (stageTypeId: string) => void
-  onSelectorClose: () => void
+  onThresholdUpdate: (nodeId: string, newThresholds: number[]) => void
 }
 
 export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
@@ -387,10 +618,8 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
   histogramData,
   animationDuration,
   sankeyTree,
-  inlineSelector,
   onMetricClick,
-  onStageSelect,
-  onSelectorClose
+  onThresholdUpdate
 }) => {
   if (!layout) return null
 
@@ -398,22 +627,12 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
     <>
       {/* Node Histograms - One per source node */}
       <g className="sankey-diagram__node-histograms">
-        {layout.nodes.map((node, index) => {
+        {layout.nodes.map((node) => {
           // Only render histogram for nodes with outgoing links
           if (!hasOutgoingLinks(node, layout.links)) return null
 
           // Get metric for this node
           const metric = getNodeHistogramMetric(node, layout.links)
-
-          // Debug logging
-          if (index === 0 && metric) {
-            console.log('[SankeyOverlay] Node histogram debug:', {
-              nodeId: node.id,
-              metric,
-              histogramDataKeys: histogramData ? Object.keys(histogramData) : null,
-              shouldDisplay: shouldDisplayNodeHistogram(node, layout.links, histogramData)
-            })
-          }
 
           if (!metric) return null
 
@@ -430,6 +649,63 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
               histogramData={metricHistogramData}
               links={layout.links}
               animationDuration={animationDuration}
+            />
+          )
+        })}
+      </g>
+
+      {/* Threshold Sliders - For nodes with children (split nodes) */}
+      <g className="sankey-threshold-sliders-group">
+        {layout.nodes.map((node) => {
+          // Only show handles for split nodes with metrics
+          const shouldShow = shouldShowHandles(node, sankeyTree)
+
+          if (!shouldShow || !sankeyTree) {
+            return null
+          }
+
+          // Get metric from children (same logic as histograms)
+          const metric = getNodeHistogramMetric(node, layout.links)
+
+          if (!metric) {
+            return null
+          }
+
+          // Get histogram data for min/max values
+          const metricHistogramData = histogramData?.[metric]
+
+          if (!metricHistogramData) {
+            return null
+          }
+
+          // Get thresholds for this node
+          const thresholds = getNodeThresholds(node.id || '', sankeyTree)
+          const { min, max } = metricHistogramData.statistics
+
+          // ALWAYS show exactly 2 sliders (top and bottom handles)
+          let displayThresholds: number[]
+          let metricMin = min
+          let metricMax = max
+
+          if (!thresholds || thresholds.length < 2) {
+            // No thresholds or less than 2: place handles beyond data range to prevent accidental splits
+            // Top handle at min - 0.01, bottom handle at max + 0.01
+            displayThresholds = [min - 0.01, max + 0.01]
+            metricMin = min - 0.01
+            metricMax = max + 0.01
+          } else {
+            // Use first two thresholds only (always exactly 2 sliders)
+            displayThresholds = [thresholds[0], thresholds[1]]
+          }
+
+          return (
+            <NodeThresholdSliders
+              key={`sliders-${node.id}`}
+              node={node}
+              thresholds={displayThresholds}
+              metricMin={metricMin}
+              metricMax={metricMax}
+              onThresholdUpdate={onThresholdUpdate}
             />
           )
         })}
@@ -456,15 +732,6 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
           />
         )
       })()}
-
-      {/* Inline Stage Selector */}
-      {inlineSelector && (
-        <SankeyInlineSelector
-          selector={inlineSelector}
-          onStageSelect={onStageSelect}
-          onClose={onSelectorClose}
-        />
-      )}
     </>
   )
 }

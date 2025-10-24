@@ -25,7 +25,7 @@ import {
   PANEL_LEFT,
   PANEL_RIGHT
 } from '../lib/constants'
-import { SankeyOverlay, AVAILABLE_STAGES } from './SankeyOverlay'
+import { SankeyOverlay, SankeyInlineSelector, AVAILABLE_STAGES } from './SankeyOverlay'
 import '../styles/SankeyDiagram.css'
 
 // ==================== COMPONENT-SPECIFIC TYPES ====================
@@ -440,7 +440,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const hoveredAlluvialPanel = useVisualizationStore(state => state.hoveredAlluvialPanel)
   const tableScrollState = useVisualizationStore(state => state.tableScrollState)
   const sankeyTree = useVisualizationStore(state => state[panelKey].sankeyTree)
-  const { showHistogramPopover, addUnsplitStageToNode, removeNodeStage } = useVisualizationStore()
+  const { showHistogramPopover, addUnsplitStageToNode, removeNodeStage, updateNodeThresholds } = useVisualizationStore()
 
   // NEW TREE-BASED SYSTEM: use computedSankey directly
   const data = useMemo(() => {
@@ -565,8 +565,8 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
     if (!sourceNode || !targetNode) return
 
-    // Get the metric from the target node (the stage the link flows into)
-    const metric = targetNode.metric
+    // Get the metric from the source node (the metric that created this link)
+    const metric = sourceNode.metric
     if (!metric) {
       // If no metric, fall back to showing all metrics for the source node
       handleNodeHistogramClick(sourceNode)
@@ -641,14 +641,8 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     if (metric) {
       console.log('[SankeyDiagram.handleStageSelect] ✅ Calling addUnsplitStageToNode with:', { metric })
       await addUnsplitStageToNode(inlineSelector.nodeId, metric, panel)
-
-      // Show histogram popover after adding stage
-      setTimeout(() => {
-        const parentNode = layout?.nodes.find(n => n.id === inlineSelector.nodeId)
-        if (parentNode) {
-          handleNodeHistogramClick(parentNode)
-        }
-      }, 500)
+      // NOTE: Histogram popover does NOT open automatically
+      // User can manually click the node to view histogram
     } else {
       console.error('[SankeyDiagram.handleStageSelect] ❌ Missing metric:', {
         metric,
@@ -664,15 +658,18 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
     // Add unsplit stage to root node (no thresholds initially)
     await addUnsplitStageToNode('root', metric, panel)
+    // NOTE: Histogram popover does NOT open automatically
+    // User can manually click the node to view histogram
+  }, [addUnsplitStageToNode, panel])
 
-    // Show histogram popover after adding stage
-    setTimeout(() => {
-      const rootNode = layout?.nodes.find(n => n.id === 'root')
-      if (rootNode) {
-        handleNodeHistogramClick(rootNode)
-      }
-    }, 500)
-  }, [addUnsplitStageToNode, panel, layout, handleNodeHistogramClick])
+  const handleThresholdUpdate = useCallback((nodeId: string, newThresholds: number[]) => {
+    console.log('[SankeyDiagram.handleThresholdUpdate] 🎯 Thresholds updated:', {
+      nodeId,
+      newThresholds,
+      panel
+    })
+    updateNodeThresholds(nodeId, newThresholds, panel)
+  }, [updateNodeThresholds, panel])
 
   // Render
   if (error) {
@@ -833,20 +830,27 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
             })()}
             </g>
 
-            {/* Sankey Overlay - histograms, metric overlay, stage selector */}
+            {/* Sankey Overlay - histograms, metric overlay, threshold sliders */}
             <SankeyOverlay
               layout={layout}
               histogramData={histogramData}
               animationDuration={animationDuration}
               sankeyTree={sankeyTree}
-              inlineSelector={inlineSelector}
               onMetricClick={handleOverlayMetricClick}
-              onStageSelect={handleStageSelect}
-              onSelectorClose={() => setInlineSelector(null)}
+              onThresholdUpdate={handleThresholdUpdate}
             />
           </g>
         </svg>
       </div>
+
+      {/* Inline Stage Selector - rendered outside SVG */}
+      {inlineSelector && (
+        <SankeyInlineSelector
+          selector={inlineSelector}
+          onStageSelect={handleStageSelect}
+          onClose={() => setInlineSelector(null)}
+        />
+      )}
     </div>
   )
 }

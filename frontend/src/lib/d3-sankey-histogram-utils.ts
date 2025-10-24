@@ -99,27 +99,16 @@ export function hasOutgoingLinks(
 
 /**
  * Get the metric for a node's histogram
- * ALWAYS uses the target nodes' (children's) metric
- * This shows what metric will be used to split this node into children
+ * Shows what metric this node uses to split into children
+ * With new architecture, metric is on the parent (source) node
  */
 export function getNodeHistogramMetric(
   node: D3SankeyNode,
-  links: D3SankeyLink[]
+  _links: D3SankeyLink[]  // Unused after architecture change
 ): string | null {
-  // ALWAYS get metric from target nodes (children)
-  // This shows "what metric splits this node into children"
-  // NOT the metric used to create this node from its parent
-  const firstOutgoingLink = links.find(link => {
-    const sourceId = typeof link.source === 'object' ? link.source.id : link.source
-    return sourceId === node.id
-  })
-
-  if (firstOutgoingLink) {
-    const target = typeof firstOutgoingLink.target === 'object' ? firstOutgoingLink.target : null
-    return target?.metric || null
-  }
-
-  return null
+  // Histogram shows the metric THIS node uses to split into children
+  // With new architecture, metric is on the parent (source) node
+  return node.metric || null
 }
 
 // ============================================================================

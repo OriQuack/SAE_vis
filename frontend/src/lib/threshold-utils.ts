@@ -261,7 +261,7 @@ export function convertTreeToSankeyStructure(tree: Map<string, SankeyTreeNode>):
       name: node.rangeLabel,
       stage: node.depth,
       feature_count: node.featureCount,
-      category: getNodeCategory(node),
+      category: getNodeCategory(node, tree),  // Pass tree for parent lookup
       metric: node.metric,  // Include metric for stage labels
       feature_ids: Array.from(node.featureIds),
       // Mark nodes at maximum depth as vertical_bar type
@@ -318,19 +318,29 @@ export function convertTreeToSankeyStructure(tree: Map<string, SankeyTreeNode>):
 
 /**
  * Get the category for a tree node based on its position and metric.
+ * With new architecture, child nodes don't have metrics - we get from parent.
  *
  * @param node - SankeyTreeNode
+ * @param tree - Full tree map to lookup parent
  * @returns NodeCategory for coloring
  */
-function getNodeCategory(node: SankeyTreeNode): NodeCategory {
+function getNodeCategory(node: SankeyTreeNode, tree: Map<string, SankeyTreeNode>): NodeCategory {
   // Root node
   if (node.depth === 0) {
     return 'root' as NodeCategory
   }
 
   // Use metric to determine category
+  // For child nodes, metric is on the PARENT
   if (node.metric) {
+    // Parent node - has metric set (being split)
     return getCategoryForMetric(node.metric)
+  } else if (node.parentId) {
+    // Child node - get metric from parent
+    const parent = tree.get(node.parentId)
+    if (parent?.metric) {
+      return getCategoryForMetric(parent.metric)
+    }
   }
 
   // Default fallback
@@ -399,15 +409,12 @@ export function processFeatureGroupResponse(response: {
  */
 export function getNodeMetrics(
   node: SankeyTreeNode,
-  tree: Map<string, SankeyTreeNode>
+  _tree: Map<string, SankeyTreeNode>  // Unused after architecture change
 ): MetricType[] {
-  // If node has children, show the metric used for the next stage
-  if (node.children.length > 0) {
-    // Get first child to determine what metric was used for split
-    const firstChild = tree.get(node.children[0])
-    if (firstChild?.metric) {
-      return [firstChild.metric as MetricType]
-    }
+  // If node has children, show the metric used to split this node
+  // With new architecture, metric is on the parent (this node)
+  if (node.children.length > 0 && node.metric) {
+    return [node.metric as MetricType]
   }
 
   // Leaf node (no children): show nothing
@@ -506,14 +513,17 @@ export function getNodeThresholdPath(
   let currentNode = tree.get(nodeId)
 
   // Walk up to root, collecting constraints
+  // With new architecture, metric that created a node is on its PARENT
   while (currentNode && currentNode.depth > 0) {
-    if (currentNode.metric && currentNode.rangeLabel) {
+    // Metric that created this node is on the PARENT
+    const parent = currentNode.parentId ? tree.get(currentNode.parentId) : undefined
+    if (parent?.metric && currentNode.rangeLabel) {
       constraints.unshift({
-        metric: currentNode.metric,
+        metric: parent.metric,
         rangeLabel: currentNode.rangeLabel
       })
     }
-    currentNode = currentNode.parentId ? tree.get(currentNode.parentId) : undefined
+    currentNode = parent
   }
 
   return constraints
