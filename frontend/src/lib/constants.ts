@@ -219,6 +219,7 @@ export const COMPONENT_COLORS = {
   SCORE_EMBEDDING: METRIC_COLORS.SCORE_EMBEDDING.HIGH,     // Full blue
   SCORE_FUZZ: METRIC_COLORS.SCORE_FUZZ.HIGH,               // Full orange-red
   SCORE_DETECTION: METRIC_COLORS.SCORE_DETECTION.HIGH,     // Full green
+  QUALITY_SCORE: METRIC_COLORS.QUALITY_SCORE_COLORS.HIGH,  // Full dark gray
 } as const
 
 // ============================================================================

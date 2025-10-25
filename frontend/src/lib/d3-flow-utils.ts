@@ -38,6 +38,7 @@ export interface FlowEdge {
   labelX?: number
   labelY?: number
   color?: string
+  noArrowhead?: boolean  // If true, don't show arrowhead on this edge
 }
 
 export interface FlowLayout {
@@ -55,13 +56,16 @@ interface EdgeDef {
 
 /**
  * Create a smooth curve between two nodes
- * @param orientation - 'horizontal' for left-right connections, 'vertical-to-horizontal' for top-left connections
+ * @param orientation - 'horizontal' for left-right connections, 'vertical-to-horizontal' for vertical then horizontal connections
  */
 function curve(x1: number, y1: number, x2: number, y2: number, orientation: 'horizontal' | 'vertical-to-horizontal' = 'horizontal'): string {
   if (orientation === 'vertical-to-horizontal') {
-    // For vertical-to-horizontal curves (e.g., from top of node to left of another)
-    // Control points: first moves vertically, then horizontally
-    const controlY1 = y1 - Math.abs(y2 - y1) / 2  // Move up from source
+    // For vertical-to-horizontal curves (e.g., from bottom of node to side of another)
+    // Control points: first moves vertically in the direction of target, then horizontally
+    const verticalDistance = Math.abs(y2 - y1) / 2
+    const controlY1 = y2 > y1
+      ? y1 + verticalDistance  // Move down if target is below
+      : y1 - verticalDistance  // Move up if target is above
     const controlY2 = y2  // Same level as target
     return `M ${x1} ${y1} C ${x1} ${controlY1}, ${x2} ${controlY2}, ${x2} ${y2}`
   } else {
@@ -140,25 +144,28 @@ function calculateBadgePosition(
  */
 function calculateBadge(nodeId: string, node: { x: number; y: number; width: number; height: number }, isRotated: boolean = false): Badge | undefined {
   const badgeColor = '#475569'
-  const badgeRx = 9
+  const badgeRx = 8
 
-  // Define badge content for specific nodes
+  // Define badge content for specific nodes - reduced sizes for compact layout
   let badgeText: string | undefined
   let badgeWidth: number
-  let badgeHeight = 18
+  let badgeHeight = 15
 
   if (nodeId === 'feature') {
     badgeText = '16k'
-    badgeWidth = 24
+    badgeWidth = 20
+  } else if (nodeId === 'average-op') {
+    badgeText = '16k'
+    badgeWidth = 20
   } else if (nodeId === 'explanation-label') {
     badgeText = '48k'
-    badgeWidth = 28
+    badgeWidth = 24
   } else if (nodeId === 'score-label') {
     badgeText = '144k'
-    badgeWidth = 32
+    badgeWidth = 28
   } else if (nodeId === 'embedding-label') {
     badgeText = '48k'
-    badgeWidth = 28
+    badgeWidth = 24
   } else {
     return undefined
   }
@@ -186,33 +193,39 @@ export function calculateFlowLayout(
   explainerOptions: string[] = [],
   scorerOptions: string[] = []
 ): FlowLayout {
-  // Node definitions with absolute coordinates (viewBox: 0 0 600 180)
+  // Node definitions with absolute coordinates (viewBox: 0 0 600 200)
   // Badges are calculated and attached after initial node definition
   const nodeDefinitions: Array<Omit<FlowNode, 'badge'>> = [
-    // Feature (starting point)
-    { id: 'feature', label: 'Feature', x: 10, y: 48, width: 70, height: 30, nodeType: 'text' },
+    // Feature (starting point) - reduced from 70x30 to 60x24
+    { id: 'feature', label: 'Feature', x: 10, y: 20, width: 60, height: 24, nodeType: 'text' },
 
-    // Explanation label (rotated, between explainer and outputs)
-    { id: 'explanation-label', label: 'Explanation', x: 200, y: 100, width: 76, height: 15, nodeType: 'text' },
+    // Explanation label (rotated, between explainer and outputs) - reduced from 76x15 to 64x13
+    { id: 'explanation-label', label: 'Explanation', x: 135, y: 110, width: 64, height: 13, nodeType: 'text' },
 
-    // Top path: Decoder (text node now)
-    { id: 'decoder', label: 'Decoder', x: 170, y: 10, width: 80, height: 30, nodeType: 'text' },
-    { id: 'feature-splitting', label: 'Feature Splitting', x: 460, y: 10, width: 130, height: 22, nodeType: 'text' },
+    // Top path: Decoder (text node now) - reduced from 80x30 to 68x24
+    { id: 'decoder', label: 'Decoder', x: 150, y: 10, width: 68, height: 24, nodeType: 'text' },
+    { id: 'feature-splitting', label: 'Feature Splitting', x: 380, y: 10, width: 110, height: 18, nodeType: 'text' },
 
-    // Embedder branch (text node now)
-    { id: 'embedder', label: 'Embedder', x: 285, y: 45, width: 90, height: 30, nodeType: 'text' },
+    // Embedder branch (text node now) - reduced from 90x30 to 76x24
+    { id: 'embedder', label: 'Embedder', x: 240, y: 45, width: 76, height: 24, nodeType: 'text' },
 
-    // Embedding label (rotated, between embedder and embedding outputs)
-    { id: 'embedding-label', label: 'Embedding', x: 365, y: 65, width: 70, height: 15, nodeType: 'text' },
+    // Embedding label (rotated, between embedder and embedding outputs) - reduced from 70x15 to 60x13
+    { id: 'embedding-label', label: 'Embedding', x: 310, y: 60, width: 60, height: 13, nodeType: 'text' },
 
-    { id: 'semantic-similarity', label: 'Semantic Similarity', x: 460, y: 50, width: 130, height: 22, nodeType: 'text' },
-    { id: 'embedding-score', label: 'Embedding Score', x: 460, y: 95, width: 130, height: 22, nodeType: 'text' },
+    { id: 'semantic-similarity', label: 'Semantic Similarity', x: 380, y: 45, width: 110, height: 18, nodeType: 'text' },
+    { id: 'embedding-score', label: 'Embedding Score', x: 380, y: 80, width: 110, height: 18, nodeType: 'text' },
 
-    // Score label (rotated, between scorer and score outputs)
-    { id: 'score-label', label: 'Score', x: 380, y: 140, width: 50, height: 15, nodeType: 'text' },
+    // Score label (rotated, between scorer and score outputs) - reduced from 50x15 to 42x13
+    { id: 'score-label', label: 'Score', x: 290, y: 130, width: 42, height: 13, nodeType: 'text' },
 
-    { id: 'fuzz-score', label: 'Fuzz Score', x: 460, y: 122, width: 130, height: 22, nodeType: 'text' },
-    { id: 'detection-score', label: 'Detection Score', x: 460, y: 150, width: 130, height: 22, nodeType: 'text' }
+    { id: 'fuzz-score', label: 'Fuzz Score', x: 380, y: 105, width: 110, height: 18, nodeType: 'text' },
+    { id: 'detection-score', label: 'Detection Score', x: 380, y: 130, width: 110, height: 18, nodeType: 'text' },
+
+    // Average operation node (intermediate step showing mean calculation)
+    { id: 'average-op', label: 'μ', x: 510, y: 102, width: 24, height: 24, nodeType: 'text' },
+
+    // Quality Score (final output from average)
+    { id: 'quality-score', label: 'Quality Score', x: 380, y: 155, width: 110, height: 18, nodeType: 'text' }
   ]
 
   // Calculate badges for nodes and create final node list
@@ -228,33 +241,36 @@ export function calculateFlowLayout(
     }
   })
 
-  // Constants for list items
-  const itemHeight = 18
-  const itemSpacing = 2
-  const containerPadding = 4
-  const headerHeight = 22
+  // Constants for list items - reduced for compact layout
+  const itemHeight = 16
+  const itemSpacing = 3
+  const containerPadding = 5
+  const headerHeight = 18
+  const itemLeftPadding = 10 // Padding from left edge of container to list items
 
-  // Add LLM Explainer container (rendered first so it appears behind list items)
-  const explainerStartY = 60
+  // LLM Explainer container positioning
+  const explainerContainerX = 60
+  const explainerStartY = 70
   const explainerItemsHeight = explainerOptions.length * (itemHeight + itemSpacing) - itemSpacing
   const explainerContainerHeight = headerHeight + explainerItemsHeight + containerPadding * 2
 
+  // Add LLM Explainer container (rendered first so it appears behind list items)
   nodes.push({
     id: 'llm-explainer-container',
     label: 'LLM Explainer',
-    x: 120,
+    x: explainerContainerX,
     y: explainerStartY - containerPadding,
-    width: 100,
+    width: 90,
     height: explainerContainerHeight,
     nodeType: 'text'
   })
 
-  // Add LLM Explainer list items (middle path)
+  // Add LLM Explainer list items (middle path) - positioned relative to container
   explainerOptions.forEach((option, idx) => {
     nodes.push({
       id: `explainer-${idx}`,
       label: getLLMDisplayName(option),
-      x: 140,
+      x: explainerContainerX + itemLeftPadding,
       y: explainerStartY + headerHeight + idx * (itemHeight + itemSpacing),
       width: 65,
       height: itemHeight,
@@ -264,27 +280,29 @@ export function calculateFlowLayout(
     })
   })
 
-  // Add LLM Scorer container (rendered first so it appears behind list items)
-  const scorerStartY = 91
+  // LLM Scorer container positioning
+  const scorerContainerX = 200
+  const scorerStartY = 95
   const scorerItemsHeight = scorerOptions.length * (itemHeight + itemSpacing) - itemSpacing
   const scorerContainerHeight = headerHeight + scorerItemsHeight + containerPadding * 2
 
+  // Add LLM Scorer container (rendered first so it appears behind list items)
   nodes.push({
     id: 'llm-scorer-container',
     label: 'LLM Scorer',
-    x: 290,
+    x: scorerContainerX,
     y: scorerStartY - containerPadding,
     width: 85,
     height: scorerContainerHeight,
     nodeType: 'text'
   })
 
-  // Add LLM Scorer list items (scorer branch)
+  // Add LLM Scorer list items (scorer branch) - positioned relative to container
   scorerOptions.forEach((option, idx) => {
     nodes.push({
       id: `scorer-${idx}`,
       label: getLLMDisplayName(option),
-      x: 300,
+      x: scorerContainerX + itemLeftPadding,
       y: scorerStartY + headerHeight + idx * (itemHeight + itemSpacing),
       width: 65,
       height: itemHeight,
@@ -348,6 +366,30 @@ export function calculateFlowLayout(
     })
   })
 
+  // Add edges from score outputs to average operation node
+  edgeDefs.push({
+    id: 'embedding-to-avg',
+    source: 'embedding-score',
+    target: 'average-op'
+  })
+  edgeDefs.push({
+    id: 'fuzz-to-avg',
+    source: 'fuzz-score',
+    target: 'average-op'
+  })
+  edgeDefs.push({
+    id: 'detection-to-avg',
+    source: 'detection-score',
+    target: 'average-op'
+  })
+
+  // Add edge from average operation to quality score
+  edgeDefs.push({
+    id: 'avg-to-quality',
+    source: 'average-op',
+    target: 'quality-score'
+  })
+
   // Create node lookup
   const nodeMap = new Map(nodes.map(n => [n.id, n]))
 
@@ -359,12 +401,40 @@ export function calculateFlowLayout(
     // Calculate connection points
     let x1: number, y1: number, x2: number, y2: number
     let curveOrientation: 'horizontal' | 'vertical-to-horizontal' = 'horizontal'
+    let noArrowhead = false
 
+    // Special case: Feature to explainer - bottom of feature to left of explainer
+    if (def.source === 'feature' && def.id.startsWith('feature-to-explainer')) {
+      x1 = src.x + src.width / 2  // Bottom center of feature
+      y1 = src.y + src.height
+      x2 = tgt.x  // Left edge of explainer
+      y2 = tgt.y + tgt.height / 2
+      curveOrientation = 'vertical-to-horizontal'
+    }
+    // Special case: Average-op to quality-score - bottom of μ to right of quality score
+    else if (def.source === 'average-op' && def.target === 'quality-score') {
+      x1 = src.x + src.width / 2  // Bottom center of μ
+      y1 = src.y + src.height
+      x2 = tgt.x + tgt.width  // Right edge of quality score
+      y2 = tgt.y + tgt.height / 2
+      curveOrientation = 'vertical-to-horizontal'
+    }
+    // Special case: Scores to average-op - no arrowhead
+    else if (def.target === 'average-op' &&
+             (def.source === 'embedding-score' || def.source === 'fuzz-score' || def.source === 'detection-score')) {
+      x1 = src.x + src.width  // Right edge of score
+      y1 = src.y + src.height / 2
+      x2 = tgt.x  // Left edge of μ
+      y2 = tgt.y + tgt.height / 2
+      noArrowhead = true  // No arrowhead for these edges
+    }
     // Default: right edge of source, left edge of target
-    x1 = src.x + src.width
-    y1 = src.y + src.height / 2
-    x2 = tgt.x
-    y2 = tgt.y + tgt.height / 2
+    else {
+      x1 = src.x + src.width
+      y1 = src.y + src.height / 2
+      x2 = tgt.x
+      y2 = tgt.y + tgt.height / 2
+    }
 
     // Create path
     const path = curve(x1, y1, x2, y2, curveOrientation)
@@ -381,7 +451,8 @@ export function calculateFlowLayout(
       label: def.label,
       labelX,
       labelY,
-      color: getEdgeColor()
+      color: getEdgeColor(),
+      noArrowhead
     }
   })
 

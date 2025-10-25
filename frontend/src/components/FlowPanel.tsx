@@ -29,6 +29,14 @@ const getTextNodeBackgroundColor = (nodeId: string) => {
   if (nodeId === 'detection-score') {
     return COMPONENT_COLORS.SCORE_DETECTION
   }
+  // Quality score - full dark gray
+  if (nodeId === 'quality-score') {
+    return COMPONENT_COLORS.QUALITY_SCORE
+  }
+  // Average operation node - white background
+  if (nodeId === 'average-op') {
+    return '#ffffff'
+  }
   // Special nodes - gray background
   if (nodeId === 'feature' || nodeId === 'decoder' || nodeId === 'embedder' ||
       nodeId === 'llm-explainer-container' || nodeId === 'llm-scorer-container') {
@@ -39,17 +47,21 @@ const getTextNodeBackgroundColor = (nodeId: string) => {
 }
 
 const getTextNodeFontSize = (nodeId: string) => {
-  // Smaller font for label nodes
+  // Smaller font for label nodes - reduced from 11 to 9
   if (nodeId === 'explanation-label' || nodeId === 'score-label' || nodeId === 'embedding-label') {
+    return '9'
+  }
+  // Average operation node - medium font for symbol visibility
+  if (nodeId === 'average-op') {
+    return '14'
+  }
+  // Medium font for final output nodes - reduced from 13 to 11
+  if (nodeId === 'feature-splitting' || nodeId === 'semantic-similarity' || nodeId === 'embedding-score' ||
+      nodeId === 'fuzz-score' || nodeId === 'detection-score' || nodeId === 'quality-score') {
     return '11'
   }
-  // Medium font for final output nodes
-  if (nodeId === 'feature-splitting' || nodeId === 'semantic-similarity' || nodeId === 'embedding-score' ||
-      nodeId === 'fuzz-score' || nodeId === 'detection-score') {
-    return '13'
-  }
-  // Default size for other nodes
-  return '16'
+  // Default size for other nodes - reduced from 16 to 13
+  return '13'
 }
 
 const getTextNodeFontWeight = (nodeId: string) => {
@@ -67,6 +79,15 @@ const getTextNodeLetterSpacing = (nodeId: string) => {
     return '0.5'
   }
   return '0'
+}
+
+const getTextNodeColor = (nodeId: string) => {
+  // White text for quality score (dark background)
+  if (nodeId === 'quality-score') {
+    return '#ffffff'
+  }
+  // Default dark text for other nodes
+  return '#334155'
 }
 
 const getArrowMarker = (isSelected: boolean) => {
@@ -195,7 +216,7 @@ const FlowPanel: React.FC = () => {
     <div className="flow-panel">
       {/* D3-Calculated Flowchart */}
       <div className="flow-panel__chart">
-        <svg viewBox="0 0 600 175" preserveAspectRatio="xMidYMid meet">
+        <svg viewBox="0 0 600 200" preserveAspectRatio="xMidYMid meet">
           <defs>
             {/* Arrow marker - neutral gray for unselected edges */}
             <marker
@@ -243,7 +264,7 @@ const FlowPanel: React.FC = () => {
                 x={node.x + node.width / 2}
                 y={node.y + 15}
                 textAnchor="middle"
-                fontSize="14"
+                fontSize="12"
                 fill="#475569"
                 fontWeight="600"
               >
@@ -306,7 +327,7 @@ const FlowPanel: React.FC = () => {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   opacity="0.7"
-                  markerEnd={getArrowMarker(isEdgeSelected)}
+                  markerEnd={edge.noArrowhead ? undefined : getArrowMarker(isEdgeSelected)}
                 />
                 {edge.label && edge.labelX && edge.labelY && (
                   <text
@@ -367,7 +388,7 @@ const FlowPanel: React.FC = () => {
                         y={node.y + node.height / 2}
                         textAnchor="middle"
                         dominantBaseline="central"
-                        fontSize="11"
+                        fontSize="10"
                         fill={isSelected ? '#1e40af' : '#64748b'}
                         fontWeight={isSelected ? '700' : '600'}
                       >
@@ -410,7 +431,7 @@ const FlowPanel: React.FC = () => {
                             y={node.y + node.height / 2 + (i - (splitLabel(node.label).length - 1) / 2) * 12 + 4}
                             textAnchor="middle"
                             fontSize={getTextNodeFontSize(node.id)}
-                            fill="#334155"
+                            fill={getTextNodeColor(node.id)}
                             fontWeight={getTextNodeFontWeight(node.id)}
                             letterSpacing={getTextNodeLetterSpacing(node.id)}
                           >
@@ -434,7 +455,7 @@ const FlowPanel: React.FC = () => {
                             y={node.badge.textY}
                             textAnchor="middle"
                             dominantBaseline="central"
-                            fontSize="11"
+                            fontSize="9"
                             fill="white"
                             fontWeight="700"
                           >
@@ -462,7 +483,7 @@ const FlowPanel: React.FC = () => {
                           y={node.y + node.height / 2 + (i - (splitLabel(node.label).length - 1) / 2) * 12 + 4}
                           textAnchor="middle"
                           fontSize={getTextNodeFontSize(node.id)}
-                          fill="#334155"
+                          fill={getTextNodeColor(node.id)}
                           fontWeight={getTextNodeFontWeight(node.id)}
                           letterSpacing={getTextNodeLetterSpacing(node.id)}
                         >
