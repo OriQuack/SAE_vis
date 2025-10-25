@@ -3,22 +3,19 @@ import { useVisualizationStore } from '../store/index'
 import '../styles/HistogramPopover.css'
 import {
   calculateHistogramLayout,
-  calculateThresholdLine,
   validateHistogramData,
   validateDimensions,
-  formatSmartNumber,
   calculateOptimalPopoverPosition,
   calculateResponsivePopoverSize,
-  calculateThresholdFromMouseEvent,
   calculateHistogramBars,
   calculateXAxisTicks,
   calculateYAxisTicks,
-  calculateGridLines,
-  calculateSliderPosition
+  calculateGridLines
 } from '../lib/d3-histogram-utils'
 import { getNodeThresholds } from '../lib/threshold-utils'
-import { METRIC_DISPLAY_NAMES } from '../lib/constants'
+import { METRIC_DISPLAY_NAMES, getMetricBaseColor } from '../lib/constants'
 import type { HistogramData, HistogramChart } from '../types'
+import { ThresholdHandles } from './ThresholdHandles'
 
 // ============================================================================
 // COMPONENT-SPECIFIC CONSTANTS
@@ -42,10 +39,9 @@ const HISTOGRAM_COLORS = {
   sliderTrackUnfilled: '#cbd5e1'
 } as const
 
-const SLIDER_TRACK = {
-  height: 6,
-  yOffset: 30,
-  cornerRadius: 3
+const THRESHOLD_HANDLE_DIMS = {
+  width: 20,
+  height: 14
 } as const
 
 // ============================================================================
@@ -82,16 +78,19 @@ const PopoverHeader: React.FC<{
 const HistogramChartComponent: React.FC<{
   chart: HistogramChart
   data: HistogramData
-  threshold: number
-  isMultiChart: boolean
+  thresholds: number[]
+  metricRange: { min: number; max: number }
   animationDuration: number
   barColor?: string
-  onSliderMouseDown: (e: React.MouseEvent, metric: string, chart: HistogramChart) => void
+  onThresholdUpdate: (newThresholds: number[]) => void
   onBarHover: (barIndex: number | null, chart: HistogramChart) => void
-}> = ({ chart, threshold, isMultiChart, animationDuration, barColor, onSliderMouseDown, onBarHover }) => {
+}> = ({ chart, thresholds, metricRange, animationDuration, barColor, onThresholdUpdate, onBarHover }) => {
+  // Use first threshold for bar coloring (visual split point)
+  const primaryThreshold = thresholds[0] || metricRange.min
+
   const bars = useMemo(() =>
-    calculateHistogramBars(chart, threshold, HISTOGRAM_COLORS.bars, HISTOGRAM_COLORS.threshold),
-    [chart, threshold]
+    calculateHistogramBars(chart, primaryThreshold, HISTOGRAM_COLORS.bars, HISTOGRAM_COLORS.threshold),
+    [chart, primaryThreshold]
   )
 
   const gridLines = useMemo(() =>
@@ -107,16 +106,6 @@ const HistogramChartComponent: React.FC<{
   const yAxisTicks = useMemo(() =>
     calculateYAxisTicks(chart, 5),
     [chart]
-  )
-
-  const thresholdLine = useMemo(() =>
-    calculateThresholdLine(threshold, chart),
-    [threshold, chart]
-  )
-
-  const sliderPosition = useMemo(() =>
-    calculateSliderPosition(threshold, chart, SLIDER_TRACK.height, SLIDER_TRACK.yOffset),
-    [threshold, chart]
   )
 
   return (
@@ -160,85 +149,21 @@ const HistogramChartComponent: React.FC<{
         ))}
       </g>
 
-      {/* Threshold line */}
-      {thresholdLine && (
-        <line
-          x1={thresholdLine.x}
-          x2={thresholdLine.x}
-          y1={0}
-          y2={chart.height}
-          stroke={HISTOGRAM_COLORS.threshold}
-          strokeWidth={3}
-          style={{ cursor: 'pointer' }}
-        />
-      )}
-
-      {/* Slider track */}
-      {thresholdLine && (
-        <g transform={`translate(0, ${sliderPosition.trackY})`}>
-          <rect
-            x={sliderPosition.trackUnfilledX}
-            y={0}
-            width={sliderPosition.trackUnfilledWidth}
-            height={SLIDER_TRACK.height}
-            fill={HISTOGRAM_COLORS.sliderTrackUnfilled}
-            rx={SLIDER_TRACK.cornerRadius}
-          />
-          <rect
-            x={0}
-            y={0}
-            width={sliderPosition.trackFilledWidth}
-            height={SLIDER_TRACK.height}
-            fill={HISTOGRAM_COLORS.sliderTrackFilled}
-            rx={SLIDER_TRACK.cornerRadius}
-          />
-          <rect
-            x={0}
-            y={-10}
-            width={chart.width}
-            height={SLIDER_TRACK.height + 20}
-            fill="transparent"
-            style={{ cursor: 'pointer' }}
-            onMouseDown={(e) => onSliderMouseDown(e, chart.metric, chart)}
-          />
-          <circle
-            cx={sliderPosition.handleCx}
-            cy={sliderPosition.handleCy}
-            r={10}
-            fill={HISTOGRAM_COLORS.sliderHandle}
-            stroke="white"
-            strokeWidth={2}
-            style={{ cursor: 'pointer' }}
-            onMouseDown={(e) => onSliderMouseDown(e, chart.metric, chart)}
-          />
-        </g>
-      )}
-
-      {/* Chart title (multi-chart mode) */}
-      {isMultiChart && (
-        <text
-          x={chart.width / 2}
-          y={-16}
-          textAnchor="middle"
-          fontSize={12}
-          fontWeight="600"
-          fill={HISTOGRAM_COLORS.text}
-        >
-          {chart.chartTitle}
-        </text>
-      )}
-
-      {/* Threshold value */}
-      <text
-        x={chart.width}
-        y={chart.height + 50}
-        textAnchor="end"
-        fontSize={10}
-        fill="#6b7280"
-        fontFamily="monospace"
-      >
-        {formatSmartNumber(threshold)}
-      </text>
+      {/* Threshold Handles - positioned on x-axis, centered */}
+      <ThresholdHandles
+        orientation="horizontal"
+        bounds={{ min: 0, max: chart.width }}
+        lineBounds={{
+          min: -(chart.height - THRESHOLD_HANDLE_DIMS.height / 2),
+          max: THRESHOLD_HANDLE_DIMS.height / 2
+        }}
+        thresholds={thresholds}
+        metricRange={metricRange}
+        position={{ x: 0, y: chart.height - THRESHOLD_HANDLE_DIMS.height / 2 }}
+        parentOffset={{ x: chart.margin.left, y: chart.yOffset }}
+        handleDimensions={THRESHOLD_HANDLE_DIMS}
+        onUpdate={onThresholdUpdate}
+      />
 
       {/* X-axis */}
       <g transform={`translate(0,${chart.height})`}>
@@ -246,7 +171,7 @@ const HistogramChartComponent: React.FC<{
         {xAxisTicks.map(tick => (
           <g key={tick.value} transform={`translate(${tick.position},0)`}>
             <line y1={0} y2={6} stroke={HISTOGRAM_COLORS.axis} strokeWidth={1} />
-            <text y={20} textAnchor="middle" fontSize={12} fill={HISTOGRAM_COLORS.text}>
+            <text y={28} textAnchor="middle" fontSize={12} fill={HISTOGRAM_COLORS.text}>
               {tick.label}
             </text>
           </g>
@@ -302,16 +227,12 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
   // Using refs instead of state prevents re-renders during drag operations
   // This ensures smooth 60fps dragging by batching updates with requestAnimationFrame
   const rafIdRef = useRef<number | null>(null) // RAF ID for popover dragging
-  const sliderRafIdRef = useRef<number | null>(null) // RAF ID for slider dragging
   const isDraggingPopoverRef = useRef(false) // Tracks if popover is being dragged
   const dragOffsetRef = useRef<{ x: number; y: number } | null>(null) // Mouse offset from popover origin
   const currentDragPositionRef = useRef<{ x: number; y: number } | null>(null) // Current drag position (updated via RAF)
 
   // Local state for dragging
   const [draggedPosition, setDraggedPosition] = useState<{ x: number; y: number } | null>(null)
-  const [isDraggingSlider, setIsDraggingSlider] = useState(false)
-  const [draggingThresholdIndex, setDraggingThresholdIndex] = useState<number>(0)
-  const draggingChartRef = useRef<HistogramChart | null>(null)
 
   // Local state for tooltip
   const [hoveredBarInfo, setHoveredBarInfo] = useState<{
@@ -338,14 +259,23 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     return getNodeThresholds(nodeId, sankeyTree)
   }, [popoverData?.nodeId, sankeyTree])
 
-  // Get effective threshold value for display (first threshold or mean)
-  const getEffectiveThresholdValue = useCallback((metric: string, thresholdIndex: number = 0): number => {
-    if (nodeThresholds.length > thresholdIndex) {
-      return nodeThresholds[thresholdIndex]
-    }
+  // Get effective threshold values for display (initialize with min-0.01, max+0.01 or use node thresholds)
+  const getEffectiveThresholds = useCallback((metric: string): number[] => {
     const nodeId = popoverData?.nodeId || ''
     const compositeKey = nodeId ? `${metric}:${nodeId}` : metric
-    return histogramData?.[compositeKey]?.statistics?.mean || 0.5
+    const data = histogramData?.[compositeKey]
+
+    if (!data) {
+      return [0, 1] // Fallback
+    }
+
+    // If node has 2+ thresholds, use first two
+    if (nodeThresholds.length >= 2) {
+      return [nodeThresholds[0], nodeThresholds[1]]
+    }
+
+    // Default: place handles at min-0.01 and max+0.01 (like Sankey)
+    return [data.statistics.min - 0.01, data.statistics.max + 0.01]
   }, [nodeThresholds, histogramData, popoverData?.nodeId])
 
   // Validation
@@ -387,7 +317,7 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     const chartHeight = containerSize.height - 64
 
     return calculateHistogramLayout(filteredHistogramData, chartWidth, chartHeight)
-  }, [histogramData, containerSize, validationErrors, popoverData?.metrics])
+  }, [histogramData, containerSize, validationErrors, popoverData?.metrics, popoverData?.nodeId])
 
   // Handle bar hover
   const handleBarHover = useCallback((barIndex: number | null, chart: HistogramChart) => {
@@ -397,32 +327,6 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
       setHoveredBarInfo({ barIndex, chart })
     }
   }, [])
-
-  // Handle slider drag (supports multiple threshold sliders)
-  const handleSliderMouseDown = useCallback((
-    event: React.MouseEvent,
-    metric: string,
-    chart: HistogramChart,
-    thresholdIndex: number = 0
-  ) => {
-    setIsDraggingSlider(true)
-    setDraggingThresholdIndex(thresholdIndex)
-    draggingChartRef.current = chart
-
-    // Calculate initial threshold
-    const data = histogramData?.[metric]
-    if (!data || !popoverData?.nodeId) return
-
-    const newValue = calculateThresholdFromMouseEvent(event, svgRef.current, chart, data.statistics.min, data.statistics.max)
-    if (newValue !== null) {
-      // Update threshold at specific index
-      const updatedThresholds = [...nodeThresholds]
-      updatedThresholds[thresholdIndex] = newValue
-      updateNodeThresholds(popoverData.nodeId, updatedThresholds, panel)
-    }
-
-    event.preventDefault()
-  }, [histogramData, popoverData?.nodeId, nodeThresholds, updateNodeThresholds, panel])
 
   // Handle header drag start (optimized with RAF)
   const handleHeaderMouseDown = useCallback((event: React.MouseEvent) => {
@@ -517,70 +421,6 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     }
   }, [popoverData, clearError, fetchMultipleHistogramData, panel])
 
-  // Performance-Optimized Slider Dragging
-  // Uses requestAnimationFrame to throttle store updates to max 60fps
-  // Prevents excessive re-renders and Sankey tree recalculations during drag
-  useEffect(() => {
-    if (!isDraggingSlider) return
-
-    let lastValue: number | null = null // Track last value to skip redundant updates
-
-    const handleMouseMove = (event: MouseEvent) => {
-      const chart = draggingChartRef.current
-      if (!chart || !popoverData?.nodeId) return
-
-      const metric = chart.metric
-      const data = histogramData?.[metric]
-      if (!data) return
-
-      // Cancel any pending RAF
-      if (sliderRafIdRef.current !== null) {
-        cancelAnimationFrame(sliderRafIdRef.current)
-      }
-
-      // Schedule update on next frame (throttles to 60fps max)
-      sliderRafIdRef.current = requestAnimationFrame(() => {
-        const newValue = calculateThresholdFromMouseEvent(event, svgRef.current, chart, data.statistics.min, data.statistics.max)
-
-        if (newValue !== null && newValue !== lastValue && popoverData?.nodeId) {
-          lastValue = newValue
-
-          // Update threshold at specific index
-          const updatedThresholds = [...nodeThresholds]
-          updatedThresholds[draggingThresholdIndex] = newValue
-          updateNodeThresholds(popoverData.nodeId, updatedThresholds, panel)
-        }
-
-        sliderRafIdRef.current = null
-      })
-    }
-
-    const handleMouseUp = () => {
-      // Cancel any pending RAF
-      if (sliderRafIdRef.current !== null) {
-        cancelAnimationFrame(sliderRafIdRef.current)
-        sliderRafIdRef.current = null
-      }
-
-      setIsDraggingSlider(false)
-      draggingChartRef.current = null
-    }
-
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-
-      // Clean up RAF
-      if (sliderRafIdRef.current !== null) {
-        cancelAnimationFrame(sliderRafIdRef.current)
-        sliderRafIdRef.current = null
-      }
-    }
-  }, [isDraggingSlider, histogramData, popoverData?.nodeId, nodeThresholds, draggingThresholdIndex, updateNodeThresholds, panel])
-
   // Reset dragged position when popover closes
   useEffect(() => {
     if (!popoverData?.visible) {
@@ -610,9 +450,6 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
       if (rafIdRef.current !== null) {
         cancelAnimationFrame(rafIdRef.current)
       }
-      if (sliderRafIdRef.current !== null) {
-        cancelAnimationFrame(sliderRafIdRef.current)
-      }
       // Reset user-select
       document.body.style.userSelect = ''
     }
@@ -623,9 +460,6 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     if (!popoverData?.visible) return
 
     const handleClickOutside = (event: MouseEvent) => {
-      // Don't close while dragging slider
-      if (isDraggingSlider) return
-
       const target = event.target as HTMLElement
 
       // If click is inside the popover container, don't close
@@ -643,7 +477,7 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [popoverData?.visible, isDraggingSlider, hideHistogramPopover])
+  }, [popoverData?.visible, hideHistogramPopover])
 
   // Calculate initial position for rendering (prevents "fly-in" animation)
   const initialPosition = useMemo(() => {
@@ -751,19 +585,32 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
                 const nodeId = popoverData?.nodeId || ''
                 const compositeKey = nodeId ? `${metric}:${nodeId}` : metric
                 const data = histogramData[compositeKey]
-                const threshold = getEffectiveThresholdValue(metric, 0)  // Use first threshold (index 0)
+                const thresholds = getEffectiveThresholds(metric)
 
                 if (!data) return null
+
+                const metricRange = {
+                  min: data.statistics.min - 0.01,
+                  max: data.statistics.max + 0.01
+                }
+
+                // Get metric-specific color (same logic as Sankey link overlay)
+                const metricColor = getMetricBaseColor(metric)
 
                 return (
                   <HistogramChartComponent
                     key={metric}
                     chart={chart}
                     data={data}
-                    threshold={threshold}
-                    isMultiChart={layout.charts.length > 1}
+                    thresholds={thresholds}
+                    metricRange={metricRange}
                     animationDuration={animationDuration}
-                    onSliderMouseDown={(e, m, c) => handleSliderMouseDown(e, m, c, 0)}
+                    barColor={metricColor}
+                    onThresholdUpdate={(newThresholds) => {
+                      if (popoverData?.nodeId) {
+                        updateNodeThresholds(popoverData.nodeId, newThresholds, panel)
+                      }
+                    }}
                     onBarHover={handleBarHover}
                   />
                 )
@@ -776,11 +623,12 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
                 const nodeId = popoverData?.nodeId || ''
                 const compositeKey = nodeId ? `${metric}:${nodeId}` : metric
                 const data = histogramData[compositeKey]
-                const threshold = getEffectiveThresholdValue(metric, 0)  // Use first threshold (index 0)
+                const thresholds = getEffectiveThresholds(metric)
+                const primaryThreshold = thresholds[0] || data.statistics.min
 
                 if (!data) return null
 
-                const bars = calculateHistogramBars(chart, threshold, HISTOGRAM_COLORS.bars, HISTOGRAM_COLORS.threshold)
+                const bars = calculateHistogramBars(chart, primaryThreshold, HISTOGRAM_COLORS.bars, HISTOGRAM_COLORS.threshold)
                 const bar = bars[barIndex]
 
                 if (!bar) return null

@@ -531,11 +531,11 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                             : 'No data'}
                         >
                           {featureRow.feature_splitting !== null && featureRow.feature_splitting !== undefined ? (
-                            <svg width="12" height="12" style={{ display: 'block', margin: '0 auto' }}>
+                            <svg width="16" height="16" style={{ display: 'block', margin: '0 auto' }}>
                               <circle
-                                cx="6"
-                                cy="6"
-                                r="5"
+                                cx="8"
+                                cy="8"
+                                r="7"
                                 fill={getMetricColor('feature_splitting', featureRow.feature_splitting)}
                                 stroke="none"
                               />
@@ -560,7 +560,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                             style={{ position: 'relative' }}
                           >
                             {simStats ? (
-                              <svg width="16" height="100%" viewBox={`0 0 16 ${cellHeight}`} style={{ display: 'block', maxHeight: '100%' }}>
+                              <svg width="20" height="100%" viewBox={`0 0 20 ${cellHeight}`} style={{ display: 'block', maxHeight: '100%' }}>
                                 {(() => {
                                   const svgHeight = cellHeight
                                   const centerY = svgHeight / 2
@@ -573,13 +573,13 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                                   const bottomY = centerY + minDeviation
                                   const color = getMetricColor('semantic_similarity', simStats.avg)
 
-                                  const pillWidth = 10
+                                  const pillWidth = 14
                                   const pillHeight = Math.max(bottomY - topY, pillWidth)
                                   const pillTop = centerY - pillHeight / 2
 
                                   return (
                                     <rect
-                                      x={8 - pillWidth / 2}
+                                      x={10 - pillWidth / 2}
                                       y={pillTop}
                                       width={pillWidth}
                                       height={pillHeight}
@@ -609,7 +609,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                           style={{ cursor: qualityScoreStats ? 'pointer' : 'default', position: 'relative' }}
                         >
                           {qualityScoreStats ? (
-                            <svg width="16" height="100%" viewBox={`0 0 16 ${cellHeight}`} style={{ display: 'block', maxHeight: '100%' }}>
+                            <svg width="20" height="100%" viewBox={`0 0 20 ${cellHeight}`} style={{ display: 'block', maxHeight: '100%' }}>
                               {(() => {
                                 // Consistent pill scaling: same visual height = same actual range
                                 const svgHeight = cellHeight
@@ -624,7 +624,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                                 const color = getQualityScoreColor(qualityScoreStats.avg)
 
                                 // Pill shape dimensions
-                                const pillWidth = 10
+                                const pillWidth = 14
                                 const pillHeight = Math.max(bottomY - topY, pillWidth)  // Minimum height = width (becomes circle)
                                 const pillTop = centerY - pillHeight / 2  // Center the pill vertically
 
@@ -632,7 +632,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                                   <g>
                                     {/* Pill shape (semicircle-rectangle-semicircle) showing quality score range */}
                                     <rect
-                                      x={8 - pillWidth / 2}
+                                      x={10 - pillWidth / 2}
                                       y={pillTop}
                                       width={pillWidth}
                                       height={pillHeight}

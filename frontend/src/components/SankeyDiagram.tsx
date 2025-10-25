@@ -199,17 +199,17 @@ const NodeButtons: React.FC<{
         const isAdd = button.type === 'add'
         const buttonColor = isAdd ? '#3b82f6' : '#ef4444'
         const buttonSymbol = isAdd ? '+' : '×'
-        const buttonFontSize = isAdd ? 14 : 16
+        const buttonFontSize = isAdd ? 12 : 12
 
         return (
           <g key={`${button.nodeId}-${button.type}`} className={`sankey-node-${button.type}-stage`}>
             <circle
               cx={button.x}
               cy={button.y}
-              r={12}
+              r={8}
               fill={buttonColor}
               stroke="#ffffff"
-              strokeWidth={2}
+              strokeWidth={1.5}
               style={{
                 cursor: 'pointer',
                 opacity: button.isHovered ? 1 : 0.7,
@@ -738,7 +738,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                     return
                   }
 
-                  const buttonX = isRightToLeft ? node.x0 - 15 : node.x1 + 15
+                  const buttonX = isRightToLeft ? node.x0 - 15 : node.x1 + 12
                   const buttonY = (node.y0 + node.y1) / 2
 
                   // Determine button visibility using tree-based system
