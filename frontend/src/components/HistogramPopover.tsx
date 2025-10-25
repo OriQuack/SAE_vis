@@ -313,8 +313,11 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
       }
     })
 
-    const chartWidth = containerSize.width - 16
-    const chartHeight = containerSize.height - 64
+    // Header height: min-height 32px + 1px bottom border
+    const HEADER_HEIGHT = 33
+
+    const chartWidth = containerSize.width
+    const chartHeight = containerSize.height - HEADER_HEIGHT
 
     return calculateHistogramLayout(filteredHistogramData, chartWidth, chartHeight)
   }, [histogramData, containerSize, validationErrors, popoverData?.metrics, popoverData?.nodeId])
@@ -571,11 +574,11 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
           <div className="histogram-popover__content">
             <svg
               ref={svgRef}
-              width={containerSize.width - 16}
+              width={layout.totalWidth}
               height={layout.totalHeight}
             >
               <rect
-                width={containerSize.width - 16}
+                width={layout.totalWidth}
                 height={layout.totalHeight}
                 className="histogram-popover__svg-background"
               />

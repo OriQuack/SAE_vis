@@ -187,7 +187,7 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
                     {showComparisonView ? '◀' : '▶'}
                   </span>
                   <span className="comparison-toggle__text">
-                    {showComparisonView ? 'Hide' : 'Right Sankey'}
+                    {showComparisonView ? 'Hide' : 'Compare'}
                   </span>
                 </button>
               </div>

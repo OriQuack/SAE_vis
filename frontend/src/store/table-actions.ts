@@ -54,20 +54,27 @@ export const createTableActions = (set: any, get: any) => ({
     const state = get()
     const { leftPanel } = state
 
-    if (!leftPanel.computedSankey || leftPanel.computedSankey.nodes.length === 0) {
+    if (!leftPanel.sankeyTree || leftPanel.sankeyTree.size === 0) {
       return null
     }
 
-    // Find maximum stage (depth)
-    const maxStage = Math.max(...leftPanel.computedSankey.nodes.map((n: any) => n.stage))
+    // Find nodes that have children - these are parent nodes with metrics
+    const nodesWithChildren = Array.from(leftPanel.sankeyTree.values()).filter(
+      node => node.children.length > 0
+    )
 
-    // Get nodes at maximum stage
-    const maxStageNodes = leftPanel.computedSankey.nodes.filter((n: any) => n.stage === maxStage)
+    if (nodesWithChildren.length === 0) {
+      return null
+    }
 
-    // Return the metric used by max stage nodes (should be consistent)
-    // Root nodes have null metric, so skip them
-    const nodeWithMetric = maxStageNodes.find((n: any) => n.metric)
-    return nodeWithMetric?.metric || null
+    // Find maximum depth among parent nodes
+    const maxDepth = Math.max(...nodesWithChildren.map(n => n.depth))
+
+    // Get parent nodes at max depth
+    const maxDepthParents = nodesWithChildren.filter(n => n.depth === maxDepth)
+
+    // Return their metric (all should have same metric at a given depth)
+    return maxDepthParents[0]?.metric || null
   },
 
   /**
@@ -78,7 +85,8 @@ export const createTableActions = (set: any, get: any) => ({
     const maxStageMetric = state.getMaxStageMetric()
 
     if (!maxStageMetric) {
-      console.log('[Store.syncTableSortWithMaxStage] No max stage metric found')
+      console.log('[Store.syncTableSortWithMaxStage] No max stage metric found - clearing table sort')
+      state.setTableSort(null, null, true)
       return
     }
 

@@ -62,12 +62,12 @@ export const SANKEY_COLORS: Record<NodeCategory, string> = {
   [CATEGORY_SEMANTIC_SIMILARITY]: '#6b7280'
 } as const
 
-export const DEFAULT_SANKEY_MARGIN = { top: 60, right: 105, bottom: 20, left: 80 } as const
+export const DEFAULT_SANKEY_MARGIN = { top: 20, right: 100, bottom: 20, left: 20 } as const
 export const RIGHT_SANKEY_MARGIN = { top: 80, right: 80, bottom: 50, left: 120 } as const
 
 // Validation constants
 export const MIN_CONTAINER_WIDTH = 200
-export const MIN_CONTAINER_HEIGHT = 150
+export const MIN_CONTAINER_HEIGHT = 250
 
 // Category display names
 const CATEGORY_DISPLAY_NAMES: Record<string, string> = {

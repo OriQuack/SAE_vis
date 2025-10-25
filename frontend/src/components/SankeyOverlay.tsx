@@ -193,13 +193,15 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
 }
 
 interface MetricOverlayPanelProps {
-  rootNode: D3SankeyNode
+  layoutWidth: number
+  layoutHeight: number
   availableStages: StageOption[]
   onMetricClick: (metric: string) => void
 }
 
 const MetricOverlayPanel: React.FC<MetricOverlayPanelProps> = ({
-  rootNode,
+  layoutWidth,
+  layoutHeight,
   availableStages,
   onMetricClick
 }) => {
@@ -227,11 +229,11 @@ const MetricOverlayPanel: React.FC<MetricOverlayPanelProps> = ({
   // Calculate total height for single merged container
   const allStages = categories.flatMap(cat => cat.stages)
   const containerHeight = categoryPadding + (allStages.length * itemHeight) + categoryPadding
-
-  // Position overlay to the right of root node
-  const overlayX = (rootNode.x1 || 0) + 30
   const totalHeight = instructionHeight + instructionSpacing + containerHeight
-  const overlayY = ((rootNode.y0 || 0) + (rootNode.y1 || 0)) / 2 - totalHeight / 2
+
+  // Center the overlay in the middle of the Sankey diagram area
+  const overlayX = layoutWidth / 2 - categoryBoxWidth / 2
+  const overlayY = layoutHeight / 2 - totalHeight / 2
 
   return (
     <g className="sankey-metric-overlay">
@@ -502,8 +504,7 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
 
       {/* Metric Overlay Panel - Visible only when root has no children (initial state) */}
       {(() => {
-        const rootNode = layout.nodes.find(n => n.id === 'root')
-        if (!rootNode || !sankeyTree) return null
+        if (!sankeyTree) return null
 
         const treeNode = sankeyTree.get('root')
         if (!treeNode) return null
@@ -515,7 +516,8 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
 
         return (
           <MetricOverlayPanel
-            rootNode={rootNode}
+            layoutWidth={layout.width}
+            layoutHeight={layout.height}
             availableStages={availableStages}
             onMetricClick={onMetricClick}
           />

@@ -7,7 +7,7 @@ import type { HistogramData, HistogramChart, HistogramLayout, ThresholdLineData,
 // ============================================================================
 // CONSTANTS
 // ============================================================================
-const DEFAULT_HISTOGRAM_MARGIN = { top: 15, right: 25, bottom: 50, left: 45 }
+const DEFAULT_HISTOGRAM_MARGIN = { top: 10, right: 15, bottom: 40, left: 50 }
 
 const METRIC_TITLES: Record<string, string> = {
   score_detection: 'Detection Score',

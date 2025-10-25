@@ -231,7 +231,6 @@
   justify-content: center;
   align-items: center;
   padding: 0.5rem 0;
-  border-bottom: 1px solid #e5e7eb;
 }
 
 .sankey-view__title-section {
@@ -280,7 +279,6 @@
   flex-direction: row;
   min-width: 0;
   min-height: 0;
-  border-bottom: 1px solid #000000;
 }
 
 /* Center Panel Container - Row 2 */
@@ -307,7 +305,6 @@
   background: white;
   padding: 0;
   min-width: 0;
-  border: 1px solid #000000;
 }
 
 /* Top Middle - Saved Groups Panel */
@@ -319,7 +316,6 @@
   background: white;
   padding: 0;
   min-width: 0;
-  border: 1px solid #000000;
 }
 
 /* Top Right - Comparison Toggle */
@@ -333,7 +329,6 @@
   background: white;
   padding: 16px;
   min-width: 0;
-  border: 1px solid #000000;
 }
 
 /* ============================================================================
@@ -395,24 +390,32 @@
   white-space: nowrap;
 }
 
-/* Floating variant - positioned at bottom-left corner of Sankey panel */
+/* Floating variant - positioned at bottom-right corner of Sankey panel */
 .comparison-toggle--floating {
   position: absolute;
-  bottom: 12px;
-  left: 12px;
-  padding: 6px 12px;
-  font-size: 11px;
-  gap: 6px;
-  z-index: 10;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  bottom: 8px;
+  right: 8px;
+  padding: 4px 8px;
+  font-size: 10px;
+  gap: 4px;
+  z-index: 5;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  opacity: 0.85;
+  pointer-events: auto;
+}
+
+.comparison-toggle--floating:hover:not(:disabled) {
+  opacity: 1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .comparison-toggle--floating .comparison-toggle__icon {
-  font-size: 12px;
+  font-size: 10px;
 }
 
 .comparison-toggle--floating .comparison-toggle__text {
-  font-size: 11px;
+  font-size: 10px;
 }
 
 /* ============================================================================
@@ -421,25 +424,32 @@
 
 /* Center Left - Left Sankey */
 .sankey-view__center-left {
-  flex: 6;
+  flex: 3;
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  border: 1px solid #000000;
+  overflow: hidden;
+}
+
+.sankey-view__sankey-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-height: 0;
   overflow: hidden;
 }
 
 /* Center Right - Table Panel */
 .sankey-view__center-right {
-  flex: 12;
+  flex: 7;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   background: white;
   padding: 0;
   min-width: 0;
-  border: 1px solid #000000;
   position: relative; /* Enable absolute positioning for overlay */
 }
 
@@ -455,7 +465,6 @@
   width: 50%;
   height: 100%;
   background: white;
-  border-left: 2px solid #000000;
   box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);
   display: flex;
   flex-direction: row;
@@ -483,7 +492,6 @@
   background: white;
   padding: 0;
   margin: 0;
-  border-right: 1px solid #000000;
   min-width: 0;
   min-height: 0;
 }

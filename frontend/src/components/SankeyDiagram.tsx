@@ -8,7 +8,6 @@ import {
   getNodeColor,
   getLinkColor,
   getSankeyPath,
-  calculateStageLabels,
   applyRightToLeftTransform,
   RIGHT_SANKEY_MARGIN
 } from '../lib/d3-sankey-utils'
@@ -23,7 +22,8 @@ import { useResizeObserver } from '../lib/utils'
 import type { D3SankeyNode, D3SankeyLink } from '../types'
 import {
   PANEL_LEFT,
-  PANEL_RIGHT
+  PANEL_RIGHT,
+  METRIC_DISPLAY_NAMES
 } from '../lib/constants'
 import { SankeyOverlay, SankeyInlineSelector, AVAILABLE_STAGES } from './SankeyOverlay'
 import '../styles/SankeyDiagram.css'
@@ -55,6 +55,7 @@ const SankeyNode: React.FC<{
   isHighlighted: boolean
   flowDirection: 'left-to-right' | 'right-to-left'
   animationDuration: number
+  sankeyTree?: Map<string, any> | null
 }> = ({
   node,
   onMouseEnter,
@@ -63,7 +64,8 @@ const SankeyNode: React.FC<{
   isHovered,
   isHighlighted,
   flowDirection,
-  animationDuration
+  animationDuration,
+  sankeyTree
 }) => {
   if (node.x0 === undefined || node.x1 === undefined || node.y0 === undefined || node.y1 === undefined) {
     return null
@@ -73,8 +75,33 @@ const SankeyNode: React.FC<{
   const width = node.x1 - node.x0
   const height = node.y1 - node.y0
   const isRightToLeft = flowDirection === 'right-to-left'
-  const labelX = isRightToLeft ? node.x1 + 6 : node.x0 - 6
-  const textAnchor = isRightToLeft ? 'start' : 'end'
+
+  // Special handling for root node label
+  let labelX: number
+  let textAnchor: 'start' | 'end' | 'middle'
+  let showLabel = true
+
+  if (node.id === 'root' && sankeyTree) {
+    const rootTreeNode = sankeyTree.get('root')
+    if (rootTreeNode && rootTreeNode.children.length === 0) {
+      // Root with no children (initial state): show label on the right
+      labelX = node.x1 + 6
+      textAnchor = 'start'
+    } else if (rootTreeNode && rootTreeNode.children.length > 0) {
+      // Root with children (metric selected): hide label
+      showLabel = false
+      labelX = node.x0 - 6 // Dummy value, won't be used
+      textAnchor = 'end'
+    } else {
+      // Fallback (shouldn't happen)
+      labelX = isRightToLeft ? node.x1 + 6 : node.x0 - 6
+      textAnchor = isRightToLeft ? 'start' : 'end'
+    }
+  } else {
+    // Normal nodes: use flow direction
+    labelX = isRightToLeft ? node.x1 + 6 : node.x0 - 6
+    textAnchor = isRightToLeft ? 'start' : 'end'
+  }
 
   return (
     <g className="sankey-node">
@@ -96,35 +123,39 @@ const SankeyNode: React.FC<{
         onClick={onClick}
       />
 
-      <text
-        x={labelX}
-        y={(node.y0 + node.y1) / 2}
-        dy="0.35em"
-        fontSize={12}
-        fill="#000000"
-        opacity={1}
-        fontWeight={isHovered ? 600 : 400}
-        textAnchor={textAnchor}
-        style={{
-          transition: `font-weight ${animationDuration}ms ease-out`,
-          pointerEvents: 'none'
-        }}
-      >
-        {node.name}
-      </text>
+      {showLabel && (
+        <>
+          <text
+            x={labelX}
+            y={(node.y0 + node.y1) / 2}
+            dy="0.35em"
+            fontSize={12}
+            fill="#000000"
+            opacity={1}
+            fontWeight={isHovered ? 600 : 400}
+            textAnchor={textAnchor}
+            style={{
+              transition: `font-weight ${animationDuration}ms ease-out`,
+              pointerEvents: 'none'
+            }}
+          >
+            {node.name}
+          </text>
 
-      <text
-        x={labelX}
-        y={(node.y0 + node.y1) / 2 + 14}
-        dy="0.35em"
-        fontSize={10}
-        fill="#000000"
-        opacity={1}
-        textAnchor={textAnchor}
-        style={{ pointerEvents: 'none' }}
-      >
-        ({node.feature_count.toLocaleString()})
-      </text>
+          <text
+            x={labelX}
+            y={(node.y0 + node.y1) / 2 + 14}
+            dy="0.35em"
+            fontSize={10}
+            fill="#000000"
+            opacity={1}
+            textAnchor={textAnchor}
+            style={{ pointerEvents: 'none' }}
+          >
+            ({node.feature_count.toLocaleString()})
+          </text>
+        </>
+      )}
     </g>
   )
 }
@@ -443,10 +474,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     }
   }, [displayData, containerSize.width, containerSize.height, flowDirection])
 
-  // Calculate stage labels
-  const stageLabels = useMemo(() => {
-    return calculateStageLabels(layout, displayData)
-  }, [layout, displayData])
+  // Stage labels removed - metric labels now shown on links
 
   // Event handlers
   const handleNodeHistogramClick = useCallback((node: D3SankeyNode) => {
@@ -626,24 +654,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
           <rect width={containerSize.width} height={containerSize.height} fill="#ffffff" />
 
           <g transform={`translate(${layout.margin.left},${layout.margin.top})`}>
-            {/* Stage labels */}
-            <g className="sankey-diagram__stage-labels">
-              {stageLabels.map((label) => (
-                <text
-                  key={`stage-${label.stage}`}
-                  x={label.x}
-                  y={label.y}
-                  textAnchor="middle"
-                  fontSize={14}
-                  fontWeight={600}
-                  fill="#374151"
-                  style={{ pointerEvents: 'none', userSelect: 'none' }}
-                >
-                  {label.label}
-                </text>
-              ))}
-            </g>
-
             {/* Links */}
             <g className="sankey-diagram__links">
               {layout.links.map((link, index) => (
@@ -657,6 +667,71 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                   isHovered={hoveredLinkIndex === index}
                 />
               ))}
+            </g>
+
+            {/* Metric labels - one per source node */}
+            <g className="sankey-diagram__metric-labels">
+              {(() => {
+                // Group links by source node
+                const sourceNodeMap = new Map<string, { node: D3SankeyNode; links: D3SankeyLink[] }>()
+
+                layout.links.forEach(link => {
+                  const sourceNode = typeof link.source === 'object' ? link.source : null
+                  if (!sourceNode || !sourceNode.metric || !sourceNode.id) return
+
+                  if (!sourceNodeMap.has(sourceNode.id)) {
+                    sourceNodeMap.set(sourceNode.id, { node: sourceNode, links: [] })
+                  }
+                  sourceNodeMap.get(sourceNode.id)!.links.push(link)
+                })
+
+                // Render one label per source node
+                return Array.from(sourceNodeMap.entries()).map(([nodeId, { node, links }]) => {
+                  if (node.x1 === undefined || node.y0 === undefined || node.y1 === undefined) return null
+
+                  // Find the average target X position
+                  const targetXPositions = links
+                    .map(link => {
+                      const targetNode = typeof link.target === 'object' ? link.target : null
+                      return targetNode?.x0
+                    })
+                    .filter((x): x is number => x !== undefined)
+
+                  if (targetXPositions.length === 0) return null
+
+                  const avgTargetX = targetXPositions.reduce((sum, x) => sum + x, 0) / targetXPositions.length
+
+                  // Position at horizontal center between source and average target
+                  const labelX = (node.x1 + avgTargetX) / 2
+
+                  // Find the topmost link from this source node
+                  const topY = Math.min(
+                    ...links.map(link => {
+                      const targetNode = typeof link.target === 'object' ? link.target : null
+                      return Math.min(node.y0!, targetNode?.y0 ?? Infinity)
+                    })
+                  )
+
+                  const labelY = topY + 12  // 12px below the top edge
+
+                  const metricLabel = METRIC_DISPLAY_NAMES[node.metric as keyof typeof METRIC_DISPLAY_NAMES] || node.metric
+
+                  return (
+                    <text
+                      key={`metric-label-${nodeId}`}
+                      x={labelX}
+                      y={labelY}
+                      dy="0.35em"
+                      fontSize={10}
+                      fill="#6b7280"
+                      textAnchor="middle"
+                      style={{ pointerEvents: 'none', userSelect: 'none' }}
+                    >
+                      {metricLabel}
+                    </text>
+                  )
+                })
+              })()}
             </g>
 
             {/* Nodes */}
@@ -707,6 +782,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                       onClick={showHistogramOnClick ? () => handleNodeHistogramClick(node) : undefined}
                       flowDirection={flowDirection}
                       animationDuration={animationDuration}
+                      sankeyTree={sankeyTree}
                     />
                   )
                 })
