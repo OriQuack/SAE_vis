@@ -56,31 +56,31 @@ export const AVAILABLE_STAGES: StageOption[] = [
     category: 'Score'
   },
 
-  // Score metrics (4 metrics)
-  {
-    id: 'fuzz_score',
-    name: 'Fuzz Score',
-    description: 'Split by fuzz score',
-    metric: METRIC_SCORE_FUZZ,
-    thresholds: [0.5],
-    category: 'Score'
-  },
-  {
-    id: 'detection_score',
-    name: 'Detection Score',
-    description: 'Split by detection score',
-    metric: METRIC_SCORE_DETECTION,
-    thresholds: [0.5],
-    category: 'Score'
-  },
-  {
-    id: 'embedding_score',
-    name: 'Embedding Score',
-    description: 'Split by embedding score',
-    metric: METRIC_SCORE_EMBEDDING,
-    thresholds: [0.5],
-    category: 'Score'
-  },
+  // Score metrics (1 metric - Fuzz/Detection/Embedding commented out)
+  // {
+  //   id: 'fuzz_score',
+  //   name: 'Fuzz Score',
+  //   description: 'Split by fuzz score',
+  //   metric: METRIC_SCORE_FUZZ,
+  //   thresholds: [0.5],
+  //   category: 'Score'
+  // },
+  // {
+  //   id: 'detection_score',
+  //   name: 'Detection Score',
+  //   description: 'Split by detection score',
+  //   metric: METRIC_SCORE_DETECTION,
+  //   thresholds: [0.5],
+  //   category: 'Score'
+  // },
+  // {
+  //   id: 'embedding_score',
+  //   name: 'Embedding Score',
+  //   description: 'Split by embedding score',
+  //   metric: METRIC_SCORE_EMBEDDING,
+  //   thresholds: [0.5],
+  //   category: 'Score'
+  // },
   {
     id: 'overall_score',
     name: 'Quality Score',

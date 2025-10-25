@@ -4,11 +4,11 @@ This file provides comprehensive guidance to Claude Code when working with the R
 
 ## Current Status: ✅ ADVANCED MULTI-VISUALIZATION RESEARCH PROTOTYPE
 
-**Phase 1-8 Complete**: ✅ Sankey, Alluvial, Histogram, LLM Comparison, UMAP, TablePanel, Consistency Integration
+**Core Features Complete**: ✅ Dual Sankey with Comparison Overlay, Alluvial, TablePanel with Explanations, Inline Histograms
 **Development Server**: http://localhost:3003 (active with hot reload)
-**Technology**: React 19.1.1, TypeScript 5.8.3, Zustand, D3.js
-**Architecture**: Tree-based Sankey building with feature group caching + set intersection
-**Status**: Conference-ready with instant threshold updates and 7 visualization types
+**Technology**: React 19.1.1, TypeScript 5.8.3, Modularized Zustand, D3.js
+**Architecture**: Modularized store with tree-based Sankey, inline histograms, and explanation highlighting
+**Status**: Conference-ready with real-time threshold updates and semantic text highlighting
 
 ## Technology Stack & Architecture
 
@@ -65,39 +65,39 @@ This file provides comprehensive guidance to Claude Code when working with the R
 frontend/
 ├── src/
 │   ├── components/              # React Components (Production-Ready)
-│   │   ├── FilterPanel.tsx      # Multi-select filter interface with dynamic options
-│   │   ├── SankeyDiagram.tsx    # Advanced D3 Sankey visualization with interactions
-│   │   ├── AlluvialDiagram.tsx  # D3 Alluvial flow visualization (Phase 2)
-│   │   ├── HistogramPanel.tsx   # Histogram visualization with threshold selection (Phase 4)
-│   │   ├── ThresholdGroupPanel.tsx # Threshold group management UI (Phase 4)
+│   │   ├── SankeyDiagram.tsx    # Advanced D3 Sankey visualization with inline histograms
+│   │   ├── SankeyOverlay.tsx    # Sankey node overlay with stage selection interface
+│   │   ├── AlluvialDiagram.tsx  # D3 Alluvial flow visualization between dual Sankey panels
 │   │   ├── HistogramPopover.tsx # Portal-based histogram popover with drag functionality
-│   │   ├── ProgressBar.tsx      # Linear set visualization for feature overlap
-│   │   ├── FlowPanel.tsx        # Flow visualization panel
-│   │   ├── UMAPPanel.tsx        # Dual UMAP visualization with zoom and clustering (Phase 6)
-│   │   ├── LLMComparisonSelection.tsx # Interactive LLM comparison with consistency (Phase 5)
-│   │   └── LLMComparisonVisualization.tsx # Static variant (currently commented out)
+│   │   ├── ThresholdHandles.tsx # Interactive threshold handles for inline histogram manipulation
+│   │   ├── FlowPanel.tsx        # Flow visualization panel for metrics display
+│   │   ├── TablePanel.tsx       # Feature-level scoring table with explanation highlighting
+│   │   ├── HighlightedExplanation.tsx # Syntax-highlighted explanation text display
+│   │   └── QualityScoreBreakdown.tsx # Quality score breakdown visualization
 │   ├── lib/                     # Utility Libraries
 │   │   ├── constants.ts         # Centralized constant definitions
 │   │   ├── d3-sankey-utils.ts  # D3 Sankey calculations
+│   │   ├── d3-sankey-histogram-utils.ts # Inline histogram calculations for Sankey nodes
 │   │   ├── d3-alluvial-utils.ts # D3 Alluvial calculations
 │   │   ├── d3-histogram-utils.ts # D3 Histogram calculations with grid lines
-│   │   ├── d3-llm-comparison-utils.ts # LLM comparison layout and color utilities (Phase 5)
-│   │   ├── d3-umap-utils.ts    # UMAP calculations and cluster hulls (Phase 6)
-│   │   ├── d3-linear-set-utils.ts # Linear set calculations
+│   │   ├── d3-table-utils.ts    # Table layout and consistency calculations
 │   │   ├── d3-flow-utils.ts    # Flow visualization utilities
-│   │   ├── d3-threshold-group-utils.ts # Threshold group utilities
-│   │   ├── selection-utils.ts   # Threshold selection and calculation utilities
 │   │   ├── threshold-utils.ts   # Tree-based Sankey computation with set intersection
 │   │   └── utils.ts            # General utility functions (includes useResizeObserver hook)
 │   ├── styles/                  # Styling
-│   │   ├── globals.css         # Global styles
+│   │   ├── base.css            # Global base styles
 │   │   ├── App.css             # Application-level styles
-│   │   ├── HistogramPanel.css  # Histogram styles
-│   │   ├── ThresholdGroupPanel.css # Threshold group styles
-│   │   ├── UMAPPanel.css       # UMAP styles
-│   │   ├── TablePanel.css      # Table panel styles (Phase 7)
-│   │   └── ... # Other component styles
-│   ├── store.ts                # Consolidated Zustand store with threshold groups (Phase 4)
+│   │   ├── SankeyDiagram.css   # Sankey diagram styles
+│   │   ├── AlluvialDiagram.css # Alluvial flow styles
+│   │   ├── HistogramPopover.css # Histogram popover styles
+│   │   ├── FlowPanel.css       # Flow panel styles
+│   │   ├── TablePanel.css      # Table panel styles
+│   │   └── ProgressBar.css     # Progress bar styles
+│   ├── store/                  # Modularized Zustand State Management
+│   │   ├── index.ts            # Main store with state composition
+│   │   ├── sankey-actions.ts   # Sankey tree management actions
+│   │   ├── table-actions.ts    # Table data and sorting actions
+│   │   └── utils.ts            # Store utility functions
 │   ├── types.ts                # Comprehensive TypeScript type definitions
 │   ├── api.ts                  # HTTP client and API integration layer
 │   ├── App.tsx                 # Main application component with routing and error boundaries
@@ -115,11 +115,12 @@ frontend/
 
 ### ✅ Advanced State Management
 
-The frontend uses a **dual-panel Zustand store** with comprehensive state management:
+The frontend uses a **modularized dual-panel Zustand store** with comprehensive state management:
 
 ```typescript
+// Main store (store/index.ts)
 interface AppState {
-  // Dual-panel architecture - Phase 2
+  // Dual-panel architecture
   leftPanel: PanelState
   rightPanel: PanelState
 
@@ -127,33 +128,34 @@ interface AppState {
   filterOptions: FilterOptions | null
   currentMetric: MetricType
   popoverState: PopoverState
-  loading: LoadingStates & { sankeyLeft?: boolean; sankeyRight?: boolean; histogramPanel?: boolean }
-  errors: ErrorStates & { sankeyLeft?: string | null; sankeyRight?: string | null; histogramPanel?: string | null }
+  loading: LoadingStates
+  errors: ErrorStates
 
-  // Histogram panel data (Phase 4)
-  histogramPanelData: Record<string, HistogramData> | null
+  // Comparison view state
+  showComparisonView: boolean
+  toggleComparisonView: () => void
 
-  // Threshold group management (Phase 4)
-  thresholdGroups: ThresholdGroup[]
-  pendingGroup: ThresholdSelection[]
-  isCreatingGroup: boolean
-  showGroupNameInput: boolean
-
-  // Alluvial flows data (Phase 2)
+  // Alluvial flows data
   alluvialFlows: AlluvialFlow[] | null
 
-  // Panel-aware API actions
-  fetchSankeyData: (panel?: PanelSide) => Promise<void>
-  fetchHistogramData: (metric?: MetricType, nodeId?: string, panel?: PanelSide) => Promise<void>
-  fetchHistogramPanelData: () => Promise<void>
-  updateThreshold: (nodeId: string, thresholds: number[], panel?: PanelSide) => void
+  // Table data
+  tableData: any | null
+  tableScrollState: { scrollTop: number; scrollHeight: number; clientHeight: number } | null
+  tableSortBy: SortBy | null
+  tableSortDirection: SortDirection | null
+  scoreColumnDisplay: typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION
 
-  // Threshold group actions (Phase 4)
-  startGroupCreation: () => void
-  finishGroupCreation: (name: string) => void
-  cancelGroupCreation: () => void
-  toggleGroupVisibility: (groupId: string) => void
-  deleteGroup: (groupId: string) => void
+  // Tree-based threshold system actions (from sankey-actions.ts)
+  addUnsplitStageToNode: (nodeId: string, metric: string, panel?: PanelSide) => Promise<void>
+  updateNodeThresholds: (nodeId: string, thresholds: number[], panel?: PanelSide) => Promise<void>
+  recomputeSankeyTree: (panel?: PanelSide) => void
+  removeNodeStage: (nodeId: string, panel?: PanelSide) => void
+
+  // Table actions (from table-actions.ts)
+  fetchTableData: () => Promise<void>
+  setTableScrollState: (state: { scrollTop: number; scrollHeight: number; clientHeight: number } | null) => void
+  setTableSort: (sortBy: SortBy | null, sortDirection: SortDirection | null, skipSankeySync?: boolean) => void
+  swapMetricDisplay: (newMetric: typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION) => void
 }
 
 interface PanelState {
@@ -186,16 +188,19 @@ interface ThresholdGroup {
 ```
 
 **Key Features:**
+- **Modularized Store**: Separated into index.ts, sankey-actions.ts, table-actions.ts, and utils.ts
 - **Dual-Panel Architecture**: Independent left/right panel state management with `PanelState` interface
 - **Tree-Based Sankey Building**: Map-based tree structure with `SankeyTreeNode` containing feature IDs
-- **Feature Group Caching**: Global cache by `metric:thresholds` key prevents redundant API calls
-- **Set Intersection Algorithm**: Child nodes computed via `parent_features ∩ group_features`
-- **Runtime Stage Management**: Store actions for dynamic tree modification
-  - `loadRootFeatures()`: Initialize root node with all features from backend
-  - `addStageToNode()`: Fetch feature groups, compute intersections, create child nodes
-  - `removeStageFromNode()`: Remove stage and collapse subtree
+- **Comparison View Toggle**: Show/hide comparison overlay with Alluvial + Right Sankey
+- **Runtime Stage Management**: Store actions for dynamic tree modification from sankey-actions.ts
+  - `addUnsplitStageToNode()`: Add new stage to node without splitting
+  - `updateNodeThresholds()`: Update thresholds and recompute tree
+  - `removeNodeStage()`: Remove stage and collapse subtree
   - `recomputeSankeyTree()`: Convert tree to D3-compatible flat structure
-- **Instant Threshold Updates**: Cached groups enable local tree rebuilding without backend call
+- **Table Management**: Store actions for table data and sorting from table-actions.ts
+  - `fetchTableData()`: Load table data with explanations and scores
+  - `setTableSort()`: Update sort column and direction
+  - `swapMetricDisplay()`: Switch between quality/embedding/fuzz/detection score displays
 - **Alluvial Flow Support**: Cross-panel flow visualization with feature ID tracking
 - **Panel-Aware Operations**: All store actions support panel-specific targeting (leftPanel/rightPanel)
 - **Production-Ready Error Handling**: Comprehensive error boundaries and graceful degradation
@@ -227,22 +232,21 @@ type ViewState = 'empty' | 'filtering' | 'visualization'
 
 #### SankeyDiagram Component (Advanced D3 Integration)
 - **D3-Sankey Integration**: Professional Sankey layout calculations with d3-sankey
-- **Interactive Nodes**: Click handlers for histogram popover activation
+- **Inline Histograms**: Histograms rendered directly on Sankey nodes
+- **Threshold Handles**: Interactive threshold manipulation with ThresholdHandles component
+- **Interactive Nodes**: Click handlers for stage addition via SankeyOverlay
 - **Advanced Animations**: Smooth transitions with d3-transition
-- **Color Coding**: Sophisticated color scheme based on node categories
+- **Color Coding**: Sophisticated color scheme based on node metrics
 - **Hover Effects**: Interactive feedback with tooltips and highlighting
 - **Error States**: Comprehensive error handling with user-friendly messages
 
-**Node Interaction Logic:**
+**Inline Histogram Features:**
 ```typescript
-function getMetricsForNode(node: D3SankeyNode): MetricType[] | null {
-  switch (node.category) {
-    case 'root': return null // No histogram for root
-    case 'feature_splitting': return ['feature_splitting']
-    case 'semantic_distance': return ['semdist_mean']
-    case 'score_agreement': return ['score_detection', 'score_fuzz', 'score_simulation']
-  }
-}
+// Histograms displayed directly on nodes with:
+- Node-specific histogram data fetched via threshold path
+- Interactive threshold handles for real-time updates
+- Automatic layout calculation via d3-sankey-histogram-utils.ts
+- Display only for leaf nodes and nodes with outgoing links
 ```
 
 #### AlluvialDiagram Component (Phase 2 - Advanced Flow Visualization)
@@ -300,13 +304,14 @@ const layout = useMemo(
 - **Feature Group Processing**: `processFeatureGroupResponse()` handles standard and consistency metrics
 - **Tree Conversion**: Converts Map-based tree to D3-compatible flat nodes/links structure
 - **Node ID Generation**: `buildNodeId()` creates hierarchical node identifiers
+- **Threshold Path Utilities**: `getNodeThresholdPath()` extracts constraint path for histogram filtering
 
-**selection-utils.ts (Phase 4)**
-- **Threshold Calculation**: `calculateThresholdFromMouseX()` for exact mouse-to-threshold conversion
-- **Range Calculation**: `calculateThresholdRangeFromMouse()` for selection rectangles
-- **Bar Selection**: `getBarsInSelection()` for histogram bar intersection detection
-- **Color Utilities**: `getSelectionColor()` for consistent threshold group colors
-- **Formatting**: `formatThresholdRange()` and `formatMetricName()` for display
+**d3-sankey-histogram-utils.ts**
+- **Inline Histogram Layout**: `calculateNodeHistogramLayout()` positions histograms on Sankey nodes
+- **Node Display Logic**: `shouldDisplayNodeHistogram()` determines which nodes show histograms
+- **Metric Selection**: `getNodeHistogramMetric()` selects appropriate metric for node
+- **Link Detection**: `hasOutgoingLinks()` checks if node has outgoing connections
+- **Threshold Extraction**: `getNodeThresholds()` retrieves threshold values from node tree
 
 #### D3-React Integration Patterns
 ```typescript
@@ -333,22 +338,18 @@ useEffect(() => {
 
 **API Endpoints Integration:**
 ```typescript
-// Primary endpoint for tree building ✅
-export const getFeatureGroups = (
-  filters: Filters,
-  metric: string,
-  thresholds: number[]
-): Promise<FeatureGroupResponse>
-
-// Other endpoints ✅
+// Core API functions ✅
 export const getFilterOptions = (): Promise<FilterOptions>
+export const getFeatureGroups = (filters: Filters, metric: string, thresholds: number[]): Promise<FeatureGroupResponse>
 export const getHistogramData = (request: HistogramDataRequest): Promise<HistogramData>
 export const getComparisonData = (request: ComparisonDataRequest): Promise<ComparisonData>
-export const getLLMComparisonData = (filters: Filters): Promise<LLMComparisonData>
-export const getUMAPData = (filters: Filters): Promise<UMAPDataResponse>
 export const getTableData = (request: TableDataRequest): Promise<FeatureTableDataResponse>
-export const getFeatureData = (featureId: number): Promise<FeatureDetail>
 export const healthCheck = (): Promise<boolean>
+
+// AlignmentService integration
+- Table data includes highlighted_explanation field with semantic alignment
+- Explanation text highlighting based on cross-explainer semantic matches
+- Color-coded highlighting based on similarity scores
 ```
 
 #### Backend Integration Features
@@ -425,20 +426,21 @@ npm run lint
 
 ### Current Development Status (🟢 ACTIVE)
 
-**Development Server**: http://localhost:3005 (development server active)
+**Development Server**: http://localhost:3003 (development server active)
 - ✅ Hot reload with React Fast Refresh
 - ✅ TypeScript compilation with error reporting
 - ✅ Vite development server with optimized bundling
 - ✅ Backend API integration with automatic health checking (port 8003)
-- ✅ Histogram panel with threshold group management (Phase 4)
-- ✅ LLM Comparison visualization with consistency scoring (Phase 5)
+- ✅ Modularized Zustand store with sankey-actions and table-actions
+- ✅ Inline histogram visualization with threshold handles
+- ✅ Explanation text highlighting with semantic alignment
 
 **Performance Metrics**:
 - **Bundle Size**: Optimized with code splitting and tree shaking
 - **Load Time**: Sub-second initial load with progressive enhancement
-- **Interaction Response**: Real-time updates with smooth D3 animations
-- **Memory Usage**: Efficient with proper cleanup and garbage collection
-- **Dataset Support**: 2,471 rows (1,000 unique features × ~2.5 avg LLM explainers)
+- **Interaction Response**: Real-time threshold updates with smooth D3 animations
+- **Memory Usage**: Efficient with proper cleanup and garbage collection via modularized store
+- **Dataset Support**: 1,000 unique features with multiple LLM explainers and scorers
 - **API Performance**: Sub-second response times for all visualization endpoints
 
 ## Backend Integration
@@ -471,24 +473,24 @@ User Interaction → State Update → API Request → Data Processing → UI Upd
 ## Advanced Features
 
 ### 🎨 Interactive Visualizations
-- **Multi-Stage Sankey Diagrams**: Complex flow visualization with flexible stages (Phase 1)
-- **Alluvial Flow Diagrams**: Cross-panel feature tracking and comparison (Phase 2)
-- **Histogram Panels**: Multi-metric threshold visualization with selection mode (Phase 4)
-- **LLM Comparison Triangles**: Consistency scoring with color gradients (Phase 5)
-- **Interactive Nodes**: Click-to-expand histogram analysis
+- **Dual Sankey Diagrams**: Left panel + comparison overlay with right panel
+- **Inline Histograms**: Histograms rendered directly on Sankey nodes
+- **Threshold Handles**: Interactive threshold manipulation on inline histograms
+- **Stage Selection Overlay**: SankeyOverlay component for adding new stages
+- **Alluvial Flow Diagrams**: Cross-panel feature tracking between dual Sankey panels
+- **TablePanel with Explanations**: Feature-level scoring table with syntax-highlighted explanations
+- **Quality Score Breakdown**: Component showing quality score metric contributions
 - **Smooth Animations**: D3-powered transitions with proper timing
 - **Hover Effects**: Rich tooltips with detailed information
-- **Color-Coded Categories**: Intuitive visual categorization
+- **Color-Coded Categories**: Intuitive visual categorization based on metrics
 
 ### 🔄 State Management
-- **Dual-Panel Store**: Independent left/right panel state with `PanelState` interface (Phase 1)
-- **Dynamic Tree Actions**: Store actions for runtime stage creation/removal (Phase 2)
-- **Threshold Tree V2**: Support for range, pattern, and expression split rules (Phase 2)
-- **Alluvial Flow Updates**: Automatic flow calculation after Sankey data changes (Phase 2)
-- **Threshold Group Management**: Named groups with visibility toggles (Phase 4)
-- **Multi-Histogram Data**: Batch loading and management for multiple metrics (Phase 4)
-- **LLM Comparison Data**: Pre-calculated consistency statistics integration (Phase 5)
-- **View State Management**: Three-state workflow (empty → filtering → visualization)
+- **Modularized Store**: Separated into index.ts, sankey-actions.ts, table-actions.ts, and utils.ts
+- **Dual-Panel State**: Independent left/right panel state with `PanelState` interface
+- **Comparison View Toggle**: Show/hide comparison overlay with Alluvial + Right Sankey
+- **Dynamic Tree Actions**: Store actions for runtime stage creation/removal via sankey-actions.ts
+- **Alluvial Flow Updates**: Automatic flow calculation after Sankey data changes
+- **Table Management Actions**: Table data fetching, sorting, and metric display via table-actions.ts
 - **Production Error Handling**: Comprehensive error boundaries and recovery
 
 ### 📱 User Experience

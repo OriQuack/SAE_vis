@@ -38,7 +38,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
   const tableContainerRef = useRef<HTMLDivElement>(null)
   const qualityScoreCellRef = useRef<HTMLTableCellElement>(null)
-  const [cellHeight, setCellHeight] = useState<number>(30) // Natural cell height
+  const [cellHeight, setCellHeight] = useState<number>(40) // Natural cell height
 
   // Sorting state from store
   const sortBy = useVisualizationStore(state => state.tableSortBy)
@@ -560,11 +560,11 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                             style={{ position: 'relative' }}
                           >
                             {simStats ? (
-                              <svg width="20" height="100%" viewBox={`0 0 20 ${cellHeight}`} style={{ display: 'block', maxHeight: '100%' }}>
+                              <svg width="20" height="100%" viewBox={`0 0 20 ${cellHeight}`} style={{ display: 'block' }}>
                                 {(() => {
                                   const svgHeight = cellHeight
                                   const centerY = svgHeight / 2
-                                  const scaleFactor = svgHeight / 0.4
+                                  const scaleFactor = svgHeight / 1
 
                                   const maxDeviation = (simStats.max - simStats.avg) * scaleFactor
                                   const minDeviation = (simStats.avg - simStats.min) * scaleFactor
@@ -574,7 +574,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                                   const color = getMetricColor('semantic_similarity', simStats.avg)
 
                                   const pillWidth = 14
-                                  const pillHeight = Math.max(bottomY - topY, pillWidth)
+                                  const pillHeight = pillWidth + bottomY - topY
                                   const pillTop = centerY - pillHeight / 2
 
                                   return (
@@ -609,12 +609,12 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                           style={{ cursor: qualityScoreStats ? 'pointer' : 'default', position: 'relative' }}
                         >
                           {qualityScoreStats ? (
-                            <svg width="20" height="100%" viewBox={`0 0 20 ${cellHeight}`} style={{ display: 'block', maxHeight: '100%' }}>
+                            <svg width="20" height="100%" viewBox={`0 0 20 ${cellHeight}`} style={{ display: 'block' }}>
                               {(() => {
                                 // Consistent pill scaling: same visual height = same actual range
                                 const svgHeight = cellHeight
                                 const centerY = svgHeight / 2
-                                const scaleFactor = svgHeight / 0.65
+                                const scaleFactor = svgHeight / 1
 
                                 const maxDeviation = (qualityScoreStats.max - qualityScoreStats.avg) * scaleFactor
                                 const minDeviation = (qualityScoreStats.avg - qualityScoreStats.min) * scaleFactor
@@ -625,7 +625,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
                                 // Pill shape dimensions
                                 const pillWidth = 14
-                                const pillHeight = Math.max(bottomY - topY, pillWidth)  // Minimum height = width (becomes circle)
+                                const pillHeight = pillWidth + bottomY - topY  // Minimum height = width (becomes circle)
                                 const pillTop = centerY - pillHeight / 2  // Center the pill vertically
 
                                 return (

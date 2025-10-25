@@ -8,11 +8,11 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 
 ## Current Project Status: 🚀 ADVANCED RESEARCH PROTOTYPE
 
-**Phase 1-8 Complete**: ✅ Sankey, Alluvial, Histogram, LLM Comparison, UMAP, TablePanel, Consistency Integration
-**Current State**: Advanced research prototype with simplified architecture - feature grouping + frontend intersection
+**Core Features Complete**: ✅ Dual Sankey with Comparison Overlay, Alluvial, TablePanel with Explanations, Inline Histograms
+**Current State**: Advanced research prototype with modularized store architecture and inline histogram visualization
 **Active Usage**: Development servers on ports 8003 (backend) and 3003 (frontend)
-**Technical Readiness**: Conference-ready with instant threshold updates
-**Architecture**: Simplified feature grouping API with tree-based frontend Sankey building
+**Technical Readiness**: Conference-ready with real-time threshold updates and explanation highlighting
+**Architecture**: Modularized Zustand store with tree-based Sankey building and alignment-based text highlighting
 
 ## Technology Stack & Architecture
 
@@ -81,10 +81,12 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 │   │   │   ├── responses.py        # API response schemas
 │   │   │   └── common.py           # Shared models (Filters, etc.)
 │   │   └── services/               # Business logic layer
+│   │       ├── data_service.py          # Core data service with DataService class
 │   │       ├── feature_group_service.py  # Feature grouping by threshold ranges
-│   │       ├── visualization_service.py  # Histogram and visualization data
-│   │       ├── table_data_service.py     # Table data processing service (Phase 7)
-│   │       ├── consistency_service.py    # Consistency score calculations (Phase 8)
+│   │       ├── histogram_service.py     # Histogram generation service
+│   │       ├── table_data_service.py     # Table data processing service
+│   │       ├── consistency_service.py    # Consistency score calculations
+│   │       ├── alignment_service.py     # Explanation text alignment for highlighting
 │   │       └── data_constants.py         # Data schema constants
 │   ├── docs/                       # API documentation
 │   ├── start.py                    # Production startup script
@@ -93,37 +95,30 @@ This is a **research prototype visualization interface** for EuroVIS conference 
 ├── frontend/                        # ✅ React Frontend (Production-Ready)
 │   ├── src/
 │   │   ├── components/             # React components
-│   │   │   ├── FilterPanel.tsx     # Multi-select filter interface
-│   │   │   ├── SankeyDiagram.tsx   # D3 Sankey visualization
+│   │   │   ├── SankeyDiagram.tsx   # D3 Sankey visualization with inline histograms
+│   │   │   ├── SankeyOverlay.tsx   # Sankey node overlay with stage selection
 │   │   │   ├── AlluvialDiagram.tsx # D3 Alluvial flow visualization
-│   │   │   ├── HistogramPanel.tsx  # Multi-histogram visualization
-│   │   │   ├── ThresholdGroupPanel.tsx # Threshold group management
-│   │   │   ├── HistogramPopover.tsx # Advanced popover system
-│   │   │   ├── ProgressBar.tsx     # Linear set visualization
+│   │   │   ├── HistogramPopover.tsx # Histogram popover system
+│   │   │   ├── ThresholdHandles.tsx # Interactive threshold handles for inline histograms
 │   │   │   ├── FlowPanel.tsx       # Flow visualization panel
-│   │   │   ├── UMAPPanel.tsx       # Dual UMAP visualization with zoom
-│   │   │   ├── TablePanel.tsx      # Feature-level scoring table (Phase 7)
-│   │   │   ├── SavedGroupsPanel.tsx # Saved group management
-│   │   │   ├── VerticalBar.tsx     # Scroll indicator
-│   │   │   ├── LLMComparisonSelection.tsx # Interactive LLM comparison
-│   │   │   └── LLMComparisonVisualization.tsx # Static LLM comparison display
+│   │   │   ├── TablePanel.tsx      # Feature-level scoring table with explanations
+│   │   │   ├── HighlightedExplanation.tsx # Syntax-highlighted explanation display
+│   │   │   └── QualityScoreBreakdown.tsx # Quality score breakdown visualization
 │   │   ├── lib/
 │   │   │   ├── constants.ts         # Centralized constant definitions
 │   │   │   ├── d3-sankey-utils.ts  # D3 Sankey calculations
+│   │   │   ├── d3-sankey-histogram-utils.ts # Inline histogram calculations for Sankey nodes
 │   │   │   ├── d3-alluvial-utils.ts # D3 Alluvial calculations
 │   │   │   ├── d3-histogram-utils.ts # D3 Histogram calculations
-│   │   │   ├── d3-llm-comparison-utils.ts # LLM comparison layout and color utilities
-│   │   │   ├── d3-umap-utils.ts    # UMAP calculations and cluster hulls
-│   │   │   ├── d3-table-utils.ts   # Table layout and consistency calculations (Phase 7)
-│   │   │   ├── table-selection-utils.ts # Cell group selection logic (Phase 7)
-│   │   │   ├── table-sort-utils.ts # Table sorting utilities (Phase 7)
-│   │   │   ├── d3-linear-set-utils.ts # Linear set calculations
+│   │   │   ├── d3-table-utils.ts   # Table layout and consistency calculations
 │   │   │   ├── d3-flow-utils.ts    # Flow visualization utilities
-│   │   │   ├── d3-threshold-group-utils.ts # Threshold group utilities
 │   │   │   ├── threshold-utils.ts   # Tree-based Sankey computation with set intersection
-│   │   │   ├── selection-utils.ts   # Threshold selection utilities
 │   │   │   └── utils.ts            # General helper functions (includes useResizeObserver hook)
-│   │   ├── store.ts                # Zustand state management with dual panels
+│   │   ├── store/                  # Modularized Zustand state management
+│   │   │   ├── index.ts            # Main store with state composition
+│   │   │   ├── sankey-actions.ts   # Sankey tree management actions
+│   │   │   ├── table-actions.ts    # Table data and sorting actions
+│   │   │   └── utils.ts            # Store utility functions
 │   │   ├── types.ts               # TypeScript type definitions
 │   │   ├── api.ts                 # HTTP client and API integration
 │   │   ├── App.tsx                # Main application component
@@ -183,21 +178,22 @@ Frontend builds Sankey tree by:
 **Architecture Features:**
 - **React 19.1.1**: Modern React with advanced component patterns
 - **TypeScript 5.8.3**: Full type safety throughout application
-- **Zustand State Management**: Centralized store with data flow management
-- **D3.js Visualization**: Complex Sankey diagrams with interactive elements
-- **Portal-Based UI**: Advanced popover system with positioning and drag functionality
+- **Modularized Zustand Store**: Separated into index, sankey-actions, table-actions, and utils
+- **D3.js Visualization**: Complex Sankey diagrams with inline histograms
+- **Portal-Based UI**: Histogram popover system with positioning
 - **Comprehensive Error Handling**: Error boundaries and graceful degradation
 
 **Current Implementation:**
-- **Dual-Panel Architecture**: Left/right panel system for comparison visualization with independent state
+- **Dual-Panel Architecture**: Left Sankey + right TablePanel with comparison overlay
+- **Comparison Overlay**: Toggle to show Alluvial + Right Sankey over TablePanel
 - **Tree-Based Sankey Building**: Frontend builds Sankey structure using set intersection algorithm
-- **Feature Group Caching**: Global cache by metric+thresholds for instant threshold updates
-- **Set Intersection Logic**: Efficient child node computation via parent ∩ group features
-- **Sankey Flow Visualization**: Multi-stage hierarchical flow diagrams
-- **Alluvial Flow Visualization**: Cross-panel flow comparison with feature ID tracking
-- **Advanced Filtering**: Multi-select dropdowns with dynamic options from backend
-- **Histogram Popovers**: Interactive threshold setting with drag-and-drop positioning
-- **Real-time Updates**: Live API integration with loading states and error boundaries
+- **Inline Histograms**: Histograms rendered directly on Sankey nodes with threshold handles
+- **Stage Selection Overlay**: Interactive stage addition via SankeyOverlay component
+- **Alluvial Flow Visualization**: Cross-panel flow comparison between dual Sankey diagrams
+- **Explanation Highlighting**: Semantic alignment-based syntax highlighting in TablePanel
+- **Quality Score Breakdown**: Detailed quality score component showing metric contributions
+- **Real-time Threshold Updates**: Interactive threshold handles with live updates
+- **Modularized Store**: Separated into index, sankey-actions, table-actions, and utils modules
 - **Responsive Design**: Adaptive layout with useResizeObserver hook for visualizations
 
 **Component Architecture:**
@@ -264,15 +260,15 @@ npm run preview
 
 ### Current Server Status (🟢 ACTIVE)
 
-**Backend Servers:**
-- **Primary**: Port 8003 - Production API server with heavy traffic
-- **Development**: Port 8001 - Development and testing server
+**Backend Server:**
+- **Primary**: Port 8003 - Production API server
 - **Health Status**: All endpoints operational with sub-second response times
 - **API Documentation**: http://localhost:8003/docs (Interactive Swagger UI)
+- **Services**: DataService, AlignmentService for explanation highlighting
 
 **Frontend Server:**
 - **Development**: http://localhost:3003 - React development server with hot reload
-- **Status**: Active with enhanced UX and advanced component interactions
+- **Status**: Active with modularized store and inline histogram visualization
 
 **Performance Metrics:**
 - **Dataset Size**: 1,648 features processed and analyzed

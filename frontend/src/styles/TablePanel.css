@@ -276,7 +276,7 @@
 
 .table-panel__cell--score {
   text-align: center;
-  padding: 2px;
+  padding: 0 2px;
   position: relative;
 }
 
