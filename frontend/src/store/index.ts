@@ -94,6 +94,8 @@ interface AppState {
   // Table data actions (from table-actions.ts)
   getRightmostStageFeatureIds: () => Set<number> | null
   getMaxStageMetric: () => string | null
+  getRightmostNodeWithScrollIndicator: () => string
+  findNodeWithMetric: (metric: string) => string | null
   syncTableSortWithMaxStage: () => void
   fetchTableData: () => Promise<void>
   setTableScrollState: (state: { scrollTop: number; scrollHeight: number; clientHeight: number } | null) => void

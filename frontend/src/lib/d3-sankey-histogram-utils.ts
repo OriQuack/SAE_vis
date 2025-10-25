@@ -53,7 +53,6 @@ export interface NodeHistogramLayout {
 // CONSTANTS
 // ============================================================================
 
-const HISTOGRAM_MAX_WIDTH = 80         // Maximum width of histogram bars
 const HISTOGRAM_MARGIN = 0             // Space between node and histogram
 
 // ============================================================================
@@ -207,7 +206,7 @@ export function calculateNodeHistogramLayout(
   links: D3SankeyLink[]
 ): NodeHistogramLayout | null {
   // Validate inputs
-  if (!histogramData || !node.x1 || !node.y0 || !node.y1) {
+  if (!histogramData || node.x0 == null || node.x1 == null || node.y0 == null || node.y1 == null) {
     return null
   }
 
@@ -225,11 +224,27 @@ export function calculateNodeHistogramLayout(
   // Calculate node dimensions
   const nodeHeight = node.y1 - node.y0
 
+  // Calculate dynamic histogram width based on horizontal distance to child nodes
+  // Find the first outgoing link to determine the horizontal spacing
+  const outgoingLink = links.find(link => {
+    const sourceId = typeof link.source === 'object' ? link.source.id : link.source
+    return sourceId === node.id
+  })
+
+  // Use horizontal distance to child nodes as histogram width
+  let histogramMaxWidth = nodeHeight * 0.5 // Fallback to original calculation
+  if (outgoingLink) {
+    const targetNode = typeof outgoingLink.target === 'object' ? outgoingLink.target : null
+    if (targetNode && targetNode.x0 != null) {
+      histogramMaxWidth = targetNode.x0 - node.x1
+    }
+  }
+
   // Calculate bars with metric-specific colors
   const bars = calculateNodeHistogramBars(
     histogramData,
     node,
-    HISTOGRAM_MAX_WIDTH,
+    histogramMaxWidth * 0.5,
     metric
   )
 
@@ -237,7 +252,7 @@ export function calculateNodeHistogramLayout(
     bars,
     x: node.x1 + HISTOGRAM_MARGIN,  // Position at node's right edge + margin
     y: node.y0,                      // Top of node
-    width: HISTOGRAM_MAX_WIDTH,
+    width: histogramMaxWidth,
     height: nodeHeight,
     metric,
     nodeId: node.id || '',

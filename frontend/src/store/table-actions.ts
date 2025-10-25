@@ -1,5 +1,5 @@
 import * as api from '../api'
-import type { SortBy, SortDirection } from '../types'
+import type { SortBy, SortDirection, SankeyTreeNode } from '../types'
 import { mapTableSortToSankeyMetric, mapSankeyMetricToTableSort } from './utils'
 import {
   PANEL_LEFT,
@@ -59,8 +59,9 @@ export const createTableActions = (set: any, get: any) => ({
     }
 
     // Find nodes that have children - these are parent nodes with metrics
-    const nodesWithChildren = Array.from(leftPanel.sankeyTree.values()).filter(
-      node => node.children.length > 0
+    const allNodes = Array.from(leftPanel.sankeyTree.values()) as SankeyTreeNode[]
+    const nodesWithChildren = allNodes.filter(
+      (node) => node.children.length > 0
     )
 
     if (nodesWithChildren.length === 0) {
@@ -68,13 +69,92 @@ export const createTableActions = (set: any, get: any) => ({
     }
 
     // Find maximum depth among parent nodes
-    const maxDepth = Math.max(...nodesWithChildren.map(n => n.depth))
+    const maxDepth = Math.max(...nodesWithChildren.map((n) => n.depth))
 
     // Get parent nodes at max depth
-    const maxDepthParents = nodesWithChildren.filter(n => n.depth === maxDepth)
+    const maxDepthParents = nodesWithChildren.filter((n) => n.depth === maxDepth)
 
     // Return their metric (all should have same metric at a given depth)
     return maxDepthParents[0]?.metric || null
+  },
+
+  /**
+   * Find the rightmost node that contains the most visible table features.
+   * This is the node where new stages should be added when table is sorted.
+   * Uses scroll state to determine which vertical bar node is most visible.
+   */
+  getRightmostNodeWithScrollIndicator: () => {
+    const state = get()
+    const { leftPanel, tableScrollState } = state
+
+    if (!leftPanel.computedSankey || !tableScrollState) {
+      return 'root' // Fallback to root if no scroll state
+    }
+
+    // Get all vertical bar nodes (rightmost stage)
+    const verticalBarNodes = leftPanel.computedSankey.nodes.filter(
+      (n: any) => n.node_type === 'vertical_bar'
+    )
+
+    if (verticalBarNodes.length === 0) {
+      return 'root'
+    }
+
+    // Calculate which node contains the most visible features
+    const totalFeatureCount = leftPanel.computedSankey.nodes[0]?.feature_count || 0
+    const scrollPercentage = tableScrollState.scrollTop /
+      (tableScrollState.scrollHeight - tableScrollState.clientHeight)
+    const visiblePercentage = tableScrollState.clientHeight / tableScrollState.scrollHeight
+
+    const visibleStart = Math.floor(scrollPercentage * totalFeatureCount)
+    const visibleEnd = Math.ceil((scrollPercentage + visiblePercentage) * totalFeatureCount)
+
+    let maxOverlap = 0
+    let targetNodeId = 'root'
+    let currentIndex = 0
+
+    for (const node of verticalBarNodes) {
+      const nodeStartIndex = currentIndex
+      const nodeEndIndex = nodeStartIndex + node.feature_count
+
+      // Calculate overlap with visible range
+      const overlapStart = Math.max(visibleStart, nodeStartIndex)
+      const overlapEnd = Math.min(visibleEnd, nodeEndIndex)
+      const overlap = Math.max(0, overlapEnd - overlapStart)
+
+      if (overlap > maxOverlap) {
+        maxOverlap = overlap
+        targetNodeId = node.id
+      }
+
+      currentIndex = nodeEndIndex
+    }
+
+    // Verify the target node exists in the tree
+    // (placeholder_vertical_bar only exists in computedSankey, not in tree)
+    if (!leftPanel.sankeyTree.has(targetNodeId)) {
+      console.log('[Store.getRightmostNodeWithScrollIndicator] Target node not in tree, using root:', targetNodeId)
+      return 'root'
+    }
+
+    return targetNodeId
+  },
+
+  /**
+   * Find a node with the specified metric anywhere in the tree.
+   * Returns the node ID where the metric is found, or null if not found.
+   */
+  findNodeWithMetric: (metric: string) => {
+    const state = get()
+    const tree = state.leftPanel.sankeyTree
+
+    for (const [nodeId, node] of tree.entries()) {
+      if (node.metric === metric) {
+        return nodeId
+      }
+    }
+
+    return null
   },
 
   /**
@@ -179,7 +259,9 @@ export const createTableActions = (set: any, get: any) => ({
   },
 
   /**
-   * Set table sort state - with optional Sankey synchronization
+   * Set table sort state - with Sankey synchronization.
+   * If the metric is new, adds it to the rightmost node with scroll indicator.
+   * If the metric already exists, resets the tree and adds the metric to root.
    */
   setTableSort: (sortBy: SortBy | null, sortDirection: SortDirection | null, skipSankeySync = false) => {
     const state = get()
@@ -193,20 +275,44 @@ export const createTableActions = (set: any, get: any) => ({
     // Sync with Sankey if sorting by a mappable metric (unless skipped to prevent recursion)
     if (!skipSankeySync && sortBy && sortDirection) {
       const sankeyMetric = mapTableSortToSankeyMetric(sortBy)
-      if (sankeyMetric) {
-        // Check if left panel already has this metric in its tree
-        const leftPanelTree = state.leftPanel.sankeyTree
-        const hasMetricInTree = Array.from(leftPanelTree.values()).some(
-          (node: any) => node.metric === sankeyMetric
-        )
 
-        // If metric not already in tree, add it to root node
-        if (!hasMetricInTree) {
-          console.log('[Store.setTableSort] Adding Sankey stage for table sort:', {
-            metric: sankeyMetric
+      if (sankeyMetric) {
+        // Check if metric already exists in tree
+        const existingNodeId = state.findNodeWithMetric(sankeyMetric)
+
+        if (existingNodeId) {
+          // Metric exists - reset tree and add to root
+          console.log('[Store.setTableSort] Metric exists, resetting tree and adding to root:', {
+            metric: sankeyMetric,
+            existingNode: existingNodeId
           })
-          // Add unsplit stage to root node in left panel
-          state.addUnsplitStageToNode('root', sankeyMetric, PANEL_LEFT)
+
+          // Get thresholds from existing node (if any)
+          const tree = state.leftPanel.sankeyTree
+          const existingNode = tree.get(existingNodeId)
+          const preservedThresholds = existingNode?.thresholds || []
+
+          // Reset: remove all stages from root (clears entire tree)
+          state.removeNodeStage('root', PANEL_LEFT)
+
+          // Add metric to root
+          if (preservedThresholds.length > 0) {
+            state.addUnsplitStageToNode('root', sankeyMetric, PANEL_LEFT).then(() => {
+              state.updateNodeThresholds('root', preservedThresholds, PANEL_LEFT)
+            })
+          } else {
+            state.addUnsplitStageToNode('root', sankeyMetric, PANEL_LEFT)
+          }
+        } else {
+          // New metric - add to rightmost node with scroll indicator
+          const targetNodeId = state.getRightmostNodeWithScrollIndicator()
+
+          console.log('[Store.setTableSort] Adding new stage to node with scroll indicator:', {
+            metric: sankeyMetric,
+            targetNode: targetNodeId
+          })
+
+          state.addUnsplitStageToNode(targetNodeId, sankeyMetric, PANEL_LEFT)
         }
       }
     }

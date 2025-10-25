@@ -362,7 +362,7 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
                   <>
                     {/* Background rectangle for contrast */}
                     <rect
-                      x={-58}
+                      x={handleDimensions.width / 2 + 8}
                       y={pos - 10}
                       width={50}
                       height={20}
@@ -375,7 +375,7 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
                     />
                     {/* Threshold value text */}
                     <text
-                      x={-33}
+                      x={handleDimensions.width / 2 + 33}
                       y={pos}
                       dy="0.35em"
                       fontSize="11"
