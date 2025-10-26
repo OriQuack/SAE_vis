@@ -211,10 +211,11 @@ export function extractMetricValues(feature: FeatureTableRow): {
 
 /**
  * Infer metric signature from selected features
- * Uses mean ± 1.5 * std for each metric
+ * Uses mean ± stdMultiplier * std for each metric
  */
 export function inferMetricSignature(
-  features: FeatureTableRow[]
+  features: FeatureTableRow[],
+  stdMultiplier: number = 1.5
 ): MetricSignature {
   if (features.length === 0) {
     // Return default signature if no features
@@ -255,7 +256,7 @@ export function inferMetricSignature(
     metricArrays.quality_score.push(metrics.quality_score)
   })
 
-  // Compute mean ± 1.5*std for each metric
+  // Compute mean ± stdMultiplier*std for each metric
   const signature: MetricSignature = {} as MetricSignature
 
   Object.entries(metricArrays).forEach(([metricName, values]) => {
@@ -263,9 +264,9 @@ export function inferMetricSignature(
     const variance = values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / values.length
     const std = Math.sqrt(variance)
 
-    // Range: mean ± 1.5*std, clamped to [0, 1]
-    const min = Math.max(0, mean - 1.5 * std)
-    const max = Math.min(1, mean + 1.5 * std)
+    // Range: mean ± stdMultiplier*std, clamped to [0, 1]
+    const min = Math.max(0, mean - stdMultiplier * std)
+    const max = Math.min(1, mean + stdMultiplier * std)
 
     signature[metricName as keyof MetricSignature] = { min, max }
   })
@@ -381,6 +382,7 @@ export function featureMatchesSignature(
  * @param rejectedFeatureIds - Features rejected for this tag
  * @param weights - Metric weights (optional, defaults to equal weights)
  * @param limit - Maximum number of candidates to return
+ * @param method - Candidate discovery method configuration
  */
 export function findCandidateFeatures(
   allFeatures: FeatureTableRow[],
@@ -388,7 +390,8 @@ export function findCandidateFeatures(
   excludeFeatureIds: Set<number>,
   rejectedFeatureIds: Set<number> = new Set(),
   weights?: MetricWeights,
-  limit: number = 20
+  limit: number = 20,
+  method: { useRangeFilter: boolean; useWeightedDistance: boolean } = { useRangeFilter: true, useWeightedDistance: true }
 ): FeatureMatch[] {
   // Use provided weights or default to equal weights (1.0 each)
   const effectiveWeights = weights || {
@@ -415,10 +418,32 @@ export function findCandidateFeatures(
 
     const metricValues = extractMetricValues(feature)
 
-    // Only consider features that match signature
-    if (featureMatchesSignature(metricValues, signature)) {
+    // Mode 1: Range-Based Only - Filter then rank by unweighted distance
+    if (method.useRangeFilter && !method.useWeightedDistance) {
+      if (featureMatchesSignature(metricValues, signature)) {
+        // Unweighted Euclidean distance
+        const distance = Math.sqrt(
+          Math.pow(metricValues.feature_splitting - (signature.feature_splitting.min + signature.feature_splitting.max) / 2, 2) +
+          Math.pow(metricValues.embedding - (signature.embedding.min + signature.embedding.max) / 2, 2) +
+          Math.pow(metricValues.fuzz - (signature.fuzz.min + signature.fuzz.max) / 2, 2) +
+          Math.pow(metricValues.detection - (signature.detection.min + signature.detection.max) / 2, 2) +
+          Math.pow(metricValues.semantic_similarity - (signature.semantic_similarity.min + signature.semantic_similarity.max) / 2, 2) +
+          Math.pow(metricValues.quality_score - (signature.quality_score.min + signature.quality_score.max) / 2, 2)
+        )
+        const score = 1 / (1 + distance)
+
+        candidates.push({
+          featureId: feature.feature_id,
+          distance,
+          score,
+          metricValues
+        })
+      }
+    }
+    // Mode 2: Weighted Distance Only - Rank all by weighted distance (no filtering)
+    else if (!method.useRangeFilter && method.useWeightedDistance) {
       const distance = computeWeightedDistance(metricValues, signature, effectiveWeights)
-      const score = 1 / (1 + distance)  // Convert distance to similarity score
+      const score = 1 / (1 + distance)
 
       candidates.push({
         featureId: feature.feature_id,
@@ -427,6 +452,22 @@ export function findCandidateFeatures(
         metricValues
       })
     }
+    // Mode 3: Both - Filter then rank by weighted distance (current behavior)
+    else if (method.useRangeFilter && method.useWeightedDistance) {
+      if (featureMatchesSignature(metricValues, signature)) {
+        const distance = computeWeightedDistance(metricValues, signature, effectiveWeights)
+        const score = 1 / (1 + distance)
+
+        candidates.push({
+          featureId: feature.feature_id,
+          distance,
+          score,
+          metricValues
+        })
+      }
+    }
+    // Mode 4: Neither - No candidates (edge case)
+    // Don't add anything to candidates
   })
 
   // Sort by score descending, return top N

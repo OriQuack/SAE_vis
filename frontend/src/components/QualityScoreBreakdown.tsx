@@ -6,19 +6,21 @@ import { getMetricColor } from '../lib/utils'
 interface QualityScoreBreakdownProps {
   feature: FeatureTableRow
   globalStats: Record<string, MetricNormalizationStats>
+  width?: number
 }
 
 const QualityScoreBreakdown: React.FC<QualityScoreBreakdownProps> = React.memo(({
   feature,
-  globalStats
+  globalStats,
+  width = 180
 }) => {
   // Calculate z-scores and ranges for each explainer
   const explainerIds = Object.keys(feature.explainers)
 
   // Chart dimensions - smaller and simpler
-  const chartWidth = 180
+  const chartWidth = width
   const chartHeight = 120
-  const margin = { top: 13, right: 10, bottom: 13, left: 25 }
+  const margin = { top: 13, right: 10, bottom: 13, left: 10 }
   const innerWidth = chartWidth - margin.left - margin.right
   const innerHeight = chartHeight - margin.top - margin.bottom
 
@@ -115,16 +117,7 @@ const QualityScoreBreakdown: React.FC<QualityScoreBreakdownProps> = React.memo((
             strokeWidth={1}
           />
 
-          {/* Y-axis labels */}
-          <text
-            x={-3}
-            y={0}
-            textAnchor="end"
-            fontSize={10}
-            fill="#6b7280"
-          >
-            3.0
-          </text>
+          {/* Y-axis label - only show 0 to save space */}
           <text
             x={-3}
             y={innerHeight / 2}
@@ -132,16 +125,7 @@ const QualityScoreBreakdown: React.FC<QualityScoreBreakdownProps> = React.memo((
             fontSize={10}
             fill="#6b7280"
           >
-            0.0
-          </text>
-          <text
-            x={-3}
-            y={innerHeight}
-            textAnchor="end"
-            fontSize={10}
-            fill="#6b7280"
-          >
-            -3.0
+            0
           </text>
 
           {/* X-axis */}

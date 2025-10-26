@@ -167,6 +167,7 @@
   min-width: 40px;
   text-align: center;
   background: #f9fafb;
+  padding: 4px 0;
 }
 
 .table-panel__header-cell--id {
@@ -228,11 +229,12 @@
 
 .table-panel__sub-row {
   border-bottom: 1px solid #f3f4f6;
-  transition: background-color 0.15s ease;
+  transition: background-color 0.15s ease, border-left 0.15s ease;
+  cursor: pointer;
 }
 
 .table-panel__sub-row:hover {
-  background: #fafafa;
+  background: rgba(59, 130, 246, 0.02);
 }
 
 .table-panel__sub-row--first {
@@ -240,13 +242,39 @@
 }
 
 .table-panel__sub-row--highlighted {
-  background: #eff6ff !important;
-  border-left: 3px solid #3b82f6;
-  box-shadow: inset 0 0 0 1px #93c5fd;
+  border-left: 4px solid #ea580c;
 }
 
-.table-panel__sub-row--highlighted:hover {
-  background: #dbeafe !important;
+/* Cell backgrounds in highlighted row */
+.table-panel__sub-row--highlighted .table-panel__cell {
+  background: #fdba74 !important;
+  animation: highlight-pulse 0.5s ease-out;
+}
+
+.table-panel__sub-row--highlighted:hover .table-panel__cell {
+  background: #fb923c !important;
+}
+
+@keyframes highlight-pulse {
+  0% {
+    background: #fed7aa !important;
+  }
+  50% {
+    background: #fdba74 !important;
+  }
+  100% {
+    background: #fdba74 !important;
+  }
+}
+
+/* Selected row styling - professional VIS appearance */
+.table-panel__sub-row--selected {
+  border-left: 6px solid #3b82f6;
+  background: rgba(59, 130, 246, 0.03);
+}
+
+.table-panel__sub-row--selected:hover {
+  background: rgba(59, 130, 246, 0.06);
 }
 
 /* ============================================================================
@@ -274,6 +302,8 @@
   font-size: 11px;
   background: #f9fafb;
   border-right: 2px solid #d1d5db;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
 }
 
 .table-panel__cell--id {
@@ -282,6 +312,20 @@
   font-size: 11px;
   background: #f9fafb;
   border-right: 2px solid #d1d5db;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+/* Synchronized hover effect - when hovering index, both index and ID highlight */
+.table-panel__sub-row:has(.table-panel__cell--index:hover) .table-panel__cell--index,
+.table-panel__sub-row:has(.table-panel__cell--index:hover) .table-panel__cell--id {
+  background: #e5e7eb;
+}
+
+/* Synchronized hover effect - when hovering ID, both index and ID highlight */
+.table-panel__sub-row:has(.table-panel__cell--id:hover) .table-panel__cell--index,
+.table-panel__sub-row:has(.table-panel__cell--id:hover) .table-panel__cell--id {
+  background: #e5e7eb;
 }
 
 .table-panel__cell--score {
@@ -321,6 +365,55 @@
   background: #fafafa;
 }
 
+/* ============================================================================
+ * SELECT ALL BUTTON (HEADER)
+ * ============================================================================ */
+
+.table-panel__select-all-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem 0.375rem;
+  color: #9ca3af;
+  font-size: 16px;
+  line-height: 1;
+  transition: color 0.15s ease, transform 0.1s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  min-height: 24px;
+  border-radius: 4px;
+}
+
+.table-panel__select-all-button:hover {
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.table-panel__select-all-button:active {
+  transform: scale(0.95);
+}
+
+.table-panel__select-all-button--all-selected {
+  color: #3b82f6;
+  font-weight: 600;
+}
+
+/* ============================================================================
+ * SELECTION INDICATOR (ROW)
+ * ============================================================================ */
+
+.table-panel__selection-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #3b82f6;
+  font-weight: 600;
+  min-height: 20px;
+}
+
 /* ========================================================================== */
 /* QUALITY SCORE BREAKDOWN POPOVER                                         */
 /* ========================================================================== */
@@ -335,27 +428,32 @@
   position: relative;
 }
 
-.table-panel__quality-breakdown {
+.table-panel__quality-breakdown-container {
   position: absolute;
   bottom: 0;
   left: 0;
   z-index: 200;
+  pointer-events: none;
+}
+
+/* Popover positioning for quality score breakdown container */
+.table-panel__quality-popover-cell--above .table-panel__quality-breakdown-container {
+  bottom: 0;
+}
+
+.table-panel__quality-popover-cell--below .table-panel__quality-breakdown-container {
+  top: 0;
+  bottom: auto;
+}
+
+.table-panel__quality-breakdown {
+  width: 100%;
   background: white;
   border: 1px solid #d1d5db;
   border-radius: 4px;
   padding: 0;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   pointer-events: none;
-}
-
-/* Popover positioning for quality score */
-.table-panel__quality-popover-cell--above .table-panel__quality-breakdown {
-  bottom: 0;
-}
-
-.table-panel__quality-popover-cell--below .table-panel__quality-breakdown {
-  top: 0;
-  bottom: auto;
 }
 
 /* ========================================================================== */

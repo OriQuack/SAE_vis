@@ -34,6 +34,11 @@ export interface TagState {
   candidateStates: Map<number, CandidateVerificationState>  // Verification state per candidate
   currentWeights: MetricWeights | null       // Active weights for current candidate search
   highlightedFeatureId: number | null        // Feature to highlight in TablePanel
+  candidateMethod: {
+    useRangeFilter: boolean                  // Range-Based Filtering
+    useWeightedDistance: boolean             // Weighted Distance
+  }
+  stdMultiplier: number                      // Standard deviation multiplier for signature inference
 
   // Tag actions
   createTag: (name: string, color?: string) => string  // Returns new tag ID
@@ -48,6 +53,7 @@ export interface TagState {
   selectFeatures: (featureIds: number[]) => void
   clearFeatureSelection: () => void
   selectAllFeatures: () => void
+  removeFromSelection: (featureId: number) => void
 
   // Tag-feature operations
   addFeaturesToTag: (tagId: string, featureIds: Set<number>) => void
@@ -66,6 +72,11 @@ export interface TagState {
   // Stage 2: Weight management actions
   updateMetricWeight: (metric: keyof MetricWeights, weight: number) => void
   resetWeightsToAuto: () => void
+
+  // Stage 2: Method selection actions
+  toggleRangeFilter: () => void
+  toggleWeightedDistance: () => void
+  setStdMultiplier: (multiplier: number) => void
 }
 
 // ============================================================================
@@ -88,6 +99,11 @@ export const createTagActions: StateCreator<
   candidateStates: new Map<number, CandidateVerificationState>(),
   currentWeights: null,
   highlightedFeatureId: null,
+  candidateMethod: {
+    useRangeFilter: true,
+    useWeightedDistance: true
+  },
+  stdMultiplier: 1.5,
 
   // ============================================================================
   // TAG CRUD OPERATIONS
@@ -181,6 +197,18 @@ export const createTagActions: StateCreator<
       set({ selectedFeatureIds: new Set(allIds) })
       console.log('[Tag System] Selected all features:', allIds.length)
     }
+  },
+
+  removeFromSelection: (featureId) => {
+    set((state: any) => {
+      const newSelection = new Set(state.selectedFeatureIds)
+      newSelection.delete(featureId)
+      console.log('[Tag System] Removed feature from selection:', featureId, 'Remaining:', newSelection.size)
+      return { selectedFeatureIds: newSelection }
+    })
+
+    // Trigger candidate refresh
+    setTimeout(() => get().refreshCandidates(), 0)
   },
 
   // ============================================================================
@@ -300,7 +328,7 @@ export const createTagActions: StateCreator<
   // ============================================================================
 
   refreshCandidates: () => {
-    const { selectedFeatureIds, activeTagId, tags, tableData } = get() as any
+    const { selectedFeatureIds, activeTagId, tags, tableData, candidateMethod, stdMultiplier } = get() as any
 
     // Clear candidates if no selection or no table data
     if (selectedFeatureIds.size === 0 || !tableData) {
@@ -330,10 +358,14 @@ export const createTagActions: StateCreator<
     }
 
     // Infer signature from selected features
-    const signature = inferMetricSignature(selectedFeatures)
+    const signature = inferMetricSignature(selectedFeatures, stdMultiplier)
 
     // Use tag's custom weights or infer from signature
-    const weights = activeTag?.metricWeights || inferMetricWeights(signature)
+    // When < 3 features, use equal weights (1.0) to avoid unstable inference
+    const weights = activeTag?.metricWeights ||
+      (selectedFeatures.length < 3
+        ? { feature_splitting: 1.0, embedding: 1.0, fuzz: 1.0, detection: 1.0, semantic_similarity: 1.0, quality_score: 1.0 }
+        : inferMetricWeights(signature))
 
     // Find candidates excluding selected + rejected features
     const rejectedIds = activeTag?.rejectedFeatureIds || new Set<number>()
@@ -343,7 +375,8 @@ export const createTagActions: StateCreator<
       selectedFeatureIds,
       rejectedIds,
       weights,
-      20  // Top 20 candidates
+      20,  // Top 20 candidates
+      candidateMethod  // Pass method configuration
     )
 
     // Update state
@@ -540,6 +573,47 @@ export const createTagActions: StateCreator<
     console.log('[Tag System] Reset weights to auto-inferred')
 
     // Trigger refresh with auto-inferred weights
+    get().refreshCandidates()
+  },
+
+  // ============================================================================
+  // STAGE 2: METHOD SELECTION ACTIONS
+  // ============================================================================
+
+  toggleRangeFilter: () => {
+    set((state: any) => ({
+      candidateMethod: {
+        ...state.candidateMethod,
+        useRangeFilter: !state.candidateMethod.useRangeFilter
+      }
+    }))
+
+    console.log('[Tag System] Toggled range filter:', !get().candidateMethod.useRangeFilter)
+
+    // Trigger refresh with new method
+    get().refreshCandidates()
+  },
+
+  toggleWeightedDistance: () => {
+    set((state: any) => ({
+      candidateMethod: {
+        ...state.candidateMethod,
+        useWeightedDistance: !state.candidateMethod.useWeightedDistance
+      }
+    }))
+
+    console.log('[Tag System] Toggled weighted distance:', !get().candidateMethod.useWeightedDistance)
+
+    // Trigger refresh with new method
+    get().refreshCandidates()
+  },
+
+  setStdMultiplier: (multiplier) => {
+    set({ stdMultiplier: multiplier })
+
+    console.log('[Tag System] Set std multiplier:', multiplier)
+
+    // Trigger refresh with new multiplier
     get().refreshCandidates()
   }
 })

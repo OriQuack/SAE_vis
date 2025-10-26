@@ -22,7 +22,7 @@ export const RADAR_CONFIG = {
   axes: 6,                // Number of axes (6 metrics)
   levels: 10,              // Number of concentric circles (0.2, 0.4, 0.6, 0.8, 1.0)
   maxValue: 1.0,          // Maximum value on each axis
-  labelFactor: 1.25,      // How far outside the circle to place labels (increased from 1.15)
+  labelFactor: 1.28,      // How far outside the circle to place labels (increased from 1.15)
   dotRadius: 4,           // Radius of data point dots
   opacityArea: 0.2,       // Opacity of filled area
   strokeWidth: 2          // Width of radar outline
@@ -150,6 +150,17 @@ export function pointsToPath(points: { x: number; y: number }[]): string {
 // RADAR CHART LAYOUT
 // ============================================================================
 
+/**
+ * Margin specification for radar chart positioning
+ * Supports explicit control over all four sides
+ */
+export interface RadarMargin {
+  top: number
+  bottom: number
+  left: number
+  right: number
+}
+
 export interface RadarChartLayout {
   width: number
   height: number
@@ -175,16 +186,30 @@ export interface RadarChartLayout {
 
 /**
  * Calculate complete radar chart layout
+ * @param width - Total width of the chart area
+ * @param height - Total height of the chart area
+ * @param margin - Margin as single number (symmetric) or object with top/bottom/left/right
  */
 export function calculateRadarLayout(
   width: number,
   height: number,
-  margin: number = 40
+  margin: number | RadarMargin = 40
 ): RadarChartLayout {
-  const centerX = width / 2
-  const centerY = height / 2
-  // Use width to determine radius for full width usage
-  const radius = (width / 2) - margin
+  // Normalize margin to object format
+  const margins: RadarMargin = typeof margin === 'number'
+    ? { top: margin, bottom: margin, left: margin, right: margin }
+    : margin
+
+  // Calculate available space after margins
+  const availableWidth = width - margins.left - margins.right
+  const availableHeight = height - margins.top - margins.bottom
+
+  // Calculate center position (offset by margins)
+  const centerX = margins.left + availableWidth / 2
+  const centerY = margins.top + availableHeight / 2
+
+  // Calculate radius as half of the smaller dimension to ensure chart fits
+  const radius = Math.min(availableWidth, availableHeight) / 2
 
   // Calculate axes
   const axes = RADAR_METRICS.map((metric, index) => {
@@ -385,4 +410,61 @@ export function distanceToValue(distance: number, radius: number): number {
  */
 export function snapToGrid(value: number, gridSize: number = 0.2): number {
   return Math.round(value / gridSize) * gridSize
+}
+
+// ============================================================================
+// METRICS TO PATH CONVERSION
+// ============================================================================
+
+/**
+ * Convert metric values to SVG path for radar chart visualization
+ * @param metrics - Object containing 6 metric values (0-1 range)
+ * @param layout - Radar chart layout from calculateRadarLayout
+ * @returns SVG path string for the metric polygon
+ */
+export function metricsToRadarPath(
+  metrics: {
+    feature_splitting: number
+    embedding: number
+    fuzz: number
+    detection: number
+    semantic_similarity: number
+    quality_score: number
+  },
+  layout: RadarChartLayout
+): string {
+  const values = [
+    metrics.feature_splitting,
+    metrics.embedding,
+    metrics.fuzz,
+    metrics.detection,
+    metrics.semantic_similarity,
+    metrics.quality_score
+  ]
+
+  const points = values.map((value, i) => {
+    const angle = getAxisAngle(i, RADAR_CONFIG.axes)
+    const radius = value * layout.radius
+    return polarToCartesian(layout.centerX, layout.centerY, radius, angle)
+  })
+
+  return pointsToPath(points)
+}
+
+/**
+ * Convert array of values to points on radar chart
+ * Helper function for converting threshold values to coordinate points
+ * @param values - Array of metric values (0-1 range)
+ * @param layout - Radar chart layout from calculateRadarLayout
+ * @returns Array of {x, y} points
+ */
+export function valuesToRadarPoints(
+  values: number[],
+  layout: RadarChartLayout
+): { x: number; y: number }[] {
+  return values.map((value, i) => {
+    const angle = getAxisAngle(i, RADAR_CONFIG.axes)
+    const radius = value * layout.radius
+    return polarToCartesian(layout.centerX, layout.centerY, radius, angle)
+  })
 }

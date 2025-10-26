@@ -13,6 +13,8 @@ import {
   pointsToPath,
   calculateRangeAreaPath,
   signatureToRadarValues,
+  valuesToRadarPoints,
+  metricsToRadarPath,
   RADAR_METRICS
 } from '../lib/d3-radar-utils'
 import '../styles/TagManagementPanel.css'
@@ -30,9 +32,12 @@ const SelectedFeaturesList: React.FC<SelectedFeaturesListProps> = ({
   featureIds,
   className = ''
 }) => {
-  const sortedIds = Array.from(featureIds).sort((a, b) => a - b)
+  const removeFromSelection = useVisualizationStore(state => state.removeFromSelection)
+  const setHighlightedFeature = useVisualizationStore(state => state.setHighlightedFeature)
+
+  const sortedIds = useMemo(() => Array.from(featureIds).sort((a, b) => a - b), [featureIds])
   const [scrollState, setScrollState] = useState({ scrollTop: 0, scrollHeight: 0, clientHeight: 0 })
-  const listRef = useRef<HTMLUListElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
   const rafIdRef = useRef<number | null>(null)
 
   useEffect(() => {
@@ -93,13 +98,29 @@ const SelectedFeaturesList: React.FC<SelectedFeaturesListProps> = ({
 
   return (
     <div className={`selected-features-list ${className}`}>
-      <ul className="selected-features-list__list" ref={listRef}>
+      <div className="selected-features-list__list" ref={listRef}>
         {sortedIds.map(id => (
-          <li key={id} className="selected-features-list__item">
-            Feature {id}
-          </li>
+          <div
+            key={id}
+            className="selected-item"
+            onClick={() => setHighlightedFeature(id)}
+            style={{ cursor: 'pointer' }}
+            title="Click to jump to feature in table"
+          >
+            <span className="selected-item__id">F{id}</span>
+            <button
+              className="selected-item__btn"
+              onClick={(e) => {
+                e.stopPropagation()
+                removeFromSelection(id)
+              }}
+              title="Remove from selection"
+            >
+              ✗
+            </button>
+          </div>
         ))}
-      </ul>
+      </div>
       {isScrollable && (
         <div className="scroll-indicator">
           <div
@@ -122,42 +143,66 @@ const SelectedFeaturesList: React.FC<SelectedFeaturesListProps> = ({
 interface TagRadarViewProps {
   selectedFeatures: FeatureTableRow[]
   signature: MetricSignature
+  inferredSignature: MetricSignature
   onSignatureChange: (signature: MetricSignature) => void
+  onResetToAuto: () => void
   width: number
   height: number
+  activeTagId: string | null
   className?: string
 }
 
 const TagRadarView: React.FC<TagRadarViewProps> = ({
   selectedFeatures,
   signature,
+  inferredSignature,
   onSignatureChange,
+  onResetToAuto,
   width,
   height,
+  activeTagId,
   className = ''
 }) => {
   const svgRef = useRef<SVGSVGElement>(null)
   const [draggingAxis, setDraggingAxis] = useState<{ index: number; bound: 'min' | 'max' } | null>(null)
 
-  // Calculate responsive radar size from props (use 70% width for radar chart)
-  const radarSize = useMemo(() => {
-    const radarWidth = width * 0.6
-    return {
-      width: radarWidth,
-      height: height,
-      margin: 30  // Margin for radar chart padding
-    }
-  }, [width, height])
+  // Define explicit margins for radar chart positioning
+  const radarMargins = useMemo(() => ({
+    top: 25,
+    bottom: 55,
+    left: 0,
+    right: 130
+  }), [])
 
-  // Calculate layout using responsive size
-  const layout = calculateRadarLayout(radarSize.width, radarSize.height, radarSize.margin)
+  // Calculate layout using full width/height with explicit margins
+  const layout = calculateRadarLayout(width, height, radarMargins)
   const { min, max } = signatureToRadarValues(signature)
 
   // Extract individual feature metrics for polygon rendering
   const featureMetrics = selectedFeatures.map(feature => extractMetricValues(feature))
 
+  // Check if signature has been manually modified
+  const hasManualChanges = useMemo(() => {
+    return JSON.stringify(signature) !== JSON.stringify(inferredSignature)
+  }, [signature, inferredSignature])
+
+  // Legend positioning constants (dependent on container)
+  const legendConfig = useMemo(() => ({
+    containerX: width - 135,  // 60px from right edge
+    containerY: 125,           // 5px from top
+    containerWidth: 40,
+    containerHeight: 35,
+    circleX: width - 125,     // 10px inside container
+    minCircleY: 135,
+    maxCircleY: 150,
+    textX: width - 117,       // 10px right of circle
+    minTextY: 138,
+    maxTextY: 153
+  }), [width])
+
   // Handle mouse/touch events for interactive editing
   const handlePointerDown = (e: React.PointerEvent, axisIndex: number, bound: 'min' | 'max') => {
+    if (!activeTagId) return  // Disable interaction when no tag is selected
     e.preventDefault()
     setDraggingAxis({ index: axisIndex, bound })
   }
@@ -175,19 +220,19 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
     const distance = Math.sqrt(dx * dx + dy * dy)
 
     let value = Math.max(0, Math.min(1, distance / layout.radius))
-    value = Math.round(value * 10) / 10
+    value = Math.round(value * 20) / 20  // 0.05 step size
 
     const metricKey = RADAR_METRICS[draggingAxis.index].key as keyof MetricSignature
     const currentRange = signature[metricKey]
 
     if (draggingAxis.bound === 'min') {
-      const newMin = Math.min(value, currentRange.max - 0.1)
+      const newMin = Math.min(value, currentRange.max - 0.05)
       onSignatureChange({
         ...signature,
         [metricKey]: { ...currentRange, min: Math.max(0, newMin) }
       })
     } else {
-      const newMax = Math.max(value, currentRange.min + 0.1)
+      const newMax = Math.max(value, currentRange.min + 0.05)
       onSignatureChange({
         ...signature,
         [metricKey]: { ...currentRange, max: Math.min(1, newMax) }
@@ -205,55 +250,9 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
     return () => document.removeEventListener('pointerup', handleGlobalPointerUp)
   }, [])
 
-  // Generate paths for boundary
-  const minPath = pointsToPath(
-    min.map((value, i) => {
-      const angle = (360 / 6) * i
-      const radius = value * layout.radius
-      const angleRad = (angle - 90) * Math.PI / 180
-      return {
-        x: layout.centerX + radius * Math.cos(angleRad),
-        y: layout.centerY + radius * Math.sin(angleRad)
-      }
-    })
-  )
-
-  const maxPath = pointsToPath(
-    max.map((value, i) => {
-      const angle = (360 / 6) * i
-      const radius = value * layout.radius
-      const angleRad = (angle - 90) * Math.PI / 180
-      return {
-        x: layout.centerX + radius * Math.cos(angleRad),
-        y: layout.centerY + radius * Math.sin(angleRad)
-      }
-    })
-  )
-
-  const areaPath = calculateRangeAreaPath(min, max, layout.centerX, layout.centerY, layout.radius)
-
-  const featureToRadarPath = (metrics: ReturnType<typeof extractMetricValues>) => {
-    const values = [
-      metrics.feature_splitting,
-      metrics.embedding,
-      metrics.fuzz,
-      metrics.detection,
-      metrics.semantic_similarity,
-      metrics.quality_score
-    ]
-
-    const points = values.map((value, i) => {
-      const angle = (360 / 6) * i
-      const radius = value * layout.radius
-      const angleRad = (angle - 90) * Math.PI / 180
-      return {
-        x: layout.centerX + radius * Math.cos(angleRad),
-        y: layout.centerY + radius * Math.sin(angleRad)
-      }
-    })
-
-    return pointsToPath(points)
-  }
+  // Generate paths for boundary (using D3 utility for calculation)
+  const minPath = pointsToPath(valuesToRadarPoints(min, layout))
+  const maxPath = pointsToPath(valuesToRadarPoints(max, layout))
 
   return (
     <div className={`tag-radar-view ${className}`}>
@@ -261,8 +260,8 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
       <div className="tag-radar-view__chart">
         <svg
           ref={svgRef}
-          width={radarSize.width}
-          height={radarSize.height}
+          width={width}
+          height={height}
           className="tag-radar-view__svg"
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
@@ -309,7 +308,7 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
         {featureMetrics.map((metrics, idx) => (
           <path
             key={`feature-${idx}`}
-            d={featureToRadarPath(metrics)}
+            d={metricsToRadarPath(metrics, layout)}
             fill="#6366f1"
             fillOpacity="0.08"
             stroke="#6366f1"
@@ -317,15 +316,6 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
             strokeOpacity="0.2"
           />
         ))}
-
-        {/* Range area */}
-        <path
-          d={areaPath}
-          fill="#3b82f6"
-          fillOpacity="0.15"
-          stroke="none"
-          fillRule="evenodd"
-        />
 
         {/* Min boundary */}
         <path
@@ -363,7 +353,7 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
                 fill="white"
                 stroke={metricColor}
                 strokeWidth="2"
-                style={{ cursor: 'grab' }}
+                style={{ cursor: activeTagId ? 'grab' : 'not-allowed', opacity: activeTagId ? 1 : 0.5 }}
                 onPointerDown={(e) => handlePointerDown(e, i, 'min')}
               />
               {isDragging && (
@@ -413,7 +403,7 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
                 fill={metricColor}
                 stroke={metricColor}
                 strokeWidth="2"
-                style={{ cursor: 'grab' }}
+                style={{ cursor: activeTagId ? 'grab' : 'not-allowed', opacity: activeTagId ? 1 : 0.5 }}
                 onPointerDown={(e) => handlePointerDown(e, i, 'max')}
               />
               {isDragging && (
@@ -443,8 +433,71 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
             </g>
           )
         })}
+
+        {/* Legend - Positioned relative to container */}
+        <g className="radar-legend">
+          {/* Legend container background */}
+          <rect
+            x={legendConfig.containerX}
+            y={legendConfig.containerY}
+            width={legendConfig.containerWidth}
+            height={legendConfig.containerHeight}
+            rx={4}
+            fill="white"
+            stroke="#d1d5db"
+            strokeWidth="1"
+            opacity="0.95"
+          />
+
+          {/* Min threshold example */}
+          <circle
+            cx={legendConfig.circleX}
+            cy={legendConfig.minCircleY}
+            r={3}
+            fill="white"
+            stroke="#9ca3af"
+            strokeWidth="1.5"
+          />
+          <text
+            x={legendConfig.textX}
+            y={legendConfig.minTextY}
+            fontSize="9"
+            fill="#6b7280"
+            fontWeight="500"
+          >
+            Min
+          </text>
+
+          {/* Max threshold example */}
+          <circle
+            cx={legendConfig.circleX}
+            cy={legendConfig.maxCircleY}
+            r={3}
+            fill="#9ca3af"
+            stroke="#9ca3af"
+            strokeWidth="1.5"
+          />
+          <text
+            x={legendConfig.textX}
+            y={legendConfig.maxTextY}
+            fontSize="9"
+            fill="#6b7280"
+            fontWeight="500"
+          >
+            Max
+          </text>
+        </g>
         </svg>
       </div>
+      {/* Reset to Auto button */}
+      <button
+        className="radar-reset-button"
+        onClick={onResetToAuto}
+        disabled={!hasManualChanges || !activeTagId}
+        title={hasManualChanges ? "Reset thresholds to auto-inferred values" : "Thresholds are already at auto-inferred values"}
+      >
+        Reset to Auto
+      </button>
     </div>
   )
 }
@@ -456,12 +509,14 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
 interface MetricWeightsPanelProps {
   signature: MetricSignature
   activeTagId: string | null
+  selectedFeatureCount: number
   className?: string
 }
 
 const MetricWeightsPanel: React.FC<MetricWeightsPanelProps> = ({
   signature,
   activeTagId,
+  selectedFeatureCount,
   className = ''
 }) => {
   const activeTag = useVisualizationStore(state =>
@@ -471,11 +526,27 @@ const MetricWeightsPanel: React.FC<MetricWeightsPanelProps> = ({
   const updateMetricWeight = useVisualizationStore(state => state.updateMetricWeight)
   const resetWeightsToAuto = useVisualizationStore(state => state.resetWeightsToAuto)
 
-  // Compute auto-inferred weights from signature
-  const autoWeights = useMemo(() => inferMetricWeights(signature), [signature])
+  // Equal weights for when < 3 features (unstable inference)
+  const equalWeights: MetricWeights = {
+    feature_splitting: 1.0,
+    embedding: 1.0,
+    fuzz: 1.0,
+    detection: 1.0,
+    semantic_similarity: 1.0,
+    quality_score: 1.0
+  }
+
+  // Compute auto-inferred weights from signature (only when >= 3 features)
+  const autoWeights = useMemo(() =>
+    selectedFeatureCount >= 3 ? inferMetricWeights(signature) : equalWeights,
+    [signature, selectedFeatureCount]
+  )
 
   // Use tag's custom weights or auto-inferred weights
   const displayWeights: MetricWeights = activeTag?.metricWeights || currentWeights || autoWeights
+
+  // Determine if showing equal weights due to insufficient features
+  const isEqualWeights = selectedFeatureCount < 3 && !activeTag?.metricWeights
 
   const handleWeightChange = (metric: keyof MetricWeights, value: number) => {
     updateMetricWeight(metric, value)
@@ -507,9 +578,9 @@ const MetricWeightsPanel: React.FC<MetricWeightsPanelProps> = ({
               </div>
               <input
                 type="range"
-                min="0.1"
+                min="0.0"
                 max="3.0"
-                step="0.1"
+                step="0.05"
                 value={weight}
                 onChange={(e) => handleWeightChange(metricKey, parseFloat(e.target.value))}
                 className="metric-weight-item__slider"
@@ -523,6 +594,11 @@ const MetricWeightsPanel: React.FC<MetricWeightsPanelProps> = ({
           )
         })}
       </div>
+      {isEqualWeights && (
+        <div className="metric-weights-panel__info">
+          Using equal weights (1.0) - select 3+ features for auto-inferred weights
+        </div>
+      )}
     </div>
   )
 }
@@ -608,22 +684,18 @@ const CandidatesList: React.FC<CandidatesListProps> = ({ className = '' }) => {
               className={`candidate-item candidate-item--${state}`}
               onClick={() => setHighlightedFeature(candidate.featureId)}
             >
-              <div className="candidate-item__info">
-                <div className="candidate-item__id">Feature {candidate.featureId}</div>
-                <div
-                  className="candidate-item__score"
-                  style={{
-                    color: candidate.score > 0.7 ? '#10b981' : candidate.score > 0.4 ? '#f59e0b' : '#ef4444'
-                  }}
-                >
-                  {candidate.score.toFixed(2)}
-                </div>
-              </div>
-              <div className="candidate-item__metrics">
-                Emb: {candidate.metricValues.embedding.toFixed(2)} |
-                Fuzz: {candidate.metricValues.fuzz.toFixed(2)} |
-                Det: {candidate.metricValues.detection.toFixed(2)}
-              </div>
+              <span className="candidate-item__id">F{candidate.featureId}</span>
+              <span
+                className="candidate-item__score"
+                style={{
+                  color: candidate.score > 0.7 ? '#10b981' : candidate.score > 0.4 ? '#f59e0b' : '#ef4444'
+                }}
+              >
+                {candidate.score.toFixed(2)}
+              </span>
+              <span className="candidate-item__metrics">
+                E:{candidate.metricValues.embedding.toFixed(2)} F:{candidate.metricValues.fuzz.toFixed(2)} D:{candidate.metricValues.detection.toFixed(2)}
+              </span>
               <div className="candidate-item__actions">
                 <button
                   className="candidate-item__btn candidate-item__btn--accept"
@@ -687,13 +759,14 @@ const RejectedList: React.FC<RejectedListProps> = ({ className = '' }) => {
   const activeTagId = useVisualizationStore(state => state.activeTagId)
   const tags = useVisualizationStore(state => state.tags)
   const undoRejection = useVisualizationStore(state => state.undoRejection)
+  const setHighlightedFeature = useVisualizationStore(state => state.setHighlightedFeature)
 
   const [scrollState, setScrollState] = useState({ scrollTop: 0, scrollHeight: 0, clientHeight: 0 })
-  const listRef = useRef<HTMLUListElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
   const rafIdRef = useRef<number | null>(null)
 
   const activeTag = tags.find(t => t.id === activeTagId)
-  const rejectedIds = Array.from(activeTag?.rejectedFeatureIds || []).sort((a, b) => a - b)
+  const rejectedIds = useMemo(() => Array.from(activeTag?.rejectedFeatureIds || []).sort((a, b) => a - b), [activeTag?.rejectedFeatureIds])
 
   useEffect(() => {
     const list = listRef.current
@@ -746,20 +819,29 @@ const RejectedList: React.FC<RejectedListProps> = ({ className = '' }) => {
 
   return (
     <div className={`rejected-list-wrapper ${className}`}>
-      <ul className="rejected-list" ref={listRef}>
+      <div className="rejected-list" ref={listRef}>
         {rejectedIds.map(id => (
-          <li key={id} className="rejected-item">
-            <span className="rejected-item__id">Feature {id}</span>
+          <div
+            key={id}
+            className="rejected-item"
+            onClick={() => setHighlightedFeature(id)}
+            style={{ cursor: 'pointer' }}
+            title="Click to jump to feature in table"
+          >
+            <span className="rejected-item__id">F{id}</span>
             <button
-              className="rejected-item__undo"
-              onClick={() => activeTagId && undoRejection(activeTagId, id)}
-              title="Undo rejection"
+              className="rejected-item__btn"
+              onClick={(e) => {
+                e.stopPropagation()
+                activeTagId && undoRejection(activeTagId, id)
+              }}
+              title="Move to candidates"
             >
-              ↩
+              ←
             </button>
-          </li>
+          </div>
         ))}
-      </ul>
+      </div>
       {isScrollable && (
         <div className="scroll-indicator">
           <div
@@ -793,9 +875,17 @@ const TagManagementPanel: React.FC = () => {
   const assignFeaturesToTag = useVisualizationStore(state => state.assignFeaturesToTag)
   const refreshCandidates = useVisualizationStore(state => state.refreshCandidates)
 
+  // Method selection
+  const candidateMethod = useVisualizationStore(state => state.candidateMethod)
+  const toggleRangeFilter = useVisualizationStore(state => state.toggleRangeFilter)
+  const toggleWeightedDistance = useVisualizationStore(state => state.toggleWeightedDistance)
+  const stdMultiplier = useVisualizationStore(state => state.stdMultiplier)
+  const setStdMultiplier = useVisualizationStore(state => state.setStdMultiplier)
+
   // Local state for adding new tags
   const [isAddingTag, setIsAddingTag] = useState(false)
   const [newTagName, setNewTagName] = useState('')
+  const [showRangeInfo, setShowRangeInfo] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Get active tag
@@ -809,20 +899,20 @@ const TagManagementPanel: React.FC = () => {
     )
   }, [tableData, selectedFeatureIds])
 
-  // Infer signature from selected features
+// Infer signature from selected features
   const inferredSignature = useMemo(() => {
     if (selectedFeatures.length === 0) {
       return {
-        feature_splitting: { min: 0.1, max: 1.0 },
-        embedding: { min: 0.1, max: 1.0 },
-        fuzz: { min: 0.1, max: 1.0 },
-        detection: { min: 0.1, max: 1.0 },
-        semantic_similarity: { min: 0.1, max: 1.0 },
-        quality_score: { min: 0.1, max: 1.0 }
+        feature_splitting: { min: 0.0, max: 1.0 },
+        embedding: { min: 0.0, max: 1.0 },
+        fuzz: { min: 0.0, max: 1.0 },
+        detection: { min: 0.0, max: 1.0 },
+        semantic_similarity: { min: 0.0, max: 1.0 },
+        quality_score: { min: 0.0, max: 1.0 }
       }
     }
-    return inferMetricSignature(selectedFeatures)
-  }, [selectedFeatures])
+    return inferMetricSignature(selectedFeatures, stdMultiplier)
+  }, [selectedFeatures, stdMultiplier])
 
   // Local state for manually adjusted signature
   const [manualSignature, setManualSignature] = React.useState<MetricSignature>(inferredSignature)
@@ -916,6 +1006,11 @@ const TagManagementPanel: React.FC = () => {
   // Handle signature manual adjustment
   const handleSignatureChange = (signature: MetricSignature) => {
     setManualSignature(signature)
+  }
+
+  // Handle reset thresholds to auto
+  const handleResetThresholdsToAuto = () => {
+    setManualSignature(inferredSignature)
   }
 
   // Handle tag assignment
@@ -1082,14 +1177,65 @@ const TagManagementPanel: React.FC = () => {
 
           <div className="tag-panel__discovery-container">
             {/* Left section: Range-Based Filtering */}
-            <div className="tag-panel__discovery-section tag-panel__discovery-section--radar">
-              <h5 className="tag-panel__discovery-section-header">Range-Based Filtering</h5>
+            <div className={`tag-panel__discovery-section tag-panel__discovery-section--radar ${!candidateMethod.useRangeFilter ? 'tag-panel__discovery-section--dimmed' : ''}`}>
+              <div className="tag-panel__section-header-row">
+                <h5 className="tag-panel__discovery-section-header">Range-Based Filtering</h5>
+                <div className="header-controls">
+                  <button
+                    className="info-btn"
+                    onClick={() => setShowRangeInfo(!showRangeInfo)}
+                    title="Configure range calculation"
+                  >
+                    ?
+                  </button>
+                  <button
+                    className={`method-status-btn ${candidateMethod.useRangeFilter ? 'method-status-btn--active' : ''}`}
+                    onClick={toggleRangeFilter}
+                    title={candidateMethod.useRangeFilter ? "Disable Range-Based Filtering" : "Enable Range-Based Filtering"}
+                  >
+                    {candidateMethod.useRangeFilter ? '✓' : '○'}
+                  </button>
+                </div>
+              </div>
+              {showRangeInfo && (
+                <div className="range-info-popover">
+                  <h6 className="range-info-popover__title">Range Calculation</h6>
+                  <p className="range-info-popover__formula">
+                    Metric ranges are calculated as:<br/>
+                    <strong>μ ± n·σ</strong>
+                  </p>
+                  <p className="range-info-popover__description">
+                    where μ is mean, σ is standard deviation,<br/>
+                    and n controls the range width.
+                  </p>
+                  <div className="range-multiplier-control">
+                    <label className="range-multiplier-control__label">Multiplier (n):</label>
+                    <select
+                      className="range-multiplier-control__select"
+                      value={stdMultiplier}
+                      onChange={(e) => setStdMultiplier(parseFloat(e.target.value))}
+                    >
+                      <option value="1.0">1.0σ (~68%)</option>
+                      <option value="1.5">1.5σ (~87%)</option>
+                      <option value="2.0">2.0σ (~95%)</option>
+                      <option value="2.5">2.5σ (~99%)</option>
+                      <option value="3.0">3.0σ (~99.7%)</option>
+                    </select>
+                  </div>
+                  <div className="range-info-popover__current">
+                    Current: μ ± {stdMultiplier}σ
+                  </div>
+                </div>
+              )}
               <TagRadarView
                 selectedFeatures={selectedFeatures}
                 signature={manualSignature}
+                inferredSignature={inferredSignature}
                 onSignatureChange={handleSignatureChange}
+                onResetToAuto={handleResetThresholdsToAuto}
                 width={columnDimensions.radarWidth}
                 height={columnDimensions.radarHeight}
+                activeTagId={activeTagId}
               />
             </div>
 
@@ -1097,11 +1243,21 @@ const TagManagementPanel: React.FC = () => {
             <div className="tag-panel__discovery-divider"></div>
 
             {/* Right section: Weighted Distance */}
-            <div className="tag-panel__discovery-section tag-panel__discovery-section--weights">
-              <h5 className="tag-panel__discovery-section-header">Weighted Distance</h5>
+            <div className={`tag-panel__discovery-section tag-panel__discovery-section--weights ${!candidateMethod.useWeightedDistance ? 'tag-panel__discovery-section--dimmed' : ''}`}>
+              <div className="tag-panel__section-header-row">
+                <h5 className="tag-panel__discovery-section-header">Weighted Distance</h5>
+                <button
+                  className={`method-status-btn ${candidateMethod.useWeightedDistance ? 'method-status-btn--active' : ''}`}
+                  onClick={toggleWeightedDistance}
+                  title={candidateMethod.useWeightedDistance ? "Disable Weighted Distance" : "Enable Weighted Distance"}
+                >
+                  {candidateMethod.useWeightedDistance ? '✓' : '○'}
+                </button>
+              </div>
               <MetricWeightsPanel
                 signature={manualSignature}
                 activeTagId={activeTagId}
+                selectedFeatureCount={selectedFeatures.length}
               />
             </div>
           </div>
@@ -1110,13 +1266,16 @@ const TagManagementPanel: React.FC = () => {
         {/* Column 4: Feature Lists */}
         <div className="tag-panel__column tag-panel__features">
           <h4 className="tag-panel__column-title">Validation</h4>
-          <div className="feature-lists">
+          <div className={`feature-lists ${!activeTagId ? 'feature-lists--disabled' : ''}`}>
             <div className="feature-list feature-list--selected">
               <h5 className="feature-list__title">Selected ({selectedFeatureIds.size})</h5>
               <SelectedFeaturesList featureIds={selectedFeatureIds} />
             </div>
             <div className="feature-list feature-list--candidates">
-              <h5 className="feature-list__title">Candidates ({candidateFeatures.length})</h5>
+              <h5 className="feature-list__title">
+                Top Candidates ({candidateFeatures.length})
+                <span className="feature-list__subtitle">up to 20 shown</span>
+              </h5>
               <CandidatesList />
             </div>
             <div className="feature-list feature-list--rejected">

@@ -50,6 +50,9 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const qualityScoreCellRef = useRef<HTMLTableCellElement>(null)
   const [cellHeight, setCellHeight] = useState<number>(40) // Natural cell height
 
+  // Ref map to track row elements for scrolling to highlighted features
+  const featureRowRefs = useRef<Map<number, HTMLTableRowElement>>(new Map())
+
   // Sorting state from store
   const sortBy = useVisualizationStore(state => state.tableSortBy)
   const sortDirection = useVisualizationStore(state => state.tableSortDirection)
@@ -68,6 +71,8 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   // State for quality score breakdown panel
   const [hoveredQualityScore, setHoveredQualityScore] = useState<number | null>(null)
   const [qualityScorePopoverPosition, setQualityScorePopoverPosition] = useState<'above' | 'below'>('above')
+  const [qualityScorePopoverWidth, setQualityScorePopoverWidth] = useState<number>(180)
+  const [qualityScorePopoverLeft, setQualityScorePopoverLeft] = useState<number>(0)
 
   // Get selected LLM explainers (needed for disabled logic)
   const selectedExplainers = new Set<string>()
@@ -104,6 +109,25 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
       const containerRect = tableContainerRef.current.getBoundingClientRect()
       const cellRect = cellElement.getBoundingClientRect()
       const spaceAbove = cellRect.top - containerRect.top
+
+      // Find the row element
+      const rowElement = cellElement.parentElement as HTMLTableRowElement | null
+      if (rowElement) {
+        const idCell = rowElement.cells[1] as HTMLTableCellElement | undefined
+        const qsCell = rowElement.cells[4] as HTMLTableCellElement | undefined
+
+        if (idCell && qsCell) {
+          const fsCellRect = idCell.getBoundingClientRect()
+          const qsCellRect = qsCell.getBoundingClientRect()
+          const combinedWidth = qsCellRect.right - fsCellRect.left
+
+          const rowRect = rowElement.getBoundingClientRect()
+          const leftOffset = fsCellRect.left - rowRect.left
+
+          setQualityScorePopoverWidth(combinedWidth)
+          setQualityScorePopoverLeft(leftOffset)
+        }
+      }
 
       // Use smaller height for quality score breakdown (120px)
       const breakdownHeight = 120
@@ -160,6 +184,31 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
       }
     }
   }, [])
+
+  // Scroll to highlighted feature when it changes
+  useEffect(() => {
+    if (highlightedFeatureId !== null) {
+      const rowElement = featureRowRefs.current.get(highlightedFeatureId)
+
+      if (rowElement) {
+        // Scroll the row into view
+        rowElement.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        })
+
+        // Clear the highlight after 0.5 seconds
+        const timeoutId = setTimeout(() => {
+          const setHighlightedFeature = useVisualizationStore.getState().setHighlightedFeature
+          setHighlightedFeature(null)
+        }, 3000)
+
+        return () => clearTimeout(timeoutId)
+      } else {
+        console.warn(`[TablePanel] Feature ${highlightedFeatureId} not found in current table view`)
+      }
+    }
+  }, [highlightedFeatureId])
 
 
   // Track scroll position for vertical bar scroll indicator
@@ -385,23 +434,35 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
         <table className="table-panel__table table-panel__table--simple">
           <thead className="table-panel__thead">
             <tr className="table-panel__header-row">
-              {/* Checkbox column for feature selection */}
-              <th className="table-panel__header-cell table-panel__header-cell--checkbox">
-                <input
-                  type="checkbox"
-                  checked={tableData && tableData.features.length > 0 && selectedFeatureIds.size === tableData.features.length}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      selectAllFeatures()
-                    } else {
+              {/* Icon button for select all/clear in index column */}
+              <th className="table-panel__header-cell table-panel__header-cell--index">
+                <button
+                  className={`table-panel__select-all-button ${
+                    tableData && tableData.features.length > 0 && selectedFeatureIds.size === tableData.features.length
+                      ? 'table-panel__select-all-button--all-selected'
+                      : ''
+                  }`}
+                  onClick={() => {
+                    if (tableData && tableData.features.length > 0 && selectedFeatureIds.size === tableData.features.length) {
                       clearFeatureSelection()
+                    } else {
+                      selectAllFeatures()
                     }
                   }}
-                  title="Select all features"
-                />
-              </th>
-              <th className="table-panel__header-cell table-panel__header-cell--index">
-                {/* Empty header - no text */}
+                  title={
+                    tableData && tableData.features.length > 0 && selectedFeatureIds.size === tableData.features.length
+                      ? 'Clear all selections'
+                      : selectedFeatureIds.size > 0
+                      ? 'Select all features'
+                      : 'Select all features'
+                  }
+                >
+                  {tableData && tableData.features.length > 0 && selectedFeatureIds.size === tableData.features.length
+                    ? '✓'
+                    : selectedFeatureIds.size > 0
+                    ? '−'
+                    : '○'}
+                </button>
               </th>
               <th
                 className="table-panel__header-cell table-panel__header-cell--id"
@@ -457,7 +518,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                 </span>
               </th>
               <th className="table-panel__header-cell table-panel__header-cell--empty">
-                {/* Empty column for future use */}
+                Activating Example
               </th>
             </tr>
           </thead>
@@ -517,10 +578,19 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                 {hoveredQualityScore === featureRow.feature_id && tableData && (
                   <tr className="table-panel__quality-popover-row">
                     <td colSpan={8} className={`table-panel__quality-popover-cell table-panel__quality-popover-cell--${qualityScorePopoverPosition}`}>
-                      <QualityScoreBreakdown
-                        feature={featureRow}
-                        globalStats={tableData.global_stats}
-                      />
+                      <div
+                        className="table-panel__quality-breakdown-container"
+                        style={{
+                          width: `${qualityScorePopoverWidth}px`,
+                          left: `${qualityScorePopoverLeft}px`
+                        }}
+                      >
+                        <QualityScoreBreakdown
+                          feature={featureRow}
+                          globalStats={tableData.global_stats}
+                          width={qualityScorePopoverWidth}
+                        />
+                      </div>
                     </td>
                   </tr>
                 )}
@@ -540,30 +610,28 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                   return (
                     <tr
                       key={`${featureRow.feature_id}-${explainerId}`}
-                      className={`table-panel__sub-row ${explainerIdx === 0 ? 'table-panel__sub-row--first' : ''} ${highlightedFeatureId === featureRow.feature_id ? 'table-panel__sub-row--highlighted' : ''}`}
+                      ref={explainerIdx === 0 ? (el) => {
+                        if (el) {
+                          featureRowRefs.current.set(featureRow.feature_id, el)
+                        } else {
+                          featureRowRefs.current.delete(featureRow.feature_id)
+                        }
+                      } : undefined}
+                      className={`table-panel__sub-row ${explainerIdx === 0 ? 'table-panel__sub-row--first' : ''} ${highlightedFeatureId === featureRow.feature_id ? 'table-panel__sub-row--highlighted' : ''} ${selectedFeatureIds.has(featureRow.feature_id) ? 'table-panel__sub-row--selected' : ''}`}
                     >
-                      {/* Checkbox - only show on first sub-row */}
-                      {explainerIdx === 0 && (
-                        <td
-                          className="table-panel__cell table-panel__cell--checkbox"
-                          rowSpan={validExplainerIds.length}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedFeatureIds.has(featureRow.feature_id)}
-                            onChange={() => toggleFeatureSelection(featureRow.feature_id)}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </td>
-                      )}
-
-                      {/* Index - only show on first sub-row */}
+                      {/* Index - shows checkmark if selected, otherwise row number */}
                       {explainerIdx === 0 && (
                         <td
                           className="table-panel__cell table-panel__cell--index"
                           rowSpan={validExplainerIds.length}
+                          onClick={() => toggleFeatureSelection(featureRow.feature_id)}
+                          title="Click to select/deselect feature"
                         >
-                          {featureIndex + 1}
+                          {selectedFeatureIds.has(featureRow.feature_id) ? (
+                            <span className="table-panel__selection-indicator">✓</span>
+                          ) : (
+                            featureIndex + 1
+                          )}
                         </td>
                       )}
 
@@ -572,6 +640,8 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                         <td
                           className="table-panel__cell table-panel__cell--id"
                           rowSpan={validExplainerIds.length}
+                          onClick={() => toggleFeatureSelection(featureRow.feature_id)}
+                          title="Click to select/deselect feature"
                         >
                           {featureRow.feature_id}
                           {(() => {
