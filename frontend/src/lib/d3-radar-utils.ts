@@ -307,21 +307,22 @@ export function calculateRangeAreaPath(
   // Start at first min point
   path.push(`M ${minPoints[0].x},${minPoints[0].y}`)
 
-  // Draw min polygon
+  // Draw complete min polygon (all points including back to start)
   for (let i = 1; i < minPoints.length; i++) {
     path.push(`L ${minPoints[i].x},${minPoints[i].y}`)
   }
+  // Close min polygon by connecting back to first point
+  path.push(`L ${minPoints[0].x},${minPoints[0].y}`)
 
-  // Connect to max polygon at last point
-  path.push(`L ${maxPoints[maxPoints.length - 1].x},${maxPoints[maxPoints.length - 1].y}`)
+  // Move to first max point (without drawing)
+  path.push(`M ${maxPoints[0].x},${maxPoints[0].y}`)
 
-  // Draw max polygon in reverse
-  for (let i = maxPoints.length - 2; i >= 0; i--) {
+  // Draw complete max polygon
+  for (let i = 1; i < maxPoints.length; i++) {
     path.push(`L ${maxPoints[i].x},${maxPoints[i].y}`)
   }
-
-  // Explicitly connect back to first min point
-  path.push(`L ${minPoints[0].x},${minPoints[0].y}`)
+  // Close max polygon
+  path.push(`L ${maxPoints[0].x},${maxPoints[0].y}`)
 
   // Close path
   path.push('Z')

@@ -27,6 +27,7 @@ export interface TagState {
   activeTagId: string | null                 // Currently selected tag for assignment
 
   // Tag actions
+  createTag: (name: string, color?: string) => string  // Returns new tag ID
   updateTag: (id: string, updates: Partial<Omit<Tag, 'id' | 'createdAt'>>) => void
   deleteTag: (id: string) => void
   setActiveTag: (id: string | null) => void
@@ -66,6 +67,32 @@ export const createTagActions: StateCreator<
   // ============================================================================
   // TAG CRUD OPERATIONS
   // ============================================================================
+
+  createTag: (name, color) => {
+    const newTag: Tag = {
+      id: generateTagId(),
+      name,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      metricSignature: {
+        feature_splitting: { min: 0.0, max: 1.0 },
+        embedding: { min: 0.0, max: 1.0 },
+        fuzz: { min: 0.0, max: 1.0 },
+        detection: { min: 0.0, max: 1.0 },
+        semantic_similarity: { min: 0.0, max: 1.0 },
+        quality_score: { min: 0.0, max: 1.0 }
+      },
+      featureIds: new Set<number>(),
+      color: color || '#3b82f6'  // Default to blue
+    }
+
+    set((state: any) => ({
+      tags: [...state.tags, newTag]
+    }))
+
+    console.log('[Tag System] Created new tag:', newTag.id, newTag.name)
+    return newTag.id
+  },
 
   updateTag: (id, updates) => {
     set((state: any) => ({

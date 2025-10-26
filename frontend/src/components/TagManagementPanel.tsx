@@ -5,8 +5,8 @@
 
 import React, { useMemo, useRef, useEffect, useState } from 'react'
 import { useVisualizationStore } from '../store/index'
-import type { MetricSignature, FeatureTableRow, Tag, FeatureMatch } from '../types'
-import { inferMetricSignature, extractMetricValues, featureMatchesSignature } from '../lib/tag-utils'
+import type { MetricSignature, FeatureTableRow } from '../types'
+import { inferMetricSignature, extractMetricValues } from '../lib/tag-utils'
 import { useResizeObserver } from '../lib/utils'
 import {
   calculateRadarLayout,
@@ -31,6 +31,55 @@ const SelectedFeaturesList: React.FC<SelectedFeaturesListProps> = ({
   className = ''
 }) => {
   const sortedIds = Array.from(featureIds).sort((a, b) => a - b)
+  const [scrollState, setScrollState] = useState({ scrollTop: 0, scrollHeight: 0, clientHeight: 0 })
+  const listRef = useRef<HTMLUListElement>(null)
+  const rafIdRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    const list = listRef.current
+    if (!list) return
+
+    const updateScrollState = () => {
+      setScrollState({
+        scrollTop: list.scrollTop,
+        scrollHeight: list.scrollHeight,
+        clientHeight: list.clientHeight
+      })
+    }
+
+    // Throttled scroll handler using requestAnimationFrame
+    const handleScroll = () => {
+      if (rafIdRef.current !== null) return // Already scheduled
+
+      rafIdRef.current = requestAnimationFrame(() => {
+        updateScrollState()
+        rafIdRef.current = null
+      })
+    }
+
+    // Initial measurement (immediate)
+    updateScrollState()
+
+    // Scroll events (throttled with RAF)
+    list.addEventListener('scroll', handleScroll)
+
+    // Resize events (immediate, since they're infrequent)
+    const resizeObserver = new ResizeObserver(updateScrollState)
+    resizeObserver.observe(list)
+
+    return () => {
+      list.removeEventListener('scroll', handleScroll)
+      resizeObserver.disconnect()
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current)
+      }
+    }
+  }, [sortedIds])
+
+  const { scrollTop, scrollHeight, clientHeight } = scrollState
+  const maxScroll = scrollHeight - clientHeight
+  const scrollPercent = maxScroll > 0 ? scrollTop / maxScroll : 0
+  const isScrollable = scrollHeight > clientHeight
 
   if (sortedIds.length === 0) {
     return (
@@ -44,13 +93,24 @@ const SelectedFeaturesList: React.FC<SelectedFeaturesListProps> = ({
 
   return (
     <div className={`selected-features-list ${className}`}>
-      <ul className="selected-features-list__list">
+      <ul className="selected-features-list__list" ref={listRef}>
         {sortedIds.map(id => (
           <li key={id} className="selected-features-list__item">
             Feature {id}
           </li>
         ))}
       </ul>
+      {isScrollable && (
+        <div className="scroll-indicator">
+          <div
+            className="scroll-indicator__thumb"
+            style={{
+              height: `${(clientHeight / scrollHeight) * 100}%`,
+              top: `${scrollPercent * (100 - (clientHeight / scrollHeight) * 100)}%`
+            }}
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -78,13 +138,15 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
 }) => {
   const svgRef = useRef<SVGSVGElement>(null)
   const [draggingAxis, setDraggingAxis] = useState<{ index: number; bound: 'min' | 'max' } | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
-  // Calculate responsive radar size from props
+  // Calculate responsive radar size from props (use 70% width for radar chart)
   const radarSize = useMemo(() => {
+    const radarWidth = width * 0.6
     return {
-      width: width,
+      width: radarWidth,
       height: height,
-      margin: 95  // Margin for radar chart padding
+      margin: 30  // Margin for radar chart padding
     }
   }, [width, height])
 
@@ -144,6 +206,45 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
     return () => document.removeEventListener('pointerup', handleGlobalPointerUp)
   }, [])
 
+  // Handle threshold input changes with validation
+  const handleThresholdChange = (metricKey: keyof MetricSignature, bound: 'min' | 'max', valueStr: string) => {
+    const value = parseFloat(valueStr)
+
+    // Check for valid number
+    if (isNaN(value)) {
+      setErrors(prev => ({ ...prev, [metricKey]: 'Invalid number' }))
+      return
+    }
+
+    // Check 0-1 range
+    if (value < 0 || value > 1) {
+      setErrors(prev => ({ ...prev, [metricKey]: 'Value must be 0-1' }))
+      return
+    }
+
+    const currentRange = signature[metricKey]
+    const newMin = bound === 'min' ? value : currentRange.min
+    const newMax = bound === 'max' ? value : currentRange.max
+
+    // Check min < max
+    if (newMin >= newMax) {
+      setErrors(prev => ({ ...prev, [metricKey]: 'Min must be < Max' }))
+      return
+    }
+
+    // Clear error and update signature
+    setErrors(prev => {
+      const newErrors = { ...prev }
+      delete newErrors[metricKey]
+      return newErrors
+    })
+
+    onSignatureChange({
+      ...signature,
+      [metricKey]: { min: newMin, max: newMax }
+    })
+  }
+
   // Generate paths for boundary
   const minPath = pointsToPath(
     min.map((value, i) => {
@@ -196,15 +297,17 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
 
   return (
     <div className={`tag-radar-view ${className}`}>
-      <svg
-        ref={svgRef}
-        width={radarSize.width}
-        height={radarSize.height}
-        className="tag-radar-view__svg"
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        style={{ touchAction: 'none', userSelect: 'none' }}
-      >
+      {/* Left: Radar Chart */}
+      <div className="tag-radar-view__chart">
+        <svg
+          ref={svgRef}
+          width={radarSize.width}
+          height={radarSize.height}
+          className="tag-radar-view__svg"
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          style={{ touchAction: 'none', userSelect: 'none' }}
+        >
         {/* Background grid */}
         {layout.levels.map((level) => (
           <g key={level.level}>
@@ -261,6 +364,7 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
           fill="#3b82f6"
           fillOpacity="0.15"
           stroke="none"
+          fillRule="evenodd"
         />
 
         {/* Min boundary */}
@@ -379,140 +483,52 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
             </g>
           )
         })}
-      </svg>
-    </div>
-  )
-}
-
-// ============================================================================
-// TAG STATISTICS VIEW SUB-COMPONENT
-// ============================================================================
-
-interface TagStatisticsViewProps {
-  tag: Tag
-  candidates?: FeatureMatch[]
-  className?: string
-}
-
-const TagStatisticsView: React.FC<TagStatisticsViewProps> = ({
-  tag,
-  candidates = [],
-  className = ''
-}) => {
-  const tableData = useVisualizationStore(state => state.tableData)
-
-  const stats = useMemo(() => {
-    if (!tableData) {
-      return {
-        totalFeatures: 0,
-        taggedCount: tag.featureIds.size,
-        matchingCount: 0,
-        coverage: 0,
-        avgQuality: 0
-      }
-    }
-
-    const totalFeatures = tableData.features.length
-    const taggedCount = tag.featureIds.size
-
-    let matchingCount = 0
-    let qualitySum = 0
-    let qualityCount = 0
-
-    tableData.features.forEach((feature: FeatureTableRow) => {
-      const metrics = extractMetricValues(feature)
-
-      if (featureMatchesSignature(metrics, tag.metricSignature)) {
-        matchingCount++
-        qualitySum += metrics.quality_score
-        qualityCount++
-      }
-    })
-
-    const coverage = totalFeatures > 0 ? (matchingCount / totalFeatures) * 100 : 0
-    const avgQuality = qualityCount > 0 ? qualitySum / qualityCount : 0
-
-    return {
-      totalFeatures,
-      taggedCount,
-      matchingCount,
-      coverage,
-      avgQuality
-    }
-  }, [tableData, tag])
-
-  return (
-    <div className={`tag-statistics-view ${className}`}>
-      <h3 className="tag-statistics-view__title">
-        Tag Statistics
-      </h3>
-
-      <div className="tag-statistics-view__overview">
-        <div className="stat-card">
-          <div className="stat-card__value">{stats.taggedCount}</div>
-          <div className="stat-card__label">Seed Features</div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-card__value">{stats.matchingCount}</div>
-          <div className="stat-card__label">Matching Features</div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-card__value">{stats.coverage.toFixed(1)}%</div>
-          <div className="stat-card__label">Coverage</div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-card__value">{stats.avgQuality.toFixed(2)}</div>
-          <div className="stat-card__label">Avg Quality</div>
-        </div>
+        </svg>
       </div>
 
-      {candidates.length > 0 && (
-        <div className="tag-statistics-view__candidates">
-          <h4 className="tag-statistics-view__subtitle">
-            Top {candidates.length} Candidate Features
-          </h4>
+      {/* Right: Threshold Values List */}
+      <div className="tag-radar-view__thresholds">
+        <div className="threshold-list">
+          {RADAR_METRICS.map((metric) => {
+            const metricKey = metric.key as keyof MetricSignature
+            const range = signature[metricKey]
+            const error = errors[metricKey]
+            const hasError = !!error
 
-          <div className="candidates-list">
-            {candidates.map((candidate, index) => (
-              <div key={candidate.featureId} className="candidate-item">
-                <div className="candidate-item__rank">#{index + 1}</div>
-                <div className="candidate-item__info">
-                  <div className="candidate-item__id">
-                    Feature {candidate.featureId}
-                  </div>
-                  <div className="candidate-item__metrics">
-                    <span className="metric-badge">
-                      Q: {candidate.metricValues.quality_score.toFixed(2)}
-                    </span>
-                    <span className="metric-badge">
-                      Emb: {candidate.metricValues.embedding.toFixed(2)}
-                    </span>
-                    <span className="metric-badge">
-                      Fuzz: {candidate.metricValues.fuzz.toFixed(2)}
-                    </span>
-                  </div>
+            return (
+              <div key={metric.key} className="threshold-item">
+                <div className="threshold-item__label" style={{ color: metric.color }}>
+                  {metric.label}
                 </div>
-                <div className="candidate-item__score">
-                  <div className="score-bar">
-                    <div
-                      className="score-bar__fill"
-                      style={{ width: `${candidate.score * 100}%` }}
-                    ></div>
-                  </div>
-                  <span className="score-value">{(candidate.score * 100).toFixed(0)}%</span>
+                <div className="threshold-item__inputs">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="1"
+                    value={range.min.toFixed(2)}
+                    onChange={(e) => handleThresholdChange(metricKey, 'min', e.target.value)}
+                    className={`threshold-item__input ${hasError ? 'threshold-item__input--error' : ''}`}
+                  />
+                  <span className="threshold-item__separator">-</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="1"
+                    value={range.max.toFixed(2)}
+                    onChange={(e) => handleThresholdChange(metricKey, 'max', e.target.value)}
+                    className={`threshold-item__input ${hasError ? 'threshold-item__input--error' : ''}`}
+                  />
                 </div>
+                {hasError && (
+                  <div className="threshold-item__error">{error}</div>
+                )}
               </div>
-            ))}
-          </div>
-
-          <div className="tag-statistics-view__hint">
-            💡 These candidates will be available for verification in Stage 2
-          </div>
+            )
+          })}
         </div>
-      )}
+      </div>
     </div>
   )
 }
@@ -529,9 +545,14 @@ const TagManagementPanel: React.FC = () => {
   const tableData = useVisualizationStore(state => state.tableData)
 
   // Store actions
+  const createTag = useVisualizationStore(state => state.createTag)
   const setActiveTag = useVisualizationStore(state => state.setActiveTag)
   const assignFeaturesToTag = useVisualizationStore(state => state.assignFeaturesToTag)
-  const findCandidates = useVisualizationStore(state => state.findCandidates)
+
+  // Local state for adding new tags
+  const [isAddingTag, setIsAddingTag] = useState(false)
+  const [newTagName, setNewTagName] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
 
   // Get active tag
   const activeTag = tags.find(t => t.id === activeTagId)
@@ -566,6 +587,52 @@ const TagManagementPanel: React.FC = () => {
   React.useEffect(() => {
     setManualSignature(inferredSignature)
   }, [inferredSignature])
+
+  // Scroll tracking for template tags list
+  const [tagListScrollState, setTagListScrollState] = useState({ scrollTop: 0, scrollHeight: 0, clientHeight: 0 })
+  const tagListRef = useRef<HTMLDivElement>(null)
+  const tagListRafIdRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    const list = tagListRef.current
+    if (!list) return
+
+    const updateScrollState = () => {
+      setTagListScrollState({
+        scrollTop: list.scrollTop,
+        scrollHeight: list.scrollHeight,
+        clientHeight: list.clientHeight
+      })
+    }
+
+    // Throttled scroll handler using requestAnimationFrame
+    const handleScroll = () => {
+      if (tagListRafIdRef.current !== null) return // Already scheduled
+
+      tagListRafIdRef.current = requestAnimationFrame(() => {
+        updateScrollState()
+        tagListRafIdRef.current = null
+      })
+    }
+
+    // Initial measurement (immediate)
+    updateScrollState()
+
+    // Scroll events (throttled with RAF)
+    list.addEventListener('scroll', handleScroll)
+
+    // Resize events (immediate, since they're infrequent)
+    const resizeObserver = new ResizeObserver(updateScrollState)
+    resizeObserver.observe(list)
+
+    return () => {
+      list.removeEventListener('scroll', handleScroll)
+      resizeObserver.disconnect()
+      if (tagListRafIdRef.current !== null) {
+        cancelAnimationFrame(tagListRafIdRef.current)
+      }
+    }
+  }, [tags])
 
   // Resize observer for responsive layout
   const containerElementRef = React.useRef<HTMLDivElement | null>(null)
@@ -623,37 +690,138 @@ const TagManagementPanel: React.FC = () => {
     alert(`Assigned ${selectedFeatureIds.size} features to tag "${activeTag?.name}"`)
   }
 
-  // Get candidates for active tag
-  const activeCandidates = activeTag ? findCandidates(activeTag.id, 10) : []
+  // Handle add tag button click
+  const handleAddTagClick = () => {
+    setIsAddingTag(true)
+    setNewTagName('')
+  }
+
+  // Handle creating new tag
+  const handleCreateTag = () => {
+    const trimmedName = newTagName.trim()
+    if (trimmedName === '') {
+      setIsAddingTag(false)
+      setNewTagName('')
+      return
+    }
+
+    const newTagId = createTag(trimmedName)
+    setActiveTag(newTagId)
+    setIsAddingTag(false)
+    setNewTagName('')
+  }
+
+  // Handle input key press
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleCreateTag()
+    } else if (e.key === 'Escape') {
+      setIsAddingTag(false)
+      setNewTagName('')
+    }
+  }
+
+  // Auto-focus input when entering add mode
+  React.useEffect(() => {
+    if (isAddingTag && inputRef.current) {
+      inputRef.current.focus()
+    }
+  }, [isAddingTag])
+
+  // Calculate scroll indicator position for template tags list
+  const tagListMaxScroll = tagListScrollState.scrollHeight - tagListScrollState.clientHeight
+  const tagListScrollPercent = tagListMaxScroll > 0 ? tagListScrollState.scrollTop / tagListMaxScroll : 0
+  const tagListIsScrollable = tagListScrollState.scrollHeight > tagListScrollState.clientHeight
 
   return (
     <div className="tag-management-panel" ref={setContainerRef}>
       <div className="tag-panel__grid">
         {/* Column 1: Template Tags */}
         <div className="tag-panel__column tag-panel__templates">
-          <h4 className="tag-panel__column-title">Template Tags</h4>
-          <div className="template-tags-list">
-            {tags.map(tag => (
-              <div
-                key={tag.id}
-                className={`template-tag-card ${activeTagId === tag.id ? 'template-tag-card--active' : ''}`}
-                onClick={() => setActiveTag(tag.id)}
-                title={`Click to select ${tag.name}`}
-              >
-                <div className="template-tag-card__info">
-                  <div className="template-tag-card__name">{tag.name}</div>
-                  <div className="template-tag-card__count">
-                    {tag.featureIds.size} feature{tag.featureIds.size !== 1 ? 's' : ''}
+          <h4 className="tag-panel__column-title">Tags</h4>
+          <div className="template-tags-list-wrapper">
+            <div className="template-tags-list" ref={tagListRef}>
+              {tags.map(tag => (
+                <div
+                  key={tag.id}
+                  className={`template-tag-card ${activeTagId === tag.id ? 'template-tag-card--active' : ''}`}
+                  onClick={() => setActiveTag(tag.id)}
+                  title={`Click to select ${tag.name}`}
+                >
+                  <div className="template-tag-card__info">
+                    <div className="template-tag-card__name">{tag.name}</div>
+                    <div className="template-tag-card__count">
+                      {tag.featureIds.size} feature{tag.featureIds.size !== 1 ? 's' : ''}
+                    </div>
                   </div>
                 </div>
+              ))}
+
+              {/* Add new tag button/input */}
+              {isAddingTag ? (
+                <div className="template-tag-card template-tag-card--add-mode">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    className="template-tag-card__input"
+                    value={newTagName}
+                    onChange={(e) => setNewTagName(e.target.value)}
+                    onKeyDown={handleKeyPress}
+                    onBlur={handleCreateTag}
+                    placeholder="Enter tag name..."
+                    maxLength={50}
+                  />
+                </div>
+              ) : (
+                <div
+                  className="template-tag-card template-tag-card--add"
+                  onClick={handleAddTagClick}
+                  title="Add new tag"
+                >
+                  <div className="template-tag-card__info">
+                    <div className="template-tag-card__name template-tag-card__name--add">
+                      + Add New Tag
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            {tagListIsScrollable && (
+              <div className="scroll-indicator">
+                <div
+                  className="scroll-indicator__thumb"
+                  style={{
+                    height: `${(tagListScrollState.clientHeight / tagListScrollState.scrollHeight) * 100}%`,
+                    top: `${tagListScrollPercent * (100 - (tagListScrollState.clientHeight / tagListScrollState.scrollHeight) * 100)}%`
+                  }}
+                />
               </div>
-            ))}
+            )}
           </div>
+
+          {/* Assign Button - always visible with different states */}
+          <button
+            className="assign-button"
+            onClick={handleAssignFeatures}
+            disabled={!activeTagId || selectedFeatureIds.size === 0}
+            title={
+              !activeTagId
+                ? 'Select a tag first'
+                : selectedFeatureIds.size === 0
+                ? 'Select features from the table first'
+                : `Assign ${selectedFeatureIds.size} features to ${activeTag?.name}`
+            }
+          >
+            {!activeTagId
+              ? 'Select a Tag'
+              : `Add ${selectedFeatureIds.size} Feature${selectedFeatureIds.size !== 1 ? 's' : ''}`
+            }
+          </button>
         </div>
 
         {/* Column 2: Radar Chart */}
         <div className="tag-panel__column tag-panel__radar">
-          <h4 className="tag-panel__column-title">Metric Signature</h4>
+          <h4 className="tag-panel__column-title">Selected Features' Metrics</h4>
           <TagRadarView
             selectedFeatures={selectedFeatures}
             signature={manualSignature}
@@ -676,37 +844,6 @@ const TagManagementPanel: React.FC = () => {
               <p className="feature-list__placeholder">Coming soon</p>
             </div>
           </div>
-
-          {/* Assign Button */}
-          <button
-            className="assign-button"
-            onClick={handleAssignFeatures}
-            disabled={!activeTagId || selectedFeatureIds.size === 0}
-            title={
-              !activeTagId
-                ? 'Select a tag first'
-                : selectedFeatureIds.size === 0
-                ? 'Select features from the table'
-                : `Assign ${selectedFeatureIds.size} features to ${activeTag?.name}`
-            }
-          >
-            Assign Selected Features
-          </button>
-        </div>
-
-        {/* Column 4: Statistics */}
-        <div className="tag-panel__column tag-panel__stats">
-          <h4 className="tag-panel__column-title">Tag Statistics</h4>
-          {activeTag ? (
-            <TagStatisticsView
-              tag={activeTag}
-              candidates={activeCandidates}
-            />
-          ) : (
-            <p className="tag-panel__no-selection">
-              Select a tag to view statistics
-            </p>
-          )}
         </div>
       </div>
     </div>
