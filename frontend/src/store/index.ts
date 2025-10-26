@@ -96,11 +96,15 @@ interface AppState {
   getMaxStageMetric: () => string | null
   getRightmostNodeWithScrollIndicator: () => string
   findNodeWithMetric: (metric: string) => string | null
-  syncTableSortWithMaxStage: () => void
   fetchTableData: () => Promise<void>
   setTableScrollState: (state: { scrollTop: number; scrollHeight: number; clientHeight: number } | null) => void
-  setTableSort: (sortBy: SortBy | null, sortDirection: SortDirection | null, skipSankeySync?: boolean) => void
+  setTableSort: (sortBy: SortBy | null, sortDirection: SortDirection | null) => void
   swapMetricDisplay: (newMetric: typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION) => void
+
+  // Node selection actions
+  toggleNodeSelection: (nodeId: string) => void
+  clearNodeSelection: () => void
+  getSelectedNodeFeatures: () => Set<number> | null
 
   // Table data
   tableData: any | null
@@ -111,6 +115,9 @@ interface AppState {
   // Table sort state
   tableSortBy: SortBy | null
   tableSortDirection: SortDirection | null
+
+  // Node selection for table filtering
+  tableSelectedNodeIds: string[]
 
   // Table column display state
   scoreColumnDisplay: typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION
@@ -161,6 +168,9 @@ const initialState = {
   // Table sort state
   tableSortBy: null,
   tableSortDirection: null,
+
+  // Node selection for table filtering
+  tableSelectedNodeIds: [],
 
   // Table column display state
   scoreColumnDisplay: METRIC_QUALITY_SCORE as typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION,

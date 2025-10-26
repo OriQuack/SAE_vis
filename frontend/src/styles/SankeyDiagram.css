@@ -322,3 +322,19 @@
   pointer-events: none;
   user-select: none;
 }
+
+/* ============================================================================
+   NODE SELECTION STYLES (Direction 2 Implementation)
+   ============================================================================ */
+
+/* Selected vertical bar nodes */
+.sankey-vertical-bar-node--selected rect {
+  stroke: #2563eb !important;
+  stroke-width: 3px !important;
+  filter: drop-shadow(0 0 8px rgba(37, 99, 235, 0.5)) !important;
+}
+
+/* Hovered vertical bar nodes */
+.sankey-vertical-bar-node--hovered rect {
+  opacity: 0.9;
+}

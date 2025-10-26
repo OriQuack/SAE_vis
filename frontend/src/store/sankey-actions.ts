@@ -322,11 +322,6 @@ export const createTreeActions = (set: any, get: any) => ({
 
       // Update alluvial flows if both panels have data
       get().updateAlluvialFlows()
-
-      // Sync table sort with max stage (only for left panel)
-      if (panel === PANEL_LEFT) {
-        get().syncTableSortWithMaxStage()
-      }
     } catch (error) {
       console.error('[Store.recomputeSankeyTree] ❌ Failed to recompute Sankey:', error)
     }

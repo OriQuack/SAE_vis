@@ -53,6 +53,7 @@ const SankeyNode: React.FC<{
   onClick?: (e: React.MouseEvent) => void
   isHovered: boolean
   isHighlighted: boolean
+  isSelected?: boolean
   flowDirection: 'left-to-right' | 'right-to-left'
   animationDuration: number
   sankeyTree?: Map<string, any> | null
@@ -63,6 +64,7 @@ const SankeyNode: React.FC<{
   onClick,
   isHovered,
   isHighlighted,
+  isSelected = false,
   flowDirection,
   animationDuration,
   sankeyTree
@@ -111,12 +113,12 @@ const SankeyNode: React.FC<{
         width={width}
         height={height}
         fill={color}
-        stroke="none"
-        strokeWidth={0}
+        stroke={isSelected ? '#2563eb' : 'none'}
+        strokeWidth={isSelected ? 3 : 0}
         style={{
         //   transition: `all ${animationDuration}ms ease-out`,
           cursor: onClick ? 'pointer' : 'default',
-          filter: isHovered || isHighlighted ? 'brightness(1.1)' : 'none'
+          filter: isSelected ? 'drop-shadow(0 0 8px rgba(37, 99, 235, 0.5))' : (isHovered || isHighlighted ? 'brightness(1.1)' : 'none')
         }}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
@@ -274,7 +276,12 @@ const VerticalBarSankeyNode: React.FC<{
   flowDirection: 'left-to-right' | 'right-to-left'
   totalFeatureCount?: number
   nodeStartIndex?: number
-}> = ({ node, scrollState, flowDirection, totalFeatureCount = 0, nodeStartIndex = 0 }) => {
+  onClick?: (e: React.MouseEvent) => void
+  onMouseEnter?: (e: React.MouseEvent) => void
+  onMouseLeave?: () => void
+  isSelected?: boolean
+  isHovered?: boolean
+}> = ({ node, scrollState, flowDirection, totalFeatureCount = 0, nodeStartIndex = 0, onClick, onMouseEnter, onMouseLeave, isSelected = false, isHovered = false }) => {
   const layout = calculateVerticalBarNodeLayout(node, scrollState, totalFeatureCount, nodeStartIndex)
 
   // Check if this is a placeholder node
@@ -287,7 +294,13 @@ const VerticalBarSankeyNode: React.FC<{
   const labelY = node.y0 !== undefined && node.y1 !== undefined ? (node.y0 + node.y1) / 2 : 0
 
   return (
-    <g className="sankey-vertical-bar-node">
+    <g
+      className={`sankey-vertical-bar-node ${isSelected ? 'sankey-vertical-bar-node--selected' : ''} ${isHovered ? 'sankey-vertical-bar-node--hovered' : ''}`}
+      onClick={onClick}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      style={{ cursor: onClick ? 'pointer' : 'default' }}
+    >
       {/* Render vertical bar */}
       {layout.subNodes.map((subNode) => {
         return (
@@ -382,7 +395,8 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const hoveredAlluvialPanel = useVisualizationStore(state => state.hoveredAlluvialPanel)
   const tableScrollState = useVisualizationStore(state => state.tableScrollState)
   const sankeyTree = useVisualizationStore(state => state[panelKey].sankeyTree)
-  const { showHistogramPopover, addUnsplitStageToNode, removeNodeStage, updateNodeThresholds } = useVisualizationStore()
+  const tableSelectedNodeIds = useVisualizationStore(state => state.tableSelectedNodeIds)
+  const { showHistogramPopover, addUnsplitStageToNode, removeNodeStage, updateNodeThresholds, toggleNodeSelection } = useVisualizationStore()
 
   // NEW TREE-BASED SYSTEM: use computedSankey directly
   const data = useMemo(() => {
@@ -610,6 +624,18 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     updateNodeThresholds(nodeId, newThresholds, panel)
   }, [updateNodeThresholds, panel])
 
+  const handleNodeSelectionClick = useCallback((event: React.MouseEvent, node: D3SankeyNode) => {
+    // Only allow selection in left panel
+    if (panel !== PANEL_LEFT) return
+
+    // Don't select root node or placeholder nodes
+    if (node.id === 'root' || node.id === 'placeholder_vertical_bar') return
+
+    event.stopPropagation()
+    toggleNodeSelection(node.id)
+    console.log('[SankeyDiagram.handleNodeSelectionClick] 🎯 Node selection toggled:', node.id)
+  }, [panel, toggleNodeSelection])
+
   // Render
   if (error) {
     return <ErrorMessage message={error} />
@@ -738,11 +764,18 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
             <g className="sankey-diagram__nodes">
               {(() => {
                 // Get all vertical bar nodes sorted by y position (top to bottom)
-                const verticalBarNodes = layout.nodes
+                let verticalBarNodes = layout.nodes
                   .filter(n => n.node_type === 'vertical_bar')
                   .sort((a, b) => (a.y0 || 0) - (b.y0 || 0))
 
+                // Filter to selected nodes if any are selected (for correct scroll indicator)
+                if (panel === PANEL_LEFT && tableSelectedNodeIds.length > 0) {
+                  verticalBarNodes = verticalBarNodes.filter(n => tableSelectedNodeIds.includes(n.id))
+                  console.log(`[SankeyDiagram] Filtered vertical bars for scroll indicator: ${verticalBarNodes.length} selected nodes`)
+                }
+
                 // Calculate total features and cumulative indices for vertical bars
+                // (will be filtered list if nodes are selected)
                 const totalFeatures = verticalBarNodes.reduce((sum, node) => sum + (node.feature_count || 0), 0)
                 const nodeIndices = new Map<string, number>()
                 let cumulativeIndex = 0
@@ -754,18 +787,27 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                 return layout.nodes.map((node) => {
                   const isHighlighted = hoveredAlluvialNodeId === node.id &&
                                       hoveredAlluvialPanel === (panel === PANEL_LEFT ? 'left' : 'right')
+                  const isSelected = panel === PANEL_LEFT && tableSelectedNodeIds.includes(node.id)
 
                   // Check if this is a vertical bar node
                   if (node.node_type === 'vertical_bar') {
+                    // Only show scroll indicator for selected nodes (or all nodes if none selected)
+                    const shouldShowScrollIndicator = isSelected || tableSelectedNodeIds.length === 0
                     const nodeStartIndex = nodeIndices.get(node.id) || 0
+
                     return (
                       <VerticalBarSankeyNode
                         key={node.id}
                         node={node}
                         scrollState={tableScrollState}
                         flowDirection={flowDirection}
-                        totalFeatureCount={totalFeatures}
-                        nodeStartIndex={nodeStartIndex}
+                        totalFeatureCount={shouldShowScrollIndicator ? totalFeatures : 0}
+                        nodeStartIndex={shouldShowScrollIndicator ? nodeStartIndex : 0}
+                        onClick={(e) => handleNodeSelectionClick(e, node)}
+                        onMouseEnter={() => setHoveredNodeId(node.id)}
+                        onMouseLeave={() => setHoveredNodeId(null)}
+                        isSelected={isSelected}
+                        isHovered={hoveredNodeId === node.id}
                       />
                     )
                   }
@@ -777,9 +819,10 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                       node={node}
                       isHovered={hoveredNodeId === node.id}
                       isHighlighted={isHighlighted}
+                      isSelected={isSelected}
                       onMouseEnter={() => setHoveredNodeId(node.id)}
                       onMouseLeave={() => setHoveredNodeId(null)}
-                      onClick={showHistogramOnClick ? () => handleNodeHistogramClick(node) : undefined}
+                      onClick={(e) => handleNodeSelectionClick(e, node)}
                       flowDirection={flowDirection}
                       animationDuration={animationDuration}
                       sankeyTree={sankeyTree}

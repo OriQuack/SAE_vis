@@ -1,8 +1,6 @@
 import * as api from '../api'
 import type { SortBy, SortDirection, SankeyTreeNode } from '../types'
-import { mapTableSortToSankeyMetric, mapSankeyMetricToTableSort } from './utils'
 import {
-  PANEL_LEFT,
   METRIC_QUALITY_SCORE,
   METRIC_SCORE_EMBEDDING,
   METRIC_SCORE_FUZZ,
@@ -17,6 +15,73 @@ import {
  * Factory function to create table-related actions for the store
  */
 export const createTableActions = (set: any, get: any) => ({
+  /**
+   * Toggle node selection for table filtering
+   */
+  toggleNodeSelection: (nodeId: string) => {
+    const state = get()
+    const { tableSelectedNodeIds } = state
+
+    const isSelected = tableSelectedNodeIds.includes(nodeId)
+
+    if (isSelected) {
+      // Deselect node
+      set({
+        tableSelectedNodeIds: tableSelectedNodeIds.filter((id: string) => id !== nodeId)
+      })
+      console.log('[Store.toggleNodeSelection] Deselected node:', nodeId)
+    } else {
+      // Select node
+      set({
+        tableSelectedNodeIds: [...tableSelectedNodeIds, nodeId]
+      })
+      console.log('[Store.toggleNodeSelection] Selected node:', nodeId)
+    }
+
+    // No need to re-fetch - TablePanel will filter existing data via useMemo
+    // based on tableSelectedNodeIds state change
+  },
+
+  /**
+   * Clear all node selections
+   */
+  clearNodeSelection: () => {
+    set({ tableSelectedNodeIds: [] })
+    console.log('[Store.clearNodeSelection] Cleared all selections')
+
+    // No need to re-fetch - TablePanel will show all features automatically
+  },
+
+  /**
+   * Get feature IDs from all selected nodes
+   */
+  getSelectedNodeFeatures: () => {
+    const state = get()
+    const { tableSelectedNodeIds, leftPanel } = state
+
+    if (tableSelectedNodeIds.length === 0) {
+      return null // No selection - show all features
+    }
+
+    // Collect feature IDs from all selected nodes
+    const featureIds = new Set<number>()
+
+    for (const nodeId of tableSelectedNodeIds) {
+      const node = leftPanel.sankeyTree.get(nodeId)
+      if (node?.featureIds) {
+        node.featureIds.forEach((id: number) => featureIds.add(id))
+      }
+    }
+
+    console.log('[Store.getSelectedNodeFeatures] Got features from selection:', {
+      nodeCount: tableSelectedNodeIds.length,
+      featureCount: featureIds.size
+    })
+
+    return featureIds
+  },
+
+
   /**
    * Get feature IDs from rightmost stage nodes for table filtering
    */
@@ -157,38 +222,6 @@ export const createTableActions = (set: any, get: any) => ({
     return null
   },
 
-  /**
-   * Synchronize table sort with the maximum Sankey stage
-   */
-  syncTableSortWithMaxStage: () => {
-    const state = get()
-    const maxStageMetric = state.getMaxStageMetric()
-
-    if (!maxStageMetric) {
-      console.log('[Store.syncTableSortWithMaxStage] No max stage metric found - clearing table sort')
-      state.setTableSort(null, null, true)
-      return
-    }
-
-    // Map metric to table sort key
-    const tableSortKey = mapSankeyMetricToTableSort(maxStageMetric)
-
-    if (!tableSortKey) {
-      console.log('[Store.syncTableSortWithMaxStage] Metric not mappable to table sort:', maxStageMetric)
-      return
-    }
-
-    console.log('[Store.syncTableSortWithMaxStage] Syncing table sort to max stage:', {
-      maxStageMetric,
-      tableSortKey
-    })
-
-    // Swap the metric display to show the selected metric prominently
-    state.swapMetricDisplay(tableSortKey as typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION)
-
-    // Update table sort, skip Sankey sync to prevent recursion
-    state.setTableSort(tableSortKey as SortBy, 'asc', true)
-  },
 
   /**
    * Fetch table data
@@ -237,6 +270,8 @@ export const createTableActions = (set: any, get: any) => ({
       }
 
       const tableData = await api.getTableData({ filters })
+
+      // Store all data - filtering by selection happens in TablePanel component
       set((state: any) => ({
         tableData,
         loading: { ...state.loading, table: false }
@@ -259,63 +294,16 @@ export const createTableActions = (set: any, get: any) => ({
   },
 
   /**
-   * Set table sort state - with Sankey synchronization.
-   * If the metric is new, adds it to the rightmost node with scroll indicator.
-   * If the metric already exists, resets the tree and adds the metric to root.
+   * Set table sort state - reorders table display only (does NOT modify Sankey)
    */
-  setTableSort: (sortBy: SortBy | null, sortDirection: SortDirection | null, skipSankeySync = false) => {
-    const state = get()
-
+  setTableSort: (sortBy: SortBy | null, sortDirection: SortDirection | null) => {
     // Update table sort state
     set({
       tableSortBy: sortBy,
       tableSortDirection: sortDirection
     })
 
-    // Sync with Sankey if sorting by a mappable metric (unless skipped to prevent recursion)
-    if (!skipSankeySync && sortBy && sortDirection) {
-      const sankeyMetric = mapTableSortToSankeyMetric(sortBy)
-
-      if (sankeyMetric) {
-        // Check if metric already exists in tree
-        const existingNodeId = state.findNodeWithMetric(sankeyMetric)
-
-        if (existingNodeId) {
-          // Metric exists - reset tree and add to root
-          console.log('[Store.setTableSort] Metric exists, resetting tree and adding to root:', {
-            metric: sankeyMetric,
-            existingNode: existingNodeId
-          })
-
-          // Get thresholds from existing node (if any)
-          const tree = state.leftPanel.sankeyTree
-          const existingNode = tree.get(existingNodeId)
-          const preservedThresholds = existingNode?.thresholds || []
-
-          // Reset: remove all stages from root (clears entire tree)
-          state.removeNodeStage('root', PANEL_LEFT)
-
-          // Add metric to root
-          if (preservedThresholds.length > 0) {
-            state.addUnsplitStageToNode('root', sankeyMetric, PANEL_LEFT).then(() => {
-              state.updateNodeThresholds('root', preservedThresholds, PANEL_LEFT)
-            })
-          } else {
-            state.addUnsplitStageToNode('root', sankeyMetric, PANEL_LEFT)
-          }
-        } else {
-          // New metric - add to rightmost node with scroll indicator
-          const targetNodeId = state.getRightmostNodeWithScrollIndicator()
-
-          console.log('[Store.setTableSort] Adding new stage to node with scroll indicator:', {
-            metric: sankeyMetric,
-            targetNode: targetNodeId
-          })
-
-          state.addUnsplitStageToNode(targetNodeId, sankeyMetric, PANEL_LEFT)
-        }
-      }
-    }
+    console.log('[Store.setTableSort] Table sort updated (display only):', { sortBy, sortDirection })
   },
 
   /**

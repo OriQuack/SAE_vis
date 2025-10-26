@@ -603,14 +603,21 @@ export function calculateVerticalBarNodeLayout(
       const indicatorHeight = totalHeight * visiblePercentage
       const indicatorY = node.y0! + (totalHeight - indicatorHeight) * scrollPercentage
 
+      // Clamp indicator to node bounds (prevents extending beyond bottom edge)
+      const maxY = node.y1! - indicatorHeight
+      const clampedY = Math.min(indicatorY, maxY)
+
       scrollIndicator = {
-        y: indicatorY,
+        y: clampedY,
         height: indicatorHeight
       }
     } else if (totalFeatureCount > 0) {
       // For regular nodes, check if this node contains any visible features
-      const visibleStart = Math.floor(scrollPercentage * totalFeatureCount)
-      const visibleEnd = Math.ceil((scrollPercentage + visiblePercentage) * totalFeatureCount)
+      // Calculate the visible window: a fixed-size window that slides from 0 to (total - windowSize)
+      const visibleFeatureCount = Math.ceil(visiblePercentage * totalFeatureCount)
+      const maxScrollPosition = Math.max(0, totalFeatureCount - visibleFeatureCount)
+      const visibleStart = Math.floor(scrollPercentage * maxScrollPosition)
+      const visibleEnd = Math.min(totalFeatureCount, visibleStart + visibleFeatureCount)
 
       const nodeEndIndex = nodeStartIndex + node.feature_count
 

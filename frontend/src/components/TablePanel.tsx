@@ -35,6 +35,8 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const fetchTableData = useVisualizationStore(state => state.fetchTableData)
   const setTableScrollState = useVisualizationStore(state => state.setTableScrollState)
   const isLoading = useVisualizationStore(state => state.loading.table)
+  const tableSelectedNodeIds = useVisualizationStore(state => state.tableSelectedNodeIds)
+  const clearNodeSelection = useVisualizationStore(state => state.clearNodeSelection)
 
   const tableContainerRef = useRef<HTMLDivElement>(null)
   const qualityScoreCellRef = useRef<HTMLTableCellElement>(null)
@@ -293,18 +295,18 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   // SORTED FEATURES
   // ============================================================================
 
-  // Get rightmost stage feature IDs for filtering
-  const getRightmostStageFeatureIds = useVisualizationStore(state => state.getRightmostStageFeatureIds)
-  const rightmostFeatureIds = getRightmostStageFeatureIds()
+  // Get selected node features for filtering
+  const getSelectedNodeFeatures = useVisualizationStore(state => state.getSelectedNodeFeatures)
+  const selectedFeatures = useMemo(() => getSelectedNodeFeatures(), [getSelectedNodeFeatures])
 
   // Sort features based on current sort settings (using shared utility)
   const sortedFeatures = useMemo(() => {
     let features = tableData?.features || []
 
-    // Filter to only rightmost stage features if available and not all features are present
-    if (rightmostFeatureIds && rightmostFeatureIds.size > 0 && rightmostFeatureIds.size < features.length) {
-      features = features.filter(f => rightmostFeatureIds.has(f.feature_id))
-      console.log(`[TablePanel] Filtered to ${features.length} features from rightmost stage`)
+    // Filter by selected node features if any nodes are selected
+    if (selectedFeatures && selectedFeatures.size > 0) {
+      features = features.filter(f => selectedFeatures.has(f.feature_id))
+      console.log(`[TablePanel] Filtered to ${features.length} features from ${tableSelectedNodeIds.length} selected node(s)`)
     }
 
     return sortFeatures(
@@ -313,7 +315,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
       sortDirection,
       tableData
     )
-  }, [tableData, sortBy, sortDirection, rightmostFeatureIds])
+  }, [tableData, sortBy, sortDirection, selectedFeatures, tableSelectedNodeIds.length])
 
   // Show loading indicator during initial fetch
   if (isLoading && (!tableData || !tableData.features || tableData.features.length === 0)) {
@@ -349,6 +351,22 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
       {isLoading && (
         <div className="table-panel__loading-overlay">
           <div className="table-panel__loading-spinner" />
+        </div>
+      )}
+
+      {/* Selection Header - shown when nodes are selected */}
+      {tableSelectedNodeIds.length > 0 && (
+        <div className="table-panel__selection-header">
+          <span className="table-panel__selection-count">
+            {sortedFeatures.length.toLocaleString()} / {tableData?.features.length.toLocaleString() || 0} features
+          </span>
+          <button
+            className="table-panel__clear-selection"
+            onClick={clearNodeSelection}
+            title="Clear selection and show all features"
+          >
+            Clear ×
+          </button>
         </div>
       )}
 
