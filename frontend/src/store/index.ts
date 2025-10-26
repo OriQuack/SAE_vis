@@ -11,7 +11,8 @@ import type {
   SankeyNode,
   NodeCategory,
   SortBy,
-  SortDirection
+  SortDirection,
+  Tag
 } from '../types'
 import { getNodeThresholdPath } from '../lib/threshold-utils'
 import {
@@ -26,10 +27,11 @@ import {
 import { createInitialPanelState, type PanelState } from './utils'
 import { createTreeActions } from './sankey-actions'
 import { createTableActions } from './table-actions'
+import { createTagActions, type TagState } from './tag-actions'
 
 type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
 
-interface AppState {
+interface AppState extends TagState {
   // Data state - now split for left and right panels
   leftPanel: PanelState
   rightPanel: PanelState
@@ -191,6 +193,9 @@ export const useStore = create<AppState>((set, get) => ({
 
   // Compose table actions
   ...createTableActions(set, get),
+
+  // Compose tag actions
+  ...createTagActions(set, get),
 
   // Hover state actions
   setHoveredAlluvialNode: (nodeId: string | null, panel: 'left' | 'right' | null) =>
@@ -546,6 +551,10 @@ export const useStore = create<AppState>((set, get) => ({
     // Load actual root features from API
     console.log('🌱 Now loading root features from API...')
     get().loadRootFeatures(PANEL_LEFT)
+
+    // Initialize template tags
+    console.log('🏷️  Initializing template tags...')
+    get().initializeTemplateTags()
   }
 }))
 

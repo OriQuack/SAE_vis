@@ -38,6 +38,14 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const tableSelectedNodeIds = useVisualizationStore(state => state.tableSelectedNodeIds)
   const clearNodeSelection = useVisualizationStore(state => state.clearNodeSelection)
 
+  // Tag system state
+  const tags = useVisualizationStore(state => state.tags)
+  const selectedFeatureIds = useVisualizationStore(state => state.selectedFeatureIds)
+  const toggleFeatureSelection = useVisualizationStore(state => state.toggleFeatureSelection)
+  const selectAllFeatures = useVisualizationStore(state => state.selectAllFeatures)
+  const clearFeatureSelection = useVisualizationStore(state => state.clearFeatureSelection)
+  const getFeatureTags = useVisualizationStore(state => state.getFeatureTags)
+
   const tableContainerRef = useRef<HTMLDivElement>(null)
   const qualityScoreCellRef = useRef<HTMLTableCellElement>(null)
   const [cellHeight, setCellHeight] = useState<number>(40) // Natural cell height
@@ -377,6 +385,21 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
         <table className="table-panel__table table-panel__table--simple">
           <thead className="table-panel__thead">
             <tr className="table-panel__header-row">
+              {/* Checkbox column for feature selection */}
+              <th className="table-panel__header-cell table-panel__header-cell--checkbox">
+                <input
+                  type="checkbox"
+                  checked={tableData && tableData.features.length > 0 && selectedFeatureIds.size === tableData.features.length}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      selectAllFeatures()
+                    } else {
+                      clearFeatureSelection()
+                    }
+                  }}
+                  title="Select all features"
+                />
+              </th>
               <th className="table-panel__header-cell table-panel__header-cell--index">
                 {/* Empty header - no text */}
               </th>
@@ -519,6 +542,21 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                       key={`${featureRow.feature_id}-${explainerId}`}
                       className={`table-panel__sub-row ${explainerIdx === 0 ? 'table-panel__sub-row--first' : ''}`}
                     >
+                      {/* Checkbox - only show on first sub-row */}
+                      {explainerIdx === 0 && (
+                        <td
+                          className="table-panel__cell table-panel__cell--checkbox"
+                          rowSpan={validExplainerIds.length}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedFeatureIds.has(featureRow.feature_id)}
+                            onChange={() => toggleFeatureSelection(featureRow.feature_id)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </td>
+                      )}
+
                       {/* Index - only show on first sub-row */}
                       {explainerIdx === 0 && (
                         <td
@@ -536,6 +574,30 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                           rowSpan={validExplainerIds.length}
                         >
                           {featureRow.feature_id}
+                          {(() => {
+                            const featureTags = getFeatureTags(featureRow.feature_id)
+                            if (featureTags.length > 0) {
+                              return (
+                                <span
+                                  className="tag-badge"
+                                  title={featureTags.map(t => t.name).join(', ')}
+                                  style={{
+                                    marginLeft: '0.25rem',
+                                    padding: '0.125rem 0.375rem',
+                                    backgroundColor: '#3b82f6',
+                                    color: 'white',
+                                    fontSize: '0.7rem',
+                                    fontWeight: '600',
+                                    borderRadius: '0.25rem',
+                                    cursor: 'help'
+                                  }}
+                                >
+                                  [{featureTags.length}]
+                                </span>
+                              )
+                            }
+                            return null
+                          })()}
                         </td>
                       )}
 

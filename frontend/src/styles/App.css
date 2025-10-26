@@ -296,7 +296,7 @@
 
 /* Top Left - Flow Panel */
 .sankey-view__top-left {
-  flex: 1;
+  flex: 3;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -318,16 +318,14 @@
   min-width: 0;
 }
 
-/* Top Right - Comparison Toggle */
+/* Top Right - Tag Management Panel */
 .sankey-view__top-right {
-  flex: 1;
+  flex: 7;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  overflow: visible;
+  overflow: hidden;
   background: white;
-  padding: 16px;
+  padding: 0;
   min-width: 0;
 }
 

@@ -521,3 +521,75 @@ export interface SavedCellGroupSelection {
   timestamp: number          // Creation timestamp
 }
 
+// ============================================================================
+// TAG SYSTEM TYPES (Stage 1: Tag Definition & Seed Selection)
+// ============================================================================
+
+/**
+ * Metric Range - Min/max range for a single metric
+ */
+export interface MetricRange {
+  min: number  // Minimum value (0-1 scale)
+  max: number  // Maximum value (0-1 scale)
+}
+
+/**
+ * Metric Signature - Pattern definition for a tag
+ * Defines acceptable ranges for each metric
+ */
+export interface MetricSignature {
+  feature_splitting: MetricRange       // SAE decoder similarity (low=good, high=over-split)
+  embedding: MetricRange                // Explanation-activation alignment
+  fuzz: MetricRange                     // Robustness to perturbations
+  detection: MetricRange                // Predictive utility
+  semantic_similarity: MetricRange      // Inter-explainer agreement
+  quality_score: MetricRange            // Composite metric
+}
+
+/**
+ * Tag - User-defined semantic label with metric signature
+ */
+export interface Tag {
+  id: string                            // Unique tag ID (UUID)
+  name: string                          // User-defined name (e.g., "Syntactic Feature")
+  createdAt: number                     // Creation timestamp
+  updatedAt: number                     // Last modification timestamp
+  metricSignature: MetricSignature      // Pattern definition
+  featureIds: Set<number>               // Tagged features (seed features)
+  color: string                         // Display color (hex)
+  templateSource?: string               // Template name if created from template
+}
+
+/**
+ * Feature Match - Feature matching a tag signature with similarity score
+ * Used for candidate discovery in Stage 2
+ */
+export interface FeatureMatch {
+  featureId: number                     // Feature ID
+  distance: number                      // Euclidean distance in metric space
+  score: number                         // Similarity score (0-1, higher=better)
+  metricValues: {                       // Actual metric values for this feature
+    feature_splitting: number
+    embedding: number
+    fuzz: number
+    detection: number
+    semantic_similarity: number
+    quality_score: number
+  }
+}
+
+/**
+ * Tag Creation Mode - Method for defining metric signature
+ */
+export type TagCreationMode = 'template' | 'visual' | 'inference' | null
+
+/**
+ * Tag Template - Pre-defined tag pattern from tag.md
+ */
+export interface TagTemplate {
+  name: string                          // Template name
+  description: string                   // Description of pattern
+  signature: MetricSignature            // Pre-defined metric ranges
+  color: string                         // Display color
+}
+

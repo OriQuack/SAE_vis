@@ -5,6 +5,7 @@ import AlluvialDiagram from './components/AlluvialDiagram'
 import HistogramPopover from './components/HistogramPopover'
 import FlowPanel from './components/FlowPanel'
 import TablePanel from './components/TablePanel'
+import TagManagementPanel from './components/TagManagementPanel'
 import * as api from './api'
 import './styles/base.css'
 import './styles/App.css'
@@ -157,12 +158,9 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
               <FlowPanel />
             </div>
 
-            {/* Top Middle - Empty */}
-            <div className="sankey-view__top-middle">
-            </div>
-
-            {/* Top Right - Empty */}
+            {/* Top Right - Tag Management Panel */}
             <div className="sankey-view__top-right">
+              <TagManagementPanel />
             </div>
           </div>
 
