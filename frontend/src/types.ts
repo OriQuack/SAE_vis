@@ -547,6 +547,20 @@ export interface MetricSignature {
 }
 
 /**
+ * Metric Weights - Weights for each metric in distance calculation
+ * Higher weight = metric is more important for similarity
+ * Typically auto-inferred from signature ranges (tighter range = higher weight)
+ */
+export interface MetricWeights {
+  feature_splitting: number
+  embedding: number
+  fuzz: number
+  detection: number
+  semantic_similarity: number
+  quality_score: number
+}
+
+/**
  * Tag - User-defined semantic label with metric signature
  */
 export interface Tag {
@@ -556,6 +570,8 @@ export interface Tag {
   updatedAt: number                     // Last modification timestamp
   metricSignature: MetricSignature      // Pattern definition
   featureIds: Set<number>               // Tagged features (seed features)
+  rejectedFeatureIds?: Set<number>      // Features rejected for this tag (Stage 2)
+  metricWeights?: MetricWeights         // Custom weights (undefined = auto-inferred)
   color: string                         // Display color (hex)
   templateSource?: string               // Template name if created from template
 }
@@ -566,7 +582,7 @@ export interface Tag {
  */
 export interface FeatureMatch {
   featureId: number                     // Feature ID
-  distance: number                      // Euclidean distance in metric space
+  distance: number                      // Weighted distance in metric space
   score: number                         // Similarity score (0-1, higher=better)
   metricValues: {                       // Actual metric values for this feature
     feature_splitting: number
@@ -577,6 +593,12 @@ export interface FeatureMatch {
     quality_score: number
   }
 }
+
+/**
+ * Candidate Verification State - User's verification status for a candidate
+ * Used in Stage 2 workflow
+ */
+export type CandidateVerificationState = 'pending' | 'accepted' | 'rejected' | 'unsure'
 
 /**
  * Tag Creation Mode - Method for defining metric signature

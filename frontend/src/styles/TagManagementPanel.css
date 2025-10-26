@@ -19,12 +19,12 @@
 }
 
 /* ============================================================================
-   3-COLUMN GRID LAYOUT
+   3-COLUMN GRID LAYOUT (Tags | Discovery | Validation)
    ============================================================================ */
 
 .tag-panel__grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 2fr;
+  grid-template-columns: 1fr 2fr 2fr;
   height: 100%;
   overflow: hidden;
   background: #f9fafb;
@@ -75,6 +75,13 @@
   flex-direction: column;
   overflow: hidden;
 }
+
+/* ============================================================================
+   COLUMN 3: METRIC WEIGHTS (MERGED INTO COLUMN 2 - SEE CANDIDATE DISCOVERY)
+   ============================================================================ */
+
+/* Note: .tag-panel__weights has been merged into .tag-panel__discovery
+   See "COLUMN 2: CANDIDATE DISCOVERY METHODS" section above */
 
 .template-tags-list-wrapper {
   position: relative;
@@ -127,7 +134,7 @@
   z-index: 1;
 }
 
-.template-tag-card:hover {
+.template-tag-card:hover:not(.template-tag-card--active) {
   background: #e5e7eb;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
@@ -135,6 +142,11 @@
 .template-tag-card--active {
   background: #dbeafe;
   box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+}
+
+.template-tag-card--active:hover {
+  background: #bfdbfe;
+  box-shadow: 0 3px 8px rgba(59, 130, 246, 0.4);
 }
 
 .template-tag-card--active::before {
@@ -227,31 +239,78 @@
 }
 
 /* ============================================================================
-   COLUMN 2: RADAR CHART
+   COLUMN 2: CANDIDATE DISCOVERY METHODS (MERGED RADAR + WEIGHTS)
    ============================================================================ */
 
-.tag-panel__radar {
+.tag-panel__discovery {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  overflow: visible;  /* Allow radar to be visible */
-  position: relative;  /* For centering */
+  overflow: hidden;
+  /* Width controlled by grid-template-columns in .tag-panel__grid */
 }
 
-/* Radar view - two column layout */
-.tag-radar-view {
+.tag-panel__discovery-container {
   display: flex;
   flex-direction: row;
-  gap: 4px;
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.tag-panel__discovery-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 8px;
+}
+
+.tag-panel__discovery-section-header {
+  font-size: 10px;
+  font-weight: 600;
+  color: #4b5563;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.tag-panel__discovery-divider {
+  width: 1px;
+  background: linear-gradient(to bottom,
+    transparent 0%,
+    #d1d5db 10%,
+    #d1d5db 90%,
+    transparent 100%);
+  margin: 8px 0;
+}
+
+.tag-panel__discovery-section--radar {
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  position: relative;
+}
+
+.tag-panel__discovery-section--weights {
+  min-width: 200px; /* Ensure weights panel has minimum width */
+}
+
+/* Radar view - full width centered layout */
+.tag-radar-view {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   height: 100%;
   overflow: visible;
 }
 
-/* Left column: Radar chart */
+/* Radar chart container - full width centered */
 .tag-radar-view__chart {
-  flex: 0 0 70%;
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -263,86 +322,8 @@
   max-height: 100%;
 }
 
-/* Right column: Threshold values */
-.tag-radar-view__thresholds {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.threshold-list {
-  display: flex;
-  flex-direction: column;
-}
-
-.threshold-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 0;
-}
-
-.threshold-item__label {
-  font-size: 9px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.025em;
-}
-
-.threshold-item__inputs {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.threshold-item__input {
-  width: 40px;
-  padding: 2px 4px;
-  font-size: 9px;
-  font-weight: 500;
-  font-family: monospace;
-  color: #1f2937;
-  border: 1px solid #d1d5db;
-  border-radius: 2px;
-  background: #ffffff;
-  text-align: center;
-  appearance: textfield;
-  -moz-appearance: textfield;
-}
-
-.threshold-item__input::-webkit-outer-spin-button,
-.threshold-item__input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-.threshold-item__input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  background: #f0f9ff;
-}
-
-.threshold-item__input--error {
-  border-color: #ef4444;
-  background: #fef2f2;
-}
-
-.threshold-item__separator {
-  font-size: 9px;
-  font-weight: 500;
-  color: #6b7280;
-  font-family: monospace;
-}
-
-.threshold-item__error {
-  font-size: 8px;
-  color: #ef4444;
-  margin-top: 2px;
-}
-
 /* ============================================================================
-   COLUMN 3: FEATURE LISTS
+   COLUMN 3: FEATURE LISTS (VALIDATION)
    ============================================================================ */
 
 .tag-panel__features {
@@ -354,7 +335,7 @@
 /* Feature lists - ensure they fill available space */
 .feature-lists {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 3fr 1fr;
   gap: 2px;
   flex: 1;
   min-height: 0;
@@ -398,6 +379,11 @@
 .feature-list--candidates {
   background: #fffbeb;
   border-color: #fef3c7;
+}
+
+.feature-list--rejected {
+  background: #fef2f2;
+  border-color: #fecaca;
 }
 
 /* Assign Button - fixed height */
@@ -711,6 +697,372 @@
 .scroll-indicator:hover .scroll-indicator__thumb {
   background: #2563eb;
   opacity: 0.8;
+}
+
+/* ============================================================================
+   STAGE 2: METRIC WEIGHTS PANEL
+   ============================================================================ */
+
+.metric-weights-panel {
+  padding: 8px;
+  background: transparent;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.metric-weights-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.metric-weights-panel__title {
+  font-size: 10px;
+  font-weight: 600;
+  color: #6b7280;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.metric-weights-panel__reset {
+  padding: 2px 6px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.metric-weights-panel__reset:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.metric-weights-panel__reset:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.metric-weight-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.metric-weight-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.metric-weight-item__label {
+  font-size: 10px;
+  font-weight: 600;
+  min-width: 80px;
+}
+
+.metric-weight-item__slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  background: #e5e7eb;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.metric-weight-item__slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: #3b82f6;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.metric-weight-item__slider::-webkit-slider-thumb:hover {
+  background: #2563eb;
+  transform: scale(1.1);
+}
+
+.metric-weight-item__slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: #3b82f6;
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s ease;
+}
+
+.metric-weight-item__slider::-moz-range-thumb:hover {
+  background: #2563eb;
+  transform: scale(1.1);
+}
+
+.metric-weight-item__slider:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.metric-weight-item__value {
+  font-size: 10px;
+  font-weight: 600;
+  color: #1f2937;
+  min-width: 50px;
+  text-align: right;
+}
+
+.metric-weight-item__auto {
+  color: #9ca3af;
+  font-weight: 400;
+  font-size: 9px;
+}
+
+/* ============================================================================
+   STAGE 2: CANDIDATES LIST
+   ============================================================================ */
+
+.candidate-list-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.candidate-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: scroll;
+  flex: 1;
+  scrollbar-gutter: stable;
+  padding: 2px;
+}
+
+.candidate-list__empty {
+  padding: 8px;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 10px;
+  font-style: italic;
+}
+
+.candidate-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.candidate-item:hover {
+  background: #f9fafb;
+  border-color: #3b82f6;
+  box-shadow: 0 1px 3px rgba(59, 130, 246, 0.1);
+}
+
+.candidate-item--accepted {
+  background: #ecfdf5;
+  border-color: #10b981;
+}
+
+.candidate-item--rejected {
+  background: #fef2f2;
+  border-color: #ef4444;
+  opacity: 0.6;
+}
+
+.candidate-item--unsure {
+  background: #fffbeb;
+  border-color: #f59e0b;
+}
+
+.candidate-item__info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.candidate-item__id {
+  font-size: 11px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.candidate-item__score {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: monospace;
+}
+
+.candidate-item__metrics {
+  font-size: 9px;
+  color: #6b7280;
+  font-family: monospace;
+}
+
+.candidate-item__actions {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.candidate-item__btn {
+  padding: 3px 8px;
+  border: none;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-width: 28px;
+}
+
+.candidate-item__btn--accept {
+  background: #10b981;
+  color: white;
+}
+
+.candidate-item__btn--accept:hover {
+  background: #059669;
+}
+
+.candidate-item__btn--reject {
+  background: #ef4444;
+  color: white;
+}
+
+.candidate-item__btn--reject:hover {
+  background: #dc2626;
+}
+
+.candidate-item__btn--unsure {
+  background: #9ca3af;
+  color: white;
+}
+
+.candidate-item__btn--unsure:hover {
+  background: #6b7280;
+}
+
+.candidate-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.candidate-list::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+.candidate-list::-webkit-scrollbar-thumb {
+  background: #9ca3af;
+  border-radius: 4px;
+  border: 2px solid #f3f4f6;
+}
+
+.candidate-list::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+/* ============================================================================
+   STAGE 2: REJECTED LIST
+   ============================================================================ */
+
+.rejected-list-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.rejected-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: scroll;
+  flex: 1;
+  scrollbar-gutter: stable;
+}
+
+.rejected-list__empty {
+  padding: 8px;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 10px;
+  font-style: italic;
+}
+
+.rejected-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 6px;
+  font-size: 11px;
+  color: #6b7280;
+  border-bottom: 1px solid #f3f4f6;
+  transition: background 0.1s;
+}
+
+.rejected-item:hover {
+  background: #fef2f2;
+}
+
+.rejected-item:last-child {
+  border-bottom: none;
+}
+
+.rejected-item__id {
+  font-size: 11px;
+  color: #374151;
+}
+
+.rejected-item__undo {
+  padding: 2px 6px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.rejected-item__undo:hover {
+  background: #2563eb;
+}
+
+.rejected-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.rejected-list::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+.rejected-list::-webkit-scrollbar-thumb {
+  background: #9ca3af;
+  border-radius: 4px;
+  border: 2px solid #f3f4f6;
+}
+
+.rejected-list::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
 }
 
 /* ============================================================================

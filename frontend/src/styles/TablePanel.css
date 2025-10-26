@@ -239,6 +239,16 @@
   border-top: 2px solid #d1d5db;
 }
 
+.table-panel__sub-row--highlighted {
+  background: #eff6ff !important;
+  border-left: 3px solid #3b82f6;
+  box-shadow: inset 0 0 0 1px #93c5fd;
+}
+
+.table-panel__sub-row--highlighted:hover {
+  background: #dbeafe !important;
+}
+
 /* ============================================================================
  * CELL STYLING
  * ============================================================================ */

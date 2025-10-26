@@ -6,13 +6,16 @@
 import type { StateCreator } from 'zustand'
 import type {
   Tag,
-  MetricSignature,
+  MetricWeights,
   FeatureMatch,
-  FeatureTableRow
+  FeatureTableRow,
+  CandidateVerificationState
 } from '../types'
 import {
   generateTagId,
   findCandidateFeatures,
+  inferMetricSignature,
+  inferMetricWeights,
   TAG_TEMPLATES
 } from '../lib/tag-utils'
 
@@ -25,6 +28,12 @@ export interface TagState {
   tags: Tag[]                                // All template tags
   selectedFeatureIds: Set<number>            // Features selected in TablePanel (checkboxes)
   activeTagId: string | null                 // Currently selected tag for assignment
+
+  // Stage 2: Candidate discovery state
+  candidateFeatures: FeatureMatch[]          // Current candidate list
+  candidateStates: Map<number, CandidateVerificationState>  // Verification state per candidate
+  currentWeights: MetricWeights | null       // Active weights for current candidate search
+  highlightedFeatureId: number | null        // Feature to highlight in TablePanel
 
   // Tag actions
   createTag: (name: string, color?: string) => string  // Returns new tag ID
@@ -45,8 +54,18 @@ export interface TagState {
   removeFeatureFromTag: (tagId: string, featureId: number) => void
   getFeatureTags: (featureId: number) => Tag[]
 
-  // Candidate discovery (Stage 2 preview)
-  findCandidates: (tagId: string, limit?: number) => FeatureMatch[]
+  // Stage 2: Candidate discovery actions
+  refreshCandidates: () => void
+  acceptCandidate: (featureId: number) => void
+  rejectCandidate: (featureId: number) => void
+  markCandidateUnsure: (featureId: number) => void
+  clearCandidateState: (featureId: number) => void
+  undoRejection: (tagId: string, featureId: number) => void
+  setHighlightedFeature: (featureId: number | null) => void
+
+  // Stage 2: Weight management actions
+  updateMetricWeight: (metric: keyof MetricWeights, weight: number) => void
+  resetWeightsToAuto: () => void
 }
 
 // ============================================================================
@@ -63,6 +82,12 @@ export const createTagActions: StateCreator<
   tags: [],
   selectedFeatureIds: new Set<number>(),
   activeTagId: null,
+
+  // Stage 2 initial state
+  candidateFeatures: [],
+  candidateStates: new Map<number, CandidateVerificationState>(),
+  currentWeights: null,
+  highlightedFeatureId: null,
 
   // ============================================================================
   // TAG CRUD OPERATIONS
@@ -83,6 +108,8 @@ export const createTagActions: StateCreator<
         quality_score: { min: 0.0, max: 1.0 }
       },
       featureIds: new Set<number>(),
+      rejectedFeatureIds: new Set<number>(),  // Initialize rejected set (Stage 2)
+      metricWeights: undefined,  // Auto-inferred by default
       color: color || '#3b82f6'  // Default to blue
     }
 
@@ -204,31 +231,6 @@ export const createTagActions: StateCreator<
   },
 
   // ============================================================================
-  // CANDIDATE DISCOVERY (Stage 2 Preview)
-  // ============================================================================
-
-  findCandidates: (tagId, limit = 10) => {
-    const tag = get().tags.find((t: Tag) => t.id === tagId)
-    const tableData = get().tableData
-
-    if (!tag || !tableData) {
-      console.warn('[Tag System] Cannot find candidates: tag or table data not available')
-      return []
-    }
-
-    // Find candidates using Euclidean distance
-    const candidates = findCandidateFeatures(
-      tableData.features,
-      tag.metricSignature,
-      tag.featureIds,  // Exclude already tagged features
-      limit
-    )
-
-    console.log('[Tag System] Found', candidates.length, 'candidates for tag:', tagId)
-    return candidates
-  },
-
-  // ============================================================================
   // TEMPLATE INITIALIZATION
   // ============================================================================
 
@@ -249,6 +251,8 @@ export const createTagActions: StateCreator<
       updatedAt: Date.now(),
       metricSignature: template.signature,
       featureIds: new Set<number>(),  // Empty initially
+      rejectedFeatureIds: new Set<number>(),  // Empty initially (Stage 2)
+      metricWeights: undefined,  // Auto-inferred by default
       color: template.color,
       templateSource: template.name
     }))
@@ -275,7 +279,7 @@ export const createTagActions: StateCreator<
       tags: state.tags.map((tag: Tag) => {
         if (tag.id === tagId) {
           const updatedFeatureIds = new Set(tag.featureIds)
-          selectedIds.forEach(id => updatedFeatureIds.add(id))
+          selectedIds.forEach((id: number) => updatedFeatureIds.add(id))
           return {
             ...tag,
             featureIds: updatedFeatureIds,
@@ -289,5 +293,253 @@ export const createTagActions: StateCreator<
     }))
 
     console.log('[Tag System] Assigned', selectedIds.size, 'features to tag:', tagId)
+  },
+
+  // ============================================================================
+  // STAGE 2: CANDIDATE DISCOVERY ACTIONS
+  // ============================================================================
+
+  refreshCandidates: () => {
+    const { selectedFeatureIds, activeTagId, tags, tableData } = get() as any
+
+    // Clear candidates if no selection or no table data
+    if (selectedFeatureIds.size === 0 || !tableData) {
+      set({
+        candidateFeatures: [],
+        candidateStates: new Map(),
+        currentWeights: null
+      })
+      return
+    }
+
+    // Get active tag (optional - only needed for rejected list and custom weights)
+    const activeTag = activeTagId ? tags.find((t: Tag) => t.id === activeTagId) : null
+
+    // Get selected features
+    const selectedFeatures = tableData.features.filter((f: FeatureTableRow) =>
+      selectedFeatureIds.has(f.feature_id)
+    )
+
+    if (selectedFeatures.length === 0) {
+      set({
+        candidateFeatures: [],
+        candidateStates: new Map(),
+        currentWeights: null
+      })
+      return
+    }
+
+    // Infer signature from selected features
+    const signature = inferMetricSignature(selectedFeatures)
+
+    // Use tag's custom weights or infer from signature
+    const weights = activeTag?.metricWeights || inferMetricWeights(signature)
+
+    // Find candidates excluding selected + rejected features
+    const rejectedIds = activeTag?.rejectedFeatureIds || new Set<number>()
+    const candidates = findCandidateFeatures(
+      tableData.features,
+      signature,
+      selectedFeatureIds,
+      rejectedIds,
+      weights,
+      20  // Top 20 candidates
+    )
+
+    // Update state
+    set({
+      candidateFeatures: candidates,
+      candidateStates: new Map(),  // Reset verification states
+      currentWeights: weights
+    })
+
+    console.log('[Tag System] Refreshed candidates:', candidates.length, 'found')
+  },
+
+  acceptCandidate: (featureId) => {
+    const { selectedFeatureIds, candidateStates } = get() as any
+
+    // Add to selected features (this will trigger auto-refresh)
+    const newSelection = new Set(selectedFeatureIds)
+    newSelection.add(featureId)
+
+    // Update verification state
+    const newStates = new Map(candidateStates)
+    newStates.set(featureId, 'accepted' as CandidateVerificationState)
+
+    set({
+      selectedFeatureIds: newSelection,
+      candidateStates: newStates
+    })
+
+    console.log('[Tag System] Accepted candidate:', featureId)
+
+    // Trigger refresh (will be debounced in component)
+    get().refreshCandidates()
+  },
+
+  rejectCandidate: (featureId) => {
+    const { activeTagId, candidateStates } = get() as any
+
+    if (!activeTagId) {
+      console.warn('[Tag System] No active tag - cannot permanently reject. Marking as rejected state only.')
+      // Still update verification state for visual feedback
+      const newStates = new Map(candidateStates)
+      newStates.set(featureId, 'rejected' as CandidateVerificationState)
+      set({ candidateStates: newStates })
+      return
+    }
+
+    // Add to tag's rejected list
+    set((state: any) => ({
+      tags: state.tags.map((tag: Tag) => {
+        if (tag.id === activeTagId) {
+          const rejectedIds = new Set(tag.rejectedFeatureIds || new Set())
+          rejectedIds.add(featureId)
+          return {
+            ...tag,
+            rejectedFeatureIds: rejectedIds,
+            updatedAt: Date.now()
+          }
+        }
+        return tag
+      })
+    }))
+
+    // Update verification state
+    const newStates = new Map(candidateStates)
+    newStates.set(featureId, 'rejected' as CandidateVerificationState)
+
+    set({ candidateStates: newStates })
+
+    console.log('[Tag System] Rejected candidate:', featureId)
+
+    // Trigger refresh to remove from list
+    get().refreshCandidates()
+  },
+
+  markCandidateUnsure: (featureId) => {
+    const { candidateStates } = get() as any
+
+    const newStates = new Map(candidateStates)
+    newStates.set(featureId, 'unsure' as CandidateVerificationState)
+
+    set({ candidateStates: newStates })
+
+    console.log('[Tag System] Marked candidate as unsure:', featureId)
+  },
+
+  clearCandidateState: (featureId) => {
+    const { candidateStates } = get() as any
+
+    const newStates = new Map(candidateStates)
+    newStates.delete(featureId)
+
+    set({ candidateStates: newStates })
+
+    console.log('[Tag System] Cleared candidate state:', featureId)
+  },
+
+  undoRejection: (tagId, featureId) => {
+    // Remove from tag's rejected list
+    set((state: any) => ({
+      tags: state.tags.map((tag: Tag) => {
+        if (tag.id === tagId) {
+          const rejectedIds = new Set(tag.rejectedFeatureIds || new Set())
+          rejectedIds.delete(featureId)
+          return {
+            ...tag,
+            rejectedFeatureIds: rejectedIds,
+            updatedAt: Date.now()
+          }
+        }
+        return tag
+      })
+    }))
+
+    console.log('[Tag System] Undid rejection:', featureId, 'for tag:', tagId)
+
+    // Trigger refresh to add back to candidates if applicable
+    get().refreshCandidates()
+  },
+
+  setHighlightedFeature: (featureId) => {
+    set({ highlightedFeatureId: featureId })
+  },
+
+  // ============================================================================
+  // STAGE 2: WEIGHT MANAGEMENT ACTIONS
+  // ============================================================================
+
+  updateMetricWeight: (metric, weight) => {
+    const { activeTagId, tags, currentWeights } = get() as any
+
+    if (!activeTagId) {
+      console.warn('[Tag System] No active tag to update weight')
+      return
+    }
+
+    // Get or create weights object
+    const activeTag = tags.find((t: Tag) => t.id === activeTagId)
+    if (!activeTag) return
+
+    const updatedWeights = {
+      ...(activeTag.metricWeights || currentWeights || {
+        feature_splitting: 1.0,
+        embedding: 1.0,
+        fuzz: 1.0,
+        detection: 1.0,
+        semantic_similarity: 1.0,
+        quality_score: 1.0
+      }),
+      [metric]: weight
+    }
+
+    // Update tag with custom weights
+    set((state: any) => ({
+      tags: state.tags.map((tag: Tag) => {
+        if (tag.id === activeTagId) {
+          return {
+            ...tag,
+            metricWeights: updatedWeights,
+            updatedAt: Date.now()
+          }
+        }
+        return tag
+      })
+    }))
+
+    console.log('[Tag System] Updated weight for', metric, ':', weight)
+
+    // Trigger refresh with new weights (will be debounced in component)
+    get().refreshCandidates()
+  },
+
+  resetWeightsToAuto: () => {
+    const { activeTagId } = get() as any
+
+    if (!activeTagId) {
+      console.warn('[Tag System] No active tag to reset weights')
+      return
+    }
+
+    // Clear custom weights (will use auto-inferred)
+    set((state: any) => ({
+      tags: state.tags.map((tag: Tag) => {
+        if (tag.id === activeTagId) {
+          return {
+            ...tag,
+            metricWeights: undefined,
+            updatedAt: Date.now()
+          }
+        }
+        return tag
+      })
+    }))
+
+    console.log('[Tag System] Reset weights to auto-inferred')
+
+    // Trigger refresh with auto-inferred weights
+    get().refreshCandidates()
   }
 })

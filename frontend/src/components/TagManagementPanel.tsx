@@ -5,8 +5,8 @@
 
 import React, { useMemo, useRef, useEffect, useState } from 'react'
 import { useVisualizationStore } from '../store/index'
-import type { MetricSignature, FeatureTableRow } from '../types'
-import { inferMetricSignature, extractMetricValues } from '../lib/tag-utils'
+import type { MetricSignature, MetricWeights, FeatureTableRow } from '../types'
+import { inferMetricSignature, extractMetricValues, inferMetricWeights } from '../lib/tag-utils'
 import { useResizeObserver } from '../lib/utils'
 import {
   calculateRadarLayout,
@@ -138,7 +138,6 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
 }) => {
   const svgRef = useRef<SVGSVGElement>(null)
   const [draggingAxis, setDraggingAxis] = useState<{ index: number; bound: 'min' | 'max' } | null>(null)
-  const [errors, setErrors] = useState<Record<string, string>>({})
 
   // Calculate responsive radar size from props (use 70% width for radar chart)
   const radarSize = useMemo(() => {
@@ -205,45 +204,6 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
     document.addEventListener('pointerup', handleGlobalPointerUp)
     return () => document.removeEventListener('pointerup', handleGlobalPointerUp)
   }, [])
-
-  // Handle threshold input changes with validation
-  const handleThresholdChange = (metricKey: keyof MetricSignature, bound: 'min' | 'max', valueStr: string) => {
-    const value = parseFloat(valueStr)
-
-    // Check for valid number
-    if (isNaN(value)) {
-      setErrors(prev => ({ ...prev, [metricKey]: 'Invalid number' }))
-      return
-    }
-
-    // Check 0-1 range
-    if (value < 0 || value > 1) {
-      setErrors(prev => ({ ...prev, [metricKey]: 'Value must be 0-1' }))
-      return
-    }
-
-    const currentRange = signature[metricKey]
-    const newMin = bound === 'min' ? value : currentRange.min
-    const newMax = bound === 'max' ? value : currentRange.max
-
-    // Check min < max
-    if (newMin >= newMax) {
-      setErrors(prev => ({ ...prev, [metricKey]: 'Min must be < Max' }))
-      return
-    }
-
-    // Clear error and update signature
-    setErrors(prev => {
-      const newErrors = { ...prev }
-      delete newErrors[metricKey]
-      return newErrors
-    })
-
-    onSignatureChange({
-      ...signature,
-      [metricKey]: { min: newMin, max: newMax }
-    })
-  }
 
   // Generate paths for boundary
   const minPath = pointsToPath(
@@ -485,50 +445,332 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
         })}
         </svg>
       </div>
+    </div>
+  )
+}
 
-      {/* Right: Threshold Values List */}
-      <div className="tag-radar-view__thresholds">
-        <div className="threshold-list">
-          {RADAR_METRICS.map((metric) => {
-            const metricKey = metric.key as keyof MetricSignature
-            const range = signature[metricKey]
-            const error = errors[metricKey]
-            const hasError = !!error
+// ============================================================================
+// METRIC WEIGHTS PANEL SUB-COMPONENT (Stage 2)
+// ============================================================================
 
-            return (
-              <div key={metric.key} className="threshold-item">
-                <div className="threshold-item__label" style={{ color: metric.color }}>
-                  {metric.label}
-                </div>
-                <div className="threshold-item__inputs">
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="1"
-                    value={range.min.toFixed(2)}
-                    onChange={(e) => handleThresholdChange(metricKey, 'min', e.target.value)}
-                    className={`threshold-item__input ${hasError ? 'threshold-item__input--error' : ''}`}
-                  />
-                  <span className="threshold-item__separator">-</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="1"
-                    value={range.max.toFixed(2)}
-                    onChange={(e) => handleThresholdChange(metricKey, 'max', e.target.value)}
-                    className={`threshold-item__input ${hasError ? 'threshold-item__input--error' : ''}`}
-                  />
-                </div>
-                {hasError && (
-                  <div className="threshold-item__error">{error}</div>
-                )}
-              </div>
-            )
-          })}
-        </div>
+interface MetricWeightsPanelProps {
+  signature: MetricSignature
+  activeTagId: string | null
+  className?: string
+}
+
+const MetricWeightsPanel: React.FC<MetricWeightsPanelProps> = ({
+  signature,
+  activeTagId,
+  className = ''
+}) => {
+  const activeTag = useVisualizationStore(state =>
+    state.tags.find(t => t.id === activeTagId)
+  )
+  const currentWeights = useVisualizationStore(state => state.currentWeights)
+  const updateMetricWeight = useVisualizationStore(state => state.updateMetricWeight)
+  const resetWeightsToAuto = useVisualizationStore(state => state.resetWeightsToAuto)
+
+  // Compute auto-inferred weights from signature
+  const autoWeights = useMemo(() => inferMetricWeights(signature), [signature])
+
+  // Use tag's custom weights or auto-inferred weights
+  const displayWeights: MetricWeights = activeTag?.metricWeights || currentWeights || autoWeights
+
+  const handleWeightChange = (metric: keyof MetricWeights, value: number) => {
+    updateMetricWeight(metric, value)
+  }
+
+  return (
+    <div className={`metric-weights-panel ${className}`}>
+      <div className="metric-weights-panel__header">
+        <h5 className="metric-weights-panel__title">Metric Weights</h5>
+        <button
+          className="metric-weights-panel__reset"
+          onClick={resetWeightsToAuto}
+          disabled={!activeTag?.metricWeights}
+          title="Reset to auto-inferred weights"
+        >
+          Reset to Auto
+        </button>
       </div>
+      <div className="metric-weight-list">
+        {RADAR_METRICS.map((metric) => {
+          const metricKey = metric.key as keyof MetricWeights
+          const weight = displayWeights[metricKey]
+          const isCustom = activeTag?.metricWeights?.[metricKey] !== undefined
+
+          return (
+            <div key={metric.key} className="metric-weight-item">
+              <div className="metric-weight-item__label" style={{ color: metric.color }}>
+                {metric.label}
+              </div>
+              <input
+                type="range"
+                min="0.1"
+                max="3.0"
+                step="0.1"
+                value={weight}
+                onChange={(e) => handleWeightChange(metricKey, parseFloat(e.target.value))}
+                className="metric-weight-item__slider"
+                disabled={!activeTagId}
+              />
+              <div className="metric-weight-item__value">
+                {weight.toFixed(2)}
+                {!isCustom && <span className="metric-weight-item__auto"> (Auto)</span>}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ============================================================================
+// CANDIDATES LIST SUB-COMPONENT (Stage 2)
+// ============================================================================
+
+interface CandidatesListProps {
+  className?: string
+}
+
+const CandidatesList: React.FC<CandidatesListProps> = ({ className = '' }) => {
+  const candidateFeatures = useVisualizationStore(state => state.candidateFeatures)
+  const candidateStates = useVisualizationStore(state => state.candidateStates)
+  const acceptCandidate = useVisualizationStore(state => state.acceptCandidate)
+  const rejectCandidate = useVisualizationStore(state => state.rejectCandidate)
+  const markCandidateUnsure = useVisualizationStore(state => state.markCandidateUnsure)
+  const setHighlightedFeature = useVisualizationStore(state => state.setHighlightedFeature)
+
+  const [scrollState, setScrollState] = useState({ scrollTop: 0, scrollHeight: 0, clientHeight: 0 })
+  const listRef = useRef<HTMLDivElement>(null)
+  const rafIdRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    const list = listRef.current
+    if (!list) return
+
+    const updateScrollState = () => {
+      setScrollState({
+        scrollTop: list.scrollTop,
+        scrollHeight: list.scrollHeight,
+        clientHeight: list.clientHeight
+      })
+    }
+
+    const handleScroll = () => {
+      if (rafIdRef.current !== null) return
+      rafIdRef.current = requestAnimationFrame(() => {
+        updateScrollState()
+        rafIdRef.current = null
+      })
+    }
+
+    updateScrollState()
+    list.addEventListener('scroll', handleScroll)
+    const resizeObserver = new ResizeObserver(updateScrollState)
+    resizeObserver.observe(list)
+
+    return () => {
+      list.removeEventListener('scroll', handleScroll)
+      resizeObserver.disconnect()
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current)
+      }
+    }
+  }, [candidateFeatures])
+
+  const { scrollTop, scrollHeight, clientHeight } = scrollState
+  const maxScroll = scrollHeight - clientHeight
+  const scrollPercent = maxScroll > 0 ? scrollTop / maxScroll : 0
+  const isScrollable = scrollHeight > clientHeight
+
+  if (candidateFeatures.length === 0) {
+    return (
+      <div className={`candidate-list ${className}`}>
+        <p className="candidate-list__empty">
+          No candidates found. Select features to find similar patterns.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className={`candidate-list-wrapper ${className}`}>
+      <div className="candidate-list" ref={listRef}>
+        {candidateFeatures.map(candidate => {
+          const state = candidateStates.get(candidate.featureId) || 'pending'
+
+          return (
+            <div
+              key={candidate.featureId}
+              className={`candidate-item candidate-item--${state}`}
+              onClick={() => setHighlightedFeature(candidate.featureId)}
+            >
+              <div className="candidate-item__info">
+                <div className="candidate-item__id">Feature {candidate.featureId}</div>
+                <div
+                  className="candidate-item__score"
+                  style={{
+                    color: candidate.score > 0.7 ? '#10b981' : candidate.score > 0.4 ? '#f59e0b' : '#ef4444'
+                  }}
+                >
+                  {candidate.score.toFixed(2)}
+                </div>
+              </div>
+              <div className="candidate-item__metrics">
+                Emb: {candidate.metricValues.embedding.toFixed(2)} |
+                Fuzz: {candidate.metricValues.fuzz.toFixed(2)} |
+                Det: {candidate.metricValues.detection.toFixed(2)}
+              </div>
+              <div className="candidate-item__actions">
+                <button
+                  className="candidate-item__btn candidate-item__btn--accept"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    acceptCandidate(candidate.featureId)
+                  }}
+                  title="Accept candidate"
+                >
+                  ✓
+                </button>
+                <button
+                  className="candidate-item__btn candidate-item__btn--unsure"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    markCandidateUnsure(candidate.featureId)
+                  }}
+                  title="Mark as unsure"
+                >
+                  ?
+                </button>
+                <button
+                  className="candidate-item__btn candidate-item__btn--reject"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    rejectCandidate(candidate.featureId)
+                  }}
+                  title="Reject candidate"
+                >
+                  ✗
+                </button>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      {isScrollable && (
+        <div className="scroll-indicator">
+          <div
+            className="scroll-indicator__thumb"
+            style={{
+              height: `${(clientHeight / scrollHeight) * 100}%`,
+              top: `${scrollPercent * (100 - (clientHeight / scrollHeight) * 100)}%`
+            }}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================================================
+// REJECTED LIST SUB-COMPONENT (Stage 2)
+// ============================================================================
+
+interface RejectedListProps {
+  className?: string
+}
+
+const RejectedList: React.FC<RejectedListProps> = ({ className = '' }) => {
+  const activeTagId = useVisualizationStore(state => state.activeTagId)
+  const tags = useVisualizationStore(state => state.tags)
+  const undoRejection = useVisualizationStore(state => state.undoRejection)
+
+  const [scrollState, setScrollState] = useState({ scrollTop: 0, scrollHeight: 0, clientHeight: 0 })
+  const listRef = useRef<HTMLUListElement>(null)
+  const rafIdRef = useRef<number | null>(null)
+
+  const activeTag = tags.find(t => t.id === activeTagId)
+  const rejectedIds = Array.from(activeTag?.rejectedFeatureIds || []).sort((a, b) => a - b)
+
+  useEffect(() => {
+    const list = listRef.current
+    if (!list) return
+
+    const updateScrollState = () => {
+      setScrollState({
+        scrollTop: list.scrollTop,
+        scrollHeight: list.scrollHeight,
+        clientHeight: list.clientHeight
+      })
+    }
+
+    const handleScroll = () => {
+      if (rafIdRef.current !== null) return
+      rafIdRef.current = requestAnimationFrame(() => {
+        updateScrollState()
+        rafIdRef.current = null
+      })
+    }
+
+    updateScrollState()
+    list.addEventListener('scroll', handleScroll)
+    const resizeObserver = new ResizeObserver(updateScrollState)
+    resizeObserver.observe(list)
+
+    return () => {
+      list.removeEventListener('scroll', handleScroll)
+      resizeObserver.disconnect()
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current)
+      }
+    }
+  }, [rejectedIds])
+
+  const { scrollTop, scrollHeight, clientHeight } = scrollState
+  const maxScroll = scrollHeight - clientHeight
+  const scrollPercent = maxScroll > 0 ? scrollTop / maxScroll : 0
+  const isScrollable = scrollHeight > clientHeight
+
+  if (rejectedIds.length === 0) {
+    return (
+      <div className={`rejected-list ${className}`}>
+        <p className="rejected-list__empty">
+          No rejected features yet.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className={`rejected-list-wrapper ${className}`}>
+      <ul className="rejected-list" ref={listRef}>
+        {rejectedIds.map(id => (
+          <li key={id} className="rejected-item">
+            <span className="rejected-item__id">Feature {id}</span>
+            <button
+              className="rejected-item__undo"
+              onClick={() => activeTagId && undoRejection(activeTagId, id)}
+              title="Undo rejection"
+            >
+              ↩
+            </button>
+          </li>
+        ))}
+      </ul>
+      {isScrollable && (
+        <div className="scroll-indicator">
+          <div
+            className="scroll-indicator__thumb"
+            style={{
+              height: `${(clientHeight / scrollHeight) * 100}%`,
+              top: `${scrollPercent * (100 - (clientHeight / scrollHeight) * 100)}%`
+            }}
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -543,11 +785,13 @@ const TagManagementPanel: React.FC = () => {
   const selectedFeatureIds = useVisualizationStore(state => state.selectedFeatureIds)
   const activeTagId = useVisualizationStore(state => state.activeTagId)
   const tableData = useVisualizationStore(state => state.tableData)
+  const candidateFeatures = useVisualizationStore(state => state.candidateFeatures)
 
   // Store actions
   const createTag = useVisualizationStore(state => state.createTag)
   const setActiveTag = useVisualizationStore(state => state.setActiveTag)
   const assignFeaturesToTag = useVisualizationStore(state => state.assignFeaturesToTag)
+  const refreshCandidates = useVisualizationStore(state => state.refreshCandidates)
 
   // Local state for adding new tags
   const [isAddingTag, setIsAddingTag] = useState(false)
@@ -728,10 +972,23 @@ const TagManagementPanel: React.FC = () => {
     }
   }, [isAddingTag])
 
+  // Auto-refresh candidates when selection or active tag changes (Stage 2)
+  React.useEffect(() => {
+    // Debounce to avoid excessive computation
+    const timeoutId = setTimeout(() => {
+      refreshCandidates()
+    }, 300)
+
+    return () => clearTimeout(timeoutId)
+  }, [selectedFeatureIds, activeTagId, refreshCandidates])
+
   // Calculate scroll indicator position for template tags list
   const tagListMaxScroll = tagListScrollState.scrollHeight - tagListScrollState.clientHeight
   const tagListScrollPercent = tagListMaxScroll > 0 ? tagListScrollState.scrollTop / tagListMaxScroll : 0
   const tagListIsScrollable = tagListScrollState.scrollHeight > tagListScrollState.clientHeight
+
+  // Get counts for Column 3 titles
+  const rejectedCount = activeTag?.rejectedFeatureIds?.size || 0
 
   return (
     <div className="tag-management-panel" ref={setContainerRef}>
@@ -745,8 +1002,8 @@ const TagManagementPanel: React.FC = () => {
                 <div
                   key={tag.id}
                   className={`template-tag-card ${activeTagId === tag.id ? 'template-tag-card--active' : ''}`}
-                  onClick={() => setActiveTag(tag.id)}
-                  title={`Click to select ${tag.name}`}
+                  onClick={() => setActiveTag(activeTagId === tag.id ? null : tag.id)}
+                  title={activeTagId === tag.id ? 'Click to deselect' : `Click to select ${tag.name}`}
                 >
                   <div className="template-tag-card__info">
                     <div className="template-tag-card__name">{tag.name}</div>
@@ -819,29 +1076,52 @@ const TagManagementPanel: React.FC = () => {
           </button>
         </div>
 
-        {/* Column 2: Radar Chart */}
-        <div className="tag-panel__column tag-panel__radar">
-          <h4 className="tag-panel__column-title">Selected Features' Metrics</h4>
-          <TagRadarView
-            selectedFeatures={selectedFeatures}
-            signature={manualSignature}
-            onSignatureChange={handleSignatureChange}
-            width={columnDimensions.radarWidth}
-            height={columnDimensions.radarHeight}
-          />
+        {/* Column 2 & 3 MERGED: Candidate Discovery Methods */}
+        <div className="tag-panel__column tag-panel__discovery">
+          <h4 className="tag-panel__column-title">Candidate Discovery Methods</h4>
+
+          <div className="tag-panel__discovery-container">
+            {/* Left section: Range-Based Filtering */}
+            <div className="tag-panel__discovery-section tag-panel__discovery-section--radar">
+              <h5 className="tag-panel__discovery-section-header">Range-Based Filtering</h5>
+              <TagRadarView
+                selectedFeatures={selectedFeatures}
+                signature={manualSignature}
+                onSignatureChange={handleSignatureChange}
+                width={columnDimensions.radarWidth}
+                height={columnDimensions.radarHeight}
+              />
+            </div>
+
+            {/* Vertical separator */}
+            <div className="tag-panel__discovery-divider"></div>
+
+            {/* Right section: Weighted Distance */}
+            <div className="tag-panel__discovery-section tag-panel__discovery-section--weights">
+              <h5 className="tag-panel__discovery-section-header">Weighted Distance</h5>
+              <MetricWeightsPanel
+                signature={manualSignature}
+                activeTagId={activeTagId}
+              />
+            </div>
+          </div>
         </div>
 
-        {/* Column 3: Feature Lists */}
+        {/* Column 4: Feature Lists */}
         <div className="tag-panel__column tag-panel__features">
-          <h4 className="tag-panel__column-title">Features</h4>
+          <h4 className="tag-panel__column-title">Validation</h4>
           <div className="feature-lists">
             <div className="feature-list feature-list--selected">
               <h5 className="feature-list__title">Selected ({selectedFeatureIds.size})</h5>
               <SelectedFeaturesList featureIds={selectedFeatureIds} />
             </div>
             <div className="feature-list feature-list--candidates">
-              <h5 className="feature-list__title">Candidates (Stage 2)</h5>
-              <p className="feature-list__placeholder">Coming soon</p>
+              <h5 className="feature-list__title">Candidates ({candidateFeatures.length})</h5>
+              <CandidatesList />
+            </div>
+            <div className="feature-list feature-list--rejected">
+              <h5 className="feature-list__title">Rejected ({rejectedCount})</h5>
+              <RejectedList />
             </div>
           </div>
         </div>

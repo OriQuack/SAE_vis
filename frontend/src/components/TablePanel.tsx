@@ -39,12 +39,12 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const clearNodeSelection = useVisualizationStore(state => state.clearNodeSelection)
 
   // Tag system state
-  const tags = useVisualizationStore(state => state.tags)
   const selectedFeatureIds = useVisualizationStore(state => state.selectedFeatureIds)
   const toggleFeatureSelection = useVisualizationStore(state => state.toggleFeatureSelection)
   const selectAllFeatures = useVisualizationStore(state => state.selectAllFeatures)
   const clearFeatureSelection = useVisualizationStore(state => state.clearFeatureSelection)
   const getFeatureTags = useVisualizationStore(state => state.getFeatureTags)
+  const highlightedFeatureId = useVisualizationStore(state => state.highlightedFeatureId)
 
   const tableContainerRef = useRef<HTMLDivElement>(null)
   const qualityScoreCellRef = useRef<HTMLTableCellElement>(null)
@@ -540,7 +540,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                   return (
                     <tr
                       key={`${featureRow.feature_id}-${explainerId}`}
-                      className={`table-panel__sub-row ${explainerIdx === 0 ? 'table-panel__sub-row--first' : ''}`}
+                      className={`table-panel__sub-row ${explainerIdx === 0 ? 'table-panel__sub-row--first' : ''} ${highlightedFeatureId === featureRow.feature_id ? 'table-panel__sub-row--highlighted' : ''}`}
                     >
                       {/* Checkbox - only show on first sub-row */}
                       {explainerIdx === 0 && (

@@ -4,10 +4,9 @@
 // ============================================================================
 
 import type {
-  Tag,
   TagTemplate,
   MetricSignature,
-  MetricRange,
+  MetricWeights,
   FeatureMatch,
   FeatureTableRow
 } from '../types'
@@ -275,6 +274,76 @@ export function inferMetricSignature(
 }
 
 // ============================================================================
+// WEIGHTED DISTANCE SYSTEM (Stage 2)
+// ============================================================================
+
+/**
+ * Infer metric weights from signature ranges
+ * Tighter ranges get higher weights (more important for matching)
+ * Weights are normalized to sum to 6.0 (maintains distance scale)
+ */
+export function inferMetricWeights(signature: MetricSignature): MetricWeights {
+  const metrics: (keyof MetricSignature)[] = [
+    'feature_splitting',
+    'embedding',
+    'fuzz',
+    'detection',
+    'semantic_similarity',
+    'quality_score'
+  ]
+
+  // Compute raw weights (inverse of range width)
+  const rawWeights: Record<string, number> = {}
+  metrics.forEach(metric => {
+    const range = signature[metric]
+    const width = range.max - range.min
+    // Add small epsilon to avoid division by zero
+    rawWeights[metric] = 1.0 / (width + 0.01)
+  })
+
+  // Normalize weights to sum to 6.0 (one per metric)
+  const sum = Object.values(rawWeights).reduce((a, b) => a + b, 0)
+  const normalizedWeights: MetricWeights = {} as MetricWeights
+  metrics.forEach(metric => {
+    normalizedWeights[metric] = (rawWeights[metric] / sum) * 6.0
+  })
+
+  return normalizedWeights
+}
+
+/**
+ * Compute weighted Euclidean distance between feature and signature center
+ * Uses MetricWeights to emphasize important metrics
+ */
+export function computeWeightedDistance(
+  metricValues: ReturnType<typeof extractMetricValues>,
+  signature: MetricSignature,
+  weights: MetricWeights
+): number {
+  // Signature center: midpoint of each range
+  const signatureCenter = {
+    feature_splitting: (signature.feature_splitting.min + signature.feature_splitting.max) / 2,
+    embedding: (signature.embedding.min + signature.embedding.max) / 2,
+    fuzz: (signature.fuzz.min + signature.fuzz.max) / 2,
+    detection: (signature.detection.min + signature.detection.max) / 2,
+    semantic_similarity: (signature.semantic_similarity.min + signature.semantic_similarity.max) / 2,
+    quality_score: (signature.quality_score.min + signature.quality_score.max) / 2
+  }
+
+  // Weighted Euclidean distance in 6D space
+  const distance = Math.sqrt(
+    weights.feature_splitting * Math.pow(metricValues.feature_splitting - signatureCenter.feature_splitting, 2) +
+    weights.embedding * Math.pow(metricValues.embedding - signatureCenter.embedding, 2) +
+    weights.fuzz * Math.pow(metricValues.fuzz - signatureCenter.fuzz, 2) +
+    weights.detection * Math.pow(metricValues.detection - signatureCenter.detection, 2) +
+    weights.semantic_similarity * Math.pow(metricValues.semantic_similarity - signatureCenter.semantic_similarity, 2) +
+    weights.quality_score * Math.pow(metricValues.quality_score - signatureCenter.quality_score, 2)
+  )
+
+  return distance
+}
+
+// ============================================================================
 // FEATURE MATCHING (Euclidean Distance)
 // ============================================================================
 
@@ -303,50 +372,44 @@ export function featureMatchesSignature(
 }
 
 /**
- * Compute Euclidean distance between feature and signature center
- */
-export function computeDistanceToSignature(
-  metricValues: ReturnType<typeof extractMetricValues>,
-  signature: MetricSignature
-): number {
-  // Signature center: midpoint of each range
-  const signatureCenter = {
-    feature_splitting: (signature.feature_splitting.min + signature.feature_splitting.max) / 2,
-    embedding: (signature.embedding.min + signature.embedding.max) / 2,
-    fuzz: (signature.fuzz.min + signature.fuzz.max) / 2,
-    detection: (signature.detection.min + signature.detection.max) / 2,
-    semantic_similarity: (signature.semantic_similarity.min + signature.semantic_similarity.max) / 2,
-    quality_score: (signature.quality_score.min + signature.quality_score.max) / 2
-  }
-
-  // Euclidean distance in 6D space
-  const distance = Math.sqrt(
-    Math.pow(metricValues.feature_splitting - signatureCenter.feature_splitting, 2) +
-    Math.pow(metricValues.embedding - signatureCenter.embedding, 2) +
-    Math.pow(metricValues.fuzz - signatureCenter.fuzz, 2) +
-    Math.pow(metricValues.detection - signatureCenter.detection, 2) +
-    Math.pow(metricValues.semantic_similarity - signatureCenter.semantic_similarity, 2) +
-    Math.pow(metricValues.quality_score - signatureCenter.quality_score, 2)
-  )
-
-  return distance
-}
-
-/**
- * Find candidate features matching signature
+ * Find candidate features matching signature using weighted distance
  * Returns top N candidates sorted by similarity score
+ *
+ * @param allFeatures - All available features to search
+ * @param signature - Metric signature to match against
+ * @param excludeFeatureIds - Features to exclude (e.g., already tagged)
+ * @param rejectedFeatureIds - Features rejected for this tag
+ * @param weights - Metric weights (optional, defaults to equal weights)
+ * @param limit - Maximum number of candidates to return
  */
 export function findCandidateFeatures(
   allFeatures: FeatureTableRow[],
   signature: MetricSignature,
   excludeFeatureIds: Set<number>,
-  limit: number = 10
+  rejectedFeatureIds: Set<number> = new Set(),
+  weights?: MetricWeights,
+  limit: number = 20
 ): FeatureMatch[] {
+  // Use provided weights or default to equal weights (1.0 each)
+  const effectiveWeights = weights || {
+    feature_splitting: 1.0,
+    embedding: 1.0,
+    fuzz: 1.0,
+    detection: 1.0,
+    semantic_similarity: 1.0,
+    quality_score: 1.0
+  }
+
   const candidates: FeatureMatch[] = []
 
   allFeatures.forEach(feature => {
-    // Skip excluded features (already tagged)
+    // Skip excluded features (already selected)
     if (excludeFeatureIds.has(feature.feature_id)) {
+      return
+    }
+
+    // Skip rejected features for this tag
+    if (rejectedFeatureIds.has(feature.feature_id)) {
       return
     }
 
@@ -354,7 +417,7 @@ export function findCandidateFeatures(
 
     // Only consider features that match signature
     if (featureMatchesSignature(metricValues, signature)) {
-      const distance = computeDistanceToSignature(metricValues, signature)
+      const distance = computeWeightedDistance(metricValues, signature, effectiveWeights)
       const score = 1 / (1 + distance)  // Convert distance to similarity score
 
       candidates.push({
@@ -381,46 +444,4 @@ export function findCandidateFeatures(
  */
 export function generateTagId(): string {
   return `tag_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
-}
-
-/**
- * Get color for tag index (cycle through predefined colors)
- */
-export function getTagColor(index: number): string {
-  const colors = [
-    '#10b981',  // Green
-    '#3b82f6',  // Blue
-    '#f59e0b',  // Orange
-    '#ef4444',  // Red
-    '#a855f7',  // Purple
-    '#6b7280'   // Gray
-  ]
-  return colors[index % colors.length]
-}
-
-/**
- * Check if two tags have conflicting signatures
- * Returns true if any metric ranges don't overlap
- */
-export function tagsHaveConflict(sig1: MetricSignature, sig2: MetricSignature): boolean {
-  const metrics: (keyof MetricSignature)[] = [
-    'feature_splitting',
-    'embedding',
-    'fuzz',
-    'detection',
-    'semantic_similarity',
-    'quality_score'
-  ]
-
-  for (const metric of metrics) {
-    const range1 = sig1[metric]
-    const range2 = sig2[metric]
-
-    // Check if ranges don't overlap
-    if (range1.max < range2.min || range2.max < range1.min) {
-      return true  // Conflict: no overlap
-    }
-  }
-
-  return false  // No conflict: all ranges overlap
 }
