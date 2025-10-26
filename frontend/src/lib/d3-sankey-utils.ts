@@ -231,15 +231,17 @@ export function calculateSankeyLayout(
     const parentA = childToParentMap.get(a.id || '') || extractParentId(a.id || '')
     const parentB = childToParentMap.get(b.id || '') || extractParentId(b.id || '')
 
-    // If different parents, sort by parent's Y position if available
+    // If different parents, sort by parent's originalIndex for stable ordering
     if (parentA !== parentB) {
       const parentNodeA = nodeMap.get(parentA)
       const parentNodeB = nodeMap.get(parentB)
 
-      if (parentNodeA?.y0 != null && parentNodeB?.y0 != null) {
-        return parentNodeA.y0 - parentNodeB.y0
+      // Sort by parent's originalIndex (not Y position which is unreliable)
+      if (parentNodeA && parentNodeB) {
+        return (parentNodeA.originalIndex ?? 0) - (parentNodeB.originalIndex ?? 0)
       }
 
+      // Fallback to child's originalIndex if parents not found
       return (a.originalIndex ?? 0) - (b.originalIndex ?? 0)
     }
 

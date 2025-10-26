@@ -353,8 +353,29 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   // ============================================================================
 
   // Get selected node features for filtering
-  const getSelectedNodeFeatures = useVisualizationStore(state => state.getSelectedNodeFeatures)
-  const selectedFeatures = useMemo(() => getSelectedNodeFeatures(), [getSelectedNodeFeatures])
+  const leftPanelSankeyTree = useVisualizationStore(state => state.leftPanel.sankeyTree)
+
+  // Compute selected features with proper reactive dependencies
+  const selectedFeatures = useMemo(() => {
+    if (tableSelectedNodeIds.length === 0) {
+      return null
+    }
+
+    const featureIds = new Set<number>()
+    for (const nodeId of tableSelectedNodeIds) {
+      const node = leftPanelSankeyTree?.get(nodeId)
+      if (node?.featureIds) {
+        node.featureIds.forEach((id: number) => featureIds.add(id))
+      }
+    }
+
+    console.log('[TablePanel] Selected features computed:', {
+      nodeCount: tableSelectedNodeIds.length,
+      featureCount: featureIds.size
+    })
+
+    return featureIds
+  }, [tableSelectedNodeIds, leftPanelSankeyTree])
 
   // Sort features based on current sort settings (using shared utility)
   const sortedFeatures = useMemo(() => {
