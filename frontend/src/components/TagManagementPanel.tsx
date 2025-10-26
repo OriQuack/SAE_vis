@@ -81,19 +81,16 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
 
   // Calculate responsive radar size from props
   const radarSize = useMemo(() => {
-    const size = Math.min(width, height)
-    const margin = 40
-    const radius = (size - margin * 2) / 2
     return {
-      width: size,
-      height: size,
-      radius: Math.max(radius, 50)
+      width: width,
+      height: height,
+      margin: 95  // Margin for radar chart padding
     }
   }, [width, height])
 
   // Calculate layout using responsive size
-  const layout = calculateRadarLayout(radarSize.width, radarSize.height, radarSize.radius)
-  const { min, max, center } = signatureToRadarValues(signature)
+  const layout = calculateRadarLayout(radarSize.width, radarSize.height, radarSize.margin)
+  const { min, max } = signatureToRadarValues(signature)
 
   // Extract individual feature metrics for polygon rendering
   const featureMetrics = selectedFeatures.map(feature => extractMetricValues(feature))
@@ -217,15 +214,6 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
               stroke="#e5e7eb"
               strokeWidth="1"
             />
-            <text
-              x={layout.centerX}
-              y={layout.centerY - level.radius + 5}
-              textAnchor="middle"
-              fontSize="8"
-              fill="#9ca3af"
-            >
-              {level.value.toFixed(1)}
-            </text>
           </g>
         ))}
 
@@ -245,15 +233,11 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
               y={axis.labelPosition.y}
               textAnchor="middle"
               dominantBaseline="middle"
-              fontSize="9"
+              fontSize="10"
               fontWeight="600"
-              fill="#374151"
+              fill={axis.color}
             >
-              {axis.label.split('\n').map((line, i) => (
-                <tspan key={i} x={axis.labelPosition.x} dy={i === 0 ? 0 : 10}>
-                  {line}
-                </tspan>
-              ))}
+              {axis.label}
             </text>
           </g>
         ))}
@@ -304,6 +288,7 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
           const x = layout.centerX + radius * Math.cos(angleRad)
           const y = layout.centerY + radius * Math.sin(angleRad)
           const isDragging = draggingAxis?.index === i && draggingAxis.bound === 'min'
+          const metricColor = layout.axes[i].color  // Get color from metric
 
           return (
             <g key={`min-${i}`}>
@@ -312,22 +297,35 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
                 cy={y}
                 r={isDragging ? 6 : 4}
                 fill="white"
-                stroke="#3b82f6"
+                stroke={metricColor}
                 strokeWidth="2"
                 style={{ cursor: 'grab' }}
                 onPointerDown={(e) => handlePointerDown(e, i, 'min')}
               />
-              <text
-                x={x}
-                y={y - 10}
-                textAnchor="middle"
-                fontSize="8"
-                fill="#3b82f6"
-                fontWeight="600"
-                pointerEvents="none"
-              >
-                {value.toFixed(1)}
-              </text>
+              {isDragging && (
+                <>
+                  <rect
+                    x={x - 20}
+                    y={y - 24}
+                    width={40}
+                    height={18}
+                    rx={4}
+                    fill="#1f2937"
+                    opacity={0.9}
+                  />
+                  <text
+                    x={x}
+                    y={y - 13}
+                    textAnchor="middle"
+                    fontSize="11"
+                    fill="white"
+                    fontWeight="600"
+                    pointerEvents="none"
+                  >
+                    {value.toFixed(2)}
+                  </text>
+                </>
+              )}
             </g>
           )
         })}
@@ -340,6 +338,7 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
           const x = layout.centerX + radius * Math.cos(angleRad)
           const y = layout.centerY + radius * Math.sin(angleRad)
           const isDragging = draggingAxis?.index === i && draggingAxis.bound === 'max'
+          const metricColor = layout.axes[i].color  // Get color from metric
 
           return (
             <g key={`max-${i}`}>
@@ -347,23 +346,36 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
                 cx={x}
                 cy={y}
                 r={isDragging ? 6 : 4}
-                fill="#3b82f6"
-                stroke="#1e40af"
+                fill={metricColor}
+                stroke={metricColor}
                 strokeWidth="2"
                 style={{ cursor: 'grab' }}
                 onPointerDown={(e) => handlePointerDown(e, i, 'max')}
               />
-              <text
-                x={x}
-                y={y + 14}
-                textAnchor="middle"
-                fontSize="8"
-                fill="#1e40af"
-                fontWeight="600"
-                pointerEvents="none"
-              >
-                {value.toFixed(1)}
-              </text>
+              {isDragging && (
+                <>
+                  <rect
+                    x={x - 20}
+                    y={y + 8}
+                    width={40}
+                    height={18}
+                    rx={4}
+                    fill="#1f2937"
+                    opacity={0.9}
+                  />
+                  <text
+                    x={x}
+                    y={y + 19}
+                    textAnchor="middle"
+                    fontSize="11"
+                    fill="white"
+                    fontWeight="600"
+                    pointerEvents="none"
+                  >
+                    {value.toFixed(2)}
+                  </text>
+                </>
+              )}
             </g>
           )
         })}
@@ -407,7 +419,7 @@ const TagStatisticsView: React.FC<TagStatisticsViewProps> = ({
     let qualitySum = 0
     let qualityCount = 0
 
-    tableData.features.forEach(feature => {
+    tableData.features.forEach((feature: FeatureTableRow) => {
       const metrics = extractMetricValues(feature)
 
       if (featureMatchesSignature(metrics, tag.metricSignature)) {
@@ -572,18 +584,15 @@ const TagManagementPanel: React.FC = () => {
 
   // Calculate column dimensions from container size
   const columnDimensions = useMemo(() => {
-    const totalGaps = 3 * 8
-    const panelPadding = 2 * 8
-    const columnWidth = (containerSize.width - totalGaps - panelPadding) / 4
+    const columnWidth = (containerSize.width) / 4
 
     const panelVerticalPadding = 2 * 8
     const columnHeight = containerSize.height - panelVerticalPadding
 
-    const columnPadding = 2 * 8
     const columnBorder = 2
     const titleHeight = 24
-    const radarWidth = columnWidth - columnPadding - columnBorder
-    const radarHeight = columnHeight - columnPadding - columnBorder - titleHeight
+    const radarWidth = columnWidth
+    const radarHeight = columnHeight - columnBorder - titleHeight
 
     return {
       columnWidth,
@@ -631,10 +640,6 @@ const TagManagementPanel: React.FC = () => {
                 onClick={() => setActiveTag(tag.id)}
                 title={`Click to select ${tag.name}`}
               >
-                <div
-                  className="template-tag-card__color"
-                  style={{ backgroundColor: tag.color }}
-                />
                 <div className="template-tag-card__info">
                   <div className="template-tag-card__name">{tag.name}</div>
                   <div className="template-tag-card__count">

@@ -4,6 +4,15 @@
 // ============================================================================
 
 import type { MetricSignature, MetricRange } from '../types'
+import {
+  METRIC_FEATURE_SPLITTING,
+  METRIC_SCORE_EMBEDDING,
+  METRIC_SCORE_FUZZ,
+  METRIC_SCORE_DETECTION,
+  METRIC_SEMANTIC_SIMILARITY,
+  METRIC_QUALITY_SCORE,
+  getMetricBaseColor
+} from './constants'
 
 // ============================================================================
 // RADAR CHART CONFIGURATION
@@ -11,23 +20,63 @@ import type { MetricSignature, MetricRange } from '../types'
 
 export const RADAR_CONFIG = {
   axes: 6,                // Number of axes (6 metrics)
-  levels: 5,              // Number of concentric circles (0.2, 0.4, 0.6, 0.8, 1.0)
+  levels: 10,              // Number of concentric circles (0.2, 0.4, 0.6, 0.8, 1.0)
   maxValue: 1.0,          // Maximum value on each axis
-  labelFactor: 1.15,      // How far outside the circle to place labels
+  labelFactor: 1.25,      // How far outside the circle to place labels (increased from 1.15)
   dotRadius: 4,           // Radius of data point dots
   opacityArea: 0.2,       // Opacity of filled area
   strokeWidth: 2          // Width of radar outline
 }
 
-// Metric names and display labels
-export const RADAR_METRICS = [
-  { key: 'feature_splitting', label: 'Feature\nSplitting', color: '#ef4444' },
-  { key: 'embedding', label: 'Embedding\nScore', color: '#3b82f6' },
-  { key: 'fuzz', label: 'Fuzz\nScore', color: '#f59e0b' },
-  { key: 'detection', label: 'Detection\nScore', color: '#10b981' },
-  { key: 'semantic_similarity', label: 'Semantic\nSimilarity', color: '#a855f7' },
-  { key: 'quality_score', label: 'Quality\nScore', color: '#6b7280' }
-] as const
+// ============================================================================
+// RADAR METRICS - Built from centralized constants
+// ============================================================================
+
+/**
+ * Get radar metrics configuration using centralized constants
+ * Returns array of metrics with keys, labels, and colors
+ *
+ * Note: Keys match MetricSignature property names (e.g., 'embedding', 'fuzz', 'detection')
+ * which differ from backend API metric names (e.g., 'score_embedding', 'score_fuzz', 'score_detection')
+ */
+export function getRadarMetrics() {
+  return [
+    {
+      key: 'feature_splitting',  // MetricSignature property name
+      label: 'FS',  // Abbreviated form (Feature Splitting)
+      color: getMetricBaseColor(METRIC_FEATURE_SPLITTING)
+    },
+    {
+      key: 'embedding',  // MetricSignature property name (not 'score_embedding')
+      label: 'Embed',  // Abbreviated form (Embedding Score)
+      color: getMetricBaseColor(METRIC_SCORE_EMBEDDING)
+    },
+    {
+      key: 'fuzz',  // MetricSignature property name (not 'score_fuzz')
+      label: 'Fuzz',  // Abbreviated form (Fuzz Score)
+      color: getMetricBaseColor(METRIC_SCORE_FUZZ)
+    },
+    {
+      key: 'detection',  // MetricSignature property name (not 'score_detection')
+      label: 'Detection',  // Abbreviated form (Detection Score)
+      color: getMetricBaseColor(METRIC_SCORE_DETECTION)
+    },
+    {
+      key: 'semantic_similarity',  // MetricSignature property name
+      label: 'SS',  // Abbreviated form (Semantic Similarity)
+      color: getMetricBaseColor(METRIC_SEMANTIC_SIMILARITY)
+    },
+    {
+      key: 'quality_score',  // MetricSignature property name
+      label: 'QS',  // Abbreviated form (Quality Score)
+      color: getMetricBaseColor(METRIC_QUALITY_SCORE)
+    }
+  ] as const
+}
+
+// Cache for radar metrics to avoid recreating the array on every call
+// Exported for backward compatibility with existing components
+export const RADAR_METRICS = getRadarMetrics()
 
 // ============================================================================
 // COORDINATE CALCULATIONS
@@ -134,7 +183,8 @@ export function calculateRadarLayout(
 ): RadarChartLayout {
   const centerX = width / 2
   const centerY = height / 2
-  const radius = Math.min(width, height) / 2 - margin
+  // Use width to determine radius for full width usage
+  const radius = (width / 2) - margin
 
   // Calculate axes
   const axes = RADAR_METRICS.map((metric, index) => {
@@ -269,6 +319,9 @@ export function calculateRangeAreaPath(
   for (let i = maxPoints.length - 2; i >= 0; i--) {
     path.push(`L ${maxPoints[i].x},${maxPoints[i].y}`)
   }
+
+  // Explicitly connect back to first min point
+  path.push(`L ${minPoints[0].x},${minPoints[0].y}`)
 
   // Close path
   path.push('Z')
