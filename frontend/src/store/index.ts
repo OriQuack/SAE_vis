@@ -11,8 +11,7 @@ import type {
   SankeyNode,
   NodeCategory,
   SortBy,
-  SortDirection,
-  Tag
+  SortDirection
 } from '../types'
 import { getNodeThresholdPath } from '../lib/threshold-utils'
 import {

@@ -178,16 +178,11 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
                 />
                 {/* Floating Comparison Toggle Button */}
                 <button
-                  className={`comparison-toggle comparison-toggle--floating ${showComparisonView ? 'comparison-toggle--active' : ''}`}
+                  className={`comparison-toggle comparison-toggle--floating comparison-toggle--icon-only ${showComparisonView ? 'comparison-toggle--active' : ''}`}
                   onClick={toggleComparisonView}
                   title={showComparisonView ? 'Hide comparison view' : 'Show comparison view'}
                 >
-                  <span className="comparison-toggle__icon">
-                    {showComparisonView ? '◀' : '▶'}
-                  </span>
-                  <span className="comparison-toggle__text">
-                    {showComparisonView ? 'Hide' : 'Compare'}
-                  </span>
+                  {showComparisonView ? '◀' : '▶'}
                 </button>
               </div>
             </div>

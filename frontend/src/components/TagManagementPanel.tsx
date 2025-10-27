@@ -22,7 +22,6 @@ const TagManagementPanel: React.FC = () => {
   const selectedFeatureIds = useVisualizationStore(state => state.selectedFeatureIds)
   const tableData = useVisualizationStore(state => state.tableData)
   const stdMultiplier = useVisualizationStore(state => state.stdMultiplier)
-  const activeTagId = useVisualizationStore(state => state.activeTagId)
   const currentSignature = useVisualizationStore(state => state.currentSignature)
   const _isRestoringTag = useVisualizationStore(state => state._isRestoringTag)
 

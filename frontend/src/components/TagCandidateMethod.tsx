@@ -6,13 +6,11 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react'
 import { useVisualizationStore } from '../store/index'
 import type { MetricSignature, MetricWeights, FeatureTableRow } from '../types'
-import { extractMetricValues } from '../lib/tag-utils'
 import {
   calculateRadarLayout,
   pointsToPath,
   signatureToRadarValues,
   valuesToRadarPoints,
-  metricsToRadarPath,
   RADAR_METRICS
 } from '../lib/d3-radar-utils'
 import '../styles/TagCandidateMethod.css'
@@ -70,9 +68,6 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
   // Calculate layout using full width/height with explicit margins
   const layout = calculateRadarLayout(width, height, radarMargins)
   const { min, max } = signatureToRadarValues(displaySignature)
-
-  // Extract individual feature metrics for polygon rendering
-  const featureMetrics = selectedFeatures.map(feature => extractMetricValues(feature))
 
   // Legend positioning constants (dependent on container)
   const legendConfig = useMemo(() => ({
@@ -192,18 +187,18 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
           </g>
         ))}
 
-        {/* Individual feature polygons */}
-        {featureMetrics.map((metrics, idx) => (
+        {/* Mean polygon (signature center) */}
+        {selectedFeatures.length > 0 && (
           <path
-            key={`feature-${idx}`}
-            d={metricsToRadarPath(metrics, layout)}
-            fill="#6366f1"
-            fillOpacity="0.08"
-            stroke="#6366f1"
+            d={pointsToPath(valuesToRadarPoints(
+              signatureToRadarValues(displaySignature).center,
+              layout
+            ))}
+            fill="none"
+            stroke="black"
             strokeWidth="1"
-            strokeOpacity="0.2"
           />
-        ))}
+        )}
 
         {/* Min boundary */}
         <path
@@ -406,14 +401,14 @@ const MetricWeightsPanel: React.FC<MetricWeightsPanelProps> = ({
   const updateMetricWeight = useVisualizationStore(state => state.updateMetricWeight)
 
   // Equal weights for when < 3 features (unstable inference)
-  const equalWeights: MetricWeights = {
+  const equalWeights: MetricWeights = useMemo(() => ({
     feature_splitting: 1.0,
     embedding: 1.0,
     fuzz: 1.0,
     detection: 1.0,
     semantic_similarity: 1.0,
     quality_score: 1.0
-  }
+  }), [])
 
   // Compute auto-inferred weights from signature (only when >= 3 features)
   const autoWeights = useMemo(() => {
@@ -442,7 +437,7 @@ const MetricWeightsPanel: React.FC<MetricWeightsPanelProps> = ({
     }
 
     return inferMetricWeights(signature)
-  }, [signature, selectedFeatureCount])
+  }, [signature, selectedFeatureCount, equalWeights])
 
   // When weighted distance is disabled, always show uniform 1.0 weights
   // Otherwise, use tag's custom weights or auto-inferred weights

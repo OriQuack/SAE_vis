@@ -86,7 +86,6 @@ const SelectedFeaturesList: React.FC<SelectedFeaturesListProps> = ({
   const isGroupExpanded = useVisualizationStore(state => state.isGroupExpanded)
   const groupExpansionState = useVisualizationStore(state => state.groupExpansionState)
   const tableData = useVisualizationStore(state => state.tableData)
-  const selectedFeatureIds = useVisualizationStore(state => state.selectedFeatureIds)
   const currentSignature = useVisualizationStore(state => state.currentSignature)
   const currentWeights = useVisualizationStore(state => state.currentWeights)
   const stdMultiplier = useVisualizationStore(state => state.stdMultiplier)
@@ -443,7 +442,10 @@ const RejectedList: React.FC<RejectedListProps> = ({ className = '' }) => {
   const rafIdRef = useRef<number | null>(null)
 
   const activeTag = tags.find(t => t.id === activeTagId)
-  const rejectedIds = activeTag?.rejectedFeatureIds || new Set<number>()
+  const rejectedIds = useMemo(
+    () => activeTag?.rejectedFeatureIds || new Set<number>(),
+    [activeTag?.rejectedFeatureIds]
+  )
 
   // Compute scores and group rejected features
   const groupedFeatures = useMemo(() => {
