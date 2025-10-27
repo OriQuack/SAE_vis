@@ -22,8 +22,12 @@ const TagManagementPanel: React.FC = () => {
   const selectedFeatureIds = useVisualizationStore(state => state.selectedFeatureIds)
   const tableData = useVisualizationStore(state => state.tableData)
   const stdMultiplier = useVisualizationStore(state => state.stdMultiplier)
-  const refreshCandidates = useVisualizationStore(state => state.refreshCandidates)
   const activeTagId = useVisualizationStore(state => state.activeTagId)
+  const currentSignature = useVisualizationStore(state => state.currentSignature)
+  const _isRestoringTag = useVisualizationStore(state => state._isRestoringTag)
+
+  // Store actions
+  const setCurrentSignature = useVisualizationStore(state => state.setCurrentSignature)
 
   // Get selected features from table data
   const selectedFeatures = useMemo(() => {
@@ -55,6 +59,14 @@ const TagManagementPanel: React.FC = () => {
   React.useEffect(() => {
     setManualSignature(inferredSignature)
   }, [inferredSignature])
+
+  // Sync local manual signature with store's currentSignature during tag restoration
+  React.useEffect(() => {
+    if (_isRestoringTag && currentSignature) {
+      setManualSignature(currentSignature)
+      console.log('[TagManagementPanel] Synced manual signature from store during restoration')
+    }
+  }, [_isRestoringTag, currentSignature])
 
   // Resize observer for responsive layout
   const containerElementRef = React.useRef<HTMLDivElement | null>(null)
@@ -94,17 +106,26 @@ const TagManagementPanel: React.FC = () => {
   // Handle signature manual adjustment
   const handleSignatureChange = (signature: MetricSignature) => {
     setManualSignature(signature)
+    // Update store signature - this will trigger refreshCandidates automatically
+    setCurrentSignature(signature)
   }
 
-  // Auto-refresh candidates when selection or active tag changes
-  React.useEffect(() => {
-    // Debounce to avoid excessive computation
-    const timeoutId = setTimeout(() => {
-      refreshCandidates()
-    }, 300)
+  // Handle reset to auto-inferred signature
+  const handleResetSignature = React.useCallback(() => {
+    setManualSignature(inferredSignature)
+    // Clear manual signature in store to use auto-inferred
+    setCurrentSignature(null)
+  }, [inferredSignature, setCurrentSignature])
 
-    return () => clearTimeout(timeoutId)
-  }, [selectedFeatureIds, activeTagId, refreshCandidates])
+  // Reset to auto-inferred signature when selection changes
+  React.useEffect(() => {
+    // Skip clearing signature if we're restoring from a tag
+    if (_isRestoringTag) {
+      return
+    }
+    // Clear manual signature when selection changes to revert to auto-inferred
+    setCurrentSignature(null)
+  }, [selectedFeatureIds, setCurrentSignature, _isRestoringTag])
 
   return (
     <div className="tag-management-panel" ref={setContainerRef}>
@@ -118,6 +139,7 @@ const TagManagementPanel: React.FC = () => {
           inferredSignature={inferredSignature}
           manualSignature={manualSignature}
           onSignatureChange={handleSignatureChange}
+          onResetSignature={handleResetSignature}
           columnDimensions={columnDimensions}
         />
 

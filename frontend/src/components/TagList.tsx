@@ -3,7 +3,7 @@
 // Template tags list with add/select functionality and assign button
 // ============================================================================
 
-import React, { useMemo, useRef, useEffect, useState } from 'react'
+import React, { useRef, useEffect, useState } from 'react'
 import { useVisualizationStore } from '../store/index'
 import '../styles/TagList.css'
 

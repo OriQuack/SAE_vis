@@ -477,6 +477,109 @@ export function findCandidateFeatures(
 }
 
 // ============================================================================
+// SCORE GROUPING UTILITIES
+// ============================================================================
+
+/**
+ * Feature group with score range
+ */
+export interface FeatureScoreGroup<T> {
+  rangeLabel: string          // e.g., "1.00 - 0.95"
+  rangeMin: number            // 0.95
+  rangeMax: number            // 1.00
+  features: T[]               // Features in this range
+  count: number               // Number of features
+}
+
+/**
+ * Group features by similarity score into 0.05 intervals
+ * Returns groups sorted by score (descending: highest first)
+ */
+export function groupFeaturesByScore<T extends { score: number; featureId: number }>(
+  features: T[],
+  interval: number = 0.05
+): FeatureScoreGroup<T>[] {
+  // Create buckets from 0.00 to 1.00 with specified interval
+  const buckets = new Map<string, T[]>()
+
+  // Initialize buckets (1.00-0.95, 0.95-0.90, ..., 0.05-0.00)
+  for (let max = 1.0; max > 0; max -= interval) {
+    const min = Math.max(0, max - interval)
+    const rangeLabel = `${max.toFixed(2)} - ${min.toFixed(2)}`
+    buckets.set(rangeLabel, [])
+  }
+
+  // Assign features to buckets
+  features.forEach(feature => {
+    const score = Math.min(1.0, Math.max(0, feature.score)) // Clamp to [0, 1]
+
+    // Find the appropriate bucket
+    for (let max = 1.0; max > 0; max -= interval) {
+      const min = Math.max(0, max - interval)
+
+      // Check if score falls in this range (inclusive of max, exclusive of min for all but lowest bucket)
+      if (score > min || (min === 0 && score === 0)) {
+        if (score <= max || max === 1.0) {
+          const rangeLabel = `${max.toFixed(2)} - ${min.toFixed(2)}`
+          const bucket = buckets.get(rangeLabel)
+          if (bucket) {
+            bucket.push(feature)
+          }
+          break
+        }
+      }
+    }
+  })
+
+  // Convert to array and sort by score (descending)
+  const groups: FeatureScoreGroup<T>[] = []
+
+  for (let max = 1.0; max > 0; max -= interval) {
+    const min = Math.max(0, max - interval)
+    const rangeLabel = `${max.toFixed(2)} - ${min.toFixed(2)}`
+    const features = buckets.get(rangeLabel) || []
+
+    if (features.length > 0) {
+      groups.push({
+        rangeLabel,
+        rangeMin: min,
+        rangeMax: max,
+        features: features.sort((a, b) => b.score - a.score), // Sort features within group
+        count: features.length
+      })
+    }
+  }
+
+  return groups
+}
+
+/**
+ * Compute similarity score for a feature based on current signature and weights
+ * Used for dynamically scoring Selected/Rejected features
+ */
+export function computeFeatureScore(
+  featureId: number,
+  allFeatures: FeatureTableRow[],
+  signature: MetricSignature,
+  weights: MetricWeights
+): number {
+  // Find the feature
+  const feature = allFeatures.find(f => f.feature_id === featureId)
+  if (!feature) return 0
+
+  // Extract metric values
+  const metricValues = extractMetricValues(feature)
+
+  // Compute weighted distance
+  const distance = computeWeightedDistance(metricValues, signature, weights)
+
+  // Convert distance to similarity score (0-1 range)
+  const score = 1 / (1 + distance)
+
+  return score
+}
+
+// ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
 

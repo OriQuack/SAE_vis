@@ -244,7 +244,7 @@ export function calculateNodeHistogramLayout(
   const bars = calculateNodeHistogramBars(
     histogramData,
     node,
-    histogramMaxWidth * 0.5,
+    histogramMaxWidth * 0.8,
     metric
   )
 

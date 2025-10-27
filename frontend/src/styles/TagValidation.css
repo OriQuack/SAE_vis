@@ -16,7 +16,7 @@
 /* Feature lists - ensure they fill available space */
 .feature-lists {
   display: grid;
-  grid-template-columns: 1fr 3fr 1fr;
+  grid-template-columns: 1fr 2fr 1fr;
   gap: 2px;
   flex: 1;
   min-height: 0;
@@ -108,11 +108,11 @@
 .selected-features-list__list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   overflow-y: scroll;
   flex: 1;
   scrollbar-gutter: stable;
-  padding: 2px;
+  padding: 1px;
 }
 
 .selected-item {
@@ -150,10 +150,12 @@
   transition: all 0.15s ease;
   background: #ef4444;
   color: white;
+  opacity: 0.8;
 }
 
 .selected-item__btn:hover {
   background: #dc2626;
+  opacity: 1;
 }
 
 .selected-features-list__list::-webkit-scrollbar {
@@ -190,11 +192,11 @@
 .candidate-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   overflow-y: scroll;
   flex: 1;
   scrollbar-gutter: stable;
-  padding: 2px;
+  padding: 1px;
 }
 
 .candidate-list__empty {
@@ -235,11 +237,6 @@
   opacity: 0.6;
 }
 
-.candidate-item--unsure {
-  background: #fffbeb;
-  border-color: #f59e0b;
-}
-
 .candidate-item__id {
   font-size: 9px;
   font-weight: 600;
@@ -269,6 +266,7 @@
   gap: 2px;
   justify-content: flex-end;
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 .candidate-item__btn {
@@ -280,15 +278,20 @@
   cursor: pointer;
   transition: all 0.15s ease;
   min-width: 22px;
+  opacity: 0.8;
+}
+
+.candidate-item__btn:hover {
+  opacity: 1;
 }
 
 .candidate-item__btn--accept {
-  background: #10b981;
+  background: #3b82f6;
   color: white;
 }
 
 .candidate-item__btn--accept:hover {
-  background: #059669;
+  background: #2563eb;
 }
 
 .candidate-item__btn--reject {
@@ -298,15 +301,6 @@
 
 .candidate-item__btn--reject:hover {
   background: #dc2626;
-}
-
-.candidate-item__btn--unsure {
-  background: #9ca3af;
-  color: white;
-}
-
-.candidate-item__btn--unsure:hover {
-  background: #6b7280;
 }
 
 .candidate-list::-webkit-scrollbar {
@@ -343,11 +337,11 @@
 .rejected-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   overflow-y: scroll;
   flex: 1;
   scrollbar-gutter: stable;
-  padding: 2px;
+  padding: 1px;
 }
 
 .rejected-list__empty {
@@ -385,7 +379,7 @@
 
 .rejected-item__btn {
   padding: 2px 6px;
-  background: #10b981;
+  background: #f59e0b;
   color: white;
   border: none;
   border-radius: 2px;
@@ -393,10 +387,12 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
+  opacity: 0.8;
 }
 
 .rejected-item__btn:hover {
-  background: #059669;
+  background: #d97706;
+  opacity: 1;
 }
 
 .rejected-list::-webkit-scrollbar {
@@ -416,4 +412,233 @@
 
 .rejected-list::-webkit-scrollbar-thumb:hover {
   background: #6b7280;
+}
+
+/* ============================================================================
+   FEATURE GROUP STYLES (Shared)
+   Collapsible groups with score ranges and batch actions
+   ============================================================================ */
+
+.feature-group {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  margin-bottom: 2px;
+  background: white;
+  overflow: visible;
+  transition: all 0.2s ease;
+}
+
+.feature-group:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Group Header */
+.feature-group__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  user-select: none;
+}
+
+.feature-group__header:hover {
+  background: #f3f4f6;
+}
+
+/* Stacked Header Layout (2 lines for narrow panels) */
+.feature-group__header--stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 6px 8px;
+}
+
+.feature-group__header--stacked .feature-group__info {
+  justify-content: flex-start;
+}
+
+.feature-group__header--stacked .feature-group__actions {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.feature-group__info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+/* Chevron Icon */
+.feature-group__chevron {
+  font-size: 8px;
+  color: #6b7280;
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+
+.feature-group__chevron--expanded {
+  transform: rotate(90deg);
+}
+
+/* Score Range Label */
+.feature-group__range {
+  font-size: 9px;
+  font-weight: 600;
+  font-family: monospace;
+  color: #374151;
+  letter-spacing: 0.025em;
+}
+
+.feature-group__count {
+  font-size: 8px;
+  font-weight: 500;
+  color: #9ca3af;
+}
+
+/* Batch Action Buttons Container */
+.feature-group__actions {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.feature-group__btn {
+  padding: 2px 6px;
+  border: none;
+  border-radius: 2px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  opacity: 0.85;
+  min-width: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.feature-group__btn:hover {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+/* Accept Button (Blue - matches candidate-item__btn--accept) */
+.feature-group__btn--accept {
+  background: #3b82f6;
+  color: white;
+}
+
+.feature-group__btn--accept:hover {
+  background: #2563eb;
+}
+
+/* Reject Button (Red - matches candidate-item__btn--reject) */
+.feature-group__btn--reject {
+  background: #ef4444;
+  color: white;
+}
+
+.feature-group__btn--reject:hover {
+  background: #dc2626;
+}
+
+/* Remove Button (Red - matches selected-item__btn) */
+.feature-group__btn--remove {
+  background: #ef4444;
+  color: white;
+}
+
+.feature-group__btn--remove:hover {
+  background: #dc2626;
+}
+
+/* Restore Button (Orange - matches rejected-item__btn) */
+.feature-group__btn--restore {
+  background: #f59e0b;
+  color: white;
+}
+
+.feature-group__btn--restore:hover {
+  background: #d97706;
+}
+
+/* Group Body (Features List) */
+.feature-group__body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px;
+  background: white;
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ============================================================================
+   UPDATED ITEM STYLES (for grouped display)
+   ============================================================================ */
+
+/* Add score display to selected items */
+.selected-item__score {
+  font-size: 8px;
+  font-weight: 600;
+  font-family: monospace;
+  color: #6b7280;
+  margin-left: auto;
+  margin-right: 4px;
+}
+
+/* Add score display to rejected items */
+.rejected-item__score {
+  font-size: 8px;
+  font-weight: 600;
+  font-family: monospace;
+  color: #6b7280;
+  margin-left: auto;
+  margin-right: 4px;
+}
+
+/* ============================================================================
+   SCROLL INDICATOR
+   Visual feedback for scroll position
+   ============================================================================ */
+
+.scroll-indicator {
+  position: absolute;
+  right: 2px;
+  top: 2px;
+  bottom: 2px;
+  width: 4px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.scroll-indicator__thumb {
+  position: absolute;
+  width: 100%;
+  background: rgba(59, 130, 246, 0.5);
+  border-radius: 2px;
+  transition: background 0.2s ease;
+}
+
+.scroll-indicator__thumb:hover {
+  background: rgba(59, 130, 246, 0.7);
 }

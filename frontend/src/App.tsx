@@ -192,6 +192,11 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
               </div>
             </div>
 
+            {/* Center Middle - Tag Progress Bar */}
+            <div className="sankey-view__center-middle">
+              <TagProgressBar />
+            </div>
+
             {/* Center Right - Table Panel with Overlay */}
             <div className="sankey-view__center-right">
               <TablePanel />

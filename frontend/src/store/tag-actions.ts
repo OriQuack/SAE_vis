@@ -7,9 +7,12 @@ import type { StateCreator } from 'zustand'
 import type {
   Tag,
   MetricWeights,
+  MetricSignature,
   FeatureMatch,
   FeatureTableRow,
-  CandidateVerificationState
+  CandidateVerificationState,
+  FeatureListType,
+  GroupExpansionState
 } from '../types'
 import {
   generateTagId,
@@ -33,12 +36,21 @@ export interface TagState {
   candidateFeatures: FeatureMatch[]          // Current candidate list
   candidateStates: Map<number, CandidateVerificationState>  // Verification state per candidate
   currentWeights: MetricWeights | null       // Active weights for current candidate search
+  currentSignature: MetricSignature | null   // Manually adjusted signature (null = use auto-inferred)
   highlightedFeatureId: number | null        // Feature to highlight in TablePanel
   candidateMethod: {
     useRangeFilter: boolean                  // Range-Based Filtering
     useWeightedDistance: boolean             // Weighted Distance
   }
   stdMultiplier: number                      // Standard deviation multiplier for signature inference
+  savedWeightsBeforeDisable: MetricWeights | null       // Saved weights before disabling weighted distance
+  savedSignatureBeforeDisable: MetricSignature | null   // Saved signature before disabling range filter
+
+  // Group expansion state
+  groupExpansionState: GroupExpansionState   // Tracks which score range groups are expanded/collapsed
+
+  // Internal state
+  _isRestoringTag: boolean                   // Flag to prevent signature clearing during tag restoration
 
   // Tag actions
   createTag: (name: string, color?: string) => string  // Returns new tag ID
@@ -73,10 +85,17 @@ export interface TagState {
   updateMetricWeight: (metric: keyof MetricWeights, weight: number) => void
   resetWeightsToAuto: () => void
 
+  // Stage 2: Signature management actions
+  setCurrentSignature: (signature: MetricSignature | null) => void
+
   // Stage 2: Method selection actions
   toggleRangeFilter: () => void
   toggleWeightedDistance: () => void
   setStdMultiplier: (multiplier: number) => void
+
+  // Group expansion actions
+  toggleGroupExpansion: (listType: FeatureListType, rangeLabel: string) => void
+  isGroupExpanded: (listType: FeatureListType, rangeLabel: string) => boolean
 }
 
 // ============================================================================
@@ -98,12 +117,21 @@ export const createTagActions: StateCreator<
   candidateFeatures: [],
   candidateStates: new Map<number, CandidateVerificationState>(),
   currentWeights: null,
+  currentSignature: null,
   highlightedFeatureId: null,
   candidateMethod: {
     useRangeFilter: true,
     useWeightedDistance: true
   },
   stdMultiplier: 1.5,
+  savedWeightsBeforeDisable: null,
+  savedSignatureBeforeDisable: null,
+
+  // Group expansion initial state
+  groupExpansionState: new Map<string, boolean>(),
+
+  // Internal state
+  _isRestoringTag: false,
 
   // ============================================================================
   // TAG CRUD OPERATIONS
@@ -126,7 +154,11 @@ export const createTagActions: StateCreator<
       featureIds: new Set<number>(),
       rejectedFeatureIds: new Set<number>(),  // Initialize rejected set (Stage 2)
       metricWeights: undefined,  // Auto-inferred by default
-      color: color || '#3b82f6'  // Default to blue
+      color: color || '#3b82f6',  // Default to blue
+      // Initialize working state fields
+      workingFeatureIds: new Set<number>(),
+      savedManualSignature: undefined,
+      savedCandidateStates: new Map<number, CandidateVerificationState>()
     }
 
     set((state: any) => ({
@@ -159,7 +191,62 @@ export const createTagActions: StateCreator<
   },
 
   setActiveTag: (id) => {
+    const { activeTagId, tags, selectedFeatureIds, currentSignature, candidateStates } = get() as any
+
+    // Auto-save current tag's working state before switching
+    if (activeTagId) {
+      set((state: any) => ({
+        tags: state.tags.map((tag: Tag) => {
+          if (tag.id === activeTagId) {
+            return {
+              ...tag,
+              workingFeatureIds: new Set(selectedFeatureIds),
+              savedManualSignature: currentSignature || undefined,
+              savedCandidateStates: new Map(candidateStates),
+              updatedAt: Date.now()
+            }
+          }
+          return tag
+        })
+      }))
+      console.log('[Tag System] Auto-saved working state for tag:', activeTagId)
+    }
+
+    // Set new active tag
     set({ activeTagId: id })
+
+    // Restore new tag's working state
+    if (id) {
+      const newTag = tags.find((t: Tag) => t.id === id)
+      if (newTag) {
+        // Set restoration flag to prevent signature clearing
+        set({ _isRestoringTag: true })
+
+        // Restore working state
+        set({
+          selectedFeatureIds: new Set(newTag.workingFeatureIds || []),
+          currentSignature: newTag.savedManualSignature || null,
+          candidateStates: new Map(newTag.savedCandidateStates || new Map())
+        })
+
+        console.log('[Tag System] Restored working state for tag:', id, {
+          selectedFeatures: newTag.workingFeatureIds?.size || 0,
+          hasSignature: !!newTag.savedManualSignature,
+          candidateStates: newTag.savedCandidateStates?.size || 0
+        })
+
+        // Clear restoration flag after a short delay to allow effects to run
+        setTimeout(() => {
+          set({ _isRestoringTag: false })
+          // Trigger candidate refresh after restoration
+          get().refreshCandidates()
+        }, 0)
+      }
+    } else {
+      // If deactivating tag, just clear the flag
+      set({ _isRestoringTag: false })
+    }
+
     console.log('[Tag System] Set active tag:', id)
   },
 
@@ -282,7 +369,11 @@ export const createTagActions: StateCreator<
       rejectedFeatureIds: new Set<number>(),  // Empty initially (Stage 2)
       metricWeights: undefined,  // Auto-inferred by default
       color: template.color,
-      templateSource: template.name
+      templateSource: template.name,
+      // Initialize working state fields
+      workingFeatureIds: new Set<number>(),
+      savedManualSignature: undefined,
+      savedCandidateStates: new Map<number, CandidateVerificationState>()
     }))
 
     set({ tags: templateTags })
@@ -315,9 +406,8 @@ export const createTagActions: StateCreator<
           }
         }
         return tag
-      }),
-      // Clear selection after assignment
-      selectedFeatureIds: new Set<number>()
+      })
+      // Note: Selection is now preserved and will be auto-saved when switching tags
     }))
 
     console.log('[Tag System] Assigned', selectedIds.size, 'features to tag:', tagId)
@@ -328,7 +418,7 @@ export const createTagActions: StateCreator<
   // ============================================================================
 
   refreshCandidates: () => {
-    const { selectedFeatureIds, activeTagId, tags, tableData, candidateMethod, stdMultiplier } = get() as any
+    const { selectedFeatureIds, activeTagId, tags, tableData, candidateMethod, stdMultiplier, currentSignature } = get() as any
 
     // Clear candidates if no selection or no table data
     if (selectedFeatureIds.size === 0 || !tableData) {
@@ -357,8 +447,8 @@ export const createTagActions: StateCreator<
       return
     }
 
-    // Infer signature from selected features
-    const signature = inferMetricSignature(selectedFeatures, stdMultiplier)
+    // Use manual signature if available, otherwise infer from selected features
+    const signature = currentSignature || inferMetricSignature(selectedFeatures, stdMultiplier)
 
     // Use tag's custom weights or infer from signature
     // When < 3 features, use equal weights (1.0) to avoid unstable inference
@@ -375,7 +465,7 @@ export const createTagActions: StateCreator<
       selectedFeatureIds,
       rejectedIds,
       weights,
-      20,  // Top 20 candidates
+      100,  // Top 100 candidates
       candidateMethod  // Pass method configuration
     )
 
@@ -567,12 +657,13 @@ export const createTagActions: StateCreator<
           }
         }
         return tag
-      })
+      }),
+      currentSignature: null  // Also reset manual signature to auto-inferred
     }))
 
-    console.log('[Tag System] Reset weights to auto-inferred')
+    console.log('[Tag System] Reset weights and signature to auto-inferred')
 
-    // Trigger refresh with auto-inferred weights
+    // Trigger refresh with auto-inferred weights and signature
     get().refreshCandidates()
   },
 
@@ -581,30 +672,97 @@ export const createTagActions: StateCreator<
   // ============================================================================
 
   toggleRangeFilter: () => {
-    set((state: any) => ({
-      candidateMethod: {
-        ...state.candidateMethod,
-        useRangeFilter: !state.candidateMethod.useRangeFilter
-      }
-    }))
+    const state = get() as any
+    const wasEnabled = state.candidateMethod.useRangeFilter
 
-    console.log('[Tag System] Toggled range filter:', !get().candidateMethod.useRangeFilter)
+    if (wasEnabled) {
+      // Disabling: Save current signature and set to full range (min: 0.0, max: 1.0)
+      const fullRangeSignature: MetricSignature = {
+        feature_splitting: { min: 0.0, max: 1.0 },
+        embedding: { min: 0.0, max: 1.0 },
+        fuzz: { min: 0.0, max: 1.0 },
+        detection: { min: 0.0, max: 1.0 },
+        semantic_similarity: { min: 0.0, max: 1.0 },
+        quality_score: { min: 0.0, max: 1.0 }
+      }
+
+      set({
+        savedSignatureBeforeDisable: state.currentSignature, // Save current (may be null for auto-inferred)
+        currentSignature: fullRangeSignature,
+        candidateMethod: {
+          ...state.candidateMethod,
+          useRangeFilter: false
+        }
+      })
+
+      console.log('[Tag System] Disabled range filter, saved signature:', state.currentSignature)
+    } else {
+      // Enabling: Restore saved signature
+      set({
+        currentSignature: state.savedSignatureBeforeDisable, // Restore (may be null)
+        savedSignatureBeforeDisable: null,
+        candidateMethod: {
+          ...state.candidateMethod,
+          useRangeFilter: true
+        }
+      })
+
+      console.log('[Tag System] Enabled range filter, restored signature:', state.savedSignatureBeforeDisable)
+    }
 
     // Trigger refresh with new method
     get().refreshCandidates()
   },
 
   toggleWeightedDistance: () => {
-    set((state: any) => ({
-      candidateMethod: {
-        ...state.candidateMethod,
-        useWeightedDistance: !state.candidateMethod.useWeightedDistance
-      }
-    }))
+    const state = get() as any
+    const wasEnabled = state.candidateMethod.useWeightedDistance
 
-    console.log('[Tag System] Toggled weighted distance:', !get().candidateMethod.useWeightedDistance)
+    if (wasEnabled) {
+      // Disabling: Save current weights and set to uniform 1.0
+      const uniformWeights: MetricWeights = {
+        feature_splitting: 1.0,
+        embedding: 1.0,
+        fuzz: 1.0,
+        detection: 1.0,
+        semantic_similarity: 1.0,
+        quality_score: 1.0
+      }
+
+      set({
+        savedWeightsBeforeDisable: state.currentWeights, // Save current (may be null for auto-inferred)
+        currentWeights: uniformWeights,
+        candidateMethod: {
+          ...state.candidateMethod,
+          useWeightedDistance: false
+        }
+      })
+
+      console.log('[Tag System] Disabled weighted distance, saved weights:', state.currentWeights)
+    } else {
+      // Enabling: Restore saved weights
+      set({
+        currentWeights: state.savedWeightsBeforeDisable, // Restore (may be null)
+        savedWeightsBeforeDisable: null,
+        candidateMethod: {
+          ...state.candidateMethod,
+          useWeightedDistance: true
+        }
+      })
+
+      console.log('[Tag System] Enabled weighted distance, restored weights:', state.savedWeightsBeforeDisable)
+    }
 
     // Trigger refresh with new method
+    get().refreshCandidates()
+  },
+
+  setCurrentSignature: (signature) => {
+    set({ currentSignature: signature })
+
+    console.log('[Tag System] Set current signature:', signature ? 'manual' : 'auto-inferred')
+
+    // Trigger refresh with new signature
     get().refreshCandidates()
   },
 
@@ -613,7 +771,52 @@ export const createTagActions: StateCreator<
 
     console.log('[Tag System] Set std multiplier:', multiplier)
 
+    // Clear manual signature when changing stdMultiplier (revert to auto-infer)
+    set({ currentSignature: null })
+
     // Trigger refresh with new multiplier
     get().refreshCandidates()
+  },
+
+  // ============================================================================
+  // GROUP EXPANSION ACTIONS
+  // ============================================================================
+
+  toggleGroupExpansion: (listType, rangeLabel) => {
+    const key = `${listType}:${rangeLabel}`
+    const { groupExpansionState } = get() as any
+
+    const newState = new Map(groupExpansionState)
+    const currentState = newState.get(key)
+
+    if (currentState === undefined) {
+      // First time accessing this group, determine smart default
+      // Groups with score >= 0.80 start expanded
+      const rangeMax = parseFloat(rangeLabel.split(' - ')[0])
+      const shouldExpand = rangeMax >= 0.80
+      newState.set(key, !shouldExpand) // Toggle from default
+    } else {
+      // Toggle existing state
+      newState.set(key, !currentState)
+    }
+
+    set({ groupExpansionState: newState })
+
+    console.log('[Tag System] Toggled group expansion:', key, '->', newState.get(key))
+  },
+
+  isGroupExpanded: (listType, rangeLabel) => {
+    const key = `${listType}:${rangeLabel}`
+    const { groupExpansionState } = get() as any
+
+    const state = groupExpansionState.get(key)
+
+    if (state === undefined) {
+      // Smart default: groups with score >= 0.80 start expanded
+      const rangeMax = parseFloat(rangeLabel.split(' - ')[0])
+      return rangeMax >= 0.80
+    }
+
+    return state
   }
 })

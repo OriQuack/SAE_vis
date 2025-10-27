@@ -663,31 +663,44 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                           rowSpan={validExplainerIds.length}
                           onClick={() => toggleFeatureSelection(featureRow.feature_id)}
                           title="Click to select/deselect feature"
+                          style={{ position: 'relative' }}
                         >
-                          {featureRow.feature_id}
                           {(() => {
                             const featureTags = getFeatureTags(featureRow.feature_id)
                             if (featureTags.length > 0) {
                               return (
-                                <span
-                                  className="tag-badge"
-                                  title={featureTags.map(t => t.name).join(', ')}
-                                  style={{
-                                    marginLeft: '0.25rem',
-                                    padding: '0.125rem 0.375rem',
-                                    backgroundColor: '#3b82f6',
-                                    color: 'white',
-                                    fontSize: '0.7rem',
-                                    fontWeight: '600',
-                                    borderRadius: '0.25rem',
-                                    cursor: 'help'
-                                  }}
-                                >
-                                  [{featureTags.length}]
-                                </span>
+                                <>
+                                  <div
+                                    style={{
+                                      position: 'absolute',
+                                      top: '0.25rem',
+                                      left: '50%',
+                                      transform: 'translateX(-50%)',
+                                      display: 'flex',
+                                      gap: '0.125rem',
+                                      pointerEvents: 'none'
+                                    }}
+                                    title={featureTags.map(t => t.name).join(', ')}
+                                  >
+                                    {featureTags.map((_, idx) => (
+                                      <div
+                                        key={idx}
+                                        style={{
+                                          width: '0.375rem',
+                                          height: '0.375rem',
+                                          borderRadius: '50%',
+                                          backgroundColor: '#000000',
+                                          cursor: 'help',
+                                          pointerEvents: 'auto'
+                                        }}
+                                      />
+                                    ))}
+                                  </div>
+                                  {featureRow.feature_id}
+                                </>
                               )
                             }
-                            return null
+                            return featureRow.feature_id
                           })()}
                         </td>
                       )}

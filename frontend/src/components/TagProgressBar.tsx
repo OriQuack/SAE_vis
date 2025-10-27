@@ -39,37 +39,27 @@ const TagProgressBar: React.FC = () => {
 
   // Determine fill color based on percentage
   const getFillColor = () => {
-    if (percentage === 0) return '#d1d5db' // Gray for 0%
+    if (percentage === 0) return 'transparent' // Transparent for 0%
     if (percentage < 30) return '#fbbf24' // Amber for < 30%
     if (percentage < 70) return '#3b82f6' // Blue for 30-70%
     return '#10b981' // Green for >= 70%
   }
 
   return (
-    <div className="tag-progress-bar" title={`${taggedCount} / ${totalFeatures} features tagged`}>
-      <div className="tag-progress-bar__container">
-        {/* Background bar */}
-        <div className="tag-progress-bar__background" />
-
-        {/* Fill bar (grows from bottom) */}
-        <div
-          className="tag-progress-bar__fill"
-          style={{
-            height: `${percentage}%`,
-            backgroundColor: getFillColor()
-          }}
-        />
-
-        {/* Percentage text */}
-        <div className="tag-progress-bar__text">
-          <span className="tag-progress-bar__percentage">
-            {percentage.toFixed(0)}%
-          </span>
-          <span className="tag-progress-bar__count">
-            {taggedCount}/{totalFeatures}
-          </span>
-        </div>
+    <div className="tag-progress-bar-wrapper">
+      {/* Percentage label at top */}
+      <div className="tag-progress-bar-label">
+        {percentage.toFixed(0)}%
       </div>
+
+      {/* Full height bar with gradient fill from bottom */}
+      <div
+        className="tag-progress-bar-fill"
+        style={{
+          background: `linear-gradient(to top, ${getFillColor()} ${percentage}%, transparent ${percentage}%)`
+        }}
+        title={`${taggedCount} / ${totalFeatures} features tagged (${percentage.toFixed(0)}%)`}
+      />
     </div>
   )
 }

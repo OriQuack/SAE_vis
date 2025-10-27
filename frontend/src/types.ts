@@ -574,6 +574,11 @@ export interface Tag {
   metricWeights?: MetricWeights         // Custom weights (undefined = auto-inferred)
   color: string                         // Display color (hex)
   templateSource?: string               // Template name if created from template
+
+  // Working state fields (auto-saved when switching tags)
+  workingFeatureIds?: Set<number>       // Currently selected features for this tag
+  savedManualSignature?: MetricSignature // Manually adjusted signature (radar chart thresholds)
+  savedCandidateStates?: Map<number, CandidateVerificationState> // Candidate verification states
 }
 
 /**
@@ -614,4 +619,16 @@ export interface TagTemplate {
   signature: MetricSignature            // Pre-defined metric ranges
   color: string                         // Display color
 }
+
+/**
+ * Feature List Type - Used for tracking group expansion state
+ */
+export type FeatureListType = 'selected' | 'candidates' | 'rejected'
+
+/**
+ * Group Expansion State - Tracks which score range groups are expanded
+ * Key: `${listType}:${rangeLabel}` (e.g., "candidates:1.00 - 0.95")
+ * Value: boolean (true = expanded, false = collapsed)
+ */
+export type GroupExpansionState = Map<string, boolean>
 

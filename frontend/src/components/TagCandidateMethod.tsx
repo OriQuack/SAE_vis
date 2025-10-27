@@ -6,6 +6,7 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react'
 import { useVisualizationStore } from '../store/index'
 import type { MetricSignature, MetricWeights, FeatureTableRow } from '../types'
+import { extractMetricValues } from '../lib/tag-utils'
 import {
   calculateRadarLayout,
   pointsToPath,
@@ -25,7 +26,6 @@ interface TagRadarViewProps {
   signature: MetricSignature
   inferredSignature: MetricSignature
   onSignatureChange: (signature: MetricSignature) => void
-  onResetToAuto: () => void
   width: number
   height: number
   activeTagId: string | null
@@ -35,9 +35,7 @@ interface TagRadarViewProps {
 const TagRadarView: React.FC<TagRadarViewProps> = ({
   selectedFeatures,
   signature,
-  inferredSignature,
   onSignatureChange,
-  onResetToAuto,
   width,
   height,
   activeTagId,
@@ -45,6 +43,7 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
 }) => {
   const svgRef = useRef<SVGSVGElement>(null)
   const [draggingAxis, setDraggingAxis] = useState<{ index: number; bound: 'min' | 'max' } | null>(null)
+  const candidateMethod = useVisualizationStore(state => state.candidateMethod)
 
   // Define explicit margins for radar chart positioning
   const radarMargins = useMemo(() => ({
@@ -54,27 +53,26 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
     right: 130
   }), [])
 
+  // Full range signature for when range filter is disabled
+  const fullRangeSignature: MetricSignature = useMemo(() => ({
+    feature_splitting: { min: 0.0, max: 1.0 },
+    embedding: { min: 0.0, max: 1.0 },
+    fuzz: { min: 0.0, max: 1.0 },
+    detection: { min: 0.0, max: 1.0 },
+    semantic_similarity: { min: 0.0, max: 1.0 },
+    quality_score: { min: 0.0, max: 1.0 }
+  }), [])
+
+  // When range filter is disabled, always show full range (min: 0.0, max: 1.0)
+  // Otherwise, use the provided signature
+  const displaySignature = !candidateMethod.useRangeFilter ? fullRangeSignature : signature
+
   // Calculate layout using full width/height with explicit margins
   const layout = calculateRadarLayout(width, height, radarMargins)
-  const { min, max } = signatureToRadarValues(signature)
+  const { min, max } = signatureToRadarValues(displaySignature)
 
   // Extract individual feature metrics for polygon rendering
-  const featureMetrics = selectedFeatures.map(feature => {
-    const extractMetricValues = (f: FeatureTableRow) => ({
-      feature_splitting: f.feature_splitting,
-      embedding: f.scores.embedding,
-      fuzz: f.scores.fuzz,
-      detection: f.scores.detection,
-      semantic_similarity: f.semantic_similarity,
-      quality_score: f.quality_score || 0
-    })
-    return extractMetricValues(feature)
-  })
-
-  // Check if signature has been manually modified
-  const hasManualChanges = useMemo(() => {
-    return JSON.stringify(signature) !== JSON.stringify(inferredSignature)
-  }, [signature, inferredSignature])
+  const featureMetrics = selectedFeatures.map(feature => extractMetricValues(feature))
 
   // Legend positioning constants (dependent on container)
   const legendConfig = useMemo(() => ({
@@ -113,18 +111,18 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
     value = Math.round(value * 20) / 20  // 0.05 step size
 
     const metricKey = RADAR_METRICS[draggingAxis.index].key as keyof MetricSignature
-    const currentRange = signature[metricKey]
+    const currentRange = displaySignature[metricKey]
 
     if (draggingAxis.bound === 'min') {
       const newMin = Math.min(value, currentRange.max - 0.05)
       onSignatureChange({
-        ...signature,
+        ...displaySignature,
         [metricKey]: { ...currentRange, min: Math.max(0, newMin) }
       })
     } else {
       const newMax = Math.max(value, currentRange.min + 0.05)
       onSignatureChange({
-        ...signature,
+        ...displaySignature,
         [metricKey]: { ...currentRange, max: Math.min(1, newMax) }
       })
     }
@@ -212,7 +210,7 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
           d={minPath}
           fill="none"
           stroke="#3b82f6"
-          strokeWidth="2"
+          strokeWidth="1"
           strokeDasharray="4 2"
         />
 
@@ -221,7 +219,7 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
           d={maxPath}
           fill="none"
           stroke="#3b82f6"
-          strokeWidth="2"
+          strokeWidth="1"
         />
 
         {/* Interactive handles on min boundary */}
@@ -239,7 +237,7 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
               <circle
                 cx={x}
                 cy={y}
-                r={isDragging ? 6 : 4}
+                r={isDragging ? 5 : 3}
                 fill="white"
                 stroke={metricColor}
                 strokeWidth="2"
@@ -289,7 +287,7 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
               <circle
                 cx={x}
                 cy={y}
-                r={isDragging ? 6 : 4}
+                r={isDragging ? 5 : 3}
                 fill={metricColor}
                 stroke={metricColor}
                 strokeWidth="2"
@@ -343,7 +341,7 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
           <circle
             cx={legendConfig.circleX}
             cy={legendConfig.minCircleY}
-            r={3}
+            r={2.5}
             fill="white"
             stroke="#9ca3af"
             strokeWidth="1.5"
@@ -362,7 +360,7 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
           <circle
             cx={legendConfig.circleX}
             cy={legendConfig.maxCircleY}
-            r={3}
+            r={2.5}
             fill="#9ca3af"
             stroke="#9ca3af"
             strokeWidth="1.5"
@@ -404,6 +402,7 @@ const MetricWeightsPanel: React.FC<MetricWeightsPanelProps> = ({
     state.tags.find(t => t.id === activeTagId)
   )
   const currentWeights = useVisualizationStore(state => state.currentWeights)
+  const candidateMethod = useVisualizationStore(state => state.candidateMethod)
   const updateMetricWeight = useVisualizationStore(state => state.updateMetricWeight)
 
   // Equal weights for when < 3 features (unstable inference)
@@ -445,8 +444,11 @@ const MetricWeightsPanel: React.FC<MetricWeightsPanelProps> = ({
     return inferMetricWeights(signature)
   }, [signature, selectedFeatureCount])
 
-  // Use tag's custom weights or auto-inferred weights
-  const displayWeights: MetricWeights = activeTag?.metricWeights || currentWeights || autoWeights
+  // When weighted distance is disabled, always show uniform 1.0 weights
+  // Otherwise, use tag's custom weights or auto-inferred weights
+  const displayWeights: MetricWeights = !candidateMethod.useWeightedDistance
+    ? equalWeights
+    : (activeTag?.metricWeights || currentWeights || autoWeights)
 
   // Determine if showing equal weights due to insufficient features
   const isEqualWeights = selectedFeatureCount < 3 && !activeTag?.metricWeights
@@ -507,6 +509,7 @@ interface TagCandidateMethodProps {
   inferredSignature: MetricSignature
   manualSignature: MetricSignature
   onSignatureChange: (signature: MetricSignature) => void
+  onResetSignature: () => void
   columnDimensions: {
     radarWidth: number
     radarHeight: number
@@ -519,6 +522,7 @@ const TagCandidateMethod: React.FC<TagCandidateMethodProps> = ({
   inferredSignature,
   manualSignature,
   onSignatureChange,
+  onResetSignature,
   columnDimensions,
   className = ''
 }) => {
@@ -538,15 +542,17 @@ const TagCandidateMethod: React.FC<TagCandidateMethodProps> = ({
 
   // Local state
   const [showRangeInfo, setShowRangeInfo] = useState(false)
+  const [showWeightInfo, setShowWeightInfo] = useState(false)
   const popoverRef = useRef<HTMLDivElement>(null)
 
-  // Close popover on ESC key
+  // Close popovers on ESC key
   useEffect(() => {
-    if (!showRangeInfo) return
+    if (!showRangeInfo && !showWeightInfo) return
 
     const handleEscKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setShowRangeInfo(false)
+        setShowWeightInfo(false)
       }
     }
 
@@ -555,17 +561,12 @@ const TagCandidateMethod: React.FC<TagCandidateMethodProps> = ({
     return () => {
       document.removeEventListener('keydown', handleEscKey)
     }
-  }, [showRangeInfo])
+  }, [showRangeInfo, showWeightInfo])
 
   // Check if signature has been manually modified
   const hasManualChanges = useMemo(() => {
     return JSON.stringify(manualSignature) !== JSON.stringify(inferredSignature)
   }, [manualSignature, inferredSignature])
-
-  // Handle reset thresholds to auto
-  const handleResetThresholdsToAuto = () => {
-    onSignatureChange(inferredSignature)
-  }
 
   return (
     <div className={`tag-panel__column tag-panel__discovery ${className}`}>
@@ -595,7 +596,7 @@ const TagCandidateMethod: React.FC<TagCandidateMethodProps> = ({
           </div>
           <button
             className="radar-reset-button"
-            onClick={handleResetThresholdsToAuto}
+            onClick={onResetSignature}
             disabled={!hasManualChanges || !activeTagId}
             title={hasManualChanges ? "Reset thresholds to auto-inferred values" : "Thresholds are already at auto-inferred values"}
           >
@@ -641,7 +642,6 @@ const TagCandidateMethod: React.FC<TagCandidateMethodProps> = ({
             signature={manualSignature}
             inferredSignature={inferredSignature}
             onSignatureChange={onSignatureChange}
-            onResetToAuto={handleResetThresholdsToAuto}
             width={columnDimensions.radarWidth}
             height={columnDimensions.radarHeight}
             activeTagId={activeTagId}
@@ -656,6 +656,13 @@ const TagCandidateMethod: React.FC<TagCandidateMethodProps> = ({
           <div className="tag-panel__section-header-row">
             <h5 className="tag-panel__discovery-section-header">Weighted Distance</h5>
             <div className="header-controls">
+              <button
+                className="info-btn"
+                onClick={() => setShowWeightInfo(!showWeightInfo)}
+                title="How weighted distance works"
+              >
+                ?
+              </button>
               <button
                 className={`method-status-btn ${candidateMethod.useWeightedDistance ? 'method-status-btn--active' : ''}`}
                 onClick={toggleWeightedDistance}
@@ -673,6 +680,31 @@ const TagCandidateMethod: React.FC<TagCandidateMethodProps> = ({
           >
             Reset Auto
           </button>
+          {showWeightInfo && (
+            <div className="range-info-popover" ref={popoverRef}>
+              <div className="range-info-popover__header">
+                <h6 className="range-info-popover__title">Weighted Distance Calculation</h6>
+                <button
+                  className="range-info-popover__close"
+                  onClick={() => setShowWeightInfo(false)}
+                  title="Close"
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="range-info-popover__formula">
+                <strong>d = √(Σ w<sub>i</sub> · (x<sub>i</sub> - μ<sub>i</sub>)<sup>2</sup>)</strong>
+              </p>
+              <p className="range-info-popover__description">
+                Calculates weighted Euclidean distance in metric space:
+              </p>
+              <ul className="range-info-popover__list">
+                <li><strong>w<sub>i</sub></strong>: metric weight (importance)</li>
+                <li><strong>x<sub>i</sub></strong>: feature metric value</li>
+                <li><strong>μ<sub>i</sub></strong>: signature center (mean)</li>
+              </ul>
+            </div>
+          )}
           <MetricWeightsPanel
             signature={manualSignature}
             activeTagId={activeTagId}

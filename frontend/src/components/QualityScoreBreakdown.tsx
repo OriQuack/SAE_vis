@@ -20,7 +20,7 @@ const QualityScoreBreakdown: React.FC<QualityScoreBreakdownProps> = React.memo((
   // Chart dimensions - smaller and simpler
   const chartWidth = width
   const chartHeight = 120
-  const margin = { top: 13, right: 10, bottom: 13, left: 10 }
+  const margin = { top: 13, right: 10, bottom: 13, left: 13 }
   const innerWidth = chartWidth - margin.left - margin.right
   const innerHeight = chartHeight - margin.top - margin.bottom
 
