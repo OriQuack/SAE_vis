@@ -84,7 +84,7 @@ def apply_feature_range_filter(
 
     # Ensure range is valid
     start = max(0, start)
-    end = min(decoder_weights.shape[0], end)
+    end = decoder_weights.shape[0]
 
     if start >= end:
         raise ValueError(f"Invalid feature range: start={start}, end={end}")
@@ -160,28 +160,31 @@ def compute_feature_similarities(config: Dict) -> Dict:
     cosine_similarity_matrix = normalized_weights @ normalized_weights.T
     print(f"Cosine similarity matrix shape: {cosine_similarity_matrix.shape}")
 
-    # 6. Find maximum cosine similarity for each feature
-    print("Computing maximum cosine similarity for each feature...")
+    # 6. Find top 10 cosine similarities for each feature
+    print("Computing top 10 cosine similarities for each feature...")
 
     # Set diagonal to a very negative value to exclude self-similarity (which is 1.0)
     cosine_similarity_matrix.fill_diagonal_(float("-inf"))
 
-    # Find maximum cosine similarity for each feature
-    max_indices = torch.argmax(cosine_similarity_matrix, dim=1)
-    nearest_similarities = cosine_similarity_matrix[
-        torch.arange(cosine_similarity_matrix.shape[0]), max_indices
-    ]
-    print(f"Nearest similarities shape: {nearest_similarities.shape}")
+    # Find top 10 cosine similarities for each feature
+    top_k = 10
+    top_k_values, top_k_indices = torch.topk(cosine_similarity_matrix, k=top_k, dim=1)
+    print(f"Top {top_k} similarities shape: {top_k_values.shape}")
 
     # Map indices back to original feature IDs (accounting for feature range filtering)
     source_feature_ids = list(feature_indices)
-    closest_feature_ids = [feature_indices[idx] for idx in max_indices.cpu().numpy()]
-
-    print(f"Source feature IDs range: {min(source_feature_ids)} to {max(source_feature_ids)}")
-    print(f"Closest feature IDs range: {min(closest_feature_ids)} to {max(closest_feature_ids)}")
 
     # Convert to CPU and numpy for JSON serialization
-    nearest_similarities_np = nearest_similarities.cpu().numpy()
+    top_k_indices_np = top_k_indices.cpu().numpy()
+    top_k_values_np = top_k_values.cpu().numpy()
+
+    # Map all top-k indices to original feature IDs (2D array: n_features x top_k)
+    top_k_feature_ids = []
+    for row in top_k_indices_np:
+        top_k_feature_ids.append([int(feature_indices[idx]) for idx in row])
+
+    print(f"Source feature IDs range: {min(source_feature_ids)} to {max(source_feature_ids)}")
+    print(f"Top-{top_k} neighbors mapped for {len(top_k_feature_ids)} features")
 
     # Clear normalized_weights to free memory before saving
     del normalized_weights, cosine_similarity_matrix
@@ -191,23 +194,43 @@ def compute_feature_similarities(config: Dict) -> Dict:
     # 7. Prepare results
     print("Preparing results...")
 
-    # Create detailed feature mapping
+    # Create detailed feature mapping with top 10 neighbors
     feature_mappings = []
     for i, source_feature_id in enumerate(source_feature_ids):
+        # Build top 10 neighbors list
+        top_10_neighbors = []
+        for j in range(top_k):
+            top_10_neighbors.append({
+                "feature_id": top_k_feature_ids[i][j],
+                "cosine_similarity": float(top_k_values_np[i][j]),
+                "rank": j + 1  # 1-indexed rank
+            })
+
         feature_mappings.append({
             "source_feature_id": int(source_feature_id),
-            "closest_feature_id": int(closest_feature_ids[i]),
-            "cosine_similarity": float(nearest_similarities_np[i]),
+            "top_10_neighbors": top_10_neighbors
         })
 
-    # Calculate statistics
+    # Calculate statistics across all top-10 values
+    all_top_k_values = top_k_values_np.flatten()
+    top_1_values = top_k_values_np[:, 0]  # First column = closest neighbors
+
     statistics = {
-        "min_magnitude": float(np.abs(nearest_similarities_np).min()),
-        "max_magnitude": float(np.abs(nearest_similarities_np).max()),
-        "mean_magnitude": float(np.abs(nearest_similarities_np).mean()),
-        "min_value": float(nearest_similarities_np.min()),
-        "max_value": float(nearest_similarities_np.max()),
-        "mean_value": float(nearest_similarities_np.mean()),
+        "top_k": top_k,
+        # Statistics for all top-k values
+        "all_top_k": {
+            "min_value": float(all_top_k_values.min()),
+            "max_value": float(all_top_k_values.max()),
+            "mean_value": float(all_top_k_values.mean()),
+            "std_value": float(all_top_k_values.std()),
+        },
+        # Statistics for closest (rank 1) neighbors only
+        "top_1_only": {
+            "min_value": float(top_1_values.min()),
+            "max_value": float(top_1_values.max()),
+            "mean_value": float(top_1_values.mean()),
+            "std_value": float(top_1_values.std()),
+        },
     }
 
     results = {
@@ -217,7 +240,7 @@ def compute_feature_similarities(config: Dict) -> Dict:
             "end": int(max(source_feature_ids) + 1),
             "total_features": len(source_feature_ids)
         },
-        "description": "Maximum cosine similarity for each SAE feature",
+        "description": "Top 10 cosine similarities for each SAE feature",
         "model_info": {
             "model_name_or_path": model_name_or_path,
             "position": position
@@ -227,10 +250,16 @@ def compute_feature_similarities(config: Dict) -> Dict:
         "config_used": config
     }
 
-    print(f"Min similarity: {statistics['min_value']:.6f}")
-    print(f"Max similarity: {statistics['max_value']:.6f}")
-    print(f"Mean similarity: {statistics['mean_value']:.6f}")
-    print(f"Value range: [{statistics['min_value']:.6f}, {statistics['max_value']:.6f}]")
+    print(f"\nTop-1 (closest) statistics:")
+    print(f"  Min similarity: {statistics['top_1_only']['min_value']:.6f}")
+    print(f"  Max similarity: {statistics['top_1_only']['max_value']:.6f}")
+    print(f"  Mean similarity: {statistics['top_1_only']['mean_value']:.6f}")
+    print(f"  Std dev: {statistics['top_1_only']['std_value']:.6f}")
+    print(f"\nAll top-{top_k} statistics:")
+    print(f"  Min similarity: {statistics['all_top_k']['min_value']:.6f}")
+    print(f"  Max similarity: {statistics['all_top_k']['max_value']:.6f}")
+    print(f"  Mean similarity: {statistics['all_top_k']['mean_value']:.6f}")
+    print(f"  Std dev: {statistics['all_top_k']['std_value']:.6f}")
 
     return results
 
