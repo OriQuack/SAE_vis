@@ -1,0 +1,48 @@
+{
+  "created_at": "2025-10-30T15:25:47.694467",
+  "script_version": "1.0",
+  "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
+  "total_rows": 544188,
+  "unique_features": 16384,
+  "unique_prompts": 24571,
+  "schema": {
+    "feature_id": "UInt32",
+    "sae_id": "Categorical",
+    "prompt_id": "UInt32",
+    "prompt_tokens": "List(Utf8)",
+    "prompt_length": "UInt16",
+    "activation_pairs": "List(Struct([Field('token_position', Int64), Field('activation_value', Float64)]))",
+    "num_activations": "UInt16",
+    "max_activation": "Float32",
+    "mean_activation": "Float32"
+  },
+  "processing_stats": {
+    "total_lines_processed": 544188,
+    "valid_records": 544188,
+    "error_count": 0,
+    "empty_activations": 81353,
+    "total_activation_pairs": 7799522,
+    "features_not_in_master": 15560
+  },
+  "activation_stats": {
+    "total_activations": 7799522,
+    "mean_activations_per_prompt": 14.33240350761134,
+    "max_activations_per_prompt": 127,
+    "prompts_with_activations": 462835,
+    "prompts_without_activations": 81353,
+    "mean_prompt_length": 127.0,
+    "max_prompt_length": 127,
+    "min_prompt_length": 127,
+    "max_activation_value": 359.1809997558594,
+    "mean_activation_value": 31.788520948715874
+  },
+  "config_used": {
+    "activations_input_path": "data/raw/activation_examples/activations.jsonl",
+    "prompts_input_path": "data/raw/activation_examples/prompts.json",
+    "output_path": "data/master/activation_examples.parquet",
+    "master_parquet_path": "data/master/feature_analysis.parquet",
+    "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
+    "log_missing_features": true,
+    "batch_log_interval": 50000
+  }
+}
