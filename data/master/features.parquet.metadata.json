@@ -1,0 +1,38 @@
+{
+  "created_at": "2025-10-30T23:25:24.841231",
+  "script_version": "1.0",
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+  "total_rows": 2471,
+  "unique_features": 824,
+  "schema": {
+    "feature_id": "Int64",
+    "sae_id": "Categorical",
+    "explanation_method": "Categorical",
+    "llm_explainer": "Categorical",
+    "explanation_text": "Utf8",
+    "decoder_similarity": "List(Struct([Field('feature_id', UInt32), Field('cosine_similarity', Float32)]))",
+    "semsim_mean": "Float64",
+    "semsim_max": "Float64",
+    "scores": "List(Struct([Field('scorer', Utf8), Field('fuzz', Float32), Field('simulation', Float32), Field('detection', Float32), Field('embedding', Float32)]))"
+  },
+  "processing_stats": {
+    "unique_llm_explainers": 3,
+    "features_with_decoder_similarity": 16384,
+    "embeddings_sources_loaded": 3,
+    "scores_sources_loaded": 9,
+    "similarities_sources_loaded": 1
+  },
+  "config_used": {
+    "input_paths": {
+      "embeddings_dir": "data/embeddings",
+      "scores_dir": "data/scores",
+      "semantic_similarities_dir": "data/semantic_similarities",
+      "feature_similarity_dir": "data/feature_similarity"
+    },
+    "output_files": {
+      "features_parquet": "data/master/features.parquet",
+      "metadata": "data/master/features.parquet.metadata.json"
+    },
+    "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120"
+  }
+}
