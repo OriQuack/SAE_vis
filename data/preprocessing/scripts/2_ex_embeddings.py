@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Generate embeddings for SAE feature explanations using configurable embedding models.
+Supports both Gemini API and sentence-transformers models (e.g., all-minilm-l6-v2).
 """
 
 import os
@@ -13,6 +14,13 @@ import shutil
 from pathlib import Path
 from typing import List, Dict, Optional
 from dotenv import load_dotenv
+
+# Optional imports for sentence-transformers
+try:
+    from sentence_transformers import SentenceTransformer
+    SENTENCE_TRANSFORMERS_AVAILABLE = True
+except ImportError:
+    SENTENCE_TRANSFORMERS_AVAILABLE = False
 
 
 def load_config(config_path: str) -> Dict:
@@ -60,6 +68,32 @@ def setup_gemini_api() -> None:
     genai.configure(api_key=api_key)
 
 
+def load_sentence_transformer(model_name: str) -> SentenceTransformer:
+    """Load a sentence-transformers model."""
+    if not SENTENCE_TRANSFORMERS_AVAILABLE:
+        raise ImportError(
+            "sentence-transformers library is not installed. "
+            "Install it with: pip install sentence-transformers"
+        )
+    print(f"Loading sentence-transformers model: {model_name}")
+    return SentenceTransformer(model_name)
+
+
+def is_sentence_transformer_model(model_name: str) -> bool:
+    """Check if the model name is a sentence-transformers model."""
+    # Common sentence-transformers model patterns
+    st_patterns = [
+        "all-minilm",
+        "all-mpnet",
+        "all-distilroberta",
+        "paraphrase-",
+        "sentence-transformers/",
+        "multi-qa-",
+        "msmarco-"
+    ]
+    return any(pattern in model_name.lower() for pattern in st_patterns)
+
+
 def get_explanation_files(explanations_dir: str, file_pattern: str) -> List[str]:
     """Get all explanation text files from the directory."""
     pattern = os.path.join(explanations_dir, file_pattern)
@@ -87,14 +121,28 @@ def read_explanation(filepath: str) -> str:
 
 
 def generate_embedding(
-    text: str, model_name: str, task_type: str = "semantic_similarity"
+    text: str,
+    model_name: str,
+    task_type: str = "semantic_similarity",
+    st_model: Optional[SentenceTransformer] = None
 ) -> Optional[List[float]]:
-    """Generate embedding for text using specified embedding model."""
+    """
+    Generate embedding for text using specified embedding model.
+
+    Supports both Gemini API and sentence-transformers models.
+    If st_model is provided, uses sentence-transformers. Otherwise, uses Gemini API.
+    """
     try:
-        result = genai.embed_content(
-            model=model_name, content=text, task_type=task_type
-        )
-        return result["embedding"]
+        if st_model is not None:
+            # Use sentence-transformers model
+            embedding = st_model.encode(text, convert_to_numpy=True)
+            return embedding.tolist()
+        else:
+            # Use Gemini API
+            result = genai.embed_content(
+                model=model_name, content=text, task_type=task_type
+            )
+            return result["embedding"]
     except Exception as e:
         print(f"Error generating embedding: {e}")
         return None
@@ -162,14 +210,29 @@ def main():
         print(f"Error: Explanations directory does not exist: {explanations_dir}")
         return
 
-    # Setup Gemini API
-    try:
-        setup_gemini_api()
-        print("Gemini API configured successfully")
-    except ValueError as e:
-        print(f"Error: {e}")
-        print("Please set GOOGLE_API_KEY in .env file")
-        return
+    # Detect embedding provider and setup
+    model_name = config["embedding_model"]
+    use_sentence_transformers = is_sentence_transformer_model(model_name)
+    st_model = None
+
+    if use_sentence_transformers:
+        print(f"Detected sentence-transformers model: {model_name}")
+        try:
+            st_model = load_sentence_transformer(model_name)
+            print("Sentence-transformers model loaded successfully")
+        except Exception as e:
+            print(f"Error loading sentence-transformers model: {e}")
+            return
+    else:
+        # Setup Gemini API
+        print(f"Using Gemini API with model: {model_name}")
+        try:
+            setup_gemini_api()
+            print("Gemini API configured successfully")
+        except ValueError as e:
+            print(f"Error: {e}")
+            print("Please set GOOGLE_API_KEY in .env file")
+            return
 
     # Get all explanation files
     explanation_files = get_explanation_files(str(explanations_dir), config["file_pattern"])
@@ -183,7 +246,8 @@ def main():
     embeddings_data = {
         "metadata": {
             "model": config["embedding_model"],
-            "task_type": config["task_type"],
+            "task_type": config.get("task_type", "N/A" if use_sentence_transformers else "semantic_similarity"),
+            "provider": "sentence-transformers" if use_sentence_transformers else "gemini",
             "total_latents": len(explanation_files),
             "dataset": data_source,
             "sae_id": sae_id,
@@ -202,7 +266,8 @@ def main():
         embedding = generate_embedding(
             explanation,
             config["embedding_model"],
-            config["task_type"]
+            config.get("task_type", "semantic_similarity"),
+            st_model
         )
 
         if embedding is not None:
@@ -215,8 +280,9 @@ def main():
         else:
             print(f"  Failed to generate embedding for latent {latent_id}")
 
-        # Add delay to avoid rate limiting
-        time.sleep(config["delay_between_requests"])
+        # Add delay to avoid rate limiting (only for API calls)
+        if not use_sentence_transformers:
+            time.sleep(config["delay_between_requests"])
 
     # Save results
     save_embeddings(embeddings_data, str(output_dir), config["output_filename"], config, sae_id)
