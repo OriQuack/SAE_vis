@@ -24,7 +24,7 @@ pip install -r requirements.txt
 
 Ensure your data preprocessing is complete and the master Parquet file exists:
 ```bash
-ls -la ./data/master/feature_analysis.parquet
+ls -la ./data/master/features.parquet
 ```
 
 ### 3. Start the Server
@@ -200,7 +200,7 @@ All endpoints return consistent error responses:
 The API expects the following data structure:
 
 ### Master Parquet File
-- **Location**: `interface/data/master/feature_analysis.parquet`
+- **Location**: `interface/data/master/features.parquet`
 - **Schema**: See `docs/api_specification.md` for complete schema
 
 ### Detailed JSON Files

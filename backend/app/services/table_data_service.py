@@ -2,9 +2,9 @@
 Table data service for feature-level score visualization.
 
 Clean 4-step flow:
-1. Fetch scores from feature_analysis.parquet
+1. Fetch scores from features.parquet
 2. Fetch consistency from consistency_scores.parquet, calculate if missing
-3. Fetch explanations from explanations.parquet
+3. Fetch explanations from features.parquet (explanation_text column)
 4. Build response (pure assembly, no calculations)
 
 All calculation logic is in ConsistencyService for maintainability.
@@ -64,9 +64,6 @@ class TableDataService:
         self.pairwise_similarity_file = (
             Path(data_service.data_path) / "master" / "semantic_similarity_pairwise.parquet"
         )
-        self.explanations_file = (
-            Path(data_service.data_path) / "master" / "explanations.parquet"
-        )
         self.consistency_scores_file = (
             Path(data_service.data_path) / "master" / "consistency_scores.parquet"
         )
@@ -76,7 +73,7 @@ class TableDataService:
         Generate feature-level table data with consistency scores.
 
         Clean 4-step flow:
-        1. Fetch scores from feature_analysis.parquet
+        1. Fetch scores from features.parquet
         2. Fetch consistency from consistency_scores.parquet, calculate if missing
         3. Fetch explanations from explanations.parquet
         4. Build response (pure assembly, no calculations)
@@ -98,7 +95,7 @@ class TableDataService:
                 "with no sae_id or explanation_method filters applied."
             )
 
-        # STEP 1: Fetch scores from feature_analysis.parquet
+        # STEP 1: Fetch scores from features.parquet
         scores_df = self._fetch_scores(filters)
 
         # Extract metadata
@@ -137,7 +134,7 @@ class TableDataService:
 
     def _fetch_scores(self, filters: Filters) -> pl.DataFrame:
         """
-        STEP 1: Fetch scores from feature_analysis.parquet with filters applied.
+        STEP 1: Fetch scores from features.parquet with filters applied.
 
         NOTE: Assumes default filters (all 3 explainers/scorers). Validation done in get_table_data().
 
@@ -155,14 +152,43 @@ class TableDataService:
             pl.col("llm_scorer").is_in(self.DEFAULT_SCORERS)
         )
 
-        # Select needed columns
-        df = lf.select([
+        # Select base columns (raw scores)
+        base_columns = [
             "feature_id", "llm_explainer", "llm_scorer",
-            "feature_splitting",
-            "score_embedding", "score_fuzz", "score_detection",
-            "z_score_embedding", "z_score_fuzz", "z_score_detection",
-            "overall_score"
-        ]).collect()
+            "score_embedding", "score_fuzz", "score_detection"
+        ]
+
+        # Add additional columns if available
+        available_columns = lf.columns
+        if "feature_splitting" in available_columns:
+            base_columns.append("feature_splitting")
+        if "decoder_similarity" in available_columns:
+            base_columns.append("decoder_similarity")
+
+        df = lf.select(base_columns).collect()
+
+        # Compute z-scores for each metric
+        # Z-score = (value - mean) / std
+        for score_col in ["score_embedding", "score_fuzz", "score_detection"]:
+            z_col = score_col.replace("score_", "z_score_")
+            mean = df[score_col].mean()
+            std = df[score_col].std()
+
+            if std is not None and std > 0:
+                df = df.with_columns([
+                    ((pl.col(score_col) - mean) / std).alias(z_col)
+                ])
+            else:
+                # If std is 0 or null, set z-score to 0
+                df = df.with_columns([
+                    pl.lit(0.0).alias(z_col)
+                ])
+
+        # Compute overall_score as average of z-scores
+        df = df.with_columns([
+            ((pl.col("z_score_embedding") + pl.col("z_score_fuzz") + pl.col("z_score_detection")) / 3.0)
+            .alias("overall_score")
+        ])
 
         logger.info(f"Fetched scores: {len(df)} rows, {df['feature_id'].n_unique()} unique features")
         return df
@@ -305,7 +331,7 @@ class TableDataService:
 
     def _fetch_explanations(self, filters: Filters) -> Optional[pl.DataFrame]:
         """
-        STEP 3: Fetch explanations from explanations.parquet.
+        STEP 3: Fetch explanations from features.parquet (explanation_text column).
 
         NOTE: Assumes default filters, no filtering applied.
 
@@ -316,11 +342,20 @@ class TableDataService:
             DataFrame with explanations (feature_id, llm_explainer, explanation_text)
         """
         try:
-            explanations_df = pl.read_parquet(self.explanations_file)
+            # Get the main lazy frame from DataService
+            df_lazy = self.data_service._df_lazy
 
-            # Default-only mode: filter to DEFAULT_EXPLAINERS
-            explanations_df = explanations_df.filter(
-                pl.col("llm_explainer").is_in(self.DEFAULT_EXPLAINERS)
+            if df_lazy is None:
+                logger.warning("DataService lazy frame is not initialized")
+                return None
+
+            # Select relevant columns and filter to DEFAULT_EXPLAINERS
+            explanations_df = (
+                df_lazy
+                .filter(pl.col("llm_explainer").is_in(self.DEFAULT_EXPLAINERS))
+                .select(["feature_id", "llm_explainer", "explanation_text"])
+                .unique()  # Remove duplicates since explanations are same across scorers
+                .collect()
             )
 
             # COMMENTED OUT: Dynamic explainer filtering (unused in default-only mode)
@@ -403,10 +438,12 @@ class TableDataService:
                 if len(explainer_df) == 0:
                     continue
 
-                # Embedding (one per explainer)
+                # Embedding (one per explainer) - take first non-null value
                 emb = explainer_df["score_embedding"].to_list()
-                if emb and emb[0] is not None:
-                    embedding_values.append(emb[0])
+                for emb_val in emb:
+                    if emb_val is not None:
+                        embedding_values.append(emb_val)
+                        break
 
                 # Fuzz and detection (averaged across scorers)
                 fuzz = explainer_df["score_fuzz"].to_list()
@@ -523,7 +560,7 @@ class TableDataService:
         STEP 4: Build feature rows (pure assembly, no calculations).
 
         Args:
-            scores_df: Scores DataFrame from feature_analysis.parquet
+            scores_df: Scores DataFrame from features.parquet
             consistency_df: Consistency DataFrame (pre-computed or calculated)
             explanations_df: Explanations DataFrame (optional)
             pairwise_df: Pairwise similarity DataFrame (optional)
@@ -542,12 +579,25 @@ class TableDataService:
             feature_consistency = consistency_df.filter(pl.col("feature_id") == feature_id)
             feature_pairwise = pairwise_df.filter(pl.col("feature_id") == feature_id) if pairwise_df is not None else None
 
-            # Extract feature_splitting (same for all explainers)
-            feature_splitting = None
-            if len(feature_scores) > 0 and "feature_splitting" in feature_scores.columns:
-                feature_splitting_values = feature_scores["feature_splitting"].unique().to_list()
-                if len(feature_splitting_values) > 0:
-                    feature_splitting = float(feature_splitting_values[0])
+            # Extract decoder_similarity (new format) or feature_splitting (legacy format)
+            # Note: decoder_similarity is a list of structs, same for all explainers
+            decoder_similarity = None
+
+            if len(feature_scores) > 0:
+                if "decoder_similarity" in feature_scores.columns:
+                    # New format: extract list of similar features
+                    # Just get the first row since decoder_similarity is same for all rows of this feature
+                    decoder_sim_value = feature_scores["decoder_similarity"][0]
+                    if decoder_sim_value is not None:
+                        # Convert from Polars struct to dict format for Pydantic
+                        decoder_similarity = [
+                            {"feature_id": int(item["feature_id"]), "cosine_similarity": float(item["cosine_similarity"])}
+                            for item in decoder_sim_value
+                        ]
+                elif "feature_splitting" in feature_scores.columns:
+                    # Legacy format: feature_splitting was a float (deprecated)
+                    # We don't set decoder_similarity for legacy data
+                    pass
 
             explainers_dict = {}
             for explainer in explainer_ids:
@@ -623,7 +673,7 @@ class TableDataService:
             if explainers_dict:
                 features.append(FeatureTableRow(
                     feature_id=feature_id,
-                    feature_splitting=feature_splitting,
+                    decoder_similarity=decoder_similarity,
                     explainers=explainers_dict
                 ))
 

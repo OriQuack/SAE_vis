@@ -27,7 +27,8 @@ COL_SAE_ID = "sae_id"
 COL_EXPLANATION_METHOD = "explanation_method"
 COL_LLM_EXPLAINER = "llm_explainer"
 COL_LLM_SCORER = "llm_scorer"
-COL_FEATURE_SPLITTING = "feature_splitting"
+COL_FEATURE_SPLITTING = "feature_splitting"  # Legacy - removed from new parquet
+COL_DECODER_SIMILARITY = "decoder_similarity"
 COL_SEMSIM_MEAN = "semsim_mean"
 COL_SEMSIM_MAX = "semsim_max"
 COL_SCORE_FUZZ = "score_fuzz"
@@ -67,7 +68,6 @@ DEFAULT_THRESHOLDS = {
     "feature_splitting": 0.5,
     "semsim_mean": 0.2,
     "score_fuzz": 0.5,
-    "score_simulation": 0.5,
     "score_detection": 0.5,
     "score_embedding": 0.5
 }
@@ -91,14 +91,12 @@ CONDITION_STATE_OUT_RANGE = "out_range"
 # SCORE NAMES - Flexible for N Scores
 # ============================================================================
 SCORE_NAME_FUZZ = "fuzz"
-SCORE_NAME_SIMULATION = "simulation"
 SCORE_NAME_DETECTION = "detection"
 SCORE_NAME_EMBEDDING = "embedding"
 
 # Score column mappings for flexible score handling
 SCORE_COLUMNS_MAPPING = {
     SCORE_NAME_FUZZ: COL_SCORE_FUZZ,
-    SCORE_NAME_SIMULATION: COL_SCORE_SIMULATION,
     SCORE_NAME_DETECTION: COL_SCORE_DETECTION,
     SCORE_NAME_EMBEDDING: COL_SCORE_EMBEDDING
 }

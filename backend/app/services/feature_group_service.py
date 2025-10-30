@@ -22,7 +22,7 @@ from .data_constants import (
 logger = logging.getLogger(__name__)
 
 # Data file paths
-FEATURE_ANALYSIS_PATH = Path(__file__).parent.parent.parent.parent / "data" / "master" / "feature_analysis.parquet"
+FEATURES_PATH = Path(__file__).parent.parent.parent.parent / "data" / "master" / "features.parquet"
 CONSISTENCY_SCORES_PATH = Path(__file__).parent.parent.parent.parent / "data" / "master" / "consistency_scores.parquet"
 
 
@@ -31,7 +31,8 @@ class FeatureGroupService:
     Simple service for grouping features by threshold ranges.
 
     Supports:
-    - 5 standard metrics: feature_splitting, semdist_mean, score_fuzz, score_detection, score_embedding
+    - 4 standard metrics: semdist_mean, score_fuzz, score_detection, score_embedding
+      (Note: feature_splitting removed - replaced by decoder_similarity which is a list structure)
     - 5 consistency metrics (pre-computed):
       * llm_scorer_consistency
       * within_explanation_metric_consistency
@@ -46,12 +47,47 @@ class FeatureGroupService:
         logger.info("Initializing FeatureGroupService")
 
         # Load master data
-        self.feature_df = pl.scan_parquet(str(FEATURE_ANALYSIS_PATH))
-        logger.info(f"Loaded feature analysis from {FEATURE_ANALYSIS_PATH}")
+        self.feature_df = pl.scan_parquet(str(FEATURES_PATH))
+
+        # Transform nested schema to flat schema
+        self.feature_df = self._transform_to_flat_schema(self.feature_df)
+        logger.info(f"Loaded features from {FEATURES_PATH}")
 
         # Load consistency data
         self.consistency_df = pl.scan_parquet(str(CONSISTENCY_SCORES_PATH))
         logger.info(f"Loaded consistency scores from {CONSISTENCY_SCORES_PATH}")
+
+    def _transform_to_flat_schema(self, df_lazy: pl.LazyFrame) -> pl.LazyFrame:
+        """
+        Transform nested features.parquet schema to flat schema expected by backend.
+
+        Explodes the nested scores structure and extracts individual columns.
+        """
+        # Explode scores to create one row per scorer
+        df_lazy = df_lazy.explode("scores")
+
+        # Extract scorer and individual score columns from the struct
+        df_lazy = df_lazy.with_columns([
+            pl.col("scores").struct.field("scorer").alias(COL_LLM_SCORER),
+            pl.col("scores").struct.field("fuzz").alias("score_fuzz"),
+            pl.col("scores").struct.field("simulation").alias("score_simulation"),
+            pl.col("scores").struct.field("detection").alias("score_detection"),
+            pl.col("scores").struct.field("embedding").alias("score_embedding"),
+        ])
+
+        # Convert decoder_similarity to feature_splitting (max cosine_similarity)
+        # Keep decoder_similarity for table display
+        df_lazy = df_lazy.with_columns([
+            pl.col("decoder_similarity")
+              .list.eval(pl.element().struct.field("cosine_similarity"))
+              .list.max()
+              .alias("feature_splitting")
+        ])
+
+        # Drop only scores and explanation_text, keep decoder_similarity
+        df_lazy = df_lazy.drop(["scores", "explanation_text"])
+
+        return df_lazy
 
     async def get_feature_groups(
         self,
@@ -134,7 +170,7 @@ class FeatureGroupService:
         thresholds: List[float]
     ) -> Tuple[List[FeatureGroup], int]:
         """
-        Get groups for standard metrics (feature_splitting, semdist_mean, scores).
+        Get groups for standard metrics (semdist_mean, scores).
 
         Returns:
             Tuple of (groups, total_features)
@@ -171,7 +207,7 @@ class FeatureGroupService:
             )
             logger.info(f"Aggregated {len(df_collected)} rows to {len(df_aggregated)} unique features")
         else:
-            # For metrics that don't vary (feature_splitting, semdist_mean),
+            # For metrics that don't vary (semdist_mean),
             # we can use the data as-is but will still deduplicate feature IDs later
             df_aggregated = df_collected
 

@@ -13,12 +13,11 @@ from ..services.data_constants import (
 class MetricType(str, Enum):
     """Supported metric types for histogram analysis"""
     # Standard metrics
-    FEATURE_SPLITTING = "feature_splitting"
+    # Note: feature_splitting removed - replaced by decoder_similarity which is a list (not groupable)
     SEMSIM_MEAN = "semsim_mean"
     SCORE_FUZZ = "score_fuzz"
     SCORE_DETECTION = "score_detection"
     SCORE_EMBEDDING = "score_embedding"
-    SCORE_COMBINED = "score_combined"
 
     # Consistency metrics (Phase 8)
     LLM_SCORER_CONSISTENCY = "llm_scorer_consistency"
@@ -55,8 +54,8 @@ class ThresholdPathConstraint(BaseModel):
     """
     metric: str = Field(
         ...,
-        description="Metric name (e.g., 'feature_splitting', 'overall_score')",
-        example="feature_splitting"
+        description="Metric name (e.g., 'semsim_mean', 'overall_score')",
+        example="semsim_mean"
     )
     range_label: str = Field(
         ...,

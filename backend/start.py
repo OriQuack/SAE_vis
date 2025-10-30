@@ -46,7 +46,7 @@ def setup_logging(log_level: str = "info", log_file: str = None):
 def check_data_files():
     """Check if required data files exist"""
     data_path = Path("../data")
-    master_file = data_path / "master" / "feature_analysis.parquet"
+    master_file = data_path / "master" / "features.parquet"
 
     if not master_file.exists():
         print(f"⚠️  Warning: Master data file not found at {master_file}")

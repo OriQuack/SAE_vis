@@ -241,54 +241,18 @@ class ComparisonResponse(BaseModel):
         description="Summary statistics"
     )
 
-class FeatureScores(BaseModel):
-    """Individual feature's scores"""
-    fuzz: float = Field(..., description="Fuzzing score")
-    simulation: float = Field(..., description="Simulation score")
-    detection: float = Field(..., description="Detection score")
-    embedding: float = Field(..., description="Embedding score")
-
-class FeatureResponse(BaseModel):
-    """Response model for individual feature endpoint"""
+class DecoderSimilarFeature(BaseModel):
+    """Model for a single similar decoder feature"""
     feature_id: int = Field(
         ...,
-        description="The feature ID"
+        ge=0,
+        description="Similar feature ID"
     )
-    sae_id: str = Field(
+    cosine_similarity: float = Field(
         ...,
-        description="SAE model identifier"
-    )
-    explanation_method: str = Field(
-        ...,
-        description="Explanation method used"
-    )
-    llm_explainer: str = Field(
-        ...,
-        description="LLM explainer model"
-    )
-    llm_scorer: str = Field(
-        ...,
-        description="LLM scorer model"
-    )
-    feature_splitting: float = Field(
-        ...,
-        description="Feature splitting cosine similarity score"
-    )
-    semsim_mean: float = Field(
-        ...,
-        description="Average semantic similarity"
-    )
-    semsim_max: float = Field(
-        ...,
-        description="Maximum semantic similarity"
-    )
-    scores: FeatureScores = Field(
-        ...,
-        description="Feature scores"
-    )
-    details_path: str = Field(
-        ...,
-        description="Path to detailed JSON file"
+        ge=0.0,
+        le=1.0,
+        description="Cosine similarity with the source feature"
     )
 
 class ThresholdFeatureResponse(BaseModel):
@@ -453,9 +417,9 @@ class ExplainerScoreData(BaseModel):
 class FeatureTableRow(BaseModel):
     """Single feature row with scores for all explainers"""
     feature_id: int = Field(..., ge=0, description="Feature ID")
-    feature_splitting: Optional[float] = Field(
+    decoder_similarity: Optional[List[DecoderSimilarFeature]] = Field(
         None,
-        description="Feature splitting cosine similarity score (same across all explainers for this feature)"
+        description="List of top 10 most similar decoder features (sorted descending by cosine_similarity)"
     )
     explainers: Dict[str, ExplainerScoreData] = Field(
         ...,

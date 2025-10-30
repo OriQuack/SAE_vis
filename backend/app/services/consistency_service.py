@@ -832,7 +832,7 @@ class ConsistencyService:
         consistency_scores.parquet that can be merged with existing data.
 
         Args:
-            df: DataFrame from feature_analysis.parquet (filtered)
+            df: DataFrame from features.parquet (filtered)
             explainer_ids: List of explainer IDs to process
             feature_ids: List of feature IDs to process
             pairwise_df: Optional pairwise similarity DataFrame for explainer consistency
@@ -950,7 +950,7 @@ class ConsistencyService:
         Compute global statistics for z-score normalization.
 
         Args:
-            df: DataFrame from feature_analysis.parquet
+            df: DataFrame from features.parquet
             explainer_ids: List of explainer IDs
             feature_ids: List of feature IDs
 
@@ -1106,9 +1106,14 @@ class ExplainerDataBuilder:
         if len(explainer_df) == 0:
             return fuzz_dict, detection_dict, embedding_score
 
-        # Get embedding score (first value)
+        # Get embedding score (first non-null value)
         embedding_scores = explainer_df["score_embedding"].to_list()
-        embedding_score = round(embedding_scores[0], 3) if embedding_scores and embedding_scores[0] is not None else None
+        # Find first non-null embedding score
+        embedding_score = None
+        for score in embedding_scores:
+            if score is not None:
+                embedding_score = round(score, 3)
+                break
 
         # Extract scores per scorer
         if scorer_map is None:

@@ -73,7 +73,7 @@ data/
 │       ├── ...                 # (1,000 feature files total)
 │       └── config.json         # Consolidation config and statistics
 ├── master/                     # Master parquet files for analysis ✅ NEW
-│   ├── feature_analysis.parquet            # Master table with 2,471 rows (1,648 features)
+│   ├── features.parquet            # Master table with 2,471 rows (1,648 features)
 │   ├── feature_analysis.metadata.json      # Processing metadata and statistics
 │   ├── semantic_similarity_pairwise.parquet # Pairwise LLM similarity (2,470 rows) ✅ NEW
 │   ├── semantic_similarity_pairwise.parquet.metadata.json # Pairwise similarity metadata ✅ NEW
@@ -419,10 +419,10 @@ The data processing pipeline is now **complete and production-ready** for compre
 
 ## Integration with Visualization System
 
-The master parquet file (`feature_analysis.parquet`) is the primary data source for the FastAPI backend:
+The master parquet file (`features.parquet`) is the primary data source for the FastAPI backend:
 
 ### Backend Integration (✅ ACTIVE)
-- **Location**: `/data/master/feature_analysis.parquet` and `/data/master/consistency_scores.parquet`
+- **Location**: `/data/master/features.parquet` and `/data/master/consistency_scores.parquet`
 - **Backend Service**: Loaded by `DataService` (`backend/app/services/visualization_service.py`) and `ConsistencyService`
 - **Lazy Loading**: Polars LazyFrame with string cache optimization
 - **Dataset Size**: 1,648 features processed (824 from llama_e-llama_s + 824 from gwen_e-llama_s)
@@ -472,7 +472,7 @@ The parquet schema is optimized for multiple visualization types:
 
 ### analyze_features.py (Simplified - January 2025)
 
-**Purpose**: Quick data inspection and validation for feature_analysis.parquet
+**Purpose**: Quick data inspection and validation for features.parquet
 
 **Features**:
 - **Compact Design**: 103 lines (simplified from 593 lines, ~83% reduction)

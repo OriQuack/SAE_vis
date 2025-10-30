@@ -1,0 +1,48 @@
+{
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+
+  "input_paths": {
+    "embeddings_dir": "data/embeddings",
+    "scores_dir": "data/scores",
+    "semantic_similarities_dir": "data/semantic_similarities",
+    "feature_similarity_dir": "data/feature_similarity"
+  },
+
+  "output_paths": {
+    "master_parquet": "data/master/feature_analysis_direct.parquet",
+    "metadata": "data/master/feature_analysis_direct.parquet.metadata.json"
+  },
+
+  "processing_options": {
+    "batch_size": 500,
+    "log_interval": 100,
+    "validate_output": true
+  },
+
+  "schema_info": {
+    "version": "1.0",
+    "description": "Master parquet schema for SAE feature analysis",
+    "primary_key": ["feature_id", "sae_id", "explanation_method", "llm_explainer", "llm_scorer"],
+    "columns": {
+      "feature_id": "SAE feature index (0-823)",
+      "sae_id": "SAE model identifier",
+      "explanation_method": "Method used for explanation generation",
+      "llm_explainer": "LLM model used for explanations",
+      "llm_scorer": "LLM model used for scoring",
+      "feature_splitting": "Closest cosine similarity magnitude (continuous)",
+      "semsim_mean": "Average semantic similarity between explanations",
+      "semsim_max": "Maximum semantic similarity between explanations",
+      "score_fuzz": "Fuzzing evaluation score",
+      "score_simulation": "Simulation evaluation score",
+      "score_detection": "Detection evaluation score",
+      "score_embedding": "Embedding evaluation score",
+      "z_score_embedding": "Z-score normalized embedding score",
+      "z_score_fuzz": "Z-score normalized fuzz score",
+      "z_score_detection": "Z-score normalized detection score",
+      "overall_score": "Average of z-scores (requires >=2 metrics)",
+      "details_path": "Relative path to detailed JSON (legacy)"
+    }
+  },
+
+  "description": "Direct master parquet generation configuration (eliminates detailed JSON intermediate)"
+}

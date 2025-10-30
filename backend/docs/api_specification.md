@@ -390,7 +390,7 @@ Currently no authentication is required. Future versions may implement API key a
   "llm_scorer": "gpt-4-turbo",
   "feature_splitting": true,
   "semdist_mean": 0.18,
-  "semdist_max": 0.31,
+  "semsim_mean": 0.31,
   "scores": {
     "fuzz": 0.89,
     "simulation": 0.92,
@@ -495,7 +495,7 @@ curl -X GET "http://localhost:8000/api/filter-options"
 ```
 
 ### Data Requirements
-- Master Parquet file: `/data/master/feature_analysis.parquet`
+- Master Parquet file: `/data/master/features.parquet`
 - Detailed JSON directory: `/data/detailed_json/`
 - Metadata file: `/data/master/feature_analysis.metadata.json`
 

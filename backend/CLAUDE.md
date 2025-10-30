@@ -362,7 +362,7 @@ class TableDataService:
 **Data Sources:**
 - **Pre-computed**: `/data/master/consistency_scores.parquet` (2,471 rows)
 - **Pairwise Similarity**: `/data/master/semantic_similarity_pairwise.parquet` (2,470 rows)
-- **Feature Analysis**: `/data/master/feature_analysis.parquet` (for dynamic calculation)
+- **Feature Analysis**: `/data/master/features.parquet` (for dynamic calculation)
 
 **Key Methods:**
 ```python
@@ -515,7 +515,7 @@ allow_origins=[
 ## Data Requirements & Schema
 
 ### Master Parquet File
-- **Location**: `/data/master/feature_analysis.parquet`
+- **Location**: `/data/master/features.parquet`
 - **Schema**: 2,471 rows covering 1,000 unique features with multiple LLM explainers
 - **Columns**: feature_id, sae_id, explanation_method, llm_explainer, llm_scorer, feature_splitting, semdist_mean, score_fuzz, score_simulation, score_detection, score_embedding, details_path
 
@@ -849,7 +849,7 @@ API Endpoints → DataService (visualization_service.py)
 ## Critical Notes for Development
 
 1. **Data Dependencies**:
-   - Master parquet: `/data/master/feature_analysis.parquet` (1,648 features)
+   - Master parquet: `/data/master/features.parquet` (1,648 features)
    - Consistency scores: `/data/master/consistency_scores.parquet` (2,471 rows, 8 metrics)
    - Pairwise similarity: `/data/master/semantic_similarity_pairwise.parquet` (2,470 rows)
    - LLM stats: `/data/llm_comparison/llm_comparison_stats.json`

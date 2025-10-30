@@ -58,7 +58,7 @@ class ConsistencyPreprocessor:
         else:
             self.data_path = data_path
 
-        self.master_file = self.data_path / "master" / "feature_analysis.parquet"
+        self.master_file = self.data_path / "master" / "features.parquet"
         self.pairwise_file = self.data_path / "master" / "semantic_similarity_pairwise.parquet"
         self.output_file = self.data_path / "master" / "consistency_scores.parquet"
 

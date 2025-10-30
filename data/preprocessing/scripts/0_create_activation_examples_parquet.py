@@ -69,7 +69,7 @@ def load_config(config_path: Optional[str] = None) -> Dict:
         "activations_input_path": "data/raw/activation_examples/activations.jsonl",
         "prompts_input_path": "data/raw/activation_examples/prompts.json",
         "output_path": "data/master/activation_examples.parquet",
-        "master_parquet_path": "data/master/feature_analysis.parquet",
+        "master_parquet_path": "data/master/features.parquet",
         "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
         "log_missing_features": True,
         "batch_log_interval": 50000
