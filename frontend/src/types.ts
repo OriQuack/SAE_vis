@@ -409,11 +409,6 @@ export interface ScorerScoreSet {
   s3: number | null
 }
 
-export interface ConsistencyScore {
-  value: number  // 0-1 range
-  method: string  // e.g., "coefficient_variation", "normalized_std"
-}
-
 export interface HighlightSegment {
   text: string
   highlight: boolean
@@ -437,11 +432,6 @@ export interface ExplainerScoreData {
   explanation_text?: string | null  // Explanation text for this explainer
   highlighted_explanation?: HighlightedExplanation | null  // Highlighted explanation with syntax highlighting
   semantic_similarity?: Record<string, number> | null  // Pairwise cosine similarity to other explainers (e.g., {"qwen": 0.931, "openai": 0.871})
-  llm_scorer_consistency?: Record<string, ConsistencyScore>  // Per-metric std (fuzz, detection)
-  within_explanation_metric_consistency?: ConsistencyScore  // Cross-metric std
-  llm_explainer_consistency?: ConsistencyScore  // Semantic consistency (avg pairwise cosine)
-  cross_explanation_metric_consistency?: Record<string, ConsistencyScore>  // Per-metric inverse std across explainers (embedding, fuzz, detection)
-  cross_explanation_overall_score_consistency?: ConsistencyScore  // Quality score inverse std across explainers (same value for all explainers within a feature)
 }
 
 export interface FeatureTableRow {

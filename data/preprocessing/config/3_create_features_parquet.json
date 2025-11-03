@@ -1,0 +1,32 @@
+{
+  "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+
+  "description": "Configuration for creating features.parquet with nested structure. Loads explanation text and embeddings from parquet (script 2 output) and calculates semantic similarities on-the-fly.",
+
+  "input_paths": {
+    "scores_dir": "data/scores",
+    "explanation_embeddings_path": "data/master/explanation_embeddings.parquet",
+    "feature_similarity_dir": "data/feature_similarity"
+  },
+
+  "output_files": {
+    "features_parquet": "data/master/features.parquet",
+    "metadata": "data/master/features.parquet.metadata.json"
+  },
+
+  "processing_notes": {
+    "semantic_similarity_calculation": "Calculated on-the-fly from explanation embeddings using numpy cosine similarity",
+    "data_source": "All data loaded from explanation_embeddings.parquet which contains both text and embeddings",
+    "deprecated_dependencies": [
+      "embeddings_dir (data/embeddings/*/*.json) - replaced by explanation_embeddings.parquet",
+      "semantic_similarities JSON files (script 3 output)",
+      "Pairwise similarity parquet (script 6 output)"
+    ],
+    "schema_version": "2.0",
+    "nested_structures": [
+      "decoder_similarity: List(Struct)",
+      "semantic_similarity: List(Struct)",
+      "scores: List(Struct)"
+    ]
+  }
+}

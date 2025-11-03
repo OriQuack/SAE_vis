@@ -393,26 +393,6 @@ class ExplainerScoreData(BaseModel):
         None,
         description="Pairwise cosine similarity to other explainers. Key: other explainer name (e.g., 'qwen', 'openai'), Value: cosine similarity (0-1)"
     )
-    llm_scorer_consistency: Optional[Dict[str, ConsistencyScore]] = Field(
-        None,
-        description="Consistency across LLM scorers for each metric (coefficient of variation): {fuzz, detection}"
-    )
-    within_explanation_metric_consistency: Optional[ConsistencyScore] = Field(
-        None,
-        description="Consistency across metrics (normalized standard deviation)"
-    )
-    llm_explainer_consistency: Optional[ConsistencyScore] = Field(
-        None,
-        description="Semantic consistency between LLM explainers (average pairwise cosine similarity)"
-    )
-    cross_explanation_metric_consistency: Optional[Dict[str, ConsistencyScore]] = Field(
-        None,
-        description="Consistency of each metric across LLM explainers (inverse coefficient of variation): {embedding, fuzz, detection}"
-    )
-    cross_explanation_overall_score_consistency: Optional[ConsistencyScore] = Field(
-        None,
-        description="Consistency of overall score across LLM explainers (inverse coefficient of variation). Same value for all explainers within a feature."
-    )
 
 class FeatureTableRow(BaseModel):
     """Single feature row with scores for all explainers"""

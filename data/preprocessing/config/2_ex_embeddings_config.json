@@ -1,0 +1,62 @@
+{
+  "data_sources": [
+    "llama_e-llama_s",
+    "gwen_e-llama_s",
+    "openai_e-llama_s"
+  ],
+  "output_path": "data/master/explanation_embeddings.parquet",
+
+  "description": "Configuration for generating embeddings from SAE feature explanations across multiple data sources",
+
+  "llm_explainer_mapping": {
+    "llama_e": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+    "gwen_e": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+    "openai_e": "openai/gpt-oss-20b"
+  },
+
+  "processing_parameters": {
+    "file_pattern": "layers.30_latent*.txt",
+    "explanation_method": "quantiles"
+  },
+
+  "model_parameters": {
+    "embedding_model": "google/embeddinggemma-300m",
+    "device": "cuda",
+    "batch_size": 256
+  },
+
+  "task_type": "semantic_similarity",
+  "delay_between_requests": 0,
+
+  "processing_notes": {
+    "expected_features_per_source": 824,
+    "total_expected_rows": 2472,
+    "output_format": "parquet",
+    "primary_key_fields": [
+      "feature_id",
+      "data_source"
+    ]
+  },
+
+  "schema_info": {
+    "table_name": "explanation_embeddings",
+    "version": "2.0",
+    "field_descriptions": {
+      "feature_id": "SAE feature index (latent ID)",
+      "sae_id": "SAE model identifier",
+      "data_source": "Source directory name (e.g., 'llama_e-llama_s')",
+      "llm_explainer": "Full LLM explainer model name",
+      "embedding": "Embedding vector (Float32 list, dimension depends on model)"
+    }
+  },
+
+  "performance_notes": {
+    "embedding_dimension": 768,
+    "expected_storage_size": "~3-4MB (with Float32)",
+    "batch_processing": true,
+    "downstream_consumers": [
+      "semantic_similarity_analysis",
+      "feature_comparison_tools"
+    ]
+  }
+}

@@ -2,7 +2,7 @@
 Histogram service for generating histogram visualizations.
 
 Clean architecture:
-1. Load data from appropriate source (feature_analysis or consistency_scores)
+1. Load data from feature_analysis
 2. Apply filters and threshold path constraints
 3. Calculate histogram bins and statistics
 4. Return structured histogram response
@@ -31,15 +31,6 @@ if TYPE_CHECKING:
     from .data_service import DataService
 
 logger = logging.getLogger(__name__)
-
-# Consistency metrics that use consistency_scores.parquet
-CONSISTENCY_METRICS = [
-    MetricType.LLM_SCORER_CONSISTENCY,
-    MetricType.WITHIN_EXPLANATION_METRIC_CONSISTENCY,
-    MetricType.CROSS_EXPLANATION_METRIC_CONSISTENCY,
-    MetricType.CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY,
-    MetricType.LLM_EXPLAINER_CONSISTENCY
-]
 
 
 def parse_range_label(range_label: str) -> tuple[Optional[float], Optional[float]]:
@@ -190,34 +181,6 @@ class HistogramService:
 
             logger.info(f"After threshold path filtering: {len(filtered_df)} rows")
 
-        # If consistency metric, join with consistency_scores.parquet
-        if metric in CONSISTENCY_METRICS:
-            logger.info(f"Joining consistency scores for metric: {metric.value}")
-
-            if self.data_service._consistency_lazy is None:
-                raise ValueError(
-                    f"Consistency scores not available for metric: {metric.value}. "
-                    f"Please ensure consistency_scores.parquet exists."
-                )
-
-            # Get unique feature_id and llm_explainer pairs from filtered data
-            unique_pairs = filtered_df.select([COL_FEATURE_ID, COL_LLM_EXPLAINER]).unique()
-
-            # Collect consistency scores
-            consistency_df = self.data_service._consistency_lazy.collect()
-
-            # Join with consistency scores (has 1 row per feature_id + llm_explainer)
-            filtered_df = unique_pairs.join(
-                consistency_df,
-                on=[COL_FEATURE_ID, COL_LLM_EXPLAINER],
-                how='inner'
-            )
-
-            # Compute metric values for consistency metrics that need calculation
-            filtered_df = self._compute_consistency_metric(filtered_df, metric)
-
-            logger.info(f"After consistency join: {len(filtered_df)} rows")
-
         # Automatically deduplicate feature-level and score metrics
         average_by = None
         if metric in [MetricType.FEATURE_SPLITTING, MetricType.SEMSIM_MEAN,
@@ -240,45 +203,6 @@ class HistogramService:
             filtered_df = self._average_by_field(filtered_df, metric, average_by)
 
         return filtered_df
-
-    def _compute_consistency_metric(self, df: pl.DataFrame, metric: MetricType) -> pl.DataFrame:
-        """
-        Compute consistency metric values for metrics that need calculation.
-
-        Args:
-            df: DataFrame with consistency scores joined
-            metric: Metric type
-
-        Returns:
-            DataFrame with computed metric column added
-        """
-        # If metric column already exists, nothing to do
-        if metric.value in df.columns:
-            return df
-
-        # Compute llm_scorer_consistency: min(fuzz, detection)
-        if metric == MetricType.LLM_SCORER_CONSISTENCY:
-            logger.info("Computing llm_scorer_consistency as min(fuzz, detection)")
-            return df.with_columns(
-                pl.min_horizontal([
-                    pl.col('llm_scorer_consistency_fuzz'),
-                    pl.col('llm_scorer_consistency_detection')
-                ]).alias(metric.value)
-            )
-
-        # cross_explanation_metric_consistency: min(embedding, fuzz, detection)
-        elif metric == MetricType.CROSS_EXPLANATION_METRIC_CONSISTENCY:
-            logger.info("Computing cross_explanation_metric_consistency as min(embedding, fuzz, detection)")
-            return df.with_columns(
-                pl.min_horizontal([
-                    pl.col('cross_explanation_metric_consistency_embedding'),
-                    pl.col('cross_explanation_metric_consistency_fuzz'),
-                    pl.col('cross_explanation_metric_consistency_detection')
-                ]).alias(metric.value)
-            )
-
-        # All other consistency metrics should exist as columns
-        return df
 
     def _extract_metric_values(self, df: pl.DataFrame, metric: MetricType) -> np.ndarray:
         """Extract and validate metric values from DataFrame."""

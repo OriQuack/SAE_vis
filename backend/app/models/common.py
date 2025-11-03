@@ -13,18 +13,11 @@ from ..services.data_constants import (
 class MetricType(str, Enum):
     """Supported metric types for histogram analysis"""
     # Standard metrics
-    # Note: feature_splitting removed - replaced by decoder_similarity which is a list (not groupable)
+    FEATURE_SPLITTING = "feature_splitting"
     SEMSIM_MEAN = "semsim_mean"
     SCORE_FUZZ = "score_fuzz"
     SCORE_DETECTION = "score_detection"
     SCORE_EMBEDDING = "score_embedding"
-
-    # Consistency metrics (Phase 8)
-    LLM_SCORER_CONSISTENCY = "llm_scorer_consistency"
-    WITHIN_EXPLANATION_METRIC_CONSISTENCY = "within_explanation_metric_consistency"
-    CROSS_EXPLANATION_METRIC_CONSISTENCY = "cross_explanation_metric_consistency"
-    CROSS_EXPLANATION_OVERALL_SCORE_CONSISTENCY = "cross_explanation_overall_score_consistency"
-    LLM_EXPLAINER_CONSISTENCY = "llm_explainer_consistency"
     OVERALL_SCORE = "overall_score"
 
 class CategoryType(str, Enum):

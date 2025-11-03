@@ -1,26 +1,20 @@
 #!/usr/bin/env python3
 """
-Generate embeddings for SAE feature explanations using configurable embedding models.
-Supports both Gemini API and sentence-transformers models (e.g., all-minilm-l6-v2).
+Generate embeddings for SAE feature explanations using sentence-transformers models.
+Outputs consolidated parquet file with embeddings from multiple data sources.
 """
 
 import os
 import json
 import glob
-import google.generativeai as genai
-import time
 import argparse
-import shutil
 from pathlib import Path
-from typing import List, Dict, Optional
-from dotenv import load_dotenv
-
-# Optional imports for sentence-transformers
-try:
-    from sentence_transformers import SentenceTransformer
-    SENTENCE_TRANSFORMERS_AVAILABLE = True
-except ImportError:
-    SENTENCE_TRANSFORMERS_AVAILABLE = False
+from typing import List, Dict, Any
+from datetime import datetime
+import numpy as np
+import polars as pl
+from tqdm import tqdm
+from sentence_transformers import SentenceTransformer
 
 
 def load_config(config_path: str) -> Dict:
@@ -51,47 +45,19 @@ def extract_sae_id(run_config: Dict) -> str:
     return ""
 
 
-def setup_gemini_api() -> None:
-    """Setup Gemini API with API key from .env file."""
-    # Find .env file by looking in parent directories
-    current_dir = Path(__file__).parent
-    while current_dir != current_dir.parent:
-        env_path = current_dir / ".env"
-        if env_path.exists():
-            load_dotenv(env_path)
-            break
-        current_dir = current_dir.parent
+def get_llm_explainer_name(data_source: str, mapping: Dict) -> str:
+    """Get full LLM explainer name from data source and mapping.
 
-    api_key = os.getenv("GOOGLE_API_KEY")
-    if not api_key:
-        raise ValueError("GOOGLE_API_KEY not found in .env file")
-    genai.configure(api_key=api_key)
+    Args:
+        data_source: Data source directory name (e.g., "llama_e-llama_s")
+        mapping: Dictionary mapping explainer prefixes to full names
 
-
-def load_sentence_transformer(model_name: str) -> SentenceTransformer:
-    """Load a sentence-transformers model."""
-    if not SENTENCE_TRANSFORMERS_AVAILABLE:
-        raise ImportError(
-            "sentence-transformers library is not installed. "
-            "Install it with: pip install sentence-transformers"
-        )
-    print(f"Loading sentence-transformers model: {model_name}")
-    return SentenceTransformer(model_name)
-
-
-def is_sentence_transformer_model(model_name: str) -> bool:
-    """Check if the model name is a sentence-transformers model."""
-    # Common sentence-transformers model patterns
-    st_patterns = [
-        "all-minilm",
-        "all-mpnet",
-        "all-distilroberta",
-        "paraphrase-",
-        "sentence-transformers/",
-        "multi-qa-",
-        "msmarco-"
-    ]
-    return any(pattern in model_name.lower() for pattern in st_patterns)
+    Returns:
+        Full LLM explainer name (e.g., "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4")
+    """
+    # Extract explainer prefix (e.g., "llama_e" from "llama_e-llama_s")
+    prefix = data_source.split('_e-')[0] + '_e'
+    return mapping.get(prefix, prefix)
 
 
 def get_explanation_files(explanations_dir: str, file_pattern: str) -> List[str]:
@@ -120,61 +86,116 @@ def read_explanation(filepath: str) -> str:
         return content
 
 
-def generate_embedding(
-    text: str,
-    model_name: str,
-    task_type: str = "semantic_similarity",
-    st_model: Optional[SentenceTransformer] = None
-) -> Optional[List[float]]:
+def generate_embedding(text: str, st_model: SentenceTransformer) -> List[float]:
+    """Generate embedding for text using sentence-transformers model.
+
+    Args:
+        text: Input text to embed
+        st_model: Loaded SentenceTransformer model
+
+    Returns:
+        Embedding as Float32 list
     """
-    Generate embedding for text using specified embedding model.
+    embedding = st_model.encode(text, convert_to_numpy=True)
+    # Convert to float32 to save space
+    return embedding.astype(np.float32).tolist()
 
-    Supports both Gemini API and sentence-transformers models.
-    If st_model is provided, uses sentence-transformers. Otherwise, uses Gemini API.
+
+def create_parquet(rows: List[Dict]) -> pl.DataFrame:
+    """Create Polars DataFrame from embedding rows with proper schema.
+
+    Args:
+        rows: List of dicts with keys: feature_id, sae_id, data_source, llm_explainer, explanation_text, embedding
+
+    Returns:
+        Polars DataFrame with typed columns
     """
-    try:
-        if st_model is not None:
-            # Use sentence-transformers model
-            embedding = st_model.encode(text, convert_to_numpy=True)
-            return embedding.tolist()
-        else:
-            # Use Gemini API
-            result = genai.embed_content(
-                model=model_name, content=text, task_type=task_type
-            )
-            return result["embedding"]
-    except Exception as e:
-        print(f"Error generating embedding: {e}")
-        return None
+    if not rows:
+        # Return empty DataFrame with correct schema
+        schema = {
+            "feature_id": pl.UInt32,
+            "sae_id": pl.Categorical,
+            "data_source": pl.Categorical,
+            "llm_explainer": pl.Categorical,
+            "explanation_text": pl.Utf8,
+            "embedding": pl.List(pl.Float32)
+        }
+        return pl.DataFrame(schema=schema)
+
+    # Create DataFrame from rows
+    df = pl.DataFrame(rows)
+
+    # Cast to proper types (embeddings need explicit Float32 casting)
+    df = df.with_columns([
+        pl.col("feature_id").cast(pl.UInt32),
+        pl.col("sae_id").cast(pl.Categorical),
+        pl.col("data_source").cast(pl.Categorical),
+        pl.col("llm_explainer").cast(pl.Categorical),
+        pl.col("explanation_text").cast(pl.Utf8),
+        pl.col("embedding").cast(pl.List(pl.Float32))
+    ])
+
+    return df
 
 
-def save_embeddings(embeddings_data: Dict, output_dir: str, filename: str, config: Dict, sae_id: str) -> None:
-    """Save embeddings data to JSON file and copy config."""
-    os.makedirs(output_dir, exist_ok=True)
+def save_parquet(df: pl.DataFrame, output_path: Path, config: Dict, stats: Dict) -> None:
+    """Save DataFrame as parquet with metadata.
 
-    # Save embeddings
-    output_file = os.path.join(output_dir, filename)
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(embeddings_data, f, indent=2, ensure_ascii=False)
+    Args:
+        df: DataFrame to save
+        output_path: Path to output parquet file
+        config: Configuration dictionary
+        stats: Processing statistics
+    """
+    # Ensure output directory exists
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Save config file with sae_id in the same directory
-    config_with_sae_id = config.copy()
-    config_with_sae_id["sae_id"] = sae_id
-    config_file = os.path.join(output_dir, "config.json")
-    with open(config_file, "w", encoding="utf-8") as f:
-        json.dump(config_with_sae_id, f, indent=2, ensure_ascii=False)
+    print(f"\nSaving parquet to {output_path}")
+    df.write_parquet(output_path)
 
-    print(f"Embeddings saved to: {output_file}")
-    print(f"Config saved to: {config_file}")
+    # Calculate statistics
+    result_stats = {
+        "total_rows": len(df),
+        "unique_features": df["feature_id"].n_unique(),
+        "unique_data_sources": df["data_source"].n_unique(),
+        "unique_explainers": df["llm_explainer"].n_unique(),
+    }
+
+    if len(df) > 0:
+        result_stats["embedding_dimension"] = len(df["embedding"][0])
+
+    # Save metadata
+    metadata = {
+        "created_at": datetime.now().isoformat(),
+        "script_version": "2.0",
+        "total_rows": len(df),
+        "schema": {col: str(df[col].dtype) for col in df.columns},
+        "processing_stats": stats,
+        "result_stats": result_stats,
+        "config_used": config
+    }
+
+    metadata_path = output_path.with_suffix('.parquet.metadata.json')
+    with open(metadata_path, 'w') as f:
+        json.dump(metadata, f, indent=2)
+
+    print(f"Saved metadata to {metadata_path}")
+    print(f"Successfully created parquet with {len(df):,} rows")
 
 
 def main():
-    """Main function to generate embeddings for all explanation files."""
+    """Main function to generate embeddings for all explanation files from multiple data sources."""
     parser = argparse.ArgumentParser(description="Generate embeddings for SAE feature explanations")
     parser.add_argument(
         "--config",
-        default="../config/embedding_config.json",
-        help="Path to configuration file (default: ../config/embedding_config.json)"
+        default="../config/2_ex_embeddings_config.json",
+        help="Path to configuration file"
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Limit number of files to process per data source (for testing)"
     )
     args = parser.parse_args()
 
@@ -190,107 +211,142 @@ def main():
 
     config = load_config(config_path)
     print(f"Loaded config from: {config_path}")
+    print(f"Data sources: {config['data_sources']}")
 
-    # Setup paths relative to project root
-    data_source = config["data_source"]
-    data_source_dir = project_root / "data" / "raw" / data_source
-    explanations_dir = data_source_dir / "explanations"
-    output_dir = project_root / "data" / "embeddings" / data_source
+    # Setup output path
+    output_path = project_root / config["output_path"]
+    print(f"Output path: {output_path}")
 
-    print(f"Input directory: {explanations_dir}")
-    print(f"Output directory: {output_dir}")
+    # Load sentence-transformers model
+    model_params = config.get("model_parameters", {})
+    model_name = model_params.get("embedding_model", "all-MiniLM-L6-v2")
+    device = model_params.get("device", "cuda")
 
-    # Load run config and extract sae_id
-    run_config = load_run_config(data_source_dir)
-    sae_id = extract_sae_id(run_config)
-    print(f"Extracted SAE ID: {sae_id}")
-
-    # Validate input directory exists
-    if not explanations_dir.exists():
-        print(f"Error: Explanations directory does not exist: {explanations_dir}")
+    print(f"\nLoading sentence-transformers model: {model_name}")
+    try:
+        st_model = SentenceTransformer(model_name, device=device)
+        print(f"Model loaded successfully on device: {device}")
+    except Exception as e:
+        print(f"Error loading model: {e}")
         return
 
-    # Detect embedding provider and setup
-    model_name = config["embedding_model"]
-    use_sentence_transformers = is_sentence_transformer_model(model_name)
-    st_model = None
+    # Get LLM explainer mapping
+    llm_explainer_mapping = config.get("llm_explainer_mapping", {})
 
-    if use_sentence_transformers:
-        print(f"Detected sentence-transformers model: {model_name}")
-        try:
-            st_model = load_sentence_transformer(model_name)
-            print("Sentence-transformers model loaded successfully")
-        except Exception as e:
-            print(f"Error loading sentence-transformers model: {e}")
-            return
-    else:
-        # Setup Gemini API
-        print(f"Using Gemini API with model: {model_name}")
-        try:
-            setup_gemini_api()
-            print("Gemini API configured successfully")
-        except ValueError as e:
-            print(f"Error: {e}")
-            print("Please set GOOGLE_API_KEY in .env file")
-            return
-
-    # Get all explanation files
-    explanation_files = get_explanation_files(str(explanations_dir), config["file_pattern"])
-    print(f"Found {len(explanation_files)} explanation files")
-
-    if not explanation_files:
-        print("No explanation files found!")
-        return
-
-    # Process each file
-    embeddings_data = {
-        "metadata": {
-            "model": config["embedding_model"],
-            "task_type": config.get("task_type", "N/A" if use_sentence_transformers else "semantic_similarity"),
-            "provider": "sentence-transformers" if use_sentence_transformers else "gemini",
-            "total_latents": len(explanation_files),
-            "dataset": data_source,
-            "sae_id": sae_id,
-            "config_used": config,
-        },
-        "embeddings": {},
+    # Statistics tracking
+    stats = {
+        "total_features_processed": 0,
+        "total_embeddings_generated": 0,
+        "failed_embeddings": 0,
+        "data_sources_processed": 0,
+        "per_source_stats": {}
     }
 
-    for i, filepath in enumerate(explanation_files):
-        latent_id = extract_latent_id(filepath)
-        explanation = read_explanation(filepath)
+    # Collect all rows for parquet
+    all_rows = []
 
-        print(f"Processing latent {latent_id} ({i+1}/{len(explanation_files)})")
+    # Process each data source
+    print("\n" + "=" * 80)
+    print("Processing Data Sources")
+    print("=" * 80)
 
-        # Generate embedding
-        embedding = generate_embedding(
-            explanation,
-            config["embedding_model"],
-            config.get("task_type", "semantic_similarity"),
-            st_model
-        )
+    for data_source in config["data_sources"]:
+        print(f"\n--- Processing: {data_source} ---")
 
-        if embedding is not None:
-            embeddings_data["embeddings"][latent_id] = {
-                "explanation": explanation,
-                "embedding": embedding,
-                "embedding_dim": len(embedding),
-            }
-            print(f"  Generated embedding with dimension: {len(embedding)}")
-        else:
-            print(f"  Failed to generate embedding for latent {latent_id}")
+        # Setup paths
+        data_source_dir = project_root / "data" / "raw" / data_source
+        explanations_dir = data_source_dir / "explanations"
 
-        # Add delay to avoid rate limiting (only for API calls)
-        if not use_sentence_transformers:
-            time.sleep(config["delay_between_requests"])
+        # Validate directory exists
+        if not explanations_dir.exists():
+            print(f"Warning: Explanations directory does not exist: {explanations_dir}")
+            print(f"Skipping {data_source}")
+            continue
 
-    # Save results
-    save_embeddings(embeddings_data, str(output_dir), config["output_filename"], config, sae_id)
+        # Load run config and extract sae_id
+        run_config = load_run_config(data_source_dir)
+        sae_id = extract_sae_id(run_config)
+        print(f"SAE ID: {sae_id}")
 
-    successful_embeddings = len(embeddings_data["embeddings"])
-    print(
-        f"\nCompleted: {successful_embeddings}/{len(explanation_files)} embeddings generated successfully"
-    )
+        # Get full LLM explainer name
+        llm_explainer = get_llm_explainer_name(data_source, llm_explainer_mapping)
+        print(f"LLM Explainer: {llm_explainer}")
+
+        # Get explanation files
+        file_pattern = config.get("processing_parameters", {}).get("file_pattern", "*.txt")
+        explanation_files = get_explanation_files(str(explanations_dir), file_pattern)
+        print(f"Found {len(explanation_files)} explanation files")
+
+        if not explanation_files:
+            print(f"No explanation files found in {explanations_dir}")
+            continue
+
+        # Apply limit if specified
+        if args.limit is not None:
+            explanation_files = explanation_files[:args.limit]
+            print(f"Limited to {len(explanation_files)} files for testing")
+
+        # Track stats for this source
+        source_stats = {
+            "total_files": len(explanation_files),
+            "successful": 0,
+            "failed": 0
+        }
+
+        # Process each file
+        for filepath in tqdm(explanation_files, desc=f"Processing {data_source}"):
+            latent_id = extract_latent_id(filepath)
+            explanation = read_explanation(filepath)
+
+            # Generate embedding
+            try:
+                embedding = generate_embedding(explanation, st_model)
+
+                # Add row for parquet
+                all_rows.append({
+                    "feature_id": int(latent_id),
+                    "sae_id": sae_id,
+                    "data_source": data_source,
+                    "llm_explainer": llm_explainer,
+                    "explanation_text": explanation,
+                    "embedding": embedding
+                })
+                source_stats["successful"] += 1
+                stats["total_embeddings_generated"] += 1
+            except Exception as e:
+                print(f"Error generating embedding for latent {latent_id}: {e}")
+                source_stats["failed"] += 1
+                stats["failed_embeddings"] += 1
+
+        stats["per_source_stats"][data_source] = source_stats
+        stats["data_sources_processed"] += 1
+        stats["total_features_processed"] += source_stats["successful"]
+
+        print(f"Completed {data_source}: {source_stats['successful']}/{source_stats['total_files']} successful")
+
+    # Create and save parquet
+    print("\n" + "=" * 80)
+    print("Creating Parquet File")
+    print("=" * 80)
+
+    if all_rows:
+        df = create_parquet(all_rows)
+        save_parquet(df, output_path, config, stats)
+    else:
+        print("No embeddings generated, skipping parquet creation")
+        return
+
+    # Print final statistics
+    print("\n" + "=" * 80)
+    print("Processing Complete!")
+    print("=" * 80)
+    print(f"Total data sources processed: {stats['data_sources_processed']}")
+    print(f"Total features processed: {stats['total_features_processed']}")
+    print(f"Total embeddings generated: {stats['total_embeddings_generated']}")
+    print(f"Failed embeddings: {stats['failed_embeddings']}")
+    print("\nPer-source statistics:")
+    for source, source_stats in stats["per_source_stats"].items():
+        print(f"  {source}: {source_stats['successful']}/{source_stats['total_files']} successful")
 
 
 if __name__ == "__main__":

@@ -1,8 +1,8 @@
 {
-  "created_at": "2025-10-30T23:25:24.841231",
-  "script_version": "1.0",
+  "created_at": "2025-11-04T00:52:31.200207",
+  "script_version": "2.0",
   "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
-  "total_rows": 2471,
+  "total_rows": 2472,
   "unique_features": 824,
   "schema": {
     "feature_id": "Int64",
@@ -11,22 +11,19 @@
     "llm_explainer": "Categorical",
     "explanation_text": "Utf8",
     "decoder_similarity": "List(Struct([Field('feature_id', UInt32), Field('cosine_similarity', Float32)]))",
-    "semsim_mean": "Float64",
-    "semsim_max": "Float64",
+    "semantic_similarity": "List(Struct([Field('explainer', Categorical), Field('cosine_similarity', Float32)]))",
     "scores": "List(Struct([Field('scorer', Utf8), Field('fuzz', Float32), Field('simulation', Float32), Field('detection', Float32), Field('embedding', Float32)]))"
   },
   "processing_stats": {
     "unique_llm_explainers": 3,
     "features_with_decoder_similarity": 16384,
-    "embeddings_sources_loaded": 3,
-    "scores_sources_loaded": 9,
-    "similarities_sources_loaded": 1
+    "explanation_embeddings_loaded": 2472,
+    "scores_sources_loaded": 9
   },
   "config_used": {
     "input_paths": {
-      "embeddings_dir": "data/embeddings",
       "scores_dir": "data/scores",
-      "semantic_similarities_dir": "data/semantic_similarities",
+      "explanation_embeddings_path": "data/master/explanation_embeddings.parquet",
       "feature_similarity_dir": "data/feature_similarity"
     },
     "output_files": {
@@ -34,5 +31,10 @@
       "metadata": "data/master/features.parquet.metadata.json"
     },
     "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120"
+  },
+  "schema_notes": {
+    "semantic_similarity": "Pairwise cosine similarities between this explainer and all other explainers for the same feature, calculated directly from explanation embeddings. Replaces deprecated semsim_mean and semsim_max fields.",
+    "decoder_similarity": "Cosine similarities between this feature's decoder vector and all other features",
+    "scores": "Evaluation scores from all LLM scorers for this explanation"
   }
 }

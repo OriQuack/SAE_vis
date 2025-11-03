@@ -45,9 +45,6 @@ async def get_feature_groups(request: FeatureGroupRequest) -> FeatureGroupRespon
 
     Supported metrics:
     - Standard: feature_splitting, semdist_mean, score_fuzz, score_detection, score_embedding
-    - Consistency: consistency_llm_scorer, consistency_within_explanation,
-                   consistency_cross_explanation_metric, consistency_cross_explanation_overall,
-                   consistency_llm_explainer
     - Computed: overall_score
 
     Args:
