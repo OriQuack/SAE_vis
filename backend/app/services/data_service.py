@@ -28,19 +28,11 @@ class DataService:
     def __init__(self, data_path: str = "../data"):
         self.data_path = Path(data_path)
         self.master_file = self.data_path / "master" / "features.parquet"
-        self.pairwise_similarity_file = (
-            self.data_path / "master" / "semantic_similarity_pairwise.parquet"
-        )
-        self.consistency_scores_file = (
-            self.data_path / "master" / "consistency_scores.parquet"
-        )
         self.detailed_json_dir = self.data_path / "detailed_json"
 
         # Cache for frequently accessed data
         self._filter_options_cache: Optional[Dict[str, List[str]]] = None
         self._df_lazy: Optional[pl.LazyFrame] = None
-        self._pairwise_sim_lazy: Optional[pl.LazyFrame] = None
-        self._consistency_lazy: Optional[pl.LazyFrame] = None
         self._ready = False
 
     async def initialize(self):
@@ -56,18 +48,6 @@ class DataService:
             # Transform nested schema to flat schema expected by backend
             self._df_lazy = self._transform_to_flat_schema(self._df_lazy)
 
-            # Load consistency scores if available
-            if self.consistency_scores_file.exists():
-                self._consistency_lazy = pl.scan_parquet(self.consistency_scores_file)
-                logger.info(
-                    f"Loaded consistency scores: {self.consistency_scores_file}"
-                )
-            else:
-                logger.warning(
-                    f"Consistency scores not found: {self.consistency_scores_file}"
-                )
-                self._consistency_lazy = None
-
             await self._cache_filter_options()
             self._ready = True
             logger.info(f"DataService initialized with {self.master_file}")
@@ -79,8 +59,6 @@ class DataService:
     async def cleanup(self):
         """Clean up resources."""
         self._df_lazy = None
-        self._pairwise_sim_lazy = None
-        self._consistency_lazy = None
         self._filter_options_cache = None
         self._ready = False
 
@@ -92,14 +70,17 @@ class DataService:
         """
         Transform nested features.parquet schema to flat schema expected by backend.
 
-        Input schema:
+        Input schema (v2.0):
             - scores: List(Struct([scorer, fuzz, simulation, detection, embedding]))
             - decoder_similarity: List(Struct([feature_id, cosine_similarity]))
+            - semantic_similarity: List(Struct([explainer, cosine_similarity]))
 
         Output schema:
             - llm_scorer: extracted from scores.scorer
             - score_fuzz, score_simulation, score_detection, score_embedding: extracted from scores
             - feature_splitting: max cosine_similarity from decoder_similarity
+            - semsim_mean: mean cosine_similarity from semantic_similarity (calculated on-the-fly)
+            - semsim_max: max cosine_similarity from semantic_similarity (calculated on-the-fly)
             - details_path: null (not in new parquet)
         """
         logger.info("Transforming nested schema to flat schema...")
@@ -125,6 +106,19 @@ class DataService:
               .list.eval(pl.element().struct.field("cosine_similarity"))
               .list.max()
               .alias(COL_FEATURE_SPLITTING)
+        ])
+
+        # Calculate semsim_mean and semsim_max from nested semantic_similarity
+        # semantic_similarity is List(Struct([explainer, cosine_similarity]))
+        df_lazy = df_lazy.with_columns([
+            pl.col("semantic_similarity")
+              .list.eval(pl.element().struct.field("cosine_similarity"))
+              .list.mean()
+              .alias(COL_SEMSIM_MEAN),
+            pl.col("semantic_similarity")
+              .list.eval(pl.element().struct.field("cosine_similarity"))
+              .list.max()
+              .alias(COL_SEMSIM_MAX)
         ])
 
         # Add details_path column as null (not in new parquet)

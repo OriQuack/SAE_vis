@@ -1,13 +1,11 @@
 """
-Table data service for feature-level score visualization.
+Table data service for feature-level score visualization (v2.0).
 
 Clean 4-step flow:
 1. Fetch scores from features.parquet
-2. Fetch consistency from consistency_scores.parquet, calculate if missing
-3. Fetch explanations from features.parquet (explanation_text column)
+2. Fetch explanations from features.parquet (explanation_text column)
+3. Extract pairwise similarity from nested semantic_similarity structure
 4. Build response (pure assembly, no calculations)
-
-All calculation logic is in ConsistencyService for maintainability.
 """
 
 import polars as pl
@@ -19,10 +17,10 @@ from pathlib import Path
 from ..models.common import Filters
 from ..models.responses import (
     FeatureTableDataResponse, FeatureTableRow,
-    ExplainerScoreData, ScorerScoreSet, ConsistencyScore,
+    ExplainerScoreData, ScorerScoreSet,
     HighlightedExplanation
 )
-from .consistency_service import ConsistencyService, ExplainerDataBuilder
+from .consistency_service import ExplainerDataBuilder
 from .alignment_service import AlignmentService
 
 # Import for type hints only (avoids circular imports)
@@ -60,22 +58,15 @@ class TableDataService:
         """
         self.data_service = data_service
         self.alignment_service = alignment_service
-        self.consistency = ConsistencyService()
-        self.pairwise_similarity_file = (
-            Path(data_service.data_path) / "master" / "semantic_similarity_pairwise.parquet"
-        )
-        self.consistency_scores_file = (
-            Path(data_service.data_path) / "master" / "consistency_scores.parquet"
-        )
 
     async def get_table_data(self, filters: Filters) -> FeatureTableDataResponse:
         """
-        Generate feature-level table data with consistency scores.
+        Generate feature-level table data (v2.0 - consistency removed).
 
         Clean 4-step flow:
         1. Fetch scores from features.parquet
-        2. Fetch consistency from consistency_scores.parquet, calculate if missing
-        3. Fetch explanations from explanations.parquet
+        2. Fetch explanations from features.parquet
+        3. Extract pairwise similarity from nested semantic_similarity structure
         4. Build response (pure assembly, no calculations)
 
         Args:
@@ -106,18 +97,15 @@ class TableDataService:
         # Create scorer mapping
         scorer_map = {scorer: f"s{i+1}" for i, scorer in enumerate(scorer_ids)}
 
-        # STEP 2: Fetch consistency scores from consistency_scores.parquet
-        consistency_df = self._fetch_consistency(filters, feature_ids, explainer_ids, scores_df)
-
-        # STEP 3: Fetch explanations from explanations.parquet
+        # STEP 2: Fetch explanations from features.parquet
         explanations_df = self._fetch_explanations(filters)
 
-        # STEP 3.5: Fetch pairwise semantic similarity data
+        # STEP 3: Fetch pairwise semantic similarity data from nested structure
         pairwise_df = self._fetch_pairwise_similarity(feature_ids, explainer_ids)
 
         # STEP 4: Build response (pure assembly, no calculations)
         features = self._build_feature_rows_simple(
-            scores_df, consistency_df, explanations_df, pairwise_df,
+            scores_df, explanations_df, pairwise_df,
             feature_ids, explainer_ids, scorer_map
         )
 
@@ -193,107 +181,6 @@ class TableDataService:
         logger.info(f"Fetched scores: {len(df)} rows, {df['feature_id'].n_unique()} unique features")
         return df
 
-    def _fetch_consistency(
-        self,
-        filters: Filters,
-        feature_ids: List[int],
-        explainer_ids: List[str],
-        scores_df: pl.DataFrame
-    ) -> pl.DataFrame:
-        """
-        STEP 2: Fetch consistency from consistency_scores.parquet.
-
-        NOTE: Assumes default filters, uses pre-computed data only.
-
-        Args:
-            filters: Filter criteria (validated to be default)
-            feature_ids: List of feature IDs from scores
-            explainer_ids: List of explainer IDs from scores
-            scores_df: Scores DataFrame (unused in default-only mode)
-
-        Returns:
-            DataFrame with consistency scores (all rows for feature_ids × explainer_ids)
-        """
-        try:
-            # Load pre-computed consistency
-            pl.enable_string_cache()
-            consistency_df = pl.read_parquet(self.consistency_scores_file)
-
-            # Filter to match feature_ids and explainer_ids
-            consistency_df = consistency_df.filter(
-                pl.col("feature_id").is_in(feature_ids) &
-                pl.col("llm_explainer").is_in(explainer_ids)
-            )
-
-            logger.info(f"Using pre-computed consistency scores (default config): {len(consistency_df)} rows")
-            return consistency_df
-
-        except Exception as e:
-            logger.error(f"Could not load consistency_scores.parquet: {e}")
-            raise RuntimeError(
-                f"Pre-computed consistency scores not available. "
-                f"Ensure consistency_scores.parquet exists at {self.consistency_scores_file}"
-            )
-
-        # COMMENTED OUT: Fallback calculation logic (unused in default-only mode)
-        # # Check if filters match defaults
-        # is_default_config = self._is_default_configuration(filters, explainer_ids)
-        #
-        # # If default configuration, use parquet data directly
-        # if is_default_config:
-        #     logger.info(f"Using pre-computed consistency scores (default config): {len(consistency_df)} rows")
-        #     return consistency_df
-        #
-        # # For non-default configs, check if we need to calculate
-        # expected_rows = len(feature_ids) * len(explainer_ids)
-        # actual_rows = len(consistency_df)
-        #
-        # if actual_rows < expected_rows:
-        #     logger.info(f"Consistency scores incomplete ({actual_rows}/{expected_rows}), calculating missing")
-        #
-        #     # Calculate all consistency scores
-        #     pairwise_df = self._load_pairwise_data() if len(explainer_ids) > 1 else None
-        #     calculated_df = ConsistencyService.calculate_all_consistency(
-        #         scores_df, explainer_ids, feature_ids, pairwise_df
-        #     )
-        #
-        #     # Merge with existing consistency (prefer existing if available)
-        #     if len(consistency_df) > 0:
-        #         # Join and coalesce: use existing values when available, calculated otherwise
-        #         consistency_df = calculated_df.join(
-        #             consistency_df,
-        #             on=["feature_id", "llm_explainer"],
-        #             how="left",
-        #             suffix="_existing"
-        #         )
-        #         # Coalesce each column
-        #         for col in ['llm_scorer_consistency_fuzz', 'llm_scorer_consistency_detection',
-        #                     'within_explanation_metric_consistency',
-        #                     'cross_explanation_metric_consistency_embedding',
-        #                     'cross_explanation_metric_consistency_fuzz',
-        #                     'cross_explanation_metric_consistency_detection',
-        #                     'cross_explanation_overall_score_consistency',
-        #                     'llm_explainer_consistency']:
-        #             consistency_df = consistency_df.with_columns(
-        #                 pl.coalesce([pl.col(f"{col}_existing"), pl.col(col)]).alias(col)
-        #             ).drop(f"{col}_existing")
-        #     else:
-        #         consistency_df = calculated_df
-        #
-        #     logger.info(f"Consistency scores complete after calculation: {len(consistency_df)} rows")
-        # else:
-        #     logger.info(f"Using pre-computed consistency scores: {len(consistency_df)} rows")
-        #
-        # return consistency_df
-        #
-        # # Calculate all consistency scores from scratch
-        # pairwise_df = self._load_pairwise_data() if len(explainer_ids) > 1 else None
-        # consistency_df = ConsistencyService.calculate_all_consistency(
-        #     scores_df, explainer_ids, feature_ids, pairwise_df
-        # )
-        #
-        # logger.info(f"Calculated consistency scores: {len(consistency_df)} rows")
-        # return consistency_df
 
     def _is_default_configuration(self, filters: Filters, explainer_ids: List[str]) -> bool:
         """
@@ -377,7 +264,10 @@ class TableDataService:
         explainer_ids: List[str]
     ) -> Optional[pl.DataFrame]:
         """
-        Fetch pairwise semantic similarity data.
+        Extract pairwise semantic similarity from nested semantic_similarity structure (v2.0).
+
+        semantic_similarity is List(Struct([explainer: Categorical, cosine_similarity: Float32]))
+        We need to transform this to pairwise format: (feature_id, explainer_1, explainer_2, cosine_similarity)
 
         Args:
             feature_ids: List of feature IDs to filter
@@ -389,21 +279,51 @@ class TableDataService:
         """
         try:
             pl.enable_string_cache()
-            pairwise_df = pl.read_parquet(self.pairwise_similarity_file)
 
-            # Filter to match feature_ids and explainer_ids
-            pairwise_df = pairwise_df.filter(
+            # Load features.parquet with semantic_similarity nested structure
+            lf = self.data_service._df_lazy
+
+            # Filter to requested features and explainers
+            lf = lf.filter(
                 pl.col("feature_id").is_in(feature_ids) &
-                (
-                    (pl.col("explainer_1").is_in(explainer_ids) & pl.col("explainer_2").is_in(explainer_ids)) |
-                    (pl.col("explainer_2").is_in(explainer_ids) & pl.col("explainer_1").is_in(explainer_ids))
-                )
+                pl.col("llm_explainer").is_in(explainer_ids)
             )
 
-            logger.info(f"Fetched pairwise similarity: {len(pairwise_df)} rows")
+            # Select only needed columns
+            df = lf.select(["feature_id", "llm_explainer", "semantic_similarity"]).collect()
+
+            # Transform nested structure to pairwise format
+            pairwise_rows = []
+            for row in df.iter_rows(named=True):
+                feature_id = row["feature_id"]
+                explainer_1 = row["llm_explainer"]
+                semantic_sim_list = row["semantic_similarity"]
+
+                if semantic_sim_list:
+                    for sim_struct in semantic_sim_list:
+                        explainer_2 = sim_struct["explainer"]
+                        cosine_sim = sim_struct["cosine_similarity"]
+
+                        # Add pairwise row
+                        pairwise_rows.append({
+                            "feature_id": feature_id,
+                            "explainer_1": explainer_1,
+                            "explainer_2": explainer_2,
+                            "cosine_similarity": cosine_sim
+                        })
+
+            if not pairwise_rows:
+                logger.warning("No pairwise similarity data extracted from nested structure")
+                return None
+
+            # Create DataFrame from extracted pairwise data
+            pairwise_df = pl.DataFrame(pairwise_rows)
+
+            logger.info(f"Extracted pairwise similarity from nested structure: {len(pairwise_df)} rows")
             return pairwise_df
+
         except Exception as e:
-            logger.warning(f"Pairwise similarity data not available: {e}")
+            logger.warning(f"Could not extract pairwise similarity from nested structure: {e}")
             return None
 
     def _compute_global_stats(
@@ -549,7 +469,6 @@ class TableDataService:
     def _build_feature_rows_simple(
         self,
         scores_df: pl.DataFrame,
-        consistency_df: pl.DataFrame,
         explanations_df: Optional[pl.DataFrame],
         pairwise_df: Optional[pl.DataFrame],
         feature_ids: List[int],
@@ -557,11 +476,10 @@ class TableDataService:
         scorer_map: Dict[str, str]
     ) -> List[FeatureTableRow]:
         """
-        STEP 4: Build feature rows (pure assembly, no calculations).
+        STEP 4: Build feature rows (pure assembly, no calculations) - v2.0 without consistency.
 
         Args:
             scores_df: Scores DataFrame from features.parquet
-            consistency_df: Consistency DataFrame (pre-computed or calculated)
             explanations_df: Explanations DataFrame (optional)
             pairwise_df: Pairwise similarity DataFrame (optional)
             feature_ids: List of feature IDs
@@ -576,7 +494,6 @@ class TableDataService:
         for feature_id in feature_ids:
             # Filter data for this feature
             feature_scores = scores_df.filter(pl.col("feature_id") == feature_id)
-            feature_consistency = consistency_df.filter(pl.col("feature_id") == feature_id)
             feature_pairwise = pairwise_df.filter(pl.col("feature_id") == feature_id) if pairwise_df is not None else None
 
             # Extract decoder_similarity (new format) or feature_splitting (legacy format)
@@ -603,7 +520,6 @@ class TableDataService:
             for explainer in explainer_ids:
                 # Filter for this explainer
                 explainer_scores = feature_scores.filter(pl.col("llm_explainer") == explainer)
-                explainer_consistency = feature_consistency.filter(pl.col("llm_explainer") == explainer)
 
                 if len(explainer_scores) == 0:
                     continue
@@ -612,9 +528,6 @@ class TableDataService:
                 fuzz_dict, detection_dict, embedding_score = ExplainerDataBuilder.extract_scores_from_explainer_df(
                     explainer_scores, scorer_map
                 )
-
-                # Get consistency scores from DataFrame
-                consistency_row = explainer_consistency.to_dicts()[0] if len(explainer_consistency) > 0 else {}
 
                 # Look up explanation text
                 explanation_text = ExplainerDataBuilder.lookup_explanation_text(
@@ -636,13 +549,6 @@ class TableDataService:
                 # Build explainer data
                 explainer_key = MODEL_NAME_MAP.get(explainer, explainer)
 
-                # Build consistency scores
-                scorer_consistency = self._build_scorer_consistency(consistency_row)
-                metric_consistency = self._build_metric_consistency(consistency_row)
-                explainer_consistency = self._build_explainer_consistency(consistency_row)
-                cross_explainer_consistency = self._build_cross_explainer_consistency(consistency_row)
-                cross_explainer_overall_score_consistency = self._build_cross_explainer_overall_score_consistency(consistency_row)
-
                 # Build semantic similarity dict for this explainer
                 semantic_similarity = self._build_semantic_similarity(
                     explainer, explainer_ids, feature_pairwise
@@ -662,12 +568,7 @@ class TableDataService:
                     ),
                     explanation_text=explanation_text,
                     highlighted_explanation=highlighted_explanation,
-                    semantic_similarity=semantic_similarity,
-                    llm_scorer_consistency=scorer_consistency,
-                    within_explanation_metric_consistency=metric_consistency,
-                    llm_explainer_consistency=explainer_consistency,
-                    cross_explanation_metric_consistency=cross_explainer_consistency,
-                    cross_explanation_overall_score_consistency=cross_explainer_overall_score_consistency
+                    semantic_similarity=semantic_similarity
                 )
 
             if explainers_dict:
@@ -680,87 +581,6 @@ class TableDataService:
         logger.info(f"Built {len(features)} feature rows")
         return features
 
-    def _build_scorer_consistency(self, consistency_row: Dict) -> Optional[Dict[str, ConsistencyScore]]:
-        """Build scorer consistency dict from consistency row."""
-        if not consistency_row:
-            return None
-
-        scorer_consistency = {}
-        if consistency_row.get('llm_scorer_consistency_fuzz') is not None:
-            scorer_consistency["fuzz"] = ConsistencyScore(
-                value=consistency_row['llm_scorer_consistency_fuzz'],
-                method="std_based"
-            )
-        if consistency_row.get('llm_scorer_consistency_detection') is not None:
-            scorer_consistency["detection"] = ConsistencyScore(
-                value=consistency_row['llm_scorer_consistency_detection'],
-                method="std_based"
-            )
-
-        return scorer_consistency if scorer_consistency else None
-
-    def _build_metric_consistency(self, consistency_row: Dict) -> Optional[ConsistencyScore]:
-        """Build metric consistency from consistency row."""
-        if not consistency_row:
-            return None
-
-        if consistency_row.get('within_explanation_metric_consistency') is not None:
-            return ConsistencyScore(
-                value=consistency_row['within_explanation_metric_consistency'],
-                method="normalized_std"
-            )
-
-        return None
-
-    def _build_explainer_consistency(self, consistency_row: Dict) -> Optional[ConsistencyScore]:
-        """Build explainer consistency from consistency row."""
-        if not consistency_row:
-            return None
-
-        if consistency_row.get('llm_explainer_consistency') is not None:
-            return ConsistencyScore(
-                value=consistency_row['llm_explainer_consistency'],
-                method="avg_pairwise_cosine"
-            )
-
-        return None
-
-    def _build_cross_explainer_consistency(self, consistency_row: Dict) -> Optional[Dict[str, ConsistencyScore]]:
-        """Build cross-explainer metric consistency dict from consistency row (embedding, fuzz, detection only)."""
-        if not consistency_row:
-            return None
-
-        cross_consistency = {}
-        if consistency_row.get('cross_explanation_metric_consistency_embedding') is not None:
-            cross_consistency['embedding'] = ConsistencyScore(
-                value=consistency_row['cross_explanation_metric_consistency_embedding'],
-                method="std_based"
-            )
-        if consistency_row.get('cross_explanation_metric_consistency_fuzz') is not None:
-            cross_consistency['fuzz'] = ConsistencyScore(
-                value=consistency_row['cross_explanation_metric_consistency_fuzz'],
-                method="std_based"
-            )
-        if consistency_row.get('cross_explanation_metric_consistency_detection') is not None:
-            cross_consistency['detection'] = ConsistencyScore(
-                value=consistency_row['cross_explanation_metric_consistency_detection'],
-                method="std_based"
-            )
-
-        return cross_consistency if cross_consistency else None
-
-    def _build_cross_explainer_overall_score_consistency(self, consistency_row: Dict) -> Optional[ConsistencyScore]:
-        """Build cross-explainer overall score consistency from consistency row."""
-        if not consistency_row:
-            return None
-
-        if consistency_row.get('cross_explanation_overall_score_consistency') is not None:
-            return ConsistencyScore(
-                value=consistency_row['cross_explanation_overall_score_consistency'],
-                method="std_based"
-            )
-
-        return None
 
     def _build_semantic_similarity(
         self,

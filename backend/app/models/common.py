@@ -6,8 +6,7 @@ from enum import Enum
 from ..services.data_constants import (
     CATEGORY_ROOT,
     CATEGORY_FEATURE_SPLITTING,
-    CATEGORY_SEMANTIC_SIMILARITY,
-    CATEGORY_CONSISTENCY
+    CATEGORY_SEMANTIC_SIMILARITY
 )
 
 class MetricType(str, Enum):
@@ -25,7 +24,6 @@ class CategoryType(str, Enum):
     ROOT = CATEGORY_ROOT
     FEATURE_SPLITTING = CATEGORY_FEATURE_SPLITTING
     SEMANTIC_SIMILARITY = CATEGORY_SEMANTIC_SIMILARITY
-    CONSISTENCY = CATEGORY_CONSISTENCY
     # Can be extended with new categories without code changes
 
 class ErrorResponse(BaseModel):
