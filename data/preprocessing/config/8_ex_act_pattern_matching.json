@@ -1,0 +1,107 @@
+{
+  "activation_similarity_path": "data/master/activation_example_similarity.parquet",
+  "explanation_alignment_path": "data/master/explanation_alignment.parquet",
+  "activation_examples_path": "data/master/activation_examples.parquet",
+  "output_path": "data/master/ex_act_pattern_matching.parquet",
+  "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
+
+  "description": "Matching explanation phrases with activation patterns using semantic similarity across modalities",
+
+  "processing_parameters": {
+    "semantic_consistency_threshold": 0.3,
+    "jaccard_consistency_threshold": 0.3,
+    "ngram_phrase_similarity_threshold": 0.5,
+    "embedding_model": "google/embeddinggemma-300m"
+  },
+
+  "processing_notes": {
+    "expected_features": 824,
+    "processing_strategy": "dual_matching_lexical_and_semantic",
+    "pattern_classification": {
+      "semantic": "activation_semantic_sim > 0.3 (semantic pattern only)",
+      "lexical": "max(ngram_jaccard_similarity) > 0.3 (lexical pattern only)",
+      "both": "Both conditions met (dual pattern)",
+      "none": "Neither condition met (no clear pattern)"
+    },
+    "ngram_selection": "Select n-gram with maximum Jaccard similarity among [2-gram, 3-gram, 4-gram]",
+    "matching_strategy": "Dual matching approach based on pattern type",
+    "matching_modes": {
+      "lexical_matching": "For features with lexical patterns: Extract 5-token windows around n-gram occurrences, encode and match with phrases",
+      "semantic_matching": "For features with semantic patterns: Extract top-10 32-token windows around max activations, encode and match with phrases",
+      "both_matching": "For features with both patterns: Perform BOTH lexical and semantic matching, merge results"
+    },
+    "dependencies": [
+      "5_act_similarity.py must be run first (activation patterns)",
+      "7_explanation_alignment.py must be run first (aligned phrases)",
+      "activation_examples.parquet needed (for context extraction)",
+      "sentence-transformers library required"
+    ],
+    "primary_key_fields": [
+      "feature_id",
+      "sae_id"
+    ]
+  },
+
+  "schema_info": {
+    "table_name": "ex_act_pattern_matching",
+    "version": "1.0",
+    "field_descriptions": {
+      "feature_id": "SAE feature index (0-16383)",
+      "sae_id": "SAE model identifier",
+      "pattern_type": "Activation pattern classification (semantic/lexical/both/none)",
+      "activation_semantic_sim": "Average pairwise semantic similarity from script 5",
+      "activation_max_jaccard": "Maximum Jaccard similarity across n-gram sizes",
+      "selected_ngram": "N-gram with maximum Jaccard similarity",
+      "ngram": "The character n-gram string",
+      "ngram_size": "Size of n-gram (2, 3, or 4)",
+      "jaccard_score": "Jaccard similarity score for this n-gram",
+      "count": "Number of occurrences in activation examples",
+      "activation_positions": "Positions where n-gram appears in activation examples",
+      "num_aligned_phrases": "Total number of aligned phrases from script 7",
+      "matches": "Explanation phrases that match activation patterns (semantic similarity >= threshold)",
+      "phrase_text": "The explanation phrase text",
+      "explainer_name": "LLM that generated the phrase",
+      "phrase_chunk_index": "Position of phrase in original explanation",
+      "semantic_similarity": "Cosine similarity between activation context and phrase",
+      "match_type": "Type of match: 'lexical' (n-gram based), 'semantic' (context based), or 'both' (matched by both methods)",
+      "mismatches": "Items that don't match (either explanation-only or activation-only)",
+      "item_text": "Text of mismatched item (phrase, n-gram, or semantic_context)",
+      "item_type": "Type of item: 'phrase', 'ngram', or 'semantic_context'",
+      "mismatch_type": "Nature of mismatch: 'explanation_only' (phrase with no match) or 'activation_only' (pattern with no matching phrase)",
+      "num_matches": "Count of matches for this feature",
+      "num_mismatches": "Count of mismatches for this feature",
+      "match_rate": "Ratio of matches to total phrases"
+    }
+  },
+
+  "thresholds_explanation": {
+    "semantic_consistency_threshold": "0.3 - Features with avg semantic similarity > 0.3 are labeled 'semantic'",
+    "jaccard_consistency_threshold": "0.3 - Features with max Jaccard > 0.3 are labeled 'lexical'",
+    "ngram_phrase_similarity_threshold": "0.6 - N-gram context and phrase must have similarity >= 0.6 to match"
+  },
+
+  "matching_methodology": {
+    "overview": "Dual matching approach that handles both lexical and semantic patterns",
+    "lexical_matching": {
+      "step_1": "Extract 5-token windows around n-gram occurrences (consistent with script 5)",
+      "step_2": "Encode these 5-token windows as 'n-gram context embeddings' (768-dim)",
+      "step_3": "Encode explanation phrases",
+      "step_4": "Compute cosine similarity between averaged n-gram contexts and each phrase",
+      "step_5": "Match if similarity >= 0.6 threshold, tag as match_type='lexical'"
+    },
+    "semantic_matching": {
+      "step_1": "Extract top-10 activation examples sorted by max_activation",
+      "step_2": "Extract 32-token windows around max activation positions (consistent with script 4)",
+      "step_3": "Encode these 32-token windows as 'semantic context embeddings' (768-dim)",
+      "step_4": "Average all context embeddings to get feature-level semantic representation",
+      "step_5": "Encode explanation phrases",
+      "step_6": "Compute cosine similarity between averaged semantic contexts and each phrase",
+      "step_7": "Match if similarity >= 0.6 threshold, tag as match_type='semantic'"
+    },
+    "deduplication": {
+      "logic": "If a phrase matches both lexical and semantic methods, merge into single match with match_type='both'",
+      "similarity_handling": "Use higher of the two similarity scores when merging"
+    },
+    "note": "This dual approach ensures features are properly matched regardless of whether they show lexical consistency (repeating n-grams) or semantic consistency (similar meaning without exact lexical overlap)"
+  }
+}

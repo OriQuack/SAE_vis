@@ -5,8 +5,8 @@ This document provides comprehensive guidance for the data layer of the SAE Feat
 ## 🎯 Data Layer Overview
 
 **Purpose**: Transform raw SAE experiments into analysis-ready parquet files
-**Status**: ✅ **STREAMLINED PIPELINE V2.0** - 6 core processing scripts
-**Key Achievement**: Embedding-first architecture with on-the-fly similarity calculations
+**Status**: ✅ **COMPLETE PIPELINE V3.0** - 8 core processing scripts
+**Key Achievement**: Dual matching architecture (lexical + semantic pattern validation)
 **Total Storage**: ~1.2GB (compressed parquet)
 
 ## 🔄 Data Flow Architecture
@@ -31,30 +31,38 @@ graph LR
 └─────────────────────────────────────────────────────────────────────────────┘
                                       ↓
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                   STREAMLINED PROCESSING PIPELINE (V2.0)                    │
+│                     COMPLETE PROCESSING PIPELINE (V3.0)                     │
 │                                                                             │
 │  Script 0a: Activation Examples     → activation_examples.parquet          │
 │  Script 0b: Feature Similarities    → feature_similarities.json            │
 │  Script 1:  Scores Processing       → scores/*/scores.json                 │
-│  Script 2:  Explanation Embeddings  → explanation_embeddings.parquet ⭐    │
-│  Script 3:  Features Parquet        → features.parquet (nested) ⭐         │
+│  Script 2:  Explanation Embeddings  → explanation_embeddings.parquet       │
+│  Script 3:  Features Parquet        → features.parquet (nested)            │
 │  Script 4:  Activation Embeddings   → activation_embeddings.parquet        │
 │  Script 5:  Activation Similarity   → activation_example_similarity.parquet│
+│  Script 6:  Inter-Feature Similarity → interfeature_similarity.parquet 🆕  │
+│  Script 7:  Explanation Alignment   → explanation_alignment.parquet 🆕     │
+│  Script 8:  Ex-Act Pattern Matching → ex_act_pattern_matching.parquet 🆕   │
 │                                                                             │
-│  ⭐ = V2.0 updates with on-the-fly similarity calculation                  │
+│  🆕 = V3.0 new scripts for pattern validation and cross-feature analysis   │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       ↓
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         MASTER DATA FILES (5 PARQUETS)                      │
+│                         MASTER DATA FILES (8 PARQUETS)                      │
 │                                                                             │
-│  PRIMARY:                                                                  │
+│  PRIMARY (Frontend Visualization):                                         │
 │  • features.parquet (288KB, 2,472 rows, nested structure)                 │
 │  • explanation_embeddings.parquet (7.4MB, 768-dim vectors)                 │
 │                                                                             │
-│  ACTIVATION DATA:                                                          │
+│  ACTIVATION ANALYSIS:                                                      │
 │  • activation_examples.parquet (246MB, 1M+ examples)                       │
 │  • activation_embeddings.parquet (985MB, 16K features × 20 embeddings)     │
 │  • activation_example_similarity.parquet (2.4MB, similarity metrics)       │
+│                                                                             │
+│  PATTERN VALIDATION (V3.0):                                                │
+│  • interfeature_similarity.parquet (824 rows, decoder-similar comparisons) │
+│  • explanation_alignment.parquet (824 rows, phrase alignments)             │
+│  • ex_act_pattern_matching.parquet (824 rows, explanation-activation match)│
 └─────────────────────────────────────────────────────────────────────────────┘
                                       ↓
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -80,15 +88,18 @@ data/
 │   └── openai_e-llama_s/            # OpenAI explainer + scorer (824 features)
 │
 ├── preprocessing/                    # Processing scripts & configs
-│   ├── scripts/                     # Python processing pipeline (6 scripts)
+│   ├── scripts/                     # Python processing pipeline (8 scripts)
 │   │   ├── 0_create_activation_examples_parquet.py
 │   │   ├── 0_feature_similarities.py
 │   │   ├── 1_scores.py
-│   │   ├── 2_ex_embeddings.py         ⭐ V2.0 - Multi-source parquet output
-│   │   ├── 3_features_parquet.py      ⭐ V2.0 - On-the-fly similarities
+│   │   ├── 2_ex_embeddings.py         # Multi-source parquet output
+│   │   ├── 3_features_parquet.py      # On-the-fly similarities
 │   │   ├── 4_act_embeddings.py        # Pre-compute activation embeddings
-│   │   └── 5_act_similarity.py        # Calculate activation similarities
-│   └── config/                      # Configuration files (7 configs)
+│   │   ├── 5_act_similarity.py        # Calculate activation similarities
+│   │   ├── 6_interfeature_similarity.py  # 🆕 V3.0 - Cross-feature comparison
+│   │   ├── 7_explanation_alignment.py    # 🆕 V3.0 - Phrase alignment
+│   │   └── 8_ex_act_pattern_matching.py  # 🆕 V3.0 - Pattern validation
+│   └── config/                      # Configuration files (11 configs)
 │
 ├── master/                          # 🎯 PRIMARY DATA FILES
 │   ├── features.parquet             # Main dataset (288KB, nested structure)
@@ -97,7 +108,10 @@ data/
 │   ├── explanation_embeddings.parquet.metadata.json
 │   ├── activation_examples.parquet  # Activation data (246MB)
 │   ├── activation_embeddings.parquet # Pre-computed (985MB)
-│   └── activation_example_similarity.parquet # Metrics (2.4MB)
+│   ├── activation_example_similarity.parquet # Metrics (2.4MB)
+│   ├── interfeature_similarity.parquet # 🆕 Cross-feature analysis (824 rows)
+│   ├── explanation_alignment.parquet # 🆕 Phrase alignments (824 rows)
+│   └── ex_act_pattern_matching.parquet # 🆕 Pattern validation (824 rows)
 │
 ├── scores/                          # Processed scoring data
 │   ├── llama_e-llama_s/
@@ -259,6 +273,149 @@ max_pairwise_similarity: Float32
 - **Total Rows**: 16,384 features
 - **File Size**: 2.4MB
 
+### 6. interfeature_similarity.parquet (🆕 V3.0)
+
+**Cross-feature activation pattern comparison for decoder-similar features**
+
+#### Schema
+```python
+feature_id: UInt32
+sae_id: Categorical
+selected_features: List(Struct([
+    feature_id: UInt32,
+    decoder_similarity: Float32,
+    sample_info: List(Struct([
+        quantile: UInt8,
+        prompt_id: UInt32,
+        max_activation: Float32
+    ]))
+]))
+similarity_pairs: List(Struct([
+    main_feature_id: UInt32,
+    main_prompt_id: UInt32,
+    main_quantile: UInt8,
+    selected_feature_id: UInt32,
+    selected_prompt_id: UInt32,
+    selected_quantile: UInt8,
+    semantic_similarity: Float32
+]))
+ngram_analysis: List(Struct([
+    ngram: Utf8,
+    ngram_size: UInt8,
+    jaccard_score: Float32,
+    count: UInt16,
+    occurrences: List(Struct([
+        feature_id: UInt32,
+        prompt_id: UInt32,
+        positions: List(UInt16)
+    ]))
+]))
+```
+
+#### Purpose
+- Compare activation patterns between decoder-similar features
+- Sample top 4 features with highest decoder similarity
+- Extract 1 example per quantile (4 total) for each feature
+- Compute semantic similarity on all pairs (4×4=16 comparisons)
+- Track n-gram overlap with positional information
+
+#### Statistics
+- **Total Rows**: 824 features
+- **Comparisons per Feature**: 16 pairwise similarities
+- **File Size**: ~5MB
+
+### 7. explanation_alignment.parquet (🆕 V3.0)
+
+**Semantically aligned phrases across LLM explanations**
+
+#### Schema
+```python
+feature_id: UInt32
+sae_id: Categorical
+llm_explainers: List(Utf8)
+num_aligned_groups: UInt16
+aligned_groups: List(Struct([
+    aligned_group_id: UInt16,
+    similarity_score: Float32,
+    phrases: List(Struct([
+        explainer_name: Utf8,
+        text: Utf8,
+        chunk_index: UInt16
+    ]))
+]))
+```
+
+#### Purpose
+- Find semantically similar phrases across different LLM explanations
+- Group phrases by embedding similarity (threshold: 0.7)
+- Track which explainers agree on similar concepts
+- Enable cross-explainer consistency analysis
+
+#### Statistics
+- **Total Rows**: 824 features
+- **Features with Alignments**: 774 (94%)
+- **Total Aligned Groups**: 2,207
+- **Mean Groups per Feature**: 2.7
+- **File Size**: ~2MB
+
+### 8. ex_act_pattern_matching.parquet (🆕 V3.0)
+
+**Validation of explanation phrases against activation patterns (dual matching)**
+
+#### Schema
+```python
+feature_id: UInt32
+sae_id: Categorical
+pattern_type: Categorical  # semantic/lexical/both/none
+activation_semantic_sim: Float32
+activation_max_jaccard: Float32
+selected_ngram: Struct([
+    ngram: Utf8,
+    ngram_size: UInt8,
+    jaccard_score: Float32,
+    count: UInt16,
+    activation_positions: List(Struct([
+        prompt_id: UInt32,
+        positions: List(UInt16)
+    ]))
+])
+num_aligned_phrases: UInt16
+matches: List(Struct([
+    phrase_text: Utf8,
+    explainer_name: Utf8,
+    phrase_chunk_index: UInt16,
+    semantic_similarity: Float32,
+    match_type: Utf8  # lexical/semantic/both
+]))
+mismatches: List(Struct([
+    item_text: Utf8,
+    item_type: Utf8  # phrase/ngram/semantic_context
+    mismatch_type: Utf8  # explanation_only/activation_only
+    explainer_name: Utf8,
+    semantic_similarity: Float32
+]))
+num_matches: UInt16
+num_mismatches: UInt16
+match_rate: Float32
+```
+
+#### Purpose
+- **Dual Matching Architecture**: Validate explanations using BOTH lexical and semantic patterns
+- **Pattern Classification**:
+  - `semantic`: High semantic similarity (>0.3), low Jaccard →  use 32-token contexts
+  - `lexical`: High Jaccard (>0.3), low semantic → use 5-token n-gram contexts
+  - `both`: Both patterns present → use BOTH matching methods
+  - `none`: Neither pattern → skip matching
+- **Lexical Matching**: Match 5-token n-gram contexts with explanation phrases
+- **Semantic Matching**: Match 32-token activation contexts with explanation phrases
+- Track matches (phrases validated by patterns) and mismatches (unmatched items)
+
+#### Statistics
+- **Total Rows**: 824 features
+- **Pattern Distribution**: ~30% semantic, ~20% lexical, ~10% both, ~40% none
+- **Mean Match Rate**: Varies by pattern type (0-60%)
+- **File Size**: ~3MB
+
 ## 🔧 Processing Pipeline Details
 
 ### Script 0a: create_activation_examples_parquet.py
@@ -361,7 +518,73 @@ Config: config/5_act_similarity.json
 Processing:
 - Pairwise cosine similarity calculation
 - Statistical aggregation (mean, std, min, max)
+- N-gram Jaccard similarity (2-gram, 3-gram, 4-gram)
 - 16,384 features processed
+```
+
+### Script 6: interfeature_similarity.py (🆕 V3.0)
+```bash
+Input:
+  - data/master/activation_examples.parquet
+  - data/master/activation_embeddings.parquet
+  - data/feature_similarity/*/feature_similarities.json
+Output: data/master/interfeature_similarity.parquet (~5MB)
+Purpose: Compare activation patterns across decoder-similar features
+Config: config/6_interfeature_similarity.json
+
+Processing:
+- Select top 4 features with highest decoder similarity
+- Sample 1 example per quantile (4 quantiles) for each feature
+- Compute semantic similarity on all 4×4=16 pairs
+- Track n-gram overlap with positional information
+- 824 features processed
+```
+
+### Script 7: explanation_alignment.py (🆕 V3.0)
+```bash
+Input:  data/master/features.parquet
+Output: data/master/explanation_alignment.parquet (~2MB)
+Purpose: Find semantically aligned phrases across LLM explanations
+Model:  google/embeddinggemma-300m (768-dim)
+Config: config/7_explanation_alignment.json
+
+Processing:
+- Split explanations into phrases (by commas, conjunctions)
+- Encode all phrases using sentence-transformers
+- Find similar phrases across explainers (threshold: 0.7)
+- Group aligned phrases by similarity
+- 824 features processed, 774 with alignments
+```
+
+### Script 8: ex_act_pattern_matching.py (🆕 V3.0)
+```bash
+Input:
+  - data/master/activation_example_similarity.parquet
+  - data/master/explanation_alignment.parquet
+  - data/master/activation_examples.parquet
+Output: data/master/ex_act_pattern_matching.parquet (~3MB)
+Purpose: Validate explanation phrases against activation patterns
+Model:  google/embeddinggemma-300m (768-dim)
+Config: config/8_ex_act_pattern_matching.json
+
+Processing (Dual Matching Architecture):
+1. Classify pattern type (semantic/lexical/both/none):
+   - Semantic: activation_semantic_sim > 0.3
+   - Lexical: max_jaccard_similarity > 0.3
+
+2. Lexical Matching (if lexical or both):
+   - Extract 5-token windows around n-gram positions
+   - Match with explanation phrases (threshold: 0.6)
+
+3. Semantic Matching (if semantic or both):
+   - Extract top-10 32-token windows around max activations
+   - Match with explanation phrases (threshold: 0.6)
+
+4. Deduplication:
+   - Merge matches with match_type='both' if phrase matches both methods
+
+- 824 features processed
+- Pattern distribution: ~30% semantic, ~20% lexical, ~10% both, ~40% none
 ```
 
 ## 🚀 Running the Pipeline
@@ -379,10 +602,10 @@ python 0_feature_similarities.py --config ../config/0_feature_similarity_config.
 # Script 1: Process scores
 python 1_scores.py --config ../config/1_score_config.json
 
-# Script 2: Explanation embeddings (V2.0)
+# Script 2: Explanation embeddings
 python 2_ex_embeddings.py --config ../config/2_ex_embeddings_config.json
 
-# Script 3: Features parquet (V2.0)
+# Script 3: Features parquet
 python 3_features_parquet.py --config ../config/3_create_features_parquet.json
 
 # Script 4: Activation embeddings
@@ -390,6 +613,15 @@ python 4_act_embeddings.py --config ../config/4_act_embeddings.json
 
 # Script 5: Activation similarity
 python 5_act_similarity.py --config ../config/5_act_similarity.json
+
+# Script 6: Inter-feature similarity (🆕 V3.0)
+python 6_interfeature_similarity.py --config ../config/6_interfeature_similarity.json
+
+# Script 7: Explanation alignment (🆕 V3.0)
+python 7_explanation_alignment.py --config ../config/7_explanation_alignment.json
+
+# Script 8: Explanation-activation pattern matching (🆕 V3.0)
+python 8_ex_act_pattern_matching.py --config ../config/8_ex_act_pattern_matching.json
 ```
 
 ### Quick Update (After Data Changes)
@@ -398,10 +630,13 @@ python 5_act_similarity.py --config ../config/5_act_similarity.json
 python 1_scores.py && python 3_features_parquet.py
 
 # If explanations changed:
-python 2_ex_embeddings.py && python 3_features_parquet.py
+python 2_ex_embeddings.py && python 3_features_parquet.py && python 7_explanation_alignment.py
 
 # If activations changed:
-python 4_act_embeddings.py && python 5_act_similarity.py
+python 4_act_embeddings.py && python 5_act_similarity.py && python 6_interfeature_similarity.py
+
+# If pattern matching needs update:
+python 8_ex_act_pattern_matching.py
 ```
 
 ## 🔗 Backend Integration
@@ -446,6 +681,47 @@ async def get_feature_groups(filters, metric, thresholds):
         })
 ```
 
+### Data Joins and Relationships (V3.0)
+
+All parquet files can be joined on `feature_id` and `sae_id`. Here's how they relate:
+
+```python
+# Core join pattern
+features_df = pl.read_parquet("features.parquet")
+alignment_df = pl.read_parquet("explanation_alignment.parquet")
+matching_df = pl.read_parquet("ex_act_pattern_matching.parquet")
+interfeature_df = pl.read_parquet("interfeature_similarity.parquet")
+
+# Join on feature_id for comprehensive analysis
+full_df = (
+    features_df
+    .join(alignment_df, on=["feature_id", "sae_id"], how="left")
+    .join(matching_df, on=["feature_id", "sae_id"], how="left")
+    .join(interfeature_df, on=["feature_id", "sae_id"], how="left")
+)
+```
+
+**Join Relationships**:
+- `features.parquet` (2,472 rows) → base table with all explainer variants
+- `explanation_alignment.parquet` (824 rows) → one row per unique feature
+- `ex_act_pattern_matching.parquet` (824 rows) → one row per unique feature
+- `interfeature_similarity.parquet` (824 rows) → one row per unique feature
+
+**Common Queries**:
+```python
+# Get features with high match rates
+high_match_features = matching_df.filter(pl.col("match_rate") > 0.5)
+
+# Find features with both semantic and lexical patterns
+both_pattern_features = matching_df.filter(pl.col("pattern_type") == "both")
+
+# Get aligned phrases for a specific feature
+feature_phrases = alignment_df.filter(pl.col("feature_id") == 123)
+
+# Compare activation patterns across similar features
+similar_features = interfeature_df.filter(pl.col("feature_id") == 123)
+```
+
 ### Data → Visualization Flow
 
 #### 1. Sankey Visualization
@@ -466,7 +742,17 @@ features.parquet
   → Frontend renders with highlighting
 ```
 
-#### 3. LLM Comparison
+#### 3. Pattern Validation View (🆕 V3.0)
+```
+ex_act_pattern_matching.parquet
+  → Join with explanation_alignment.parquet on feature_id
+  → Filter by pattern_type (semantic/lexical/both)
+  → Show matches with match_type tags
+  → Visualize mismatches with positions
+  → Frontend renders match/mismatch breakdown
+```
+
+#### 4. LLM Comparison
 ```
 llm_comparison_stats.json
   → Pre-calculated explainer/scorer consistency
@@ -487,7 +773,8 @@ llm_comparison_stats.json
 - **Explanations**: 2,472 total (824 × 3 explainers)
 - **Activation Examples**: 1M+ examples
 - **Activation Embeddings**: 16,384 features × 20 embeddings
-- **Total Storage**: ~1.2GB (compressed parquet)
+- **Pattern Validation**: 824 features with dual matching
+- **Total Storage**: ~1.2GB (compressed parquet, 8 core files)
 
 ### Data Quality
 - **Missing Values**: Handled gracefully (simulation scores mostly null)
@@ -549,9 +836,41 @@ Benefits:
 Note: Polars cannot cast List(Float64) to List(Float32) directly
 ```
 
-## 🔍 V2.0 Migration Guide
+## 🔍 Migration Guides
 
-### Breaking Changes
+### V3.0 New Features (🆕 Current)
+
+**What's New**:
+1. **3 New Parquet Files**:
+   - ✅ Added: `interfeature_similarity.parquet` (Script 6)
+   - ✅ Added: `explanation_alignment.parquet` (Script 7)
+   - ✅ Added: `ex_act_pattern_matching.parquet` (Script 8)
+
+2. **New Processing Scripts**:
+   - ✅ Added: `6_interfeature_similarity.py` - Cross-feature pattern comparison
+   - ✅ Added: `7_explanation_alignment.py` - Phrase alignment across explainers
+   - ✅ Added: `8_ex_act_pattern_matching.py` - Dual matching validation
+
+3. **Key Features**:
+   - **Dual Matching Architecture**: Validates explanations using both lexical (5-token n-gram) and semantic (32-token context) patterns
+   - **Pattern Classification**: Automatic classification into semantic/lexical/both/none
+   - **Cross-Feature Analysis**: Compare activation patterns of decoder-similar features
+   - **Phrase Alignment**: Find consensus phrases across LLM explainers
+   - **Rich Joins**: All parquet files joinable on `feature_id` and `sae_id`
+
+**Running V3.0 Scripts**:
+```bash
+# After running scripts 0-5, add the new pattern validation scripts:
+cd data/preprocessing/scripts
+
+python 6_interfeature_similarity.py --config ../config/6_interfeature_similarity.json
+python 7_explanation_alignment.py --config ../config/7_explanation_alignment.json
+python 8_ex_act_pattern_matching.py --config ../config/8_ex_act_pattern_matching.json
+```
+
+### V2.0 Migration Guide
+
+**Breaking Changes**:
 
 1. **Schema Changes in features.parquet**:
    - ❌ Removed: `semsim_mean` (Float32)
@@ -634,19 +953,25 @@ max_sim = max(sims) if sims else None
 
 ## 🎓 Key Takeaways
 
-The data layer implements a **streamlined embedding-first pipeline** where:
+The data layer implements a **complete dual-matching validation pipeline** where:
 
 1. **Raw SAE Data** (2,472 explanations, 1M+ activations)
    ↓
 2. **Embedding Generation** (Scripts 2, 4)
    ↓
-3. **Optimized Parquet** (5 master files, nested structures)
+3. **Core Analysis** (Scripts 3, 5: features + activation patterns)
    ↓
-4. **On-the-Fly Calculations** (similarities computed as needed)
+4. **Cross-Feature Validation** (Script 6: decoder-similar comparison)
    ↓
-5. **Backend Integration** (Polars lazy loading, sub-100ms queries)
+5. **Explanation Alignment** (Script 7: phrase consensus)
    ↓
-6. **Frontend Visualization** (7 viz types)
+6. **Pattern Matching** (Script 8: dual lexical + semantic validation)
+   ↓
+7. **Optimized Parquet** (8 master files, nested structures)
+   ↓
+8. **Backend Integration** (Polars joins, sub-100ms queries)
+   ↓
+9. **Frontend Visualization** (7 viz types + pattern validation views)
 
 This architecture provides:
 - 🚀 **Fast query performance** (~50ms feature grouping)
@@ -655,11 +980,13 @@ This architecture provides:
 - 📈 **Easy scalability** (lazy evaluation, streaming support)
 - 🏆 **Conference-ready reliability** (robust error handling)
 - 🎯 **Flexibility** (ad-hoc similarity calculations)
+- ✅ **Dual Validation** (lexical + semantic pattern matching)
+- 🔗 **Rich Joins** (8 parquet files joinable on feature_id)
 
 ---
 
-**Pipeline Version**: 2.0
+**Pipeline Version**: 3.0
 **Last Updated**: November 4, 2025
 **Status**: ✅ Production Ready
 
-**Remember**: This data layer prioritizes flexibility and performance through embedding-first design with on-the-fly similarity calculations, eliminating unnecessary intermediate files while maintaining fast query times.
+**Remember**: This data layer now includes comprehensive pattern validation through dual matching (lexical + semantic), enabling deep analysis of explanation reliability against actual activation patterns. All 8 parquet files are designed for efficient joins on `feature_id` and `sae_id`.
