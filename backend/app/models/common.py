@@ -12,7 +12,7 @@ from ..services.data_constants import (
 class MetricType(str, Enum):
     """Supported metric types for histogram analysis"""
     # Standard metrics
-    FEATURE_SPLITTING = "feature_splitting"
+    DECODER_SIMILARITY = "decoder_similarity"
     SEMSIM_MEAN = "semsim_mean"
     SCORE_FUZZ = "score_fuzz"
     SCORE_DETECTION = "score_detection"

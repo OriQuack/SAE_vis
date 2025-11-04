@@ -78,7 +78,7 @@ class DataService:
         Output schema:
             - llm_scorer: extracted from scores.scorer
             - score_fuzz, score_simulation, score_detection, score_embedding: extracted from scores
-            - feature_splitting: max cosine_similarity from decoder_similarity
+            - decoder_similarity: kept as List(Struct) for table display (transformed to float in histogram/grouping services)
             - semsim_mean: mean cosine_similarity from semantic_similarity (calculated on-the-fly)
             - semsim_max: max cosine_similarity from semantic_similarity (calculated on-the-fly)
             - details_path: null (not in new parquet)
@@ -97,16 +97,8 @@ class DataService:
             pl.col("scores").struct.field("embedding").alias(COL_SCORE_EMBEDDING),
         ])
 
-        # Convert decoder_similarity to feature_splitting (max cosine_similarity)
-        # decoder_similarity is List(Struct) with top 10 neighbors
-        # We'll use the max similarity as feature_splitting value
-        # Keep decoder_similarity for table display
-        df_lazy = df_lazy.with_columns([
-            pl.col("decoder_similarity")
-              .list.eval(pl.element().struct.field("cosine_similarity"))
-              .list.max()
-              .alias(COL_FEATURE_SPLITTING)
-        ])
+        # Keep decoder_similarity as List(Struct) for table display
+        # Individual services (histogram, feature_group) will transform to float as needed
 
         # Calculate semsim_mean and semsim_max from nested semantic_similarity
         # semantic_similarity is List(Struct([explainer, cosine_similarity]))

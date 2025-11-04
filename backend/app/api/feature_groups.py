@@ -44,7 +44,7 @@ async def get_feature_groups(request: FeatureGroupRequest) -> FeatureGroupRespon
     The frontend uses these groups to compute intersections and build Sankey diagrams locally.
 
     Supported metrics:
-    - Standard: feature_splitting, semdist_mean, score_fuzz, score_detection, score_embedding
+    - Standard: decoder_similarity, semdist_mean, score_fuzz, score_detection, score_embedding
     - Computed: overall_score
 
     Args:

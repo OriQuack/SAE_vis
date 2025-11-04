@@ -127,7 +127,11 @@ export function extractMetricValues(feature: FeatureTableRow): {
   }
 
   // Decoder similarity is same across all explainers
-  const decoder_similarity = feature.decoder_similarity || 0
+  // Extract max cosine_similarity from array (backend returns list of similar features)
+  let decoder_similarity = 0
+  if (feature.decoder_similarity && Array.isArray(feature.decoder_similarity) && feature.decoder_similarity.length > 0) {
+    decoder_similarity = Math.max(...feature.decoder_similarity.map(item => item.cosine_similarity))
+  }
 
   // Average embedding scores across explainers
   let embeddingSum = 0

@@ -10,8 +10,10 @@ import {
   calculateHistogramBars,
   calculateXAxisTicks,
   calculateYAxisTicks,
-  calculateGridLines
+  calculateGridLines,
+  calculateBarSegments
 } from '../lib/d3-histogram-utils'
+import { scaleLinear } from 'd3-scale'
 import { getNodeThresholds } from '../lib/threshold-utils'
 import { METRIC_DISPLAY_NAMES, getMetricBaseColor } from '../lib/constants'
 import type { HistogramData, HistogramChart } from '../types'
@@ -77,7 +79,6 @@ const PopoverHeader: React.FC<{
 
 const HistogramChartComponent: React.FC<{
   chart: HistogramChart
-  data: HistogramData
   thresholds: number[]
   metricRange: { min: number; max: number }
   animationDuration: number
@@ -108,9 +109,52 @@ const HistogramChartComponent: React.FC<{
     [chart]
   )
 
+  // Create x scale for bar segment calculation
+  const xScale = useMemo(() =>
+    scaleLinear()
+      .domain([chart.xScale.domain()[0], chart.xScale.domain()[1]])
+      .range([0, chart.width]),
+    [chart]
+  )
+
+  // Calculate bar segments for split pattern rendering
+  const barSegments = useMemo(() => {
+    if (thresholds.length === 0) {
+      // No thresholds - return bars as single segments
+      return bars.map((bar) => [{
+        x: bar.x,
+        y: bar.y,
+        width: bar.width,
+        height: bar.height,
+        patternIndex: 0
+      }])
+    }
+
+    // Calculate segments for each bar
+    return bars.map((bar) => calculateBarSegments(bar, thresholds, xScale))
+  }, [bars, thresholds, xScale])
+
   return (
-    <g transform={`translate(${chart.margin.left}, ${chart.yOffset})`}>
-      {/* Grid lines */}
+    <>
+      {/* Pattern definitions for threshold regions */}
+      <defs>
+        {/* Striped pattern (for even regions: 0, 2, 4...) - 45 degree diagonal stripes */}
+        <pattern
+          id={`histogram-pattern-striped-${chart.metric}`}
+          width="10"
+          height="10"
+          patternUnits="userSpaceOnUse"
+          patternTransform="rotate(45)"
+        >
+          <rect width="10" height="10" fill="none"/>
+          {/* Vertical lines that become 45-degree diagonals after rotation */}
+          <line x1="0" y1="0" x2="0" y2="10" stroke={barColor || HISTOGRAM_COLORS.bars} strokeWidth="5" opacity="0.7"/>
+          <line x1="10" y1="0" x2="10" y2="10" stroke={barColor || HISTOGRAM_COLORS.bars} strokeWidth="5" opacity="0.7"/>
+        </pattern>
+      </defs>
+
+      <g transform={`translate(${chart.margin.left}, ${chart.yOffset})`}>
+        {/* Grid lines */}
       <g>
         {gridLines.map((line, i) => (
           <line
@@ -126,26 +170,39 @@ const HistogramChartComponent: React.FC<{
         ))}
       </g>
 
-      {/* Histogram bars */}
+      {/* Histogram bars - rendered as segments for split patterns */}
       <g>
-        {bars.map((bar, i) => (
-          <rect
-            key={i}
-            x={bar.x}
-            y={bar.y}
-            width={bar.width}
-            height={bar.height}
-            fill={barColor || HISTOGRAM_COLORS.bars}
-            fillOpacity={0.6}
-            stroke="white"
-            strokeWidth={0.5}
-            style={{
-              transition: `all ${animationDuration}ms ease-out`,
-              cursor: 'pointer'
-            }}
-            onMouseEnter={() => onBarHover(i, chart)}
-            onMouseLeave={() => onBarHover(null, chart)}
-          />
+        {barSegments.map((segments, barIndex) => (
+          <g key={barIndex}>
+            {segments.map((segment, segmentIndex) => {
+              // Even regions (0, 2, 4...): Striped pattern
+              // Odd regions (1, 3, 5...): Solid fill
+              const useStripes = segment.patternIndex % 2 === 0
+              const fillColor = useStripes
+                ? `url(#histogram-pattern-striped-${chart.metric})`
+                : barColor || HISTOGRAM_COLORS.bars
+
+              return (
+                <rect
+                  key={`${barIndex}-${segmentIndex}`}
+                  x={segment.x}
+                  y={segment.y}
+                  width={segment.width}
+                  height={segment.height}
+                  fill={fillColor}
+                  fillOpacity={1.0}
+                  stroke="white"
+                  strokeWidth={0.5}
+                  style={{
+                    transition: `all ${animationDuration}ms ease-out`,
+                    cursor: 'pointer'
+                  }}
+                  onMouseEnter={() => onBarHover(barIndex, chart)}
+                  onMouseLeave={() => onBarHover(null, chart)}
+                />
+              )
+            })}
+          </g>
         ))}
       </g>
 
@@ -191,6 +248,7 @@ const HistogramChartComponent: React.FC<{
         ))}
       </g>
     </g>
+    </>
   )
 }
 
@@ -259,23 +317,26 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     return getNodeThresholds(nodeId, sankeyTree)
   }, [popoverData?.nodeId, sankeyTree])
 
-  // Get effective threshold values for display (initialize with min-0.01, max+0.01 or use node thresholds)
+  // Get effective threshold values for display (1 handle to match Sankey)
   const getEffectiveThresholds = useCallback((metric: string): number[] => {
     const nodeId = popoverData?.nodeId || ''
     const compositeKey = nodeId ? `${metric}:${nodeId}` : metric
     const data = histogramData?.[compositeKey]
 
     if (!data) {
-      return [0, 1] // Fallback
+      return [0.5] // Fallback
     }
 
-    // If node has 2+ thresholds, use first two
-    if (nodeThresholds.length >= 2) {
-      return [nodeThresholds[0], nodeThresholds[1]]
+    // If node has threshold, use first one
+    if (nodeThresholds.length >= 1) {
+      return [nodeThresholds[0]]
     }
 
-    // Default: place handles at min-0.01 and max+0.01 (like Sankey)
-    return [data.statistics.min - 0.01, data.statistics.max + 0.01]
+    // Default: place handle at 40th percentile (matching Sankey default)
+    const min = data.statistics.min
+    const max = data.statistics.max
+    const defaultThreshold = min + 0.4 * (max - min)
+    return [defaultThreshold]
   }, [nodeThresholds, histogramData, popoverData?.nodeId])
 
   // Validation
@@ -604,7 +665,6 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
                   <HistogramChartComponent
                     key={metric}
                     chart={chart}
-                    data={data}
                     thresholds={thresholds}
                     metricRange={metricRange}
                     animationDuration={animationDuration}

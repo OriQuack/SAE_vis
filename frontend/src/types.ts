@@ -70,7 +70,9 @@ export interface SankeyTreeNode {
   id: string                          // Unique node ID (e.g., "root", "stage0_group1", etc.)
   parentId: string | null             // Parent node ID (null for root)
   metric: string | null               // Metric used for this node's stage (null for root)
-  thresholds: number[]                // Threshold values for this node
+  thresholds: number[]                // Threshold values for this node (metric values)
+  percentiles?: number[]              // Percentile positions (0-1) for visual splitting (e.g., [0.4, 0.8])
+  thresholdSource?: 'percentile' | 'metric'  // How thresholds were set: visual (percentile) or exact (metric)
   depth: number                       // Depth in tree (0 for root)
   children: string[]                  // Child node IDs
   featureIds: Set<number>             // Feature IDs at this node
@@ -436,7 +438,7 @@ export interface ExplainerScoreData {
 
 export interface FeatureTableRow {
   feature_id: number
-  decoder_similarity?: number | null  // Decoder similarity cosine similarity score (same across all explainers)
+  decoder_similarity?: Array<{feature_id: number, cosine_similarity: number}> | null  // List of top similar features with cosine similarity scores
   explainers: Record<string, ExplainerScoreData>
 }
 

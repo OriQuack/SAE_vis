@@ -30,7 +30,7 @@ class FeatureGroupService:
     Simple service for grouping features by threshold ranges.
 
     Supports:
-    - 5 standard metrics: feature_splitting, semdist_mean, score_fuzz, score_detection, score_embedding
+    - 5 standard metrics: decoder_similarity, semdist_mean, score_fuzz, score_detection, score_embedding
     - 1 computed metric: overall_score
     """
 
@@ -63,13 +63,13 @@ class FeatureGroupService:
             pl.col("scores").struct.field("embedding").alias("score_embedding"),
         ])
 
-        # Convert decoder_similarity to feature_splitting (max cosine_similarity)
-        # Keep decoder_similarity for table display
+        # Convert decoder_similarity list to max value for numeric operations
+        # Overwrites the list column with max cosine_similarity value
         df_lazy = df_lazy.with_columns([
             pl.col("decoder_similarity")
               .list.eval(pl.element().struct.field("cosine_similarity"))
               .list.max()
-              .alias("feature_splitting")
+              .alias("decoder_similarity")
         ])
 
         # Drop only scores and explanation_text, keep decoder_similarity

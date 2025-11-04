@@ -65,7 +65,7 @@ SEMDIST_ORDER = [SEMDIST_HIGH, SEMDIST_LOW]  # high at the top
 
 # Default threshold values
 DEFAULT_THRESHOLDS = {
-    "feature_splitting": 0.5,
+    "decoder_similarity": 0.5,
     "semsim_mean": 0.2,
     "score_fuzz": 0.5,
     "score_detection": 0.5,

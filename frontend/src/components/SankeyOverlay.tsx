@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import type { D3SankeyNode, D3SankeyLink, HistogramData, SankeyLayout } from '../types'
+import type { D3SankeyNode, D3SankeyLink, HistogramData, SankeyLayout, SankeyTreeNode } from '../types'
 import {
   METRIC_DECODER_SIMILARITY,
   METRIC_SEMANTIC_SIMILARITY,
@@ -17,6 +17,8 @@ import {
   hasOutgoingLinks
 } from '../lib/d3-sankey-histogram-utils'
 import { getNodeThresholds } from '../lib/threshold-utils'
+import { calculateHorizontalBarSegments } from '../lib/d3-histogram-utils'
+import { scaleLinear } from 'd3-scale'
 import { ThresholdHandles } from './ThresholdHandles'
 
 // ============================================================================
@@ -36,13 +38,13 @@ interface StageOption {
 // Available stages for the NEW system - categorized by type
 // eslint-disable-next-line react-refresh/only-export-components
 export const AVAILABLE_STAGES: StageOption[] = [
-  // Decoder Similarity (1 metric)
+  // Decoder Similarity (1 handle at 0.4)
   {
     id: 'decoder_similarity',
     name: 'Decoder Similarity',
     description: 'Split by decoder similarity score',
     metric: METRIC_DECODER_SIMILARITY,
-    thresholds: [0.3],
+    thresholds: [0.4],
     category: 'Decoder Similarity'
   },
 
@@ -148,6 +150,7 @@ interface SankeyNodeHistogramProps {
   node: D3SankeyNode
   histogramData: HistogramData | null
   links: D3SankeyLink[]
+  sankeyTree: Map<string, SankeyTreeNode> | null
   animationDuration: number
 }
 
@@ -155,6 +158,7 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
   node,
   histogramData,
   links,
+  sankeyTree,
   animationDuration
 }) => {
   // Calculate histogram layout
@@ -163,7 +167,45 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
     return calculateNodeHistogramLayout(node, histogramData, links)
   }, [node, histogramData, links])
 
+  // Get node thresholds for pattern generation
+  const thresholds = useMemo(() => {
+    if (!sankeyTree || !node.id) return []
+    return getNodeThresholds(node.id, sankeyTree)
+  }, [sankeyTree, node.id])
+
+  // Create Y scale for horizontal bar segment calculation
+  // For horizontal bars, Y axis represents the metric values
+  const yScale = useMemo(() => {
+    if (!histogramData || !layout) return null
+    const binEdges = histogramData.histogram.bin_edges
+    if (!binEdges || binEdges.length < 2) return null
+
+    return scaleLinear()
+      .domain([binEdges[0], binEdges[binEdges.length - 1]])
+      .range([0, layout.height])  // Map metric values to node height
+  }, [histogramData, layout])
+
+  // Calculate bar segments for split pattern rendering (horizontal bars)
+  const barSegments = useMemo(() => {
+    if (!layout || !yScale || thresholds.length === 0) {
+      // No thresholds or no scale - return bars as single segments
+      return layout?.bars.map((bar) => [{
+        x: bar.x,
+        y: bar.y,
+        width: bar.width,
+        height: bar.height,
+        patternIndex: 0
+      }]) || []
+    }
+
+    // Calculate segments for each horizontal bar
+    return layout.bars.map((bar) => calculateHorizontalBarSegments(bar, thresholds, yScale))
+  }, [layout, thresholds, yScale])
+
   if (!layout) return null
+
+  // Get bar color for patterns
+  const barColor = layout.bars[0]?.color || '#94a3b8'
 
   return (
     <g
@@ -173,21 +215,73 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
         transition: `opacity ${animationDuration}ms ease-out`
       }}
     >
-      {/* Render horizontal histogram bars */}
-      {layout.bars.map((bar, i) => (
-        <rect
-          key={i}
-          x={bar.x}
-          y={bar.y - layout.y}  // Adjust y relative to group transform
-          width={bar.width}
-          height={bar.height}
-          fill={bar.color}
-          fillOpacity={0.75}
-          stroke="white"
-          strokeWidth={0.3}
-          strokeOpacity={0.6}
-        />
+      {/* Pattern definitions for threshold regions */}
+      <defs>
+        {/* Striped pattern (for even regions: 0, 2, 4...) - 45 degree diagonal stripes */}
+        <pattern
+          id={`sankey-histogram-pattern-striped-${node.id}`}
+          width="10"
+          height="10"
+          patternUnits="userSpaceOnUse"
+          patternTransform="rotate(45)"
+        >
+          <rect width="10" height="10" fill="none"/>
+          {/* Vertical lines that become 45-degree diagonals after rotation */}
+          <line x1="0" y1="0" x2="0" y2="10" stroke={barColor} strokeWidth="5" opacity="0.7"/>
+          <line x1="10" y1="0" x2="10" y2="10" stroke={barColor} strokeWidth="5" opacity="0.7"/>
+        </pattern>
+      </defs>
+
+      {/* Render horizontal histogram bars - as segments for split patterns */}
+      {barSegments.map((segments, barIndex) => (
+        <g key={barIndex}>
+          {segments.map((segment, segmentIndex) => {
+            // Even regions (0, 2, 4...): Striped pattern
+            // Odd regions (1, 3, 5...): Solid fill
+            const useStripes = segment.patternIndex % 2 === 0
+            const fillColor = useStripes
+              ? `url(#sankey-histogram-pattern-striped-${node.id})`
+              : barColor
+
+            return (
+              <rect
+                key={`${barIndex}-${segmentIndex}`}
+                x={segment.x}
+                y={segment.y - layout.y}  // Adjust y relative to group transform
+                width={segment.width}
+                height={segment.height}
+                fill={fillColor}
+                fillOpacity={1.0}
+                stroke="white"
+                strokeWidth={0.3}
+                strokeOpacity={0.6}
+              />
+            )
+          })}
+        </g>
       ))}
+
+      {/* Threshold lines - horizontal lines at threshold Y positions */}
+      {yScale && thresholds.length > 0 && thresholds.map((threshold, index) => {
+        const thresholdY = yScale(threshold)
+
+        return (
+          <line
+            key={`threshold-${index}`}
+            x1={0}
+            y1={thresholdY}
+            x2={layout.width * 0.8}
+            y2={thresholdY}
+            stroke={barColor}
+            strokeWidth={1.5}
+            strokeDasharray="4,3"
+            opacity={0.6}
+            style={{
+              pointerEvents: 'none'
+            }}
+          />
+        )
+      })}
     </g>
   )
 }
@@ -397,6 +491,7 @@ interface SankeyOverlayProps {
   sankeyTree: Map<string, any> | null
   onMetricClick: (metric: string) => void
   onThresholdUpdate: (nodeId: string, newThresholds: number[]) => void
+  onThresholdUpdateByPercentile: (nodeId: string, percentiles: number[]) => void
 }
 
 export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
@@ -405,7 +500,8 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
   animationDuration,
   sankeyTree,
   onMetricClick,
-  onThresholdUpdate
+  onThresholdUpdate: _onThresholdUpdate,
+  onThresholdUpdateByPercentile
 }) => {
   if (!layout) return null
 
@@ -435,6 +531,7 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
               node={node}
               histogramData={metricHistogramData}
               links={layout.links}
+              sankeyTree={sankeyTree}
               animationDuration={animationDuration}
             />
           )
@@ -470,33 +567,61 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
           const thresholds = getNodeThresholds(node.id || '', sankeyTree)
           const { min, max } = metricHistogramData.statistics
 
-          // ALWAYS show exactly 2 sliders (top and bottom handles)
+          // Dynamic handle count based on metric configuration
           let displayThresholds: number[]
 
-          // ALWAYS extend the range by 0.01 on both sides to prevent selecting features at exact min/max
+          // Extend range slightly to prevent edge cases
           const metricMin = min - 0.01
           const metricMax = max + 0.01
 
-          if (!thresholds || thresholds.length < 2) {
-            // No thresholds or less than 2: place handles beyond data range to prevent accidental splits
-            // Top handle at min - 0.01, bottom handle at max + 0.01
-            displayThresholds = [metricMin, metricMax]
+          // Check if node has percentiles stored (from percentile-based updates)
+          const treeNode = sankeyTree.get(node.id || '')
+          const nodePercentiles = treeNode?.percentiles
+
+          if (nodePercentiles && nodePercentiles.length > 0) {
+            // Use stored percentiles for rendering
+            displayThresholds = [...nodePercentiles]
+          } else if (!thresholds || thresholds.length === 0) {
+            // No thresholds: initialize with metric-specific defaults
+            // Find the stage configuration for this metric
+            const stageConfig = AVAILABLE_STAGES.find(s => s.metric === metric)
+            if (stageConfig && stageConfig.thresholds.length > 0) {
+              // Convert metric defaults to percentiles for consistent percentile-based rendering
+              displayThresholds = stageConfig.thresholds.map(t => {
+                const clampedT = Math.max(metricMin, Math.min(metricMax, t))
+                // Convert metric value to percentile (0-1 range)
+                return (clampedT - metricMin) / (metricMax - metricMin)
+              })
+            } else {
+              // Fallback: single handle at midpoint (50% percentile)
+              displayThresholds = [0.5]
+            }
           } else {
-            // Use first two thresholds only (always exactly 2 sliders)
-            displayThresholds = [thresholds[0], thresholds[1]]
+            // Convert metric thresholds to percentiles for rendering
+            displayThresholds = thresholds.map(t =>
+              (t - metricMin) / (metricMax - metricMin)
+            )
           }
+
+          // Always use percentile mode for Sankey vertical handles
+          const usePercentilesMode = true
 
           return (
             <ThresholdHandles
               key={`sliders-${node.id}`}
               orientation="vertical"
-              bounds={{ min: node.y0 || 0, max: node.y1 || 0 }}
+              bounds={{ min: 0, max: (node.y1 || 0) - (node.y0 || 0) }}
               thresholds={displayThresholds}
               metricRange={{ min: metricMin, max: metricMax }}
-              position={{ x: node.x0 || 0, y: 0 }}
+              position={{ x: node.x0 || 0, y: node.y0 || 0 }}
               parentOffset={{ x: layout.margin.left, y: layout.margin.top }}
               showThresholdLine={false}
-              onUpdate={(newThresholds) => onThresholdUpdate(node.id || '', newThresholds)}
+              usePercentiles={usePercentilesMode}
+              onUpdate={(values) => {
+                // Always use percentile-based splitting for vertical Sankey handles
+                // If values are metric thresholds, convert to percentiles first
+                onThresholdUpdateByPercentile(node.id || '', values)
+              }}
             />
           )
         })}

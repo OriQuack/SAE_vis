@@ -157,6 +157,16 @@ class HistogramService:
             self.data_service._df_lazy, filters
         ).collect()
 
+        # Transform decoder_similarity from List(Struct) to float if needed
+        if metric == MetricType.DECODER_SIMILARITY:
+            logger.info("Transforming decoder_similarity from List(Struct) to max float value for histogram")
+            filtered_df = filtered_df.with_columns([
+                pl.col("decoder_similarity")
+                  .list.eval(pl.element().struct.field("cosine_similarity"))
+                  .list.max()
+                  .alias("decoder_similarity")
+            ])
+
         # Apply threshold path constraints if provided
         if threshold_path:
             logger.info(f"Applying threshold path filtering with {len(threshold_path)} constraints")
@@ -183,10 +193,10 @@ class HistogramService:
 
         # Automatically deduplicate feature-level and score metrics
         average_by = None
-        if metric in [MetricType.FEATURE_SPLITTING, MetricType.SEMSIM_MEAN,
+        if metric in [MetricType.DECODER_SIMILARITY, MetricType.SEMSIM_MEAN,
                       MetricType.SCORE_FUZZ, MetricType.SCORE_DETECTION,
                       MetricType.SCORE_EMBEDDING, MetricType.OVERALL_SCORE]:
-            if metric == MetricType.FEATURE_SPLITTING:
+            if metric == MetricType.DECODER_SIMILARITY:
                 average_by = ['llm_explainer', 'llm_scorer']
                 logger.info(f"Auto-deduplicating {metric.value} (feature-level metric)")
             elif metric in [MetricType.SCORE_FUZZ, MetricType.SCORE_DETECTION]:
@@ -243,14 +253,23 @@ class HistogramService:
         )
 
         # Add back other necessary columns (take first value from each group)
+        # Skip complex types (List, Struct) that can't be aggregated with .first()
         columns_to_exclude = [COL_FEATURE_ID, metric.value] + fields_to_collapse
-        other_columns = [col for col in df.columns if col not in columns_to_exclude]
 
-        if other_columns:
-            # Get first value for each feature_id for other columns
+        # Filter for simple types only (exclude List and Struct columns)
+        simple_columns = []
+        for col in df.columns:
+            if col not in columns_to_exclude:
+                dtype = df[col].dtype
+                # Check if it's a simple type (not List or Struct)
+                if not isinstance(dtype, (pl.List, pl.Struct)):
+                    simple_columns.append(col)
+
+        if simple_columns:
+            # Get first value for each feature_id for simple columns only
             first_values = (
                 df.group_by([COL_FEATURE_ID])
-                .agg([pl.col(col).first().alias(col) for col in other_columns])
+                .agg([pl.col(col).first().alias(col) for col in simple_columns])
             )
             averaged_df = averaged_df.join(first_values, on=COL_FEATURE_ID, how="left")
 

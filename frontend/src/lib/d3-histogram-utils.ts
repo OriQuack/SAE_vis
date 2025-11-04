@@ -540,3 +540,265 @@ export function positionToValue(
   const ratio = Math.max(0, Math.min(1, position / width))
   return minValue + ratio * (maxValue - minValue)
 }
+
+// ============================================================================
+// HISTOGRAM SHADING (For Percentile-Based Thresholds)
+// ============================================================================
+
+/**
+ * Shading region for a histogram bin
+ */
+export interface HistogramBinShading {
+  binIndex: number
+  regionIndex: number  // 0, 1, 2 for regions separated by 2 thresholds
+  regionLabel: string  // "Below", "Between", "Above"
+  opacity: number      // Opacity for shading (0.2, 0.5, 0.8)
+}
+
+/**
+ * Generate shading data for histogram bins based on threshold positions.
+ *
+ * This creates visual regions in histograms that show which bins fall below,
+ * between, or above threshold values when using percentile-based splitting.
+ *
+ * @param binEdges - Array of bin edge values [min, edge1, edge2, ..., max]
+ * @param thresholds - Array of threshold values (typically 2 thresholds creating 3 regions)
+ * @returns Array of shading metadata for each bin
+ *
+ * @example
+ * // Bins: [0-0.2, 0.2-0.4, 0.4-0.6, 0.6-0.8, 0.8-1.0]
+ * // Thresholds: [0.3, 0.7]
+ * const shading = generateHistogramShading(
+ *   [0, 0.2, 0.4, 0.6, 0.8, 1.0],
+ *   [0.3, 0.7]
+ * )
+ * // Returns:
+ * // [
+ * //   {binIndex: 0, regionIndex: 0, regionLabel: "Below", opacity: 0.25},  // [0-0.2] below 0.3
+ * //   {binIndex: 1, regionIndex: 1, regionLabel: "Between", opacity: 0.5}, // [0.2-0.4] spans threshold
+ * //   {binIndex: 2, regionIndex: 1, regionLabel: "Between", opacity: 0.5}, // [0.4-0.6] between thresholds
+ * //   {binIndex: 3, regionIndex: 2, regionLabel: "Above", opacity: 0.75},  // [0.6-0.8] spans threshold
+ * //   {binIndex: 4, regionIndex: 2, regionLabel: "Above", opacity: 0.75}   // [0.8-1.0] above 0.7
+ * // ]
+ */
+export function generateHistogramShading(
+  binEdges: number[],
+  thresholds: number[]
+): HistogramBinShading[] {
+  if (binEdges.length < 2 || thresholds.length === 0) {
+    // No shading if no bins or no thresholds
+    return []
+  }
+
+  const shadingData: HistogramBinShading[] = []
+  const sortedThresholds = [...thresholds].sort((a, b) => a - b)
+
+  // For each bin (binEdges.length - 1 bins)
+  for (let i = 0; i < binEdges.length - 1; i++) {
+    const binStart = binEdges[i]
+    const binEnd = binEdges[i + 1]
+    const binMidpoint = (binStart + binEnd) / 2
+
+    // Determine which region this bin falls into
+    let regionIndex = 0
+    let regionLabel = "Below"
+    let opacity = 0.25
+
+    if (sortedThresholds.length >= 2) {
+      // 2+ thresholds: 3+ regions
+      if (binMidpoint < sortedThresholds[0]) {
+        regionIndex = 0
+        regionLabel = "Below"
+        opacity = 0.25
+      } else if (binMidpoint >= sortedThresholds[sortedThresholds.length - 1]) {
+        regionIndex = sortedThresholds.length
+        regionLabel = "Above"
+        opacity = 0.75
+      } else {
+        // Between first and last threshold
+        for (let t = 0; t < sortedThresholds.length - 1; t++) {
+          if (binMidpoint >= sortedThresholds[t] && binMidpoint < sortedThresholds[t + 1]) {
+            regionIndex = t + 1
+            regionLabel = "Between"
+            opacity = 0.5
+            break
+          }
+        }
+      }
+    } else if (sortedThresholds.length === 1) {
+      // 1 threshold: 2 regions
+      if (binMidpoint < sortedThresholds[0]) {
+        regionIndex = 0
+        regionLabel = "Below"
+        opacity = 0.25
+      } else {
+        regionIndex = 1
+        regionLabel = "Above"
+        opacity = 0.75
+      }
+    }
+
+    shadingData.push({
+      binIndex: i,
+      regionIndex,
+      regionLabel,
+      opacity
+    })
+  }
+
+  return shadingData
+}
+
+// ============================================================================
+// BAR SEGMENT CALCULATION FOR SPLIT PATTERN RENDERING
+// ============================================================================
+
+export interface HistogramBarSegment {
+  x: number          // X position of segment
+  y: number          // Y position of segment
+  width: number      // Width of segment
+  height: number     // Height of segment
+  patternIndex: number  // Which pattern to use (0, 1, or 2)
+}
+
+/**
+ * Calculate bar segments for split pattern rendering.
+ * When a threshold falls within a bar's range, split that bar into segments
+ * with different patterns on either side of the threshold.
+ *
+ * @param bar - The histogram bar data
+ * @param thresholds - Array of threshold values
+ * @param xScale - D3 scale for converting metric values to pixel positions
+ * @returns Array of bar segments, each with its own pattern
+ */
+export function calculateBarSegments(
+  bar: HistogramBarData,
+  thresholds: number[],
+  xScale: ScaleLinear<number, number>
+): HistogramBarSegment[] {
+  const segments: HistogramBarSegment[] = []
+  const sortedThresholds = [...thresholds].sort((a, b) => a - b)
+
+  // Find thresholds that fall within this bar's range
+  const binStart = bar.binData.x0
+  const binEnd = bar.binData.x1
+  const thresholdsInBin = sortedThresholds.filter(t => t > binStart && t < binEnd)
+
+  if (thresholdsInBin.length === 0) {
+    // No thresholds in this bar - return single segment
+    // Determine which region this bar is in
+    let patternIndex = 0
+    if (sortedThresholds.length > 0) {
+      patternIndex = sortedThresholds.findIndex(t => binStart < t)
+      if (patternIndex === -1) patternIndex = sortedThresholds.length
+    }
+
+    return [{
+      x: bar.x,
+      y: bar.y,
+      width: bar.width,
+      height: bar.height,
+      patternIndex: Math.min(patternIndex, 2)
+    }]
+  }
+
+  // Split bar at each threshold within range
+  const splitPoints = [binStart, ...thresholdsInBin, binEnd]
+
+  for (let i = 0; i < splitPoints.length - 1; i++) {
+    const segmentStart = splitPoints[i]
+    const segmentEnd = splitPoints[i + 1]
+    const segmentMid = (segmentStart + segmentEnd) / 2
+
+    // Calculate segment position and width
+    const segmentX = xScale(segmentStart)
+    const segmentWidth = xScale(segmentEnd) - segmentX
+
+    // Determine pattern index for this segment
+    let patternIndex = 0
+    if (sortedThresholds.length > 0) {
+      patternIndex = sortedThresholds.findIndex(t => segmentMid < t)
+      if (patternIndex === -1) patternIndex = sortedThresholds.length
+    }
+
+    segments.push({
+      x: bar.x + (segmentX - xScale(binStart)),
+      y: bar.y,
+      width: segmentWidth,
+      height: bar.height,
+      patternIndex: Math.min(patternIndex, 2)
+    })
+  }
+
+  return segments
+}
+
+/**
+ * Calculate bar segments for HORIZONTAL bars (Sankey node histograms).
+ * For horizontal bars, the Y axis represents metric values and needs to be split.
+ *
+ * @param bar - The histogram bar data (horizontal orientation)
+ * @param thresholds - Array of threshold values
+ * @param yScale - D3 scale for converting metric values to vertical pixel positions
+ * @returns Array of bar segments, each with its own pattern
+ */
+export function calculateHorizontalBarSegments(
+  bar: any, // NodeHistogramBar type
+  thresholds: number[],
+  yScale: ScaleLinear<number, number>
+): HistogramBarSegment[] {
+  const segments: HistogramBarSegment[] = []
+  const sortedThresholds = [...thresholds].sort((a, b) => a - b)
+
+  // Find thresholds that fall within this bar's metric range
+  const binStart = bar.binData.x0
+  const binEnd = bar.binData.x1
+  const thresholdsInBin = sortedThresholds.filter(t => t > binStart && t < binEnd)
+
+  if (thresholdsInBin.length === 0) {
+    // No thresholds in this bar - return single segment
+    let patternIndex = 0
+    if (sortedThresholds.length > 0) {
+      patternIndex = sortedThresholds.findIndex(t => binStart < t)
+      if (patternIndex === -1) patternIndex = sortedThresholds.length
+    }
+
+    return [{
+      x: bar.x,
+      y: bar.y,
+      width: bar.width,
+      height: bar.height,
+      patternIndex: Math.min(patternIndex, 2)
+    }]
+  }
+
+  // Split bar at each threshold within range (along Y axis for horizontal bars)
+  const splitPoints = [binStart, ...thresholdsInBin, binEnd]
+
+  for (let i = 0; i < splitPoints.length - 1; i++) {
+    const segmentStart = splitPoints[i]
+    const segmentEnd = splitPoints[i + 1]
+    const segmentMid = (segmentStart + segmentEnd) / 2
+
+    // Calculate segment Y position and height (metric axis is vertical for horizontal bars)
+    const segmentY = yScale(segmentStart)
+    const segmentHeight = yScale(segmentEnd) - segmentY
+
+    // Determine pattern index for this segment
+    let patternIndex = 0
+    if (sortedThresholds.length > 0) {
+      patternIndex = sortedThresholds.findIndex(t => segmentMid < t)
+      if (patternIndex === -1) patternIndex = sortedThresholds.length
+    }
+
+    segments.push({
+      x: bar.x,  // Keep same X position (bar extends from node edge)
+      y: bar.y + (segmentY - yScale(binStart)),  // Offset from bar's top
+      width: bar.width,  // Keep full width (count doesn't change)
+      height: segmentHeight,  // Split along height
+      patternIndex: Math.min(patternIndex, 2)
+    })
+  }
+
+  return segments
+}

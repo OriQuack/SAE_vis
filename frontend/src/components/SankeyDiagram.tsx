@@ -396,7 +396,14 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const tableScrollState = useVisualizationStore(state => state.tableScrollState)
   const sankeyTree = useVisualizationStore(state => state[panelKey].sankeyTree)
   const tableSelectedNodeIds = useVisualizationStore(state => state.tableSelectedNodeIds)
-  const { showHistogramPopover, addUnsplitStageToNode, removeNodeStage, updateNodeThresholds, toggleNodeSelection } = useVisualizationStore()
+  const {
+    showHistogramPopover,
+    addUnsplitStageToNode,
+    removeNodeStage,
+    updateNodeThresholds,
+    updateNodeThresholdsByPercentile,
+    toggleNodeSelection
+  } = useVisualizationStore()
 
   // NEW TREE-BASED SYSTEM: use computedSankey directly
   const data = useMemo(() => {
@@ -624,6 +631,15 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     updateNodeThresholds(nodeId, newThresholds, panel)
   }, [updateNodeThresholds, panel])
 
+  const handleThresholdUpdateByPercentile = useCallback((nodeId: string, percentiles: number[]) => {
+    console.log('[SankeyDiagram.handleThresholdUpdateByPercentile] 🎯 Percentiles updated:', {
+      nodeId,
+      percentiles,
+      panel
+    })
+    updateNodeThresholdsByPercentile(nodeId, percentiles, panel)
+  }, [updateNodeThresholdsByPercentile, panel])
+
   const handleNodeSelectionClick = useCallback((event: React.MouseEvent, node: D3SankeyNode) => {
     // Only allow selection in left panel
     if (panel !== PANEL_LEFT) return
@@ -840,6 +856,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
               sankeyTree={sankeyTree}
               onMetricClick={handleOverlayMetricClick}
               onThresholdUpdate={handleThresholdUpdate}
+              onThresholdUpdateByPercentile={handleThresholdUpdateByPercentile}
             />
 
             {/* Node Buttons - rendered after overlay to appear on top */}

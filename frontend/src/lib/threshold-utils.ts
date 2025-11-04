@@ -545,3 +545,143 @@ export function getNodeThresholds(
   const node = tree.get(nodeId)
   return node?.thresholds || []
 }
+
+// ============================================================================
+// PERCENTILE-BASED THRESHOLD CALCULATION
+// ============================================================================
+
+/**
+ * Calculate metric threshold value from percentile position.
+ *
+ * This enables visual/percentile-based splitting where users drag a handle to
+ * a visual position (e.g., 40% of node height) and we calculate the metric value
+ * that splits features at that percentile.
+ *
+ * @param metricValues - Array of metric values for features in the node
+ * @param percentile - Percentile position (0-1, where 0.4 = 40th percentile)
+ * @returns Metric threshold value at the specified percentile
+ *
+ * @example
+ * // Features with metric values: [0.1, 0.2, 0.3, 0.4, 0.5]
+ * calculateThresholdFromPercentile([0.1, 0.2, 0.3, 0.4, 0.5], 0.4)
+ * // Returns ~0.2 (40% of features have values ≤ 0.2)
+ */
+export function calculateThresholdFromPercentile(
+  metricValues: number[],
+  percentile: number
+): number {
+  if (metricValues.length === 0) {
+    return 0
+  }
+
+  // Sort values in ascending order
+  const sorted = [...metricValues].sort((a, b) => a - b)
+
+  // Calculate index for percentile (linear interpolation)
+  const index = percentile * (sorted.length - 1)
+  const lowerIndex = Math.floor(index)
+  const upperIndex = Math.ceil(index)
+
+  // Handle edge cases
+  if (lowerIndex === upperIndex || upperIndex >= sorted.length) {
+    return sorted[lowerIndex]
+  }
+
+  // Linear interpolation between two nearest values
+  const fraction = index - lowerIndex
+  const lowerValue = sorted[lowerIndex]
+  const upperValue = sorted[upperIndex]
+
+  return lowerValue + fraction * (upperValue - lowerValue)
+}
+
+/**
+ * Calculate percentile position from metric threshold value.
+ *
+ * This is the inverse of calculateThresholdFromPercentile - given a metric
+ * threshold, find what percentile it represents in the distribution.
+ *
+ * @param metricValues - Array of metric values for features in the node
+ * @param threshold - Metric threshold value
+ * @returns Percentile position (0-1) that this threshold represents
+ *
+ * @example
+ * // Features with metric values: [0.1, 0.2, 0.3, 0.4, 0.5]
+ * calculatePercentileFromThreshold([0.1, 0.2, 0.3, 0.4, 0.5], 0.2)
+ * // Returns 0.4 (0.2 is at the 40th percentile)
+ */
+export function calculatePercentileFromThreshold(
+  metricValues: number[],
+  threshold: number
+): number {
+  if (metricValues.length === 0) {
+    return 0
+  }
+
+  // Sort values in ascending order
+  const sorted = [...metricValues].sort((a, b) => a - b)
+
+  // Count how many values are less than threshold
+  let count = 0
+  for (const value of sorted) {
+    if (value < threshold) {
+      count++
+    } else {
+      break
+    }
+  }
+
+  // Return as percentile (0-1)
+  return count / sorted.length
+}
+
+/**
+ * Extract metric values for a set of feature IDs.
+ *
+ * This helper function is used by the percentile calculation logic to get
+ * the actual metric values for features in a node so we can calculate percentiles.
+ *
+ * @param featureIds - Set of feature IDs to get metric values for
+ * @param metric - Metric name to extract values for
+ * @param cachedData - Optional cached feature data to avoid API calls
+ * @returns Array of metric values (filtered for nulls)
+ *
+ * @example
+ * const values = await getFeatureMetricValues(
+ *   new Set([1, 5, 12, 23]),
+ *   'semdist_mean',
+ *   tableData // from store
+ * )
+ */
+export async function getFeatureMetricValues(
+  featureIds: Set<number>,
+  metric: string,
+  cachedData?: any // TODO: Type this properly with feature data structure
+): Promise<number[]> {
+  const values: number[] = []
+
+  // If we have cached table data, use it
+  if (cachedData?.features) {
+    for (const feature of cachedData.features) {
+      if (featureIds.has(feature.feature_id)) {
+        let metricValue = feature[metric]
+
+        // Special handling for decoder_similarity (it's an array of objects, not a scalar)
+        // Backend returns: [{feature_id: 100, cosine_similarity: 0.95}, ...]
+        // We extract the max cosine_similarity value (matching backend grouping logic)
+        if (metric === 'decoder_similarity' && Array.isArray(metricValue) && metricValue.length > 0) {
+          metricValue = Math.max(...metricValue.map((item: any) => item.cosine_similarity))
+        }
+
+        if (metricValue !== null && metricValue !== undefined && !isNaN(metricValue)) {
+          values.push(Number(metricValue))
+        }
+      }
+    }
+  }
+
+  // TODO: If no cache, could fetch from API here
+  // For now, return empty array if no cached data
+
+  return values
+}

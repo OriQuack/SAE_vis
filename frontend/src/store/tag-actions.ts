@@ -107,7 +107,7 @@ export const createTagActions: StateCreator<
   [],
   [],
   TagState
-> = (set, get) => ({
+> = (set, get, _store) => ({
   // Initial state
   tags: [],
   selectedFeatureIds: new Set<number>(),

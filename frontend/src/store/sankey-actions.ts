@@ -1,6 +1,11 @@
 import * as api from '../api'
 import type { MetricType, SankeyTreeNode } from '../types'
-import { processFeatureGroupResponse, convertTreeToSankeyStructure } from '../lib/threshold-utils'
+import {
+  processFeatureGroupResponse,
+  convertTreeToSankeyStructure,
+  calculateThresholdFromPercentile,
+  getFeatureMetricValues
+} from '../lib/threshold-utils'
 import { PANEL_LEFT, PANEL_RIGHT } from '../lib/constants'
 
 type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
@@ -279,6 +284,107 @@ export const createTreeActions = (set: any, get: any) => ({
       const errorMessage = error instanceof Error ? error.message : 'Failed to update thresholds'
       state.setError(errorKey, errorMessage)
       state.setLoading(loadingKey, false)
+    }
+  },
+
+  /**
+   * Update thresholds for a node using percentile-based positioning.
+   *
+   * This enables visual/percentile-based splitting where users position handles
+   * visually (e.g., 40% of node height) and we calculate the metric thresholds
+   * that split features at those percentiles.
+   *
+   * @param nodeId - Node ID to update
+   * @param percentiles - Percentile positions (0-1 array, e.g., [0.4, 0.8])
+   * @param panel - Which panel (left or right)
+   */
+  updateNodeThresholdsByPercentile: async (nodeId: string, percentiles: number[], panel: PanelSide = PANEL_LEFT) => {
+    const state = get()
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
+    const { sankeyTree } = state[panelKey]
+    let { tableData } = state
+
+    if (!sankeyTree || !sankeyTree.has(nodeId)) {
+      console.error(`[Store.updateNodeThresholdsByPercentile] Node ${nodeId} not found`)
+      return
+    }
+
+    const node = sankeyTree.get(nodeId)!
+    if (!node.metric) {
+      console.error(`[Store.updateNodeThresholdsByPercentile] Node ${nodeId} has no metric`)
+      return
+    }
+
+    try {
+      console.log(`[Store.updateNodeThresholdsByPercentile] Converting percentiles ${percentiles.join(',')} to thresholds for ${node.metric}`)
+
+      // Fetch table data if not available (required for metric value extraction)
+      if (!tableData || !tableData.features || tableData.features.length === 0) {
+        console.log('[Store.updateNodeThresholdsByPercentile] Table data not cached, fetching...')
+        await get().fetchTableData()
+        tableData = get().tableData  // Get fresh data after fetch
+
+        if (!tableData || !tableData.features) {
+          console.error('[Store.updateNodeThresholdsByPercentile] Failed to fetch table data')
+          return
+        }
+        console.log(`[Store.updateNodeThresholdsByPercentile] ✅ Fetched table data: ${tableData.features.length} features`)
+      }
+
+      // Get metric values for features in this node
+      const metricValues = await getFeatureMetricValues(node.featureIds, node.metric, tableData)
+
+      if (metricValues.length === 0) {
+        console.error(`[Store.updateNodeThresholdsByPercentile] No metric values found for node ${nodeId}`)
+        return
+      }
+
+      // Calculate metric thresholds from percentiles
+      const thresholds = percentiles.map(percentile =>
+        calculateThresholdFromPercentile(metricValues, percentile)
+      )
+
+      console.log(`[Store.updateNodeThresholdsByPercentile] Calculated thresholds: ${thresholds.join(',')}`)
+
+      // Update node with percentile metadata BEFORE calling updateNodeThresholds
+      const newTree = new Map<string, SankeyTreeNode>(sankeyTree)
+      const updatedNode = newTree.get(nodeId)!
+      updatedNode.percentiles = percentiles
+      updatedNode.thresholdSource = 'percentile'
+
+      // Temporarily update tree to store percentile info
+      set((state: any) => ({
+        [panelKey]: {
+          ...state[panelKey],
+          sankeyTree: newTree
+        }
+      }))
+
+      // Now call the standard threshold update with calculated metric values
+      await get().updateNodeThresholds(nodeId, thresholds, panel)
+
+      // Re-apply percentile metadata after updateNodeThresholds completes
+      // (updateNodeThresholds creates a new tree, so we need to add it back)
+      const finalState = get()
+      const finalTree = new Map<string, SankeyTreeNode>(finalState[panelKey].sankeyTree)
+      const finalNode = finalTree.get(nodeId)
+      if (finalNode) {
+        finalNode.percentiles = percentiles
+        finalNode.thresholdSource = 'percentile'
+        set((state: any) => ({
+          [panelKey]: {
+            ...state[panelKey],
+            sankeyTree: finalTree
+          }
+        }))
+      }
+
+      console.log(`[Store.updateNodeThresholdsByPercentile] ✅ Percentile-based update complete`)
+    } catch (error) {
+      console.error(`[Store.updateNodeThresholdsByPercentile] Error:`, error)
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update thresholds by percentile'
+      const errorKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
+      state.setError(errorKey, errorMessage)
     }
   },
 

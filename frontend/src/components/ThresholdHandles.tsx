@@ -14,6 +14,7 @@ interface ThresholdHandlesProps {
   parentOffset?: { x: number; y: number }   // Parent transform offset from SVG origin
   lineBounds?: { min: number; max: number } // Pixel bounds for threshold line span (defaults to bounds)
   showThresholdLine?: boolean               // Whether to show dotted threshold line
+  usePercentiles?: boolean                  // If true, return percentiles (0-1) instead of metric values
   onUpdate: (newThresholds: number[]) => void
   handleDimensions?: { width: number; height: number }
 }
@@ -23,30 +24,49 @@ interface ThresholdHandlesProps {
 // ============================================================================
 
 /**
- * Maps threshold value to pixel position
+ * Maps threshold value (or percentile) to pixel position
  */
 function calculateHandlePositionFromThreshold(
   threshold: number,
   metricMin: number,
   metricMax: number,
   boundsMin: number,
-  boundsMax: number
+  boundsMax: number,
+  usePercentiles: boolean = false
 ): number {
-  const ratio = (threshold - metricMin) / (metricMax - metricMin)
-  return boundsMin + ratio * (boundsMax - boundsMin)
+  let ratio: number
+
+  if (usePercentiles) {
+    // In percentile mode, threshold IS the ratio (0-1)
+    ratio = threshold
+  } else {
+    // In metric mode, calculate ratio from metric value
+    ratio = (threshold - metricMin) / (metricMax - metricMin)
+  }
+
+  const result = boundsMin + ratio * (boundsMax - boundsMin)
+  return result
 }
 
 /**
- * Maps pixel position to threshold value
+ * Maps pixel position to threshold value or percentile
  */
 function calculateThresholdFromHandlePosition(
   position: number,
   metricMin: number,
   metricMax: number,
   boundsMin: number,
-  boundsMax: number
+  boundsMax: number,
+  usePercentiles: boolean = false
 ): number {
   const ratio = (position - boundsMin) / (boundsMax - boundsMin)
+
+  // In percentile mode, return the ratio directly (0-1 normalized position)
+  if (usePercentiles) {
+    return ratio
+  }
+
+  // In metric mode, map ratio to metric value range
   return metricMin + ratio * (metricMax - metricMin)
 }
 
@@ -63,6 +83,7 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
   parentOffset = { x: 0, y: 0 },
   lineBounds,
   showThresholdLine = true,
+  usePercentiles = false,
   onUpdate,
   handleDimensions = { width: 20, height: 16 }
 }) => {
@@ -100,7 +121,9 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
       svgElementRef.current = svgElement
     }
 
-    // Store the total offset (parent + position)
+    // Store the coordinate offset for mouse position calculations
+    // Converts mouse position (SVG coords) to node-relative coordinates
+    // Subtracts: margin (parentOffset) + node position in D3 space (position)
     offsetRef.current = orientation === 'horizontal'
       ? parentOffset.x + position.x
       : parentOffset.y + position.y
@@ -136,13 +159,14 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
       // Clamp position within bounds
       const clampedPos = Math.max(bounds.min, Math.min(bounds.max, adjustedPos))
 
-      // Convert to threshold value
+      // Convert to threshold value or percentile
       const newThreshold = calculateThresholdFromHandlePosition(
         clampedPos,
         metricRange.min,
         metricRange.max,
         bounds.min,
-        bounds.max
+        bounds.max,
+        usePercentiles
       )
 
       // Update temp thresholds with constraints
@@ -150,13 +174,19 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
         const updated = [...prev]
         updated[draggingHandle] = newThreshold
 
-        // Ensure thresholds stay ordered
+        // Ensure thresholds stay ordered (supports N handles)
+        // For both orientations in percentile mode: handle[i] < handle[i+1]
+        // (Top/Left = smaller value, Bottom/Right = larger value)
         if (draggingHandle === 0 && updated.length > 1) {
-          // Left/Top handle: must be less than right/bottom handle
+          // First handle: must be less than next handle
           updated[0] = Math.min(updated[0], updated[1] - 0.01)
-        } else if (draggingHandle === 1 && updated.length > 1) {
-          // Right/Bottom handle: must be greater than left/top handle
-          updated[1] = Math.max(updated[1], updated[0] + 0.01)
+        } else if (draggingHandle === updated.length - 1 && updated.length > 1) {
+          // Last handle: must be greater than previous handle
+          updated[draggingHandle] = Math.max(updated[draggingHandle], updated[draggingHandle - 1] + 0.01)
+        } else if (draggingHandle > 0 && draggingHandle < updated.length - 1) {
+          // Middle handle: must be between neighbors
+          updated[draggingHandle] = Math.max(updated[draggingHandle], updated[draggingHandle - 1] + 0.01)
+          updated[draggingHandle] = Math.min(updated[draggingHandle], updated[draggingHandle + 1] - 0.01)
         }
 
         return updated
@@ -210,7 +240,8 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
           metricRange.min,
           metricRange.max,
           bounds.min,
-          bounds.max
+          bounds.max,
+          usePercentiles
         )
         const isDragging = draggingHandle === index
         const isHovered = hoveredHandle === index && !isDragging

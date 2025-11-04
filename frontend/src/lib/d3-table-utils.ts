@@ -510,10 +510,16 @@ export function sortFeatures(
       return compareValues(scoreA, scoreB, sortDirection)
     }
 
-    // Decoder Similarity sorting (single value per feature)
+    // Decoder Similarity sorting (extract max value from array)
     if (sortBy === METRIC_DECODER_SIMILARITY) {
-      const fsA = a.decoder_similarity ?? null
-      const fsB = b.decoder_similarity ?? null
+      // decoder_similarity is an array of {feature_id, cosine_similarity}
+      // Extract max cosine_similarity for comparison
+      const fsA = a.decoder_similarity && Array.isArray(a.decoder_similarity) && a.decoder_similarity.length > 0
+        ? Math.max(...a.decoder_similarity.map(item => item.cosine_similarity))
+        : null
+      const fsB = b.decoder_similarity && Array.isArray(b.decoder_similarity) && b.decoder_similarity.length > 0
+        ? Math.max(...b.decoder_similarity.map(item => item.cosine_similarity))
+        : null
       return compareValues(fsA, fsB, sortDirection)
     }
 

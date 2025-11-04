@@ -57,6 +57,7 @@ interface AppState extends TagState {
   // Tree-based threshold system actions (from tree-actions.ts)
   addUnsplitStageToNode: (nodeId: string, metric: string, panel?: PanelSide) => Promise<void>
   updateNodeThresholds: (nodeId: string, thresholds: number[], panel?: PanelSide) => Promise<void>
+  updateNodeThresholdsByPercentile: (nodeId: string, percentiles: number[], panel?: PanelSide) => Promise<void>
   recomputeSankeyTree: (panel?: PanelSide) => void
   removeNodeStage: (nodeId: string, panel?: PanelSide) => void
   initializeSankeyTree: (panel?: PanelSide) => void
