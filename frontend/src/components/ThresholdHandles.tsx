@@ -16,7 +16,9 @@ interface ThresholdHandlesProps {
   showThresholdLine?: boolean               // Whether to show dotted threshold line
   usePercentiles?: boolean                  // If true, return percentiles (0-1) instead of metric values
   onUpdate: (newThresholds: number[]) => void
+  onDragUpdate?: (newThresholds: number[]) => void  // Called during drag for live preview
   handleDimensions?: { width: number; height: number }
+  percentileToMetric?: (percentile: number) => number  // Optional: Convert percentile to metric value for tooltip
 }
 
 // ============================================================================
@@ -85,7 +87,9 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
   showThresholdLine = true,
   usePercentiles = false,
   onUpdate,
-  handleDimensions = { width: 20, height: 16 }
+  onDragUpdate,
+  handleDimensions = { width: 20, height: 16 },
+  percentileToMetric
 }) => {
   // Use lineBounds if provided, otherwise default to bounds
   const effectiveLineBounds = lineBounds || bounds
@@ -96,11 +100,22 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
   const svgElementRef = useRef<SVGSVGElement | null>(null)
   const offsetRef = useRef<number>(0)
   const justUpdatedRef = useRef<boolean>(false)
+  const lastPreviewRef = useRef<string>('')
+  const pendingThresholdsRef = useRef<number[] | null>(null)
 
   // Update temp thresholds when props change (but NOT if we just updated them ourselves)
   React.useEffect(() => {
     if (justUpdatedRef.current) {
-      justUpdatedRef.current = false
+      // Check if props have actually updated to match what we sent
+      const propsKey = thresholds.map(t => t.toFixed(6)).join(',')
+      const pendingKey = pendingThresholdsRef.current?.map(t => t.toFixed(6)).join(',')
+
+      if (propsKey === pendingKey) {
+        // Props match what we sent - reset flag and clear pending
+        justUpdatedRef.current = false
+        pendingThresholdsRef.current = null
+      }
+      // Don't update tempThresholds yet - props haven't changed to new value
       return
     }
 
@@ -169,8 +184,8 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
         usePercentiles
       )
 
-      // Update temp thresholds with constraints
-      setTempThresholds(prev => {
+      // Compute updated thresholds with constraints BEFORE setState
+      const computeUpdated = (prev: number[]) => {
         const updated = [...prev]
         updated[draggingHandle] = newThreshold
 
@@ -190,9 +205,24 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
         }
 
         return updated
-      })
+      }
+
+      // Compute the new values
+      const newValues = computeUpdated(tempThresholds)
+
+      // Call onDragUpdate OUTSIDE of setState to avoid "Cannot update while rendering" error
+      if (onDragUpdate) {
+        const previewKey = newValues.join(',')
+        if (previewKey !== lastPreviewRef.current) {
+          lastPreviewRef.current = previewKey
+          onDragUpdate(newValues)
+        }
+      }
+
+      // Update state
+      setTempThresholds(newValues)
     })
-  }, [draggingHandle, bounds, metricRange, orientation])
+  }, [draggingHandle, bounds, metricRange, orientation, usePercentiles, onDragUpdate, tempThresholds])
 
   const handleMouseUp = useCallback(() => {
     if (draggingHandle === null) return
@@ -210,9 +240,11 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
     // Clear stored references
     svgElementRef.current = null
     offsetRef.current = 0
+    lastPreviewRef.current = ''
 
     // Mark that we're updating the thresholds ourselves (to prevent snap-back)
     justUpdatedRef.current = true
+    pendingThresholdsRef.current = [...tempThresholds]
 
     // Call update with final thresholds
     onUpdate(tempThresholds)
@@ -357,71 +389,87 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
             </g>
 
             {/* Threshold value label (show only when dragging, with background for contrast) */}
-            {isDragging && (
-              <g>
-                {orientation === 'horizontal' ? (
-                  <>
-                    {/* Background rectangle for contrast */}
-                    <rect
-                      x={pos - 25}
-                      y={handleDimensions.height + 5}
-                      width={50}
-                      height={20}
-                      rx={3}
-                      fill={NEUTRAL_ICON_COLORS.BACKGROUND_MEDIUM}
-                      stroke={NEUTRAL_ICON_COLORS.BORDER_MEDIUM}
-                      strokeWidth={1}
-                      opacity={0.95}
-                      style={{ pointerEvents: 'none' }}
-                    />
-                    {/* Threshold value text */}
-                    <text
-                      x={pos}
-                      y={handleDimensions.height + 19}
-                      dy="0.35em"
-                      fontSize="11"
-                      fontFamily="monospace"
-                      fontWeight="600"
-                      fill={NEUTRAL_ICON_COLORS.TEXT_PRIMARY}
-                      textAnchor="middle"
-                      style={{ pointerEvents: 'none', userSelect: 'none' }}
-                    >
-                      {threshold.toFixed(3)}
-                    </text>
-                  </>
-                ) : (
-                  <>
-                    {/* Background rectangle for contrast */}
-                    <rect
-                      x={handleDimensions.width / 2 + 8}
-                      y={pos - 10}
-                      width={50}
-                      height={20}
-                      rx={3}
-                      fill={NEUTRAL_ICON_COLORS.BACKGROUND_MEDIUM}
-                      stroke={NEUTRAL_ICON_COLORS.BORDER_MEDIUM}
-                      strokeWidth={1}
-                      opacity={0.95}
-                      style={{ pointerEvents: 'none' }}
-                    />
-                    {/* Threshold value text */}
-                    <text
-                      x={handleDimensions.width / 2 + 33}
-                      y={pos}
-                      dy="0.35em"
-                      fontSize="11"
-                      fontFamily="monospace"
-                      fontWeight="600"
-                      fill={NEUTRAL_ICON_COLORS.TEXT_PRIMARY}
-                      textAnchor="middle"
-                      style={{ pointerEvents: 'none', userSelect: 'none' }}
-                    >
-                      {threshold.toFixed(3)}
-                    </text>
-                  </>
-                )}
-              </g>
-            )}
+            {isDragging && (() => {
+              // Convert percentile to actual metric value for display
+              let displayValue: number
+
+              if (usePercentiles) {
+                if (!percentileToMetric) {
+                  console.error('[ThresholdHandles] percentileToMetric function is missing! This should never happen.')
+                  displayValue = 0  // Show error value
+                } else {
+                  displayValue = percentileToMetric(threshold)
+                }
+              } else {
+                displayValue = threshold
+              }
+
+              return (
+                <g>
+                  {orientation === 'horizontal' ? (
+                    <>
+                      {/* Background rectangle for contrast */}
+                      <rect
+                        x={pos - 25}
+                        y={handleDimensions.height + 5}
+                        width={50}
+                        height={20}
+                        rx={3}
+                        fill={NEUTRAL_ICON_COLORS.BACKGROUND_MEDIUM}
+                        stroke={NEUTRAL_ICON_COLORS.BORDER_MEDIUM}
+                        strokeWidth={1}
+                        opacity={0.95}
+                        style={{ pointerEvents: 'none' }}
+                      />
+                      {/* Threshold value text */}
+                      <text
+                        x={pos}
+                        y={handleDimensions.height + 19}
+                        dy="0.35em"
+                        fontSize="11"
+                        fontFamily="monospace"
+                        fontWeight="600"
+                        fill={NEUTRAL_ICON_COLORS.TEXT_PRIMARY}
+                        textAnchor="middle"
+                        style={{ pointerEvents: 'none', userSelect: 'none' }}
+                      >
+                        {displayValue.toFixed(3)}
+                      </text>
+                    </>
+                  ) : (
+                    <>
+                      {/* Background rectangle for contrast */}
+                      <rect
+                        x={handleDimensions.width / 2 + 8}
+                        y={pos - 10}
+                        width={50}
+                        height={20}
+                        rx={3}
+                        fill={NEUTRAL_ICON_COLORS.BACKGROUND_MEDIUM}
+                        stroke={NEUTRAL_ICON_COLORS.BORDER_MEDIUM}
+                        strokeWidth={1}
+                        opacity={0.95}
+                        style={{ pointerEvents: 'none' }}
+                      />
+                      {/* Threshold value text */}
+                      <text
+                        x={handleDimensions.width / 2 + 33}
+                        y={pos}
+                        dy="0.35em"
+                        fontSize="11"
+                        fontFamily="monospace"
+                        fontWeight="600"
+                        fill={NEUTRAL_ICON_COLORS.TEXT_PRIMARY}
+                        textAnchor="middle"
+                        style={{ pointerEvents: 'none', userSelect: 'none' }}
+                      >
+                        {displayValue.toFixed(3)}
+                      </text>
+                    </>
+                  )}
+                </g>
+              )
+            })()}
           </g>
         )
       })}

@@ -78,6 +78,7 @@ export interface SankeyTreeNode {
   featureIds: Set<number>             // Feature IDs at this node
   featureCount: number                // Count of features
   rangeLabel: string                  // Display label (e.g., "< 0.5", "0.5-0.8", "> 0.8")
+  percentileToMetricMap?: Map<number, number>  // Cached exact percentile to metric mappings
 }
 
 /**

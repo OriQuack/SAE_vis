@@ -546,6 +546,77 @@ export function getNodeThresholds(
   return node?.thresholds || []
 }
 
+/**
+ * Pre-compute exact percentile to metric mappings for a node.
+ * Ensures tooltip displays exact values that will be sent to backend.
+ */
+export function precomputePercentileMap(
+  metricValues: number[],
+  percentiles: number[] = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+): Map<number, number> {
+  const map = new Map<number, number>()
+
+  if (metricValues.length === 0) {
+    return map
+  }
+
+  const sorted = [...metricValues].sort((a, b) => a - b)
+
+  for (const percentile of percentiles) {
+    const threshold = calculateThresholdFromPercentile(sorted, percentile)
+    map.set(percentile, threshold)
+  }
+
+  map.set(0, sorted[0])
+  map.set(1, sorted[sorted.length - 1])
+
+  return map
+}
+
+/**
+ * Get exact metric value for a percentile using pre-computed map.
+ * Interpolates between nearest values for smooth dragging.
+ * NO FALLBACK - percentileMap must exist.
+ */
+export function getExactMetricFromPercentile(
+  percentile: number,
+  percentileMap: Map<number, number> | undefined
+): number {
+  if (!percentileMap || percentileMap.size === 0) {
+    console.error('[getExactMetricFromPercentile] percentileMap is missing! This should never happen.')
+    throw new Error('percentileMap is required for exact threshold calculations')
+  }
+
+  if (percentileMap.has(percentile)) {
+    return percentileMap.get(percentile)!
+  }
+
+  const percentiles = Array.from(percentileMap.keys()).sort((a, b) => a - b)
+
+  if (percentile <= percentiles[0]) {
+    return percentileMap.get(percentiles[0])!
+  }
+  if (percentile >= percentiles[percentiles.length - 1]) {
+    return percentileMap.get(percentiles[percentiles.length - 1])!
+  }
+
+  let lowerIndex = 0
+  for (let i = 0; i < percentiles.length - 1; i++) {
+    if (percentiles[i] <= percentile && percentiles[i + 1] > percentile) {
+      lowerIndex = i
+      break
+    }
+  }
+
+  const lowerPercentile = percentiles[lowerIndex]
+  const upperPercentile = percentiles[lowerIndex + 1]
+  const lowerValue = percentileMap.get(lowerPercentile)!
+  const upperValue = percentileMap.get(upperPercentile)!
+
+  const ratio = (percentile - lowerPercentile) / (upperPercentile - lowerPercentile)
+  return lowerValue + ratio * (upperValue - lowerValue)
+}
+
 // ============================================================================
 // PERCENTILE-BASED THRESHOLD CALCULATION
 // ============================================================================
@@ -593,6 +664,70 @@ export function calculateThresholdFromPercentile(
   const upperValue = sorted[upperIndex]
 
   return lowerValue + fraction * (upperValue - lowerValue)
+}
+
+/**
+ * Approximate percentile threshold using histogram bin distribution.
+ *
+ * This is used during drag preview to convert percentile positions to metric
+ * thresholds without needing access to individual feature values. It uses the
+ * histogram bin counts to approximate where the percentile falls in the distribution.
+ *
+ * @param percentile - Percentile position (0-1, where 0.4 = 40th percentile)
+ * @param bins - Array of feature counts per histogram bin
+ * @param bin_edges - Array of bin edge values (length = bins.length + 1)
+ * @returns Approximate metric threshold value for the given percentile
+ *
+ * @example
+ * // Histogram with bins [10, 20, 30, 40] and edges [0, 0.25, 0.5, 0.75, 1.0]
+ * // Total: 100 features
+ * // 40th percentile (40 features) falls in bin 1 (10+20=30, then 10 more into bin 2)
+ * approximatePercentileFromHistogram(0.4, [10, 20, 30, 40], [0, 0.25, 0.5, 0.75, 1.0])
+ * // Returns ~0.4167 (25% into the third bin which spans 0.25-0.5)
+ */
+export function approximatePercentileFromHistogram(
+  percentile: number,
+  bins: number[],
+  bin_edges: number[]
+): number {
+  // Validate inputs
+  if (bins.length === 0 || bin_edges.length !== bins.length + 1) {
+    return 0
+  }
+
+  // Handle edge cases
+  if (percentile <= 0) return bin_edges[0]
+  if (percentile >= 1) return bin_edges[bin_edges.length - 1]
+
+  // Calculate total features and target count
+  const totalFeatures = bins.reduce((sum, count) => sum + count, 0)
+  if (totalFeatures === 0) return bin_edges[0]
+
+  const targetCount = percentile * totalFeatures
+
+  // Accumulate bin counts to find which bin contains the percentile
+  let accumulatedCount = 0
+  for (let i = 0; i < bins.length; i++) {
+    const prevCount = accumulatedCount
+    accumulatedCount += bins[i]
+
+    // Found the bin containing our target percentile
+    if (accumulatedCount >= targetCount) {
+      const binStart = bin_edges[i]
+      const binEnd = bin_edges[i + 1]
+
+      // If bin is empty, return bin start
+      if (bins[i] === 0) return binStart
+
+      // Linear interpolation within the bin
+      // Progress through bin = (features we need into this bin) / (total features in bin)
+      const binProgress = (targetCount - prevCount) / bins[i]
+      return binStart + binProgress * (binEnd - binStart)
+    }
+  }
+
+  // Fallback: return maximum edge (shouldn't reach here if inputs are valid)
+  return bin_edges[bin_edges.length - 1]
 }
 
 /**

@@ -86,8 +86,14 @@ const HistogramChartComponent: React.FC<{
   onThresholdUpdate: (newThresholds: number[]) => void
   onBarHover: (barIndex: number | null, chart: HistogramChart) => void
 }> = ({ chart, thresholds, metricRange, animationDuration, barColor, onThresholdUpdate, onBarHover }) => {
+  // Local state for drag preview (updates in real-time during drag)
+  const [dragThresholds, setDragThresholds] = useState<number[] | null>(null)
+
+  // Use dragThresholds during drag, otherwise use committed thresholds
+  const effectiveThresholds = dragThresholds ?? thresholds
+
   // Use first threshold for bar coloring (visual split point)
-  const primaryThreshold = thresholds[0] || metricRange.min
+  const primaryThreshold = effectiveThresholds[0] || metricRange.min
 
   const bars = useMemo(() =>
     calculateHistogramBars(chart, primaryThreshold, HISTOGRAM_COLORS.bars, HISTOGRAM_COLORS.threshold),
@@ -117,9 +123,9 @@ const HistogramChartComponent: React.FC<{
     [chart]
   )
 
-  // Calculate bar segments for split pattern rendering
+  // Calculate bar segments for split pattern rendering (uses effectiveThresholds for live preview)
   const barSegments = useMemo(() => {
-    if (thresholds.length === 0) {
+    if (effectiveThresholds.length === 0) {
       // No thresholds - return bars as single segments
       return bars.map((bar) => [{
         x: bar.x,
@@ -131,8 +137,8 @@ const HistogramChartComponent: React.FC<{
     }
 
     // Calculate segments for each bar
-    return bars.map((bar) => calculateBarSegments(bar, thresholds, xScale))
-  }, [bars, thresholds, xScale])
+    return bars.map((bar) => calculateBarSegments(bar, effectiveThresholds, xScale))
+  }, [bars, effectiveThresholds, xScale])
 
   return (
     <>
@@ -214,12 +220,16 @@ const HistogramChartComponent: React.FC<{
           min: -(chart.height - THRESHOLD_HANDLE_DIMS.height / 2),
           max: THRESHOLD_HANDLE_DIMS.height / 2
         }}
-        thresholds={thresholds}
+        thresholds={effectiveThresholds}
         metricRange={metricRange}
         position={{ x: 0, y: chart.height - THRESHOLD_HANDLE_DIMS.height / 2 }}
         parentOffset={{ x: chart.margin.left, y: chart.yOffset }}
         handleDimensions={THRESHOLD_HANDLE_DIMS}
-        onUpdate={onThresholdUpdate}
+        onUpdate={(newThresholds) => {
+          setDragThresholds(null) // Clear drag state on commit
+          onThresholdUpdate(newThresholds)
+        }}
+        onDragUpdate={setDragThresholds} // Live preview during drag
       />
 
       {/* X-axis */}

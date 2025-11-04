@@ -4,9 +4,12 @@ import {
   processFeatureGroupResponse,
   convertTreeToSankeyStructure,
   calculateThresholdFromPercentile,
-  getFeatureMetricValues
+  calculatePercentileFromThreshold,
+  getFeatureMetricValues,
+  precomputePercentileMap
 } from '../lib/threshold-utils'
 import { PANEL_LEFT, PANEL_RIGHT } from '../lib/constants'
+import { AVAILABLE_STAGES } from '../components/SankeyOverlay'
 
 type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
 
@@ -106,18 +109,17 @@ export const createTreeActions = (set: any, get: any) => ({
   },
 
   /**
-   * Add a new unsplit stage to a specific node in the tree.
-   * Creates a single child node with all parent features, without grouping by thresholds.
-   * User can later set thresholds via histogram to group the node.
+   * Add a new stage to a node by immediately splitting it with default thresholds.
+   * Gets default thresholds from AVAILABLE_STAGES config and creates split children.
    */
-  addUnsplitStageToNode: async (nodeId: string, metric: string, panel: PanelSide = PANEL_LEFT) => {
+  addStageToNode: async (nodeId: string, metric: string, panel: PanelSide = PANEL_LEFT) => {
     const state = get()
     const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
     const loadingKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
     const errorKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
-    const { sankeyTree } = state[panelKey]
+    const { filters, sankeyTree } = state[panelKey]
 
-    console.log(`[Store.addUnsplitStageToNode] 🎯 Called for ${panel}:`, {
+    console.log(`[Store.addStageToNode] 🎯 Called for ${panel}:`, {
       nodeId,
       metric,
       hasSankeyTree: !!sankeyTree,
@@ -125,38 +127,117 @@ export const createTreeActions = (set: any, get: any) => ({
     })
 
     if (!sankeyTree || !sankeyTree.has(nodeId)) {
-      console.error(`[Store.addUnsplitStageToNode] ❌ Node ${nodeId} not found in tree`)
+      console.error(`[Store.addStageToNode] ❌ Node ${nodeId} not found in tree`)
       return
     }
+
+    // Get default thresholds from AVAILABLE_STAGES config
+    const stageConfig = AVAILABLE_STAGES.find(s => s.metric === metric)
+    if (!stageConfig || !stageConfig.thresholds || stageConfig.thresholds.length === 0) {
+      console.error(`[Store.addStageToNode] ❌ No default thresholds found for metric: ${metric}`)
+      return
+    }
+
+    const defaultThresholds = [...stageConfig.thresholds]
+    console.log(`[Store.addStageToNode] 📐 Using default thresholds: ${defaultThresholds.join(', ')}`)
 
     state.setLoading(loadingKey, true)
     state.clearError(errorKey)
 
     try {
-      const parentNode = sankeyTree.get(nodeId)!
-      const newDepth = parentNode.depth + 1
-      const newTree = new Map(sankeyTree)
+      const node = sankeyTree.get(nodeId)!
 
-      // Create a single child node with all parent features (no grouping)
-      const childId = `${nodeId}_stage${newDepth}_group0`
-      const childNode: SankeyTreeNode = {
-        id: childId,
-        parentId: nodeId,
-        metric: null, // Child has no metric (not being grouped)
-        thresholds: [], // Empty thresholds - no grouping yet
-        depth: newDepth,
-        children: [],
-        featureIds: new Set(parentNode.featureIds), // Copy all parent features
-        featureCount: parentNode.featureCount,
-        rangeLabel: 'All' // Label for ungrouped node
+      // Fetch table data if not cached
+      let { tableData } = state
+      if (!tableData || !tableData.features || tableData.features.length === 0) {
+        console.log('[Store.addStageToNode] Fetching table data...')
+        await get().fetchTableData()
+        tableData = get().tableData
       }
 
-      newTree.set(childId, childNode)
+      // Fetch feature groups from backend with default thresholds
+      console.log(`[Store.addStageToNode] 🔍 Fetching groups for ${metric}:${defaultThresholds.join(',')}`)
+      const response = await api.getFeatureGroups({ filters, metric, thresholds: defaultThresholds })
+      const groups = processFeatureGroupResponse(response)
 
-      // Update parent's children AND set the metric/thresholds on parent
-      parentNode.children = [childId]
-      parentNode.metric = metric           // Set metric on parent (how parent splits)
-      parentNode.thresholds = []           // Empty thresholds (unsplit state)
+      const newTree = new Map<string, SankeyTreeNode>(sankeyTree)
+      const parentNode = newTree.get(nodeId)!
+
+      // Calculate percentiles and pre-compute mappings for handle positioning
+      let percentiles: number[] | undefined = undefined
+      let percentileMap: Map<number, number> | undefined = undefined
+
+      if (tableData && tableData.features) {
+        try {
+          const metricValues = await getFeatureMetricValues(node.featureIds, metric, tableData)
+
+          if (metricValues.length > 0) {
+            percentiles = defaultThresholds.map(threshold =>
+              calculatePercentileFromThreshold(metricValues, threshold)
+            )
+
+            percentileMap = precomputePercentileMap(metricValues,
+              [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5,
+               0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95])
+
+            console.log(`[Store.addStageToNode] ✓ Percentiles: ${percentiles.map(p => p.toFixed(2)).join(', ')}`)
+            console.log(`[Store.addStageToNode] ✓ PercentileMap computed with ${percentileMap.size} entries`)
+          }
+        } catch (error) {
+          console.error('[Store.addStageToNode] ❌ Failed to compute percentiles:', error)
+          throw new Error('Failed to compute percentile mappings - cannot proceed without exact threshold calculations')
+        }
+      }
+
+      // Delete old children if any
+      parentNode.children.forEach(childId => newTree.delete(childId))
+      parentNode.children = []
+
+      // Create new children from groups
+      for (const [index, group] of groups.entries()) {
+        const intersectedFeatures = new Set<number>()
+
+        if (parentNode.id === 'root' || parentNode.featureCount === 0) {
+          // Root node - use all features from group
+          group.featureIds.forEach(id => intersectedFeatures.add(id))
+        } else {
+          // Intersect with parent node's features
+          for (const id of group.featureIds) {
+            if (parentNode.featureIds.has(id)) {
+              intersectedFeatures.add(id)
+            }
+          }
+        }
+
+        const childId = `${nodeId}_stage${parentNode.depth + 1}_group${index}`
+        const childNode: SankeyTreeNode = {
+          id: childId,
+          parentId: nodeId,
+          metric: null,
+          thresholds: [],
+          depth: parentNode.depth + 1,
+          children: [],
+          featureIds: intersectedFeatures,
+          featureCount: intersectedFeatures.size,
+          rangeLabel: group.rangeLabel
+        }
+
+        newTree.set(childId, childNode)
+        parentNode.children.push(childId)
+      }
+
+      // Update parent's metric, thresholds, and percentile metadata
+      parentNode.metric = metric
+      parentNode.thresholds = defaultThresholds
+      if (percentiles && percentiles.length > 0) {
+        parentNode.percentiles = percentiles
+        parentNode.thresholdSource = 'metric'
+      }
+      if (percentileMap) {
+        parentNode.percentileToMetricMap = percentileMap
+      } else {
+        console.error('[Store.addStageToNode] ❌ PercentileMap is missing - this should never happen!')
+      }
       newTree.set(nodeId, { ...parentNode })
 
       set((state: any) => ({
@@ -166,29 +247,28 @@ export const createTreeActions = (set: any, get: any) => ({
         }
       }))
 
-      console.log(`[Store.addUnsplitStageToNode] 🌳 Tree updated with 1 unsplit child for node ${nodeId}`)
+      console.log(`[Store.addStageToNode] 🌳 Tree updated with ${groups.length} children for node ${nodeId}`)
 
       // Fetch histogram data for the new metric (for node overlay visualization)
-      // This displays small histogram bars on the node, but does NOT open the popover
-      console.log(`[Store.addUnsplitStageToNode] 📊 Fetching histogram data for metric: ${metric}`)
+      console.log(`[Store.addStageToNode] 📊 Fetching histogram data for metric: ${metric}`)
       try {
         await state.fetchHistogramData(metric as MetricType, nodeId, panel)
-        console.log(`[Store.addUnsplitStageToNode] ✅ Histogram data fetched for metric: ${metric}`)
+        console.log(`[Store.addStageToNode] ✅ Histogram data fetched`)
       } catch (error) {
-        console.warn(`[Store.addUnsplitStageToNode] ⚠️ Failed to fetch histogram data:`, error)
-        // Don't fail the entire operation if histogram fetch fails
+        console.warn(`[Store.addStageToNode] ⚠️ Failed to fetch histogram data:`, error)
       }
 
       // Recompute Sankey structure
-      console.log(`[Store.addUnsplitStageToNode] 🔄 Now calling recomputeSankeyTree...`)
+      console.log(`[Store.addStageToNode] 🔄 Calling recomputeSankeyTree...`)
       get().recomputeSankeyTree(panel)
 
       state.setLoading(loadingKey, false)
-      console.log(`[Store.addUnsplitStageToNode] ✅ Unsplit stage addition complete!`)
+      console.log(`[Store.addStageToNode] ✅ Stage addition complete with immediate split!`)
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to add unsplit stage'
+      const errorMessage = error instanceof Error ? error.message : 'Failed to add stage'
       state.setError(errorKey, errorMessage)
       state.setLoading(loadingKey, false)
+      console.error('[Store.addStageToNode] ❌ Error:', error)
     }
   },
 
@@ -219,6 +299,14 @@ export const createTreeActions = (set: any, get: any) => ({
     state.clearError(errorKey)
 
     try {
+      // Fetch table data if not cached
+      let { tableData } = state
+      if (!tableData || !tableData.features || tableData.features.length === 0) {
+        console.log('[Store.updateNodeThresholds] Fetching table data...')
+        await get().fetchTableData()
+        tableData = get().tableData
+      }
+
       // Fetch new groups from API
       console.log(`[Store.updateNodeThresholds] Fetching groups for ${node.metric}:${thresholds.join(',')}`)
       const response = await api.getFeatureGroups({ filters, metric: node.metric, thresholds })
@@ -226,6 +314,30 @@ export const createTreeActions = (set: any, get: any) => ({
 
       const newTree = new Map<string, SankeyTreeNode>(sankeyTree)
       const parentNode = newTree.get(nodeId)!
+
+      // Calculate percentiles and pre-compute mappings for handle positioning
+      let percentiles: number[] | undefined = undefined
+      let percentileMap: Map<number, number> | undefined = undefined
+
+      if (tableData && tableData.features) {
+        try {
+          const metricValues = await getFeatureMetricValues(node.featureIds, node.metric, tableData)
+
+          if (metricValues.length > 0) {
+            percentiles = thresholds.map(threshold =>
+              calculatePercentileFromThreshold(metricValues, threshold)
+            )
+
+            percentileMap = precomputePercentileMap(metricValues,
+              [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5,
+               0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95])
+
+            console.log(`[Store.updateNodeThresholds] Percentiles: ${percentiles.map(p => p.toFixed(2)).join(', ')}`)
+          }
+        } catch (error) {
+          console.warn('[Store.updateNodeThresholds] Failed to compute percentiles:', error)
+        }
+      }
 
       // Delete old children (no recursion needed - children are guaranteed to be leaves)
       parentNode.children.forEach(childId => newTree.delete(childId))
@@ -264,8 +376,15 @@ export const createTreeActions = (set: any, get: any) => ({
         parentNode.children.push(childId)
       }
 
-      // Update parent's thresholds
+      // Update parent's thresholds and percentile metadata
       parentNode.thresholds = thresholds
+      if (percentiles && percentiles.length > 0) {
+        parentNode.percentiles = percentiles
+        parentNode.thresholdSource = 'metric'
+      }
+      if (percentileMap) {
+        parentNode.percentileToMetricMap = percentileMap
+      }
       newTree.set(nodeId, { ...parentNode })
 
       set((state: any) => ({
@@ -318,20 +437,19 @@ export const createTreeActions = (set: any, get: any) => ({
     try {
       console.log(`[Store.updateNodeThresholdsByPercentile] Converting percentiles ${percentiles.join(',')} to thresholds for ${node.metric}`)
 
-      // Fetch table data if not available (required for metric value extraction)
+      // Fetch table data if not cached
       if (!tableData || !tableData.features || tableData.features.length === 0) {
-        console.log('[Store.updateNodeThresholdsByPercentile] Table data not cached, fetching...')
+        console.log('[Store.updateNodeThresholdsByPercentile] Fetching table data...')
         await get().fetchTableData()
-        tableData = get().tableData  // Get fresh data after fetch
+        tableData = get().tableData
 
         if (!tableData || !tableData.features) {
           console.error('[Store.updateNodeThresholdsByPercentile] Failed to fetch table data')
           return
         }
-        console.log(`[Store.updateNodeThresholdsByPercentile] ✅ Fetched table data: ${tableData.features.length} features`)
       }
 
-      // Get metric values for features in this node
+      // Get metric values and compute percentile mappings
       const metricValues = await getFeatureMetricValues(node.featureIds, node.metric, tableData)
 
       if (metricValues.length === 0) {
@@ -339,20 +457,23 @@ export const createTreeActions = (set: any, get: any) => ({
         return
       }
 
-      // Calculate metric thresholds from percentiles
+      const percentileMap = precomputePercentileMap(metricValues,
+        [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5,
+         0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95])
+
       const thresholds = percentiles.map(percentile =>
         calculateThresholdFromPercentile(metricValues, percentile)
       )
 
-      console.log(`[Store.updateNodeThresholdsByPercentile] Calculated thresholds: ${thresholds.join(',')}`)
+      console.log(`[Store.updateNodeThresholdsByPercentile] Thresholds: ${thresholds.join(', ')}`)
 
-      // Update node with percentile metadata BEFORE calling updateNodeThresholds
+      // Store percentile metadata in node
       const newTree = new Map<string, SankeyTreeNode>(sankeyTree)
       const updatedNode = newTree.get(nodeId)!
       updatedNode.percentiles = percentiles
       updatedNode.thresholdSource = 'percentile'
+      updatedNode.percentileToMetricMap = percentileMap
 
-      // Temporarily update tree to store percentile info
       set((state: any) => ({
         [panelKey]: {
           ...state[panelKey],
@@ -360,17 +481,17 @@ export const createTreeActions = (set: any, get: any) => ({
         }
       }))
 
-      // Now call the standard threshold update with calculated metric values
+      // Call standard threshold update with calculated metric values
       await get().updateNodeThresholds(nodeId, thresholds, panel)
 
-      // Re-apply percentile metadata after updateNodeThresholds completes
-      // (updateNodeThresholds creates a new tree, so we need to add it back)
+      // Re-apply percentile metadata (updateNodeThresholds creates new tree)
       const finalState = get()
       const finalTree = new Map<string, SankeyTreeNode>(finalState[panelKey].sankeyTree)
       const finalNode = finalTree.get(nodeId)
       if (finalNode) {
         finalNode.percentiles = percentiles
         finalNode.thresholdSource = 'percentile'
+        finalNode.percentileToMetricMap = percentileMap
         set((state: any) => ({
           [panelKey]: {
             ...state[panelKey],
@@ -379,7 +500,7 @@ export const createTreeActions = (set: any, get: any) => ({
         }))
       }
 
-      console.log(`[Store.updateNodeThresholdsByPercentile] ✅ Percentile-based update complete`)
+      console.log(`[Store.updateNodeThresholdsByPercentile] ✅ Update complete`)
     } catch (error) {
       console.error(`[Store.updateNodeThresholdsByPercentile] Error:`, error)
       const errorMessage = error instanceof Error ? error.message : 'Failed to update thresholds by percentile'

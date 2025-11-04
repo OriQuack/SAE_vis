@@ -398,7 +398,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const tableSelectedNodeIds = useVisualizationStore(state => state.tableSelectedNodeIds)
   const {
     showHistogramPopover,
-    addUnsplitStageToNode,
+    addStageToNode,
     removeNodeStage,
     updateNodeThresholds,
     updateNodeThresholdsByPercentile,
@@ -595,32 +595,28 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
     setInlineSelector(null)
 
-    // Use tree-based system with unsplit stage (no thresholds initially)
+    // Add stage with default thresholds (immediate split)
     const metric = stageType.metric
 
     if (metric) {
-      console.log('[SankeyDiagram.handleStageSelect] ✅ Calling addUnsplitStageToNode with:', { metric })
-      await addUnsplitStageToNode(inlineSelector.nodeId, metric, panel)
-      // NOTE: Histogram popover does NOT open automatically
-      // User can manually click the node to view histogram
+      console.log('[SankeyDiagram.handleStageSelect] ✅ Calling addStageToNode with:', { metric })
+      await addStageToNode(inlineSelector.nodeId, metric, panel)
     } else {
       console.error('[SankeyDiagram.handleStageSelect] ❌ Missing metric:', {
         metric,
         stageType
       })
     }
-  }, [inlineSelector, addUnsplitStageToNode, panel])
+  }, [inlineSelector, addStageToNode, panel])
 
   const handleOverlayMetricClick = useCallback(async (metric: string) => {
     console.log('[SankeyDiagram.handleOverlayMetricClick] 🎯 Metric clicked:', {
       metric
     })
 
-    // Add unsplit stage to root node (no thresholds initially)
-    await addUnsplitStageToNode('root', metric, panel)
-    // NOTE: Histogram popover does NOT open automatically
-    // User can manually click the node to view histogram
-  }, [addUnsplitStageToNode, panel])
+    // Add stage with default thresholds (immediate split)
+    await addStageToNode('root', metric, panel)
+  }, [addStageToNode, panel])
 
   const handleThresholdUpdate = useCallback((nodeId: string, newThresholds: number[]) => {
     console.log('[SankeyDiagram.handleThresholdUpdate] 🎯 Thresholds updated:', {
