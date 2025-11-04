@@ -1,5 +1,5 @@
 {
-  "created_at": "2025-10-30T19:04:19.834726",
+  "created_at": "2025-11-04T11:42:53.111738",
   "script_version": "1.0",
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
   "total_rows": 16384,
@@ -9,8 +9,6 @@
     "prompt_ids_analyzed": "List(Int64)",
     "num_total_activations": "UInt32",
     "avg_pairwise_semantic_similarity": "Float32",
-    "pos_entropy": "Float32",
-    "top_pos_tags": "List(Struct([Field('tag', Utf8), Field('count', Int64), Field('frequency', Float64)]))",
     "top_common_ngrams": "List(Struct([Field('ngram', Utf8), Field('ngram_size', Int64), Field('count', Int64), Field('occurrences', List(Struct([Field('prompt_id', Int64), Field('positions', List(Int64))])))]))",
     "quantile_boundaries": "List(Float64)",
     "ngram_jaccard_similarity": "List(Float64)"
@@ -21,19 +19,18 @@
     "features_with_insufficient_examples": 201,
     "total_examples_analyzed": 130594,
     "semantic_similarity_computed": 16382,
-    "pos_entropy_computed": 16383,
     "ngram_analysis_computed": 16383,
     "ngram_jaccard_computed": 16382
   },
   "result_stats": {
     "features_with_similarity": 16382,
-    "features_with_pos_entropy": 16383,
-    "mean_semantic_similarity": 0.4343104734425579,
-    "mean_pos_entropy": 1.3513235615329093,
+    "mean_semantic_similarity": 0.2580939940148593,
+    "mean_jaccard_similarity": 0.0816193379766037,
     "mean_examples_per_feature": 7.9708251953125
   },
   "config_used": {
     "activation_examples_path": "data/master/activation_examples.parquet",
+    "activation_embeddings_path": "data/master/activation_embeddings.parquet",
     "output_path": "data/master/activation_example_similarity.parquet",
     "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
     "processing_parameters": {
@@ -49,17 +46,15 @@
       ],
       "min_ngram_occurrences": 2
     },
-    "model_parameters": {
-      "sentence_transformer_model": "all-MiniLM-L6-v2",
-      "spacy_model": "en_core_web_sm",
-      "device": "cuda",
-      "batch_size": 32
-    },
-    "description": "Configuration for calculating activation example similarity metrics",
+    "description": "Configuration for calculating activation example similarity metrics (semantic similarity and n-grams) using pre-computed embeddings",
     "processing_notes": {
       "expected_features": 16384,
       "processing_strategy": "quantile_based_sampling",
       "handle_insufficient_examples": "use_all_available",
+      "embeddings_source": "pre_computed_from_4_act_embeddings.py",
+      "dependencies": [
+        "4_act_embeddings.py must be run first"
+      ],
       "primary_key_fields": [
         "feature_id",
         "sae_id"
@@ -74,8 +69,6 @@
         "prompt_ids_analyzed": "List of prompt IDs selected for analysis",
         "num_total_activations": "Total number of activation examples for this feature",
         "avg_pairwise_semantic_similarity": "Average cosine similarity across all pairs of 32-token windows",
-        "pos_entropy": "Shannon entropy of POS tag distribution across max activated tokens",
-        "top_pos_tags": "Top 3 most frequent POS tags with counts and frequencies",
         "top_common_ngrams": "Most frequent n-gram per size with per-prompt positions",
         "quantile_boundaries": "Activation value thresholds for the 4 quantiles [q1, q2, q3]",
         "ngram_jaccard_similarity": "Average pairwise Jaccard similarity [bigram, trigram, 4gram]"

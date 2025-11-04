@@ -1,0 +1,64 @@
+{
+  "features_path": "data/master/features.parquet",
+  "activation_examples_path": "data/master/activation_examples.parquet",
+  "activation_embeddings_path": "data/master/activation_embeddings.parquet",
+  "output_path": "data/master/interfeature_activation_similarity.parquet",
+  "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
+
+  "description": "Configuration for calculating inter-feature activation similarity metrics between decoder-similar features with positional n-gram analysis",
+
+  "processing_parameters": {
+    "num_decoder_similar_features": 4,
+    "num_quantiles": 4,
+    "examples_per_quantile": 1,
+    "target_examples_per_feature": 4,
+    "token_window_size": 32,
+    "ngram_window_size": 5,
+    "ngram_sizes": [2, 3, 4],
+    "min_ngram_occurrences": 2
+  },
+
+  "processing_notes": {
+    "expected_features": 16384,
+    "processing_strategy": "decoder_similarity_based_pairing",
+    "handle_insufficient_examples": "use_all_available",
+    "embeddings_source": "pre_computed_from_4_act_embeddings.py",
+    "dependencies": [
+      "3_features_parquet.py must be run first (for decoder_similarity field)",
+      "4_act_embeddings.py must be run first (for pre-computed embeddings)"
+    ],
+    "primary_key_fields": [
+      "feature_id",
+      "sae_id"
+    ],
+    "comparison_strategy": "cross_feature_pairwise",
+    "pairwise_computation": "4 main examples × 4 selected examples = 16 pairs per comparison"
+  },
+
+  "schema_info": {
+    "table_name": "interfeature_activation_similarity",
+    "version": "1.0",
+    "field_descriptions": {
+      "feature_id": "Main feature ID (0-16383)",
+      "sae_id": "SAE model identifier",
+      "num_similar_features_analyzed": "Number of decoder-similar features successfully analyzed (up to 4)",
+      "similarity_pairs": "List of similarity metrics for each decoder-similar feature pair",
+      "selected_feature_id": "ID of the decoder-similar feature being compared",
+      "decoder_cosine_similarity": "Decoder weight cosine similarity (reason for selection)",
+      "num_main_examples": "Number of examples from main feature (up to 4)",
+      "num_selected_examples": "Number of examples from selected feature (up to 4)",
+      "main_prompt_ids": "List of prompt IDs analyzed from main feature",
+      "selected_prompt_ids": "List of prompt IDs analyzed from selected feature",
+      "semantic_similarity": "Average pairwise cosine similarity of embeddings (4×4=16 pairs)",
+      "ngram_jaccard_similarity": "Average pairwise Jaccard similarity [bigram, trigram, 4gram]",
+      "top_common_ngrams": "Most frequent n-grams across combined examples with feature and position tracking",
+      "ngram": "The character n-gram string",
+      "ngram_size": "Size of the n-gram (2, 3, or 4)",
+      "count": "Total occurrences across all examples",
+      "occurrences": "List of occurrences with feature_id, prompt_id, and positions",
+      "feature_id_occurrence": "Which feature the occurrence belongs to (main or selected)",
+      "prompt_id_occurrence": "Which prompt within the feature",
+      "positions": "List of token positions where the n-gram appears in the activation window"
+    }
+  }
+}

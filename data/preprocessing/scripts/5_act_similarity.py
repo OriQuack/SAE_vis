@@ -3,10 +3,9 @@
 Preprocessing Script: Calculate Activation Example Similarity Metrics
 
 This script analyzes activation examples to compute similarity metrics based on
-quantile-sampled prompts for each SAE feature. It calculates three key metrics:
+quantile-sampled prompts for each SAE feature. It calculates two key metrics:
 1. Pairwise semantic similarity across 32-token windows
-2. POS tag entropy for max activated tokens
-3. Character n-gram patterns in 5-token windows
+2. Character n-gram patterns in 5-token windows
 
 Input:
 - activation_examples.parquet: Structured parquet with activation data
@@ -31,18 +30,13 @@ Example:
 
 import json
 import logging
-import math
 import argparse
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
-from collections import Counter
 import numpy as np
 import polars as pl
 from tqdm import tqdm
-
-# Lazy imports for heavy dependencies
-spacy = None
 
 # Enable string cache for categorical operations
 pl.enable_string_cache()
@@ -82,9 +76,6 @@ def load_config(config_path: Optional[str] = None) -> Dict:
             "ngram_window_size": 5,
             "ngram_sizes": [2, 3, 4],
             "min_ngram_occurrences": 2
-        },
-        "model_parameters": {
-            "spacy_model": "en_core_web_sm"
         }
     }
 
@@ -102,16 +93,6 @@ def load_config(config_path: Optional[str] = None) -> Dict:
         logger.info("Using default configuration")
 
     return default_config
-
-
-def lazy_import_dependencies():
-    """Lazy import heavy dependencies."""
-    global spacy
-
-    if spacy is None:
-        logger.info("Importing spacy...")
-        import spacy as sp
-        spacy = sp
 
 
 class ActivationSimilarityProcessor:
@@ -136,7 +117,6 @@ class ActivationSimilarityProcessor:
         # Configuration
         self.sae_id = config["sae_id"]
         self.proc_params = config["processing_parameters"]
-        self.model_params = config["model_parameters"]
 
         # Statistics tracking
         self.stats = {
@@ -145,14 +125,11 @@ class ActivationSimilarityProcessor:
             "features_with_insufficient_examples": 0,
             "total_examples_analyzed": 0,
             "semantic_similarity_computed": 0,
-            "pos_entropy_computed": 0,
             "ngram_analysis_computed": 0,
             "ngram_jaccard_computed": 0
         }
 
-        # Load models and embeddings
-        lazy_import_dependencies()
-        self.nlp = None
+        # Load embeddings
         self.embeddings_df = None
 
     def _resolve_path(self, path_str: str) -> Path:
@@ -162,23 +139,14 @@ class ActivationSimilarityProcessor:
             return self.project_root / path
         return path
 
-    def _load_models(self):
-        """Load spaCy model and pre-computed embeddings."""
-        if self.nlp is None:
-            logger.info(f"Loading spaCy model: {self.model_params['spacy_model']}")
-            try:
-                self.nlp = spacy.load(self.model_params['spacy_model'])
-            except OSError:
-                logger.error(f"spaCy model '{self.model_params['spacy_model']}' not found")
-                logger.error("Please run: python -m spacy download en_core_web_sm")
-                raise
-
+    def _load_embeddings(self):
+        """Load pre-computed embeddings."""
         if self.embeddings_df is None:
             logger.info(f"Loading pre-computed embeddings from {self.embeddings_path}")
             if not self.embeddings_path.exists():
                 raise FileNotFoundError(
                     f"Pre-computed embeddings not found: {self.embeddings_path}\n"
-                    f"Please run: python 8_precompute_activation_embeddings.py"
+                    f"Please run: python 4_act_embeddings.py"
                 )
             self.embeddings_df = pl.read_parquet(self.embeddings_path)
             logger.info(f"Loaded embeddings for {len(self.embeddings_df):,} features")
@@ -343,60 +311,6 @@ class ActivationSimilarityProcessor:
 
         return float(np.mean(pairwise_sims))
 
-    def _compute_pos_entropy(self, examples: List[Tuple]) -> Tuple[Optional[float], List[Dict]]:
-        """Compute POS tag entropy for max activated tokens.
-
-        Args:
-            examples: List of (prompt_id, max_activation, prompt_tokens, max_token_pos)
-
-        Returns:
-            Tuple of (entropy, top_pos_tags list)
-        """
-        if len(examples) == 0:
-            return None, []
-
-        # Extract max activated tokens
-        max_tokens = []
-        for _, _, tokens, max_pos in examples:
-            if 0 <= max_pos < len(tokens):
-                max_tokens.append(tokens[max_pos])
-            else:
-                logger.warning(f"Invalid max_pos {max_pos} for token list of length {len(tokens)}")
-
-        if not max_tokens:
-            return None, []
-
-        # Get POS tags using spaCy
-        pos_tags = []
-        for doc in self.nlp.pipe(max_tokens, disable=["parser", "ner"]):
-            if len(doc) > 0:
-                pos_tags.append(doc[0].pos_)
-
-        if not pos_tags:
-            return None, []
-
-        # Calculate Shannon entropy
-        tag_counts = Counter(pos_tags)
-        total = len(pos_tags)
-        entropy = 0.0
-        for count in tag_counts.values():
-            p = count / total
-            if p > 0:
-                entropy -= p * math.log2(p)
-
-        # Get top 3 POS tags
-        top_tags = tag_counts.most_common(3)
-        top_pos_list = [
-            {
-                "tag": tag,
-                "count": count,
-                "frequency": count / total
-            }
-            for tag, count in top_tags
-        ]
-
-        return float(entropy), top_pos_list
-
     def _extract_character_ngrams(self, text: str, n: int) -> List[str]:
         """Extract character n-grams from text.
 
@@ -535,8 +449,6 @@ class ActivationSimilarityProcessor:
                 "prompt_ids_analyzed": prompt_ids,
                 "num_total_activations": num_total_activations,
                 "avg_pairwise_semantic_similarity": None,
-                "pos_entropy": None,
-                "top_pos_tags": [],
                 "top_common_ngrams": [],
                 "quantile_boundaries": [],
                 "ngram_jaccard_similarity": [None, None, None]
@@ -551,10 +463,6 @@ class ActivationSimilarityProcessor:
         semantic_sim = self._compute_pairwise_semantic_similarity(feature_id, examples)
         if semantic_sim is not None:
             self.stats["semantic_similarity_computed"] += 1
-
-        pos_entropy, top_pos_tags = self._compute_pos_entropy(examples)
-        if pos_entropy is not None:
-            self.stats["pos_entropy_computed"] += 1
 
         # Compute Jaccard similarity for each n-gram size
         ngram_jaccard_list = [
@@ -585,8 +493,6 @@ class ActivationSimilarityProcessor:
             "prompt_ids_analyzed": prompt_ids,
             "num_total_activations": num_total_activations,
             "avg_pairwise_semantic_similarity": semantic_sim,
-            "pos_entropy": pos_entropy,
-            "top_pos_tags": top_pos_tags,
             "top_common_ngrams": top_ngrams,
             "quantile_boundaries": q_boundaries,
             "ngram_jaccard_similarity": ngram_jaccard_list
@@ -607,11 +513,10 @@ class ActivationSimilarityProcessor:
         df = pl.read_parquet(self.activation_path)
         logger.info(f"Loaded {len(df):,} activation examples")
 
-        # Load models
-        self._load_models()
+        # Load embeddings
+        self._load_embeddings()
 
-        # Group by feature_id
-        feature_groups = df.group_by("feature_id")
+        # Get unique features
         unique_features = sorted(df["feature_id"].unique().to_list())
 
         # Apply feature limit for testing
@@ -657,7 +562,6 @@ class ActivationSimilarityProcessor:
             pl.col("sae_id").cast(pl.Categorical),
             pl.col("num_total_activations").cast(pl.UInt32),
             pl.col("avg_pairwise_semantic_similarity").cast(pl.Float32),
-            pl.col("pos_entropy").cast(pl.Float32),
         ])
 
         logger.info(f"Created DataFrame with {len(df)} rows and {len(df.columns)} columns")
@@ -677,12 +581,6 @@ class ActivationSimilarityProcessor:
             "prompt_ids_analyzed": pl.List(pl.UInt32),
             "num_total_activations": pl.UInt32,
             "avg_pairwise_semantic_similarity": pl.Float32,
-            "pos_entropy": pl.Float32,
-            "top_pos_tags": pl.List(pl.Struct([
-                pl.Field("tag", pl.Utf8),
-                pl.Field("count", pl.UInt16),
-                pl.Field("frequency", pl.Float32)
-            ])),
             "top_common_ngrams": pl.List(pl.Struct([
                 pl.Field("ngram", pl.Utf8),
                 pl.Field("ngram_size", pl.UInt8),
@@ -712,11 +610,19 @@ class ActivationSimilarityProcessor:
 
         # Calculate statistics
         if len(df) > 0:
+            # Calculate mean Jaccard similarity across all features and n-gram sizes
+            # First, flatten the ngram_jaccard_similarity lists and filter out nulls
+            all_jaccard_values = []
+            for jaccard_list in df["ngram_jaccard_similarity"].to_list():
+                if jaccard_list:
+                    all_jaccard_values.extend([j for j in jaccard_list if j is not None])
+
+            mean_jaccard = float(np.mean(all_jaccard_values)) if all_jaccard_values else None
+
             result_stats = {
                 "features_with_similarity": int((~df["avg_pairwise_semantic_similarity"].is_null()).sum()),
-                "features_with_pos_entropy": int((~df["pos_entropy"].is_null()).sum()),
                 "mean_semantic_similarity": float(df["avg_pairwise_semantic_similarity"].mean()) if df["avg_pairwise_semantic_similarity"].is_not_null().any() else None,
-                "mean_pos_entropy": float(df["pos_entropy"].mean()) if df["pos_entropy"].is_not_null().any() else None,
+                "mean_jaccard_similarity": mean_jaccard,
                 "mean_examples_per_feature": float(df["prompt_ids_analyzed"].list.len().mean())
             }
         else:
@@ -784,7 +690,6 @@ def main():
     logger.info(f"  Features processed: {processor.stats['features_processed']:,}")
     logger.info(f"  Total examples analyzed: {processor.stats['total_examples_analyzed']:,}")
     logger.info(f"  Semantic similarity computed: {processor.stats['semantic_similarity_computed']:,}")
-    logger.info(f"  POS entropy computed: {processor.stats['pos_entropy_computed']:,}")
     logger.info(f"  N-gram analysis computed: {processor.stats['ngram_analysis_computed']:,}")
     logger.info(f"  N-gram Jaccard computed: {processor.stats['ngram_jaccard_computed']:,}")
     logger.info("=" * 80)

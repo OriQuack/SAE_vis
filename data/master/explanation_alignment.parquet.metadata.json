@@ -1,0 +1,78 @@
+{
+  "created_at": "2025-11-04T12:31:14.476562",
+  "script_version": "1.0",
+  "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
+  "total_rows": 824,
+  "schema": {
+    "feature_id": "UInt32",
+    "sae_id": "Categorical",
+    "llm_explainers": "List(Utf8)",
+    "num_aligned_groups": "UInt16",
+    "aligned_groups": "List(Struct([Field('aligned_group_id', Int64), Field('similarity_score', Float64), Field('phrases', List(Struct([Field('explainer_name', Utf8), Field('text', Utf8), Field('chunk_index', Int64)])))]))"
+  },
+  "processing_stats": {
+    "features_processed": 824,
+    "features_with_alignments": 774,
+    "total_aligned_groups": 2207,
+    "features_with_single_explanation": 0,
+    "features_with_no_alignments": 50
+  },
+  "result_stats": {
+    "features_with_alignments": 774,
+    "total_aligned_groups": 2207,
+    "mean_groups_per_feature": 2.6783980582524274,
+    "mean_similarity_score": 0.811252292252153,
+    "alignment_coverage": 0.9393203883495146
+  },
+  "config_used": {
+    "features_path": "data/master/features.parquet",
+    "output_path": "data/master/explanation_alignment.parquet",
+    "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
+    "processing_parameters": {
+      "similarity_threshold": 0.7,
+      "chunk_method": "phrase",
+      "embedding_model": "google/embeddinggemma-300m",
+      "min_aligned_explainers": 2
+    },
+    "description": "Semantic alignment of phrases across LLM explanations using embedding-based similarity",
+    "processing_notes": {
+      "expected_features": 824,
+      "processing_strategy": "semantic_embedding_alignment",
+      "chunk_methods": {
+        "sentence": "Split by sentence-ending punctuation (.!?;)",
+        "phrase": "Split by commas and conjunctions (,and,or,but)"
+      },
+      "alignment_strategy": "Cross-explainer cosine similarity with threshold-based clustering",
+      "dependencies": [
+        "3_features_parquet.py must be run first (for explanation texts)",
+        "sentence-transformers library required (pip install sentence-transformers)"
+      ],
+      "primary_key_fields": [
+        "feature_id",
+        "sae_id"
+      ]
+    },
+    "schema_info": {
+      "table_name": "explanation_alignment",
+      "version": "1.0",
+      "field_descriptions": {
+        "feature_id": "SAE feature index (0-16383)",
+        "sae_id": "SAE model identifier",
+        "llm_explainers": "List of LLM explainer names (e.g., ['Llama', 'Qwen', 'OpenAI'])",
+        "num_aligned_groups": "Number of semantically aligned phrase groups found",
+        "aligned_groups": "List of aligned phrase groups with similarity scores",
+        "aligned_group_id": "Sequential ID for each aligned group within the feature",
+        "similarity_score": "Average cosine similarity score for the aligned group (0.7-1.0)",
+        "phrases": "List of phrases in this aligned group across different explainers",
+        "explainer_name": "Name of the LLM explainer",
+        "text": "The phrase text that is semantically aligned",
+        "chunk_index": "Position of this chunk within the original explanation"
+      }
+    },
+    "similarity_thresholds": {
+      "0.7": "Minimum alignment (light green)",
+      "0.8": "Strong alignment (medium green)",
+      "0.9": "Very strong alignment (dark green)"
+    }
+  }
+}
