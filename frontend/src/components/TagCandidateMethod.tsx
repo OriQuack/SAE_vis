@@ -53,7 +53,7 @@ const TagRadarView: React.FC<TagRadarViewProps> = ({
 
   // Full range signature for when range filter is disabled
   const fullRangeSignature: MetricSignature = useMemo(() => ({
-    feature_splitting: { min: 0.0, max: 1.0 },
+    decoder_similarity: { min: 0.0, max: 1.0 },
     embedding: { min: 0.0, max: 1.0 },
     fuzz: { min: 0.0, max: 1.0 },
     detection: { min: 0.0, max: 1.0 },
@@ -402,7 +402,7 @@ const MetricWeightsPanel: React.FC<MetricWeightsPanelProps> = ({
 
   // Equal weights for when < 3 features (unstable inference)
   const equalWeights: MetricWeights = useMemo(() => ({
-    feature_splitting: 1.0,
+    decoder_similarity: 1.0,
     embedding: 1.0,
     fuzz: 1.0,
     detection: 1.0,

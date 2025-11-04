@@ -26,6 +26,7 @@ COL_SAE_ID = "sae_id"
 COL_EXPLANATION_METHOD = "explanation_method"
 COL_LLM_EXPLAINER = "llm_explainer"
 COL_LLM_SCORER = "llm_scorer"
+COL_EXPLANATION_TEXT = "explanation_text"
 COL_FEATURE_SPLITTING = "feature_splitting"  # Legacy - removed from new parquet
 COL_DECODER_SIMILARITY = "decoder_similarity"
 COL_SEMSIM_MEAN = "semsim_mean"

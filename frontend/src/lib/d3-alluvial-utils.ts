@@ -46,9 +46,9 @@ const ALLUVIAL_OPACITY = {
  * Returns: 'trivial', 'minor', 'moderate', or 'major'
  */
 function calculateTrivialityLevel(sourceId: string, targetId: string): TrivialityLevel {
-  // Extract the meaningful part of node IDs (last segments after splitting by underscore)
+  // Extract the meaningful part of node IDs (last segments after grouping by underscore)
   const getNodeType = (id: string): string => {
-    // For feature splitting: "split_true" or "split_false" -> extract "true"/"false"
+    // For decoder similarity: "split_true" or "split_false" -> extract "true"/"false"
     if (id.includes('split_true') || id === 'True') return 'true'
     if (id.includes('split_false') || id === 'False') return 'false'
 
@@ -86,7 +86,7 @@ function calculateTrivialityLevel(sourceId: string, targetId: string): Trivialit
     return 'trivial'
   }
 
-  // Feature splitting or semantic distance: different values - major
+  // Decoder similarity or semantic distance: different values - major
   if ((sourceType === 'true' && targetType === 'false') ||
       (sourceType === 'false' && targetType === 'true') ||
       (sourceType === 'high' && targetType === 'low') ||

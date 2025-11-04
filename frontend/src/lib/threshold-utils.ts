@@ -203,9 +203,9 @@ function buildNodeId(parentId: string, stageIndex: number, groupIndex: number): 
  * @returns Node category
  */
 function getCategoryForMetric(metric: string): NodeCategory {
-  // Feature splitting metrics
-  if (metric === 'feature_splitting') {
-    return 'feature_splitting' as NodeCategory
+  // Decoder similarity metrics
+  if (metric === 'decoder_similarity') {
+    return 'decoder_similarity' as NodeCategory
   }
 
   // Semantic distance metrics
@@ -344,7 +344,7 @@ function getNodeCategory(node: SankeyTreeNode, tree: Map<string, SankeyTreeNode>
   }
 
   // Default fallback
-  return 'feature_splitting' as NodeCategory
+  return 'decoder_similarity' as NodeCategory
 }
 
 // ============================================================================
@@ -401,7 +401,7 @@ export function processFeatureGroupResponse(response: {
  * Get metrics that should be shown in histogram popover for a node.
  *
  * Shows the metric used for the NEXT stage (children), not the current node's metric.
- * This allows users to see the distribution of the metric they'll use for splitting.
+ * This allows users to see the distribution of the metric they'll use for grouping.
  *
  * @param node - SankeyTreeNode to get metrics for
  * @param tree - Full tree map for reference

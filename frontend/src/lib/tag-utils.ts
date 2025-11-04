@@ -20,7 +20,7 @@ export const TAG_TEMPLATES: TagTemplate[] = [
     name: 'Well-Explained Coherent Feature',
     description: 'Coherent (not over-split), well-understood, reliably explained across all metrics',
     signature: {
-      feature_splitting: { min: 0.0, max: 0.3 },      // LOW is good
+      decoder_similarity: { min: 0.0, max: 0.3 },      // LOW is good
       embedding: { min: 0.7, max: 1.0 },
       fuzz: { min: 0.7, max: 1.0 },
       detection: { min: 0.7, max: 1.0 },
@@ -33,7 +33,7 @@ export const TAG_TEMPLATES: TagTemplate[] = [
     name: 'Over-Split Feature',
     description: 'Feature fragmented across multiple SAE features (high decoder similarity problem)',
     signature: {
-      feature_splitting: { min: 0.7, max: 1.0 },      // HIGH is problem
+      decoder_similarity: { min: 0.7, max: 1.0 },      // HIGH is problem
       embedding: { min: 0.4, max: 0.6 },
       fuzz: { min: 0.0, max: 0.5 },
       detection: { min: 0.0, max: 0.6 },
@@ -46,7 +46,7 @@ export const TAG_TEMPLATES: TagTemplate[] = [
     name: 'Spurious/Fragile Feature',
     description: 'Based on spurious correlations, not robust to perturbations',
     signature: {
-      feature_splitting: { min: 0.0, max: 1.0 },      // VARIABLE
+      decoder_similarity: { min: 0.0, max: 1.0 },      // VARIABLE
       embedding: { min: 0.0, max: 0.5 },
       fuzz: { min: 0.0, max: 0.3 },                   // LOW robustness
       detection: { min: 0.0, max: 0.3 },              // LOW predictive
@@ -59,7 +59,7 @@ export const TAG_TEMPLATES: TagTemplate[] = [
     name: 'Multi-Interpretation Feature',
     description: 'Multiple valid interpretations, LLMs disagree on understanding',
     signature: {
-      feature_splitting: { min: 0.0, max: 0.5 },
+      decoder_similarity: { min: 0.0, max: 0.5 },
       embedding: { min: 0.4, max: 0.6 },
       fuzz: { min: 0.4, max: 0.6 },
       detection: { min: 0.4, max: 0.6 },
@@ -72,7 +72,7 @@ export const TAG_TEMPLATES: TagTemplate[] = [
     name: 'Robust Specialized Feature',
     description: 'Highly robust and predictive with clear boundary, consistently explained',
     signature: {
-      feature_splitting: { min: 0.0, max: 0.3 },
+      decoder_similarity: { min: 0.0, max: 0.3 },
       embedding: { min: 0.6, max: 0.8 },
       fuzz: { min: 0.7, max: 1.0 },                   // HIGH robustness
       detection: { min: 0.7, max: 1.0 },              // HIGH predictive
@@ -85,7 +85,7 @@ export const TAG_TEMPLATES: TagTemplate[] = [
     name: 'Noisy/Dead Feature',
     description: 'Fundamentally noisy, incoherent, or uninterpretable',
     signature: {
-      feature_splitting: { min: 0.0, max: 1.0 },      // VARIABLE
+      decoder_similarity: { min: 0.0, max: 1.0 },      // VARIABLE
       embedding: { min: 0.0, max: 0.3 },
       fuzz: { min: 0.0, max: 0.3 },
       detection: { min: 0.0, max: 0.3 },
@@ -105,7 +105,7 @@ export const TAG_TEMPLATES: TagTemplate[] = [
  * Averages across LLM explainers and scorers
  */
 export function extractMetricValues(feature: FeatureTableRow): {
-  feature_splitting: number
+  decoder_similarity: number
   embedding: number
   fuzz: number
   detection: number
@@ -117,7 +117,7 @@ export function extractMetricValues(feature: FeatureTableRow): {
   if (explainers.length === 0) {
     // Return zeros if no explainers
     return {
-      feature_splitting: 0,
+      decoder_similarity: 0,
       embedding: 0,
       fuzz: 0,
       detection: 0,
@@ -126,8 +126,8 @@ export function extractMetricValues(feature: FeatureTableRow): {
     }
   }
 
-  // Feature splitting is same across all explainers
-  const feature_splitting = feature.feature_splitting || 0
+  // Decoder similarity is same across all explainers
+  const decoder_similarity = feature.decoder_similarity || 0
 
   // Average embedding scores across explainers
   let embeddingSum = 0
@@ -196,7 +196,7 @@ export function extractMetricValues(feature: FeatureTableRow): {
   const quality_score = (embedding + fuzz + detection) / 3
 
   return {
-    feature_splitting,
+    decoder_similarity,
     embedding,
     fuzz,
     detection,
@@ -220,7 +220,7 @@ export function inferMetricSignature(
   if (features.length === 0) {
     // Return default signature if no features
     return {
-      feature_splitting: { min: 0, max: 1 },
+      decoder_similarity: { min: 0, max: 1 },
       embedding: { min: 0, max: 1 },
       fuzz: { min: 0, max: 1 },
       detection: { min: 0, max: 1 },
@@ -231,14 +231,14 @@ export function inferMetricSignature(
 
   // Extract metric values for all features
   const metricArrays: {
-    feature_splitting: number[]
+    decoder_similarity: number[]
     embedding: number[]
     fuzz: number[]
     detection: number[]
     semantic_similarity: number[]
     quality_score: number[]
   } = {
-    feature_splitting: [],
+    decoder_similarity: [],
     embedding: [],
     fuzz: [],
     detection: [],
@@ -248,7 +248,7 @@ export function inferMetricSignature(
 
   features.forEach(feature => {
     const metrics = extractMetricValues(feature)
-    metricArrays.feature_splitting.push(metrics.feature_splitting)
+    metricArrays.decoder_similarity.push(metrics.decoder_similarity)
     metricArrays.embedding.push(metrics.embedding)
     metricArrays.fuzz.push(metrics.fuzz)
     metricArrays.detection.push(metrics.detection)
@@ -285,7 +285,7 @@ export function inferMetricSignature(
  */
 export function inferMetricWeights(signature: MetricSignature): MetricWeights {
   const metrics: (keyof MetricSignature)[] = [
-    'feature_splitting',
+    'decoder_similarity',
     'embedding',
     'fuzz',
     'detection',
@@ -323,7 +323,7 @@ export function computeWeightedDistance(
 ): number {
   // Signature center: midpoint of each range
   const signatureCenter = {
-    feature_splitting: (signature.feature_splitting.min + signature.feature_splitting.max) / 2,
+    decoder_similarity: (signature.decoder_similarity.min + signature.decoder_similarity.max) / 2,
     embedding: (signature.embedding.min + signature.embedding.max) / 2,
     fuzz: (signature.fuzz.min + signature.fuzz.max) / 2,
     detection: (signature.detection.min + signature.detection.max) / 2,
@@ -333,7 +333,7 @@ export function computeWeightedDistance(
 
   // Weighted Euclidean distance in 6D space
   const distance = Math.sqrt(
-    weights.feature_splitting * Math.pow(metricValues.feature_splitting - signatureCenter.feature_splitting, 2) +
+    weights.decoder_similarity * Math.pow(metricValues.decoder_similarity - signatureCenter.decoder_similarity, 2) +
     weights.embedding * Math.pow(metricValues.embedding - signatureCenter.embedding, 2) +
     weights.fuzz * Math.pow(metricValues.fuzz - signatureCenter.fuzz, 2) +
     weights.detection * Math.pow(metricValues.detection - signatureCenter.detection, 2) +
@@ -357,8 +357,8 @@ export function featureMatchesSignature(
   signature: MetricSignature
 ): boolean {
   return (
-    metricValues.feature_splitting >= signature.feature_splitting.min &&
-    metricValues.feature_splitting <= signature.feature_splitting.max &&
+    metricValues.decoder_similarity >= signature.decoder_similarity.min &&
+    metricValues.decoder_similarity <= signature.decoder_similarity.max &&
     metricValues.embedding >= signature.embedding.min &&
     metricValues.embedding <= signature.embedding.max &&
     metricValues.fuzz >= signature.fuzz.min &&
@@ -395,7 +395,7 @@ export function findCandidateFeatures(
 ): FeatureMatch[] {
   // Use provided weights or default to equal weights (1.0 each)
   const effectiveWeights = weights || {
-    feature_splitting: 1.0,
+    decoder_similarity: 1.0,
     embedding: 1.0,
     fuzz: 1.0,
     detection: 1.0,
@@ -423,7 +423,7 @@ export function findCandidateFeatures(
       if (featureMatchesSignature(metricValues, signature)) {
         // Unweighted Euclidean distance
         const distance = Math.sqrt(
-          Math.pow(metricValues.feature_splitting - (signature.feature_splitting.min + signature.feature_splitting.max) / 2, 2) +
+          Math.pow(metricValues.decoder_similarity - (signature.decoder_similarity.min + signature.decoder_similarity.max) / 2, 2) +
           Math.pow(metricValues.embedding - (signature.embedding.min + signature.embedding.max) / 2, 2) +
           Math.pow(metricValues.fuzz - (signature.fuzz.min + signature.fuzz.max) / 2, 2) +
           Math.pow(metricValues.detection - (signature.detection.min + signature.detection.max) / 2, 2) +

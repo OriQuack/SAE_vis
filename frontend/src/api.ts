@@ -20,7 +20,7 @@ import type {
 const FRONTEND_TO_BACKEND_METRIC: Record<string, string> = {
   'quality_score': 'overall_score',
   'semantic_similarity': 'semsim_mean'
-  // All other metrics (feature_splitting, score_embedding, etc.) use same name
+  // All other metrics (decoder_similarity, score_embedding, etc.) use same name
 }
 
 /**

@@ -102,8 +102,8 @@ export const createTreeActions = (set: any, get: any) => ({
 
   /**
    * Add a new unsplit stage to a specific node in the tree.
-   * Creates a single child node with all parent features, without splitting by thresholds.
-   * User can later set thresholds via histogram to split the node.
+   * Creates a single child node with all parent features, without grouping by thresholds.
+   * User can later set thresholds via histogram to group the node.
    */
   addUnsplitStageToNode: async (nodeId: string, metric: string, panel: PanelSide = PANEL_LEFT) => {
     const state = get()
@@ -132,18 +132,18 @@ export const createTreeActions = (set: any, get: any) => ({
       const newDepth = parentNode.depth + 1
       const newTree = new Map(sankeyTree)
 
-      // Create a single child node with all parent features (no splitting)
+      // Create a single child node with all parent features (no grouping)
       const childId = `${nodeId}_stage${newDepth}_group0`
       const childNode: SankeyTreeNode = {
         id: childId,
         parentId: nodeId,
-        metric: null, // Child has no metric (not being split)
-        thresholds: [], // Empty thresholds - no split yet
+        metric: null, // Child has no metric (not being grouped)
+        thresholds: [], // Empty thresholds - no grouping yet
         depth: newDepth,
         children: [],
         featureIds: new Set(parentNode.featureIds), // Copy all parent features
         featureCount: parentNode.featureCount,
-        rangeLabel: 'All' // Label for unsplit node
+        rangeLabel: 'All' // Label for ungrouped node
       }
 
       newTree.set(childId, childNode)

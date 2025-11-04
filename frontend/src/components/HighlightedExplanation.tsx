@@ -93,15 +93,12 @@ export const HighlightedExplanation: React.FC<HighlightedExplanationProps> = Rea
       // White text for better visibility on dark green background
       style.color = 'white'
 
-      // Add padding for better visual spacing and readability
-      style.padding = '2px 4px'
+      // Minimal padding for readability without creating visual spacing gaps
+      style.padding = '2px 2px'
       style.borderRadius = '2px'
 
       // Ensure inline display for proper text flow
       style.display = 'inline'
-
-      // Add slight margin for breathing room between consecutive segments
-      style.margin = '0 1px'
     }
 
     return style
@@ -219,9 +216,11 @@ export const HighlightedExplanation: React.FC<HighlightedExplanationProps> = Rea
   }
 
   // Render full view (all segments)
+  // Note: Backend provides complete text with all original spacing preserved in segments.
+  // We pass addSpaceAfter=false to avoid adding extra spaces since spacing is already included.
   return (
     <span className="highlighted-explanation">
-      {segments.map((segment, index) => renderSegment(segment, index))}
+      {segments.map((segment, index) => renderSegment(segment, index, false))}
     </span>
   )
 })

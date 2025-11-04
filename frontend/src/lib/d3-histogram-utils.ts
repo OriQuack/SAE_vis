@@ -15,7 +15,7 @@ const METRIC_TITLES: Record<string, string> = {
   score_simulation: 'Simulation Score',
   semantic_simialrity: 'Semantic Similarity',
   score_embedding: 'Embedding Score',
-  feature_splitting: 'Feature Splitting'
+  decoder_similarity: 'Decoder Similarity'
 }
 
 // ============================================================================

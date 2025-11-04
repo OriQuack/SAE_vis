@@ -13,7 +13,7 @@ import {
 } from '../lib/utils'
 import {
   METRIC_QUALITY_SCORE,
-  METRIC_FEATURE_SPLITTING,
+  METRIC_DECODER_SIMILARITY,
   METRIC_SEMANTIC_SIMILARITY
 } from '../lib/constants'
 import { HighlightedExplanation } from './HighlightedExplanation'
@@ -84,7 +84,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   }
 
   // Handle sort click
-  const handleSort = (sortKey: 'featureId' | typeof METRIC_QUALITY_SCORE | typeof METRIC_FEATURE_SPLITTING | typeof METRIC_SEMANTIC_SIMILARITY) => {
+  const handleSort = (sortKey: 'featureId' | typeof METRIC_QUALITY_SCORE | typeof METRIC_DECODER_SIMILARITY | typeof METRIC_SEMANTIC_SIMILARITY) => {
     // Cycle through: null → asc → desc → null
     if (sortBy === sortKey) {
       if (sortDirection === null) {
@@ -496,11 +496,11 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
               </th>
               <th
                 className="table-panel__header-cell table-panel__header-cell--score"
-                onClick={() => handleSort(METRIC_FEATURE_SPLITTING)}
-                title="Feature Splitting"
+                onClick={() => handleSort(METRIC_DECODER_SIMILARITY)}
+                title="Decoder Similarity"
               >
                 FS
-                {sortBy === METRIC_FEATURE_SPLITTING && (
+                {sortBy === METRIC_DECODER_SIMILARITY && (
                   <span className={`table-panel__sort-indicator ${sortDirection || ''}`} />
                 )}
               </th>
@@ -705,30 +705,36 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                         </td>
                       )}
 
-                      {/* Feature Splitting column - Simple circle (only on first sub-row) */}
-                      {explainerIdx === 0 && (
-                        <td
-                          className="table-panel__cell table-panel__cell--score"
-                          rowSpan={validExplainerIds.length}
-                          title={featureRow.feature_splitting !== null && featureRow.feature_splitting !== undefined
-                            ? `Feature Splitting: ${featureRow.feature_splitting.toFixed(3)}`
-                            : 'No data'}
-                        >
-                          {featureRow.feature_splitting !== null && featureRow.feature_splitting !== undefined ? (
-                            <svg width="16" height="16" style={{ display: 'block', margin: '0 auto' }}>
-                              <circle
-                                cx="8"
-                                cy="8"
-                                r="7"
-                                fill={getMetricColor('feature_splitting', featureRow.feature_splitting)}
-                                stroke="none"
-                              />
-                            </svg>
-                          ) : (
-                            <span className="table-panel__no-data">-</span>
-                          )}
-                        </td>
-                      )}
+                      {/* Decoder Similarity column - Simple circle (only on first sub-row) */}
+                      {explainerIdx === 0 && (() => {
+                        const decoderSim = featureRow.decoder_similarity !== null && featureRow.decoder_similarity !== undefined
+                          ? Number(featureRow.decoder_similarity)
+                          : null
+
+                        return (
+                          <td
+                            className="table-panel__cell table-panel__cell--score"
+                            rowSpan={validExplainerIds.length}
+                            title={decoderSim !== null && !isNaN(decoderSim)
+                              ? `Decoder Similarity: ${decoderSim.toFixed(3)}`
+                              : 'No data'}
+                          >
+                            {decoderSim !== null && !isNaN(decoderSim) ? (
+                              <svg width="16" height="16" style={{ display: 'block', margin: '0 auto' }}>
+                                <circle
+                                  cx="8"
+                                  cy="8"
+                                  r="7"
+                                  fill={getMetricColor('decoder_similarity', decoderSim)}
+                                  stroke="none"
+                                />
+                              </svg>
+                            ) : (
+                              <span className="table-panel__no-data">-</span>
+                            )}
+                          </td>
+                        )
+                      })()}
 
                       {/* Semantic Similarity column - Pill with range (only on first sub-row) */}
                       {explainerIdx === 0 && (() => {

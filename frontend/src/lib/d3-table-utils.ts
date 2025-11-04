@@ -4,7 +4,7 @@ import {
   METRIC_SCORE_EMBEDDING,
   METRIC_SCORE_FUZZ,
   METRIC_QUALITY_SCORE,
-  METRIC_FEATURE_SPLITTING,
+  METRIC_DECODER_SIMILARITY,
   METRIC_SEMANTIC_SIMILARITY
 } from './constants'
 import {
@@ -464,7 +464,7 @@ function calculateAvgSemanticSimilarityForSort(
  * - embedding: Sort by average embedding score across all explainers
  * - fuzz: Sort by average fuzz score across all explainers
  * - detection: Sort by average detection score across all explainers
- * - feature_splitting: Sort by feature splitting score (same across all explainers)
+ * - decoder_similarity: Sort by decoder similarity score (same across all explainers)
  * - semantic_similarity: Sort by average semantic similarity across all explainers
  *
  * @param features - Array of features to sort
@@ -510,10 +510,10 @@ export function sortFeatures(
       return compareValues(scoreA, scoreB, sortDirection)
     }
 
-    // Feature Splitting sorting (single value per feature)
-    if (sortBy === METRIC_FEATURE_SPLITTING) {
-      const fsA = a.feature_splitting ?? null
-      const fsB = b.feature_splitting ?? null
+    // Decoder Similarity sorting (single value per feature)
+    if (sortBy === METRIC_DECODER_SIMILARITY) {
+      const fsA = a.decoder_similarity ?? null
+      const fsB = b.decoder_similarity ?? null
       return compareValues(fsA, fsB, sortDirection)
     }
 

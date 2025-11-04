@@ -40,7 +40,7 @@ const TagManagementPanel: React.FC = () => {
   const inferredSignature = useMemo(() => {
     if (selectedFeatures.length === 0) {
       return {
-        feature_splitting: { min: 0.3, max: 1.0 },
+        decoder_similarity: { min: 0.3, max: 1.0 },
         embedding: { min: 0.3, max: 1.0 },
         fuzz: { min: 0.3, max: 1.0 },
         detection: { min: 0.3, max: 1.0 },

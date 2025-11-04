@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react'
 import type { D3SankeyNode, D3SankeyLink, HistogramData, SankeyLayout } from '../types'
 import {
-  METRIC_FEATURE_SPLITTING,
+  METRIC_DECODER_SIMILARITY,
   METRIC_SEMANTIC_SIMILARITY,
   METRIC_SCORE_FUZZ,
   METRIC_SCORE_DETECTION,
@@ -30,20 +30,20 @@ interface StageOption {
   description: string
   metric: string
   thresholds: readonly number[]
-  category: 'Feature Splitting' | 'Score'
+  category: 'Decoder Similarity' | 'Score'
 }
 
 // Available stages for the NEW system - categorized by type
 // eslint-disable-next-line react-refresh/only-export-components
 export const AVAILABLE_STAGES: StageOption[] = [
-  // Feature Splitting (1 metric)
+  // Decoder Similarity (1 metric)
   {
-    id: 'feature_splitting',
-    name: 'Feature Splitting',
-    description: 'Split by feature splitting score',
-    metric: METRIC_FEATURE_SPLITTING,
+    id: 'decoder_similarity',
+    name: 'Decoder Similarity',
+    description: 'Split by decoder similarity score',
+    metric: METRIC_DECODER_SIMILARITY,
     thresholds: [0.3],
-    category: 'Feature Splitting'
+    category: 'Decoder Similarity'
   },
 
   // Semantic Similarity (1 metric)
@@ -101,8 +101,8 @@ export const AVAILABLE_STAGES: StageOption[] = [
  */
 function getMetricColorForDisplay(metric: string): string {
   switch (metric) {
-    case METRIC_FEATURE_SPLITTING:
-      return METRIC_COLORS.FEATURE_SPLITTING
+    case METRIC_DECODER_SIMILARITY:
+      return METRIC_COLORS.DECODER_SIMILARITY
     case METRIC_SEMANTIC_SIMILARITY:
       return METRIC_COLORS.SEMANTIC_SIMILARITY
     case METRIC_SCORE_FUZZ:
@@ -210,8 +210,8 @@ const MetricOverlayPanel: React.FC<MetricOverlayPanelProps> = ({
   // Group stages by category (for metric overlay panel)
   const categories: Array<{ name: string; stages: StageOption[] }> = [
     {
-      name: 'FEATURE SPLITTING',
-      stages: availableStages.filter(s => s.category === 'Feature Splitting')
+      name: 'DECODER SIMILARITY',
+      stages: availableStages.filter(s => s.category === 'Decoder Similarity')
     },
     {
       name: 'SCORE',

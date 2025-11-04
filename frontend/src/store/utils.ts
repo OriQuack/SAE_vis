@@ -1,6 +1,6 @@
 import type { Filters, SankeyTreeNode } from '../types'
 import {
-  METRIC_FEATURE_SPLITTING,
+  METRIC_DECODER_SIMILARITY,
   METRIC_SEMANTIC_SIMILARITY,
   METRIC_QUALITY_SCORE,
   METRIC_SCORE_EMBEDDING,
@@ -20,7 +20,7 @@ export const mapTableSortToSankeyMetric = (sortBy: string | null): string | null
   if (!sortBy) return null
 
   const mappings: Record<string, string> = {
-    [METRIC_FEATURE_SPLITTING]: METRIC_FEATURE_SPLITTING,
+    [METRIC_DECODER_SIMILARITY]: METRIC_DECODER_SIMILARITY,
     [METRIC_SEMANTIC_SIMILARITY]: METRIC_SEMANTIC_SIMILARITY,
     [METRIC_QUALITY_SCORE]: METRIC_QUALITY_SCORE,
     [METRIC_SCORE_EMBEDDING]: METRIC_SCORE_EMBEDDING,
@@ -39,7 +39,7 @@ export const mapSankeyMetricToTableSort = (metric: string | null): string | null
   if (!metric) return null
 
   const mappings: Record<string, string> = {
-    [METRIC_FEATURE_SPLITTING]: METRIC_FEATURE_SPLITTING,
+    [METRIC_DECODER_SIMILARITY]: METRIC_DECODER_SIMILARITY,
     [METRIC_SEMANTIC_SIMILARITY]: METRIC_SEMANTIC_SIMILARITY,
     [METRIC_QUALITY_SCORE]: METRIC_QUALITY_SCORE,
     [METRIC_SCORE_EMBEDDING]: METRIC_SCORE_EMBEDDING,

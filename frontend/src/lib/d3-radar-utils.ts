@@ -5,7 +5,7 @@
 
 import type { MetricSignature, MetricRange } from '../types'
 import {
-  METRIC_FEATURE_SPLITTING,
+  METRIC_DECODER_SIMILARITY,
   METRIC_SCORE_EMBEDDING,
   METRIC_SCORE_FUZZ,
   METRIC_SCORE_DETECTION,
@@ -42,9 +42,9 @@ export const RADAR_CONFIG = {
 export function getRadarMetrics() {
   return [
     {
-      key: 'feature_splitting',  // MetricSignature property name
-      label: 'FS',  // Abbreviated form (Feature Splitting)
-      color: getMetricBaseColor(METRIC_FEATURE_SPLITTING)
+      key: 'decoder_similarity',  // MetricSignature property name
+      label: 'DS',  // Abbreviated form (Decoder Similarity)
+      color: getMetricBaseColor(METRIC_DECODER_SIMILARITY)
     },
     {
       key: 'embedding',  // MetricSignature property name (not 'score_embedding')
@@ -424,7 +424,7 @@ export function snapToGrid(value: number, gridSize: number = 0.2): number {
  */
 export function metricsToRadarPath(
   metrics: {
-    feature_splitting: number
+    decoder_similarity: number
     embedding: number
     fuzz: number
     detection: number
@@ -434,7 +434,7 @@ export function metricsToRadarPath(
   layout: RadarChartLayout
 ): string {
   const values = [
-    metrics.feature_splitting,
+    metrics.decoder_similarity,
     metrics.embedding,
     metrics.fuzz,
     metrics.detection,

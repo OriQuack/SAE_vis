@@ -3,14 +3,14 @@
 // Used across: types.ts, utils.ts, threshold-utils.ts, d3-sankey-utils.ts, split-rule-builders.ts (5+ files)
 // ============================================================================
 export const CATEGORY_ROOT = "root"
-export const CATEGORY_FEATURE_SPLITTING = "feature_splitting"
+export const CATEGORY_DECODER_SIMILARITY = "decoder_similarity"
 export const CATEGORY_SEMANTIC_SIMILARITY = "semantic_similarity"
 
 // ============================================================================
 // METRIC TYPES - Must match backend data_constants.py
 // Used across: types.ts, utils.ts, threshold-utils.ts, store.ts (5+ files)
 // ============================================================================
-export const METRIC_FEATURE_SPLITTING = "feature_splitting"
+export const METRIC_DECODER_SIMILARITY = "decoder_similarity"
 export const METRIC_SEMANTIC_SIMILARITY = "semantic_similarity"
 export const METRIC_SCORE_FUZZ = "score_fuzz"
 export const METRIC_SCORE_DETECTION = "score_detection"
@@ -20,7 +20,7 @@ export const METRIC_SCORE_EMBEDDING = "score_embedding"
 export const METRIC_QUALITY_SCORE = "quality_score"
 
 export const METRIC_TYPES = {
-  FEATURE_SPLITTING: METRIC_FEATURE_SPLITTING,
+  DECODER_SIMILARITY: METRIC_DECODER_SIMILARITY,
   SEMANTIC_SIMILARITY: METRIC_SEMANTIC_SIMILARITY,
   SCORE_FUZZ: METRIC_SCORE_FUZZ,
   SCORE_DETECTION: METRIC_SCORE_DETECTION,
@@ -54,12 +54,12 @@ export const CONSISTENCY_THRESHOLDS = {
 // ============================================================================
 export const CATEGORY_DISPLAY_NAMES = {
   [CATEGORY_ROOT]: "All Features",
-  [CATEGORY_FEATURE_SPLITTING]: "Feature Splitting",
+  [CATEGORY_DECODER_SIMILARITY]: "Decoder Similarity",
   [CATEGORY_SEMANTIC_SIMILARITY]: "Semantic Similarity"
 } as const
 
 export const METRIC_DISPLAY_NAMES = {
-  [METRIC_FEATURE_SPLITTING]: "Feature Splitting",
+  [METRIC_DECODER_SIMILARITY]: "Decoder Similarity",
   [METRIC_SEMANTIC_SIMILARITY]: "Semantic Similarity",
   [METRIC_SCORE_FUZZ]: "Fuzz Score",
   [METRIC_SCORE_DETECTION]: "Detection Score",
@@ -144,7 +144,7 @@ export const NEUTRAL_ICON_COLORS = {
 // Uses same opacity pattern as consistency colors: white (low) → color (high)
 // ============================================================================
 export const METRIC_COLORS = {
-  FEATURE_SPLITTING: PAUL_TOL_BRIGHT.RED,
+  DECODER_SIMILARITY: PAUL_TOL_BRIGHT.RED,
 
   SEMANTIC_SIMILARITY: OKABE_ITO_PALETTE.REDDISH_PURPLE,
 
@@ -188,8 +188,8 @@ export const METRIC_COLORS = {
  */
 export function getMetricBaseColor(metric: string): string {
   switch (metric) {
-    case METRIC_FEATURE_SPLITTING:
-      return METRIC_COLORS.FEATURE_SPLITTING
+    case METRIC_DECODER_SIMILARITY:
+      return METRIC_COLORS.DECODER_SIMILARITY
     case METRIC_SEMANTIC_SIMILARITY:
       return METRIC_COLORS.SEMANTIC_SIMILARITY
     case METRIC_SCORE_EMBEDDING:
@@ -214,7 +214,7 @@ export function getMetricBaseColor(metric: string): string {
 // ============================================================================
 export const COMPONENT_COLORS = {
   // Metric-specific colors (full opacity for FlowPanel node backgrounds)
-  FEATURE_SPLITTING: METRIC_COLORS.FEATURE_SPLITTING,
+  DECODER_SIMILARITY: METRIC_COLORS.DECODER_SIMILARITY,
   SEMANTIC_SIMILARITY: METRIC_COLORS.SEMANTIC_SIMILARITY,
   SCORE_EMBEDDING: METRIC_COLORS.SCORE_EMBEDDING.HIGH,     // Full blue
   SCORE_FUZZ: METRIC_COLORS.SCORE_FUZZ.HIGH,               // Full orange-red

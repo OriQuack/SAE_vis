@@ -145,15 +145,15 @@ export function getQualityScoreColor(score: number): string {
  * - Embedding: Blue gradient (#0072B2)
  * - Fuzz: Orange-red gradient (#E69F00)
  * - Detection: Green gradient (#228833)
- * - Feature Splitting: Cyan gradient (#66CCEE)
+ * - Decoder Similarity: Cyan gradient (#66CCEE)
  * - Semantic Similarity: Gray gradient (#999999)
  *
- * @param metricType - Type of metric (embedding, fuzz, detection, feature_splitting, semantic_similarity)
+ * @param metricType - Type of metric (embedding, fuzz, detection, decoder_similarity, semantic_similarity)
  * @param score - Score value (0-1 range, normalized)
  * @returns RGB color string with opacity
  */
 export function getMetricColor(
-  metricType: 'embedding' | 'fuzz' | 'detection' | 'feature_splitting' | 'semantic_similarity',
+  metricType: 'embedding' | 'fuzz' | 'detection' | 'decoder_similarity' | 'semantic_similarity',
   score: number
 ): string {
   // Clamp score between 0 and 1
@@ -172,12 +172,12 @@ export function getMetricColor(
     case 'detection':
       gradient = METRIC_COLORS.SCORE_DETECTION
       break
-    case 'feature_splitting':
-      // Create gradient inline for feature splitting (cyan)
+    case 'decoder_similarity':
+      // Create gradient inline for decoder similarity (cyan)
       gradient = {
-        LOW: METRIC_COLORS.FEATURE_SPLITTING + '00',    // 0% opacity
-        MEDIUM: METRIC_COLORS.FEATURE_SPLITTING + '80', // 50% opacity
-        HIGH: METRIC_COLORS.FEATURE_SPLITTING + 'FF'    // 100% opacity
+        LOW: METRIC_COLORS.DECODER_SIMILARITY + '00',    // 0% opacity
+        MEDIUM: METRIC_COLORS.DECODER_SIMILARITY + '80', // 50% opacity
+        HIGH: METRIC_COLORS.DECODER_SIMILARITY + 'FF'    // 100% opacity
       }
       break
     case 'semantic_similarity':

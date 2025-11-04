@@ -13,7 +13,7 @@ import { max } from 'd3-array'
 import type { D3SankeyNode, D3SankeyLink, HistogramData } from '../types'
 import {
   METRIC_COLORS,
-  METRIC_FEATURE_SPLITTING,
+  METRIC_DECODER_SIMILARITY,
   METRIC_SEMANTIC_SIMILARITY,
   METRIC_SCORE_FUZZ,
   METRIC_SCORE_DETECTION,
@@ -65,8 +65,8 @@ const HISTOGRAM_MARGIN = 0             // Space between node and histogram
  */
 function getHistogramColorForMetric(metric: string): string {
   switch (metric) {
-    case METRIC_FEATURE_SPLITTING:
-      return METRIC_COLORS.FEATURE_SPLITTING
+    case METRIC_DECODER_SIMILARITY:
+      return METRIC_COLORS.DECODER_SIMILARITY
     case METRIC_SEMANTIC_SIMILARITY:
       return METRIC_COLORS.SEMANTIC_SIMILARITY
     case METRIC_SCORE_EMBEDDING:

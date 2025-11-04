@@ -97,6 +97,11 @@ class TableDataService:
         # Create scorer mapping
         scorer_map = {scorer: f"s{i+1}" for i, scorer in enumerate(scorer_ids)}
 
+        # OPTIMIZATION: Preload all explanation texts in single batch query (Phase 2)
+        if self.alignment_service and self.alignment_service.is_ready:
+            self.alignment_service.preload_explanations(feature_ids, explainer_ids)
+            logger.info(f"Preloaded explanation texts for {len(feature_ids)} features × {len(explainer_ids)} explainers")
+
         # STEP 2: Fetch explanations from features.parquet
         explanations_df = self._fetch_explanations(filters)
 

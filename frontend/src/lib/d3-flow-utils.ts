@@ -204,7 +204,7 @@ export function calculateFlowLayout(
 
     // Top path: Decoder (text node now) - reduced from 80x30 to 68x24
     { id: 'decoder', label: 'Decoder', x: 150, y: 10, width: 68, height: 24, nodeType: 'text' },
-    { id: 'feature-splitting', label: 'Feature Splitting', x: 380, y: 10, width: 110, height: 18, nodeType: 'text' },
+    { id: 'decoder-similarity', label: 'Decoder Similarity', x: 380, y: 10, width: 110, height: 18, nodeType: 'text' },
 
     // Embedder branch (text node now) - reduced from 90x30 to 76x24
     { id: 'embedder', label: 'Embedder', x: 240, y: 45, width: 76, height: 24, nodeType: 'text' },
@@ -316,7 +316,7 @@ export function calculateFlowLayout(
   // Note: Edges to explainer/scorer will be created dynamically based on list items
   const edgeDefs: EdgeDef[] = [
     { id: 'feature-to-decoder', source: 'feature', target: 'decoder' },
-    { id: 'decoder-to-splitting', source: 'decoder', target: 'feature-splitting' },
+    { id: 'decoder-to-similarity', source: 'decoder', target: 'decoder-similarity' },
 
     // Embedder connections
     { id: 'embedder-to-embedding', source: 'embedder', target: 'embedding-score' },

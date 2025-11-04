@@ -102,7 +102,7 @@ const SelectedFeaturesList: React.FC<SelectedFeaturesListProps> = ({
     const signature = currentSignature || inferMetricSignature(selectedFeatures, stdMultiplier)
     const weights = currentWeights ||
       (selectedFeatures.length < 3
-        ? { feature_splitting: 1.0, embedding: 1.0, fuzz: 1.0, detection: 1.0, semantic_similarity: 1.0, quality_score: 1.0 }
+        ? { decoder_similarity: 1.0, embedding: 1.0, fuzz: 1.0, detection: 1.0, semantic_similarity: 1.0, quality_score: 1.0 }
         : inferMetricWeights(signature))
 
     // Compute scores for each feature
@@ -459,7 +459,7 @@ const RejectedList: React.FC<RejectedListProps> = ({ className = '' }) => {
     const signature = currentSignature || inferMetricSignature(selectedFeatures, stdMultiplier)
     const weights = currentWeights ||
       (selectedFeatures.length < 3
-        ? { feature_splitting: 1.0, embedding: 1.0, fuzz: 1.0, detection: 1.0, semantic_similarity: 1.0, quality_score: 1.0 }
+        ? { decoder_similarity: 1.0, embedding: 1.0, fuzz: 1.0, detection: 1.0, semantic_similarity: 1.0, quality_score: 1.0 }
         : inferMetricWeights(signature))
 
     // Compute scores for each rejected feature

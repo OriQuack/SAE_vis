@@ -9,9 +9,9 @@ import '../styles/FlowPanel.css'
 // ============================================================================
 
 const getTextNodeBackgroundColor = (nodeId: string) => {
-  // Feature splitting
-  if (nodeId === 'feature-splitting') {
-    return COMPONENT_COLORS.FEATURE_SPLITTING
+  // Decoder similarity
+  if (nodeId === 'decoder-similarity') {
+    return COMPONENT_COLORS.DECODER_SIMILARITY
   }
   // Semantic similarity
   if (nodeId === 'semantic-similarity') {
@@ -56,7 +56,7 @@ const getTextNodeFontSize = (nodeId: string) => {
     return '14'
   }
   // Medium font for final output nodes - reduced from 13 to 11
-  if (nodeId === 'feature-splitting' || nodeId === 'semantic-similarity' || nodeId === 'embedding-score' ||
+  if (nodeId === 'decoder-similarity' || nodeId === 'semantic-similarity' || nodeId === 'embedding-score' ||
       nodeId === 'fuzz-score' || nodeId === 'detection-score' || nodeId === 'quality-score') {
     return '11'
   }
@@ -291,9 +291,9 @@ const FlowPanel: React.FC = () => {
                 : selectedScorers.has(targetNode.llmId)
             ))
 
-            // Always blue: Feature→Decoder→Feature-Splitting path (always active)
+            // Always blue: Feature→Decoder→Decoder-Similarity path (always active)
             const isAlwaysBluePath = (edge.source === 'feature' && edge.target === 'decoder') ||
-                                     (edge.source === 'decoder' && edge.target === 'feature-splitting')
+                                     (edge.source === 'decoder' && edge.target === 'decoder-similarity')
 
             // Special case: Embedder outgoing edges are blue if any explainer is selected
             const isEmbedderOutgoing = edge.source === 'embedder' && selectedExplainers.size > 0
@@ -306,7 +306,7 @@ const FlowPanel: React.FC = () => {
               (edge.target === 'fuzz-score' || edge.target === 'detection-score')
 
             // Edge selection logic:
-            // - Always blue path: feature→decoder→feature-splitting
+            // - Always blue path: feature→decoder→decoder-similarity
             // - For explainer→scorer edges: only check source (explainer) selection
             // - For scorer→metric edges: require both scorer selection AND at least one explainer selected
             // - For other edges: check if either source OR target is selected, OR embedder outgoing

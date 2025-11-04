@@ -144,7 +144,7 @@ export const createTagActions: StateCreator<
       createdAt: Date.now(),
       updatedAt: Date.now(),
       metricSignature: {
-        feature_splitting: { min: 0.0, max: 1.0 },
+        decoder_similarity: { min: 0.0, max: 1.0 },
         embedding: { min: 0.0, max: 1.0 },
         fuzz: { min: 0.0, max: 1.0 },
         detection: { min: 0.0, max: 1.0 },
@@ -454,7 +454,7 @@ export const createTagActions: StateCreator<
     // When < 3 features, use equal weights (1.0) to avoid unstable inference
     const weights = activeTag?.metricWeights ||
       (selectedFeatures.length < 3
-        ? { feature_splitting: 1.0, embedding: 1.0, fuzz: 1.0, detection: 1.0, semantic_similarity: 1.0, quality_score: 1.0 }
+        ? { decoder_similarity: 1.0, embedding: 1.0, fuzz: 1.0, detection: 1.0, semantic_similarity: 1.0, quality_score: 1.0 }
         : inferMetricWeights(signature))
 
     // Find candidates excluding selected + rejected features
@@ -608,7 +608,7 @@ export const createTagActions: StateCreator<
 
     const updatedWeights = {
       ...(activeTag.metricWeights || currentWeights || {
-        feature_splitting: 1.0,
+        decoder_similarity: 1.0,
         embedding: 1.0,
         fuzz: 1.0,
         detection: 1.0,
@@ -678,7 +678,7 @@ export const createTagActions: StateCreator<
     if (wasEnabled) {
       // Disabling: Save current signature and set to full range (min: 0.0, max: 1.0)
       const fullRangeSignature: MetricSignature = {
-        feature_splitting: { min: 0.0, max: 1.0 },
+        decoder_similarity: { min: 0.0, max: 1.0 },
         embedding: { min: 0.0, max: 1.0 },
         fuzz: { min: 0.0, max: 1.0 },
         detection: { min: 0.0, max: 1.0 },
@@ -721,7 +721,7 @@ export const createTagActions: StateCreator<
     if (wasEnabled) {
       // Disabling: Save current weights and set to uniform 1.0
       const uniformWeights: MetricWeights = {
-        feature_splitting: 1.0,
+        decoder_similarity: 1.0,
         embedding: 1.0,
         fuzz: 1.0,
         detection: 1.0,

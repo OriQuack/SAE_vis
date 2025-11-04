@@ -14,8 +14,8 @@ export interface Filters {
 // ============================================================================
 
 import {
-  CATEGORY_ROOT, CATEGORY_FEATURE_SPLITTING, CATEGORY_SEMANTIC_SIMILARITY,
-  METRIC_FEATURE_SPLITTING, METRIC_SEMANTIC_SIMILARITY, METRIC_QUALITY_SCORE,
+  CATEGORY_ROOT, CATEGORY_DECODER_SIMILARITY, CATEGORY_SEMANTIC_SIMILARITY,
+  METRIC_DECODER_SIMILARITY, METRIC_SEMANTIC_SIMILARITY, METRIC_QUALITY_SCORE,
   METRIC_SCORE_FUZZ, METRIC_SCORE_DETECTION, METRIC_SCORE_EMBEDDING,
   PANEL_LEFT, PANEL_RIGHT
 } from './lib/constants'
@@ -23,7 +23,7 @@ import {
 // Category Type Definition
 export type CategoryType =
   | typeof CATEGORY_ROOT
-  | typeof CATEGORY_FEATURE_SPLITTING
+  | typeof CATEGORY_DECODER_SIMILARITY
   | typeof CATEGORY_SEMANTIC_SIMILARITY
 
 // ============================================================================
@@ -104,7 +104,7 @@ export interface FilterOptions {
  * Each constraint filters features by a metric range from parent nodes
  */
 export interface ThresholdPathConstraint {
-  metric: string      // Metric name (e.g., "feature_splitting", "quality_score")
+  metric: string      // Metric name (e.g., "decoder_similarity", "quality_score")
   rangeLabel: string  // Display label (e.g., "[0, 0.3)", ">= 0.5", "< 0.5")
 }
 
@@ -221,7 +221,7 @@ export interface FeatureDetail {
   explanation_method: string
   llm_explainer: string
   llm_scorer: string
-  feature_splitting: number
+  decoder_similarity: number
   semsim_mean: number
   semsim_max: number
   scores: {
@@ -259,7 +259,7 @@ export interface ErrorStates {
 }
 
 export type MetricType =
-  | typeof METRIC_FEATURE_SPLITTING
+  | typeof METRIC_DECODER_SIMILARITY
   | typeof METRIC_SEMANTIC_SIMILARITY
   | typeof METRIC_SCORE_FUZZ
   | typeof METRIC_SCORE_DETECTION
@@ -267,7 +267,7 @@ export type MetricType =
 
 export type NodeCategory =
   | typeof CATEGORY_ROOT
-  | typeof CATEGORY_FEATURE_SPLITTING
+  | typeof CATEGORY_DECODER_SIMILARITY
   | typeof CATEGORY_SEMANTIC_SIMILARITY
 
 // ============================================================================
@@ -436,7 +436,7 @@ export interface ExplainerScoreData {
 
 export interface FeatureTableRow {
   feature_id: number
-  feature_splitting?: number | null  // Feature splitting cosine similarity score (same across all explainers)
+  decoder_similarity?: number | null  // Decoder similarity cosine similarity score (same across all explainers)
   explainers: Record<string, ExplainerScoreData>
 }
 
@@ -470,7 +470,7 @@ export type SortBy =
   | typeof METRIC_SCORE_DETECTION
   | typeof METRIC_SCORE_FUZZ
   | typeof METRIC_SCORE_EMBEDDING
-  | typeof METRIC_FEATURE_SPLITTING
+  | typeof METRIC_DECODER_SIMILARITY
   | typeof METRIC_SEMANTIC_SIMILARITY
   | null
 
@@ -528,7 +528,7 @@ export interface MetricRange {
  * Defines acceptable ranges for each metric
  */
 export interface MetricSignature {
-  feature_splitting: MetricRange       // SAE decoder similarity (low=good, high=over-split)
+  decoder_similarity: MetricRange       // SAE decoder similarity (low=good, high=over-split)
   embedding: MetricRange                // Explanation-activation alignment
   fuzz: MetricRange                     // Robustness to perturbations
   detection: MetricRange                // Predictive utility
@@ -542,7 +542,7 @@ export interface MetricSignature {
  * Typically auto-inferred from signature ranges (tighter range = higher weight)
  */
 export interface MetricWeights {
-  feature_splitting: number
+  decoder_similarity: number
   embedding: number
   fuzz: number
   detection: number
@@ -580,7 +580,7 @@ export interface FeatureMatch {
   distance: number                      // Weighted distance in metric space
   score: number                         // Similarity score (0-1, higher=better)
   metricValues: {                       // Actual metric values for this feature
-    feature_splitting: number
+    decoder_similarity: number
     embedding: number
     fuzz: number
     detection: number

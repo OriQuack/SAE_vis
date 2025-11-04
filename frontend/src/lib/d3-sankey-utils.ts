@@ -7,7 +7,7 @@ import type {
 } from '../types'
 import {
   CATEGORY_ROOT,
-  CATEGORY_FEATURE_SPLITTING,
+  CATEGORY_DECODER_SIMILARITY,
   CATEGORY_SEMANTIC_SIMILARITY,
   getMetricBaseColor
 } from './constants'
@@ -58,7 +58,7 @@ export const DEFAULT_ANIMATION = {
 
 export const SANKEY_COLORS: Record<NodeCategory, string> = {
   [CATEGORY_ROOT]: '#d1d5db',
-  [CATEGORY_FEATURE_SPLITTING]: '#9ca3af',
+  [CATEGORY_DECODER_SIMILARITY]: '#9ca3af',
   [CATEGORY_SEMANTIC_SIMILARITY]: '#6b7280'
 } as const
 
@@ -72,7 +72,7 @@ export const MIN_CONTAINER_HEIGHT = 250
 // Category display names
 const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
   [CATEGORY_ROOT]: 'All Features',
-  [CATEGORY_FEATURE_SPLITTING]: 'Feature Splitting',
+  [CATEGORY_DECODER_SIMILARITY]: 'Decoder Similarity',
   [CATEGORY_SEMANTIC_SIMILARITY]: 'Semantic Similarity'
 } as const
 
@@ -109,8 +109,8 @@ function extractParentId(nodeId: string): string {
  */
 function getCategorySortOrder(nodeId: string, category: string): number {
   switch (category) {
-    case CATEGORY_FEATURE_SPLITTING:
-      // feature_splitting_0 (False) before feature_splitting_1 (True)
+    case CATEGORY_DECODER_SIMILARITY:
+      // decoder_similarity_0 (False) before decoder_similarity_1 (True)
       return nodeId.includes('_0') ? 0 : 1
 
     case CATEGORY_SEMANTIC_SIMILARITY:
