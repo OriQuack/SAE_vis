@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react'
-import type { ActivationExamples } from '../types'
+import type { ActivationExamples, QuantileExample } from '../types'
 import {
   buildActivationTokens,
   getActivationColor,
@@ -10,6 +10,41 @@ import '../styles/ActivationExample.css'
 interface ActivationExampleProps {
   examples: ActivationExamples
   compact?: boolean  // Kept for backwards compatibility but not used
+}
+
+/**
+ * Determine which n-gram type to use for underlining based on Jaccard scores
+ * Only underline for Lexical or Both pattern types (not None or Semantic)
+ */
+const getNgramUnderlineType = (examples: ActivationExamples): 'char' | 'word' | null => {
+  // Only show underlines for Lexical or Both patterns
+  const patternType = examples.pattern_type.toLowerCase()
+  if (patternType === 'none' || patternType === 'semantic') {
+    return null
+  }
+
+  const charJaccard = examples.char_ngram_max_jaccard || 0
+  const wordJaccard = examples.word_ngram_max_jaccard || 0
+
+  if (charJaccard === 0 && wordJaccard === 0) return null
+  return charJaccard >= wordJaccard ? 'char' : 'word'
+}
+
+/**
+ * Check if a token should be underlined based on n-gram positions
+ */
+const shouldUnderlineToken = (
+  tokenPosition: number,
+  example: QuantileExample,
+  underlineType: 'char' | 'word' | null
+): boolean => {
+  if (!underlineType) return false
+
+  if (underlineType === 'char') {
+    return example.char_ngram_positions?.some(pos => pos.token_position === tokenPosition) || false
+  } else {
+    return example.word_ngram_positions?.includes(tokenPosition) || false
+  }
 }
 
 // Helper function to generate appropriate whitespace symbol
@@ -71,6 +106,9 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
     )
   }, [examples.quantile_examples])
 
+  // Determine which n-gram type to underline (char vs word)
+  const underlineType = useMemo(() => getNgramUnderlineType(examples), [examples])
+
   return (
     <div
       ref={containerRef}
@@ -95,27 +133,40 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
             className="activation-example__quantile"
           >
             {hasLeftEllipsis && <span className="activation-example__ellipsis">...</span>}
-            {displayTokens.map((token, tokenIdx) => (
-              <span
-                key={tokenIdx}
-                className={`activation-token ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''}`}
-                style={{
-                  backgroundColor: token.activation_value
-                    ? getActivationColor(token.activation_value, example.max_activation)
-                    : 'transparent'
-                }}
-                title={token.activation_value?.toFixed(3) || 'No activation'}
-              >
-                {token.is_newline ? (
-                  <>
-                    <span className="newline-symbol">{getWhitespaceSymbol(token.text)}</span>
-                    <span className="newline-actual">{token.text}</span>
-                  </>
-                ) : (
-                  token.text
-                )}
-              </span>
-            ))}
+            {displayTokens.map((token, tokenIdx) => {
+              const hasUnderline = shouldUnderlineToken(token.position, example, underlineType)
+
+              // Build title with activation and n-gram info
+              let title = token.activation_value?.toFixed(3) || 'No activation'
+              if (hasUnderline) {
+                const ngramText = underlineType === 'char'
+                  ? examples.top_char_ngram_text
+                  : examples.top_word_ngram_text
+                title += `\nN-gram pattern: "${ngramText}"`
+              }
+
+              return (
+                <span
+                  key={tokenIdx}
+                  className={`activation-token ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${hasUnderline ? 'activation-token--ngram-underline' : ''}`}
+                  style={{
+                    backgroundColor: token.activation_value
+                      ? getActivationColor(token.activation_value, example.max_activation)
+                      : 'transparent'
+                  }}
+                  title={title}
+                >
+                  {token.is_newline ? (
+                    <>
+                      <span className="newline-symbol">{getWhitespaceSymbol(token.text)}</span>
+                      <span className="newline-actual">{token.text}</span>
+                    </>
+                  ) : (
+                    token.text
+                  )}
+                </span>
+              )
+            })}
             {hasRightEllipsis && <span className="activation-example__ellipsis">...</span>}
           </div>
         )
@@ -133,27 +184,40 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
 
                   return (
                     <div key={exIdx} className="activation-example__popover-row">
-                      {tokens.map((token, tokenIdx) => (
-                        <span
-                          key={tokenIdx}
-                          className={`activation-token ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''}`}
-                          style={{
-                            backgroundColor: token.activation_value
-                              ? getActivationColor(token.activation_value, example.max_activation)
-                              : 'transparent'
-                          }}
-                          title={token.activation_value?.toFixed(3) || 'No activation'}
-                        >
-                          {token.is_newline ? (
-                            <>
-                              <span className="newline-symbol">{getWhitespaceSymbol(token.text)}</span>
-                              <span className="newline-actual">{token.text}</span>
-                            </>
-                          ) : (
-                            token.text
-                          )}
-                        </span>
-                      ))}
+                      {tokens.map((token, tokenIdx) => {
+                        const hasUnderline = shouldUnderlineToken(token.position, example, underlineType)
+
+                        // Build title with activation and n-gram info
+                        let title = token.activation_value?.toFixed(3) || 'No activation'
+                        if (hasUnderline) {
+                          const ngramText = underlineType === 'char'
+                            ? examples.top_char_ngram_text
+                            : examples.top_word_ngram_text
+                          title += `\nN-gram pattern: "${ngramText}"`
+                        }
+
+                        return (
+                          <span
+                            key={tokenIdx}
+                            className={`activation-token ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${hasUnderline ? 'activation-token--ngram-underline' : ''}`}
+                            style={{
+                              backgroundColor: token.activation_value
+                                ? getActivationColor(token.activation_value, example.max_activation)
+                                : 'transparent'
+                            }}
+                            title={title}
+                          >
+                            {token.is_newline ? (
+                              <>
+                                <span className="newline-symbol">{getWhitespaceSymbol(token.text)}</span>
+                                <span className="newline-actual">{token.text}</span>
+                              </>
+                            ) : (
+                              token.text
+                            )}
+                          </span>
+                        )
+                      })}
                     </div>
                   )
                 })}

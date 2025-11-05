@@ -442,3 +442,74 @@ class FeatureGroupResponse(BaseModel):
     metric: str = Field(..., description="Metric used for grouping")
     groups: List[FeatureGroup] = Field(..., description="Feature groups created by threshold ranges")
     total_features: int = Field(..., ge=0, description="Total unique features after filtering")
+
+# Activation Examples Models (Dual N-gram Architecture)
+
+class CharNgramPosition(BaseModel):
+    """Position of a character n-gram within a token"""
+    token_position: int = Field(..., description="Token index in the prompt")
+    char_offset: int = Field(..., description="Character offset within the normalized token (0-indexed)")
+
+class ActivationPair(BaseModel):
+    """Token activation value pair"""
+    token_position: int = Field(..., description="Token index in the prompt")
+    activation_value: float = Field(..., description="Activation strength at this position")
+
+class QuantileExample(BaseModel):
+    """Single activation example from a quantile"""
+    quantile_index: int = Field(..., ge=0, le=3, description="Quantile group (0-3) based on activation strength")
+    prompt_id: int = Field(..., description="Prompt identifier")
+    prompt_tokens: List[str] = Field(..., description="Token array with '▁' prefix stripped")
+    activation_pairs: List[ActivationPair] = Field(..., description="List of (token_position, activation_value) pairs")
+    max_activation: float = Field(..., description="Maximum activation value for this example")
+    max_activation_position: int = Field(..., description="Token position of maximum activation")
+    char_ngram_positions: List[CharNgramPosition] = Field(
+        ...,
+        description="List of {token_position, char_offset} where top char n-gram appears (enables precise character-level highlighting within token)"
+    )
+    word_ngram_positions: List[int] = Field(
+        ...,
+        description="Token positions where top word n-gram starts (for word-level highlighting)"
+    )
+
+class ActivationExampleData(BaseModel):
+    """Activation example data with dual n-gram metrics"""
+    quantile_examples: List[QuantileExample] = Field(
+        ...,
+        description="Pre-organized activation examples (8 total, 2 per quantile)"
+    )
+    semantic_similarity: float = Field(
+        ...,
+        description="Average pairwise semantic similarity"
+    )
+    char_ngram_max_jaccard: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Jaccard similarity for the most frequent character n-gram"
+    )
+    word_ngram_max_jaccard: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Jaccard similarity for the most frequent word n-gram"
+    )
+    top_char_ngram_text: Optional[str] = Field(
+        None,
+        description="The actual character n-gram text (e.g., 'ing')"
+    )
+    top_word_ngram_text: Optional[str] = Field(
+        None,
+        description="The actual word n-gram text (e.g., 'observation')"
+    )
+    pattern_type: str = Field(
+        ...,
+        description="Pattern classification: Semantic, Lexical, Both, or None (uses char OR word Jaccard > 0.3)"
+    )
+
+class ActivationExamplesResponse(BaseModel):
+    """Response model for activation examples endpoint (dual n-gram architecture)"""
+    examples: Dict[int, ActivationExampleData] = Field(
+        ...,
+        description="Dictionary mapping feature_id to activation example data"
+    )

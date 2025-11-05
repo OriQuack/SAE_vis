@@ -450,13 +450,17 @@ export interface FeatureTableRow {
 // ============================================================================
 
 /**
- * Activation examples for a feature with similarity-based pattern categorization
+ * Activation examples for a feature with dual n-gram pattern analysis
  */
 export interface ActivationExamples {
   quantile_examples: QuantileExample[]  // 4 quantiles (Q1-Q4)
   semantic_similarity: number           // Average pairwise semantic similarity (0-1)
-  max_jaccard: number                  // Maximum Jaccard similarity across n-grams (0-1)
-  pattern_type: 'None' | 'Semantic' | 'Lexical'  // Pattern categorization
+  // Dual n-gram fields (character + word patterns)
+  char_ngram_max_jaccard: number       // Character n-gram Jaccard similarity (0-1)
+  word_ngram_max_jaccard: number       // Word n-gram Jaccard similarity (0-1)
+  top_char_ngram_text: string | null   // Most frequent character n-gram (e.g., "ing")
+  top_word_ngram_text: string | null   // Most frequent word n-gram (e.g., "observation")
+  pattern_type: string                 // Pattern categorization: 'None' | 'Semantic' | 'Lexical' | 'Both'
 }
 
 /**
@@ -472,6 +476,12 @@ export interface QuantileExample {
   }>
   max_activation: number
   max_activation_position: number      // Where to center highlighting
+  // Dual n-gram position data for precise highlighting
+  char_ngram_positions: Array<{
+    token_position: number             // Token index containing the n-gram
+    char_offset: number                // Character offset within the token
+  }>
+  word_ngram_positions: number[]       // Token positions where word n-grams start
 }
 
 /**

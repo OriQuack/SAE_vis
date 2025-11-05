@@ -1,5 +1,5 @@
 {
-  "created_at": "2025-11-04T00:31:43.074287",
+  "created_at": "2025-11-06T00:05:28.197753",
   "script_version": "1.0",
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
   "total_rows": 16384,
@@ -12,12 +12,12 @@
   "processing_stats": {
     "features_processed": 16384,
     "features_with_no_activations": 1,
-    "total_examples_embedded": 309969,
-    "total_embeddings_generated": 309969
+    "total_examples_embedded": 130594,
+    "total_embeddings_generated": 130594
   },
   "result_stats": {
     "features_with_embeddings": 16383,
-    "mean_examples_per_feature": 18.91900634765625,
+    "mean_examples_per_feature": 7.9708251953125,
     "embedding_dimension": 768
   },
   "config_used": {
@@ -26,8 +26,8 @@
     "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
     "processing_parameters": {
       "num_quantiles": 4,
-      "examples_per_quantile": 5,
-      "target_examples_per_feature": 20,
+      "examples_per_quantile": 2,
+      "target_examples_per_feature": 8,
       "token_window_size": 32
     },
     "model_parameters": {
@@ -59,8 +59,8 @@
     },
     "performance_notes": {
       "embedding_dimension": 768,
-      "expected_embeddings_per_feature": 20,
-      "total_expected_embeddings": 327680,
+      "expected_embeddings_per_feature": 8,
+      "total_expected_embeddings": 131072,
       "batch_processing": true,
       "downstream_consumers": [
         "9_activation_example_similarity.py"

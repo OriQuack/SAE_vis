@@ -3,11 +3,47 @@
   "activation_similarity_path": "data/master/activation_example_similarity.parquet",
   "output_path": "data/master/activation_display.parquet",
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
+
+  "description": "Configuration for creating optimized activation display data with dual n-gram pattern classification",
+
   "processing_parameters": {
     "pattern_threshold": 0.3,
     "token_processing": {
       "remove_leading_underscore": true,
       "join_tokens": true
     }
+  },
+
+  "schema_info": {
+    "table_name": "activation_display",
+    "version": "2.0",
+    "field_descriptions": {
+      "feature_id": "SAE feature index",
+      "sae_id": "SAE model identifier",
+      "pattern_type": "Pattern classification: Semantic, Lexical, Both, or None (uses char OR word Jaccard > 0.3)",
+      "semantic_similarity": "Average pairwise semantic similarity",
+      "char_ngram_max_jaccard": "Jaccard similarity for the most frequent character n-gram",
+      "word_ngram_max_jaccard": "Jaccard similarity for the most frequent word n-gram",
+      "top_char_ngram_text": "The actual character n-gram text (e.g., 'ing')",
+      "top_word_ngram_text": "The actual word n-gram text (e.g., 'observation')",
+      "quantile_examples": "Pre-organized activation examples (8 total, 2 per quantile) with token positions for n-gram highlighting"
+    },
+    "quantile_example_fields": {
+      "quantile_index": "Quantile group (0-3) based on activation strength",
+      "prompt_id": "Prompt identifier",
+      "prompt_tokens": "Token array with '▁' prefix stripped",
+      "activation_pairs": "List of (token_position, activation_value) pairs",
+      "max_activation": "Maximum activation value",
+      "max_activation_position": "Token position of max activation",
+      "char_ngram_positions": "List of {token_position, char_offset} where top char n-gram appears (enables precise character-level highlighting within token)",
+      "word_ngram_positions": "Token positions where top word n-gram starts (for word-level highlighting)"
+    }
+  },
+
+  "processing_notes": {
+    "expected_output_rows": 824,
+    "pattern_classification": "Lexical pattern = (char_jaccard > 0.3) OR (word_jaccard > 0.3)",
+    "optimization": "Feature-level organization reduces load time from ~5s to ~20ms",
+    "frontend_usage": "Positions enable visual highlighting of n-gram patterns in token display"
   }
 }

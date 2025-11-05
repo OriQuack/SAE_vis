@@ -5,7 +5,9 @@ Preprocessing Script: Calculate Activation Example Similarity Metrics
 This script analyzes activation examples to compute similarity metrics based on
 quantile-sampled prompts for each SAE feature. It calculates two key metrics:
 1. Pairwise semantic similarity across 32-token windows
-2. Character n-gram patterns in 5-token windows
+2. Dual n-gram patterns:
+   - Character n-grams in 3-token windows (morphology: suffixes, prefixes)
+   - Word n-grams in 11-token windows (semantics: reconstructed words)
 
 Input:
 - activation_examples.parquet: Structured parquet with activation data
@@ -16,16 +18,17 @@ Output:
 
 Features:
 - Quantile-based sampling (4 quantiles, 2 examples each)
+- Dual window sizes for char (3 tokens) and word (11 tokens) n-grams
 - Native Polars nested types for structured data
 - Batch processing for efficiency
 - Comprehensive progress tracking
 
 Usage:
-    python 9_activation_example_similarity.py [--config CONFIG_PATH] [--limit N]
+    python 5_act_similarity.py [--config CONFIG_PATH] [--limit N]
 
 Example:
-    python 9_activation_example_similarity.py
-    python 9_activation_example_similarity.py --limit 100  # Test on 100 features
+    python 5_act_similarity.py
+    python 5_act_similarity.py --limit 100  # Test on 100 features
 """
 
 import json
@@ -73,7 +76,8 @@ def load_config(config_path: Optional[str] = None) -> Dict:
             "examples_per_quantile": 2,
             "target_examples_per_feature": 8,
             "token_window_size": 32,
-            "ngram_window_size": 5,
+            "char_ngram_window_size": 3,
+            "word_ngram_window_size": 11,
             "ngram_sizes": [2, 3, 4],
             "min_ngram_occurrences": 2
         }
@@ -250,6 +254,48 @@ class ActivationSimilarityProcessor:
         end = min(len(tokens), center_pos + half_window)
         return tokens[start:end]
 
+    def _normalize_token(self, token: str) -> str:
+        """Strip SentencePiece '▁' prefix from token.
+
+        Args:
+            token: Token string (may have '▁' prefix)
+
+        Returns:
+            Token without '▁' prefix
+        """
+        return token.lstrip('▁')
+
+    def _reconstruct_words(self, tokens: List[str]) -> List[str]:
+        """Reconstruct full words by joining subword tokens.
+
+        Args:
+            tokens: List of token strings with '▁' marking word boundaries
+
+        Returns:
+            List of reconstructed words (tokens with '▁' start new words)
+        """
+        if not tokens:
+            return []
+
+        words = []
+        current_word = ""
+
+        for token in tokens:
+            if token.startswith('▁'):
+                # New word boundary
+                if current_word:
+                    words.append(current_word)
+                current_word = self._normalize_token(token)
+            else:
+                # Continuation of previous word
+                current_word += token
+
+        # Add last word
+        if current_word:
+            words.append(current_word)
+
+        return words
+
     def _compute_pairwise_semantic_similarity(self, feature_id: int, examples: List[Tuple]) -> Optional[float]:
         """Compute average pairwise cosine similarity using pre-computed embeddings.
 
@@ -325,12 +371,74 @@ class ActivationSimilarityProcessor:
             return []
         return [text[i:i+n] for i in range(len(text) - n + 1)]
 
+    def _extract_token_char_ngrams(self, tokens: List[str], ngram_sizes: List[int]) -> Dict[str, List[Tuple[int, str, int]]]:
+        """Extract character n-grams from individual tokens (not concatenated).
+
+        Args:
+            tokens: List of token strings
+            ngram_sizes: List of n-gram sizes to extract
+
+        Returns:
+            Dict mapping n-gram → [(token_index, token_text, char_offset), ...]
+            where char_offset is the starting position of the n-gram within the normalized token
+        """
+        from collections import defaultdict
+        ngram_map = defaultdict(list)
+
+        for token_idx, token in enumerate(tokens):
+            # Normalize token (strip '▁' prefix)
+            token_normalized = self._normalize_token(token).lower()
+
+            # Skip very short tokens
+            if len(token_normalized) < 2:
+                continue
+
+            # Extract character n-grams within this token
+            for ngram_size in ngram_sizes:
+                if len(token_normalized) >= ngram_size:
+                    for i in range(len(token_normalized) - ngram_size + 1):
+                        ngram = token_normalized[i:i+ngram_size]
+                        # Store: (token_index, original_token_text, char_offset)
+                        ngram_map[ngram].append((token_idx, token, i))
+
+        return dict(ngram_map)
+
+    def _extract_word_ngrams(self, tokens: List[str], ngram_sizes: List[int]) -> Dict[str, List[int]]:
+        """Extract word-level n-grams by reconstructing full words from subword tokens.
+
+        Args:
+            tokens: List of token strings
+            ngram_sizes: List of word n-gram sizes (1=unigram, 2=bigram, etc.)
+
+        Returns:
+            Dict mapping word_ngram → [start_positions]
+        """
+        from collections import defaultdict
+
+        # First, reconstruct full words
+        words = self._reconstruct_words(tokens)
+
+        if not words:
+            return {}
+
+        word_ngram_map = defaultdict(list)
+
+        # Extract word n-grams
+        for ngram_size in ngram_sizes:
+            if len(words) >= ngram_size:
+                for i in range(len(words) - ngram_size + 1):
+                    # Create word n-gram (space-separated, lowercase)
+                    word_ngram = " ".join([w.lower() for w in words[i:i+ngram_size]])
+                    word_ngram_map[word_ngram].append(i)
+
+        return dict(word_ngram_map)
+
     def _compute_jaccard_ngram_similarity(self, examples: List[Tuple], ngram_size: int) -> Optional[float]:
-        """Compute average pairwise Jaccard similarity for n-grams.
+        """Compute average pairwise Jaccard similarity for character n-grams (per-token).
 
         Args:
             examples: List of (prompt_id, max_activation, prompt_tokens, max_token_pos)
-            ngram_size: Size of n-grams (2, 3, or 4)
+            ngram_size: Size of n-grams (2, 3, 4, or 5)
 
         Returns:
             Average Jaccard similarity or None if <2 examples
@@ -338,14 +446,17 @@ class ActivationSimilarityProcessor:
         if len(examples) < 2:
             return None
 
-        ngram_window = self.proc_params["ngram_window_size"]
+        # Use character n-gram window size (default: 3)
+        char_ngram_window = self.proc_params.get("char_ngram_window_size", self.proc_params.get("ngram_window_size", 5))
 
-        # Extract n-grams for each example
+        # Extract character n-grams per token for each example
         example_ngrams = []
         for _, _, tokens, max_pos in examples:
-            window_tokens = self._extract_token_window(tokens, max_pos, ngram_window)
-            window_text = "".join(window_tokens)
-            ngrams = set(self._extract_character_ngrams(window_text, ngram_size))
+            window_tokens = self._extract_token_window(tokens, max_pos, char_ngram_window)
+            # Use per-token extraction with '▁' prefix stripping
+            token_ngrams = self._extract_token_char_ngrams(window_tokens, [ngram_size])
+            # Get unique n-grams of this size
+            ngrams = set(ng for ng in token_ngrams.keys() if len(ng) == ngram_size)
             example_ngrams.append(ngrams)
 
         # Compute pairwise Jaccard similarities
@@ -374,56 +485,185 @@ class ActivationSimilarityProcessor:
 
         return float(np.mean(pairwise_jaccards))
 
-    def _compute_ngram_analysis(self, examples: List[Tuple]) -> List[Dict]:
-        """Compute TOP n-gram per size with per-prompt positions.
+    def _compute_specific_ngram_jaccard(self, examples: List[Tuple], ngram_text: str, is_word: bool = False) -> Optional[float]:
+        """Compute pairwise Jaccard similarity for ONE specific n-gram.
+
+        Args:
+            examples: List of (prompt_id, max_activation, prompt_tokens, max_token_pos)
+            ngram_text: The specific n-gram to compute Jaccard for
+            is_word: If True, treat as word n-gram; if False, treat as char n-gram
+
+        Returns:
+            Average pairwise Jaccard similarity or None if <2 examples
+        """
+        if len(examples) < 2:
+            return None
+
+        # Use appropriate window size based on n-gram type
+        if is_word:
+            ngram_window = self.proc_params.get("word_ngram_window_size", self.proc_params.get("ngram_window_size", 5))
+        else:
+            ngram_window = self.proc_params.get("char_ngram_window_size", self.proc_params.get("ngram_window_size", 5))
+
+        # Extract whether each example contains this n-gram
+        example_has_ngram = []
+
+        for _, _, tokens, max_pos in examples:
+            window_tokens = self._extract_token_window(tokens, max_pos, ngram_window)
+
+            has_ngram = False
+            if is_word:
+                # Word n-gram: reconstruct words and check for phrase
+                word_ngrams = self._extract_word_ngrams(window_tokens, [len(ngram_text.split())])
+                has_ngram = ngram_text in word_ngrams
+            else:
+                # Char n-gram: extract from tokens
+                token_ngrams = self._extract_token_char_ngrams(window_tokens, [len(ngram_text)])
+                has_ngram = ngram_text in token_ngrams
+
+            example_has_ngram.append(has_ngram)
+
+        # Compute pairwise Jaccard (treating as binary: has or doesn't have)
+        n = len(example_has_ngram)
+        pairwise_jaccards = []
+
+        for i in range(n):
+            for j in range(i + 1, n):
+                has_i = example_has_ngram[i]
+                has_j = example_has_ngram[j]
+
+                if has_i and has_j:
+                    # Both have it: perfect match
+                    jaccard = 1.0
+                elif not has_i and not has_j:
+                    # Both don't have it: no similarity
+                    jaccard = 0.0
+                else:
+                    # One has, one doesn't: no similarity
+                    jaccard = 0.0
+
+                pairwise_jaccards.append(jaccard)
+
+        if not pairwise_jaccards:
+            return None
+
+        return float(np.mean(pairwise_jaccards))
+
+    def _compute_ngram_analysis(self, examples: List[Tuple]) -> Dict[str, List[Dict]]:
+        """Compute dual-level n-gram analysis: character (per-token) and word-level.
 
         Args:
             examples: List of (prompt_id, max_activation, prompt_tokens, max_token_pos)
 
         Returns:
-            List of dicts with top n-gram per size
+            Dict with "char_ngrams" and "word_ngrams" lists
         """
         if len(examples) == 0:
-            return []
+            return {"char_ngrams": [], "word_ngrams": []}
 
-        ngram_window = self.proc_params["ngram_window_size"]
-        ngram_sizes = self.proc_params["ngram_sizes"]
+        from collections import defaultdict
 
-        result = []
+        # Use separate window sizes for char and word n-grams
+        char_ngram_window = self.proc_params.get("char_ngram_window_size", self.proc_params.get("ngram_window_size", 5))
+        word_ngram_window = self.proc_params.get("word_ngram_window_size", self.proc_params.get("ngram_window_size", 5))
 
-        for ngram_size in ngram_sizes:
-            # Collect n-grams with (prompt_id, position) metadata
-            from collections import defaultdict
-            ngram_occurrences = defaultdict(list)
+        # Get n-gram sizes from config (with fallback to old param)
+        char_ngram_sizes = self.proc_params.get("char_ngram_sizes", self.proc_params.get("ngram_sizes", [2, 3, 4]))
+        word_ngram_sizes = self.proc_params.get("word_ngram_sizes", [1, 2, 3])
 
-            for prompt_id, _, tokens, max_pos in examples:
-                window_tokens = self._extract_token_window(tokens, max_pos, ngram_window)
-                window_text = "".join(window_tokens)
-                ngrams = self._extract_character_ngrams(window_text, ngram_size)
+        # Character n-gram analysis (per-token) with char_ngram_window
+        char_ngram_occurrences = defaultdict(list)
 
-                for ngram in ngrams:
-                    ngram_occurrences[ngram].append((prompt_id, max_pos))
+        for prompt_id, _, tokens, max_pos in examples:
+            window_tokens = self._extract_token_window(tokens, max_pos, char_ngram_window)
+            token_ngrams = self._extract_token_char_ngrams(window_tokens, char_ngram_sizes)
 
-            # Find most frequent n-gram
-            if ngram_occurrences:
-                top_ngram_str, occurrences = max(ngram_occurrences.items(), key=lambda x: len(x[1]))
+            for ngram, token_list in token_ngrams.items():
+                for token_idx, token_text, char_offset in token_list:
+                    char_ngram_occurrences[ngram].append({
+                        "prompt_id": prompt_id,
+                        "token_position": max_pos - char_ngram_window//2 + token_idx,
+                        "token_text": token_text,
+                        "char_offset": char_offset,
+                        "ngram_size": len(ngram)
+                    })
 
-                # Group by prompt_id
-                per_prompt = defaultdict(list)
-                for pid, pos in occurrences:
-                    per_prompt[pid].append(pos)
-
-                result.append({
-                    "ngram": top_ngram_str,
-                    "ngram_size": ngram_size,
+        # Find top character n-gram per size
+        top_char_ngrams = []
+        for size in char_ngram_sizes:
+            size_ngrams = {ng: occ for ng, occ in char_ngram_occurrences.items() if len(ng) == size}
+            if size_ngrams:
+                top_ngram, occurrences = max(size_ngrams.items(), key=lambda x: len(x[1]))
+                top_char_ngrams.append({
+                    "ngram": top_ngram,
+                    "ngram_size": size,
                     "count": len(occurrences),
-                    "occurrences": [
-                        {"prompt_id": int(pid), "positions": [int(p) for p in positions]}
-                        for pid, positions in per_prompt.items()
-                    ]
+                    "occurrences": occurrences[:20]  # Limit for storage
                 })
 
-        return result
+        # Word n-gram analysis with word_ngram_window
+        word_ngram_occurrences = defaultdict(list)
+
+        for prompt_id, _, tokens, max_pos in examples:
+            window_tokens = self._extract_token_window(tokens, max_pos, word_ngram_window)
+            word_ngrams = self._extract_word_ngrams(window_tokens, word_ngram_sizes)
+
+            for word_ngram, positions in word_ngrams.items():
+                for pos in positions:
+                    word_ngram_occurrences[word_ngram].append({
+                        "prompt_id": prompt_id,
+                        "start_position": max_pos - word_ngram_window//2 + pos,
+                        "ngram_size": len(word_ngram.split())
+                    })
+
+        # Find top word n-gram per size
+        top_word_ngrams = []
+        for size in word_ngram_sizes:
+            size_ngrams = {ng: occ for ng, occ in word_ngram_occurrences.items()
+                          if len(ng.split()) == size}
+            if size_ngrams:
+                top_ngram, occurrences = max(size_ngrams.items(), key=lambda x: len(x[1]))
+                top_word_ngrams.append({
+                    "ngram": top_ngram,
+                    "ngram_size": size,
+                    "count": len(occurrences),
+                    "occurrences": occurrences[:20]  # Limit for storage
+                })
+
+        # Find OVERALL top char n-gram (across all sizes)
+        overall_top_char = None
+        if char_ngram_occurrences:
+            top_char_ngram, top_char_occurrences = max(
+                char_ngram_occurrences.items(),
+                key=lambda x: len(x[1])
+            )
+            overall_top_char = {
+                "ngram": top_char_ngram,
+                "ngram_size": len(top_char_ngram),
+                "count": len(top_char_occurrences),
+                "occurrences": top_char_occurrences  # Keep all for script 6
+            }
+
+        # Find OVERALL top word n-gram (across all sizes)
+        overall_top_word = None
+        if word_ngram_occurrences:
+            top_word_ngram, top_word_occurrences = max(
+                word_ngram_occurrences.items(),
+                key=lambda x: len(x[1])
+            )
+            overall_top_word = {
+                "ngram": top_word_ngram,
+                "ngram_size": len(top_word_ngram.split()),
+                "count": len(top_word_occurrences),
+                "occurrences": top_word_occurrences  # Keep all for script 6
+            }
+
+        return {
+            "char_ngrams": top_char_ngrams,
+            "word_ngrams": top_word_ngrams,
+            "top_char": overall_top_char,
+            "top_word": overall_top_word
+        }
 
     def process_feature(self, feature_id: int, feature_df: pl.DataFrame) -> Dict[str, Any]:
         """Process a single feature to compute all similarity metrics.
@@ -449,9 +689,14 @@ class ActivationSimilarityProcessor:
                 "prompt_ids_analyzed": prompt_ids,
                 "num_total_activations": num_total_activations,
                 "avg_pairwise_semantic_similarity": None,
-                "top_common_ngrams": [],
+                "top_char_ngrams": [],
+                "top_word_ngrams": [],
+                "top_char_ngram": None,
+                "top_word_ngram": None,
+                "top_char_ngram_jaccard": None,
+                "top_word_ngram_jaccard": None,
                 "quantile_boundaries": [],
-                "ngram_jaccard_similarity": [None, None, None]
+                "ngram_jaccard_similarity": [None, None, None, None]
             }
 
         if len(examples) < self.proc_params["target_examples_per_feature"]:
@@ -464,19 +709,42 @@ class ActivationSimilarityProcessor:
         if semantic_sim is not None:
             self.stats["semantic_similarity_computed"] += 1
 
-        # Compute Jaccard similarity for each n-gram size
+        # Compute Jaccard similarity for each n-gram size (2-5 chars)
         ngram_jaccard_list = [
             self._compute_jaccard_ngram_similarity(examples, 2),
             self._compute_jaccard_ngram_similarity(examples, 3),
-            self._compute_jaccard_ngram_similarity(examples, 4)
+            self._compute_jaccard_ngram_similarity(examples, 4),
+            self._compute_jaccard_ngram_similarity(examples, 5)
         ]
         if any(j is not None for j in ngram_jaccard_list):
             self.stats["ngram_jaccard_computed"] += 1
 
-        # Get top common n-grams (simplified)
-        top_ngrams = self._compute_ngram_analysis(examples)
-        if len(top_ngrams) > 0:
+        # Get dual-level n-grams (char + word)
+        ngram_results = self._compute_ngram_analysis(examples)
+        top_char_ngrams = ngram_results.get("char_ngrams", [])
+        top_word_ngrams = ngram_results.get("word_ngrams", [])
+        overall_top_char = ngram_results.get("top_char")
+        overall_top_word = ngram_results.get("top_word")
+
+        if len(top_char_ngrams) > 0 or len(top_word_ngrams) > 0:
             self.stats["ngram_analysis_computed"] += 1
+
+        # Compute Jaccard for the OVERALL top n-grams
+        top_char_ngram_jaccard = None
+        if overall_top_char:
+            top_char_ngram_jaccard = self._compute_specific_ngram_jaccard(
+                examples,
+                overall_top_char["ngram"],
+                is_word=False
+            )
+
+        top_word_ngram_jaccard = None
+        if overall_top_word:
+            top_word_ngram_jaccard = self._compute_specific_ngram_jaccard(
+                examples,
+                overall_top_word["ngram"],
+                is_word=True
+            )
 
         # Calculate quantile boundaries
         activations = [ex[1] for ex in examples]
@@ -493,7 +761,12 @@ class ActivationSimilarityProcessor:
             "prompt_ids_analyzed": prompt_ids,
             "num_total_activations": num_total_activations,
             "avg_pairwise_semantic_similarity": semantic_sim,
-            "top_common_ngrams": top_ngrams,
+            "top_char_ngrams": top_char_ngrams,
+            "top_word_ngrams": top_word_ngrams,
+            "top_char_ngram": overall_top_char,
+            "top_word_ngram": overall_top_word,
+            "top_char_ngram_jaccard": top_char_ngram_jaccard,
+            "top_word_ngram_jaccard": top_word_ngram_jaccard,
             "quantile_boundaries": q_boundaries,
             "ngram_jaccard_similarity": ngram_jaccard_list
         }
@@ -581,15 +854,62 @@ class ActivationSimilarityProcessor:
             "prompt_ids_analyzed": pl.List(pl.UInt32),
             "num_total_activations": pl.UInt32,
             "avg_pairwise_semantic_similarity": pl.Float32,
-            "top_common_ngrams": pl.List(pl.Struct([
+
+            # Character-level n-grams (per-token)
+            "top_char_ngrams": pl.List(pl.Struct([
                 pl.Field("ngram", pl.Utf8),
                 pl.Field("ngram_size", pl.UInt8),
                 pl.Field("count", pl.UInt16),
                 pl.Field("occurrences", pl.List(pl.Struct([
                     pl.Field("prompt_id", pl.UInt32),
-                    pl.Field("positions", pl.List(pl.UInt16))
+                    pl.Field("token_position", pl.UInt16),
+                    pl.Field("token_text", pl.Utf8),
+                    pl.Field("char_offset", pl.UInt8),
+                    pl.Field("ngram_size", pl.UInt8)
                 ])))
             ])),
+
+            # Word-level n-grams
+            "top_word_ngrams": pl.List(pl.Struct([
+                pl.Field("ngram", pl.Utf8),
+                pl.Field("ngram_size", pl.UInt8),
+                pl.Field("count", pl.UInt16),
+                pl.Field("occurrences", pl.List(pl.Struct([
+                    pl.Field("prompt_id", pl.UInt32),
+                    pl.Field("start_position", pl.UInt16),
+                    pl.Field("ngram_size", pl.UInt8)
+                ])))
+            ])),
+
+            # Overall top n-grams (most frequent across all sizes)
+            "top_char_ngram": pl.Struct([
+                pl.Field("ngram", pl.Utf8),
+                pl.Field("ngram_size", pl.UInt8),
+                pl.Field("count", pl.UInt16),
+                pl.Field("occurrences", pl.List(pl.Struct([
+                    pl.Field("prompt_id", pl.UInt32),
+                    pl.Field("token_position", pl.UInt16),
+                    pl.Field("token_text", pl.Utf8),
+                    pl.Field("char_offset", pl.UInt8),
+                    pl.Field("ngram_size", pl.UInt8)
+                ])))
+            ]),
+
+            "top_word_ngram": pl.Struct([
+                pl.Field("ngram", pl.Utf8),
+                pl.Field("ngram_size", pl.UInt8),
+                pl.Field("count", pl.UInt16),
+                pl.Field("occurrences", pl.List(pl.Struct([
+                    pl.Field("prompt_id", pl.UInt32),
+                    pl.Field("start_position", pl.UInt16),
+                    pl.Field("ngram_size", pl.UInt8)
+                ])))
+            ]),
+
+            # Jaccard similarity for overall top n-grams
+            "top_char_ngram_jaccard": pl.Float32,
+            "top_word_ngram_jaccard": pl.Float32,
+
             "quantile_boundaries": pl.List(pl.Float32),
             "ngram_jaccard_similarity": pl.List(pl.Float32)
         }

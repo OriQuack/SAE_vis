@@ -1,13 +1,15 @@
 """
 API endpoint for activation examples with token highlighting metadata.
+Updated for dual n-gram architecture (character + word patterns).
 """
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List
 import logging
 
 from ..services.data_service import DataService
+from ..models.responses import ActivationExamplesResponse
 
 logger = logging.getLogger(__name__)
 
@@ -25,42 +27,39 @@ class ActivationExamplesRequest(BaseModel):
     feature_ids: List[int]  # Batch request for multiple features
 
 
-class ActivationExamplesResponse(BaseModel):
-    """
-    Response model for activation examples.
-
-    Returns for each feature:
-    - 4 quantile examples (Q1, Q2, Q3, Q4)
-    - Token strings and activation values
-    - Max activation position per example
-    - Semantic and Jaccard similarity scores
-    - Pattern type (None/Semantic/Lexical)
-    """
-    examples: Dict[int, Dict[str, Any]]  # feature_id → activation data
-
-
 @router.post("/activation-examples", response_model=ActivationExamplesResponse)
 async def get_activation_examples(
     request: ActivationExamplesRequest,
     service: DataService = Depends(get_data_service)
 ):
     """
-    Fetch activation examples with highlighting metadata.
+    Fetch activation examples with dual n-gram highlighting metadata.
 
     This endpoint provides token-level activation data for visualizing
-    which tokens activate a feature, with similarity-based pattern categorization.
+    which tokens activate a feature, with dual n-gram pattern analysis:
+    - Character-level n-grams (morphology): suffixes, prefixes with char_offset
+    - Word-level n-grams (semantics): reconstructed words and phrases
+
+    Returns for each feature:
+    - 8 quantile examples (2 per quantile × 4 quantiles)
+    - Token strings (pre-processed, '▁' prefix removed)
+    - Activation values per token
+    - Dual Jaccard scores: char_ngram_max_jaccard, word_ngram_max_jaccard
+    - Top n-gram text: top_char_ngram_text, top_word_ngram_text
+    - N-gram positions: char_ngram_positions (with char_offset), word_ngram_positions
+    - Pattern type: Semantic/Lexical/Both/None
 
     Performance:
-    - Batch fetching: Load all needed prompt_ids in one query (10-100x faster)
-    - Lazy evaluation: Only materialized when feature selected
-    - Small data: 2.2 MB similarity file + subset of 257 MB examples file
+    - Batch fetching: Load all needed features in one query (~20ms)
+    - Pre-processed data: Uses activation_display.parquet (5-10 MB)
+    - Optimized: 250x faster than legacy path
 
     Args:
         request: Contains list of feature IDs to fetch
         service: Injected DataService instance
 
     Returns:
-        ActivationExamplesResponse with examples per feature
+        ActivationExamplesResponse with dual n-gram examples per feature
 
     Raises:
         HTTPException: If data service not ready or error occurs

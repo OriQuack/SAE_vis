@@ -44,6 +44,14 @@
   font-weight: 700;
 }
 
+/* N-gram pattern underline (lexical patterns: char or word n-grams) */
+.activation-token--ngram-underline {
+  text-decoration: underline;
+  text-decoration-color: rgba(0, 0, 0, 0.8);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 1px;
+}
+
 /* Newline token styling */
 .activation-token--newline {
   position: relative;

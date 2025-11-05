@@ -176,12 +176,65 @@ class ActivationDisplayProcessor:
 
         return tokens
 
-    def _compute_pattern_type(self, semantic_sim: float, max_jaccard: float) -> str:
+    def _extract_char_ngram_positions(self, ngram_data: Optional[Dict], prompt_id: int) -> List[Dict]:
+        """Extract positions where a character n-gram appears for a specific prompt.
+
+        Args:
+            ngram_data: Dict with n-gram occurrences (from top_char_ngram)
+            prompt_id: Prompt ID to filter for
+
+        Returns:
+            List of dicts with token_position and char_offset
+        """
+        if not ngram_data:
+            return []
+
+        occurrences = ngram_data.get("occurrences", [])
+        if not occurrences:
+            return []
+
+        positions = []
+        for occ in occurrences:
+            if occ.get("prompt_id") == prompt_id:
+                positions.append({
+                    "token_position": int(occ["token_position"]),
+                    "char_offset": int(occ.get("char_offset", 0))
+                })
+
+        return positions
+
+    def _extract_word_ngram_positions(self, ngram_data: Optional[Dict], prompt_id: int) -> List[int]:
+        """Extract positions where a word n-gram appears for a specific prompt.
+
+        Args:
+            ngram_data: Dict with n-gram occurrences (from top_word_ngram)
+            prompt_id: Prompt ID to filter for
+
+        Returns:
+            List of token positions where the n-gram starts
+        """
+        if not ngram_data:
+            return []
+
+        occurrences = ngram_data.get("occurrences", [])
+        if not occurrences:
+            return []
+
+        positions = []
+        for occ in occurrences:
+            if occ.get("prompt_id") == prompt_id:
+                if "start_position" in occ:
+                    positions.append(int(occ["start_position"]))
+
+        return sorted(set(positions))  # Remove duplicates and sort
+
+    def _compute_pattern_type(self, semantic_sim: float, char_jaccard: float, word_jaccard: float) -> str:
         """Categorize activation pattern based on threshold.
 
         Args:
             semantic_sim: Average pairwise semantic similarity (0-1)
-            max_jaccard: Maximum Jaccard similarity across n-grams (0-1)
+            char_jaccard: Character n-gram Jaccard similarity (0-1)
+            word_jaccard: Word n-gram Jaccard similarity (0-1)
 
         Returns:
             Pattern type: "Semantic", "Lexical", "Both", or "None"
@@ -189,7 +242,7 @@ class ActivationDisplayProcessor:
         threshold = self.proc_params.get("pattern_threshold", 0.3)
 
         has_semantic = semantic_sim > threshold
-        has_lexical = max_jaccard > threshold
+        has_lexical = (char_jaccard > threshold) or (word_jaccard > threshold)
 
         if has_semantic and has_lexical:
             return "Both"
@@ -222,8 +275,19 @@ class ActivationDisplayProcessor:
         # Extract metadata
         prompt_ids = sim_row.get("prompt_ids_analyzed", [])
         semantic_sim = sim_row.get("avg_pairwise_semantic_similarity")
-        jaccard_sims = sim_row.get("ngram_jaccard_similarity", [])
         quantile_boundaries = sim_row.get("quantile_boundaries", [])
+
+        # Extract dual Jaccard values
+        char_ngram_jaccard = sim_row.get("top_char_ngram_jaccard", 0.0)
+        word_ngram_jaccard = sim_row.get("top_word_ngram_jaccard", 0.0)
+        if char_ngram_jaccard is None:
+            char_ngram_jaccard = 0.0
+        if word_ngram_jaccard is None:
+            word_ngram_jaccard = 0.0
+
+        # Extract top n-grams for position mapping
+        top_char_ngram = sim_row.get("top_char_ngram")
+        top_word_ngram = sim_row.get("top_word_ngram")
 
         # Validate data
         if not prompt_ids or len(prompt_ids) == 0:
@@ -235,11 +299,11 @@ class ActivationDisplayProcessor:
             logger.debug(f"Invalid quantile boundaries for feature {feature_id}: {quantile_boundaries}")
             return None
 
-        # Compute max jaccard and pattern type
-        max_jaccard = max(jaccard_sims) if jaccard_sims else 0.0
+        # Compute pattern type using dual Jaccard (char OR word)
         pattern_type = self._compute_pattern_type(
             semantic_sim if semantic_sim is not None else 0.0,
-            max_jaccard
+            char_ngram_jaccard,
+            word_ngram_jaccard
         )
 
         # Update pattern stats
@@ -290,23 +354,36 @@ class ActivationDisplayProcessor:
                 else:
                     quantile_idx = 3
 
+            # Extract n-gram positions for this prompt
+            char_ngram_positions = self._extract_char_ngram_positions(top_char_ngram, row_dict["prompt_id"])
+            word_ngram_positions = self._extract_word_ngram_positions(top_word_ngram, row_dict["prompt_id"])
+
             quantile_examples.append({
                 "quantile_index": quantile_idx,
                 "prompt_id": row_dict["prompt_id"],
                 "prompt_tokens": prompt_tokens,
                 "activation_pairs": activation_pairs,
                 "max_activation": float(max_activation) if max_activation is not None else 0.0,
-                "max_activation_position": int(max_pos)
+                "max_activation_position": int(max_pos),
+                "char_ngram_positions": char_ngram_positions,
+                "word_ngram_positions": word_ngram_positions
             })
 
         self.stats["total_examples_processed"] += len(quantile_examples)
+
+        # Extract n-gram text for display
+        char_ngram_text = top_char_ngram.get("ngram") if top_char_ngram else None
+        word_ngram_text = top_word_ngram.get("ngram") if top_word_ngram else None
 
         return {
             "feature_id": feature_id,
             "sae_id": self.sae_id,
             "pattern_type": pattern_type,
             "semantic_similarity": float(semantic_sim) if semantic_sim is not None else None,
-            "max_jaccard": float(max_jaccard),
+            "char_ngram_max_jaccard": float(char_ngram_jaccard),
+            "word_ngram_max_jaccard": float(word_ngram_jaccard),
+            "top_char_ngram_text": char_ngram_text,
+            "top_word_ngram_text": word_ngram_text,
             "quantile_examples": quantile_examples
         }
 
@@ -365,7 +442,8 @@ class ActivationDisplayProcessor:
             pl.col("sae_id").cast(pl.Categorical),
             pl.col("pattern_type").cast(pl.Categorical),
             pl.col("semantic_similarity").cast(pl.Float32),
-            pl.col("max_jaccard").cast(pl.Float32),
+            pl.col("char_ngram_max_jaccard").cast(pl.Float32),
+            pl.col("word_ngram_max_jaccard").cast(pl.Float32),
         ])
 
         logger.info(f"Created DataFrame with {len(df)} rows and {len(df.columns)} columns")
@@ -384,7 +462,10 @@ class ActivationDisplayProcessor:
             "sae_id": pl.Categorical,
             "pattern_type": pl.Categorical,
             "semantic_similarity": pl.Float32,
-            "max_jaccard": pl.Float32,
+            "char_ngram_max_jaccard": pl.Float32,
+            "word_ngram_max_jaccard": pl.Float32,
+            "top_char_ngram_text": pl.Utf8,
+            "top_word_ngram_text": pl.Utf8,
             "quantile_examples": pl.List(pl.Struct([
                 pl.Field("quantile_index", pl.UInt8),
                 pl.Field("prompt_id", pl.UInt32),
@@ -394,7 +475,12 @@ class ActivationDisplayProcessor:
                     pl.Field("activation_value", pl.Float32)
                 ]))),
                 pl.Field("max_activation", pl.Float32),
-                pl.Field("max_activation_position", pl.UInt32)
+                pl.Field("max_activation_position", pl.UInt32),
+                pl.Field("char_ngram_positions", pl.List(pl.Struct([
+                    pl.Field("token_position", pl.UInt16),
+                    pl.Field("char_offset", pl.UInt8)
+                ]))),
+                pl.Field("word_ngram_positions", pl.List(pl.UInt16))
             ]))
         }
 
@@ -423,7 +509,8 @@ class ActivationDisplayProcessor:
                     "none": int((df["pattern_type"] == "None").sum())
                 },
                 "mean_semantic_similarity": float(df["semantic_similarity"].mean()) if df["semantic_similarity"].is_not_null().any() else None,
-                "mean_max_jaccard": float(df["max_jaccard"].mean()),
+                "mean_char_ngram_jaccard": float(df["char_ngram_max_jaccard"].mean()),
+                "mean_word_ngram_jaccard": float(df["word_ngram_max_jaccard"].mean()),
                 "mean_examples_per_feature": float(df["quantile_examples"].list.len().mean())
             }
         else:

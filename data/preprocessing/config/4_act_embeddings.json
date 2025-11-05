@@ -7,8 +7,8 @@
 
   "processing_parameters": {
     "num_quantiles": 4,
-    "examples_per_quantile": 5,
-    "target_examples_per_feature": 20,
+    "examples_per_quantile": 3,
+    "target_examples_per_feature": 12,
     "token_window_size": 32
   },
 
@@ -23,6 +23,8 @@
     "processing_strategy": "quantile_based_sampling",
     "embedding_purpose": "pre_compute_for_downstream_similarity_analysis",
     "window_extraction": "symmetric_with_asymmetric_fallback",
+    "text_reconstruction": "Reconstructs natural readable text from subword tokens (strips '▁' prefix, joins subwords into full words)",
+    "token_window_size_note": "32 tokens extracted BEFORE reconstruction, results in ~25-32 words after joining subwords",
     "primary_key_fields": [
       "feature_id",
       "sae_id"
@@ -31,20 +33,22 @@
 
   "schema_info": {
     "table_name": "activation_embeddings",
-    "version": "1.0",
+    "version": "2.0",
     "field_descriptions": {
       "feature_id": "SAE feature index (0-16383)",
       "sae_id": "SAE model identifier",
       "prompt_ids": "List of prompt IDs selected via quantile sampling",
-      "embeddings": "List of embeddings (768-dim vectors from google/embeddinggemma-300m)",
-      "window_texts": "List of text windows used for embedding (for debugging/validation)"
+      "embeddings": "List of embeddings (768-dim vectors from google/embeddinggemma-300m) generated from natural readable text (not raw tokens)"
+    },
+    "version_changes": {
+      "2.0": "Changed text preprocessing to reconstruct natural readable text from subword tokens (strips '▁', joins subwords). Embeddings now generated from 'the services of a...' instead of '▁the ▁service s ▁of ▁a...'"
     }
   },
 
   "performance_notes": {
     "embedding_dimension": 768,
-    "expected_embeddings_per_feature": 20,
-    "total_expected_embeddings": 327680,
+    "expected_embeddings_per_feature": 12,
+    "total_expected_embeddings": 0,
     "batch_processing": true,
     "downstream_consumers": [
       "9_activation_example_similarity.py"

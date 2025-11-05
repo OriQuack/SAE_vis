@@ -427,14 +427,18 @@ class DataService:
 
             logger.info(f"[get_activation_examples] Loaded optimized data for {len(display_df)} features in ~20ms")
 
-            # Convert to dictionary format expected by frontend
+            # Convert to dictionary format expected by frontend (dual n-gram architecture)
             result = {}
             for row in display_df.iter_rows(named=True):
                 feature_id = row["feature_id"]
                 result[feature_id] = {
                     "quantile_examples": row["quantile_examples"],
                     "semantic_similarity": row["semantic_similarity"],
-                    "max_jaccard": row["max_jaccard"],
+                    # Dual n-gram fields (character + word)
+                    "char_ngram_max_jaccard": row["char_ngram_max_jaccard"],
+                    "word_ngram_max_jaccard": row["word_ngram_max_jaccard"],
+                    "top_char_ngram_text": row["top_char_ngram_text"],
+                    "top_word_ngram_text": row["top_word_ngram_text"],
                     "pattern_type": row["pattern_type"]
                 }
 

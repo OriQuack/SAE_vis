@@ -269,6 +269,48 @@ class ActivationEmbeddingProcessor:
         end = min(len(tokens), center_pos + half_window)
         return tokens[start:end]
 
+    def _normalize_token(self, token: str) -> str:
+        """Strip SentencePiece '▁' prefix from token.
+
+        Args:
+            token: Token string (may have '▁' prefix)
+
+        Returns:
+            Token without '▁' prefix
+        """
+        return token.lstrip('▁')
+
+    def _reconstruct_text(self, tokens: List[str]) -> str:
+        """Reconstruct natural text from subword tokens.
+
+        Args:
+            tokens: List of token strings with '▁' marking word boundaries
+
+        Returns:
+            Natural readable text with proper spacing
+        """
+        if not tokens:
+            return ""
+
+        words = []
+        current_word = ""
+
+        for token in tokens:
+            if token.startswith('▁'):
+                # New word boundary
+                if current_word:
+                    words.append(current_word)
+                current_word = self._normalize_token(token)
+            else:
+                # Continuation of previous word
+                current_word += token
+
+        # Add last word
+        if current_word:
+            words.append(current_word)
+
+        return " ".join(words)
+
     def process_feature(self, feature_id: int, feature_df: pl.DataFrame) -> Dict[str, Any]:
         """Process a single feature to compute embeddings for quantile examples.
 
@@ -301,7 +343,8 @@ class ActivationEmbeddingProcessor:
 
         for prompt_id, _, tokens, max_pos in examples:
             window_tokens = self._extract_token_window(tokens, max_pos, window_size)
-            window_text = " ".join(window_tokens)
+            # Reconstruct natural text from subword tokens
+            window_text = self._reconstruct_text(window_tokens)
 
             prompt_ids.append(int(prompt_id))
             window_texts.append(window_text)

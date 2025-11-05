@@ -416,35 +416,12 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     )
   }, [tableData, sortBy, sortDirection, selectedFeatures, tableSelectedNodeIds.length])
 
-  // Show loading indicator during initial fetch
-  if (isLoading && (!tableData || !tableData.features || tableData.features.length === 0)) {
-    return (
-      <div className={`table-panel${className ? ` ${className}` : ''}`}>
-        <div className="table-panel__loading-overlay">
-          <div className="table-panel__loading-spinner" />
-        </div>
-      </div>
-    )
-  }
+  // Get list of explainer IDs for iteration (moved before early returns)
+  const explainerIds = tableData?.explainer_ids || []
 
-  // If no data or no explainers selected (and not loading)
-  if (!tableData || !tableData.features || tableData.features.length === 0 || selectedExplainers.size === 0) {
-    return (
-      <div className={`table-panel${className ? ` ${className}` : ''}`}>
-        <div className="table-panel__content" ref={tableContainerRef}>
-          <p className="table-panel__placeholder">
-            Select LLM explainers from the flowchart to view feature-level scoring data
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  // Get list of explainer IDs for iteration
-  const explainerIds = tableData.explainer_ids || []
-
-  // Calculate total row count for row-level virtualization
+  // Calculate total row count for row-level virtualization (moved before early returns)
   const totalRowCount = useMemo(() => {
+    if (!tableData || sortedFeatures.length === 0) return 0
     return sortedFeatures.reduce((sum, feature) => {
       const validExplainerCount = explainerIds.filter(explainerId => {
         const data = feature.explainers[explainerId]
@@ -452,9 +429,9 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
       }).length
       return sum + validExplainerCount
     }, 0)
-  }, [sortedFeatures, explainerIds])
+  }, [sortedFeatures, explainerIds, tableData])
 
-  // Virtual scrolling for performance with large datasets (row-level)
+  // Virtual scrolling for performance with large datasets (moved before early returns)
   const rowVirtualizer = useVirtualizer({
     count: totalRowCount,
     getScrollElement: () => tableContainerRef.current,
@@ -462,9 +439,9 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     overscan: 15,
   })
 
-  // Scroll to highlighted feature when it changes (using virtualizer)
+  // Scroll to highlighted feature when it changes (moved before early returns)
   useEffect(() => {
-    if (highlightedFeatureId !== null) {
+    if (highlightedFeatureId !== null && sortedFeatures.length > 0 && explainerIds.length > 0) {
       const featureIndex = sortedFeatures.findIndex(f => f.feature_id === highlightedFeatureId)
       if (featureIndex !== -1) {
         // Calculate row index by summing rows of all previous features
@@ -493,10 +470,34 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     }
   }, [highlightedFeatureId, sortedFeatures, rowVirtualizer, explainerIds])
 
-  // Check if we should render stage-specific table
+  // Check if we should render stage-specific table (moved before other early returns)
   // Use stored category for simple and reliable check
   if (activeStageNodeId && activeStageCategory === CATEGORY_DECODER_SIMILARITY) {
     return <DecoderSimilarityTable className={className} />
+  }
+
+  // Show loading indicator during initial fetch
+  if (isLoading && (!tableData || !tableData.features || tableData.features.length === 0)) {
+    return (
+      <div className={`table-panel${className ? ` ${className}` : ''}`}>
+        <div className="table-panel__loading-overlay">
+          <div className="table-panel__loading-spinner" />
+        </div>
+      </div>
+    )
+  }
+
+  // If no data or no explainers selected (and not loading)
+  if (!tableData || !tableData.features || tableData.features.length === 0 || selectedExplainers.size === 0) {
+    return (
+      <div className={`table-panel${className ? ` ${className}` : ''}`}>
+        <div className="table-panel__content" ref={tableContainerRef}>
+          <p className="table-panel__placeholder">
+            Select LLM explainers from the flowchart to view feature-level scoring data
+          </p>
+        </div>
+      </div>
+    )
   }
 
   // Render new simplified table with 3 sub-rows per feature

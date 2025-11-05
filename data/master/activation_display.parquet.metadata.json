@@ -1,5 +1,5 @@
 {
-  "created_at": "2025-11-05T16:41:29.954234",
+  "created_at": "2025-11-06T01:40:51.708646",
   "script_version": "1.0",
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
   "total_rows": 16372,
@@ -8,29 +8,33 @@
     "sae_id": "Categorical",
     "pattern_type": "Categorical",
     "semantic_similarity": "Float32",
-    "max_jaccard": "Float32",
-    "quantile_examples": "List(Struct([Field('quantile_index', Int64), Field('prompt_id', Int64), Field('prompt_tokens', List(Utf8)), Field('activation_pairs', List(Struct([Field('token_position', Int64), Field('activation_value', Float64)]))), Field('max_activation', Float64), Field('max_activation_position', Int64)]))"
+    "char_ngram_max_jaccard": "Float32",
+    "word_ngram_max_jaccard": "Float32",
+    "top_char_ngram_text": "Utf8",
+    "top_word_ngram_text": "Utf8",
+    "quantile_examples": "List(Struct([Field('quantile_index', Int64), Field('prompt_id', Int64), Field('prompt_tokens', List(Utf8)), Field('activation_pairs', List(Struct([Field('token_position', Int64), Field('activation_value', Float64)]))), Field('max_activation', Float64), Field('max_activation_position', Int64), Field('char_ngram_positions', List(Struct([Field('token_position', Int64), Field('char_offset', Int64)]))), Field('word_ngram_positions', List(Int64))]))"
   },
   "processing_stats": {
     "features_processed": 16372,
     "features_with_no_data": 1,
     "features_with_invalid_boundaries": 11,
     "total_examples_processed": 130565,
-    "semantic_patterns": 4049,
-    "lexical_patterns": 353,
-    "both_patterns": 439,
-    "no_patterns": 11531
+    "semantic_patterns": 2618,
+    "lexical_patterns": 5842,
+    "both_patterns": 1477,
+    "no_patterns": 6435
   },
   "result_stats": {
     "features_with_data": 16372,
     "pattern_distribution": {
-      "semantic": 4049,
-      "lexical": 353,
-      "both": 439,
-      "none": 11531
+      "semantic": 2618,
+      "lexical": 5842,
+      "both": 1477,
+      "none": 6435
     },
-    "mean_semantic_similarity": 0.2580529251398695,
-    "mean_max_jaccard": 0.11726180203455813,
+    "mean_semantic_similarity": 0.25333501195642916,
+    "mean_char_ngram_jaccard": 0.2974842362696996,
+    "mean_word_ngram_jaccard": 0.22273728162306913,
     "mean_examples_per_feature": 7.974896164182751
   },
   "config_used": {
@@ -44,6 +48,38 @@
         "remove_leading_underscore": true,
         "join_tokens": true
       }
+    },
+    "description": "Configuration for creating optimized activation display data with dual n-gram pattern classification",
+    "schema_info": {
+      "table_name": "activation_display",
+      "version": "2.0",
+      "field_descriptions": {
+        "feature_id": "SAE feature index",
+        "sae_id": "SAE model identifier",
+        "pattern_type": "Pattern classification: Semantic, Lexical, Both, or None (uses char OR word Jaccard > 0.3)",
+        "semantic_similarity": "Average pairwise semantic similarity",
+        "char_ngram_max_jaccard": "Jaccard similarity for the most frequent character n-gram",
+        "word_ngram_max_jaccard": "Jaccard similarity for the most frequent word n-gram",
+        "top_char_ngram_text": "The actual character n-gram text (e.g., 'ing')",
+        "top_word_ngram_text": "The actual word n-gram text (e.g., 'observation')",
+        "quantile_examples": "Pre-organized activation examples (8 total, 2 per quantile) with token positions for n-gram highlighting"
+      },
+      "quantile_example_fields": {
+        "quantile_index": "Quantile group (0-3) based on activation strength",
+        "prompt_id": "Prompt identifier",
+        "prompt_tokens": "Token array with '\u2581' prefix stripped",
+        "activation_pairs": "List of (token_position, activation_value) pairs",
+        "max_activation": "Maximum activation value",
+        "max_activation_position": "Token position of max activation",
+        "char_ngram_positions": "List of {token_position, char_offset} where top char n-gram appears (enables precise character-level highlighting within token)",
+        "word_ngram_positions": "Token positions where top word n-gram starts (for word-level highlighting)"
+      }
+    },
+    "processing_notes": {
+      "expected_output_rows": 824,
+      "pattern_classification": "Lexical pattern = (char_jaccard > 0.3) OR (word_jaccard > 0.3)",
+      "optimization": "Feature-level organization reduces load time from ~5s to ~20ms",
+      "frontend_usage": "Positions enable visual highlighting of n-gram patterns in token display"
     }
   }
 }
