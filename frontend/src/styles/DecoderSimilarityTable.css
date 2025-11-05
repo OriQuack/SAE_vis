@@ -43,17 +43,22 @@
  * ============================================================================ */
 
 .decoder-stage-table__header-cell--checkbox {
-  width: 5%;
+  width: 3%;
   text-align: center;
 }
 
 .decoder-stage-table__header-cell--type {
-  width: 10%;
+  width: 5%;
   text-align: center;
 }
 
+/* Override score column width for decoder similarity table */
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__header-cell--score {
+  width: 5%;
+}
+
 .decoder-stage-table__header-cell--activation {
-  width: 65%;
+  width: 79%;
   text-align: left;
   padding-left: 12px;
 }
@@ -63,15 +68,27 @@
   background: white;
 }
 
+/* Override ID cell background - make it white by default */
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__cell--id {
+  background: white;
+}
+
 .decoder-stage-table__checkbox {
   width: 16px;
   height: 16px;
   cursor: pointer;
+  background-color: white;
+  accent-color: white;
 }
 
 .decoder-stage-table__cell--type {
   text-align: center;
   background: white;
+}
+
+/* Override score cell width for decoder similarity table */
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__cell--score {
+  width: 8%;
 }
 
 .decoder-stage-table__type-badge {
@@ -99,24 +116,74 @@
   border-bottom: 1px solid #e5e7eb;
 }
 
-/* Add thicker border after the last row of each group */
-.decoder-stage-table__group-last-row {
-  border-bottom: 2px solid #d1d5db !important;
+/* Add thicker border after the last row of each group (between indices) */
+.decoder-stage-table__selection-header ~ .table-panel__content .decoder-stage-table__group-last-row {
+  border-bottom: 1px solid #9ca3af !important;
 }
 
-.decoder-stage-table__group-last-row td {
-  border-bottom: 2px solid #d1d5db;
+.decoder-stage-table__selection-header ~ .table-panel__content .decoder-stage-table__group-last-row td {
+  border-bottom: 1px solid #9ca3af !important;
 }
 
 /* ============================================================================
- * MAIN FEATURE STYLING
+ * MAIN FEATURE STYLING (PIVOT ROW)
  * ============================================================================ */
 
-/* Main feature row - no special background, same as similar features */
+/* Main/pivot feature row - subtle visual distinction for conference demos */
 .decoder-stage-table__main-feature-row {
-  /* No special background */
+  border-left: 3px solid #9ca3af;
+  background: #f9fafb;
 }
 
 .decoder-stage-table__main-feature-row:hover {
-  /* Default hover will apply */
+  background: #f3f4f6;
 }
+
+/* Ensure cells inherit the background */
+.decoder-stage-table__main-feature-row .table-panel__cell {
+  background: inherit;
+}
+
+/* Specifically ensure ID cell inherits background in main feature row */
+.decoder-stage-table__selection-header ~ .table-panel__content .decoder-stage-table__main-feature-row .table-panel__cell--id {
+  background: inherit !important;
+}
+
+/* ============================================================================
+ * VERTICAL COLUMN SEPARATORS
+ * ============================================================================ */
+
+/* Add thin vertical lines between columns - HEADER CELLS */
+.decoder-stage-table__selection-header ~ .table-panel__content .decoder-stage-table__header-cell--checkbox {
+  border-right: 1px solid #d1d5db;
+}
+
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__header-cell--id {
+  border-right: 1px solid #d1d5db;
+}
+
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__header-cell--score {
+  border-right: 1px solid #d1d5db;
+}
+
+.decoder-stage-table__selection-header ~ .table-panel__content .decoder-stage-table__header-cell--type {
+  border-right: 1px solid #d1d5db;
+}
+
+/* Add thin vertical lines between columns - BODY CELLS */
+.decoder-stage-table__selection-header ~ .table-panel__content .decoder-stage-table__cell--checkbox {
+  border-right: 1px solid #e5e7eb;
+}
+
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__cell--id {
+  border-right: 1px solid #e5e7eb;
+}
+
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__cell--score {
+  border-right: 1px solid #e5e7eb;
+}
+
+.decoder-stage-table__selection-header ~ .table-panel__content .decoder-stage-table__cell--type {
+  border-right: 1px solid #e5e7eb;
+}
+

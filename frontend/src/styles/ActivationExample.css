@@ -20,7 +20,7 @@
 .activation-example__quantile {
   display: inline-flex;
   border-radius: 2px;
-  background: white;
+  background: transparent;
   transition: box-shadow 0.2s ease;
 }
 
@@ -52,6 +52,11 @@
   text-underline-offset: 1px;
 }
 
+/* Ensure newline symbols inherit underline from parent */
+.activation-token--ngram-underline .newline-symbol {
+  text-decoration: inherit;
+}
+
 /* Newline token styling */
 .activation-token--newline {
   position: relative;
@@ -63,30 +68,18 @@
   color: #9ca3af;
   font-weight: 600;
   user-select: none;
+  transition: color 0.15s ease;
 }
 
-/* Actual newline - hidden by default */
+/* Actual newline - always hidden (prevents cell height changes) */
 .newline-actual {
   display: none;
   white-space: pre;
 }
 
-/* On hover of the newline token: show actual newline, hide symbol */
+/* On hover of the newline token: darken symbol color for feedback */
 .activation-token--newline:hover .newline-symbol {
-  display: none;
-}
-
-.activation-token--newline:hover .newline-actual {
-  display: inline;
-}
-
-/* In popover, also show actual newline on hover */
-.activation-example__popover .activation-token--newline:hover .newline-symbol {
-  display: none;
-}
-
-.activation-example__popover .activation-token--newline:hover .newline-actual {
-  display: inline;
+  color: #6b7280;
 }
 
 .activation-example__ellipsis {

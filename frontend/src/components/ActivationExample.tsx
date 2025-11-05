@@ -9,7 +9,7 @@ import '../styles/ActivationExample.css'
 
 interface ActivationExampleProps {
   examples: ActivationExamples
-  compact?: boolean  // Kept for backwards compatibility but not used
+  containerWidth: number  // Width of container passed from parent (eliminates measurement shift)
 }
 
 /**
@@ -65,49 +65,35 @@ const getWhitespaceSymbol = (text: string): string => {
 
 const ActivationExample: React.FC<ActivationExampleProps> = ({
   examples,
-  compact = true
+  containerWidth
 }) => {
   const [showPopover, setShowPopover] = useState<boolean>(false)
   const containerRef = useRef<HTMLDivElement>(null)
-  const [availableWidth, setAvailableWidth] = useState<number>(630) // Default: 45% of ~1400px table
 
-  // Measure container width dynamically
-  useEffect(() => {
-    if (!containerRef.current) return
-
-    // Initial measurement
-    const initialWidth = containerRef.current.getBoundingClientRect().width
-    if (initialWidth > 0) {
-      setAvailableWidth(initialWidth)
-    }
-
-    // Continue watching for resize events
-    const observer = new ResizeObserver(entries => {
-      const width = entries[0].contentRect.width
-      if (width > 0) {  // Guard against zero-width measurements
-        setAvailableWidth(width)
-      }
-    })
-
-    observer.observe(containerRef.current)
-    return () => observer.disconnect()
-  }, [])
-
-  // Calculate max characters based on available width
+  // Calculate max characters based on container width passed from parent
   // Assume ~7px per character at 11px monospace font
-  const maxLength = useMemo(() => Math.floor(availableWidth / 7), [availableWidth])
-
-  // Group examples by quantile_index (memoized for performance)
-  const quantileGroups = useMemo(() => {
-    return [0, 1, 2, 3].map(qIndex =>
-      examples.quantile_examples
-        .filter(ex => ex.quantile_index === qIndex)
-        .slice(0, 2)
-    )
-  }, [examples.quantile_examples])
+  // No ResizeObserver needed - parent measures once and passes width down
+  const maxLength = useMemo(() => Math.floor(containerWidth / 7), [containerWidth])
 
   // Determine which n-gram type to underline (char vs word)
   const underlineType = useMemo(() => getNgramUnderlineType(examples), [examples])
+
+  // Group examples by quantile_index (memoized for performance)
+  // Prioritize examples with positions for the winning type
+  const quantileGroups = useMemo(() => {
+    return [0, 1, 2, 3].map(qIndex => {
+      const filtered = examples.quantile_examples.filter(ex => ex.quantile_index === qIndex)
+      // Sort to put examples with winning type positions first
+      const sorted = [...filtered].sort((a, b) => {
+        const aHasPositions = (underlineType === 'char' && a.char_ngram_positions?.length > 0) ||
+                             (underlineType === 'word' && a.word_ngram_positions?.length > 0)
+        const bHasPositions = (underlineType === 'char' && b.char_ngram_positions?.length > 0) ||
+                             (underlineType === 'word' && b.word_ngram_positions?.length > 0)
+        return bHasPositions === aHasPositions ? 0 : (bHasPositions ? 1 : -1)
+      })
+      return sorted.slice(0, 2)
+    })
+  }, [examples.quantile_examples, underlineType])
 
   return (
     <div
@@ -118,8 +104,8 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
     >
       {/* Default view: 3 quantiles (0, 1, 2), character-based truncation */}
       {[0, 1, 2].map(qIndex => {
-        // Get first example from this quantile
-        const example = examples.quantile_examples.find(ex => ex.quantile_index === qIndex)
+        // Use the first example from sorted quantileGroups (prioritizes examples with positions)
+        const example = quantileGroups[qIndex]?.[0]
         if (!example) return null
 
         // Build tokens from 32-token window

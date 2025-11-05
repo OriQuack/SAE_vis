@@ -11,7 +11,8 @@ import type {
   SankeyNode,
   NodeCategory,
   SortBy,
-  SortDirection
+  SortDirection,
+  ActivationExamples
 } from '../types'
 import { getNodeThresholdPath } from '../lib/threshold-utils'
 import {
@@ -27,6 +28,7 @@ import { createInitialPanelState, type PanelState } from './utils'
 import { createTreeActions } from './sankey-actions'
 import { createTableActions } from './table-actions'
 import { createTagActions, type TagState } from './tag-actions'
+import { createActivationActions } from './activation-actions'
 
 type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
 
@@ -132,6 +134,19 @@ interface AppState extends TagState {
   setActiveStageNode: (nodeId: string | null, category?: string | null) => void
   clearActiveStageNode: () => void
 
+  // Activation examples cache (centralized for all components)
+  activationExamples: Record<number, ActivationExamples>
+  activationLoading: Set<number>
+  activationLoadingState: boolean
+
+  // Activation examples actions (from activation-actions.ts)
+  fetchActivationExamples: (featureIds: number[]) => Promise<void>
+  getActivationData: (featureId: number) => ActivationExamples | undefined
+  isActivationDataCached: (featureId: number) => boolean
+  isActivationDataLoading: (featureId: number) => boolean
+  prefetchAllActivationData: () => Promise<void>
+  clearActivationCache: () => void
+
   // Auto-initialization with default filters
   initializeWithDefaultFilters: () => void
 }
@@ -194,7 +209,12 @@ const initialState = {
   hoveredAlluvialPanel: null,
 
   // Comparison view state
-  showComparisonView: false
+  showComparisonView: false,
+
+  // Activation examples cache
+  activationExamples: {},
+  activationLoading: new Set<number>(),
+  activationLoadingState: false
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -208,6 +228,9 @@ export const useStore = create<AppState>((set, get) => ({
 
   // Compose tag actions
   ...createTagActions(set, get),
+
+  // Compose activation actions
+  ...createActivationActions(set, get),
 
   // Hover state actions
   setHoveredAlluvialNode: (nodeId: string | null, panel: 'left' | 'right' | null) =>

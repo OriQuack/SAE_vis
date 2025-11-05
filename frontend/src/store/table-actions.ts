@@ -276,6 +276,13 @@ export const createTableActions = (set: any, get: any) => ({
         tableData,
         loading: { ...state.loading, table: false }
       }))
+
+      // 🚀 SMART PRE-FETCHING: Immediately fetch ALL activation examples
+      // This batches main features + similar features into ONE API call
+      // so components render instantly from cache (no loading states)
+      console.log('[Store.fetchTableData] Table data loaded, starting pre-fetch of activation examples')
+      const updatedState = get()
+      await updatedState.prefetchAllActivationData()
     } catch (error) {
       console.error('Failed to fetch table data:', error)
       set((state: any) => ({

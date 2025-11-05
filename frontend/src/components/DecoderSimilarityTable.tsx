@@ -4,7 +4,6 @@ import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow, DecoderStageRow, StageTableContext, ActivationExamples } from '../types'
 import { METRIC_DECODER_SIMILARITY } from '../lib/constants'
 import { getMetricColor } from '../lib/utils'
-import { getActivationExamples } from '../api'
 import ActivationExample from './ActivationExample'
 import '../styles/TablePanel.css'
 import '../styles/DecoderSimilarityTable.css'
@@ -34,9 +33,16 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
   // Refs
   const tableContainerRef = useRef<HTMLDivElement>(null)
 
-  // Activation examples state
-  const [activationData, setActivationData] = useState<Record<number, ActivationExamples>>({})
-  const loadedActivationFeatureIds = useRef<Set<number>>(new Set())
+  // Track activation column width to pass to ActivationExample components
+  const [activationColumnWidth, setActivationColumnWidth] = useState<number>(630) // Default width
+
+  // Activation examples from global store (centralized cache)
+  const activationExamples = useVisualizationStore(state => state.activationExamples)
+  const activationLoadingState = useVisualizationStore(state => state.activationLoadingState)
+  const fetchActivationExamples = useVisualizationStore(state => state.fetchActivationExamples)
+
+  // Track which features we've already requested to prevent infinite loops
+  const requestedFeatureIds = useRef<Set<number>>(new Set())
 
   // Get stage context
   const stageContext = useMemo<StageTableContext | null>(() => {
@@ -176,12 +182,51 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
     toggleFeatureSelection(featureId)
   }
 
-  // Fetch activation examples when stage changes (with caching)
+  // Measure activation column width once (eliminates shifting in ActivationExample)
   useEffect(() => {
-    if (!stageContext || !tableData || sortedRows.length === 0) return
+    if (!tableContainerRef.current) return
 
-    // Extract all unique feature IDs in this stage
-    const featureIds = Array.from(
+    const measureActivationColumn = () => {
+      const headerCell = tableContainerRef.current?.querySelector('.decoder-stage-table__header-cell--activation')
+      if (headerCell) {
+        const width = headerCell.getBoundingClientRect().width
+        if (width > 0) {
+          setActivationColumnWidth(width)
+        }
+      }
+    }
+
+    // Initial measurement
+    measureActivationColumn()
+
+    // Watch for table resize
+    const observer = new ResizeObserver(measureActivationColumn)
+    observer.observe(tableContainerRef.current)
+
+    return () => observer.disconnect()
+  }, [])
+
+  // ============================================================================
+  // ⚠️ TEMPORARY FIX: Fetch missing activation examples for decoder similarity stage
+  // ============================================================================
+  // ISSUE: Initial table has 824 features, but full dataset has 16,384 features.
+  //        When decoder similarity stage is added, additional features appear
+  //        that weren't in the initial 824, so they're not pre-fetched.
+  //
+  // TEMPORARY SOLUTION: Fetch missing features when decoder similarity stage loads
+  //
+  // TODO: Remove this when one of these is implemented:
+  //       1. Pre-fetch ALL 16,384 features on app startup (memory intensive)
+  //       2. Implement proper pagination/virtual scrolling with on-demand loading
+  //       3. Load full table data (16,384 rows) initially instead of just 824
+  //
+  // For now, this ensures decoder similarity table works correctly.
+  // ============================================================================
+  useEffect(() => {
+    if (!stageContext || sortedRows.length === 0) return
+
+    // Extract all unique feature IDs from decoder similarity rows
+    const allFeatureIds = Array.from(
       new Set(
         sortedRows.flatMap(row =>
           row.top_similar_features.map(f => f.feature_id)
@@ -189,34 +234,31 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
       )
     )
 
-    // Check which features we haven't loaded yet
-    const unloadedFeatureIds = featureIds.filter(
-      id => !loadedActivationFeatureIds.current.has(id)
+    // Check which features are missing from cache AND not already requested
+    // IMPORTANT: Don't check activationExamples here to avoid infinite loop
+    const missingFeatureIds = allFeatureIds.filter(
+      id => !requestedFeatureIds.current.has(id)
     )
 
-    // Only fetch if there are new features
-    if (unloadedFeatureIds.length === 0) {
-      console.log('[DecoderSimilarityTable] All activation examples already cached')
-      return
+    // Fetch only missing features (store handles deduplication and cache checking)
+    if (missingFeatureIds.length > 0) {
+      console.log(
+        '[DecoderSimilarityTable] 🔧 TEMPORARY: Fetching',
+        missingFeatureIds.length,
+        'missing activation examples for decoder similarity stage'
+      )
+      console.log(
+        '[DecoderSimilarityTable] ⚠️ TODO: Remove this when full dataset (16,384 features) is loaded initially'
+      )
+
+      // Mark as requested BEFORE calling fetch to prevent duplicate requests
+      missingFeatureIds.forEach(id => requestedFeatureIds.current.add(id))
+
+      // Store's fetchActivationExamples handles cache checking and deduplication
+      fetchActivationExamples(missingFeatureIds)
     }
-
-    console.log('[DecoderSimilarityTable] Fetching activation examples for', unloadedFeatureIds.length, 'new features (', featureIds.length, 'total )')
-
-    // Fetch activation examples
-    getActivationExamples(unloadedFeatureIds)
-      .then(examples => {
-        console.log('[DecoderSimilarityTable] Loaded activation examples:', Object.keys(examples).length)
-
-        // Merge with existing data
-        setActivationData(prev => ({ ...prev, ...examples }))
-
-        // Mark as loaded
-        unloadedFeatureIds.forEach(id => loadedActivationFeatureIds.current.add(id))
-      })
-      .catch(error => {
-        console.error('[DecoderSimilarityTable] Failed to fetch activation examples:', error)
-      })
-  }, [stageContext, tableData])
+  }, [stageContext, sortedRows, fetchActivationExamples])
+  // NOTE: activationExamples is NOT in dependencies to prevent infinite loop
 
   // Empty state
   if (!stageContext) {
@@ -364,16 +406,16 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                         {/* Type */}
                         <td className="table-panel__cell decoder-stage-table__cell--type">
                           <span className="decoder-stage-table__type-badge">
-                            {activationData[similar.feature_id]?.pattern_type || 'None'}
+                            {activationExamples[similar.feature_id]?.pattern_type || 'None'}
                           </span>
                         </td>
 
                         {/* Activation Example */}
                         <td className="table-panel__cell decoder-stage-table__cell--activation">
-                          {activationData[similar.feature_id] ? (
+                          {activationExamples[similar.feature_id] ? (
                             <ActivationExample
-                              examples={activationData[similar.feature_id]}
-                              compact={true}
+                              examples={activationExamples[similar.feature_id]}
+                              containerWidth={activationColumnWidth}
                             />
                           ) : (
                             <span className="table-panel__placeholder">—</span>

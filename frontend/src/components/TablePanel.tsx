@@ -18,7 +18,6 @@ import {
   METRIC_SEMANTIC_SIMILARITY,
   CATEGORY_DECODER_SIMILARITY
 } from '../lib/constants'
-import { getActivationExamples } from '../api'
 import { HighlightedExplanation } from './HighlightedExplanation'
 import ActivationExample from './ActivationExample'
 import QualityScoreBreakdown from './QualityScoreBreakdown'
@@ -57,6 +56,9 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const qualityScoreCellRef = useRef<HTMLTableCellElement>(null)
   const [cellHeight, setCellHeight] = useState<number>(40) // Natural cell height
 
+  // Track activation column width to pass to ActivationExample components
+  const [activationColumnWidth, setActivationColumnWidth] = useState<number>(630) // Default: 45% of ~1400px
+
   // Ref map to track row elements for scrolling to highlighted features
   const featureRowRefs = useRef<Map<number, HTMLTableRowElement>>(new Map())
 
@@ -81,9 +83,9 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const [qualityScorePopoverWidth, setQualityScorePopoverWidth] = useState<number>(180)
   const [qualityScorePopoverLeft, setQualityScorePopoverLeft] = useState<number>(0)
 
-  // Activation examples state
-  const [activationData, setActivationData] = useState<Record<number, ActivationExamples>>({})
-  const loadedActivationFeatureIds = useRef<Set<number>>(new Set())
+  // Activation examples from global store (centralized cache)
+  const activationExamples = useVisualizationStore(state => state.activationExamples)
+  const activationLoadingState = useVisualizationStore(state => state.activationLoadingState)
 
   // Get selected LLM explainers (needed for disabled logic)
   const selectedExplainers = new Set<string>()
@@ -196,41 +198,32 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     }
   }, [])
 
-  // Fetch activation examples when table data changes (with caching)
+  // Measure activation column width once (eliminates shifting in ActivationExample)
   useEffect(() => {
-    if (!tableData || !tableData.features || tableData.features.length === 0) return
+    if (!tableContainerRef.current) return
 
-    // Extract all feature IDs
-    const featureIds = tableData.features.map(f => f.feature_id)
-
-    // Check which features we haven't loaded yet
-    const unloadedFeatureIds = featureIds.filter(
-      id => !loadedActivationFeatureIds.current.has(id)
-    )
-
-    // Only fetch if there are new features
-    if (unloadedFeatureIds.length === 0) {
-      console.log('[TablePanel] All activation examples already cached')
-      return
+    const measureActivationColumn = () => {
+      const headerCell = tableContainerRef.current?.querySelector('.table-panel__header-cell--empty')
+      if (headerCell) {
+        const width = headerCell.getBoundingClientRect().width
+        if (width > 0) {
+          setActivationColumnWidth(width)
+        }
+      }
     }
 
-    console.log('[TablePanel] Fetching activation examples for', unloadedFeatureIds.length, 'new features (', featureIds.length, 'total )')
+    // Initial measurement
+    measureActivationColumn()
 
-    // Fetch activation examples
-    getActivationExamples(unloadedFeatureIds)
-      .then(examples => {
-        console.log('[TablePanel] Loaded activation examples:', Object.keys(examples).length)
+    // Watch for table resize
+    const observer = new ResizeObserver(measureActivationColumn)
+    observer.observe(tableContainerRef.current)
 
-        // Merge with existing data
-        setActivationData(prev => ({ ...prev, ...examples }))
+    return () => observer.disconnect()
+  }, [])
 
-        // Mark as loaded
-        unloadedFeatureIds.forEach(id => loadedActivationFeatureIds.current.add(id))
-      })
-      .catch(error => {
-        console.error('[TablePanel] Failed to fetch activation examples:', error)
-      })
-  }, [tableData?.features])
+  // 🚀 NO FETCH NEEDED: Activation examples are pre-fetched by store.fetchTableData()
+  // and available instantly from global cache (activationExamples)
 
   // Track scroll position for vertical bar scroll indicator
   // Professional approach: Observe inner <table> element that grows when rows are added
@@ -968,10 +961,10 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                           className="table-panel__cell"
                           rowSpan={validExplainerIds.length}
                         >
-                          {activationData[featureRow.feature_id] ? (
+                          {activationExamples[featureRow.feature_id] ? (
                             <ActivationExample
-                              examples={activationData[featureRow.feature_id]}
-                              compact={true}
+                              examples={activationExamples[featureRow.feature_id]}
+                              containerWidth={activationColumnWidth}
                             />
                           ) : (
                             <span className="table-panel__placeholder">—</span>

@@ -371,6 +371,39 @@ class ActivationSimilarityProcessor:
             return []
         return [text[i:i+n] for i in range(len(text) - n + 1)]
 
+    def _reconstruct_words_with_positions(self, tokens: List[str]) -> List[Tuple[str, int]]:
+        """Reconstruct full words with their starting token positions.
+
+        Args:
+            tokens: List of token strings with '▁' marking word boundaries
+
+        Returns:
+            List of tuples (reconstructed_word, start_token_position)
+        """
+        if not tokens:
+            return []
+
+        words_with_positions = []
+        current_word = ""
+        word_start_pos = 0
+
+        for i, token in enumerate(tokens):
+            if token.startswith('▁'):
+                # New word boundary
+                if current_word:
+                    words_with_positions.append((current_word, word_start_pos))
+                current_word = token.lstrip('_▁').lower()
+                word_start_pos = i
+            else:
+                # Continuation of current word
+                current_word += token.lower()
+
+        # Don't forget last word
+        if current_word:
+            words_with_positions.append((current_word, word_start_pos))
+
+        return words_with_positions
+
     def _extract_token_char_ngrams(self, tokens: List[str], ngram_sizes: List[int]) -> Dict[str, List[Tuple[int, str, int]]]:
         """Extract character n-grams from individual tokens (not concatenated).
 
@@ -411,25 +444,31 @@ class ActivationSimilarityProcessor:
             ngram_sizes: List of word n-gram sizes (1=unigram, 2=bigram, etc.)
 
         Returns:
-            Dict mapping word_ngram → [start_positions]
+            Dict mapping word_ngram → [start_token_positions]
         """
         from collections import defaultdict
 
-        # First, reconstruct full words
-        words = self._reconstruct_words(tokens)
+        # Reconstruct words with their token positions
+        words_with_positions = self._reconstruct_words_with_positions(tokens)
 
-        if not words:
+        if not words_with_positions:
             return {}
 
         word_ngram_map = defaultdict(list)
 
         # Extract word n-grams
         for ngram_size in ngram_sizes:
-            if len(words) >= ngram_size:
-                for i in range(len(words) - ngram_size + 1):
+            if len(words_with_positions) >= ngram_size:
+                for i in range(len(words_with_positions) - ngram_size + 1):
+                    # Safety check for index bounds
+                    if i >= len(words_with_positions) or i + ngram_size > len(words_with_positions):
+                        continue
+
                     # Create word n-gram (space-separated, lowercase)
-                    word_ngram = " ".join([w.lower() for w in words[i:i+ngram_size]])
-                    word_ngram_map[word_ngram].append(i)
+                    word_ngram = " ".join([w[0] for w in words_with_positions[i:i+ngram_size]])
+                    # Use token position of first word in n-gram
+                    start_token_pos = words_with_positions[i][1]
+                    word_ngram_map[word_ngram].append(start_token_pos)
 
         return dict(word_ngram_map)
 
