@@ -324,5 +324,39 @@ export const createTableActions = (set: any, get: any) => ({
       from: currentDisplay,
       to: newMetric
     })
+  },
+
+  // ============================================================================
+  // STAGE TABLE ACTIONS (Dedicated stage-specific table views)
+  // ============================================================================
+
+  /**
+   * Set active stage node for dedicated stage table view
+   */
+  setActiveStageNode: (nodeId: string | null, category?: string | null) => {
+    console.log('[Store.setActiveStageNode] 🔍 DEBUG: Called with:', { nodeId, category })
+
+    set({
+      activeStageNodeId: nodeId,
+      activeStageCategory: category || null
+    })
+
+    const state = get()
+    console.log('[Store.setActiveStageNode] 🔍 DEBUG: State after set:', {
+      activeStageNodeId: state.activeStageNodeId,
+      activeStageCategory: state.activeStageCategory
+    })
+    console.log('[Store.setActiveStageNode] ✅ Set active stage node:', nodeId, 'category:', category)
+  },
+
+  /**
+   * Clear active stage node and return to normal table view
+   */
+  clearActiveStageNode: () => {
+    set({
+      activeStageNodeId: null,
+      activeStageCategory: null
+    })
+    console.log('[Store.clearActiveStageNode] Cleared active stage node')
   }
 })

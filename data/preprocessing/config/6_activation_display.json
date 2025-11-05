@@ -1,0 +1,13 @@
+{
+  "activation_examples_path": "data/master/activation_examples.parquet",
+  "activation_similarity_path": "data/master/activation_example_similarity.parquet",
+  "output_path": "data/master/activation_display.parquet",
+  "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
+  "processing_parameters": {
+    "pattern_threshold": 0.3,
+    "token_processing": {
+      "remove_leading_underscore": true,
+      "join_tokens": true
+    }
+  }
+}

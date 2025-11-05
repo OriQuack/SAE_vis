@@ -1,0 +1,144 @@
+/* ============================================================================
+ * ACTIVATION EXAMPLE COMPONENT - Token Highlighting Display
+ * ============================================================================ */
+
+.activation-example {
+  position: relative;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+  cursor: pointer;
+}
+
+/* ============================================================================
+ * QUANTILE DISPLAY (3 quantiles, character-based truncation)
+ * ============================================================================ */
+
+.activation-example__quantile {
+  display: inline-flex;
+  padding: 2px 2px;
+  border-radius: 2px;
+  background: white;
+  transition: box-shadow 0.2s ease;
+}
+
+.activation-example:hover .activation-example__quantile {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* ============================================================================
+ * TOKEN HIGHLIGHTING
+ * ============================================================================ */
+
+.activation-token {
+  padding: 1px 2px;
+  border-radius: 2px;
+  transition: background-color 0.15s ease;
+  white-space: pre-wrap;
+}
+
+/* Max activation token - bold with red underline */
+.activation-token--max {
+  font-weight: 700;
+  border-bottom: 2px solid #dc2626;
+}
+
+/* Newline token styling */
+.activation-token--newline {
+  position: relative;
+}
+
+/* Newline symbol - visible by default */
+.newline-symbol {
+  display: inline;
+  color: #9ca3af;
+  font-weight: 600;
+  user-select: none;
+}
+
+/* Actual newline - hidden by default */
+.newline-actual {
+  display: none;
+  white-space: pre;
+}
+
+/* On hover of the newline token: show actual newline, hide symbol */
+.activation-token--newline:hover .newline-symbol {
+  display: none;
+}
+
+.activation-token--newline:hover .newline-actual {
+  display: inline;
+}
+
+/* In popover, also show actual newline on hover */
+.activation-example__popover .activation-token--newline:hover .newline-symbol {
+  display: none;
+}
+
+.activation-example__popover .activation-token--newline:hover .newline-actual {
+  display: inline;
+}
+
+.activation-example__ellipsis {
+  color: #9ca3af;
+  margin-left: 2px;
+}
+
+/* ============================================================================
+ * HOVER POPOVER (All 8 examples, 2 per quantile)
+ * ============================================================================ */
+
+.activation-example__popover {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 2px;
+  background: white;
+  border-radius: 6px;
+  z-index: 100;
+  max-width: 800px;  /* Increased for 8 examples */
+  padding: 4px;
+  pointer-events: none; /* Don't interfere with mouse events */
+}
+
+.activation-example__popover-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.activation-example__popover-content {
+  line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Quantile group container */
+.activation-example__popover-quantile-group {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Quantile label */
+.activation-example__popover-quantile-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Individual example row */
+.activation-example__popover-row {
+  display: inline-flex;
+  gap: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  line-height: 1.6;
+}

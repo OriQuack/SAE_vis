@@ -124,6 +124,14 @@ interface AppState extends TagState {
   // Table column display state
   scoreColumnDisplay: typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION
 
+  // Stage table state (decoder similarity stage table)
+  activeStageNodeId: string | null
+  activeStageCategory: string | null
+
+  // Stage table actions
+  setActiveStageNode: (nodeId: string | null, category?: string | null) => void
+  clearActiveStageNode: () => void
+
   // Auto-initialization with default filters
   initializeWithDefaultFilters: () => void
 }
@@ -176,6 +184,10 @@ const initialState = {
 
   // Table column display state
   scoreColumnDisplay: METRIC_QUALITY_SCORE as typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION,
+
+  // Stage table state
+  activeStageNodeId: null,
+  activeStageCategory: null,
 
   // Hover state
   hoveredAlluvialNodeId: null,

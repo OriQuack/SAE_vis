@@ -8,7 +8,7 @@ import {
   getFeatureMetricValues,
   precomputePercentileMap
 } from '../lib/threshold-utils'
-import { PANEL_LEFT, PANEL_RIGHT } from '../lib/constants'
+import { PANEL_LEFT, PANEL_RIGHT, CATEGORY_DECODER_SIMILARITY } from '../lib/constants'
 import { AVAILABLE_STAGES } from '../components/SankeyOverlay'
 
 type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
@@ -261,6 +261,12 @@ export const createTreeActions = (set: any, get: any) => ({
       // Recompute Sankey structure
       console.log(`[Store.addStageToNode] 🔄 Calling recomputeSankeyTree...`)
       get().recomputeSankeyTree(panel)
+
+      // Auto-activate decoder similarity table if this is a decoder similarity stage
+      if (metric === 'decoder_similarity' && panel === PANEL_LEFT) {
+        console.log('[Store.addStageToNode] 🎯 Auto-activating decoder similarity table for node:', nodeId)
+        get().setActiveStageNode(nodeId, CATEGORY_DECODER_SIMILARITY)
+      }
 
       state.setLoading(loadingKey, false)
       console.log(`[Store.addStageToNode] ✅ Stage addition complete with immediate split!`)

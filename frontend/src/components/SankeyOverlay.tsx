@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useRef, useEffect } from 'react'
 import type { D3SankeyNode, D3SankeyLink, HistogramData, SankeyLayout, SankeyTreeNode } from '../types'
 import {
   METRIC_DECODER_SIMILARITY,
@@ -166,6 +166,17 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
   animationDuration,
   dragThresholds: dragThresholdsFromParent
 }) => {
+  // Cache the percentileToMetricMap to prevent loss during tree updates
+  const percentileMapRef = useRef<Map<number, number> | undefined>(undefined)
+
+  // Update cached map when tree node changes (but keep old one if new one is missing)
+  useEffect(() => {
+    const treeNode = sankeyTree?.get(node.id || '')
+    if (treeNode?.percentileToMetricMap && treeNode.percentileToMetricMap.size > 0) {
+      percentileMapRef.current = treeNode.percentileToMetricMap
+    }
+  }, [sankeyTree, node.id])
+
   // Calculate histogram layout
   const layout = useMemo(() => {
     if (!histogramData) return null
@@ -179,21 +190,23 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
   }, [sankeyTree, node.id])
 
   // Convert percentile drag thresholds to metric values for histogram rendering
+  // Only depend on dragThresholdsFromParent and histogramData, not sankeyTree
+  // This prevents recalculation and potential null returns during tree updates
   const dragThresholdsInMetricSpace = useMemo(() => {
     if (!dragThresholdsFromParent || !histogramData) return null
 
-    const treeNode = sankeyTree?.get(node.id || '')
+    // Use cached percentileToMetricMap to avoid losing it during tree updates
+    const percentileMap = percentileMapRef.current
 
-    // percentileToMetricMap must exist - no fallback
-    if (!treeNode?.percentileToMetricMap || treeNode.percentileToMetricMap.size === 0) {
-      console.error('[SankeyOverlay] percentileToMetricMap is missing! This should never happen.')
+    if (!percentileMap || percentileMap.size === 0) {
+      console.warn('[SankeyNodeHistogram] percentileToMetricMap not available for drag conversion')
       return null
     }
 
     return dragThresholdsFromParent.map(percentile => {
-      return getExactMetricFromPercentile(percentile, treeNode.percentileToMetricMap!)
+      return getExactMetricFromPercentile(percentile, percentileMap)
     })
-  }, [dragThresholdsFromParent, histogramData, sankeyTree, node.id])
+  }, [dragThresholdsFromParent, histogramData]) // Remove sankeyTree and node.id from deps
 
   // Use converted drag thresholds during drag, otherwise use committed thresholds
   const thresholds = dragThresholdsInMetricSpace ?? committedThresholds
@@ -553,36 +566,56 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
   const [nodeDragThresholds, setNodeDragThresholds] = useState<Record<string, number[]>>({})
 
   // Cleanup: Clear drag thresholds when committed thresholds update to match
+  // IMPORTANT: Only run when sankeyTree changes (after commit), not during drag.
+  // We must verify the tree update is COMPLETE before clearing drag state.
+  // The tree updates multiple times during async operations, and clearing too early
+  // causes the histogram to jump back to old thresholds.
   React.useEffect(() => {
-    if (!sankeyTree || Object.keys(nodeDragThresholds).length === 0) return
+    if (!sankeyTree) return
 
-    setNodeDragThresholds(prev => {
-      const updated = { ...prev }
-      let hasChanges = false
+    // Use a small delay to ensure all tree updates have completed
+    // This prevents clearing drag state during intermediate tree updates
+    const timeoutId = setTimeout(() => {
+      setNodeDragThresholds(prev => {
+        // Early return if no drag thresholds to cleanup
+        if (Object.keys(prev).length === 0) return prev
 
-      for (const nodeId in prev) {
-        const treeNode = sankeyTree.get(nodeId)
-        if (!treeNode || !treeNode.percentiles) continue
+        const updated = { ...prev }
+        let hasChanges = false
 
-        const committedPercentiles = treeNode.percentiles
-        const dragPercentiles = prev[nodeId]
+        for (const nodeId in prev) {
+          const treeNode = sankeyTree.get(nodeId)
+          if (!treeNode || !treeNode.percentiles) continue
 
-        // Check if committed values now match what we're dragging to
-        if (committedPercentiles.length === dragPercentiles.length) {
-          const matches = committedPercentiles.every((cp: number, i: number) => {
-            return Math.abs(cp - dragPercentiles[i]) < 0.001
-          })
+          const committedPercentiles = treeNode.percentiles
+          const dragPercentiles = prev[nodeId]
 
-          if (matches) {
-            delete updated[nodeId]
-            hasChanges = true
+          // Only clear drag state if:
+          // 1. Percentiles match (indicating update started), AND
+          // 2. Node has children (indicating update completed) OR no metric (stage removed)
+          // This prevents clearing during intermediate metadata-only updates
+          const hasChildren = treeNode.children && treeNode.children.length > 0
+          const noMetric = !treeNode.metric
+          const updateComplete = hasChildren || noMetric
+
+          if (committedPercentiles.length === dragPercentiles.length && updateComplete) {
+            const matches = committedPercentiles.every((cp: number, i: number) => {
+              return Math.abs(cp - dragPercentiles[i]) < 0.001
+            })
+
+            if (matches) {
+              delete updated[nodeId]
+              hasChanges = true
+            }
           }
         }
-      }
 
-      return hasChanges ? updated : prev
-    })
-  }, [sankeyTree, nodeDragThresholds])
+        return hasChanges ? updated : prev
+      })
+    }, 100) // 100ms delay to allow async updates to complete
+
+    return () => clearTimeout(timeoutId)
+  }, [sankeyTree]) // Only sankeyTree - NOT nodeDragThresholds (would cause jump during drag)
 
   if (!layout) return null
 

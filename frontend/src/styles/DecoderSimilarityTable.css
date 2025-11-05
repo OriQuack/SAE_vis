@@ -1,0 +1,138 @@
+/* ============================================================================
+ * DECODER SIMILARITY STAGE TABLE - Custom Styling
+ * Most styling reuses TablePanel.css classes
+ * ============================================================================ */
+
+/* ============================================================================
+ * SELECTION HEADER (Unique to stage tables)
+ * ============================================================================ */
+
+.decoder-stage-table__selection-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  height: 20px;
+  background-color: #f0f9ff;
+  border-bottom: 1px solid #bae6fd;
+  font-size: 11px;
+  color: #0c4a6e;
+}
+
+.decoder-stage-table__selection-count {
+  font-weight: 500;
+}
+
+.decoder-stage-table__clear-selection {
+  background: none;
+  border: none;
+  color: #0c4a6e;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0 4px;
+  font-weight: 500;
+}
+
+.decoder-stage-table__clear-selection:hover {
+  color: #075985;
+  text-decoration: underline;
+}
+
+/* ============================================================================
+ * CUSTOM COLUMN WIDTHS FOR DECODER SIMILARITY TABLE
+ * ============================================================================ */
+
+.decoder-stage-table__header-cell--checkbox {
+  width: 5%;
+  text-align: center;
+}
+
+.decoder-stage-table__header-cell--type {
+  width: 10%;
+  text-align: center;
+}
+
+.decoder-stage-table__header-cell--activation {
+  width: 65%;
+  text-align: left;
+  padding-left: 12px;
+}
+
+.decoder-stage-table__cell--checkbox {
+  text-align: center;
+  background: white;
+}
+
+.decoder-stage-table__checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.decoder-stage-table__cell--type {
+  text-align: center;
+  background: white;
+}
+
+.decoder-stage-table__type-badge {
+  font-size: 11px;
+  color: #374151;
+}
+
+.decoder-stage-table__cell--activation {
+  text-align: left;
+  padding-left: 12px;
+  background: white;
+}
+
+/* ============================================================================
+ * GROUP SEPARATORS
+ * ============================================================================ */
+
+/* Add thicker border after the last row of each group */
+.decoder-stage-table__group-last-row {
+  border-bottom: 2px solid #d1d5db !important;
+}
+
+.decoder-stage-table__group-last-row td {
+  border-bottom: 2px solid #d1d5db;
+}
+
+/* ============================================================================
+ * MAIN FEATURE STYLING
+ * ============================================================================ */
+
+/* Main feature row - light blue background to distinguish from similar features */
+.decoder-stage-table__main-feature-row {
+  background-color: #f0f9ff;
+}
+
+.decoder-stage-table__main-feature-row:hover {
+  background-color: #e0f2fe !important;
+}
+
+/* Apply background to cells in main feature row (overrides white cell backgrounds) */
+.decoder-stage-table__main-feature-row .table-panel__cell {
+  background-color: #f0f9ff !important;
+}
+
+.decoder-stage-table__main-feature-row:hover .table-panel__cell {
+  background-color: #e0f2fe !important;
+}
+
+/* Keep index and ID cells with their original backgrounds in main row */
+.decoder-stage-table__main-feature-row .table-panel__cell--index {
+  background-color: #dbeafe !important;
+}
+
+.decoder-stage-table__main-feature-row .table-panel__cell--id {
+  background-color: #dbeafe !important;
+}
+
+.decoder-stage-table__main-feature-row:hover .table-panel__cell--index {
+  background-color: #bfdbfe !important;
+}
+
+.decoder-stage-table__main-feature-row:hover .table-panel__cell--id {
+  background-color: #bfdbfe !important;
+}

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react'
 import { useVisualizationStore } from '../store/index'
-import type { FeatureTableDataResponse, FeatureTableRow } from '../types'
+import type { FeatureTableDataResponse, FeatureTableRow, ActivationExamples } from '../types'
 import {
   calculateQualityScoreStats,
   sortFeatures,
@@ -14,10 +14,14 @@ import {
 import {
   METRIC_QUALITY_SCORE,
   METRIC_DECODER_SIMILARITY,
-  METRIC_SEMANTIC_SIMILARITY
+  METRIC_SEMANTIC_SIMILARITY,
+  CATEGORY_DECODER_SIMILARITY
 } from '../lib/constants'
+import { getActivationExamples } from '../api'
 import { HighlightedExplanation } from './HighlightedExplanation'
+import ActivationExample from './ActivationExample'
 import QualityScoreBreakdown from './QualityScoreBreakdown'
+import DecoderSimilarityTable from './DecoderSimilarityTable'
 import '../styles/TablePanel.css'
 
 // ============================================================================
@@ -37,6 +41,8 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const isLoading = useVisualizationStore(state => state.loading.table)
   const tableSelectedNodeIds = useVisualizationStore(state => state.tableSelectedNodeIds)
   const clearNodeSelection = useVisualizationStore(state => state.clearNodeSelection)
+  const activeStageNodeId = useVisualizationStore(state => state.activeStageNodeId)
+  const activeStageCategory = useVisualizationStore(state => state.activeStageCategory)
 
   // Tag system state
   const selectedFeatureIds = useVisualizationStore(state => state.selectedFeatureIds)
@@ -73,6 +79,9 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const [qualityScorePopoverPosition, setQualityScorePopoverPosition] = useState<'above' | 'below'>('above')
   const [qualityScorePopoverWidth, setQualityScorePopoverWidth] = useState<number>(180)
   const [qualityScorePopoverLeft, setQualityScorePopoverLeft] = useState<number>(0)
+
+  // Activation examples state
+  const [activationData, setActivationData] = useState<Record<number, ActivationExamples>>({})
 
   // Get selected LLM explainers (needed for disabled logic)
   const selectedExplainers = new Set<string>()
@@ -210,6 +219,25 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     }
   }, [highlightedFeatureId])
 
+  // Fetch activation examples when table data changes
+  useEffect(() => {
+    if (!tableData || !tableData.features || tableData.features.length === 0) return
+
+    // Extract all feature IDs
+    const featureIds = tableData.features.map(f => f.feature_id)
+
+    console.log('[TablePanel] Fetching activation examples for', featureIds.length, 'features')
+
+    // Fetch activation examples
+    getActivationExamples(featureIds)
+      .then(examples => {
+        console.log('[TablePanel] Loaded activation examples:', Object.keys(examples).length)
+        setActivationData(examples)
+      })
+      .catch(error => {
+        console.error('[TablePanel] Failed to fetch activation examples:', error)
+      })
+  }, [tableData])
 
   // Track scroll position for vertical bar scroll indicator
   // Professional approach: Observe inner <table> element that grows when rows are added
@@ -421,6 +449,12 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
   // Get list of explainer IDs for iteration
   const explainerIds = tableData.explainer_ids || []
+
+  // Check if we should render stage-specific table
+  // Use stored category for simple and reliable check
+  if (activeStageNodeId && activeStageCategory === CATEGORY_DECODER_SIMILARITY) {
+    return <DecoderSimilarityTable className={className} />
+  }
 
   // Render new simplified table with 3 sub-rows per feature
   return (
@@ -858,10 +892,22 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                         )}
                       </td>
 
-                      {/* Empty cell for future use */}
-                      <td className="table-panel__cell table-panel__cell--empty">
-                        {/* Reserved for future features */}
-                      </td>
+                      {/* Activation Example column */}
+                      {explainerIdx === 0 && (
+                        <td
+                          className="table-panel__cell"
+                          rowSpan={validExplainerIds.length}
+                        >
+                          {activationData[featureRow.feature_id] ? (
+                            <ActivationExample
+                              examples={activationData[featureRow.feature_id]}
+                              compact={true}
+                            />
+                          ) : (
+                            <span className="table-panel__placeholder">—</span>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   )
                 })

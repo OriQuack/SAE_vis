@@ -5,7 +5,8 @@ import type {
   FeatureDetail,
   Filters,
   TableDataRequest,
-  FeatureTableDataResponse
+  FeatureTableDataResponse,
+  ActivationExamples
 } from './types'
 
 // ============================================================================
@@ -40,7 +41,8 @@ const API_ENDPOINTS = {
   HISTOGRAM_DATA: "/histogram-data",
   FEATURE_DETAIL: "/feature",
   TABLE_DATA: "/table-data",
-  FEATURE_GROUPS: "/feature-groups"
+  FEATURE_GROUPS: "/feature-groups",
+  ACTIVATION_EXAMPLES: "/activation-examples"
 } as const
 
 const API_BASE = API_BASE_URL
@@ -152,4 +154,29 @@ export async function getFeatureGroups(request: {
     throw new Error(`Failed to fetch feature groups: ${response.status} - ${errorText}`)
   }
   return response.json()
+}
+
+export async function getActivationExamples(
+  featureIds: number[]
+): Promise<Record<number, ActivationExamples>> {
+  console.log('[API] getActivationExamples called with', featureIds.length, 'feature IDs:', featureIds.slice(0, 10))
+
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.ACTIVATION_EXAMPLES}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ feature_ids: featureIds })
+  })
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('[API] Activation examples error:', response.status, errorText)
+    throw new Error(`Failed to fetch activation examples: ${response.status} - ${errorText}`)
+  }
+  const data = await response.json()
+  console.log('[API] getActivationExamples response:', {
+    examplesCount: data.examples ? Object.keys(data.examples).length : 0,
+    sampleKeys: data.examples ? Object.keys(data.examples).slice(0, 5) : []
+  })
+  return data.examples || {}
 }

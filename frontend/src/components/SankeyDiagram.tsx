@@ -23,7 +23,8 @@ import type { D3SankeyNode, D3SankeyLink } from '../types'
 import {
   PANEL_LEFT,
   PANEL_RIGHT,
-  METRIC_DISPLAY_NAMES
+  METRIC_DISPLAY_NAMES,
+  CATEGORY_DECODER_SIMILARITY
 } from '../lib/constants'
 import { SankeyOverlay, SankeyInlineSelector, AVAILABLE_STAGES } from './SankeyOverlay'
 import '../styles/SankeyDiagram.css'
@@ -402,7 +403,8 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     removeNodeStage,
     updateNodeThresholds,
     updateNodeThresholdsByPercentile,
-    toggleNodeSelection
+    toggleNodeSelection,
+    setActiveStageNode
   } = useVisualizationStore()
 
   // NEW TREE-BASED SYSTEM: use computedSankey directly
@@ -637,16 +639,46 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   }, [updateNodeThresholdsByPercentile, panel])
 
   const handleNodeSelectionClick = useCallback((event: React.MouseEvent, node: D3SankeyNode) => {
+    console.log('[SankeyDiagram.handleNodeSelectionClick] ⚡ CLICK EVENT FIRED!')
+    console.log('[SankeyDiagram.handleNodeSelectionClick] 🔍 DEBUG: Node clicked:', {
+      id: node.id,
+      category: node.category,
+      metric: node.metric,
+      stage: node.stage,
+      panel: panel,
+      CATEGORY_DECODER_SIMILARITY: CATEGORY_DECODER_SIMILARITY
+    })
+
     // Only allow selection in left panel
-    if (panel !== PANEL_LEFT) return
+    if (panel !== PANEL_LEFT) {
+      console.log('[SankeyDiagram.handleNodeSelectionClick] ⚠️ DEBUG: Ignoring click - not left panel')
+      return
+    }
 
     // Don't select root node or placeholder nodes
-    if (node.id === 'root' || node.id === 'placeholder_vertical_bar') return
+    if (node.id === 'root' || node.id === 'placeholder_vertical_bar') {
+      console.log('[SankeyDiagram.handleNodeSelectionClick] ⚠️ DEBUG: Ignoring click - root or placeholder node')
+      return
+    }
 
     event.stopPropagation()
+
+    // Check if this is a decoder similarity stage node using category
+    // Category is already computed from parent's metric during tree-to-D3 conversion
+    console.log('[SankeyDiagram.handleNodeSelectionClick] 🔍 DEBUG: Checking category:', node.category, '===', CATEGORY_DECODER_SIMILARITY, '?', node.category === CATEGORY_DECODER_SIMILARITY)
+
+    if (node.category === CATEGORY_DECODER_SIMILARITY) {
+      console.log('[SankeyDiagram.handleNodeSelectionClick] 🎯 DEBUG: MATCH! Opening decoder similarity stage table')
+      setActiveStageNode(node.id, node.category)
+      console.log('[SankeyDiagram.handleNodeSelectionClick] 🎯 Opening decoder similarity stage table for node:', node.id, 'category:', node.category)
+      return
+    }
+
+    // Otherwise -> toggle node selection for table filtering
+    console.log('[SankeyDiagram.handleNodeSelectionClick] 🔍 DEBUG: No match, toggling node selection')
     toggleNodeSelection(node.id)
     console.log('[SankeyDiagram.handleNodeSelectionClick] 🎯 Node selection toggled:', node.id)
-  }, [panel, toggleNodeSelection])
+  }, [panel, toggleNodeSelection, setActiveStageNode])
 
   // Render
   if (error) {

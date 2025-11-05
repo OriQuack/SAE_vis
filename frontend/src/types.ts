@@ -441,6 +441,48 @@ export interface FeatureTableRow {
   feature_id: number
   decoder_similarity?: Array<{feature_id: number, cosine_similarity: number}> | null  // List of top similar features with cosine similarity scores
   explainers: Record<string, ExplainerScoreData>
+  // NEW: Activation examples (lazy loaded)
+  activation_examples?: ActivationExamples
+}
+
+// ============================================================================
+// ACTIVATION EXAMPLE TYPES
+// ============================================================================
+
+/**
+ * Activation examples for a feature with similarity-based pattern categorization
+ */
+export interface ActivationExamples {
+  quantile_examples: QuantileExample[]  // 4 quantiles (Q1-Q4)
+  semantic_similarity: number           // Average pairwise semantic similarity (0-1)
+  max_jaccard: number                  // Maximum Jaccard similarity across n-grams (0-1)
+  pattern_type: 'None' | 'Semantic' | 'Lexical'  // Pattern categorization
+}
+
+/**
+ * Single activation example from a quantile
+ */
+export interface QuantileExample {
+  quantile_index: number               // 0-3 (Q1-Q4)
+  prompt_id: number
+  prompt_tokens: string[]              // All tokens (127)
+  activation_pairs: Array<{
+    token_position: number
+    activation_value: number
+  }>
+  max_activation: number
+  max_activation_position: number      // Where to center highlighting
+}
+
+/**
+ * Token with activation highlighting metadata
+ */
+export interface ActivationToken {
+  text: string
+  position: number
+  activation_value?: number            // If activated
+  is_max?: boolean                    // Is this the max activation token?
+  is_newline?: boolean                // Is this a newline character?
 }
 
 export interface TableDataRequest {
@@ -512,6 +554,33 @@ export interface SavedCellGroupSelection {
   groups: CellGroup[]        // Saved cell groups
   colorIndex: number         // Color index for badge display (0-5)
   timestamp: number          // Creation timestamp
+}
+
+// ============================================================================
+// STAGE TABLE TYPES (Dedicated tables for Sankey stages)
+// ============================================================================
+
+/**
+ * Decoder Stage Row - Row data for decoder similarity stage table
+ */
+export interface DecoderStageRow {
+  feature_id: number
+  decoder_similarity: number  // The feature's own decoder similarity score
+  top_similar_features: Array<{
+    feature_id: number
+    cosine_similarity: number
+    is_main?: boolean  // True for main feature (first row), false for similar features
+  }>  // Main feature + top 4 most similar features by decoder weights
+}
+
+/**
+ * Stage Table Context - Metadata for the currently selected stage
+ */
+export interface StageTableContext {
+  nodeId: string       // Sankey tree node ID
+  metric: string       // Metric used for this stage (e.g., "decoder_similarity")
+  rangeLabel: string   // Display label (e.g., ">= 0.40")
+  featureCount: number // Number of features in this stage
 }
 
 // ============================================================================
