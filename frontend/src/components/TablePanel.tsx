@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { useVisualizationStore } from '../store/index'
 import type { FeatureTableDataResponse, FeatureTableRow, ActivationExamples } from '../types'
 import {
@@ -82,6 +83,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
   // Activation examples state
   const [activationData, setActivationData] = useState<Record<number, ActivationExamples>>({})
+  const loadedActivationFeatureIds = useRef<Set<number>>(new Set())
 
   // Get selected LLM explainers (needed for disabled logic)
   const selectedExplainers = new Set<string>()
@@ -177,7 +179,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   useEffect(() => {
     fetchTableData()
   }, [
-    fetchTableData,
+    // Note: fetchTableData is a stable Zustand action, no need to include in dependencies
     leftPanel.filters.llm_explainer,
     rightPanel.filters.llm_explainer,
     leftPanel.filters.llm_scorer,
@@ -194,50 +196,41 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     }
   }, [])
 
-  // Scroll to highlighted feature when it changes
-  useEffect(() => {
-    if (highlightedFeatureId !== null) {
-      const rowElement = featureRowRefs.current.get(highlightedFeatureId)
-
-      if (rowElement) {
-        // Scroll the row into view
-        rowElement.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center'
-        })
-
-        // Clear the highlight after 0.5 seconds
-        const timeoutId = setTimeout(() => {
-          const setHighlightedFeature = useVisualizationStore.getState().setHighlightedFeature
-          setHighlightedFeature(null)
-        }, 3000)
-
-        return () => clearTimeout(timeoutId)
-      } else {
-        console.warn(`[TablePanel] Feature ${highlightedFeatureId} not found in current table view`)
-      }
-    }
-  }, [highlightedFeatureId])
-
-  // Fetch activation examples when table data changes
+  // Fetch activation examples when table data changes (with caching)
   useEffect(() => {
     if (!tableData || !tableData.features || tableData.features.length === 0) return
 
     // Extract all feature IDs
     const featureIds = tableData.features.map(f => f.feature_id)
 
-    console.log('[TablePanel] Fetching activation examples for', featureIds.length, 'features')
+    // Check which features we haven't loaded yet
+    const unloadedFeatureIds = featureIds.filter(
+      id => !loadedActivationFeatureIds.current.has(id)
+    )
+
+    // Only fetch if there are new features
+    if (unloadedFeatureIds.length === 0) {
+      console.log('[TablePanel] All activation examples already cached')
+      return
+    }
+
+    console.log('[TablePanel] Fetching activation examples for', unloadedFeatureIds.length, 'new features (', featureIds.length, 'total )')
 
     // Fetch activation examples
-    getActivationExamples(featureIds)
+    getActivationExamples(unloadedFeatureIds)
       .then(examples => {
         console.log('[TablePanel] Loaded activation examples:', Object.keys(examples).length)
-        setActivationData(examples)
+
+        // Merge with existing data
+        setActivationData(prev => ({ ...prev, ...examples }))
+
+        // Mark as loaded
+        unloadedFeatureIds.forEach(id => loadedActivationFeatureIds.current.add(id))
       })
       .catch(error => {
         console.error('[TablePanel] Failed to fetch activation examples:', error)
       })
-  }, [tableData])
+  }, [tableData?.features])
 
   // Track scroll position for vertical bar scroll indicator
   // Professional approach: Observe inner <table> element that grows when rows are added
@@ -374,7 +367,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
       // Clean up all retry/mutation timeouts
       cleanupTimeouts.forEach(timeoutId => clearTimeout(timeoutId))
     }
-  }, [setTableScrollState, tableData?.features.length])
+  }, [setTableScrollState])  // ResizeObserver auto-detects table changes, no need to recreate on feature count change
 
   // ============================================================================
   // SORTED FEATURES
@@ -449,6 +442,56 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
   // Get list of explainer IDs for iteration
   const explainerIds = tableData.explainer_ids || []
+
+  // Calculate total row count for row-level virtualization
+  const totalRowCount = useMemo(() => {
+    return sortedFeatures.reduce((sum, feature) => {
+      const validExplainerCount = explainerIds.filter(explainerId => {
+        const data = feature.explainers[explainerId]
+        return data !== undefined && data !== null
+      }).length
+      return sum + validExplainerCount
+    }, 0)
+  }, [sortedFeatures, explainerIds])
+
+  // Virtual scrolling for performance with large datasets (row-level)
+  const rowVirtualizer = useVirtualizer({
+    count: totalRowCount,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: () => 16,
+    overscan: 15,
+  })
+
+  // Scroll to highlighted feature when it changes (using virtualizer)
+  useEffect(() => {
+    if (highlightedFeatureId !== null) {
+      const featureIndex = sortedFeatures.findIndex(f => f.feature_id === highlightedFeatureId)
+      if (featureIndex !== -1) {
+        // Calculate row index by summing rows of all previous features
+        let rowIndex = 0
+        for (let i = 0; i < featureIndex; i++) {
+          const feature = sortedFeatures[i]
+          const validCount = explainerIds.filter(explainerId => {
+            const data = feature.explainers[explainerId]
+            return data !== undefined && data !== null
+          }).length
+          rowIndex += validCount
+        }
+
+        rowVirtualizer.scrollToIndex(rowIndex, {
+          align: 'center',
+          behavior: 'smooth'
+        })
+        const timeoutId = setTimeout(() => {
+          const setHighlightedFeature = useVisualizationStore.getState().setHighlightedFeature
+          setHighlightedFeature(null)
+        }, 3000)
+        return () => clearTimeout(timeoutId)
+      } else {
+        console.warn(`[TablePanel] Feature ${highlightedFeatureId} not found in current table view`)
+      }
+    }
+  }, [highlightedFeatureId, sortedFeatures, rowVirtualizer, explainerIds])
 
   // Check if we should render stage-specific table
   // Use stored category for simple and reliable check
@@ -579,23 +622,52 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
           </thead>
 
           <tbody className="table-panel__tbody">
-            {sortedFeatures.map((featureRow: FeatureTableRow, featureIndex: number) => {
-              // Count explainers with valid data for this feature (for correct rowSpan)
-              const validExplainerIds = explainerIds.filter(explainerId => {
-                const data = featureRow.explainers[explainerId]
-                return data !== undefined && data !== null
-              })
+            {/* Top padding spacer for virtual scrolling */}
+            {rowVirtualizer.getVirtualItems().length > 0 && (
+              <tr style={{ height: `${rowVirtualizer.getVirtualItems()[0]?.start ?? 0}px` }}>
+                <td colSpan={8} />
+              </tr>
+            )}
 
-              // Skip features with no valid explainers
-              if (validExplainerIds.length === 0) return null
+            {/* Render only visible virtual items */}
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              // Map virtual row index to feature and explainer
+              let currentRowIndex = 0
+              let featureIndex = -1
+              let explainerIndexInFeature = -1
+              let featureRow = null
+              let validExplainerIds: string[] = []
 
-              // Check if this feature is being hovered
+              for (let i = 0; i < sortedFeatures.length; i++) {
+                const feature = sortedFeatures[i]
+                const validIds = explainerIds.filter(explainerId => {
+                  const data = feature.explainers[explainerId]
+                  return data !== undefined && data !== null
+                })
+
+                if (currentRowIndex + validIds.length > virtualRow.index) {
+                  // This feature contains the virtual row
+                  featureIndex = i
+                  featureRow = feature
+                  validExplainerIds = validIds
+                  explainerIndexInFeature = virtualRow.index - currentRowIndex
+                  break
+                }
+
+                currentRowIndex += validIds.length
+              }
+
+              // Skip if we couldn't find the mapping
+              if (!featureRow || explainerIndexInFeature === -1) return null
+
+              const isFirstRowOfFeature = explainerIndexInFeature === 0
               const isFeatureHovered = hoveredFeatureId === featureRow.feature_id
 
+              // Only render popovers on first row of feature
               return (
-              <React.Fragment key={featureRow.feature_id}>
-                {/* Unified explanation popover for this feature row - shown above */}
-                {isFeatureHovered && (
+              <React.Fragment key={`${featureRow.feature_id}-${explainerIndexInFeature}`}>
+                {/* Unified explanation popover for this feature row - shown above (only on first row) */}
+                {isFirstRowOfFeature && isFeatureHovered && (
                   <tr className="table-panel__popover-row">
                     <td colSpan={8} className={`table-panel__popover-cell table-panel__popover-cell--${popoverPosition}`}>
                       <div className="table-panel__explanation-popover" style={{ maxHeight: `${popoverMaxHeight}px`, width: `${popoverMaxHeight}px`, left: `${popoverLeft}px` }}>
@@ -629,8 +701,8 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                     </td>
                   </tr>
                 )}
-                {/* Quality score breakdown popover - shown when hovering */}
-                {hoveredQualityScore === featureRow.feature_id && tableData && (
+                {/* Quality score breakdown popover - shown when hovering (only on first row) */}
+                {isFirstRowOfFeature && hoveredQualityScore === featureRow.feature_id && tableData && (
                   <tr className="table-panel__quality-popover-row">
                     <td colSpan={8} className={`table-panel__quality-popover-cell table-panel__quality-popover-cell--${qualityScorePopoverPosition}`}>
                       <div
@@ -649,33 +721,30 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                     </td>
                   </tr>
                 )}
-                {/* Calculate quality score stats once per feature (for pill visualization) */}
+                {/* Render single row for current explainer */}
                 {(() => {
+                  const explainerId = validExplainerIds[explainerIndexInFeature]
+                  const explainerData = featureRow.explainers[explainerId]
+                  if (!explainerData) return null
+
                   const qualityScoreStats = calculateQualityScoreStats(featureRow, tableData.global_stats)
-
-                  return validExplainerIds.map((explainerId, explainerIdx) => {
-                    const explainerData = featureRow.explainers[explainerId]
-                    // explainerData should always exist here due to filter above, but keep check for safety
-                    if (!explainerData) return null
-
-                    // Get explanation text (safely handle null/undefined)
-                    const explanationText = explainerData.explanation_text ?? '-'
-                    const highlightedExplanation = explainerData.highlighted_explanation
+                  const explanationText = explainerData.explanation_text ?? '-'
+                  const highlightedExplanation = explainerData.highlighted_explanation
 
                   return (
                     <tr
                       key={`${featureRow.feature_id}-${explainerId}`}
-                      ref={explainerIdx === 0 ? (el) => {
+                      ref={isFirstRowOfFeature ? (el) => {
                         if (el) {
                           featureRowRefs.current.set(featureRow.feature_id, el)
                         } else {
                           featureRowRefs.current.delete(featureRow.feature_id)
                         }
                       } : undefined}
-                      className={`table-panel__sub-row ${explainerIdx === 0 ? 'table-panel__sub-row--first' : ''} ${highlightedFeatureId === featureRow.feature_id ? 'table-panel__sub-row--highlighted' : ''} ${selectedFeatureIds.has(featureRow.feature_id) ? 'table-panel__sub-row--selected' : ''}`}
+                      className={`table-panel__sub-row ${isFirstRowOfFeature ? 'table-panel__sub-row--first' : ''} ${highlightedFeatureId === featureRow.feature_id ? 'table-panel__sub-row--highlighted' : ''} ${selectedFeatureIds.has(featureRow.feature_id) ? 'table-panel__sub-row--selected' : ''}`}
                     >
                       {/* Index - shows checkmark if selected, otherwise row number */}
-                      {explainerIdx === 0 && (
+                      {isFirstRowOfFeature && (
                         <td
                           className="table-panel__cell table-panel__cell--index"
                           rowSpan={validExplainerIds.length}
@@ -691,7 +760,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                       )}
 
                       {/* Feature ID - only show on first sub-row */}
-                      {explainerIdx === 0 && (
+                      {isFirstRowOfFeature && (
                         <td
                           className="table-panel__cell table-panel__cell--id"
                           rowSpan={validExplainerIds.length}
@@ -740,7 +809,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                       )}
 
                       {/* Decoder Similarity column - Simple circle (only on first sub-row) */}
-                      {explainerIdx === 0 && (() => {
+                      {isFirstRowOfFeature && (() => {
                         const decoderSim = featureRow.decoder_similarity !== null && featureRow.decoder_similarity !== undefined
                           ? Number(featureRow.decoder_similarity)
                           : null
@@ -771,7 +840,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                       })()}
 
                       {/* Semantic Similarity column - Pill with range (only on first sub-row) */}
-                      {explainerIdx === 0 && (() => {
+                      {isFirstRowOfFeature && (() => {
                         const simStats = calculateAvgSemanticSimilarity(featureRow)
 
                         return (
@@ -822,9 +891,9 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                       })()}
 
                       {/* Quality Score column - Show ONE merged cell with pill shape (only on first sub-row) */}
-                      {explainerIdx === 0 && (
+                      {isFirstRowOfFeature && (
                         <td
-                          ref={explainerIdx === 0 && featureIndex === 0 ? qualityScoreCellRef : undefined}
+                          ref={isFirstRowOfFeature && featureIndex === 0 ? qualityScoreCellRef : undefined}
                           className="table-panel__cell table-panel__cell--score"
                           rowSpan={validExplainerIds.length}
                           title={qualityScoreStats ? `Quality Score: ${qualityScoreStats.avg.toFixed(3)} (${qualityScoreStats.min.toFixed(3)} - ${qualityScoreStats.max.toFixed(3)})` : 'No quality score data'}
@@ -893,7 +962,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                       </td>
 
                       {/* Activation Example column */}
-                      {explainerIdx === 0 && (
+                      {isFirstRowOfFeature && (
                         <td
                           className="table-panel__cell"
                           rowSpan={validExplainerIds.length}
@@ -910,11 +979,21 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                       )}
                     </tr>
                   )
-                })
-              })()}
+                })()}
               </React.Fragment>
-            )
-            })}
+            )})}
+
+            {/* Bottom padding spacer for virtual scrolling */}
+            {rowVirtualizer.getVirtualItems().length > 0 && (
+              <tr style={{
+                height: `${
+                  rowVirtualizer.getTotalSize() -
+                  (rowVirtualizer.getVirtualItems()[rowVirtualizer.getVirtualItems().length - 1]?.end ?? 0)
+                }px`
+              }}>
+                <td colSpan={8} />
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

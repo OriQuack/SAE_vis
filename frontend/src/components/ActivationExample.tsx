@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useRef, useEffect } from 'react'
 import type { ActivationExamples } from '../types'
 import {
   buildActivationTokens,
@@ -33,6 +33,34 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
   compact = true
 }) => {
   const [showPopover, setShowPopover] = useState<boolean>(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [availableWidth, setAvailableWidth] = useState<number>(630) // Default: 45% of ~1400px table
+
+  // Measure container width dynamically
+  useEffect(() => {
+    if (!containerRef.current) return
+
+    // Initial measurement
+    const initialWidth = containerRef.current.getBoundingClientRect().width
+    if (initialWidth > 0) {
+      setAvailableWidth(initialWidth)
+    }
+
+    // Continue watching for resize events
+    const observer = new ResizeObserver(entries => {
+      const width = entries[0].contentRect.width
+      if (width > 0) {  // Guard against zero-width measurements
+        setAvailableWidth(width)
+      }
+    })
+
+    observer.observe(containerRef.current)
+    return () => observer.disconnect()
+  }, [])
+
+  // Calculate max characters based on available width
+  // Assume ~7px per character at 11px monospace font
+  const maxLength = useMemo(() => Math.floor(availableWidth / 7), [availableWidth])
 
   // Group examples by quantile_index (memoized for performance)
   const quantileGroups = useMemo(() => {
@@ -45,6 +73,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
 
   return (
     <div
+      ref={containerRef}
       className="activation-example"
       onMouseEnter={() => setShowPopover(true)}
       onMouseLeave={() => setShowPopover(false)}
@@ -57,14 +86,15 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
 
         // Build tokens from 32-token window
         const tokens = buildActivationTokens(example, 32)
-        // Truncate to ~50 characters
-        const { displayTokens, hasEllipsis } = formatTokensWithEllipsis(tokens, 50)
+        // Truncate based on available width (symmetric around max token)
+        const { displayTokens, hasLeftEllipsis, hasRightEllipsis } = formatTokensWithEllipsis(tokens, maxLength)
 
         return (
           <div
             key={qIndex}
             className="activation-example__quantile"
           >
+            {hasLeftEllipsis && <span className="activation-example__ellipsis">...</span>}
             {displayTokens.map((token, tokenIdx) => (
               <span
                 key={tokenIdx}
@@ -86,7 +116,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
                 )}
               </span>
             ))}
-            {hasEllipsis && <span className="activation-example__ellipsis">...</span>}
+            {hasRightEllipsis && <span className="activation-example__ellipsis">...</span>}
           </div>
         )
       })}
@@ -94,15 +124,9 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
       {/* Hover popover: All 8 examples (2 per quantile) */}
       {showPopover && (
         <div className="activation-example__popover">
-          <div className="activation-example__popover-header">
-            All Examples (2 per quantile)
-          </div>
           <div className="activation-example__popover-content">
             {quantileGroups.map((group, qIdx) => (
               <div key={qIdx} className="activation-example__popover-quantile-group">
-                <div className="activation-example__popover-quantile-label">
-                  Quantile {qIdx + 1}
-                </div>
                 {group.map((example, exIdx) => {
                   // Show full 32-token window without truncation
                   const tokens = buildActivationTokens(example, 32)

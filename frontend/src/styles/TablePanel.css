@@ -231,6 +231,7 @@
   border-bottom: 1px solid #f3f4f6;
   transition: background-color 0.15s ease, border-left 0.15s ease;
   cursor: pointer;
+  height: 16px;
 }
 
 .table-panel__sub-row:hover {

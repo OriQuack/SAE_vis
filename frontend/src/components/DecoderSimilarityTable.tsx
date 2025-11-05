@@ -1,4 +1,5 @@
-import React, { useMemo, useState, useEffect } from 'react'
+import React, { useMemo, useState, useEffect, useRef } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow, DecoderStageRow, StageTableContext, ActivationExamples } from '../types'
 import { METRIC_DECODER_SIMILARITY } from '../lib/constants'
@@ -30,8 +31,12 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
   const [sortBy, setSortBy] = useState<'id' | 'decoder_similarity' | null>(null)
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc' | null>(null)
 
+  // Refs
+  const tableContainerRef = useRef<HTMLDivElement>(null)
+
   // Activation examples state
   const [activationData, setActivationData] = useState<Record<number, ActivationExamples>>({})
+  const loadedActivationFeatureIds = useRef<Set<number>>(new Set())
 
   // Get stage context
   const stageContext = useMemo<StageTableContext | null>(() => {
@@ -140,6 +145,14 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
     return sorted
   }, [stageRows, sortBy, sortDirection])
 
+  // Virtual scrolling for performance with large datasets
+  const rowVirtualizer = useVirtualizer({
+    count: sortedRows.length,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: () => 250, // Estimate ~50px per sub-row × 5 sub-rows per feature group
+    overscan: 3, // Render 3 extra items above/below for smooth scrolling
+  })
+
   // Handle sort click
   const handleSort = (column: 'id' | 'decoder_similarity') => {
     if (sortBy === column) {
@@ -163,7 +176,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
     toggleFeatureSelection(featureId)
   }
 
-  // Fetch activation examples when stage changes
+  // Fetch activation examples when stage changes (with caching)
   useEffect(() => {
     if (!stageContext || !tableData || sortedRows.length === 0) return
 
@@ -176,18 +189,34 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
       )
     )
 
-    console.log('[DecoderSimilarityTable] Fetching activation examples for', featureIds.length, 'features')
+    // Check which features we haven't loaded yet
+    const unloadedFeatureIds = featureIds.filter(
+      id => !loadedActivationFeatureIds.current.has(id)
+    )
+
+    // Only fetch if there are new features
+    if (unloadedFeatureIds.length === 0) {
+      console.log('[DecoderSimilarityTable] All activation examples already cached')
+      return
+    }
+
+    console.log('[DecoderSimilarityTable] Fetching activation examples for', unloadedFeatureIds.length, 'new features (', featureIds.length, 'total )')
 
     // Fetch activation examples
-    getActivationExamples(featureIds)
+    getActivationExamples(unloadedFeatureIds)
       .then(examples => {
         console.log('[DecoderSimilarityTable] Loaded activation examples:', Object.keys(examples).length)
-        setActivationData(examples)
+
+        // Merge with existing data
+        setActivationData(prev => ({ ...prev, ...examples }))
+
+        // Mark as loaded
+        unloadedFeatureIds.forEach(id => loadedActivationFeatureIds.current.add(id))
       })
       .catch(error => {
         console.error('[DecoderSimilarityTable] Failed to fetch activation examples:', error)
       })
-  }, [sortedRows, stageContext, tableData])
+  }, [stageContext, tableData])
 
   // Empty state
   if (!stageContext) {
@@ -225,7 +254,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
       </div>
 
       {/* Table */}
-      <div className="table-panel__content">
+      <div className="table-panel__content" ref={tableContainerRef}>
         <table className="table-panel__table--simple">
           <thead className="table-panel__thead">
             <tr className="table-panel__header-row">
@@ -261,7 +290,17 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
           </thead>
 
           <tbody className="table-panel__tbody">
-            {sortedRows.map((row, groupIndex) => {
+            {/* Top padding spacer for virtual scrolling */}
+            {rowVirtualizer.getVirtualItems().length > 0 && (
+              <tr style={{ height: `${rowVirtualizer.getVirtualItems()[0]?.start ?? 0}px` }}>
+                <td colSpan={6} />
+              </tr>
+            )}
+
+            {/* Render only visible virtual items */}
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const row = sortedRows[virtualRow.index]
+              const groupIndex = virtualRow.index
               // Each group has 5 rows (top 5 similar features)
               const similarFeatures = row.top_similar_features
               const rowCount = Math.max(similarFeatures.length, 1) // At least 1 row
@@ -369,6 +408,18 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                 </React.Fragment>
               )
             })}
+
+            {/* Bottom padding spacer for virtual scrolling */}
+            {rowVirtualizer.getVirtualItems().length > 0 && (
+              <tr style={{
+                height: `${
+                  rowVirtualizer.getTotalSize() -
+                  (rowVirtualizer.getVirtualItems()[rowVirtualizer.getVirtualItems().length - 1]?.end ?? 0)
+                }px`
+              }}>
+                <td colSpan={6} />
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

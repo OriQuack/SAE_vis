@@ -89,6 +89,16 @@
  * GROUP SEPARATORS
  * ============================================================================ */
 
+/* Add thin border between all sub-rows in decoder similarity table only */
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row {
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+/* Also add border to cells for visibility */
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row .table-panel__cell {
+  border-bottom: 1px solid #e5e7eb;
+}
+
 /* Add thicker border after the last row of each group */
 .decoder-stage-table__group-last-row {
   border-bottom: 2px solid #d1d5db !important;
@@ -102,37 +112,11 @@
  * MAIN FEATURE STYLING
  * ============================================================================ */
 
-/* Main feature row - light blue background to distinguish from similar features */
+/* Main feature row - no special background, same as similar features */
 .decoder-stage-table__main-feature-row {
-  background-color: #f0f9ff;
+  /* No special background */
 }
 
 .decoder-stage-table__main-feature-row:hover {
-  background-color: #e0f2fe !important;
-}
-
-/* Apply background to cells in main feature row (overrides white cell backgrounds) */
-.decoder-stage-table__main-feature-row .table-panel__cell {
-  background-color: #f0f9ff !important;
-}
-
-.decoder-stage-table__main-feature-row:hover .table-panel__cell {
-  background-color: #e0f2fe !important;
-}
-
-/* Keep index and ID cells with their original backgrounds in main row */
-.decoder-stage-table__main-feature-row .table-panel__cell--index {
-  background-color: #dbeafe !important;
-}
-
-.decoder-stage-table__main-feature-row .table-panel__cell--id {
-  background-color: #dbeafe !important;
-}
-
-.decoder-stage-table__main-feature-row:hover .table-panel__cell--index {
-  background-color: #bfdbfe !important;
-}
-
-.decoder-stage-table__main-feature-row:hover .table-panel__cell--id {
-  background-color: #bfdbfe !important;
+  /* Default hover will apply */
 }

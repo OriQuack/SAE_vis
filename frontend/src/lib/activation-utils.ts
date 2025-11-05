@@ -39,7 +39,7 @@ export function buildActivationTokens(
   example: QuantileExample,
   windowSize: number = 10
 ): ActivationToken[] {
-  const { tokens, startIndex, endIndex } = extractTokenWindow(
+  const { tokens, startIndex } = extractTokenWindow(
     example.prompt_tokens,
     example.max_activation_position,
     windowSize
@@ -110,48 +110,82 @@ export function getBorderStyle(
 }
 
 /**
- * Format tokens with ellipsis (like explanation display)
+ * Format tokens with ellipsis - SYMMETRIC TRUNCATION
  *
  * Truncates token display if total length exceeds maxLength,
- * adding "..." at the end.
+ * centering the max activation token with equal amounts before/after.
  *
- * IMPORTANT: Always includes the max activation token to ensure it's visible.
+ * Returns left and right ellipsis flags for symmetric display.
  */
 export function formatTokensWithEllipsis(
   tokens: ActivationToken[],
   maxLength: number = 50
-): { displayTokens: ActivationToken[], hasEllipsis: boolean } {
-  const joined = tokens.map(t => t.text).join('')
+): { displayTokens: ActivationToken[], hasLeftEllipsis: boolean, hasRightEllipsis: boolean } {
+  const totalLength = tokens.reduce((sum, t) => sum + t.text.length, 0)
 
-  if (joined.length <= maxLength) {
-    return { displayTokens: tokens, hasEllipsis: false }
+  // If everything fits, return all tokens
+  if (totalLength <= maxLength) {
+    return { displayTokens: tokens, hasLeftEllipsis: false, hasRightEllipsis: false }
   }
 
   // Find max token position
   const maxTokenIdx = tokens.findIndex(t => t.is_max)
-
-  // Truncate and add ellipsis, but always include tokens up to max token
-  let currentLength = 0
-  const displayTokens: ActivationToken[] = []
-
-  for (let i = 0; i < tokens.length; i++) {
-    const token = tokens[i]
-
-    // Always include tokens up to and including the max token
-    if (i <= maxTokenIdx) {
+  if (maxTokenIdx === -1) {
+    // No max token found, fallback to simple truncation
+    let currentLength = 0
+    const displayTokens: ActivationToken[] = []
+    for (const token of tokens) {
+      if (currentLength + token.text.length > maxLength - 3) break
       displayTokens.push(token)
       currentLength += token.text.length
     }
-    // After max token, only add if within character limit
-    else if (currentLength + token.text.length <= maxLength - 3) {
-      displayTokens.push(token)
-      currentLength += token.text.length
-    }
-    // Stop if we exceed the limit
-    else {
-      break
-    }
+    return { displayTokens, hasLeftEllipsis: false, hasRightEllipsis: true }
   }
 
-  return { displayTokens, hasEllipsis: displayTokens.length < tokens.length }
+  // Reserve space for ellipsis (3 chars each side if needed)
+  const reservedSpace = 6
+  const availableSpace = maxLength - reservedSpace
+
+  // Symmetric expansion from max token
+  const selected = new Set<number>([maxTokenIdx])
+  let currentLength = tokens[maxTokenIdx].text.length
+  let leftIdx = maxTokenIdx - 1
+  let rightIdx = maxTokenIdx + 1
+
+  // Expand symmetrically until we run out of space
+  while ((leftIdx >= 0 || rightIdx < tokens.length) && currentLength < availableSpace) {
+    // Try to add from left
+    if (leftIdx >= 0) {
+      const leftToken = tokens[leftIdx]
+      if (currentLength + leftToken.text.length <= availableSpace) {
+        selected.add(leftIdx)
+        currentLength += leftToken.text.length
+        leftIdx--
+      } else {
+        leftIdx = -1 // Can't add more from left
+      }
+    }
+
+    // Try to add from right
+    if (rightIdx < tokens.length && currentLength < availableSpace) {
+      const rightToken = tokens[rightIdx]
+      if (currentLength + rightToken.text.length <= availableSpace) {
+        selected.add(rightIdx)
+        currentLength += rightToken.text.length
+        rightIdx++
+      } else {
+        rightIdx = tokens.length // Can't add more from right
+      }
+    }
+
+    // If both sides exhausted, break
+    if (leftIdx < 0 && rightIdx >= tokens.length) break
+  }
+
+  // Build display tokens in order
+  const displayTokens = tokens.filter((_, idx) => selected.has(idx))
+  const hasLeftEllipsis = leftIdx + 1 > 0
+  const hasRightEllipsis = rightIdx < tokens.length
+
+  return { displayTokens, hasLeftEllipsis, hasRightEllipsis }
 }
