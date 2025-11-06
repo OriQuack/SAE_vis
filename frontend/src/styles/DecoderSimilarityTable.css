@@ -48,12 +48,12 @@
 }
 
 .decoder-stage-table__header-cell--type {
-  width: 6%;
+  width: 4%;
   text-align: center;
 }
 
 .decoder-stage-table__header-cell--interfeature {
-  width: 9%;
+  width: 4%;
   text-align: center;
 }
 
@@ -142,6 +142,28 @@
   background-color: #f3f4f6;
   color: #6b7280;
   border: 1px solid #d1d5db;
+}
+
+/* Compact badge variant for SVG context */
+.decoder-stage-table__badge--compact {
+  padding: 0px 2px;
+  font-size: 8px;
+  transition: all 0.15s ease;
+  line-height: 1.2;
+}
+
+/* Hover state for interactive badges */
+.decoder-stage-table__badge--hover {
+  transform: scale(1.15);
+  z-index: 10;
+}
+
+.decoder-stage-table__badge--lexical.decoder-stage-table__badge--hover {
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.6);
+}
+
+.decoder-stage-table__badge--semantic.decoder-stage-table__badge--hover {
+  box-shadow: 0 0 6px rgba(168, 85, 247, 0.6);
 }
 
 .decoder-stage-table__cell--activation {
@@ -261,4 +283,19 @@
 .decoder-similarity-overlay {
   pointer-events: none;  /* Allow clicks to pass through to table */
   z-index: 1;            /* Appear above table content but below tooltips */
+}
+
+/* Connection highlight styles for hover effects */
+.decoder-connection--highlighted {
+  stroke: #3b82f6 !important;
+  stroke-width: 2.5px !important;
+  opacity: 1.0 !important;
+  transition: all 0.15s ease;
+}
+
+.decoder-circle--highlighted {
+  stroke: #3b82f6 !important;
+  stroke-width: 2px !important;
+  filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.4));
+  transition: all 0.15s ease;
 }

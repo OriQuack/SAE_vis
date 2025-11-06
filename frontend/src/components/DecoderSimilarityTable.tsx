@@ -541,6 +541,9 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                               similarFeatures={similarFeatures}
                               rowCount={rowCount}
                               rowHeight={46}
+                              mainFeatureId={row.feature_id}
+                              onBadgeInteraction={handleBadgeInteraction}
+                              onBadgeLeave={handleBadgeLeave}
                             />
                           </td>
                         ) : null}

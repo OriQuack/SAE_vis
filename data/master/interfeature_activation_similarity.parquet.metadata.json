@@ -1,5 +1,5 @@
 {
-  "created_at": "2025-11-07T01:51:57.971947",
+  "created_at": "2025-11-07T02:21:03.700998",
   "script_version": "4.0",
   "architecture": "dual_ngram_with_position_tracking",
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
@@ -14,19 +14,19 @@
     "features_processed": 824,
     "total_pairs_compared": 3295,
     "semantic_pairs": 195,
-    "lexical_pairs": 1696,
-    "no_pattern_pairs": 1478,
+    "lexical_pairs": 1480,
+    "no_pattern_pairs": 1673,
     "features_with_insufficient_decoder_similar": 0,
     "features_with_no_activations": 0
   },
   "result_stats": {
-    "features_with_any_pairs": 738,
+    "features_with_any_pairs": 699,
     "features_with_semantic_pairs": 111,
-    "features_with_lexical_pairs": 706,
+    "features_with_lexical_pairs": 654,
     "total_semantic_pairs": 195,
-    "total_lexical_pairs": 1696,
-    "total_all_pairs": 1891,
-    "mean_pairs_per_feature": 2.2949029126213594
+    "total_lexical_pairs": 1480,
+    "total_all_pairs": 1675,
+    "mean_pairs_per_feature": 2.032766990291262
   },
   "config_used": {
     "features_path": "data/master/features.parquet",
@@ -39,7 +39,7 @@
       "num_quantiles": 4,
       "samples_per_quantile": 4,
       "embedding_window_size": 32,
-      "char_ngram_window_size": 3,
+      "char_ngram_window_size": 1,
       "word_ngram_window_size": 11,
       "char_ngram_sizes": [
         2,

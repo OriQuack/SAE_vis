@@ -1,5 +1,5 @@
 {
-  "created_at": "2025-11-07T02:10:01.718362",
+  "created_at": "2025-11-07T02:20:10.101970",
   "script_version": "1.0",
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
   "total_rows": 16375,
@@ -19,21 +19,21 @@
     "features_with_no_data": 1,
     "features_with_invalid_boundaries": 8,
     "total_examples_processed": 130594,
-    "semantic_patterns": 2864,
-    "lexical_patterns": 4325,
-    "both_patterns": 927,
-    "no_patterns": 8259
+    "semantic_patterns": 3104,
+    "lexical_patterns": 3826,
+    "both_patterns": 687,
+    "no_patterns": 8758
   },
   "result_stats": {
     "features_with_data": 16375,
     "pattern_distribution": {
-      "semantic": 2864,
-      "lexical": 4325,
-      "both": 927,
-      "none": 8259
+      "semantic": 3104,
+      "lexical": 3826,
+      "both": 687,
+      "none": 8758
     },
     "mean_semantic_similarity": 0.24969873112349109,
-    "mean_char_ngram_jaccard": 0.3199018638925129,
+    "mean_char_ngram_jaccard": 0.22839312537753856,
     "mean_word_ngram_jaccard": 0.20926905675585034,
     "mean_examples_per_feature": 7.975206106870229
   },
