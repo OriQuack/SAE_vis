@@ -14,7 +14,8 @@ import {
   calculateNodeHistogramLayout,
   shouldDisplayNodeHistogram,
   getNodeHistogramMetric,
-  hasOutgoingLinks
+  hasOutgoingLinks,
+  calculateHistogramYAxisTicks
 } from '../lib/d3-sankey-histogram-utils'
 import { getNodeThresholds, getExactMetricFromPercentile } from '../lib/threshold-utils'
 import { calculateHorizontalBarSegments } from '../lib/d3-histogram-utils'
@@ -240,6 +241,12 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
     return layout.bars.map((bar) => calculateHorizontalBarSegments(bar, thresholds, yScale))
   }, [layout, thresholds, yScale])
 
+  // Calculate y-axis ticks for metric value labels
+  const yAxisTicks = useMemo(() => {
+    if (!histogramData || !layout) return []
+    return calculateHistogramYAxisTicks(histogramData, node, 10)
+  }, [histogramData, node, layout])
+
   if (!layout) return null
 
   // Get bar color for patterns
@@ -320,6 +327,54 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
           />
         )
       })}
+
+      {/* Y-axis: metric value labels and ticks */}
+      {yAxisTicks.length > 0 && (
+        <g>
+          {/* Vertical axis line */}
+          <line
+            x1={0}
+            x2={0}
+            y1={0}
+            y2={layout.height}
+            stroke="#6b7280"
+            strokeWidth={1}
+            style={{ pointerEvents: 'none' }}
+          />
+
+          {/* Tick marks and labels */}
+          {yAxisTicks.map((tick) => (
+            <g
+              key={tick.value}
+              transform={`translate(0, ${tick.position - layout.y})`}
+              style={{ pointerEvents: 'none' }}
+            >
+              {/* Tick mark - 6px line extending left */}
+              <line
+                x1={-6}
+                x2={0}
+                y1={0}
+                y2={0}
+                stroke="#6b7280"
+                strokeWidth={1}
+              />
+
+              {/* Tick label - vertical (90 degrees), smaller font */}
+              <text
+                x={-2}
+                y={11}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fontSize={8}
+                fill="#374151"
+                transform="rotate(90)"
+              >
+                {tick.label}
+              </text>
+            </g>
+          ))}
+        </g>
+      )}
     </g>
   )
 }
@@ -734,6 +789,7 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
               position={{ x: node.x0 || 0, y: node.y0 || 0 }}
               parentOffset={{ x: layout.margin.left, y: layout.margin.top }}
               showThresholdLine={false}
+              showDragTooltip={false}
               usePercentiles={usePercentilesMode}
               percentileToMetric={percentileToMetric}
               onUpdate={(values) => {

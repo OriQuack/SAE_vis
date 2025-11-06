@@ -15,13 +15,11 @@ import type {
 
 /**
  * Map frontend metric names to backend metric names
- * Frontend uses "quality_score" for display, but backend expects "overall_score"
  * Frontend uses "semantic_similarity" for display, but backend expects "semsim_mean"
  */
 const FRONTEND_TO_BACKEND_METRIC: Record<string, string> = {
-  'quality_score': 'overall_score',
   'semantic_similarity': 'semsim_mean'
-  // All other metrics (decoder_similarity, score_embedding, etc.) use same name
+  // All other metrics (decoder_similarity, score_embedding, quality_score, etc.) use same name
 }
 
 /**

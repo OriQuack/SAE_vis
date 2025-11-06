@@ -157,9 +157,11 @@ class HistogramService:
             self.data_service._df_lazy, filters
         ).collect()
 
-        # Transform decoder_similarity from List(Struct) to float if needed
-        if metric == MetricType.DECODER_SIMILARITY:
-            logger.info("Transforming decoder_similarity from List(Struct) to max float value for histogram")
+        # IMPORTANT: Transform decoder_similarity from List(Struct) to float BEFORE threshold filtering
+        # This is needed even when generating histograms for other metrics, because threshold_path
+        # may include decoder_similarity constraints that need to compare scalar values
+        if "decoder_similarity" in filtered_df.columns:
+            logger.info("Transforming decoder_similarity from List(Struct) to max float value")
             filtered_df = filtered_df.with_columns([
                 pl.col("decoder_similarity")
                   .list.eval(pl.element().struct.field("cosine_similarity"))
@@ -195,7 +197,7 @@ class HistogramService:
         average_by = None
         if metric in [MetricType.DECODER_SIMILARITY, MetricType.SEMSIM_MEAN,
                       MetricType.SCORE_FUZZ, MetricType.SCORE_DETECTION,
-                      MetricType.SCORE_EMBEDDING, MetricType.OVERALL_SCORE]:
+                      MetricType.SCORE_EMBEDDING, MetricType.QUALITY_SCORE]:
             if metric == MetricType.DECODER_SIMILARITY:
                 average_by = ['llm_explainer', 'llm_scorer']
                 logger.info(f"Auto-deduplicating {metric.value} (feature-level metric)")
@@ -203,7 +205,7 @@ class HistogramService:
                 # Scorer-level metrics: vary by scorer, so average by both
                 average_by = ['llm_explainer', 'llm_scorer']
                 logger.info(f"Auto-deduplicating {metric.value} (scorer-level metric)")
-            elif metric in [MetricType.SEMSIM_MEAN, MetricType.SCORE_EMBEDDING, MetricType.OVERALL_SCORE]:
+            elif metric in [MetricType.SEMSIM_MEAN, MetricType.SCORE_EMBEDDING, MetricType.QUALITY_SCORE]:
                 # Explainer-level metrics: same value across scorers, so average by explainer only
                 average_by = 'llm_explainer'
                 logger.info(f"Auto-deduplicating {metric.value} (explainer-level metric)")

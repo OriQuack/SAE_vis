@@ -52,6 +52,14 @@
   border: 1.5px solid #3b82f6;
 }
 
+/* Inter-feature pattern highlighting (when hovering/clicking decoder similarity badges) */
+/* Uses green top border to differentiate from intra-feature blue border */
+/* Can coexist with .activation-token--ngram-underline for dual highlighting */
+.activation-token--interfeature {
+  border-top: 2.5px solid #10b981;
+  box-shadow: 0 -1px 3px rgba(16, 185, 129, 0.3);
+}
+
 /* Newline token styling */
 .activation-token--newline {
   position: relative;

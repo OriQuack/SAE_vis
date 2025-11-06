@@ -32,6 +32,76 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
   const [sortBy, setSortBy] = useState<'id' | 'decoder_similarity' | null>(null)
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc' | null>(null)
 
+  // Inter-feature pattern highlighting state
+  const [interFeatureHighlight, setInterFeatureHighlight] = useState<{
+    mainFeatureId: number
+    similarFeatureId: number
+    type: 'char' | 'word'
+    mainPositions: any
+    similarPositions: any
+  } | null>(null)
+  const [stickyHighlight, setStickyHighlight] = useState<boolean>(false)
+
+  // Helper function to handle badge hover/click for inter-feature highlighting
+  const handleBadgeInteraction = (
+    mainFeatureId: number,
+    similarFeatureId: number,
+    interfeatureData: any,
+    isClick: boolean
+  ) => {
+    if (!interfeatureData || interfeatureData.pattern_type === 'None') return
+
+    // Determine type based on Jaccard scores (prioritize lexical for "Both")
+    const charJaccard = interfeatureData.char_jaccard || 0
+    const wordJaccard = interfeatureData.word_jaccard || 0
+    const type: 'char' | 'word' = charJaccard >= wordJaccard ? 'char' : 'word'
+
+    // Extract positions
+    const mainPositions = type === 'char'
+      ? interfeatureData.main_char_ngram_positions
+      : interfeatureData.main_word_ngram_positions
+    const similarPositions = type === 'char'
+      ? interfeatureData.similar_char_ngram_positions
+      : interfeatureData.similar_word_ngram_positions
+
+    if (!mainPositions || !similarPositions) return
+
+    const newHighlight = {
+      mainFeatureId,
+      similarFeatureId,
+      type,
+      mainPositions,
+      similarPositions
+    }
+
+    if (isClick) {
+      // Toggle sticky highlight
+      if (stickyHighlight &&
+          interFeatureHighlight?.mainFeatureId === mainFeatureId &&
+          interFeatureHighlight?.similarFeatureId === similarFeatureId) {
+        // Clicking same badge again turns off sticky
+        setInterFeatureHighlight(null)
+        setStickyHighlight(false)
+      } else {
+        // Set new sticky highlight
+        setInterFeatureHighlight(newHighlight)
+        setStickyHighlight(true)
+      }
+    } else {
+      // Hover: only update if not sticky
+      if (!stickyHighlight) {
+        setInterFeatureHighlight(newHighlight)
+      }
+    }
+  }
+
+  const handleBadgeLeave = () => {
+    // Only clear on mouse leave if not sticky
+    if (!stickyHighlight) {
+      setInterFeatureHighlight(null)
+    }
+  }
+
   // Refs
   const tableContainerRef = useRef<HTMLDivElement>(null)
 
@@ -107,12 +177,14 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
         {
           feature_id: feature.feature_id,
           cosine_similarity: 1.0,  // Self-similarity is always 1.0
-          is_main: true
+          is_main: true,
+          inter_feature_similarity: null  // Main feature has no inter-feature similarity
         },
         ...top4Similar.map(item => ({
           feature_id: item.feature_id,
           cosine_similarity: item.cosine_similarity,
-          is_main: false
+          is_main: false,
+          inter_feature_similarity: item.inter_feature_similarity || null
         }))
       ]
 
@@ -396,6 +468,9 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
               <th className="table-panel__header-cell decoder-stage-table__header-cell--type">
                 Type
               </th>
+              <th className="table-panel__header-cell decoder-stage-table__header-cell--interfeature">
+                Inter-feature Similarity
+              </th>
               <th className="table-panel__header-cell decoder-stage-table__header-cell--activation">
                 Activation Example
               </th>
@@ -406,7 +481,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
             {/* Top padding spacer for virtual scrolling */}
             {rowVirtualizer.getVirtualItems().length > 0 && (
               <tr style={{ height: `${rowVirtualizer.getVirtualItems()[0]?.start ?? 0}px` }}>
-                <td colSpan={6} />
+                <td colSpan={7} />
               </tr>
             )}
 
@@ -594,12 +669,85 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                           })()}
                         </td>
 
+                        {/* Inter-feature Similarity */}
+                        <td className="table-panel__cell decoder-stage-table__cell--interfeature">
+                          {(() => {
+                            const interfeatureData = similar.inter_feature_similarity
+                            const patternType = interfeatureData?.pattern_type || 'None'
+
+                            if (patternType === 'Both') {
+                              // Vertically stacked badges for Both (show lexical only per user preference)
+                              return (
+                                <div
+                                  className="decoder-stage-table__badge-stack"
+                                  onMouseEnter={() => handleBadgeInteraction(row.feature_id, similar.feature_id, interfeatureData, false)}
+                                  onMouseLeave={handleBadgeLeave}
+                                  onClick={() => handleBadgeInteraction(row.feature_id, similar.feature_id, interfeatureData, true)}
+                                  style={{cursor: 'pointer'}}
+                                >
+                                  <span className="decoder-stage-table__badge decoder-stage-table__badge--lexical">
+                                    Lexical
+                                  </span>
+                                  <span className="decoder-stage-table__badge decoder-stage-table__badge--semantic">
+                                    Semantic
+                                  </span>
+                                </div>
+                              )
+                            } else if (patternType === 'Lexical') {
+                              return (
+                                <span
+                                  className="decoder-stage-table__badge decoder-stage-table__badge--lexical"
+                                  onMouseEnter={() => handleBadgeInteraction(row.feature_id, similar.feature_id, interfeatureData, false)}
+                                  onMouseLeave={handleBadgeLeave}
+                                  onClick={() => handleBadgeInteraction(row.feature_id, similar.feature_id, interfeatureData, true)}
+                                  style={{cursor: 'pointer'}}
+                                >
+                                  Lexical
+                                </span>
+                              )
+                            } else if (patternType === 'Semantic') {
+                              return (
+                                <span
+                                  className="decoder-stage-table__badge decoder-stage-table__badge--semantic"
+                                  onMouseEnter={() => handleBadgeInteraction(row.feature_id, similar.feature_id, interfeatureData, false)}
+                                  onMouseLeave={handleBadgeLeave}
+                                  onClick={() => handleBadgeInteraction(row.feature_id, similar.feature_id, interfeatureData, true)}
+                                  style={{cursor: 'pointer'}}
+                                >
+                                  Semantic
+                                </span>
+                              )
+                            } else {
+                              return (
+                                <span className="decoder-stage-table__badge decoder-stage-table__badge--none">
+                                  None
+                                </span>
+                              )
+                            }
+                          })()}
+                        </td>
+
                         {/* Activation Example */}
                         <td className="table-panel__cell decoder-stage-table__cell--activation">
                           {activationExamples[similar.feature_id] ? (
                             <ActivationExample
                               examples={activationExamples[similar.feature_id]}
                               containerWidth={activationColumnWidth}
+                              interFeaturePositions={
+                                interFeatureHighlight
+                                  ? (similar.feature_id === interFeatureHighlight.mainFeatureId
+                                      ? {
+                                          type: interFeatureHighlight.type,
+                                          positions: interFeatureHighlight.mainPositions
+                                        }
+                                      : similar.feature_id === interFeatureHighlight.similarFeatureId
+                                        ? {
+                                            type: interFeatureHighlight.type,
+                                            positions: interFeatureHighlight.similarPositions
+                                          }
+                                        : undefined)
+                                  : undefined
+                              }
                             />
                           ) : (
                             <span className="table-panel__placeholder">—</span>
@@ -626,6 +774,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                       <td className="table-panel__cell table-panel__cell--id">—</td>
                       <td className="table-panel__cell table-panel__cell--score">—</td>
                       <td className="table-panel__cell decoder-stage-table__cell--type">—</td>
+                      <td className="table-panel__cell decoder-stage-table__cell--interfeature">—</td>
                       <td className="table-panel__cell decoder-stage-table__cell--activation">
                         <span className="table-panel__placeholder">No similar features</span>
                       </td>
@@ -643,7 +792,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                   (rowVirtualizer.getVirtualItems()[rowVirtualizer.getVirtualItems().length - 1]?.end ?? 0)
                 }px`
               }}>
-                <td colSpan={6} />
+                <td colSpan={7} />
               </tr>
             )}
           </tbody>

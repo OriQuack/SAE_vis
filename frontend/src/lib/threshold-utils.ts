@@ -219,7 +219,7 @@ function getCategoryForMetric(metric: string): NodeCategory {
   }
 
   // Consistency metrics
-  if (metric.includes('consistency') || metric === 'overall_score') {
+  if (metric.includes('consistency') || metric === 'quality_score') {
     return 'consistency' as NodeCategory
   }
 
@@ -806,6 +806,22 @@ export async function getFeatureMetricValues(
         // We extract the max cosine_similarity value (matching backend grouping logic)
         if (metric === 'decoder_similarity' && Array.isArray(metricValue) && metricValue.length > 0) {
           metricValue = Math.max(...metricValue.map((item: any) => item.cosine_similarity))
+        }
+
+        // Special handling for explainer-level metrics (embedding, quality_score)
+        // These are nested inside feature.explainers[explainerKey].metric
+        // We take the average across all explainers for this feature
+        if (metric === 'quality_score' && feature.explainers) {
+          const explainerValues: number[] = []
+          for (const explainerKey in feature.explainers) {
+            const explainerData = feature.explainers[explainerKey]
+            if (explainerData.quality_score !== null && explainerData.quality_score !== undefined) {
+              explainerValues.push(explainerData.quality_score)
+            }
+          }
+          if (explainerValues.length > 0) {
+            metricValue = explainerValues.reduce((a, b) => a + b, 0) / explainerValues.length
+          }
         }
 
         if (metricValue !== null && metricValue !== undefined && !isNaN(metricValue)) {

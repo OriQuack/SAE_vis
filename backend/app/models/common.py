@@ -17,7 +17,7 @@ class MetricType(str, Enum):
     SCORE_FUZZ = "score_fuzz"
     SCORE_DETECTION = "score_detection"
     SCORE_EMBEDDING = "score_embedding"
-    OVERALL_SCORE = "overall_score"
+    QUALITY_SCORE = "quality_score"
 
 class CategoryType(str, Enum):
     """Node category types for Sankey diagrams and visualization"""
@@ -45,7 +45,7 @@ class ThresholdPathConstraint(BaseModel):
     """
     metric: str = Field(
         ...,
-        description="Metric name (e.g., 'semsim_mean', 'overall_score')",
+        description="Metric name (e.g., 'semsim_mean', 'quality_score')",
         example="semsim_mean"
     )
     range_label: str = Field(

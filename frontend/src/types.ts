@@ -431,6 +431,7 @@ export interface HighlightedExplanation {
 
 export interface ExplainerScoreData {
   embedding: number | null
+  quality_score: number | null
   fuzz: ScorerScoreSet
   detection: ScorerScoreSet
   explanation_text?: string | null  // Explanation text for this explainer
@@ -438,9 +439,31 @@ export interface ExplainerScoreData {
   semantic_similarity?: Record<string, number> | null  // Pairwise cosine similarity to other explainers (e.g., {"qwen": 0.931, "openai": 0.871})
 }
 
+// Inter-feature similarity information for decoder-similar features
+export interface InterFeatureSimilarityInfo {
+  pattern_type: 'Semantic' | 'Lexical' | 'Both' | 'None'
+  semantic_similarity?: number | null
+  char_jaccard?: number | null
+  word_jaccard?: number | null
+  max_char_ngram?: string | null
+  max_word_ngram?: string | null
+  // V4.0 position tracking fields
+  main_char_ngram_positions?: Array<{prompt_id: number, positions: Array<{token_position: number, char_offset: number}>}> | null
+  similar_char_ngram_positions?: Array<{prompt_id: number, positions: Array<{token_position: number, char_offset: number}>}> | null
+  main_word_ngram_positions?: Array<{prompt_id: number, positions: number[]}> | null
+  similar_word_ngram_positions?: Array<{prompt_id: number, positions: number[]}> | null
+}
+
+// Decoder similar feature with inter-feature similarity info
+export interface DecoderSimilarFeature {
+  feature_id: number
+  cosine_similarity: number
+  inter_feature_similarity?: InterFeatureSimilarityInfo
+}
+
 export interface FeatureTableRow {
   feature_id: number
-  decoder_similarity?: Array<{feature_id: number, cosine_similarity: number}> | null  // List of top similar features with cosine similarity scores
+  decoder_similarity?: Array<DecoderSimilarFeature> | null  // List of top similar features with cosine similarity scores
   explainers: Record<string, ExplainerScoreData>
   // NEW: Activation examples (lazy loaded)
   activation_examples?: ActivationExamples

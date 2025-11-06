@@ -27,12 +27,11 @@ import {
 import { createInitialPanelState, type PanelState } from './utils'
 import { createTreeActions } from './sankey-actions'
 import { createTableActions } from './table-actions'
-import { createTagActions, type TagState } from './tag-actions'
 import { createActivationActions } from './activation-actions'
 
 type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
 
-interface AppState extends TagState {
+interface AppState {
   // Data state - now split for left and right panels
   leftPanel: PanelState
   rightPanel: PanelState
@@ -48,6 +47,19 @@ interface AppState extends TagState {
   hoveredAlluvialNodeId: string | null
   hoveredAlluvialPanel: 'left' | 'right' | null
   setHoveredAlluvialNode: (nodeId: string | null, panel: 'left' | 'right' | null) => void
+
+  // Feature selection state (used by TablePanel and SankeyDiagram highlighting)
+  selectedFeatureIds: Set<number>
+  toggleFeatureSelection: (featureId: number) => void
+  selectAllFeatures: () => void
+  clearFeatureSelection: () => void
+
+  // Feature highlighting (used for scrolling to specific feature in TablePanel)
+  highlightedFeatureId: number | null
+  setHighlightedFeature: (featureId: number | null) => void
+
+  // Tag-related stub (tags removed but still referenced in TablePanel)
+  getFeatureTags: (featureId: number) => any[]
 
   // Comparison view state
   showComparisonView: boolean
@@ -213,6 +225,12 @@ const initialState = {
   hoveredAlluvialNodeId: null,
   hoveredAlluvialPanel: null,
 
+  // Feature selection state (used by TablePanel and SankeyDiagram highlighting)
+  selectedFeatureIds: new Set<number>(),
+
+  // Feature highlighting (used for scrolling to specific feature in TablePanel)
+  highlightedFeatureId: null,
+
   // Comparison view state
   showComparisonView: false,
 
@@ -222,7 +240,7 @@ const initialState = {
   activationLoadingState: false
 }
 
-export const useStore = create<AppState>((set, get, store) => ({
+export const useStore = create<AppState>((set, get) => ({
   ...initialState,
 
   // Compose tree actions
@@ -231,15 +249,47 @@ export const useStore = create<AppState>((set, get, store) => ({
   // Compose table actions
   ...createTableActions(set, get),
 
-  // Compose tag actions
-  ...createTagActions(set, get, store),
-
   // Compose activation actions
   ...createActivationActions(set, get),
 
   // Hover state actions
   setHoveredAlluvialNode: (nodeId: string | null, panel: 'left' | 'right' | null) =>
     set({ hoveredAlluvialNodeId: nodeId, hoveredAlluvialPanel: panel }),
+
+  // Feature selection actions (used by TablePanel checkboxes and SankeyDiagram highlighting)
+  toggleFeatureSelection: (featureId: number) => {
+    set((state) => {
+      const newSelection = new Set(state.selectedFeatureIds)
+      if (newSelection.has(featureId)) {
+        newSelection.delete(featureId)
+      } else {
+        newSelection.add(featureId)
+      }
+      return { selectedFeatureIds: newSelection }
+    })
+  },
+
+  selectAllFeatures: () => {
+    const tableData = get().tableData
+    if (tableData && tableData.features) {
+      const allIds = tableData.features.map((f: any) => f.feature_id)
+      set({ selectedFeatureIds: new Set(allIds) })
+    }
+  },
+
+  clearFeatureSelection: () => {
+    set({ selectedFeatureIds: new Set<number>() })
+  },
+
+  // Feature highlighting actions (used for scrolling to specific feature in TablePanel)
+  setHighlightedFeature: (featureId: number | null) => {
+    set({ highlightedFeatureId: featureId })
+  },
+
+  // Tag-related stub (tags removed but still referenced in TablePanel)
+  getFeatureTags: (_featureId: number) => {
+    return [] // No tags available since tag system was removed
+  },
 
   // Comparison view actions
   toggleComparisonView: () => {
@@ -591,10 +641,6 @@ export const useStore = create<AppState>((set, get, store) => ({
     // Load actual root features from API
     console.log('🌱 Now loading root features from API...')
     get().loadRootFeatures(PANEL_LEFT)
-
-    // Initialize template tags
-    console.log('🏷️  Initializing template tags...')
-    get().initializeTemplateTags()
   }
 }))
 

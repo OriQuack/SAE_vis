@@ -5,8 +5,6 @@ import AlluvialDiagram from './components/AlluvialDiagram'
 import HistogramPopover from './components/HistogramPopover'
 import FlowPanel from './components/FlowPanel'
 import TablePanel from './components/TablePanel'
-import TagManagementPanel from './components/TagManagementPanel'
-import TagProgressBar from './components/TagProgressBar'
 import * as api from './api'
 import './styles/base.css'
 import './styles/App.css'
@@ -159,9 +157,9 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
               <FlowPanel />
             </div>
 
-            {/* Top Right - Tag Management Panel */}
+            {/* Top Right - Reserved for future use */}
             <div className="sankey-view__top-right">
-              <TagManagementPanel />
+              {/* Tag Management Panel removed */}
             </div>
           </div>
 
@@ -187,9 +185,9 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
               </div>
             </div>
 
-            {/* Center Middle - Tag Progress Bar */}
+            {/* Center Middle - Reserved for future use */}
             <div className="sankey-view__center-middle">
-              <TagProgressBar />
+              {/* Tag Progress Bar removed */}
             </div>
 
             {/* Center Right - Table Panel with Overlay */}

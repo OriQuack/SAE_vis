@@ -8,15 +8,13 @@ import {
   getExplainerDisplayName
 } from '../lib/d3-table-utils'
 import {
-  getQualityScoreColor,
   getMetricColor,
   calculateAvgSemanticSimilarity
 } from '../lib/utils'
 import {
   getCircleRadius,
   getCircleOpacity,
-  formatCircleTooltip,
-  type ScoreStats
+  formatCircleTooltip
 } from '../lib/circle-encoding-utils'
 import {
   METRIC_QUALITY_SCORE,
@@ -60,7 +58,6 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
   const tableContainerRef = useRef<HTMLDivElement>(null)
   const qualityScoreCellRef = useRef<HTMLTableCellElement>(null)
-  const [cellHeight, setCellHeight] = useState<number>(40) // Natural cell height
 
   // Track activation column width to pass to ActivationExample components
   const [activationColumnWidth, setActivationColumnWidth] = useState<number>(630) // Default: 45% of ~1400px
@@ -192,16 +189,6 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     leftPanel.filters.llm_scorer,
     rightPanel.filters.llm_scorer
   ])
-
-  // Measure natural cell height for quality score pill scaling
-  useEffect(() => {
-    if (qualityScoreCellRef.current) {
-      const height = qualityScoreCellRef.current.offsetHeight
-      if (height > 0) {
-        setCellHeight(height)
-      }
-    }
-  }, [])
 
   // Measure activation column width once (eliminates shifting in ActivationExample)
   useEffect(() => {

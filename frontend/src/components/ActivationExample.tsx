@@ -10,6 +10,11 @@ import '../styles/ActivationExample.css'
 interface ActivationExampleProps {
   examples: ActivationExamples
   containerWidth: number  // Width of container passed from parent (eliminates measurement shift)
+  // Inter-feature pattern highlighting (optional, from decoder similarity table)
+  interFeaturePositions?: {
+    type: 'char' | 'word'
+    positions: Array<{prompt_id: number, positions: Array<{token_position: number, char_offset?: number}> | number[]}>
+  }
 }
 
 /**
@@ -47,6 +52,37 @@ const shouldUnderlineToken = (
   }
 }
 
+/**
+ * Check if a token should be highlighted based on inter-feature positions
+ * Similar to shouldUnderlineToken but checks against inter-feature position data
+ */
+const shouldHighlightInterfeature = (
+  tokenPosition: number,
+  example: QuantileExample,
+  interFeaturePositions?: {
+    type: 'char' | 'word'
+    positions: Array<{prompt_id: number, positions: Array<{token_position: number, char_offset?: number}> | number[]}>
+  }
+): boolean => {
+  if (!interFeaturePositions) return false
+
+  // Find positions for this specific prompt_id
+  const promptPositions = interFeaturePositions.positions.find(
+    p => p.prompt_id === example.prompt_id
+  )
+
+  if (!promptPositions) return false
+
+  if (interFeaturePositions.type === 'char') {
+    // For char type, positions is Array<{token_position, char_offset}>
+    return (promptPositions.positions as Array<{token_position: number, char_offset?: number}>)
+      .some(pos => pos.token_position === tokenPosition)
+  } else {
+    // For word type, positions is number[]
+    return (promptPositions.positions as number[]).includes(tokenPosition)
+  }
+}
+
 // Helper function to generate appropriate whitespace symbol
 const getWhitespaceSymbol = (text: string): string => {
   const newlineCount = (text.match(/\n/g) || []).length
@@ -65,7 +101,8 @@ const getWhitespaceSymbol = (text: string): string => {
 
 const ActivationExample: React.FC<ActivationExampleProps> = ({
   examples,
-  containerWidth
+  containerWidth,
+  interFeaturePositions
 }) => {
   const [showPopover, setShowPopover] = useState<boolean>(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -121,6 +158,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
             {hasLeftEllipsis && <span className="activation-example__ellipsis">...</span>}
             {displayTokens.map((token, tokenIdx) => {
               const hasUnderline = shouldUnderlineToken(token.position, example, underlineType)
+              const hasInterfeatureHighlight = shouldHighlightInterfeature(token.position, example, interFeaturePositions)
 
               // Build title with activation and n-gram info
               let title = token.activation_value?.toFixed(3) || 'No activation'
@@ -130,11 +168,14 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
                   : examples.top_word_ngram_text
                 title += `\nN-gram pattern: "${ngramText}"`
               }
+              if (hasInterfeatureHighlight) {
+                title += `\nInter-feature match`
+              }
 
               return (
                 <span
                   key={tokenIdx}
-                  className={`activation-token ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${hasUnderline ? 'activation-token--ngram-underline' : ''}`}
+                  className={`activation-token ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${hasUnderline ? 'activation-token--ngram-underline' : ''} ${hasInterfeatureHighlight ? 'activation-token--interfeature' : ''}`}
                   style={{
                     backgroundColor: token.activation_value
                       ? getActivationColor(token.activation_value, example.max_activation)
@@ -169,6 +210,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
                     <div key={exIdx} className="activation-example__popover-row">
                       {tokens.map((token, tokenIdx) => {
                         const hasUnderline = shouldUnderlineToken(token.position, example, underlineType)
+                        const hasInterfeatureHighlight = shouldHighlightInterfeature(token.position, example, interFeaturePositions)
 
                         // Build title with activation and n-gram info
                         let title = token.activation_value?.toFixed(3) || 'No activation'
@@ -178,11 +220,14 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
                             : examples.top_word_ngram_text
                           title += `\nN-gram pattern: "${ngramText}"`
                         }
+                        if (hasInterfeatureHighlight) {
+                          title += `\nInter-feature match`
+                        }
 
                         return (
                           <span
                             key={tokenIdx}
-                            className={`activation-token ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${hasUnderline ? 'activation-token--ngram-underline' : ''}`}
+                            className={`activation-token ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${hasUnderline ? 'activation-token--ngram-underline' : ''} ${hasInterfeatureHighlight ? 'activation-token--interfeature' : ''}`}
                             style={{
                               backgroundColor: token.activation_value
                                 ? getActivationColor(token.activation_value, example.max_activation)

@@ -85,9 +85,17 @@ const HistogramChartComponent: React.FC<{
   barColor?: string
   onThresholdUpdate: (newThresholds: number[]) => void
   onBarHover: (barIndex: number | null, chart: HistogramChart) => void
-}> = ({ chart, thresholds, metricRange, animationDuration, barColor, onThresholdUpdate, onBarHover }) => {
+  onDragStateChange?: (isDragging: boolean) => void
+}> = ({ chart, thresholds, metricRange, animationDuration, barColor, onThresholdUpdate, onBarHover, onDragStateChange }) => {
   // Local state for drag preview (updates in real-time during drag)
   const [dragThresholds, setDragThresholds] = useState<number[] | null>(null)
+
+  // Notify parent when drag state changes
+  useEffect(() => {
+    if (onDragStateChange) {
+      onDragStateChange(dragThresholds !== null)
+    }
+  }, [dragThresholds, onDragStateChange])
 
   // Use dragThresholds during drag, otherwise use committed thresholds
   const effectiveThresholds = dragThresholds ?? thresholds
@@ -106,7 +114,7 @@ const HistogramChartComponent: React.FC<{
   )
 
   const xAxisTicks = useMemo(() =>
-    calculateXAxisTicks(chart, 5),
+    calculateXAxisTicks(chart, 10),
     [chart]
   )
 
@@ -308,6 +316,16 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     chart: HistogramChart;
   } | null>(null)
 
+  // Track if any threshold handle is being dragged (to disable tooltips during drag)
+  const [isDraggingThreshold, setIsDraggingThreshold] = useState<boolean>(false)
+
+  // Clear tooltip when drag starts
+  useEffect(() => {
+    if (isDraggingThreshold) {
+      setHoveredBarInfo(null)
+    }
+  }, [isDraggingThreshold])
+
   // Calculate container size
   const containerSize = useMemo(() =>
     calculateResponsivePopoverSize(width, height, popoverData?.metrics?.length || 1),
@@ -393,14 +411,19 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     return calculateHistogramLayout(filteredHistogramData, chartWidth, chartHeight)
   }, [histogramData, containerSize, validationErrors, popoverData?.metrics, popoverData?.nodeId])
 
-  // Handle bar hover
+  // Handle bar hover - disabled during threshold dragging
   const handleBarHover = useCallback((barIndex: number | null, chart: HistogramChart) => {
+    // Don't show tooltip when dragging threshold handles
+    if (isDraggingThreshold) {
+      return
+    }
+
     if (barIndex === null) {
       setHoveredBarInfo(null)
     } else {
       setHoveredBarInfo({ barIndex, chart })
     }
-  }, [])
+  }, [isDraggingThreshold])
 
   // Handle header drag start (optimized with RAF)
   const handleHeaderMouseDown = useCallback((event: React.MouseEvent) => {
@@ -685,6 +708,7 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
                       }
                     }}
                     onBarHover={handleBarHover}
+                    onDragStateChange={setIsDraggingThreshold}
                   />
                 )
               })}

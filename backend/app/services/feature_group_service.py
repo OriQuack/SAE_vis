@@ -31,7 +31,7 @@ class FeatureGroupService:
 
     Supports:
     - 5 standard metrics: decoder_similarity, semdist_mean, score_fuzz, score_detection, score_embedding
-    - 1 computed metric: overall_score
+    - 1 computed metric: quality_score
     """
 
     def __init__(self):
@@ -61,6 +61,12 @@ class FeatureGroupService:
             pl.col("scores").struct.field("simulation").alias("score_simulation"),
             pl.col("scores").struct.field("detection").alias("score_detection"),
             pl.col("scores").struct.field("embedding").alias("score_embedding"),
+        ])
+
+        # Compute quality_score as mean of embedding, fuzz, and detection scores
+        df_lazy = df_lazy.with_columns([
+            ((pl.col("score_embedding") + pl.col("score_fuzz") + pl.col("score_detection")) / 3.0)
+            .alias("quality_score")
         ])
 
         # Convert decoder_similarity list to max value for numeric operations
@@ -109,8 +115,8 @@ class FeatureGroupService:
             return self._get_root_group(filtered_df, metric)
 
         # Route to appropriate handler based on metric type
-        if metric == 'overall_score':
-            groups, total_features = self._get_overall_score_groups(filtered_df, thresholds)
+        if metric == 'quality_score':
+            groups, total_features = self._get_quality_score_groups(filtered_df, thresholds)
         else:
             groups, total_features = self._get_standard_groups(filtered_df, metric, thresholds)
 
@@ -162,13 +168,13 @@ class FeatureGroupService:
         # we need to aggregate BEFORE grouping to avoid duplicate features in groups
 
         # Determine which metrics need aggregation (same logic as histogram_service)
-        score_metrics = {'score_fuzz', 'score_detection', 'score_embedding', 'overall_score'}
+        score_metrics = {'score_fuzz', 'score_detection', 'score_embedding', 'quality_score'}
 
         if metric in score_metrics:
             logger.info(f"Aggregating {metric} by feature_id before grouping (avoiding duplicates)")
 
             # For score_fuzz and score_detection: these vary by scorer, aggregate by feature_id
-            # For score_embedding and overall_score: these vary by explainer, aggregate by feature_id
+            # For score_embedding and quality_score: these vary by explainer, aggregate by feature_id
             # In all cases, we take the mean across all rows for each feature
             df_aggregated = (
                 df_collected
@@ -231,21 +237,21 @@ class FeatureGroupService:
 
         return groups, total_features
 
-    def _get_overall_score_groups(
+    def _get_quality_score_groups(
         self,
         df: pl.LazyFrame,
         thresholds: List[float]
     ) -> Tuple[List[FeatureGroup], int]:
         """
-        Get groups for overall_score metric (already exists in parquet).
+        Get groups for quality_score metric (computed from score components).
 
-        Overall score is pre-computed as mean of z-scores (embedding, fuzz, detection).
+        Quality score is computed as mean of embedding, fuzz, and detection scores.
 
         Returns:
             Tuple of (groups, total_features)
         """
-        # overall_score already exists in the parquet, just use it like any standard metric
-        return self._get_standard_groups(df, 'overall_score', thresholds)
+        # quality_score is computed in _transform_to_flat_schema, just use it like any standard metric
+        return self._get_standard_groups(df, 'quality_score', thresholds)
 
     def _get_root_group(
         self,

@@ -14,6 +14,7 @@ interface ThresholdHandlesProps {
   parentOffset?: { x: number; y: number }   // Parent transform offset from SVG origin
   lineBounds?: { min: number; max: number } // Pixel bounds for threshold line span (defaults to bounds)
   showThresholdLine?: boolean               // Whether to show dotted threshold line
+  showDragTooltip?: boolean                 // Whether to show numeric value tooltip when dragging (default: true)
   usePercentiles?: boolean                  // If true, return percentiles (0-1) instead of metric values
   onUpdate: (newThresholds: number[]) => void
   onDragUpdate?: (newThresholds: number[]) => void  // Called during drag for live preview
@@ -85,6 +86,7 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
   parentOffset = { x: 0, y: 0 },
   lineBounds,
   showThresholdLine = true,
+  showDragTooltip = true,
   usePercentiles = false,
   onUpdate,
   onDragUpdate,
@@ -389,7 +391,7 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
             </g>
 
             {/* Threshold value label (show only when dragging, with background for contrast) */}
-            {isDragging && (() => {
+            {isDragging && showDragTooltip && (() => {
               // Convert percentile to actual metric value for display
               let displayValue: number
 

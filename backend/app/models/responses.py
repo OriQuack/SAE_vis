@@ -241,6 +241,56 @@ class ComparisonResponse(BaseModel):
         description="Summary statistics"
     )
 
+class InterFeatureSimilarityInfo(BaseModel):
+    """Model for inter-feature activation similarity information"""
+    pattern_type: str = Field(
+        ...,
+        description="Pattern type: Semantic, Lexical, Both, or None"
+    )
+    semantic_similarity: Optional[float] = Field(
+        None,
+        ge=0.0,
+        le=1.0,
+        description="Semantic similarity score (activation embeddings)"
+    )
+    char_jaccard: Optional[float] = Field(
+        None,
+        ge=0.0,
+        le=1.0,
+        description="Character n-gram Jaccard similarity"
+    )
+    word_jaccard: Optional[float] = Field(
+        None,
+        ge=0.0,
+        le=1.0,
+        description="Word n-gram Jaccard similarity"
+    )
+    max_char_ngram: Optional[str] = Field(
+        None,
+        description="Most frequent character n-gram"
+    )
+    max_word_ngram: Optional[str] = Field(
+        None,
+        description="Most frequent word n-gram"
+    )
+    # NEW: Position tracking fields (V4.0)
+    main_char_ngram_positions: Optional[List[Dict]] = Field(
+        None,
+        description="Character n-gram positions in main feature"
+    )
+    similar_char_ngram_positions: Optional[List[Dict]] = Field(
+        None,
+        description="Character n-gram positions in similar feature"
+    )
+    main_word_ngram_positions: Optional[List[Dict]] = Field(
+        None,
+        description="Word n-gram positions in main feature"
+    )
+    similar_word_ngram_positions: Optional[List[Dict]] = Field(
+        None,
+        description="Word n-gram positions in similar feature"
+    )
+
 class DecoderSimilarFeature(BaseModel):
     """Model for a single similar decoder feature"""
     feature_id: int = Field(
@@ -253,6 +303,10 @@ class DecoderSimilarFeature(BaseModel):
         ge=0.0,
         le=1.0,
         description="Cosine similarity with the source feature"
+    )
+    inter_feature_similarity: Optional[InterFeatureSimilarityInfo] = Field(
+        None,
+        description="Inter-feature activation similarity pattern information"
     )
 
 class ThresholdFeatureResponse(BaseModel):
@@ -382,6 +436,7 @@ class HighlightedExplanation(BaseModel):
 class ExplainerScoreData(BaseModel):
     """Scores for a single explainer (embedding + fuzz/detection per scorer)"""
     embedding: Optional[float] = Field(None, description="Embedding score for this explainer")
+    quality_score: Optional[float] = Field(None, description="Quality score (mean of embedding, fuzz, detection) for this explainer")
     fuzz: ScorerScoreSet = Field(..., description="Fuzz scores for each scorer (s1, s2, s3)")
     detection: ScorerScoreSet = Field(..., description="Detection scores for each scorer (s1, s2, s3)")
     explanation_text: Optional[str] = Field(None, description="Explanation text for this explainer")

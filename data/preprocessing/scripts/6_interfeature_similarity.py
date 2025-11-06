@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 """
-Preprocessing Script: Calculate Inter-Feature Activation Similarity Metrics
+Preprocessing Script: Calculate Inter-Feature Activation Similarity Metrics (V4.0)
 
 This script analyzes activation examples of decoder-similar features to compute
-similarity metrics between their activation patterns. For each feature, it:
+similarity metrics between their activation patterns using dual n-gram architecture
+with position tracking for frontend visualization.
+
+For each feature, it:
 1. Selects top 4 decoder-similar features
-2. Samples activation examples (top 1 per quantile = 4 examples per feature)
+2. Samples activation examples (max 2 per quantile = 8 examples per feature)
 3. Computes cross-feature semantic and lexical similarities
-4. Tracks common n-grams with positional information for visualization
+4. Tracks n-gram positions for visualization highlighting
+5. Classifies patterns as Semantic and/or Lexical (no "Both" category)
+6. Outputs only feature pairs above threshold
 
 Input:
 - features.parquet: Feature data with decoder_similarity field
@@ -15,15 +20,24 @@ Input:
 - activation_embeddings.parquet: Pre-computed embeddings
 
 Output:
-- interfeature_activation_similarity.parquet: Inter-feature similarity metrics
+- interfeature_activation_similarity.parquet: Inter-feature similarity metrics with positions
 - interfeature_activation_similarity.parquet.metadata.json: Processing metadata
 
-Features:
-- Decoder-similarity-based feature pairing
-- Quantile-based sampling (4 quantiles, 1 example each)
-- Cross-feature pairwise similarity (4×4=16 pairs per comparison)
-- Positional n-gram analysis for visualization
-- Native Polars nested types for structured data
+Features (V4.0):
+- Dual n-gram architecture: character-level (morphology) + word-level (semantics)
+- N-gram position tracking: precise char_offset and token positions for highlighting
+- Pattern classification: Semantic and/or Lexical (removed "Both" category)
+  * Pairs meeting both conditions are added to both semantic_pairs and lexical_pairs
+- Character n-grams: per-token extraction with char_offset for character-level highlighting
+- Word n-grams: reconstructed from subwords with start_position for word-level highlighting
+- Position data: stored per prompt_id for efficient frontend joining with activation_display.parquet
+- Only saves pairs above threshold (filtered by pattern type)
+
+Changes from V3.0:
+- Removed both_pairs list (pairs now added to both lists if conditions met)
+- Added position tracking fields: main_char_ngram_positions, similar_char_ngram_positions,
+  main_word_ngram_positions, similar_word_ngram_positions
+- Frontend joins with activation_display.parquet for full example data
 
 Usage:
     python 6_interfeature_similarity.py [--config CONFIG_PATH] [--limit N]
@@ -76,14 +90,17 @@ def load_config(config_path: Optional[str] = None) -> Dict:
         "output_path": "data/master/interfeature_activation_similarity.parquet",
         "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
         "processing_parameters": {
-            "num_decoder_similar_features": 4,
+            "top_n_decoder_similar": 4,
             "num_quantiles": 4,
-            "examples_per_quantile": 1,
-            "target_examples_per_feature": 4,
-            "token_window_size": 32,
-            "ngram_window_size": 5,
-            "ngram_sizes": [2, 3, 4],
-            "min_ngram_occurrences": 2
+            "samples_per_quantile": 2,
+            "embedding_window_size": 32,
+            "char_ngram_window_size": 3,
+            "word_ngram_window_size": 11,
+            "char_ngram_sizes": [2, 3, 4, 5],
+            "word_ngram_sizes": [1, 2, 3],
+            "semantic_threshold": 0.3,
+            "char_jaccard_threshold": 0.3,
+            "word_jaccard_threshold": 0.3
         }
     }
 
@@ -130,12 +147,12 @@ class InterFeatureSimilarityProcessor:
         # Statistics tracking
         self.stats = {
             "features_processed": 0,
-            "total_pairs_analyzed": 0,
+            "total_pairs_compared": 0,
+            "semantic_pairs": 0,
+            "lexical_pairs": 0,
+            "no_pattern_pairs": 0,
             "features_with_insufficient_decoder_similar": 0,
-            "features_with_no_activations": 0,
-            "semantic_similarity_computed": 0,
-            "ngram_jaccard_computed": 0,
-            "ngram_analysis_computed": 0
+            "features_with_no_activations": 0
         }
 
         # Load data
@@ -190,12 +207,12 @@ class InterFeatureSimilarityProcessor:
             return []
 
         # Take top N features
-        top_n = self.proc_params["num_decoder_similar_features"]
+        top_n = self.proc_params["top_n_decoder_similar"]
         return [(item["feature_id"], item["cosine_similarity"])
                 for item in decoder_sim[:top_n]]
 
     def _select_top_quantile_examples(self, feature_df: pl.DataFrame) -> List[Tuple[int, float, List[str], int]]:
-        """Select top 1 example per quantile based on max_activation.
+        """Select max 2 examples per quantile based on max_activation.
 
         Args:
             feature_df: DataFrame with activation examples for a single feature
@@ -211,6 +228,7 @@ class InterFeatureSimilarityProcessor:
 
         num_examples = len(feature_df)
         num_quantiles = self.proc_params["num_quantiles"]
+        samples_per_quantile = self.proc_params["samples_per_quantile"]
 
         if num_examples < num_quantiles:
             # Not enough examples for quantiles, return all
@@ -230,7 +248,7 @@ class InterFeatureSimilarityProcessor:
                 for q in quantiles
             ]
 
-            # Assign quantile groups and select top 1 from each
+            # Assign quantile groups and select top N from each
             conditions = []
             for i, q_val in enumerate(q_values):
                 if i == 0:
@@ -243,17 +261,17 @@ class InterFeatureSimilarityProcessor:
             # Last quantile
             conditions.append(pl.col("max_activation") > q_values[-1])
 
-            # Select top 1 example from each quantile
+            # Select top N examples from each quantile
             selected = []
             for condition in conditions:
                 quantile_df = feature_df.filter(condition).sort("max_activation", descending=True)
-                top_1 = quantile_df.head(1).select([
+                top_n = quantile_df.head(samples_per_quantile).select([
                     "prompt_id",
                     "max_activation",
                     "prompt_tokens",
                     "activation_pairs"
                 ]).to_dicts()
-                selected.extend(top_1)
+                selected.extend(top_n)
 
         # Extract max token position from activation_pairs
         result = []
@@ -290,6 +308,229 @@ class InterFeatureSimilarityProcessor:
         start = max(0, center_pos - half_window)
         end = min(len(tokens), center_pos + half_window)
         return tokens[start:end]
+
+    def _normalize_token(self, token: str) -> str:
+        """Strip SentencePiece '▁' prefix from token.
+
+        Args:
+            token: Token string potentially with '▁' prefix
+
+        Returns:
+            Normalized token
+        """
+        return token.lstrip('▁')
+
+    def _extract_token_char_ngrams(self, tokens: List[str], ngram_sizes: List[int]) -> Dict[str, List[Tuple[int, str]]]:
+        """Extract character n-grams from individual tokens (per-token, not concatenated).
+
+        Args:
+            tokens: List of token strings
+            ngram_sizes: List of n-gram sizes to extract
+
+        Returns:
+            Dict mapping n-gram to list of (token_index, original_token)
+        """
+        ngram_map = defaultdict(list)
+
+        for token_idx, token in enumerate(tokens):
+            # Normalize token (strip '▁' prefix)
+            token_normalized = self._normalize_token(token).lower()
+
+            # Extract character n-grams within this token
+            for ngram_size in ngram_sizes:
+                if len(token_normalized) >= ngram_size:
+                    for i in range(len(token_normalized) - ngram_size + 1):
+                        ngram = token_normalized[i:i+ngram_size]
+                        ngram_map[ngram].append((token_idx, token))
+
+        return dict(ngram_map)
+
+    def _reconstruct_words_with_positions(self, tokens: List[str]) -> List[Tuple[str, int]]:
+        """Reconstruct full words from subword tokens with starting token positions.
+
+        Args:
+            tokens: List of subword token strings
+
+        Returns:
+            List of (word, start_token_position) tuples
+        """
+        words_with_positions = []
+        current_word = ""
+        word_start_pos = 0
+
+        for i, token in enumerate(tokens):
+            if token.startswith('▁'):
+                # New word boundary
+                if current_word:
+                    words_with_positions.append((current_word, word_start_pos))
+                current_word = token.lstrip('_▁').lower()
+                word_start_pos = i
+            else:
+                # Continuation of current word
+                current_word += token.lower()
+
+        if current_word:
+            words_with_positions.append((current_word, word_start_pos))
+
+        return words_with_positions
+
+    def _extract_word_ngrams(self, tokens: List[str], ngram_sizes: List[int]) -> Dict[str, List[int]]:
+        """Extract word-level n-grams by reconstructing full words from subwords.
+
+        Args:
+            tokens: List of subword token strings
+            ngram_sizes: List of n-gram sizes to extract
+
+        Returns:
+            Dict mapping word n-gram to list of start token positions
+        """
+        words_with_positions = self._reconstruct_words_with_positions(tokens)
+        word_ngram_map = defaultdict(list)
+
+        for ngram_size in ngram_sizes:
+            if len(words_with_positions) >= ngram_size:
+                for i in range(len(words_with_positions) - ngram_size + 1):
+                    # Create word n-gram (space-separated, lowercase)
+                    word_ngram = " ".join([w[0] for w in words_with_positions[i:i+ngram_size]])
+                    start_token_pos = words_with_positions[i][1]
+                    word_ngram_map[word_ngram].append(start_token_pos)
+
+        return dict(word_ngram_map)
+
+    def _find_char_ngram_positions_in_examples(
+        self,
+        examples: List[Tuple],
+        char_ngram: str,
+        window_size: int
+    ) -> List[Dict]:
+        """Find all positions where a character n-gram appears in the example set.
+
+        Similar to activation_display.py approach but for inter-feature comparison.
+
+        Args:
+            examples: List of (prompt_id, max_activation, prompt_tokens, max_token_pos)
+            char_ngram: The character n-gram to find (e.g., "ing")
+            window_size: Token window size around max activation
+
+        Returns:
+            List of dicts with structure:
+            [
+                {
+                    'prompt_id': int,
+                    'positions': [{'token_position': int, 'char_offset': int}, ...]
+                },
+                ...
+            ]
+        """
+        if not char_ngram:
+            return []
+
+        result = []
+        char_ngram_sizes = self.proc_params["char_ngram_sizes"]
+
+        for prompt_id, _, tokens, max_pos in examples:
+            window_tokens = self._extract_token_window(tokens, max_pos, window_size)
+
+            # Find char n-gram in this window
+            positions = []
+            for token_idx, token in enumerate(window_tokens):
+                token_normalized = self._normalize_token(token).lower()
+
+                # Search for char_ngram within this token
+                for char_offset in range(len(token_normalized) - len(char_ngram) + 1):
+                    if token_normalized[char_offset:char_offset + len(char_ngram)] == char_ngram:
+                        positions.append({
+                            'token_position': int(token_idx),
+                            'char_offset': int(char_offset)
+                        })
+
+            if positions:
+                result.append({
+                    'prompt_id': int(prompt_id),
+                    'positions': positions
+                })
+
+        return result
+
+    def _find_word_ngram_positions_in_examples(
+        self,
+        examples: List[Tuple],
+        word_ngram: str,
+        window_size: int
+    ) -> List[Dict]:
+        """Find all positions where a word n-gram appears in the example set.
+
+        Similar to activation_display.py approach but for inter-feature comparison.
+
+        Args:
+            examples: List of (prompt_id, max_activation, prompt_tokens, max_token_pos)
+            word_ngram: The word n-gram to find (e.g., "machine learning")
+            window_size: Token window size around max activation
+
+        Returns:
+            List of dicts with structure:
+            [
+                {
+                    'prompt_id': int,
+                    'positions': [start_token_position, ...]
+                },
+                ...
+            ]
+        """
+        if not word_ngram:
+            return []
+
+        result = []
+        word_ngram_sizes = self.proc_params["word_ngram_sizes"]
+
+        for prompt_id, _, tokens, max_pos in examples:
+            window_tokens = self._extract_token_window(tokens, max_pos, window_size)
+
+            # Extract word n-grams from this window
+            word_ngram_map = self._extract_word_ngrams(window_tokens, word_ngram_sizes)
+
+            # Find positions where this specific word n-gram appears
+            positions = word_ngram_map.get(word_ngram, [])
+
+            if positions:
+                result.append({
+                    'prompt_id': int(prompt_id),
+                    'positions': [int(p) for p in positions]
+                })
+
+        return result
+
+    def _classify_pattern_type(self, semantic_sim: Optional[float],
+                              char_jaccard: Optional[float],
+                              word_jaccard: Optional[float]) -> List[str]:
+        """Classify pattern type based on similarity thresholds.
+
+        Modified in V4.0: Returns list of pattern types instead of single "Both" category.
+        If both conditions met, returns ["Semantic", "Lexical"] so pair is added to both lists.
+
+        Args:
+            semantic_sim: Semantic similarity value
+            char_jaccard: Character-level Jaccard similarity
+            word_jaccard: Word-level Jaccard similarity
+
+        Returns:
+            List of pattern types: ["Semantic"], ["Lexical"], ["Semantic", "Lexical"], or []
+        """
+        semantic_threshold = self.proc_params["semantic_threshold"]
+        char_threshold = self.proc_params["char_jaccard_threshold"]
+        word_threshold = self.proc_params["word_jaccard_threshold"]
+
+        has_semantic = semantic_sim is not None and semantic_sim > semantic_threshold
+        has_lexical = ((char_jaccard is not None and char_jaccard > char_threshold) or
+                      (word_jaccard is not None and word_jaccard > word_threshold))
+
+        pattern_types = []
+        if has_semantic:
+            pattern_types.append("Semantic")
+        if has_lexical:
+            pattern_types.append("Lexical")
+
+        return pattern_types
 
     def _compute_cross_feature_semantic_similarity(
         self,
@@ -365,158 +606,151 @@ class InterFeatureSimilarityProcessor:
         # Average all pairwise similarities
         return float(np.mean(sim_matrix))
 
-    def _extract_character_ngrams(self, text: str, n: int) -> List[str]:
-        """Extract character n-grams from text.
-
-        Args:
-            text: Input text
-            n: N-gram size
-
-        Returns:
-            List of n-grams
-        """
-        if len(text) < n:
-            return []
-        return [text[i:i+n] for i in range(len(text) - n + 1)]
-
-    def _compute_cross_feature_jaccard_similarity(
+    def _compute_dual_jaccard_similarity(
         self,
         main_examples: List[Tuple],
-        selected_examples: List[Tuple],
-        ngram_size: int
-    ) -> Optional[float]:
-        """Compute average pairwise Jaccard similarity for n-grams between features.
+        selected_examples: List[Tuple]
+    ) -> Tuple[Optional[float], Optional[float], Optional[str], Optional[str], List[Dict], List[Dict], List[Dict], List[Dict]]:
+        """Compute character and word Jaccard similarities for most frequent n-grams with position tracking.
+
+        Matches approach in 5_act_similarity.py but adds position data:
+        - Find most frequent char n-gram across all examples
+        - Compute binary Jaccard for that char n-gram only
+        - Track positions where char n-gram appears in both feature sets
+        - Find most frequent word n-gram across all examples
+        - Compute binary Jaccard for that word n-gram only
+        - Track positions where word n-gram appears in both feature sets
 
         Args:
             main_examples: List of (prompt_id, max_activation, prompt_tokens, max_token_pos)
             selected_examples: List of (prompt_id, max_activation, prompt_tokens, max_token_pos)
-            ngram_size: Size of n-grams (2, 3, or 4)
 
         Returns:
-            Average Jaccard similarity or None if insufficient data
+            Tuple of (char_jaccard, word_jaccard, max_char_ngram, max_word_ngram,
+                     main_char_positions, similar_char_positions,
+                     main_word_positions, similar_word_positions)
         """
         if len(main_examples) < 1 or len(selected_examples) < 1:
-            return None
+            return None, None, None, None, [], [], [], []
 
-        ngram_window = self.proc_params["ngram_window_size"]
+        from collections import Counter
 
-        # Extract n-grams for main feature examples
-        main_ngrams = []
+        char_window_size = self.proc_params["char_ngram_window_size"]
+        word_window_size = self.proc_params["word_ngram_window_size"]
+        char_ngram_sizes = self.proc_params["char_ngram_sizes"]
+        word_ngram_sizes = self.proc_params["word_ngram_sizes"]
+
+        # Extract character n-grams for all examples and count frequencies
+        all_char_ngrams = []
+        main_char_ngram_sets = []
+        selected_char_ngram_sets = []
+
         for _, _, tokens, max_pos in main_examples:
-            window_tokens = self._extract_token_window(tokens, max_pos, ngram_window)
-            window_text = "".join(window_tokens)
-            ngrams = set(self._extract_character_ngrams(window_text, ngram_size))
-            main_ngrams.append(ngrams)
+            window_tokens = self._extract_token_window(tokens, max_pos, char_window_size)
+            char_ngram_map = self._extract_token_char_ngrams(window_tokens, char_ngram_sizes)
+            ngram_set = set(char_ngram_map.keys())
+            main_char_ngram_sets.append(ngram_set)
+            all_char_ngrams.extend(list(ngram_set))
 
-        # Extract n-grams for selected feature examples
-        selected_ngrams = []
         for _, _, tokens, max_pos in selected_examples:
-            window_tokens = self._extract_token_window(tokens, max_pos, ngram_window)
-            window_text = "".join(window_tokens)
-            ngrams = set(self._extract_character_ngrams(window_text, ngram_size))
-            selected_ngrams.append(ngrams)
+            window_tokens = self._extract_token_window(tokens, max_pos, char_window_size)
+            char_ngram_map = self._extract_token_char_ngrams(window_tokens, char_ngram_sizes)
+            ngram_set = set(char_ngram_map.keys())
+            selected_char_ngram_sets.append(ngram_set)
+            all_char_ngrams.extend(list(ngram_set))
 
-        # Compute pairwise Jaccard similarities (all pairs)
-        pairwise_jaccards = []
-        for main_set in main_ngrams:
-            for selected_set in selected_ngrams:
-                if len(main_set) == 0 and len(selected_set) == 0:
-                    jaccard = 1.0
-                elif len(main_set) == 0 or len(selected_set) == 0:
-                    jaccard = 0.0
+        # Find most frequent char n-gram
+        max_char_ngram = None
+        char_jaccard = None
+        if all_char_ngrams:
+            char_counter = Counter(all_char_ngrams)
+            max_char_ngram = char_counter.most_common(1)[0][0]
+
+            # Compute binary Jaccard for this specific n-gram
+            main_has_ngram = sum(1 for s in main_char_ngram_sets if max_char_ngram in s)
+            selected_has_ngram = sum(1 for s in selected_char_ngram_sets if max_char_ngram in s)
+
+            # Binary Jaccard: |A ∩ B| / |A ∪ B| where A and B are sets of examples containing the n-gram
+            total_has_ngram = main_has_ngram + selected_has_ngram
+            unique_examples = len(main_examples) + len(selected_examples)
+
+            if total_has_ngram > 0:
+                # Union = all unique examples that have the n-gram
+                # Intersection = examples in both groups that have it (but they're different examples)
+                # For cross-feature: we use a simpler approach
+                # Jaccard = min(main_count, selected_count) / max(main_count, selected_count) if both > 0
+                if main_has_ngram > 0 and selected_has_ngram > 0:
+                    char_jaccard = float(min(main_has_ngram, selected_has_ngram) /
+                                        max(main_has_ngram, selected_has_ngram))
                 else:
-                    intersection = len(main_set & selected_set)
-                    union = len(main_set | selected_set)
-                    jaccard = intersection / union if union > 0 else 0.0
-                pairwise_jaccards.append(jaccard)
+                    char_jaccard = 0.0
 
-        if not pairwise_jaccards:
-            return None
+        # Extract word n-grams for all examples and count frequencies
+        all_word_ngrams = []
+        main_word_ngram_sets = []
+        selected_word_ngram_sets = []
 
-        return float(np.mean(pairwise_jaccards))
+        for _, _, tokens, max_pos in main_examples:
+            window_tokens = self._extract_token_window(tokens, max_pos, word_window_size)
+            word_ngram_map = self._extract_word_ngrams(window_tokens, word_ngram_sizes)
+            ngram_set = set(word_ngram_map.keys())
+            main_word_ngram_sets.append(ngram_set)
+            all_word_ngrams.extend(list(ngram_set))
 
-    def _compute_combined_ngram_analysis(
-        self,
-        main_feature_id: int,
-        main_examples: List[Tuple],
-        selected_feature_id: int,
-        selected_examples: List[Tuple]
-    ) -> List[Dict]:
-        """Compute top common n-grams across combined examples with feature tracking.
+        for _, _, tokens, max_pos in selected_examples:
+            window_tokens = self._extract_token_window(tokens, max_pos, word_window_size)
+            word_ngram_map = self._extract_word_ngrams(window_tokens, word_ngram_sizes)
+            ngram_set = set(word_ngram_map.keys())
+            selected_word_ngram_sets.append(ngram_set)
+            all_word_ngrams.extend(list(ngram_set))
 
-        Args:
-            main_feature_id: Main feature ID
-            main_examples: List of (prompt_id, max_activation, prompt_tokens, max_token_pos)
-            selected_feature_id: Selected feature ID
-            selected_examples: List of (prompt_id, max_activation, prompt_tokens, max_token_pos)
+        # Find most frequent word n-gram
+        max_word_ngram = None
+        word_jaccard = None
+        if all_word_ngrams:
+            word_counter = Counter(all_word_ngrams)
+            max_word_ngram = word_counter.most_common(1)[0][0]
 
-        Returns:
-            List of dicts with top n-gram per size, including feature_id in occurrences
-        """
-        ngram_window = self.proc_params["ngram_window_size"]
-        ngram_sizes = self.proc_params["ngram_sizes"]
+            # Compute binary Jaccard for this specific n-gram
+            main_has_ngram = sum(1 for s in main_word_ngram_sets if max_word_ngram in s)
+            selected_has_ngram = sum(1 for s in selected_word_ngram_sets if max_word_ngram in s)
 
-        result = []
+            if main_has_ngram > 0 and selected_has_ngram > 0:
+                word_jaccard = float(min(main_has_ngram, selected_has_ngram) /
+                                    max(main_has_ngram, selected_has_ngram))
+            elif main_has_ngram > 0 or selected_has_ngram > 0:
+                word_jaccard = 0.0
 
-        for ngram_size in ngram_sizes:
-            # Collect n-grams with (feature_id, prompt_id, position) metadata
-            ngram_occurrences = defaultdict(list)
+        # Extract position data for the max n-grams
+        main_char_positions = self._find_char_ngram_positions_in_examples(
+            main_examples, max_char_ngram, char_window_size
+        ) if max_char_ngram else []
 
-            # Process main feature examples
-            for prompt_id, _, tokens, max_pos in main_examples:
-                window_tokens = self._extract_token_window(tokens, max_pos, ngram_window)
-                window_text = "".join(window_tokens)
-                ngrams = self._extract_character_ngrams(window_text, ngram_size)
+        similar_char_positions = self._find_char_ngram_positions_in_examples(
+            selected_examples, max_char_ngram, char_window_size
+        ) if max_char_ngram else []
 
-                for ngram in ngrams:
-                    ngram_occurrences[ngram].append((main_feature_id, prompt_id, max_pos))
+        main_word_positions = self._find_word_ngram_positions_in_examples(
+            main_examples, max_word_ngram, word_window_size
+        ) if max_word_ngram else []
 
-            # Process selected feature examples
-            for prompt_id, _, tokens, max_pos in selected_examples:
-                window_tokens = self._extract_token_window(tokens, max_pos, ngram_window)
-                window_text = "".join(window_tokens)
-                ngrams = self._extract_character_ngrams(window_text, ngram_size)
+        similar_word_positions = self._find_word_ngram_positions_in_examples(
+            selected_examples, max_word_ngram, word_window_size
+        ) if max_word_ngram else []
 
-                for ngram in ngrams:
-                    ngram_occurrences[ngram].append((selected_feature_id, prompt_id, max_pos))
+        return (char_jaccard, word_jaccard, max_char_ngram, max_word_ngram,
+                main_char_positions, similar_char_positions,
+                main_word_positions, similar_word_positions)
 
-            # Find most frequent n-gram
-            if ngram_occurrences:
-                top_ngram_str, occurrences = max(ngram_occurrences.items(), key=lambda x: len(x[1]))
-
-                # Group by (feature_id, prompt_id)
-                per_prompt = defaultdict(lambda: {"feature_id": None, "prompt_id": None, "positions": []})
-                for feat_id, pid, pos in occurrences:
-                    key = (feat_id, pid)
-                    if per_prompt[key]["feature_id"] is None:
-                        per_prompt[key]["feature_id"] = feat_id
-                        per_prompt[key]["prompt_id"] = pid
-                    per_prompt[key]["positions"].append(pos)
-
-                result.append({
-                    "ngram": top_ngram_str,
-                    "ngram_size": ngram_size,
-                    "count": len(occurrences),
-                    "occurrences": [
-                        {
-                            "feature_id": int(v["feature_id"]),
-                            "prompt_id": int(v["prompt_id"]),
-                            "positions": [int(p) for p in v["positions"]]
-                        }
-                        for v in per_prompt.values()
-                    ]
-                })
-
-        return result
 
     def process_feature(self, feature_id: int) -> Dict[str, Any]:
-        """Process a single feature to compute inter-feature similarity metrics.
+        """Process a single feature to compute inter-feature similarity metrics with pattern classification.
 
         Args:
             feature_id: Feature ID
 
         Returns:
-            Dictionary with computed metrics
+            Dictionary with computed metrics grouped by pattern type
         """
         # Get feature row with decoder_similarity
         feature_row = self.features_df.filter(pl.col("feature_id") == feature_id).to_dicts()
@@ -525,8 +759,8 @@ class InterFeatureSimilarityProcessor:
             return {
                 "feature_id": feature_id,
                 "sae_id": self.sae_id,
-                "num_similar_features_analyzed": 0,
-                "similarity_pairs": []
+                "semantic_pairs": [],
+                "lexical_pairs": []
             }
 
         feature_row = feature_row[0]
@@ -534,7 +768,7 @@ class InterFeatureSimilarityProcessor:
         # Get top decoder-similar features
         decoder_similar = self._get_top_decoder_similar_features(feature_row)
 
-        if len(decoder_similar) < self.proc_params["num_decoder_similar_features"]:
+        if len(decoder_similar) < self.proc_params["top_n_decoder_similar"]:
             self.stats["features_with_insufficient_decoder_similar"] += 1
 
         # Get activation examples for main feature
@@ -546,14 +780,17 @@ class InterFeatureSimilarityProcessor:
             return {
                 "feature_id": feature_id,
                 "sae_id": self.sae_id,
-                "num_similar_features_analyzed": 0,
-                "similarity_pairs": []
+                "semantic_pairs": [],
+                "lexical_pairs": []
             }
 
         main_prompt_ids = [ex[0] for ex in main_examples]
 
+        # Collect pairs by pattern type
+        semantic_pairs = []
+        lexical_pairs = []
+
         # Process each decoder-similar feature
-        similarity_pairs = []
         for selected_feature_id, decoder_sim in decoder_similar:
             # Get activation examples for selected feature
             selected_feature_df = self.activation_df.filter(pl.col("feature_id") == selected_feature_id)
@@ -569,45 +806,61 @@ class InterFeatureSimilarityProcessor:
                 feature_id, main_examples,
                 selected_feature_id, selected_examples
             )
-            if semantic_sim is not None:
-                self.stats["semantic_similarity_computed"] += 1
 
-            # Compute Jaccard similarity for each n-gram size
-            ngram_jaccard_list = [
-                self._compute_cross_feature_jaccard_similarity(main_examples, selected_examples, 2),
-                self._compute_cross_feature_jaccard_similarity(main_examples, selected_examples, 3),
-                self._compute_cross_feature_jaccard_similarity(main_examples, selected_examples, 4)
-            ]
-            if any(j is not None for j in ngram_jaccard_list):
-                self.stats["ngram_jaccard_computed"] += 1
+            # Compute dual Jaccard similarity with positions
+            (char_jaccard, word_jaccard, max_char_ngram, max_word_ngram,
+             main_char_pos, similar_char_pos, main_word_pos, similar_word_pos
+            ) = self._compute_dual_jaccard_similarity(main_examples, selected_examples)
 
-            # Compute common n-grams with positional info
-            top_ngrams = self._compute_combined_ngram_analysis(
-                feature_id, main_examples,
-                selected_feature_id, selected_examples
-            )
-            if len(top_ngrams) > 0:
-                self.stats["ngram_analysis_computed"] += 1
+            # Classify pattern type (returns list)
+            pattern_types = self._classify_pattern_type(semantic_sim, char_jaccard, word_jaccard)
 
-            similarity_pairs.append({
-                "selected_feature_id": selected_feature_id,
-                "decoder_cosine_similarity": decoder_sim,
-                "num_main_examples": len(main_examples),
-                "num_selected_examples": len(selected_examples),
-                "main_prompt_ids": main_prompt_ids,
-                "selected_prompt_ids": selected_prompt_ids,
-                "semantic_similarity": semantic_sim,
-                "ngram_jaccard_similarity": ngram_jaccard_list,
-                "top_common_ngrams": top_ngrams
-            })
+            self.stats["total_pairs_compared"] += 1
 
-            self.stats["total_pairs_analyzed"] += 1
+            # Only save pairs above threshold
+            if not pattern_types:  # Empty list means no pattern
+                self.stats["no_pattern_pairs"] += 1
+                continue
+
+            # Create pair dict with explicit type casting and position data
+            pair_dict = {
+                "similar_feature_id": int(selected_feature_id),  # Will cast to UInt32 later
+                "decoder_similarity": float(decoder_sim) if decoder_sim is not None else None,
+                "pattern_type": "",  # Will be set per list
+                "semantic_similarity": float(semantic_sim) if semantic_sim is not None else None,
+                "char_jaccard": float(char_jaccard) if char_jaccard is not None else None,
+                "word_jaccard": float(word_jaccard) if word_jaccard is not None else None,
+                "main_prompt_ids": [int(pid) for pid in main_prompt_ids],
+                "similar_prompt_ids": [int(pid) for pid in selected_prompt_ids],
+                "num_comparisons": int(len(main_examples) * len(selected_examples)),
+                "max_char_ngram": max_char_ngram,
+                "max_char_ngram_size": int(len(max_char_ngram)) if max_char_ngram else None,
+                "max_word_ngram": max_word_ngram,
+                "max_word_ngram_size": int(len(max_word_ngram.split())) if max_word_ngram else None,
+                # Position data
+                "main_char_ngram_positions": main_char_pos,
+                "similar_char_ngram_positions": similar_char_pos,
+                "main_word_ngram_positions": main_word_pos,
+                "similar_word_ngram_positions": similar_word_pos
+            }
+
+            # Add to appropriate list(s)
+            for ptype in pattern_types:
+                pair_copy = pair_dict.copy()
+                pair_copy["pattern_type"] = ptype
+
+                if ptype == "Semantic":
+                    semantic_pairs.append(pair_copy)
+                    self.stats["semantic_pairs"] += 1
+                elif ptype == "Lexical":
+                    lexical_pairs.append(pair_copy)
+                    self.stats["lexical_pairs"] += 1
 
         return {
             "feature_id": feature_id,
             "sae_id": self.sae_id,
-            "num_similar_features_analyzed": len(similarity_pairs),
-            "similarity_pairs": similarity_pairs
+            "semantic_pairs": semantic_pairs,
+            "lexical_pairs": lexical_pairs
         }
 
     def process_all_features(self) -> pl.DataFrame:
@@ -641,7 +894,7 @@ class InterFeatureSimilarityProcessor:
         return self._create_dataframe(results)
 
     def _create_dataframe(self, rows: List[Dict]) -> pl.DataFrame:
-        """Create Polars DataFrame with proper schema and native types.
+        """Create Polars DataFrame with proper schema and native types (V3.0).
 
         Args:
             rows: List of result dictionaries
@@ -649,63 +902,95 @@ class InterFeatureSimilarityProcessor:
         Returns:
             Polars DataFrame with typed columns
         """
-        logger.info("Creating DataFrame with proper schema")
+        logger.info("Creating DataFrame with V3.0 schema")
 
         if not rows:
             logger.warning("No results to convert to DataFrame")
             return self._create_empty_dataframe()
 
-        # Create DataFrame from rows
+        # Create DataFrame from rows - Polars will infer types
         df = pl.DataFrame(rows)
 
-        # Cast to proper types
+        # Get the target schema
+        target_schema = self._get_target_schema()
+
+        # Cast each nested list field properly
         df = df.with_columns([
             pl.col("feature_id").cast(pl.UInt32),
             pl.col("sae_id").cast(pl.Categorical),
-            pl.col("num_similar_features_analyzed").cast(pl.UInt8),
+            # Cast each pair list to the correct struct schema
+            pl.col("semantic_pairs").cast(target_schema["semantic_pairs"]),
+            pl.col("lexical_pairs").cast(target_schema["lexical_pairs"])
         ])
 
         logger.info(f"Created DataFrame with {len(df)} rows and {len(df.columns)} columns")
         return df
 
+    def _get_target_schema(self) -> Dict:
+        """Get the target schema with proper types.
+
+        Returns:
+            Dictionary of column name to Polars dtype
+        """
+        # Define pair struct schema with proper types (V4.0 with positions)
+        # Position structures
+        char_position_struct = pl.Struct([
+            pl.Field("token_position", pl.UInt16),
+            pl.Field("char_offset", pl.UInt8)
+        ])
+
+        char_ngram_positions_struct = pl.Struct([
+            pl.Field("prompt_id", pl.UInt32),
+            pl.Field("positions", pl.List(char_position_struct))
+        ])
+
+        word_ngram_positions_struct = pl.Struct([
+            pl.Field("prompt_id", pl.UInt32),
+            pl.Field("positions", pl.List(pl.UInt16))
+        ])
+
+        pair_struct = pl.Struct([
+            pl.Field("similar_feature_id", pl.UInt32),
+            pl.Field("decoder_similarity", pl.Float32),
+            pl.Field("pattern_type", pl.Utf8),
+            pl.Field("semantic_similarity", pl.Float32),
+            pl.Field("char_jaccard", pl.Float32),
+            pl.Field("word_jaccard", pl.Float32),
+            pl.Field("main_prompt_ids", pl.List(pl.UInt32)),
+            pl.Field("similar_prompt_ids", pl.List(pl.UInt32)),
+            pl.Field("num_comparisons", pl.UInt32),
+            pl.Field("max_char_ngram", pl.Utf8),
+            pl.Field("max_char_ngram_size", pl.UInt8),
+            pl.Field("max_word_ngram", pl.Utf8),
+            pl.Field("max_word_ngram_size", pl.UInt8),
+            # NEW: Position data (V4.0)
+            pl.Field("main_char_ngram_positions", pl.List(char_ngram_positions_struct)),
+            pl.Field("similar_char_ngram_positions", pl.List(char_ngram_positions_struct)),
+            pl.Field("main_word_ngram_positions", pl.List(word_ngram_positions_struct)),
+            pl.Field("similar_word_ngram_positions", pl.List(word_ngram_positions_struct))
+        ])
+
+        return {
+            "feature_id": pl.UInt32,
+            "sae_id": pl.Categorical,
+            "semantic_pairs": pl.List(pair_struct),
+            "lexical_pairs": pl.List(pair_struct)
+        }
+
     def _create_empty_dataframe(self) -> pl.DataFrame:
-        """Create empty DataFrame with correct schema.
+        """Create empty DataFrame with correct schema (V3.0 - pattern-based).
 
         Returns:
             Empty Polars DataFrame with proper schema
         """
-        logger.info("Creating empty DataFrame with schema")
+        logger.info("Creating empty DataFrame with V3.0 schema")
 
-        schema = {
-            "feature_id": pl.UInt32,
-            "sae_id": pl.Categorical,
-            "num_similar_features_analyzed": pl.UInt8,
-            "similarity_pairs": pl.List(pl.Struct([
-                pl.Field("selected_feature_id", pl.UInt32),
-                pl.Field("decoder_cosine_similarity", pl.Float32),
-                pl.Field("num_main_examples", pl.UInt8),
-                pl.Field("num_selected_examples", pl.UInt8),
-                pl.Field("main_prompt_ids", pl.List(pl.UInt32)),
-                pl.Field("selected_prompt_ids", pl.List(pl.UInt32)),
-                pl.Field("semantic_similarity", pl.Float32),
-                pl.Field("ngram_jaccard_similarity", pl.List(pl.Float32)),
-                pl.Field("top_common_ngrams", pl.List(pl.Struct([
-                    pl.Field("ngram", pl.Utf8),
-                    pl.Field("ngram_size", pl.UInt8),
-                    pl.Field("count", pl.UInt16),
-                    pl.Field("occurrences", pl.List(pl.Struct([
-                        pl.Field("feature_id", pl.UInt32),
-                        pl.Field("prompt_id", pl.UInt32),
-                        pl.Field("positions", pl.List(pl.UInt16))
-                    ])))
-                ])))
-            ]))
-        }
-
+        # Use the same schema builder for consistency
+        schema = self._get_target_schema()
         return pl.DataFrame(schema=schema)
 
     def save_parquet(self, df: pl.DataFrame) -> None:
-        """Save DataFrame as parquet with metadata.
+        """Save DataFrame as parquet with metadata (V3.0).
 
         Args:
             df: DataFrame to save
@@ -718,28 +1003,25 @@ class InterFeatureSimilarityProcessor:
 
         # Calculate statistics
         if len(df) > 0:
-            # Flatten all semantic similarities
-            all_semantic_sims = []
-            all_jaccard_sims = []
+            # Count features with pairs by pattern type
+            features_with_semantic = int((df["semantic_pairs"].list.len() > 0).sum())
+            features_with_lexical = int((df["lexical_pairs"].list.len() > 0).sum())
+            features_with_any = int(((df["semantic_pairs"].list.len() > 0) |
+                                     (df["lexical_pairs"].list.len() > 0)).sum())
 
-            for row in df.iter_rows(named=True):
-                pairs = row.get("similarity_pairs", [])
-                if pairs:
-                    for pair in pairs:
-                        sem_sim = pair.get("semantic_similarity")
-                        if sem_sim is not None:
-                            all_semantic_sims.append(sem_sim)
-
-                        jaccard_list = pair.get("ngram_jaccard_similarity", [])
-                        if jaccard_list:
-                            all_jaccard_sims.extend([j for j in jaccard_list if j is not None])
+            # Count total pairs
+            total_semantic = int(df["semantic_pairs"].list.len().sum())
+            total_lexical = int(df["lexical_pairs"].list.len().sum())
+            total_all_pairs = total_semantic + total_lexical
 
             result_stats = {
-                "features_with_pairs": int((df["num_similar_features_analyzed"] > 0).sum()),
-                "total_pairs": int(df["num_similar_features_analyzed"].sum()),
-                "mean_pairs_per_feature": float(df["num_similar_features_analyzed"].mean()),
-                "mean_semantic_similarity": float(np.mean(all_semantic_sims)) if all_semantic_sims else None,
-                "mean_jaccard_similarity": float(np.mean(all_jaccard_sims)) if all_jaccard_sims else None,
+                "features_with_any_pairs": features_with_any,
+                "features_with_semantic_pairs": features_with_semantic,
+                "features_with_lexical_pairs": features_with_lexical,
+                "total_semantic_pairs": total_semantic,
+                "total_lexical_pairs": total_lexical,
+                "total_all_pairs": total_all_pairs,
+                "mean_pairs_per_feature": float(total_all_pairs / len(df)) if len(df) > 0 else 0
             }
         else:
             result_stats = {}
@@ -747,7 +1029,8 @@ class InterFeatureSimilarityProcessor:
         # Save metadata
         metadata = {
             "created_at": datetime.now().isoformat(),
-            "script_version": "1.0",
+            "script_version": "4.0",
+            "architecture": "dual_ngram_with_position_tracking",
             "sae_id": self.sae_id,
             "total_rows": len(df),
             "schema": {col: str(df[col].dtype) for col in df.columns},
@@ -804,12 +1087,12 @@ def main():
     logger.info("Processing Complete!")
     logger.info(f"Statistics:")
     logger.info(f"  Features processed: {processor.stats['features_processed']:,}")
-    logger.info(f"  Total pairs analyzed: {processor.stats['total_pairs_analyzed']:,}")
+    logger.info(f"  Total pairs compared: {processor.stats['total_pairs_compared']:,}")
+    logger.info(f"  Semantic pairs: {processor.stats['semantic_pairs']:,}")
+    logger.info(f"  Lexical pairs: {processor.stats['lexical_pairs']:,}")
+    logger.info(f"  No pattern pairs (excluded): {processor.stats['no_pattern_pairs']:,}")
     logger.info(f"  Features with insufficient decoder similar: {processor.stats['features_with_insufficient_decoder_similar']:,}")
     logger.info(f"  Features with no activations: {processor.stats['features_with_no_activations']:,}")
-    logger.info(f"  Semantic similarity computed: {processor.stats['semantic_similarity_computed']:,}")
-    logger.info(f"  N-gram Jaccard computed: {processor.stats['ngram_jaccard_computed']:,}")
-    logger.info(f"  N-gram analysis computed: {processor.stats['ngram_analysis_computed']:,}")
     logger.info("=" * 80)
 
 

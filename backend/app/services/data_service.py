@@ -34,6 +34,7 @@ class DataService:
         self.activation_examples_file = self.data_path / "master" / "activation_examples.parquet"
         self.activation_similarity_file = self.data_path / "master" / "activation_example_similarity.parquet"
         self.activation_display_file = self.data_path / "master" / "activation_display.parquet"
+        self.interfeature_similarity_file = self.data_path / "master" / "interfeature_activation_similarity.parquet"
 
         # Cache for frequently accessed data
         self._filter_options_cache: Optional[Dict[str, List[str]]] = None
@@ -41,6 +42,7 @@ class DataService:
         self._activation_examples_lazy: Optional[pl.LazyFrame] = None
         self._activation_similarity_lazy: Optional[pl.LazyFrame] = None
         self._activation_display_lazy: Optional[pl.LazyFrame] = None
+        self._interfeature_similarity_lazy: Optional[pl.LazyFrame] = None
         self._ready = False
 
     async def initialize(self):
@@ -75,6 +77,13 @@ class DataService:
                     logger.info(f"Activation similarity loaded: {self.activation_similarity_file}")
                 else:
                     logger.warning(f"Activation similarity file not found: {self.activation_similarity_file}")
+
+            # NEW: Load inter-feature activation similarity
+            if self.interfeature_similarity_file.exists():
+                self._interfeature_similarity_lazy = pl.scan_parquet(self.interfeature_similarity_file)
+                logger.info(f"Inter-feature similarity loaded: {self.interfeature_similarity_file}")
+            else:
+                logger.warning(f"Inter-feature similarity file not found: {self.interfeature_similarity_file}")
 
             await self._cache_filter_options()
             self._ready = True
@@ -123,6 +132,12 @@ class DataService:
             pl.col("scores").struct.field("simulation").alias(COL_SCORE_SIMULATION),
             pl.col("scores").struct.field("detection").alias(COL_SCORE_DETECTION),
             pl.col("scores").struct.field("embedding").alias(COL_SCORE_EMBEDDING),
+        ])
+
+        # Compute quality_score as mean of embedding, fuzz, and detection scores
+        df_lazy = df_lazy.with_columns([
+            ((pl.col(COL_SCORE_EMBEDDING) + pl.col(COL_SCORE_FUZZ) + pl.col(COL_SCORE_DETECTION)) / 3.0)
+            .alias("quality_score")
         ])
 
         # Keep decoder_similarity as List(Struct) for table display

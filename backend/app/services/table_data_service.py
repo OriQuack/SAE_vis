@@ -108,9 +108,12 @@ class TableDataService:
         # STEP 3: Fetch pairwise semantic similarity data from nested structure
         pairwise_df = self._fetch_pairwise_similarity(feature_ids, explainer_ids)
 
-        # STEP 4: Build response (pure assembly, no calculations)
+        # STEP 4: Fetch inter-feature activation similarity data
+        interfeature_df = self._fetch_interfeature_similarity(feature_ids)
+
+        # STEP 5: Build response (pure assembly, no calculations)
         features = self._build_feature_rows_simple(
-            scores_df, explanations_df, pairwise_df,
+            scores_df, explanations_df, pairwise_df, interfeature_df,
             feature_ids, explainer_ids, scorer_map
         )
 
@@ -148,7 +151,7 @@ class TableDataService:
         # Select base columns (raw scores)
         base_columns = [
             "feature_id", "llm_explainer", "llm_scorer",
-            "score_embedding", "score_fuzz", "score_detection"
+            "score_embedding", "score_fuzz", "score_detection", "quality_score"
         ]
 
         # Add additional columns if available
@@ -331,6 +334,98 @@ class TableDataService:
             logger.warning(f"Could not extract pairwise similarity from nested structure: {e}")
             return None
 
+    def _fetch_interfeature_similarity(
+        self,
+        feature_ids: List[int]
+    ) -> Optional[pl.DataFrame]:
+        """
+        STEP 4: Fetch inter-feature activation similarity data.
+
+        Returns DataFrame with:
+        - feature_id
+        - semantic_pairs: List(Struct) with similar features based on semantic similarity
+        - lexical_pairs: List(Struct) with similar features based on lexical patterns
+        - both_pairs: List(Struct) with similar features showing both patterns
+
+        Args:
+            feature_ids: List of feature IDs to filter
+
+        Returns:
+            DataFrame with inter-feature similarity or None if data not available
+        """
+        try:
+            if self.data_service._interfeature_similarity_lazy is None:
+                logger.warning("Inter-feature similarity data not loaded")
+                return None
+
+            # Filter to requested features
+            df = self.data_service._interfeature_similarity_lazy.filter(
+                pl.col("feature_id").is_in(feature_ids)
+            ).collect()
+
+            logger.info(f"Fetched inter-feature similarity: {len(df)} features")
+            return df
+
+        except Exception as e:
+            logger.warning(f"Could not fetch inter-feature similarity: {e}")
+            return None
+
+    def _build_interfeature_lookup(
+        self,
+        feature_id: int,
+        interfeature_df: Optional[pl.DataFrame]
+    ) -> Dict[int, Dict]:
+        """
+        Build a lookup dictionary for inter-feature similarity data.
+
+        Creates mapping: {similar_feature_id: {pattern_type, semantic_similarity, char_jaccard, word_jaccard, ...}}
+
+        Args:
+            feature_id: Main feature ID
+            interfeature_df: DataFrame with inter-feature similarity data
+
+        Returns:
+            Dictionary mapping similar feature IDs to their similarity info
+        """
+        lookup = {}
+
+        if interfeature_df is None or len(interfeature_df) == 0:
+            return lookup
+
+        # Filter for this feature
+        feature_interf = interfeature_df.filter(pl.col("feature_id") == feature_id)
+
+        if len(feature_interf) == 0:
+            return lookup
+
+        # Process semantic first, then lexical (lexical overwrites if duplicate - V4.0)
+        for category in ["semantic_pairs", "lexical_pairs"]:
+            # Convert Polars Series to Python list to access nested data properly
+            pairs_list = feature_interf[category].to_list()[0]
+
+            if pairs_list is None:
+                continue
+
+            for pair in pairs_list:
+                similar_feature_id = int(pair["similar_feature_id"])
+
+                # Store similarity info with position data (V4.0)
+                lookup[similar_feature_id] = {
+                    "pattern_type": pair["pattern_type"],
+                    "semantic_similarity": float(pair["semantic_similarity"]) if pair["semantic_similarity"] is not None else None,
+                    "char_jaccard": float(pair["char_jaccard"]) if pair["char_jaccard"] is not None else None,
+                    "word_jaccard": float(pair["word_jaccard"]) if pair["word_jaccard"] is not None else None,
+                    "max_char_ngram": pair["max_char_ngram"],
+                    "max_word_ngram": pair["max_word_ngram"],
+                    # NEW: Position fields (V4.0)
+                    "main_char_ngram_positions": pair.get("main_char_ngram_positions"),
+                    "similar_char_ngram_positions": pair.get("similar_char_ngram_positions"),
+                    "main_word_ngram_positions": pair.get("main_word_ngram_positions"),
+                    "similar_word_ngram_positions": pair.get("similar_word_ngram_positions")
+                }
+
+        return lookup
+
     def _compute_global_stats(
         self,
         scores_df: pl.DataFrame,
@@ -476,17 +571,19 @@ class TableDataService:
         scores_df: pl.DataFrame,
         explanations_df: Optional[pl.DataFrame],
         pairwise_df: Optional[pl.DataFrame],
+        interfeature_df: Optional[pl.DataFrame],
         feature_ids: List[int],
         explainer_ids: List[str],
         scorer_map: Dict[str, str]
     ) -> List[FeatureTableRow]:
         """
-        STEP 4: Build feature rows (pure assembly, no calculations) - v2.0 without consistency.
+        STEP 5: Build feature rows (pure assembly, no calculations) - v2.0 with inter-feature similarity.
 
         Args:
             scores_df: Scores DataFrame from features.parquet
             explanations_df: Explanations DataFrame (optional)
             pairwise_df: Pairwise similarity DataFrame (optional)
+            interfeature_df: Inter-feature similarity DataFrame (optional)
             feature_ids: List of feature IDs
             explainer_ids: List of explainer IDs
             scorer_map: Mapping from scorer ID to s1/s2/s3
@@ -511,11 +608,55 @@ class TableDataService:
                     # Just get the first row since decoder_similarity is same for all rows of this feature
                     decoder_sim_value = feature_scores["decoder_similarity"][0]
                     if decoder_sim_value is not None:
+                        # Build inter-feature lookup for this feature
+                        interfeature_lookup = self._build_interfeature_lookup(feature_id, interfeature_df)
+
                         # Convert from Polars struct to dict format for Pydantic
-                        decoder_similarity = [
-                            {"feature_id": int(item["feature_id"]), "cosine_similarity": float(item["cosine_similarity"])}
-                            for item in decoder_sim_value
-                        ]
+                        # and attach inter-feature similarity info
+                        decoder_similarity = []
+                        for item in decoder_sim_value:
+                            similar_feature_id = int(item["feature_id"])
+
+                            # Build base dict
+                            decoder_feature = {
+                                "feature_id": similar_feature_id,
+                                "cosine_similarity": float(item["cosine_similarity"])
+                            }
+
+                            # Attach inter-feature similarity if available
+                            if similar_feature_id in interfeature_lookup:
+                                interf_info = interfeature_lookup[similar_feature_id]
+                                decoder_feature["inter_feature_similarity"] = {
+                                    "pattern_type": interf_info["pattern_type"],
+                                    "semantic_similarity": interf_info["semantic_similarity"],
+                                    "char_jaccard": interf_info["char_jaccard"],
+                                    "word_jaccard": interf_info["word_jaccard"],
+                                    "max_char_ngram": interf_info["max_char_ngram"],
+                                    "max_word_ngram": interf_info["max_word_ngram"],
+                                    # V4.0 position fields
+                                    "main_char_ngram_positions": interf_info.get("main_char_ngram_positions"),
+                                    "similar_char_ngram_positions": interf_info.get("similar_char_ngram_positions"),
+                                    "main_word_ngram_positions": interf_info.get("main_word_ngram_positions"),
+                                    "similar_word_ngram_positions": interf_info.get("similar_word_ngram_positions")
+                                }
+                            else:
+                                # No inter-feature data available, mark as None pattern
+                                decoder_feature["inter_feature_similarity"] = {
+                                    "pattern_type": "None",
+                                    "semantic_similarity": None,
+                                    "char_jaccard": None,
+                                    "word_jaccard": None,
+                                    "max_char_ngram": None,
+                                    "max_word_ngram": None,
+                                    # V4.0 position fields - null when no data
+                                    "main_char_ngram_positions": None,
+                                    "similar_char_ngram_positions": None,
+                                    "main_word_ngram_positions": None,
+                                    "similar_word_ngram_positions": None
+                                }
+
+                            decoder_similarity.append(decoder_feature)
+
                 elif "feature_splitting" in feature_scores.columns:
                     # Legacy format: feature_splitting was a float (deprecated)
                     # We don't set decoder_similarity for legacy data
@@ -559,8 +700,17 @@ class TableDataService:
                     explainer, explainer_ids, feature_pairwise
                 )
 
+                # Extract quality_score (average across scorers for this explainer)
+                quality_score = None
+                if len(explainer_scores) > 0 and "quality_score" in explainer_scores.columns:
+                    qs = explainer_scores["quality_score"].to_list()
+                    qs_values = [s for s in qs if s is not None]
+                    if qs_values:
+                        quality_score = float(sum(qs_values) / len(qs_values))
+
                 explainers_dict[explainer_key] = ExplainerScoreData(
                     embedding=embedding_score,
+                    quality_score=quality_score,
                     fuzz=ScorerScoreSet(
                         s1=fuzz_dict.get("s1"),
                         s2=fuzz_dict.get("s2"),

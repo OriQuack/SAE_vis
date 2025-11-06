@@ -49,6 +49,12 @@ export interface NodeHistogramLayout {
   totalFeatures: number    // Total features in node
 }
 
+export interface HistogramAxisTick {
+  value: number      // Actual metric value
+  position: number   // Y position in SVG coordinates
+  label: string      // Formatted label for display
+}
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================
@@ -295,4 +301,38 @@ export function shouldDisplayNodeHistogram(
   }
 
   return true
+}
+
+/**
+ * Calculate y-axis ticks for a histogram overlay
+ *
+ * Creates tick marks and labels similar to the histogram popover's x-axis
+ * For the vertical axis showing metric values on inline Sankey histograms
+ *
+ * @param data - Histogram data containing metric statistics
+ * @param node - Sankey node to position ticks within
+ * @param tickCount - Number of ticks to generate (default: 5)
+ * @returns Array of tick data with positions and formatted labels
+ */
+export function calculateHistogramYAxisTicks(
+  data: HistogramData,
+  node: D3SankeyNode,
+  tickCount: number = 5
+): HistogramAxisTick[] {
+  const nodeY0 = node.y0 || 0
+  const nodeY1 = node.y1 || 0
+
+  // Create scale matching the histogram bars
+  const yScale = scaleLinear()
+    .domain([data.statistics.min, data.statistics.max])
+    .range([nodeY0, nodeY1])
+
+  // Generate ticks using D3's intelligent tick algorithm
+  const tickValues = yScale.ticks(tickCount)
+
+  return tickValues.map(value => ({
+    value,
+    position: yScale(value),
+    label: value.toFixed(2)  // Format with 2 decimal places like popover
+  }))
 }

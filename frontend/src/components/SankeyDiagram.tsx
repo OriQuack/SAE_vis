@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react'
+import React, { useState, useCallback, useMemo } from 'react'
 import { useVisualizationStore } from '../store/index'
 import {
   DEFAULT_ANIMATION,
