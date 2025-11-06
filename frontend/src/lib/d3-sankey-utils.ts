@@ -199,9 +199,12 @@ export function calculateSankeyLayout(
   }
 
   // Prepare nodes with original index for sorting
+  // Also convert feature_ids to featureIds for consistency
   const nodesWithOrder = filteredNodes.map((node: D3SankeyNode, index: number) => ({
     ...node,
-    originalIndex: index
+    originalIndex: index,
+    // Convert snake_case feature_ids to camelCase featureIds if it exists
+    featureIds: node.feature_ids ? new Set(node.feature_ids) : undefined
   }))
 
   // Build parent-child relationships
@@ -564,12 +567,11 @@ const BAR_COLOR = '#9ca3af'  // Gray-400
  * Calculate layout for a vertical bar node within Sankey diagram
  *
  * Creates a single vertical bar spanning the full node width
+ * with a scroll indicator showing the current table viewport position
  */
 export function calculateVerticalBarNodeLayout(
   node: D3SankeyNode,
-  scrollState?: { scrollTop: number; scrollHeight: number; clientHeight: number } | null,
-  totalFeatureCount: number = 0,
-  nodeStartIndex: number = 0
+  scrollState?: { scrollTop: number; scrollHeight: number; clientHeight: number; visibleFeatureIds?: Set<number> } | null
 ): VerticalBarNodeLayout {
   if (node.x0 === undefined || node.x1 === undefined ||
       node.y0 === undefined || node.y1 === undefined) {
@@ -591,68 +593,22 @@ export function calculateVerticalBarNodeLayout(
     selected: true
   }]
 
-  // Calculate scroll indicator using visible feature IDs from virtual scroll
+  // Calculate scroll indicator based on table viewport position
   let scrollIndicator: ScrollIndicator | null = null
 
-  if (scrollState && scrollState.visibleFeatureIds && scrollState.visibleFeatureIds.size > 0 && node.featureIds) {
-    // NEW APPROACH: Use feature IDs instead of pixel-based calculations
-    // Find which of this node's features are visible in the table
-    const visibleNodeFeatures: number[] = []
-    const allNodeFeatures: number[] = []
+  if (scrollState && scrollState.scrollHeight > 0 && scrollState.clientHeight > 0) {
+    // Calculate viewport position as percentage of total scrollable area
+    const scrollPercent = scrollState.scrollTop / scrollState.scrollHeight
+    const viewportPercent = scrollState.clientHeight / scrollState.scrollHeight
 
-    // Convert node's feature IDs to array for indexed access
-    node.featureIds.forEach(fid => {
-      allNodeFeatures.push(fid)
-      if (scrollState.visibleFeatureIds!.has(fid)) {
-        visibleNodeFeatures.push(fid)
-      }
-    })
+    // Indicator shows the visible portion of the table
+    const startPercent = scrollPercent
+    const endPercent = Math.min(1.0, scrollPercent + viewportPercent)
 
-    // Calculate what percentage of visible table features belong to this node
-    const overlapPercentage = visibleNodeFeatures.length / scrollState.visibleFeatureIds.size
-
-    console.log('[calculateVerticalBarNodeLayout] Feature-based calculation:', {
-      nodeId: node.id,
-      totalNodeFeatures: allNodeFeatures.length,
-      visibleNodeFeatures: visibleNodeFeatures.length,
-      totalVisibleInTable: scrollState.visibleFeatureIds.size,
-      overlapPercentage: (overlapPercentage * 100).toFixed(1) + '%'
-    })
-
-    // Only show indicator if this node contains MAJORITY (>50%) of visible features
-    // This ensures only ONE vertical bar shows the indicator at a time
-    if (visibleNodeFeatures.length > 0 && overlapPercentage > 0.5) {
-      // Find the position of visible features within this node
-      // Sort all features by their position in the node
-      allNodeFeatures.sort((a, b) => a - b)
-
-      // Find indices of first and last visible features in the sorted node feature list
-      const firstVisibleIndex = allNodeFeatures.indexOf(Math.min(...visibleNodeFeatures))
-      const lastVisibleIndex = allNodeFeatures.indexOf(Math.max(...visibleNodeFeatures))
-
-      // Calculate indicator position as percentage of node height
-      const startPercent = firstVisibleIndex / Math.max(1, allNodeFeatures.length)
-      const endPercent = (lastVisibleIndex + 1) / Math.max(1, allNodeFeatures.length)
-
-      scrollIndicator = {
-        y: node.y0! + (totalHeight * startPercent),
-        height: totalHeight * (endPercent - startPercent)
-      }
-
-      console.log('[calculateVerticalBarNodeLayout] Scroll indicator created (majority node):', {
-        firstVisibleIndex,
-        lastVisibleIndex,
-        startPercent: (startPercent * 100).toFixed(1) + '%',
-        endPercent: (endPercent * 100).toFixed(1) + '%',
-        indicator: scrollIndicator
-      })
-    } else {
-      console.log('[calculateVerticalBarNodeLayout] Node does not have majority of visible features - no indicator')
+    scrollIndicator = {
+      y: node.y0! + (startPercent * totalHeight),
+      height: (endPercent - startPercent) * totalHeight
     }
-  } else {
-    // No feature ID tracking available - hide indicator to prevent showing on all nodes
-    console.log('[calculateVerticalBarNodeLayout] No visibleFeatureIds - hiding indicator')
-    scrollIndicator = null
   }
 
   return {

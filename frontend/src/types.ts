@@ -163,6 +163,7 @@ export interface D3SankeyNode extends SankeyNode {
   originalIndex?: number
   sourceLinks?: D3SankeyLink[]
   targetLinks?: D3SankeyLink[]
+  featureIds?: Set<number>  // Converted from feature_ids for easier lookup in scroll indicator
 }
 
 export interface SankeyLink {

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react'
+import React, { useState, useCallback, useMemo, useEffect } from 'react'
 import { useVisualizationStore } from '../store/index'
 import {
   DEFAULT_ANIMATION,
@@ -276,15 +276,13 @@ const VerticalBarSankeyNode: React.FC<{
   node: D3SankeyNode
   scrollState: { scrollTop: number; scrollHeight: number; clientHeight: number } | null
   flowDirection: 'left-to-right' | 'right-to-left'
-  totalFeatureCount?: number
-  nodeStartIndex?: number
   onClick?: (e: React.MouseEvent) => void
   onMouseEnter?: (e: React.MouseEvent) => void
   onMouseLeave?: () => void
   isSelected?: boolean
   isHovered?: boolean
-}> = ({ node, scrollState, flowDirection, totalFeatureCount = 0, nodeStartIndex = 0, onClick, onMouseEnter, onMouseLeave, isSelected = false, isHovered = false }) => {
-  const layout = calculateVerticalBarNodeLayout(node, scrollState, totalFeatureCount, nodeStartIndex)
+}> = ({ node, scrollState, flowDirection, onClick, onMouseEnter, onMouseLeave, isSelected = false, isHovered = false }) => {
+  const layout = calculateVerticalBarNodeLayout(node, scrollState)
 
   // Check if this is a placeholder node
   const isPlaceholder = node.id === 'placeholder_vertical_bar'
@@ -534,6 +532,31 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       }
     }
   }, [displayData, containerSize.width, containerSize.height, flowDirection])
+
+  // Determine which vertical bar node should show the scroll indicator (winner-takes-all)
+  // Must be called BEFORE all early returns to comply with Rules of Hooks
+  const winnerNodeId = useMemo(() => {
+    if (!layout || !layout.nodes || !tableScrollState || tableScrollState.scrollHeight === 0) {
+      return null
+    }
+
+    // Find all vertical bar nodes
+    const verticalBarNodes = layout.nodes.filter(node => node.node_type === 'vertical_bar')
+
+    // For now, use simple heuristic: rightmost vertical bar node wins
+    // (In future, could use feature ID intersection for more sophisticated selection)
+    if (verticalBarNodes.length > 0) {
+      // Sort by x position and pick rightmost
+      const sorted = [...verticalBarNodes].sort((a, b) => {
+        const aX = a.x0 ?? 0
+        const bX = b.x0 ?? 0
+        return bX - aX
+      })
+      return sorted[0].id
+    }
+
+    return null
+  }, [layout, tableScrollState, panel])
 
   // Stage labels removed - metric labels now shown on links
 
@@ -860,14 +883,15 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
                   // Check if this is a vertical bar node
                   if (node.node_type === 'vertical_bar') {
+                    // Only pass scrollState to the winner node (winner-takes-all)
+                    const shouldShowIndicator = winnerNodeId === node.id
+
                     return (
                       <VerticalBarSankeyNode
                         key={node.id}
                         node={node}
-                        scrollState={tableScrollState}
+                        scrollState={shouldShowIndicator ? tableScrollState : null}
                         flowDirection={flowDirection}
-                        totalFeatureCount={0}  // Not used in new feature-ID-based calculation
-                        nodeStartIndex={0}     // Not used in new feature-ID-based calculation
                         onClick={(e) => handleNodeSelectionClick(e, node)}
                         onMouseEnter={() => setHoveredNodeId(node.id)}
                         onMouseLeave={() => setHoveredNodeId(null)}

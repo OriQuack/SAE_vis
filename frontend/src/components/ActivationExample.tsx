@@ -143,10 +143,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
                   title={title}
                 >
                   {token.is_newline ? (
-                    <>
-                      <span className="newline-symbol">{getWhitespaceSymbol(token.text)}</span>
-                      <span className="newline-actual">{token.text}</span>
-                    </>
+                    <span className="newline-symbol">{getWhitespaceSymbol(token.text)}</span>
                   ) : (
                     token.text
                   )}
@@ -194,10 +191,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
                             title={title}
                           >
                             {token.is_newline ? (
-                              <>
-                                <span className="newline-symbol">{getWhitespaceSymbol(token.text)}</span>
-                                <span className="newline-actual">{token.text}</span>
-                              </>
+                              <span className="newline-symbol">{getWhitespaceSymbol(token.text)}</span>
                             ) : (
                               token.text
                             )}

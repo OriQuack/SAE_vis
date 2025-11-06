@@ -323,7 +323,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     const cleanupTimeouts: number[] = []
 
     // Measure and update scroll state
-    const measureAndUpdate = (_source: string = 'unknown') => {
+    const measureAndUpdate = () => {
       // Cancel any pending measurement
       if (rafId !== null) {
         cancelAnimationFrame(rafId)
@@ -338,7 +338,6 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
         // Extract visible feature IDs from visible row range
         const visibleFeatureIds = new Set<number>()
-        console.log(`[TablePanel measureAndUpdate] sortedFeatures.length=${sortedFeatures.length}, explainerIds.length=${explainerIds.length}`)
         if (sortedFeatures.length > 0 && explainerIds.length > 0) {
           let currentRowIndex = 0
           for (const feature of sortedFeatures) {
@@ -361,7 +360,6 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
             if (currentRowIndex > lastVisibleRowIndex) break
           }
         }
-        console.log(`[TablePanel measureAndUpdate] visibleFeatureIds.size=${visibleFeatureIds.size}, first/last visible row: ${firstVisibleRowIndex}/${lastVisibleRowIndex}`)
 
         const scrollState = {
           scrollTop: container.scrollTop,
@@ -374,25 +372,20 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
         }
 
         // Only update state if dimensions are valid (non-zero)
-        // This prevents setting invalid state during transitions
         if (scrollState.scrollHeight > 0 && scrollState.clientHeight > 0) {
           setTableScrollState(scrollState)
-        } else {
-          console.warn('[TablePanel] Skipping state update - invalid dimensions')
         }
 
         rafId = null
       })
     }
 
-    console.log('[TablePanel] Setting up scroll tracking')
-
     // 1. Add scroll event listener for user interactions
-    const handleScrollEvent = () => measureAndUpdate('scroll-event')
+    const handleScrollEvent = () => measureAndUpdate()
     container.addEventListener('scroll', handleScrollEvent, { passive: true })
 
     // 2. Observe container for viewport/size changes
-    containerObserver = new ResizeObserver(() => measureAndUpdate('container-resize'))
+    containerObserver = new ResizeObserver(() => measureAndUpdate())
     containerObserver.observe(container)
 
     // 3. Find and observe inner <table> element (grows when rows are added)
@@ -400,10 +393,9 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     const setupTableObserver = (): boolean => {
       const tableElement = container.querySelector('table')
       if (tableElement && !tableObserver) {
-        console.log('[TablePanel] Table element found, attaching ResizeObserver')
-        tableObserver = new ResizeObserver(() => measureAndUpdate('table-resize'))
+        tableObserver = new ResizeObserver(() => measureAndUpdate())
         tableObserver.observe(tableElement)
-        measureAndUpdate('initial')
+        measureAndUpdate()
         return true
       }
       return false
@@ -471,7 +463,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
       // Clean up all retry/mutation timeouts
       cleanupTimeouts.forEach(timeoutId => clearTimeout(timeoutId))
     }
-  }, [setTableScrollState, sortedFeatures, explainerIds, rowVirtualizer])  // Re-setup scroll tracking when data changes
+  }, [setTableScrollState, sortedFeatures])  // Re-run when features change
 
   // Scroll to highlighted feature when it changes (moved before early returns)
   useEffect(() => {

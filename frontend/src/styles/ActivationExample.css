@@ -8,8 +8,7 @@
   font-size: 11px;
   line-height: 1.4;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-direction: column;
   cursor: pointer;
 }
 
@@ -18,10 +17,13 @@
  * ============================================================================ */
 
 .activation-example__quantile {
-  display: inline-flex;
+  display: flex;
+  width: 100%;
   border-radius: 2px;
   background: transparent;
   transition: box-shadow 0.2s ease;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .activation-example:hover .activation-example__quantile {
@@ -36,7 +38,7 @@
   padding: 0px 2px;
   border-radius: 2px;
   transition: background-color 0.15s ease;
-  white-space: pre-wrap;
+  white-space: pre;
 }
 
 /* Max activation token - bold with red underline */
@@ -62,12 +64,6 @@
   font-weight: 600;
   user-select: none;
   transition: color 0.15s ease;
-}
-
-/* Actual newline - always hidden (prevents cell height changes) */
-.newline-actual {
-  display: none;
-  white-space: pre;
 }
 
 /* On hover of the newline token: darken symbol color for feedback */
@@ -128,7 +124,7 @@
 
 /* Individual example row */
 .activation-example__popover-row {
-  display: inline-flex;
+  display: flex;
   gap: 0;
   flex-wrap: wrap;
   align-items: center;
@@ -136,6 +132,11 @@
   padding-bottom: 1px;
   margin-bottom: 1px;
   border-bottom: 1px solid #e5e7eb;
+}
+
+/* Allow tokens in popover to wrap */
+.activation-example__popover-row .activation-token {
+  white-space: pre-wrap;
 }
 
 /* Remove border from last row in popover */

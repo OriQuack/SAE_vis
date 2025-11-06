@@ -275,27 +275,31 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
       }
 
       rafId = requestAnimationFrame(() => {
-        // Get virtual items to determine visible rows and features
-        const virtualItems = rowVirtualizer.getVirtualItems()
-        const firstVisibleRowIndex = virtualItems[0]?.index ?? 0
-        const lastVisibleRowIndex = virtualItems[virtualItems.length - 1]?.index ?? 0
+        // Calculate visible features using simple percentage-based approach
+        const totalFeatures = sortedRows.length
+        const scrollPercentage = container.scrollHeight > 0
+          ? container.scrollTop / container.scrollHeight
+          : 0
+        const viewportPercentage = container.scrollHeight > 0
+          ? container.clientHeight / container.scrollHeight
+          : 0
 
-        // Extract visible feature IDs from visible row range
-        // Each row in sortedRows represents one main feature
-        const visibleFeatureIds = new Set<number>()
-        console.log(`[DecoderSimilarityTable measureAndUpdate] sortedRows.length=${sortedRows.length}`)
-        for (let i = firstVisibleRowIndex; i <= lastVisibleRowIndex && i < sortedRows.length; i++) {
-          visibleFeatureIds.add(sortedRows[i].feature_id)
-        }
-        console.log(`[DecoderSimilarityTable measureAndUpdate] visibleFeatureIds.size=${visibleFeatureIds.size}, first/last visible row: ${firstVisibleRowIndex}/${lastVisibleRowIndex}`)
+        // Calculate which features are visible based on scroll position
+        const firstVisibleIndex = Math.floor(scrollPercentage * totalFeatures)
+        const lastVisibleIndex = Math.min(
+          Math.ceil((scrollPercentage + viewportPercentage) * totalFeatures),
+          totalFeatures
+        )
+
+        // Extract visible feature IDs using simple array slice
+        const visibleFeatureIds = new Set<number>(
+          sortedRows.slice(firstVisibleIndex, lastVisibleIndex).map(row => row.feature_id)
+        )
 
         const scrollState = {
           scrollTop: container.scrollTop,
           scrollHeight: container.scrollHeight,
           clientHeight: container.clientHeight,
-          firstVisibleRowIndex,
-          lastVisibleRowIndex,
-          totalRowCount: sortedRows.length,
           visibleFeatureIds
         }
 
@@ -325,7 +329,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
       container.removeEventListener('scroll', handleScrollEvent)
       resizeObserver.disconnect()
     }
-  }, [sortedRows, rowVirtualizer, setTableScrollState])
+  }, [setTableScrollState, sortedRows])  // Re-run when rows change
 
   // Empty state
   if (!stageContext) {

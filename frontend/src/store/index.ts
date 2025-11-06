@@ -113,15 +113,12 @@ interface AppState extends TagState {
   // Table data
   tableData: any | null
 
-  // Table scroll state (enhanced for virtual scroll)
+  // Table scroll state (simple feature tracking for indicator positioning)
   tableScrollState: {
-    scrollTop: number
-    scrollHeight: number
-    clientHeight: number
-    firstVisibleRowIndex?: number       // First visible row in virtualizer
-    lastVisibleRowIndex?: number        // Last visible row in virtualizer
-    totalRowCount?: number              // Total number of rows in table
-    visibleFeatureIds?: Set<number>     // Feature IDs visible in viewport
+    scrollTop: number              // Current scroll position in pixels
+    scrollHeight: number           // Total scrollable height in pixels
+    clientHeight: number           // Viewport height in pixels
+    visibleFeatureIds: Set<number> // Feature IDs currently visible in viewport
   } | null
 
   // Table sort state
