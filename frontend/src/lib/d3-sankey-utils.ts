@@ -591,53 +591,68 @@ export function calculateVerticalBarNodeLayout(
     selected: true
   }]
 
-  // Calculate if this node should show scroll indicator
+  // Calculate scroll indicator using visible feature IDs from virtual scroll
   let scrollIndicator: ScrollIndicator | null = null
-  if (scrollState && scrollState.scrollHeight > scrollState.clientHeight) {
-    const scrollPercentage = scrollState.scrollTop / (scrollState.scrollHeight - scrollState.clientHeight)
-    const visiblePercentage = scrollState.clientHeight / scrollState.scrollHeight
 
-    // Special case: placeholder node always shows indicator (represents all features)
-    const isPlaceholder = node.id === 'placeholder_vertical_bar'
+  if (scrollState && scrollState.visibleFeatureIds && scrollState.visibleFeatureIds.size > 0 && node.featureIds) {
+    // NEW APPROACH: Use feature IDs instead of pixel-based calculations
+    // Find which of this node's features are visible in the table
+    const visibleNodeFeatures: number[] = []
+    const allNodeFeatures: number[] = []
 
-    if (isPlaceholder) {
-      // For placeholder, show indicator based on full scroll state
-      const indicatorHeight = totalHeight * visiblePercentage
-      const indicatorY = node.y0! + (totalHeight - indicatorHeight) * scrollPercentage
+    // Convert node's feature IDs to array for indexed access
+    node.featureIds.forEach(fid => {
+      allNodeFeatures.push(fid)
+      if (scrollState.visibleFeatureIds!.has(fid)) {
+        visibleNodeFeatures.push(fid)
+      }
+    })
 
-      // Clamp indicator to node bounds (prevents extending beyond bottom edge)
-      const maxY = node.y1! - indicatorHeight
-      const clampedY = Math.min(indicatorY, maxY)
+    // Calculate what percentage of visible table features belong to this node
+    const overlapPercentage = visibleNodeFeatures.length / scrollState.visibleFeatureIds.size
+
+    console.log('[calculateVerticalBarNodeLayout] Feature-based calculation:', {
+      nodeId: node.id,
+      totalNodeFeatures: allNodeFeatures.length,
+      visibleNodeFeatures: visibleNodeFeatures.length,
+      totalVisibleInTable: scrollState.visibleFeatureIds.size,
+      overlapPercentage: (overlapPercentage * 100).toFixed(1) + '%'
+    })
+
+    // Only show indicator if this node contains MAJORITY (>50%) of visible features
+    // This ensures only ONE vertical bar shows the indicator at a time
+    if (visibleNodeFeatures.length > 0 && overlapPercentage > 0.5) {
+      // Find the position of visible features within this node
+      // Sort all features by their position in the node
+      allNodeFeatures.sort((a, b) => a - b)
+
+      // Find indices of first and last visible features in the sorted node feature list
+      const firstVisibleIndex = allNodeFeatures.indexOf(Math.min(...visibleNodeFeatures))
+      const lastVisibleIndex = allNodeFeatures.indexOf(Math.max(...visibleNodeFeatures))
+
+      // Calculate indicator position as percentage of node height
+      const startPercent = firstVisibleIndex / Math.max(1, allNodeFeatures.length)
+      const endPercent = (lastVisibleIndex + 1) / Math.max(1, allNodeFeatures.length)
 
       scrollIndicator = {
-        y: clampedY,
-        height: indicatorHeight
+        y: node.y0! + (totalHeight * startPercent),
+        height: totalHeight * (endPercent - startPercent)
       }
-    } else if (totalFeatureCount > 0) {
-      // For regular nodes, check if this node contains any visible features
-      // Calculate the visible window: a fixed-size window that slides from 0 to (total - windowSize)
-      const visibleFeatureCount = Math.ceil(visiblePercentage * totalFeatureCount)
-      const maxScrollPosition = Math.max(0, totalFeatureCount - visibleFeatureCount)
-      const visibleStart = Math.floor(scrollPercentage * maxScrollPosition)
-      const visibleEnd = Math.min(totalFeatureCount, visibleStart + visibleFeatureCount)
 
-      const nodeEndIndex = nodeStartIndex + node.feature_count
-
-      // Check if this node contains any visible features
-      if (visibleStart < nodeEndIndex && visibleEnd > nodeStartIndex) {
-        // Calculate indicator position within this node
-        const nodeVisibleStart = Math.max(0, visibleStart - nodeStartIndex)
-        const nodeVisibleEnd = Math.min(node.feature_count, visibleEnd - nodeStartIndex)
-
-        const startPercent = nodeVisibleStart / node.feature_count
-        const endPercent = nodeVisibleEnd / node.feature_count
-
-        scrollIndicator = {
-          y: node.y0! + (totalHeight * startPercent),
-          height: totalHeight * (endPercent - startPercent)
-        }
-      }
+      console.log('[calculateVerticalBarNodeLayout] Scroll indicator created (majority node):', {
+        firstVisibleIndex,
+        lastVisibleIndex,
+        startPercent: (startPercent * 100).toFixed(1) + '%',
+        endPercent: (endPercent * 100).toFixed(1) + '%',
+        indicator: scrollIndicator
+      })
+    } else {
+      console.log('[calculateVerticalBarNodeLayout] Node does not have majority of visible features - no indicator')
     }
+  } else {
+    // No feature ID tracking available - hide indicator to prevent showing on all nodes
+    console.log('[calculateVerticalBarNodeLayout] No visibleFeatureIds - hiding indicator')
+    scrollIndicator = null
   }
 
   return {

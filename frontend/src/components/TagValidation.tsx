@@ -6,6 +6,7 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react'
 import { useVisualizationStore } from '../store/index'
 import { groupFeaturesByScore, computeFeatureScore, inferMetricSignature, inferMetricWeights } from '../lib/tag-utils'
+import type { FeatureTableRow } from '../types'
 import '../styles/TagValidation.css'
 
 // ============================================================================
@@ -95,7 +96,7 @@ const SelectedFeaturesList: React.FC<SelectedFeaturesListProps> = ({
     if (!tableData || featureIds.size === 0) return []
 
     // Get selected features from table data
-    const selectedFeatures = tableData.features.filter(f => featureIds.has(f.feature_id))
+    const selectedFeatures = tableData.features.filter((f: FeatureTableRow) => featureIds.has(f.feature_id))
     if (selectedFeatures.length === 0) return []
 
     // Determine signature and weights
@@ -452,7 +453,7 @@ const RejectedList: React.FC<RejectedListProps> = ({ className = '' }) => {
     if (!tableData || rejectedIds.size === 0 || selectedFeatureIds.size === 0) return []
 
     // Get selected features for signature/weights calculation
-    const selectedFeatures = tableData.features.filter(f => selectedFeatureIds.has(f.feature_id))
+    const selectedFeatures = tableData.features.filter((f: FeatureTableRow) => selectedFeatureIds.has(f.feature_id))
     if (selectedFeatures.length === 0) return []
 
     // Determine signature and weights

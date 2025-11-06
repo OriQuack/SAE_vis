@@ -76,7 +76,7 @@ export const createActivationActions = (set: any, get: any) => ({
         },
         // Remove fetched IDs from loading set
         activationLoading: new Set(
-          Array.from(state.activationLoading).filter(
+          Array.from(state.activationLoading as Set<number>).filter(
             (id: number) => !uncachedIds.includes(id)
           )
         )
@@ -95,7 +95,7 @@ export const createActivationActions = (set: any, get: any) => ({
       // Remove failed IDs from loading set
       set((state: any) => ({
         activationLoading: new Set(
-          Array.from(state.activationLoading).filter(
+          Array.from(state.activationLoading as Set<number>).filter(
             (id: number) => !uncachedIds.includes(id)
           )
         ),

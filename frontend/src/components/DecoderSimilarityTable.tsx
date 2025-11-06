@@ -1,9 +1,10 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useVisualizationStore } from '../store/index'
-import type { FeatureTableRow, DecoderStageRow, StageTableContext, ActivationExamples } from '../types'
+import type { FeatureTableRow, DecoderStageRow, StageTableContext } from '../types'
 import { METRIC_DECODER_SIMILARITY } from '../lib/constants'
 import { getMetricColor } from '../lib/utils'
+import { getCircleRadius } from '../lib/circle-encoding-utils'
 import ActivationExample from './ActivationExample'
 import '../styles/TablePanel.css'
 import '../styles/DecoderSimilarityTable.css'
@@ -25,6 +26,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
   const selectedFeatureIds = useVisualizationStore(state => state.selectedFeatureIds)
   const toggleFeatureSelection = useVisualizationStore(state => state.toggleFeatureSelection)
   const loading = useVisualizationStore(state => state.loading)
+  const setTableScrollState = useVisualizationStore(state => state.setTableScrollState)
 
   // Sorting state
   const [sortBy, setSortBy] = useState<'id' | 'decoder_similarity' | null>(null)
@@ -38,7 +40,6 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
 
   // Activation examples from global store (centralized cache)
   const activationExamples = useVisualizationStore(state => state.activationExamples)
-  const activationLoadingState = useVisualizationStore(state => state.activationLoadingState)
   const fetchActivationExamples = useVisualizationStore(state => state.fetchActivationExamples)
 
   // Track which features we've already requested to prevent infinite loops
@@ -260,6 +261,72 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
   }, [stageContext, sortedRows, fetchActivationExamples])
   // NOTE: activationExamples is NOT in dependencies to prevent infinite loop
 
+  // Track scroll state for Sankey vertical bar scroll indicator
+  useEffect(() => {
+    const container = tableContainerRef.current
+    if (!container) return
+
+    let rafId: number | null = null
+
+    const measureAndUpdate = () => {
+      if (!container) return
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId)
+      }
+
+      rafId = requestAnimationFrame(() => {
+        // Get virtual items to determine visible rows and features
+        const virtualItems = rowVirtualizer.getVirtualItems()
+        const firstVisibleRowIndex = virtualItems[0]?.index ?? 0
+        const lastVisibleRowIndex = virtualItems[virtualItems.length - 1]?.index ?? 0
+
+        // Extract visible feature IDs from visible row range
+        // Each row in sortedRows represents one main feature
+        const visibleFeatureIds = new Set<number>()
+        console.log(`[DecoderSimilarityTable measureAndUpdate] sortedRows.length=${sortedRows.length}`)
+        for (let i = firstVisibleRowIndex; i <= lastVisibleRowIndex && i < sortedRows.length; i++) {
+          visibleFeatureIds.add(sortedRows[i].feature_id)
+        }
+        console.log(`[DecoderSimilarityTable measureAndUpdate] visibleFeatureIds.size=${visibleFeatureIds.size}, first/last visible row: ${firstVisibleRowIndex}/${lastVisibleRowIndex}`)
+
+        const scrollState = {
+          scrollTop: container.scrollTop,
+          scrollHeight: container.scrollHeight,
+          clientHeight: container.clientHeight,
+          firstVisibleRowIndex,
+          lastVisibleRowIndex,
+          totalRowCount: sortedRows.length,
+          visibleFeatureIds
+        }
+
+        if (scrollState.scrollHeight > 0 && scrollState.clientHeight > 0) {
+          setTableScrollState(scrollState)
+        }
+
+        rafId = null
+      })
+    }
+
+    // Add scroll event listener
+    const handleScrollEvent = () => measureAndUpdate()
+    container.addEventListener('scroll', handleScrollEvent, { passive: true })
+
+    // Observe container size changes
+    const resizeObserver = new ResizeObserver(() => measureAndUpdate())
+    resizeObserver.observe(container)
+
+    // Initial measurement
+    measureAndUpdate()
+
+    return () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId)
+      }
+      container.removeEventListener('scroll', handleScrollEvent)
+      resizeObserver.disconnect()
+    }
+  }, [sortedRows, rowVirtualizer, setTableScrollState])
+
   // Empty state
   if (!stageContext) {
     return (
@@ -385,29 +452,142 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                           {similar.feature_id}
                         </td>
 
-                        {/* Decoder Similarity Score */}
-                        <td
-                          className="table-panel__cell table-panel__cell--score"
-                          title={isMainFeature ? 'Main feature' : `Decoder Similarity: ${similar.cosine_similarity.toFixed(3)}`}
-                        >
-                          {!isMainFeature && (
-                            <svg width="16" height="16" style={{ display: 'block', margin: '0 auto' }}>
-                              <circle
-                                cx="8"
-                                cy="8"
-                                r="7"
-                                fill={getMetricColor('decoder_similarity', similar.cosine_similarity)}
-                                stroke="none"
-                              />
-                            </svg>
-                          )}
+                        {/* Decoder Similarity Score - Lines in each cell for continuous connection */}
+                        <td className="table-panel__cell table-panel__cell--score">
+                          <svg width="80" height="46" style={{ display: 'block', overflow: 'visible' }}>
+                            {(() => {
+                              const similarOnly = similarFeatures.filter(f => !f.is_main)
+                              const positions = [10, 30, 50, 70]  // Increased spacing: 20px between circles
+
+                              if (isFirstRow) {
+                                // Main row - show 4 circles with lines extending to bottom of cell
+                                return similarOnly.map((similar, idx) => (
+                                  <g key={similar.feature_id}>
+                                    {/* Line from circle extending beyond cell boundary - drawn first so it appears behind circle */}
+                                    <line
+                                      x1={positions[idx]}
+                                      y1={23}
+                                      x2={positions[idx]}
+                                      y2={52}
+                                      stroke="#9ca3af"
+                                      strokeWidth="1.5"
+                                      opacity="1.0"
+                                    />
+
+                                    {/* Circle - drawn second so it appears on top */}
+                                    <circle
+                                      cx={positions[idx]}
+                                      cy={23}
+                                      r={getCircleRadius(similar.cosine_similarity)}
+                                      fill={getMetricColor('decoder_similarity', similar.cosine_similarity, true)}
+                                      opacity={1.0}
+                                      stroke="none"
+                                    >
+                                      <title>{`Feature ${similar.feature_id}: ${similar.cosine_similarity.toFixed(3)}`}</title>
+                                    </circle>
+                                  </g>
+                                ))
+                              } else {
+                                // Child rows - need to draw lines for positions that haven't reached their circle yet
+                                const childIndex = similarOnly.findIndex(f => f.feature_id === similar.feature_id)
+
+                                return (
+                                  <g>
+                                    {/* Draw line segments for all 4 positions */}
+                                    {similarOnly.map((s, idx) => {
+                                      const xPos = positions[idx]
+
+                                      if (idx === childIndex) {
+                                        // This position has the circle in this row - line stops here
+                                        return (
+                                          <g key={s.feature_id}>
+                                            {/* Line from top to circle */}
+                                            <line
+                                              x1={xPos}
+                                              y1={-5}
+                                              x2={xPos}
+                                              y2={23}
+                                              stroke="#9ca3af"
+                                              strokeWidth="1.5"
+                                              opacity="1.0"
+                                            />
+
+                                            {/* Circle */}
+                                            <circle
+                                              cx={xPos}
+                                              cy={23}
+                                              r={getCircleRadius(similar.cosine_similarity)}
+                                              fill={getMetricColor('decoder_similarity', similar.cosine_similarity, true)}
+                                              opacity={1.0}
+                                              stroke="none"
+                                            >
+                                              <title>{`Decoder Similarity: ${similar.cosine_similarity.toFixed(3)}`}</title>
+                                            </circle>
+                                          </g>
+                                        )
+                                      } else if (idx > childIndex) {
+                                        // This position's circle is in a later row - pass through with overlap
+                                        return (
+                                          <line
+                                            key={s.feature_id}
+                                            x1={xPos}
+                                            y1={-5}
+                                            x2={xPos}
+                                            y2={90}
+                                            stroke="#9ca3af"
+                                            strokeWidth="1.5"
+                                            opacity="1.0"
+                                          />
+                                        )
+                                      } else {
+                                        // This position's circle was in an earlier row - no line
+                                        return null
+                                      }
+                                    })}
+                                  </g>
+                                )
+                              }
+                            })()}
+                          </svg>
                         </td>
 
                         {/* Type */}
                         <td className="table-panel__cell decoder-stage-table__cell--type">
-                          <span className="decoder-stage-table__type-badge">
-                            {activationExamples[similar.feature_id]?.pattern_type || 'None'}
-                          </span>
+                          {(() => {
+                            const patternType = activationExamples[similar.feature_id]?.pattern_type || 'None'
+
+                            if (patternType === 'Both') {
+                              // Vertically stacked badges for Both
+                              return (
+                                <div className="decoder-stage-table__badge-stack">
+                                  <span className="decoder-stage-table__badge decoder-stage-table__badge--lexical">
+                                    Lexical
+                                  </span>
+                                  <span className="decoder-stage-table__badge decoder-stage-table__badge--semantic">
+                                    Semantic
+                                  </span>
+                                </div>
+                              )
+                            } else if (patternType === 'Lexical') {
+                              return (
+                                <span className="decoder-stage-table__badge decoder-stage-table__badge--lexical">
+                                  Lexical
+                                </span>
+                              )
+                            } else if (patternType === 'Semantic') {
+                              return (
+                                <span className="decoder-stage-table__badge decoder-stage-table__badge--semantic">
+                                  Semantic
+                                </span>
+                              )
+                            } else {
+                              return (
+                                <span className="decoder-stage-table__badge decoder-stage-table__badge--none">
+                                  None
+                                </span>
+                              )
+                            }
+                          })()}
                         </td>
 
                         {/* Activation Example */}

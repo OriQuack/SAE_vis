@@ -44,17 +44,10 @@
   font-weight: 700;
 }
 
-/* N-gram pattern underline (lexical patterns: char or word n-grams) */
+/* N-gram pattern indicator (lexical patterns: char or word n-grams) */
+/* Uses blue border + glow for better visibility against orange activation backgrounds */
 .activation-token--ngram-underline {
-  text-decoration: underline;
-  text-decoration-color: rgba(0, 0, 0, 0.8);
-  text-decoration-thickness: 1.5px;
-  text-underline-offset: 1px;
-}
-
-/* Ensure newline symbols inherit underline from parent */
-.activation-token--ngram-underline .newline-symbol {
-  text-decoration: inherit;
+  border: 1.5px solid #3b82f6;
 }
 
 /* Newline token styling */

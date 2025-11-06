@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useVisualizationStore } from '../store/index'
-import type { FeatureTableDataResponse, FeatureTableRow, ActivationExamples } from '../types'
+import type { FeatureTableDataResponse } from '../types'
 import {
   calculateQualityScoreStats,
   sortFeatures,
@@ -12,6 +12,12 @@ import {
   getMetricColor,
   calculateAvgSemanticSimilarity
 } from '../lib/utils'
+import {
+  getCircleRadius,
+  getCircleOpacity,
+  formatCircleTooltip,
+  type ScoreStats
+} from '../lib/circle-encoding-utils'
 import {
   METRIC_QUALITY_SCORE,
   METRIC_DECODER_SIMILARITY,
@@ -85,7 +91,6 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
   // Activation examples from global store (centralized cache)
   const activationExamples = useVisualizationStore(state => state.activationExamples)
-  const activationLoadingState = useVisualizationStore(state => state.activationLoadingState)
 
   // Get selected LLM explainers (needed for disabled logic)
   const selectedExplainers = new Set<string>()
@@ -225,6 +230,76 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   // 🚀 NO FETCH NEEDED: Activation examples are pre-fetched by store.fetchTableData()
   // and available instantly from global cache (activationExamples)
 
+  // ============================================================================
+  // SORTED FEATURES
+  // ============================================================================
+
+  // Get selected node features for filtering
+  const leftPanelSankeyTree = useVisualizationStore(state => state.leftPanel.sankeyTree)
+
+  // Compute selected features with proper reactive dependencies
+  const selectedFeatures = useMemo(() => {
+    if (tableSelectedNodeIds.length === 0) {
+      return null
+    }
+
+    const featureIds = new Set<number>()
+    for (const nodeId of tableSelectedNodeIds) {
+      const node = leftPanelSankeyTree?.get(nodeId)
+      if (node?.featureIds) {
+        node.featureIds.forEach((id: number) => featureIds.add(id))
+      }
+    }
+
+    console.log('[TablePanel] Selected features computed:', {
+      nodeCount: tableSelectedNodeIds.length,
+      featureCount: featureIds.size
+    })
+
+    return featureIds
+  }, [tableSelectedNodeIds, leftPanelSankeyTree])
+
+  // Sort features based on current sort settings (using shared utility)
+  const sortedFeatures = useMemo(() => {
+    let features = tableData?.features || []
+
+    // Filter by selected node features if any nodes are selected
+    if (selectedFeatures && selectedFeatures.size > 0) {
+      features = features.filter(f => selectedFeatures.has(f.feature_id))
+      console.log(`[TablePanel] Filtered to ${features.length} features from ${tableSelectedNodeIds.length} selected node(s)`)
+    }
+
+    return sortFeatures(
+      features,
+      sortBy,
+      sortDirection,
+      tableData
+    )
+  }, [tableData, sortBy, sortDirection, selectedFeatures, tableSelectedNodeIds.length])
+
+  // Get list of explainer IDs for iteration (moved before early returns)
+  const explainerIds = tableData?.explainer_ids || []
+
+  // Calculate total row count for row-level virtualization (moved before early returns)
+  const totalRowCount = useMemo(() => {
+    if (!tableData || sortedFeatures.length === 0) return 0
+    return sortedFeatures.reduce((sum, feature) => {
+      const validExplainerCount = explainerIds.filter(explainerId => {
+        const data = feature.explainers[explainerId]
+        return data !== undefined && data !== null
+      }).length
+      return sum + validExplainerCount
+    }, 0)
+  }, [sortedFeatures, explainerIds, tableData])
+
+  // Virtual scrolling for performance with large datasets (moved before early returns)
+  const rowVirtualizer = useVirtualizer({
+    count: totalRowCount,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: () => 16,
+    overscan: 15,
+  })
+
   // Track scroll position for vertical bar scroll indicator
   // Professional approach: Observe inner <table> element that grows when rows are added
   useEffect(() => {
@@ -256,10 +331,46 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
       // Use requestAnimationFrame to ensure measurement happens after layout
       rafId = requestAnimationFrame(() => {
+        // Get virtual items to determine visible rows and features
+        const virtualItems = rowVirtualizer.getVirtualItems()
+        const firstVisibleRowIndex = virtualItems[0]?.index ?? 0
+        const lastVisibleRowIndex = virtualItems[virtualItems.length - 1]?.index ?? 0
+
+        // Extract visible feature IDs from visible row range
+        const visibleFeatureIds = new Set<number>()
+        console.log(`[TablePanel measureAndUpdate] sortedFeatures.length=${sortedFeatures.length}, explainerIds.length=${explainerIds.length}`)
+        if (sortedFeatures.length > 0 && explainerIds.length > 0) {
+          let currentRowIndex = 0
+          for (const feature of sortedFeatures) {
+            const validExplainerCount = explainerIds.filter(explainerId => {
+              const data = feature.explainers[explainerId]
+              return data !== undefined && data !== null
+            }).length
+
+            // Check if this feature overlaps with visible row range
+            const featureStartRow = currentRowIndex
+            const featureEndRow = currentRowIndex + validExplainerCount - 1
+
+            if (featureEndRow >= firstVisibleRowIndex && featureStartRow <= lastVisibleRowIndex) {
+              visibleFeatureIds.add(feature.feature_id)
+            }
+
+            currentRowIndex += validExplainerCount
+
+            // Early exit if we've passed the visible range
+            if (currentRowIndex > lastVisibleRowIndex) break
+          }
+        }
+        console.log(`[TablePanel measureAndUpdate] visibleFeatureIds.size=${visibleFeatureIds.size}, first/last visible row: ${firstVisibleRowIndex}/${lastVisibleRowIndex}`)
+
         const scrollState = {
           scrollTop: container.scrollTop,
           scrollHeight: container.scrollHeight,
-          clientHeight: container.clientHeight
+          clientHeight: container.clientHeight,
+          firstVisibleRowIndex,
+          lastVisibleRowIndex,
+          totalRowCount,
+          visibleFeatureIds
         }
 
         // Only update state if dimensions are valid (non-zero)
@@ -360,77 +471,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
       // Clean up all retry/mutation timeouts
       cleanupTimeouts.forEach(timeoutId => clearTimeout(timeoutId))
     }
-  }, [setTableScrollState])  // ResizeObserver auto-detects table changes, no need to recreate on feature count change
-
-  // ============================================================================
-  // SORTED FEATURES
-  // ============================================================================
-
-  // Get selected node features for filtering
-  const leftPanelSankeyTree = useVisualizationStore(state => state.leftPanel.sankeyTree)
-
-  // Compute selected features with proper reactive dependencies
-  const selectedFeatures = useMemo(() => {
-    if (tableSelectedNodeIds.length === 0) {
-      return null
-    }
-
-    const featureIds = new Set<number>()
-    for (const nodeId of tableSelectedNodeIds) {
-      const node = leftPanelSankeyTree?.get(nodeId)
-      if (node?.featureIds) {
-        node.featureIds.forEach((id: number) => featureIds.add(id))
-      }
-    }
-
-    console.log('[TablePanel] Selected features computed:', {
-      nodeCount: tableSelectedNodeIds.length,
-      featureCount: featureIds.size
-    })
-
-    return featureIds
-  }, [tableSelectedNodeIds, leftPanelSankeyTree])
-
-  // Sort features based on current sort settings (using shared utility)
-  const sortedFeatures = useMemo(() => {
-    let features = tableData?.features || []
-
-    // Filter by selected node features if any nodes are selected
-    if (selectedFeatures && selectedFeatures.size > 0) {
-      features = features.filter(f => selectedFeatures.has(f.feature_id))
-      console.log(`[TablePanel] Filtered to ${features.length} features from ${tableSelectedNodeIds.length} selected node(s)`)
-    }
-
-    return sortFeatures(
-      features,
-      sortBy,
-      sortDirection,
-      tableData
-    )
-  }, [tableData, sortBy, sortDirection, selectedFeatures, tableSelectedNodeIds.length])
-
-  // Get list of explainer IDs for iteration (moved before early returns)
-  const explainerIds = tableData?.explainer_ids || []
-
-  // Calculate total row count for row-level virtualization (moved before early returns)
-  const totalRowCount = useMemo(() => {
-    if (!tableData || sortedFeatures.length === 0) return 0
-    return sortedFeatures.reduce((sum, feature) => {
-      const validExplainerCount = explainerIds.filter(explainerId => {
-        const data = feature.explainers[explainerId]
-        return data !== undefined && data !== null
-      }).length
-      return sum + validExplainerCount
-    }, 0)
-  }, [sortedFeatures, explainerIds, tableData])
-
-  // Virtual scrolling for performance with large datasets (moved before early returns)
-  const rowVirtualizer = useVirtualizer({
-    count: totalRowCount,
-    getScrollElement: () => tableContainerRef.current,
-    estimateSize: () => 16,
-    overscan: 15,
-  })
+  }, [setTableScrollState, sortedFeatures, explainerIds, rowVirtualizer])  // Re-setup scroll tracking when data changes
 
   // Scroll to highlighted feature when it changes (moved before early returns)
   useEffect(() => {
@@ -802,7 +843,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                         </td>
                       )}
 
-                      {/* Decoder Similarity column - Simple circle (only on first sub-row) */}
+                      {/* Decoder Similarity column - Size-encoded circle (only on first sub-row) */}
                       {isFirstRowOfFeature && (() => {
                         const decoderSim = featureRow.decoder_similarity !== null && featureRow.decoder_similarity !== undefined
                           ? Number(featureRow.decoder_similarity)
@@ -813,16 +854,17 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                             className="table-panel__cell table-panel__cell--score"
                             rowSpan={validExplainerIds.length}
                             title={decoderSim !== null && !isNaN(decoderSim)
-                              ? `Decoder Similarity: ${decoderSim.toFixed(3)}`
+                              ? `Decoder Similarity: ${decoderSim.toFixed(3)}\nSize = score | Opacity = consistency (single value)`
                               : 'No data'}
                           >
                             {decoderSim !== null && !isNaN(decoderSim) ? (
-                              <svg width="16" height="16" style={{ display: 'block', margin: '0 auto' }}>
+                              <svg width="32" height="32" style={{ display: 'block', margin: '0 auto' }}>
                                 <circle
-                                  cx="8"
-                                  cy="8"
-                                  r="7"
-                                  fill={getMetricColor('decoder_similarity', decoderSim)}
+                                  cx="16"
+                                  cy="16"
+                                  r={getCircleRadius(decoderSim)}
+                                  fill={getMetricColor('decoder_similarity', decoderSim, true)}
+                                  opacity={1.0}
                                   stroke="none"
                                 />
                               </svg>
@@ -833,7 +875,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                         )
                       })()}
 
-                      {/* Semantic Similarity column - Pill with range (only on first sub-row) */}
+                      {/* Semantic Similarity column - Size-encoded circle with opacity for consistency (only on first sub-row) */}
                       {isFirstRowOfFeature && (() => {
                         const simStats = calculateAvgSemanticSimilarity(featureRow)
 
@@ -842,40 +884,19 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                             className="table-panel__cell table-panel__cell--score"
                             rowSpan={validExplainerIds.length}
                             title={simStats
-                              ? `Semantic Similarity: ${simStats.avg.toFixed(3)} (${simStats.min.toFixed(3)} - ${simStats.max.toFixed(3)})`
+                              ? formatCircleTooltip('Semantic Similarity', simStats, false)
                               : 'No data'}
-                            style={{ position: 'relative' }}
                           >
                             {simStats ? (
-                              <svg width="20" height="100%" viewBox={`0 0 20 ${cellHeight}`} style={{ display: 'block' }}>
-                                {(() => {
-                                  const svgHeight = cellHeight
-                                  const centerY = svgHeight / 2
-                                  const scaleFactor = svgHeight / 1
-
-                                  const maxDeviation = (simStats.max - simStats.avg) * scaleFactor
-                                  const minDeviation = (simStats.avg - simStats.min) * scaleFactor
-
-                                  const topY = centerY - maxDeviation
-                                  const bottomY = centerY + minDeviation
-                                  const color = getMetricColor('semantic_similarity', simStats.avg)
-
-                                  const pillWidth = 14
-                                  const pillHeight = pillWidth + bottomY - topY
-                                  const pillTop = centerY - pillHeight / 2
-
-                                  return (
-                                    <rect
-                                      x={10 - pillWidth / 2}
-                                      y={pillTop}
-                                      width={pillWidth}
-                                      height={pillHeight}
-                                      rx={pillWidth / 2}
-                                      ry={pillWidth / 2}
-                                      fill={color}
-                                    />
-                                  )
-                                })()}
+                              <svg width="32" height="32" style={{ display: 'block', margin: '0 auto' }}>
+                                <circle
+                                  cx="16"
+                                  cy="16"
+                                  r={getCircleRadius(simStats.avg)}
+                                  fill={getMetricColor('semantic_similarity', simStats.avg, true)}
+                                  opacity={getCircleOpacity(simStats)}
+                                  stroke="none"
+                                />
                               </svg>
                             ) : (
                               <span className="table-panel__no-data">-</span>
@@ -884,52 +905,29 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                         )
                       })()}
 
-                      {/* Quality Score column - Show ONE merged cell with pill shape (only on first sub-row) */}
+                      {/* Quality Score column - Size-encoded circle with opacity for consistency (only on first sub-row) */}
                       {isFirstRowOfFeature && (
                         <td
                           ref={isFirstRowOfFeature && featureIndex === 0 ? qualityScoreCellRef : undefined}
                           className="table-panel__cell table-panel__cell--score"
                           rowSpan={validExplainerIds.length}
-                          title={qualityScoreStats ? `Quality Score: ${qualityScoreStats.avg.toFixed(3)} (${qualityScoreStats.min.toFixed(3)} - ${qualityScoreStats.max.toFixed(3)})` : 'No quality score data'}
+                          title={qualityScoreStats
+                            ? formatCircleTooltip('Quality Score', qualityScoreStats, false)
+                            : 'No quality score data'}
                           onMouseEnter={(e) => qualityScoreStats && handleQualityScoreHover(featureRow.feature_id, e.currentTarget)}
                           onMouseLeave={() => handleQualityScoreHover(null)}
                           style={{ cursor: qualityScoreStats ? 'pointer' : 'default', position: 'relative' }}
                         >
                           {qualityScoreStats ? (
-                            <svg width="20" height="100%" viewBox={`0 0 20 ${cellHeight}`} style={{ display: 'block' }}>
-                              {(() => {
-                                // Consistent pill scaling: same visual height = same actual range
-                                const svgHeight = cellHeight
-                                const centerY = svgHeight / 2
-                                const scaleFactor = svgHeight / 1
-
-                                const maxDeviation = (qualityScoreStats.max - qualityScoreStats.avg) * scaleFactor
-                                const minDeviation = (qualityScoreStats.avg - qualityScoreStats.min) * scaleFactor
-
-                                const topY = centerY - maxDeviation
-                                const bottomY = centerY + minDeviation
-                                const color = getQualityScoreColor(qualityScoreStats.avg)
-
-                                // Pill shape dimensions
-                                const pillWidth = 14
-                                const pillHeight = pillWidth + bottomY - topY  // Minimum height = width (becomes circle)
-                                const pillTop = centerY - pillHeight / 2  // Center the pill vertically
-
-                                return (
-                                  <g>
-                                    {/* Pill shape (semicircle-rectangle-semicircle) showing quality score range */}
-                                    <rect
-                                      x={10 - pillWidth / 2}
-                                      y={pillTop}
-                                      width={pillWidth}
-                                      height={pillHeight}
-                                      rx={pillWidth / 2}
-                                      ry={pillWidth / 2}
-                                      fill={color}
-                                    />
-                                  </g>
-                                )
-                              })()}
+                            <svg width="32" height="32" style={{ display: 'block', margin: '0 auto' }}>
+                              <circle
+                                cx="16"
+                                cy="16"
+                                r={getCircleRadius(qualityScoreStats.avg)}
+                                fill="#1f2937"
+                                opacity={getCircleOpacity(qualityScoreStats)}
+                                stroke="none"
+                              />
                             </svg>
                           ) : (
                             <span className="table-panel__no-data">-</span>

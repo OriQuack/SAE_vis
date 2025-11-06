@@ -18,7 +18,7 @@ Output:
 Features:
 - Pre-organized quantile examples (2 per quantile, 8 total per feature)
 - Pre-processed tokens (leading underscores removed, joined into text)
-- Pattern type classification (Semantic/Lexical/None)
+- Pattern type classification (Semantic/Lexical/Both/None) with separate thresholds
 - Feature-level data (824 rows instead of 1M+)
 - Fast loading (~20ms vs ~5 seconds)
 
@@ -70,7 +70,8 @@ def load_config(config_path: Optional[str] = None) -> Dict:
         "output_path": "data/master/activation_display.parquet",
         "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
         "processing_parameters": {
-            "pattern_threshold": 0.3,
+            "semantic_threshold": 0.3,
+            "lexical_threshold": 0.3,
             "token_processing": {
                 "remove_leading_underscore": True,
                 "join_tokens": True
@@ -229,7 +230,7 @@ class ActivationDisplayProcessor:
         return sorted(set(positions))  # Remove duplicates and sort
 
     def _compute_pattern_type(self, semantic_sim: float, char_jaccard: float, word_jaccard: float) -> str:
-        """Categorize activation pattern based on threshold.
+        """Categorize activation pattern based on separate thresholds.
 
         Args:
             semantic_sim: Average pairwise semantic similarity (0-1)
@@ -239,10 +240,11 @@ class ActivationDisplayProcessor:
         Returns:
             Pattern type: "Semantic", "Lexical", "Both", or "None"
         """
-        threshold = self.proc_params.get("pattern_threshold", 0.3)
+        semantic_threshold = self.proc_params.get("semantic_threshold", 0.3)
+        lexical_threshold = self.proc_params.get("lexical_threshold", 0.3)
 
-        has_semantic = semantic_sim > threshold
-        has_lexical = (char_jaccard > threshold) or (word_jaccard > threshold)
+        has_semantic = semantic_sim > semantic_threshold
+        has_lexical = (char_jaccard > lexical_threshold) or (word_jaccard > lexical_threshold)
 
         if has_semantic and has_lexical:
             return "Both"

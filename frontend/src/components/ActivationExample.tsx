@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react'
+import React, { useState, useMemo, useRef } from 'react'
 import type { ActivationExamples, QuantileExample } from '../types'
 import {
   buildActivationTokens,

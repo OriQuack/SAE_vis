@@ -18,6 +18,35 @@ type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
 // ============================================================================
 
 /**
+ * Helper function to find nodes containing any of the specified feature IDs
+ * @param sankeyTree - The tree to search
+ * @param featureIds - Set of feature IDs to search for
+ * @returns Array of node IDs that contain any of the specified features
+ */
+export const getNodesContainingFeatures = (
+  sankeyTree: Map<string, SankeyTreeNode> | null | undefined,
+  featureIds: Set<number>
+): string[] => {
+  if (!sankeyTree || featureIds.size === 0) {
+    return []
+  }
+
+  const matchingNodeIds: string[] = []
+
+  for (const [nodeId, node] of sankeyTree.entries()) {
+    // Check if any selected feature is in this node's feature set
+    for (const featureId of featureIds) {
+      if (node.featureIds.has(featureId)) {
+        matchingNodeIds.push(nodeId)
+        break // Found a match, no need to check more features for this node
+      }
+    }
+  }
+
+  return matchingNodeIds
+}
+
+/**
  * Factory function to create tree-based actions for the store
  */
 export const createTreeActions = (set: any, get: any) => ({

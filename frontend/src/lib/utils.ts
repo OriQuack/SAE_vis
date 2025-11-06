@@ -150,12 +150,33 @@ export function getQualityScoreColor(score: number): string {
  *
  * @param metricType - Type of metric (embedding, fuzz, detection, decoder_similarity, semantic_similarity)
  * @param score - Score value (0-1 range, normalized)
- * @returns RGB color string with opacity
+ * @param solidColor - If true, return solid base color without opacity gradient (default: false)
+ * @returns RGB color string with opacity (or solid if solidColor=true)
  */
 export function getMetricColor(
   metricType: 'embedding' | 'fuzz' | 'detection' | 'decoder_similarity' | 'semantic_similarity',
-  score: number
+  score: number,
+  solidColor: boolean = false
 ): string {
+  // If solid color requested, return base color without opacity gradient
+  if (solidColor) {
+    switch (metricType) {
+      case 'embedding':
+        return METRIC_COLORS.SCORE_EMBEDDING.HIGH.slice(0, 7)  // Remove opacity suffix
+      case 'fuzz':
+        return METRIC_COLORS.SCORE_FUZZ.HIGH.slice(0, 7)
+      case 'detection':
+        return METRIC_COLORS.SCORE_DETECTION.HIGH.slice(0, 7)
+      case 'decoder_similarity':
+        return METRIC_COLORS.DECODER_SIMILARITY  // Already solid
+      case 'semantic_similarity':
+        return METRIC_COLORS.SEMANTIC_SIMILARITY  // Already solid
+      default:
+        return '#e5e7eb'  // Default gray
+    }
+  }
+
+  // Original gradient-based color encoding
   // Clamp score between 0 and 1
   const clampedScore = Math.max(0, Math.min(1, score))
 

@@ -48,17 +48,19 @@
 }
 
 .decoder-stage-table__header-cell--type {
-  width: 5%;
+  width: 6%;
   text-align: center;
 }
 
 /* Override score column width for decoder similarity table */
 .decoder-stage-table__selection-header ~ .table-panel__content .table-panel__header-cell--score {
-  width: 5%;
+  width: 70px;
+  min-width: 70px;
+  max-width: 70px;
 }
 
 .decoder-stage-table__header-cell--activation {
-  width: 79%;
+  width: 74%;
   text-align: left;
   padding-left: 12px;
 }
@@ -86,14 +88,51 @@
   background: white;
 }
 
-/* Override score cell width for decoder similarity table */
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__cell--score {
-  width: 8%;
+/* Override score cell width for decoder similarity table - removed, now set in visualization section below */
+
+/* ============================================================================
+ * PATTERN TYPE BADGES (Professional Tags)
+ * ============================================================================ */
+
+/* Badge stack container for "Both" pattern type */
+.decoder-stage-table__badge-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
 }
 
-.decoder-stage-table__type-badge {
-  font-size: 11px;
-  color: #374151;
+/* Base badge styling */
+.decoder-stage-table__badge {
+  display: inline-block;
+  padding: 1px 2px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1px;
+  white-space: nowrap;
+}
+
+/* Lexical badge - matches activation token border color */
+.decoder-stage-table__badge--lexical {
+  background-color: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #3b82f6;
+}
+
+/* Semantic badge - purple/violet theme */
+.decoder-stage-table__badge--semantic {
+  background-color: #f3e8ff;
+  color: #6b21a8;
+  border: 1px solid #a855f7;
+}
+
+/* None badge - neutral gray */
+.decoder-stage-table__badge--none {
+  background-color: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
 }
 
 .decoder-stage-table__cell--activation {
@@ -187,3 +226,20 @@
   border-right: 1px solid #e5e7eb;
 }
 
+/* ============================================================================
+ * DECODER SIMILARITY CONNECTED VISUALIZATION
+ * ============================================================================ */
+
+/* Fixed width for decoder similarity column to ensure consistent positioning */
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__cell--score {
+  width: 70px;
+  min-width: 70px;
+  max-width: 70px;
+  padding: 0;
+  overflow: visible;
+}
+
+/* Ensure proper SVG display in decoder similarity cells */
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__cell--score svg {
+  display: block;
+}

@@ -7,7 +7,8 @@
   "description": "Configuration for creating optimized activation display data with dual n-gram pattern classification",
 
   "processing_parameters": {
-    "pattern_threshold": 0.3,
+    "semantic_threshold": 0.3,
+    "lexical_threshold": 0.4,
     "token_processing": {
       "remove_leading_underscore": true,
       "join_tokens": true
@@ -20,7 +21,7 @@
     "field_descriptions": {
       "feature_id": "SAE feature index",
       "sae_id": "SAE model identifier",
-      "pattern_type": "Pattern classification: Semantic, Lexical, Both, or None (uses char OR word Jaccard > 0.3)",
+      "pattern_type": "Pattern classification: Semantic, Lexical, Both, or None (uses separate thresholds for semantic and lexical)",
       "semantic_similarity": "Average pairwise semantic similarity",
       "char_ngram_max_jaccard": "Jaccard similarity for the most frequent character n-gram",
       "word_ngram_max_jaccard": "Jaccard similarity for the most frequent word n-gram",
@@ -42,7 +43,9 @@
 
   "processing_notes": {
     "expected_output_rows": 824,
-    "pattern_classification": "Lexical pattern = (char_jaccard > 0.3) OR (word_jaccard > 0.3)",
+    "pattern_classification": "Separate thresholds for semantic (avg_pairwise_semantic_similarity) and lexical ((char_jaccard OR word_jaccard))",
+    "semantic_threshold": "Threshold for semantic pattern classification (default: 0.3)",
+    "lexical_threshold": "Threshold for lexical pattern classification (char OR word Jaccard, default: 0.3)",
     "optimization": "Feature-level organization reduces load time from ~5s to ~20ms",
     "frontend_usage": "Positions enable visual highlighting of n-gram patterns in token display"
   }

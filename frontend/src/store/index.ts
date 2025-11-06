@@ -113,8 +113,16 @@ interface AppState extends TagState {
   // Table data
   tableData: any | null
 
-  // Table scroll state
-  tableScrollState: { scrollTop: number; scrollHeight: number; clientHeight: number } | null
+  // Table scroll state (enhanced for virtual scroll)
+  tableScrollState: {
+    scrollTop: number
+    scrollHeight: number
+    clientHeight: number
+    firstVisibleRowIndex?: number       // First visible row in virtualizer
+    lastVisibleRowIndex?: number        // Last visible row in virtualizer
+    totalRowCount?: number              // Total number of rows in table
+    visibleFeatureIds?: Set<number>     // Feature IDs visible in viewport
+  } | null
 
   // Table sort state
   tableSortBy: SortBy | null
@@ -217,7 +225,7 @@ const initialState = {
   activationLoadingState: false
 }
 
-export const useStore = create<AppState>((set, get) => ({
+export const useStore = create<AppState>((set, get, store) => ({
   ...initialState,
 
   // Compose tree actions
@@ -227,7 +235,7 @@ export const useStore = create<AppState>((set, get) => ({
   ...createTableActions(set, get),
 
   // Compose tag actions
-  ...createTagActions(set, get),
+  ...createTagActions(set, get, store),
 
   // Compose activation actions
   ...createActivationActions(set, get),

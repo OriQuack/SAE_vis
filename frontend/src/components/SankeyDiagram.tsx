@@ -18,6 +18,7 @@ import {
   canAddStage,
   hasChildren
 } from '../lib/threshold-utils'
+import { getNodesContainingFeatures } from '../store/sankey-actions'
 import { useResizeObserver } from '../lib/utils'
 import type { D3SankeyNode, D3SankeyLink } from '../types'
 import {
@@ -294,6 +295,16 @@ const VerticalBarSankeyNode: React.FC<{
   const textAnchor = isRightToLeft ? 'start' : 'end'
   const labelY = node.y0 !== undefined && node.y1 !== undefined ? (node.y0 + node.y1) / 2 : 0
 
+  // Calculate bounding box for selection border
+  const boundingBox = layout.subNodes.length > 0 ? {
+    x: Math.min(...layout.subNodes.map(sn => sn.x)),
+    y: Math.min(...layout.subNodes.map(sn => sn.y)),
+    width: layout.totalWidth,
+    height: Math.max(...layout.subNodes.map(sn => sn.y + sn.height)) - Math.min(...layout.subNodes.map(sn => sn.y))
+  } : null
+
+  // Scroll indicator will be calculated using visibleFeatureIds from scrollState
+
   return (
     <g
       className={`sankey-vertical-bar-node ${isSelected ? 'sankey-vertical-bar-node--selected' : ''} ${isHovered ? 'sankey-vertical-bar-node--hovered' : ''}`}
@@ -322,6 +333,24 @@ const VerticalBarSankeyNode: React.FC<{
           </g>
         )
       })}
+
+      {/* Selection border around entire vertical bar */}
+      {isSelected && boundingBox && (
+        <rect
+          x={boundingBox.x - 2}
+          y={boundingBox.y - 2}
+          width={boundingBox.width + 4}
+          height={boundingBox.height + 4}
+          fill="none"
+          stroke="#2563eb"
+          strokeWidth={3}
+          rx={4}
+          style={{
+            filter: 'drop-shadow(0 0 8px rgba(37, 99, 235, 0.5))',
+            pointerEvents: 'none'
+          }}
+        />
+      )}
 
       {/* Global scroll indicator */}
       {layout.scrollIndicator && layout.subNodes.length > 0 && (
@@ -397,6 +426,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const tableScrollState = useVisualizationStore(state => state.tableScrollState)
   const sankeyTree = useVisualizationStore(state => state[panelKey].sankeyTree)
   const tableSelectedNodeIds = useVisualizationStore(state => state.tableSelectedNodeIds)
+  const selectedFeatureIds = useVisualizationStore(state => state.selectedFeatureIds)
   const {
     showHistogramPopover,
     addStageToNode,
@@ -406,6 +436,14 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     toggleNodeSelection,
     setActiveStageNode
   } = useVisualizationStore()
+
+  // Compute node IDs that contain selected features (from DecoderSimilarityTable checkboxes)
+  const featureHighlightedNodeIds = useMemo(() => {
+    if (panel !== PANEL_LEFT || !sankeyTree) {
+      return []
+    }
+    return getNodesContainingFeatures(sankeyTree, selectedFeatureIds)
+  }, [panel, sankeyTree, selectedFeatureIds])
 
   // NEW TREE-BASED SYSTEM: use computedSankey directly
   const data = useMemo(() => {
@@ -669,6 +707,11 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
     if (node.category === CATEGORY_DECODER_SIMILARITY) {
       console.log('[SankeyDiagram.handleNodeSelectionClick] 🎯 DEBUG: MATCH! Opening decoder similarity stage table')
+
+      // IMPORTANT: Toggle selection FIRST for visual highlighting
+      toggleNodeSelection(node.id)
+
+      // THEN open the stage table
       setActiveStageNode(node.id, node.category)
       console.log('[SankeyDiagram.handleNodeSelectionClick] 🎯 Opening decoder similarity stage table for node:', node.id, 'category:', node.category)
       return
@@ -807,46 +850,24 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
             {/* Nodes */}
             <g className="sankey-diagram__nodes">
               {(() => {
-                // Get all vertical bar nodes sorted by y position (top to bottom)
-                let verticalBarNodes = layout.nodes
-                  .filter(n => n.node_type === 'vertical_bar')
-                  .sort((a, b) => (a.y0 || 0) - (b.y0 || 0))
-
-                // Filter to selected nodes if any are selected (for correct scroll indicator)
-                if (panel === PANEL_LEFT && tableSelectedNodeIds.length > 0) {
-                  verticalBarNodes = verticalBarNodes.filter(n => tableSelectedNodeIds.includes(n.id))
-                  console.log(`[SankeyDiagram] Filtered vertical bars for scroll indicator: ${verticalBarNodes.length} selected nodes`)
-                }
-
-                // Calculate total features and cumulative indices for vertical bars
-                // (will be filtered list if nodes are selected)
-                const totalFeatures = verticalBarNodes.reduce((sum, node) => sum + (node.feature_count || 0), 0)
-                const nodeIndices = new Map<string, number>()
-                let cumulativeIndex = 0
-                verticalBarNodes.forEach(node => {
-                  nodeIndices.set(node.id, cumulativeIndex)
-                  cumulativeIndex += node.feature_count || 0
-                })
-
                 return layout.nodes.map((node) => {
                   const isHighlighted = hoveredAlluvialNodeId === node.id &&
                                       hoveredAlluvialPanel === (panel === PANEL_LEFT ? 'left' : 'right')
-                  const isSelected = panel === PANEL_LEFT && tableSelectedNodeIds.includes(node.id)
+                  const isSelected = panel === PANEL_LEFT && (
+                    tableSelectedNodeIds.includes(node.id) ||
+                    featureHighlightedNodeIds.includes(node.id)
+                  )
 
                   // Check if this is a vertical bar node
                   if (node.node_type === 'vertical_bar') {
-                    // Only show scroll indicator for selected nodes (or all nodes if none selected)
-                    const shouldShowScrollIndicator = isSelected || tableSelectedNodeIds.length === 0
-                    const nodeStartIndex = nodeIndices.get(node.id) || 0
-
                     return (
                       <VerticalBarSankeyNode
                         key={node.id}
                         node={node}
                         scrollState={tableScrollState}
                         flowDirection={flowDirection}
-                        totalFeatureCount={shouldShowScrollIndicator ? totalFeatures : 0}
-                        nodeStartIndex={shouldShowScrollIndicator ? nodeStartIndex : 0}
+                        totalFeatureCount={0}  // Not used in new feature-ID-based calculation
+                        nodeStartIndex={0}     // Not used in new feature-ID-based calculation
                         onClick={(e) => handleNodeSelectionClick(e, node)}
                         onMouseEnter={() => setHoveredNodeId(node.id)}
                         onMouseLeave={() => setHoveredNodeId(null)}
