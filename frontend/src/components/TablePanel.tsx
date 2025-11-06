@@ -620,11 +620,11 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                 <span className="table-panel__highlight-legend">
                   <span className="table-panel__highlight-legend-prefix">Segment similarity:</span>
                   <span className="table-panel__highlight-legend-item">
-                    <span className="table-panel__highlight-legend-swatch" style={{ backgroundColor: 'rgba(22, 163, 74, 1.0)' }} />
+                    <span className="table-panel__highlight-legend-swatch" style={{ backgroundColor: 'rgba(102, 204, 170, 1.0)' }} />
                     <span className="table-panel__highlight-legend-label">0.85-1.0</span>
                   </span>
                   <span className="table-panel__highlight-legend-item">
-                    <span className="table-panel__highlight-legend-swatch" style={{ backgroundColor: 'rgba(22, 163, 74, 0.7)' }} />
+                    <span className="table-panel__highlight-legend-swatch" style={{ backgroundColor: 'rgba(153, 230, 204, 0.7)' }} />
                     <span className="table-panel__highlight-legend-label">0.7-0.85</span>
                   </span>
                 </span>

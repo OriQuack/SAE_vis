@@ -293,6 +293,42 @@ class InterFeatureSimilarityProcessor:
 
         return result
 
+    def _select_top_k_per_quantile(self, examples: List[Tuple], k: int) -> List[Tuple]:
+        """Select top k examples per quantile by activation strength.
+
+        Args:
+            examples: List of (prompt_id, max_activation, prompt_tokens, max_token_pos)
+            k: Number to select per quantile
+
+        Returns:
+            Top k*num_quantiles examples sorted by quantile and activation
+        """
+        if len(examples) == 0:
+            return []
+
+        # Calculate quantile boundaries
+        activations = [ex[1] for ex in examples]
+        num_quantiles = self.proc_params["num_quantiles"]
+        quantiles = [i / num_quantiles for i in range(1, num_quantiles)]
+        q_values = [float(np.quantile(activations, q)) for q in quantiles]
+
+        # Assign examples to quantiles and select top k from each
+        selected = []
+        for q_idx in range(num_quantiles):
+            # Filter examples for this quantile
+            if q_idx == 0:
+                q_examples = [ex for ex in examples if ex[1] <= q_values[0]]
+            elif q_idx < num_quantiles - 1:
+                q_examples = [ex for ex in examples if q_values[q_idx-1] < ex[1] <= q_values[q_idx]]
+            else:
+                q_examples = [ex for ex in examples if ex[1] > q_values[-1]]
+
+            # Sort by activation (descending) and take top k
+            q_examples.sort(key=lambda x: x[1], reverse=True)
+            selected.extend(q_examples[:k])
+
+        return selected
+
     def _extract_token_window(self, tokens: List[str], center_pos: int, window_size: int) -> List[str]:
         """Extract symmetric window around center position.
 
@@ -306,7 +342,9 @@ class InterFeatureSimilarityProcessor:
         """
         half_window = window_size // 2
         start = max(0, center_pos - half_window)
-        end = min(len(tokens), center_pos + half_window)
+        # For odd window sizes, add 1 to include the center token
+        # e.g., window_size=1: [center], window_size=3: [center-1, center, center+1]
+        end = min(len(tokens), center_pos + half_window + (window_size % 2))
         return tokens[start:end]
 
     def _normalize_token(self, token: str) -> str:
@@ -431,6 +469,9 @@ class InterFeatureSimilarityProcessor:
         for prompt_id, _, tokens, max_pos in examples:
             window_tokens = self._extract_token_window(tokens, max_pos, window_size)
 
+            # Convert window-relative positions to absolute token positions
+            window_offset = max_pos - window_size // 2
+
             # Find char n-gram in this window
             positions = []
             for token_idx, token in enumerate(window_tokens):
@@ -440,7 +481,7 @@ class InterFeatureSimilarityProcessor:
                 for char_offset in range(len(token_normalized) - len(char_ngram) + 1):
                     if token_normalized[char_offset:char_offset + len(char_ngram)] == char_ngram:
                         positions.append({
-                            'token_position': int(token_idx),
+                            'token_position': int(window_offset + token_idx),
                             'char_offset': int(char_offset)
                         })
 
@@ -493,9 +534,11 @@ class InterFeatureSimilarityProcessor:
             positions = word_ngram_map.get(word_ngram, [])
 
             if positions:
+                # Convert window-relative positions to absolute token positions
+                window_offset = max_pos - window_size // 2
                 result.append({
                     'prompt_id': int(prompt_id),
-                    'positions': [int(p) for p in positions]
+                    'positions': [int(window_offset + p) for p in positions]
                 })
 
         return result
@@ -608,29 +651,28 @@ class InterFeatureSimilarityProcessor:
 
     def _compute_dual_jaccard_similarity(
         self,
-        main_examples: List[Tuple],
-        selected_examples: List[Tuple]
+        main_calc_examples: List[Tuple],
+        main_display_examples: List[Tuple],
+        selected_calc_examples: List[Tuple],
+        selected_display_examples: List[Tuple]
     ) -> Tuple[Optional[float], Optional[float], Optional[str], Optional[str], List[Dict], List[Dict], List[Dict], List[Dict]]:
         """Compute character and word Jaccard similarities for most frequent n-grams with position tracking.
 
-        Matches approach in 5_act_similarity.py but adds position data:
-        - Find most frequent char n-gram across all examples
-        - Compute binary Jaccard for that char n-gram only
-        - Track positions where char n-gram appears in both feature sets
-        - Find most frequent word n-gram across all examples
-        - Compute binary Jaccard for that word n-gram only
-        - Track positions where word n-gram appears in both feature sets
+        Uses two-phase approach: all examples for frequency counting/Jaccard,
+        subset for position tracking.
 
         Args:
-            main_examples: List of (prompt_id, max_activation, prompt_tokens, max_token_pos)
-            selected_examples: List of (prompt_id, max_activation, prompt_tokens, max_token_pos)
+            main_calc_examples: All main feature examples for calculation (e.g., 16)
+            main_display_examples: Subset for position tracking (e.g., top 8)
+            selected_calc_examples: All selected feature examples for calculation (e.g., 16)
+            selected_display_examples: Subset for position tracking (e.g., top 8)
 
         Returns:
             Tuple of (char_jaccard, word_jaccard, max_char_ngram, max_word_ngram,
                      main_char_positions, similar_char_positions,
                      main_word_positions, similar_word_positions)
         """
-        if len(main_examples) < 1 or len(selected_examples) < 1:
+        if len(main_calc_examples) < 1 or len(selected_calc_examples) < 1:
             return None, None, None, None, [], [], [], []
 
         from collections import Counter
@@ -640,19 +682,19 @@ class InterFeatureSimilarityProcessor:
         char_ngram_sizes = self.proc_params["char_ngram_sizes"]
         word_ngram_sizes = self.proc_params["word_ngram_sizes"]
 
-        # Extract character n-grams for all examples and count frequencies
+        # Phase 1: Extract character n-grams from ALL calc examples for frequency counting
         all_char_ngrams = []
         main_char_ngram_sets = []
         selected_char_ngram_sets = []
 
-        for _, _, tokens, max_pos in main_examples:
+        for _, _, tokens, max_pos in main_calc_examples:
             window_tokens = self._extract_token_window(tokens, max_pos, char_window_size)
             char_ngram_map = self._extract_token_char_ngrams(window_tokens, char_ngram_sizes)
             ngram_set = set(char_ngram_map.keys())
             main_char_ngram_sets.append(ngram_set)
             all_char_ngrams.extend(list(ngram_set))
 
-        for _, _, tokens, max_pos in selected_examples:
+        for _, _, tokens, max_pos in selected_calc_examples:
             window_tokens = self._extract_token_window(tokens, max_pos, char_window_size)
             char_ngram_map = self._extract_token_char_ngrams(window_tokens, char_ngram_sizes)
             ngram_set = set(char_ngram_map.keys())
@@ -664,7 +706,10 @@ class InterFeatureSimilarityProcessor:
         char_jaccard = None
         if all_char_ngrams:
             char_counter = Counter(all_char_ngrams)
-            max_char_ngram = char_counter.most_common(1)[0][0]
+            # Tie-breaker: if counts equal, prefer longer n-gram (more specific)
+            max_count = char_counter.most_common(1)[0][1]
+            tied_ngrams = [(ng, cnt) for ng, cnt in char_counter.items() if cnt == max_count]
+            max_char_ngram = max(tied_ngrams, key=lambda x: (x[1], len(x[0])))[0]
 
             # Compute binary Jaccard for this specific n-gram
             main_has_ngram = sum(1 for s in main_char_ngram_sets if max_char_ngram in s)
@@ -672,7 +717,7 @@ class InterFeatureSimilarityProcessor:
 
             # Binary Jaccard: |A ∩ B| / |A ∪ B| where A and B are sets of examples containing the n-gram
             total_has_ngram = main_has_ngram + selected_has_ngram
-            unique_examples = len(main_examples) + len(selected_examples)
+            unique_examples = len(main_calc_examples) + len(selected_calc_examples)
 
             if total_has_ngram > 0:
                 # Union = all unique examples that have the n-gram
@@ -685,19 +730,19 @@ class InterFeatureSimilarityProcessor:
                 else:
                     char_jaccard = 0.0
 
-        # Extract word n-grams for all examples and count frequencies
+        # Phase 1: Extract word n-grams from ALL calc examples for frequency counting
         all_word_ngrams = []
         main_word_ngram_sets = []
         selected_word_ngram_sets = []
 
-        for _, _, tokens, max_pos in main_examples:
+        for _, _, tokens, max_pos in main_calc_examples:
             window_tokens = self._extract_token_window(tokens, max_pos, word_window_size)
             word_ngram_map = self._extract_word_ngrams(window_tokens, word_ngram_sizes)
             ngram_set = set(word_ngram_map.keys())
             main_word_ngram_sets.append(ngram_set)
             all_word_ngrams.extend(list(ngram_set))
 
-        for _, _, tokens, max_pos in selected_examples:
+        for _, _, tokens, max_pos in selected_calc_examples:
             window_tokens = self._extract_token_window(tokens, max_pos, word_window_size)
             word_ngram_map = self._extract_word_ngrams(window_tokens, word_ngram_sizes)
             ngram_set = set(word_ngram_map.keys())
@@ -709,7 +754,10 @@ class InterFeatureSimilarityProcessor:
         word_jaccard = None
         if all_word_ngrams:
             word_counter = Counter(all_word_ngrams)
-            max_word_ngram = word_counter.most_common(1)[0][0]
+            # Tie-breaker: if counts equal, prefer longer phrase (more words = more specific)
+            max_count = word_counter.most_common(1)[0][1]
+            tied_ngrams = [(ng, cnt) for ng, cnt in word_counter.items() if cnt == max_count]
+            max_word_ngram = max(tied_ngrams, key=lambda x: (x[1], len(x[0].split())))[0]
 
             # Compute binary Jaccard for this specific n-gram
             main_has_ngram = sum(1 for s in main_word_ngram_sets if max_word_ngram in s)
@@ -721,21 +769,21 @@ class InterFeatureSimilarityProcessor:
             elif main_has_ngram > 0 or selected_has_ngram > 0:
                 word_jaccard = 0.0
 
-        # Extract position data for the max n-grams
+        # Phase 2: Extract position data for the max n-grams using DISPLAY examples only
         main_char_positions = self._find_char_ngram_positions_in_examples(
-            main_examples, max_char_ngram, char_window_size
+            main_display_examples, max_char_ngram, char_window_size
         ) if max_char_ngram else []
 
         similar_char_positions = self._find_char_ngram_positions_in_examples(
-            selected_examples, max_char_ngram, char_window_size
+            selected_display_examples, max_char_ngram, char_window_size
         ) if max_char_ngram else []
 
         main_word_positions = self._find_word_ngram_positions_in_examples(
-            main_examples, max_word_ngram, word_window_size
+            main_display_examples, max_word_ngram, word_window_size
         ) if max_word_ngram else []
 
         similar_word_positions = self._find_word_ngram_positions_in_examples(
-            selected_examples, max_word_ngram, word_window_size
+            selected_display_examples, max_word_ngram, word_window_size
         ) if max_word_ngram else []
 
         return (char_jaccard, word_jaccard, max_char_ngram, max_word_ngram,
@@ -771,11 +819,11 @@ class InterFeatureSimilarityProcessor:
         if len(decoder_similar) < self.proc_params["top_n_decoder_similar"]:
             self.stats["features_with_insufficient_decoder_similar"] += 1
 
-        # Get activation examples for main feature
+        # Get activation examples for main feature - Phase 1: Load ALL examples (16 total: 4 per quantile)
         main_feature_df = self.activation_df.filter(pl.col("feature_id") == feature_id)
-        main_examples = self._select_top_quantile_examples(main_feature_df)
+        main_all_examples = self._select_top_quantile_examples(main_feature_df)
 
-        if len(main_examples) == 0:
+        if len(main_all_examples) == 0:
             self.stats["features_with_no_activations"] += 1
             return {
                 "feature_id": feature_id,
@@ -784,7 +832,13 @@ class InterFeatureSimilarityProcessor:
                 "lexical_pairs": []
             }
 
-        main_prompt_ids = [ex[0] for ex in main_examples]
+        # Phase 2: Select top examples for position tracking (8 total: 2 per quantile)
+        position_samples_per_quantile = self.proc_params.get("position_samples_per_quantile", 2)
+        main_display_examples = self._select_top_k_per_quantile(main_all_examples, k=position_samples_per_quantile)
+
+        # Prompt IDs for calculations (all) and display (subset)
+        main_calc_prompt_ids = [ex[0] for ex in main_all_examples]
+        main_display_prompt_ids = [ex[0] for ex in main_display_examples]
 
         # Collect pairs by pattern type
         semantic_pairs = []
@@ -792,25 +846,35 @@ class InterFeatureSimilarityProcessor:
 
         # Process each decoder-similar feature
         for selected_feature_id, decoder_sim in decoder_similar:
-            # Get activation examples for selected feature
+            # Phase 1: Get ALL activation examples for selected feature (16 total: 4 per quantile)
             selected_feature_df = self.activation_df.filter(pl.col("feature_id") == selected_feature_id)
-            selected_examples = self._select_top_quantile_examples(selected_feature_df)
+            selected_all_examples = self._select_top_quantile_examples(selected_feature_df)
 
-            if len(selected_examples) == 0:
+            if len(selected_all_examples) == 0:
                 continue
 
-            selected_prompt_ids = [ex[0] for ex in selected_examples]
+            # Phase 2: Select top examples for position tracking (8 total: 2 per quantile)
+            selected_display_examples = self._select_top_k_per_quantile(selected_all_examples, k=position_samples_per_quantile)
 
-            # Compute semantic similarity
+            # Prompt IDs for calculations (all) and display (subset)
+            selected_calc_prompt_ids = [ex[0] for ex in selected_all_examples]
+            selected_display_prompt_ids = [ex[0] for ex in selected_display_examples]
+
+            # Compute semantic similarity using ALL examples (16 x 16 = 256 pairs for robust statistics)
             semantic_sim = self._compute_cross_feature_semantic_similarity(
-                feature_id, main_examples,
-                selected_feature_id, selected_examples
+                feature_id, main_all_examples,
+                selected_feature_id, selected_all_examples
             )
 
-            # Compute dual Jaccard similarity with positions
+            # Compute dual Jaccard similarity with two-phase approach
+            # - Use ALL examples (16 each) for frequency counting and Jaccard calculation
+            # - Use DISPLAY examples (8 each) for position tracking
             (char_jaccard, word_jaccard, max_char_ngram, max_word_ngram,
              main_char_pos, similar_char_pos, main_word_pos, similar_word_pos
-            ) = self._compute_dual_jaccard_similarity(main_examples, selected_examples)
+            ) = self._compute_dual_jaccard_similarity(
+                main_all_examples, main_display_examples,
+                selected_all_examples, selected_display_examples
+            )
 
             # Classify pattern type (returns list)
             pattern_types = self._classify_pattern_type(semantic_sim, char_jaccard, word_jaccard)
@@ -830,14 +894,16 @@ class InterFeatureSimilarityProcessor:
                 "semantic_similarity": float(semantic_sim) if semantic_sim is not None else None,
                 "char_jaccard": float(char_jaccard) if char_jaccard is not None else None,
                 "word_jaccard": float(word_jaccard) if word_jaccard is not None else None,
-                "main_prompt_ids": [int(pid) for pid in main_prompt_ids],
-                "similar_prompt_ids": [int(pid) for pid in selected_prompt_ids],
-                "num_comparisons": int(len(main_examples) * len(selected_examples)),
+                # Store calculation prompt IDs (all 16) for metrics calculation reference
+                "main_prompt_ids": [int(pid) for pid in main_calc_prompt_ids],
+                "similar_prompt_ids": [int(pid) for pid in selected_calc_prompt_ids],
+                # Number of comparisons based on all examples used for calculation
+                "num_comparisons": int(len(main_all_examples) * len(selected_all_examples)),
                 "max_char_ngram": max_char_ngram,
                 "max_char_ngram_size": int(len(max_char_ngram)) if max_char_ngram else None,
                 "max_word_ngram": max_word_ngram,
                 "max_word_ngram_size": int(len(max_word_ngram.split())) if max_word_ngram else None,
-                # Position data
+                # Position data (from display examples only - 8 examples)
                 "main_char_ngram_positions": main_char_pos,
                 "similar_char_ngram_positions": similar_char_pos,
                 "main_word_ngram_positions": main_word_pos,

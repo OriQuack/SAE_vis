@@ -20,19 +20,37 @@ interface ActivationExampleProps {
 /**
  * Determine which n-gram type to use for underlining based on Jaccard scores
  * Only underline for Lexical or Both pattern types (not None or Semantic)
+ * Returns both the type and the Jaccard score for confidence encoding
  */
-const getNgramUnderlineType = (examples: ActivationExamples): 'char' | 'word' | null => {
+const getNgramUnderlineType = (examples: ActivationExamples): { type: 'char' | 'word' | null, jaccard: number } => {
   // Only show underlines for Lexical or Both patterns
   const patternType = examples.pattern_type.toLowerCase()
   if (patternType === 'none' || patternType === 'semantic') {
-    return null
+    return { type: null, jaccard: 0 }
   }
 
   const charJaccard = examples.char_ngram_max_jaccard || 0
   const wordJaccard = examples.word_ngram_max_jaccard || 0
 
-  if (charJaccard === 0 && wordJaccard === 0) return null
-  return charJaccard >= wordJaccard ? 'char' : 'word'
+  if (charJaccard === 0 && wordJaccard === 0) return { type: null, jaccard: 0 }
+
+  if (charJaccard >= wordJaccard) {
+    return { type: 'char', jaccard: charJaccard }
+  } else {
+    return { type: 'word', jaccard: wordJaccard }
+  }
+}
+
+/**
+ * Get the CSS class for n-gram confidence level based on Jaccard score
+ * Low: 0.0-0.4 (dotted border)
+ * Medium: 0.4-0.7 (solid border)
+ * High: 0.7-1.0 (solid border + glow)
+ */
+const getNgramConfidenceClass = (jaccard: number): string => {
+  if (jaccard < 0.4) return 'activation-token--ngram-low'
+  if (jaccard < 0.7) return 'activation-token--ngram-medium'
+  return 'activation-token--ngram-high'
 }
 
 /**
@@ -112,8 +130,10 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
   // No ResizeObserver needed - parent measures once and passes width down
   const maxLength = useMemo(() => Math.floor(containerWidth / 7), [containerWidth])
 
-  // Determine which n-gram type to underline (char vs word)
-  const underlineType = useMemo(() => getNgramUnderlineType(examples), [examples])
+  // Determine which n-gram type to underline (char vs word) and get Jaccard score
+  const ngramInfo = useMemo(() => getNgramUnderlineType(examples), [examples])
+  const underlineType = ngramInfo.type
+  const ngramJaccard = ngramInfo.jaccard
 
   // Group examples by quantile_index (memoized for performance)
   // Prioritize examples with positions for the winning type
@@ -160,13 +180,16 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
               const hasUnderline = shouldUnderlineToken(token.position, example, underlineType)
               const hasInterfeatureHighlight = shouldHighlightInterfeature(token.position, example, interFeaturePositions)
 
+              // Get confidence-based CSS class for n-gram underline
+              const ngramClass = hasUnderline ? getNgramConfidenceClass(ngramJaccard) : ''
+
               // Build title with activation and n-gram info
               let title = token.activation_value?.toFixed(3) || 'No activation'
               if (hasUnderline) {
                 const ngramText = underlineType === 'char'
                   ? examples.top_char_ngram_text
                   : examples.top_word_ngram_text
-                title += `\nN-gram pattern: "${ngramText}"`
+                title += `\nN-gram pattern: "${ngramText}" (Jaccard: ${ngramJaccard.toFixed(3)})`
               }
               if (hasInterfeatureHighlight) {
                 title += `\nInter-feature match`
@@ -175,7 +198,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
               return (
                 <span
                   key={tokenIdx}
-                  className={`activation-token ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${hasUnderline ? 'activation-token--ngram-underline' : ''} ${hasInterfeatureHighlight ? 'activation-token--interfeature' : ''}`}
+                  className={`activation-token ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${ngramClass} ${hasInterfeatureHighlight ? 'activation-token--interfeature' : ''}`}
                   style={{
                     backgroundColor: token.activation_value
                       ? getActivationColor(token.activation_value, example.max_activation)
@@ -212,13 +235,16 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
                         const hasUnderline = shouldUnderlineToken(token.position, example, underlineType)
                         const hasInterfeatureHighlight = shouldHighlightInterfeature(token.position, example, interFeaturePositions)
 
+                        // Get confidence-based CSS class for n-gram underline
+                        const ngramClass = hasUnderline ? getNgramConfidenceClass(ngramJaccard) : ''
+
                         // Build title with activation and n-gram info
                         let title = token.activation_value?.toFixed(3) || 'No activation'
                         if (hasUnderline) {
                           const ngramText = underlineType === 'char'
                             ? examples.top_char_ngram_text
                             : examples.top_word_ngram_text
-                          title += `\nN-gram pattern: "${ngramText}"`
+                          title += `\nN-gram pattern: "${ngramText}" (Jaccard: ${ngramJaccard.toFixed(3)})`
                         }
                         if (hasInterfeatureHighlight) {
                           title += `\nInter-feature match`
@@ -227,7 +253,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
                         return (
                           <span
                             key={tokenIdx}
-                            className={`activation-token ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${hasUnderline ? 'activation-token--ngram-underline' : ''} ${hasInterfeatureHighlight ? 'activation-token--interfeature' : ''}`}
+                            className={`activation-token ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${ngramClass} ${hasInterfeatureHighlight ? 'activation-token--interfeature' : ''}`}
                             style={{
                               backgroundColor: token.activation_value
                                 ? getActivationColor(token.activation_value, example.max_activation)

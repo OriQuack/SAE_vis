@@ -238,6 +238,42 @@ class ActivationSimilarityProcessor:
 
         return result
 
+    def _select_top_k_per_quantile(self, examples: List[Tuple], k: int) -> List[Tuple]:
+        """Select top k examples per quantile by activation strength.
+
+        Args:
+            examples: List of (prompt_id, max_activation, prompt_tokens, max_token_pos)
+            k: Number to select per quantile
+
+        Returns:
+            Top k*num_quantiles examples sorted by quantile and activation
+        """
+        if len(examples) == 0:
+            return []
+
+        # Calculate quantile boundaries
+        activations = [ex[1] for ex in examples]
+        num_quantiles = self.proc_params["num_quantiles"]
+        quantiles = [i / num_quantiles for i in range(1, num_quantiles)]
+        q_values = [float(np.quantile(activations, q)) for q in quantiles]
+
+        # Assign examples to quantiles and select top k from each
+        selected = []
+        for q_idx in range(num_quantiles):
+            # Filter examples for this quantile
+            if q_idx == 0:
+                q_examples = [ex for ex in examples if ex[1] <= q_values[0]]
+            elif q_idx < num_quantiles - 1:
+                q_examples = [ex for ex in examples if q_values[q_idx-1] < ex[1] <= q_values[q_idx]]
+            else:
+                q_examples = [ex for ex in examples if ex[1] > q_values[-1]]
+
+            # Sort by activation (descending) and take top k
+            q_examples.sort(key=lambda x: x[1], reverse=True)
+            selected.extend(q_examples[:k])
+
+        return selected
+
     def _extract_token_window(self, tokens: List[str], center_pos: int, window_size: int) -> List[str]:
         """Extract symmetric window around center position.
 
@@ -251,7 +287,9 @@ class ActivationSimilarityProcessor:
         """
         half_window = window_size // 2
         start = max(0, center_pos - half_window)
-        end = min(len(tokens), center_pos + half_window)
+        # For odd window sizes, add 1 to include the center token
+        # e.g., window_size=1: [center], window_size=3: [center-1, center, center+1]
+        end = min(len(tokens), center_pos + half_window + (window_size % 2))
         return tokens[start:end]
 
     def _normalize_token(self, token: str) -> str:
@@ -588,17 +626,21 @@ class ActivationSimilarityProcessor:
 
         return float(np.mean(pairwise_jaccards))
 
-    def _compute_ngram_analysis(self, examples: List[Tuple]) -> Dict[str, List[Dict]]:
+    def _compute_ngram_analysis(self, all_examples: List[Tuple], display_examples: List[Tuple]) -> Dict[str, List[Dict]]:
         """Compute dual-level n-gram analysis: character (per-token) and word-level.
 
+        Uses all_examples for frequency counting and Jaccard calculation,
+        but only tracks positions for display_examples to minimize storage.
+
         Args:
-            examples: List of (prompt_id, max_activation, prompt_tokens, max_token_pos)
+            all_examples: All examples for frequency counting (e.g., 12 examples)
+            display_examples: Subset for position tracking (e.g., top 8 by activation)
 
         Returns:
             Dict with "char_ngrams" and "word_ngrams" lists
         """
-        if len(examples) == 0:
-            return {"char_ngrams": [], "word_ngrams": []}
+        if len(all_examples) == 0:
+            return {"char_ngrams": [], "word_ngrams": [], "top_char": None, "top_word": None}
 
         from collections import defaultdict
 
@@ -610,10 +652,17 @@ class ActivationSimilarityProcessor:
         char_ngram_sizes = self.proc_params.get("char_ngram_sizes", self.proc_params.get("ngram_sizes", [2, 3, 4]))
         word_ngram_sizes = self.proc_params.get("word_ngram_sizes", [1, 2, 3])
 
-        # Character n-gram analysis (per-token) with char_ngram_window
-        char_ngram_occurrences = defaultdict(list)
+        # Phase 1: Count character n-grams across ALL examples (for frequency)
+        char_ngram_counts = defaultdict(int)
+        for prompt_id, _, tokens, max_pos in all_examples:
+            window_tokens = self._extract_token_window(tokens, max_pos, char_ngram_window)
+            token_ngrams = self._extract_token_char_ngrams(window_tokens, char_ngram_sizes)
+            for ngram in token_ngrams.keys():
+                char_ngram_counts[ngram] += len(token_ngrams[ngram])
 
-        for prompt_id, _, tokens, max_pos in examples:
+        # Phase 2: Track positions ONLY for display examples
+        char_ngram_occurrences = defaultdict(list)
+        for prompt_id, _, tokens, max_pos in display_examples:
             window_tokens = self._extract_token_window(tokens, max_pos, char_ngram_window)
             token_ngrams = self._extract_token_char_ngrams(window_tokens, char_ngram_sizes)
 
@@ -627,23 +676,33 @@ class ActivationSimilarityProcessor:
                         "ngram_size": len(ngram)
                     })
 
-        # Find top character n-gram per size
+        # Find top character n-gram per size using counts from ALL examples
         top_char_ngrams = []
         for size in char_ngram_sizes:
-            size_ngrams = {ng: occ for ng, occ in char_ngram_occurrences.items() if len(ng) == size}
+            size_ngrams = {ng: cnt for ng, cnt in char_ngram_counts.items() if len(ng) == size}
             if size_ngrams:
-                top_ngram, occurrences = max(size_ngrams.items(), key=lambda x: len(x[1]))
+                # Tie-breaker: if counts equal, prefer alphabetically (all same size)
+                top_ngram = max(size_ngrams.items(), key=lambda x: (x[1], x[0]))[0]
+                # Get occurrences from display examples only
+                occurrences = char_ngram_occurrences.get(top_ngram, [])
                 top_char_ngrams.append({
                     "ngram": top_ngram,
                     "ngram_size": size,
-                    "count": len(occurrences),
-                    "occurrences": occurrences[:20]  # Limit for storage
+                    "count": size_ngrams[top_ngram],  # Count from ALL examples
+                    "occurrences": occurrences[:20]  # Positions from display examples only
                 })
 
-        # Word n-gram analysis with word_ngram_window
-        word_ngram_occurrences = defaultdict(list)
+        # Phase 1: Count word n-grams across ALL examples (for frequency)
+        word_ngram_counts = defaultdict(int)
+        for prompt_id, _, tokens, max_pos in all_examples:
+            window_tokens = self._extract_token_window(tokens, max_pos, word_ngram_window)
+            word_ngrams = self._extract_word_ngrams(window_tokens, word_ngram_sizes)
+            for word_ngram, positions in word_ngrams.items():
+                word_ngram_counts[word_ngram] += len(positions)
 
-        for prompt_id, _, tokens, max_pos in examples:
+        # Phase 2: Track positions ONLY for display examples
+        word_ngram_occurrences = defaultdict(list)
+        for prompt_id, _, tokens, max_pos in display_examples:
             window_tokens = self._extract_token_window(tokens, max_pos, word_ngram_window)
             word_ngrams = self._extract_word_ngrams(window_tokens, word_ngram_sizes)
 
@@ -655,46 +714,55 @@ class ActivationSimilarityProcessor:
                         "ngram_size": len(word_ngram.split())
                     })
 
-        # Find top word n-gram per size
+        # Find top word n-gram per size using counts from ALL examples
         top_word_ngrams = []
         for size in word_ngram_sizes:
-            size_ngrams = {ng: occ for ng, occ in word_ngram_occurrences.items()
+            size_ngrams = {ng: cnt for ng, cnt in word_ngram_counts.items()
                           if len(ng.split()) == size}
             if size_ngrams:
-                top_ngram, occurrences = max(size_ngrams.items(), key=lambda x: len(x[1]))
+                # Tie-breaker: if counts equal, sort alphabetically for determinism
+                top_ngram = max(size_ngrams.items(), key=lambda x: (x[1], x[0]))[0]
+                # Get occurrences from display examples only
+                occurrences = word_ngram_occurrences.get(top_ngram, [])
                 top_word_ngrams.append({
                     "ngram": top_ngram,
                     "ngram_size": size,
-                    "count": len(occurrences),
-                    "occurrences": occurrences[:20]  # Limit for storage
+                    "count": size_ngrams[top_ngram],  # Count from ALL examples
+                    "occurrences": occurrences[:20]  # Positions from display examples only
                 })
 
-        # Find OVERALL top char n-gram (across all sizes)
+        # Find OVERALL top char n-gram (across all sizes) using counts from ALL examples
         overall_top_char = None
-        if char_ngram_occurrences:
-            top_char_ngram, top_char_occurrences = max(
-                char_ngram_occurrences.items(),
-                key=lambda x: len(x[1])
-            )
+        if char_ngram_counts:
+            # Tie-breaker: if counts equal, prefer longer n-gram (more specific)
+            top_char_ngram = max(
+                char_ngram_counts.items(),
+                key=lambda x: (x[1], len(x[0]))
+            )[0]
+            # Get occurrences from display examples only
+            top_char_occurrences = char_ngram_occurrences.get(top_char_ngram, [])
             overall_top_char = {
                 "ngram": top_char_ngram,
                 "ngram_size": len(top_char_ngram),
-                "count": len(top_char_occurrences),
-                "occurrences": top_char_occurrences  # Keep all for script 6
+                "count": char_ngram_counts[top_char_ngram],  # Count from ALL examples
+                "occurrences": top_char_occurrences  # Positions from display examples only
             }
 
-        # Find OVERALL top word n-gram (across all sizes)
+        # Find OVERALL top word n-gram (across all sizes) using counts from ALL examples
         overall_top_word = None
-        if word_ngram_occurrences:
-            top_word_ngram, top_word_occurrences = max(
-                word_ngram_occurrences.items(),
-                key=lambda x: len(x[1])
-            )
+        if word_ngram_counts:
+            # Tie-breaker: if counts equal, prefer longer phrase (more words = more specific)
+            top_word_ngram = max(
+                word_ngram_counts.items(),
+                key=lambda x: (x[1], len(x[0].split()))
+            )[0]
+            # Get occurrences from display examples only
+            top_word_occurrences = word_ngram_occurrences.get(top_word_ngram, [])
             overall_top_word = {
                 "ngram": top_word_ngram,
                 "ngram_size": len(top_word_ngram.split()),
-                "count": len(top_word_occurrences),
-                "occurrences": top_word_occurrences  # Keep all for script 6
+                "count": word_ngram_counts[top_word_ngram],  # Count from ALL examples
+                "occurrences": top_word_occurrences  # Positions from display examples only
             }
 
         return {
@@ -707,6 +775,9 @@ class ActivationSimilarityProcessor:
     def process_feature(self, feature_id: int, feature_df: pl.DataFrame) -> Dict[str, Any]:
         """Process a single feature to compute all similarity metrics.
 
+        Uses two-phase approach: all examples (12) for robust calculations,
+        top examples (8) for position tracking.
+
         Args:
             feature_id: Feature ID
             feature_df: DataFrame with activation examples for this feature
@@ -714,18 +785,19 @@ class ActivationSimilarityProcessor:
         Returns:
             Dictionary with computed metrics
         """
-        # Select examples from quantiles
-        examples = self._select_quantile_examples(feature_df)
-
         num_total_activations = int(feature_df.filter(pl.col("num_activations") > 0).shape[0])
-        prompt_ids = [ex[0] for ex in examples]
 
-        if len(examples) == 0:
+        # Phase 1: Load ALL examples from pre-computed embeddings (12 examples)
+        feature_embeddings = self.embeddings_df.filter(pl.col("feature_id") == feature_id)
+
+        if len(feature_embeddings) == 0:
+            logger.warning(f"No pre-computed embeddings found for feature {feature_id}")
             self.stats["features_with_no_activations"] += 1
             return {
                 "feature_id": feature_id,
                 "sae_id": self.sae_id,
-                "prompt_ids_analyzed": prompt_ids,
+                "prompt_ids_for_calculation": [],
+                "prompt_ids_for_display": [],
                 "num_total_activations": num_total_activations,
                 "avg_pairwise_semantic_similarity": None,
                 "top_char_ngrams": [],
@@ -738,28 +810,80 @@ class ActivationSimilarityProcessor:
                 "ngram_jaccard_similarity": [None, None, None, None]
             }
 
-        if len(examples) < self.proc_params["target_examples_per_feature"]:
+        all_prompt_ids = feature_embeddings["prompt_ids"][0]
+
+        # Fetch activation data for all 12 examples
+        all_examples = []
+        for prompt_id in all_prompt_ids:
+            example_row = feature_df.filter(pl.col("prompt_id") == prompt_id)
+            if len(example_row) > 0:
+                row_dict = example_row.to_dicts()[0]
+                activation_pairs = row_dict.get("activation_pairs", [])
+                max_activation = row_dict.get("max_activation")
+
+                # Find max token position
+                if activation_pairs and len(activation_pairs) > 0:
+                    max_pair = max(activation_pairs, key=lambda p: p["activation_value"])
+                    max_token_pos = max_pair["token_position"]
+                else:
+                    max_token_pos = 0
+
+                all_examples.append((
+                    prompt_id,
+                    max_activation if max_activation is not None else 0.0,
+                    row_dict.get("prompt_tokens", []),
+                    max_token_pos
+                ))
+
+        if len(all_examples) == 0:
+            self.stats["features_with_no_activations"] += 1
+            return {
+                "feature_id": feature_id,
+                "sae_id": self.sae_id,
+                "prompt_ids_for_calculation": [],
+                "prompt_ids_for_display": [],
+                "num_total_activations": num_total_activations,
+                "avg_pairwise_semantic_similarity": None,
+                "top_char_ngrams": [],
+                "top_word_ngrams": [],
+                "top_char_ngram": None,
+                "top_word_ngram": None,
+                "top_char_ngram_jaccard": None,
+                "top_word_ngram_jaccard": None,
+                "quantile_boundaries": [],
+                "ngram_jaccard_similarity": [None, None, None, None]
+            }
+
+        if len(all_examples) < self.proc_params["target_examples_per_feature"]:
             self.stats["features_with_insufficient_examples"] += 1
 
-        self.stats["total_examples_analyzed"] += len(examples)
+        self.stats["total_examples_analyzed"] += len(all_examples)
 
-        # Compute metrics
-        semantic_sim = self._compute_pairwise_semantic_similarity(feature_id, examples)
+        # Phase 2: Select top k per quantile for position tracking (8 examples)
+        position_samples_per_quantile = self.proc_params.get("position_samples_per_quantile", 2)
+        display_examples = self._select_top_k_per_quantile(all_examples, k=position_samples_per_quantile)
+
+        # Extract prompt IDs for both sets
+        calc_prompt_ids = [ex[0] for ex in all_examples]
+        display_prompt_ids = [ex[0] for ex in display_examples]
+
+        # Compute metrics using ALL examples for robust statistics
+        semantic_sim = self._compute_pairwise_semantic_similarity(feature_id, all_examples)
         if semantic_sim is not None:
             self.stats["semantic_similarity_computed"] += 1
 
-        # Compute Jaccard similarity for each n-gram size (2-5 chars)
+        # Compute Jaccard similarity for each n-gram size using ALL examples
         ngram_jaccard_list = [
-            self._compute_jaccard_ngram_similarity(examples, 2),
-            self._compute_jaccard_ngram_similarity(examples, 3),
-            self._compute_jaccard_ngram_similarity(examples, 4),
-            self._compute_jaccard_ngram_similarity(examples, 5)
+            self._compute_jaccard_ngram_similarity(all_examples, 2),
+            self._compute_jaccard_ngram_similarity(all_examples, 3),
+            self._compute_jaccard_ngram_similarity(all_examples, 4),
+            self._compute_jaccard_ngram_similarity(all_examples, 5)
         ]
         if any(j is not None for j in ngram_jaccard_list):
             self.stats["ngram_jaccard_computed"] += 1
 
-        # Get dual-level n-grams (char + word)
-        ngram_results = self._compute_ngram_analysis(examples)
+        # Get dual-level n-grams: ALL for counting, display for positions
+        ngram_results = self._compute_ngram_analysis(all_examples, display_examples)
         top_char_ngrams = ngram_results.get("char_ngrams", [])
         top_word_ngrams = ngram_results.get("word_ngrams", [])
         overall_top_char = ngram_results.get("top_char")
@@ -768,11 +892,11 @@ class ActivationSimilarityProcessor:
         if len(top_char_ngrams) > 0 or len(top_word_ngrams) > 0:
             self.stats["ngram_analysis_computed"] += 1
 
-        # Compute Jaccard for the OVERALL top n-grams
+        # Compute Jaccard for the OVERALL top n-grams using ALL examples
         top_char_ngram_jaccard = None
         if overall_top_char:
             top_char_ngram_jaccard = self._compute_specific_ngram_jaccard(
-                examples,
+                all_examples,
                 overall_top_char["ngram"],
                 is_word=False
             )
@@ -780,13 +904,13 @@ class ActivationSimilarityProcessor:
         top_word_ngram_jaccard = None
         if overall_top_word:
             top_word_ngram_jaccard = self._compute_specific_ngram_jaccard(
-                examples,
+                all_examples,
                 overall_top_word["ngram"],
                 is_word=True
             )
 
-        # Calculate quantile boundaries
-        activations = [ex[1] for ex in examples]
+        # Calculate quantile boundaries from ALL examples
+        activations = [ex[1] for ex in all_examples]
         if len(activations) >= self.proc_params["num_quantiles"]:
             num_q = self.proc_params["num_quantiles"]
             quantiles = [i / num_q for i in range(1, num_q)]
@@ -797,7 +921,8 @@ class ActivationSimilarityProcessor:
         return {
             "feature_id": feature_id,
             "sae_id": self.sae_id,
-            "prompt_ids_analyzed": prompt_ids,
+            "prompt_ids_for_calculation": calc_prompt_ids,  # All 12
+            "prompt_ids_for_display": display_prompt_ids,   # Top 8
             "num_total_activations": num_total_activations,
             "avg_pairwise_semantic_similarity": semantic_sim,
             "top_char_ngrams": top_char_ngrams,
@@ -890,7 +1015,8 @@ class ActivationSimilarityProcessor:
         schema = {
             "feature_id": pl.UInt32,
             "sae_id": pl.Categorical,
-            "prompt_ids_analyzed": pl.List(pl.UInt32),
+            "prompt_ids_for_calculation": pl.List(pl.UInt32),  # All 12 for calculations
+            "prompt_ids_for_display": pl.List(pl.UInt32),      # Top 8 for positions
             "num_total_activations": pl.UInt32,
             "avg_pairwise_semantic_similarity": pl.Float32,
 
@@ -982,7 +1108,8 @@ class ActivationSimilarityProcessor:
                 "features_with_similarity": int((~df["avg_pairwise_semantic_similarity"].is_null()).sum()),
                 "mean_semantic_similarity": float(df["avg_pairwise_semantic_similarity"].mean()) if df["avg_pairwise_semantic_similarity"].is_not_null().any() else None,
                 "mean_jaccard_similarity": mean_jaccard,
-                "mean_examples_per_feature": float(df["prompt_ids_analyzed"].list.len().mean())
+                "mean_examples_for_calculation": float(df["prompt_ids_for_calculation"].list.len().mean()),
+                "mean_examples_for_display": float(df["prompt_ids_for_display"].list.len().mean())
             }
         else:
             result_stats = {}

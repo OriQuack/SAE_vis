@@ -1,8 +1,8 @@
 {
-  "created_at": "2025-11-06T14:51:20.522204",
+  "created_at": "2025-11-07T02:10:01.718362",
   "script_version": "1.0",
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
-  "total_rows": 16372,
+  "total_rows": 16375,
   "schema": {
     "feature_id": "UInt32",
     "sae_id": "Categorical",
@@ -15,27 +15,27 @@
     "quantile_examples": "List(Struct([Field('quantile_index', Int64), Field('prompt_id', Int64), Field('prompt_tokens', List(Utf8)), Field('activation_pairs', List(Struct([Field('token_position', Int64), Field('activation_value', Float64)]))), Field('max_activation', Float64), Field('max_activation_position', Int64), Field('char_ngram_positions', List(Struct([Field('token_position', Int64), Field('char_offset', Int64)]))), Field('word_ngram_positions', List(Int64))]))"
   },
   "processing_stats": {
-    "features_processed": 16372,
+    "features_processed": 16375,
     "features_with_no_data": 1,
-    "features_with_invalid_boundaries": 11,
-    "total_examples_processed": 130565,
-    "semantic_patterns": 3182,
-    "lexical_patterns": 4085,
-    "both_patterns": 913,
-    "no_patterns": 8192
+    "features_with_invalid_boundaries": 8,
+    "total_examples_processed": 130594,
+    "semantic_patterns": 2864,
+    "lexical_patterns": 4325,
+    "both_patterns": 927,
+    "no_patterns": 8259
   },
   "result_stats": {
-    "features_with_data": 16372,
+    "features_with_data": 16375,
     "pattern_distribution": {
-      "semantic": 3182,
-      "lexical": 4085,
-      "both": 913,
-      "none": 8192
+      "semantic": 2864,
+      "lexical": 4325,
+      "both": 927,
+      "none": 8259
     },
-    "mean_semantic_similarity": 0.25333501195642916,
-    "mean_char_ngram_jaccard": 0.2974842362696996,
-    "mean_word_ngram_jaccard": 0.22273728162306913,
-    "mean_examples_per_feature": 7.974896164182751
+    "mean_semantic_similarity": 0.24969873112349109,
+    "mean_char_ngram_jaccard": 0.3199018638925129,
+    "mean_word_ngram_jaccard": 0.20926905675585034,
+    "mean_examples_per_feature": 7.975206106870229
   },
   "config_used": {
     "activation_examples_path": "data/master/activation_examples.parquet",

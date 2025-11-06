@@ -59,15 +59,14 @@
 
 /* Override score column width for decoder similarity table */
 .decoder-stage-table__selection-header ~ .table-panel__content .table-panel__header-cell--score {
-  width: 70px;
-  min-width: 70px;
-  max-width: 70px;
+  width: auto;
+  min-width: 100px;
 }
 
 .decoder-stage-table__header-cell--activation {
   width: 65%;
   text-align: left;
-  padding-left: 12px;
+  padding-left: 0px;
 }
 
 .decoder-stage-table__cell--checkbox {
@@ -147,7 +146,7 @@
 
 .decoder-stage-table__cell--activation {
   text-align: left;
-  padding-left: 12px;
+  padding-left: 0px;
   background: white;
 }
 
@@ -248,16 +247,18 @@
  * DECODER SIMILARITY CONNECTED VISUALIZATION
  * ============================================================================ */
 
-/* Fixed width for decoder similarity column to ensure consistent positioning */
+/* Flexible width for decoder similarity column to use available space */
 .decoder-stage-table__selection-header ~ .table-panel__content .table-panel__cell--score {
-  width: 70px;
-  min-width: 70px;
-  max-width: 70px;
+  width: auto;
+  min-width: 100px;
   padding: 0;
   overflow: visible;
+  position: relative;  /* Required for absolute positioning of overlay */
+  vertical-align: top;  /* Prevent bottom alignment */
 }
 
-/* Ensure proper SVG display in decoder similarity cells */
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__cell--score svg {
-  display: block;
+/* Decoder similarity overlay - single SVG spanning entire feature group */
+.decoder-similarity-overlay {
+  pointer-events: none;  /* Allow clicks to pass through to table */
+  z-index: 1;            /* Appear above table content but below tooltips */
 }

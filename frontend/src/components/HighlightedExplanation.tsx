@@ -87,18 +87,29 @@ export const HighlightedExplanation: React.FC<HighlightedExplanationProps> = Rea
         opacity = 1.0  // Higher match - full opacity
       }
 
-      // Apply dark green background (#16a34a - green-600) with calculated opacity
-      style.backgroundColor = `rgba(22, 163, 74, ${opacity})`
+      // Apply VIS-standard color (Okabe-Ito BLUISH_GREEN #009E73)
+      // Lightened for background use with black text
+      const baseColor = similarity >= 0.85
+        ? '102, 204, 170'  // Lighter shade for higher match
+        : '153, 230, 204'  // Even lighter for lower match
+      style.backgroundColor = `rgba(${baseColor}, ${opacity})`
 
-      // White text for better visibility on dark green background
-      style.color = 'white'
+      // Black text to match activation example styling
+      style.color = 'black'
 
-      // Minimal padding for readability without creating visual spacing gaps
-      style.padding = '2px 2px'
+      // Padding to match activation token style (horizontal only)
+      style.padding = '1px 2px'
       style.borderRadius = '2px'
+
+      // Reserve space for border to match activation token height
+      style.border = '2px solid transparent'
 
       // Ensure inline display for proper text flow
       style.display = 'inline'
+
+      // Match activation example font-size and line-height exactly
+      style.fontSize = '11px'
+      style.lineHeight = '1.4'
     }
 
     return style

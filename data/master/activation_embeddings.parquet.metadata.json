@@ -1,5 +1,5 @@
 {
-  "created_at": "2025-11-06T00:05:28.197753",
+  "created_at": "2025-11-06T23:51:38.481082",
   "script_version": "1.0",
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
   "total_rows": 16384,
@@ -12,12 +12,12 @@
   "processing_stats": {
     "features_processed": 16384,
     "features_with_no_activations": 1,
-    "total_examples_embedded": 130594,
-    "total_embeddings_generated": 130594
+    "total_examples_embedded": 254803,
+    "total_embeddings_generated": 254803
   },
   "result_stats": {
     "features_with_embeddings": 16383,
-    "mean_examples_per_feature": 7.9708251953125,
+    "mean_examples_per_feature": 15.55194091796875,
     "embedding_dimension": 768
   },
   "config_used": {
@@ -26,8 +26,8 @@
     "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
     "processing_parameters": {
       "num_quantiles": 4,
-      "examples_per_quantile": 2,
-      "target_examples_per_feature": 8,
+      "examples_per_quantile": 4,
+      "target_examples_per_feature": 16,
       "token_window_size": 32
     },
     "model_parameters": {
@@ -41,6 +41,8 @@
       "processing_strategy": "quantile_based_sampling",
       "embedding_purpose": "pre_compute_for_downstream_similarity_analysis",
       "window_extraction": "symmetric_with_asymmetric_fallback",
+      "text_reconstruction": "Reconstructs natural readable text from subword tokens (strips '\u2581' prefix, joins subwords into full words)",
+      "token_window_size_note": "32 tokens extracted BEFORE reconstruction, results in ~25-32 words after joining subwords",
       "primary_key_fields": [
         "feature_id",
         "sae_id"
@@ -48,19 +50,21 @@
     },
     "schema_info": {
       "table_name": "activation_embeddings",
-      "version": "1.0",
+      "version": "2.0",
       "field_descriptions": {
         "feature_id": "SAE feature index (0-16383)",
         "sae_id": "SAE model identifier",
         "prompt_ids": "List of prompt IDs selected via quantile sampling",
-        "embeddings": "List of embeddings (768-dim vectors from google/embeddinggemma-300m)",
-        "window_texts": "List of text windows used for embedding (for debugging/validation)"
+        "embeddings": "List of embeddings (768-dim vectors from google/embeddinggemma-300m) generated from natural readable text (not raw tokens)"
+      },
+      "version_changes": {
+        "2.0": "Changed text preprocessing to reconstruct natural readable text from subword tokens (strips '\u2581', joins subwords). Embeddings now generated from 'the services of a...' instead of '\u2581the \u2581service s \u2581of \u2581a...'"
       }
     },
     "performance_notes": {
       "embedding_dimension": 768,
-      "expected_embeddings_per_feature": 8,
-      "total_expected_embeddings": 131072,
+      "expected_embeddings_per_feature": 16,
+      "total_expected_embeddings": 0,
       "batch_processing": true,
       "downstream_consumers": [
         "9_activation_example_similarity.py"

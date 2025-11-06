@@ -1,5 +1,5 @@
 {
-  "created_at": "2025-11-06T21:37:47.238076",
+  "created_at": "2025-11-07T01:51:57.971947",
   "script_version": "4.0",
   "architecture": "dual_ngram_with_position_tracking",
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
@@ -13,20 +13,20 @@
   "processing_stats": {
     "features_processed": 824,
     "total_pairs_compared": 3295,
-    "semantic_pairs": 208,
-    "lexical_pairs": 2094,
-    "no_pattern_pairs": 1090,
+    "semantic_pairs": 195,
+    "lexical_pairs": 1696,
+    "no_pattern_pairs": 1478,
     "features_with_insufficient_decoder_similar": 0,
     "features_with_no_activations": 0
   },
   "result_stats": {
-    "features_with_any_pairs": 783,
-    "features_with_semantic_pairs": 118,
-    "features_with_lexical_pairs": 759,
-    "total_semantic_pairs": 208,
-    "total_lexical_pairs": 2094,
-    "total_all_pairs": 2302,
-    "mean_pairs_per_feature": 2.7936893203883497
+    "features_with_any_pairs": 738,
+    "features_with_semantic_pairs": 111,
+    "features_with_lexical_pairs": 706,
+    "total_semantic_pairs": 195,
+    "total_lexical_pairs": 1696,
+    "total_all_pairs": 1891,
+    "mean_pairs_per_feature": 2.2949029126213594
   },
   "config_used": {
     "features_path": "data/master/features.parquet",
@@ -37,7 +37,7 @@
     "processing_parameters": {
       "top_n_decoder_similar": 4,
       "num_quantiles": 4,
-      "samples_per_quantile": 2,
+      "samples_per_quantile": 4,
       "embedding_window_size": 32,
       "char_ngram_window_size": 3,
       "word_ngram_window_size": 11,
@@ -53,8 +53,9 @@
         3
       ],
       "semantic_threshold": 0.3,
-      "char_jaccard_threshold": 0.4,
-      "word_jaccard_threshold": 0.4
+      "char_jaccard_threshold": 0.6,
+      "word_jaccard_threshold": 0.6,
+      "position_samples_per_quantile": 2
     },
     "description": "Configuration for calculating inter-feature activation similarity metrics between decoder-similar features with positional n-gram tracking for visualization",
     "processing_notes": {
@@ -72,7 +73,7 @@
         "sae_id"
       ],
       "comparison_strategy": "cross_feature_pairwise",
-      "pairwise_computation": "8 main examples \u00d7 8 selected examples with pattern filtering and position tracking",
+      "pairwise_computation": "16 main examples \u00d7 16 selected examples for calculation; 8\u00d78 for position tracking",
       "version": "4.0",
       "architecture": "dual_ngram_with_position_tracking",
       "pattern_classification": "semantic and/or lexical (pairs can be in both lists)",
@@ -92,17 +93,17 @@
         "semantic_similarity": "Average pairwise cosine similarity of embeddings",
         "char_jaccard": "Character-level n-gram Jaccard similarity",
         "word_jaccard": "Word-level n-gram Jaccard similarity",
-        "main_prompt_ids": "List of prompt IDs analyzed from main feature (max 8)",
-        "similar_prompt_ids": "List of prompt IDs analyzed from similar feature (max 8)",
+        "main_prompt_ids": "List of prompt IDs analyzed from main feature (max 16 for calculation)",
+        "similar_prompt_ids": "List of prompt IDs analyzed from similar feature (max 16 for calculation)",
         "num_comparisons": "Total number of pairwise comparisons performed",
         "max_char_ngram": "Most frequent character n-gram text",
         "max_char_ngram_size": "Size of most frequent character n-gram",
         "max_word_ngram": "Most frequent word n-gram text",
         "max_word_ngram_size": "Size of most frequent word n-gram",
-        "main_char_ngram_positions": "List of {prompt_id, positions: [{token_position, char_offset}]} for main feature",
-        "similar_char_ngram_positions": "List of {prompt_id, positions: [{token_position, char_offset}]} for similar feature",
-        "main_word_ngram_positions": "List of {prompt_id, positions: [token_positions]} for main feature",
-        "similar_word_ngram_positions": "List of {prompt_id, positions: [token_positions]} for similar feature"
+        "main_char_ngram_positions": "List of {prompt_id, positions: [{token_position, char_offset}]} for main feature (8 examples with positions)",
+        "similar_char_ngram_positions": "List of {prompt_id, positions: [{token_position, char_offset}]} for similar feature (8 examples with positions)",
+        "main_word_ngram_positions": "List of {prompt_id, positions: [token_positions]} for main feature (8 examples with positions)",
+        "similar_word_ngram_positions": "List of {prompt_id, positions: [token_positions]} for similar feature (8 examples with positions)"
       },
       "notes": {
         "v4_changes": "Removed both_pairs list. Pairs meeting both conditions are now added to both semantic_pairs and lexical_pairs. Added position tracking fields for frontend visualization.",

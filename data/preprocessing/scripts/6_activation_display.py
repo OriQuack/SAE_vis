@@ -275,7 +275,7 @@ class ActivationDisplayProcessor:
         sim_row = feature_sim.to_dicts()[0]
 
         # Extract metadata
-        prompt_ids = sim_row.get("prompt_ids_analyzed", [])
+        prompt_ids = sim_row.get("prompt_ids_for_display", [])
         semantic_sim = sim_row.get("avg_pairwise_semantic_similarity")
         quantile_boundaries = sim_row.get("quantile_boundaries", [])
 

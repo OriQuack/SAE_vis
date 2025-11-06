@@ -1,12 +1,13 @@
 {
-  "created_at": "2025-11-06T02:59:39.068366",
+  "created_at": "2025-11-07T02:15:24.770126",
   "script_version": "1.0",
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
-  "total_rows": 16384,
+  "total_rows": 5,
   "schema": {
     "feature_id": "UInt32",
     "sae_id": "Categorical",
-    "prompt_ids_analyzed": "List(Int64)",
+    "prompt_ids_for_calculation": "List(Int64)",
+    "prompt_ids_for_display": "List(Int64)",
     "num_total_activations": "UInt32",
     "avg_pairwise_semantic_similarity": "Float32",
     "top_char_ngrams": "List(Struct([Field('ngram', Utf8), Field('ngram_size', Int64), Field('count', Int64), Field('occurrences', List(Struct([Field('prompt_id', Int64), Field('token_position', Int64), Field('token_text', Utf8), Field('char_offset', Int64), Field('ngram_size', Int64)])))]))",
@@ -19,19 +20,20 @@
     "ngram_jaccard_similarity": "List(Float64)"
   },
   "processing_stats": {
-    "features_processed": 16384,
-    "features_with_no_activations": 1,
-    "features_with_insufficient_examples": 201,
-    "total_examples_analyzed": 130594,
-    "semantic_similarity_computed": 16382,
-    "ngram_analysis_computed": 16383,
-    "ngram_jaccard_computed": 16382
+    "features_processed": 5,
+    "features_with_no_activations": 0,
+    "features_with_insufficient_examples": 1,
+    "total_examples_analyzed": 78,
+    "semantic_similarity_computed": 5,
+    "ngram_analysis_computed": 5,
+    "ngram_jaccard_computed": 5
   },
   "result_stats": {
-    "features_with_similarity": 16382,
-    "mean_semantic_similarity": 0.2533742504990511,
-    "mean_jaccard_similarity": 0.29040027118478595,
-    "mean_examples_per_feature": 7.9708251953125
+    "features_with_similarity": 5,
+    "mean_semantic_similarity": 0.2116453617811203,
+    "mean_jaccard_similarity": 0.38157399331138825,
+    "mean_examples_for_calculation": 15.6,
+    "mean_examples_for_display": 8.0
   },
   "config_used": {
     "activation_examples_path": "data/master/activation_examples.parquet",
@@ -40,10 +42,10 @@
     "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
     "processing_parameters": {
       "num_quantiles": 4,
-      "examples_per_quantile": 2,
-      "target_examples_per_feature": 8,
+      "examples_per_quantile": 4,
+      "target_examples_per_feature": 16,
       "token_window_size": 32,
-      "char_ngram_window_size": 3,
+      "char_ngram_window_size": 1,
       "word_ngram_window_size": 11,
       "ngram_sizes": [
         2,
@@ -51,6 +53,8 @@
         4
       ],
       "min_ngram_occurrences": 2,
+      "examples_for_position_tracking": 8,
+      "position_samples_per_quantile": 2,
       "char_ngram_sizes": [
         2,
         3,

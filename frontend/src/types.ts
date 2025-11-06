@@ -604,6 +604,7 @@ export interface DecoderStageRow {
     feature_id: number
     cosine_similarity: number
     is_main?: boolean  // True for main feature (first row), false for similar features
+    inter_feature_similarity?: any  // Inter-feature similarity data for pattern highlighting
   }>  // Main feature + top 4 most similar features by decoder weights
 }
 

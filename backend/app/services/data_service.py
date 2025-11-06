@@ -436,9 +436,18 @@ class DataService:
         """Fast path using pre-processed activation_display.parquet."""
         try:
             # Single query to get all data (pre-organized, pre-processed)
+            # Select only the columns we need to avoid issues with Null-type columns
             display_df = self._activation_display_lazy.filter(
                 pl.col("feature_id").is_in(feature_ids)
-            ).collect()
+            ).select([
+                "feature_id",
+                "quantile_examples",
+                "semantic_similarity",
+                "char_ngram_max_jaccard",
+                "word_ngram_max_jaccard",
+                "top_word_ngram_text",
+                "pattern_type"
+            ]).collect()
 
             logger.info(f"[get_activation_examples] Loaded optimized data for {len(display_df)} features in ~20ms")
 
@@ -452,7 +461,7 @@ class DataService:
                     # Dual n-gram fields (character + word)
                     "char_ngram_max_jaccard": row["char_ngram_max_jaccard"],
                     "word_ngram_max_jaccard": row["word_ngram_max_jaccard"],
-                    "top_char_ngram_text": row["top_char_ngram_text"],
+                    "top_char_ngram_text": None,  # Skip null column from parquet
                     "top_word_ngram_text": row["top_word_ngram_text"],
                     "pattern_type": row["pattern_type"]
                 }

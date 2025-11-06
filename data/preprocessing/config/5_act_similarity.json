@@ -8,10 +8,12 @@
 
   "processing_parameters": {
     "num_quantiles": 4,
-    "examples_per_quantile": 2,
-    "target_examples_per_feature": 8,
+    "examples_per_quantile": 4,
+    "target_examples_per_feature": 16,
+    "examples_for_position_tracking": 8,
+    "position_samples_per_quantile": 2,
     "token_window_size": 32,
-    "char_ngram_window_size": 3,
+    "char_ngram_window_size": 1,
     "word_ngram_window_size": 11,
     "char_ngram_sizes": [2, 3, 4, 5],
     "word_ngram_sizes": [1, 2, 3],

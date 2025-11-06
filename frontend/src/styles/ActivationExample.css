@@ -39,6 +39,7 @@
   border-radius: 2px;
   transition: background-color 0.15s ease;
   white-space: pre;
+  border: 1.5px solid transparent;  /* Reserve space for border to prevent layout shift */
 }
 
 /* Max activation token - bold with red underline */
@@ -47,17 +48,29 @@
 }
 
 /* N-gram pattern indicator (lexical patterns: char or word n-grams) */
-/* Uses blue border + glow for better visibility against orange activation backgrounds */
-.activation-token--ngram-underline {
+/* Three confidence levels based on Jaccard similarity score */
+
+/* Low confidence (0.0-0.4): Subtle dotted border */
+.activation-token--ngram-low {
+  border: 1px dotted #3b82f6;
+}
+
+/* Medium confidence (0.4-0.7): Standard solid border */
+.activation-token--ngram-medium {
   border: 1.5px solid #3b82f6;
 }
 
+/* High confidence (0.7-1.0): Thick border with glow effect */
+.activation-token--ngram-high {
+  border: 2px solid #3b82f6;
+  box-shadow: 0 0 3px rgba(59, 130, 246, 0.4);
+}
+
 /* Inter-feature pattern highlighting (when hovering/clicking decoder similarity badges) */
-/* Uses green top border to differentiate from intra-feature blue border */
-/* Can coexist with .activation-token--ngram-underline for dual highlighting */
+/* Uses green border to differentiate from intra-feature blue border */
+/* Can coexist with confidence-based n-gram classes for dual highlighting */
 .activation-token--interfeature {
-  border-top: 2.5px solid #10b981;
-  box-shadow: 0 -1px 3px rgba(16, 185, 129, 0.3);
+  border: 1.5px solid #10b981;
 }
 
 /* Newline token styling */

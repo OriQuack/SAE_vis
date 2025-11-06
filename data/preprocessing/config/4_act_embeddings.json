@@ -7,8 +7,8 @@
 
   "processing_parameters": {
     "num_quantiles": 4,
-    "examples_per_quantile": 3,
-    "target_examples_per_feature": 12,
+    "examples_per_quantile": 4,
+    "target_examples_per_feature": 16,
     "token_window_size": 32
   },
 
@@ -47,7 +47,7 @@
 
   "performance_notes": {
     "embedding_dimension": 768,
-    "expected_embeddings_per_feature": 12,
+    "expected_embeddings_per_feature": 16,
     "total_expected_embeddings": 0,
     "batch_processing": true,
     "downstream_consumers": [
