@@ -168,16 +168,16 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
     return similarFeatures.filter(f => !f.is_main)
   }, [similarFeatures])
 
-  // Derive selected feature IDs from featureSelectionStates (both 'selected' and 'rejected' count as active)
-  const selectedFeatureIds = useMemo(() => {
-    const selected = new Set<number>()
-    featureSelectionStates.forEach((state, featureId) => {
-      if (state === 'selected' || state === 'rejected') {
-        selected.add(featureId)
-      }
-    })
-    return selected
-  }, [featureSelectionStates])
+  // // Derive selected feature IDs from featureSelectionStates (both 'selected' and 'rejected' count as active)
+  // const selectedFeatureIds = useMemo(() => {
+  //   const selected = new Set<number>()
+  //   featureSelectionStates.forEach((state, featureId) => {
+  //     if (state === 'selected' || state === 'rejected') {
+  //       selected.add(featureId)
+  //     }
+  //   })
+  //   return selected
+  // }, [featureSelectionStates])
 
   // Derive selected connections from parent's interFeatureHighlights Map (persists across remounts)
   const selectedConnections = useMemo(() => {

@@ -385,10 +385,14 @@ export const createTableActions = (set: any, get: any) => ({
    * Set table sort state - reorders table display only (does NOT modify Sankey)
    */
   setTableSort: (sortBy: SortBy | null, sortDirection: SortDirection | null) => {
+    // Clear frozen selection states when switching away from similarity sort
+    const shouldClearFrozenStates = sortBy !== 'similarity'
+
     // Update table sort state
     set({
       tableSortBy: sortBy,
-      tableSortDirection: sortDirection
+      tableSortDirection: sortDirection,
+      ...(shouldClearFrozenStates && { sortedBySelectionStates: null })
     })
 
     console.log('[Store.setTableSort] Table sort updated (display only):', { sortBy, sortDirection })
@@ -491,5 +495,114 @@ export const createTableActions = (set: any, get: any) => ({
 
     // Set active stage node with the category ID
     get().setActiveStageNode(nodeId, categoryId)
+  },
+
+  // ============================================================================
+  // SIMILARITY SORT ACTION
+  // ============================================================================
+
+  sortBySimilarity: async () => {
+    const state = get()
+    const { featureSelectionStates, tableData } = state
+
+    console.log('[Store.sortBySimilarity] Starting similarity sort:', {
+      selectionStatesSize: featureSelectionStates.size,
+      hasTableData: !!tableData
+    })
+
+    // Validate: need at least 1 selected or rejected feature
+    if (featureSelectionStates.size < 1) {
+      console.warn('[Store.sortBySimilarity] ⚠️  No features selected for similarity sort')
+      return
+    }
+
+    if (!tableData?.features) {
+      console.warn('[Store.sortBySimilarity] ⚠️  No table data available')
+      return
+    }
+
+    // Extract selected and rejected IDs
+    const selectedIds: number[] = []
+    const rejectedIds: number[] = []
+
+    featureSelectionStates.forEach((selectionState, featureId) => {
+      if (selectionState === 'selected') {
+        selectedIds.push(featureId)
+      } else if (selectionState === 'rejected') {
+        rejectedIds.push(featureId)
+      }
+    })
+
+    console.log('[Store.sortBySimilarity] Selection counts:', {
+      selected: selectedIds.length,
+      rejected: rejectedIds.length
+    })
+
+    // Need at least one of each for meaningful sort
+    if (selectedIds.length === 0 && rejectedIds.length === 0) {
+      console.warn('[Store.sortBySimilarity] ⚠️  Need at least one selected or rejected feature')
+      return
+    }
+
+    // Get all feature IDs from table data
+    const allFeatureIds = tableData.features.map((f: any) => f.feature_id)
+
+    try {
+      set({ isSimilaritySortLoading: true })
+
+      console.log('[Store.sortBySimilarity] Calling API:', {
+        selectedIds: selectedIds.length,
+        rejectedIds: rejectedIds.length,
+        totalFeatures: allFeatureIds.length
+      })
+
+      // Call API
+      const response = await api.getSimilaritySort(
+        selectedIds,
+        rejectedIds,
+        allFeatureIds
+      )
+
+      console.log('[Store.sortBySimilarity] API response:', {
+        sortedFeaturesCount: response.sorted_features.length,
+        totalFeatures: response.total_features,
+        weightsCount: response.weights_used.length
+      })
+
+      // Convert to Map for easy lookup
+      const scoresMap = new Map<number, number>()
+      response.sorted_features.forEach((fs) => {
+        scoresMap.set(fs.feature_id, fs.score)
+      })
+
+      // Generate selection signature to track this sort state
+      // Format: "selected:[ids]|rejected:[ids]"
+      const selectedSig = selectedIds.sort((a, b) => a - b).join(',')
+      const rejectedSig = rejectedIds.sort((a, b) => a - b).join(',')
+      const selectionSignature = `selected:${selectedSig}|rejected:${rejectedSig}`
+
+      // Freeze the current selection states for grouping
+      const frozenSelectionStates = new Map(featureSelectionStates)
+
+      // Store scores and set sort mode
+      set({
+        similarityScores: scoresMap,
+        tableSortBy: 'similarity',
+        tableSortDirection: 'desc',
+        isSimilaritySortLoading: false,
+        lastSortedSelectionSignature: selectionSignature,
+        sortedBySelectionStates: frozenSelectionStates
+      })
+
+      console.log('[Store.sortBySimilarity] ✅ Similarity sort complete:', {
+        scoresMapSize: scoresMap.size,
+        sortBy: 'similarity',
+        selectionSignature
+      })
+
+    } catch (error) {
+      console.error('[Store.sortBySimilarity] ❌ Failed to calculate similarity sort:', error)
+      set({ isSimilaritySortLoading: false })
+    }
   }
 })

@@ -87,11 +87,21 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
               })
             } else {
               // No positions, but still mark as selected
-              newMap.set(key, { mainFeatureId, similarFeatureId })
+              newMap.set(key, {
+                mainFeatureId, similarFeatureId,
+                type: 'char',
+                mainPositions: undefined,
+                similarPositions: undefined
+              })
             }
           } else {
             // No pattern data, but still mark as selected
-            newMap.set(key, { mainFeatureId, similarFeatureId })
+            newMap.set(key, {
+              mainFeatureId, similarFeatureId,
+              type: 'char',
+              mainPositions: undefined,
+              similarPositions: undefined
+            })
           }
         }
         return newMap

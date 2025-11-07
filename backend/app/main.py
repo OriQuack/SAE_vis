@@ -9,7 +9,8 @@ from contextlib import asynccontextmanager
 from .api import router as api_router
 from .services.data_service import DataService
 from .services.alignment_service import AlignmentService
-from .api import feature_groups
+from .services.similarity_sort_service import SimilaritySortService
+from .api import feature_groups, similarity_sort
 
 # Configure logging for the application
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -36,10 +37,11 @@ logger = logging.getLogger(__name__)
 
 data_service = None
 alignment_service = None
+similarity_sort_service = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global data_service, alignment_service
+    global data_service, alignment_service, similarity_sort_service
     try:
         data_service = DataService()
         await data_service.initialize()
@@ -56,6 +58,11 @@ async def lifespan(app: FastAPI):
         # Initialize feature groups service
         feature_groups.initialize_service()
         logger.info("Feature groups service initialized successfully")
+
+        # Initialize similarity sort service
+        similarity_sort_service = SimilaritySortService(data_service=data_service)
+        similarity_sort.set_similarity_sort_service(similarity_sort_service)
+        logger.info("Similarity sort service initialized successfully")
 
         yield
     except Exception as e:

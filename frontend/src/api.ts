@@ -6,7 +6,9 @@ import type {
   Filters,
   TableDataRequest,
   FeatureTableDataResponse,
-  ActivationExamples
+  ActivationExamples,
+  SimilaritySortRequest,
+  SimilaritySortResponse
 } from './types'
 
 // ============================================================================
@@ -40,7 +42,8 @@ const API_ENDPOINTS = {
   FEATURE_DETAIL: "/feature",
   TABLE_DATA: "/table-data",
   FEATURE_GROUPS: "/feature-groups",
-  ACTIVATION_EXAMPLES: "/activation-examples"
+  ACTIVATION_EXAMPLES: "/activation-examples",
+  SIMILARITY_SORT: "/similarity-sort"
 } as const
 
 const API_BASE = API_BASE_URL
@@ -177,4 +180,45 @@ export async function getActivationExamples(
     sampleKeys: data.examples ? Object.keys(data.examples).slice(0, 5) : []
   })
   return data.examples || {}
+}
+
+export async function getSimilaritySort(
+  selectedIds: number[],
+  rejectedIds: number[],
+  featureIds: number[]
+): Promise<SimilaritySortResponse> {
+  console.log('[API] getSimilaritySort called with:', {
+    selectedCount: selectedIds.length,
+    rejectedCount: rejectedIds.length,
+    totalFeatures: featureIds.length
+  })
+
+  const requestBody: SimilaritySortRequest = {
+    selected_ids: selectedIds,
+    rejected_ids: rejectedIds,
+    feature_ids: featureIds
+  }
+
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.SIMILARITY_SORT}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody)
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('[API] Similarity sort error:', response.status, errorText)
+    throw new Error(`Failed to calculate similarity sort: ${response.status} - ${errorText}`)
+  }
+
+  const data = await response.json()
+  console.log('[API] getSimilaritySort response:', {
+    sortedCount: data.sorted_features?.length || 0,
+    totalFeatures: data.total_features,
+    hasWeights: data.weights_used && data.weights_used.length > 0
+  })
+
+  return data
 }

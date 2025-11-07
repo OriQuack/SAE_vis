@@ -112,6 +112,7 @@ interface AppState {
   setTableScrollState: (state: { scrollTop: number; scrollHeight: number; clientHeight: number } | null) => void
   setTableSort: (sortBy: SortBy | null, sortDirection: SortDirection | null) => void
   swapMetricDisplay: (newMetric: typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION) => void
+  sortBySimilarity: () => Promise<void>
 
   // Node selection actions
   toggleNodeSelection: (nodeId: string) => void
@@ -135,6 +136,12 @@ interface AppState {
   // Table sort state
   tableSortBy: SortBy | null
   tableSortDirection: SortDirection | null
+
+  // Similarity sort state
+  similarityScores: Map<number, number>
+  isSimilaritySortLoading: boolean
+  lastSortedSelectionSignature: string | null  // Track selection state at last sort
+  sortedBySelectionStates: Map<number, 'selected' | 'rejected'> | null  // Frozen selection states when sorted
 
   // Node selection for table filtering
   tableSelectedNodeIds: string[]
@@ -211,6 +218,12 @@ const initialState = {
   tableSortBy: null,
   tableSortDirection: null,
 
+  // Similarity sort state
+  similarityScores: new Map<number, number>(),
+  isSimilaritySortLoading: false,
+  lastSortedSelectionSignature: null,
+  sortedBySelectionStates: null,
+
   // Node selection for table filtering
   tableSelectedNodeIds: [],
 
@@ -272,7 +285,12 @@ export const useStore = create<AppState>((set, get) => ({
         newStates.delete(featureId)
       }
 
-      return { featureSelectionStates: newStates }
+      // Clear last sorted selection signature when selection changes
+      // This re-enables the sort button
+      return {
+        featureSelectionStates: newStates,
+        lastSortedSelectionSignature: null
+      }
     })
   },
 
@@ -283,12 +301,18 @@ export const useStore = create<AppState>((set, get) => ({
       tableData.features.forEach((f: any) => {
         newStates.set(f.feature_id, 'selected')
       })
-      set({ featureSelectionStates: newStates })
+      set({
+        featureSelectionStates: newStates,
+        lastSortedSelectionSignature: null
+      })
     }
   },
 
   clearFeatureSelection: () => {
-    set({ featureSelectionStates: new Map<number, 'selected' | 'rejected'>() })
+    set({
+      featureSelectionStates: new Map<number, 'selected' | 'rejected'>(),
+      lastSortedSelectionSignature: null
+    })
   },
 
   // Comparison view actions

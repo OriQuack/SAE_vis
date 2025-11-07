@@ -62,6 +62,13 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const sortDirection = useVisualizationStore(state => state.tableSortDirection)
   const setTableSort = useVisualizationStore(state => state.setTableSort)
 
+  // Similarity sort state and action
+  const similarityScores = useVisualizationStore(state => state.similarityScores)
+  const isSimilaritySortLoading = useVisualizationStore(state => state.isSimilaritySortLoading)
+  const lastSortedSelectionSignature = useVisualizationStore(state => state.lastSortedSelectionSignature)
+  const sortedBySelectionStates = useVisualizationStore(state => state.sortedBySelectionStates)
+  const sortBySimilarity = useVisualizationStore(state => state.sortBySimilarity)
+
   // ============================================================================
   // STATE
   // ============================================================================
@@ -150,6 +157,48 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     })
   }, [])
 
+  // Similarity sort: Calculate if button should be enabled
+  const canSortBySimilarity = useMemo(() => {
+    // Need at least 1 feature selected or rejected
+    if (featureSelectionStates.size < 1) {
+      return false
+    }
+
+    // Generate current selection signature
+    const selectedIds: number[] = []
+    const rejectedIds: number[] = []
+    featureSelectionStates.forEach((state, featureId) => {
+      if (state === 'selected') {
+        selectedIds.push(featureId)
+      } else if (state === 'rejected') {
+        rejectedIds.push(featureId)
+      }
+    })
+
+    // Format: "selected:[ids]|rejected:[ids]"
+    const selectedSig = selectedIds.sort((a, b) => a - b).join(',')
+    const rejectedSig = rejectedIds.sort((a, b) => a - b).join(',')
+    const currentSignature = `selected:${selectedSig}|rejected:${rejectedSig}`
+
+    // Enable button only if current selection differs from last sorted selection
+    return currentSignature !== lastSortedSelectionSignature
+  }, [featureSelectionStates, lastSortedSelectionSignature])
+
+  // Similarity sort: Count selected vs rejected
+  const selectionCounts = useMemo(() => {
+    let selected = 0
+    let rejected = 0
+    featureSelectionStates.forEach(state => {
+      if (state === 'selected') selected++
+      else if (state === 'rejected') rejected++
+    })
+    return { selected, rejected }
+  }, [featureSelectionStates])
+
+  // Similarity sort: Handler
+  const handleSimilaritySort = useCallback(() => {
+    sortBySimilarity()
+  }, [sortBySimilarity])
 
   // Fetch data when component mounts or when filters change
   useEffect(() => {
@@ -228,13 +277,54 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
       console.log(`[TablePanel] Filtered to ${features.length} features from ${tableSelectedNodeIds.length} selected node(s)`)
     }
 
+    // Special handling for similarity sorting
+    if (sortBy === 'similarity') {
+      const selected: any[] = []
+      const rejected: any[] = []
+      const unselected: any[] = []
+
+      // Use frozen selection states (from when sort was performed)
+      // This prevents re-grouping when user changes selection after sorting
+      const groupingStates = sortedBySelectionStates || new Map<number, 'selected' | 'rejected'>()
+
+      // Separate into three groups based on FROZEN states
+      features.forEach(feature => {
+        const selectionState = groupingStates.get(feature.feature_id)
+        if (selectionState === 'selected') {
+          selected.push(feature)
+        } else if (selectionState === 'rejected') {
+          rejected.push(feature)
+        } else {
+          unselected.push(feature)
+        }
+      })
+
+      // Sort unselected by similarity score (descending - higher is better)
+      unselected.sort((a, b) => {
+        const scoreA = similarityScores.get(a.feature_id) ?? -Infinity
+        const scoreB = similarityScores.get(b.feature_id) ?? -Infinity
+        return scoreB - scoreA // Descending
+      })
+
+      console.log('[TablePanel] Similarity sort applied:', {
+        selected: selected.length,
+        unselected: unselected.length,
+        rejected: rejected.length,
+        usingFrozenStates: !!sortedBySelectionStates
+      })
+
+      // Return three-tier structure
+      return [...selected, ...unselected, ...rejected]
+    }
+
+    // Standard sorting using utility function
     return sortFeatures(
       features,
       sortBy,
       sortDirection,
       tableData
     )
-  }, [tableData, sortBy, sortDirection, selectedFeatures, tableSelectedNodeIds.length])
+  }, [tableData, sortBy, sortDirection, selectedFeatures, tableSelectedNodeIds.length, sortedBySelectionStates, similarityScores])
 
   // Get list of explainer IDs for iteration (moved before early returns)
   const explainerIds = useMemo(() => tableData?.explainer_ids || [], [tableData?.explainer_ids])
@@ -488,6 +578,35 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
         </div>
       )}
 
+      {/* Sort by Similarity Button */}
+      <div className="table-panel__controls">
+        <button
+          className={`table-panel__similarity-sort-btn ${
+            sortBy === 'similarity' ? 'active' : ''
+          }`}
+          onClick={handleSimilaritySort}
+          disabled={!canSortBySimilarity || isSimilaritySortLoading}
+          title={
+            isSimilaritySortLoading
+              ? 'Calculating similarity...'
+              : featureSelectionStates.size < 1
+              ? 'Select at least 1 feature to sort by similarity'
+              : !canSortBySimilarity
+              ? 'Already sorted by current selection. Change selection to re-sort.'
+              : `Sort by similarity to ${selectionCounts.selected} checked and away from ${selectionCounts.rejected} rejected features`
+          }
+        >
+          {isSimilaritySortLoading ? (
+            <span className="spinner-small"></span>
+          ) : (
+            <>
+              Sort by Similarity
+              {sortBy === 'similarity'}
+            </>
+          )}
+        </button>
+      </div>
+
       <div
         className={`table-panel__content ${isLoading ? 'loading' : ''}`}
         ref={tableContainerRef}
@@ -573,13 +692,20 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                 return data !== undefined && data !== null
               })
 
-              // Get selection state for this feature
+              // Get selection state for this feature (current selection)
               const selectionState = featureSelectionStates.get(featureRow.feature_id)
+
+              // Get frozen selection state (when sorted by similarity)
+              const frozenSelectionState = sortedBySelectionStates?.get(featureRow.feature_id)
+
               const rowClassName = [
                 'table-panel__sub-row',
                 'table-panel__sub-row--first',
                 selectionState === 'selected' ? 'table-panel__sub-row--checkbox-selected' : '',
-                selectionState === 'rejected' ? 'table-panel__sub-row--checkbox-rejected' : ''
+                selectionState === 'rejected' ? 'table-panel__sub-row--checkbox-rejected' : '',
+                // Add blue border for features that were selected/rejected when sorted by similarity
+                frozenSelectionState === 'selected' ? 'table-panel__sub-row--sorted-as-selected' : '',
+                frozenSelectionState === 'rejected' ? 'table-panel__sub-row--sorted-as-rejected' : ''
               ].filter(Boolean).join(' ')
 
               return (

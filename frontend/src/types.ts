@@ -549,6 +549,7 @@ export type SortBy =
   | typeof METRIC_SCORE_EMBEDDING
   | typeof METRIC_DECODER_SIMILARITY
   | typeof METRIC_SEMANTIC_SIMILARITY
+  | 'similarity'  // Similarity-based sorting
   | null
 
 // ============================================================================
@@ -726,4 +727,34 @@ export type FeatureListType = 'selected' | 'candidates' | 'rejected'
  * Value: boolean (true = expanded, false = collapsed)
  */
 export type GroupExpansionState = Map<string, boolean>
+
+// ============================================================================
+// SIMILARITY SORT TYPES
+// ============================================================================
+
+/**
+ * Similarity Sort Request - Request for similarity-based feature sorting
+ */
+export interface SimilaritySortRequest {
+  selected_ids: number[]    // Feature IDs marked as selected (✓)
+  rejected_ids: number[]    // Feature IDs marked as rejected (✗)
+  feature_ids: number[]     // All feature IDs in current table view
+}
+
+/**
+ * Feature Score - Feature ID with similarity score
+ */
+export interface FeatureScore {
+  feature_id: number
+  score: number  // Higher = more similar to selected, less similar to rejected
+}
+
+/**
+ * Similarity Sort Response - Response from similarity sort API
+ */
+export interface SimilaritySortResponse {
+  sorted_features: FeatureScore[]
+  total_features: number
+  weights_used: number[]  // Normalized weights for each metric
+}
 
