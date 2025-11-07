@@ -4,9 +4,14 @@ import {
   METRIC_QUALITY_SCORE,
   METRIC_SCORE_EMBEDDING,
   METRIC_SCORE_FUZZ,
-  METRIC_SCORE_DETECTION
+  METRIC_SCORE_DETECTION,
+  METRIC_DECODER_SIMILARITY
 } from '../lib/constants'
-import { TAG_CATEGORIES } from '../lib/tag-categories'
+import {
+  TAG_CATEGORIES,
+  TAG_CATEGORY_FEATURE_SPLITTING,
+  TAG_CATEGORY_QUALITY
+} from '../lib/tag-categories'
 
 // ============================================================================
 // TABLE DATA ACTIONS
@@ -51,6 +56,81 @@ export const createTableActions = (set: any, get: any) => ({
     console.log('[Store.clearNodeSelection] Cleared all selections')
 
     // No need to re-fetch - TablePanel will show all features automatically
+  },
+
+  /**
+   * Select a single node (replaces previous selection with new one)
+   * Part of new single-select behavior where only one node can be selected at a time
+   */
+  selectSingleNode: (nodeId: string | null) => {
+    if (nodeId === null) {
+      // Deselect: clear selection
+      set({ tableSelectedNodeIds: [] })
+      console.log('[Store.selectSingleNode] Cleared selection')
+    } else {
+      // Select: replace array with single node
+      set({ tableSelectedNodeIds: [nodeId] })
+      console.log('[Store.selectSingleNode] Selected node:', nodeId)
+    }
+
+    // No need to re-fetch - TablePanel will filter based on new selection
+  },
+
+  /**
+   * Determine the category of a node based on its parent's metric
+   * Used to automatically activate the correct tag category when clicking a node
+   */
+  getNodeCategory: (nodeId: string): string | null => {
+    const state = get()
+    const { leftPanel } = state
+
+    if (!leftPanel.sankeyTree) {
+      console.warn('[Store.getNodeCategory] No Sankey tree available')
+      return null
+    }
+
+    const node = leftPanel.sankeyTree.get(nodeId)
+    if (!node) {
+      console.warn('[Store.getNodeCategory] Node not found:', nodeId)
+      return null
+    }
+
+    if (!node.parentId) {
+      console.warn('[Store.getNodeCategory] Node has no parent:', nodeId)
+      return null
+    }
+
+    const parent = leftPanel.sankeyTree.get(node.parentId)
+    if (!parent) {
+      console.warn('[Store.getNodeCategory] Parent not found:', node.parentId)
+      return null
+    }
+
+    // Determine category based on parent's metric
+    if (parent.metric === METRIC_DECODER_SIMILARITY) {
+      return TAG_CATEGORY_FEATURE_SPLITTING
+    } else if (parent.metric === METRIC_QUALITY_SCORE) {
+      return TAG_CATEGORY_QUALITY
+    }
+
+    console.warn('[Store.getNodeCategory] Unknown metric:', parent.metric)
+    return null
+  },
+
+  /**
+   * Select a node and activate its corresponding category
+   * Unified action that combines node selection with category activation
+   */
+  selectNodeWithCategory: (nodeId: string, categoryId: string) => {
+    const state = get()
+
+    // 1. Select the single node
+    state.selectSingleNode(nodeId)
+
+    // 2. Activate the category and table
+    state.setActiveStageNode(nodeId, categoryId)
+
+    console.log(`[Store.selectNodeWithCategory] Selected node ${nodeId} with category ${categoryId}`)
   },
 
   /**

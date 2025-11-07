@@ -13,7 +13,7 @@
     "examples_for_position_tracking": 8,
     "position_samples_per_quantile": 2,
     "token_window_size": 32,
-    "char_ngram_window_size": 1,
+    "char_ngram_window_size": 3,
     "word_ngram_window_size": 11,
     "char_ngram_sizes": [2, 3, 4, 5],
     "word_ngram_sizes": [1, 2, 3],

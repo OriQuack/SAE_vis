@@ -8,20 +8,30 @@ This document provides comprehensive guidance for the React frontend of the SAE 
 **Status**: ✅ **ADVANCED RESEARCH PROTOTYPE** - All 8 phases complete, conference-ready
 **Key Innovation**: Smart tree-based Sankey building with frontend-side set intersection
 
+### 🔄 Recent Updates (November 2025)
+**Component Refactoring:**
+- `TablePanel.tsx` → `QualityTablePanel.tsx` - Renamed for clarity of purpose
+- `DecoderSimilarityOverlay.tsx` → `FeatureSplitOverlay.tsx` - Better describes functionality
+- `DecoderSimilarityTable.tsx` → `FeatureSplitTable.tsx` - Aligned with overlay naming
+- **New**: `TagCategoryPanel.tsx` - Tag-based feature categorization
+- **New**: `ActivationExample.tsx` - Display feature activation examples
+
 ## 🔄 Data Flow Through Frontend
 
 ### High-Level Component Flow
 ```mermaid
 graph TD
-    A[App.tsx] --> B[FilterPanel]
+    A[App.tsx] --> B[TagCategoryPanel]
     A --> C[Dual SankeyDiagram]
-    A --> D[TablePanel]
+    A --> D[QualityTablePanel]
     C --> E[SankeyOverlay]
     C --> F[ThresholdHandles]
     C --> G[HistogramPopover]
     C --> H[AlluvialDiagram]
-    D --> I[HighlightedExplanation]
-    D --> J[QualityScoreBreakdown]
+    C --> I[FeatureSplitOverlay]
+    D --> J[HighlightedExplanation]
+    D --> K[QualityScoreBreakdown]
+    D --> L[FeatureSplitTable]
 ```
 
 ### Detailed Data Flow Architecture
@@ -210,11 +220,26 @@ interface AppState {
 - Calculates consistency between trees
 - Overlay on comparison view
 
-**TablePanel.tsx** - Feature Scoring Table
+**QualityTablePanel.tsx** - Feature Scoring Table
 - 824 rows of feature scores
 - 5 consistency visualization modes
 - Cell group selection
 - Explanation highlighting
+
+**FeatureSplitOverlay.tsx** - Feature Split Analysis
+- Interactive overlay for analyzing feature splits
+- Metric-based feature grouping interface
+- Threshold configuration for splits
+
+**FeatureSplitTable.tsx** - Feature Split Data Display
+- Tabular view of feature split analysis
+- Detailed breakdown of feature groups
+- Interactive cell selection
+
+**TagCategoryPanel.tsx** - Tag Category Management
+- Tag-based feature categorization
+- Category selection and filtering
+- Stage category activation
 
 **HistogramPopover.tsx** - Threshold Visualization
 - Portal-based rendering
@@ -331,7 +356,11 @@ frontend/src/
 │   ├── HistogramPopover.tsx      # Threshold histograms
 │   ├── ThresholdHandles.tsx      # Interactive handles
 │   ├── FlowPanel.tsx             # Flow container
-│   ├── TablePanel.tsx            # Feature scoring table
+│   ├── QualityTablePanel.tsx     # Feature scoring table
+│   ├── FeatureSplitOverlay.tsx   # Feature split analysis overlay
+│   ├── FeatureSplitTable.tsx     # Feature split data display
+│   ├── TagCategoryPanel.tsx      # Tag category management
+│   ├── ActivationExample.tsx     # Activation examples
 │   ├── HighlightedExplanation.tsx # Syntax highlighting
 │   └── QualityScoreBreakdown.tsx # Score details
 ├── lib/                          # Utilities
@@ -400,22 +429,25 @@ npm run lint
 ### Phase Completion Summary
 | Phase | Feature | Status | Key Components |
 |-------|---------|--------|----------------|
-| 1 | Dual Sankey | ✅ Complete | SankeyDiagram, FilterPanel |
+| 1 | Dual Sankey | ✅ Complete | SankeyDiagram, TagCategoryPanel |
 | 2 | Tree Building | ✅ Complete | sankey-actions, threshold-utils |
 | 3 | Performance | ✅ Complete | Feature group cache, set intersection |
-| 4 | Threshold Groups | ✅ Complete | HistogramPanel, ThresholdGroupPanel |
-| 5 | LLM Comparison | ✅ Complete | LLMComparisonSelection |
-| 6 | UMAP | ✅ Complete | UMAPPanel |
-| 7 | TablePanel | ✅ Complete | TablePanel, cell selection |
+| 4 | Threshold Groups | ✅ Complete | HistogramPopover, ThresholdHandles |
+| 5 | LLM Comparison | ✅ Complete | FeatureSplitOverlay, FeatureSplitTable |
+| 6 | UMAP | ✅ Complete | Alluvial flows |
+| 7 | Quality Table | ✅ Complete | QualityTablePanel, cell selection |
 | 8 | Consistency | ✅ Complete | 8 metrics integrated |
 
 ### Current Active Features
 - **Tree-Based Sankey**: Dynamic tree building with instant updates
 - **Inline Histograms**: Embedded directly on Sankey nodes
 - **Comparison Overlay**: Toggle between single/comparison view
-- **Cell Group Selection**: Drag-to-select in TablePanel
+- **Cell Group Selection**: Drag-to-select in QualityTablePanel
+- **Feature Split Analysis**: Interactive overlays and tables for feature grouping
+- **Tag Category Management**: Filter and categorize features by tags
 - **Explanation Highlighting**: Semantic alignment-based coloring
 - **Quality Score Breakdown**: Detailed metric contributions
+- **Activation Examples**: Display feature activation examples
 
 ## 🎯 Performance Characteristics
 
@@ -482,10 +514,13 @@ try {
 **Solution**: Backend must include frontend port in CORS origins
 
 ### Issue: Performance degradation with large datasets
-**Solution**: Implement virtualization for long lists, use React.memo
+**Solution**: Implement virtualization for long lists, use React.memo (especially for QualityTablePanel with 824 rows)
 
 ### Issue: State updates not reflected
 **Solution**: Check Zustand action is properly updating state
+
+### Issue: Feature split overlays not displaying correctly
+**Solution**: Ensure FeatureSplitOverlay and FeatureSplitTable components are properly receiving data from the store
 
 ## 📈 Future Enhancements
 
@@ -497,10 +532,11 @@ try {
 - Real-time collaboration support
 
 ### Performance Improvements
-- Virtual scrolling for TablePanel
+- Virtual scrolling for QualityTablePanel (824 rows)
 - Web Workers for heavy calculations
 - Progressive rendering for large trees
 - IndexedDB for client-side persistence
+- Optimized feature split calculations for large datasets
 
 ## 🎓 Key Takeaways
 

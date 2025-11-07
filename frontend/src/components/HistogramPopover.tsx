@@ -15,7 +15,7 @@ import {
 } from '../lib/d3-histogram-utils'
 import { scaleLinear } from 'd3-scale'
 import { getNodeThresholds } from '../lib/threshold-utils'
-import { METRIC_DISPLAY_NAMES, getMetricBaseColor } from '../lib/constants'
+import { METRIC_DISPLAY_NAMES, getMetricBaseColor, getThresholdRegionColors } from '../lib/constants'
 import type { HistogramData, HistogramChart } from '../types'
 import { ThresholdHandles } from './ThresholdHandles'
 
@@ -148,11 +148,14 @@ const HistogramChartComponent: React.FC<{
     return bars.map((bar) => calculateBarSegments(bar, effectiveThresholds, xScale))
   }, [bars, effectiveThresholds, xScale])
 
+  // Get threshold colors for this metric (red/green for decoder_similarity and quality_score)
+  const thresholdColors = getThresholdRegionColors(chart.metric)
+
   return (
     <>
       {/* Pattern definitions for threshold regions */}
       <defs>
-        {/* Striped pattern (for even regions: 0, 2, 4...) - 45 degree diagonal stripes */}
+        {/* Metric-specific striped pattern (for metrics without threshold colors) */}
         <pattern
           id={`histogram-pattern-striped-${chart.metric}`}
           width="10"
@@ -161,10 +164,24 @@ const HistogramChartComponent: React.FC<{
           patternTransform="rotate(45)"
         >
           <rect width="10" height="10" fill="none"/>
-          {/* Vertical lines that become 45-degree diagonals after rotation */}
           <line x1="0" y1="0" x2="0" y2="10" stroke={barColor || HISTOGRAM_COLORS.bars} strokeWidth="5" opacity="0.7"/>
           <line x1="10" y1="0" x2="10" y2="10" stroke={barColor || HISTOGRAM_COLORS.bars} strokeWidth="5" opacity="0.7"/>
         </pattern>
+
+        {/* Red/Green striped pattern (for decoder_similarity and quality_score above threshold) */}
+        {thresholdColors && (
+          <pattern
+            id={`histogram-pattern-threshold-${chart.metric}`}
+            width="10"
+            height="10"
+            patternUnits="userSpaceOnUse"
+            patternTransform="rotate(45)"
+          >
+            <rect width="10" height="10" fill="none"/>
+            <line x1="0" y1="0" x2="0" y2="10" stroke={thresholdColors.above} strokeWidth="5" opacity="0.7"/>
+            <line x1="10" y1="0" x2="10" y2="10" stroke={thresholdColors.above} strokeWidth="5" opacity="0.7"/>
+          </pattern>
+        )}
       </defs>
 
       <g transform={`translate(${chart.margin.left}, ${chart.yOffset})`}>
@@ -189,12 +206,27 @@ const HistogramChartComponent: React.FC<{
         {barSegments.map((segments, barIndex) => (
           <g key={barIndex}>
             {segments.map((segment, segmentIndex) => {
-              // Even regions (0, 2, 4...): Striped pattern
-              // Odd regions (1, 3, 5...): Solid fill
-              const useStripes = segment.patternIndex % 2 === 0
-              const fillColor = useStripes
-                ? `url(#histogram-pattern-striped-${chart.metric})`
-                : barColor || HISTOGRAM_COLORS.bars
+              // Even regions (0, 2, 4...): Solid fill (below threshold)
+              // Odd regions (1, 3, 5...): Striped pattern (above threshold)
+              const isAboveThreshold = segment.patternIndex % 2 === 1
+
+              // Determine fill color based on metric type and threshold position
+              let fillColor: string
+              if (thresholdColors) {
+                // Use red/green colors for decoder_similarity and quality_score
+                // Above threshold uses red/green striped pattern, below uses solid fill
+                if (isAboveThreshold) {
+                  fillColor = `url(#histogram-pattern-threshold-${chart.metric})`
+                } else {
+                  fillColor = thresholdColors.below
+                }
+              } else {
+                // Use default metric color or striped pattern for other metrics
+                const useStripes = segment.patternIndex % 2 === 0
+                fillColor = useStripes
+                  ? `url(#histogram-pattern-striped-${chart.metric})`
+                  : barColor || HISTOGRAM_COLORS.bars
+              }
 
               return (
                 <rect

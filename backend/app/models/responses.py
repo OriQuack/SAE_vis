@@ -462,13 +462,9 @@ class FeatureTableRow(BaseModel):
     )
 
 class MetricNormalizationStats(BaseModel):
-    """Global normalization statistics for a metric (used for z-score color mapping)"""
-    mean: float = Field(..., description="Global mean across all features")
-    std: float = Field(..., description="Global standard deviation")
+    """Global normalization statistics for a metric (used for min-max normalization)"""
     min: float = Field(..., description="Global minimum value")
     max: float = Field(..., description="Global maximum value")
-    z_min: float = Field(..., description="Minimum z-score for min-max normalization")
-    z_max: float = Field(..., description="Maximum z-score for min-max normalization")
 
 class FeatureTableDataResponse(BaseModel):
     """Response model for feature-level table visualization data (824 rows)"""

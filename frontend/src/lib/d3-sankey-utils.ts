@@ -395,17 +395,16 @@ export function getSankeyPath(link: D3SankeyLink): string {
 }
 
 export function getNodeColor(node: D3SankeyNode): string {
-  // Defensive check for node category
-  if (!node?.category) {
-    console.warn('getNodeColor: Node category is undefined:', {
-      node,
-      hasCategory: 'category' in node,
-      nodeKeys: Object.keys(node)
-    })
-    return '#6b7280' // Default gray
+  // Use metric-based coloring for accurate representation
+  // Nodes are colored based on the metric that splits them (root) or created them (children)
+  const metric = node.metric
+
+  if (metric) {
+    return getMetricBaseColor(metric)
   }
 
-  return SANKEY_COLORS[node.category] || '#6b7280'
+  // Fallback for nodes without metrics (shouldn't happen in normal operation)
+  return '#6b7280' // Default gray
 }
 
 export function getLinkColor(link: D3SankeyLink): string {

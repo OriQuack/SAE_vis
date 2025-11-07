@@ -1,6 +1,6 @@
 import React from 'react'
 import type { FeatureTableRow, MetricNormalizationStats } from '../types'
-import { getExplainerDisplayName } from '../lib/d3-table-utils'
+import { getExplainerDisplayName, calculateQualityScore } from '../lib/d3-table-utils'
 import { getMetricColor } from '../lib/utils'
 
 interface QualityScoreBreakdownProps {
@@ -14,7 +14,7 @@ const QualityScoreBreakdown: React.FC<QualityScoreBreakdownProps> = React.memo((
   globalStats,
   width = 180
 }) => {
-  // Calculate z-scores and ranges for each explainer
+  // Calculate raw averaged scores for each explainer
   const explainerIds = Object.keys(feature.explainers)
 
   // Chart dimensions - smaller and simpler
@@ -24,79 +24,99 @@ const QualityScoreBreakdown: React.FC<QualityScoreBreakdownProps> = React.memo((
   const innerWidth = chartWidth - margin.left - margin.right
   const innerHeight = chartHeight - margin.top - margin.bottom
 
-  // Calculate metrics for each explainer
+  // Calculate metrics for each explainer (raw averaged values)
   const explainerMetrics = explainerIds.map((explainerId) => {
     const explainerData = feature.explainers[explainerId]
     if (!explainerData) return null
 
-    // Calculate z-scores for each metric
-    const embeddingZScore = explainerData.embedding !== null && globalStats.embedding
-      ? (explainerData.embedding - globalStats.embedding.mean) / (globalStats.embedding.std || 1)
+    // Embedding: raw value
+    const embeddingValue = explainerData.embedding
+
+    // Fuzz: average of scorers
+    const fuzzScores = [explainerData.fuzz.s1, explainerData.fuzz.s2, explainerData.fuzz.s3].filter(s => s !== null) as number[]
+    const fuzzAvg = fuzzScores.length > 0
+      ? fuzzScores.reduce((a, b) => a + b, 0) / fuzzScores.length
       : null
 
-    // Fuzz: calculate z-score range and average
-    const fuzzScores = [explainerData.fuzz.s1, explainerData.fuzz.s2, explainerData.fuzz.s3].filter(s => s !== null) as number[]
-    const fuzzZScores = fuzzScores.map(score =>
-      globalStats.fuzz ? (score - globalStats.fuzz.mean) / (globalStats.fuzz.std || 1) : 0
-    )
-    const fuzzZMin = fuzzZScores.length > 0 ? Math.min(...fuzzZScores) : null
-    const fuzzZMax = fuzzZScores.length > 0 ? Math.max(...fuzzZScores) : null
-    const fuzzZAvg = fuzzZScores.length > 0 ? fuzzZScores.reduce((a, b) => a + b, 0) / fuzzZScores.length : null
-
-    // Detection: calculate z-score range and average
+    // Detection: average of scorers
     const detectionScores = [explainerData.detection.s1, explainerData.detection.s2, explainerData.detection.s3].filter(s => s !== null) as number[]
-    const detectionZScores = detectionScores.map(score =>
-      globalStats.detection ? (score - globalStats.detection.mean) / (globalStats.detection.std || 1) : 0
-    )
-    const detectionZMin = detectionZScores.length > 0 ? Math.min(...detectionZScores) : null
-    const detectionZMax = detectionZScores.length > 0 ? Math.max(...detectionZScores) : null
-    const detectionZAvg = detectionZScores.length > 0 ? detectionZScores.reduce((a, b) => a + b, 0) / detectionZScores.length : null
+    const detectionAvg = detectionScores.length > 0
+      ? detectionScores.reduce((a, b) => a + b, 0) / detectionScores.length
+      : null
 
     return {
       id: explainerId,
       name: getExplainerDisplayName(explainerId),
       embedding: {
-        zScore: embeddingZScore,
-        color: embeddingZScore !== null ? getMetricColor('embedding', 0.5) : '#cccccc'
+        value: embeddingValue,
+        color: embeddingValue !== null ? getMetricColor('embedding', 0.5) : '#cccccc'
       },
       fuzz: {
-        zMin: fuzzZMin,
-        zMax: fuzzZMax,
-        zAvg: fuzzZAvg,
-        color: fuzzZAvg !== null ? getMetricColor('fuzz', 0.5) : '#cccccc'
+        value: fuzzAvg,
+        color: fuzzAvg !== null ? getMetricColor('fuzz', 0.5) : '#cccccc'
       },
       detection: {
-        zMin: detectionZMin,
-        zMax: detectionZMax,
-        zAvg: detectionZAvg,
-        color: detectionZAvg !== null ? getMetricColor('detection', 0.5) : '#cccccc'
+        value: detectionAvg,
+        color: detectionAvg !== null ? getMetricColor('detection', 0.5) : '#cccccc'
       }
     }
   }).filter(m => m !== null)
 
-  // Fixed Y scale bounds (z-score range: -3 to 3)
-  const yMin = -3
-  const yMax = 3
-  const yScale = (zScore: number) => {
-    const normalized = (zScore - yMin) / (yMax - yMin)
+  // Calculate combined Y scale range (min of all mins to max of all maxs)
+  let yMin = Infinity
+  let yMax = -Infinity
+
+  // Include global stats ranges
+  if (globalStats.embedding) {
+    yMin = Math.min(yMin, globalStats.embedding.min)
+    yMax = Math.max(yMax, globalStats.embedding.max)
+  }
+  if (globalStats.fuzz) {
+    yMin = Math.min(yMin, globalStats.fuzz.min)
+    yMax = Math.max(yMax, globalStats.fuzz.max)
+  }
+  if (globalStats.detection) {
+    yMin = Math.min(yMin, globalStats.detection.min)
+    yMax = Math.max(yMax, globalStats.detection.max)
+  }
+
+  // Fallback if no stats available
+  if (!isFinite(yMin) || !isFinite(yMax)) {
+    yMin = 0
+    yMax = 1
+  }
+
+  // Add 5% padding to Y scale
+  const yRange = yMax - yMin
+  const yPadding = yRange * 0.05
+  yMin = yMin - yPadding
+  yMax = yMax + yPadding
+
+  const yScale = (value: number) => {
+    const normalized = (value - yMin) / (yMax - yMin)
     return innerHeight * (1 - normalized) // Invert for SVG coordinates
   }
 
-  // Calculate quality score z-score (average of all explainer z-score averages)
-  const qualityScoreZScores: number[] = []
-  explainerMetrics.forEach(m => {
-    const zScores: number[] = []
-    if (m.embedding.zScore !== null) zScores.push(m.embedding.zScore)
-    if (m.fuzz.zAvg !== null) zScores.push(m.fuzz.zAvg)
-    if (m.detection.zAvg !== null) zScores.push(m.detection.zAvg)
-
-    if (zScores.length > 0) {
-      const avgZ = zScores.reduce((sum, z) => sum + z, 0) / zScores.length
-      qualityScoreZScores.push(avgZ)
+  // Calculate quality score (normalized average)
+  const qualityScores: number[] = []
+  explainerMetrics.forEach(metrics => {
+    const explainerData = feature.explainers[metrics.id]
+    if (explainerData) {
+      const qs = calculateQualityScore(
+        explainerData.embedding,
+        explainerData.fuzz,
+        explainerData.detection,
+        globalStats
+      )
+      if (qs !== null) {
+        // Convert normalized quality score (0-1) to actual value range for display
+        const qualityValue = yMin + qs * (yMax - yMin)
+        qualityScores.push(qualityValue)
+      }
     }
   })
-  const qualityScoreZ = qualityScoreZScores.length > 0
-    ? qualityScoreZScores.reduce((sum, z) => sum + z, 0) / qualityScoreZScores.length
+  const avgQualityScore = qualityScores.length > 0
+    ? qualityScores.reduce((sum, s) => sum + s, 0) / qualityScores.length
     : null
 
   // X scale for explainers
@@ -107,7 +127,7 @@ const QualityScoreBreakdown: React.FC<QualityScoreBreakdownProps> = React.memo((
     <div className="table-panel__quality-breakdown">
       <svg width={chartWidth} height={chartHeight}>
         <g transform={`translate(${margin.left}, ${margin.top})`}>
-          {/* Y-axis (z-score) */}
+          {/* Y-axis (score value) */}
           <line
             x1={0}
             y1={0}
@@ -117,15 +137,24 @@ const QualityScoreBreakdown: React.FC<QualityScoreBreakdownProps> = React.memo((
             strokeWidth={1}
           />
 
-          {/* Y-axis label - only show 0 to save space */}
+          {/* Y-axis labels - show min and max */}
           <text
             x={-3}
-            y={innerHeight / 2}
+            y={5}
             textAnchor="end"
-            fontSize={10}
+            fontSize={8}
             fill="#6b7280"
           >
-            0
+            {yMax.toFixed(2)}
+          </text>
+          <text
+            x={-3}
+            y={innerHeight}
+            textAnchor="end"
+            fontSize={8}
+            fill="#6b7280"
+          >
+            {yMin.toFixed(2)}
           </text>
 
           {/* X-axis */}
@@ -138,13 +167,13 @@ const QualityScoreBreakdown: React.FC<QualityScoreBreakdownProps> = React.memo((
             strokeWidth={1}
           />
 
-          {/* Quality score z-score line */}
-          {qualityScoreZ !== null && (
+          {/* Quality score line */}
+          {avgQualityScore !== null && (
             <line
               x1={0}
-              y1={yScale(qualityScoreZ)}
+              y1={yScale(avgQualityScore)}
               x2={innerWidth}
-              y2={yScale(qualityScoreZ)}
+              y2={yScale(avgQualityScore)}
               stroke="#000000"
               strokeWidth={1}
               strokeDasharray="4,2"
@@ -152,29 +181,11 @@ const QualityScoreBreakdown: React.FC<QualityScoreBreakdownProps> = React.memo((
             />
           )}
 
-          {/* Render each explainer's metrics */}
+          {/* Render each explainer's metrics as circles */}
           {explainerMetrics.map((metrics, index) => {
             const x = xScale(index) + 25
-            const pillWidth = 6
             const circleRadius = 3
-            const metricSpacing = 6  // Minimal spacing to keep metrics side by side
-
-            // Calculate pill dimensions with minimum height
-            const fuzzRangeHeight = metrics.fuzz.zMin !== null && metrics.fuzz.zMax !== null
-              ? Math.abs(yScale(metrics.fuzz.zMin!) - yScale(metrics.fuzz.zMax!))
-              : 0
-            const fuzzHeight = Math.max(fuzzRangeHeight, pillWidth)
-            const fuzzY = metrics.fuzz.zMin !== null && metrics.fuzz.zMax !== null
-              ? (yScale(metrics.fuzz.zMax!) + yScale(metrics.fuzz.zMin!)) / 2 - fuzzHeight / 2
-              : 0
-
-            const detectionRangeHeight = metrics.detection.zMin !== null && metrics.detection.zMax !== null
-              ? Math.abs(yScale(metrics.detection.zMin!) - yScale(metrics.detection.zMax!))
-              : 0
-            const detectionHeight = Math.max(detectionRangeHeight, pillWidth)
-            const detectionY = metrics.detection.zMin !== null && metrics.detection.zMax !== null
-              ? (yScale(metrics.detection.zMax!) + yScale(metrics.detection.zMin!)) / 2 - detectionHeight / 2
-              : 0
+            const metricSpacing = 6
 
             return (
               <g key={metrics.id}>
@@ -189,39 +200,31 @@ const QualityScoreBreakdown: React.FC<QualityScoreBreakdownProps> = React.memo((
                   {metrics.name}
                 </text>
 
-                {/* Fuzz pill */}
-                {metrics.fuzz.zMin !== null && metrics.fuzz.zMax !== null && (
-                  <rect
-                    x={x - metricSpacing - pillWidth / 2}
-                    y={fuzzY}
-                    width={pillWidth}
-                    height={fuzzHeight}
-                    rx={pillWidth / 2}
-                    ry={pillWidth / 2}
+                {/* Fuzz circle */}
+                {metrics.fuzz.value !== null && (
+                  <circle
+                    cx={x - metricSpacing}
+                    cy={yScale(metrics.fuzz.value)}
+                    r={circleRadius}
                     fill={metrics.fuzz.color}
-                    opacity={1}
                   />
                 )}
 
-                {/* Detection pill */}
-                {metrics.detection.zMin !== null && metrics.detection.zMax !== null && (
-                  <rect
-                    x={x - pillWidth / 2}
-                    y={detectionY}
-                    width={pillWidth}
-                    height={detectionHeight}
-                    rx={pillWidth / 2}
-                    ry={pillWidth / 2}
+                {/* Detection circle */}
+                {metrics.detection.value !== null && (
+                  <circle
+                    cx={x}
+                    cy={yScale(metrics.detection.value)}
+                    r={circleRadius}
                     fill={metrics.detection.color}
-                    opacity={1}
                   />
                 )}
 
                 {/* Embedding circle */}
-                {metrics.embedding.zScore !== null && (
+                {metrics.embedding.value !== null && (
                   <circle
                     cx={x + metricSpacing}
-                    cy={yScale(metrics.embedding.zScore)}
+                    cy={yScale(metrics.embedding.value)}
                     r={circleRadius}
                     fill={metrics.embedding.color}
                   />

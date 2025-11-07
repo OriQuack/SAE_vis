@@ -72,24 +72,21 @@ function averageNonNull(values: (number | null)[]): number | null {
 }
 
 /**
- * Normalize a score value using z-score + min-max normalization
+ * Normalize a score value using simple min-max normalization
  *
- * Flow: value -> z-score -> min-max normalization
+ * Flow: value -> min-max normalization -> [0, 1]
  *
  * @param value - Raw score value
- * @param stats - Statistics containing mean, std, z_min, z_max
+ * @param stats - Statistics containing min, max
  * @returns Normalized value (0-1) or null if range is invalid
  */
 export function normalizeScore(value: number, stats: MetricNormalizationStats): number | null {
-  const { mean, std, z_min, z_max } = stats
+  const { min, max } = stats
 
-  // Step 1: Calculate z-score
-  const zScore = std > 0 ? (value - mean) / std : 0
-
-  // Step 2: Min-max normalization of z-score
-  const zRange = z_max - z_min
-  if (zRange <= 0) return null
-  return (zScore - z_min) / zRange
+  // Min-max normalization
+  const range = max - min
+  if (range <= 0) return null
+  return (value - min) / range
 }
 
 
@@ -167,17 +164,17 @@ export function compareValues(
 // ============================================================================
 
 /**
- * Calculate quality score from embedding, fuzz, and detection
+ * Calculate quality score from embedding, fuzz, and detection using simple averaging
  *
  * Process:
- * 1. Calculate z-score for each metric: (value - mean) / std
- * 2. Average the three z-scores
- * 3. Apply min-max normalization to averaged z-score using quality.z_min and quality.z_max
+ * 1. Average scorers (for fuzz and detection)
+ * 2. Normalize each metric to [0,1] using min-max: (value - min) / (max - min)
+ * 3. Average the three normalized scores
  *
  * @param embedding - Embedding score
  * @param fuzzScores - Fuzz scores from scorers (s1, s2, s3)
  * @param detectionScores - Detection scores from scorers (s1, s2, s3)
- * @param globalStats - Global normalization statistics (includes quality.z_min, quality.z_max)
+ * @param globalStats - Global normalization statistics (min, max for each metric)
  * @returns Quality score (0-1) or null if insufficient data
  */
 export function calculateQualityScore(
@@ -186,48 +183,45 @@ export function calculateQualityScore(
   detectionScores: { s1: number | null; s2: number | null; s3: number | null },
   globalStats: Record<string, MetricNormalizationStats>
 ): number | null {
-  const zScores: number[] = []
+  const normalizedScores: number[] = []
 
-  // Calculate z-score for embedding (not normalized yet)
+  // Normalize embedding
   if (embedding !== null && globalStats.embedding) {
-    const { mean, std } = globalStats.embedding
-    const zScore = std > 0 ? (embedding - mean) / std : 0
-    zScores.push(zScore)
+    const { min, max } = globalStats.embedding
+    const range = max - min
+    if (range > 0) {
+      const normalized = (embedding - min) / range
+      normalizedScores.push(normalized)
+    }
   }
 
-  // Calculate z-score for fuzz (average across scorers first)
+  // Normalize fuzz (average across scorers first)
   const fuzzAvg = averageNonNull([fuzzScores.s1, fuzzScores.s2, fuzzScores.s3])
   if (fuzzAvg !== null && globalStats.fuzz) {
-    const { mean, std } = globalStats.fuzz
-    const zScore = std > 0 ? (fuzzAvg - mean) / std : 0
-    zScores.push(zScore)
+    const { min, max } = globalStats.fuzz
+    const range = max - min
+    if (range > 0) {
+      const normalized = (fuzzAvg - min) / range
+      normalizedScores.push(normalized)
+    }
   }
 
-  // Calculate z-score for detection (average across scorers first)
+  // Normalize detection (average across scorers first)
   const detectionAvg = averageNonNull([detectionScores.s1, detectionScores.s2, detectionScores.s3])
   if (detectionAvg !== null && globalStats.detection) {
-    const { mean, std } = globalStats.detection
-    const zScore = std > 0 ? (detectionAvg - mean) / std : 0
-    zScores.push(zScore)
+    const { min, max } = globalStats.detection
+    const range = max - min
+    if (range > 0) {
+      const normalized = (detectionAvg - min) / range
+      normalizedScores.push(normalized)
+    }
   }
 
-  // No valid z-scores
-  if (zScores.length === 0) return null
+  // No valid normalized scores
+  if (normalizedScores.length === 0) return null
 
-  // Average the z-scores
-  const avgZScore = zScores.reduce((sum, z) => sum + z, 0) / zScores.length
-
-  // Normalize the averaged z-score using quality z_min and z_max
-  if (!globalStats.overall || !globalStats.overall.z_min || !globalStats.overall.z_max) {
-    // Fallback: if no overall stats, return null
-    return null
-  }
-
-  const { z_min, z_max } = globalStats.overall
-  const zRange = z_max - z_min
-  if (zRange <= 0) return null
-
-  return (avgZScore - z_min) / zRange
+  // Average the normalized scores
+  return normalizedScores.reduce((sum, s) => sum + s, 0) / normalizedScores.length
 }
 
 
@@ -397,6 +391,108 @@ export function calculateQualityScoreStats(
     max: Math.max(...scores),
     avg: scores.reduce((a, b) => a + b, 0) / scores.length,
     count: scores.length
+  }
+}
+
+/**
+ * Find the explainer with the maximum quality score for a feature
+ * Also calculates the range of normalized component scores for that explainer
+ *
+ * @param feature - Feature row
+ * @param globalStats - Global normalization statistics
+ * @returns Object with explainer ID, quality score, and component range, or null
+ */
+export function findMaxQualityScoreExplainer(
+  feature: FeatureTableRow,
+  globalStats: Record<string, MetricNormalizationStats> | undefined
+): {
+  explainerId: string
+  qualityScore: number
+  componentRange: { min: number; max: number }
+} | null {
+  if (!globalStats) return null
+
+  const explainerIds = Object.keys(feature.explainers)
+  let maxScore = -Infinity
+  let maxExplainerId: string | null = null
+  let maxExplainerData: any = null
+
+  // Find explainer with maximum quality score
+  for (const explainerId of explainerIds) {
+    const explainerData = feature.explainers[explainerId]
+    if (!explainerData) continue
+
+    const score = calculateQualityScore(
+      explainerData.embedding,
+      explainerData.fuzz,
+      explainerData.detection,
+      globalStats
+    )
+
+    if (score !== null && score > maxScore) {
+      maxScore = score
+      maxExplainerId = explainerId
+      maxExplainerData = explainerData
+    }
+  }
+
+  if (maxExplainerId === null || maxExplainerData === null) return null
+
+  // Calculate normalized component scores for the max explainer
+  const normalizedComponents: number[] = []
+
+  // Normalize embedding
+  if (maxExplainerData.embedding !== null && globalStats.embedding) {
+    const { min, max } = globalStats.embedding
+    const range = max - min
+    if (range > 0) {
+      const normalized = (maxExplainerData.embedding - min) / range
+      normalizedComponents.push(normalized)
+    }
+  }
+
+  // Normalize fuzz (average across scorers first)
+  const fuzzAvg = averageNonNull([
+    maxExplainerData.fuzz.s1,
+    maxExplainerData.fuzz.s2,
+    maxExplainerData.fuzz.s3
+  ])
+  if (fuzzAvg !== null && globalStats.fuzz) {
+    const { min, max } = globalStats.fuzz
+    const range = max - min
+    if (range > 0) {
+      const normalized = (fuzzAvg - min) / range
+      normalizedComponents.push(normalized)
+    }
+  }
+
+  // Normalize detection (average across scorers first)
+  const detectionAvg = averageNonNull([
+    maxExplainerData.detection.s1,
+    maxExplainerData.detection.s2,
+    maxExplainerData.detection.s3
+  ])
+  if (detectionAvg !== null && globalStats.detection) {
+    const { min, max } = globalStats.detection
+    const range = max - min
+    if (range > 0) {
+      const normalized = (detectionAvg - min) / range
+      normalizedComponents.push(normalized)
+    }
+  }
+
+  // Calculate component range
+  const componentRange = normalizedComponents.length > 0
+    ? {
+        min: Math.min(...normalizedComponents),
+        max: Math.max(...normalizedComponents)
+      }
+    : { min: 0, max: 0 }
+
+  return {
+    explainerId: maxExplainerId,
+    qualityScore: maxScore,
+    componentRange
   }
 }
 

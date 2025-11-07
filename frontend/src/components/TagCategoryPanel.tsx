@@ -46,9 +46,15 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
   const circleRadius = 25;
 
   // Get circle visual state based on selection and hover
-  const getCircleStyle = (stage: typeof stages[0]) => {
+  const getCircleStyle = (stage: typeof stages[0], stageIndex: number) => {
     const isSelected = selectedCategory === stage.categoryId;
     const isHovered = hoveredCategory === stage.categoryId && stage.enabled;
+
+    // Find the index of the selected stage
+    const selectedStageIndex = stages.findIndex(s => s.categoryId === selectedCategory);
+
+    // Check if this stage is "below" (comes before) the selected stage
+    const isBeforeSelected = selectedStageIndex !== -1 && stageIndex < selectedStageIndex;
 
     if (isSelected) {
       // Selected state: Blue fill with bold stroke
@@ -56,6 +62,14 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
         fill: '#3b82f6',  // blue-500
         stroke: '#2563eb',  // blue-600
         strokeWidth: '3',
+        cursor: stage.enabled ? 'pointer' : 'not-allowed'
+      };
+    } else if (isBeforeSelected) {
+      // Stage is before the selected stage: Make it blue too
+      return {
+        fill: '#3b82f6',  // blue-500
+        stroke: '#2563eb',  // blue-600
+        strokeWidth: '2',
         cursor: stage.enabled ? 'pointer' : 'not-allowed'
       };
     } else if (isHovered) {
@@ -117,7 +131,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
 
         {/* Render circles and labels */}
         {stages.map((stage, i) => {
-          const style = getCircleStyle(stage);
+          const style = getCircleStyle(stage, i);
 
           return (
             <g key={i}>

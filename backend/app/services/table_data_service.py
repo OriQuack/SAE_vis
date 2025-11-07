@@ -433,9 +433,9 @@ class TableDataService:
         feature_ids: List[int]
     ) -> Dict[str, Dict[str, float]]:
         """
-        Compute global statistics for frontend z-score normalization.
+        Compute global statistics for frontend min-max normalization.
 
-        Flow: simple scores -> z-scores -> min-max normalization -> color
+        Flow: simple scores -> min-max normalization -> average -> quality score
 
         Args:
             scores_df: Scores DataFrame
@@ -443,7 +443,7 @@ class TableDataService:
             feature_ids: List of feature IDs
 
         Returns:
-            Dict with global stats: {'metric_name': {'mean': float, 'std': float, 'min': float, 'max': float, 'z_min': float, 'z_max': float}}
+            Dict with global stats: {'metric_name': {'min': float, 'max': float}}
         """
         embedding_values = []
         fuzz_values = []
@@ -476,93 +476,26 @@ class TableDataService:
                 if det_avg is not None:
                     detection_values.append(det_avg)
 
-        # Compute global statistics with z-score min/max
+        # Compute simplified global statistics (min/max only)
         global_stats = {}
 
         if len(embedding_values) >= 2:
-            mean = float(np.mean(embedding_values))
-            std = float(np.std(embedding_values, ddof=1))
-
-            # Calculate z-scores for all values
-            z_scores = [(v - mean) / std if std > 0 else 0 for v in embedding_values]
-
             global_stats['embedding'] = {
-                'mean': mean,
-                'std': std,
                 'min': float(np.min(embedding_values)),
-                'max': float(np.max(embedding_values)),
-                'z_min': float(np.min(z_scores)),
-                'z_max': float(np.max(z_scores))
+                'max': float(np.max(embedding_values))
             }
 
         if len(fuzz_values) >= 2:
-            mean = float(np.mean(fuzz_values))
-            std = float(np.std(fuzz_values, ddof=1))
-
-            # Calculate z-scores for all values
-            z_scores = [(v - mean) / std if std > 0 else 0 for v in fuzz_values]
-
             global_stats['fuzz'] = {
-                'mean': mean,
-                'std': std,
                 'min': float(np.min(fuzz_values)),
-                'max': float(np.max(fuzz_values)),
-                'z_min': float(np.min(z_scores)),
-                'z_max': float(np.max(z_scores))
+                'max': float(np.max(fuzz_values))
             }
 
         if len(detection_values) >= 2:
-            mean = float(np.mean(detection_values))
-            std = float(np.std(detection_values, ddof=1))
-
-            # Calculate z-scores for all values
-            z_scores = [(v - mean) / std if std > 0 else 0 for v in detection_values]
-
             global_stats['detection'] = {
-                'mean': mean,
-                'std': std,
                 'min': float(np.min(detection_values)),
-                'max': float(np.max(detection_values)),
-                'z_min': float(np.min(z_scores)),
-                'z_max': float(np.max(z_scores))
+                'max': float(np.max(detection_values))
             }
-
-        # Calculate overall z-score min/max (for overall score color encoding)
-        # Overall z-score = average of (z_embedding, z_fuzz, z_detection)
-        if 'embedding' in global_stats and 'fuzz' in global_stats and 'detection' in global_stats:
-            overall_z_scores = []
-
-            # Re-iterate through features to calculate averaged z-scores
-            emb_mean = global_stats['embedding']['mean']
-            emb_std = global_stats['embedding']['std']
-            fuzz_mean = global_stats['fuzz']['mean']
-            fuzz_std = global_stats['fuzz']['std']
-            det_mean = global_stats['detection']['mean']
-            det_std = global_stats['detection']['std']
-
-            # Use the same iteration as before to maintain consistency
-            for i, emb_val in enumerate(embedding_values):
-                if i < len(fuzz_values) and i < len(detection_values):
-                    # Calculate z-scores
-                    z_emb = (emb_val - emb_mean) / emb_std if emb_std > 0 else 0
-                    z_fuzz = (fuzz_values[i] - fuzz_mean) / fuzz_std if fuzz_std > 0 else 0
-                    z_det = (detection_values[i] - det_mean) / det_std if det_std > 0 else 0
-
-                    # Average the z-scores
-                    avg_z = (z_emb + z_fuzz + z_det) / 3
-                    overall_z_scores.append(avg_z)
-
-            if overall_z_scores:
-                # For overall, we only use z_min and z_max, but Pydantic schema requires all fields
-                # Set mean, std, min, max to dummy values (0.0) since they're not used
-                global_stats['overall'] = {
-                    'mean': 0.0,
-                    'std': 1.0,
-                    'min': 0.0,
-                    'max': 1.0,
-                    'z_min': float(np.min(overall_z_scores)),
-                    'z_max': float(np.max(overall_z_scores))
-                }
 
         return global_stats
 

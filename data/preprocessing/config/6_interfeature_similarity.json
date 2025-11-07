@@ -18,8 +18,8 @@
     "char_ngram_sizes": [2, 3, 4, 5],
     "word_ngram_sizes": [1, 2, 3],
     "semantic_threshold": 0.3,
-    "char_jaccard_threshold": 0.6,
-    "word_jaccard_threshold": 0.6
+    "char_jaccard_threshold": 0.7,
+    "word_jaccard_threshold": 0.80
   },
 
   "processing_notes": {

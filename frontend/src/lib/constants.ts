@@ -139,40 +139,73 @@ export const NEUTRAL_ICON_COLORS = {
 } as const
 
 // ============================================================================
+// THRESHOLD REGION COLORS - User-friendly colors for histogram threshold regions
+// Used to indicate good/bad feature quality based on metric type
+// Uses lower opacity (60%) for subtle visual distinction
+// ============================================================================
+export const THRESHOLD_COLORS = {
+  RED: PAUL_TOL_BRIGHT.RED + '99',      // Normal red with 60% opacity - Used for "bad" regions
+  GREEN: OKABE_ITO_PALETTE.BLUISH_GREEN + '99'    // Green with 60% opacity - Used for "good" regions
+} as const
+
+/**
+ * Get threshold region colors for a metric based on its interpretation
+ * - decoder_similarity: Above threshold (solid) = RED (bad/split), Below (stripes) = GREEN (good/consistent)
+ * - quality_score: Above threshold (solid) = GREEN (good quality), Below (stripes) = RED (bad quality)
+ * - Other metrics: null (use default metric colors)
+ *
+ * @param metric - Metric type
+ * @returns Object with 'above' and 'below' colors, or null for default behavior
+ */
+export function getThresholdRegionColors(metric: string): { above: string; below: string } | null {
+  switch (metric) {
+    case METRIC_DECODER_SIMILARITY:
+      // Feature splitting: high values indicate split/inconsistent features (bad)
+      return { above: THRESHOLD_COLORS.RED, below: THRESHOLD_COLORS.GREEN }
+    case METRIC_QUALITY_SCORE:
+      // Quality: high values indicate good quality features
+      return { above: THRESHOLD_COLORS.GREEN, below: THRESHOLD_COLORS.RED }
+    default:
+      // Other metrics use default metric-specific colors
+      return null
+  }
+}
+
+// ============================================================================
 // METRIC-SPECIFIC COLORS - Opacity-based gradients for score metrics
 // Based on Okabe-Ito colorblind-safe palette
 // Uses same opacity pattern as consistency colors: white (low) → color (high)
 // ============================================================================
 export const METRIC_COLORS = {
-  DECODER_SIMILARITY: PAUL_TOL_BRIGHT.RED,
+  DECODER_SIMILARITY: PAUL_TOL_BRIGHT.BLUE,
 
-  SEMANTIC_SIMILARITY: OKABE_ITO_PALETTE.REDDISH_PURPLE,
+  SEMANTIC_SIMILARITY: PAUL_TOL_BRIGHT.GREEN,
 
   // Embedding Score: Blue gradient (Okabe-Ito Blue)
   SCORE_EMBEDDING: {
-    LOW: OKABE_ITO_PALETTE.BLUE + '00',    // 0% opacity (transparent/white)
-    MEDIUM: OKABE_ITO_PALETTE.BLUE + '80', // 50% opacity (light blue)
-    HIGH: OKABE_ITO_PALETTE.BLUE + 'FF'    // 100% opacity (full blue #0072B2)
+    LOW: PAUL_TOL_BRIGHT.PURPLE + '00',    // 0% opacity (transparent/white)
+    MEDIUM: PAUL_TOL_BRIGHT.PURPLE + '80', // 50% opacity (light blue)
+    HIGH: PAUL_TOL_BRIGHT.PURPLE + 'FF'    // 100% opacity (full blue #0072B2)
   },
 
   // Fuzz Score: Orange-Red gradient (Okabe-Ito Vermillion)
   SCORE_FUZZ: {
-    LOW: OKABE_ITO_PALETTE.ORANGE + '00',    // 0% opacity (transparent/white)
-    MEDIUM: OKABE_ITO_PALETTE.ORANGE + '80', // 50% opacity (light orange-red)
-    HIGH: OKABE_ITO_PALETTE.ORANGE + 'FF'    // 100% opacity (full vermillion #D55E00)
+    LOW: PAUL_TOL_BRIGHT.YELLOW + '00',    // 0% opacity (transparent/white)
+    MEDIUM: PAUL_TOL_BRIGHT.YELLOW + '80', // 50% opacity (light orange-red)
+    HIGH: PAUL_TOL_BRIGHT.YELLOW + 'FF'    // 100% opacity (full vermillion #D55E00)
   },
 
   // Detection Score: Green gradient (Paul Tol Green)
   SCORE_DETECTION: {
-    LOW: PAUL_TOL_BRIGHT.GREEN + '00',    // 0% opacity (transparent/white)
-    MEDIUM: PAUL_TOL_BRIGHT.GREEN + '80', // 50% opacity (light green)
-    HIGH: PAUL_TOL_BRIGHT.GREEN + 'FF'    // 100% opacity (full green #228833)
+    LOW: PAUL_TOL_BRIGHT.CYAN + '00',    // 0% opacity (transparent/white)
+    MEDIUM: PAUL_TOL_BRIGHT.CYAN + '80', // 50% opacity (light green)
+    HIGH: PAUL_TOL_BRIGHT.CYAN + 'FF'    // 100% opacity (full green #228833)
   },
 
   QUALITY_SCORE_COLORS: {
-    LOW: '#1f293700',    // 0% opacity (transparent/white) - 0.0 score
-    MEDIUM: '#1f293780', // 50% opacity (medium gray) - 0.5 score
-    HIGH: '#1f2937FF'    // 100% opacity (dark gray) - 1.0 score
+    LOW: PAUL_TOL_BRIGHT.GRAY + '00',    // 0% opacity (transparent/white) - 0.0 score
+    MEDIUM: PAUL_TOL_BRIGHT.GRAY + '80', // 50% opacity (medium gray) - 0.5 score
+    HIGH: PAUL_TOL_BRIGHT.GRAY + 'FF'   // 100% opacity (dark gray) - 1.0 score
   }
 } as const
 

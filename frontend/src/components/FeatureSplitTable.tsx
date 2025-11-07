@@ -4,7 +4,7 @@ import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow, DecoderStageRow, StageTableContext } from '../types'
 import { METRIC_DECODER_SIMILARITY } from '../lib/constants'
 import ActivationExample from './ActivationExample'
-import DecoderSimilarityOverlay from './DecoderSimilarityOverlay'
+import DecoderSimilarityOverlay from './FeatureSplitOverlay'
 import '../styles/TablePanel.css'
 import '../styles/DecoderSimilarityTable.css'
 

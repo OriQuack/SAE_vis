@@ -8,7 +8,7 @@
 
   "processing_parameters": {
     "semantic_threshold": 0.3,
-    "lexical_threshold": 0.4,
+    "lexical_threshold": 0.6,
     "token_processing": {
       "remove_leading_underscore": true,
       "join_tokens": true

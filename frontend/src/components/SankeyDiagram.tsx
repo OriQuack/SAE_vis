@@ -15,14 +15,12 @@ import { calculateVerticalBarNodeLayout } from '../lib/d3-sankey-utils'
 import {
   getNodeMetrics
 } from '../lib/threshold-utils'
-import { getNodesContainingFeatures } from '../store/sankey-actions'
 import { useResizeObserver } from '../lib/utils'
 import type { D3SankeyNode, D3SankeyLink } from '../types'
 import {
   PANEL_LEFT,
   PANEL_RIGHT,
-  METRIC_DISPLAY_NAMES,
-  CATEGORY_DECODER_SIMILARITY
+  METRIC_DISPLAY_NAMES
 } from '../lib/constants'
 import { SankeyOverlay } from './SankeyOverlay'
 // SankeyInlineSelector removed - no longer needed with fixed 3-stage auto-expansion
@@ -65,9 +63,9 @@ const SankeyNode: React.FC<{
   isHovered,
   isHighlighted,
   isSelected = false,
-  flowDirection,
-  animationDuration,
-  sankeyTree
+  flowDirection: _flowDirection,
+  animationDuration: _animationDuration,
+  sankeyTree: _sankeyTree
 }) => {
   if (node.x0 === undefined || node.x1 === undefined || node.y0 === undefined || node.y1 === undefined) {
     return null
@@ -76,34 +74,6 @@ const SankeyNode: React.FC<{
   const color = getNodeColor(node)
   const width = node.x1 - node.x0
   const height = node.y1 - node.y0
-  const isRightToLeft = flowDirection === 'right-to-left'
-
-  // Special handling for root node label
-  let labelX: number
-  let textAnchor: 'start' | 'end' | 'middle'
-  let showLabel = true
-
-  if (node.id === 'root' && sankeyTree) {
-    const rootTreeNode = sankeyTree.get('root')
-    if (rootTreeNode && rootTreeNode.children.length === 0) {
-      // Root with no children (initial state): show label on the right
-      labelX = node.x1 + 6
-      textAnchor = 'start'
-    } else if (rootTreeNode && rootTreeNode.children.length > 0) {
-      // Root with children (metric selected): hide label
-      showLabel = false
-      labelX = node.x0 - 6 // Dummy value, won't be used
-      textAnchor = 'end'
-    } else {
-      // Fallback (shouldn't happen)
-      labelX = isRightToLeft ? node.x1 + 6 : node.x0 - 6
-      textAnchor = isRightToLeft ? 'start' : 'end'
-    }
-  } else {
-    // Normal nodes: use flow direction
-    labelX = isRightToLeft ? node.x1 + 6 : node.x0 - 6
-    textAnchor = isRightToLeft ? 'start' : 'end'
-  }
 
   return (
     <g className="sankey-node">
@@ -113,8 +83,9 @@ const SankeyNode: React.FC<{
         width={width}
         height={height}
         fill={color}
-        stroke={isSelected ? '#2563eb' : 'none'}
-        strokeWidth={isSelected ? 3 : 0}
+        fillOpacity={0.5}
+        stroke={isSelected ? '#2563eb' : color}
+        strokeWidth={isSelected ? 3 : 2}
         style={{
         //   transition: `all ${animationDuration}ms ease-out`,
           cursor: onClick ? 'pointer' : 'default',
@@ -124,43 +95,6 @@ const SankeyNode: React.FC<{
         onMouseLeave={onMouseLeave}
         onClick={onClick}
       />
-
-      {showLabel && (
-        <>
-          {node.name.split('\n').map((line, index) => (
-            <text
-              key={index}
-              x={labelX}
-              y={((node.y0 ?? 0) + (node.y1 ?? 0)) / 2 + (index * 14)}
-              dy="0.35em"
-              fontSize={index === 0 ? 12 : 10}
-              fill="#000000"
-              opacity={1}
-              fontWeight={isHovered ? 600 : 400}
-              textAnchor={textAnchor}
-              style={{
-                transition: `font-weight ${animationDuration}ms ease-out`,
-                pointerEvents: 'none'
-              }}
-            >
-              {line}
-            </text>
-          ))}
-
-          <text
-            x={labelX}
-            y={(node.y0 + node.y1) / 2 + (node.name.split('\n').length * 14)}
-            dy="0.35em"
-            fontSize={10}
-            fill="#000000"
-            opacity={1}
-            textAnchor={textAnchor}
-            style={{ pointerEvents: 'none' }}
-          >
-            ({node.feature_count.toLocaleString()})
-          </text>
-        </>
-      )}
     </g>
   )
 }
@@ -223,17 +157,11 @@ const VerticalBarSankeyNode: React.FC<{
   onMouseLeave?: () => void
   isSelected?: boolean
   isHovered?: boolean
-}> = ({ node, scrollState, flowDirection, onClick, onMouseEnter, onMouseLeave, isSelected = false, isHovered = false }) => {
+}> = ({ node, scrollState, flowDirection: _flowDirection, onClick, onMouseEnter, onMouseLeave, isSelected = false, isHovered = false }) => {
   const layout = calculateVerticalBarNodeLayout(node, scrollState)
 
   // Check if this is a placeholder node
   const isPlaceholder = node.id === 'placeholder_vertical_bar'
-
-  // Calculate label position (same as normal nodes)
-  const isRightToLeft = flowDirection === 'right-to-left'
-  const labelX = isRightToLeft && node.x1 !== undefined ? node.x1 + 6 : (node.x0 !== undefined ? node.x0 - 6 : 0)
-  const textAnchor = isRightToLeft ? 'start' : 'end'
-  const labelY = node.y0 !== undefined && node.y1 !== undefined ? (node.y0 + node.y1) / 2 : 0
 
   // Calculate bounding box for selection border
   const boundingBox = layout.subNodes.length > 0 ? {
@@ -306,40 +234,6 @@ const VerticalBarSankeyNode: React.FC<{
           style={{ pointerEvents: 'none' }}
         />
       )}
-
-      {/* Node name and feature count labels (same as normal nodes) */}
-      {!isPlaceholder && (
-        <>
-          {node.name.split('\n').map((line, index) => (
-            <text
-              key={index}
-              x={labelX}
-              y={labelY + (index * 14)}
-              dy="0.35em"
-              fontSize={index === 0 ? 12 : 10}
-              fill="#000000"
-              opacity={1}
-              fontWeight={400}
-              textAnchor={textAnchor}
-              style={{ pointerEvents: 'none' }}
-            >
-              {line}
-            </text>
-          ))}
-          <text
-            x={labelX}
-            y={labelY + (node.name.split('\n').length * 14)}
-            dy="0.35em"
-            fontSize={10}
-            fill="#000000"
-            opacity={1}
-            textAnchor={textAnchor}
-            style={{ pointerEvents: 'none' }}
-          >
-            ({node.feature_count.toLocaleString()})
-          </text>
-        </>
-      )}
     </g>
   )
 }
@@ -369,24 +263,15 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const tableScrollState = useVisualizationStore(state => state.tableScrollState)
   const sankeyTree = useVisualizationStore(state => state[panelKey].sankeyTree)
   const tableSelectedNodeIds = useVisualizationStore(state => state.tableSelectedNodeIds)
-  const selectedFeatureIds = useVisualizationStore(state => state.selectedFeatureIds)
   const {
     showHistogramPopover,
     // addStageToNode, // REMOVED: No longer needed with fixed 3-stage auto-expansion
     // removeNodeStage, // REMOVED: No longer needed with fixed 3-stage auto-expansion
     updateNodeThresholds,
     updateNodeThresholdsByPercentile,
-    toggleNodeSelection,
-    setActiveStageNode
+    selectNodeWithCategory,
+    getNodeCategory
   } = useVisualizationStore()
-
-  // Compute node IDs that contain selected features (from DecoderSimilarityTable checkboxes)
-  const featureHighlightedNodeIds = useMemo(() => {
-    if (panel !== PANEL_LEFT || !sankeyTree) {
-      return []
-    }
-    return getNodesContainingFeatures(sankeyTree, selectedFeatureIds)
-  }, [panel, sankeyTree, selectedFeatureIds])
 
   // NEW TREE-BASED SYSTEM: use computedSankey directly
   const data = useMemo(() => {
@@ -577,50 +462,71 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
   const handleNodeSelectionClick = useCallback((event: React.MouseEvent, node: D3SankeyNode) => {
     console.log('[SankeyDiagram.handleNodeSelectionClick] ⚡ CLICK EVENT FIRED!')
-    console.log('[SankeyDiagram.handleNodeSelectionClick] 🔍 DEBUG: Node clicked:', {
+    console.log('[SankeyDiagram.handleNodeSelectionClick] 🔍 Node clicked:', {
       id: node.id,
-      category: node.category,
-      metric: node.metric,
+      node_type: node.node_type,
       stage: node.stage,
-      panel: panel,
-      CATEGORY_DECODER_SIMILARITY: CATEGORY_DECODER_SIMILARITY
+      panel: panel
     })
 
-    // Only allow selection in left panel
+    // 1. Only allow selection in left panel
     if (panel !== PANEL_LEFT) {
-      console.log('[SankeyDiagram.handleNodeSelectionClick] ⚠️ DEBUG: Ignoring click - not left panel')
+      console.log('[SankeyDiagram.handleNodeSelectionClick] ⚠️ Ignoring click - not left panel')
       return
     }
 
-    // Don't select root node or placeholder nodes
+    // 2. Only allow rightmost vertical bar nodes
+    if (node.node_type !== 'vertical_bar') {
+      console.log('[SankeyDiagram.handleNodeSelectionClick] ⚠️ Ignoring click - not a vertical bar node')
+      return
+    }
+
+    if (!data || !data.nodes) {
+      console.log('[SankeyDiagram.handleNodeSelectionClick] ⚠️ No data available')
+      return
+    }
+
+    const maxStage = Math.max(...data.nodes.map((n: any) => n.stage))
+    if (node.stage !== maxStage) {
+      console.log('[SankeyDiagram.handleNodeSelectionClick] ⚠️ Ignoring click - not a rightmost node (stage:', node.stage, ', maxStage:', maxStage, ')')
+      return
+    }
+
+    // 3. Skip root and placeholder nodes
     if (node.id === 'root' || node.id === 'placeholder_vertical_bar') {
-      console.log('[SankeyDiagram.handleNodeSelectionClick] ⚠️ DEBUG: Ignoring click - root or placeholder node')
+      console.log('[SankeyDiagram.handleNodeSelectionClick] ⚠️ Ignoring click - root or placeholder node')
       return
     }
 
     event.stopPropagation()
 
-    // Check if this is a decoder similarity stage node using category
-    // Category is already computed from parent's metric during tree-to-D3 conversion
-    console.log('[SankeyDiagram.handleNodeSelectionClick] 🔍 DEBUG: Checking category:', node.category, '===', CATEGORY_DECODER_SIMILARITY, '?', node.category === CATEGORY_DECODER_SIMILARITY)
+    // 4. Check if this node is already selected (toggle behavior)
+    const isAlreadySelected = tableSelectedNodeIds.includes(node.id)
 
-    if (node.category === CATEGORY_DECODER_SIMILARITY) {
-      console.log('[SankeyDiagram.handleNodeSelectionClick] 🎯 DEBUG: MATCH! Opening decoder similarity stage table')
-
-      // IMPORTANT: Toggle selection FIRST for visual highlighting
-      toggleNodeSelection(node.id)
-
-      // THEN open the stage table
-      setActiveStageNode(node.id, node.category)
-      console.log('[SankeyDiagram.handleNodeSelectionClick] 🎯 Opening decoder similarity stage table for node:', node.id, 'category:', node.category)
+    if (isAlreadySelected) {
+      // Deselect: clear selection and active stage
+      console.log('[SankeyDiagram.handleNodeSelectionClick] 🔄 Node already selected - deselecting')
+      const { selectSingleNode, setActiveStageNode } = useVisualizationStore.getState()
+      selectSingleNode(null)
+      setActiveStageNode(null, null)
+      console.log('[SankeyDiagram.handleNodeSelectionClick] ✅ Node deselected, showing all features')
       return
     }
 
-    // Otherwise -> toggle node selection for table filtering
-    console.log('[SankeyDiagram.handleNodeSelectionClick] 🔍 DEBUG: No match, toggling node selection')
-    toggleNodeSelection(node.id)
-    console.log('[SankeyDiagram.handleNodeSelectionClick] 🎯 Node selection toggled:', node.id)
-  }, [panel, toggleNodeSelection, setActiveStageNode])
+    // 5. Get node category from tree
+    const category = getNodeCategory(node.id)
+
+    if (!category) {
+      console.warn('[SankeyDiagram.handleNodeSelectionClick] ⚠️ Cannot determine category for node:', node.id)
+      return
+    }
+
+    console.log('[SankeyDiagram.handleNodeSelectionClick] ✅ Category determined:', category)
+
+    // 6. Select node and activate category (atomic operation with single-select)
+    selectNodeWithCategory(node.id, category)
+    console.log('[SankeyDiagram.handleNodeSelectionClick] 🎯 Selected node with category:', node.id, category)
+  }, [panel, data, tableSelectedNodeIds, selectNodeWithCategory, getNodeCategory])
 
   // Render
   if (error) {
@@ -721,7 +627,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                     })
                   )
 
-                  const labelY = topY + 12  // 12px below the top edge
+                  const labelY = topY - 12  // 12px above the top edge
 
                   const metricLabel = METRIC_DISPLAY_NAMES[node.metric as keyof typeof METRIC_DISPLAY_NAMES] || node.metric
 
@@ -746,13 +652,20 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
             {/* Nodes */}
             <g className="sankey-diagram__nodes">
               {(() => {
+                // Calculate maxStage once for all nodes
+                const maxStage = Math.max(...layout.nodes.map((n: any) => n.stage))
+
                 return layout.nodes.map((node) => {
                   const isHighlighted = hoveredAlluvialNodeId === node.id &&
                                       hoveredAlluvialPanel === (panel === PANEL_LEFT ? 'left' : 'right')
-                  const isSelected = panel === PANEL_LEFT && (
-                    tableSelectedNodeIds.includes(node.id) ||
-                    featureHighlightedNodeIds.includes(node.id)
-                  )
+                  const isSelected = panel === PANEL_LEFT && tableSelectedNodeIds.includes(node.id)
+
+                  // Determine if node is clickable (only rightmost vertical bars in left panel)
+                  const isClickable = panel === PANEL_LEFT &&
+                                      node.node_type === 'vertical_bar' &&
+                                      node.stage === maxStage &&
+                                      node.id !== 'root' &&
+                                      node.id !== 'placeholder_vertical_bar'
 
                   // Check if this is a vertical bar node
                   if (node.node_type === 'vertical_bar') {
@@ -760,17 +673,21 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                     const shouldShowIndicator = winnerNodeId === node.id
 
                     return (
-                      <VerticalBarSankeyNode
+                      <g
                         key={node.id}
-                        node={node}
-                        scrollState={shouldShowIndicator ? tableScrollState : null}
-                        flowDirection={flowDirection}
-                        onClick={(e) => handleNodeSelectionClick(e, node)}
-                        onMouseEnter={() => setHoveredNodeId(node.id)}
-                        onMouseLeave={() => setHoveredNodeId(null)}
-                        isSelected={isSelected}
-                        isHovered={hoveredNodeId === node.id}
-                      />
+                        style={{ cursor: isClickable ? 'pointer' : 'not-allowed' }}
+                      >
+                        <VerticalBarSankeyNode
+                          node={node}
+                          scrollState={shouldShowIndicator ? tableScrollState : null}
+                          flowDirection={flowDirection}
+                          onClick={(e) => handleNodeSelectionClick(e, node)}
+                          onMouseEnter={() => setHoveredNodeId(node.id)}
+                          onMouseLeave={() => setHoveredNodeId(null)}
+                          isSelected={isSelected}
+                          isHovered={hoveredNodeId === node.id}
+                        />
+                      </g>
                     )
                   }
 
@@ -803,6 +720,102 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
               onThresholdUpdate={handleThresholdUpdate}
               onThresholdUpdateByPercentile={handleThresholdUpdateByPercentile}
             />
+
+            {/* Node Labels - rendered after histograms to appear in front */}
+            <g className="sankey-diagram__node-labels">
+              {layout.nodes.map((node) => {
+                const isRightToLeft = flowDirection === 'right-to-left'
+
+                // Check if this is a vertical bar node
+                if (node.node_type === 'vertical_bar') {
+                  // Skip placeholder nodes
+                  if (node.id === 'placeholder_vertical_bar') return null
+
+                  const labelX = isRightToLeft && node.x1 !== undefined ? node.x1 + 6 : (node.x0 !== undefined ? node.x0 - 6 : 0)
+                  const textAnchor = isRightToLeft ? 'start' : 'end'
+                  const labelY = node.y0 !== undefined && node.y1 !== undefined ? (node.y0 + node.y1) / 2 : 0
+                  const isHovered = hoveredNodeId === node.id
+
+                  // Split name into lines and append feature count to the last line
+                  const nameLines = node.name.split('\n')
+                  const lastLineIndex = nameLines.length - 1
+
+                  return (
+                    <g key={`label-${node.id}`}>
+                      {nameLines.map((line, index) => (
+                        <text
+                          key={index}
+                          x={labelX}
+                          y={labelY + (index * 14)}
+                          dy="0.35em"
+                          fontSize={index === 0 ? 12 : 10}
+                          fill="#000000"
+                          opacity={1}
+                          fontWeight={isHovered ? 700 : 600}
+                          textAnchor={textAnchor}
+                          style={{ pointerEvents: 'none' }}
+                        >
+                          {line}{index === lastLineIndex ? ` (${node.feature_count.toLocaleString()})` : ''}
+                        </text>
+                      ))}
+                    </g>
+                  )
+                }
+
+                // Regular nodes
+                // Check if this is root node with/without children
+                let labelX: number
+                let textAnchor: 'start' | 'end' | 'middle'
+                let showLabel = true
+
+                if (node.id === 'root' && sankeyTree) {
+                  const rootTreeNode = sankeyTree.get('root')
+                  if (rootTreeNode && rootTreeNode.children.length === 0) {
+                    labelX = node.x1! + 6
+                    textAnchor = 'start'
+                  } else if (rootTreeNode && rootTreeNode.children.length > 0) {
+                    showLabel = false
+                    labelX = node.x0! - 6
+                    textAnchor = 'end'
+                  } else {
+                    labelX = isRightToLeft ? node.x1! + 6 : node.x0! - 6
+                    textAnchor = isRightToLeft ? 'start' : 'end'
+                  }
+                } else {
+                  labelX = isRightToLeft ? node.x1! + 6 : node.x0! - 6
+                  textAnchor = isRightToLeft ? 'start' : 'end'
+                }
+
+                if (!showLabel) return null
+
+                const isHovered = hoveredNodeId === node.id
+
+                // Split name into lines and append feature count to the last line
+                const nameLines = node.name.split('\n')
+                const lastLineIndex = nameLines.length - 1
+
+                return (
+                  <g key={`label-${node.id}`}>
+                    {nameLines.map((line, index) => (
+                      <text
+                        key={index}
+                        x={labelX}
+                        y={((node.y0 ?? 0) + (node.y1 ?? 0)) / 2 + (index * 14)}
+                        dy="0.35em"
+                        fontSize={index === 0 ? 12 : 10}
+                        fill="#000000"
+                        opacity={1}
+                        fontWeight={isHovered ? 700 : 600}
+                        textAnchor={textAnchor}
+                        style={{ pointerEvents: 'none' }}
+                      >
+                        {line}{index === lastLineIndex ? ` (${node.feature_count.toLocaleString()})` : ''}
+                      </text>
+                    ))}
+                  </g>
+                )
+              })}
+            </g>
 
             {/* Node Buttons - REMOVED: No longer needed with fixed 3-stage structure */}
           </g>

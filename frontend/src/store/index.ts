@@ -48,18 +48,11 @@ interface AppState {
   hoveredAlluvialPanel: 'left' | 'right' | null
   setHoveredAlluvialNode: (nodeId: string | null, panel: 'left' | 'right' | null) => void
 
-  // Feature selection state (used by TablePanel and SankeyDiagram highlighting)
+  // Feature selection state (used by TablePanel checkboxes)
   selectedFeatureIds: Set<number>
   toggleFeatureSelection: (featureId: number) => void
   selectAllFeatures: () => void
   clearFeatureSelection: () => void
-
-  // Feature highlighting (used for scrolling to specific feature in TablePanel)
-  highlightedFeatureId: number | null
-  setHighlightedFeature: (featureId: number | null) => void
-
-  // Tag-related stub (tags removed but still referenced in TablePanel)
-  getFeatureTags: (featureId: number) => any[]
 
   // Comparison view state
   showComparisonView: boolean
@@ -122,6 +115,9 @@ interface AppState {
   // Node selection actions
   toggleNodeSelection: (nodeId: string) => void
   clearNodeSelection: () => void
+  selectSingleNode: (nodeId: string | null) => void
+  getNodeCategory: (nodeId: string) => string | null
+  selectNodeWithCategory: (nodeId: string, categoryId: string) => void
   getSelectedNodeFeatures: () => Set<number> | null
 
   // Table data
@@ -228,11 +224,8 @@ const initialState = {
   hoveredAlluvialNodeId: null,
   hoveredAlluvialPanel: null,
 
-  // Feature selection state (used by TablePanel and SankeyDiagram highlighting)
+  // Feature selection state (used by TablePanel checkboxes)
   selectedFeatureIds: new Set<number>(),
-
-  // Feature highlighting (used for scrolling to specific feature in TablePanel)
-  highlightedFeatureId: null,
 
   // Comparison view state
   showComparisonView: false,
@@ -259,7 +252,7 @@ export const useStore = create<AppState>((set, get) => ({
   setHoveredAlluvialNode: (nodeId: string | null, panel: 'left' | 'right' | null) =>
     set({ hoveredAlluvialNodeId: nodeId, hoveredAlluvialPanel: panel }),
 
-  // Feature selection actions (used by TablePanel checkboxes and SankeyDiagram highlighting)
+  // Feature selection actions (used by TablePanel checkboxes)
   toggleFeatureSelection: (featureId: number) => {
     set((state) => {
       const newSelection = new Set(state.selectedFeatureIds)
@@ -282,16 +275,6 @@ export const useStore = create<AppState>((set, get) => ({
 
   clearFeatureSelection: () => {
     set({ selectedFeatureIds: new Set<number>() })
-  },
-
-  // Feature highlighting actions (used for scrolling to specific feature in TablePanel)
-  setHighlightedFeature: (featureId: number | null) => {
-    set({ highlightedFeatureId: featureId })
-  },
-
-  // Tag-related stub (tags removed but still referenced in TablePanel)
-  getFeatureTags: (_featureId: number) => {
-    return [] // No tags available since tag system was removed
   },
 
   // Comparison view actions

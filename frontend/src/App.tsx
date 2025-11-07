@@ -4,9 +4,10 @@ import SankeyDiagram from './components/SankeyDiagram'
 import AlluvialDiagram from './components/AlluvialDiagram'
 import HistogramPopover from './components/HistogramPopover'
 import FlowPanel from './components/FlowPanel'
-import TablePanel from './components/TablePanel'
+import TablePanel from './components/QualityTablePanel'
 import TagCategoryPanel from './components/TagCategoryPanel'
 import * as api from './api'
+import featureValidatorLogo from './assets/feature-validator-logo.svg'
 import './styles/base.css'
 import './styles/App.css'
 
@@ -34,7 +35,7 @@ const LoadingSpinner: React.FC = () => (
   <div className="health-check">
     <div className="health-check__content">
       <div className="health-check__icon">🔄</div>
-      <h2 className="health-check__title">Connecting to Server...</h2>
+      <h2 className="health-check__title">Feature Validator - Connecting...</h2>
       <p className="health-check__message">Checking connection to the backend API...</p>
       <div className="health-check__spinner">
         <div className="spinner"></div>
@@ -47,7 +48,7 @@ const ErrorDisplay: React.FC<{ error: string; onRetry: () => void }> = ({ error,
   <div className="health-check">
     <div className="health-check__content">
       <div className="health-check__icon">⚠️</div>
-      <h2 className="health-check__title">Connection Failed</h2>
+      <h2 className="health-check__title">Feature Validator - Connection Failed</h2>
       <p className="health-check__message">{error}</p>
       <div className="health-check__actions">
         <button className="health-check__retry" onClick={onRetry}>
@@ -146,9 +147,12 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
       {/* Header */}
       <div className="sankey-view__header">
         <div className="sankey-view__title-section">
-          <h1 className="sankey-view__title">
-            SAE Feature Visualization - Reliability & Consistency Analysis
-          </h1>
+          <img src={featureValidatorLogo} alt="Feature Validator" className="sankey-view__logo" />
+          <h1 className="sankey-view__title">Feature Validator</h1>
+          <span className="sankey-view__separator">—</span>
+          <p className="sankey-view__subtitle">
+            Visual Analysis of Explanation Consistency in Sparse Autoencoders
+          </p>
         </div>
       </div>
 

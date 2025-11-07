@@ -183,18 +183,6 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
               // Get confidence-based CSS class for n-gram underline
               const ngramClass = hasUnderline ? getNgramConfidenceClass(ngramJaccard) : ''
 
-              // Build title with activation and n-gram info
-              let title = token.activation_value?.toFixed(3) || 'No activation'
-              if (hasUnderline) {
-                const ngramText = underlineType === 'char'
-                  ? examples.top_char_ngram_text
-                  : examples.top_word_ngram_text
-                title += `\nN-gram pattern: "${ngramText}" (Jaccard: ${ngramJaccard.toFixed(3)})`
-              }
-              if (hasInterfeatureHighlight) {
-                title += `\nInter-feature match`
-              }
-
               return (
                 <span
                   key={tokenIdx}
@@ -204,7 +192,6 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
                       ? getActivationColor(token.activation_value, example.max_activation)
                       : 'transparent'
                   }}
-                  title={title}
                 >
                   {token.is_newline ? (
                     <span className="newline-symbol">{getWhitespaceSymbol(token.text)}</span>
@@ -238,18 +225,6 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
                         // Get confidence-based CSS class for n-gram underline
                         const ngramClass = hasUnderline ? getNgramConfidenceClass(ngramJaccard) : ''
 
-                        // Build title with activation and n-gram info
-                        let title = token.activation_value?.toFixed(3) || 'No activation'
-                        if (hasUnderline) {
-                          const ngramText = underlineType === 'char'
-                            ? examples.top_char_ngram_text
-                            : examples.top_word_ngram_text
-                          title += `\nN-gram pattern: "${ngramText}" (Jaccard: ${ngramJaccard.toFixed(3)})`
-                        }
-                        if (hasInterfeatureHighlight) {
-                          title += `\nInter-feature match`
-                        }
-
                         return (
                           <span
                             key={tokenIdx}
@@ -259,7 +234,6 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
                                 ? getActivationColor(token.activation_value, example.max_activation)
                                 : 'transparent'
                             }}
-                            title={title}
                           >
                             {token.is_newline ? (
                               <span className="newline-symbol">{getWhitespaceSymbol(token.text)}</span>

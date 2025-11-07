@@ -3,7 +3,8 @@ import type { D3SankeyNode, D3SankeyLink, HistogramData, SankeyLayout, SankeyTre
 import {
   METRIC_DECODER_SIMILARITY,
   METRIC_QUALITY_SCORE,
-  CONSISTENCY_THRESHOLDS
+  CONSISTENCY_THRESHOLDS,
+  getThresholdRegionColors
 } from '../lib/constants'
 import {
   calculateNodeHistogramLayout,
@@ -59,7 +60,7 @@ export const AVAILABLE_STAGES: StageOption[] = [
 
 /**
  * Determine if node should show threshold slider handles
- * Shows handles when node has a metric and children (even if not yet split)
+ * Shows handles when node has a metric and children
  */
 function shouldShowHandles(
   node: D3SankeyNode,
@@ -70,16 +71,10 @@ function shouldShowHandles(
   const treeNode = sankeyTree.get(node.id)
   if (!treeNode || treeNode.children.length === 0) return false
 
-  // Only show handles if node has a metric set (handles will use defaults if no thresholds)
+  // Show handles if node has a metric set (regardless of whether children have their own children)
   if (!treeNode.metric) return false
 
-  // Check if ALL children are leaf nodes (no grandchildren exist)
-  const allChildrenAreLeaves = treeNode.children.every((childId: string) => {
-    const child = sankeyTree.get(childId)
-    return child && child.children.length === 0
-  })
-
-  return allChildrenAreLeaves
+  return true
 }
 
 // ============================================================================
@@ -185,8 +180,12 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
 
   if (!layout) return null
 
-  // Get bar color for patterns
+  // Get bar color for patterns (metric-specific color for background)
   const barColor = layout.bars[0]?.color || '#94a3b8'
+
+  // Get metric for this node to determine if we should use threshold colors
+  const metric = getNodeHistogramMetric(node, links)
+  const thresholdColors = metric ? getThresholdRegionColors(metric) : null
 
   return (
     <g
@@ -198,7 +197,7 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
     >
       {/* Pattern definitions for threshold regions */}
       <defs>
-        {/* Striped pattern (for even regions: 0, 2, 4...) - 45 degree diagonal stripes */}
+        {/* Metric-specific striped pattern (for metrics without threshold colors) */}
         <pattern
           id={`sankey-histogram-pattern-striped-${node.id}`}
           width="10"
@@ -207,22 +206,51 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
           patternTransform="rotate(45)"
         >
           <rect width="10" height="10" fill="none"/>
-          {/* Vertical lines that become 45-degree diagonals after rotation */}
           <line x1="0" y1="0" x2="0" y2="10" stroke={barColor} strokeWidth="5" opacity="0.7"/>
           <line x1="10" y1="0" x2="10" y2="10" stroke={barColor} strokeWidth="5" opacity="0.7"/>
         </pattern>
+
+        {/* Red striped pattern (for decoder_similarity above threshold) */}
+        {thresholdColors && (
+          <pattern
+            id={`sankey-histogram-pattern-red-${node.id}`}
+            width="10"
+            height="10"
+            patternUnits="userSpaceOnUse"
+            patternTransform="rotate(45)"
+          >
+            <rect width="10" height="10" fill="none"/>
+            <line x1="0" y1="0" x2="0" y2="10" stroke={thresholdColors.above} strokeWidth="5" opacity="0.7"/>
+            <line x1="10" y1="0" x2="10" y2="10" stroke={thresholdColors.above} strokeWidth="5" opacity="0.7"/>
+          </pattern>
+        )}
       </defs>
 
       {/* Render horizontal histogram bars - as segments for split patterns */}
       {barSegments.map((segments, barIndex) => (
         <g key={barIndex}>
           {segments.map((segment, segmentIndex) => {
-            // Even regions (0, 2, 4...): Striped pattern
-            // Odd regions (1, 3, 5...): Solid fill
-            const useStripes = segment.patternIndex % 2 === 0
-            const fillColor = useStripes
-              ? `url(#sankey-histogram-pattern-striped-${node.id})`
-              : barColor
+            // Even regions (0, 2, 4...): Solid fill (below threshold)
+            // Odd regions (1, 3, 5...): Striped pattern (above threshold)
+            const isAboveThreshold = segment.patternIndex % 2 === 1
+
+            // Determine fill color based on metric type and threshold position
+            let fillColor: string
+            if (thresholdColors) {
+              // Use red/green colors for decoder_similarity and quality_score
+              // Above threshold uses red/green striped pattern, below uses solid fill
+              if (isAboveThreshold) {
+                fillColor = `url(#sankey-histogram-pattern-red-${node.id})`
+              } else {
+                fillColor = thresholdColors.below
+              }
+            } else {
+              // Use default metric color or striped pattern for other metrics
+              const useStripes = segment.patternIndex % 2 === 0
+              fillColor = useStripes
+                ? `url(#sankey-histogram-pattern-striped-${node.id})`
+                : barColor
+            }
 
             return (
               <rect
@@ -273,7 +301,7 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
             x2={0}
             y1={0}
             y2={layout.height}
-            stroke="#000000"
+            stroke={'#000000'}
             strokeWidth={1}
             style={{ pointerEvents: 'none' }}
           />
@@ -291,7 +319,7 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
                 x2={0}
                 y1={0}
                 y2={0}
-                stroke="#000000"
+                stroke={'#000000'}
                 strokeWidth={1}
               />
 
@@ -302,7 +330,7 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
                 textAnchor="middle"
                 dominantBaseline="middle"
                 fontSize={8}
-                fill="#374151"
+                fill={'#000000ff'}
                 transform="rotate(90)"
               >
                 {tick.label}

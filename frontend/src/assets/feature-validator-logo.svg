@@ -1,0 +1,31 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Shield outline (validation/reliability) -->
+  <path d="M16 2L4 7V14C4 21.18 9.07 27.74 16 29C22.93 27.74 28 21.18 28 14V7L16 2Z"
+        stroke="#1f2937"
+        stroke-width="1.8"
+        fill="none"
+        stroke-linejoin="round"/>
+
+  <!-- Checkmark (verification symbol) -->
+  <path d="M10 15L14 19L22 11"
+        stroke="#3b82f6"
+        stroke-width="2.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+
+  <!-- Subtle node network overlay (feature analysis) -->
+  <!-- Top left node -->
+  <circle cx="8" cy="10" r="1.2" fill="#1f2937" opacity="0.3"/>
+  <!-- Top right node -->
+  <circle cx="24" cy="10" r="1.2" fill="#1f2937" opacity="0.3"/>
+  <!-- Bottom left node -->
+  <circle cx="10" cy="22" r="1.2" fill="#1f2937" opacity="0.3"/>
+  <!-- Bottom right node -->
+  <circle cx="22" cy="22" r="1.2" fill="#1f2937" opacity="0.3"/>
+
+  <!-- Connection lines -->
+  <line x1="8" y1="10" x2="24" y2="10" stroke="#1f2937" stroke-width="0.5" opacity="0.15"/>
+  <line x1="10" y1="22" x2="22" y2="22" stroke="#1f2937" stroke-width="0.5" opacity="0.15"/>
+  <line x1="8" y1="10" x2="10" y2="22" stroke="#1f2937" stroke-width="0.5" opacity="0.15"/>
+  <line x1="24" y1="10" x2="22" y2="22" stroke="#1f2937" stroke-width="0.5" opacity="0.15"/>
+</svg>

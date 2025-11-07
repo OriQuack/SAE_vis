@@ -173,12 +173,7 @@
 .table-panel__header-cell--id {
   width: 4%;
   min-width: 40px;
-  cursor: pointer;
   user-select: none;
-}
-
-.table-panel__header-cell--id:hover {
-  background: rgba(59, 130, 246, 0.1);
 }
 
 .table-panel__header-cell--score {
@@ -192,6 +187,17 @@
   background: rgba(59, 130, 246, 0.1);
 }
 
+.table-panel__header-cell--quality-score {
+  width: 10%;
+  min-width: 100px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.table-panel__header-cell--quality-score:hover {
+  background: rgba(59, 130, 246, 0.1);
+}
+
 .table-panel__header-cell--explanation {
   width: 40%;
   min-width: 200px;
@@ -200,7 +206,7 @@
 }
 
 .table-panel__header-cell--empty {
-  width: 45%;
+  width: 42%;
   min-width: 100px;
 }
 
@@ -231,7 +237,7 @@
   border-bottom: 1px solid #f3f4f6;
   transition: background-color 0.15s ease, border-left 0.15s ease;
   cursor: pointer;
-  height: 16px;
+  min-height: 16px;
 }
 
 .table-panel__sub-row:hover {
@@ -303,8 +309,6 @@
   font-size: 11px;
   background: #f9fafb;
   border-right: 2px solid #d1d5db;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
 }
 
 .table-panel__cell--id {
@@ -313,20 +317,25 @@
   font-size: 11px;
   background: #f9fafb;
   border-right: 2px solid #d1d5db;
+}
+
+/* Checkbox column */
+.table-panel__header-cell--checkbox {
+  width: 3%;
+  text-align: center;
+}
+
+.table-panel__cell--checkbox {
+  text-align: center;
+  background: white;
+}
+
+.table-panel__checkbox {
+  width: 16px;
+  height: 16px;
   cursor: pointer;
-  transition: background-color 0.15s ease;
-}
-
-/* Synchronized hover effect - when hovering index, both index and ID highlight */
-.table-panel__sub-row:has(.table-panel__cell--index:hover) .table-panel__cell--index,
-.table-panel__sub-row:has(.table-panel__cell--index:hover) .table-panel__cell--id {
-  background: #e5e7eb;
-}
-
-/* Synchronized hover effect - when hovering ID, both index and ID highlight */
-.table-panel__sub-row:has(.table-panel__cell--id:hover) .table-panel__cell--index,
-.table-panel__sub-row:has(.table-panel__cell--id:hover) .table-panel__cell--id {
-  background: #e5e7eb;
+  background-color: white;
+  accent-color: white;
 }
 
 .table-panel__cell--score {
@@ -349,17 +358,25 @@
 .table-panel__cell--explanation {
   text-align: left;
   font-size: 11px;
+  font-weight: 500;
   line-height: 1.4;
   position: relative;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  padding: 4px 8px;
 }
 
-/* Ensure highlighted-explanation in table cells stays single-line */
+/* Text wrapper with truncation (allows popover to escape) */
+.table-panel__explanation-text-wrapper {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: break-word;
+}
+
+/* Allow highlighted-explanation in table cells to wrap naturally */
 .table-panel__cell--explanation .highlighted-explanation {
   display: inline;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .table-panel__cell--empty {
@@ -473,30 +490,22 @@
 
 .table-panel__explanation-popover {
   position: absolute;
-  bottom: 0;
+  top: 0;
   left: 0;
-  transform: none;
-  z-index: 200;
+  z-index: 100;
   background: white;
-  border: 1.5px solid #000000;
-  border-radius: 4px;
-  padding: 6px;
+  border: 1px solid #000000;
+  border-radius: 6px;
+  padding: 4px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  overflow-y: auto;
+  pointer-events: none;  /* Non-interactive like activation example */
+  max-width: 800px;
+}
+
+.table-panel__explanation-popover-content {
+  line-height: 1.6;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  pointer-events: none;
-}
-
-/* Popover positioning variants */
-.table-panel__popover-cell--above .table-panel__explanation-popover {
-  bottom: 0;
-}
-
-.table-panel__popover-cell--below .table-panel__explanation-popover {
-  top: 0;
-  bottom: auto;
 }
 
 .table-panel__popover-explanation {
@@ -684,4 +693,30 @@
 
 .table-panel__clear-selection:active {
   transform: scale(0.98);
+}
+
+/* ============================================================================
+   PORTAL-BASED FLOATING POPOVERS (Matching ActivationExample style)
+   ============================================================================ */
+
+.table-panel__floating-popover {
+  position: fixed;
+  background: white;
+  border: 1px solid #000000;  /* Black border like ActivationExample */
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 4px;  /* Minimal padding like ActivationExample */
+  z-index: 9999;
+  max-width: 800px;
+  pointer-events: auto;  /* Allow interaction */
+}
+
+.table-panel__floating-popover--explanation {
+  /* Specific styles for explanation popover */
+  padding: 8px;  /* Slightly more padding for text content */
+}
+
+.table-panel__floating-popover--quality {
+  /* Specific styles for quality score breakdown popover */
+  padding: 4px;
 }
