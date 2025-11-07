@@ -43,7 +43,7 @@
  * ============================================================================ */
 
 .decoder-stage-table__header-cell--checkbox {
-  width: 3%;
+  width: 5%;
   text-align: center;
 }
 
@@ -245,6 +245,22 @@
   stroke-width: 2px !important;
   filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.4));
   transition: all 0.15s ease;
+}
+
+/* ============================================================================
+ * CHECKBOX SELECTION HIGHLIGHTING - EXCLUDE INDEX AND DECODER SIM COLUMNS
+ * ============================================================================ */
+
+/* For decoder similarity table, keep index column white even when row is selected */
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row--checkbox-selected .table-panel__cell--index,
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row--checkbox-rejected .table-panel__cell--index {
+  background: #f9fafb !important; /* Keep original gray background */
+}
+
+/* For decoder similarity table, keep decoder similarity (score) column white even when row is selected */
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row--checkbox-selected .table-panel__cell--score,
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row--checkbox-rejected .table-panel__cell--score {
+  background: white !important; /* Keep original white background */
 }
 
 /* ============================================================================

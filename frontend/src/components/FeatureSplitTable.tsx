@@ -5,7 +5,7 @@ import type { FeatureTableRow, DecoderStageRow, StageTableContext } from '../typ
 import { METRIC_DECODER_SIMILARITY } from '../lib/constants'
 import ActivationExample from './ActivationExample'
 import DecoderSimilarityOverlay from './FeatureSplitOverlay'
-import '../styles/TablePanel.css'
+import '../styles/QualityTablePanel.css'
 import '../styles/DecoderSimilarityTable.css'
 
 // ============================================================================
@@ -22,7 +22,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
   const leftPanel = useVisualizationStore(state => state.leftPanel)
   const tableData = useVisualizationStore(state => state.tableData)
   const clearActiveStageNode = useVisualizationStore(state => state.clearActiveStageNode)
-  const selectedFeatureIds = useVisualizationStore(state => state.selectedFeatureIds)
+  const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
   const toggleFeatureSelection = useVisualizationStore(state => state.toggleFeatureSelection)
   const loading = useVisualizationStore(state => state.loading)
   const setTableScrollState = useVisualizationStore(state => state.setTableScrollState)
@@ -54,33 +54,9 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
     interfeatureData: any,
     isClick: boolean
   ) => {
-    if (!interfeatureData || interfeatureData.pattern_type === 'None') return
-
-    // Determine type based on Jaccard scores (prioritize lexical for "Both")
-    const charJaccard = interfeatureData.char_jaccard || 0
-    const wordJaccard = interfeatureData.word_jaccard || 0
-    const type: 'char' | 'word' = charJaccard >= wordJaccard ? 'char' : 'word'
-
-    // Extract positions
-    const mainPositions = type === 'char'
-      ? interfeatureData.main_char_ngram_positions
-      : interfeatureData.main_word_ngram_positions
-    const similarPositions = type === 'char'
-      ? interfeatureData.similar_char_ngram_positions
-      : interfeatureData.similar_word_ngram_positions
-
-    if (!mainPositions || !similarPositions) return
-
-    const newHighlight = {
-      mainFeatureId,
-      similarFeatureId,
-      type,
-      mainPositions,
-      similarPositions
-    }
-
     if (isClick) {
-      // Toggle sticky highlight in the Map
+      // For clicks, always update the Map to preserve connection state
+      // even if there's no pattern data (for visual highlighting only)
       const key = `${mainFeatureId}-${similarFeatureId}`
       setInterFeatureHighlights(prev => {
         const newMap = new Map(prev)
@@ -89,13 +65,61 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
           newMap.delete(key)
         } else {
           // Add new highlight (toggle on)
-          newMap.set(key, newHighlight)
+          // Store minimal data - positions only if available
+          if (interfeatureData && interfeatureData.pattern_type !== 'None') {
+            const charJaccard = interfeatureData.char_jaccard || 0
+            const wordJaccard = interfeatureData.word_jaccard || 0
+            const type: 'char' | 'word' = charJaccard >= wordJaccard ? 'char' : 'word'
+            const mainPositions = type === 'char'
+              ? interfeatureData.main_char_ngram_positions
+              : interfeatureData.main_word_ngram_positions
+            const similarPositions = type === 'char'
+              ? interfeatureData.similar_char_ngram_positions
+              : interfeatureData.similar_word_ngram_positions
+
+            if (mainPositions && similarPositions) {
+              newMap.set(key, {
+                mainFeatureId,
+                similarFeatureId,
+                type,
+                mainPositions,
+                similarPositions
+              })
+            } else {
+              // No positions, but still mark as selected
+              newMap.set(key, { mainFeatureId, similarFeatureId })
+            }
+          } else {
+            // No pattern data, but still mark as selected
+            newMap.set(key, { mainFeatureId, similarFeatureId })
+          }
         }
         return newMap
       })
     } else {
-      // Hover: set temporary hover highlight
-      setHoverHighlight(newHighlight)
+      // For hover, skip if no pattern data
+      if (!interfeatureData || interfeatureData.pattern_type === 'None') return
+
+      const charJaccard = interfeatureData.char_jaccard || 0
+      const wordJaccard = interfeatureData.word_jaccard || 0
+      const type: 'char' | 'word' = charJaccard >= wordJaccard ? 'char' : 'word'
+
+      const mainPositions = type === 'char'
+        ? interfeatureData.main_char_ngram_positions
+        : interfeatureData.main_word_ngram_positions
+      const similarPositions = type === 'char'
+        ? interfeatureData.similar_char_ngram_positions
+        : interfeatureData.similar_word_ngram_positions
+
+      if (!mainPositions || !similarPositions) return
+
+      setHoverHighlight({
+        mainFeatureId,
+        similarFeatureId,
+        type,
+        mainPositions,
+        similarPositions
+      })
     }
   }
 
@@ -532,7 +556,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                 #
               </th>
               <th className="table-panel__header-cell decoder-stage-table__header-cell--checkbox">
-                ☑
+                Feature Splitting
               </th>
               <th
                 className="table-panel__header-cell table-panel__header-cell--id"
@@ -575,15 +599,36 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
               return (
                 <React.Fragment key={row.feature_id}>
                   {similarFeatures.map((similar, subIndex) => {
-                    const isSelected = selectedFeatureIds.has(similar.feature_id)
+                    const selectionState = featureSelectionStates.get(similar.feature_id)
                     const isFirstRow = subIndex === 0
                     const isLastRow = subIndex === similarFeatures.length - 1
                     const isMainFeature = similar.is_main === true
 
+                    // Build row className with selection state
+                    const rowClassName = [
+                      'table-panel__sub-row',
+                      isLastRow ? 'decoder-stage-table__group-last-row' : '',
+                      isMainFeature ? 'decoder-stage-table__main-feature-row' : '',
+                      selectionState === 'selected' ? 'table-panel__sub-row--checkbox-selected' : '',
+                      selectionState === 'rejected' ? 'table-panel__sub-row--checkbox-rejected' : ''
+                    ].filter(Boolean).join(' ')
+
                     return (
                       <tr
                         key={similar.feature_id}
-                        className={`table-panel__sub-row ${isLastRow ? 'decoder-stage-table__group-last-row' : ''} ${isMainFeature ? 'decoder-stage-table__main-feature-row' : ''}`}
+                        className={rowClassName}
+                        onClick={(e) => {
+                          // Main feature row cannot be clicked - only similar features
+                          if (isMainFeature) return
+
+                          // Allow clicking anywhere on the row to toggle the feature selection
+                          // but don't double-toggle if clicking the checkbox div itself
+                          const target = e.target as HTMLElement
+                          if (!target.closest('.table-panel__checkbox-custom')) {
+                            handleFeatureToggle(similar.feature_id)
+                          }
+                        }}
+                        style={{ cursor: isMainFeature ? 'default' : 'pointer' }}
                       >
                         {/* Index cell - only on first row, spans all rows in group */}
                         {isFirstRow && (
@@ -595,14 +640,27 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                           </td>
                         )}
 
-                        {/* Checkbox */}
+                        {/* Three-state checkbox: null -> checkmark -> red X -> null */}
+                        {/* Main feature has no checkbox - only similar features can be selected */}
                         <td className="table-panel__cell decoder-stage-table__cell--checkbox">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => handleFeatureToggle(similar.feature_id)}
-                            className="decoder-stage-table__checkbox"
-                          />
+                          {!isMainFeature && (
+                            <div
+                              className="table-panel__checkbox-custom"
+                              onClick={(e) => {
+                                e.stopPropagation() // Prevent row click from firing
+                                handleFeatureToggle(similar.feature_id)
+                              }}
+                            >
+                              {(() => {
+                                if (selectionState === 'selected') {
+                                  return <span className="table-panel__checkbox-checkmark">✓</span>
+                                } else if (selectionState === 'rejected') {
+                                  return <span className="table-panel__checkbox-reject">✗</span>
+                                }
+                                return null // Empty state
+                              })()}
+                            </div>
+                          )}
                         </td>
 
                         {/* Feature ID */}

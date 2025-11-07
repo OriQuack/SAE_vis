@@ -151,7 +151,7 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
   interFeatureHighlights
 }) => {
   const toggleFeatureSelection = useVisualizationStore(state => state.toggleFeatureSelection)
-  const selectedFeatureIds = useVisualizationStore(state => state.selectedFeatureIds)
+  const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
   const activationExamples = useVisualizationStore(state => state.activationExamples)
   const fetchActivationExamples = useVisualizationStore(state => state.fetchActivationExamples)
 
@@ -164,7 +164,20 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
   const [_hoveredElement, setHoveredElement] = useState<'line' | 'circle-main' | 'circle-similar' | 'badge' | null>(null)
 
   // Filter out main feature (we only draw connections for similar features)
-  const similarOnly = similarFeatures.filter(f => !f.is_main)
+  const similarOnly = useMemo(() => {
+    return similarFeatures.filter(f => !f.is_main)
+  }, [similarFeatures])
+
+  // Derive selected feature IDs from featureSelectionStates (both 'selected' and 'rejected' count as active)
+  const selectedFeatureIds = useMemo(() => {
+    const selected = new Set<number>()
+    featureSelectionStates.forEach((state, featureId) => {
+      if (state === 'selected' || state === 'rejected') {
+        selected.add(featureId)
+      }
+    })
+    return selected
+  }, [featureSelectionStates])
 
   // Derive selected connections from parent's interFeatureHighlights Map (persists across remounts)
   const selectedConnections = useMemo(() => {
@@ -250,34 +263,27 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
   // Click handler for persistent selection
   const handleConnectionClick = (idx: number) => {
     const similar = similarOnly[idx]
-    const isCurrentlySelected = selectedConnections.has(idx)
+    const isConnectionHighlighted = selectedConnections.has(idx)
+    const currentCheckboxState = featureSelectionStates.get(similar.feature_id)
 
-    if (isCurrentlySelected) {
-      // Deselecting - always uncheck similar feature
-      if (selectedFeatureIds.has(similar.feature_id)) {
-        toggleFeatureSelection(similar.feature_id)
-      }
+    if (isConnectionHighlighted) {
+      // Connection is highlighted - toggle checkbox
+      toggleFeatureSelection(similar.feature_id)
 
-      // Only uncheck main feature if no other pairs remain selected
-      const otherSelectedPairs = Array.from(selectedConnections).filter(i => i !== idx)
-      if (otherSelectedPairs.length === 0 && mainFeatureId !== undefined && selectedFeatureIds.has(mainFeatureId)) {
-        toggleFeatureSelection(mainFeatureId)
+      // Only remove from Map if checkbox will become null (rejected → null transition)
+      // Keep in Map for selected → rejected transition
+      if (currentCheckboxState === 'rejected') {
+        // After toggle, checkbox will be null, so remove highlight
+        if (onBadgeInteraction && mainFeatureId !== undefined) {
+          onBadgeInteraction(mainFeatureId, similar.feature_id, similar.inter_feature_similarity, true)
+        }
       }
-
-      // Remove sticky inter-feature highlighting (parent updates Map, which triggers re-render)
-      if (onBadgeInteraction && mainFeatureId !== undefined) {
-        onBadgeInteraction(mainFeatureId, similar.feature_id, similar.inter_feature_similarity, true)
-      }
+      // If currentCheckboxState is 'selected', after toggle it becomes 'rejected', keep highlight
     } else {
-      // Selecting - only check if not already checked
-      if (mainFeatureId !== undefined && !selectedFeatureIds.has(mainFeatureId)) {
-        toggleFeatureSelection(mainFeatureId)
-      }
-      if (!selectedFeatureIds.has(similar.feature_id)) {
-        toggleFeatureSelection(similar.feature_id)
-      }
+      // Connection not highlighted - start new selection
+      toggleFeatureSelection(similar.feature_id)
 
-      // Add sticky inter-feature highlighting (parent updates Map, which triggers re-render)
+      // Add to Map to show highlight
       if (onBadgeInteraction && mainFeatureId !== undefined) {
         onBadgeInteraction(mainFeatureId, similar.feature_id, similar.inter_feature_similarity, true)
       }
@@ -392,6 +398,11 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
           const isSelected = selectedConnections.has(idx)
           const isHighlighted = isHovered || isSelected
 
+          // Get checkbox state to determine color
+          const checkboxState = featureSelectionStates.get(similar.feature_id)
+          const isChecked = checkboxState === 'selected'
+          const isRejected = checkboxState === 'rejected'
+
           // Background rectangle dimensions
           const bgWidth = 35
           const bgHeight = circleY - mainRowCenterY
@@ -409,12 +420,12 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
               ry={4}
               fill={
                 isHighlighted
-                  ? 'rgba(16, 185, 129, 0.08)'  // Light green (matches inter-feature highlighting)
-                  : 'rgba(156, 163, 175, 0.05)'  // Minimal gray
+                  ? (isChecked ? 'rgba(59, 130, 246, 0.08)' : isRejected ? 'rgba(239, 68, 68, 0.08)' : 'rgba(156, 163, 175, 0.05)')
+                  : 'rgba(156, 163, 175, 0.05)'  // Minimal gray when not highlighted
               }
               stroke={
                 isHighlighted
-                  ? '#10b981'  // Green (matches inter-feature highlighting)
+                  ? (isChecked ? '#3b82f6' : isRejected ? '#ef4444' : 'transparent')
                   : 'transparent'
               }
               strokeWidth={isHighlighted ? 2 : 0}
@@ -469,6 +480,11 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
           const relationshipPatternType = similar.inter_feature_similarity?.pattern_type || 'None'  // Relationship pattern (for line)
           const midY = (mainRowCenterY + circleY) / 2  // Badge position at line center
 
+          // Get checkbox state to determine color
+          const checkboxState = featureSelectionStates.get(similar.feature_id)
+          const isChecked = checkboxState === 'selected'
+          const isRejected = checkboxState === 'rejected'
+
           return (
             <g key={`connection-${similar.feature_id}`}>
               {/* Line - visual only, background handles interaction */}
@@ -479,7 +495,7 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
                 x2={x}
                 y2={circleY}
                 stroke={isHighlighted
-                  ? (relationshipPatternType === 'Semantic' ? '#a855f7' : '#10b981')
+                  ? (isChecked ? '#3b82f6' : isRejected ? '#ef4444' : '#9ca3af')
                   : '#9ca3af'}
                 strokeWidth={isHighlighted ? '2.5' : '1.5'}
                 opacity={isHighlighted ? '1.0' : '0.8'}

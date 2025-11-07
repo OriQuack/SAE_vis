@@ -163,7 +163,7 @@
 }
 
 .table-panel__header-cell--index {
-  width: 4%;
+  width: 3%;
   min-width: 40px;
   text-align: center;
   background: #f9fafb;
@@ -188,7 +188,7 @@
 }
 
 .table-panel__header-cell--quality-score {
-  width: 10%;
+  width: 4%;
   min-width: 100px;
   cursor: pointer;
   user-select: none;
@@ -284,6 +284,23 @@
   background: rgba(59, 130, 246, 0.06);
 }
 
+/* Checkbox selection state backgrounds - apply to cells like highlighted rows */
+.table-panel__sub-row--checkbox-selected .table-panel__cell {
+  background: rgba(59, 130, 246, 0.08) !important; /* Blue with low opacity */
+}
+
+.table-panel__sub-row--checkbox-selected:hover .table-panel__cell {
+  background: rgba(59, 130, 246, 0.15) !important;
+}
+
+.table-panel__sub-row--checkbox-rejected .table-panel__cell {
+  background: rgba(239, 68, 68, 0.08) !important; /* Red with low opacity */
+}
+
+.table-panel__sub-row--checkbox-rejected:hover .table-panel__cell {
+  background: rgba(239, 68, 68, 0.15) !important;
+}
+
 /* ============================================================================
  * CELL STYLING
  * ============================================================================ */
@@ -308,7 +325,7 @@
   font-weight: 500;
   font-size: 11px;
   background: #f9fafb;
-  border-right: 2px solid #d1d5db;
+  border-right: 1px solid #d1d5db;
 }
 
 .table-panel__cell--id {
@@ -316,32 +333,62 @@
   font-weight: 500;
   font-size: 11px;
   background: #f9fafb;
-  border-right: 2px solid #d1d5db;
+  border-right: 1px solid #d1d5db;
 }
 
 /* Checkbox column */
 .table-panel__header-cell--checkbox {
-  width: 3%;
+  width: 5%;
   text-align: center;
 }
 
 .table-panel__cell--checkbox {
   text-align: center;
   background: white;
+  border-right: 1px solid #d1d5db;
+  padding: 4px 0;
 }
 
-.table-panel__checkbox {
-  width: 16px;
-  height: 16px;
+/* Three-state custom checkbox */
+.table-panel__checkbox-custom {
+  width: 20px;
+  height: 20px;
+  margin: 0 auto;
   cursor: pointer;
-  background-color: white;
-  accent-color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid #d1d5db;
+  border-radius: 3px;
+  background: white;
+  transition: all 0.15s ease;
+  font-size: 14px;
+  font-weight: 700;
+  user-select: none;
+}
+
+.table-panel__checkbox-custom:hover {
+  border-color: #9ca3af;
+  background: #f9fafb;
+}
+
+/* Checkmark state (green) */
+.table-panel__checkbox-checkmark {
+  color: #10b981;
+  line-height: 1;
+}
+
+/* Reject state (red X) */
+.table-panel__checkbox-reject {
+  color: #ef4444;
+  line-height: 1;
 }
 
 .table-panel__cell--score {
   text-align: center;
   padding: 0 2px;
   position: relative;
+  border-right: 1px solid #d1d5db;
 }
 
 .table-panel__cell--score svg {
@@ -362,6 +409,7 @@
   line-height: 1.4;
   position: relative;
   padding: 4px 8px;
+  border-right: 1px solid #d1d5db;
 }
 
 /* Text wrapper with truncation (allows popover to escape) */

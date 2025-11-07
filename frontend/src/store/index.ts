@@ -49,7 +49,8 @@ interface AppState {
   setHoveredAlluvialNode: (nodeId: string | null, panel: 'left' | 'right' | null) => void
 
   // Feature selection state (used by TablePanel checkboxes)
-  selectedFeatureIds: Set<number>
+  // Three-state system: null (empty) -> 'selected' (checkmark) -> 'rejected' (red X) -> null
+  featureSelectionStates: Map<number, 'selected' | 'rejected'>
   toggleFeatureSelection: (featureId: number) => void
   selectAllFeatures: () => void
   clearFeatureSelection: () => void
@@ -225,7 +226,8 @@ const initialState = {
   hoveredAlluvialPanel: null,
 
   // Feature selection state (used by TablePanel checkboxes)
-  selectedFeatureIds: new Set<number>(),
+  // Three-state system: null (empty) -> 'selected' (checkmark) -> 'rejected' (red X) -> null
+  featureSelectionStates: new Map<number, 'selected' | 'rejected'>(),
 
   // Comparison view state
   showComparisonView: false,
@@ -253,28 +255,40 @@ export const useStore = create<AppState>((set, get) => ({
     set({ hoveredAlluvialNodeId: nodeId, hoveredAlluvialPanel: panel }),
 
   // Feature selection actions (used by TablePanel checkboxes)
+  // Three-state toggle: null -> 'selected' -> 'rejected' -> null
   toggleFeatureSelection: (featureId: number) => {
     set((state) => {
-      const newSelection = new Set(state.selectedFeatureIds)
-      if (newSelection.has(featureId)) {
-        newSelection.delete(featureId)
+      const newStates = new Map(state.featureSelectionStates)
+      const currentState = newStates.get(featureId)
+
+      if (currentState === undefined) {
+        // null -> selected
+        newStates.set(featureId, 'selected')
+      } else if (currentState === 'selected') {
+        // selected -> rejected
+        newStates.set(featureId, 'rejected')
       } else {
-        newSelection.add(featureId)
+        // rejected -> null (remove from map)
+        newStates.delete(featureId)
       }
-      return { selectedFeatureIds: newSelection }
+
+      return { featureSelectionStates: newStates }
     })
   },
 
   selectAllFeatures: () => {
     const tableData = get().tableData
     if (tableData && tableData.features) {
-      const allIds = tableData.features.map((f: any) => f.feature_id)
-      set({ selectedFeatureIds: new Set(allIds) })
+      const newStates = new Map<number, 'selected' | 'rejected'>()
+      tableData.features.forEach((f: any) => {
+        newStates.set(f.feature_id, 'selected')
+      })
+      set({ featureSelectionStates: newStates })
     }
   },
 
   clearFeatureSelection: () => {
-    set({ selectedFeatureIds: new Set<number>() })
+    set({ featureSelectionStates: new Map<number, 'selected' | 'rejected'>() })
   },
 
   // Comparison view actions

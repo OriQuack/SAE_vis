@@ -22,7 +22,7 @@ import { HighlightedExplanation } from './HighlightedExplanation'
 import ActivationExample from './ActivationExample'
 import QualityScoreBreakdown from './QualityScoreBreakdown'
 import DecoderSimilarityTable from './FeatureSplitTable'
-import '../styles/TablePanel.css'
+import '../styles/QualityTablePanel.css'
 
 // ============================================================================
 // MAIN TABLE PANEL COMPONENT
@@ -44,8 +44,8 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const activeStageNodeId = useVisualizationStore(state => state.activeStageNodeId)
   const activeStageCategory = useVisualizationStore(state => state.activeStageCategory)
 
-  // Feature selection state
-  const selectedFeatureIds = useVisualizationStore(state => state.selectedFeatureIds)
+  // Feature selection state (three-state: null -> selected -> rejected -> null)
+  const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
   const toggleFeatureSelection = useVisualizationStore(state => state.toggleFeatureSelection)
 
   const tableContainerRef = useRef<HTMLDivElement>(null)
@@ -501,7 +501,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
               </th>
               {/* Checkbox column */}
               <th className="table-panel__header-cell table-panel__header-cell--checkbox">
-                ☑
+                Well-Explained
               </th>
               <th
                 className="table-panel__header-cell table-panel__header-cell--id"
@@ -573,6 +573,15 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                 return data !== undefined && data !== null
               })
 
+              // Get selection state for this feature
+              const selectionState = featureSelectionStates.get(featureRow.feature_id)
+              const rowClassName = [
+                'table-panel__sub-row',
+                'table-panel__sub-row--first',
+                selectionState === 'selected' ? 'table-panel__sub-row--checkbox-selected' : '',
+                selectionState === 'rejected' ? 'table-panel__sub-row--checkbox-rejected' : ''
+              ].filter(Boolean).join(' ')
+
               return (
               <React.Fragment key={`${featureRow.feature_id}`}>
                 {/* Render single row showing max quality score explainer */}
@@ -585,21 +594,41 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                       featureRowRefs.current.delete(featureRow.feature_id)
                     }
                   }}
-                  className="table-panel__sub-row table-panel__sub-row--first"
+                  className={rowClassName}
+                  onClick={(e) => {
+                    // Allow clicking anywhere on the row to toggle the feature selection
+                    // but don't double-toggle if clicking the checkbox div itself
+                    const target = e.target as HTMLElement
+                    if (!target.closest('.table-panel__checkbox-custom')) {
+                      toggleFeatureSelection(featureRow.feature_id)
+                    }
+                  }}
+                  style={{ cursor: 'pointer' }}
                 >
                   {/* Index - just row number */}
                   <td className="table-panel__cell table-panel__cell--index">
                     {featureIndex + 1}
                   </td>
 
-                  {/* Checkbox */}
+                  {/* Three-state checkbox: null -> checkmark -> red X -> null */}
                   <td className="table-panel__cell table-panel__cell--checkbox">
-                    <input
-                      type="checkbox"
-                      checked={selectedFeatureIds.has(featureRow.feature_id)}
-                      onChange={() => toggleFeatureSelection(featureRow.feature_id)}
-                      className="table-panel__checkbox"
-                    />
+                    <div
+                      className="table-panel__checkbox-custom"
+                      onClick={(e) => {
+                        e.stopPropagation() // Prevent row click from firing
+                        toggleFeatureSelection(featureRow.feature_id)
+                      }}
+                    >
+                      {(() => {
+                        const state = featureSelectionStates.get(featureRow.feature_id)
+                        if (state === 'selected') {
+                          return <span className="table-panel__checkbox-checkmark">✓</span>
+                        } else if (state === 'rejected') {
+                          return <span className="table-panel__checkbox-reject">✗</span>
+                        }
+                        return null // Empty state
+                      })()}
+                    </div>
                   </td>
 
                   {/* Feature ID */}
