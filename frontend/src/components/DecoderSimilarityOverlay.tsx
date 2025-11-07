@@ -29,6 +29,7 @@ interface DecoderSimilarityOverlayProps {
   onBadgeInteraction?: (mainFeatureId: number, similarFeatureId: number, interfeatureData: any, isClick: boolean) => void
   onBadgeLeave?: () => void
   activationColumnWidth?: number  // Width of activation column for popover sizing
+  interFeatureHighlights?: Map<string, any>  // Map of clicked pairs from parent (for persisting selection state)
 }
 
 // ========== Activation Example Helpers (copied from ActivationExample.tsx) ==========
@@ -146,7 +147,8 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
   mainFeatureId,
   onBadgeInteraction,
   onBadgeLeave,
-  activationColumnWidth
+  activationColumnWidth,
+  interFeatureHighlights
 }) => {
   const toggleFeatureSelection = useVisualizationStore(state => state.toggleFeatureSelection)
   const selectedFeatureIds = useVisualizationStore(state => state.selectedFeatureIds)
@@ -159,10 +161,24 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
 
   // Hover state for connection highlighting
   const [hoveredConnection, setHoveredConnection] = useState<number | null>(null)
-  const [hoveredElement, setHoveredElement] = useState<'line' | 'circle-main' | 'circle-similar' | 'badge' | null>(null)
+  const [_hoveredElement, setHoveredElement] = useState<'line' | 'circle-main' | 'circle-similar' | 'badge' | null>(null)
 
-  // Clicked/selected state for persistent highlighting (supports multiple selections)
-  const [selectedConnections, setSelectedConnections] = useState<Set<number>>(new Set())
+  // Filter out main feature (we only draw connections for similar features)
+  const similarOnly = similarFeatures.filter(f => !f.is_main)
+
+  // Derive selected connections from parent's interFeatureHighlights Map (persists across remounts)
+  const selectedConnections = useMemo(() => {
+    const selected = new Set<number>()
+    if (interFeatureHighlights && mainFeatureId !== undefined) {
+      similarOnly.forEach((similar, idx) => {
+        const key = `${mainFeatureId}-${similar.feature_id}`
+        if (interFeatureHighlights.has(key)) {
+          selected.add(idx)
+        }
+      })
+    }
+    return selected
+  }, [interFeatureHighlights, mainFeatureId, similarOnly])
 
   // Activation popover state
   const [hoveredPairForActivation, setHoveredPairForActivation] = useState<number | null>(null)
@@ -203,9 +219,6 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
   // Extract main feature for its pattern type (used for main circle badges)
   const mainFeature = similarFeatures.find(f => f.is_main)
   const mainFeaturePatternType = mainFeature?.pattern_type || 'None'
-
-  // Filter out main feature (we only draw connections for similar features)
-  const similarOnly = similarFeatures.filter(f => !f.is_main)
 
   // Calculate number of circles
   const numCircles = similarOnly.length
@@ -251,12 +264,10 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
         toggleFeatureSelection(mainFeatureId)
       }
 
-      // Remove from visual selection
-      setSelectedConnections(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(idx)
-        return newSet
-      })
+      // Remove sticky inter-feature highlighting (parent updates Map, which triggers re-render)
+      if (onBadgeInteraction && mainFeatureId !== undefined) {
+        onBadgeInteraction(mainFeatureId, similar.feature_id, similar.inter_feature_similarity, true)
+      }
     } else {
       // Selecting - only check if not already checked
       if (mainFeatureId !== undefined && !selectedFeatureIds.has(mainFeatureId)) {
@@ -266,17 +277,22 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
         toggleFeatureSelection(similar.feature_id)
       }
 
-      // Add to visual selection
-      setSelectedConnections(prev => {
-        const newSet = new Set(prev)
-        newSet.add(idx)
-        return newSet
-      })
+      // Add sticky inter-feature highlighting (parent updates Map, which triggers re-render)
+      if (onBadgeInteraction && mainFeatureId !== undefined) {
+        onBadgeInteraction(mainFeatureId, similar.feature_id, similar.inter_feature_similarity, true)
+      }
     }
   }
 
   // Helper function to render quantile example tokens
-  const renderQuantileExample = (examples: ActivationExamples, quantileIndex: number) => {
+  const renderQuantileExample = (
+    examples: ActivationExamples,
+    quantileIndex: number,
+    interFeaturePositions?: {
+      type: 'char' | 'word',
+      positions: Array<{prompt_id: number, positions: Array<{token_position: number, char_offset?: number}> | number[]}>
+    }
+  ) => {
     // Get the n-gram underline info
     const ngramInfo = getNgramUnderlineType(examples)
     const underlineType = ngramInfo.type
@@ -289,11 +305,33 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
     // Build tokens from 32-token window
     const tokens = buildActivationTokens(example, 32)
 
+    // Helper to check if token matches inter-feature position (same logic as ActivationExample)
+    const hasInterFeatureMatch = (tokenPosition: number): boolean => {
+      if (!interFeaturePositions) return false
+
+      // Find positions for this specific prompt_id
+      const promptPositions = interFeaturePositions.positions.find(
+        p => p.prompt_id === example.prompt_id
+      )
+
+      if (!promptPositions) return false
+
+      if (interFeaturePositions.type === 'char') {
+        // For char type, positions is Array<{token_position, char_offset}>
+        return (promptPositions.positions as Array<{token_position: number, char_offset?: number}>)
+          .some(pos => pos.token_position === tokenPosition)
+      } else {
+        // For word type, positions is number[]
+        return (promptPositions.positions as number[]).includes(tokenPosition)
+      }
+    }
+
     return (
       <div key={quantileIndex} className="decoder-activation-popover__quantile-row">
         {tokens.map((token, tokenIdx) => {
           const hasUnderline = shouldUnderlineToken(token.position, example, underlineType)
           const ngramClass = hasUnderline ? getNgramConfidenceClass(ngramJaccard) : ''
+          const hasInterFeature = hasInterFeatureMatch(token.position)
 
           // Build title with activation and n-gram info
           let title = token.activation_value?.toFixed(3) || 'No activation'
@@ -303,11 +341,14 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
               : examples.top_word_ngram_text
             title += `\nN-gram pattern: "${ngramText}" (Jaccard: ${ngramJaccard.toFixed(3)})`
           }
+          if (hasInterFeature) {
+            title += `\n✓ Inter-feature match`
+          }
 
           return (
             <span
               key={tokenIdx}
-              className={`activation-token ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${ngramClass}`}
+              className={`activation-token ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${ngramClass} ${hasInterFeature ? 'activation-token--interfeature' : ''}`}
               style={{
                 backgroundColor: token.activation_value
                   ? getActivationColor(token.activation_value, example.max_activation)
@@ -397,8 +438,8 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
                   if (featuresToFetch.length > 0) {
                     fetchActivationExamples(featuresToFetch)
                   }
-                  // Show popover after brief delay
-                  setTimeout(() => setShowActivationPopover(true), 200)
+                  // Show popover immediately
+                  setShowActivationPopover(true)
                 }
               }}
               onMouseLeave={() => {
@@ -412,7 +453,6 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
               }}
               onClick={() => {
                 handleConnectionClick(idx)
-                // Note: Activation highlighting only on hover, not on click
               }}
             />
           )
@@ -438,14 +478,16 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
                 y1={mainRowCenterY}
                 x2={x}
                 y2={circleY}
-                stroke={isHighlighted ? '#10b981' : '#9ca3af'}
+                stroke={isHighlighted
+                  ? (relationshipPatternType === 'Semantic' ? '#a855f7' : '#10b981')
+                  : '#9ca3af'}
                 strokeWidth={isHighlighted ? '2.5' : '1.5'}
                 opacity={isHighlighted ? '1.0' : '0.8'}
                 style={{ pointerEvents: 'none' }}
               />
 
               {/* Badge at line center - visual only, background handles interaction */}
-              {/* ALWAYS GREEN: Shows inter-feature relationship pattern */}
+              {/* Green for lexical, default (purple) for semantic */}
               {onBadgeInteraction && mainFeatureId !== undefined && (
                 <foreignObject
                   x={x - 20}
@@ -457,7 +499,7 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
                   <DecoderBadge
                     patternType={relationshipPatternType as 'Lexical' | 'Semantic' | 'Both' | 'None'}
                     isHovered={isHighlighted}
-                    variant="green"
+                    variant={relationshipPatternType === 'Semantic' ? 'default' : 'green'}
                   />
                 </foreignObject>
               )}
@@ -554,9 +596,37 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
           // Only show if both features have activation examples loaded
           if (!mainExamples || !similarExamples) return null
 
-          // Calculate popover position based on hovered row
-          const rowHeightActual = containerHeight / rowCount
-          const popoverTop = (hoveredPairForActivation + 1) * rowHeightActual
+          // Extract inter-feature positions for highlighting
+          const interfeatureData = similar.inter_feature_similarity
+          let mainInterFeaturePositions:
+            | { type: 'char' | 'word', positions: Array<{prompt_id: number, positions: Array<{token_position: number, char_offset?: number}> | number[]}> }
+            | undefined = undefined
+          let similarInterFeaturePositions:
+            | { type: 'char' | 'word', positions: Array<{prompt_id: number, positions: Array<{token_position: number, char_offset?: number}> | number[]}> }
+            | undefined = undefined
+
+          if (interfeatureData && (interfeatureData.pattern_type === 'Lexical' || interfeatureData.pattern_type === 'Both')) {
+            // Determine type based on Jaccard scores (prioritize lexical for "Both")
+            const charJaccard = interfeatureData.char_jaccard || 0
+            const wordJaccard = interfeatureData.word_jaccard || 0
+            const type: 'char' | 'word' = charJaccard >= wordJaccard ? 'char' : 'word'
+
+            // Extract positions (already structured with prompt_id groupings)
+            const mainPositions = type === 'char'
+              ? interfeatureData.main_char_ngram_positions
+              : interfeatureData.main_word_ngram_positions
+            const similarPositions = type === 'char'
+              ? interfeatureData.similar_char_ngram_positions
+              : interfeatureData.similar_word_ngram_positions
+
+            if (mainPositions && similarPositions) {
+              mainInterFeaturePositions = { type, positions: mainPositions }
+              similarInterFeaturePositions = { type, positions: similarPositions }
+            }
+          }
+
+          // Always position popover on first row (main feature row)
+          const popoverTop = 0
 
           return (
             <div
@@ -564,7 +634,7 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
               style={{
                 maxWidth: activationColumnWidth || 800,
                 top: popoverTop,
-                left: 'calc(100% + 250px)'  // Position in activation column (right of decoder + inter-feature columns)
+                left: 'calc(100%)'  // Position right after decoder similarity column
               }}
             >
               {/* Main Feature Section */}
@@ -572,7 +642,7 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
                 <div className="decoder-activation-popover__feature-label">
                   Feature {mainFeatureId}
                 </div>
-                {[0, 1, 2, 3].map(qIndex => renderQuantileExample(mainExamples, qIndex))}
+                {[0, 1, 2, 3].map(qIndex => renderQuantileExample(mainExamples, qIndex, mainInterFeaturePositions))}
               </div>
 
               {/* Similar Feature Section */}
@@ -580,7 +650,7 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
                 <div className="decoder-activation-popover__feature-label">
                   Feature {similar.feature_id}
                 </div>
-                {[0, 1, 2, 3].map(qIndex => renderQuantileExample(similarExamples, qIndex))}
+                {[0, 1, 2, 3].map(qIndex => renderQuantileExample(similarExamples, qIndex, similarInterFeaturePositions))}
               </div>
             </div>
           )

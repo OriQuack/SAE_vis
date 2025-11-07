@@ -6,6 +6,7 @@ import {
   METRIC_SCORE_FUZZ,
   METRIC_SCORE_DETECTION
 } from '../lib/constants'
+import { TAG_CATEGORIES } from '../lib/tag-categories'
 
 // ============================================================================
 // TABLE DATA ACTIONS
@@ -365,5 +366,50 @@ export const createTableActions = (set: any, get: any) => ({
       activeStageCategory: null
     })
     console.log('[Store.clearActiveStageNode] Cleared active stage node')
+  },
+
+  /**
+   * Activate table view for a specific tag category
+   * Maps category ID to the appropriate node and sets active stage state
+   */
+  activateCategoryTable: (categoryId: string) => {
+    const category = TAG_CATEGORIES[categoryId]
+
+    if (!category) {
+      console.error('[Store.activateCategoryTable] ❌ Invalid category:', categoryId)
+      return
+    }
+
+    console.log('[Store.activateCategoryTable] 🎯 Activating category:', {
+      categoryId,
+      label: category.label,
+      metric: category.metric
+    })
+
+    // Find node with this category's metric in left panel
+    let nodeId: string | null = null
+
+    if (category.metric) {
+      // For metric-based categories (Feature Splitting, Quality), find node with that metric
+      nodeId = get().findNodeWithMetric(category.metric)
+
+      if (!nodeId) {
+        console.warn('[Store.activateCategoryTable] ⚠️  No node found with metric:', category.metric)
+        console.warn('[Store.activateCategoryTable] Using fallback nodeId: root')
+        nodeId = 'root'  // Fallback to root
+      }
+    } else {
+      // For non-metric categories (Cause), use root as fallback
+      nodeId = 'root'
+    }
+
+    console.log('[Store.activateCategoryTable] ✅ Activating:', {
+      categoryId,
+      nodeId,
+      metric: category.metric
+    })
+
+    // Set active stage node with the category ID
+    get().setActiveStageNode(nodeId, categoryId)
   }
 })

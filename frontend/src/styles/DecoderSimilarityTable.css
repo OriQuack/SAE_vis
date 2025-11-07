@@ -47,16 +47,6 @@
   text-align: center;
 }
 
-.decoder-stage-table__header-cell--type {
-  width: 4%;
-  text-align: center;
-}
-
-.decoder-stage-table__header-cell--interfeature {
-  width: 4%;
-  text-align: center;
-}
-
 /* Override score column width for decoder similarity table */
 .decoder-stage-table__selection-header ~ .table-panel__content .table-panel__header-cell--score {
   width: auto;
@@ -64,7 +54,7 @@
 }
 
 .decoder-stage-table__header-cell--activation {
-  width: 65%;
+  width: 75%;
   text-align: left;
   padding-left: 0px;
 }
@@ -85,16 +75,6 @@
   cursor: pointer;
   background-color: white;
   accent-color: white;
-}
-
-.decoder-stage-table__cell--type {
-  text-align: center;
-  background: white;
-}
-
-.decoder-stage-table__cell--interfeature {
-  text-align: center;
-  background: white;
 }
 
 /* Override score cell width for decoder similarity table - removed, now set in visualization section below */
@@ -203,30 +183,6 @@
 }
 
 /* ============================================================================
- * MAIN FEATURE STYLING (PIVOT ROW)
- * ============================================================================ */
-
-/* Main/pivot feature row - subtle visual distinction for conference demos */
-.decoder-stage-table__main-feature-row {
-  border-left: 3px solid #9ca3af;
-  background: #f9fafb;
-}
-
-.decoder-stage-table__main-feature-row:hover {
-  background: #f3f4f6;
-}
-
-/* Ensure cells inherit the background */
-.decoder-stage-table__main-feature-row .table-panel__cell {
-  background: inherit;
-}
-
-/* Specifically ensure ID cell inherits background in main feature row */
-.decoder-stage-table__selection-header ~ .table-panel__content .decoder-stage-table__main-feature-row .table-panel__cell--id {
-  background: inherit !important;
-}
-
-/* ============================================================================
  * VERTICAL COLUMN SEPARATORS
  * ============================================================================ */
 
@@ -243,14 +199,6 @@
   border-right: 1px solid #d1d5db;
 }
 
-.decoder-stage-table__selection-header ~ .table-panel__content .decoder-stage-table__header-cell--type {
-  border-right: 1px solid #d1d5db;
-}
-
-.decoder-stage-table__selection-header ~ .table-panel__content .decoder-stage-table__header-cell--interfeature {
-  border-right: 1px solid #d1d5db;
-}
-
 /* Add thin vertical lines between columns - BODY CELLS */
 .decoder-stage-table__selection-header ~ .table-panel__content .decoder-stage-table__cell--checkbox {
   border-right: 1px solid #e5e7eb;
@@ -261,14 +209,6 @@
 }
 
 .decoder-stage-table__selection-header ~ .table-panel__content .table-panel__cell--score {
-  border-right: 1px solid #e5e7eb;
-}
-
-.decoder-stage-table__selection-header ~ .table-panel__content .decoder-stage-table__cell--type {
-  border-right: 1px solid #e5e7eb;
-}
-
-.decoder-stage-table__selection-header ~ .table-panel__content .decoder-stage-table__cell--interfeature {
   border-right: 1px solid #e5e7eb;
 }
 

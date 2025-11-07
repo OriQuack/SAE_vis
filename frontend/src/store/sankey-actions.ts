@@ -8,8 +8,13 @@ import {
   getFeatureMetricValues,
   precomputePercentileMap
 } from '../lib/threshold-utils'
-import { PANEL_LEFT, PANEL_RIGHT, CATEGORY_DECODER_SIMILARITY } from '../lib/constants'
-import { AVAILABLE_STAGES } from '../components/SankeyOverlay'
+import { PANEL_LEFT, PANEL_RIGHT } from '../lib/constants'
+import {
+  TAG_CATEGORIES,
+  TAG_CATEGORY_FEATURE_SPLITTING,
+  TAG_CATEGORY_QUALITY,
+  TAG_CATEGORY_CAUSE
+} from '../lib/tag-categories'
 
 type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
 
@@ -138,54 +143,159 @@ export const createTreeActions = (set: any, get: any) => ({
   },
 
   /**
-   * Add a new stage to a node by immediately splitting it with default thresholds.
-   * Gets default thresholds from AVAILABLE_STAGES config and creates split children.
+   * Initialize the fixed 3-stage Sankey tree structure.
+   * Automatically expands the tree to: Root → Feature Splitting → Quality → Cause
+   *
+   * Terminal nodes (high similarity, high quality) are marked with stage=3 and not expanded.
+   * This replaces the old interactive "add stage" workflow with a fixed structure
+   * based on tag categories.
    */
-  addStageToNode: async (nodeId: string, metric: string, panel: PanelSide = PANEL_LEFT) => {
+  initializeFixedSankeyTree: async (panel: PanelSide = PANEL_LEFT) => {
     const state = get()
     const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
     const loadingKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
     const errorKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
-    const { filters, sankeyTree } = state[panelKey]
 
-    console.log(`[Store.addStageToNode] 🎯 Called for ${panel}:`, {
-      nodeId,
-      metric,
-      hasSankeyTree: !!sankeyTree,
-      treeSize: sankeyTree?.size
-    })
-
-    if (!sankeyTree || !sankeyTree.has(nodeId)) {
-      console.error(`[Store.addStageToNode] ❌ Node ${nodeId} not found in tree`)
-      return
-    }
-
-    // Get default thresholds from AVAILABLE_STAGES config
-    const stageConfig = AVAILABLE_STAGES.find(s => s.metric === metric)
-    if (!stageConfig || !stageConfig.thresholds || stageConfig.thresholds.length === 0) {
-      console.error(`[Store.addStageToNode] ❌ No default thresholds found for metric: ${metric}`)
-      return
-    }
-
-    const defaultThresholds = [...stageConfig.thresholds]
-    console.log(`[Store.addStageToNode] 📐 Using default thresholds: ${defaultThresholds.join(', ')}`)
+    console.log(`[Store.initializeFixedSankeyTree] 🚀 Initializing fixed 3-stage structure for ${panel}`)
 
     state.setLoading(loadingKey, true)
     state.clearError(errorKey)
 
     try {
+      // Stage 1: Initialize and load root features
+      get().initializeSankeyTree(panel)
+      await get().loadRootFeatures(panel)
+
+      // Get updated state after root loading
+      const currentState = get()
+      const { sankeyTree } = currentState[panelKey]
+
+      if (!sankeyTree || !sankeyTree.has('root')) {
+        throw new Error('Root node not initialized')
+      }
+
+      // Stage 2: Expand Feature Splitting stage (decoder_similarity, threshold [0.4])
+      console.log('[Store.initializeFixedSankeyTree] 📊 Building Stage 1: Feature Splitting')
+      await get().addStageToNodeInternal('root', TAG_CATEGORY_FEATURE_SPLITTING, panel)
+
+      // Mark high similarity nodes (last group) as terminal
+      const afterStage1 = get()
+      const stage1Tree = afterStage1[panelKey].sankeyTree
+      const rootNode = stage1Tree?.get('root')
+
+      if (rootNode && rootNode.children.length > 0) {
+        const highSimilarityNodeId = rootNode.children[rootNode.children.length - 1]
+        const highSimilarityNode = stage1Tree?.get(highSimilarityNodeId)
+        if (highSimilarityNode) {
+          // Mark as terminal at stage 3
+          highSimilarityNode.stage = 3
+          stage1Tree?.set(highSimilarityNodeId, { ...highSimilarityNode })
+          console.log(`[Store.initializeFixedSankeyTree] 🎯 Marked high similarity node ${highSimilarityNodeId} as terminal (stage=3)`)
+        }
+      }
+
+      // Stage 3: Expand Quality stage for non-terminal Feature Splitting children
+      console.log('[Store.initializeFixedSankeyTree] 📊 Building Stage 2: Quality')
+      const afterMarkingStage1 = get()
+      const updatedStage1Tree = afterMarkingStage1[panelKey].sankeyTree
+      const updatedRootNode = updatedStage1Tree?.get('root')
+
+      if (updatedRootNode && updatedRootNode.children.length > 0) {
+        // Add Quality stage only to non-terminal children (all except last)
+        for (let i = 0; i < updatedRootNode.children.length - 1; i++) {
+          const childId = updatedRootNode.children[i]
+          await get().addStageToNodeInternal(childId, TAG_CATEGORY_QUALITY, panel)
+        }
+      }
+
+      // Mark high quality nodes (last group of each quality split) as terminal
+      const afterStage2 = get()
+      const stage2Tree = afterStage2[panelKey].sankeyTree
+
+      if (stage2Tree && updatedRootNode) {
+        // For each non-terminal Feature Splitting child
+        for (let i = 0; i < updatedRootNode.children.length - 1; i++) {
+          const featureSplittingNodeId = updatedRootNode.children[i]
+          const featureSplittingNode = stage2Tree.get(featureSplittingNodeId)
+
+          if (featureSplittingNode && featureSplittingNode.children.length > 0) {
+            const highQualityNodeId = featureSplittingNode.children[featureSplittingNode.children.length - 1]
+            const highQualityNode = stage2Tree.get(highQualityNodeId)
+            if (highQualityNode) {
+              // Mark as terminal at stage 3
+              highQualityNode.stage = 3
+              stage2Tree.set(highQualityNodeId, { ...highQualityNode })
+              console.log(`[Store.initializeFixedSankeyTree] 🎯 Marked high quality node ${highQualityNodeId} as terminal (stage=3)`)
+            }
+          }
+        }
+      }
+
+      // Stage 4: Expand Cause stage for non-terminal Quality children
+      console.log('[Store.initializeFixedSankeyTree] 📊 Building Stage 3: Cause')
+      const afterMarkingStage2 = get()
+      const updatedStage2Tree = afterMarkingStage2[panelKey].sankeyTree
+
+      if (updatedStage2Tree) {
+        // Find all nodes at depth 2 without stage override (non-terminal quality nodes)
+        const allNodes = Array.from(updatedStage2Tree.values()) as SankeyTreeNode[]
+        const depth2Nodes = allNodes.filter(
+          node => node.depth === 2 && node.stage === undefined
+        )
+
+        for (const node of depth2Nodes) {
+          await get().addCauseStage(node.id, panel)
+        }
+      }
+
+      state.setLoading(loadingKey, false)
+      console.log('[Store.initializeFixedSankeyTree] ✅ Fixed 3-stage tree initialized successfully!')
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to initialize fixed Sankey tree'
+      state.setError(errorKey, errorMessage)
+      state.setLoading(loadingKey, false)
+      console.error('[Store.initializeFixedSankeyTree] ❌ Error:', error)
+    }
+  },
+
+  /**
+   * Internal function to add a metric-based stage to a node.
+   * Used by initializeFixedSankeyTree for Feature Splitting and Quality stages.
+   */
+  addStageToNodeInternal: async (nodeId: string, categoryId: string, panel: PanelSide = PANEL_LEFT) => {
+    const state = get()
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
+    const { filters, sankeyTree } = state[panelKey]
+
+    const category = TAG_CATEGORIES[categoryId]
+    if (!category || !category.metric) {
+      console.error(`[Store.addStageToNodeInternal] ❌ Invalid category or no metric: ${categoryId}`)
+      return
+    }
+
+    const metric = category.metric
+    const defaultThresholds = category.defaultThresholds
+
+    console.log(`[Store.addStageToNodeInternal] 🎯 Adding ${category.label} stage to ${nodeId}`)
+    console.log(`[Store.addStageToNodeInternal] 📐 Using metric: ${metric}, thresholds: ${defaultThresholds.join(', ')}`)
+
+    if (!sankeyTree || !sankeyTree.has(nodeId)) {
+      console.error(`[Store.addStageToNodeInternal] ❌ Node ${nodeId} not found in tree`)
+      return
+    }
+
+    try {
       const node = sankeyTree.get(nodeId)!
 
-      // Fetch table data if not cached
+      // Table data should already be loaded by initializeWithDefaultFilters()
       let { tableData } = state
       if (!tableData || !tableData.features || tableData.features.length === 0) {
-        console.log('[Store.addStageToNode] Fetching table data...')
-        await get().fetchTableData()
-        tableData = get().tableData
+        console.error('[Store.addStageToNodeInternal] ❌ Table data not loaded - should be fetched before tree building')
+        throw new Error('Table data must be loaded before building Sankey tree. Call fetchTableData() first.')
       }
 
       // Fetch feature groups from backend with default thresholds
-      console.log(`[Store.addStageToNode] 🔍 Fetching groups for ${metric}:${defaultThresholds.join(',')}`)
       const response = await api.getFeatureGroups({ filters, metric, thresholds: defaultThresholds })
       const groups = processFeatureGroupResponse(response)
 
@@ -209,12 +319,11 @@ export const createTreeActions = (set: any, get: any) => ({
               [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5,
                0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95])
 
-            console.log(`[Store.addStageToNode] ✓ Percentiles: ${percentiles.map(p => p.toFixed(2)).join(', ')}`)
-            console.log(`[Store.addStageToNode] ✓ PercentileMap computed with ${percentileMap.size} entries`)
+            console.log(`[Store.addStageToNodeInternal] ✓ Percentiles: ${percentiles.map(p => p.toFixed(2)).join(', ')}`)
           }
         } catch (error) {
-          console.error('[Store.addStageToNode] ❌ Failed to compute percentiles:', error)
-          throw new Error('Failed to compute percentile mappings - cannot proceed without exact threshold calculations')
+          console.error('[Store.addStageToNodeInternal] ❌ Failed to compute percentiles:', error)
+          throw new Error('Failed to compute percentile mappings')
         }
       }
 
@@ -264,8 +373,6 @@ export const createTreeActions = (set: any, get: any) => ({
       }
       if (percentileMap) {
         parentNode.percentileToMetricMap = percentileMap
-      } else {
-        console.error('[Store.addStageToNode] ❌ PercentileMap is missing - this should never happen!')
       }
       newTree.set(nodeId, { ...parentNode })
 
@@ -276,35 +383,97 @@ export const createTreeActions = (set: any, get: any) => ({
         }
       }))
 
-      console.log(`[Store.addStageToNode] 🌳 Tree updated with ${groups.length} children for node ${nodeId}`)
+      console.log(`[Store.addStageToNodeInternal] 🌳 Tree updated with ${groups.length} children for node ${nodeId}`)
 
-      // Fetch histogram data for the new metric (for node overlay visualization)
-      console.log(`[Store.addStageToNode] 📊 Fetching histogram data for metric: ${metric}`)
-      try {
-        await state.fetchHistogramData(metric as MetricType, nodeId, panel)
-        console.log(`[Store.addStageToNode] ✅ Histogram data fetched`)
-      } catch (error) {
-        console.warn(`[Store.addStageToNode] ⚠️ Failed to fetch histogram data:`, error)
+      // Fetch histogram data if this category shows histograms
+      if (category.showHistogram) {
+        console.log(`[Store.addStageToNodeInternal] 📊 Fetching histogram data for metric: ${metric}`)
+        try {
+          await state.fetchHistogramData(metric as MetricType, nodeId, panel)
+        } catch (error) {
+          console.warn(`[Store.addStageToNodeInternal] ⚠️ Failed to fetch histogram data:`, error)
+        }
       }
 
       // Recompute Sankey structure
-      console.log(`[Store.addStageToNode] 🔄 Calling recomputeSankeyTree...`)
       get().recomputeSankeyTree(panel)
 
-      // Auto-activate decoder similarity table if this is a decoder similarity stage
-      if (metric === 'decoder_similarity' && panel === PANEL_LEFT) {
-        console.log('[Store.addStageToNode] 🎯 Auto-activating decoder similarity table for node:', nodeId)
-        get().setActiveStageNode(nodeId, CATEGORY_DECODER_SIMILARITY)
+      // Auto-activate decoder similarity table if this is Feature Splitting stage
+      if (categoryId === TAG_CATEGORY_FEATURE_SPLITTING && panel === PANEL_LEFT) {
+        console.log('[Store.addStageToNodeInternal] 🎯 Auto-activating decoder similarity table for node:', nodeId)
+        get().setActiveStageNode(nodeId, TAG_CATEGORY_FEATURE_SPLITTING)
       }
 
-      state.setLoading(loadingKey, false)
-      console.log(`[Store.addStageToNode] ✅ Stage addition complete with immediate split!`)
+      console.log(`[Store.addStageToNodeInternal] ✅ ${category.label} stage added successfully`)
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to add stage'
-      state.setError(errorKey, errorMessage)
-      state.setLoading(loadingKey, false)
-      console.error('[Store.addStageToNode] ❌ Error:', error)
+      console.error('[Store.addStageToNodeInternal] ❌ Error:', error)
+      throw error
     }
+  },
+
+  /**
+   * Add the Cause stage with pre-defined tag groups (no metric-based splitting).
+   * All features initially go into the "Unsure" group.
+   */
+  addCauseStage: async (nodeId: string, panel: PanelSide = PANEL_LEFT) => {
+    const state = get()
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
+    const { sankeyTree } = state[panelKey]
+
+    console.log(`[Store.addCauseStage] 🎯 Adding Cause stage to ${nodeId}`)
+
+    if (!sankeyTree || !sankeyTree.has(nodeId)) {
+      console.error(`[Store.addCauseStage] ❌ Node ${nodeId} not found in tree`)
+      return
+    }
+
+    const category = TAG_CATEGORIES[TAG_CATEGORY_CAUSE]
+    const newTree = new Map<string, SankeyTreeNode>(sankeyTree)
+    const parentNode = newTree.get(nodeId)!
+
+    // Delete old children if any
+    parentNode.children.forEach(childId => newTree.delete(childId))
+    parentNode.children = []
+
+    // Create 4 pre-defined groups: Missed Context, Missed Lexicon, Noisy Activation, Unsure
+    // Initially, all features go into "Unsure" group
+    category.tags.forEach((tag, _index) => {
+      const childId = `${nodeId}_stage${parentNode.depth + 1}_${tag.toLowerCase().replace(/\s+/g, '_')}`
+
+      const childNode: SankeyTreeNode = {
+        id: childId,
+        parentId: nodeId,
+        metric: null,
+        thresholds: [],
+        depth: parentNode.depth + 1,
+        children: [],
+        featureIds: tag === 'Unsure' ? new Set(parentNode.featureIds) : new Set<number>(),
+        featureCount: tag === 'Unsure' ? parentNode.featureCount : 0,
+        rangeLabel: tag
+      }
+
+      newTree.set(childId, childNode)
+      parentNode.children.push(childId)
+    })
+
+    // Mark parent as having Cause category (no metric, no thresholds)
+    parentNode.metric = null
+    parentNode.thresholds = []
+    newTree.set(nodeId, { ...parentNode })
+
+    set((state: any) => ({
+      [panelKey]: {
+        ...state[panelKey],
+        sankeyTree: newTree
+      }
+    }))
+
+    console.log(`[Store.addCauseStage] 🌳 Created ${category.tags.length} Cause groups (all features in "Unsure")`)
+
+    // Recompute Sankey structure
+    get().recomputeSankeyTree(panel)
+
+    console.log(`[Store.addCauseStage] ✅ Cause stage added successfully`)
   },
 
   /**
@@ -334,12 +503,11 @@ export const createTreeActions = (set: any, get: any) => ({
     state.clearError(errorKey)
 
     try {
-      // Fetch table data if not cached
+      // Table data should already be loaded by initialization
       let { tableData } = state
       if (!tableData || !tableData.features || tableData.features.length === 0) {
-        console.log('[Store.updateNodeThresholds] Fetching table data...')
-        await get().fetchTableData()
-        tableData = get().tableData
+        console.error('[Store.updateNodeThresholds] ❌ Table data not loaded - cannot update thresholds')
+        throw new Error('Table data must be loaded before updating thresholds')
       }
 
       // Fetch new groups from API
@@ -472,16 +640,10 @@ export const createTreeActions = (set: any, get: any) => ({
     try {
       console.log(`[Store.updateNodeThresholdsByPercentile] Converting percentiles ${percentiles.join(',')} to thresholds for ${node.metric}`)
 
-      // Fetch table data if not cached
+      // Table data should already be loaded by initialization
       if (!tableData || !tableData.features || tableData.features.length === 0) {
-        console.log('[Store.updateNodeThresholdsByPercentile] Fetching table data...')
-        await get().fetchTableData()
-        tableData = get().tableData
-
-        if (!tableData || !tableData.features) {
-          console.error('[Store.updateNodeThresholdsByPercentile] Failed to fetch table data')
-          return
-        }
+        console.error('[Store.updateNodeThresholdsByPercentile] ❌ Table data not loaded - cannot update thresholds by percentile')
+        throw new Error('Table data must be loaded before updating thresholds by percentile')
       }
 
       // Get metric values and compute percentile mappings

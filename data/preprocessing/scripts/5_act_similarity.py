@@ -425,16 +425,35 @@ class ActivationSimilarityProcessor:
         current_word = ""
         word_start_pos = 0
 
+        # Define punctuation including Unicode smart quotes
+        # \u201c=" \u201d=" \u2018=' \u2019='
+        punct_chars = '.,!?;:"\'\n\t()[]{}\u201c\u201d\u2018\u2019`'
+
         for i, token in enumerate(tokens):
+            token_clean = token.lstrip('_▁').strip()
+
             if token.startswith('▁'):
-                # New word boundary
+                # New word boundary (space prefix)
                 if current_word:
                     words_with_positions.append((current_word, word_start_pos))
-                current_word = token.lstrip('_▁').lower()
+                current_word = token_clean.lower()
                 word_start_pos = i
+            elif not token_clean or token_clean in punct_chars:
+                # Punctuation or whitespace - save current word and skip
+                if current_word:
+                    words_with_positions.append((current_word, word_start_pos))
+                    current_word = ""
+            elif not current_word:
+                # Starting a new word (e.g., "How" after punctuation)
+                # Strip any leading punctuation from the word itself
+                while token_clean and token_clean[0] in punct_chars:
+                    token_clean = token_clean[1:]
+                if token_clean:
+                    current_word = token_clean.lower()
+                    word_start_pos = i
             else:
                 # Continuation of current word
-                current_word += token.lower()
+                current_word += token_clean.lower()
 
         # Don't forget last word
         if current_word:

@@ -80,7 +80,9 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
     fetchFilterOptions,
     initializeWithDefaultFilters,
     showComparisonView,
-    toggleComparisonView
+    toggleComparisonView,
+    activeStageCategory,
+    activateCategoryTable
   } = useVisualizationStore()
 
   // Health check function
@@ -122,7 +124,9 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
   // Initialize with default filters after filter options are loaded
   useEffect(() => {
     if (filterOptions && autoLoad) {
-      initializeWithDefaultFilters()
+      initializeWithDefaultFilters().catch(error => {
+        console.error('[App] Failed to initialize with default filters:', error)
+      })
     }
   }, [filterOptions, autoLoad, initializeWithDefaultFilters])
 
@@ -170,7 +174,10 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
             <div className="sankey-view__center-left">
               {/* Tag Category Panel */}
               <div className="sankey-view__tag-category">
-                <TagCategoryPanel />
+                <TagCategoryPanel
+                  selectedCategory={activeStageCategory}
+                  onCategoryClick={activateCategoryTable}
+                />
               </div>
 
               {/* Left Sankey Diagram */}
@@ -191,11 +198,6 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
                   </button>
                 </div>
               </div>
-            </div>
-
-            {/* Center Middle - Reserved for future use */}
-            <div className="sankey-view__center-middle">
-              {/* Tag Progress Bar removed */}
             </div>
 
             {/* Center Right - Table Panel with Overlay */}

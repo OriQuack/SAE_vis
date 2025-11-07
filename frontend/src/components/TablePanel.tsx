@@ -22,6 +22,9 @@ import {
   METRIC_SEMANTIC_SIMILARITY,
   CATEGORY_DECODER_SIMILARITY
 } from '../lib/constants'
+import {
+  TAG_CATEGORY_FEATURE_SPLITTING
+} from '../lib/tag-categories'
 import { HighlightedExplanation } from './HighlightedExplanation'
 import ActivationExample from './ActivationExample'
 import QualityScoreBreakdown from './QualityScoreBreakdown'
@@ -183,7 +186,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   useEffect(() => {
     fetchTableData()
   }, [
-    // Note: fetchTableData is a stable Zustand action, no need to include in dependencies
+    fetchTableData,
     leftPanel.filters.llm_explainer,
     rightPanel.filters.llm_explainer,
     leftPanel.filters.llm_scorer,
@@ -265,7 +268,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   }, [tableData, sortBy, sortDirection, selectedFeatures, tableSelectedNodeIds.length])
 
   // Get list of explainer IDs for iteration (moved before early returns)
-  const explainerIds = tableData?.explainer_ids || []
+  const explainerIds = useMemo(() => tableData?.explainer_ids || [], [tableData?.explainer_ids])
 
   // Calculate total row count for row-level virtualization (moved before early returns)
   const totalRowCount = useMemo(() => {
@@ -450,7 +453,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
       // Clean up all retry/mutation timeouts
       cleanupTimeouts.forEach(timeoutId => clearTimeout(timeoutId))
     }
-  }, [setTableScrollState, sortedFeatures])  // Re-run when features change
+  }, [setTableScrollState, sortedFeatures, explainerIds, rowVirtualizer, totalRowCount, tableData?.features.length])  // Re-run when features change
 
   // Scroll to highlighted feature when it changes (moved before early returns)
   useEffect(() => {
@@ -485,6 +488,20 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
   // Check if we should render stage-specific table (moved before other early returns)
   // Use stored category for simple and reliable check
+  if (activeStageNodeId && activeStageCategory) {
+    // Feature Splitting category → Show DecoderSimilarityTable
+    if (activeStageCategory === TAG_CATEGORY_FEATURE_SPLITTING) {
+      return <DecoderSimilarityTable className={className} />
+    }
+
+    // Quality category → Show normal TablePanel (fall through)
+    // This is handled by continuing with the normal table rendering below
+
+    // Cause category → Disabled (future implementation)
+    // If somehow activated, fall through to normal table as fallback
+  }
+
+  // Legacy support: Check old CATEGORY_DECODER_SIMILARITY constant
   if (activeStageNodeId && activeStageCategory === CATEGORY_DECODER_SIMILARITY) {
     return <DecoderSimilarityTable className={className} />
   }

@@ -74,6 +74,7 @@ export interface SankeyTreeNode {
   percentiles?: number[]              // Percentile positions (0-1) for visual splitting (e.g., [0.4, 0.8])
   thresholdSource?: 'percentile' | 'metric'  // How thresholds were set: visual (percentile) or exact (metric)
   depth: number                       // Depth in tree (0 for root)
+  stage?: number                      // Explicit stage override (for terminal nodes at rightmost position)
   children: string[]                  // Child node IDs
   featureIds: Set<number>             // Feature IDs at this node
   featureCount: number                // Count of features
@@ -145,6 +146,7 @@ export interface SankeyNode {
   id: string
   name: string
   stage: number
+  depth?: number  // Tree depth (for sorting terminal nodes at same stage)
   feature_count: number
   category: NodeCategory
   metric?: string | null  // Metric used for this node's stage (null for root)

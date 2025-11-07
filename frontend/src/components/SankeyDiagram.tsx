@@ -13,10 +13,7 @@ import {
 } from '../lib/d3-sankey-utils'
 import { calculateVerticalBarNodeLayout } from '../lib/d3-sankey-utils'
 import {
-  getNodeMetrics,
-  getAvailableStages,
-  canAddStage,
-  hasChildren
+  getNodeMetrics
 } from '../lib/threshold-utils'
 import { getNodesContainingFeatures } from '../store/sankey-actions'
 import { useResizeObserver } from '../lib/utils'
@@ -27,7 +24,8 @@ import {
   METRIC_DISPLAY_NAMES,
   CATEGORY_DECODER_SIMILARITY
 } from '../lib/constants'
-import { SankeyOverlay, SankeyInlineSelector, AVAILABLE_STAGES } from './SankeyOverlay'
+import { SankeyOverlay } from './SankeyOverlay'
+// SankeyInlineSelector removed - no longer needed with fixed 3-stage auto-expansion
 import '../styles/SankeyDiagram.css'
 
 // ==================== COMPONENT-SPECIFIC TYPES ====================
@@ -129,26 +127,29 @@ const SankeyNode: React.FC<{
 
       {showLabel && (
         <>
-          <text
-            x={labelX}
-            y={(node.y0 + node.y1) / 2}
-            dy="0.35em"
-            fontSize={12}
-            fill="#000000"
-            opacity={1}
-            fontWeight={isHovered ? 600 : 400}
-            textAnchor={textAnchor}
-            style={{
-              transition: `font-weight ${animationDuration}ms ease-out`,
-              pointerEvents: 'none'
-            }}
-          >
-            {node.name}
-          </text>
+          {node.name.split('\n').map((line, index) => (
+            <text
+              key={index}
+              x={labelX}
+              y={((node.y0 ?? 0) + (node.y1 ?? 0)) / 2 + (index * 14)}
+              dy="0.35em"
+              fontSize={index === 0 ? 12 : 10}
+              fill="#000000"
+              opacity={1}
+              fontWeight={isHovered ? 600 : 400}
+              textAnchor={textAnchor}
+              style={{
+                transition: `font-weight ${animationDuration}ms ease-out`,
+                pointerEvents: 'none'
+              }}
+            >
+              {line}
+            </text>
+          ))}
 
           <text
             x={labelX}
-            y={(node.y0 + node.y1) / 2 + 14}
+            y={(node.y0 + node.y1) / 2 + (node.name.split('\n').length * 14)}
             dy="0.35em"
             fontSize={10}
             fill="#000000"
@@ -210,65 +211,6 @@ const SankeyLink: React.FC<{
       onMouseLeave={onMouseLeave}
       onClick={onClick}
     />
-  )
-}
-
-// Button data interface for deferred rendering
-interface NodeButton {
-  nodeId: string
-  x: number
-  y: number
-  type: 'add' | 'remove'
-  isHovered: boolean
-  onClick: (e: React.MouseEvent) => void
-}
-
-// Standalone button rendering component
-const NodeButtons: React.FC<{
-  buttons: NodeButton[]
-  animationDuration: number
-}> = ({ buttons, animationDuration: _animationDuration }) => {
-  return (
-    <g className="sankey-node-buttons">
-      {buttons.map((button) => {
-        const isAdd = button.type === 'add'
-        const buttonColor = isAdd ? '#3b82f6' : '#ef4444'
-        const buttonSymbol = isAdd ? '+' : '×'
-        const buttonFontSize = isAdd ? 12 : 12
-
-        return (
-          <g key={`${button.nodeId}-${button.type}`} className={`sankey-node-${button.type}-stage`}>
-            <circle
-              cx={button.x}
-              cy={button.y}
-              r={8}
-              fill={buttonColor}
-              stroke="#ffffff"
-              strokeWidth={1.5}
-              style={{
-                cursor: 'pointer',
-                opacity: button.isHovered ? 1 : 0.7,
-              //   transition: `all ${animationDuration}ms ease-out`
-              }}
-              onClick={button.onClick}
-              onMouseEnter={(e) => e.stopPropagation()}
-            />
-            <text
-              x={button.x}
-              y={button.y}
-              dy="0.35em"
-              fontSize={buttonFontSize}
-              fill="#ffffff"
-              fontWeight="bold"
-              textAnchor="middle"
-              style={{ pointerEvents: 'none', userSelect: 'none' }}
-            >
-              {buttonSymbol}
-            </text>
-          </g>
-        )
-      })}
-    </g>
   )
 }
 
@@ -368,22 +310,25 @@ const VerticalBarSankeyNode: React.FC<{
       {/* Node name and feature count labels (same as normal nodes) */}
       {!isPlaceholder && (
         <>
+          {node.name.split('\n').map((line, index) => (
+            <text
+              key={index}
+              x={labelX}
+              y={labelY + (index * 14)}
+              dy="0.35em"
+              fontSize={index === 0 ? 12 : 10}
+              fill="#000000"
+              opacity={1}
+              fontWeight={400}
+              textAnchor={textAnchor}
+              style={{ pointerEvents: 'none' }}
+            >
+              {line}
+            </text>
+          ))}
           <text
             x={labelX}
-            y={labelY}
-            dy="0.35em"
-            fontSize={12}
-            fill="#000000"
-            opacity={1}
-            fontWeight={400}
-            textAnchor={textAnchor}
-            style={{ pointerEvents: 'none' }}
-          >
-            {node.name}
-          </text>
-          <text
-            x={labelX}
-            y={labelY + 14}
+            y={labelY + (node.name.split('\n').length * 14)}
             dy="0.35em"
             fontSize={10}
             fill="#000000"
@@ -427,8 +372,8 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const selectedFeatureIds = useVisualizationStore(state => state.selectedFeatureIds)
   const {
     showHistogramPopover,
-    addStageToNode,
-    removeNodeStage,
+    // addStageToNode, // REMOVED: No longer needed with fixed 3-stage auto-expansion
+    // removeNodeStage, // REMOVED: No longer needed with fixed 3-stage auto-expansion
     updateNodeThresholds,
     updateNodeThresholdsByPercentile,
     toggleNodeSelection,
@@ -472,11 +417,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const [displayData, setDisplayData] = useState(data)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
   const [hoveredLinkIndex, setHoveredLinkIndex] = useState<number | null>(null)
-  const [inlineSelector, setInlineSelector] = useState<{
-    nodeId: string
-    position: { x: number; y: number }
-    availableStages: any[]
-  } | null>(null)
+  // const [inlineSelector, setInlineSelector] = useState<...>(null) // REMOVED: No longer needed
 
   // Resize observer hook with minimal debounce for responsiveness
   const containerElementRef = React.useRef<HTMLDivElement | null>(null)
@@ -556,7 +497,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     }
 
     return null
-  }, [layout, tableScrollState, panel])
+  }, [layout, tableScrollState])
 
   // Stage labels removed - metric labels now shown on links
 
@@ -606,80 +547,15 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     showHistogramPopover(sourceNode.id, sourceNode.name, [metric as any], position, undefined, undefined, panel, sourceNode.category)
   }, [showHistogramOnClick, showHistogramPopover, sankeyTree, panel, handleNodeHistogramClick])
 
-  const handleAddStageClick = useCallback((event: React.MouseEvent, node: D3SankeyNode) => {
-    event.stopPropagation()
+  // REMOVED: handleAddStageClick - No longer needed with fixed 3-stage auto-expansion
+  // const handleAddStageClick = useCallback((event: React.MouseEvent, node: D3SankeyNode) => {
+  //   event.stopPropagation()
+  //   // ... implementation removed
+  // }, [sankeyTree, computedSankey])
 
-    // NEW TREE SYSTEM: get available stages (filter out already-used metrics)
-    if (!sankeyTree || !computedSankey) return
-
-    const treeNode = sankeyTree.get(node.id)
-    if (!treeNode) return
-
-    const availableStages = getAvailableStages(treeNode, sankeyTree, AVAILABLE_STAGES)
-    if (availableStages.length === 0) return
-
-    const rect = event.currentTarget.getBoundingClientRect()
-
-    // Position popup next to button with center Y aligned
-    setInlineSelector({
-      nodeId: node.id,
-      position: {
-        x: rect.left + rect.width + 10,
-        y: rect.top + rect.height / 2  // Center Y of button
-      },
-      availableStages
-    })
-  }, [sankeyTree, computedSankey])
-
-  const handleRemoveStageClick = useCallback((event: React.MouseEvent, node: D3SankeyNode) => {
-    event.stopPropagation()
-
-    // Use tree-based system for both panels
-    if (sankeyTree) {
-      // Remove all descendants of this node
-      removeNodeStage(node.id, panel)
-    }
-  }, [removeNodeStage, panel, sankeyTree])
-
-  const handleStageSelect = useCallback(async (stageTypeId: string) => {
-    if (!inlineSelector) return
-
-    const stageType = inlineSelector.availableStages.find(s => s.id === stageTypeId)
-    if (!stageType) {
-      console.error('[SankeyDiagram.handleStageSelect] ❌ Stage type not found:', stageTypeId)
-      return
-    }
-
-    console.log('[SankeyDiagram.handleStageSelect] 🎯 Stage selected:', {
-      stageTypeId,
-      stageType,
-      metric: stageType.metric
-    })
-
-    setInlineSelector(null)
-
-    // Add stage with default thresholds (immediate split)
-    const metric = stageType.metric
-
-    if (metric) {
-      console.log('[SankeyDiagram.handleStageSelect] ✅ Calling addStageToNode with:', { metric })
-      await addStageToNode(inlineSelector.nodeId, metric, panel)
-    } else {
-      console.error('[SankeyDiagram.handleStageSelect] ❌ Missing metric:', {
-        metric,
-        stageType
-      })
-    }
-  }, [inlineSelector, addStageToNode, panel])
-
-  const handleOverlayMetricClick = useCallback(async (metric: string) => {
-    console.log('[SankeyDiagram.handleOverlayMetricClick] 🎯 Metric clicked:', {
-      metric
-    })
-
-    // Add stage with default thresholds (immediate split)
-    await addStageToNode('root', metric, panel)
-  }, [addStageToNode, panel])
+  // REMOVED: handleStageSelect and handleOverlayMetricClick - No longer needed with fixed 3-stage auto-expansion
+  // const handleStageSelect = useCallback(async (stageTypeId: string) => { ... }, [inlineSelector, panel])
+  // const handleOverlayMetricClick = useCallback(async (metric: string) => { ... }, [panel])
 
   const handleThresholdUpdate = useCallback((nodeId: string, newThresholds: number[]) => {
     console.log('[SankeyDiagram.handleThresholdUpdate] 🎯 Thresholds updated:', {
@@ -825,20 +701,17 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                 return Array.from(sourceNodeMap.entries()).map(([nodeId, { node, links }]) => {
                   if (node.x1 === undefined || node.y0 === undefined || node.y1 === undefined) return null
 
-                  // Find the average target X position
-                  const targetXPositions = links
-                    .map(link => {
-                      const targetNode = typeof link.target === 'object' ? link.target : null
-                      return targetNode?.x0
-                    })
-                    .filter((x): x is number => x !== undefined)
+                  // Calculate label position based on stage gap
+                  // This fixes positioning issues when targets are terminal nodes at stage 3
+                  const firstTargetNode = links.length > 0 && typeof links[0].target === 'object'
+                    ? links[0].target
+                    : null
 
-                  if (targetXPositions.length === 0) return null
+                  if (!firstTargetNode || firstTargetNode.x0 === undefined) return null
 
-                  const avgTargetX = targetXPositions.reduce((sum, x) => sum + x, 0) / targetXPositions.length
-
-                  // Position at horizontal center between source and average target
-                  const labelX = (node.x1 + avgTargetX) / 2
+                  // Use a fixed offset approach: position label halfway to the next stage
+                  // This works correctly even when all targets are vertical bars at stage 3
+                  const labelX = node.x1 + (firstTargetNode.x0 - node.x1) / 2
 
                   // Find the topmost link from this source node
                   const topY = Math.min(
@@ -921,92 +794,22 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
               })()}
             </g>
 
-            {/* Sankey Overlay - histograms, metric overlay, threshold sliders */}
+            {/* Sankey Overlay - histograms and threshold sliders */}
             <SankeyOverlay
               layout={layout}
               histogramData={histogramData}
               animationDuration={animationDuration}
               sankeyTree={sankeyTree}
-              onMetricClick={handleOverlayMetricClick}
               onThresholdUpdate={handleThresholdUpdate}
               onThresholdUpdateByPercentile={handleThresholdUpdateByPercentile}
             />
 
-            {/* Node Buttons - rendered after overlay to appear on top */}
-            <g className="sankey-diagram__node-buttons">
-              {(() => {
-                const buttons: NodeButton[] = []
-                const isRightToLeft = flowDirection === 'right-to-left'
-
-                layout.nodes.forEach((node) => {
-                  // Skip placeholder nodes
-                  if (node.id === 'placeholder_vertical_bar') return
-
-                  // Calculate button position
-                  if (node.x0 === undefined || node.x1 === undefined || node.y0 === undefined || node.y1 === undefined) {
-                    return
-                  }
-
-                  const buttonX = isRightToLeft ? node.x0 - 15 : node.x1 + 12
-                  const buttonY = (node.y0 + node.y1) / 2
-
-                  // Determine button visibility using tree-based system
-                  let canAdd = false
-                  let canRemove = false
-
-                  if (sankeyTree && computedSankey) {
-                    const treeNode = sankeyTree.get(node.id)
-                    if (treeNode) {
-                      // Don't show + button on root when it has no children (overlay is showing)
-                      if (node.id === 'root' && treeNode.children.length === 0) {
-                        canAdd = false
-                      } else {
-                        canAdd = canAddStage(treeNode)
-                      }
-                      canRemove = hasChildren(treeNode)
-                    }
-                  }
-
-                  // Add button if applicable
-                  if (canAdd) {
-                    buttons.push({
-                      nodeId: node.id || '',
-                      x: buttonX,
-                      y: buttonY,
-                      type: 'add',
-                      isHovered: hoveredNodeId === node.id,
-                      onClick: (e) => handleAddStageClick(e, node)
-                    })
-                  }
-
-                  // Remove button if applicable
-                  if (canRemove) {
-                    buttons.push({
-                      nodeId: node.id || '',
-                      x: buttonX,
-                      y: buttonY,
-                      type: 'remove',
-                      isHovered: hoveredNodeId === node.id,
-                      onClick: (e) => handleRemoveStageClick(e, node)
-                    })
-                  }
-                })
-
-                return <NodeButtons buttons={buttons} animationDuration={animationDuration} />
-              })()}
-            </g>
+            {/* Node Buttons - REMOVED: No longer needed with fixed 3-stage structure */}
           </g>
         </svg>
       </div>
 
-      {/* Inline Stage Selector - rendered outside SVG */}
-      {inlineSelector && (
-        <SankeyInlineSelector
-          selector={inlineSelector}
-          onStageSelect={handleStageSelect}
-          onClose={() => setInlineSelector(null)}
-        />
-      )}
+      {/* REMOVED: Inline Stage Selector - no longer needed with fixed 3-stage auto-expansion */}
     </div>
   )
 }

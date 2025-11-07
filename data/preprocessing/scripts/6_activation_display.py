@@ -171,9 +171,9 @@ class ActivationDisplayProcessor:
 
         token_config = self.proc_params.get("token_processing", {})
 
-        # Remove leading underscores (both regular '_' and Unicode '▁')
+        # Remove leading underscores (both regular '_' and Unicode '▁') and whitespace
         if token_config.get("remove_leading_underscore", True):
-            tokens = [t.lstrip('_▁') for t in tokens]
+            tokens = [t.lstrip('_▁').strip() for t in tokens]
 
         return tokens
 

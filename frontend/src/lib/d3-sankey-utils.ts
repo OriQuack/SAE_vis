@@ -223,6 +223,36 @@ export function calculateSankeyLayout(
     }
   })
 
+  /**
+   * Get the originalIndex of the stage-1 ancestor (first child of root).
+   * This groups terminal nodes by their subtree for proper visual ordering.
+   */
+  const getStage1AncestorIndex = (
+    node: D3SankeyNode,
+    nodeMap: Map<string, D3SankeyNode>,
+    childToParentMap: Map<string, string>
+  ): number => {
+    let current = node
+
+    // Walk up the tree until we find a node whose parent is root
+    while (current) {
+      const parentId = childToParentMap.get(current.id || '') || extractParentId(current.id || '')
+
+      if (parentId === 'root') {
+        // current is a direct child of root (stage-1 ancestor)
+        return current.originalIndex ?? 0
+      }
+
+      const parent = nodeMap.get(parentId)
+      if (!parent) break
+
+      current = parent
+    }
+
+    // Fallback for root node itself
+    return 0
+  }
+
   // Node sorting function
   const smartNodeSort = (a: D3SankeyNode, b: D3SankeyNode) => {
     // Sort by stage first
@@ -230,21 +260,31 @@ export function calculateSankeyLayout(
       return (a.stage || 0) - (b.stage || 0)
     }
 
-    // Within same stage, get parent IDs
+    // Within same stage, sort by stage-1 ancestor to group by subtree
+    const ancestorIndexA = getStage1AncestorIndex(a, nodeMap, childToParentMap)
+    const ancestorIndexB = getStage1AncestorIndex(b, nodeMap, childToParentMap)
+
+    if (ancestorIndexA !== ancestorIndexB) {
+      return ancestorIndexA - ancestorIndexB
+    }
+
+    // Within same subtree, sort by depth (deeper nodes first)
+    if (a.depth !== b.depth) {
+      return (b.depth || 0) - (a.depth || 0)  // Descending: 3 → 2 → 1
+    }
+
+    // Same subtree and depth: sort by immediate parent's originalIndex
     const parentA = childToParentMap.get(a.id || '') || extractParentId(a.id || '')
     const parentB = childToParentMap.get(b.id || '') || extractParentId(b.id || '')
 
-    // If different parents, sort by parent's originalIndex for stable ordering
     if (parentA !== parentB) {
       const parentNodeA = nodeMap.get(parentA)
       const parentNodeB = nodeMap.get(parentB)
 
-      // Sort by parent's originalIndex (not Y position which is unreliable)
       if (parentNodeA && parentNodeB) {
         return (parentNodeA.originalIndex ?? 0) - (parentNodeB.originalIndex ?? 0)
       }
 
-      // Fallback to child's originalIndex if parents not found
       return (a.originalIndex ?? 0) - (b.originalIndex ?? 0)
     }
 
@@ -258,7 +298,7 @@ export function calculateSankeyLayout(
       }
     }
 
-    // Fallback to original order
+    // Final fallback to original order
     return (a.originalIndex ?? 0) - (b.originalIndex ?? 0)
   }
 

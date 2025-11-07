@@ -69,7 +69,9 @@ interface AppState {
   setFilters: (filters: Partial<any>, panel?: PanelSide) => void
 
   // Tree-based threshold system actions (from tree-actions.ts)
-  addStageToNode: (nodeId: string, metric: string, panel?: PanelSide) => Promise<void>
+  initializeFixedSankeyTree: (panel?: PanelSide) => Promise<void>
+  addStageToNodeInternal: (nodeId: string, categoryId: string, panel?: PanelSide) => Promise<void>
+  addCauseStage: (nodeId: string, panel?: PanelSide) => Promise<void>
   updateNodeThresholds: (nodeId: string, thresholds: number[], panel?: PanelSide) => Promise<void>
   updateNodeThresholdsByPercentile: (nodeId: string, percentiles: number[], panel?: PanelSide) => Promise<void>
   recomputeSankeyTree: (panel?: PanelSide) => void
@@ -150,6 +152,7 @@ interface AppState {
   // Stage table actions
   setActiveStageNode: (nodeId: string | null, category?: string | null) => void
   clearActiveStageNode: () => void
+  activateCategoryTable: (categoryId: string) => void
 
   // Activation examples cache (centralized for all components)
   activationExamples: Record<number, ActivationExamples>
@@ -165,7 +168,7 @@ interface AppState {
   clearActivationCache: () => void
 
   // Auto-initialization with default filters
-  initializeWithDefaultFilters: () => void
+  initializeWithDefaultFilters: () => Promise<void>
 }
 
 const initialState = {
@@ -562,7 +565,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   // Auto-initialization with default filters
-  initializeWithDefaultFilters: () => {
+  initializeWithDefaultFilters: async () => {
     const state = get()
     const { filterOptions } = state
 
@@ -634,13 +637,16 @@ export const useStore = create<AppState>((set, get) => ({
       }
     }))
 
-    // Don't compute Sankey tree yet - let old system handle initial display
-    // Tree-based system will take over when user adds first stage
-    console.log('✅ Initialization complete - OLD system will handle initial Sankey, tree-based system ready for stage additions')
+    // OPTIMIZATION: Pre-load table data BEFORE tree building
+    // This ensures activation examples are cached when decoder similarity table renders
+    console.log('📥 Pre-loading table data before tree building...')
+    await get().fetchTableData()
+    console.log('✅ Table data loaded - now building Sankey tree')
 
-    // Load actual root features from API
-    console.log('🌱 Now loading root features from API...')
-    get().loadRootFeatures(PANEL_LEFT)
+    // Initialize fixed 3-stage Sankey tree automatically
+    console.log('🌱 Initializing fixed Sankey tree: Root → Feature Splitting → Quality → Cause')
+    await get().initializeFixedSankeyTree(PANEL_LEFT)
+    console.log('✅ Fixed 3-stage tree initialized - decoder similarity table ready')
   }
 }))
 

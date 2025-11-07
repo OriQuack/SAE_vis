@@ -16,6 +16,7 @@ import type {
   TreeBasedSankeyStructure,
   MetricType
 } from '../types'
+import { TAG_CATEGORIES } from './tag-categories'
 
 
 // ============================================================================
@@ -232,6 +233,61 @@ function getCategoryForMetric(metric: string): NodeCategory {
 // ============================================================================
 
 /**
+ * Get display name with tag name prefix for a tree node.
+ * Combines tag name from category with the range label.
+ *
+ * @param node - The tree node to get display name for
+ * @param tree - Full tree map for parent lookup
+ * @returns Display name in format: "tag name range_label"
+ */
+function getNodeDisplayName(node: SankeyTreeNode, tree: Map<string, SankeyTreeNode>): string {
+  // Root node or placeholder: use rangeLabel as-is
+  if (!node.parentId || node.id === 'root' || node.id === 'placeholder_vertical_bar') {
+    return node.rangeLabel
+  }
+
+  // Get parent to determine which metric/category was used
+  const parent = tree.get(node.parentId)
+  if (!parent?.metric) {
+    return node.rangeLabel  // No metric on parent, just use range label
+  }
+
+  // Find matching tag category by metric
+  const category = Object.values(TAG_CATEGORIES).find(c => c.metric === parent.metric)
+  if (!category || !category.tags || category.tags.length === 0) {
+    return node.rangeLabel  // No category found or no tags defined
+  }
+
+  // Extract the LAST group index from node ID
+  // For "root_stage1_group0_stage2_group1", we want group1 (the last one)
+  const matches = node.id.match(/group(\d+)/g)
+  if (!matches || matches.length === 0) {
+    return node.rangeLabel  // Can't parse group index
+  }
+
+  const lastMatch = matches[matches.length - 1]
+  const groupIndexMatch = lastMatch.match(/\d+/)
+  if (!groupIndexMatch) {
+    return node.rangeLabel  // Can't parse group index
+  }
+
+  const groupIndex = parseInt(groupIndexMatch[0], 10)
+  const tagName = category.tags[groupIndex]
+  if (!tagName) {
+    return node.rangeLabel  // Tag index out of bounds
+  }
+
+  // Capitalize tag name (first letter of each word)
+  const capitalizedTagName = tagName
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+
+  // Combine tag name with range label, separated by newline
+  return `${capitalizedTagName}\n${node.rangeLabel}`
+}
+
+/**
  * Convert a tree of SankeyTreeNodes to D3-compatible Sankey structure.
  * This function traverses the tree and creates the flat nodes/links arrays needed by D3.
  *
@@ -242,30 +298,39 @@ export function convertTreeToSankeyStructure(tree: Map<string, SankeyTreeNode>):
   const nodes: SankeyNode[] = []
   const links: SankeyLink[] = []
   let maxDepth = 0
+  let maxStage = 0
 
-  // First pass: Find maximum depth
+  // First pass: Find maximum depth and maximum stage
   tree.forEach((node) => {
     if (node.depth > maxDepth) {
       maxDepth = node.depth
+    }
+    const nodeStage = node.stage ?? node.depth
+    if (nodeStage > maxStage) {
+      maxStage = nodeStage
     }
   })
 
   // Second pass: Build nodes and links
   tree.forEach((node) => {
-    // Check if this node is at the maximum depth (rightmost stage)
-    const isAtMaxDepth = node.depth === maxDepth && node.depth > 0
+    // Use explicit stage if available, otherwise use depth
+    const nodeStage = node.stage ?? node.depth
+
+    // Check if this node is at the maximum stage (rightmost column)
+    const isAtMaxStage = nodeStage === maxStage && nodeStage > 0
 
     // Create node for D3
     const sankeyNode: SankeyNode = {
       id: node.id,
-      name: node.rangeLabel,
-      stage: node.depth,
+      name: getNodeDisplayName(node, tree),
+      stage: nodeStage,
+      depth: node.depth,  // Preserve tree depth for sorting
       feature_count: node.featureCount,
       category: getNodeCategory(node, tree),  // Pass tree for parent lookup
       metric: node.metric,  // Include metric for stage labels
       feature_ids: Array.from(node.featureIds),
-      // Mark nodes at maximum depth as vertical_bar type
-      node_type: isAtMaxDepth ? 'vertical_bar' : 'standard'
+      // Mark nodes at maximum stage as vertical_bar type
+      node_type: isAtMaxStage ? 'vertical_bar' : 'standard'
     }
     nodes.push(sankeyNode)
 
