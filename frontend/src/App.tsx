@@ -5,6 +5,7 @@ import AlluvialDiagram from './components/AlluvialDiagram'
 import HistogramPopover from './components/HistogramPopover'
 import FlowPanel from './components/FlowPanel'
 import TablePanel from './components/TablePanel'
+import TagCategoryPanel from './components/TagCategoryPanel'
 import * as api from './api'
 import './styles/base.css'
 import './styles/App.css'
@@ -165,23 +166,30 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
 
           {/* Center Panel Container - Row 2 */}
           <div className="sankey-view__center-panel-container">
-            {/* Center Left - Left Sankey */}
+            {/* Center Left - Tag Category Panel + Left Sankey */}
             <div className="sankey-view__center-left">
+              {/* Tag Category Panel */}
+              <div className="sankey-view__tag-category">
+                <TagCategoryPanel />
+              </div>
+
               {/* Left Sankey Diagram */}
-              <div className="sankey-view__sankey-left">
-                <SankeyDiagram
-                  showHistogramOnClick={true}
-                  flowDirection="left-to-right"
-                  panel="left"
-                />
-                {/* Floating Comparison Toggle Button */}
-                <button
-                  className={`comparison-toggle comparison-toggle--floating comparison-toggle--icon-only ${showComparisonView ? 'comparison-toggle--active' : ''}`}
-                  onClick={toggleComparisonView}
-                  title={showComparisonView ? 'Hide comparison view' : 'Show comparison view'}
-                >
-                  {showComparisonView ? '◀' : '▶'}
-                </button>
+              <div className="sankey-view__sankey-left-wrapper">
+                <div className="sankey-view__sankey-left">
+                  <SankeyDiagram
+                    showHistogramOnClick={true}
+                    flowDirection="left-to-right"
+                    panel="left"
+                  />
+                  {/* Floating Comparison Toggle Button */}
+                  <button
+                    className={`comparison-toggle comparison-toggle--floating comparison-toggle--icon-only ${showComparisonView ? 'comparison-toggle--active' : ''}`}
+                    onClick={toggleComparisonView}
+                    title={showComparisonView ? 'Hide comparison view' : 'Show comparison view'}
+                  >
+                    {showComparisonView ? '◀' : '▶'}
+                  </button>
+                </div>
               </div>
             </div>
 

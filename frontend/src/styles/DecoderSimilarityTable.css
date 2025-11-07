@@ -107,14 +107,14 @@
 .decoder-stage-table__badge-stack {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
   align-items: center;
 }
 
 /* Base badge styling */
 .decoder-stage-table__badge {
   display: inline-block;
-  padding: 1px 2px;
+  padding: 0px 2px;
   border-radius: 3px;
   font-size: 10px;
   font-weight: 600;
@@ -144,12 +144,19 @@
   border: 1px solid #d1d5db;
 }
 
+/* Green variant - for inter-feature relationship badges (always green) */
+.decoder-stage-table__badge--green {
+  background-color: #d1fae5 !important;
+  color: #065f46 !important;
+  border: 1px solid #10b981 !important;
+}
+
 /* Compact badge variant for SVG context */
 .decoder-stage-table__badge--compact {
-  padding: 0px 2px;
+  padding: 0px 1px;
   font-size: 8px;
   transition: all 0.15s ease;
-  line-height: 1.2;
+  line-height: 1;
 }
 
 /* Hover state for interactive badges */
@@ -298,4 +305,56 @@
   stroke-width: 2px !important;
   filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.4));
   transition: all 0.15s ease;
+}
+
+/* ============================================================================
+ * ACTIVATION POPOVER (Decoder Similarity Connection Hover)
+ * ============================================================================ */
+
+.decoder-activation-popover {
+  position: absolute;
+  /* top and left set dynamically via inline styles */
+  background: white;
+  border: 1px solid #000000;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  /* max-width set dynamically via inline styles based on activation column width */
+  padding: 4px;
+  pointer-events: none;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+/* Feature section container */
+.decoder-activation-popover__feature {
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.decoder-activation-popover__feature:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+/* Feature ID label */
+.decoder-activation-popover__feature-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 4px;
+}
+
+/* Individual quantile row */
+.decoder-activation-popover__quantile-row {
+  display: flex;
+  gap: 0;
+  flex-wrap: nowrap;  /* Keep tokens on one line to force popover width */
+  align-items: center;
+  line-height: 1.6;
+  padding-bottom: 1px;
+  margin-bottom: 2px;
 }

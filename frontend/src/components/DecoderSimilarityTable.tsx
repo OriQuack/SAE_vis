@@ -177,13 +177,15 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
           feature_id: feature.feature_id,
           cosine_similarity: 1.0,  // Self-similarity is always 1.0
           is_main: true,
+          pattern_type: activationExamples[feature.feature_id]?.pattern_type || 'None',  // Individual feature pattern
           inter_feature_similarity: null  // Main feature has no inter-feature similarity
         },
         ...top4Similar.map(item => ({
           feature_id: item.feature_id,
           cosine_similarity: item.cosine_similarity,
           is_main: false,
-          inter_feature_similarity: item.inter_feature_similarity || null
+          pattern_type: activationExamples[item.feature_id]?.pattern_type || 'None',  // Individual feature pattern
+          inter_feature_similarity: item.inter_feature_similarity || null  // Relationship pattern
         }))
       ]
 
@@ -544,6 +546,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                               mainFeatureId={row.feature_id}
                               onBadgeInteraction={handleBadgeInteraction}
                               onBadgeLeave={handleBadgeLeave}
+                              activationColumnWidth={activationColumnWidth}
                             />
                           </td>
                         ) : null}
