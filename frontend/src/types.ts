@@ -594,7 +594,7 @@ export interface SavedCellGroupSelection {
 // ============================================================================
 
 /**
- * Decoder Stage Row - Row data for decoder similarity stage table
+ * Decoder Stage Row - Row data for decoder similarity stage table (DEPRECATED - use DecoderStagePairRow)
  */
 export interface DecoderStageRow {
   feature_id: number
@@ -605,6 +605,23 @@ export interface DecoderStageRow {
     is_main?: boolean  // True for main feature (first row), false for similar features
     inter_feature_similarity?: any  // Inter-feature similarity data for pattern highlighting
   }>  // Main feature + top 4 most similar features by decoder weights
+}
+
+/**
+ * Decoder Stage Pair Row - Single pair of features for decoder similarity stage table (new horizontal layout)
+ */
+export interface DecoderStagePairRow {
+  pairKey: string  // Unique pair identifier: "${mainFeatureId}-${similarFeatureId}"
+  mainFeature: {
+    feature_id: number
+    pattern_type: 'Lexical' | 'Semantic' | 'Both' | 'None'  // Individual feature's own pattern type
+  }
+  similarFeature: {
+    feature_id: number
+    cosine_similarity: number
+    pattern_type: 'Lexical' | 'Semantic' | 'Both' | 'None'  // Individual feature's own pattern type
+    inter_feature_similarity?: InterFeatureSimilarityInfo | null  // Relationship pattern type (on line)
+  }
 }
 
 /**

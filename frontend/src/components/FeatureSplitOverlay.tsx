@@ -2,104 +2,35 @@ import React, { useRef, useState, useEffect, useMemo } from 'react'
 import { getCircleRadius } from '../lib/circle-encoding-utils'
 import { getMetricColor } from '../lib/utils'
 import { useVisualizationStore } from '../store/index'
-import { buildActivationTokens, getActivationColor } from '../lib/activation-utils'
-import type { ActivationExamples, QuantileExample } from '../types'
 
 /**
- * DecoderSimilarityOverlay - Professional single-SVG visualization
+ * DecoderSimilarityOverlay - Horizontal pair visualization
  *
- * Renders decoder similarity connections as a single overlay SVG spanning
- * the entire feature group, eliminating complex per-row pass-through logic.
- * Now includes interactive badges for pattern type visualization.
+ * Renders a single horizontal pair of features with:
+ * - Left circle (main feature)
+ * - Horizontal connecting line (relationship)
+ * - Right circle (similar feature)
+ * - Three badges below for pattern types
  */
-
-interface SimilarFeature {
-  feature_id: number
-  cosine_similarity: number
-  is_main?: boolean
-  pattern_type?: 'Lexical' | 'Semantic' | 'Both' | 'None'  // Individual feature's own pattern type (for circles)
-  inter_feature_similarity?: any  // Inter-feature similarity data with pattern_type (for lines)
-}
 
 interface DecoderSimilarityOverlayProps {
-  similarFeatures: SimilarFeature[]
-  rowCount: number
-  rowHeight: number
-  mainFeatureId?: number  // Main/pivot feature ID for interaction tracking
+  mainFeature: {
+    feature_id: number
+    pattern_type: 'Lexical' | 'Semantic' | 'Both' | 'None'
+  }
+  similarFeature: {
+    feature_id: number
+    cosine_similarity: number
+    pattern_type: 'Lexical' | 'Semantic' | 'Both' | 'None'
+    inter_feature_similarity?: any
+  }
+  mainFeatureId?: number  // Main feature ID for interaction tracking
   onBadgeInteraction?: (mainFeatureId: number, similarFeatureId: number, interfeatureData: any, isClick: boolean) => void
   onBadgeLeave?: () => void
-  activationColumnWidth?: number  // Width of activation column for popover sizing
   interFeatureHighlights?: Map<string, any>  // Map of clicked pairs from parent (for persisting selection state)
+  onHoverChange?: (isHovered: boolean) => void  // Callback to notify parent when hover state changes
+  isRowSelected?: boolean  // Whether the row is selected
 }
-
-// ========== Activation Example Helpers (copied from ActivationExample.tsx) ==========
-
-/**
- * Determine which n-gram type to use for underlining based on Jaccard scores
- */
-const getNgramUnderlineType = (examples: ActivationExamples): { type: 'char' | 'word' | null, jaccard: number } => {
-  const patternType = examples.pattern_type.toLowerCase()
-  if (patternType === 'none' || patternType === 'semantic') {
-    return { type: null, jaccard: 0 }
-  }
-
-  const charJaccard = examples.char_ngram_max_jaccard || 0
-  const wordJaccard = examples.word_ngram_max_jaccard || 0
-
-  if (charJaccard === 0 && wordJaccard === 0) return { type: null, jaccard: 0 }
-
-  if (charJaccard >= wordJaccard) {
-    return { type: 'char', jaccard: charJaccard }
-  } else {
-    return { type: 'word', jaccard: wordJaccard }
-  }
-}
-
-/**
- * Get the CSS class for n-gram confidence level based on Jaccard score
- */
-const getNgramConfidenceClass = (jaccard: number): string => {
-  if (jaccard < 0.4) return 'activation-token--ngram-low'
-  if (jaccard < 0.7) return 'activation-token--ngram-medium'
-  return 'activation-token--ngram-high'
-}
-
-/**
- * Check if a token should be underlined based on n-gram positions
- */
-const shouldUnderlineToken = (
-  tokenPosition: number,
-  example: QuantileExample,
-  underlineType: 'char' | 'word' | null
-): boolean => {
-  if (!underlineType) return false
-
-  if (underlineType === 'char') {
-    return example.char_ngram_positions?.some(pos => pos.token_position === tokenPosition) || false
-  } else {
-    return example.word_ngram_positions?.includes(tokenPosition) || false
-  }
-}
-
-/**
- * Helper function to generate appropriate whitespace symbol
- */
-const getWhitespaceSymbol = (text: string): string => {
-  const newlineCount = (text.match(/\n/g) || []).length
-  const tabCount = (text.match(/\t/g) || []).length
-  const crCount = (text.match(/\r/g) || []).length
-
-  if (tabCount > 0) {
-    return '→'.repeat(tabCount)
-  } else if (crCount > 0 && newlineCount === 0) {
-    return '⏎'.repeat(crCount)
-  } else if (newlineCount > 0) {
-    return '↵'.repeat(newlineCount)
-  }
-  return '·'
-}
-
-// ========== End Activation Example Helpers ==========
 
 // Badge component - purely visual, no interaction (background handles all events)
 interface DecoderBadgeProps {
@@ -141,61 +72,24 @@ const DecoderBadge: React.FC<DecoderBadgeProps> = ({ patternType, isHovered = fa
 }
 
 const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
-  similarFeatures,
-  rowCount,
-  rowHeight,
+  mainFeature,
+  similarFeature,
   mainFeatureId,
   onBadgeInteraction,
   onBadgeLeave,
-  activationColumnWidth,
-  interFeatureHighlights
+  interFeatureHighlights,
+  onHoverChange,
+  isRowSelected
 }) => {
-  const toggleFeatureSelection = useVisualizationStore(state => state.toggleFeatureSelection)
-  const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
   const activationExamples = useVisualizationStore(state => state.activationExamples)
   const fetchActivationExamples = useVisualizationStore(state => state.fetchActivationExamples)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(100)
-  const [containerHeight, setContainerHeight] = useState(rowCount * rowHeight)
+  const [containerHeight, setContainerHeight] = useState(50)
 
   // Hover state for connection highlighting
-  const [hoveredConnection, setHoveredConnection] = useState<number | null>(null)
-  const [_hoveredElement, setHoveredElement] = useState<'line' | 'circle-main' | 'circle-similar' | 'badge' | null>(null)
-
-  // Filter out main feature (we only draw connections for similar features)
-  const similarOnly = useMemo(() => {
-    return similarFeatures.filter(f => !f.is_main)
-  }, [similarFeatures])
-
-  // // Derive selected feature IDs from featureSelectionStates (both 'selected' and 'rejected' count as active)
-  // const selectedFeatureIds = useMemo(() => {
-  //   const selected = new Set<number>()
-  //   featureSelectionStates.forEach((state, featureId) => {
-  //     if (state === 'selected' || state === 'rejected') {
-  //       selected.add(featureId)
-  //     }
-  //   })
-  //   return selected
-  // }, [featureSelectionStates])
-
-  // Derive selected connections from parent's interFeatureHighlights Map (persists across remounts)
-  const selectedConnections = useMemo(() => {
-    const selected = new Set<number>()
-    if (interFeatureHighlights && mainFeatureId !== undefined) {
-      similarOnly.forEach((similar, idx) => {
-        const key = `${mainFeatureId}-${similar.feature_id}`
-        if (interFeatureHighlights.has(key)) {
-          selected.add(idx)
-        }
-      })
-    }
-    return selected
-  }, [interFeatureHighlights, mainFeatureId, similarOnly])
-
-  // Activation popover state
-  const [hoveredPairForActivation, setHoveredPairForActivation] = useState<number | null>(null)
-  const [showActivationPopover, setShowActivationPopover] = useState<boolean>(false)
+  const [hoveredConnection, setHoveredConnection] = useState<boolean>(false)
 
   // Measure actual container dimensions
   useEffect(() => {
@@ -212,10 +106,7 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
       }
     }
 
-    // Measure immediately
     measureDimensions()
-
-    // Measure after a short delay to ensure table layout is complete
     const timeoutId = setTimeout(measureDimensions, 100)
 
     const observer = new ResizeObserver(measureDimensions)
@@ -227,156 +118,70 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
       clearTimeout(timeoutId)
       observer.disconnect()
     }
-  }, [rowCount, rowHeight])
+  }, [])
 
-  // Extract main feature for its pattern type (used for main circle badges)
-  const mainFeature = similarFeatures.find(f => f.is_main)
-  const mainFeaturePatternType = mainFeature?.pattern_type || 'None'
+  // Derive selected pair from parent's interFeatureHighlights Map
+  const isSelected = useMemo(() => {
+    if (!interFeatureHighlights || mainFeatureId === undefined) return false
+    const key = `${mainFeatureId}-${similarFeature.feature_id}`
+    return interFeatureHighlights.has(key)
+  }, [interFeatureHighlights, mainFeatureId, similarFeature.feature_id])
 
-  // Calculate number of circles
-  const numCircles = similarOnly.length
+  // Circle positioning for horizontal layout
+  const centerY = containerHeight / 2
+  const mainCircleX = containerWidth * 0.2  // 20% from left
+  const similarCircleX = containerWidth * 0.8  // 80% from left
 
-  // Calculate X positions in pixels based on measured container width
-  // Use compact spacing - maximum 400px or 60% of container width
-  const maxTotalWidth = Math.min(400, containerWidth * 0.75)
-  const availableWidth = numCircles > 1 ? maxTotalWidth : 0
-  const spacing = numCircles > 1 ? availableWidth / (numCircles - 1) : 0
-  const startX = (containerWidth - availableWidth) / 2  // Center the circle group
-  const xPositions = similarOnly.map((_, idx) => startX + (idx * spacing))
+  // Determine highlight state
+  const isHighlighted = hoveredConnection || isSelected || isRowSelected
+  // Both circles show the same decoder similarity (the relationship between the pair)
+  const mainRadius = getCircleRadius(similarFeature.cosine_similarity)
+  const similarRadius = getCircleRadius(similarFeature.cosine_similarity)
 
-  // Calculate Y positions based on actual container height
-  // Distribute evenly across the measured height
-  const rowHeightActual = containerHeight / rowCount
-  const mainRowCenterY = rowHeightActual / 2  // Center of first row (main feature)
+  // Get pattern types for badges
+  const mainPatternType = mainFeature.pattern_type
+  const similarPatternType = similarFeature.pattern_type
+  const relationshipPatternType = similarFeature.inter_feature_similarity?.pattern_type || 'None'
 
-  // Local hover state handlers (for visual feedback)
-  const handleConnectionHoverEnter = (idx: number, element: 'line' | 'circle-main' | 'circle-similar' | 'badge') => {
-    setHoveredConnection(idx)
-    setHoveredElement(element)
-  }
-
-  const handleConnectionHoverLeave = () => {
-    setHoveredConnection(null)
-    setHoveredElement(null)
-  }
-
-  // Click handler for persistent selection
-  const handleConnectionClick = (idx: number) => {
-    const similar = similarOnly[idx]
-    const isConnectionHighlighted = selectedConnections.has(idx)
-    const currentCheckboxState = featureSelectionStates.get(similar.feature_id)
-
-    if (isConnectionHighlighted) {
-      // Connection is highlighted - toggle checkbox
-      toggleFeatureSelection(similar.feature_id)
-
-      // Only remove from Map if checkbox will become null (rejected → null transition)
-      // Keep in Map for selected → rejected transition
-      if (currentCheckboxState === 'rejected') {
-        // After toggle, checkbox will be null, so remove highlight
-        if (onBadgeInteraction && mainFeatureId !== undefined) {
-          onBadgeInteraction(mainFeatureId, similar.feature_id, similar.inter_feature_similarity, true)
-        }
-      }
-      // If currentCheckboxState is 'selected', after toggle it becomes 'rejected', keep highlight
-    } else {
-      // Connection not highlighted - start new selection
-      toggleFeatureSelection(similar.feature_id)
-
-      // Add to Map to show highlight
-      if (onBadgeInteraction && mainFeatureId !== undefined) {
-        onBadgeInteraction(mainFeatureId, similar.feature_id, similar.inter_feature_similarity, true)
-      }
+  // Handle clicks on the visualization
+  const handleClick = () => {
+    if (onBadgeInteraction && mainFeatureId !== undefined) {
+      onBadgeInteraction(mainFeatureId, similarFeature.feature_id, similarFeature.inter_feature_similarity, true)
     }
   }
 
-  // Helper function to render quantile example tokens
-  const renderQuantileExample = (
-    examples: ActivationExamples,
-    quantileIndex: number,
-    interFeaturePositions?: {
-      type: 'char' | 'word',
-      positions: Array<{prompt_id: number, positions: Array<{token_position: number, char_offset?: number}> | number[]}>
+  // Handle hover - trigger parent's activation overlay display
+  const handleMouseEnter = () => {
+    setHoveredConnection(true)
+    if (onBadgeInteraction && mainFeatureId !== undefined) {
+      onBadgeInteraction(mainFeatureId, similarFeature.feature_id, similarFeature.inter_feature_similarity, false)
     }
-  ) => {
-    // Get the n-gram underline info
-    const ngramInfo = getNgramUnderlineType(examples)
-    const underlineType = ngramInfo.type
-    const ngramJaccard = ngramInfo.jaccard
 
-    // Find example for this quantile
-    const example = examples.quantile_examples.find(ex => ex.quantile_index === quantileIndex)
-    if (!example) return null
-
-    // Build tokens from 32-token window
-    const tokens = buildActivationTokens(example, 32)
-
-    // Helper to check if token matches inter-feature position (same logic as ActivationExample)
-    const hasInterFeatureMatch = (tokenPosition: number): boolean => {
-      if (!interFeaturePositions) return false
-
-      // Find positions for this specific prompt_id
-      const promptPositions = interFeaturePositions.positions.find(
-        p => p.prompt_id === example.prompt_id
-      )
-
-      if (!promptPositions) return false
-
-      if (interFeaturePositions.type === 'char') {
-        // For char type, positions is Array<{token_position, char_offset}>
-        return (promptPositions.positions as Array<{token_position: number, char_offset?: number}>)
-          .some(pos => pos.token_position === tokenPosition)
-      } else {
-        // For word type, positions is number[]
-        return (promptPositions.positions as number[]).includes(tokenPosition)
+    // Fetch activation examples if needed
+    if (mainFeatureId !== undefined) {
+      const featuresToFetch = []
+      if (!activationExamples[mainFeatureId]) featuresToFetch.push(mainFeatureId)
+      if (!activationExamples[similarFeature.feature_id]) featuresToFetch.push(similarFeature.feature_id)
+      if (featuresToFetch.length > 0) {
+        fetchActivationExamples(featuresToFetch)
       }
     }
 
-    return (
-      <div key={quantileIndex} className="decoder-activation-popover__quantile-row">
-        {tokens.map((token, tokenIdx) => {
-          const hasUnderline = shouldUnderlineToken(token.position, example, underlineType)
-          const ngramClass = hasUnderline ? getNgramConfidenceClass(ngramJaccard) : ''
-          const hasInterFeature = hasInterFeatureMatch(token.position)
-
-          // Build title with activation and n-gram info
-          let title = token.activation_value?.toFixed(3) || 'No activation'
-          if (hasUnderline) {
-            const ngramText = underlineType === 'char'
-              ? examples.top_char_ngram_text
-              : examples.top_word_ngram_text
-            title += `\nN-gram pattern: "${ngramText}" (Jaccard: ${ngramJaccard.toFixed(3)})`
-          }
-          if (hasInterFeature) {
-            title += `\n✓ Inter-feature match`
-          }
-
-          return (
-            <span
-              key={tokenIdx}
-              className={`activation-token ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${ngramClass} ${hasInterFeature ? 'activation-token--interfeature' : ''}`}
-              style={{
-                backgroundColor: token.activation_value
-                  ? getActivationColor(token.activation_value, example.max_activation)
-                  : 'transparent'
-              }}
-              title={title}
-            >
-              {token.is_newline ? (
-                <span className="newline-symbol">{getWhitespaceSymbol(token.text)}</span>
-              ) : (
-                token.text
-              )}
-            </span>
-          )
-        })}
-      </div>
-    )
+    // Notify parent to show activation overlays
+    onHoverChange?.(true)
   }
 
-  // Add padding to SVG height to accommodate badges below bottom circles
-  // Bottom badge: radius (~5-8px) + offset (4px) + badge height (30px) = ~42px buffer
-  const svgHeight = containerHeight + 42
+  const handleMouseLeave = () => {
+    setHoveredConnection(false)
+    if (onBadgeLeave) {
+      onBadgeLeave()
+    }
+
+    // Notify parent to hide activation overlays
+    onHoverChange?.(false)
+  }
+
+  const svgHeight = containerHeight + 30  // Add padding for badges below
 
   return (
     <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}>
@@ -389,289 +194,117 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
           pointerEvents: 'none'
         }}
       >
-        {/* Draw background rectangles first (largest hit targets, behind everything) */}
-        {similarOnly.map((similar, idx) => {
-          const x = xPositions[idx]
-          const circleRowIndex = idx + 1
-          const circleY = circleRowIndex * rowHeightActual + rowHeightActual / 2
-          const isHovered = hoveredConnection === idx
-          const isSelected = selectedConnections.has(idx)
-          const isHighlighted = isHovered || isSelected
+        {/* Background hit target rectangle */}
+        <rect
+          x={0}
+          y={0}
+          width={containerWidth}
+          height={containerHeight}
+          fill={isHighlighted ? 'rgba(156, 163, 175, 0.05)' : 'transparent'}
+          stroke={isHighlighted ? '#9ca3af' : 'transparent'}
+          strokeWidth={isHighlighted ? 1 : 0}
+          rx={4}
+          style={{
+            pointerEvents: onBadgeInteraction && mainFeatureId !== undefined ? 'auto' : 'none',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+          onClick={handleClick}
+        />
 
-          // Get checkbox state to determine color
-          const checkboxState = featureSelectionStates.get(similar.feature_id)
-          const isChecked = checkboxState === 'selected'
-          const isRejected = checkboxState === 'rejected'
+        {/* Horizontal connecting line */}
+        <line
+          x1={mainCircleX + mainRadius}
+          y1={centerY}
+          x2={similarCircleX - similarRadius}
+          y2={centerY}
+          stroke={isHighlighted ? '#3b82f6' : '#9ca3af'}
+          strokeWidth={isHighlighted ? 2.5 : 1.5}
+          opacity={isHighlighted ? 1.0 : 0.8}
+          style={{ pointerEvents: 'none' }}
+        />
 
-          // Background rectangle dimensions
-          const bgWidth = 35
-          const bgHeight = circleY - mainRowCenterY
-          const bgX = x - bgWidth / 2
-          const bgY = mainRowCenterY
-
-          return (
-            <rect
-              key={`bg-${similar.feature_id}`}
-              x={bgX}
-              y={bgY}
-              width={bgWidth}
-              height={bgHeight}
-              rx={4}
-              ry={4}
-              fill={
-                isHighlighted
-                  ? (isChecked ? 'rgba(59, 130, 246, 0.08)' : isRejected ? 'rgba(239, 68, 68, 0.08)' : 'rgba(156, 163, 175, 0.05)')
-                  : 'rgba(156, 163, 175, 0.05)'  // Minimal gray when not highlighted
-              }
-              stroke={
-                isHighlighted
-                  ? (isChecked ? '#3b82f6' : isRejected ? '#ef4444' : 'transparent')
-                  : 'transparent'
-              }
-              strokeWidth={isHighlighted ? 2 : 0}
-              style={{
-                pointerEvents: onBadgeInteraction && mainFeatureId !== undefined ? 'auto' : 'none',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease'
-              }}
-              onMouseEnter={() => {
-                handleConnectionHoverEnter(idx, 'badge')
-                if (onBadgeInteraction && mainFeatureId !== undefined) {
-                  onBadgeInteraction(mainFeatureId, similar.feature_id, similar.inter_feature_similarity, false)
-                }
-                // Activation popover logic
-                if (mainFeatureId !== undefined) {
-                  setHoveredPairForActivation(idx)
-                  // Fetch activation examples if not cached
-                  const featuresToFetch = []
-                  if (!activationExamples[mainFeatureId]) featuresToFetch.push(mainFeatureId)
-                  if (!activationExamples[similar.feature_id]) featuresToFetch.push(similar.feature_id)
-                  if (featuresToFetch.length > 0) {
-                    fetchActivationExamples(featuresToFetch)
-                  }
-                  // Show popover immediately
-                  setShowActivationPopover(true)
-                }
-              }}
-              onMouseLeave={() => {
-                handleConnectionHoverLeave()
-                if (onBadgeLeave) {
-                  onBadgeLeave()
-                }
-                // Hide activation popover
-                setHoveredPairForActivation(null)
-                setShowActivationPopover(false)
-              }}
-              onClick={() => {
-                handleConnectionClick(idx)
-              }}
+        {/* Badge on line */}
+        {onBadgeInteraction && mainFeatureId !== undefined && (
+          <foreignObject
+            x={(mainCircleX + similarCircleX) / 2 - 20}
+            y={centerY - 15}
+            width={40}
+            height={30}
+            style={{ pointerEvents: 'none', overflow: 'visible' }}
+          >
+            <DecoderBadge
+              patternType={relationshipPatternType as 'Lexical' | 'Semantic' | 'Both' | 'None'}
+              isHovered={isHighlighted}
+              variant={relationshipPatternType === 'Semantic' ? 'default' : 'green'}
             />
-          )
-        })}
+          </foreignObject>
+        )}
 
-        {/* Draw all lines (appear above background, behind circles) */}
-        {similarOnly.map((similar, idx) => {
-          const x = xPositions[idx]
-          const circleRowIndex = idx + 1  // Target circles appear in rows 1-4 (0-indexed)
-          const circleY = circleRowIndex * rowHeightActual + rowHeightActual / 2  // Center of target row
-          const isHovered = hoveredConnection === idx
-          const isSelected = selectedConnections.has(idx)
-          const isHighlighted = isHovered || isSelected  // Highlighted if hovered OR selected
-          const relationshipPatternType = similar.inter_feature_similarity?.pattern_type || 'None'  // Relationship pattern (for line)
-          const midY = (mainRowCenterY + circleY) / 2  // Badge position at line center
+        {/* Main feature circle */}
+        <circle
+          cx={mainCircleX}
+          cy={centerY}
+          r={mainRadius}
+          fill={getMetricColor('decoder_similarity', similarFeature.cosine_similarity, true)}
+          opacity={1.0}
+          stroke={isHighlighted ? '#3b82f6' : 'none'}
+          strokeWidth={isHighlighted ? 2 : 0}
+          style={{ pointerEvents: 'none' }}
+        >
+          <title>{`Feature ${mainFeature.feature_id}: ${similarFeature.cosine_similarity.toFixed(3)}`}</title>
+        </circle>
 
-          // Get checkbox state to determine color
-          const checkboxState = featureSelectionStates.get(similar.feature_id)
-          const isChecked = checkboxState === 'selected'
-          const isRejected = checkboxState === 'rejected'
+        {/* Badge below main circle */}
+        {onBadgeInteraction && mainFeatureId !== undefined && (
+          <foreignObject
+            x={mainCircleX - 20}
+            y={centerY + mainRadius + 5}
+            width={40}
+            height={30}
+            style={{ pointerEvents: 'none', overflow: 'visible' }}
+          >
+            <DecoderBadge
+              patternType={mainPatternType as 'Lexical' | 'Semantic' | 'Both' | 'None'}
+              isHovered={isHighlighted}
+            />
+          </foreignObject>
+        )}
 
-          return (
-            <g key={`connection-${similar.feature_id}`}>
-              {/* Line - visual only, background handles interaction */}
-              <line
-                className={isHighlighted ? 'decoder-connection--highlighted' : ''}
-                x1={x}
-                y1={mainRowCenterY}
-                x2={x}
-                y2={circleY}
-                stroke={isHighlighted
-                  ? (isChecked ? '#3b82f6' : isRejected ? '#ef4444' : '#9ca3af')
-                  : '#9ca3af'}
-                strokeWidth={isHighlighted ? '2.5' : '1.5'}
-                opacity={isHighlighted ? '1.0' : '0.8'}
-                style={{ pointerEvents: 'none' }}
-              />
+        {/* Similar feature circle */}
+        <circle
+          cx={similarCircleX}
+          cy={centerY}
+          r={similarRadius}
+          fill={getMetricColor('decoder_similarity', similarFeature.cosine_similarity, true)}
+          opacity={1.0}
+          stroke={isHighlighted ? '#3b82f6' : 'none'}
+          strokeWidth={isHighlighted ? 2 : 0}
+          style={{ pointerEvents: 'none' }}
+        >
+          <title>{`Feature ${similarFeature.feature_id}: ${similarFeature.cosine_similarity.toFixed(3)}`}</title>
+        </circle>
 
-              {/* Badge at line center - visual only, background handles interaction */}
-              {/* Green for lexical, default (purple) for semantic */}
-              {onBadgeInteraction && mainFeatureId !== undefined && (
-                <foreignObject
-                  x={x - 20}
-                  y={midY - 10}
-                  width={40}
-                  height={30}
-                  style={{ pointerEvents: 'none', overflow: 'visible' }}
-                >
-                  <DecoderBadge
-                    patternType={relationshipPatternType as 'Lexical' | 'Semantic' | 'Both' | 'None'}
-                    isHovered={isHighlighted}
-                    variant={relationshipPatternType === 'Semantic' ? 'default' : 'green'}
-                  />
-                </foreignObject>
-              )}
-            </g>
-          )
-        })}
-
-        {/* Draw all circles second (so they appear above lines) */}
-        {similarOnly.map((similar, idx) => {
-          const x = xPositions[idx]
-          const circleRowIndex = idx + 1  // Target circles appear in rows 1-4 (0-indexed)
-          const circleY = circleRowIndex * rowHeightActual + rowHeightActual / 2  // Center of target row
-          const isHovered = hoveredConnection === idx
-          const isSelected = selectedConnections.has(idx)
-          const isHighlighted = isHovered || isSelected  // Highlighted if hovered OR selected
-          const similarFeaturePatternType = similar.pattern_type || 'None'  // Similar feature's individual pattern (for circles)
-          const radius = getCircleRadius(similar.cosine_similarity)
-
-          return (
-            <g key={similar.feature_id}>
-              {/* Circle in main feature row - visual only, background handles interaction */}
-              <circle
-                className={isHighlighted ? 'decoder-circle--highlighted' : ''}
-                cx={x}
-                cy={mainRowCenterY}
-                r={radius}
-                fill={getMetricColor('decoder_similarity', similar.cosine_similarity, true)}
-                opacity={1.0}
-                stroke={isHighlighted ? '#10b981' : 'none'}
-                strokeWidth={isHighlighted ? '2' : '0'}
-                style={{ pointerEvents: 'none' }}
-              >
-                <title>{`Feature ${similar.feature_id}: ${similar.cosine_similarity.toFixed(3)}`}</title>
-              </circle>
-
-              {/* Badge above main circle - visual only, background handles interaction */}
-              {onBadgeInteraction && mainFeatureId !== undefined && (
-                <foreignObject
-                  x={x - 20}
-                  y={mainRowCenterY - radius - 22}
-                  width={40}
-                  height={30}
-                  style={{ pointerEvents: 'none', overflow: 'visible' }}
-                >
-                  <DecoderBadge
-                    patternType={mainFeaturePatternType as 'Lexical' | 'Semantic' | 'Both' | 'None'}
-                    isHovered={isHighlighted}
-                  />
-                </foreignObject>
-              )}
-
-              {/* Circle at target row - visual only, background handles interaction */}
-              <circle
-                className={isHighlighted ? 'decoder-circle--highlighted' : ''}
-                cx={x}
-                cy={circleY}
-                r={radius}
-                fill={getMetricColor('decoder_similarity', similar.cosine_similarity, true)}
-                opacity={1.0}
-                stroke={isHighlighted ? '#10b981' : 'none'}
-                strokeWidth={isHighlighted ? '2' : '0'}
-                style={{ pointerEvents: 'none' }}
-              >
-                <title>{`Feature ${similar.feature_id}: ${similar.cosine_similarity.toFixed(3)}`}</title>
-              </circle>
-
-              {/* Badge below similar circle - visual only, background handles interaction */}
-              {onBadgeInteraction && mainFeatureId !== undefined && (
-                <foreignObject
-                  x={x - 20}
-                  y={circleY + radius + 2}
-                  width={40}
-                  height={30}
-                  style={{ pointerEvents: 'none', overflow: 'visible' }}
-                >
-                  <DecoderBadge
-                    patternType={similarFeaturePatternType as 'Lexical' | 'Semantic' | 'Both' | 'None'}
-                    isHovered={isHighlighted}
-                  />
-                </foreignObject>
-              )}
-            </g>
-          )
-        })}
+        {/* Badge below similar circle */}
+        {onBadgeInteraction && mainFeatureId !== undefined && (
+          <foreignObject
+            x={similarCircleX - 20}
+            y={centerY + similarRadius + 5}
+            width={40}
+            height={30}
+            style={{ pointerEvents: 'none', overflow: 'visible' }}
+          >
+            <DecoderBadge
+              patternType={similarPatternType as 'Lexical' | 'Semantic' | 'Both' | 'None'}
+              isHovered={isHighlighted}
+            />
+          </foreignObject>
+        )}
       </svg>
 
-      {/* Activation Popover */}
-      {showActivationPopover && hoveredPairForActivation !== null && mainFeatureId !== undefined && (
-        (() => {
-          const similar = similarOnly[hoveredPairForActivation]
-          const mainExamples = activationExamples[mainFeatureId]
-          const similarExamples = activationExamples[similar.feature_id]
-
-          // Only show if both features have activation examples loaded
-          if (!mainExamples || !similarExamples) return null
-
-          // Extract inter-feature positions for highlighting
-          const interfeatureData = similar.inter_feature_similarity
-          let mainInterFeaturePositions:
-            | { type: 'char' | 'word', positions: Array<{prompt_id: number, positions: Array<{token_position: number, char_offset?: number}> | number[]}> }
-            | undefined = undefined
-          let similarInterFeaturePositions:
-            | { type: 'char' | 'word', positions: Array<{prompt_id: number, positions: Array<{token_position: number, char_offset?: number}> | number[]}> }
-            | undefined = undefined
-
-          if (interfeatureData && (interfeatureData.pattern_type === 'Lexical' || interfeatureData.pattern_type === 'Both')) {
-            // Determine type based on Jaccard scores (prioritize lexical for "Both")
-            const charJaccard = interfeatureData.char_jaccard || 0
-            const wordJaccard = interfeatureData.word_jaccard || 0
-            const type: 'char' | 'word' = charJaccard >= wordJaccard ? 'char' : 'word'
-
-            // Extract positions (already structured with prompt_id groupings)
-            const mainPositions = type === 'char'
-              ? interfeatureData.main_char_ngram_positions
-              : interfeatureData.main_word_ngram_positions
-            const similarPositions = type === 'char'
-              ? interfeatureData.similar_char_ngram_positions
-              : interfeatureData.similar_word_ngram_positions
-
-            if (mainPositions && similarPositions) {
-              mainInterFeaturePositions = { type, positions: mainPositions }
-              similarInterFeaturePositions = { type, positions: similarPositions }
-            }
-          }
-
-          // Always position popover on first row (main feature row)
-          const popoverTop = 0
-
-          return (
-            <div
-              className="decoder-activation-popover"
-              style={{
-                maxWidth: activationColumnWidth || 800,
-                top: popoverTop,
-                left: 'calc(100%)'  // Position right after decoder similarity column
-              }}
-            >
-              {/* Main Feature Section */}
-              <div className="decoder-activation-popover__feature">
-                <div className="decoder-activation-popover__feature-label">
-                  Feature {mainFeatureId}
-                </div>
-                {[0, 1, 2, 3].map(qIndex => renderQuantileExample(mainExamples, qIndex, mainInterFeaturePositions))}
-              </div>
-
-              {/* Similar Feature Section */}
-              <div className="decoder-activation-popover__feature">
-                <div className="decoder-activation-popover__feature-label">
-                  Feature {similar.feature_id}
-                </div>
-                {[0, 1, 2, 3].map(qIndex => renderQuantileExample(similarExamples, qIndex, similarInterFeaturePositions))}
-              </div>
-            </div>
-          )
-        })()
-      )}
+      {/* Activation overlays are now shown from ActivationExample components when pair is hovered */}
     </div>
   )
 }

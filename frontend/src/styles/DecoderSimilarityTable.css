@@ -47,14 +47,26 @@
   text-align: center;
 }
 
-/* Override score column width for decoder similarity table */
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__header-cell--score {
-  width: auto;
-  min-width: 100px;
+/* Main ID column */
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__header-cell--id {
+  width: 5%;
 }
 
-.decoder-stage-table__header-cell--activation {
-  width: 75%;
+/* Second ID column (similar feature) */
+.table-panel__header-cell--id-similar {
+  width: 5%;
+}
+
+/* Decoder similarity column - wider for horizontal layout */
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__header-cell--score {
+  width: auto;
+  min-width: 150px;
+}
+
+/* Activation columns - two columns, split the space */
+.decoder-stage-table__header-cell--activation-main,
+.decoder-stage-table__header-cell--activation-similar {
+  width: 36%;
   text-align: left;
   padding-left: 0px;
 }
@@ -66,6 +78,11 @@
 
 /* Override ID cell background - make it white by default */
 .decoder-stage-table__selection-header ~ .table-panel__content .table-panel__cell--id {
+  background: white;
+}
+
+/* Second ID column styling */
+.table-panel__cell--id-similar {
   background: white;
 }
 
@@ -86,8 +103,7 @@
 /* Badge stack container for "Both" pattern type */
 .decoder-stage-table__badge-stack {
   display: flex;
-  flex-direction: column;
-  gap: 0;
+  flex-direction: row;
   align-items: center;
 }
 
@@ -159,27 +175,21 @@
   background: white;
 }
 
+.decoder-stage-table__cell--activation-main {
+  border-right: 1px solid #e5e7eb;
+}
+
 /* ============================================================================
- * GROUP SEPARATORS
+ * ROW SEPARATORS - Simple border between rows
  * ============================================================================ */
 
-/* Add thin border between all sub-rows in decoder similarity table only */
+/* Add thin border between rows - on the row itself and all cells */
 .decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row {
-  border-bottom: 1px solid #e5e7eb !important;
+  border-bottom: 1px solid #d1d5db !important;
 }
 
-/* Also add border to cells for visibility */
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row .table-panel__cell {
-  border-bottom: 1px solid #e5e7eb;
-}
-
-/* Add thicker border after the last row of each group (between indices) */
-.decoder-stage-table__selection-header ~ .table-panel__content .decoder-stage-table__group-last-row {
-  border-bottom: 1px solid #9ca3af !important;
-}
-
-.decoder-stage-table__selection-header ~ .table-panel__content .decoder-stage-table__group-last-row td {
-  border-bottom: 1px solid #9ca3af !important;
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row td {
+  border-bottom: 1px solid #d1d5db !important;
 }
 
 /* ============================================================================
@@ -195,6 +205,10 @@
   border-right: 1px solid #d1d5db;
 }
 
+.table-panel__header-cell--id-similar {
+  border-right: 1px solid #d1d5db;
+}
+
 .decoder-stage-table__selection-header ~ .table-panel__content .table-panel__header-cell--score {
   border-right: 1px solid #d1d5db;
 }
@@ -205,6 +219,10 @@
 }
 
 .decoder-stage-table__selection-header ~ .table-panel__content .table-panel__cell--id {
+  border-right: 1px solid #e5e7eb;
+}
+
+.table-panel__cell--id-similar {
   border-right: 1px solid #e5e7eb;
 }
 

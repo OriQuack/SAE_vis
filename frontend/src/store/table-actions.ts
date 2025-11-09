@@ -525,7 +525,7 @@ export const createTableActions = (set: any, get: any) => ({
     const selectedIds: number[] = []
     const rejectedIds: number[] = []
 
-    featureSelectionStates.forEach((selectionState, featureId) => {
+    featureSelectionStates.forEach((selectionState: string, featureId: number) => {
       if (selectionState === 'selected') {
         selectedIds.push(featureId)
       } else if (selectionState === 'rejected') {

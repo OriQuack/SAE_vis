@@ -15,6 +15,9 @@ interface ActivationExampleProps {
     type: 'char' | 'word'
     positions: Array<{prompt_id: number, positions: Array<{token_position: number, char_offset?: number}> | number[]}>
   }
+  // Hover coordination for paired activation examples
+  isHovered?: boolean  // Whether this pair is currently hovered (from parent)
+  onHoverChange?: (isHovered: boolean) => void  // Callback when hover state changes
 }
 
 /**
@@ -120,10 +123,15 @@ const getWhitespaceSymbol = (text: string): string => {
 const ActivationExample: React.FC<ActivationExampleProps> = ({
   examples,
   containerWidth,
-  interFeaturePositions
+  interFeaturePositions,
+  isHovered,
+  onHoverChange
 }) => {
   const [showPopover, setShowPopover] = useState<boolean>(false)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // Show popover if either locally hovered or parent says this pair is hovered
+  const effectiveShowPopover = showPopover || (isHovered ?? false)
 
   // Calculate max characters based on container width passed from parent
   // Assume ~7px per character at 11px monospace font
@@ -156,8 +164,14 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
     <div
       ref={containerRef}
       className="activation-example"
-      onMouseEnter={() => setShowPopover(true)}
-      onMouseLeave={() => setShowPopover(false)}
+      onMouseEnter={() => {
+        setShowPopover(true)
+        onHoverChange?.(true)
+      }}
+      onMouseLeave={() => {
+        setShowPopover(false)
+        onHoverChange?.(false)
+      }}
     >
       {/* Default view: 3 quantiles (0, 1, 2), character-based truncation */}
       {[0, 1, 2].map(qIndex => {
@@ -206,8 +220,8 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
         )
       })}
 
-      {/* Hover popover: All 8 examples (2 per quantile) */}
-      {showPopover && (
+      {/* Hover popover: All 8 examples (2 per quantile) - shows when this row is hovered */}
+      {effectiveShowPopover && (
         <div className="activation-example__popover">
           <div className="activation-example__popover-content">
             {quantileGroups.map((group, qIdx) => (

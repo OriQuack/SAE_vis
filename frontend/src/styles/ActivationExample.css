@@ -4,6 +4,7 @@
 
 .activation-example {
   position: relative;
+  width: 100%;  /* Fill entire table cell */
   font-family: inherit;  /* Inherit system font from body (same as table panel explanation) */
   font-size: 11px;
   font-weight: 500;
@@ -113,14 +114,16 @@
   position: absolute;
   top: 0;
   left: 0;
+  width: 100%;
   background: white;
   border: 1px solid #000000;
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 100;
-  max-width: 800px;  /* Increased for 8 examples */
+  z-index: 1000;  /* Increased to ensure overlay appears on top of row */
   padding: 4px;
-  pointer-events: none; /* Don't interfere with mouse events */
+  pointer-events: none;  /* Mouse events pass through to allow hover loss on row change */
+  overflow: auto;  /* Allow scrolling if content exceeds column height */
+  box-sizing: border-box;  /* Include padding in width calculation */
 }
 
 .activation-example__popover-header {

@@ -55,6 +55,13 @@ interface AppState {
   selectAllFeatures: () => void
   clearFeatureSelection: () => void
 
+  // Pair selection state (used by FeatureSplitTable checkboxes)
+  // Three-state system: null (empty) -> 'selected' (checkmark) -> 'rejected' (red X) -> null
+  // Key format: "${mainFeatureId}-${similarFeatureId}"
+  pairSelectionStates: Map<string, 'selected' | 'rejected'>
+  togglePairSelection: (mainFeatureId: number, similarFeatureId: number) => void
+  clearPairSelection: () => void
+
   // Comparison view state
   showComparisonView: boolean
   toggleComparisonView: () => void
@@ -242,6 +249,9 @@ const initialState = {
   // Three-state system: null (empty) -> 'selected' (checkmark) -> 'rejected' (red X) -> null
   featureSelectionStates: new Map<number, 'selected' | 'rejected'>(),
 
+  // Pair selection state (used by FeatureSplitTable checkboxes)
+  pairSelectionStates: new Map<string, 'selected' | 'rejected'>(),
+
   // Comparison view state
   showComparisonView: false,
 
@@ -312,6 +322,35 @@ export const useStore = create<AppState>((set, get) => ({
     set({
       featureSelectionStates: new Map<number, 'selected' | 'rejected'>(),
       lastSortedSelectionSignature: null
+    })
+  },
+
+  // Pair selection actions (used by FeatureSplitTable checkboxes)
+  // Three-state toggle: null -> 'selected' -> 'rejected' -> null
+  togglePairSelection: (mainFeatureId: number, similarFeatureId: number) => {
+    set((state) => {
+      const pairKey = `${mainFeatureId}-${similarFeatureId}`
+      const newStates = new Map(state.pairSelectionStates)
+      const currentState = newStates.get(pairKey)
+
+      if (currentState === undefined) {
+        // null -> selected
+        newStates.set(pairKey, 'selected')
+      } else if (currentState === 'selected') {
+        // selected -> rejected
+        newStates.set(pairKey, 'rejected')
+      } else {
+        // rejected -> null (remove from map)
+        newStates.delete(pairKey)
+      }
+
+      return { pairSelectionStates: newStates }
+    })
+  },
+
+  clearPairSelection: () => {
+    set({
+      pairSelectionStates: new Map<string, 'selected' | 'rejected'>()
     })
   },
 
