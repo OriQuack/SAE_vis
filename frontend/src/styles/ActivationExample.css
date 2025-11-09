@@ -42,6 +42,9 @@
   transition: background-color 0.15s ease;
   white-space: pre;
   border: 1.5px solid transparent;  /* Reserve space for border to prevent layout shift */
+  display: inline-block;
+  min-height: 1em;
+  vertical-align: bottom;
 }
 
 /* Max activation token - bold with red underline */

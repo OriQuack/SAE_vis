@@ -7,7 +7,7 @@ import { TAG_CATEGORIES, TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/tag-categ
 import ActivationExample from './ActivationExample'
 import DecoderSimilarityOverlay from './FeatureSplitOverlay'
 import '../styles/QualityTablePanel.css'
-import '../styles/DecoderSimilarityTable.css'
+import '../styles/FeatureSplitTable.css'
 
 // ============================================================================
 // DECODER SIMILARITY STAGE TABLE
@@ -398,8 +398,8 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
   const rowVirtualizer = useVirtualizer({
     count: sortedRows.length,
     getScrollElement: () => tableContainerRef.current,
-    estimateSize: () => 46, // Estimate ~46px per row (single pair)
-    overscan: 3, // Render 3 extra items above/below for smooth scrolling
+    estimateSize: () => 60, // Estimate ~60px per row (single pair with activation examples)
+    overscan: 5, // Render 5 extra items above/below for smooth scrolling
   })
 
   // Handle sort click
@@ -550,6 +550,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
     if (!container) return
 
     let rafId: number | null = null
+    let lastScrollState: any = null
 
     const measureAndUpdate = () => {
       if (!container) return
@@ -558,19 +559,24 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
       }
 
       rafId = requestAnimationFrame(() => {
-        // Calculate visible features using simple percentage-based approach
         const totalFeatures = sortedRows.length
-        const scrollPercentage = container.scrollHeight > 0
-          ? container.scrollTop / container.scrollHeight
-          : 0
-        const viewportPercentage = container.scrollHeight > 0
-          ? container.clientHeight / container.scrollHeight
+
+        // FIXED: Correct scroll percentage calculation
+        // scrollPercentage should be: scrollTop / (scrollHeight - clientHeight)
+        // This ensures proper positioning, especially at the bottom
+        const scrollableHeight = container.scrollHeight - container.clientHeight
+        const scrollPercentage = scrollableHeight > 0
+          ? container.scrollTop / scrollableHeight
           : 0
 
-        // Calculate which features are visible based on scroll position
-        const firstVisibleIndex = Math.floor(scrollPercentage * totalFeatures)
+        // Clamp to [0, 1] to avoid edge case calculations
+        const clampedScrollPercentage = Math.min(Math.max(scrollPercentage, 0), 1)
+
+        // Calculate visible range based on corrected scroll percentage
+        const visibleRange = container.clientHeight / container.scrollHeight
+        const firstVisibleIndex = Math.floor(clampedScrollPercentage * totalFeatures)
         const lastVisibleIndex = Math.min(
-          Math.ceil((scrollPercentage + viewportPercentage) * totalFeatures),
+          Math.ceil((clampedScrollPercentage + visibleRange) * totalFeatures),
           totalFeatures
         )
 
@@ -589,8 +595,18 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
           visibleFeatureIds
         }
 
+        // FIXED: Only update if state actually changed (avoid unnecessary re-renders)
         if (scrollState.scrollHeight > 0 && scrollState.clientHeight > 0) {
-          setTableScrollState(scrollState)
+          const stateChanged = !lastScrollState ||
+            lastScrollState.scrollTop !== scrollState.scrollTop ||
+            lastScrollState.scrollHeight !== scrollState.scrollHeight ||
+            lastScrollState.clientHeight !== scrollState.clientHeight ||
+            lastScrollState.visibleFeatureIds.size !== scrollState.visibleFeatureIds.size
+
+          if (stateChanged) {
+            lastScrollState = scrollState
+            setTableScrollState(scrollState)
+          }
         }
 
         rafId = null
@@ -615,7 +631,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
       container.removeEventListener('scroll', handleScrollEvent)
       resizeObserver.disconnect()
     }
-  }, [setTableScrollState, sortedRows])  // Re-run when rows change
+  }, [setTableScrollState, sortedRows])  // FIXED: Removed rowVirtualizer to prevent cascade re-runs
 
   // Empty state
   if (!stageContext) {

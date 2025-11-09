@@ -371,8 +371,21 @@ export const createTreeActions = (set: any, get: any) => ({
 
       // Auto-activate decoder similarity table if this is Feature Splitting stage
       if (categoryId === TAG_CATEGORY_FEATURE_SPLITTING && panel === PANEL_LEFT) {
-        console.log('[Store.addStageToNodeInternal] 🎯 Auto-activating decoder similarity table for node:', nodeId)
-        get().setActiveStageNode(nodeId, TAG_CATEGORY_FEATURE_SPLITTING)
+        // Get the newly created children from the updated tree
+        const updatedTree = get()[panelKey].sankeyTree
+        const parentNode = updatedTree?.get(nodeId)
+
+        // Select the LAST leaf node (the high similarity/well-explained node)
+        let selectedNodeId = nodeId
+        if (parentNode && parentNode.children.length > 0) {
+          selectedNodeId = parentNode.children[parentNode.children.length - 1]
+        }
+
+        console.log('[Store.addStageToNodeInternal] 🎯 Auto-activating decoder similarity table for leaf node:', selectedNodeId)
+
+        // BIDIRECTIONAL LINKING: Select leaf node for table filtering AND activate category
+        get().selectSingleNode(selectedNodeId)
+        get().setActiveStageNode(selectedNodeId, TAG_CATEGORY_FEATURE_SPLITTING)
       }
 
       console.log(`[Store.addStageToNodeInternal] ✅ ${category.label} stage added successfully`)

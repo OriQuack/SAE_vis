@@ -455,6 +455,8 @@ export const createTableActions = (set: any, get: any) => ({
   /**
    * Activate table view for a specific tag category
    * Maps category ID to the appropriate node and sets active stage state
+   * Selects the LEAF NODE for table filtering (not the parent node!)
+   * (bidirectional linking)
    */
   activateCategoryTable: (categoryId: string) => {
     const category = TAG_CATEGORIES[categoryId]
@@ -470,31 +472,47 @@ export const createTableActions = (set: any, get: any) => ({
       metric: category.metric
     })
 
-    // Find node with this category's metric in left panel
-    let nodeId: string | null = null
+    // Find parent node with this category's metric in left panel
+    let parentNodeId: string | null = null
 
     if (category.metric) {
       // For metric-based categories (Feature Splitting, Quality), find node with that metric
-      nodeId = get().findNodeWithMetric(category.metric)
+      parentNodeId = get().findNodeWithMetric(category.metric)
 
-      if (!nodeId) {
+      if (!parentNodeId) {
         console.warn('[Store.activateCategoryTable] ⚠️  No node found with metric:', category.metric)
         console.warn('[Store.activateCategoryTable] Using fallback nodeId: root')
-        nodeId = 'root'  // Fallback to root
+        parentNodeId = 'root'  // Fallback to root
       }
     } else {
       // For non-metric categories (Cause), use root as fallback
-      nodeId = 'root'
+      parentNodeId = 'root'
     }
 
     console.log('[Store.activateCategoryTable] ✅ Activating:', {
       categoryId,
-      nodeId,
+      parentNodeId,
       metric: category.metric
     })
 
-    // Set active stage node with the category ID
-    get().setActiveStageNode(nodeId, categoryId)
+    // IMPORTANT: Select the LEAF NODE (last child), not the parent node!
+    const tree = get().leftPanel.sankeyTree
+    const parentNode = tree?.get(parentNodeId)
+    let selectedNodeId = parentNodeId
+
+    if (parentNode && parentNode.children.length > 0) {
+      // Select the last leaf node (highest quality/well-explained)
+      selectedNodeId = parentNode.children[parentNode.children.length - 1]
+      console.log('[Store.activateCategoryTable] 🎯 Selecting leaf node:', selectedNodeId)
+    }
+
+    // BIDIRECTIONAL LINKING: 1. Select the leaf node for table filtering
+    get().selectSingleNode(selectedNodeId)
+
+    // BIDIRECTIONAL LINKING: 2. Set active stage node with the category ID
+    get().setActiveStageNode(selectedNodeId, categoryId)
+
+    console.log('[Store.activateCategoryTable] ✅ Leaf node selected and category activated')
   },
 
   // ============================================================================
