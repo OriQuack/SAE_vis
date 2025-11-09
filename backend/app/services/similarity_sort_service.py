@@ -11,7 +11,10 @@ import logging
 from typing import List, Dict, Tuple, Optional, TYPE_CHECKING
 from pathlib import Path
 
-from ..models.similarity_sort import SimilaritySortRequest, SimilaritySortResponse, FeatureScore
+from ..models.similarity_sort import (
+    SimilaritySortRequest, SimilaritySortResponse, FeatureScore,
+    PairSimilaritySortRequest, PairSimilaritySortResponse, PairScore
+)
 
 if TYPE_CHECKING:
     from .data_service import DataService
@@ -503,3 +506,326 @@ class SimilaritySortService:
         weighted_sq_diff = weights * (diff ** 2)
         distance = np.sqrt(np.sum(weighted_sq_diff))
         return float(distance)
+
+    async def get_pair_similarity_sorted(
+        self,
+        request: PairSimilaritySortRequest
+    ) -> PairSimilaritySortResponse:
+        """
+        Calculate similarity scores for feature pairs and return sorted pairs.
+
+        Pair vectors are 19-dimensional: 9 metrics (main) + 9 metrics (similar) + 1 pair metric
+        Weights are 10-dimensional: one per metric type (applied to both features) + one for pair metric
+
+        Args:
+            request: Request containing selected, rejected, and all pair keys
+
+        Returns:
+            Response with sorted pairs and scores
+        """
+        if not self.data_service.is_ready():
+            raise RuntimeError("DataService not ready")
+
+        # Validate inputs
+        if len(request.pair_keys) == 0:
+            return PairSimilaritySortResponse(
+                sorted_pairs=[],
+                total_pairs=0,
+                weights_used=[]
+            )
+
+        # Extract pair keys and parse to (main_id, similar_id)
+        pair_ids = []
+        for pair_key in request.pair_keys:
+            parts = pair_key.split('-')
+            if len(parts) == 2:
+                try:
+                    main_id = int(parts[0])
+                    similar_id = int(parts[1])
+                    pair_ids.append((main_id, similar_id))
+                except ValueError:
+                    logger.warning(f"Invalid pair key format: {pair_key}")
+                    continue
+
+        if not pair_ids:
+            return PairSimilaritySortResponse(
+                sorted_pairs=[],
+                total_pairs=0,
+                weights_used=[]
+            )
+
+        # Extract all unique feature IDs from pairs
+        all_feature_ids = set()
+        for main_id, similar_id in pair_ids:
+            all_feature_ids.add(main_id)
+            all_feature_ids.add(similar_id)
+
+        logger.info(f"Extracting metrics for {len(all_feature_ids)} unique features in {len(pair_ids)} pairs")
+        metrics_df = await self._extract_metrics(list(all_feature_ids))
+
+        if metrics_df is None or len(metrics_df) == 0:
+            logger.warning("No metrics extracted, returning empty result")
+            return PairSimilaritySortResponse(
+                sorted_pairs=[],
+                total_pairs=0,
+                weights_used=[]
+            )
+
+        # Calculate or retrieve cached weights (base 9 metrics)
+        weights_base, weights_list_base = self._get_weights(metrics_df)
+
+        # Extract pair metrics (cosine_similarity from decoder_similarity)
+        pair_metrics_dict = await self._extract_pair_metrics(pair_ids)
+
+        # Calculate or use cached weights for pair metric
+        pair_metric_weights, all_weights_list = self._get_pair_weights(
+            metrics_df,
+            pair_metrics_dict,
+            weights_list_base
+        )
+
+        # Calculate similarity scores for pairs
+        logger.info(f"Calculating similarity scores for {len(pair_ids)} pairs")
+        pair_scores = self._calculate_pair_similarity_scores(
+            metrics_df,
+            pair_metrics_dict,
+            pair_metric_weights,
+            request.selected_pair_keys,
+            request.rejected_pair_keys,
+            pair_ids
+        )
+
+        # Sort by score (descending - higher is better)
+        pair_scores.sort(key=lambda x: x.score, reverse=True)
+
+        logger.info(f"Successfully scored and sorted {len(pair_scores)} pairs")
+
+        return PairSimilaritySortResponse(
+            sorted_pairs=pair_scores,
+            total_pairs=len(pair_ids),
+            weights_used=all_weights_list
+        )
+
+    async def _extract_pair_metrics(
+        self,
+        pair_ids: List[Tuple[int, int]]
+    ) -> Dict[str, float]:
+        """
+        Extract pair-specific metrics (cosine similarity from decoder_similarity).
+
+        Args:
+            pair_ids: List of (main_id, similar_id) tuples
+
+        Returns:
+            Dictionary mapping pair_key to cosine_similarity
+        """
+        # Access the main dataframe through data_service
+        lf = self.data_service._df_lazy
+        if lf is None:
+            logger.warning("Main dataframe not available for pair metrics")
+            return {}
+
+        # Extract unique main feature IDs from pairs
+        main_feature_ids = list(set(main_id for main_id, _ in pair_ids))
+
+        # Load the decoder_similarity data for these features
+        try:
+            df = lf.filter(pl.col("feature_id").is_in(main_feature_ids)).select([
+                "feature_id",
+                "decoder_similarity"
+            ]).collect()
+
+            if df is None or len(df) == 0:
+                logger.warning("No decoder_similarity data found for pair metrics")
+                return {}
+        except Exception as e:
+            logger.error(f"Failed to load decoder_similarity data: {e}")
+            return {}
+
+        pair_metrics = {}
+
+        for main_id, similar_id in pair_ids:
+            pair_key = f"{main_id}-{similar_id}"
+
+            # Find decoder similarity entry for this pair
+            try:
+                # Filter for the main feature
+                main_data = df.filter(pl.col("feature_id") == main_id)
+                if len(main_data) == 0:
+                    logger.debug(f"Feature {main_id} not found for pair {pair_key}")
+                    pair_metrics[pair_key] = 0.0
+                    continue
+
+                # Get decoder_similarity list
+                decoder_sims = main_data["decoder_similarity"][0]
+                if not isinstance(decoder_sims, list):
+                    pair_metrics[pair_key] = 0.0
+                    continue
+
+                # Find the similar feature in the list
+                similarity = 0.0
+                for sim_item in decoder_sims:
+                    if isinstance(sim_item, dict) and sim_item.get("feature_id") == similar_id:
+                        similarity = float(sim_item.get("cosine_similarity", 0.0))
+                        break
+
+                pair_metrics[pair_key] = similarity
+
+            except Exception as e:
+                logger.warning(f"Error extracting pair metric for {pair_key}: {e}")
+                pair_metrics[pair_key] = 0.0
+
+        return pair_metrics
+
+    def _get_pair_weights(
+        self,
+        metrics_df: pl.DataFrame,
+        pair_metrics: Dict[str, float],
+        weights_list_base: List[float]
+    ) -> Tuple[np.ndarray, List[float]]:
+        """
+        Calculate weights for 10-dimensional pair vectors.
+
+        First 9 weights are per-metric type (same for both main and similar features)
+        10th weight is for pair_decoder_similarity metric
+
+        Args:
+            metrics_df: DataFrame with base metrics
+            pair_metrics: Dictionary of pair cosine similarities
+            weights_list_base: Base weights for 9 feature metrics
+
+        Returns:
+            Tuple of (weight vector as ndarray, full weights list as List[float])
+        """
+        # Calculate std of pair metric
+        pair_similarity_values = np.array(list(pair_metrics.values()))
+
+        if len(pair_similarity_values) == 0 or np.std(pair_similarity_values) == 0:
+            pair_weight = 0.1  # Default if no variance
+        else:
+            pair_weight = 1.0 / (np.std(pair_similarity_values) * 2.0)
+
+        # Combine: 9 base weights + 1 pair weight
+        # Apply each base weight twice (once for main, once for similar)
+        combined_weights = []
+        for base_w in weights_list_base:
+            combined_weights.append(base_w)  # For main feature metric
+            combined_weights.append(base_w)  # For similar feature metric
+        combined_weights.append(pair_weight)  # For pair metric
+
+        # Normalize
+        combined_weights = np.array(combined_weights)
+        combined_weights = combined_weights / np.sum(combined_weights)
+
+        # Return both array and list formats
+        return combined_weights, list(combined_weights)
+
+    def _calculate_pair_similarity_scores(
+        self,
+        metrics_df: pl.DataFrame,
+        pair_metrics: Dict[str, float],
+        weights: np.ndarray,
+        selected_pair_keys: List[str],
+        rejected_pair_keys: List[str],
+        pair_ids: List[Tuple[int, int]]
+    ) -> List[PairScore]:
+        """
+        Calculate similarity scores for all pairs.
+
+        Score = -avg_distance_to_selected + avg_distance_to_rejected
+
+        19-dim pair vector = [9 main metrics] + [9 similar metrics] + [1 pair metric]
+
+        Args:
+            metrics_df: DataFrame with metrics for all features
+            pair_metrics: Dictionary mapping pair_key to cosine_similarity
+            weights: 10-element weight vector
+            selected_pair_keys: Pair keys marked as selected (✓)
+            rejected_pair_keys: Pair keys marked as rejected (✗)
+            pair_ids: List of (main_id, similar_id) tuples
+
+        Returns:
+            List of PairScore objects
+        """
+        # Convert to numpy for efficient distance calculation
+        feature_ids = metrics_df["feature_id"].to_numpy()
+        metrics_matrix = np.column_stack([
+            metrics_df[metric].to_numpy() for metric in self.METRICS
+        ])
+
+        # Build pair vectors (19-dimensional)
+        pair_vectors = {}
+        pair_key_list = []
+
+        for main_id, similar_id in pair_ids:
+            pair_key = f"{main_id}-{similar_id}"
+            pair_key_list.append(pair_key)
+
+            # Get main and similar feature metrics
+            main_idx = np.where(feature_ids == main_id)[0]
+            similar_idx = np.where(feature_ids == similar_id)[0]
+
+            if len(main_idx) == 0 or len(similar_idx) == 0:
+                logger.warning(f"Missing metrics for pair {pair_key}")
+                pair_vectors[pair_key] = None
+                continue
+
+            # Build 19-dim vector
+            main_metrics = metrics_matrix[main_idx[0]]  # 9 dims
+            similar_metrics = metrics_matrix[similar_idx[0]]  # 9 dims
+            pair_metric = pair_metrics.get(pair_key, 0.0)  # 1 dim
+
+            pair_vector = np.concatenate([main_metrics, similar_metrics, [pair_metric]])
+            pair_vectors[pair_key] = pair_vector
+
+        # Calculate scores for each pair
+        pair_scores = []
+
+        for pair_key in pair_key_list:
+            pair_vector = pair_vectors.get(pair_key)
+
+            if pair_vector is None:
+                continue
+
+            # Skip if this pair is selected or rejected (frontend handles three-tier sorting)
+            if pair_key in selected_pair_keys or pair_key in rejected_pair_keys:
+                continue
+
+            # Calculate weighted distance to selected pairs
+            dist_to_selected = 0.0
+            if selected_pair_keys:
+                distances = []
+                for selected_pair_key in selected_pair_keys:
+                    selected_vector = pair_vectors.get(selected_pair_key)
+                    if selected_vector is not None:
+                        dist = self._weighted_euclidean_distance(
+                            pair_vector,
+                            selected_vector,
+                            weights
+                        )
+                        distances.append(dist)
+                if distances:
+                    dist_to_selected = np.mean(distances)
+
+            # Calculate weighted distance to rejected pairs
+            dist_to_rejected = 0.0
+            if rejected_pair_keys:
+                distances = []
+                for rejected_pair_key in rejected_pair_keys:
+                    rejected_vector = pair_vectors.get(rejected_pair_key)
+                    if rejected_vector is not None:
+                        dist = self._weighted_euclidean_distance(
+                            pair_vector,
+                            rejected_vector,
+                            weights
+                        )
+                        distances.append(dist)
+                if distances:
+                    dist_to_rejected = np.mean(distances)
+
+            # Final score: similarity to selected - similarity to rejected
+            score = -dist_to_selected + dist_to_rejected
+
+            pair_scores.append(PairScore(pair_key=pair_key, score=float(score)))
+
+        return pair_scores

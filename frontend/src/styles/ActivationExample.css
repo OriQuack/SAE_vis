@@ -134,6 +134,7 @@
 }
 
 .activation-example__popover-content {
+  width: 100%;
   line-height: 1.6;
   display: flex;
   flex-direction: column;
@@ -141,6 +142,7 @@
 
 /* Quantile group container */
 .activation-example__popover-quantile-group {
+  width: 100%;
   display: flex;
   flex-direction: column;
 }
@@ -156,6 +158,7 @@
 
 /* Individual example row */
 .activation-example__popover-row {
+  width: 100%;
   display: flex;
   gap: 0;
   flex-wrap: wrap;

@@ -38,6 +38,45 @@
   text-decoration: underline;
 }
 
+.decoder-stage-table__sort-button {
+  background: #0ea5e9;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  transition: background-color 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.decoder-stage-table__sort-button:hover:not(:disabled) {
+  background: #0284c7;
+}
+
+.decoder-stage-table__sort-button:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.spinner-mini {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ============================================================================
  * CUSTOM COLUMN WIDTHS FOR DECODER SIMILARITY TABLE
  * ============================================================================ */

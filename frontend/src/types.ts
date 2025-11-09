@@ -549,7 +549,8 @@ export type SortBy =
   | typeof METRIC_SCORE_EMBEDDING
   | typeof METRIC_DECODER_SIMILARITY
   | typeof METRIC_SEMANTIC_SIMILARITY
-  | 'similarity'  // Similarity-based sorting
+  | 'similarity'  // Similarity-based sorting (for quality table)
+  | 'pair_similarity'  // Pair similarity-based sorting (for feature split table)
   | null
 
 // ============================================================================
@@ -773,5 +774,32 @@ export interface SimilaritySortResponse {
   sorted_features: FeatureScore[]
   total_features: number
   weights_used: number[]  // Normalized weights for each metric
+}
+
+/**
+ * Pair Similarity Sort Request - Sort pairs by similarity
+ * Uses 19-dimensional vectors: 9 metrics (main) + 9 metrics (similar) + 1 pair metric
+ */
+export interface PairSimilaritySortRequest {
+  selected_pair_keys: string[]  // Pair keys marked as selected (✓), format: "main_id-similar_id"
+  rejected_pair_keys: string[]  // Pair keys marked as rejected (✗), format: "main_id-similar_id"
+  pair_keys: string[]           // All pair keys in current table view
+}
+
+/**
+ * Pair Score - Pair key with similarity score
+ */
+export interface PairScore {
+  pair_key: string  // Format: "main_id-similar_id"
+  score: number     // Higher = more similar to selected, less similar to rejected
+}
+
+/**
+ * Pair Similarity Sort Response - Response from pair similarity sort API
+ */
+export interface PairSimilaritySortResponse {
+  sorted_pairs: PairScore[]
+  total_pairs: number
+  weights_used: number[]  // 10 weights: 9 feature metrics (applied to both) + 1 pair metric
 }
 

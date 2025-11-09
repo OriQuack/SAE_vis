@@ -8,7 +8,9 @@ import type {
   FeatureTableDataResponse,
   ActivationExamples,
   SimilaritySortRequest,
-  SimilaritySortResponse
+  SimilaritySortResponse,
+  PairSimilaritySortRequest,
+  PairSimilaritySortResponse
 } from './types'
 
 // ============================================================================
@@ -43,7 +45,8 @@ const API_ENDPOINTS = {
   TABLE_DATA: "/table-data",
   FEATURE_GROUPS: "/feature-groups",
   ACTIVATION_EXAMPLES: "/activation-examples",
-  SIMILARITY_SORT: "/similarity-sort"
+  SIMILARITY_SORT: "/similarity-sort",
+  PAIR_SIMILARITY_SORT: "/pair-similarity-sort"
 } as const
 
 const API_BASE = API_BASE_URL
@@ -217,6 +220,47 @@ export async function getSimilaritySort(
   console.log('[API] getSimilaritySort response:', {
     sortedCount: data.sorted_features?.length || 0,
     totalFeatures: data.total_features,
+    hasWeights: data.weights_used && data.weights_used.length > 0
+  })
+
+  return data
+}
+
+export async function getPairSimilaritySort(
+  selectedPairKeys: string[],
+  rejectedPairKeys: string[],
+  pairKeys: string[]
+): Promise<PairSimilaritySortResponse> {
+  console.log('[API] getPairSimilaritySort called with:', {
+    selectedCount: selectedPairKeys.length,
+    rejectedCount: rejectedPairKeys.length,
+    totalPairs: pairKeys.length
+  })
+
+  const requestBody: PairSimilaritySortRequest = {
+    selected_pair_keys: selectedPairKeys,
+    rejected_pair_keys: rejectedPairKeys,
+    pair_keys: pairKeys
+  }
+
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.PAIR_SIMILARITY_SORT}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody)
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('[API] Pair similarity sort error:', response.status, errorText)
+    throw new Error(`Failed to calculate pair similarity sort: ${response.status} - ${errorText}`)
+  }
+
+  const data = await response.json()
+  console.log('[API] getPairSimilaritySort response:', {
+    sortedCount: data.sorted_pairs?.length || 0,
+    totalPairs: data.total_pairs,
     hasWeights: data.weights_used && data.weights_used.length > 0
   })
 

@@ -120,6 +120,7 @@ interface AppState {
   setTableSort: (sortBy: SortBy | null, sortDirection: SortDirection | null) => void
   swapMetricDisplay: (newMetric: typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION) => void
   sortBySimilarity: () => Promise<void>
+  sortPairsBySimilarity: (allPairKeys: string[]) => Promise<void>
 
   // Node selection actions
   toggleNodeSelection: (nodeId: string) => void
@@ -149,6 +150,12 @@ interface AppState {
   isSimilaritySortLoading: boolean
   lastSortedSelectionSignature: string | null  // Track selection state at last sort
   sortedBySelectionStates: Map<number, 'selected' | 'rejected'> | null  // Frozen selection states when sorted
+
+  // Pair similarity sort state (for feature split table)
+  pairSimilarityScores: Map<string, number>
+  isPairSimilaritySortLoading: boolean
+  lastPairSortedSelectionSignature: string | null  // Track pair selection state at last sort
+  pairSortedBySelectionStates: Map<string, 'selected' | 'rejected'> | null  // Frozen pair selection states when sorted
 
   // Node selection for table filtering
   tableSelectedNodeIds: string[]
@@ -230,6 +237,12 @@ const initialState = {
   isSimilaritySortLoading: false,
   lastSortedSelectionSignature: null,
   sortedBySelectionStates: null,
+
+  // Pair similarity sort state (for feature split table)
+  pairSimilarityScores: new Map<string, number>(),
+  isPairSimilaritySortLoading: false,
+  lastPairSortedSelectionSignature: null,
+  pairSortedBySelectionStates: null,
 
   // Node selection for table filtering
   tableSelectedNodeIds: [],

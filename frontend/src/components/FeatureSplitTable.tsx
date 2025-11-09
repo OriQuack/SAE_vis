@@ -3,6 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow, DecoderStagePairRow, StageTableContext } from '../types'
 import { METRIC_DECODER_SIMILARITY } from '../lib/constants'
+import { TAG_CATEGORIES, TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/tag-categories'
 import ActivationExample from './ActivationExample'
 import DecoderSimilarityOverlay from './FeatureSplitOverlay'
 import '../styles/QualityTablePanel.css'
@@ -21,11 +22,15 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
   const activeStageNodeId = useVisualizationStore(state => state.activeStageNodeId)
   const leftPanel = useVisualizationStore(state => state.leftPanel)
   const tableData = useVisualizationStore(state => state.tableData)
-  const clearActiveStageNode = useVisualizationStore(state => state.clearActiveStageNode)
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
   const togglePairSelection = useVisualizationStore(state => state.togglePairSelection)
+  const clearPairSelection = useVisualizationStore(state => state.clearPairSelection)
   const loading = useVisualizationStore(state => state.loading)
   const setTableScrollState = useVisualizationStore(state => state.setTableScrollState)
+  const pairSimilarityScores = useVisualizationStore(state => state.pairSimilarityScores)
+  const isPairSimilaritySortLoading = useVisualizationStore(state => state.isPairSimilaritySortLoading)
+  const sortPairsBySimilarity = useVisualizationStore(state => state.sortPairsBySimilarity)
+  const tableSortBy = useVisualizationStore(state => state.tableSortBy)
 
   // Sorting state
   const [sortBy, setSortBy] = useState<'id' | 'decoder_similarity' | null>(null)
@@ -254,9 +259,9 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
     }
   }, [activeStageNodeId, leftPanel.sankeyTree])
 
-  // Process table data to create decoder stage pair rows (horizontal layout)
-  const stageRows = useMemo<DecoderStagePairRow[]>(() => {
-    if (!stageContext || !tableData) {
+  // Compute stage features for header display
+  const stageFeatures = useMemo(() => {
+    if (!stageContext || !tableData || !leftPanel.sankeyTree) {
       return []
     }
 
@@ -280,9 +285,16 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
     }
 
     // Filter features to only those in this stage
-    const stageFeatures = tableData.features.filter(
+    return tableData.features.filter(
       (feature: FeatureTableRow) => allFeatureIds.has(feature.feature_id)
     )
+  }, [stageContext, tableData, leftPanel.sankeyTree])
+
+  // Process table data to create decoder stage pair rows (horizontal layout)
+  const stageRows = useMemo<DecoderStagePairRow[]>(() => {
+    if (!stageContext || !tableData || stageFeatures.length === 0) {
+      return []
+    }
 
     // Transform to decoder stage pair rows - one row per pair (feature + similar feature)
     const rows: DecoderStagePairRow[] = stageFeatures.flatMap((feature: FeatureTableRow) => {
@@ -309,10 +321,55 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
     })
 
     return rows
-  }, [stageContext, tableData, leftPanel.sankeyTree, activationExamples])
+  }, [stageContext, tableData, stageFeatures, activationExamples])
 
-  // Sort rows by main feature ID or decoder similarity
+  // Get frozen selection states from store (used when sorted by similarity)
+  const pairSortedBySelectionStates = useVisualizationStore(state => state.pairSortedBySelectionStates)
+
+  // Sort rows by main feature ID, decoder similarity, or by pair similarity (three-tier)
   const sortedRows = useMemo(() => {
+    // If using pair similarity sort, implement three-tier logic with FROZEN states
+    if (tableSortBy === 'pair_similarity') {
+      const selected: DecoderStagePairRow[] = []
+      const unselected: DecoderStagePairRow[] = []
+      const rejected: DecoderStagePairRow[] = []
+
+      // Use FROZEN selection states from when sort was performed
+      // This prevents re-grouping when user changes selection after sorting
+      const groupingStates = pairSortedBySelectionStates || new Map<string, 'selected' | 'rejected'>()
+
+      // Separate into three groups based on FROZEN states
+      stageRows.forEach(row => {
+        const frozenState = groupingStates.get(row.pairKey)
+
+        if (frozenState === 'selected') {
+          selected.push(row)
+        } else if (frozenState === 'rejected') {
+          rejected.push(row)
+        } else {
+          unselected.push(row)
+        }
+      })
+
+      // Sort unselected by similarity score (descending)
+      unselected.sort((a, b) => {
+        const aScore = pairSimilarityScores.get(a.pairKey) ?? -Infinity
+        const bScore = pairSimilarityScores.get(b.pairKey) ?? -Infinity
+        return bScore - aScore // Descending (higher scores first)
+      })
+
+      console.log('[FeatureSplitTable] Pair similarity sort applied:', {
+        selected: selected.length,
+        unselected: unselected.length,
+        rejected: rejected.length,
+        usingFrozenStates: !!pairSortedBySelectionStates
+      })
+
+      // Return three-tier: selected, sorted unselected, rejected
+      return [...selected, ...unselected, ...rejected]
+    }
+
+    // Otherwise, apply regular sorting (ID or decoder similarity)
     if (!sortBy || !sortDirection) return stageRows
 
     const sorted = [...stageRows]
@@ -335,7 +392,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
     })
 
     return sorted
-  }, [stageRows, sortBy, sortDirection])
+  }, [stageRows, sortBy, sortDirection, tableSortBy, pairSortedBySelectionStates, pairSimilarityScores])
 
   // Virtual scrolling for performance with large datasets
   const rowVirtualizer = useVirtualizer({
@@ -581,18 +638,50 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
         </div>
       )}
 
-      {/* Minimal selection header */}
+      {/* Unified selection header - matches QualityTablePanel style */}
       <div className="decoder-stage-table__selection-header">
         <span className="decoder-stage-table__selection-count">
-          {stageContext.rangeLabel} • {stageContext.featureCount.toLocaleString()} features
+          Tag: {TAG_CATEGORIES[TAG_CATEGORY_FEATURE_SPLITTING].label} • {stageFeatures.length.toLocaleString()} / {tableData?.features.length.toLocaleString() || 0} features
+          {pairSelectionStates.size > 0 && (
+            <span style={{ marginLeft: '12px', opacity: 0.8 }}>
+              Selected: {Array.from(pairSelectionStates.values()).filter(s => s === 'selected').length} |
+              Rejected: {Array.from(pairSelectionStates.values()).filter(s => s === 'rejected').length}
+            </span>
+          )}
         </span>
-        <button
-          className="decoder-stage-table__clear-selection"
-          onClick={clearActiveStageNode}
-          title="Return to normal table"
-        >
-          Clear ×
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {pairSelectionStates.size > 0 && (
+            <button
+              className="decoder-stage-table__sort-button"
+              onClick={() => {
+                // Extract all pair keys from current rows
+                const allPairKeys = sortedRows.map(row => row.pairKey)
+                sortPairsBySimilarity(allPairKeys)
+              }}
+              disabled={isPairSimilaritySortLoading}
+              title="Sort pairs by similarity to selected/rejected"
+            >
+              {isPairSimilaritySortLoading ? (
+                <>
+                  <span className="spinner-mini" /> Sorting...
+                </>
+              ) : (
+                'Sort by Similarity'
+              )}
+            </button>
+          )}
+          {pairSelectionStates.size > 0 && (
+            <button
+              className="decoder-stage-table__clear-selection"
+              onClick={() => {
+                clearPairSelection()
+              }}
+              title="Clear all pair selections and reset sort"
+            >
+              Clear ×
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Table */}
@@ -647,11 +736,17 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
               const row = sortedRows[virtualRow.index]
               const pairSelectionState = pairSelectionStates.get(row.pairKey)
 
-              // Build row className with selection state
+              // Get frozen selection state (when sorted by similarity)
+              const frozenPairState = pairSortedBySelectionStates?.get(row.pairKey)
+
+              // Build row className with selection state AND frozen state indicator
               const rowClassName = [
                 'table-panel__sub-row',
                 pairSelectionState === 'selected' ? 'table-panel__sub-row--checkbox-selected' : '',
-                pairSelectionState === 'rejected' ? 'table-panel__sub-row--checkbox-rejected' : ''
+                pairSelectionState === 'rejected' ? 'table-panel__sub-row--checkbox-rejected' : '',
+                // Add thick border indicator for pairs that were selected/rejected when sorted by similarity
+                frozenPairState === 'selected' ? 'table-panel__sub-row--sorted-as-selected' : '',
+                frozenPairState === 'rejected' ? 'table-panel__sub-row--sorted-as-rejected' : ''
               ].filter(Boolean).join(' ')
 
               return (
@@ -725,7 +820,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                     {activationExamples[row.mainFeature.feature_id] ? (
                       <ActivationExample
                         examples={activationExamples[row.mainFeature.feature_id]}
-                        containerWidth={activationColumnWidth / 2}
+                        containerWidth={activationColumnWidth}
                         interFeaturePositions={getInterFeaturePositionsForFeature(row.mainFeature.feature_id)}
                         isHovered={hoveredPairKey === row.pairKey}
                         onHoverChange={(isHovered) => setHoveredPairKey(isHovered ? row.pairKey : null)}
@@ -740,7 +835,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                     {activationExamples[row.similarFeature.feature_id] ? (
                       <ActivationExample
                         examples={activationExamples[row.similarFeature.feature_id]}
-                        containerWidth={activationColumnWidth / 2}
+                        containerWidth={activationColumnWidth}
                         interFeaturePositions={getInterFeaturePositionsForFeature(row.similarFeature.feature_id)}
                         isHovered={hoveredPairKey === row.pairKey}
                         onHoverChange={(isHovered) => setHoveredPairKey(isHovered ? row.pairKey : null)}

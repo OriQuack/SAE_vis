@@ -40,13 +40,13 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const setTableScrollState = useVisualizationStore(state => state.setTableScrollState)
   const isLoading = useVisualizationStore(state => state.loading.table)
   const tableSelectedNodeIds = useVisualizationStore(state => state.tableSelectedNodeIds)
-  const clearNodeSelection = useVisualizationStore(state => state.clearNodeSelection)
   const activeStageNodeId = useVisualizationStore(state => state.activeStageNodeId)
   const activeStageCategory = useVisualizationStore(state => state.activeStageCategory)
 
   // Feature selection state (three-state: null -> selected -> rejected -> null)
   const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
   const toggleFeatureSelection = useVisualizationStore(state => state.toggleFeatureSelection)
+  const clearFeatureSelection = useVisualizationStore(state => state.clearFeatureSelection)
 
   const tableContainerRef = useRef<HTMLDivElement>(null)
   const qualityScoreCellRef = useRef<HTMLTableCellElement>(null)
@@ -65,7 +65,6 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   // Similarity sort state and action
   const similarityScores = useVisualizationStore(state => state.similarityScores)
   const isSimilaritySortLoading = useVisualizationStore(state => state.isSimilaritySortLoading)
-  const lastSortedSelectionSignature = useVisualizationStore(state => state.lastSortedSelectionSignature)
   const sortedBySelectionStates = useVisualizationStore(state => state.sortedBySelectionStates)
   const sortBySimilarity = useVisualizationStore(state => state.sortBySimilarity)
 
@@ -156,33 +155,6 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
       width
     })
   }, [])
-
-  // Similarity sort: Calculate if button should be enabled
-  const canSortBySimilarity = useMemo(() => {
-    // Need at least 1 feature selected or rejected
-    if (featureSelectionStates.size < 1) {
-      return false
-    }
-
-    // Generate current selection signature
-    const selectedIds: number[] = []
-    const rejectedIds: number[] = []
-    featureSelectionStates.forEach((state, featureId) => {
-      if (state === 'selected') {
-        selectedIds.push(featureId)
-      } else if (state === 'rejected') {
-        rejectedIds.push(featureId)
-      }
-    })
-
-    // Format: "selected:[ids]|rejected:[ids]"
-    const selectedSig = selectedIds.sort((a, b) => a - b).join(',')
-    const rejectedSig = rejectedIds.sort((a, b) => a - b).join(',')
-    const currentSignature = `selected:${selectedSig}|rejected:${rejectedSig}`
-
-    // Enable button only if current selection differs from last sorted selection
-    return currentSignature !== lastSortedSelectionSignature
-  }, [featureSelectionStates, lastSortedSelectionSignature])
 
   // Similarity sort: Count selected vs rejected
   const selectionCounts = useMemo(() => {
@@ -562,49 +534,48 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
         </div>
       )}
 
-      {/* Selection Header - shown when nodes are selected */}
-      {tableSelectedNodeIds.length > 0 && (
-        <div className="table-panel__selection-header">
-          <span className="table-panel__selection-count">
-            {sortedFeatures.length.toLocaleString()} / {tableData?.features.length.toLocaleString() || 0} features
-          </span>
-          <button
-            className="table-panel__clear-selection"
-            onClick={clearNodeSelection}
-            title="Clear selection and show all features"
-          >
-            Clear ×
-          </button>
-        </div>
-      )}
-
-      {/* Sort by Similarity Button */}
-      <div className="table-panel__controls">
-        <button
-          className={`table-panel__similarity-sort-btn ${
-            sortBy === 'similarity' ? 'active' : ''
-          }`}
-          onClick={handleSimilaritySort}
-          disabled={!canSortBySimilarity || isSimilaritySortLoading}
-          title={
-            isSimilaritySortLoading
-              ? 'Calculating similarity...'
-              : featureSelectionStates.size < 1
-              ? 'Select at least 1 feature to sort by similarity'
-              : !canSortBySimilarity
-              ? 'Already sorted by current selection. Change selection to re-sort.'
-              : `Sort by similarity to ${selectionCounts.selected} checked and away from ${selectionCounts.rejected} rejected features`
-          }
-        >
-          {isSimilaritySortLoading ? (
-            <span className="spinner-small"></span>
-          ) : (
-            <>
-              Sort by Similarity
-              {sortBy === 'similarity'}
-            </>
+      {/* Unified Selection Header - matches FeatureSplitTable style */}
+      <div className="decoder-stage-table__selection-header">
+        <span className="decoder-stage-table__selection-count">
+          Tag: Well-Explained • {sortedFeatures.length} / {tableData?.features.length || 0} features
+          {featureSelectionStates.size > 0 && (
+            <span style={{ marginLeft: '12px', opacity: 0.8 }}>
+              Selected: {selectionCounts.selected} |
+              Rejected: {selectionCounts.rejected}
+            </span>
           )}
-        </button>
+        </span>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {featureSelectionStates.size > 0 && (
+            <button
+              className="decoder-stage-table__sort-button"
+              onClick={handleSimilaritySort}
+              disabled={isSimilaritySortLoading}
+              title="Sort features by similarity to selected/rejected"
+            >
+              {isSimilaritySortLoading ? (
+                <>
+                  <span className="spinner-mini" /> Sorting...
+                </>
+              ) : (
+                'Sort by Similarity'
+              )}
+            </button>
+          )}
+          {featureSelectionStates.size > 0 && (
+            <button
+              className="decoder-stage-table__clear-selection"
+              onClick={() => {
+                clearFeatureSelection()
+                // Also reset sort state when clearing selections
+                setTableSort(null, null)
+              }}
+              title="Clear all selections and reset sort"
+            >
+              Clear ×
+            </button>
+          )}
+        </div>
       </div>
 
       <div

@@ -6,7 +6,10 @@ from fastapi import APIRouter, HTTPException, Depends
 import logging
 from typing import TYPE_CHECKING
 
-from ..models.similarity_sort import SimilaritySortRequest, SimilaritySortResponse
+from ..models.similarity_sort import (
+    SimilaritySortRequest, SimilaritySortResponse,
+    PairSimilaritySortRequest, PairSimilaritySortResponse
+)
 
 if TYPE_CHECKING:
     from ..services.similarity_sort_service import SimilaritySortService
@@ -102,4 +105,68 @@ async def similarity_sort(
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error during similarity calculation: {str(e)}"
+        )
+
+
+@router.post("/pair-similarity-sort", response_model=PairSimilaritySortResponse)
+async def pair_similarity_sort(
+    request: PairSimilaritySortRequest,
+    service: "SimilaritySortService" = Depends(get_similarity_sort_service)
+) -> PairSimilaritySortResponse:
+    """
+    Sort feature pairs by similarity to selected pairs and dissimilarity to rejected pairs.
+
+    This endpoint extends similarity sorting to pairs of features (main + similar).
+    It uses a 19-dimensional vector: 9 metrics (main) + 9 metrics (similar) + 1 pair metric (cosine_similarity).
+
+    Weights are calculated as: 10 dimensions × inverse of (std * 2), normalized to sum = 1.
+    - 9 feature metric weights (applied to both main and similar features)
+    - 1 pair metric weight (cosine_similarity between features)
+
+    Final score = -avg_distance_to_selected + avg_distance_to_rejected
+    (Higher score = more similar to selected, less similar to rejected)
+
+    Args:
+        request: Request with selected_pair_keys, rejected_pair_keys, and pair_keys
+        service: Injected similarity sort service
+
+    Returns:
+        Response with sorted pairs and scores
+    """
+    try:
+        logger.info(
+            f"Pair similarity sort request: {len(request.selected_pair_keys)} selected, "
+            f"{len(request.rejected_pair_keys)} rejected, "
+            f"{len(request.pair_keys)} total pairs"
+        )
+
+        # Validate request
+        if not request.pair_keys:
+            raise HTTPException(
+                status_code=400,
+                detail="pair_keys cannot be empty"
+            )
+
+        if not request.selected_pair_keys and not request.rejected_pair_keys:
+            raise HTTPException(
+                status_code=400,
+                detail="At least one of selected_pair_keys or rejected_pair_keys must be provided"
+            )
+
+        # Call service to calculate scores
+        response = await service.get_pair_similarity_sorted(request)
+
+        logger.info(f"Pair similarity sort completed: {response.total_pairs} pairs scored")
+        return response
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        logger.error(f"Validation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error in pair similarity sort: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error during pair similarity calculation: {str(e)}"
         )

@@ -604,5 +604,113 @@ export const createTableActions = (set: any, get: any) => ({
       console.error('[Store.sortBySimilarity] ❌ Failed to calculate similarity sort:', error)
       set({ isSimilaritySortLoading: false })
     }
+  },
+
+  // ============================================================================
+  // PAIR SIMILARITY SORT ACTION
+  // ============================================================================
+
+  sortPairsBySimilarity: async (allPairKeys: string[]) => {
+    const state = get()
+    const { pairSelectionStates } = state
+
+    console.log('[Store.sortPairsBySimilarity] Starting pair similarity sort:', {
+      selectionStatesSize: pairSelectionStates.size,
+      allPairKeysCount: allPairKeys.length
+    })
+
+    // Validate: need at least 1 selected or rejected pair
+    if (pairSelectionStates.size < 1) {
+      console.warn('[Store.sortPairsBySimilarity] ⚠️  No pairs selected for similarity sort')
+      return
+    }
+
+    if (!allPairKeys || allPairKeys.length === 0) {
+      console.warn('[Store.sortPairsBySimilarity] ⚠️  No pair keys available')
+      return
+    }
+
+    // Extract selected and rejected pair keys
+    const selectedPairKeys: string[] = []
+    const rejectedPairKeys: string[] = []
+
+    pairSelectionStates.forEach((selectionState: string, pairKey: string) => {
+      if (selectionState === 'selected') {
+        selectedPairKeys.push(pairKey)
+      } else if (selectionState === 'rejected') {
+        rejectedPairKeys.push(pairKey)
+      }
+    })
+
+    console.log('[Store.sortPairsBySimilarity] Selection counts:', {
+      selected: selectedPairKeys.length,
+      rejected: rejectedPairKeys.length
+    })
+
+    // Need at least one of each for meaningful sort
+    if (selectedPairKeys.length === 0 && rejectedPairKeys.length === 0) {
+      console.warn('[Store.sortPairsBySimilarity] ⚠️  Need at least one selected or rejected pair')
+      return
+    }
+
+    console.log('[Store.sortPairsBySimilarity] Total pairs:', allPairKeys.length)
+
+    try {
+      set({ isPairSimilaritySortLoading: true })
+
+      console.log('[Store.sortPairsBySimilarity] Calling API:', {
+        selectedPairKeys: selectedPairKeys.length,
+        rejectedPairKeys: rejectedPairKeys.length,
+        totalPairs: allPairKeys.length
+      })
+
+      // Call API
+      const response = await api.getPairSimilaritySort(
+        selectedPairKeys,
+        rejectedPairKeys,
+        allPairKeys
+      )
+
+      console.log('[Store.sortPairsBySimilarity] API response:', {
+        sortedPairsCount: response.sorted_pairs.length,
+        totalPairs: response.total_pairs,
+        weightsCount: response.weights_used.length
+      })
+
+      // Convert to Map for easy lookup
+      const scoresMap = new Map<string, number>()
+      response.sorted_pairs.forEach((ps) => {
+        scoresMap.set(ps.pair_key, ps.score)
+      })
+
+      // Generate selection signature to track this sort state
+      // Format: "selected:[keys]|rejected:[keys]"
+      const selectedSig = selectedPairKeys.sort().join(',')
+      const rejectedSig = rejectedPairKeys.sort().join(',')
+      const selectionSignature = `selected:${selectedSig}|rejected:${rejectedSig}`
+
+      // Freeze the current selection states for grouping
+      const frozenSelectionStates = new Map(pairSelectionStates)
+
+      // Store scores and set sort mode
+      set({
+        pairSimilarityScores: scoresMap,
+        tableSortBy: 'pair_similarity',
+        tableSortDirection: 'desc',
+        isPairSimilaritySortLoading: false,
+        lastPairSortedSelectionSignature: selectionSignature,
+        pairSortedBySelectionStates: frozenSelectionStates
+      })
+
+      console.log('[Store.sortPairsBySimilarity] ✅ Pair similarity sort complete:', {
+        scoresMapSize: scoresMap.size,
+        sortBy: 'pair_similarity',
+        selectionSignature
+      })
+
+    } catch (error) {
+      console.error('[Store.sortPairsBySimilarity] ❌ Failed to calculate pair similarity sort:', error)
+      set({ isPairSimilaritySortLoading: false })
+    }
   }
 })

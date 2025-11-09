@@ -230,7 +230,7 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
         {onBadgeInteraction && mainFeatureId !== undefined && (
           <foreignObject
             x={(mainCircleX + similarCircleX) / 2 - 20}
-            y={centerY - 15}
+            y={centerY - 11}
             width={40}
             height={30}
             style={{ pointerEvents: 'none', overflow: 'visible' }}
@@ -261,7 +261,7 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
         {onBadgeInteraction && mainFeatureId !== undefined && (
           <foreignObject
             x={mainCircleX - 20}
-            y={centerY + mainRadius + 5}
+            y={centerY + mainRadius + 2}
             width={40}
             height={30}
             style={{ pointerEvents: 'none', overflow: 'visible' }}
@@ -291,7 +291,7 @@ const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
         {onBadgeInteraction && mainFeatureId !== undefined && (
           <foreignObject
             x={similarCircleX - 20}
-            y={centerY + similarRadius + 5}
+            y={centerY + similarRadius + 2}
             width={40}
             height={30}
             style={{ pointerEvents: 'none', overflow: 'visible' }}

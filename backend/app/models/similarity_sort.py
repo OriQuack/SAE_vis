@@ -45,3 +45,44 @@ class SimilaritySortResponse(BaseModel):
         default=[],
         description="Normalized weights used for each metric"
     )
+
+
+class PairSimilaritySortRequest(BaseModel):
+    """Request model for pair similarity-based sorting."""
+
+    selected_pair_keys: List[str] = Field(
+        ...,
+        description="Pair keys marked as selected/positive (✓), format: 'main_id-similar_id'",
+        min_items=0
+    )
+    rejected_pair_keys: List[str] = Field(
+        ...,
+        description="Pair keys marked as rejected/negative (✗), format: 'main_id-similar_id'",
+        min_items=0
+    )
+    pair_keys: List[str] = Field(
+        ...,
+        description="All pair keys in the current table view",
+        min_items=1
+    )
+
+
+class PairScore(BaseModel):
+    """Pair key with its similarity score."""
+
+    pair_key: str = Field(..., description="Pair key in format 'main_id-similar_id'")
+    score: float = Field(..., description="Similarity score (higher = more similar to selected, less similar to rejected)")
+
+
+class PairSimilaritySortResponse(BaseModel):
+    """Response model for pair similarity-based sorting."""
+
+    sorted_pairs: List[PairScore] = Field(
+        ...,
+        description="Pairs sorted by similarity score (descending)"
+    )
+    total_pairs: int = Field(..., description="Total number of pairs scored")
+    weights_used: List[float] = Field(
+        default=[],
+        description="Normalized weights used for each metric (10 total: 9 feature metrics + 1 pair metric)"
+    )
