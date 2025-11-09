@@ -144,8 +144,8 @@ export const NEUTRAL_ICON_COLORS = {
 // Uses lower opacity (60%) for subtle visual distinction
 // ============================================================================
 export const THRESHOLD_COLORS = {
-  RED: PAUL_TOL_BRIGHT.RED + '99',      // Normal red with 60% opacity - Used for "bad" regions
-  GREEN: OKABE_ITO_PALETTE.BLUISH_GREEN + '99'    // Green with 60% opacity - Used for "good" regions
+  RED: PAUL_TOL_BRIGHT.RED + 'FF',      // Normal red with 60% opacity - Used for "bad" regions
+  GREEN: OKABE_ITO_PALETTE.BLUISH_GREEN + 'FF'    // Green with 60% opacity - Used for "good" regions
 } as const
 
 /**

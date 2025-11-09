@@ -503,7 +503,8 @@ export const useStore = create<AppState>((set, get) => ({
         filters,
         metric: targetMetric,
         nodeId,
-        thresholdPath
+        thresholdPath,
+        bins: 50
       }
 
       const histogramData = await api.getHistogramData(request)
@@ -554,7 +555,8 @@ export const useStore = create<AppState>((set, get) => ({
           filters,
           metric,
           nodeId,
-          thresholdPath
+          thresholdPath,
+          bins: 50
         }
 
         console.log('[HistogramPopover] Request for metric:', metric, request)

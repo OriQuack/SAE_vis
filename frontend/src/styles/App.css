@@ -470,7 +470,7 @@
 }
 
 .sankey-view__tag-category {
-  flex: 1;
+  flex: 0.8;
   min-height: 0;
   overflow: hidden;
 }

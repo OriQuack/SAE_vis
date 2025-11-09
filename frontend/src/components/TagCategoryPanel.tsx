@@ -30,14 +30,14 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
     {
       label: 'QUALITY',
       categoryId: TAG_CATEGORY_QUALITY,
-      cx: 400,
+      cx: 500,
       cy: 65,
       enabled: true  // Clickable
     },
     {
       label: 'CAUSE',
       categoryId: TAG_CATEGORY_CAUSE,
-      cx: 650,
+      cx: 850,
       cy: 65,
       enabled: false  // Disabled (future implementation)
     }
@@ -110,7 +110,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
 
   return (
     <div className="tag-category-panel">
-      <svg viewBox="0 0 800 110" preserveAspectRatio="xMidYMid meet">
+      <svg viewBox="0 0 1000 110" preserveAspectRatio="xMidYMid meet">
         {/* Connection lines between circles */}
         <line
           x1={stages[0].cx + circleRadius}
@@ -140,7 +140,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
                 x={stage.cx}
                 y={stage.cy - circleRadius - 15}
                 textAnchor="middle"
-                fontSize="14"
+                fontSize="18"
                 fill="#6b7280"
                 fontWeight="600"
                 letterSpacing="0.5"

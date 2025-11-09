@@ -158,28 +158,30 @@ const HistogramChartComponent: React.FC<{
         {/* Metric-specific striped pattern (for metrics without threshold colors) */}
         <pattern
           id={`histogram-pattern-striped-${chart.metric}`}
-          width="10"
-          height="10"
+          width="6"
+          height="6"
           patternUnits="userSpaceOnUse"
           patternTransform="rotate(45)"
         >
-          <rect width="10" height="10" fill="none"/>
-          <line x1="0" y1="0" x2="0" y2="10" stroke={barColor || HISTOGRAM_COLORS.bars} strokeWidth="5" opacity="0.7"/>
-          <line x1="10" y1="0" x2="10" y2="10" stroke={barColor || HISTOGRAM_COLORS.bars} strokeWidth="5" opacity="0.7"/>
+          <rect width="6" height="6" fill="none"/>
+          <line x1="0" y1="0" x2="0" y2="6" stroke={barColor || HISTOGRAM_COLORS.bars} strokeWidth="2" opacity="1.0"/>
+          <line x1="3" y1="0" x2="3" y2="6" stroke={barColor || HISTOGRAM_COLORS.bars} strokeWidth="2" opacity="1.0"/>
+          <line x1="6" y1="0" x2="6" y2="6" stroke={barColor || HISTOGRAM_COLORS.bars} strokeWidth="2" opacity="1.0"/>
         </pattern>
 
         {/* Red/Green striped pattern (for decoder_similarity and quality_score above threshold) */}
         {thresholdColors && (
           <pattern
             id={`histogram-pattern-threshold-${chart.metric}`}
-            width="10"
-            height="10"
+            width="6"
+            height="6"
             patternUnits="userSpaceOnUse"
             patternTransform="rotate(45)"
           >
-            <rect width="10" height="10" fill="none"/>
-            <line x1="0" y1="0" x2="0" y2="10" stroke={thresholdColors.above} strokeWidth="5" opacity="0.7"/>
-            <line x1="10" y1="0" x2="10" y2="10" stroke={thresholdColors.above} strokeWidth="5" opacity="0.7"/>
+            <rect width="6" height="6" fill="none"/>
+            <line x1="0" y1="0" x2="0" y2="6" stroke={thresholdColors.above} strokeWidth="2" opacity="1.0"/>
+            <line x1="3" y1="0" x2="3" y2="6" stroke={thresholdColors.above} strokeWidth="2" opacity="1.0"/>
+            <line x1="6" y1="0" x2="6" y2="6" stroke={thresholdColors.above} strokeWidth="2" opacity="1.0"/>
           </pattern>
         )}
       </defs>
