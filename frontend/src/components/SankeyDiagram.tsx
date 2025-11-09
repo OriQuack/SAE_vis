@@ -157,8 +157,10 @@ const VerticalBarSankeyNode: React.FC<{
   onMouseLeave?: () => void
   isSelected?: boolean
   isHovered?: boolean
-}> = ({ node, scrollState, flowDirection: _flowDirection, onClick, onMouseEnter, onMouseLeave, isSelected = false, isHovered = false }) => {
-  const layout = calculateVerticalBarNodeLayout(node, scrollState)
+  featureSelectionStates?: Map<number, 'selected' | 'rejected'>
+  tableSortedFeatureIds?: number[]
+}> = ({ node, scrollState, flowDirection: _flowDirection, onClick, onMouseEnter, onMouseLeave, isSelected = false, isHovered = false, featureSelectionStates, tableSortedFeatureIds }) => {
+  const layout = calculateVerticalBarNodeLayout(node, scrollState, featureSelectionStates, tableSortedFeatureIds)
 
   // Check if this is a placeholder node
   const isPlaceholder = node.id === 'placeholder_vertical_bar'
@@ -181,12 +183,30 @@ const VerticalBarSankeyNode: React.FC<{
       onMouseLeave={onMouseLeave}
       style={{ cursor: onClick ? 'pointer' : 'default' }}
     >
-      {/* Render vertical bar */}
+      {/* Render vertical bar - as individual feature lines or fallback rectangle */}
       {layout.subNodes.map((subNode) => {
+        // If featureId exists, render as a thin horizontal line
+        if (subNode.featureId !== undefined) {
+          return (
+            <line
+              key={subNode.id}
+              x1={subNode.x}
+              y1={subNode.y + subNode.height / 2}
+              x2={subNode.x + subNode.width}
+              y2={subNode.y + subNode.height / 2}
+              stroke={subNode.color}
+              strokeWidth={1}
+              opacity={0.8}
+            />
+          )
+        }
+
+        // Fallback: render as rectangle (for nodes without feature data)
         return (
           <g key={subNode.id}>
             {/* Bar rectangle */}
             <rect
+              className="sankey-vertical-bar-rect"
               x={subNode.x}
               y={subNode.y}
               width={subNode.width}
@@ -228,8 +248,8 @@ const VerticalBarSankeyNode: React.FC<{
           width={layout.totalWidth}
           height={layout.scrollIndicator.height}
           fill="rgba(30, 41, 59, 0.25)"
-          stroke="#1e293b"
-          strokeWidth={1.5}
+          stroke="#4b5563"
+          strokeWidth={1}
           rx={3}
           style={{ pointerEvents: 'none' }}
         />
@@ -263,6 +283,8 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const tableScrollState = useVisualizationStore(state => state.tableScrollState)
   const sankeyTree = useVisualizationStore(state => state[panelKey].sankeyTree)
   const tableSelectedNodeIds = useVisualizationStore(state => state.tableSelectedNodeIds)
+  const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
+  const tableData = useVisualizationStore(state => state.tableData)
   const {
     showHistogramPopover,
     // addStageToNode, // REMOVED: No longer needed with fixed 3-stage auto-expansion
@@ -272,6 +294,14 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     selectNodeWithCategory,
     getNodeCategory
   } = useVisualizationStore()
+
+  // Extract sorted feature IDs from table data (for vertical bar feature line ordering)
+  const tableSortedFeatureIds = useMemo(() => {
+    if (!tableData || !tableData.features) {
+      return null
+    }
+    return tableData.features.map((f: any) => f.feature_id)
+  }, [tableData])
 
   // NEW TREE-BASED SYSTEM: use computedSankey directly
   const data = useMemo(() => {
@@ -359,30 +389,8 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     }
   }, [displayData, containerSize.width, containerSize.height, flowDirection])
 
-  // Determine which vertical bar node should show the scroll indicator (winner-takes-all)
-  // Must be called BEFORE all early returns to comply with Rules of Hooks
-  const winnerNodeId = useMemo(() => {
-    if (!layout || !layout.nodes || !tableScrollState || tableScrollState.scrollHeight === 0) {
-      return null
-    }
-
-    // Find all vertical bar nodes
-    const verticalBarNodes = layout.nodes.filter(node => node.node_type === 'vertical_bar')
-
-    // For now, use simple heuristic: rightmost vertical bar node wins
-    // (In future, could use feature ID intersection for more sophisticated selection)
-    if (verticalBarNodes.length > 0) {
-      // Sort by x position and pick rightmost
-      const sorted = [...verticalBarNodes].sort((a, b) => {
-        const aX = a.x0 ?? 0
-        const bX = b.x0 ?? 0
-        return bX - aX
-      })
-      return sorted[0].id
-    }
-
-    return null
-  }, [layout, tableScrollState])
+  // Scroll indicator is now shown only on selected nodes (removed winner-takes-all logic)
+  // This prevents the indicator from jumping around when thresholds change
 
   // Stage labels removed - metric labels now shown on links
 
@@ -669,8 +677,9 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
                   // Check if this is a vertical bar node
                   if (node.node_type === 'vertical_bar') {
-                    // Only pass scrollState to the winner node (winner-takes-all)
-                    const shouldShowIndicator = winnerNodeId === node.id
+                    // Only show scroll indicator on selected nodes (not winner-takes-all)
+                    // This prevents jumping when thresholds change
+                    const shouldShowIndicator = isSelected
 
                     return (
                       <g
@@ -686,6 +695,8 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                           onMouseLeave={() => setHoveredNodeId(null)}
                           isSelected={isSelected}
                           isHovered={hoveredNodeId === node.id}
+                          featureSelectionStates={featureSelectionStates}
+                          tableSortedFeatureIds={tableSortedFeatureIds || undefined}
                         />
                       </g>
                     )

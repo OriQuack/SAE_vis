@@ -29,14 +29,16 @@ export interface ScrollIndicator {
 }
 
 export interface VerticalBarSubNode {
-  id: string                  // e.g., "llama", "qwen", "openai"
-  modelName: string          // Display name (e.g., "Llama", "Qwen", "OpenAI")
+  id: string                  // e.g., "llama", "qwen", "openai", or "feature_{featureId}"
+  modelName: string          // Display name (e.g., "Llama", "Qwen", "OpenAI", or "Feature {featureId}")
   x: number                  // Left edge x-coordinate
   y: number                  // Top edge y-coordinate
   width: number              // Bar width
-  height: number             // Bar height
-  color: string              // Bar color
+  height: number             // Line/bar height
+  color: string              // Line/bar color
   selected: boolean          // Whether this explainer is selected
+  featureId?: number         // Feature ID (for feature line rendering)
+  selectionState?: 'selected' | 'rejected' | null  // Feature selection state
 }
 
 export interface VerticalBarNodeLayout {
@@ -605,12 +607,14 @@ const BAR_COLOR = '#9ca3af'  // Gray-400
 /**
  * Calculate layout for a vertical bar node within Sankey diagram
  *
- * Creates a single vertical bar spanning the full node width
+ * Creates individual horizontal lines for each feature, colored by selection state
  * with a scroll indicator showing the current table viewport position
  */
 export function calculateVerticalBarNodeLayout(
   node: D3SankeyNode,
-  scrollState?: { scrollTop: number; scrollHeight: number; clientHeight: number; visibleFeatureIds?: Set<number> } | null
+  scrollState?: { scrollTop: number; scrollHeight: number; clientHeight: number; visibleFeatureIds?: Set<number> } | null,
+  featureSelectionStates?: Map<number, 'selected' | 'rejected'> | null,
+  tableSortedFeatureIds?: number[] | null
 ): VerticalBarNodeLayout {
   if (node.x0 === undefined || node.x1 === undefined ||
       node.y0 === undefined || node.y1 === undefined) {
@@ -620,17 +624,58 @@ export function calculateVerticalBarNodeLayout(
   const totalWidth = node.x1 - node.x0
   const totalHeight = node.y1 - node.y0
 
-  // Create a single bar spanning the full width
-  const subNodes: VerticalBarSubNode[] = [{
-    id: 'vertical-bar',
-    modelName: 'Vertical Bar',
-    x: node.x0!,
-    y: node.y0!,
-    width: totalWidth,
-    height: totalHeight,
-    color: BAR_COLOR,
-    selected: true
-  }]
+  // Get features from node
+  const nodeFeatureIds = node.featureIds || new Set<number>()
+  const featureCount = nodeFeatureIds.size
+
+  // Create individual lines for each feature
+  const subNodes: VerticalBarSubNode[] = []
+
+  if (featureCount > 0 && tableSortedFeatureIds && tableSortedFeatureIds.length > 0) {
+    // Filter sorted features to only include features in this node
+    const orderedFeatures = tableSortedFeatureIds.filter(fid => nodeFeatureIds.has(fid))
+
+    // Calculate height per feature line
+    const lineHeight = totalHeight / orderedFeatures.length
+
+    orderedFeatures.forEach((featureId, index) => {
+      // Get selection state
+      const selectionState = featureSelectionStates?.get(featureId) || null
+
+      // Determine color based on selection state
+      let color = BAR_COLOR  // Default gray
+      if (selectionState === 'selected') {
+        color = '#3b82f6'  // Blue
+      } else if (selectionState === 'rejected') {
+        color = '#ef4444'  // Red
+      }
+
+      subNodes.push({
+        id: `feature-${featureId}`,
+        modelName: `Feature ${featureId}`,
+        x: node.x0!,
+        y: node.y0! + (index * lineHeight),
+        width: totalWidth,
+        height: lineHeight,
+        color,
+        selected: selectionState === 'selected',
+        featureId,
+        selectionState
+      })
+    })
+  } else {
+    // Fallback: create single bar if no feature data available
+    subNodes.push({
+      id: 'vertical-bar',
+      modelName: 'Vertical Bar',
+      x: node.x0!,
+      y: node.y0!,
+      width: totalWidth,
+      height: totalHeight,
+      color: BAR_COLOR,
+      selected: true
+    })
+  }
 
   // Calculate scroll indicator based on table viewport position
   let scrollIndicator: ScrollIndicator | null = null

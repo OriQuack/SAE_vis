@@ -128,10 +128,21 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
   onHoverChange
 }) => {
   const [showPopover, setShowPopover] = useState<boolean>(false)
+  const [popoverPosition, setPopoverPosition] = useState<'above' | 'below'>('below')
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Show popover if either locally hovered or parent says this pair is hovered
   const effectiveShowPopover = showPopover || (isHovered ?? false)
+
+  // Detect popover position (above/below) based on available space
+  const detectPopoverPosition = () => {
+    if (!containerRef.current) return
+    const rect = containerRef.current.getBoundingClientRect()
+    // Estimated popover height ~200px
+    const spaceBelow = window.innerHeight - rect.bottom
+    const position = spaceBelow < 200 ? 'above' : 'below'
+    setPopoverPosition(position)
+  }
 
   // Calculate max characters based on container width passed from parent
   // Assume ~7px per character at 11px monospace font
@@ -165,6 +176,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
       ref={containerRef}
       className="activation-example"
       onMouseEnter={() => {
+        detectPopoverPosition()
         setShowPopover(true)
         onHoverChange?.(true)
       }}
@@ -222,7 +234,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
 
       {/* Hover popover: All 8 examples (2 per quantile) - shows when this row is hovered */}
       {effectiveShowPopover && (
-        <div className="activation-example__popover">
+        <div className={`activation-example__popover activation-example__popover--${popoverPosition}`}>
           <div className="activation-example__popover-content">
             {quantileGroups.map((group, qIdx) => (
               <div key={qIdx} className="activation-example__popover-quantile-group">

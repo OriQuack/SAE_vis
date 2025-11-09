@@ -327,14 +327,15 @@
    NODE SELECTION STYLES (Direction 2 Implementation)
    ============================================================================ */
 
-/* Selected vertical bar nodes */
-.sankey-vertical-bar-node--selected rect {
+/* Selected vertical bar nodes - blue border on vertical bar rectangles only */
+/* Note: This targets only the vertical bar rects, NOT the scroll indicator */
+.sankey-vertical-bar-node--selected .sankey-vertical-bar-rect {
   stroke: #2563eb !important;
   stroke-width: 3px !important;
   filter: drop-shadow(0 0 8px rgba(37, 99, 235, 0.5)) !important;
 }
 
 /* Hovered vertical bar nodes */
-.sankey-vertical-bar-node--hovered rect {
+.sankey-vertical-bar-node--hovered .sankey-vertical-bar-rect {
   opacity: 0.9;
 }

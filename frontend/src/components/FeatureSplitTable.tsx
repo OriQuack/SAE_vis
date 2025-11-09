@@ -815,10 +815,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                   </td>
 
                   {/* Decoder Similarity Score - Horizontal visualization */}
-                  <td
-                    className="table-panel__cell table-panel__cell--score"
-                    style={{ position: 'relative', padding: 0, verticalAlign: 'middle' }}
-                  >
+                  <td className="decoder-stage-table__cell--decoder-similarity">
                     <DecoderSimilarityOverlay
                       mainFeature={row.mainFeature}
                       similarFeature={row.similarFeature}

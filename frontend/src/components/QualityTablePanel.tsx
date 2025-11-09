@@ -77,6 +77,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     featureId: number
     validExplainerIds: string[]
     featureRow: any
+    position?: 'above' | 'below'
   } | null>(null)
 
   const [qualityPopover, setQualityPopover] = useState<{
@@ -97,6 +98,14 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   }
   if (rightPanel.filters.llm_explainer) {
     rightPanel.filters.llm_explainer.forEach(e => selectedExplainers.add(e))
+  }
+
+  // Detect popover position (above/below) based on available space
+  const detectExplanationPopoverPosition = (cellElement: HTMLElement): 'above' | 'below' => {
+    const rect = cellElement.getBoundingClientRect()
+    // Estimated popover height ~150px
+    const spaceBelow = window.innerHeight - rect.bottom
+    return spaceBelow < 150 ? 'above' : 'below'
   }
 
   // Handle sort click
@@ -188,7 +197,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     if (!tableContainerRef.current) return
 
     const measureActivationColumn = () => {
-      const headerCell = tableContainerRef.current?.querySelector('.table-panel__header-cell--empty')
+      const headerCell = tableContainerRef.current?.querySelector('.table-panel__header-cell--activation-example')
       if (headerCell) {
         const width = headerCell.getBoundingClientRect().width
         if (width > 0) {
@@ -311,7 +320,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const rowVirtualizer = useVirtualizer({
     count: totalRowCount,
     getScrollElement: () => tableContainerRef.current,
-    estimateSize: () => 60,
+    estimateSize: () => 54,  /* Matches fixed activation example height: 3 quantiles × 18px */
     overscan: 5,
   })
 
@@ -602,6 +611,9 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                   <span className={`table-panel__sort-indicator ${sortDirection || ''}`} />
                 )}
               </th>
+              <th className="table-panel__header-cell table-panel__header-cell--explainer">
+                LLM Explainer
+              </th>
               <th
                 className="table-panel__header-cell table-panel__header-cell--quality-score"
                 onClick={() => handleSort(METRIC_QUALITY_SCORE)}
@@ -626,7 +638,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                   </span>
                 </span>
               </th>
-              <th className="table-panel__header-cell table-panel__header-cell--empty">
+              <th className="table-panel__header-cell table-panel__header-cell--activation-example">
                 Activating Example
               </th>
             </tr>
@@ -733,6 +745,13 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                     {featureRow.feature_id}
                   </td>
 
+                  {/* LLM Explainer column - Badge showing max quality score explainer */}
+                  <td className="table-panel__cell table-panel__cell--explainer">
+                    <span className="table-panel__explainer-badge">
+                      {getExplainerDisplayName(explainerId)}
+                    </span>
+                  </td>
+
                   {/* Quality Score column - Size-encoded circle showing max quality score */}
                   <td
                     ref={featureIndex === 0 ? qualityScoreCellRef : undefined}
@@ -742,7 +761,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                     onMouseLeave={() => handleQualityScoreHover(null)}
                     style={{ cursor: 'pointer', position: 'relative' }}
                   >
-                    <svg width="32" height="32" style={{ display: 'block', margin: '0 auto' }}>
+                    <svg width="32" height="32" style={{ display: 'block' }}>
                       <circle
                         cx="16"
                         cy="16"
@@ -754,7 +773,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                           // Low spread (all components similar) = high opacity (solid)
                           // High spread (components vary) = low opacity (transparent)
                           // Map spread [0, 1] to opacity [1.0, 0.3]
-                          return 1.0 - (spread * 0.7)
+                          return 1.0 - (spread)
                         })()}
                         stroke="none"
                       />
@@ -766,11 +785,15 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                     className="table-panel__cell table-panel__cell--explanation"
                     title={!explainerData.highlighted_explanation ? (explainerData.explanation_text ?? undefined) : undefined}
                     style={{ position: 'relative', overflow: 'visible' }}
-                    onMouseEnter={() => setShowExplanationPopover({
-                      featureId: featureRow.feature_id,
-                      validExplainerIds,
-                      featureRow
-                    })}
+                    onMouseEnter={(e) => {
+                      const position = detectExplanationPopoverPosition(e.currentTarget)
+                      setShowExplanationPopover({
+                        featureId: featureRow.feature_id,
+                        validExplainerIds,
+                        featureRow,
+                        position
+                      })
+                    }}
                     onMouseLeave={() => setShowExplanationPopover(null)}
                   >
                     <div className="table-panel__explanation-text-wrapper">
@@ -787,7 +810,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
                     {/* Inline explanation popover (like activation example) */}
                     {showExplanationPopover && showExplanationPopover.featureId === featureRow.feature_id && (
-                      <div className="table-panel__explanation-popover">
+                      <div className={`table-panel__explanation-popover table-panel__explanation-popover--${showExplanationPopover.position ?? 'below'}`}>
                         <div className="table-panel__explanation-popover-content">
                           {showExplanationPopover.validExplainerIds.map((explId: string) => {
                             const explData = showExplanationPopover.featureRow.explainers[explId]
@@ -821,7 +844,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                   </td>
 
                   {/* Activation Example column */}
-                  <td className="table-panel__cell">
+                  <td className="table-panel__cell table-panel__cell--activation-example">
                     {activationExamples[featureRow.feature_id] ? (
                       <ActivationExample
                         examples={activationExamples[featureRow.feature_id]}
