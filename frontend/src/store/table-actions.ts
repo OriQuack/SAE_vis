@@ -797,7 +797,7 @@ export const createTableActions = (set: any, get: any) => ({
         const rejectedIds: number[] = []
         const allFeatureIds: number[] = []
 
-        featureSelectionStates.forEach((state, featureId) => {
+        featureSelectionStates.forEach((state: string | null, featureId: number) => {
           if (state === 'selected') selectedIds.push(featureId)
           else if (state === 'rejected') rejectedIds.push(featureId)
         })
@@ -852,7 +852,7 @@ export const createTableActions = (set: any, get: any) => ({
         const rejectedPairKeys: string[] = []
         const allPairKeys: string[] = []
 
-        pairSelectionStates.forEach((state, pairKey) => {
+        pairSelectionStates.forEach((state: string | null, pairKey: string) => {
           if (state === 'selected') selectedPairKeys.push(pairKey)
           else if (state === 'rejected') rejectedPairKeys.push(pairKey)
         })
@@ -860,7 +860,7 @@ export const createTableActions = (set: any, get: any) => ({
         // Get all pair keys from current table view
         // This would need to be passed from the component or computed from tableData
         // For now, use the pairs that have been displayed
-        pairSelectionStates.forEach((_, pairKey) => {
+        pairSelectionStates.forEach((_: string | null, pairKey: string) => {
           allPairKeys.push(pairKey)
         })
 

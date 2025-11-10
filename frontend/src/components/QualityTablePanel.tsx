@@ -49,7 +49,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
   const featureSelectionSources = useVisualizationStore(state => state.featureSelectionSources)
   const toggleFeatureSelection = useVisualizationStore(state => state.toggleFeatureSelection)
-  const clearFeatureSelection = useVisualizationStore(state => state.clearFeatureSelection)
+  const _clearFeatureSelection = useVisualizationStore(state => state.clearFeatureSelection)
 
   const tableContainerRef = useRef<HTMLDivElement>(null)
   const qualityScoreCellRef = useRef<HTMLTableCellElement>(null)
@@ -67,14 +67,14 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
   // Similarity sort state and action
   const similarityScores = useVisualizationStore(state => state.similarityScores)
-  const isSimilaritySortLoading = useVisualizationStore(state => state.isSimilaritySortLoading)
+  const _isSimilaritySortLoading = useVisualizationStore(state => state.isSimilaritySortLoading)
   const sortedBySelectionStates = useVisualizationStore(state => state.sortedBySelectionStates)
   const doneFeatureSelectionStates = useVisualizationStore(state => state.doneFeatureSelectionStates)
   const sortBySimilarity = useVisualizationStore(state => state.sortBySimilarity)
   const moveToNextStep = useVisualizationStore(state => state.moveToNextStep)
 
   // Similarity tagging (automatic tagging) state and action
-  const showSimilarityTaggingPopover = useVisualizationStore(state => state.showSimilarityTaggingPopover)
+  const _showSimilarityTaggingPopover = useVisualizationStore(state => state.showSimilarityTaggingPopover)
 
   // ============================================================================
   // STATE
@@ -174,7 +174,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   }, [])
 
   // Similarity sort: Handler
-  const handleSimilaritySort = useCallback(() => {
+  const _handleSimilaritySort = useCallback(() => {
     sortBySimilarity()
   }, [sortBySimilarity])
 
@@ -641,8 +641,8 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
               const selectionSource = featureSelectionSources.get(featureRow.feature_id)
 
               // Get frozen selection state (when sorted by similarity)
-              const frozenSelectionState = sortedBySelectionStates?.get(featureRow.feature_id)
-              const doneState = doneFeatureSelectionStates?.get(featureRow.feature_id)
+              const _frozenSelectionState = sortedBySelectionStates?.get(featureRow.feature_id)
+              const _doneState = doneFeatureSelectionStates?.get(featureRow.feature_id)
 
               // Determine category class based on selection state and source
               let categoryClass = ''

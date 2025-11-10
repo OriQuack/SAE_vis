@@ -22,6 +22,67 @@
 }
 
 /* ============================================================================
+   SAE INFO - Left side of stage buttons
+   ============================================================================ */
+
+.tag-category-panel__sae-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 10px;
+  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+  border: 1.5px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 10px;
+  line-height: 1.4;
+  flex-shrink: 0;
+  justify-content: center;
+  min-width: 190px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
+}
+
+.tag-category-panel__sae-info:hover {
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+  border-color: #94a3b8;
+}
+
+.tag-category-panel__sae-separator {
+  width: 1px;
+  height: 36px;
+  background: #e2e8f0;
+  flex-shrink: 0;
+}
+
+.sae-info__row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.sae-info__label {
+  font-weight: 600;
+  color: #64748b;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.sae-info__value {
+  font-weight: 600;
+  color: #1e293b;
+  font-size: 10px;
+}
+
+.sae-info__separator {
+  color: #cbd5e1;
+  margin: 0 3px;
+  font-size: 9px;
+  font-weight: 300;
+}
+
+/* ============================================================================
    LEFT: STAGE BUTTONS AND INSTRUCTIONS
    ============================================================================ */
 
@@ -44,8 +105,8 @@
   gap: 6px;
   padding: 4px 8px;
   border-radius: 5px;
-  background: #f8fafc;
-  border: 2px solid #e2e8f0;
+  background: #e2e8f0;
+  border: 2px solid #cbd5e1;
   cursor: pointer;
   transition: all 0.2s ease;
   font-family: inherit;
@@ -55,8 +116,8 @@
 }
 
 .tag-category-panel__stage-button:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
+  background: #cbd5e1;
+  border-color: #94a3b8;
   transform: translateY(-1px);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
@@ -145,7 +206,7 @@
   padding: 2px 6px;
   font-size: 9px;
   font-weight: 500;
-  color: #64748b;
+  color: #475569;
   text-align: center;
   line-height: 1.2;
   border-radius: 3px;
@@ -154,7 +215,7 @@
 }
 
 .stage-instruction--active {
-  color: #3b82f6;
+  color: #2563eb;
   font-weight: 600;
   background: rgba(59, 130, 246, 0.08);
 }
@@ -197,12 +258,14 @@
   border-radius: 6px;
   background: transparent;
   transition: all 0.2s ease;
+  position: relative;
+  z-index: 0;
 }
 
-/* Active stage container */
+/* Active stage container - blue gradient behind tags */
 .tag-category-panel__stage-container--active {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.06), rgba(59, 130, 246, 0.12));
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(59, 130, 246, 0.15));
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.12);
 }
 
 /* Completed stage container */
@@ -226,6 +289,8 @@
   line-height: 1;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
   flex-shrink: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .tag-category-panel__stage-container--active .tag-category-panel__stage-indicator {
@@ -245,6 +310,8 @@
   flex-direction: column;
   gap: 2px;
   flex-shrink: 0;
+  position: relative;
+  z-index: 1;
 }
 
 /* Cause stage - 2 columns of 2 tags each */
@@ -268,7 +335,7 @@
   border-radius: 3px;
   background: #f1f5f9; /* Fallback, will be overridden by inline style */
   border: 1px solid #e2e8f0;
-  border-left: 3px solid #94a3b8; /* Left border for color accent, will be overridden by inline style */
+  border-left: 5px solid #94a3b8; /* Thick left border for color accent, will be overridden by inline style */
   font-size: 10px;
   transition: all 0.2s ease;
   cursor: default;
@@ -280,15 +347,13 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-/* Active stage tags */
+/* Active stage tags - no filter/brightness changes, higher opacity handled by inline styles */
 .tag-category-panel__stage-container--active .tag-badge {
-  filter: brightness(1.05);
-  box-shadow: 0 1px 3px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .tag-category-panel__stage-container--active .tag-badge:hover {
-  filter: brightness(1.1);
-  box-shadow: 0 1px 4px rgba(59, 130, 246, 0.25);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .tag-badge__label {
@@ -422,26 +487,26 @@
 
 .tag-flow-path {
   fill: #94a3b8;
-  opacity: 0.25;
+  opacity: 0.5;
   transition: all 0.3s ease;
   pointer-events: auto;
   cursor: pointer;
 }
 
 .tag-flow-path:hover {
-  opacity: 0.7;
+  opacity: 0.8;
   filter: url(#flow-glow);
   fill: #3b82f6;
 }
 
 .tag-flow-path--active {
   fill: #3b82f6;
-  opacity: 0.6;
+  opacity: 0.75;
   filter: url(#flow-glow);
 }
 
 .tag-flow-path--active:hover {
-  opacity: 0.85;
+  opacity: 0.9;
 }
 
 .tag-category-panel {

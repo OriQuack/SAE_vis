@@ -35,6 +35,24 @@ interface HistogramBarData {
   }
 }
 
+interface CategoryCounts {
+  confirmed: number
+  expanded: number
+  rejected: number
+  unsure: number
+}
+
+interface CategoryBarSegment {
+  x: number
+  y: number
+  width: number
+  height: number
+  color: string
+  category: 'confirmed' | 'expanded' | 'rejected' | 'unsure'
+  count: number
+  binIndex: number
+}
+
 interface AxisTickData {
   value: number
   position: number
@@ -253,6 +271,78 @@ export function calculateDivergingBars(
       }
     }
   })
+}
+
+/**
+ * Calculate stacked category bars for histogram
+ * Used to show distribution of selection categories (confirmed, expanded, rejected, unsure)
+ * within each histogram bin with exact-height fills
+ *
+ * @param chart - The histogram chart with bins and scales
+ * @param categoryData - Map of bin index to category counts
+ * @param categoryColors - Colors for each category
+ * @returns Array of bar segments, each representing a category within a bin
+ */
+export function calculateCategoryStackedBars(
+  chart: HistogramChart,
+  categoryData: Map<number, CategoryCounts>,
+  categoryColors: {
+    confirmed: string
+    expanded: string
+    rejected: string
+    unsure: string
+  }
+): CategoryBarSegment[] {
+  const segments: CategoryBarSegment[] = []
+
+  // Category stack order (bottom to top): confirmed → expanded → rejected → unsure
+  const categoryOrder: Array<'confirmed' | 'expanded' | 'rejected' | 'unsure'> = [
+    'confirmed',
+    'expanded',
+    'rejected',
+    'unsure'
+  ]
+
+  chart.bins.forEach((bin, binIndex) => {
+    const categories = categoryData.get(binIndex)
+    if (!categories) return
+
+    // Calculate total count for this bin
+    const totalCount = categories.confirmed + categories.expanded + categories.rejected + categories.unsure
+    if (totalCount === 0) return
+
+    // Calculate bar dimensions
+    const x = chart.xScale(bin.x0) as number
+    const x1 = chart.xScale(bin.x1) as number
+    const barWidth = Math.max(1, x1 - x - 1)
+    const maxBarHeight = chart.height - chart.yScale(bin.count)
+
+    // Stack segments from bottom to top
+    let yOffset = chart.yScale(bin.count)
+
+    categoryOrder.forEach(category => {
+      const count = categories[category]
+      if (count > 0) {
+        // Calculate exact height proportional to count
+        const segmentHeight = (count / totalCount) * maxBarHeight
+
+        segments.push({
+          x,
+          y: yOffset,
+          width: barWidth,
+          height: segmentHeight,
+          color: categoryColors[category],
+          category,
+          count,
+          binIndex
+        })
+
+        yOffset += segmentHeight
+      }
+    })
+  })
+
+  return segments
 }
 
 /**

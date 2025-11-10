@@ -3,11 +3,20 @@ import { useVisualizationStore } from '../store/index'
 import {
   calculateHistogramLayout,
   calculateDivergingBars,
+  calculateCategoryStackedBars,
   calculateXAxisTicks,
   calculateYAxisTicks
 } from '../lib/d3-histogram-utils'
+import { SELECTION_CATEGORY_COLORS } from '../lib/constants'
 import ThresholdHandles from './ThresholdHandles'
 import '../styles/SimilarityTaggingPopover.css'
+
+interface CategoryCounts {
+  confirmed: number
+  expanded: number
+  rejected: number
+  unsure: number
+}
 
 const SimilarityTaggingPopover: React.FC = () => {
   const popoverState = useVisualizationStore(state => state.similarityTaggingPopover)
@@ -15,7 +24,9 @@ const SimilarityTaggingPopover: React.FC = () => {
   const updateSimilarityThresholds = useVisualizationStore(state => state.updateSimilarityThresholds)
   const applySimilarityTags = useVisualizationStore(state => state.applySimilarityTags)
   const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
+  const featureSelectionSources = useVisualizationStore(state => state.featureSelectionSources)
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
+  const pairSelectionSources = useVisualizationStore(state => state.pairSelectionSources)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const backdropRef = useRef<HTMLDivElement>(null)
@@ -26,6 +37,7 @@ const SimilarityTaggingPopover: React.FC = () => {
 
   const [draggedPosition, setDraggedPosition] = useState<{ x: number; y: number } | null>(null)
   const [selectThreshold, setSelectThreshold] = useState(0.1)
+  const [hoveredBinIndex, setHoveredBinIndex] = useState<number | null>(null)
 
   // Initialize threshold and reset position when popover opens
   useEffect(() => {
@@ -147,6 +159,89 @@ const SimilarityTaggingPopover: React.FC = () => {
     if (!histogramChart) return []
     return calculateDivergingBars(histogramChart, 0)
   }, [histogramChart])
+
+  // Compute category breakdown per bin
+  const categoryData = useMemo(() => {
+    if (!histogramChart || !popoverState?.histogramData?.scores) {
+      return new Map<number, CategoryCounts>()
+    }
+
+    const categoryMap = new Map<number, CategoryCounts>()
+    const scores = popoverState.histogramData.scores
+    const bins = histogramChart.bins
+    const mode = popoverState.mode
+
+    // Initialize category counts for each bin
+    bins.forEach((_, binIndex) => {
+      categoryMap.set(binIndex, { confirmed: 0, expanded: 0, rejected: 0, unsure: 0 })
+    })
+
+    // Iterate through each feature/pair and assign to bins
+    Object.entries(scores).forEach(([id, score]) => {
+      if (typeof score !== 'number') return
+
+      // Find which bin this score falls into
+      const binIndex = bins.findIndex((bin) => score >= bin.x0 && score < bin.x1)
+      // Handle edge case: score exactly equals the last bin's upper edge
+      const lastBinIndex = bins.length - 1
+      const adjustedBinIndex = binIndex === -1 && score === bins[lastBinIndex].x1 ? lastBinIndex : binIndex
+
+      if (adjustedBinIndex === -1) return // Score out of range
+
+      const counts = categoryMap.get(adjustedBinIndex)!
+
+      // Determine category based on selection state and source
+      if (mode === 'feature') {
+        const featureId = parseInt(id, 10)
+        const selectionState = featureSelectionStates.get(featureId)
+        const source = featureSelectionSources.get(featureId)
+
+        if (selectionState === 'selected') {
+          if (source === 'auto') {
+            counts.expanded++
+          } else {
+            counts.confirmed++
+          }
+        } else if (selectionState === 'rejected') {
+          counts.rejected++
+        } else {
+          counts.unsure++
+        }
+      } else {
+        // Pair mode
+        const selectionState = pairSelectionStates.get(id)
+        const source = pairSelectionSources.get(id)
+
+        if (selectionState === 'selected') {
+          if (source === 'auto') {
+            counts.expanded++
+          } else {
+            counts.confirmed++
+          }
+        } else if (selectionState === 'rejected') {
+          counts.rejected++
+        } else {
+          counts.unsure++
+        }
+      }
+    })
+
+    return categoryMap
+  }, [histogramChart, popoverState, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources])
+
+  // Calculate stacked category bars
+  const categoryBars = useMemo(() => {
+    if (!histogramChart || categoryData.size === 0) return []
+
+    const categoryColors = {
+      confirmed: SELECTION_CATEGORY_COLORS.CONFIRMED.HEX,
+      expanded: SELECTION_CATEGORY_COLORS.EXPANDED.HEX,
+      rejected: SELECTION_CATEGORY_COLORS.REJECTED.HEX,
+      unsure: SELECTION_CATEGORY_COLORS.UNSURE.HEX
+    }
+
+    return calculateCategoryStackedBars(histogramChart, categoryData, categoryColors)
+  }, [histogramChart, categoryData])
 
   // Calculate axis ticks
   const xAxisTicks = useMemo(() => {
@@ -281,7 +376,11 @@ const SimilarityTaggingPopover: React.FC = () => {
               <p>
                 Drag the threshold to tag {mode === 'feature' ? 'features' : 'pairs'} automatically.
                 <br />
-                Items with scores <strong>above the threshold</strong> will be tagged as <strong style={{ color: '#4caf50' }}>{tagLabel}</strong>.
+                Items with scores <strong>above the threshold</strong> will be tagged as <strong style={{ color: SELECTION_CATEGORY_COLORS.EXPANDED.HEX }}>{tagLabel}</strong>.
+                <br />
+                <span style={{ fontSize: '0.9em', color: '#666' }}>
+                  The <strong style={{ color: SELECTION_CATEGORY_COLORS.EXPANDED.HEX }}>blue stripe</strong> shows the preview of features to be auto-tagged.
+                </span>
               </p>
             </div>
 
@@ -291,6 +390,19 @@ const SimilarityTaggingPopover: React.FC = () => {
               width={600}
               height={300}
             >
+              {/* Define stripe pattern for preview */}
+              <defs>
+                <pattern
+                  id="expandedPreviewStripe"
+                  patternUnits="userSpaceOnUse"
+                  width="8"
+                  height="8"
+                  patternTransform="rotate(45)"
+                >
+                  <rect width="4" height="8" fill={SELECTION_CATEGORY_COLORS.EXPANDED.HEX} opacity={0.3} />
+                </pattern>
+              </defs>
+
               <g transform={`translate(${histogramChart.margin.left}, ${histogramChart.margin.top})`}>
                 {/* Colored region backgrounds (grey/green zones) */}
                 {/* Grey zone: left edge to select threshold */}
@@ -302,38 +414,75 @@ const SimilarityTaggingPopover: React.FC = () => {
                   fill="#999"
                   opacity={0.1}
                 />
-                {/* Green zone: select threshold to right edge */}
+                {/* Blue stripe preview zone: select threshold to right edge (expanded preview) */}
                 <rect
                   x={safeThresholdPositions.selectX}
                   y={0}
                   width={Math.max(0, histogramChart.width - safeThresholdPositions.selectX)}
                   height={histogramChart.height}
-                  fill="#4caf50"
-                  opacity={0.1}
+                  fill="url(#expandedPreviewStripe)"
                 />
 
-                {/* Histogram bars */}
-                {bars.map((bar, i) => {
-                  // Calculate bin center to determine which region it's in
-                  const binCenter = (bar.binData.x0 + bar.binData.x1) / 2
+                {/* Stacked category bars */}
+                {categoryBars.map((segment, i) => (
+                  <rect
+                    key={i}
+                    x={segment.x}
+                    y={segment.y}
+                    width={segment.width}
+                    height={segment.height}
+                    fill={segment.color}
+                    stroke="#fff"
+                    strokeWidth={1}
+                    opacity={hoveredBinIndex === segment.binIndex ? 1 : 0.85}
+                    style={{ cursor: 'pointer' }}
+                    onMouseEnter={() => setHoveredBinIndex(segment.binIndex)}
+                    onMouseLeave={() => setHoveredBinIndex(null)}
+                  />
+                ))}
 
-                  // Determine color based on region:
-                  // - Dark grey if below threshold (untagged)
-                  // - Green if above threshold (selected)
-                  const barColor = binCenter >= selectThreshold ? '#4caf50' : '#666'
+                {/* Tooltip for hovered bin */}
+                {hoveredBinIndex !== null && histogramChart && (() => {
+                  const bin = histogramChart.bins[hoveredBinIndex]
+                  const counts = categoryData.get(hoveredBinIndex)
+                  if (!bin || !counts) return null
+
+                  const total = counts.confirmed + counts.expanded + counts.rejected + counts.unsure
+                  const binX = histogramChart.xScale(bin.x0) as number
+                  const binWidth = (histogramChart.xScale(bin.x1) as number) - binX
 
                   return (
-                    <rect
-                      key={i}
-                      x={bar.x}
-                      y={bar.y}
-                      width={bar.width}
-                      height={bar.height}
-                      fill={barColor}
-                      opacity={0.7}
-                    />
+                    <g transform={`translate(${binX + binWidth / 2}, ${-5})`}>
+                      <rect
+                        x={-80}
+                        y={-65}
+                        width={160}
+                        height={60}
+                        fill="#333"
+                        opacity={0.95}
+                        rx={4}
+                      />
+                      <text x={0} y={-48} textAnchor="middle" fontSize={10} fill="#fff" fontWeight="bold">
+                        Bin [{bin.x0.toFixed(2)} - {bin.x1.toFixed(2)}]
+                      </text>
+                      <text x={0} y={-36} textAnchor="middle" fontSize={9} fill={SELECTION_CATEGORY_COLORS.CONFIRMED.HEX}>
+                        Confirmed: {counts.confirmed}
+                      </text>
+                      <text x={0} y={-26} textAnchor="middle" fontSize={9} fill={SELECTION_CATEGORY_COLORS.EXPANDED.HEX}>
+                        Expanded: {counts.expanded}
+                      </text>
+                      <text x={0} y={-16} textAnchor="middle" fontSize={9} fill={SELECTION_CATEGORY_COLORS.REJECTED.HEX}>
+                        Rejected: {counts.rejected}
+                      </text>
+                      <text x={0} y={-6} textAnchor="middle" fontSize={9} fill={SELECTION_CATEGORY_COLORS.UNSURE.HEX}>
+                        Unsure: {counts.unsure}
+                      </text>
+                      <text x={0} y={-48 + 60} textAnchor="middle" fontSize={9} fill="#aaa">
+                        Total: {total}
+                      </text>
+                    </g>
                   )
-                })}
+                })()}
 
                 {/* Center line at 0 */}
                 <line
@@ -457,15 +606,6 @@ const SimilarityTaggingPopover: React.FC = () => {
                 />
               </g>
             </svg>
-
-            <div className="similarity-tagging-popover__preview">
-              <p>
-                <strong>Preview:</strong> {tagCounts.selected} will be tagged as{' '}
-                <span style={{ color: '#4caf50', fontWeight: 'bold' }}>{tagLabel}</span>, {tagCounts.untagged} will remain{' '}
-                <span style={{ color: '#999', fontWeight: 'bold' }}>untagged</span>
-                {tagCounts.preserved > 0 && ` (${tagCounts.preserved} preserved)`}
-              </p>
-            </div>
 
             <div className="similarity-tagging-popover__actions">
               <button

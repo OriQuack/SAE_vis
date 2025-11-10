@@ -255,3 +255,72 @@ export function calculateAvgSemanticSimilarity(
     count: similarities.length
   }
 }
+
+// ============================================================================
+// SAE METADATA PARSING
+// ============================================================================
+
+/**
+ * Parse SAE identifier to extract metadata components
+ * @param saeId SAE identifier (e.g., "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120")
+ * @returns Parsed SAE metadata
+ */
+export function parseSAEId(saeId: string): {
+  modelName: string
+  layer: number | null
+  width: string | null
+  organization: string
+} {
+  const parts = saeId.split('/')
+
+  // Extract model name (e.g., "gemma-scope-9b-pt-res" → "Gemma Scope 9B")
+  const modelRaw = parts[1] || ''
+  const modelName = formatModelName(modelRaw)
+
+  // Extract layer (e.g., "layer_30" → 30)
+  const layer = parts[2] ? parseInt(parts[2].replace('layer_', '')) : null
+
+  // Extract width (e.g., "width_16k" → "16k")
+  const width = parts[3] ? parts[3].replace('width_', '') : null
+
+  return {
+    modelName,
+    layer,
+    width,
+    organization: parts[0] || ''
+  }
+}
+
+/**
+ * Format model name from SAE identifier component to human-readable format
+ * @param raw Raw model name (e.g., "gemma-scope-9b-pt-res")
+ * @returns Formatted model name (e.g., "Gemma Scope 9B")
+ */
+function formatModelName(raw: string): string {
+  return raw
+    .replace(/-/g, ' ')
+    .split(' ')
+    .map(word => {
+      // Capitalize first letter, keep rest as-is (to preserve "9b" → "9B" style patterns)
+      if (word.length === 0) return word
+      return word.charAt(0).toUpperCase() + word.slice(1)
+    })
+    .join(' ')
+}
+
+/**
+ * Get display names for LLM explainers from explainer IDs
+ * @param explainerIds Explainer IDs (e.g., ["llama", "qwen", "openai"])
+ * @returns Comma-separated display names (e.g., "Llama, Qwen, OpenAI")
+ */
+export function getLLMExplainerNames(explainerIds: string[]): string {
+  const names = explainerIds.map(id => {
+    const lowerCaseId = id.toLowerCase()
+    if (lowerCaseId.includes('llama')) return 'Llama'
+    if (lowerCaseId.includes('qwen')) return 'Qwen'
+    if (lowerCaseId.includes('openai') || lowerCaseId.includes('gpt')) return 'OpenAI'
+    // Fallback: capitalize first letter
+    return id.charAt(0).toUpperCase() + id.slice(1)
+  })
+  return names.join(', ')
+}

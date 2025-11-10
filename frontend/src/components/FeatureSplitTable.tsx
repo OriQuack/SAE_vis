@@ -27,16 +27,12 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
   const pairSelectionSources = useVisualizationStore(state => state.pairSelectionSources)
   const togglePairSelection = useVisualizationStore(state => state.togglePairSelection)
-  const clearPairSelection = useVisualizationStore(state => state.clearPairSelection)
   const loading = useVisualizationStore(state => state.loading)
   const setTableScrollState = useVisualizationStore(state => state.setTableScrollState)
   const pairSimilarityScores = useVisualizationStore(state => state.pairSimilarityScores)
-  const isPairSimilaritySortLoading = useVisualizationStore(state => state.isPairSimilaritySortLoading)
-  const sortPairsBySimilarity = useVisualizationStore(state => state.sortPairsBySimilarity)
   const tableSortBy = useVisualizationStore(state => state.tableSortBy)
 
   // Similarity tagging (automatic tagging) state and action
-  const showSimilarityTaggingPopover = useVisualizationStore(state => state.showSimilarityTaggingPopover)
   const moveToNextStep = useVisualizationStore(state => state.moveToNextStep)
 
   // Sorting state
@@ -307,10 +303,6 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
       return []
     }
 
-    // Build a Set of all feature IDs in stageFeatures for quick lookup
-    // This is used to determine which pairs have complete data available
-    const stageFeatureIds = new Set(stageFeatures.map(f => f.feature_id))
-
     // Transform to decoder stage pair rows - one row per pair (feature + similar feature)
     const rows: DecoderStagePairRow[] = stageFeatures.flatMap((feature: FeatureTableRow) => {
       // Get decoder similarity data - safely ensure it's an array
@@ -366,7 +358,6 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
 
   // Get frozen selection states from store (used when sorted by similarity)
   const pairSortedBySelectionStates = useVisualizationStore(state => state.pairSortedBySelectionStates)
-  const donePairSelectionStates = useVisualizationStore(state => state.donePairSelectionStates)
 
   // Sort rows by main feature ID, decoder similarity, or by pair similarity (three-tier)
   const sortedRows = useMemo(() => {
@@ -749,7 +740,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
       />
 
       {/* Table */}
-      <div className="table-panel__content" ref={tableContainerRef}>
+      <div className="table-panel__content feature-split-table" ref={tableContainerRef}>
         <table className="table-panel__table--simple">
           <thead className="table-panel__thead">
             <tr className="table-panel__header-row">
@@ -797,10 +788,6 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
               const row = sortedRows[virtualRow.index]
               const pairSelectionState = pairSelectionStates.get(row.pairKey)
               const pairSelectionSource = pairSelectionSources.get(row.pairKey)
-
-              // Get frozen selection state (when sorted by similarity)
-              const frozenPairState = pairSortedBySelectionStates?.get(row.pairKey)
-              const doneState = donePairSelectionStates?.get(row.pairKey)
 
               // Determine category class based on selection state and source
               let categoryClass = ''

@@ -75,19 +75,29 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
   const isPairSimilaritySortLoading = useVisualizationStore(state => state.isPairSimilaritySortLoading)
   const tableSortBy = useVisualizationStore(state => state.tableSortBy)
 
-  // Sankey threshold info
+  // Sankey threshold info - use different node ID based on mode
   const tableSelectedNodeIds = useVisualizationStore(state => state.tableSelectedNodeIds)
+  const activeStageNodeId = useVisualizationStore(state => state.activeStageNodeId)
   const sankeyTree = useVisualizationStore(state => state.leftPanel.sankeyTree)
-  const selectedNode = tableSelectedNodeIds.length > 0 && sankeyTree
-    ? sankeyTree.get(tableSelectedNodeIds[0])
-    : null
+
+  // For feature mode, use tableSelectedNodeIds; for pair mode, use activeStageNodeId
+  const selectedNode = useMemo(() => {
+    if (!sankeyTree) return null
+
+    if (mode === 'pair') {
+      // Pair mode (feature split) uses activeStageNodeId
+      return activeStageNodeId ? sankeyTree.get(activeStageNodeId) : null
+    } else {
+      // Feature mode uses tableSelectedNodeIds
+      return tableSelectedNodeIds.length > 0 ? sankeyTree.get(tableSelectedNodeIds[0]) : null
+    }
+  }, [mode, tableSelectedNodeIds, activeStageNodeId, sankeyTree])
 
   // Tooltip state
   const [hoveredButton, setHoveredButton] = useState<'sort' | 'tag' | null>(null)
 
   // Get selection states based on mode
   const selectionStates = mode === 'feature' ? featureSelectionStates : pairSelectionStates
-  const selectionSources = mode === 'feature' ? featureSelectionSources : pairSelectionSources
 
   // Calculate category counts
   const counts = useMemo((): CategoryCounts => {
@@ -96,8 +106,33 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
     let rejected = 0
     let unsure = 0
 
+    // Get filtered feature IDs from selected node
+    // For decoder similarity stages, collect from all children if they exist
+    let filteredFeatureIds: Set<number> | null = null
+    if (selectedNode) {
+      filteredFeatureIds = new Set<number>()
+
+      if (selectedNode.children && selectedNode.children.length > 0) {
+        // Collect from all child nodes (for split stages)
+        selectedNode.children.forEach(childId => {
+          const childNode = sankeyTree.get(childId)
+          if (childNode?.featureIds) {
+            childNode.featureIds.forEach(fid => filteredFeatureIds!.add(fid))
+          }
+        })
+      } else {
+        // Use node's own featureIds
+        selectedNode.featureIds.forEach(fid => filteredFeatureIds!.add(fid))
+      }
+    }
+
     if (mode === 'feature' && tableData?.features) {
-      tableData.features.forEach((feature: any) => {
+      // Filter features to only those in the selected node
+      const features = filteredFeatureIds
+        ? tableData.features.filter((f: any) => filteredFeatureIds!.has(f.feature_id))
+        : tableData.features
+
+      features.forEach((feature: any) => {
         const featureId = feature.feature_id
         const selectionState = featureSelectionStates.get(featureId)
         const source = featureSelectionSources.get(featureId)
@@ -114,29 +149,50 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
           unsure++
         }
       })
-    } else if (mode === 'pair' && tableData?.pairs) {
-      tableData.pairs.forEach((pair: any) => {
-        const pairKey = pair.pairKey
-        const selectionState = pairSelectionStates.get(pairKey)
-        const source = pairSelectionSources.get(pairKey)
+    } else if (mode === 'pair' && tableData?.features) {
+      // Filter features to only those in the selected node
+      const features = filteredFeatureIds
+        ? tableData.features.filter((f: any) => filteredFeatureIds!.has(f.feature_id))
+        : tableData.features
 
-        if (selectionState === 'selected') {
-          if (source === 'auto') {
-            expanded++
+      // Generate pairs dynamically from decoder_similarity (same logic as FeatureSplitTable)
+      const seenPairs = new Set<string>()
+
+      features.forEach((feature: any) => {
+        const decoderData = Array.isArray(feature.decoder_similarity) ? feature.decoder_similarity : []
+        const top4Similar = decoderData.slice(0, 4)
+
+        top4Similar.forEach((similarItem: any) => {
+          const id1 = feature.feature_id
+          const id2 = similarItem.feature_id
+          const canonicalPairKey = id1 < id2 ? `${id1}-${id2}` : `${id2}-${id1}`
+
+          // Skip if we've already counted this pair
+          if (seenPairs.has(canonicalPairKey)) return
+          seenPairs.add(canonicalPairKey)
+
+          // Count this pair
+          const selectionState = pairSelectionStates.get(canonicalPairKey)
+          const source = pairSelectionSources.get(canonicalPairKey)
+
+          if (selectionState === 'selected') {
+            if (source === 'auto') {
+              expanded++
+            } else {
+              confirmed++
+            }
+          } else if (selectionState === 'rejected') {
+            rejected++
           } else {
-            confirmed++
+            unsure++
           }
-        } else if (selectionState === 'rejected') {
-          rejected++
-        } else {
-          unsure++
-        }
+        })
       })
     }
 
     const total = confirmed + expanded + rejected + unsure
     return { confirmed, expanded, rejected, unsure, total }
-  }, [mode, tableData, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources])
+  }, [mode, tableData, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources, selectedNode, sankeyTree])
 
   // Calculate percentages for bar chart
   const percentages = useMemo(() => {
@@ -197,7 +253,7 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
     showSimilarityTaggingPopover(mode, {
       x: rect.left,
       y: rect.bottom + 10
-    })
+    }, tagLabel)
   }
 
   const handleClearSelection = () => {
@@ -215,9 +271,61 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
 
   // Calculate display counts
   const currentCount = counts.total
-  const totalCount = mode === 'feature'
-    ? (tableData?.features?.length || 0)
-    : (tableData?.pairs?.length || 0)
+  const totalCount = useMemo(() => {
+    // Get filtered feature IDs from selected node
+    // For decoder similarity stages, collect from all children if they exist
+    let filteredFeatureIds: Set<number> | null = null
+    if (selectedNode) {
+      filteredFeatureIds = new Set<number>()
+
+      if (selectedNode.children && selectedNode.children.length > 0) {
+        // Collect from all child nodes (for split stages)
+        selectedNode.children.forEach(childId => {
+          const childNode = sankeyTree.get(childId)
+          if (childNode?.featureIds) {
+            childNode.featureIds.forEach(fid => filteredFeatureIds!.add(fid))
+          }
+        })
+      } else {
+        // Use node's own featureIds
+        selectedNode.featureIds.forEach(fid => filteredFeatureIds!.add(fid))
+      }
+    }
+
+    if (mode === 'feature') {
+      if (!tableData?.features) return 0
+
+      // Filter features to only those in the selected node
+      const features = filteredFeatureIds
+        ? tableData.features.filter((f: any) => filteredFeatureIds!.has(f.feature_id))
+        : tableData.features
+
+      return features.length
+    } else {
+      // For pair mode, calculate total pairs from decoder_similarity
+      if (!tableData?.features) return 0
+
+      // Filter features to only those in the selected node
+      const features = filteredFeatureIds
+        ? tableData.features.filter((f: any) => filteredFeatureIds!.has(f.feature_id))
+        : tableData.features
+
+      const seenPairs = new Set<string>()
+      features.forEach((feature: any) => {
+        const decoderData = Array.isArray(feature.decoder_similarity) ? feature.decoder_similarity : []
+        const top4Similar = decoderData.slice(0, 4)
+
+        top4Similar.forEach((similarItem: any) => {
+          const id1 = feature.feature_id
+          const id2 = similarItem.feature_id
+          const canonicalPairKey = id1 < id2 ? `${id1}-${id2}` : `${id2}-${id1}`
+          seenPairs.add(canonicalPairKey)
+        })
+      })
+
+      return seenPairs.size
+    }
+  }, [mode, tableData, selectedNode, sankeyTree])
   const hasAnySelection = selectionStates.size > 0
 
   // Don't render if no table data loaded yet
@@ -230,11 +338,11 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
       {/* Simplified Header */}
       <div className="table-selection-panel__header">
         <span className="table-selection-panel__title">
-          Tag: {tagLabel} • {currentCount.toLocaleString()} / {totalCount.toLocaleString()} {mode === 'feature' ? 'features' : 'pairs'}
+          {tagLabel}
         </span>
         {selectedNode && selectedNode.metric && selectedNode.rangeLabel && (
           <span className="table-selection-panel__threshold">
-            Filter: {METRIC_DISPLAY_NAMES[selectedNode.metric] || selectedNode.metric} = {selectedNode.rangeLabel}
+            Filter: {METRIC_DISPLAY_NAMES[selectedNode.metric as keyof typeof METRIC_DISPLAY_NAMES] || selectedNode.metric} = {selectedNode.rangeLabel}
           </span>
         )}
       </div>
@@ -250,7 +358,7 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
             onMouseLeave={() => setHoveredButton(null)}
           >
             <button
-              className="table-selection-panel__button"
+              className={`table-selection-panel__button ${canSortBySimilarity && !isSortLoading ? 'table-selection-panel__button--available' : ''}`}
               onClick={handleSortBySimilarity}
               disabled={isSortLoading || !canSortBySimilarity}
             >
@@ -289,7 +397,7 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
             onMouseLeave={() => setHoveredButton(null)}
           >
             <button
-              className="table-selection-panel__button"
+              className={`table-selection-panel__button ${canTagAutomatically ? 'table-selection-panel__button--available' : ''}`}
               onClick={handleTagAutomatically}
               disabled={!canTagAutomatically}
             >
@@ -367,7 +475,7 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
               onClick={handleClearSelection}
               title="Clear all selections and reset sort"
             >
-              Clear ×
+              Clear
             </button>
           )}
         </div>

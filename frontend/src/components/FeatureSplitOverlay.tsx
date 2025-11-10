@@ -32,7 +32,7 @@ interface DecoderSimilarityOverlayProps {
 }
 
 const DecoderSimilarityOverlay: React.FC<DecoderSimilarityOverlayProps> = ({
-  mainFeature,
+  mainFeature: _mainFeature,
   similarFeature,
   mainFeatureId,
   onBadgeInteraction,

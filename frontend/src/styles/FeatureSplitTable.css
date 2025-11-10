@@ -1,75 +1,7 @@
 /* ============================================================================
- * DECODER SIMILARITY STAGE TABLE - Custom Styling
+ * FEATURE SPLIT TABLE - Custom Styling
  * Most styling reuses TablePanel.css classes
  * ============================================================================ */
-
-/* ============================================================================
- * SELECTION HEADER (Unique to stage tables)
- * ============================================================================ */
-
-.decoder-stage-table__selection-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 8px;
-  height: 20px;
-  background-color: #f0f9ff;
-  border-bottom: 1px solid #bae6fd;
-  font-size: 11px;
-  color: #0c4a6e;
-}
-
-.decoder-stage-table__selection-count {
-  font-weight: 500;
-}
-
-.decoder-stage-table__clear-selection {
-  background: none;
-  border: none;
-  color: #0c4a6e;
-  cursor: pointer;
-  font-size: 11px;
-  padding: 0 4px;
-  font-weight: 500;
-}
-
-.decoder-stage-table__clear-selection:hover {
-  color: #075985;
-  text-decoration: underline;
-}
-
-.decoder-stage-table__sort-button {
-  background: #0ea5e9;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 4px 10px;
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.decoder-stage-table__sort-button:hover:not(:disabled) {
-  background: #0284c7;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(14, 165, 233, 0.3);
-}
-
-.decoder-stage-table__sort-button:active:not(:disabled) {
-  transform: translateY(0);
-  box-shadow: 0 1px 2px rgba(14, 165, 233, 0.2);
-}
-
-.decoder-stage-table__sort-button:disabled {
-  background: #e5e7eb;
-  color: #9ca3af;
-  cursor: not-allowed;
-  opacity: 1;
-}
 
 .spinner-mini {
   display: inline-block;
@@ -166,13 +98,15 @@
 }
 
 /* ID Pair column */
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__header-cell--id-pair {
+.feature-split-table .table-panel__header-cell--id-pair {
   width: 7%;
   text-align: center;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 /* Decoder similarity column - wider for horizontal layout */
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__header-cell--score {
+.feature-split-table .table-panel__header-cell--score {
   width: 6%;
   min-width: 150px;
 }
@@ -191,9 +125,11 @@
 }
 
 /* ID Pair cell styling */
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__cell--id-pair {
+.feature-split-table .table-panel__cell--id-pair {
   background: white;
   text-align: center;
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .decoder-stage-table__checkbox {
@@ -294,11 +230,11 @@
  * ============================================================================ */
 
 /* Add thin border between rows - on the row itself and all cells */
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row {
+.feature-split-table .table-panel__sub-row {
   border-bottom: 1px solid #d1d5db !important;
 }
 
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row td {
+.feature-split-table .table-panel__sub-row td {
   border-bottom: 1px solid #d1d5db !important;
 }
 
@@ -307,28 +243,44 @@
  * ============================================================================ */
 
 /* Add thin vertical lines between columns - HEADER CELLS */
-.decoder-stage-table__selection-header ~ .table-panel__content .decoder-stage-table__header-cell--checkbox {
+.feature-split-table .table-panel__header-cell--index {
   border-right: 1px solid #d1d5db;
 }
 
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__header-cell--id-pair {
+.feature-split-table .decoder-stage-table__header-cell--checkbox {
   border-right: 1px solid #d1d5db;
 }
 
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__header-cell--score {
+.feature-split-table .table-panel__header-cell--id-pair {
+  border-right: 1px solid #d1d5db;
+}
+
+.feature-split-table .table-panel__header-cell--score {
+  border-right: 1px solid #d1d5db;
+}
+
+.feature-split-table .decoder-stage-table__header-cell--activation-main {
   border-right: 1px solid #d1d5db;
 }
 
 /* Add thin vertical lines between columns - BODY CELLS */
-.decoder-stage-table__selection-header ~ .table-panel__content .decoder-stage-table__cell--checkbox {
+.feature-split-table .table-panel__cell--index {
   border-right: 1px solid #e5e7eb;
 }
 
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__cell--id-pair {
+.feature-split-table .decoder-stage-table__cell--checkbox {
   border-right: 1px solid #e5e7eb;
 }
 
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__cell--score {
+.feature-split-table .table-panel__cell--id-pair {
+  border-right: 1px solid #e5e7eb;
+}
+
+.feature-split-table .table-panel__cell--score {
+  border-right: 1px solid #e5e7eb;
+}
+
+.feature-split-table .decoder-stage-table__cell--activation-main {
   border-right: 1px solid #e5e7eb;
 }
 
@@ -372,7 +324,7 @@
 }
 
 /* Fallback for browsers that don't support 'all: unset' */
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__cell--score {
+.feature-split-table .table-panel__cell--score {
   width: auto;
   min-width: 100px;
   padding: 0 !important;
@@ -409,30 +361,30 @@
  * ============================================================================ */
 
 /* For decoder similarity table, keep index column gray even when row is selected */
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row--confirmed .table-panel__cell--index,
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row--expanded .table-panel__cell--index,
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row--rejected .table-panel__cell--index,
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row--checkbox-selected .table-panel__cell--index,
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row--checkbox-rejected .table-panel__cell--index {
+.feature-split-table .table-panel__sub-row--confirmed .table-panel__cell--index,
+.feature-split-table .table-panel__sub-row--expanded .table-panel__cell--index,
+.feature-split-table .table-panel__sub-row--rejected .table-panel__cell--index,
+.feature-split-table .table-panel__sub-row--checkbox-selected .table-panel__cell--index,
+.feature-split-table .table-panel__sub-row--checkbox-rejected .table-panel__cell--index {
   background: #f9fafb !important; /* Keep original gray background */
 }
 
 /* For decoder similarity table, keep decoder similarity column white even when row is selected */
 /* New category classes */
-.table-panel__sub-row--confirmed .decoder-stage-table__cell--decoder-similarity,
-.table-panel__sub-row--expanded .decoder-stage-table__cell--decoder-similarity,
-.table-panel__sub-row--rejected .decoder-stage-table__cell--decoder-similarity,
-.table-panel__sub-row--checkbox-selected .decoder-stage-table__cell--decoder-similarity,
-.table-panel__sub-row--checkbox-rejected .decoder-stage-table__cell--decoder-similarity {
+.feature-split-table .table-panel__sub-row--confirmed .decoder-stage-table__cell--decoder-similarity,
+.feature-split-table .table-panel__sub-row--expanded .decoder-stage-table__cell--decoder-similarity,
+.feature-split-table .table-panel__sub-row--rejected .decoder-stage-table__cell--decoder-similarity,
+.feature-split-table .table-panel__sub-row--checkbox-selected .decoder-stage-table__cell--decoder-similarity,
+.feature-split-table .table-panel__sub-row--checkbox-rejected .decoder-stage-table__cell--decoder-similarity {
   background: white !important; /* Keep original white background */
 }
 
 /* Fallback for old class selector - keep score column white */
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row--confirmed .table-panel__cell--score,
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row--expanded .table-panel__cell--score,
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row--rejected .table-panel__cell--score,
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row--checkbox-selected .table-panel__cell--score,
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row--checkbox-rejected .table-panel__cell--score {
+.feature-split-table .table-panel__sub-row--confirmed .table-panel__cell--score,
+.feature-split-table .table-panel__sub-row--expanded .table-panel__cell--score,
+.feature-split-table .table-panel__sub-row--rejected .table-panel__cell--score,
+.feature-split-table .table-panel__sub-row--checkbox-selected .table-panel__cell--score,
+.feature-split-table .table-panel__sub-row--checkbox-rejected .table-panel__cell--score {
   background: white !important; /* Keep original white background */
 }
 

@@ -4,7 +4,7 @@ import {
   type TagCategoryConfig
 } from '../lib/tag-categories';
 import { useVisualizationStore } from '../store/index';
-import type { SankeyTreeNode } from '../types';
+import { parseSAEId, getLLMExplainerNames } from '../lib/utils';
 import '../styles/TagCategoryPanel.css';
 
 interface TagCategoryPanelProps {
@@ -29,66 +29,98 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
   // Get sankeyTree from left panel for color mapping
   const sankeyTree = useVisualizationStore(state => state.leftPanel.sankeyTree);
 
+  // Get SAE metadata and LLM explainer information
+  const tableData = useVisualizationStore(state => state.tableData);
+  const currentFilters = useVisualizationStore(state => state.leftPanel.filters);
+  const filterOptions = useVisualizationStore(state => state.filterOptions);
+
+  // Parse SAE metadata - use selected SAE from filters, or first available from filterOptions
+  const saeMetadata = useMemo(() => {
+    console.log('[TagCategoryPanel] Current filters:', currentFilters);
+    console.log('[TagCategoryPanel] Filter options:', filterOptions);
+
+    // Try to get SAE from current filters first
+    let saeId = currentFilters.sae_id?.[0];
+
+    // If no SAE selected, use the first available SAE from filterOptions
+    if (!saeId && filterOptions?.sae_id && filterOptions.sae_id.length > 0) {
+      saeId = filterOptions.sae_id[0];
+      console.log('[TagCategoryPanel] Using first available SAE from filterOptions:', saeId);
+    }
+
+    if (!saeId) {
+      console.log('[TagCategoryPanel] No SAE ID found');
+      return null;
+    }
+
+    const parsed = parseSAEId(saeId);
+    console.log('[TagCategoryPanel] Parsed SAE metadata:', parsed);
+    return parsed;
+  }, [currentFilters.sae_id, filterOptions?.sae_id]);
+
+  // Get LLM explainer names
+  const llmExplainerNames = useMemo(() => {
+    console.log('[TagCategoryPanel] Table data:', tableData);
+    console.log('[TagCategoryPanel] Explainer IDs:', tableData?.explainer_ids);
+
+    if (!tableData?.explainer_ids || tableData.explainer_ids.length === 0) {
+      console.log('[TagCategoryPanel] No explainer IDs found');
+      return null;
+    }
+
+    const names = getLLMExplainerNames(tableData.explainer_ids);
+    console.log('[TagCategoryPanel] LLM Explainer Names:', names);
+    return names;
+  }, [tableData?.explainer_ids]);
+
   // Helper function to get tag color from Sankey tree
-  const getTagColor = (stageId: string, tagIndex: number): string | null => {
+  const getTagColor = (stageId: string, tagIndex: number, tagName: string): string | null => {
     if (!sankeyTree || sankeyTree.size === 0) {
-      console.log('[TagCategoryPanel.getTagColor] No sankeyTree available');
       return null;
     }
 
     // Find the stage configuration
     const stage = stages.find(s => s.id === stageId);
     if (!stage) {
-      console.log('[TagCategoryPanel.getTagColor] Stage not found:', stageId);
       return null;
     }
 
     // Get expected depth for this stage
     const targetDepth = stage.stageOrder;
 
-    console.log('[TagCategoryPanel.getTagColor] Looking for color:', {
-      stageId,
-      tagIndex,
-      targetDepth,
-      metric: stage.metric,
-      treeSize: sankeyTree.size
-    });
-
-    // Debug: log all nodes
-    console.log('[TagCategoryPanel.getTagColor] All tree nodes:');
-    for (const [nodeId, node] of sankeyTree.entries()) {
-      console.log('  -', nodeId, '| depth:', node.depth, '| metric:', node.metric, '| color:', node.colorHex);
-    }
-
     // Find matching nodes in the tree
-    // Strategy: look for nodes at the target depth whose ID contains the group index
-    const groupSuffix = `_group${tagIndex}`;
+    // Strategy depends on the stage:
+    // - Stages 1 & 2: look for nodes ending with _group{index}
+    // - Stage 3 (Cause): look for nodes ending with snake_case tag name
+    let nodeSuffix: string;
+
+    if (stageId === 'cause') {
+      // Convert tag name to snake_case (e.g., "Missed Context" -> "missed_context")
+      nodeSuffix = `_${tagName.toLowerCase().replace(/\s+/g, '_')}`;
+    } else {
+      nodeSuffix = `_group${tagIndex}`;
+    }
 
     for (const [nodeId, node] of sankeyTree.entries()) {
       // Check if node is at the right depth
       if (node.depth !== targetDepth) continue;
 
-      console.log('[TagCategoryPanel.getTagColor] Found node at target depth:', nodeId, 'checking suffix:', groupSuffix);
-
-      // Check if node ID ends with the group suffix we're looking for
-      if (nodeId.endsWith(groupSuffix)) {
-        console.log('[TagCategoryPanel.getTagColor] Node ID matches suffix!');
-        // If stage has a metric, verify the node uses that metric
-        if (stage.metric) {
-          console.log('[TagCategoryPanel.getTagColor] Checking metric:', node.metric, 'vs', stage.metric);
-          if (node.metric === stage.metric) {
-            console.log('[TagCategoryPanel.getTagColor] ✅ MATCH! Returning color:', node.colorHex);
+      // Check if node ID ends with the expected suffix
+      if (nodeId.endsWith(nodeSuffix)) {
+        // For stages with metrics, we need to verify the parent created these nodes with that metric
+        // But child nodes themselves have metric: null, so we check the parent instead
+        if (stage.metric && node.parentId) {
+          const parentNode = sankeyTree.get(node.parentId);
+          if (parentNode && parentNode.metric === stage.metric) {
             return node.colorHex || null;
           }
         } else {
-          // For pre-defined categories (like Cause), just match by group index
-          console.log('[TagCategoryPanel.getTagColor] ✅ MATCH (no metric check)! Returning color:', node.colorHex);
+          // For pre-defined categories (like Cause) or when no metric validation needed
           return node.colorHex || null;
         }
       }
     }
 
-    console.log('[TagCategoryPanel.getTagColor] ❌ No matching node found');
     return null;
   };
 
@@ -116,17 +148,56 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
     }
   );
 
-  // Calculate dynamic tag counts based on filtered features
+  // Calculate dynamic tag counts based on filtered features from Sankey tree
   const getTagCounts = (category: TagCategoryConfig): Record<string, number> => {
-    // TODO: Implement actual tag counting logic
-    // For now, return placeholder counts based on total feature count
     const counts: Record<string, number> = {};
-    const baseCount = featureCount > 0 ? Math.floor(featureCount / category.tags.length) : 50;
 
-    category.tags.forEach((tag, index) => {
-      // Placeholder: distribute counts across tags
-      counts[tag] = baseCount + index * 10;
+    if (!sankeyTree || sankeyTree.size === 0) {
+      // No tree available, return zeros
+      category.tags.forEach((tag) => {
+        counts[tag] = 0;
+      });
+      return counts;
+    }
+
+    const targetDepth = category.stageOrder;
+
+    category.tags.forEach((tag, tagIndex) => {
+      // Determine node suffix based on stage type
+      let nodeSuffix: string;
+      if (category.id === 'cause') {
+        // Convert tag name to snake_case
+        nodeSuffix = `_${tag.toLowerCase().replace(/\s+/g, '_')}`;
+      } else {
+        nodeSuffix = `_group${tagIndex}`;
+      }
+
+      // Find matching node in tree
+      let matchedCount = 0;
+      for (const [nodeId, node] of sankeyTree.entries()) {
+        // Check if node is at the right depth
+        if (node.depth !== targetDepth) continue;
+
+        // Check if node ID ends with the expected suffix
+        if (nodeId.endsWith(nodeSuffix)) {
+          // For stages with metrics, verify the parent's metric
+          if (category.metric && node.parentId) {
+            const parentNode = sankeyTree.get(node.parentId);
+            if (parentNode && parentNode.metric === category.metric) {
+              matchedCount = node.featureCount;
+              break;
+            }
+          } else {
+            // For pre-defined categories (like Cause)
+            matchedCount = node.featureCount;
+            break;
+          }
+        }
+      }
+
+      counts[tag] = matchedCount;
     });
+
     return counts;
   };
 
@@ -144,7 +215,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
     }
   };
 
-  // Calculate flow paths
+  // Calculate flow paths - automatically adjusts when elements move
   const calculateFlowPaths = () => {
     if (!monosematicCountRef.current || !needRevisionCountRef.current ||
         !stage2IndicatorRef.current || !stage3IndicatorRef.current ||
@@ -154,28 +225,37 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
 
     const panelRect = panelRef.current.getBoundingClientRect();
 
+    // Helper to get element center position relative to panel
+    const getRelativeCenter = (element: HTMLElement) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        x: rect.left + rect.width / 2 - panelRect.left,
+        y: rect.top + rect.height / 2 - panelRect.top,
+        right: rect.right - panelRect.left
+      };
+    };
+
     // Get positions relative to panel
-    const monoCount = monosematicCountRef.current.getBoundingClientRect();
-    const needRevCount = needRevisionCountRef.current.getBoundingClientRect();
-    const stage2 = stage2IndicatorRef.current.getBoundingClientRect();
-    const stage3 = stage3IndicatorRef.current.getBoundingClientRect();
+    const monoPos = getRelativeCenter(monosematicCountRef.current);
+    const needRevPos = getRelativeCenter(needRevisionCountRef.current);
+    const stage2Pos = getRelativeCenter(stage2IndicatorRef.current);
+    const stage3Pos = getRelativeCenter(stage3IndicatorRef.current);
 
     // Helper to create tapered ribbon path
     const createRibbon = (
       x1: number, y1: number, x2: number, y2: number, width: number
     ) => {
       const dx = x2 - x1;
-
       const startWidth = width;
       const endWidth = width * 0.3; // Taper to 30%
 
-      // Control points for Bezier curve
+      // Control points for smooth Bezier curve
       const cx1 = x1 + dx * 0.5;
       const cy1 = y1;
       const cx2 = x1 + dx * 0.5;
       const cy2 = y2;
 
-      // Simplified tapered path
+      // Create tapered path
       return `M ${x1},${y1 - startWidth/2}
               C ${cx1},${cy1 - startWidth/2} ${cx2},${cy2 - endWidth/2} ${x2},${y2 - endWidth/2}
               L ${x2},${y2 + endWidth/2}
@@ -183,17 +263,17 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
               Z`;
     };
 
-    // Flow 1: monosemantic count badge → stage 2 indicator
-    const x1_1 = monoCount.left + monoCount.width;
-    const y1_1 = monoCount.top + monoCount.height / 2 - panelRect.top;
-    const x2_1 = stage2.left - panelRect.left;
-    const y2_1 = stage2.top + stage2.height / 2 - panelRect.top;
+    // Flow 1: monosemantic count badge (right edge) → stage 2 indicator (center)
+    const x1_1 = monoPos.right;
+    const y1_1 = monoPos.y;
+    const x2_1 = stage2Pos.x;
+    const y2_1 = stage2Pos.y;
 
-    // Flow 2: need revision count badge → stage 3 indicator
-    const x1_2 = needRevCount.left + needRevCount.width;
-    const y1_2 = needRevCount.top + needRevCount.height / 2 - panelRect.top;
-    const x2_2 = stage3.left - panelRect.left;
-    const y2_2 = stage3.top + stage3.height / 2 - panelRect.top;
+    // Flow 2: need revision count badge (right edge) → stage 3 indicator (center)
+    const x1_2 = needRevPos.right;
+    const y1_2 = needRevPos.y;
+    const x2_2 = stage3Pos.x;
+    const y2_2 = stage3Pos.y;
 
     setFlowPaths({
       path1: createRibbon(x1_1, y1_1, x2_1, y2_1, 6),
@@ -201,22 +281,76 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
     });
   };
 
-  // Update flow paths on mount and resize
+  // Update flow paths on mount, resize, and when layout changes
   useEffect(() => {
-    calculateFlowPaths();
+    // Initial calculation with a small delay to ensure layout is complete
+    const timeoutId = setTimeout(() => {
+      calculateFlowPaths();
+    }, 0);
 
-    const observer = new ResizeObserver(calculateFlowPaths);
+    // ResizeObserver for panel size changes
+    const resizeObserver = new ResizeObserver(() => {
+      calculateFlowPaths();
+    });
+
+    // MutationObserver for DOM changes
+    const mutationObserver = new MutationObserver(() => {
+      calculateFlowPaths();
+    });
+
     if (panelRef.current) {
-      observer.observe(panelRef.current);
+      resizeObserver.observe(panelRef.current);
+      mutationObserver.observe(panelRef.current, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class', 'style']
+      });
     }
 
-    return () => observer.disconnect();
-  }, [stages, selectedCategory]);
+    // Also recalculate on scroll (in case parent scrolls)
+    window.addEventListener('scroll', calculateFlowPaths, true);
+
+    return () => {
+      clearTimeout(timeoutId);
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+      window.removeEventListener('scroll', calculateFlowPaths, true);
+    };
+  }, [stages, selectedCategory, featureCount, sankeyTree]);
 
   return (
     <div className="tag-category-panel" ref={panelRef}>
       <div className="tag-category-panel__content">
-        {/* Left: Stage buttons and instructions */}
+        {/* SAE Info - left of stage buttons */}
+        {saeMetadata && (
+          <div className="tag-category-panel__sae-info">
+            <div className="sae-info__row">
+              <span className="sae-info__label">Model:</span>
+              <span className="sae-info__value">{saeMetadata.modelName}</span>
+            </div>
+            <div className="sae-info__row">
+              <span className="sae-info__label">Layer:</span>
+              <span className="sae-info__value">{saeMetadata.layer}</span>
+              <span className="sae-info__separator">|</span>
+              <span className="sae-info__label">Width:</span>
+              <span className="sae-info__value">{saeMetadata.width}</span>
+            </div>
+            {llmExplainerNames && (
+              <div className="sae-info__row">
+                <span className="sae-info__label">LLM Explainers:</span>
+                <span className="sae-info__value">{llmExplainerNames}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Separator between SAE info and stages */}
+        {saeMetadata && (
+          <div className="tag-category-panel__sae-separator" />
+        )}
+
+        {/* Stage buttons and instructions */}
         <div className="tag-category-panel__stages">
           <div className="tag-category-panel__stages-buttons">
             {stages.map((stage) => {
@@ -302,14 +436,17 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
                     const isNeedRevision = stage.id === 'quality' && tag === 'need revision';
 
                     // Get color from Sankey tree
-                    const color = getTagColor(stage.id, tagIndex);
+                    const color = getTagColor(stage.id, tagIndex, tag);
                     const fallbackColor = '#94a3b8'; // Neutral grey
                     const tagColor = color || fallbackColor;
+
+                    // Use higher opacity for active stage (85% vs 45%)
+                    const opacityHex = isActive ? 'C6' : '73'; // 85% : 45%
 
                     // Create style object for dynamic coloring
                     const tagStyle = {
                       borderLeftColor: tagColor,
-                      backgroundColor: `${tagColor}14` // 8% opacity (14 in hex)
+                      backgroundColor: `${tagColor}${opacityHex}`
                     };
 
                     const countStyle = {
