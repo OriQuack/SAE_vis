@@ -19,9 +19,11 @@ interface TableSelectionHeaderProps {
   onSortBySimilarity: () => void
   onClearSelection: () => void
   onShowTaggingPopover: (mode: 'feature' | 'pair', position: {x: number, y: number}) => void
+  onDone?: () => void
 
   // Loading states
   isSortLoading: boolean
+  doneButtonEnabled?: boolean
 
   // Sort requirements (for tooltip display)
   sortRequirements: {
@@ -49,7 +51,9 @@ const TableSelectionHeader: React.FC<TableSelectionHeaderProps> = ({
   onSortBySimilarity,
   onClearSelection,
   onShowTaggingPopover,
+  onDone,
   isSortLoading,
+  doneButtonEnabled = false,
   sortRequirements,
   tagRequirements,
   currentSortBy = null,
@@ -82,6 +86,8 @@ const TableSelectionHeader: React.FC<TableSelectionHeaderProps> = ({
 
   // Check if currently sorted by similarity
   const isSortedBySimilarity = currentSortBy === expectedSortValue
+
+  const hasAnySelection = selectionStates.size > 0
 
   return (
     <div className="decoder-stage-table__selection-header">
@@ -166,6 +172,18 @@ const TableSelectionHeader: React.FC<TableSelectionHeaderProps> = ({
             </div>
           )}
         </div>
+
+        {/* Done button */}
+        {onDone && (
+          <button
+            className="decoder-stage-table__sort-button"
+            onClick={onDone}
+            disabled={!hasAnySelection || !doneButtonEnabled}
+            title={!doneButtonEnabled ? "Next step not available for this stage" : !hasAnySelection ? "Make at least one selection to proceed" : "Proceed to next stage"}
+          >
+            Done
+          </button>
+        )}
 
         {/* Clear selection button */}
         {selectionStates.size > 0 && (

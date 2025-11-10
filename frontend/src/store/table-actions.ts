@@ -515,6 +515,27 @@ export const createTableActions = (set: any, get: any) => ({
     console.log('[Store.activateCategoryTable] ✅ Leaf node selected and category activated')
   },
 
+  /**
+   * Move to the next stage in the workflow (e.g., from Feature Splitting to Quality)
+   */
+  moveToNextStep: () => {
+    const state = get()
+    const { activeStageCategory } = state
+
+    console.log('[Store.moveToNextStep] Moving to next step from category:', activeStageCategory)
+
+    if (activeStageCategory === TAG_CATEGORY_FEATURE_SPLITTING) {
+      // Next step is Quality
+      console.log('[Store.moveToNextStep] Transitioning from Feature Splitting to Quality')
+      state.activateCategoryTable(TAG_CATEGORY_QUALITY)
+    } else if (activeStageCategory === TAG_CATEGORY_QUALITY) {
+      // Next step would be Cause, but it's not fully implemented.
+      console.log('[Store.moveToNextStep] At Quality stage, no next step action defined.')
+    } else {
+      console.log('[Store.moveToNextStep] No next step defined for category:', activeStageCategory)
+    }
+  },
+
   // ============================================================================
   // SIMILARITY SORT ACTION
   // ============================================================================

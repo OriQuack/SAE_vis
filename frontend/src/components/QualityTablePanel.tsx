@@ -69,6 +69,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const isSimilaritySortLoading = useVisualizationStore(state => state.isSimilaritySortLoading)
   const sortedBySelectionStates = useVisualizationStore(state => state.sortedBySelectionStates)
   const sortBySimilarity = useVisualizationStore(state => state.sortBySimilarity)
+  const moveToNextStep = useVisualizationStore(state => state.moveToNextStep)
 
   // Similarity tagging (automatic tagging) state and action
   const showSimilarityTaggingPopover = useVisualizationStore(state => state.showSimilarityTaggingPopover)
@@ -547,7 +548,9 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
         onSortBySimilarity={handleSimilaritySort}
         onClearSelection={clearFeatureSelection}
         onShowTaggingPopover={showSimilarityTaggingPopover}
+        onDone={moveToNextStep}
         isSortLoading={isSimilaritySortLoading}
+        doneButtonEnabled={false}
         sortRequirements={{ minSelected: 1, minRejected: 1 }}
         tagRequirements={{ minSelected: 5, minRejected: 5 }}
         currentSortBy={sortBy}

@@ -489,7 +489,7 @@ class InterFeatureSimilarityProcessor:
             window_tokens = self._extract_token_window(tokens, max_pos, window_size)
 
             # Convert window-relative positions to absolute token positions
-            window_offset = max_pos - window_size // 2
+            window_offset = max(0, max_pos - window_size // 2)
 
             # Find char n-gram in this window
             positions = []
@@ -554,7 +554,7 @@ class InterFeatureSimilarityProcessor:
 
             if positions:
                 # Convert window-relative positions to absolute token positions
-                window_offset = max_pos - window_size // 2
+                window_offset = max(0, max_pos - window_size // 2)
                 result.append({
                     'prompt_id': int(prompt_id),
                     'positions': [int(window_offset + p) for p in positions]

@@ -188,6 +188,7 @@ interface AppState {
   setActiveStageNode: (nodeId: string | null, category?: string | null) => void
   clearActiveStageNode: () => void
   activateCategoryTable: (categoryId: string) => void
+  moveToNextStep: () => void
 
   // Activation examples cache (centralized for all components)
   activationExamples: Record<number, ActivationExamples>

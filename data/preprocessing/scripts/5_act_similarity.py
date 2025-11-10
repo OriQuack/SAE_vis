@@ -34,6 +34,7 @@ Example:
 import json
 import logging
 import argparse
+import re
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
@@ -684,12 +685,15 @@ class ActivationSimilarityProcessor:
         for prompt_id, _, tokens, max_pos in display_examples:
             window_tokens = self._extract_token_window(tokens, max_pos, char_ngram_window)
             token_ngrams = self._extract_token_char_ngrams(window_tokens, char_ngram_sizes)
+            
+            # Correctly calculate window offset, clamping at 0
+            window_offset = max(0, max_pos - char_ngram_window // 2)
 
             for ngram, token_list in token_ngrams.items():
                 for token_idx, token_text, char_offset in token_list:
                     char_ngram_occurrences[ngram].append({
                         "prompt_id": prompt_id,
-                        "token_position": max_pos - char_ngram_window//2 + token_idx,
+                        "token_position": window_offset + token_idx,
                         "token_text": token_text,
                         "char_offset": char_offset,
                         "ngram_size": len(ngram)
@@ -724,12 +728,15 @@ class ActivationSimilarityProcessor:
         for prompt_id, _, tokens, max_pos in display_examples:
             window_tokens = self._extract_token_window(tokens, max_pos, word_ngram_window)
             word_ngrams = self._extract_word_ngrams(window_tokens, word_ngram_sizes)
+            
+            # Correctly calculate window offset, clamping at 0
+            window_offset = max(0, max_pos - word_ngram_window // 2)
 
             for word_ngram, positions in word_ngrams.items():
                 for pos in positions:
                     word_ngram_occurrences[word_ngram].append({
                         "prompt_id": prompt_id,
-                        "start_position": max_pos - word_ngram_window//2 + pos,
+                        "start_position": window_offset + pos,
                         "ngram_size": len(word_ngram.split())
                     })
 

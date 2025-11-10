@@ -36,6 +36,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
 
   // Similarity tagging (automatic tagging) state and action
   const showSimilarityTaggingPopover = useVisualizationStore(state => state.showSimilarityTaggingPopover)
+  const moveToNextStep = useVisualizationStore(state => state.moveToNextStep)
 
   // Sorting state
   const [sortBy, setSortBy] = useState<'id' | 'decoder_similarity' | null>(null)
@@ -701,7 +702,9 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
         }}
         onClearSelection={clearPairSelection}
         onShowTaggingPopover={showSimilarityTaggingPopover}
+        onDone={moveToNextStep}
         isSortLoading={isPairSimilaritySortLoading}
+        doneButtonEnabled={true}
         sortRequirements={{ minSelected: 1, minRejected: 1 }}
         tagRequirements={{ minSelected: 5, minRejected: 5 }}
         currentSortBy={tableSortBy}
