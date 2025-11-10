@@ -226,6 +226,36 @@ export function calculateHistogramBars(
 }
 
 /**
+ * Calculate diverging histogram bars (red/green based on center value)
+ * Used for similarity score histograms where values above center are "green" (positive)
+ * and values below center are "red" (negative)
+ */
+export function calculateDivergingBars(
+  chart: HistogramChart,
+  centerValue: number = 0
+): HistogramBarData[] {
+  return chart.bins.map(bin => {
+    const x = chart.xScale(bin.x0) as number
+    const x1 = chart.xScale(bin.x1) as number
+    const y = chart.yScale(bin.count) as number
+    const binCenter = (bin.x0 + bin.x1) / 2
+
+    return {
+      x,
+      y,
+      width: Math.max(1, x1 - x - 1),
+      height: chart.height - y,
+      color: binCenter >= centerValue ? 'green' : 'red',
+      binData: {
+        x0: bin.x0,
+        x1: bin.x1,
+        count: bin.count
+      }
+    }
+  })
+}
+
+/**
  * Calculate axis ticks for rendering
  */
 export function calculateXAxisTicks(

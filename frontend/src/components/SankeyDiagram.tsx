@@ -232,7 +232,7 @@ const VerticalBarSankeyNode: React.FC<{
           fill="none"
           stroke="#2563eb"
           strokeWidth={3}
-          rx={4}
+          rx={2}
           style={{
             filter: 'drop-shadow(0 0 8px rgba(37, 99, 235, 0.5))',
             pointerEvents: 'none'
@@ -250,7 +250,6 @@ const VerticalBarSankeyNode: React.FC<{
           fill="rgba(30, 41, 59, 0.25)"
           stroke="#4b5563"
           strokeWidth={1}
-          rx={3}
           style={{ pointerEvents: 'none' }}
         />
       )}

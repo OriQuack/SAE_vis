@@ -122,6 +122,12 @@ interface AppState {
   sortBySimilarity: () => Promise<void>
   sortPairsBySimilarity: (allPairKeys: string[]) => Promise<void>
 
+  // Similarity tagging actions (automatic tagging based on histogram)
+  showSimilarityTaggingPopover: (mode: 'feature' | 'pair', position: { x: number; y: number }) => Promise<void>
+  hideSimilarityTaggingPopover: () => void
+  updateSimilarityThresholds: (rejectThreshold: number, selectThreshold: number) => void
+  applySimilarityTags: () => void
+
   // Node selection actions
   toggleNodeSelection: (nodeId: string) => void
   clearNodeSelection: () => void
@@ -156,6 +162,17 @@ interface AppState {
   isPairSimilaritySortLoading: boolean
   lastPairSortedSelectionSignature: string | null  // Track pair selection state at last sort
   pairSortedBySelectionStates: Map<string, 'selected' | 'rejected'> | null  // Frozen pair selection states when sorted
+
+  // Similarity tagging popover state (for automatic tagging feature)
+  similarityTaggingPopover: {
+    visible: boolean
+    mode: 'feature' | 'pair'
+    position: { x: number; y: number }
+    histogramData: any | null  // SimilarityScoreHistogramResponse
+    rejectThreshold: number  // Threshold for rejecting (red, left side)
+    selectThreshold: number  // Threshold for selecting (green, right side)
+    isLoading: boolean
+  } | null
 
   // Node selection for table filtering
   tableSelectedNodeIds: string[]
@@ -243,6 +260,9 @@ const initialState = {
   isPairSimilaritySortLoading: false,
   lastPairSortedSelectionSignature: null,
   pairSortedBySelectionStates: null,
+
+  // Similarity tagging popover state (for automatic tagging feature)
+  similarityTaggingPopover: null,
 
   // Node selection for table filtering
   tableSelectedNodeIds: [],

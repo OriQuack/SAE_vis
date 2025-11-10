@@ -22,6 +22,8 @@ import { HighlightedExplanation } from './HighlightedExplanation'
 import ActivationExample from './ActivationExample'
 import QualityScoreBreakdown from './QualityScoreBreakdown'
 import DecoderSimilarityTable from './FeatureSplitTable'
+import SimilarityTaggingPopover from './SimilarityTaggingPopover'
+import TableSelectionHeader from './TableSelectionHeader'
 import '../styles/QualityTablePanel.css'
 
 // ============================================================================
@@ -67,6 +69,9 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const isSimilaritySortLoading = useVisualizationStore(state => state.isSimilaritySortLoading)
   const sortedBySelectionStates = useVisualizationStore(state => state.sortedBySelectionStates)
   const sortBySimilarity = useVisualizationStore(state => state.sortBySimilarity)
+
+  // Similarity tagging (automatic tagging) state and action
+  const showSimilarityTaggingPopover = useVisualizationStore(state => state.showSimilarityTaggingPopover)
 
   // ============================================================================
   // STATE
@@ -164,17 +169,6 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
       width
     })
   }, [])
-
-  // Similarity sort: Count selected vs rejected
-  const selectionCounts = useMemo(() => {
-    let selected = 0
-    let rejected = 0
-    featureSelectionStates.forEach(state => {
-      if (state === 'selected') selected++
-      else if (state === 'rejected') rejected++
-    })
-    return { selected, rejected }
-  }, [featureSelectionStates])
 
   // Similarity sort: Handler
   const handleSimilaritySort = useCallback(() => {
@@ -543,49 +537,26 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
         </div>
       )}
 
-      {/* Unified Selection Header - matches FeatureSplitTable style */}
-      <div className="decoder-stage-table__selection-header">
-        <span className="decoder-stage-table__selection-count">
-          Tag: Well-Explained • {sortedFeatures.length} / {tableData?.features.length || 0} features
-          {featureSelectionStates.size > 0 && (
-            <span style={{ marginLeft: '12px', opacity: 0.8 }}>
-              Selected: {selectionCounts.selected} |
-              Rejected: {selectionCounts.rejected}
-            </span>
-          )}
-        </span>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          {featureSelectionStates.size > 0 && (
-            <button
-              className="decoder-stage-table__sort-button"
-              onClick={handleSimilaritySort}
-              disabled={isSimilaritySortLoading}
-              title="Sort features by similarity to selected/rejected"
-            >
-              {isSimilaritySortLoading ? (
-                <>
-                  <span className="spinner-mini" /> Sorting...
-                </>
-              ) : (
-                'Sort by Similarity'
-              )}
-            </button>
-          )}
-          {featureSelectionStates.size > 0 && (
-            <button
-              className="decoder-stage-table__clear-selection"
-              onClick={() => {
-                clearFeatureSelection()
-                // Also reset sort state when clearing selections
-                setTableSort(null, null)
-              }}
-              title="Clear all selections and reset sort"
-            >
-              Clear ×
-            </button>
-          )}
-        </div>
-      </div>
+      {/* Unified Selection Header using TableSelectionHeader component */}
+      <TableSelectionHeader
+        mode="feature"
+        tagLabel="Well-Explained"
+        currentCount={sortedFeatures.length}
+        totalCount={tableData?.features.length || 0}
+        selectionStates={featureSelectionStates}
+        onSortBySimilarity={handleSimilaritySort}
+        onClearSelection={() => {
+          clearFeatureSelection()
+          // Also reset sort state when clearing selections
+          setTableSort(null, null)
+        }}
+        onShowTaggingPopover={showSimilarityTaggingPopover}
+        isSortLoading={isSimilaritySortLoading}
+        sortRequirements={{ minSelected: 1, minRejected: 1 }}
+        tagRequirements={{ minSelected: 5, minRejected: 5 }}
+        currentSortBy={sortBy}
+        expectedSortValue="similarity"
+      />
 
       <div
         className={`table-panel__content ${isLoading ? 'loading' : ''}`}
@@ -901,6 +872,9 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
         </div>,
         document.body
       )}
+
+      {/* Similarity tagging popover (automatic tagging) */}
+      <SimilarityTaggingPopover />
 
     </div>
   )

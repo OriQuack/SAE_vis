@@ -730,5 +730,268 @@ export const createTableActions = (set: any, get: any) => ({
       console.error('[Store.sortPairsBySimilarity] ❌ Failed to calculate pair similarity sort:', error)
       set({ isPairSimilaritySortLoading: false })
     }
+  },
+
+  // ============================================================================
+  // SIMILARITY TAGGING ACTIONS (automatic tagging based on histogram)
+  // ============================================================================
+
+  showSimilarityTaggingPopover: async (mode: 'feature' | 'pair', position: { x: number; y: number }) => {
+    console.log(`[Store.showSimilarityTaggingPopover] Opening ${mode} tagging popover`)
+
+    // Extract selection states based on mode
+    const { featureSelectionStates, pairSelectionStates, tableData } = get()
+
+    try {
+      // Set loading state
+      set({
+        similarityTaggingPopover: {
+          visible: true,
+          mode,
+          position,
+          histogramData: null,
+          threshold: 0, // Start at center (0)
+          isLoading: true
+        }
+      })
+
+      if (mode === 'feature') {
+        // Extract selected and rejected feature IDs
+        const selectedIds: number[] = []
+        const rejectedIds: number[] = []
+        const allFeatureIds: number[] = []
+
+        featureSelectionStates.forEach((state, featureId) => {
+          if (state === 'selected') selectedIds.push(featureId)
+          else if (state === 'rejected') rejectedIds.push(featureId)
+        })
+
+        // Get all feature IDs from table data
+        if (tableData && tableData.features) {
+          tableData.features.forEach((feature: any) => {
+            allFeatureIds.push(feature.feature_id)
+          })
+        }
+
+        console.log('[Store.showSimilarityTaggingPopover] Fetching feature histogram:', {
+          selected: selectedIds.length,
+          rejected: rejectedIds.length,
+          total: allFeatureIds.length
+        })
+
+        // Fetch histogram data
+        const histogramData = await api.getSimilarityScoreHistogram(
+          selectedIds,
+          rejectedIds,
+          allFeatureIds
+        )
+
+        // Update state with histogram data
+        // Initialize with symmetric thresholds: reject=-0.2, select=+0.2
+        set({
+          similarityTaggingPopover: {
+            visible: true,
+            mode,
+            position,
+            histogramData,
+            rejectThreshold: -0.2,
+            selectThreshold: 0.2,
+            isLoading: false
+          }
+        })
+
+      } else if (mode === 'pair') {
+        // Extract selected and rejected pair keys
+        const selectedPairKeys: string[] = []
+        const rejectedPairKeys: string[] = []
+        const allPairKeys: string[] = []
+
+        pairSelectionStates.forEach((state, pairKey) => {
+          if (state === 'selected') selectedPairKeys.push(pairKey)
+          else if (state === 'rejected') rejectedPairKeys.push(pairKey)
+        })
+
+        // Get all pair keys from current table view
+        // This would need to be passed from the component or computed from tableData
+        // For now, use the pairs that have been displayed
+        pairSelectionStates.forEach((_, pairKey) => {
+          allPairKeys.push(pairKey)
+        })
+
+        // Also add pairs that exist in table but not yet selected
+        if (tableData && tableData.features) {
+          tableData.features.forEach((feature: any) => {
+            if (feature.decoder_similarity && Array.isArray(feature.decoder_similarity)) {
+              feature.decoder_similarity.slice(0, 4).forEach((similarItem: any) => {
+                const pairKey = `${feature.feature_id}-${similarItem.feature_id}`
+                if (!allPairKeys.includes(pairKey)) {
+                  allPairKeys.push(pairKey)
+                }
+              })
+            }
+          })
+        }
+
+        console.log('[Store.showSimilarityTaggingPopover] Fetching pair histogram:', {
+          selected: selectedPairKeys.length,
+          rejected: rejectedPairKeys.length,
+          total: allPairKeys.length
+        })
+
+        // Fetch histogram data
+        const histogramData = await api.getPairSimilarityScoreHistogram(
+          selectedPairKeys,
+          rejectedPairKeys,
+          allPairKeys
+        )
+
+        // Update state with histogram data
+        // Initialize with symmetric thresholds: reject=-0.2, select=+0.2
+        set({
+          similarityTaggingPopover: {
+            visible: true,
+            mode,
+            position,
+            histogramData,
+            rejectThreshold: -0.2,
+            selectThreshold: 0.2,
+            isLoading: false
+          }
+        })
+      }
+
+    } catch (error) {
+      console.error('[Store.showSimilarityTaggingPopover] ❌ Failed to fetch histogram:', error)
+      set({ similarityTaggingPopover: null })
+    }
+  },
+
+  hideSimilarityTaggingPopover: () => {
+    console.log('[Store.hideSimilarityTaggingPopover] Closing tagging popover')
+    set({ similarityTaggingPopover: null })
+  },
+
+  updateSimilarityThresholds: (rejectThreshold: number, selectThreshold: number) => {
+    const { similarityTaggingPopover } = get()
+    if (!similarityTaggingPopover) return
+
+    // Enforce constraint: rejectThreshold must be < selectThreshold
+    // Clamp values to ensure valid state
+    let finalReject = rejectThreshold
+    let finalSelect = selectThreshold
+
+    if (finalReject >= finalSelect) {
+      // If reject tries to exceed select, push select forward
+      finalSelect = finalReject + 0.01
+    }
+
+    set({
+      similarityTaggingPopover: {
+        ...similarityTaggingPopover,
+        rejectThreshold: finalReject,
+        selectThreshold: finalSelect
+      }
+    })
+  },
+
+  applySimilarityTags: () => {
+    const { similarityTaggingPopover, featureSelectionStates, pairSelectionStates } = get()
+
+    if (!similarityTaggingPopover || !similarityTaggingPopover.histogramData) {
+      console.warn('[Store.applySimilarityTags] No popover data available')
+      return
+    }
+
+    const { mode, rejectThreshold, selectThreshold, histogramData } = similarityTaggingPopover
+    const scores = histogramData.scores
+
+    console.log(`[Store.applySimilarityTags] Applying ${mode} tags with thresholds:`, {
+      reject: rejectThreshold,
+      select: selectThreshold
+    })
+
+    if (mode === 'feature') {
+      // Apply tags to features (three-way logic)
+      const newSelectionStates = new Map(featureSelectionStates)
+      let selectedCount = 0
+      let rejectedCount = 0
+      let untaggedCount = 0
+
+      Object.entries(scores).forEach(([idStr, score]) => {
+        const featureId = parseInt(idStr, 10)
+
+        // Skip if already manually tagged
+        if (featureSelectionStates.has(featureId)) {
+          return
+        }
+
+        // Apply three-way threshold logic
+        if (typeof score === 'number') {
+          if (score < rejectThreshold) {
+            // Red zone: reject
+            newSelectionStates.set(featureId, 'rejected')
+            rejectedCount++
+          } else if (score >= selectThreshold) {
+            // Green zone: select
+            newSelectionStates.set(featureId, 'selected')
+            selectedCount++
+          } else {
+            // Grey zone: leave untagged
+            untaggedCount++
+          }
+        }
+      })
+
+      console.log('[Store.applySimilarityTags] Feature tags applied:', {
+        selected: selectedCount,
+        rejected: rejectedCount,
+        untagged: untaggedCount,
+        preserved: featureSelectionStates.size
+      })
+
+      set({ featureSelectionStates: newSelectionStates })
+
+    } else if (mode === 'pair') {
+      // Apply tags to pairs (three-way logic)
+      const newPairSelectionStates = new Map(pairSelectionStates)
+      let selectedCount = 0
+      let rejectedCount = 0
+      let untaggedCount = 0
+
+      Object.entries(scores).forEach(([pairKey, score]) => {
+        // Skip if already manually tagged
+        if (pairSelectionStates.has(pairKey)) {
+          return
+        }
+
+        // Apply three-way threshold logic
+        if (typeof score === 'number') {
+          if (score < rejectThreshold) {
+            // Red zone: reject
+            newPairSelectionStates.set(pairKey, 'rejected')
+            rejectedCount++
+          } else if (score >= selectThreshold) {
+            // Green zone: select
+            newPairSelectionStates.set(pairKey, 'selected')
+            selectedCount++
+          } else {
+            // Grey zone: leave untagged
+            untaggedCount++
+          }
+        }
+      })
+
+      console.log('[Store.applySimilarityTags] Pair tags applied:', {
+        selected: selectedCount,
+        rejected: rejectedCount,
+        untagged: untaggedCount,
+        preserved: pairSelectionStates.size
+      })
+
+      set({ pairSelectionStates: newPairSelectionStates })
+    }
+
+    // Close popover after applying
+    set({ similarityTaggingPopover: null })
   }
 })

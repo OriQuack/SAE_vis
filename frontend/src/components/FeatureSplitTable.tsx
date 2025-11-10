@@ -6,6 +6,8 @@ import { METRIC_DECODER_SIMILARITY } from '../lib/constants'
 import { TAG_CATEGORIES, TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/tag-categories'
 import ActivationExample from './ActivationExample'
 import DecoderSimilarityOverlay from './FeatureSplitOverlay'
+import SimilarityTaggingPopover from './SimilarityTaggingPopover'
+import TableSelectionHeader from './TableSelectionHeader'
 import '../styles/QualityTablePanel.css'
 import '../styles/FeatureSplitTable.css'
 
@@ -31,6 +33,9 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
   const isPairSimilaritySortLoading = useVisualizationStore(state => state.isPairSimilaritySortLoading)
   const sortPairsBySimilarity = useVisualizationStore(state => state.sortPairsBySimilarity)
   const tableSortBy = useVisualizationStore(state => state.tableSortBy)
+
+  // Similarity tagging (automatic tagging) state and action
+  const showSimilarityTaggingPopover = useVisualizationStore(state => state.showSimilarityTaggingPopover)
 
   // Sorting state
   const [sortBy, setSortBy] = useState<'id' | 'decoder_similarity' | null>(null)
@@ -147,22 +152,26 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
   }
 
   // Helper function to compute merged inter-feature positions for a given feature
-  // Merges ALL clicked pairs that involve this feature
+  // Only applies highlights if the pairKey matches the clicked/hovered pair
+  // This prevents highlighting all rows that contain the feature
   const getInterFeaturePositionsForFeature = React.useMemo(() => {
-    return (featureId: number) => {
+    return (featureId: number, currentPairKey?: string) => {
       const allHighlights: Array<{ type: 'char' | 'word', positions: any }> = []
 
-      // Collect from all clicked highlights (Map)
-      interFeatureHighlights.forEach((highlight) => {
+      // Collect from clicked highlights - ONLY if this row's pair is clicked
+      // This prevents highlighting all rows containing the same feature
+      if (currentPairKey && interFeatureHighlights.has(currentPairKey)) {
+        const highlight = interFeatureHighlights.get(currentPairKey)!
         if (highlight.mainFeatureId === featureId) {
           allHighlights.push({ type: highlight.type, positions: highlight.mainPositions })
         } else if (highlight.similarFeatureId === featureId) {
           allHighlights.push({ type: highlight.type, positions: highlight.similarPositions })
         }
-      })
+      }
 
-      // Add hover highlight if it matches this feature
-      if (hoverHighlight) {
+      // Add hover highlight ONLY if this row's pair matches the hovered pair
+      // This prevents highlighting all rows that contain the feature
+      if (hoverHighlight && currentPairKey && hoveredPairKey === currentPairKey) {
         if (hoverHighlight.mainFeatureId === featureId) {
           allHighlights.push({ type: hoverHighlight.type, positions: hoverHighlight.mainPositions })
         } else if (hoverHighlight.similarFeatureId === featureId) {
@@ -225,7 +234,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
         positions: Array.from(mergedPositionsMap.values())
       }
     }
-  }, [interFeatureHighlights, hoverHighlight])
+  }, [interFeatureHighlights, hoverHighlight, hoveredPairKey])
 
   // Refs
   const tableContainerRef = useRef<HTMLDivElement>(null)
@@ -320,7 +329,25 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
       }))
     })
 
-    return rows
+    // Deduplicate pairs: only keep one of (A, B) and (B, A)
+    // This prevents showing redundant pairs like (1,2) and (2,1)
+    const seenPairs = new Set<string>()
+    const deduplicatedRows: DecoderStagePairRow[] = []
+
+    for (const row of rows) {
+      const id1 = row.mainFeature.feature_id
+      const id2 = row.similarFeature.feature_id
+
+      // Create canonical key: smaller ID first to ensure (1,2) and (2,1) map to same key
+      const canonicalKey = id1 < id2 ? `${id1}-${id2}` : `${id2}-${id1}`
+
+      if (!seenPairs.has(canonicalKey)) {
+        seenPairs.add(canonicalKey)
+        deduplicatedRows.push(row)
+      }
+    }
+
+    return deduplicatedRows
   }, [stageContext, tableData, stageFeatures, activationExamples])
 
   // Get frozen selection states from store (used when sorted by similarity)
@@ -404,6 +431,12 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
 
   // Handle sort click
   const handleSort = (column: 'id' | 'decoder_similarity') => {
+    // Clear similarity sort if active (allow switching to regular column sort)
+    if (tableSortBy === 'pair_similarity') {
+      const setTableSort = useVisualizationStore.getState().setTableSort
+      setTableSort(null, null)
+    }
+
     if (sortBy === column) {
       // Cycle: null → asc → desc → null
       if (sortDirection === null) {
@@ -654,51 +687,26 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
         </div>
       )}
 
-      {/* Unified selection header - matches QualityTablePanel style */}
-      <div className="decoder-stage-table__selection-header">
-        <span className="decoder-stage-table__selection-count">
-          Tag: {TAG_CATEGORIES[TAG_CATEGORY_FEATURE_SPLITTING].label} • {stageFeatures.length.toLocaleString()} / {tableData?.features.length.toLocaleString() || 0} features
-          {pairSelectionStates.size > 0 && (
-            <span style={{ marginLeft: '12px', opacity: 0.8 }}>
-              Selected: {Array.from(pairSelectionStates.values()).filter(s => s === 'selected').length} |
-              Rejected: {Array.from(pairSelectionStates.values()).filter(s => s === 'rejected').length}
-            </span>
-          )}
-        </span>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          {pairSelectionStates.size > 0 && (
-            <button
-              className="decoder-stage-table__sort-button"
-              onClick={() => {
-                // Extract all pair keys from current rows
-                const allPairKeys = sortedRows.map(row => row.pairKey)
-                sortPairsBySimilarity(allPairKeys)
-              }}
-              disabled={isPairSimilaritySortLoading}
-              title="Sort pairs by similarity to selected/rejected"
-            >
-              {isPairSimilaritySortLoading ? (
-                <>
-                  <span className="spinner-mini" /> Sorting...
-                </>
-              ) : (
-                'Sort by Similarity'
-              )}
-            </button>
-          )}
-          {pairSelectionStates.size > 0 && (
-            <button
-              className="decoder-stage-table__clear-selection"
-              onClick={() => {
-                clearPairSelection()
-              }}
-              title="Clear all pair selections and reset sort"
-            >
-              Clear ×
-            </button>
-          )}
-        </div>
-      </div>
+      {/* Unified selection header using TableSelectionHeader component */}
+      <TableSelectionHeader
+        mode="pair"
+        tagLabel={TAG_CATEGORIES[TAG_CATEGORY_FEATURE_SPLITTING].label}
+        currentCount={stageFeatures.length}
+        totalCount={tableData?.features.length || 0}
+        selectionStates={pairSelectionStates}
+        onSortBySimilarity={() => {
+          // Extract all pair keys from current rows
+          const allPairKeys = sortedRows.map(row => row.pairKey)
+          sortPairsBySimilarity(allPairKeys)
+        }}
+        onClearSelection={clearPairSelection}
+        onShowTaggingPopover={showSimilarityTaggingPopover}
+        isSortLoading={isPairSimilaritySortLoading}
+        sortRequirements={{ minSelected: 1, minRejected: 1 }}
+        tagRequirements={{ minSelected: 5, minRejected: 5 }}
+        currentSortBy={tableSortBy}
+        expectedSortValue="pair_similarity"
+      />
 
       {/* Table */}
       <div className="table-panel__content" ref={tableContainerRef}>
@@ -834,7 +842,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                       <ActivationExample
                         examples={activationExamples[row.mainFeature.feature_id]}
                         containerWidth={activationColumnWidth}
-                        interFeaturePositions={getInterFeaturePositionsForFeature(row.mainFeature.feature_id)}
+                        interFeaturePositions={getInterFeaturePositionsForFeature(row.mainFeature.feature_id, row.pairKey)}
                         isHovered={hoveredPairKey === row.pairKey}
                         onHoverChange={(isHovered) => setHoveredPairKey(isHovered ? row.pairKey : null)}
                       />
@@ -849,7 +857,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                       <ActivationExample
                         examples={activationExamples[row.similarFeature.feature_id]}
                         containerWidth={activationColumnWidth}
-                        interFeaturePositions={getInterFeaturePositionsForFeature(row.similarFeature.feature_id)}
+                        interFeaturePositions={getInterFeaturePositionsForFeature(row.similarFeature.feature_id, row.pairKey)}
                         isHovered={hoveredPairKey === row.pairKey}
                         onHoverChange={(isHovered) => setHoveredPairKey(isHovered ? row.pairKey : null)}
                       />
@@ -875,6 +883,10 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
           </tbody>
         </table>
       </div>
+
+      {/* Similarity tagging popover (automatic tagging) */}
+      <SimilarityTaggingPopover />
+
     </div>
   )
 }

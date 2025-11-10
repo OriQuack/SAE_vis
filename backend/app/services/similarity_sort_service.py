@@ -13,7 +13,10 @@ from pathlib import Path
 
 from ..models.similarity_sort import (
     SimilaritySortRequest, SimilaritySortResponse, FeatureScore,
-    PairSimilaritySortRequest, PairSimilaritySortResponse, PairScore
+    PairSimilaritySortRequest, PairSimilaritySortResponse, PairScore,
+    SimilarityHistogramRequest, SimilarityHistogramResponse,
+    PairSimilarityHistogramRequest,
+    HistogramData, HistogramStatistics
 )
 
 if TYPE_CHECKING:
@@ -789,6 +792,380 @@ class SimilaritySortService:
 
             # Skip if this pair is selected or rejected (frontend handles three-tier sorting)
             if pair_key in selected_pair_keys or pair_key in rejected_pair_keys:
+                continue
+
+            # Calculate weighted distance to selected pairs
+            dist_to_selected = 0.0
+            if selected_pair_keys:
+                distances = []
+                for selected_pair_key in selected_pair_keys:
+                    selected_vector = pair_vectors.get(selected_pair_key)
+                    if selected_vector is not None:
+                        dist = self._weighted_euclidean_distance(
+                            pair_vector,
+                            selected_vector,
+                            weights
+                        )
+                        distances.append(dist)
+                if distances:
+                    dist_to_selected = np.mean(distances)
+
+            # Calculate weighted distance to rejected pairs
+            dist_to_rejected = 0.0
+            if rejected_pair_keys:
+                distances = []
+                for rejected_pair_key in rejected_pair_keys:
+                    rejected_vector = pair_vectors.get(rejected_pair_key)
+                    if rejected_vector is not None:
+                        dist = self._weighted_euclidean_distance(
+                            pair_vector,
+                            rejected_vector,
+                            weights
+                        )
+                        distances.append(dist)
+                if distances:
+                    dist_to_rejected = np.mean(distances)
+
+            # Final score: similarity to selected - similarity to rejected
+            score = -dist_to_selected + dist_to_rejected
+
+            pair_scores.append(PairScore(pair_key=pair_key, score=float(score)))
+
+        return pair_scores
+
+    async def get_similarity_score_histogram(
+        self,
+        request: SimilarityHistogramRequest
+    ) -> SimilarityHistogramResponse:
+        """
+        Calculate similarity scores and return histogram distribution for automatic tagging.
+
+        Args:
+            request: Request containing selected, rejected, and all feature IDs
+
+        Returns:
+            Response with scores and histogram data
+        """
+        if not self.data_service.is_ready():
+            raise RuntimeError("DataService not ready")
+
+        # Extract metrics for all features
+        logger.info(f"Extracting metrics for {len(request.feature_ids)} features for histogram")
+        metrics_df = await self._extract_metrics(request.feature_ids)
+
+        if metrics_df is None or len(metrics_df) == 0:
+            logger.warning("No metrics extracted, returning empty histogram")
+            return SimilarityHistogramResponse(
+                scores={},
+                histogram=HistogramData(bins=[], counts=[], bin_edges=[]),
+                statistics=HistogramStatistics(min=0.0, max=0.0, mean=0.0, median=0.0),
+                total_items=0
+            )
+
+        # Calculate or retrieve cached weights
+        weights, weights_list = self._get_weights(metrics_df)
+
+        # Calculate similarity scores for ALL features (including selected/rejected)
+        logger.info(f"Calculating similarity scores for histogram")
+        feature_scores = self._calculate_similarity_scores_for_histogram(
+            metrics_df,
+            weights,
+            request.selected_ids,
+            request.rejected_ids
+        )
+
+        # Create scores dictionary
+        scores_dict = {str(item.feature_id): item.score for item in feature_scores}
+
+        # Extract score values for histogram
+        score_values = np.array([item.score for item in feature_scores])
+
+        if len(score_values) == 0:
+            return SimilarityHistogramResponse(
+                scores={},
+                histogram=HistogramData(bins=[], counts=[], bin_edges=[]),
+                statistics=HistogramStatistics(min=0.0, max=0.0, mean=0.0, median=0.0),
+                total_items=0
+            )
+
+        # Compute histogram (40 bins for good resolution)
+        counts, bin_edges = np.histogram(score_values, bins=40)
+        bins = (bin_edges[:-1] + bin_edges[1:]) / 2  # Bin centers
+
+        # Compute statistics
+        statistics = HistogramStatistics(
+            min=float(np.min(score_values)),
+            max=float(np.max(score_values)),
+            mean=float(np.mean(score_values)),
+            median=float(np.median(score_values))
+        )
+
+        logger.info(f"Successfully generated histogram for {len(feature_scores)} features")
+
+        return SimilarityHistogramResponse(
+            scores=scores_dict,
+            histogram=HistogramData(
+                bins=bins.tolist(),
+                counts=counts.tolist(),
+                bin_edges=bin_edges.tolist()
+            ),
+            statistics=statistics,
+            total_items=len(feature_scores)
+        )
+
+    def _calculate_similarity_scores_for_histogram(
+        self,
+        metrics_df: pl.DataFrame,
+        weights: np.ndarray,
+        selected_ids: List[int],
+        rejected_ids: List[int]
+    ) -> List[FeatureScore]:
+        """
+        Calculate similarity scores for ALL features (including selected/rejected).
+
+        This is different from _calculate_similarity_scores() which skips selected/rejected.
+        For histogram visualization, we need scores for everything.
+
+        Args:
+            metrics_df: DataFrame with metrics for all features
+            weights: Normalized weights for each metric
+            selected_ids: Feature IDs marked as selected (✓)
+            rejected_ids: Feature IDs marked as rejected (✗)
+
+        Returns:
+            List of FeatureScore objects for ALL features
+        """
+        # Convert to numpy for efficient distance calculation
+        feature_ids = metrics_df["feature_id"].to_numpy()
+        metrics_matrix = np.column_stack([
+            metrics_df[metric].to_numpy() for metric in self.METRICS
+        ])
+
+        # Calculate scores for each feature (including selected/rejected)
+        feature_scores = []
+
+        for i, feature_id in enumerate(feature_ids):
+            # Calculate weighted distance to selected features
+            dist_to_selected = 0.0
+            if selected_ids:
+                distances = []
+                for selected_id in selected_ids:
+                    selected_idx = np.where(feature_ids == selected_id)[0]
+                    if len(selected_idx) > 0:
+                        dist = self._weighted_euclidean_distance(
+                            metrics_matrix[i],
+                            metrics_matrix[selected_idx[0]],
+                            weights
+                        )
+                        distances.append(dist)
+                if distances:
+                    dist_to_selected = np.mean(distances)
+
+            # Calculate weighted distance to rejected features
+            dist_to_rejected = 0.0
+            if rejected_ids:
+                distances = []
+                for rejected_id in rejected_ids:
+                    rejected_idx = np.where(feature_ids == rejected_id)[0]
+                    if len(rejected_idx) > 0:
+                        dist = self._weighted_euclidean_distance(
+                            metrics_matrix[i],
+                            metrics_matrix[rejected_idx[0]],
+                            weights
+                        )
+                        distances.append(dist)
+                if distances:
+                    dist_to_rejected = np.mean(distances)
+
+            # Final score: -dist_to_selected + dist_to_rejected
+            # Positive score = closer to selected, negative = closer to rejected
+            score = -dist_to_selected + dist_to_rejected
+
+            feature_scores.append(FeatureScore(feature_id=int(feature_id), score=float(score)))
+
+        return feature_scores
+
+    async def get_pair_similarity_score_histogram(
+        self,
+        request: PairSimilarityHistogramRequest
+    ) -> SimilarityHistogramResponse:
+        """
+        Calculate pair similarity scores and return histogram distribution for automatic tagging.
+
+        Args:
+            request: Request containing selected, rejected, and all pair keys
+
+        Returns:
+            Response with scores and histogram data
+        """
+        if not self.data_service.is_ready():
+            raise RuntimeError("DataService not ready")
+
+        # Parse pair keys to (main_id, similar_id)
+        pair_ids = []
+        for pair_key in request.pair_keys:
+            parts = pair_key.split('-')
+            if len(parts) == 2:
+                try:
+                    main_id = int(parts[0])
+                    similar_id = int(parts[1])
+                    pair_ids.append((main_id, similar_id))
+                except ValueError:
+                    logger.warning(f"Invalid pair key format: {pair_key}")
+                    continue
+
+        if not pair_ids:
+            return SimilarityHistogramResponse(
+                scores={},
+                histogram=HistogramData(bins=[], counts=[], bin_edges=[]),
+                statistics=HistogramStatistics(min=0.0, max=0.0, mean=0.0, median=0.0),
+                total_items=0
+            )
+
+        # Extract all unique feature IDs from pairs
+        all_feature_ids = list(set(
+            fid for main_id, similar_id in pair_ids for fid in (main_id, similar_id)
+        ))
+
+        logger.info(f"Extracting metrics for {len(all_feature_ids)} unique features in {len(pair_ids)} pairs for histogram")
+        metrics_df = await self._extract_metrics(all_feature_ids)
+
+        if metrics_df is None or len(metrics_df) == 0:
+            logger.warning("No metrics extracted, returning empty histogram")
+            return SimilarityHistogramResponse(
+                scores={},
+                histogram=HistogramData(bins=[], counts=[], bin_edges=[]),
+                statistics=HistogramStatistics(min=0.0, max=0.0, mean=0.0, median=0.0),
+                total_items=0
+            )
+
+        # Calculate or retrieve cached weights (base 9 metrics)
+        weights_base, weights_list_base = self._get_weights(metrics_df)
+
+        # Extract pair metrics (cosine_similarity from decoder_similarity)
+        pair_metrics_dict = await self._extract_pair_metrics(pair_ids)
+
+        # Calculate or use cached weights for pair metric
+        pair_metric_weights, all_weights_list = self._get_pair_weights(
+            metrics_df,
+            pair_metrics_dict,
+            weights_list_base
+        )
+
+        # Calculate similarity scores for ALL pairs (including selected/rejected)
+        logger.info(f"Calculating similarity scores for {len(pair_ids)} pairs for histogram")
+        pair_scores = self._calculate_pair_similarity_scores_for_histogram(
+            metrics_df,
+            pair_metrics_dict,
+            pair_metric_weights,
+            request.selected_pair_keys,
+            request.rejected_pair_keys,
+            pair_ids
+        )
+
+        # Create scores dictionary
+        scores_dict = {item.pair_key: item.score for item in pair_scores}
+
+        # Extract score values for histogram
+        score_values = np.array([item.score for item in pair_scores])
+
+        if len(score_values) == 0:
+            return SimilarityHistogramResponse(
+                scores={},
+                histogram=HistogramData(bins=[], counts=[], bin_edges=[]),
+                statistics=HistogramStatistics(min=0.0, max=0.0, mean=0.0, median=0.0),
+                total_items=0
+            )
+
+        # Compute histogram (40 bins for good resolution)
+        counts, bin_edges = np.histogram(score_values, bins=40)
+        bins = (bin_edges[:-1] + bin_edges[1:]) / 2  # Bin centers
+
+        # Compute statistics
+        statistics = HistogramStatistics(
+            min=float(np.min(score_values)),
+            max=float(np.max(score_values)),
+            mean=float(np.mean(score_values)),
+            median=float(np.median(score_values))
+        )
+
+        logger.info(f"Successfully generated histogram for {len(pair_scores)} pairs")
+
+        return SimilarityHistogramResponse(
+            scores=scores_dict,
+            histogram=HistogramData(
+                bins=bins.tolist(),
+                counts=counts.tolist(),
+                bin_edges=bin_edges.tolist()
+            ),
+            statistics=statistics,
+            total_items=len(pair_scores)
+        )
+
+    def _calculate_pair_similarity_scores_for_histogram(
+        self,
+        metrics_df: pl.DataFrame,
+        pair_metrics: Dict[str, float],
+        weights: np.ndarray,
+        selected_pair_keys: List[str],
+        rejected_pair_keys: List[str],
+        pair_ids: List[Tuple[int, int]]
+    ) -> List[PairScore]:
+        """
+        Calculate similarity scores for ALL pairs (including selected/rejected).
+
+        This is different from _calculate_pair_similarity_scores() which skips selected/rejected.
+        For histogram visualization, we need scores for everything.
+
+        Args:
+            metrics_df: DataFrame with metrics for all features
+            pair_metrics: Dictionary mapping pair_key to cosine_similarity
+            weights: 10-element weight vector
+            selected_pair_keys: Pair keys marked as selected (✓)
+            rejected_pair_keys: Pair keys marked as rejected (✗)
+            pair_ids: List of (main_id, similar_id) tuples
+
+        Returns:
+            List of PairScore objects for ALL pairs
+        """
+        # Convert to numpy for efficient distance calculation
+        feature_ids = metrics_df["feature_id"].to_numpy()
+        metrics_matrix = np.column_stack([
+            metrics_df[metric].to_numpy() for metric in self.METRICS
+        ])
+
+        # Build pair vectors (19-dimensional)
+        pair_vectors = {}
+        pair_key_list = []
+
+        for main_id, similar_id in pair_ids:
+            pair_key = f"{main_id}-{similar_id}"
+            pair_key_list.append(pair_key)
+
+            # Get main and similar feature metrics
+            main_idx = np.where(feature_ids == main_id)[0]
+            similar_idx = np.where(feature_ids == similar_id)[0]
+
+            if len(main_idx) == 0 or len(similar_idx) == 0:
+                logger.warning(f"Missing metrics for pair {pair_key}")
+                pair_vectors[pair_key] = None
+                continue
+
+            # Build 19-dim vector
+            main_metrics = metrics_matrix[main_idx[0]]  # 9 dims
+            similar_metrics = metrics_matrix[similar_idx[0]]  # 9 dims
+            pair_metric = pair_metrics.get(pair_key, 0.0)  # 1 dim
+
+            pair_vector = np.concatenate([main_metrics, similar_metrics, [pair_metric]])
+            pair_vectors[pair_key] = pair_vector
+
+        # Calculate scores for each pair (including selected/rejected)
+        pair_scores = []
+
+        for pair_key in pair_key_list:
+            pair_vector = pair_vectors.get(pair_key)
+
+            if pair_vector is None:
                 continue
 
             # Calculate weighted distance to selected pairs

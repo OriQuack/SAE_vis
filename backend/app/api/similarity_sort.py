@@ -8,7 +8,9 @@ from typing import TYPE_CHECKING
 
 from ..models.similarity_sort import (
     SimilaritySortRequest, SimilaritySortResponse,
-    PairSimilaritySortRequest, PairSimilaritySortResponse
+    PairSimilaritySortRequest, PairSimilaritySortResponse,
+    SimilarityHistogramRequest, SimilarityHistogramResponse,
+    PairSimilarityHistogramRequest
 )
 
 if TYPE_CHECKING:
@@ -169,4 +171,136 @@ async def pair_similarity_sort(
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error during pair similarity calculation: {str(e)}"
+        )
+
+
+@router.post("/similarity-score-histogram", response_model=SimilarityHistogramResponse)
+async def similarity_score_histogram(
+    request: SimilarityHistogramRequest,
+    service: "SimilaritySortService" = Depends(get_similarity_sort_service)
+) -> SimilarityHistogramResponse:
+    """
+    Calculate similarity score distribution for automatic tagging (features).
+
+    Returns histogram data showing the distribution of similarity scores across all features.
+    Score = -avg_distance_to_selected + avg_distance_to_rejected
+    - Positive scores: closer to selected features
+    - Negative scores: closer to rejected features
+    - Zero: equidistant from both groups
+
+    Args:
+        request: Request with selected_ids, rejected_ids, and feature_ids
+        service: Injected similarity sort service
+
+    Returns:
+        Response with similarity scores and histogram data
+    """
+    try:
+        logger.info(
+            f"Similarity histogram request: {len(request.selected_ids)} selected, "
+            f"{len(request.rejected_ids)} rejected, "
+            f"{len(request.feature_ids)} total features"
+        )
+
+        # Validate request
+        if not request.feature_ids:
+            raise HTTPException(
+                status_code=400,
+                detail="feature_ids cannot be empty"
+            )
+
+        if not request.selected_ids:
+            raise HTTPException(
+                status_code=400,
+                detail="selected_ids cannot be empty (need at least 1 selected)"
+            )
+
+        if not request.rejected_ids:
+            raise HTTPException(
+                status_code=400,
+                detail="rejected_ids cannot be empty (need at least 1 rejected)"
+            )
+
+        # Call service to calculate histogram
+        response = await service.get_similarity_score_histogram(request)
+
+        logger.info(f"Similarity histogram completed: {response.total_items} features")
+        return response
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        logger.error(f"Validation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error in similarity histogram: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error during histogram calculation: {str(e)}"
+        )
+
+
+@router.post("/pair-similarity-score-histogram", response_model=SimilarityHistogramResponse)
+async def pair_similarity_score_histogram(
+    request: PairSimilarityHistogramRequest,
+    service: "SimilaritySortService" = Depends(get_similarity_sort_service)
+) -> SimilarityHistogramResponse:
+    """
+    Calculate similarity score distribution for automatic tagging (pairs).
+
+    Returns histogram data showing the distribution of similarity scores across all feature pairs.
+    Score = -avg_distance_to_selected + avg_distance_to_rejected
+    - Positive scores: closer to selected pairs
+    - Negative scores: closer to rejected pairs
+    - Zero: equidistant from both groups
+
+    Args:
+        request: Request with selected_pair_keys, rejected_pair_keys, and pair_keys
+        service: Injected similarity sort service
+
+    Returns:
+        Response with similarity scores and histogram data
+    """
+    try:
+        logger.info(
+            f"Pair similarity histogram request: {len(request.selected_pair_keys)} selected, "
+            f"{len(request.rejected_pair_keys)} rejected, "
+            f"{len(request.pair_keys)} total pairs"
+        )
+
+        # Validate request
+        if not request.pair_keys:
+            raise HTTPException(
+                status_code=400,
+                detail="pair_keys cannot be empty"
+            )
+
+        if not request.selected_pair_keys:
+            raise HTTPException(
+                status_code=400,
+                detail="selected_pair_keys cannot be empty (need at least 1 selected)"
+            )
+
+        if not request.rejected_pair_keys:
+            raise HTTPException(
+                status_code=400,
+                detail="rejected_pair_keys cannot be empty (need at least 1 rejected)"
+            )
+
+        # Call service to calculate histogram
+        response = await service.get_pair_similarity_score_histogram(request)
+
+        logger.info(f"Pair similarity histogram completed: {response.total_items} pairs")
+        return response
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        logger.error(f"Validation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error in pair similarity histogram: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error during pair histogram calculation: {str(e)}"
         )

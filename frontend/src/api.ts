@@ -10,7 +10,10 @@ import type {
   SimilaritySortRequest,
   SimilaritySortResponse,
   PairSimilaritySortRequest,
-  PairSimilaritySortResponse
+  PairSimilaritySortResponse,
+  SimilarityHistogramRequest,
+  SimilarityScoreHistogramResponse,
+  PairSimilarityHistogramRequest
 } from './types'
 
 // ============================================================================
@@ -46,7 +49,9 @@ const API_ENDPOINTS = {
   FEATURE_GROUPS: "/feature-groups",
   ACTIVATION_EXAMPLES: "/activation-examples",
   SIMILARITY_SORT: "/similarity-sort",
-  PAIR_SIMILARITY_SORT: "/pair-similarity-sort"
+  PAIR_SIMILARITY_SORT: "/pair-similarity-sort",
+  SIMILARITY_SCORE_HISTOGRAM: "/similarity-score-histogram",
+  PAIR_SIMILARITY_SCORE_HISTOGRAM: "/pair-similarity-score-histogram"
 } as const
 
 const API_BASE = API_BASE_URL
@@ -262,6 +267,94 @@ export async function getPairSimilaritySort(
     sortedCount: data.sorted_pairs?.length || 0,
     totalPairs: data.total_pairs,
     hasWeights: data.weights_used && data.weights_used.length > 0
+  })
+
+  return data
+}
+
+// ============================================================================
+// SIMILARITY HISTOGRAM API (for automatic tagging)
+// ============================================================================
+
+export async function getSimilarityScoreHistogram(
+  selectedIds: number[],
+  rejectedIds: number[],
+  featureIds: number[]
+): Promise<SimilarityScoreHistogramResponse> {
+  console.log('[API] getSimilarityScoreHistogram called with:', {
+    selectedCount: selectedIds.length,
+    rejectedCount: rejectedIds.length,
+    totalFeatures: featureIds.length
+  })
+
+  const requestBody: SimilarityHistogramRequest = {
+    selected_ids: selectedIds,
+    rejected_ids: rejectedIds,
+    feature_ids: featureIds
+  }
+
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.SIMILARITY_SCORE_HISTOGRAM}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody)
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('[API] Similarity score histogram error:', response.status, errorText)
+    throw new Error(`Failed to fetch similarity score histogram: ${response.status} - ${errorText}`)
+  }
+
+  const data = await response.json()
+  console.log('[API] getSimilarityScoreHistogram response:', {
+    totalItems: data.total_items,
+    scoresCount: data.scores ? Object.keys(data.scores).length : 0,
+    histogramBins: data.histogram?.bins?.length || 0,
+    statistics: data.statistics
+  })
+
+  return data
+}
+
+export async function getPairSimilarityScoreHistogram(
+  selectedPairKeys: string[],
+  rejectedPairKeys: string[],
+  pairKeys: string[]
+): Promise<SimilarityScoreHistogramResponse> {
+  console.log('[API] getPairSimilarityScoreHistogram called with:', {
+    selectedCount: selectedPairKeys.length,
+    rejectedCount: rejectedPairKeys.length,
+    totalPairs: pairKeys.length
+  })
+
+  const requestBody: PairSimilarityHistogramRequest = {
+    selected_pair_keys: selectedPairKeys,
+    rejected_pair_keys: rejectedPairKeys,
+    pair_keys: pairKeys
+  }
+
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.PAIR_SIMILARITY_SCORE_HISTOGRAM}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody)
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('[API] Pair similarity score histogram error:', response.status, errorText)
+    throw new Error(`Failed to fetch pair similarity score histogram: ${response.status} - ${errorText}`)
+  }
+
+  const data = await response.json()
+  console.log('[API] getPairSimilarityScoreHistogram response:', {
+    totalItems: data.total_items,
+    scoresCount: data.scores ? Object.keys(data.scores).length : 0,
+    histogramBins: data.histogram?.bins?.length || 0,
+    statistics: data.statistics
   })
 
   return data

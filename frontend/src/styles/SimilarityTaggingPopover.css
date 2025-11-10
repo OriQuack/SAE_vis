@@ -1,0 +1,180 @@
+/* ============================================================================
+ * SIMILARITY TAGGING POPOVER STYLES (Simplified)
+ * Reuses HistogramPopover patterns with minimal unique styling
+ * ============================================================================ */
+
+/* Backdrop with blur */
+.similarity-tagging-popover__backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* Centered modal container */
+.similarity-tagging-popover {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 10000;
+  background: white;
+  border: 2px solid #2196f3;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  min-width: 600px;
+  max-width: 700px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+/* Header (follows HistogramPopover pattern) */
+.similarity-tagging-popover__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  user-select: none;
+}
+
+.similarity-tagging-popover__title {
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.similarity-tagging-popover__close {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  font-size: 24px;
+  line-height: 1;
+  width: 30px;
+  height: 30px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.similarity-tagging-popover__close:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Content area */
+.similarity-tagging-popover__content {
+  padding: 16px;
+}
+
+/* Loading state (follows HistogramPopover pattern) */
+.similarity-tagging-popover__loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px;
+}
+
+.similarity-tagging-popover__loading .spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #2196f3;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Unique styles - Info box */
+.similarity-tagging-popover__info {
+  background: #f5f5f5;
+  border-left: 4px solid #2196f3;
+  padding: 12px;
+  margin-bottom: 16px;
+  border-radius: 4px;
+}
+
+.similarity-tagging-popover__info p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #333;
+}
+
+/* SVG */
+.similarity-tagging-popover__svg {
+  display: block;
+  margin: 0 auto 16px;
+}
+
+/* Unique styles - Preview box */
+.similarity-tagging-popover__preview {
+  background: #fff3e0;
+  border-left: 4px solid #ff9800;
+  padding: 12px;
+  margin-bottom: 16px;
+  border-radius: 4px;
+}
+
+.similarity-tagging-popover__preview p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #333;
+}
+
+/* Unique styles - Action buttons */
+.similarity-tagging-popover__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.similarity-tagging-popover__button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.similarity-tagging-popover__button--cancel {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.similarity-tagging-popover__button--cancel:hover {
+  background: #e0e0e0;
+}
+
+.similarity-tagging-popover__button--apply {
+  background: #4caf50;
+  color: white;
+}
+
+.similarity-tagging-popover__button--apply:hover {
+  background: #45a049;
+}
+
+/* Error state */
+.similarity-tagging-popover__error {
+  padding: 40px;
+  text-align: center;
+  color: #f44336;
+  font-size: 14px;
+}

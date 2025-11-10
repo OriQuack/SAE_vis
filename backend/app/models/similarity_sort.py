@@ -3,7 +3,7 @@ Pydantic models for similarity-based sorting feature.
 """
 
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Dict
 
 
 class SimilaritySortRequest(BaseModel):
@@ -86,3 +86,82 @@ class PairSimilaritySortResponse(BaseModel):
         default=[],
         description="Normalized weights used for each metric (10 total: 9 feature metrics + 1 pair metric)"
     )
+
+
+# ============================================================================
+# SIMILARITY HISTOGRAM MODELS (for automatic tagging)
+# ============================================================================
+
+class SimilarityHistogramRequest(BaseModel):
+    """Request model for similarity score histogram (features)."""
+
+    selected_ids: List[int] = Field(
+        ...,
+        description="Feature IDs marked as selected/positive (✓)",
+        min_items=1
+    )
+    rejected_ids: List[int] = Field(
+        ...,
+        description="Feature IDs marked as rejected/negative (✗)",
+        min_items=1
+    )
+    feature_ids: List[int] = Field(
+        ...,
+        description="All feature IDs to compute scores for",
+        min_items=1
+    )
+
+
+class PairSimilarityHistogramRequest(BaseModel):
+    """Request model for similarity score histogram (pairs)."""
+
+    selected_pair_keys: List[str] = Field(
+        ...,
+        description="Pair keys marked as selected/positive (✓), format: 'main_id-similar_id'",
+        min_items=1
+    )
+    rejected_pair_keys: List[str] = Field(
+        ...,
+        description="Pair keys marked as rejected/negative (✗), format: 'main_id-similar_id'",
+        min_items=1
+    )
+    pair_keys: List[str] = Field(
+        ...,
+        description="All pair keys to compute scores for",
+        min_items=1
+    )
+
+
+class HistogramData(BaseModel):
+    """Histogram data structure."""
+
+    bins: List[float] = Field(..., description="Bin centers")
+    counts: List[int] = Field(..., description="Count in each bin")
+    bin_edges: List[float] = Field(..., description="Bin edge values (length = bins + 1)")
+
+
+class HistogramStatistics(BaseModel):
+    """Statistical summary of histogram data."""
+
+    min: float = Field(..., description="Minimum score")
+    max: float = Field(..., description="Maximum score")
+    mean: float = Field(..., description="Mean score")
+    median: float = Field(..., description="Median score")
+
+
+class SimilarityHistogramResponse(BaseModel):
+    """Response model for similarity score histogram (shared by features and pairs)."""
+
+    scores: Dict[str, float] = Field(
+        ...,
+        description="Map of feature_id/pair_key to similarity score"
+    )
+    histogram: HistogramData = Field(
+        ...,
+        description="Histogram distribution of similarity scores"
+    )
+    statistics: HistogramStatistics = Field(
+        ...,
+        description="Statistical summary of scores"
+    )
+    total_items: int = Field(..., description="Total number of items (features or pairs)")

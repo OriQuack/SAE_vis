@@ -803,3 +803,54 @@ export interface PairSimilaritySortResponse {
   weights_used: number[]  // 10 weights: 9 feature metrics (applied to both) + 1 pair metric
 }
 
+// ============================================================================
+// SIMILARITY HISTOGRAM TYPES (for automatic tagging)
+// ============================================================================
+
+/**
+ * Histogram Data Structure
+ */
+export interface SimilarityHistogramData {
+  bins: number[]       // Bin centers
+  counts: number[]     // Count in each bin
+  bin_edges: number[]  // Bin edge values (length = bins.length + 1)
+}
+
+/**
+ * Histogram Statistics
+ */
+export interface SimilarityHistogramStatistics {
+  min: number
+  max: number
+  mean: number
+  median: number
+}
+
+/**
+ * Similarity Score Histogram Response - Distribution of similarity scores
+ */
+export interface SimilarityScoreHistogramResponse {
+  scores: Record<string, number>  // Map of feature_id/pair_key to similarity score
+  histogram: SimilarityHistogramData
+  statistics: SimilarityHistogramStatistics
+  total_items: number
+}
+
+/**
+ * Similarity Histogram Request - Request for feature similarity histogram
+ */
+export interface SimilarityHistogramRequest {
+  selected_ids: number[]     // Feature IDs marked as selected (✓)
+  rejected_ids: number[]     // Feature IDs marked as rejected (✗)
+  feature_ids: number[]      // All feature IDs to compute scores for
+}
+
+/**
+ * Pair Similarity Histogram Request - Request for pair similarity histogram
+ */
+export interface PairSimilarityHistogramRequest {
+  selected_pair_keys: string[]  // Pair keys marked as selected (✓)
+  rejected_pair_keys: string[]  // Pair keys marked as rejected (✗)
+  pair_keys: string[]           // All pair keys to compute scores for
+}
+
