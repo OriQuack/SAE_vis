@@ -53,11 +53,53 @@ const BASE_RADIUS_PER_CHILD = 8
 // Maximum sampling attempts
 const MAX_SAMPLING_ATTEMPTS = 1000
 
+// Fixed seed for consistent color generation across page loads
+const DEFAULT_SEED = 14
+
+// ============================================================================
+// SEEDED RANDOM NUMBER GENERATOR
+// ============================================================================
+
+/**
+ * Mulberry32 - Fast seeded PRNG
+ * Returns values in [0, 1) range like Math.random()
+ */
+class SeededRandom {
+  private state: number
+
+  constructor(seed: number = DEFAULT_SEED) {
+    this.state = seed
+  }
+
+  /**
+   * Generate next random number in [0, 1) range
+   */
+  next(): number {
+    let t = this.state += 0x6D2B79F5
+    t = Math.imul(t ^ t >>> 15, t | 1)
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61)
+    return ((t ^ t >>> 14) >>> 0) / 4294967296
+  }
+
+  /**
+   * Reset to initial seed
+   */
+  reset(seed: number = DEFAULT_SEED): void {
+    this.state = seed
+  }
+}
+
 // ============================================================================
 // MAIN CLASS
 // ============================================================================
 
 export class HierarchicalColorAssigner {
+  private rng: SeededRandom
+
+  constructor(seed: number = DEFAULT_SEED) {
+    this.rng = new SeededRandom(seed)
+  }
+
   /**
    * Assign colors to entire Sankey tree
    *
@@ -65,11 +107,22 @@ export class HierarchicalColorAssigner {
    * @param rootId - ID of root node (default: 'root')
    */
   assignColors(tree: Map<string, SankeyTreeNode>, rootId: string = 'root'): void {
+    // Reset RNG to ensure consistent colors across multiple calls
+    this.rng.reset()
+
     const root = tree.get(rootId)
     if (!root) {
       console.error('[HierarchicalColorAssigner] Root node not found:', rootId)
       return
     }
+
+    // Step 0: Assign dark grey color to root node
+    const darkGreyColor: LABColor = {
+      L: 60,  // Dark lightness
+      a: 0,   // Neutral (no red/green)
+      b: -5    // Neutral (no blue/yellow)
+    }
+    this.setNodeColor(root, darkGreyColor)
 
     // Get top-level nodes (root's children)
     const topLevelNodes = root.children
@@ -223,10 +276,20 @@ export class HierarchicalColorAssigner {
       }
     }
 
+    // If we couldn't generate enough colors with strict distance constraint,
+    // fill in the remaining with relaxed or no constraint
     if (colors.length < count) {
       console.warn(
-        `[HierarchicalColorAssigner] Could only generate ${colors.length}/${count} colors after ${attempts} attempts`
+        `[HierarchicalColorAssigner] Could only generate ${colors.length}/${count} colors with distance constraint, filling remaining with fallback colors`
       )
+
+      while (colors.length < count) {
+        // Generate fallback color without distance constraint
+        const fallbackColor = sphere
+          ? this.randomColorInSphere(sphere)
+          : this.randomColorInDefaultRange()
+        colors.push(fallbackColor)
+      }
     }
 
     return colors
@@ -282,9 +345,9 @@ export class HierarchicalColorAssigner {
       attempts++
 
       // Uniform random point in sphere using rejection sampling
-      const r = sphere.radius * Math.cbrt(Math.random())
-      const theta = Math.random() * 2 * Math.PI
-      const phi = Math.acos(2 * Math.random() - 1)
+      const r = sphere.radius * Math.cbrt(this.rng.next())
+      const theta = this.rng.next() * 2 * Math.PI
+      const phi = Math.acos(2 * this.rng.next() - 1)
 
       const dx = r * Math.sin(phi) * Math.cos(theta)
       const dy = r * Math.sin(phi) * Math.sin(theta)
@@ -345,10 +408,10 @@ export class HierarchicalColorAssigner {
   }
 
   /**
-   * Random number in range [min, max]
+   * Random number in range [min, max] using seeded RNG
    */
   private random(min: number, max: number): number {
-    return Math.random() * (max - min) + min
+    return this.rng.next() * (max - min) + min
   }
 }
 

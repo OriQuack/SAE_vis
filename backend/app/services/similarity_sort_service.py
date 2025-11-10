@@ -1,15 +1,18 @@
 """
 Similarity-based sorting service for table features.
 
-Uses weighted Euclidean distance across 9 metrics to score features
-based on similarity to selected (✓) features and dissimilarity to rejected (✗) features.
+Uses SVM (Support Vector Machine) with RBF kernel to learn similarity patterns
+from user-labeled features. Scores features by signed distance from SVM decision boundary.
 """
 
 import polars as pl
 import numpy as np
 import logging
+import hashlib
 from typing import List, Dict, Tuple, Optional, TYPE_CHECKING
 from pathlib import Path
+from sklearn.svm import SVC
+from sklearn.preprocessing import StandardScaler
 
 from ..models.similarity_sort import (
     SimilaritySortRequest, SimilaritySortResponse, FeatureScore,
@@ -49,7 +52,10 @@ class SimilaritySortService:
             data_service: Instance of DataService for data access
         """
         self.data_service = data_service
-        self._weights_cache: Optional[Tuple[np.ndarray, List[float]]] = None
+
+        # SVM model cache: (selected_ids, rejected_ids) hash -> (model, scaler)
+        self._svm_cache: Dict[str, Tuple[SVC, StandardScaler]] = {}
+        self._max_cache_size = 100  # Prevent unbounded growth
 
     async def get_similarity_sorted_features(
         self,
@@ -87,14 +93,10 @@ class SimilaritySortService:
                 weights_used=[]
             )
 
-        # Calculate or retrieve cached weights
-        weights, weights_list = self._get_weights(metrics_df)
-
-        # Calculate similarity scores
-        logger.info(f"Calculating similarity scores")
+        # Calculate similarity scores using SVM
+        logger.info(f"Calculating similarity scores with SVM")
         feature_scores = self._calculate_similarity_scores(
             metrics_df,
-            weights,
             request.selected_ids,
             request.rejected_ids
         )
@@ -102,12 +104,12 @@ class SimilaritySortService:
         # Sort by score (descending - higher is better)
         feature_scores.sort(key=lambda x: x.score, reverse=True)
 
-        logger.info(f"Successfully scored and sorted {len(feature_scores)} features")
+        logger.info(f"Successfully scored and sorted {len(feature_scores)} features using SVM")
 
         return SimilaritySortResponse(
             sorted_features=feature_scores,
             total_features=len(feature_scores),
-            weights_used=weights_list
+            weights_used=[]  # SVM doesn't expose interpretable weights
         )
 
     async def _extract_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
@@ -364,80 +366,64 @@ class SimilaritySortService:
             logger.warning(f"Failed to extract inter-feature metrics: {e}")
             return None
 
-    def _get_weights(self, metrics_df: pl.DataFrame) -> Tuple[np.ndarray, List[float]]:
-        """
-        Calculate or retrieve cached normalized weights for metrics.
-
-        Weight = 1 / (std * 2), then normalized to sum = 1
-
-        Args:
-            metrics_df: DataFrame with metrics
-
-        Returns:
-            Tuple of (numpy array of weights, list of weights for response)
-        """
-        # Check cache (weights should be same for same dataset)
-        if self._weights_cache is not None:
-            logger.info("Using cached weights")
-            return self._weights_cache
-
-        # Calculate standard deviation for each metric
-        stds = []
-        for metric in self.METRICS:
-            if metric in metrics_df.columns:
-                std = metrics_df[metric].std()
-                if std is None or std == 0:
-                    std = 1.0  # Avoid division by zero
-                stds.append(std)
-            else:
-                stds.append(1.0)  # Default if metric missing
-
-        # Calculate weights: inverse of (std * 2)
-        weights = np.array([1.0 / (std * 2.0) for std in stds])
-
-        # Normalize to sum = 1
-        weights_sum = weights.sum()
-        if weights_sum > 0:
-            weights = weights / weights_sum
-        else:
-            weights = np.ones(len(self.METRICS)) / len(self.METRICS)
-
-        weights_list = weights.tolist()
-
-        # Cache for future use
-        self._weights_cache = (weights, weights_list)
-
-        logger.info(f"Calculated weights: {dict(zip(self.METRICS, weights_list))}")
-        return weights, weights_list
-
     def _calculate_similarity_scores(
         self,
         metrics_df: pl.DataFrame,
-        weights: np.ndarray,
         selected_ids: List[int],
         rejected_ids: List[int]
     ) -> List[FeatureScore]:
         """
-        Calculate similarity scores for all features.
+        Calculate similarity scores for all features using SVM.
 
-        Score = avg_distance_to_selected - avg_distance_to_rejected
+        Trains a binary SVM classifier on selected (✓) vs rejected (✗) features,
+        then scores all other features by their signed distance from the decision boundary.
 
         Args:
             metrics_df: DataFrame with metrics for all features
-            weights: Normalized weights for each metric
             selected_ids: Feature IDs marked as selected (✓)
             rejected_ids: Feature IDs marked as rejected (✗)
 
         Returns:
-            List of FeatureScore objects
+            List of FeatureScore objects (excluding selected and rejected)
         """
-        # Convert to numpy for efficient distance calculation
+        # Convert to numpy for SVM
         feature_ids = metrics_df["feature_id"].to_numpy()
         metrics_matrix = np.column_stack([
             metrics_df[metric].to_numpy() for metric in self.METRICS
         ])
 
-        # Calculate scores for each feature
+        # Check cache
+        cache_key = self._get_cache_key(selected_ids, rejected_ids)
+
+        if cache_key in self._svm_cache:
+            model, scaler = self._svm_cache[cache_key]
+            logger.info(f"Using cached SVM model (key: {cache_key[:8]}...)")
+        else:
+            # Extract training vectors
+            selected_indices = [i for i, fid in enumerate(feature_ids) if fid in selected_ids]
+            rejected_indices = [i for i, fid in enumerate(feature_ids) if fid in rejected_ids]
+
+            if not selected_indices or not rejected_indices:
+                logger.warning("Insufficient training data for SVM (need both selected and rejected)")
+                return []
+
+            selected_vectors = metrics_matrix[selected_indices]
+            rejected_vectors = metrics_matrix[rejected_indices]
+
+            # Train SVM
+            model, scaler = self._train_svm_model(selected_vectors, rejected_vectors)
+
+            # Cache with size limit
+            if len(self._svm_cache) >= self._max_cache_size:
+                # Remove oldest entry (FIFO)
+                oldest_key = next(iter(self._svm_cache))
+                self._svm_cache.pop(oldest_key)
+                logger.info(f"SVM cache full, evicted oldest entry")
+
+            self._svm_cache[cache_key] = (model, scaler)
+            logger.info(f"SVM model cached (key: {cache_key[:8]}..., cache size: {len(self._svm_cache)})")
+
+        # Score all features (excluding selected and rejected)
         feature_scores = []
 
         for i, feature_id in enumerate(feature_ids):
@@ -445,70 +431,107 @@ class SimilaritySortService:
             if feature_id in selected_ids or feature_id in rejected_ids:
                 continue
 
-            # Calculate weighted distance to selected features
-            dist_to_selected = 0.0
-            if selected_ids:
-                distances = []
-                for selected_id in selected_ids:
-                    selected_idx = np.where(feature_ids == selected_id)[0]
-                    if len(selected_idx) > 0:
-                        dist = self._weighted_euclidean_distance(
-                            metrics_matrix[i],
-                            metrics_matrix[selected_idx[0]],
-                            weights
-                        )
-                        distances.append(dist)
-                if distances:
-                    dist_to_selected = np.mean(distances)
-
-            # Calculate weighted distance to rejected features
-            dist_to_rejected = 0.0
-            if rejected_ids:
-                distances = []
-                for rejected_id in rejected_ids:
-                    rejected_idx = np.where(feature_ids == rejected_id)[0]
-                    if len(rejected_idx) > 0:
-                        dist = self._weighted_euclidean_distance(
-                            metrics_matrix[i],
-                            metrics_matrix[rejected_idx[0]],
-                            weights
-                        )
-                        distances.append(dist)
-                if distances:
-                    dist_to_rejected = np.mean(distances)
-
-            # Final score: similarity to selected - similarity to rejected
-            # Note: smaller distance = more similar, but we want high score = more similar
-            # So we negate the distances
-            score = -dist_to_selected + dist_to_rejected
+            # Score with SVM
+            feature_vector = metrics_matrix[i:i+1]  # Shape (1, d)
+            score = self._score_with_svm(model, scaler, feature_vector)[0]
 
             feature_scores.append(FeatureScore(feature_id=int(feature_id), score=float(score)))
 
         return feature_scores
 
-    def _weighted_euclidean_distance(
-        self,
-        vec_a: np.ndarray,
-        vec_b: np.ndarray,
-        weights: np.ndarray
-    ) -> float:
+    def _get_cache_key(self, selected_ids: List[int], rejected_ids: List[int]) -> str:
         """
-        Calculate weighted Euclidean distance between two feature vectors.
-
-        Distance = sqrt(sum(weight_i * (a_i - b_i)^2))
+        Generate unique cache key from user selections.
 
         Args:
-            vec_a: First feature vector
-            vec_b: Second feature vector
-            weights: Weight vector (normalized to sum=1)
+            selected_ids: Feature IDs marked as selected (✓)
+            rejected_ids: Feature IDs marked as rejected (✗)
 
         Returns:
-            Weighted Euclidean distance
+            MD5 hash of sorted ID lists
         """
-        diff = vec_a - vec_b
-        weighted_sq_diff = weights * (diff ** 2)
-        distance = np.sqrt(np.sum(weighted_sq_diff))
-        return float(distance)
+        key_str = f"{sorted(selected_ids)}_{sorted(rejected_ids)}"
+        return hashlib.md5(key_str.encode()).hexdigest()
+
+    def _get_pair_cache_key(self, selected_pair_keys: List[str], rejected_pair_keys: List[str]) -> str:
+        """
+        Generate unique cache key from pair selections.
+
+        Args:
+            selected_pair_keys: Pair keys marked as selected (✓) e.g., ["1-2", "3-4"]
+            rejected_pair_keys: Pair keys marked as rejected (✗)
+
+        Returns:
+            MD5 hash of sorted pair key lists
+        """
+        key_str = f"{sorted(selected_pair_keys)}_{sorted(rejected_pair_keys)}"
+        return hashlib.md5(key_str.encode()).hexdigest()
+
+    def _train_svm_model(
+        self,
+        selected_vectors: np.ndarray,
+        rejected_vectors: np.ndarray
+    ) -> Tuple[SVC, StandardScaler]:
+        """
+        Train binary SVM classifier with RBF kernel.
+
+        Args:
+            selected_vectors: (N_pos, d) positive examples (✓)
+            rejected_vectors: (N_neg, d) negative examples (✗)
+
+        Returns:
+            Tuple of (trained_model, fitted_scaler)
+        """
+        # Combine data
+        X = np.vstack([selected_vectors, rejected_vectors])
+        y = np.array([1] * len(selected_vectors) + [0] * len(rejected_vectors))
+
+        # Standardize features (critical for SVM)
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+
+        # Train SVM with RBF kernel
+        model = SVC(
+            kernel='rbf',
+            C=1.0,
+            gamma='scale',
+            class_weight='balanced',  # Handle class imbalance
+            probability=False  # Faster without probability calibration
+        )
+        model.fit(X_scaled, y)
+
+        logger.info(f"SVM trained: {len(selected_vectors)} positive, {len(rejected_vectors)} negative, "
+                   f"{model.n_support_.sum()} support vectors")
+
+        return model, scaler
+
+    def _score_with_svm(
+        self,
+        model: SVC,
+        scaler: StandardScaler,
+        feature_vectors: np.ndarray
+    ) -> np.ndarray:
+        """
+        Score features using SVM decision function.
+
+        Args:
+            model: Trained SVM model
+            scaler: Fitted StandardScaler
+            feature_vectors: (N, d) feature vectors to score
+
+        Returns:
+            (N,) array of scores (signed distance from decision boundary)
+            Positive scores = more similar to selected features
+            Negative scores = more similar to rejected features
+        """
+        X_scaled = scaler.transform(feature_vectors)
+        scores = model.decision_function(X_scaled)
+        return scores
+
+    def clear_svm_cache(self):
+        """Clear SVM model cache (call on data reload)."""
+        self._svm_cache.clear()
+        logger.info("SVM model cache cleared")
 
     async def get_pair_similarity_sorted(
         self,
@@ -574,25 +597,14 @@ class SimilaritySortService:
                 weights_used=[]
             )
 
-        # Calculate or retrieve cached weights (base 9 metrics)
-        weights_base, weights_list_base = self._get_weights(metrics_df)
-
         # Extract pair metrics (cosine_similarity from decoder_similarity)
         pair_metrics_dict = await self._extract_pair_metrics(pair_ids)
 
-        # Calculate or use cached weights for pair metric
-        pair_metric_weights, all_weights_list = self._get_pair_weights(
-            metrics_df,
-            pair_metrics_dict,
-            weights_list_base
-        )
-
-        # Calculate similarity scores for pairs
-        logger.info(f"Calculating similarity scores for {len(pair_ids)} pairs")
+        # Calculate similarity scores for pairs using SVM
+        logger.info(f"Calculating similarity scores for {len(pair_ids)} pairs with SVM")
         pair_scores = self._calculate_pair_similarity_scores(
             metrics_df,
             pair_metrics_dict,
-            pair_metric_weights,
             request.selected_pair_keys,
             request.rejected_pair_keys,
             pair_ids
@@ -601,12 +613,12 @@ class SimilaritySortService:
         # Sort by score (descending - higher is better)
         pair_scores.sort(key=lambda x: x.score, reverse=True)
 
-        logger.info(f"Successfully scored and sorted {len(pair_scores)} pairs")
+        logger.info(f"Successfully scored and sorted {len(pair_scores)} pairs using SVM")
 
         return PairSimilaritySortResponse(
             sorted_pairs=pair_scores,
             total_pairs=len(pair_ids),
-            weights_used=all_weights_list
+            weights_used=[]  # SVM doesn't expose interpretable weights
         )
 
     async def _extract_pair_metrics(
@@ -680,69 +692,22 @@ class SimilaritySortService:
 
         return pair_metrics
 
-    def _get_pair_weights(
-        self,
-        metrics_df: pl.DataFrame,
-        pair_metrics: Dict[str, float],
-        weights_list_base: List[float]
-    ) -> Tuple[np.ndarray, List[float]]:
-        """
-        Calculate weights for 10-dimensional pair vectors.
-
-        First 9 weights are per-metric type (same for both main and similar features)
-        10th weight is for pair_decoder_similarity metric
-
-        Args:
-            metrics_df: DataFrame with base metrics
-            pair_metrics: Dictionary of pair cosine similarities
-            weights_list_base: Base weights for 9 feature metrics
-
-        Returns:
-            Tuple of (weight vector as ndarray, full weights list as List[float])
-        """
-        # Calculate std of pair metric
-        pair_similarity_values = np.array(list(pair_metrics.values()))
-
-        if len(pair_similarity_values) == 0 or np.std(pair_similarity_values) == 0:
-            pair_weight = 0.1  # Default if no variance
-        else:
-            pair_weight = 1.0 / (np.std(pair_similarity_values) * 2.0)
-
-        # Combine: 9 base weights + 1 pair weight
-        # Apply each base weight twice (once for main, once for similar)
-        combined_weights = []
-        for base_w in weights_list_base:
-            combined_weights.append(base_w)  # For main feature metric
-            combined_weights.append(base_w)  # For similar feature metric
-        combined_weights.append(pair_weight)  # For pair metric
-
-        # Normalize
-        combined_weights = np.array(combined_weights)
-        combined_weights = combined_weights / np.sum(combined_weights)
-
-        # Return both array and list formats
-        return combined_weights, list(combined_weights)
-
     def _calculate_pair_similarity_scores(
         self,
         metrics_df: pl.DataFrame,
         pair_metrics: Dict[str, float],
-        weights: np.ndarray,
         selected_pair_keys: List[str],
         rejected_pair_keys: List[str],
         pair_ids: List[Tuple[int, int]]
     ) -> List[PairScore]:
         """
-        Calculate similarity scores for all pairs.
-
-        Score = -avg_distance_to_selected + avg_distance_to_rejected
+        Calculate similarity scores for all pairs using SVM.
 
         19-dim pair vector = [9 main metrics] + [9 similar metrics] + [1 pair metric]
 
         Args:
             metrics_df: DataFrame with metrics for all features
             pair_metrics: Dictionary mapping pair_key to cosine_similarity
-            weights: 10-element weight vector
             selected_pair_keys: Pair keys marked as selected (✓)
             rejected_pair_keys: Pair keys marked as rejected (✗)
             pair_ids: List of (main_id, similar_id) tuples
@@ -750,7 +715,7 @@ class SimilaritySortService:
         Returns:
             List of PairScore objects
         """
-        # Convert to numpy for efficient distance calculation
+        # Convert to numpy for SVM
         feature_ids = metrics_df["feature_id"].to_numpy()
         metrics_matrix = np.column_stack([
             metrics_df[metric].to_numpy() for metric in self.METRICS
@@ -781,7 +746,45 @@ class SimilaritySortService:
             pair_vector = np.concatenate([main_metrics, similar_metrics, [pair_metric]])
             pair_vectors[pair_key] = pair_vector
 
-        # Calculate scores for each pair
+        # Check cache
+        cache_key = self._get_pair_cache_key(selected_pair_keys, rejected_pair_keys)
+
+        if cache_key in self._svm_cache:
+            model, scaler = self._svm_cache[cache_key]
+            logger.info(f"Using cached SVM model for pairs (key: {cache_key[:8]}...)")
+        else:
+            # Extract training vectors
+            selected_vectors = []
+            for key in selected_pair_keys:
+                vec = pair_vectors.get(key)
+                if vec is not None:
+                    selected_vectors.append(vec)
+
+            rejected_vectors = []
+            for key in rejected_pair_keys:
+                vec = pair_vectors.get(key)
+                if vec is not None:
+                    rejected_vectors.append(vec)
+
+            if not selected_vectors or not rejected_vectors:
+                logger.warning("Insufficient training data for pair SVM")
+                return []
+
+            selected_vectors = np.array(selected_vectors)
+            rejected_vectors = np.array(rejected_vectors)
+
+            # Train SVM
+            model, scaler = self._train_svm_model(selected_vectors, rejected_vectors)
+
+            # Cache with size limit
+            if len(self._svm_cache) >= self._max_cache_size:
+                oldest_key = next(iter(self._svm_cache))
+                self._svm_cache.pop(oldest_key)
+
+            self._svm_cache[cache_key] = (model, scaler)
+            logger.info(f"Pair SVM model cached (key: {cache_key[:8]}...)")
+
+        # Score all pairs (excluding selected and rejected)
         pair_scores = []
 
         for pair_key in pair_key_list:
@@ -790,44 +793,12 @@ class SimilaritySortService:
             if pair_vector is None:
                 continue
 
-            # Skip if this pair is selected or rejected (frontend handles three-tier sorting)
+            # Skip if this pair is selected or rejected
             if pair_key in selected_pair_keys or pair_key in rejected_pair_keys:
                 continue
 
-            # Calculate weighted distance to selected pairs
-            dist_to_selected = 0.0
-            if selected_pair_keys:
-                distances = []
-                for selected_pair_key in selected_pair_keys:
-                    selected_vector = pair_vectors.get(selected_pair_key)
-                    if selected_vector is not None:
-                        dist = self._weighted_euclidean_distance(
-                            pair_vector,
-                            selected_vector,
-                            weights
-                        )
-                        distances.append(dist)
-                if distances:
-                    dist_to_selected = np.mean(distances)
-
-            # Calculate weighted distance to rejected pairs
-            dist_to_rejected = 0.0
-            if rejected_pair_keys:
-                distances = []
-                for rejected_pair_key in rejected_pair_keys:
-                    rejected_vector = pair_vectors.get(rejected_pair_key)
-                    if rejected_vector is not None:
-                        dist = self._weighted_euclidean_distance(
-                            pair_vector,
-                            rejected_vector,
-                            weights
-                        )
-                        distances.append(dist)
-                if distances:
-                    dist_to_rejected = np.mean(distances)
-
-            # Final score: similarity to selected - similarity to rejected
-            score = -dist_to_selected + dist_to_rejected
+            # Score with SVM
+            score = self._score_with_svm(model, scaler, pair_vector.reshape(1, -1))[0]
 
             pair_scores.append(PairScore(pair_key=pair_key, score=float(score)))
 
@@ -862,14 +833,10 @@ class SimilaritySortService:
                 total_items=0
             )
 
-        # Calculate or retrieve cached weights
-        weights, weights_list = self._get_weights(metrics_df)
-
         # Calculate similarity scores for ALL features (including selected/rejected)
-        logger.info(f"Calculating similarity scores for histogram")
+        logger.info(f"Calculating similarity scores for histogram with SVM")
         feature_scores = self._calculate_similarity_scores_for_histogram(
             metrics_df,
-            weights,
             request.selected_ids,
             request.rejected_ids
         )
@@ -916,72 +883,65 @@ class SimilaritySortService:
     def _calculate_similarity_scores_for_histogram(
         self,
         metrics_df: pl.DataFrame,
-        weights: np.ndarray,
         selected_ids: List[int],
         rejected_ids: List[int]
     ) -> List[FeatureScore]:
         """
-        Calculate similarity scores for ALL features (including selected/rejected).
+        Calculate similarity scores for ALL features using SVM (including selected/rejected).
 
         This is different from _calculate_similarity_scores() which skips selected/rejected.
         For histogram visualization, we need scores for everything.
 
         Args:
             metrics_df: DataFrame with metrics for all features
-            weights: Normalized weights for each metric
             selected_ids: Feature IDs marked as selected (✓)
             rejected_ids: Feature IDs marked as rejected (✗)
 
         Returns:
             List of FeatureScore objects for ALL features
         """
-        # Convert to numpy for efficient distance calculation
+        # Convert to numpy for SVM
         feature_ids = metrics_df["feature_id"].to_numpy()
         metrics_matrix = np.column_stack([
             metrics_df[metric].to_numpy() for metric in self.METRICS
         ])
 
-        # Calculate scores for each feature (including selected/rejected)
-        feature_scores = []
+        # Check cache (reuse model from main scoring)
+        cache_key = self._get_cache_key(selected_ids, rejected_ids)
 
-        for i, feature_id in enumerate(feature_ids):
-            # Calculate weighted distance to selected features
-            dist_to_selected = 0.0
-            if selected_ids:
-                distances = []
-                for selected_id in selected_ids:
-                    selected_idx = np.where(feature_ids == selected_id)[0]
-                    if len(selected_idx) > 0:
-                        dist = self._weighted_euclidean_distance(
-                            metrics_matrix[i],
-                            metrics_matrix[selected_idx[0]],
-                            weights
-                        )
-                        distances.append(dist)
-                if distances:
-                    dist_to_selected = np.mean(distances)
+        if cache_key in self._svm_cache:
+            model, scaler = self._svm_cache[cache_key]
+            logger.info(f"Using cached SVM model for histogram (key: {cache_key[:8]}...)")
+        else:
+            # Extract training vectors
+            selected_indices = [i for i, fid in enumerate(feature_ids) if fid in selected_ids]
+            rejected_indices = [i for i, fid in enumerate(feature_ids) if fid in rejected_ids]
 
-            # Calculate weighted distance to rejected features
-            dist_to_rejected = 0.0
-            if rejected_ids:
-                distances = []
-                for rejected_id in rejected_ids:
-                    rejected_idx = np.where(feature_ids == rejected_id)[0]
-                    if len(rejected_idx) > 0:
-                        dist = self._weighted_euclidean_distance(
-                            metrics_matrix[i],
-                            metrics_matrix[rejected_idx[0]],
-                            weights
-                        )
-                        distances.append(dist)
-                if distances:
-                    dist_to_rejected = np.mean(distances)
+            if not selected_indices or not rejected_indices:
+                logger.warning("Insufficient training data for SVM histogram")
+                return []
 
-            # Final score: -dist_to_selected + dist_to_rejected
-            # Positive score = closer to selected, negative = closer to rejected
-            score = -dist_to_selected + dist_to_rejected
+            selected_vectors = metrics_matrix[selected_indices]
+            rejected_vectors = metrics_matrix[rejected_indices]
 
-            feature_scores.append(FeatureScore(feature_id=int(feature_id), score=float(score)))
+            # Train SVM
+            model, scaler = self._train_svm_model(selected_vectors, rejected_vectors)
+
+            # Cache with size limit
+            if len(self._svm_cache) >= self._max_cache_size:
+                oldest_key = next(iter(self._svm_cache))
+                self._svm_cache.pop(oldest_key)
+
+            self._svm_cache[cache_key] = (model, scaler)
+
+        # Score ALL features (including selected and rejected for histogram)
+        scores = self._score_with_svm(model, scaler, metrics_matrix)
+
+        # Create FeatureScore objects
+        feature_scores = [
+            FeatureScore(feature_id=int(fid), score=float(score))
+            for fid, score in zip(feature_ids, scores)
+        ]
 
         return feature_scores
 
@@ -1039,25 +999,14 @@ class SimilaritySortService:
                 total_items=0
             )
 
-        # Calculate or retrieve cached weights (base 9 metrics)
-        weights_base, weights_list_base = self._get_weights(metrics_df)
-
         # Extract pair metrics (cosine_similarity from decoder_similarity)
         pair_metrics_dict = await self._extract_pair_metrics(pair_ids)
 
-        # Calculate or use cached weights for pair metric
-        pair_metric_weights, all_weights_list = self._get_pair_weights(
-            metrics_df,
-            pair_metrics_dict,
-            weights_list_base
-        )
-
         # Calculate similarity scores for ALL pairs (including selected/rejected)
-        logger.info(f"Calculating similarity scores for {len(pair_ids)} pairs for histogram")
+        logger.info(f"Calculating similarity scores for {len(pair_ids)} pairs for histogram with SVM")
         pair_scores = self._calculate_pair_similarity_scores_for_histogram(
             metrics_df,
             pair_metrics_dict,
-            pair_metric_weights,
             request.selected_pair_keys,
             request.rejected_pair_keys,
             pair_ids
@@ -1106,13 +1055,12 @@ class SimilaritySortService:
         self,
         metrics_df: pl.DataFrame,
         pair_metrics: Dict[str, float],
-        weights: np.ndarray,
         selected_pair_keys: List[str],
         rejected_pair_keys: List[str],
         pair_ids: List[Tuple[int, int]]
     ) -> List[PairScore]:
         """
-        Calculate similarity scores for ALL pairs (including selected/rejected).
+        Calculate similarity scores for ALL pairs using SVM (including selected/rejected).
 
         This is different from _calculate_pair_similarity_scores() which skips selected/rejected.
         For histogram visualization, we need scores for everything.
@@ -1120,7 +1068,6 @@ class SimilaritySortService:
         Args:
             metrics_df: DataFrame with metrics for all features
             pair_metrics: Dictionary mapping pair_key to cosine_similarity
-            weights: 10-element weight vector
             selected_pair_keys: Pair keys marked as selected (✓)
             rejected_pair_keys: Pair keys marked as rejected (✗)
             pair_ids: List of (main_id, similar_id) tuples
@@ -1128,7 +1075,7 @@ class SimilaritySortService:
         Returns:
             List of PairScore objects for ALL pairs
         """
-        # Convert to numpy for efficient distance calculation
+        # Convert to numpy for SVM
         feature_ids = metrics_df["feature_id"].to_numpy()
         metrics_matrix = np.column_stack([
             metrics_df[metric].to_numpy() for metric in self.METRICS
@@ -1159,7 +1106,44 @@ class SimilaritySortService:
             pair_vector = np.concatenate([main_metrics, similar_metrics, [pair_metric]])
             pair_vectors[pair_key] = pair_vector
 
-        # Calculate scores for each pair (including selected/rejected)
+        # Check cache (reuse model from main pair scoring)
+        cache_key = self._get_pair_cache_key(selected_pair_keys, rejected_pair_keys)
+
+        if cache_key in self._svm_cache:
+            model, scaler = self._svm_cache[cache_key]
+            logger.info(f"Using cached SVM model for pair histogram (key: {cache_key[:8]}...)")
+        else:
+            # Extract training vectors
+            selected_vectors = []
+            for key in selected_pair_keys:
+                vec = pair_vectors.get(key)
+                if vec is not None:
+                    selected_vectors.append(vec)
+
+            rejected_vectors = []
+            for key in rejected_pair_keys:
+                vec = pair_vectors.get(key)
+                if vec is not None:
+                    rejected_vectors.append(vec)
+
+            if not selected_vectors or not rejected_vectors:
+                logger.warning("Insufficient training data for pair SVM histogram")
+                return []
+
+            selected_vectors = np.array(selected_vectors)
+            rejected_vectors = np.array(rejected_vectors)
+
+            # Train SVM
+            model, scaler = self._train_svm_model(selected_vectors, rejected_vectors)
+
+            # Cache with size limit
+            if len(self._svm_cache) >= self._max_cache_size:
+                oldest_key = next(iter(self._svm_cache))
+                self._svm_cache.pop(oldest_key)
+
+            self._svm_cache[cache_key] = (model, scaler)
+
+        # Score ALL pairs (including selected and rejected for histogram)
         pair_scores = []
 
         for pair_key in pair_key_list:
@@ -1168,40 +1152,8 @@ class SimilaritySortService:
             if pair_vector is None:
                 continue
 
-            # Calculate weighted distance to selected pairs
-            dist_to_selected = 0.0
-            if selected_pair_keys:
-                distances = []
-                for selected_pair_key in selected_pair_keys:
-                    selected_vector = pair_vectors.get(selected_pair_key)
-                    if selected_vector is not None:
-                        dist = self._weighted_euclidean_distance(
-                            pair_vector,
-                            selected_vector,
-                            weights
-                        )
-                        distances.append(dist)
-                if distances:
-                    dist_to_selected = np.mean(distances)
-
-            # Calculate weighted distance to rejected pairs
-            dist_to_rejected = 0.0
-            if rejected_pair_keys:
-                distances = []
-                for rejected_pair_key in rejected_pair_keys:
-                    rejected_vector = pair_vectors.get(rejected_pair_key)
-                    if rejected_vector is not None:
-                        dist = self._weighted_euclidean_distance(
-                            pair_vector,
-                            rejected_vector,
-                            weights
-                        )
-                        distances.append(dist)
-                if distances:
-                    dist_to_rejected = np.mean(distances)
-
-            # Final score: similarity to selected - similarity to rejected
-            score = -dist_to_selected + dist_to_rejected
+            # Score with SVM
+            score = self._score_with_svm(model, scaler, pair_vector.reshape(1, -1))[0]
 
             pair_scores.append(PairScore(pair_key=pair_key, score=float(score)))
 

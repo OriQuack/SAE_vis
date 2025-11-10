@@ -357,6 +357,13 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
 
   // Sort rows by main feature ID, decoder similarity, or by pair similarity (three-tier)
   const sortedRows = useMemo(() => {
+    console.log('[FeatureSplitTable] sortedRows useMemo triggered:', {
+      tableSortBy,
+      localSortBy: sortBy,
+      localSortDirection: sortDirection,
+      willUsePairSimilarity: tableSortBy === 'pair_similarity'
+    })
+
     // If using pair similarity sort, implement three-tier logic with FROZEN states
     if (tableSortBy === 'pair_similarity') {
       const selected: DecoderStagePairRow[] = []
@@ -381,9 +388,26 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
       })
 
       // Sort unselected by similarity score (descending)
+      // Validate that we have scores before sorting
+      const scoresAvailable = pairSimilarityScores.size > 0
+      if (!scoresAvailable) {
+        console.warn('[FeatureSplitTable] ⚠️  pairSimilarityScores is empty - cannot sort by similarity!')
+      }
+
       unselected.sort((a, b) => {
         const aScore = pairSimilarityScores.get(a.pairKey) ?? -Infinity
         const bScore = pairSimilarityScores.get(b.pairKey) ?? -Infinity
+
+        // Debug: Log if scores are missing
+        if (aScore === -Infinity || bScore === -Infinity) {
+          if (aScore === -Infinity) {
+            console.warn('[FeatureSplitTable] Missing score for pair:', a.pairKey)
+          }
+          if (bScore === -Infinity) {
+            console.warn('[FeatureSplitTable] Missing score for pair:', b.pairKey)
+          }
+        }
+
         return bScore - aScore // Descending (higher scores first)
       })
 
@@ -391,7 +415,9 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
         selected: selected.length,
         unselected: unselected.length,
         rejected: rejected.length,
-        usingFrozenStates: !!pairSortedBySelectionStates
+        usingFrozenStates: !!pairSortedBySelectionStates,
+        scoresMapSize: pairSimilarityScores.size,
+        hasScores: scoresAvailable
       })
 
       // Return three-tier: selected, sorted unselected, rejected
@@ -697,11 +723,27 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
         totalCount={tableData?.features.length || 0}
         selectionStates={pairSelectionStates}
         onSortBySimilarity={() => {
+          // Clear local sort state to avoid conflicts with global similarity sort
+          setSortBy(null)
+          setSortDirection(null)
+
           // Extract all pair keys from current rows
           const allPairKeys = sortedRows.map(row => row.pairKey)
+          console.log('[FeatureSplitTable] Initiating similarity sort with', allPairKeys.length, 'pairs')
           sortPairsBySimilarity(allPairKeys)
         }}
-        onClearSelection={clearPairSelection}
+        onClearSelection={() => {
+          // Clear selection states
+          clearPairSelection()
+
+          // Reset both local and global sort state
+          setSortBy(null)
+          setSortDirection(null)
+          const setTableSort = useVisualizationStore.getState().setTableSort
+          setTableSort(null, null)
+
+          console.log('[FeatureSplitTable] Cleared selections and reset all sort states')
+        }}
         onShowTaggingPopover={showSimilarityTaggingPopover}
         onDone={moveToNextStep}
         isSortLoading={isPairSimilaritySortLoading}
@@ -724,15 +766,12 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                 Feature Splitting
               </th>
               <th
-                className="table-panel__header-cell table-panel__header-cell--id"
+                className="table-panel__header-cell table-panel__header-cell--id-pair"
                 onClick={() => handleSort('id')}
               >
-                ID
+                ID Pair
                 {sortBy === 'id' && sortDirection === 'asc' && <span className="table-panel__sort-indicator asc" />}
                 {sortBy === 'id' && sortDirection === 'desc' && <span className="table-panel__sort-indicator desc" />}
-              </th>
-              <th className="table-panel__header-cell table-panel__header-cell--id table-panel__header-cell--id-similar">
-                ID
               </th>
               <th
                 className="table-panel__header-cell table-panel__header-cell--score"
@@ -755,7 +794,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
             {/* Top padding spacer for virtual scrolling */}
             {rowVirtualizer.getVirtualItems().length > 0 && (
               <tr style={{ height: `${rowVirtualizer.getVirtualItems()[0]?.start ?? 0}px` }}>
-                <td colSpan={7} />
+                <td colSpan={6} />
               </tr>
             )}
 
@@ -820,14 +859,9 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                     </div>
                   </td>
 
-                  {/* Main Feature ID */}
-                  <td className="table-panel__cell table-panel__cell--id">
-                    {row.mainFeature.feature_id}
-                  </td>
-
-                  {/* Similar Feature ID */}
-                  <td className="table-panel__cell table-panel__cell--id table-panel__cell--id-similar">
-                    {row.similarFeature.feature_id}
+                  {/* ID Pair */}
+                  <td className="table-panel__cell table-panel__cell--id-pair">
+                    ({row.mainFeature.feature_id}, {row.similarFeature.feature_id})
                   </td>
 
                   {/* Decoder Similarity Score - Horizontal visualization */}
@@ -885,7 +919,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                   (rowVirtualizer.getVirtualItems()[rowVirtualizer.getVirtualItems().length - 1]?.end ?? 0)
                 }px`
               }}>
-                <td colSpan={7} />
+                <td colSpan={6} />
               </tr>
             )}
           </tbody>

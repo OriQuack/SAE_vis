@@ -652,13 +652,8 @@ export function calculateVerticalBarNodeLayout(
       // Get selection state
       const selectionState = featureSelectionStates?.get(featureId) || null
 
-      // Determine color based on selection state
-      let color = BAR_COLOR  // Default gray
-      if (selectionState === 'selected') {
-        color = '#3b82f6'  // Blue
-      } else if (selectionState === 'rejected') {
-        color = '#ef4444'  // Red
-      }
+      // Use hierarchical color from parent node (preferred), fallback to default
+      const color = node.colorHex || BAR_COLOR
 
       subNodes.push({
         id: `feature-${featureId}`,
@@ -675,6 +670,9 @@ export function calculateVerticalBarNodeLayout(
     })
   } else {
     // Fallback: create single bar if no feature data available
+    // Use hierarchical color from parent node (preferred), fallback to default
+    const color = node.colorHex || BAR_COLOR
+
     subNodes.push({
       id: 'vertical-bar',
       modelName: 'Vertical Bar',
@@ -682,7 +680,7 @@ export function calculateVerticalBarNodeLayout(
       y: node.y0!,
       width: totalWidth,
       height: totalHeight,
-      color: BAR_COLOR,
+      color,
       selected: true
     })
   }

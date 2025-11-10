@@ -327,12 +327,11 @@
    NODE SELECTION STYLES (Direction 2 Implementation)
    ============================================================================ */
 
-/* Selected vertical bar nodes - blue border on vertical bar rectangles only */
-/* Note: This targets only the vertical bar rects, NOT the scroll indicator */
+/* Selected vertical bar nodes - no additional styling needed */
+/* Note: Selection is indicated by the blue border rectangle in SankeyDiagram.tsx */
+/* Individual rects keep their hierarchical colors without blue override */
 .sankey-vertical-bar-node--selected .sankey-vertical-bar-rect {
-  stroke: #2563eb !important;
-  stroke-width: 3px !important;
-  filter: drop-shadow(0 0 8px rgba(37, 99, 235, 0.5)) !important;
+  /* Removed: stroke, stroke-width, and drop-shadow to preserve hierarchical colors */
 }
 
 /* Hovered vertical bar nodes */

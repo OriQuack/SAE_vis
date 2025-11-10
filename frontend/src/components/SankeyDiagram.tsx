@@ -83,13 +83,13 @@ const SankeyNode: React.FC<{
         width={width}
         height={height}
         fill={color}
-        fillOpacity={0.5}
+        fillOpacity={0.85}
         stroke={isSelected ? '#2563eb' : color}
-        strokeWidth={isSelected ? 3 : 2}
+        strokeWidth={isSelected ? 4 : 1}
         style={{
         //   transition: `all ${animationDuration}ms ease-out`,
           cursor: onClick ? 'pointer' : 'default',
-          filter: isSelected ? 'drop-shadow(0 0 8px rgba(37, 99, 235, 0.5))' : (isHovered || isHighlighted ? 'brightness(1.1)' : 'none')
+          filter: (isHovered || isHighlighted) ? 'brightness(1.1)' : 'none'
         }}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
@@ -213,7 +213,12 @@ const VerticalBarSankeyNode: React.FC<{
               width={subNode.width}
               height={subNode.height}
               fill={subNode.color}
-              opacity={isPlaceholder ? 0.4 : (subNode.selected ? 0.7 : 0.3)}
+              opacity={
+                isPlaceholder ? 0.4 :
+                subNode.selectionState === 'selected' ? 0.8 :
+                subNode.selectionState === 'rejected' ? 0.2 :
+                0.5
+              }
               stroke="#e5e7eb"
               strokeWidth={0.5}
               strokeDasharray={isPlaceholder ? "3,3" : undefined}
@@ -232,10 +237,9 @@ const VerticalBarSankeyNode: React.FC<{
           height={boundingBox.height + 4}
           fill="none"
           stroke="#2563eb"
-          strokeWidth={3}
+          strokeWidth={4}
           rx={2}
           style={{
-            filter: 'drop-shadow(0 0 8px rgba(37, 99, 235, 0.5))',
             pointerEvents: 'none'
           }}
         />

@@ -165,14 +165,10 @@
   text-align: center;
 }
 
-/* Main ID column */
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__header-cell--id {
-  width: 5%;
-}
-
-/* Second ID column (similar feature) */
-.table-panel__header-cell--id-similar {
-  width: 5%;
+/* ID Pair column */
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__header-cell--id-pair {
+  width: 7%;
+  text-align: center;
 }
 
 /* Decoder similarity column - wider for horizontal layout */
@@ -194,14 +190,10 @@
   background: white;
 }
 
-/* Override ID cell background - make it white by default */
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__cell--id {
+/* ID Pair cell styling */
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__cell--id-pair {
   background: white;
-}
-
-/* Second ID column styling */
-.table-panel__cell--id-similar {
-  background: white;
+  text-align: center;
 }
 
 .decoder-stage-table__checkbox {
@@ -319,11 +311,7 @@
   border-right: 1px solid #d1d5db;
 }
 
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__header-cell--id {
-  border-right: 1px solid #d1d5db;
-}
-
-.table-panel__header-cell--id-similar {
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__header-cell--id-pair {
   border-right: 1px solid #d1d5db;
 }
 
@@ -336,11 +324,7 @@
   border-right: 1px solid #e5e7eb;
 }
 
-.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__cell--id {
-  border-right: 1px solid #e5e7eb;
-}
-
-.table-panel__cell--id-similar {
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__cell--id-pair {
   border-right: 1px solid #e5e7eb;
 }
 
