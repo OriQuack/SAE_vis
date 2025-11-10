@@ -273,6 +273,7 @@
   color: #6b7280;
 }
 
+/* Main Content Area */
 .sankey-view__content {
   flex: 1;
   display: flex;
@@ -281,6 +282,15 @@
   overflow: hidden;
 }
 
+/* Tag Category Panel - Full Width at Top */
+.sankey-view__tag-category-top {
+  flex-shrink: 0;
+  width: 100%;
+  overflow: visible;
+  max-height: 80px; /* Limit the height of tag category panel */
+}
+
+/* Bottom Section - Sankey + Table Side by Side */
 .sankey-view__main-content {
   flex: 1;
   display: flex;
@@ -290,49 +300,9 @@
   overflow: hidden;
 }
 
-/* ============================================================================
-   2-COLUMN LAYOUT - MAIN CONTAINERS (Side-by-side)
-   ============================================================================ */
-
-/* Left Column Container - Flow + Sankey stacked vertically */
-.sankey-view__top-panel-container {
+/* Sankey Column - Left side */
+.sankey-view__sankey-column {
   flex: 3;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-}
-
-/* Right Column Container - Table full height */
-.sankey-view__center-panel-container {
-  flex: 7;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  min-width: 0;
-  min-height: 0;
-}
-
-/* ============================================================================
-   LEFT COLUMN CONTENTS (Flow + Tag Category + Sankey)
-   ============================================================================ */
-
-/* Flow Panel */
-.sankey-view__top-left {
-  flex: 2.5;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
-  overflow: visible;
-  background: white;
-  padding: 0;
-  min-width: 0;
-}
-
-/* Tag Category + Sankey Container */
-.sankey-view__top-middle {
-  flex: 7.5;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -340,9 +310,41 @@
   overflow: hidden;
 }
 
-/* Unused */
-.sankey-view__top-right {
-  display: none;
+/* Table Column - Right side */
+.sankey-view__table-column {
+  flex: 7;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ============================================================================
+   COMPONENT CONTAINERS
+   ============================================================================ */
+
+/* Sankey Diagram Container */
+.sankey-view__sankey-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Table Panel Container */
+.sankey-view__center-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: white;
+  position: relative;
 }
 
 /* ============================================================================
@@ -446,56 +448,6 @@
 
 .comparison-toggle--icon-only:hover:not(:disabled) {
   transform: scale(1.05);
-}
-
-/* ============================================================================
-   RIGHT COLUMN CONTENTS (Table)
-   ============================================================================ */
-
-/* Table Panel - Full Height */
-.sankey-view__center-left {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  background: white;
-  position: relative; /* Enable absolute positioning for overlay */
-}
-
-/* Unused - Tag category and Sankey moved to top-middle */
-.sankey-view__tag-category {
-  flex: 0.8;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.sankey-view__sankey-left-wrapper {
-  flex: 9;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.sankey-view__sankey-left {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  min-height: 0;
-  overflow: hidden;
-}
-
-/* Unused */
-.sankey-view__center-middle {
-  display: none;
-}
-
-/* Unused */
-.sankey-view__center-right {
-  display: none;
 }
 
 /* ============================================================================

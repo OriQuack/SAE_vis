@@ -15,6 +15,7 @@ import {
   TAG_CATEGORY_QUALITY,
   TAG_CATEGORY_CAUSE
 } from '../lib/tag-categories'
+import { HierarchicalColorAssigner } from '../lib/hierarchical-colors'
 
 type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
 
@@ -719,6 +720,11 @@ export const createTreeActions = (set: any, get: any) => ({
     }
 
     try {
+      // Assign hierarchical colors to tree nodes
+      const colorAssigner = new HierarchicalColorAssigner()
+      colorAssigner.assignColors(sankeyTree, 'root')
+      console.log(`[Store.recomputeSankeyTree] 🎨 Assigned hierarchical colors to tree`)
+
       // Use the utility function to convert tree to Sankey structure
       const computedSankey = convertTreeToSankeyStructure(sankeyTree)
 

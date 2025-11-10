@@ -330,7 +330,9 @@ export function convertTreeToSankeyStructure(tree: Map<string, SankeyTreeNode>):
       metric: node.metric,  // Include metric for stage labels
       feature_ids: Array.from(node.featureIds),
       // Mark nodes at maximum stage as vertical_bar type
-      node_type: isAtMaxStage ? 'vertical_bar' : 'standard'
+      node_type: isAtMaxStage ? 'vertical_bar' : 'standard',
+      // Copy hierarchical color from tree node
+      colorHex: node.colorHex
     }
     nodes.push(sankeyNode)
 

@@ -64,7 +64,7 @@ export const SANKEY_COLORS: Record<NodeCategory, string> = {
   [CATEGORY_SEMANTIC_SIMILARITY]: '#6b7280'
 } as const
 
-export const DEFAULT_SANKEY_MARGIN = { top: 20, right: 100, bottom: 20, left: 20 } as const
+export const DEFAULT_SANKEY_MARGIN = { top: 20, right: 50, bottom: 20, left: 20 } as const
 export const RIGHT_SANKEY_MARGIN = { top: 80, right: 80, bottom: 50, left: 120 } as const
 
 // Validation constants
@@ -339,7 +339,7 @@ export function calculateSankeyLayout(
   const nodeWidth = 15 // Same as sankeyGenerator nodeWidth
   sankeyLayout.nodes.forEach(node => {
     if (node.node_type === 'vertical_bar' && node.x0 !== undefined && node.x1 !== undefined) {
-      const newWidth = nodeWidth * 6
+      const newWidth = nodeWidth * 3
       // Expand to the right (keep x0, increase x1)
       node.x1 = node.x0 + newWidth
     }
@@ -397,7 +397,12 @@ export function getSankeyPath(link: D3SankeyLink): string {
 }
 
 export function getNodeColor(node: D3SankeyNode): string {
-  // Use metric-based coloring for accurate representation
+  // Use hierarchical color from HierarchicalColorAssigner (preferred)
+  if (node.colorHex) {
+    return node.colorHex
+  }
+
+  // Fallback to metric-based coloring for backward compatibility
   // Nodes are colored based on the metric that splits them (root) or created them (children)
   const metric = node.metric
 
@@ -405,7 +410,7 @@ export function getNodeColor(node: D3SankeyNode): string {
     return getMetricBaseColor(metric)
   }
 
-  // Fallback for nodes without metrics (shouldn't happen in normal operation)
+  // Final fallback for nodes without colors or metrics
   return '#6b7280' // Default gray
 }
 
@@ -418,7 +423,12 @@ export function getLinkColor(link: D3SankeyLink): string {
 
   const sourceNode = link.source as D3SankeyNode
 
-  // Get metric from source node (links are colored by the metric that created them)
+  // Use hierarchical color from source node (preferred)
+  if (sourceNode?.colorHex) {
+    return `${sourceNode.colorHex}40`  // Add 25% opacity
+  }
+
+  // Fallback: Get metric from source node (links are colored by the metric that created them)
   const metric = sourceNode?.metric
 
   if (!metric) {

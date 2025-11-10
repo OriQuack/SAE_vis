@@ -3,7 +3,6 @@ import { useVisualizationStore } from './store/index'
 import SankeyDiagram from './components/SankeyDiagram'
 import AlluvialDiagram from './components/AlluvialDiagram'
 import HistogramPopover from './components/HistogramPopover'
-import FlowPanel from './components/FlowPanel'
 import TablePanel from './components/QualityTablePanel'
 import TagCategoryPanel from './components/TagCategoryPanel'
 import * as api from './api'
@@ -156,49 +155,39 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
         </div>
       </div>
 
-      {/* Main content - 3x3 grid layout */}
+      {/* Main content - Tag Category at top, Sankey + Table below */}
       <div className={`sankey-view__content sankey-view__content--${layout}`}>
+        {/* Tag Category Panel - Full Width at Top */}
+        <div className="sankey-view__tag-category-top">
+          <TagCategoryPanel
+            selectedCategory={activeStageCategory}
+            onCategoryClick={activateCategoryTable}
+          />
+        </div>
+
+        {/* Bottom Section - Sankey + Table Side by Side */}
         <div className="sankey-view__main-content">
-          {/* Left Column - Flow + Tag Category + Sankey */}
-          <div className="sankey-view__top-panel-container">
-            {/* Flow Panel */}
-            <div className="sankey-view__top-left">
-              <FlowPanel />
-            </div>
-
-            {/* Tag Category + Sankey */}
-            <div className="sankey-view__top-middle">
-              {/* Tag Category Panel */}
-              <div className="sankey-view__tag-category">
-                <TagCategoryPanel
-                  selectedCategory={activeStageCategory}
-                  onCategoryClick={activateCategoryTable}
-                />
-              </div>
-
-              {/* Left Sankey Diagram */}
-              <div className="sankey-view__sankey-left-wrapper">
-                <div className="sankey-view__sankey-left">
-                  <SankeyDiagram
-                    showHistogramOnClick={true}
-                    flowDirection="left-to-right"
-                    panel="left"
-                  />
-                  {/* Floating Comparison Toggle Button */}
-                  <button
-                    className={`comparison-toggle comparison-toggle--floating comparison-toggle--icon-only ${showComparisonView ? 'comparison-toggle--active' : ''}`}
-                    onClick={toggleComparisonView}
-                    title={showComparisonView ? 'Hide comparison view' : 'Show comparison view'}
-                  >
-                    {showComparisonView ? '◀' : '▶'}
-                  </button>
-                </div>
-              </div>
+          {/* Left Column - Sankey */}
+          <div className="sankey-view__sankey-column">
+            <div className="sankey-view__sankey-left">
+              <SankeyDiagram
+                showHistogramOnClick={true}
+                flowDirection="left-to-right"
+                panel="left"
+              />
+              {/* Floating Comparison Toggle Button */}
+              <button
+                className={`comparison-toggle comparison-toggle--floating comparison-toggle--icon-only ${showComparisonView ? 'comparison-toggle--active' : ''}`}
+                onClick={toggleComparisonView}
+                title={showComparisonView ? 'Hide comparison view' : 'Show comparison view'}
+              >
+                {showComparisonView ? '◀' : '▶'}
+              </button>
             </div>
           </div>
 
-          {/* Right Column - Table (Full Height) */}
-          <div className="sankey-view__center-panel-container">
+          {/* Right Column - Table */}
+          <div className="sankey-view__table-column">
             <div className="sankey-view__center-left">
               {/* Table Panel - Full Height */}
               <TablePanel />

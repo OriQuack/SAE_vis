@@ -80,6 +80,8 @@ export interface SankeyTreeNode {
   featureCount: number                // Count of features
   rangeLabel: string                  // Display label (e.g., "< 0.5", "0.5-0.8", "> 0.8")
   percentileToMetricMap?: Map<number, number>  // Cached exact percentile to metric mappings
+  color?: { L: number; a: number; b: number }  // CIELAB color for hierarchical coloring
+  colorHex?: string                   // Cached hex color (converted from LAB)
 }
 
 /**
@@ -152,6 +154,7 @@ export interface SankeyNode {
   metric?: string | null  // Metric used for this node's stage (null for root)
   feature_ids?: number[]
   node_type?: 'standard' | 'vertical_bar'
+  colorHex?: string  // Hierarchical color (from HierarchicalColorAssigner)
 }
 
 export interface D3SankeyNode extends SankeyNode {

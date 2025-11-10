@@ -142,6 +142,10 @@ export const NEUTRAL_ICON_COLORS = {
 // THRESHOLD REGION COLORS - User-friendly colors for histogram threshold regions
 // Used to indicate good/bad feature quality based on metric type
 // Uses lower opacity (60%) for subtle visual distinction
+//
+// @deprecated - Now using hierarchical color system with perceptually-optimized palettes.
+// Child nodes get colors from HierarchicalColorAssigner based on parent color spheres.
+// Kept for backward compatibility only.
 // ============================================================================
 export const THRESHOLD_COLORS = {
   RED: PAUL_TOL_BRIGHT.RED + 'FF',      // Normal red with 60% opacity - Used for "bad" regions
@@ -154,6 +158,7 @@ export const THRESHOLD_COLORS = {
  * - quality_score: Above threshold (solid) = GREEN (good quality), Below (stripes) = RED (bad quality)
  * - Other metrics: null (use default metric colors)
  *
+ * @deprecated - Now using hierarchical color system. Histogram segments use child node colors.
  * @param metric - Metric type
  * @returns Object with 'above' and 'below' colors, or null for default behavior
  */
@@ -175,6 +180,10 @@ export function getThresholdRegionColors(metric: string): { above: string; below
 // METRIC-SPECIFIC COLORS - Opacity-based gradients for score metrics
 // Based on Okabe-Ito colorblind-safe palette
 // Uses same opacity pattern as consistency colors: white (low) → color (high)
+//
+// NOTE: With hierarchical color system, these are now primarily used as fallback colors.
+// Sankey nodes and histogram segments use colors from HierarchicalColorAssigner.
+// Still used for: threshold lines, node borders, and when hierarchical colors unavailable.
 // ============================================================================
 export const METRIC_COLORS = {
   DECODER_SIMILARITY: PAUL_TOL_BRIGHT.BLUE,

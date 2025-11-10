@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useMemo, useRef, useEffect, useState } from 'react';
 import {
-  TAG_CATEGORY_FEATURE_SPLITTING,
-  TAG_CATEGORY_QUALITY,
-  TAG_CATEGORY_CAUSE
+  getTagCategoriesInOrder,
+  type TagCategoryConfig
 } from '../lib/tag-categories';
+import { useVisualizationStore } from '../store/index';
 import '../styles/TagCategoryPanel.css';
 
 interface TagCategoryPanelProps {
@@ -15,195 +15,269 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
   selectedCategory,
   onCategoryClick
 }) => {
-  // Track hover state for visual feedback
-  const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
+  // Get all stages in order
+  const stages = useMemo(() => getTagCategoriesInOrder(), []);
 
-  // Three circles with stage labels and interactive properties
-  const stages = [
-    {
-      label: 'FEATURE SPLITTING',
-      categoryId: TAG_CATEGORY_FEATURE_SPLITTING,
-      cx: 150,
-      cy: 65,
-      enabled: true  // Clickable
-    },
-    {
-      label: 'QUALITY',
-      categoryId: TAG_CATEGORY_QUALITY,
-      cx: 500,
-      cy: 65,
-      enabled: true  // Clickable
-    },
-    {
-      label: 'CAUSE',
-      categoryId: TAG_CATEGORY_CAUSE,
-      cx: 850,
-      cy: 65,
-      enabled: false  // Disabled (future implementation)
+  // Refs for flow line positioning
+  const monosematicCountRef = useRef<HTMLSpanElement>(null);
+  const needRevisionCountRef = useRef<HTMLSpanElement>(null);
+  const stage2IndicatorRef = useRef<HTMLDivElement>(null);
+  const stage3IndicatorRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // State for flow paths
+  const [flowPaths, setFlowPaths] = useState({ path1: '', path2: '' });
+
+  // Get selected node feature count from store for dynamic counts
+  // Use a stable selector that doesn't create new objects
+  const featureCount = useVisualizationStore(
+    state => {
+      // Get the root node from left panel
+      const leftPanel = state.leftPanel;
+      if (!leftPanel?.sankeyTree) return 0;
+
+      // Get root node feature count
+      const rootNode = leftPanel.sankeyTree.get('root');
+      return rootNode?.featureCount ?? 0;
     }
-  ];
+  );
 
-  const circleRadius = 25;
+  // Calculate dynamic tag counts based on filtered features
+  const getTagCounts = (category: TagCategoryConfig): Record<string, number> => {
+    // TODO: Implement actual tag counting logic
+    // For now, return placeholder counts based on total feature count
+    const counts: Record<string, number> = {};
+    const baseCount = featureCount > 0 ? Math.floor(featureCount / category.tags.length) : 50;
 
-  // Get circle visual state based on selection and hover
-  const getCircleStyle = (stage: typeof stages[0], stageIndex: number) => {
-    const isSelected = selectedCategory === stage.categoryId;
-    const isHovered = hoveredCategory === stage.categoryId && stage.enabled;
+    category.tags.forEach((tag, index) => {
+      // Placeholder: distribute counts across tags
+      counts[tag] = baseCount + index * 10;
+    });
+    return counts;
+  };
 
-    // Find the index of the selected stage
-    const selectedStageIndex = stages.findIndex(s => s.categoryId === selectedCategory);
+  // Check if a stage is completed (comes before selected stage)
+  const isStageCompleted = (stageOrder: number): boolean => {
+    if (!selectedCategory) return false;
+    const selectedStage = stages.find(s => s.id === selectedCategory);
+    return selectedStage ? stageOrder < selectedStage.stageOrder : false;
+  };
 
-    // Check if this stage is "below" (comes before) the selected stage
-    const isBeforeSelected = selectedStageIndex !== -1 && stageIndex < selectedStageIndex;
-
-    if (isSelected) {
-      // Selected state: Blue fill with bold stroke
-      return {
-        fill: '#3b82f6',  // blue-500
-        stroke: '#2563eb',  // blue-600
-        strokeWidth: '3',
-        cursor: stage.enabled ? 'pointer' : 'not-allowed'
-      };
-    } else if (isBeforeSelected) {
-      // Stage is before the selected stage: Make it blue too
-      return {
-        fill: '#3b82f6',  // blue-500
-        stroke: '#2563eb',  // blue-600
-        strokeWidth: '2',
-        cursor: stage.enabled ? 'pointer' : 'not-allowed'
-      };
-    } else if (isHovered) {
-      // Hover state: Light blue fill
-      return {
-        fill: '#eff6ff',  // blue-50
-        stroke: '#cbd5e1',  // slate-300
-        strokeWidth: '2',
-        cursor: 'pointer'
-      };
-    } else if (!stage.enabled) {
-      // Disabled state: Grayed out
-      return {
-        fill: '#f1f5f9',  // slate-100
-        stroke: '#cbd5e1',  // slate-300
-        strokeWidth: '2',
-        opacity: '0.5',
-        cursor: 'not-allowed'
-      };
-    } else {
-      // Default state
-      return {
-        fill: '#f8fafc',  // slate-50
-        stroke: '#cbd5e1',  // slate-300
-        strokeWidth: '2',
-        cursor: 'pointer'
-      };
+  // Handle stage click
+  const handleStageClick = (categoryId: string) => {
+    if (onCategoryClick) {
+      onCategoryClick(categoryId);
     }
   };
 
-  // Handle circle click
-  const handleCircleClick = (stage: typeof stages[0]) => {
-    if (stage.enabled && onCategoryClick) {
-      console.log('[TagCategoryPanel] Category clicked:', stage.categoryId);
-      onCategoryClick(stage.categoryId);
+  // Calculate flow paths
+  const calculateFlowPaths = () => {
+    if (!monosematicCountRef.current || !needRevisionCountRef.current ||
+        !stage2IndicatorRef.current || !stage3IndicatorRef.current ||
+        !panelRef.current) {
+      return;
     }
+
+    const panelRect = panelRef.current.getBoundingClientRect();
+
+    // Get positions relative to panel
+    const monoCount = monosematicCountRef.current.getBoundingClientRect();
+    const needRevCount = needRevisionCountRef.current.getBoundingClientRect();
+    const stage2 = stage2IndicatorRef.current.getBoundingClientRect();
+    const stage3 = stage3IndicatorRef.current.getBoundingClientRect();
+
+    // Helper to create tapered ribbon path
+    const createRibbon = (
+      x1: number, y1: number, x2: number, y2: number, width: number
+    ) => {
+      const dx = x2 - x1;
+
+      const startWidth = width;
+      const endWidth = width * 0.3; // Taper to 30%
+
+      // Control points for Bezier curve
+      const cx1 = x1 + dx * 0.5;
+      const cy1 = y1;
+      const cx2 = x1 + dx * 0.5;
+      const cy2 = y2;
+
+      // Simplified tapered path
+      return `M ${x1},${y1 - startWidth/2}
+              C ${cx1},${cy1 - startWidth/2} ${cx2},${cy2 - endWidth/2} ${x2},${y2 - endWidth/2}
+              L ${x2},${y2 + endWidth/2}
+              C ${cx2},${cy2 + endWidth/2} ${cx1},${cy1 + startWidth/2} ${x1},${y1 + startWidth/2}
+              Z`;
+    };
+
+    // Flow 1: monosemantic count badge → stage 2 indicator
+    const x1_1 = monoCount.left + monoCount.width;
+    const y1_1 = monoCount.top + monoCount.height / 2 - panelRect.top;
+    const x2_1 = stage2.left - panelRect.left;
+    const y2_1 = stage2.top + stage2.height / 2 - panelRect.top;
+
+    // Flow 2: need revision count badge → stage 3 indicator
+    const x1_2 = needRevCount.left + needRevCount.width;
+    const y1_2 = needRevCount.top + needRevCount.height / 2 - panelRect.top;
+    const x2_2 = stage3.left - panelRect.left;
+    const y2_2 = stage3.top + stage3.height / 2 - panelRect.top;
+
+    setFlowPaths({
+      path1: createRibbon(x1_1, y1_1, x2_1, y2_1, 6),
+      path2: createRibbon(x1_2, y1_2, x2_2, y2_2, 6)
+    });
   };
+
+  // Update flow paths on mount and resize
+  useEffect(() => {
+    calculateFlowPaths();
+
+    const observer = new ResizeObserver(calculateFlowPaths);
+    if (panelRef.current) {
+      observer.observe(panelRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [stages, selectedCategory]);
 
   return (
-    <div className="tag-category-panel">
-      <svg viewBox="0 0 1000 110" preserveAspectRatio="xMidYMid meet">
-        {/* Connection lines between circles */}
-        <line
-          x1={stages[0].cx + circleRadius}
-          y1={stages[0].cy}
-          x2={stages[1].cx - circleRadius}
-          y2={stages[1].cy}
-          stroke="#cbd5e1"
-          strokeWidth="3"
-        />
-        <line
-          x1={stages[1].cx + circleRadius}
-          y1={stages[1].cy}
-          x2={stages[2].cx - circleRadius}
-          y2={stages[2].cy}
-          stroke="#cbd5e1"
-          strokeWidth="3"
-        />
+    <div className="tag-category-panel" ref={panelRef}>
+      <div className="tag-category-panel__content">
+        {/* Left: Stage buttons row */}
+        <div className="tag-category-panel__stages">
+          {stages.map((stage) => {
+            const isActive = selectedCategory === stage.id;
+            const isCompleted = isStageCompleted(stage.stageOrder);
 
-        {/* Render circles and labels */}
-        {stages.map((stage, i) => {
-          const style = getCircleStyle(stage, i);
-
-          return (
-            <g key={i}>
-              {/* Stage label above circle */}
-              <text
-                x={stage.cx}
-                y={stage.cy - circleRadius - 15}
-                textAnchor="middle"
-                fontSize="18"
-                fill="#6b7280"
-                fontWeight="600"
-                letterSpacing="0.5"
+            return (
+              <button
+                key={stage.id}
+                className={`tag-category-panel__stage-button ${
+                  isActive ? 'tag-category-panel__stage-button--active' : ''
+                } ${
+                  isCompleted ? 'tag-category-panel__stage-button--completed' : ''
+                }`}
+                onClick={() => handleStageClick(stage.id)}
+                title={stage.description}
               >
-                {stage.label}
-              </text>
+                <span className="stage-number">
+                  {isCompleted ? '✓' : stage.stageOrder}
+                </span>
+                <span className="stage-name">{stage.label}</span>
+              </button>
+            );
+          })}
+        </div>
 
-              {/* Circle with interactive styling */}
-              <circle
-                cx={stage.cx}
-                cy={stage.cy}
-                r={circleRadius}
-                fill={style.fill}
-                stroke={style.stroke}
-                strokeWidth={style.strokeWidth}
-                opacity={style.opacity || '1'}
-                style={{ cursor: style.cursor }}
-                onClick={() => handleCircleClick(stage)}
-                onMouseEnter={() => stage.enabled && setHoveredCategory(stage.categoryId)}
-                onMouseLeave={() => setHoveredCategory(null)}
-              />
-            </g>
-          );
-        })}
-      </svg>
-      <div style={{
-        position: 'absolute',
-        bottom: '0px',
-        right: '10px',
-        display: 'flex',
-        gap: '4px'
-      }}>
-        <button
-          disabled
-          style={{
-            padding: '0px 6px',
-            fontSize: '10px',
-            backgroundColor: '#3b82f6', // blue-500
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            opacity: 0.5,
-            cursor: 'not-allowed',
-          }}
-        >
-          Regenerate
-        </button>
-        <button
-          disabled
-          style={{
-            padding: '1px 6px',
-            fontSize: '10px',
-            backgroundColor: '#3b82f6', // blue-500
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            opacity: 0.5,
-            cursor: 'not-allowed',
-          }}
-        >
-          Export
-        </button>
+        {/* Divider */}
+        <div className="tag-category-panel__divider" />
+
+        {/* Middle: All tags flowing horizontally, each stage's tags stacked vertically */}
+        <div className="tag-category-panel__tags-area">
+          {stages.map((stage) => {
+            const isActive = selectedCategory === stage.id;
+            const isCompleted = isStageCompleted(stage.stageOrder);
+            const tagCounts = getTagCounts(stage);
+            const isCauseStage = stage.id === 'cause';
+
+            return (
+              <div
+                key={stage.id}
+                className={`tag-category-panel__stage-container ${
+                  isActive ? 'tag-category-panel__stage-container--active' : ''
+                } ${
+                  isCompleted ? 'tag-category-panel__stage-container--completed' : ''
+                }`}
+              >
+                {/* Stage number indicator */}
+                <div
+                  className="tag-category-panel__stage-indicator"
+                  ref={stage.stageOrder === 2 ? stage2IndicatorRef :
+                       stage.stageOrder === 3 ? stage3IndicatorRef : null}
+                >
+                  {isCompleted ? '✓' : stage.stageOrder}
+                </div>
+
+                {/* Tags column */}
+                <div
+                  className={`tag-category-panel__tag-column ${
+                    isCauseStage ? 'tag-category-panel__tag-column--grid' : ''
+                  }`}
+                >
+                  {stage.tags.map((tag) => {
+                    const isMonosemantic = stage.id === 'feature_splitting' && tag === 'monosemantic';
+                    const isNeedRevision = stage.id === 'quality' && tag === 'need revision';
+
+                    return (
+                      <span
+                        key={tag}
+                        className="tag-badge"
+                        title={`${tag}: ${tagCounts[tag]} features`}
+                      >
+                        <span className="tag-badge__label">{tag}</span>
+                        <span
+                          className="tag-badge__count"
+                          ref={isMonosemantic ? monosematicCountRef :
+                               isNeedRevision ? needRevisionCountRef : null}
+                        >
+                          {tagCounts[tag] || 0}
+                        </span>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Right: Action buttons */}
+        <div className="tag-category-panel__actions">
+          <button
+            className="action-button"
+            disabled
+            title="Regenerate tag assignments (coming soon)"
+          >
+            Regenerate
+          </button>
+          <button
+            className="action-button"
+            disabled
+            title="Export tag data (coming soon)"
+          >
+            Export
+          </button>
+        </div>
       </div>
+
+      {/* Flow overlay */}
+      {flowPaths.path1 && flowPaths.path2 && (() => {
+        const flow1Active = selectedCategory === 'quality';
+        const flow2Active = selectedCategory === 'cause';
+
+        return (
+          <svg className="tag-flow-overlay">
+            <defs>
+              <filter id="flow-glow">
+                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                <feMerge>
+                  <feMergeNode in="coloredBlur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+            <path
+              className={`tag-flow-path ${flow1Active ? 'tag-flow-path--active' : ''}`}
+              d={flowPaths.path1}
+              data-flow="monosemantic-to-stage2"
+            />
+            <path
+              className={`tag-flow-path ${flow2Active ? 'tag-flow-path--active' : ''}`}
+              d={flowPaths.path2}
+              data-flow="needrevision-to-stage3"
+            />
+          </svg>
+        );
+      })()}
     </div>
   );
 };

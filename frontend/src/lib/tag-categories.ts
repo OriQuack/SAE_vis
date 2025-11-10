@@ -72,8 +72,8 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     defaultThresholds: [0.4],
     showHistogram: true,
     tags: [
-      "single-latent",       // Group 0 (< 0.4, LOW decoder similarity)
-      "feature splitting"    // Group 1 (≥ 0.4, HIGH decoder similarity)
+      "monosemantic",       // Group 0 (< 0.4, LOW decoder similarity)
+      "fragmented"    // Group 1 (≥ 0.4, HIGH decoder similarity)
     ],
     relatedMetrics: [
       METRIC_DECODER_SIMILARITY,

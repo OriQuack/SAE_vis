@@ -3,8 +3,7 @@ import type { D3SankeyNode, D3SankeyLink, HistogramData, SankeyLayout, SankeyTre
 import {
   METRIC_DECODER_SIMILARITY,
   METRIC_QUALITY_SCORE,
-  CONSISTENCY_THRESHOLDS,
-  getThresholdRegionColors
+  CONSISTENCY_THRESHOLDS
 } from '../lib/constants'
 import {
   calculateNodeHistogramLayout,
@@ -180,12 +179,8 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
 
   if (!layout) return null
 
-  // Get bar color for patterns (metric-specific color for background)
+  // Get bar color as fallback (metric-specific color for background)
   const barColor = layout.bars[0]?.color || '#94a3b8'
-
-  // Get metric for this node to determine if we should use threshold colors
-  const metric = getNodeHistogramMetric(node, links)
-  const thresholdColors = metric ? getThresholdRegionColors(metric) : null
 
   return (
     <g
@@ -195,64 +190,19 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
         transition: `opacity ${animationDuration}ms ease-out`
       }}
     >
-      {/* Pattern definitions for threshold regions */}
-      <defs>
-        {/* Metric-specific striped pattern (for metrics without threshold colors) */}
-        <pattern
-          id={`sankey-histogram-pattern-striped-${node.id}`}
-          width="6"
-          height="6"
-          patternUnits="userSpaceOnUse"
-          patternTransform="rotate(45)"
-        >
-          <rect width="6" height="6" fill="none"/>
-          <line x1="0" y1="0" x2="0" y2="6" stroke={barColor} strokeWidth="2" opacity="1.0"/>
-          <line x1="3" y1="0" x2="3" y2="6" stroke={barColor} strokeWidth="2" opacity="1.0"/>
-          <line x1="6" y1="0" x2="6" y2="6" stroke={barColor} strokeWidth="2" opacity="1.0"/>
-        </pattern>
 
-        {/* Red striped pattern (for decoder_similarity above threshold) */}
-        {thresholdColors && (
-          <pattern
-            id={`sankey-histogram-pattern-red-${node.id}`}
-            width="6"
-            height="6"
-            patternUnits="userSpaceOnUse"
-            patternTransform="rotate(45)"
-          >
-            <rect width="6" height="6" fill="none"/>
-            <line x1="0" y1="0" x2="0" y2="6" stroke={thresholdColors.above} strokeWidth="2" opacity="1.0"/>
-            <line x1="3" y1="0" x2="3" y2="6" stroke={thresholdColors.above} strokeWidth="2" opacity="1.0"/>
-            <line x1="6" y1="0" x2="6" y2="6" stroke={thresholdColors.above} strokeWidth="2" opacity="1.0"/>
-          </pattern>
-        )}
-      </defs>
-
-      {/* Render horizontal histogram bars - as segments for split patterns */}
+      {/* Render horizontal histogram bars - as segments with child node colors */}
       {barSegments.map((segments, barIndex) => (
         <g key={barIndex}>
           {segments.map((segment, segmentIndex) => {
-            // Even regions (0, 2, 4...): Solid fill (below threshold)
-            // Odd regions (1, 3, 5...): Striped pattern (above threshold)
-            const isAboveThreshold = segment.patternIndex % 2 === 1
+            // Get child node corresponding to this segment
+            const treeNode = sankeyTree?.get(node.id || '')
+            const childNodes = treeNode?.children || []
+            const childNodeId = childNodes[segment.patternIndex]
+            const childNode = childNodeId ? sankeyTree?.get(childNodeId) : null
 
-            // Determine fill color based on metric type and threshold position
-            let fillColor: string
-            if (thresholdColors) {
-              // Use red/green colors for decoder_similarity and quality_score
-              // Above threshold uses red/green striped pattern, below uses solid fill
-              if (isAboveThreshold) {
-                fillColor = `url(#sankey-histogram-pattern-red-${node.id})`
-              } else {
-                fillColor = thresholdColors.below
-              }
-            } else {
-              // Use default metric color or striped pattern for other metrics
-              const useStripes = segment.patternIndex % 2 === 0
-              fillColor = useStripes
-                ? `url(#sankey-histogram-pattern-striped-${node.id})`
-                : barColor
-            }
+            // Use child node's hierarchical color, or fallback to default
+            const fillColor = childNode?.colorHex || barColor
 
             return (
               <rect

@@ -1,20 +1,417 @@
 /* ============================================================================
-   TAG CATEGORY PANEL - FLOWCHART STYLE (MATCHES FLOW PANEL)
+   TAG CATEGORY PANEL - Stage Buttons | Tags Columns | Actions
    ============================================================================ */
 
 .tag-category-panel {
-  position: relative;
   width: 100%;
   height: 100%;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  margin: 0;
-  background-color: #ffffff;
+  align-items: stretch;
+  padding: 8px 12px;
+  background: white;
+  border-bottom: 1px solid #e2e8f0;
 }
 
-.tag-category-panel svg {
+.tag-category-panel__content {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  overflow-x: auto;
+}
+
+/* ============================================================================
+   LEFT: STAGE BUTTONS - Horizontal row
+   ============================================================================ */
+
+.tag-category-panel__stages {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.tag-category-panel__stage-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: #f8fafc;
+  border: 2px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  white-space: nowrap;
+  min-height: 38px;
+  width: 180px; /* Fixed width for all stage buttons */
+}
+
+.tag-category-panel__stage-button:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.tag-category-panel__stage-button:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* Active State */
+.tag-category-panel__stage-button--active {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.35);
+}
+
+.tag-category-panel__stage-button--active:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  box-shadow: 0 3px 10px rgba(59, 130, 246, 0.4);
+}
+
+/* Completed State */
+.tag-category-panel__stage-button--completed {
+  background: #10b981;
+  color: white;
+  border-color: #10b981;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+}
+
+.tag-category-panel__stage-button--completed:hover {
+  background: #059669;
+  border-color: #059669;
+}
+
+/* Stage Number Badge */
+.stage-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 50%;
+  background: white;
+  color: #3b82f6;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.tag-category-panel__stage-button--active .stage-number,
+.tag-category-panel__stage-button--completed .stage-number {
+  background: rgba(255, 255, 255, 0.98);
+}
+
+.tag-category-panel__stage-button--active .stage-number {
+  color: #3b82f6;
+}
+
+.tag-category-panel__stage-button--completed .stage-number {
+  color: #10b981;
+  font-size: 16px;
+}
+
+/* Stage Name */
+.stage-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* ============================================================================
+   DIVIDER
+   ============================================================================ */
+
+.tag-category-panel__divider {
+  width: 1px;
+  height: 40px;
+  background: #e2e8f0;
+  flex-shrink: 0;
+}
+
+/* ============================================================================
+   MIDDLE: TAGS AREA - All tag columns flow horizontally
+   ============================================================================ */
+
+.tag-category-panel__tags-area {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+}
+
+/* ============================================================================
+   STAGE CONTAINER - Wraps stage indicator + tags
+   ============================================================================ */
+
+.tag-category-panel__stage-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 8px;
+  border-radius: 8px;
+  background: transparent;
+  transition: all 0.2s ease;
+}
+
+/* Active stage container */
+.tag-category-panel__stage-container--active {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.06), rgba(59, 130, 246, 0.12));
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+}
+
+/* Completed stage container */
+.tag-category-panel__stage-container--completed {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.04), rgba(16, 185, 129, 0.08));
+}
+
+/* Stage number indicator (left of container) */
+.tag-category-panel__stage-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  background: #64748b;
+  color: white;
+  font-weight: 700;
+  font-size: 13px;
+  border-radius: 14px;
+  line-height: 1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+}
+
+.tag-category-panel__stage-container--active .tag-category-panel__stage-indicator {
+  background: #3b82f6;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.4);
+}
+
+.tag-category-panel__stage-container--completed .tag-category-panel__stage-indicator {
+  background: #10b981;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.4);
+  font-size: 16px;
+}
+
+/* Tag column - each stage's tags stacked vertically */
+.tag-category-panel__tag-column {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+/* Cause stage - 2 columns of 2 tags each */
+.tag-category-panel__tag-column--grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 3px;
+}
+
+/* ============================================================================
+   TAG BADGES
+   ============================================================================ */
+
+.tag-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  font-size: 11px;
+  transition: all 0.2s ease;
+  cursor: default;
+  white-space: nowrap;
+}
+
+.tag-badge:hover {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* Active stage tags */
+.tag-category-panel__stage-container--active .tag-badge {
+  background: white;
+  border-color: #3b82f6;
+  box-shadow: 0 1px 3px rgba(59, 130, 246, 0.15);
+}
+
+.tag-category-panel__stage-container--active .tag-badge:hover {
+  border-color: #2563eb;
+  box-shadow: 0 1px 4px rgba(59, 130, 246, 0.25);
+}
+
+.tag-badge__label {
+  flex: 1;
+  font-weight: 500;
+  color: #475569;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: capitalize;
+}
+
+.tag-category-panel__stage-container--active .tag-badge__label {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+/* Tag count badge (right side) */
+.tag-badge__count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  padding: 2px 6px;
+  background: #cbd5e1;
+  color: #475569;
+  font-weight: 600;
+  font-size: 10px;
+  border-radius: 10px;
+  line-height: 1.3;
+  flex-shrink: 0;
+}
+
+.tag-category-panel__stage-container--active .tag-badge__count {
+  background: #3b82f6;
+  color: white;
+}
+
+/* ============================================================================
+   RIGHT: ACTION BUTTONS
+   ============================================================================ */
+
+.tag-category-panel__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+  justify-content: center;
+  padding-left: 12px;
+  margin-left: auto;
+  border-left: 1px solid #e2e8f0;
+}
+
+.action-button {
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #3b82f6;
+  color: white;
+  border: 2px solid #3b82f6;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  font-family: inherit;
+  cursor: pointer;
+  min-width: 95px;
+}
+
+.action-button:not(:disabled):hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+}
+
+.action-button:not(:disabled):active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(59, 130, 246, 0.2);
+}
+
+.action-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: #94a3b8;
+  border-color: #94a3b8;
+}
+
+/* ============================================================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================================================ */
+
+@media (max-width: 1200px) {
+  .tag-category-panel__content {
+    gap: 12px;
+  }
+
+  .tag-category-panel__tags-area {
+    gap: 16px;
+  }
+
+  .stage-name {
+    font-size: 13px;
+  }
+
+  .tag-badge {
+    font-size: 10px;
+  }
+
+  .tag-category-panel__stage-indicator {
+    min-width: 24px;
+    height: 24px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 1000px) {
+  .tag-category-panel__tag-column--grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================================
+   FLOW OVERLAY - Hierarchical connections between tags and stages
+   ============================================================================ */
+
+.tag-flow-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.tag-flow-path {
+  fill: #94a3b8;
+  opacity: 0.25;
+  transition: all 0.3s ease;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.tag-flow-path:hover {
+  opacity: 0.7;
+  filter: url(#flow-glow);
+  fill: #3b82f6;
+}
+
+.tag-flow-path--active {
+  fill: #3b82f6;
+  opacity: 0.6;
+  filter: url(#flow-glow);
+}
+
+.tag-flow-path--active:hover {
+  opacity: 0.85;
+}
+
+.tag-category-panel {
+  position: relative;
 }

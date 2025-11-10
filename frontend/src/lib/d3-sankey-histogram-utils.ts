@@ -68,6 +68,9 @@ const HISTOGRAM_MARGIN = 0             // Space between node and histogram
 /**
  * Get the color for a histogram based on its metric
  * Returns metric-specific color with higher opacity for better visibility
+ *
+ * NOTE: With hierarchical color system, this is now primarily used as a fallback.
+ * Histogram segments use child node colors (from HierarchicalColorAssigner).
  */
 function getHistogramColorForMetric(metric: string): string {
   switch (metric) {
