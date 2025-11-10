@@ -159,23 +159,15 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
       {/* Main content - 3x3 grid layout */}
       <div className={`sankey-view__content sankey-view__content--${layout}`}>
         <div className="sankey-view__main-content">
-          {/* Top Panel Container - Row 1 */}
+          {/* Left Column - Flow + Tag Category + Sankey */}
           <div className="sankey-view__top-panel-container">
-            {/* Top Left - Flow Panel */}
+            {/* Flow Panel */}
             <div className="sankey-view__top-left">
               <FlowPanel />
             </div>
 
-            {/* Top Right - Reserved for future use */}
-            <div className="sankey-view__top-right">
-              {/* Tag Management Panel removed */}
-            </div>
-          </div>
-
-          {/* Center Panel Container - Row 2 */}
-          <div className="sankey-view__center-panel-container">
-            {/* Center Left - Tag Category Panel + Left Sankey */}
-            <div className="sankey-view__center-left">
+            {/* Tag Category + Sankey */}
+            <div className="sankey-view__top-middle">
               {/* Tag Category Panel */}
               <div className="sankey-view__tag-category">
                 <TagCategoryPanel
@@ -203,9 +195,12 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Center Right - Table Panel with Overlay */}
-            <div className="sankey-view__center-right">
+          {/* Right Column - Table (Full Height) */}
+          <div className="sankey-view__center-panel-container">
+            <div className="sankey-view__center-left">
+              {/* Table Panel - Full Height */}
               <TablePanel />
 
               {/* Comparison Overlay - Alluvial + Right Sankey */}

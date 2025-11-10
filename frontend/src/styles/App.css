@@ -284,42 +284,42 @@
 .sankey-view__main-content {
   flex: 1;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 0;
   min-height: 0;
   overflow: hidden;
 }
 
 /* ============================================================================
-   3x2 GRID LAYOUT - ROW CONTAINERS
+   2-COLUMN LAYOUT - MAIN CONTAINERS (Side-by-side)
    ============================================================================ */
 
-/* Top Panel Container - Row 1 */
+/* Left Column Container - Flow + Sankey stacked vertically */
 .sankey-view__top-panel-container {
-  flex: 2.5;
+  flex: 3;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   min-width: 0;
   min-height: 0;
 }
 
-/* Center Panel Container - Row 2 */
+/* Right Column Container - Table full height */
 .sankey-view__center-panel-container {
-  flex: 7.5;
+  flex: 7;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   gap: 0;
   min-width: 0;
   min-height: 0;
 }
 
 /* ============================================================================
-   3x2 GRID LAYOUT - TOP ROW CELLS
+   LEFT COLUMN CONTENTS (Flow + Tag Category + Sankey)
    ============================================================================ */
 
-/* Top Left - Flow Panel */
+/* Flow Panel */
 .sankey-view__top-left {
-  flex: 3;
+  flex: 2.5;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -330,26 +330,19 @@
   min-width: 0;
 }
 
-/* Top Middle - Saved Groups Panel */
+/* Tag Category + Sankey Container */
 .sankey-view__top-middle {
-  flex: 1;
+  flex: 7.5;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  background: white;
-  padding: 0;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
-/* Top Right - Tag Management Panel */
+/* Unused */
 .sankey-view__top-right {
-  flex: 7;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: white;
-  padding: 0;
-  min-width: 0;
+  display: none;
 }
 
 /* ============================================================================
@@ -456,19 +449,22 @@
 }
 
 /* ============================================================================
-   3x2 GRID LAYOUT - CENTER ROW CELLS
+   RIGHT COLUMN CONTENTS (Table)
    ============================================================================ */
 
-/* Center Left - Tag Category Panel + Left Sankey */
+/* Table Panel - Full Height */
 .sankey-view__center-left {
-  flex: 3;
+  flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  background: white;
+  position: relative; /* Enable absolute positioning for overlay */
 }
 
+/* Unused - Tag category and Sankey moved to top-middle */
 .sankey-view__tag-category {
   flex: 0.8;
   min-height: 0;
@@ -492,30 +488,14 @@
   overflow: hidden;
 }
 
-/* Center Middle - Tag Progress Bar */
+/* Unused */
 .sankey-view__center-middle {
-  flex: 0.05;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-  min-height: 0;
-  overflow: visible;
-  background: transparent;
-  padding: 0 0 12px 0;
+  display: none;
 }
 
-/* Center Right - Table Panel */
+/* Unused */
 .sankey-view__center-right {
-  flex: 7;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: white;
-  padding: 0;
-  min-width: 0;
-  position: relative; /* Enable absolute positioning for overlay */
+  display: none;
 }
 
 /* ============================================================================

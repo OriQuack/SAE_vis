@@ -786,16 +786,26 @@ export const createTableActions = (set: any, get: any) => ({
           allFeatureIds
         )
 
+        // Calculate dynamic thresholds based on data range
+        // Use 1/2 of max absolute value for symmetric thresholds
+        const { statistics } = histogramData
+        const maxAbsValue = Math.max(
+          Math.abs(statistics.min || 0),
+          Math.abs(statistics.max || 0)
+        )
+        // Default to 0.2 if data has no range or invalid values
+        const threshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? maxAbsValue / 2 : 0.2
+
         // Update state with histogram data
-        // Initialize with symmetric thresholds: reject=-0.2, select=+0.2
+        // Initialize with symmetric thresholds based on data range
         set({
           similarityTaggingPopover: {
             visible: true,
             mode,
             position,
             histogramData,
-            rejectThreshold: -0.2,
-            selectThreshold: 0.2,
+            rejectThreshold: -threshold,
+            selectThreshold: threshold,
             isLoading: false
           }
         })
@@ -845,16 +855,26 @@ export const createTableActions = (set: any, get: any) => ({
           allPairKeys
         )
 
+        // Calculate dynamic thresholds based on data range
+        // Use 1/2 of max absolute value for symmetric thresholds
+        const { statistics } = histogramData
+        const maxAbsValue = Math.max(
+          Math.abs(statistics.min || 0),
+          Math.abs(statistics.max || 0)
+        )
+        // Default to 0.2 if data has no range or invalid values
+        const threshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? maxAbsValue / 2 : 0.2
+
         // Update state with histogram data
-        // Initialize with symmetric thresholds: reject=-0.2, select=+0.2
+        // Initialize with symmetric thresholds based on data range
         set({
           similarityTaggingPopover: {
             visible: true,
             mode,
             position,
             histogramData,
-            rejectThreshold: -0.2,
-            selectThreshold: 0.2,
+            rejectThreshold: -threshold,
+            selectThreshold: threshold,
             isLoading: false
           }
         })

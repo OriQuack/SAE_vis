@@ -44,11 +44,23 @@ function calculateHandlePositionFromThreshold(
     ratio = threshold
   } else {
     // In metric mode, calculate ratio from metric value
-    ratio = (threshold - metricMin) / (metricMax - metricMin)
+    const metricRange = metricMax - metricMin
+    // Handle division by zero: if range is 0 or invalid, position at center
+    if (metricRange === 0 || !isFinite(metricRange)) {
+      ratio = 0.5
+    } else {
+      ratio = (threshold - metricMin) / metricRange
+    }
   }
 
-  const result = boundsMin + ratio * (boundsMax - boundsMin)
-  return result
+  const boundsRange = boundsMax - boundsMin
+  // Validate ratio is finite
+  if (!isFinite(ratio)) {
+    ratio = 0.5
+  }
+
+  const result = boundsMin + ratio * boundsRange
+  return isFinite(result) ? result : boundsMin + boundsRange * 0.5
 }
 
 /**
@@ -62,7 +74,19 @@ function calculateThresholdFromHandlePosition(
   boundsMax: number,
   usePercentiles: boolean = false
 ): number {
-  const ratio = (position - boundsMin) / (boundsMax - boundsMin)
+  const boundsRange = boundsMax - boundsMin
+  // Handle division by zero: if bounds range is 0 or invalid, return center value
+  let ratio: number
+  if (boundsRange === 0 || !isFinite(boundsRange)) {
+    ratio = 0.5
+  } else {
+    ratio = (position - boundsMin) / boundsRange
+  }
+
+  // Validate ratio
+  if (!isFinite(ratio)) {
+    ratio = 0.5
+  }
 
   // In percentile mode, return the ratio directly (0-1 normalized position)
   if (usePercentiles) {
@@ -70,7 +94,9 @@ function calculateThresholdFromHandlePosition(
   }
 
   // In metric mode, map ratio to metric value range
-  return metricMin + ratio * (metricMax - metricMin)
+  const metricRange = metricMax - metricMin
+  const result = metricMin + ratio * metricRange
+  return isFinite(result) ? result : (metricMin + metricMax) / 2
 }
 
 // ============================================================================
@@ -101,6 +127,7 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
   const rafIdRef = useRef<number | null>(null)
   const svgElementRef = useRef<SVGSVGElement | null>(null)
   const offsetRef = useRef<number>(0)
+  const dragStartOffsetRef = useRef<number>(0) // Offset from mouse to handle center at drag start
   const justUpdatedRef = useRef<boolean>(false)
   const lastPreviewRef = useRef<string>('')
   const pendingThresholdsRef = useRef<number[] | null>(null)
@@ -145,12 +172,32 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
       ? parentOffset.x + position.x
       : parentOffset.y + position.y
 
+    // Calculate initial offset from mouse to handle center to prevent jump
+    const svgRect = svgElement.getBoundingClientRect()
+    const mousePos = orientation === 'horizontal'
+      ? e.clientX - svgRect.left
+      : e.clientY - svgRect.top
+
+    // Get current handle position
+    const currentHandlePos = calculateHandlePositionFromThreshold(
+      tempThresholds[handleIndex],
+      metricRange.min,
+      metricRange.max,
+      bounds.min,
+      bounds.max,
+      usePercentiles
+    )
+
+    // Store the offset between mouse click position and handle center
+    // This prevents the handle from jumping when drag starts
+    dragStartOffsetRef.current = mousePos - offsetRef.current - currentHandlePos
+
     // Disable selection globally during drag
     document.body.style.userSelect = 'none'
     document.body.style.cursor = orientation === 'horizontal' ? 'ew-resize' : 'ns-resize'
 
     setDraggingHandle(handleIndex)
-  }, [orientation, parentOffset, position])
+  }, [orientation, parentOffset, position, tempThresholds, metricRange, bounds, usePercentiles])
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (draggingHandle === null) return
@@ -171,7 +218,8 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
         ? e.clientX - svgRect.left
         : e.clientY - svgRect.top
 
-      const adjustedPos = mousePos - offsetRef.current
+      // Apply both the position offset AND the drag start offset to prevent jump
+      const adjustedPos = mousePos - offsetRef.current - dragStartOffsetRef.current
 
       // Clamp position within bounds
       const clampedPos = Math.max(bounds.min, Math.min(bounds.max, adjustedPos))
@@ -242,6 +290,7 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
     // Clear stored references
     svgElementRef.current = null
     offsetRef.current = 0
+    dragStartOffsetRef.current = 0
     lastPreviewRef.current = ''
 
     // Mark that we're updating the thresholds ourselves (to prevent snap-back)

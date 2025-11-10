@@ -185,21 +185,22 @@ const VerticalBarSankeyNode: React.FC<{
     >
       {/* Render vertical bar - as individual feature lines or fallback rectangle */}
       {layout.subNodes.map((subNode) => {
+        // COMMENTED OUT: Individual feature lines when tagged
         // If featureId exists, render as a thin horizontal line
-        if (subNode.featureId !== undefined) {
-          return (
-            <line
-              key={subNode.id}
-              x1={subNode.x}
-              y1={subNode.y + subNode.height / 2}
-              x2={subNode.x + subNode.width}
-              y2={subNode.y + subNode.height / 2}
-              stroke={subNode.color}
-              strokeWidth={1}
-              opacity={0.8}
-            />
-          )
-        }
+        // if (subNode.featureId !== undefined) {
+        //   return (
+        //     <line
+        //       key={subNode.id}
+        //       x1={subNode.x}
+        //       y1={subNode.y + subNode.height / 2}
+        //       x2={subNode.x + subNode.width}
+        //       y2={subNode.y + subNode.height / 2}
+        //       stroke={subNode.color}
+        //       strokeWidth={1}
+        //       opacity={0.8}
+        //     />
+        //   )
+        // }
 
         // Fallback: render as rectangle (for nodes without feature data)
         return (

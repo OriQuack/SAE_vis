@@ -545,11 +545,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
         totalCount={tableData?.features.length || 0}
         selectionStates={featureSelectionStates}
         onSortBySimilarity={handleSimilaritySort}
-        onClearSelection={() => {
-          clearFeatureSelection()
-          // Also reset sort state when clearing selections
-          setTableSort(null, null)
-        }}
+        onClearSelection={clearFeatureSelection}
         onShowTaggingPopover={showSimilarityTaggingPopover}
         isSortLoading={isSimilaritySortLoading}
         sortRequirements={{ minSelected: 1, minRejected: 1 }}

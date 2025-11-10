@@ -111,16 +111,23 @@ const SimilarityTaggingPopover: React.FC = () => {
 
     const { statistics } = popoverState.histogramData
 
+    // Validate statistics - handle NaN or invalid values
+    const minValue = isFinite(statistics.min) ? statistics.min : -1
+    const maxValue = isFinite(statistics.max) ? statistics.max : 1
+
     // Calculate symmetric domain around zero for visual centering
-    const maxAbsValue = Math.max(Math.abs(statistics.min), Math.abs(statistics.max))
+    const maxAbsValue = Math.max(Math.abs(minValue), Math.abs(maxValue))
+
+    // Ensure maxAbsValue is valid and non-zero
+    const validMaxAbsValue = isFinite(maxAbsValue) && maxAbsValue > 0 ? maxAbsValue : 1
 
     // Create modified histogram data with symmetric domain
     const symmetricHistogramData = {
       ...popoverState.histogramData,
       statistics: {
         ...statistics,
-        min: -maxAbsValue,
-        max: maxAbsValue
+        min: -validMaxAbsValue,
+        max: validMaxAbsValue
       }
     }
 
@@ -128,8 +135,14 @@ const SimilarityTaggingPopover: React.FC = () => {
       similarity: symmetricHistogramData
     }
 
-    const layout = calculateHistogramLayout(histogramDataMap, 600, 300)
-    return layout.charts[0]
+    const layout = calculateHistogramLayout(histogramDataMap, 600, 290)
+    const chart = layout.charts[0]
+
+    // Increase top margin to prevent "0" label cutoff
+    return {
+      ...chart,
+      margin: { ...chart.margin, top: 20 }
+    }
   }, [popoverState?.histogramData])
 
   const bars = useMemo(() => {
@@ -147,6 +160,34 @@ const SimilarityTaggingPopover: React.FC = () => {
     if (!histogramChart) return []
     return calculateYAxisTicks(histogramChart, 5)
   }, [histogramChart])
+
+  // Safe threshold positions and domain - clamp to valid range and handle NaN
+  const safeThresholdPositions = useMemo(() => {
+    if (!histogramChart) return { rejectX: 0, selectX: 0, minDomain: -1, maxDomain: 1 }
+
+    // Get domain from xScale and validate
+    const domain = histogramChart.xScale.domain()
+    let minDomain = domain[0]
+    let maxDomain = domain[1]
+
+    // Validate domain values
+    if (!isFinite(minDomain)) minDomain = -1
+    if (!isFinite(maxDomain)) maxDomain = 1
+
+    // Clamp thresholds to domain
+    const clampedReject = Math.max(minDomain, Math.min(maxDomain, rejectThreshold))
+    const clampedSelect = Math.max(minDomain, Math.min(maxDomain, selectThreshold))
+
+    // Calculate positions
+    let rejectX = histogramChart.xScale(clampedReject)
+    let selectX = histogramChart.xScale(clampedSelect)
+
+    // Validate and fallback to safe values
+    if (!isFinite(rejectX)) rejectX = 0
+    if (!isFinite(selectX)) selectX = histogramChart.width
+
+    return { rejectX, selectX, minDomain, maxDomain }
+  }, [histogramChart, rejectThreshold, selectThreshold])
 
   // Calculate tag counts preview (three-way)
   const tagCounts = useMemo(() => {
@@ -267,42 +308,57 @@ const SimilarityTaggingPopover: React.FC = () => {
                 <rect
                   x={0}
                   y={0}
-                  width={histogramChart.xScale(rejectThreshold)}
+                  width={Math.max(0, safeThresholdPositions.rejectX)}
                   height={histogramChart.height}
                   fill="#f44336"
                   opacity={0.1}
                 />
                 {/* Grey zone: reject threshold to select threshold */}
                 <rect
-                  x={histogramChart.xScale(rejectThreshold)}
+                  x={safeThresholdPositions.rejectX}
                   y={0}
-                  width={histogramChart.xScale(selectThreshold) - histogramChart.xScale(rejectThreshold)}
+                  width={Math.max(0, safeThresholdPositions.selectX - safeThresholdPositions.rejectX)}
                   height={histogramChart.height}
                   fill="#999"
                   opacity={0.1}
                 />
                 {/* Green zone: select threshold to right edge */}
                 <rect
-                  x={histogramChart.xScale(selectThreshold)}
+                  x={safeThresholdPositions.selectX}
                   y={0}
-                  width={histogramChart.width - histogramChart.xScale(selectThreshold)}
+                  width={Math.max(0, histogramChart.width - safeThresholdPositions.selectX)}
                   height={histogramChart.height}
                   fill="#4caf50"
                   opacity={0.1}
                 />
 
                 {/* Histogram bars */}
-                {bars.map((bar, i) => (
-                  <rect
-                    key={i}
-                    x={bar.x}
-                    y={bar.y}
-                    width={bar.width}
-                    height={bar.height}
-                    fill={bar.color === 'green' ? '#4caf50' : '#f44336'}
-                    opacity={0.7}
-                  />
-                ))}
+                {bars.map((bar, i) => {
+                  // Calculate bin center to determine which region it's in
+                  const binCenter = (bar.binData.x0 + bar.binData.x1) / 2
+
+                  // Determine color based on region:
+                  // - Dark grey if in untagged region (between thresholds)
+                  // - Green/red otherwise
+                  let barColor: string
+                  if (binCenter >= rejectThreshold && binCenter < selectThreshold) {
+                    barColor = '#666' // Dark grey for untagged region
+                  } else {
+                    barColor = bar.color === 'green' ? '#4caf50' : '#f44336'
+                  }
+
+                  return (
+                    <rect
+                      key={i}
+                      x={bar.x}
+                      y={bar.y}
+                      width={bar.width}
+                      height={bar.height}
+                      fill={barColor}
+                      opacity={0.7}
+                    />
+                  )
+                })}
 
                 {/* Center line at 0 */}
                 <line
@@ -310,7 +366,7 @@ const SimilarityTaggingPopover: React.FC = () => {
                   y1={0}
                   x2={histogramChart.xScale(0)}
                   y2={histogramChart.height}
-                  stroke="#ff9800"
+                  stroke="#333"
                   strokeWidth={2}
                   strokeDasharray="4,4"
                   opacity={0.7}
@@ -321,7 +377,7 @@ const SimilarityTaggingPopover: React.FC = () => {
                   y={-5}
                   textAnchor="middle"
                   fontSize={11}
-                  fill="#ff9800"
+                  fill="#333"
                   fontWeight="bold"
                 >
                   0
@@ -423,8 +479,8 @@ const SimilarityTaggingPopover: React.FC = () => {
                   }}
                   thresholds={[rejectThreshold, selectThreshold]}
                   metricRange={{
-                    min: histogramChart.xScale.domain()[0],  // Use symmetric domain
-                    max: histogramChart.xScale.domain()[1]
+                    min: safeThresholdPositions.minDomain,  // Use validated domain
+                    max: safeThresholdPositions.maxDomain
                   }}
                   position={{ x: 0, y: 0 }}
                   lineBounds={{

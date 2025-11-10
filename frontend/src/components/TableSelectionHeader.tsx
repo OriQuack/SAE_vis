@@ -72,7 +72,8 @@ const TableSelectionHeader: React.FC<TableSelectionHeaderProps> = ({
   // Sort by Similarity requirements
   const hasSelected = selectionCounts.selectedCount >= sortRequirements.minSelected
   const hasRejected = selectionCounts.rejectedCount >= sortRequirements.minRejected
-  const canSortBySimilarity = hasSelected && hasRejected && currentSortBy !== expectedSortValue
+  // Allow sorting whenever requirements are met (even if already sorted - user may have changed selections)
+  const canSortBySimilarity = hasSelected && hasRejected
 
   // Tag Automatically requirements
   const hasEnoughSelected = selectionCounts.selectedCount >= tagRequirements.minSelected
@@ -109,8 +110,6 @@ const TableSelectionHeader: React.FC<TableSelectionHeaderProps> = ({
               <>
                 <span className="spinner-mini" /> Sorting...
               </>
-            ) : isSortedBySimilarity ? (
-              'Sorted by Similarity ✓'
             ) : (
               'Sort by Similarity'
             )}
@@ -118,7 +117,7 @@ const TableSelectionHeader: React.FC<TableSelectionHeaderProps> = ({
           {hoveredButton === 'sort' && (
             <div className="decoder-stage-table__tooltip">
               {isSortedBySimilarity ? (
-                <div>Similarity sort already applied - click column headers to sort by other metrics</div>
+                <div>Click to re-sort with updated selections</div>
               ) : (
                 <>
                   <div className={hasSelected ? 'decoder-stage-table__tooltip-line--met' : 'decoder-stage-table__tooltip-line--unmet'}>
