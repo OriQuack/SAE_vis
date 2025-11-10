@@ -2,21 +2,14 @@ import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { useVisualizationStore } from '../store/index'
 import {
   calculateHistogramLayout,
-  calculateDivergingBars,
   calculateCategoryStackedBars,
   calculateXAxisTicks,
   calculateYAxisTicks
 } from '../lib/d3-histogram-utils'
 import { SELECTION_CATEGORY_COLORS } from '../lib/constants'
+import SelectionStateBar, { type CategoryCounts } from './SelectionStateBar'
 import ThresholdHandles from './ThresholdHandles'
 import '../styles/SimilarityTaggingPopover.css'
-
-interface CategoryCounts {
-  confirmed: number
-  expanded: number
-  rejected: number
-  unsure: number
-}
 
 const SimilarityTaggingPopover: React.FC = () => {
   const popoverState = useVisualizationStore(state => state.similarityTaggingPopover)
@@ -155,11 +148,6 @@ const SimilarityTaggingPopover: React.FC = () => {
     }
   }, [popoverState?.histogramData])
 
-  const bars = useMemo(() => {
-    if (!histogramChart) return []
-    return calculateDivergingBars(histogramChart, 0)
-  }, [histogramChart])
-
   // Compute category breakdown per bin
   const categoryData = useMemo(() => {
     if (!histogramChart || !popoverState?.histogramData?.scores) {
@@ -173,7 +161,10 @@ const SimilarityTaggingPopover: React.FC = () => {
 
     // Initialize category counts for each bin
     bins.forEach((_, binIndex) => {
-      categoryMap.set(binIndex, { confirmed: 0, expanded: 0, rejected: 0, unsure: 0 })
+      return categoryMap.set(binIndex, {
+        confirmed: 0, expanded: 0, rejected: 0, unsure: 0,
+        total: 0
+      })
     })
 
     // Iterate through each feature/pair and assign to bins
@@ -243,6 +234,98 @@ const SimilarityTaggingPopover: React.FC = () => {
     return calculateCategoryStackedBars(histogramChart, categoryData, categoryColors)
   }, [histogramChart, categoryData])
 
+  // Calculate current category counts for SelectionStateBar
+  const currentCounts = useMemo((): CategoryCounts => {
+    if (!popoverState?.histogramData?.scores) {
+      return { confirmed: 0, expanded: 0, rejected: 0, unsure: 0, total: 0 }
+    }
+
+    const scores = popoverState.histogramData.scores
+    const mode = popoverState.mode
+    let confirmed = 0
+    let expanded = 0
+    let rejected = 0
+    let unsure = 0
+
+    Object.entries(scores).forEach(([id, score]) => {
+      if (typeof score !== 'number') return
+
+      if (mode === 'feature') {
+        const featureId = parseInt(id, 10)
+        const selectionState = featureSelectionStates.get(featureId)
+        const source = featureSelectionSources.get(featureId)
+
+        if (selectionState === 'selected') {
+          if (source === 'auto') {
+            expanded++
+          } else {
+            confirmed++
+          }
+        } else if (selectionState === 'rejected') {
+          rejected++
+        } else {
+          unsure++
+        }
+      } else {
+        const selectionState = pairSelectionStates.get(id)
+        const source = pairSelectionSources.get(id)
+
+        if (selectionState === 'selected') {
+          if (source === 'auto') {
+            expanded++
+          } else {
+            confirmed++
+          }
+        } else if (selectionState === 'rejected') {
+          rejected++
+        } else {
+          unsure++
+        }
+      }
+    })
+
+    const total = confirmed + expanded + rejected + unsure
+    return { confirmed, expanded, rejected, unsure, total }
+  }, [popoverState, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources])
+
+  // Calculate preview counts after applying tags
+  const previewCounts = useMemo((): CategoryCounts => {
+    if (!popoverState?.histogramData?.scores) {
+      return currentCounts
+    }
+
+    const scores = popoverState.histogramData.scores
+    const mode = popoverState.mode
+    let confirmed = currentCounts.confirmed
+    let expanded = currentCounts.expanded
+    let rejected = currentCounts.rejected
+    let unsure = currentCounts.unsure
+
+    // Calculate how many unsure items will become expanded
+    let newlyExpanded = 0
+
+    Object.entries(scores).forEach(([id, score]) => {
+      if (typeof score !== 'number') return
+
+      // Check current state
+      const isAlreadyTagged = mode === 'feature'
+        ? featureSelectionStates.has(parseInt(id, 10))
+        : pairSelectionStates.has(id)
+
+      // If not already tagged and above threshold, will become expanded
+      if (!isAlreadyTagged && score >= selectThreshold) {
+        newlyExpanded++
+      }
+    })
+
+    // Update counts: unsure items become expanded
+    expanded += newlyExpanded
+    unsure -= newlyExpanded
+
+    const total = confirmed + expanded + rejected + unsure
+    return { confirmed, expanded, rejected, unsure, total }
+  }, [currentCounts, popoverState, selectThreshold, featureSelectionStates, pairSelectionStates])
+
   // Calculate axis ticks
   const xAxisTicks = useMemo(() => {
     if (!histogramChart) return []
@@ -278,43 +361,6 @@ const SimilarityTaggingPopover: React.FC = () => {
 
     return { selectX, minDomain, maxDomain }
   }, [histogramChart, selectThreshold])
-
-  // Calculate tag counts preview (single threshold: only select)
-  const tagCounts = useMemo(() => {
-    if (!popoverState?.histogramData?.scores) return { selected: 0, untagged: 0, preserved: 0 }
-
-    const scores = popoverState.histogramData.scores
-    let selected = 0
-    let untagged = 0
-
-    // Count preserved items directly from selection states (not from scores)
-    // This is the correct count of already-tagged items
-    const preserved = popoverState.mode === 'feature'
-      ? featureSelectionStates.size
-      : pairSelectionStates.size
-
-    Object.entries(scores).forEach(([id, score]) => {
-      // Check if already tagged - skip these as they're already counted in preserved
-      const isAlreadyTagged = popoverState.mode === 'feature'
-        ? featureSelectionStates.has(parseInt(id, 10))
-        : pairSelectionStates.has(id)
-
-      if (isAlreadyTagged) {
-        return // Skip - already counted in preserved
-      }
-
-      // Count new tags (single threshold logic)
-      if (typeof score === 'number') {
-        if (score >= selectThreshold) {
-          selected++
-        } else {
-          untagged++
-        }
-      }
-    })
-
-    return { selected, untagged, preserved }
-  }, [popoverState, selectThreshold, featureSelectionStates, pairSelectionStates])
 
   // Threshold update callback for single threshold
   const handleThresholdUpdate = (newThresholds: number[]) => {
@@ -606,6 +652,16 @@ const SimilarityTaggingPopover: React.FC = () => {
                 />
               </g>
             </svg>
+
+            {/* Selection State Bar with Preview */}
+            <div className="similarity-tagging-popover__state-bar">
+              <SelectionStateBar
+                counts={currentCounts}
+                previewCounts={previewCounts}
+                showLegend={true}
+                height={24}
+              />
+            </div>
 
             <div className="similarity-tagging-popover__actions">
               <button

@@ -56,7 +56,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
     const parsed = parseSAEId(saeId);
     console.log('[TagCategoryPanel] Parsed SAE metadata:', parsed);
     return parsed;
-  }, [currentFilters.sae_id, filterOptions?.sae_id]);
+  }, [currentFilters, filterOptions]);
 
   // Get LLM explainer names
   const llmExplainerNames = useMemo(() => {
@@ -71,7 +71,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
     const names = getLLMExplainerNames(tableData.explainer_ids);
     console.log('[TagCategoryPanel] LLM Explainer Names:', names);
     return names;
-  }, [tableData?.explainer_ids]);
+  }, [tableData]);
 
   // Helper function to get tag color from Sankey tree
   const getTagColor = (stageId: string, tagIndex: number, tagName: string): string | null => {

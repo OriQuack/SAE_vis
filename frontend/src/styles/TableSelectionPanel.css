@@ -215,7 +215,7 @@
 }
 
 /* ============================================================================
-   SELECTION STATE BAR - Color-coded horizontal bar chart
+   SELECTION STATE BAR CONTAINER
    ============================================================================ */
 
 .table-selection-panel__bar-container {
@@ -223,100 +223,6 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-}
-
-.table-selection-panel__bar {
-  display: flex;
-  height: 24px;
-  border-radius: 4px;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.table-selection-panel__segment {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border-right: 1px solid rgba(255, 255, 255, 0.3);
-}
-
-.table-selection-panel__segment:last-child {
-  border-right: none;
-}
-
-.table-selection-panel__segment:hover {
-  opacity: 0.85;
-  transform: scaleY(1.1);
-  z-index: 1;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-.table-selection-panel__segment:active {
-  transform: scaleY(1.05);
-}
-
-.table-selection-panel__segment-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: #ffffff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-  white-space: nowrap;
-  user-select: none;
-}
-
-/* Category-Specific Colors (fallback, mainly set inline) */
-.table-selection-panel__segment--confirmed {
-  background-color: #10b981; /* green */
-}
-
-.table-selection-panel__segment--expanded {
-  background-color: #3b82f6; /* blue */
-}
-
-.table-selection-panel__segment--rejected {
-  background-color: #ef4444; /* red */
-}
-
-.table-selection-panel__segment--unsure {
-  background-color: #9ca3af; /* gray */
-}
-
-/* ============================================================================
-   LEGEND - Category labels and counts below bar
-   ============================================================================ */
-
-.table-selection-panel__legend {
-  display: flex;
-  gap: 16px;
-  justify-content: center;
-  padding: 0;
-  margin-top: 0;
-}
-
-.table-selection-panel__legend-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-}
-
-.table-selection-panel__legend-color {
-  width: 12px;
-  height: 12px;
-  border-radius: 2px;
-  flex-shrink: 0;
-}
-
-.table-selection-panel__legend-label {
-  font-weight: 500;
-  color: #374151;
-}
-
-.table-selection-panel__legend-count {
-  color: #6b7280;
 }
 
 /* ============================================================================
@@ -339,44 +245,4 @@
   }
 }
 
-/* ============================================================================
-   ANIMATIONS
-   ============================================================================ */
-
-@keyframes segmentAppear {
-  from {
-    opacity: 0;
-    transform: scaleX(0);
-  }
-  to {
-    opacity: 1;
-    transform: scaleX(1);
-  }
-}
-
-.table-selection-panel__segment {
-  animation: segmentAppear 0.3s ease;
-}
-
-/* Click feedback ripple effect */
-@keyframes clickRipple {
-  0% {
-    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.6);
-  }
-  100% {
-    box-shadow: 0 0 0 10px rgba(255, 255, 255, 0);
-  }
-}
-
-.table-selection-panel__segment:active::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  border-radius: 50%;
-  animation: clickRipple 0.6s ease-out;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
+/* Bar animations moved to SelectionStateBar.css */

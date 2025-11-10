@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react'
 import { useVisualizationStore } from '../store/index'
 import {
-  SELECTION_CATEGORY_COLORS,
   type SelectionCategory,
   METRIC_DISPLAY_NAMES
 } from '../lib/constants'
+import SelectionStateBar, { type CategoryCounts } from './SelectionStateBar'
 import '../styles/TableSelectionPanel.css'
 
 interface TableSelectionPanelProps {
@@ -12,37 +12,6 @@ interface TableSelectionPanelProps {
   tagLabel: string
   onDone?: () => void
   doneButtonEnabled?: boolean
-}
-
-interface CategoryCounts {
-  confirmed: number
-  expanded: number
-  rejected: number
-  unsure: number
-  total: number
-}
-
-const CATEGORY_CONFIG: Record<SelectionCategory, { label: string; color: string; description: string }> = {
-  confirmed: {
-    label: 'Confirmed',
-    color: SELECTION_CATEGORY_COLORS.CONFIRMED.HEX,
-    description: 'Manually selected by user'
-  },
-  expanded: {
-    label: 'Expanded',
-    color: SELECTION_CATEGORY_COLORS.EXPANDED.HEX,
-    description: 'Auto-tagged by histogram thresholds'
-  },
-  rejected: {
-    label: 'Rejected',
-    color: SELECTION_CATEGORY_COLORS.REJECTED.HEX,
-    description: 'Manually rejected by user'
-  },
-  unsure: {
-    label: 'Unsure',
-    color: SELECTION_CATEGORY_COLORS.UNSURE.HEX,
-    description: 'Not selected or investigated'
-  }
 }
 
 /**
@@ -194,19 +163,6 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
     return { confirmed, expanded, rejected, unsure, total }
   }, [mode, tableData, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources, selectedNode, sankeyTree])
 
-  // Calculate percentages for bar chart
-  const percentages = useMemo(() => {
-    if (counts.total === 0) {
-      return { confirmed: 0, expanded: 0, rejected: 0, unsure: 100 }
-    }
-    return {
-      confirmed: (counts.confirmed / counts.total) * 100,
-      expanded: (counts.expanded / counts.total) * 100,
-      rejected: (counts.rejected / counts.total) * 100,
-      unsure: (counts.unsure / counts.total) * 100
-    }
-  }, [counts])
-
   // Count selected and rejected for button requirements
   const selectionCounts = useMemo(() => {
     let selectedCount = 0
@@ -269,63 +225,6 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
     sortTableByCategory(category, mode)
   }
 
-  // Calculate display counts
-  const currentCount = counts.total
-  const totalCount = useMemo(() => {
-    // Get filtered feature IDs from selected node
-    // For decoder similarity stages, collect from all children if they exist
-    let filteredFeatureIds: Set<number> | null = null
-    if (selectedNode) {
-      filteredFeatureIds = new Set<number>()
-
-      if (selectedNode.children && selectedNode.children.length > 0) {
-        // Collect from all child nodes (for split stages)
-        selectedNode.children.forEach(childId => {
-          const childNode = sankeyTree.get(childId)
-          if (childNode?.featureIds) {
-            childNode.featureIds.forEach(fid => filteredFeatureIds!.add(fid))
-          }
-        })
-      } else {
-        // Use node's own featureIds
-        selectedNode.featureIds.forEach(fid => filteredFeatureIds!.add(fid))
-      }
-    }
-
-    if (mode === 'feature') {
-      if (!tableData?.features) return 0
-
-      // Filter features to only those in the selected node
-      const features = filteredFeatureIds
-        ? tableData.features.filter((f: any) => filteredFeatureIds!.has(f.feature_id))
-        : tableData.features
-
-      return features.length
-    } else {
-      // For pair mode, calculate total pairs from decoder_similarity
-      if (!tableData?.features) return 0
-
-      // Filter features to only those in the selected node
-      const features = filteredFeatureIds
-        ? tableData.features.filter((f: any) => filteredFeatureIds!.has(f.feature_id))
-        : tableData.features
-
-      const seenPairs = new Set<string>()
-      features.forEach((feature: any) => {
-        const decoderData = Array.isArray(feature.decoder_similarity) ? feature.decoder_similarity : []
-        const top4Similar = decoderData.slice(0, 4)
-
-        top4Similar.forEach((similarItem: any) => {
-          const id1 = feature.feature_id
-          const id2 = similarItem.feature_id
-          const canonicalPairKey = id1 < id2 ? `${id1}-${id2}` : `${id2}-${id1}`
-          seenPairs.add(canonicalPairKey)
-        })
-      })
-
-      return seenPairs.size
-    }
-  }, [mode, tableData, selectedNode, sankeyTree])
   const hasAnySelection = selectionStates.size > 0
 
   // Don't render if no table data loaded yet
@@ -420,38 +319,12 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
 
         {/* Center: Selection State Bar */}
         <div className="table-selection-panel__bar-container">
-          <div className="table-selection-panel__bar">
-            {(Object.keys(CATEGORY_CONFIG) as SelectionCategory[]).map((category) => {
-              const percentage = percentages[category]
-              const count = counts[category]
-              const config = CATEGORY_CONFIG[category]
-
-              // Don't render segment if count is 0
-              if (count === 0) {
-                return null
-              }
-
-              return (
-                <div
-                  key={category}
-                  className={`table-selection-panel__segment table-selection-panel__segment--${category}`}
-                  style={{
-                    width: `${percentage}%`,
-                    backgroundColor: config.color
-                  }}
-                  onClick={() => handleCategoryClick(category)}
-                  title={`${config.label}: ${count} (${percentage.toFixed(1)}%) - ${config.description}`}
-                >
-                  {/* Show label if segment is wide enough (>10%) */}
-                  {percentage > 10 && (
-                    <span className="table-selection-panel__segment-label">
-                      {config.label} ({count})
-                    </span>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+          <SelectionStateBar
+            counts={counts}
+            onCategoryClick={handleCategoryClick}
+            showLegend={true}
+            height={24}
+          />
         </div>
 
         {/* Right Actions: Done & Clear */}
@@ -479,30 +352,6 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
             </button>
           )}
         </div>
-      </div>
-
-      {/* Legend Below Bar */}
-      <div className="table-selection-panel__legend">
-        {(Object.keys(CATEGORY_CONFIG) as SelectionCategory[]).map((category) => {
-          const count = counts[category]
-          const config = CATEGORY_CONFIG[category]
-          const percentage = percentages[category]
-
-          return (
-            <div key={category} className="table-selection-panel__legend-item">
-              <div
-                className="table-selection-panel__legend-color"
-                style={{ backgroundColor: config.color }}
-              />
-              <span className="table-selection-panel__legend-label">
-                {config.label}
-              </span>
-              <span className="table-selection-panel__legend-count">
-                {count} ({percentage.toFixed(1)}%)
-              </span>
-            </div>
-          )
-        })}
       </div>
     </div>
   )

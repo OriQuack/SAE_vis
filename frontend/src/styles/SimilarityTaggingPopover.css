@@ -149,6 +149,11 @@
   color: #333;
 }
 
+/* Selection State Bar */
+.similarity-tagging-popover__state-bar {
+  padding: 16px 0 8px;
+}
+
 /* Unique styles - Action buttons */
 .similarity-tagging-popover__actions {
   display: flex;
