@@ -68,6 +68,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const similarityScores = useVisualizationStore(state => state.similarityScores)
   const isSimilaritySortLoading = useVisualizationStore(state => state.isSimilaritySortLoading)
   const sortedBySelectionStates = useVisualizationStore(state => state.sortedBySelectionStates)
+  const doneFeatureSelectionStates = useVisualizationStore(state => state.doneFeatureSelectionStates)
   const sortBySimilarity = useVisualizationStore(state => state.sortBySimilarity)
   const moveToNextStep = useVisualizationStore(state => state.moveToNextStep)
 
@@ -550,7 +551,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
         onShowTaggingPopover={showSimilarityTaggingPopover}
         onDone={moveToNextStep}
         isSortLoading={isSimilaritySortLoading}
-        doneButtonEnabled={false}
+        doneButtonEnabled={true}
         sortRequirements={{ minSelected: 1, minRejected: 1 }}
         tagRequirements={{ minSelected: 5, minRejected: 5 }}
         currentSortBy={sortBy}
@@ -650,6 +651,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
               // Get frozen selection state (when sorted by similarity)
               const frozenSelectionState = sortedBySelectionStates?.get(featureRow.feature_id)
+              const doneState = doneFeatureSelectionStates?.get(featureRow.feature_id)
 
               const rowClassName = [
                 'table-panel__sub-row',
@@ -658,7 +660,10 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                 selectionState === 'rejected' ? 'table-panel__sub-row--checkbox-rejected' : '',
                 // Add blue border for features that were selected/rejected when sorted by similarity
                 frozenSelectionState === 'selected' ? 'table-panel__sub-row--sorted-as-selected' : '',
-                frozenSelectionState === 'rejected' ? 'table-panel__sub-row--sorted-as-rejected' : ''
+                frozenSelectionState === 'rejected' ? 'table-panel__sub-row--sorted-as-rejected' : '',
+                // Add border for "Done" click
+                doneState === 'selected' ? 'table-panel__sub-row--sorted-as-selected' : '',
+                doneState === 'rejected' ? 'table-panel__sub-row--sorted-as-rejected' : ''
               ].filter(Boolean).join(' ')
 
               return (

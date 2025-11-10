@@ -166,6 +166,44 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
           );
         })}
       </svg>
+      <div style={{
+        position: 'absolute',
+        bottom: '0px',
+        right: '10px',
+        display: 'flex',
+        gap: '4px'
+      }}>
+        <button
+          disabled
+          style={{
+            padding: '0px 6px',
+            fontSize: '10px',
+            backgroundColor: '#3b82f6', // blue-500
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            opacity: 0.5,
+            cursor: 'not-allowed',
+          }}
+        >
+          Regenerate
+        </button>
+        <button
+          disabled
+          style={{
+            padding: '1px 6px',
+            fontSize: '10px',
+            backgroundColor: '#3b82f6', // blue-500
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            opacity: 0.5,
+            cursor: 'not-allowed',
+          }}
+        >
+          Export
+        </button>
+      </div>
     </div>
   );
 };

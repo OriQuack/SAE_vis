@@ -520,17 +520,27 @@ export const createTableActions = (set: any, get: any) => ({
    */
   moveToNextStep: () => {
     const state = get()
-    const { activeStageCategory } = state
+    const { activeStageCategory, featureSelectionStates, pairSelectionStates } = state
 
     console.log('[Store.moveToNextStep] Moving to next step from category:', activeStageCategory)
 
     if (activeStageCategory === TAG_CATEGORY_FEATURE_SPLITTING) {
+      // This is the feature split table (pair selection)
+      // Freeze the current pair selection states
+      const frozenPairStates = new Map(pairSelectionStates)
+      set({ donePairSelectionStates: frozenPairStates })
+
       // Next step is Quality
       console.log('[Store.moveToNextStep] Transitioning from Feature Splitting to Quality')
       state.activateCategoryTable(TAG_CATEGORY_QUALITY)
     } else if (activeStageCategory === TAG_CATEGORY_QUALITY) {
+      // This is the quality table (feature selection)
+      // Freeze the current feature selection states
+      const frozenFeatureStates = new Map(featureSelectionStates)
+      set({ doneFeatureSelectionStates: frozenFeatureStates })
+
       // Next step would be Cause, but it's not fully implemented.
-      console.log('[Store.moveToNextStep] At Quality stage, no next step action defined.')
+      console.log('[Store.moveToNextStep] At Quality stage, freezing selections.')
     } else {
       console.log('[Store.moveToNextStep] No next step defined for category:', activeStageCategory)
     }

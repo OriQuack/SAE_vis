@@ -353,6 +353,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
 
   // Get frozen selection states from store (used when sorted by similarity)
   const pairSortedBySelectionStates = useVisualizationStore(state => state.pairSortedBySelectionStates)
+  const donePairSelectionStates = useVisualizationStore(state => state.donePairSelectionStates)
 
   // Sort rows by main feature ID, decoder similarity, or by pair similarity (three-tier)
   const sortedRows = useMemo(() => {
@@ -765,6 +766,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
 
               // Get frozen selection state (when sorted by similarity)
               const frozenPairState = pairSortedBySelectionStates?.get(row.pairKey)
+              const doneState = donePairSelectionStates?.get(row.pairKey)
 
               // Build row className with selection state AND frozen state indicator
               const rowClassName = [
@@ -773,7 +775,10 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                 pairSelectionState === 'rejected' ? 'table-panel__sub-row--checkbox-rejected' : '',
                 // Add thick border indicator for pairs that were selected/rejected when sorted by similarity
                 frozenPairState === 'selected' ? 'table-panel__sub-row--sorted-as-selected' : '',
-                frozenPairState === 'rejected' ? 'table-panel__sub-row--sorted-as-rejected' : ''
+                frozenPairState === 'rejected' ? 'table-panel__sub-row--sorted-as-rejected' : '',
+                // Add border for "Done" click
+                doneState === 'selected' ? 'table-panel__sub-row--sorted-as-selected' : '',
+                doneState === 'rejected' ? 'table-panel__sub-row--sorted-as-rejected' : ''
               ].filter(Boolean).join(' ')
 
               return (

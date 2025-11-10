@@ -155,13 +155,15 @@ interface AppState {
   similarityScores: Map<number, number>
   isSimilaritySortLoading: boolean
   lastSortedSelectionSignature: string | null  // Track selection state at last sort
-  sortedBySelectionStates: Map<number, 'selected' | 'rejected'> | null  // Frozen selection states when sorted
+  sortedBySelectionStates: Map<number, 'selected' | 'rejected'> | null,  // Frozen selection states when sorted
+  doneFeatureSelectionStates: Map<number, 'selected' | 'rejected'> | null
 
   // Pair similarity sort state (for feature split table)
   pairSimilarityScores: Map<string, number>
   isPairSimilaritySortLoading: boolean
   lastPairSortedSelectionSignature: string | null  // Track pair selection state at last sort
-  pairSortedBySelectionStates: Map<string, 'selected' | 'rejected'> | null  // Frozen pair selection states when sorted
+  pairSortedBySelectionStates: Map<string, 'selected' | 'rejected'> | null,  // Frozen pair selection states when sorted
+  donePairSelectionStates: Map<string, 'selected' | 'rejected'> | null
 
   // Similarity tagging popover state (for automatic tagging feature)
   similarityTaggingPopover: {
@@ -255,12 +257,14 @@ const initialState = {
   isSimilaritySortLoading: false,
   lastSortedSelectionSignature: null,
   sortedBySelectionStates: null,
+  doneFeatureSelectionStates: null,
 
   // Pair similarity sort state (for feature split table)
   pairSimilarityScores: new Map<string, number>(),
   isPairSimilaritySortLoading: false,
   lastPairSortedSelectionSignature: null,
   pairSortedBySelectionStates: null,
+  donePairSelectionStates: null,
 
   // Similarity tagging popover state (for automatic tagging feature)
   similarityTaggingPopover: null,
@@ -333,7 +337,8 @@ export const useStore = create<AppState>((set, get) => ({
       // This re-enables the sort button
       return {
         featureSelectionStates: newStates,
-        lastSortedSelectionSignature: null
+        lastSortedSelectionSignature: null,
+        doneFeatureSelectionStates: null
       }
     })
   },
@@ -378,7 +383,10 @@ export const useStore = create<AppState>((set, get) => ({
         newStates.delete(pairKey)
       }
 
-      return { pairSelectionStates: newStates }
+      return {
+        pairSelectionStates: newStates,
+        donePairSelectionStates: null
+      }
     })
   },
 
