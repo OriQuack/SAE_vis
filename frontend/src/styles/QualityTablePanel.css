@@ -288,9 +288,39 @@ width: 39%;
   background: rgba(59, 130, 246, 0.06);
 }
 
-/* Checkbox selection state backgrounds - apply to cells like highlighted rows */
-.table-panel__sub-row--checkbox-selected .table-panel__cell {
+/* Category selection state backgrounds - 4 categories */
+/* Color values defined in: frontend/src/lib/constants.ts -> SELECTION_CATEGORY_COLORS */
+
+/* Confirmed: Manually selected - GREEN */
+.table-panel__sub-row--confirmed .table-panel__cell {
+  background: rgba(16, 185, 129, 0.08) !important; /* Green with low opacity */
+}
+
+.table-panel__sub-row--confirmed:hover .table-panel__cell {
+  background: rgba(16, 185, 129, 0.15) !important;
+}
+
+/* Expanded: Auto-tagged by histogram - BLUE */
+.table-panel__sub-row--expanded .table-panel__cell {
   background: rgba(59, 130, 246, 0.08) !important; /* Blue with low opacity */
+}
+
+.table-panel__sub-row--expanded:hover .table-panel__cell {
+  background: rgba(59, 130, 246, 0.15) !important;
+}
+
+/* Rejected: Manually or auto rejected - RED */
+.table-panel__sub-row--rejected .table-panel__cell {
+  background: rgba(239, 68, 68, 0.08) !important; /* Red with low opacity */
+}
+
+.table-panel__sub-row--rejected:hover .table-panel__cell {
+  background: rgba(239, 68, 68, 0.15) !important;
+}
+
+/* Legacy class support (for backward compatibility) */
+.table-panel__sub-row--checkbox-selected .table-panel__cell {
+  background: rgba(59, 130, 246, 0.08) !important; /* Blue - fallback to expanded color */
 }
 
 .table-panel__sub-row--checkbox-selected:hover .table-panel__cell {
@@ -298,23 +328,32 @@ width: 39%;
 }
 
 .table-panel__sub-row--checkbox-rejected .table-panel__cell {
-  background: rgba(239, 68, 68, 0.08) !important; /* Red with low opacity */
+  background: rgba(239, 68, 68, 0.08) !important; /* Red */
 }
 
 .table-panel__sub-row--checkbox-rejected:hover .table-panel__cell {
   background: rgba(239, 68, 68, 0.15) !important;
 }
 
-/* Similarity sort: Blue border for features that were selected/rejected when sorted */
-/* Apply thick left border to the first cell (index column) for visibility */
-.table-panel__sub-row--sorted-as-selected .table-panel__cell:first-child {
-  border-left: 5px solid #3b82f6 !important; /* Thick blue border for selected */
-  padding-left: 3px; /* Adjust padding to compensate for border */
+/* Auto-tagged indicator: Colored border on index column based on category */
+/* Apply thick left border to the first cell (index column) for auto-tagged items */
+
+/* Confirmed (manual selection) - Green border */
+.table-panel__sub-row--confirmed.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
+  border-left: 5px solid #10b981 !important;
+  padding-left: 3px;
 }
 
-.table-panel__sub-row--sorted-as-rejected .table-panel__cell:first-child {
-  border-left: 5px solid #ef4444 !important; /* Thick red border for rejected */
-  padding-left: 3px; /* Adjust padding to compensate for border */
+/* Expanded (auto-tagged) - Blue border */
+.table-panel__sub-row--expanded.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
+  border-left: 5px solid #3b82f6 !important;
+  padding-left: 3px;
+}
+
+/* Rejected - Red border */
+.table-panel__sub-row--rejected.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
+  border-left: 5px solid #ef4444 !important;
+  padding-left: 3px;
 }
 
 /* ============================================================================
@@ -403,13 +442,20 @@ width: 39%;
 
 .table-panel__cell--score {
   position: relative;
-  height: 57px; /* Fixed height instead of min-height */
+  height: 60px; /* Fixed height to accommodate circle + text */
   padding: 0;
   border-right: 1px solid #d1d5db;
   box-sizing: border-box;
+  vertical-align: middle;
 }
 
-.table-panel__cell--score svg {
+/* Remove absolute positioning when using flex layout */
+.table-panel__cell--score > div {
+  /* Flex container handles layout, no absolute positioning needed */
+}
+
+/* Legacy support: Keep absolute positioning for direct SVG children (if any) */
+.table-panel__cell--score > svg {
   position: absolute;
   top: 50%;
   left: 50%;

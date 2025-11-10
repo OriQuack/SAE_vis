@@ -51,6 +51,8 @@ interface AppState {
   // Feature selection state (used by TablePanel checkboxes)
   // Three-state system: null (empty) -> 'selected' (checkmark) -> 'rejected' (red X) -> null
   featureSelectionStates: Map<number, 'selected' | 'rejected'>
+  // Track how features were selected: 'manual' (user click) or 'auto' (histogram tagging)
+  featureSelectionSources: Map<number, 'manual' | 'auto'>
   toggleFeatureSelection: (featureId: number) => void
   selectAllFeatures: () => void
   clearFeatureSelection: () => void
@@ -59,6 +61,8 @@ interface AppState {
   // Three-state system: null (empty) -> 'selected' (checkmark) -> 'rejected' (red X) -> null
   // Key format: "${mainFeatureId}-${similarFeatureId}"
   pairSelectionStates: Map<string, 'selected' | 'rejected'>
+  // Track how pairs were selected: 'manual' (user click) or 'auto' (histogram tagging)
+  pairSelectionSources: Map<string, 'manual' | 'auto'>
   togglePairSelection: (mainFeatureId: number, similarFeatureId: number) => void
   clearPairSelection: () => void
 
@@ -121,11 +125,12 @@ interface AppState {
   swapMetricDisplay: (newMetric: typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION) => void
   sortBySimilarity: () => Promise<void>
   sortPairsBySimilarity: (allPairKeys: string[]) => Promise<void>
+  sortTableByCategory: (category: 'confirmed' | 'expanded' | 'rejected' | 'unsure', mode: 'feature' | 'pair') => void
 
   // Similarity tagging actions (automatic tagging based on histogram)
-  showSimilarityTaggingPopover: (mode: 'feature' | 'pair', position: { x: number; y: number }) => Promise<void>
+  showSimilarityTaggingPopover: (mode: 'feature' | 'pair', position: { x: number; y: number }, tagLabel: string) => Promise<void>
   hideSimilarityTaggingPopover: () => void
-  updateSimilarityThresholds: (rejectThreshold: number, selectThreshold: number) => void
+  updateSimilarityThresholds: (selectThreshold: number) => void
   applySimilarityTags: () => void
 
   // Node selection actions
@@ -171,8 +176,8 @@ interface AppState {
     mode: 'feature' | 'pair'
     position: { x: number; y: number }
     histogramData: any | null  // SimilarityScoreHistogramResponse
-    rejectThreshold: number  // Threshold for rejecting (red, left side)
     selectThreshold: number  // Threshold for selecting (green, right side)
+    tagLabel: string  // Tag name (e.g., "well-explained", "fragmented")
     isLoading: boolean
   } | null
 
@@ -286,9 +291,11 @@ const initialState = {
   // Feature selection state (used by TablePanel checkboxes)
   // Three-state system: null (empty) -> 'selected' (checkmark) -> 'rejected' (red X) -> null
   featureSelectionStates: new Map<number, 'selected' | 'rejected'>(),
+  featureSelectionSources: new Map<number, 'manual' | 'auto'>(),
 
   // Pair selection state (used by FeatureSplitTable checkboxes)
   pairSelectionStates: new Map<string, 'selected' | 'rejected'>(),
+  pairSelectionSources: new Map<string, 'manual' | 'auto'>(),
 
   // Comparison view state
   showComparisonView: false,
@@ -320,23 +327,28 @@ export const useStore = create<AppState>((set, get) => ({
   toggleFeatureSelection: (featureId: number) => {
     set((state) => {
       const newStates = new Map(state.featureSelectionStates)
+      const newSources = new Map(state.featureSelectionSources)
       const currentState = newStates.get(featureId)
 
       if (currentState === undefined) {
         // null -> selected
         newStates.set(featureId, 'selected')
+        newSources.set(featureId, 'manual')
       } else if (currentState === 'selected') {
         // selected -> rejected
         newStates.set(featureId, 'rejected')
+        newSources.set(featureId, 'manual')
       } else {
         // rejected -> null (remove from map)
         newStates.delete(featureId)
+        newSources.delete(featureId)
       }
 
       // Clear last sorted selection signature when selection changes
       // This re-enables the sort button
       return {
         featureSelectionStates: newStates,
+        featureSelectionSources: newSources,
         lastSortedSelectionSignature: null,
         doneFeatureSelectionStates: null
       }
@@ -347,11 +359,14 @@ export const useStore = create<AppState>((set, get) => ({
     const tableData = get().tableData
     if (tableData && tableData.features) {
       const newStates = new Map<number, 'selected' | 'rejected'>()
+      const newSources = new Map<number, 'manual' | 'auto'>()
       tableData.features.forEach((f: any) => {
         newStates.set(f.feature_id, 'selected')
+        newSources.set(f.feature_id, 'manual')
       })
       set({
         featureSelectionStates: newStates,
+        featureSelectionSources: newSources,
         lastSortedSelectionSignature: null
       })
     }
@@ -360,6 +375,7 @@ export const useStore = create<AppState>((set, get) => ({
   clearFeatureSelection: () => {
     set({
       featureSelectionStates: new Map<number, 'selected' | 'rejected'>(),
+      featureSelectionSources: new Map<number, 'manual' | 'auto'>(),
       lastSortedSelectionSignature: null
     })
   },
@@ -368,23 +384,31 @@ export const useStore = create<AppState>((set, get) => ({
   // Three-state toggle: null -> 'selected' -> 'rejected' -> null
   togglePairSelection: (mainFeatureId: number, similarFeatureId: number) => {
     set((state) => {
-      const pairKey = `${mainFeatureId}-${similarFeatureId}`
+      // IMPORTANT: Use canonical key format (smaller ID first) to match API and row keys
+      const pairKey = mainFeatureId < similarFeatureId
+        ? `${mainFeatureId}-${similarFeatureId}`
+        : `${similarFeatureId}-${mainFeatureId}`
       const newStates = new Map(state.pairSelectionStates)
+      const newSources = new Map(state.pairSelectionSources)
       const currentState = newStates.get(pairKey)
 
       if (currentState === undefined) {
         // null -> selected
         newStates.set(pairKey, 'selected')
+        newSources.set(pairKey, 'manual')
       } else if (currentState === 'selected') {
         // selected -> rejected
         newStates.set(pairKey, 'rejected')
+        newSources.set(pairKey, 'manual')
       } else {
         // rejected -> null (remove from map)
         newStates.delete(pairKey)
+        newSources.delete(pairKey)
       }
 
       return {
         pairSelectionStates: newStates,
+        pairSelectionSources: newSources,
         donePairSelectionStates: null
       }
     })
@@ -392,7 +416,8 @@ export const useStore = create<AppState>((set, get) => ({
 
   clearPairSelection: () => {
     set({
-      pairSelectionStates: new Map<string, 'selected' | 'rejected'>()
+      pairSelectionStates: new Map<string, 'selected' | 'rejected'>(),
+      pairSelectionSources: new Map<string, 'manual' | 'auto'>()
     })
   },
 

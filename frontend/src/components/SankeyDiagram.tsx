@@ -114,20 +114,18 @@ const SankeyLink: React.FC<{
   const path = getSankeyPath(link)
   const baseColor = gradientId ? `url(#${gradientId})` : getLinkColor(link)
 
-  // Check if this is initial state root link (root → placeholder)
-  const targetNode = typeof link.target === 'object' ? link.target : null
-  const isInitialStateRootLink = sourceNode.id === 'root' && targetNode?.id === 'placeholder_vertical_bar'
-
-  // Apply opacity:
-  // - Initial state root links: 15% opacity ('26' hex), no hover effect
-  // - Regular links: 25% opacity ('40' hex), hover to 37.5% ('60' hex)
+  // Apply opacity by replacing last 2 characters (opacity suffix)
+  // - Normal: 35% opacity ('59' hex)
+  // - Hover: 50% opacity ('80' hex)
   let color: string
-  if (isInitialStateRootLink) {
-    color = baseColor.replace('40', '26')  // Initial state: 15%, no hover
+  if (gradientId) {
+    // Gradient URLs don't have opacity suffix, use as-is
+    color = baseColor
   } else if (isHovered) {
-    color = baseColor.replace('40', '60')  // Hover: 37.5%
+    // Replace only the last 2 characters (opacity) with '80'
+    color = baseColor.slice(0, -2) + '80'
   } else {
-    color = baseColor  // Normal: 25%
+    color = baseColor
   }
 
   return (
@@ -183,50 +181,20 @@ const VerticalBarSankeyNode: React.FC<{
       onMouseLeave={onMouseLeave}
       style={{ cursor: onClick ? 'pointer' : 'default' }}
     >
-      {/* Render vertical bar - as individual feature lines or fallback rectangle */}
-      {layout.subNodes.map((subNode) => {
-        // COMMENTED OUT: Individual feature lines when tagged
-        // If featureId exists, render as a thin horizontal line
-        // if (subNode.featureId !== undefined) {
-        //   return (
-        //     <line
-        //       key={subNode.id}
-        //       x1={subNode.x}
-        //       y1={subNode.y + subNode.height / 2}
-        //       x2={subNode.x + subNode.width}
-        //       y2={subNode.y + subNode.height / 2}
-        //       stroke={subNode.color}
-        //       strokeWidth={1}
-        //       opacity={0.8}
-        //     />
-        //   )
-        // }
-
-        // Fallback: render as rectangle (for nodes without feature data)
-        return (
-          <g key={subNode.id}>
-            {/* Bar rectangle */}
-            <rect
-              className="sankey-vertical-bar-rect"
-              x={subNode.x}
-              y={subNode.y}
-              width={subNode.width}
-              height={subNode.height}
-              fill={subNode.color}
-              opacity={
-                isPlaceholder ? 0.4 :
-                subNode.selectionState === 'selected' ? 0.8 :
-                subNode.selectionState === 'rejected' ? 0.2 :
-                0.5
-              }
-              stroke="#e5e7eb"
-              strokeWidth={0.5}
-              strokeDasharray={isPlaceholder ? "3,3" : undefined}
-              rx={3}
-            />
-          </g>
-        )
-      })}
+      {/* Render vertical bar as a single unified rectangle */}
+      {layout.subNodes.length > 0 && (
+        <rect
+          className="sankey-vertical-bar-rect"
+          x={layout.subNodes[0].x}
+          y={Math.min(...layout.subNodes.map(sn => sn.y))}
+          width={layout.totalWidth}
+          height={Math.max(...layout.subNodes.map(sn => sn.y + sn.height)) - Math.min(...layout.subNodes.map(sn => sn.y))}
+          fill={node.colorHex || layout.subNodes[0].color}
+          opacity={0.85}
+          stroke="none"
+          strokeDasharray={isPlaceholder ? "3,3" : undefined}
+        />
+      )}
 
       {/* Selection border around entire vertical bar */}
       {isSelected && boundingBox && (

@@ -23,7 +23,7 @@ import ActivationExample from './ActivationExample'
 import QualityScoreBreakdown from './QualityScoreBreakdown'
 import DecoderSimilarityTable from './FeatureSplitTable'
 import SimilarityTaggingPopover from './SimilarityTaggingPopover'
-import TableSelectionHeader from './TableSelectionHeader'
+import TableSelectionPanel from './TableSelectionPanel'
 import '../styles/QualityTablePanel.css'
 
 // ============================================================================
@@ -47,6 +47,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
   // Feature selection state (three-state: null -> selected -> rejected -> null)
   const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
+  const featureSelectionSources = useVisualizationStore(state => state.featureSelectionSources)
   const toggleFeatureSelection = useVisualizationStore(state => state.toggleFeatureSelection)
   const clearFeatureSelection = useVisualizationStore(state => state.clearFeatureSelection)
 
@@ -539,23 +540,12 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
         </div>
       )}
 
-      {/* Unified Selection Header using TableSelectionHeader component */}
-      <TableSelectionHeader
+      {/* Unified Selection Panel with header, buttons, and state bar */}
+      <TableSelectionPanel
         mode="feature"
         tagLabel="Well-Explained"
-        currentCount={sortedFeatures.length}
-        totalCount={tableData?.features.length || 0}
-        selectionStates={featureSelectionStates}
-        onSortBySimilarity={handleSimilaritySort}
-        onClearSelection={clearFeatureSelection}
-        onShowTaggingPopover={showSimilarityTaggingPopover}
         onDone={moveToNextStep}
-        isSortLoading={isSimilaritySortLoading}
         doneButtonEnabled={true}
-        sortRequirements={{ minSelected: 1, minRejected: 1 }}
-        tagRequirements={{ minSelected: 5, minRejected: 5 }}
-        currentSortBy={sortBy}
-        expectedSortValue="similarity"
       />
 
       <div
@@ -648,22 +638,29 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
               // Get selection state for this feature (current selection)
               const selectionState = featureSelectionStates.get(featureRow.feature_id)
+              const selectionSource = featureSelectionSources.get(featureRow.feature_id)
 
               // Get frozen selection state (when sorted by similarity)
               const frozenSelectionState = sortedBySelectionStates?.get(featureRow.feature_id)
               const doneState = doneFeatureSelectionStates?.get(featureRow.feature_id)
 
+              // Determine category class based on selection state and source
+              let categoryClass = ''
+              if (selectionState === 'selected') {
+                // Confirmed (manual) -> green, Expanded (auto) -> blue
+                categoryClass = selectionSource === 'auto' ? 'table-panel__sub-row--expanded' : 'table-panel__sub-row--confirmed'
+              } else if (selectionState === 'rejected') {
+                // Rejected -> red
+                categoryClass = 'table-panel__sub-row--rejected'
+              }
+              // No class for unsure state (default styling)
+
               const rowClassName = [
                 'table-panel__sub-row',
                 'table-panel__sub-row--first',
-                selectionState === 'selected' ? 'table-panel__sub-row--checkbox-selected' : '',
-                selectionState === 'rejected' ? 'table-panel__sub-row--checkbox-rejected' : '',
-                // Add blue border for features that were selected/rejected when sorted by similarity
-                frozenSelectionState === 'selected' ? 'table-panel__sub-row--sorted-as-selected' : '',
-                frozenSelectionState === 'rejected' ? 'table-panel__sub-row--sorted-as-rejected' : '',
-                // Add border for "Done" click
-                doneState === 'selected' ? 'table-panel__sub-row--sorted-as-selected' : '',
-                doneState === 'rejected' ? 'table-panel__sub-row--sorted-as-rejected' : ''
+                categoryClass,
+                // Add auto-tagged indicator for items tagged via "Tag Automatically"
+                selectionSource === 'auto' ? 'table-panel__sub-row--auto-tagged' : ''
               ].filter(Boolean).join(' ')
 
               return (
@@ -736,23 +733,56 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                     onMouseLeave={() => handleQualityScoreHover(null)}
                     style={{ cursor: 'pointer', position: 'relative' }}
                   >
-                    <svg width="32" height="32" style={{ display: 'block' }}>
-                      <circle
-                        cx="16"
-                        cy="16"
-                        r={getCircleRadius(maxQualityInfo.qualityScore)}
-                        fill="#1f2937"
-                        opacity={(() => {
-                          // Calculate opacity based on component range spread
-                          const spread = maxQualityInfo.componentRange.max - maxQualityInfo.componentRange.min
-                          // Low spread (all components similar) = high opacity (solid)
-                          // High spread (components vary) = low opacity (transparent)
-                          // Map spread [0, 1] to opacity [1.0, 0.3]
-                          return 1.0 - (spread)
-                        })()}
-                        stroke="none"
-                      />
-                    </svg>
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '4px',
+                        background: 'transparent'
+                      }}
+                    >
+                      {/* Circle */}
+                      <svg
+                        width={getCircleRadius(maxQualityInfo.qualityScore) * 2 + 4}
+                        height={getCircleRadius(maxQualityInfo.qualityScore) * 2 + 4}
+                        style={{
+                          display: 'block',
+                          marginBottom: '4px',
+                          background: 'transparent'
+                        }}
+                      >
+                        <circle
+                          cx={getCircleRadius(maxQualityInfo.qualityScore) + 2}
+                          cy={getCircleRadius(maxQualityInfo.qualityScore) + 2}
+                          r={getCircleRadius(maxQualityInfo.qualityScore)}
+                          fill="#1f2937"
+                          opacity={(() => {
+                            // Calculate opacity based on component range spread
+                            const spread = maxQualityInfo.componentRange.max - maxQualityInfo.componentRange.min
+                            // Low spread (all components similar) = high opacity (solid)
+                            // High spread (components vary) = low opacity (transparent)
+                            // Map spread [0, 1] to opacity [1.0, 0.3]
+                            return 1.0 - (spread)
+                          })()}
+                          stroke="none"
+                        />
+                      </svg>
+
+                      {/* Number below circle */}
+                      <div
+                        style={{
+                          fontSize: '11px',
+                          fontFamily: 'monospace',
+                          color: qualityPopover && qualityPopover.featureId === featureRow.feature_id ? '#3b82f6' : '#6b7280',
+                          fontWeight: qualityPopover && qualityPopover.featureId === featureRow.feature_id ? 600 : 400,
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        {maxQualityInfo.qualityScore.toFixed(3)}
+                      </div>
+                    </div>
                   </td>
 
                   {/* Explanation text */}

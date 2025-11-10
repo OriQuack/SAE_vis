@@ -265,6 +265,78 @@ export const COMPONENT_COLORS = {
 } as const
 
 // ============================================================================
+// SELECTION CATEGORY COLORS - 4-category system for feature selection states
+// Used across: SelectionStateBar.tsx, QualityTablePanel.css, FeatureSplitTable.css
+// ============================================================================
+
+/**
+ * Selection Category Color System
+ *
+ * Confirmed (Manual Selection): User manually clicked checkbox - GREEN
+ * Expanded (Auto-Tagged): Automatically tagged by histogram thresholds - BLUE
+ * Rejected: User rejected feature/pair - RED
+ * Unsure: Not selected or investigated - GRAY
+ */
+export const SELECTION_CATEGORY_COLORS = {
+  // Confirmed - Manual selection by user (Green)
+  CONFIRMED: {
+    HEX: '#10b981',                    // Tailwind green-500
+    RGB: { r: 16, g: 185, b: 129 },    // RGB components
+    LIGHT: 'rgba(16, 185, 129, 0.08)', // Background highlight
+    HOVER: 'rgba(16, 185, 129, 0.15)'  // Hover state
+  },
+
+  // Expanded - Auto-tagged by histogram (Blue)
+  EXPANDED: {
+    HEX: '#3b82f6',                    // Tailwind blue-500
+    RGB: { r: 59, g: 130, b: 246 },    // RGB components
+    LIGHT: 'rgba(59, 130, 246, 0.08)', // Background highlight
+    HOVER: 'rgba(59, 130, 246, 0.15)'  // Hover state
+  },
+
+  // Rejected - Manually or auto rejected (Red)
+  REJECTED: {
+    HEX: '#ef4444',                    // Tailwind red-500
+    RGB: { r: 239, g: 68, b: 68 },     // RGB components
+    LIGHT: 'rgba(239, 68, 68, 0.08)',  // Background highlight
+    HOVER: 'rgba(239, 68, 68, 0.15)'   // Hover state
+  },
+
+  // Unsure - Not selected or investigated (Gray)
+  UNSURE: {
+    HEX: '#9ca3af',                    // Tailwind gray-400
+    RGB: { r: 156, g: 163, b: 175 },   // RGB components
+    LIGHT: 'rgba(156, 163, 175, 0.08)', // Background highlight
+    HOVER: 'rgba(156, 163, 175, 0.15)'  // Hover state
+  }
+} as const
+
+/**
+ * Selection category type definition
+ */
+export type SelectionCategory = 'confirmed' | 'expanded' | 'rejected' | 'unsure'
+
+/**
+ * Get color for a selection category
+ * @param category - The selection category
+ * @returns Color object with HEX, RGB, LIGHT, and HOVER variants
+ */
+export function getSelectionCategoryColor(category: SelectionCategory) {
+  switch (category) {
+    case 'confirmed':
+      return SELECTION_CATEGORY_COLORS.CONFIRMED
+    case 'expanded':
+      return SELECTION_CATEGORY_COLORS.EXPANDED
+    case 'rejected':
+      return SELECTION_CATEGORY_COLORS.REJECTED
+    case 'unsure':
+      return SELECTION_CATEGORY_COLORS.UNSURE
+    default:
+      return SELECTION_CATEGORY_COLORS.UNSURE
+  }
+}
+
+// ============================================================================
 // LLM ICON SVG PATHS - Reusable icon definitions for LLM components
 // Used across: FlowPanel.tsx
 // ============================================================================

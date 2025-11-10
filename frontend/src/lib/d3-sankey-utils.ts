@@ -418,14 +418,14 @@ export function getLinkColor(link: D3SankeyLink): string {
   // Defensive checks for d3-sankey processed data
   if (!link?.source) {
     console.warn('getLinkColor: Link source is undefined, using default color')
-    return '#6b728040'  // 25% opacity
+    return '#6b728059'  // 35% opacity
   }
 
   const sourceNode = link.source as D3SankeyNode
 
   // Use hierarchical color from source node (preferred)
   if (sourceNode?.colorHex) {
-    return `${sourceNode.colorHex}40`  // Add 25% opacity
+    return `${sourceNode.colorHex}59`  // Add 35% opacity
   }
 
   // Fallback: Get metric from source node (links are colored by the metric that created them)
@@ -433,12 +433,12 @@ export function getLinkColor(link: D3SankeyLink): string {
 
   if (!metric) {
     // No metric: use default gray (root node or nodes without metrics)
-    return '#6b728040'  // 25% opacity
+    return '#6b728059'  // 35% opacity
   }
 
-  // Get base color from centralized source and apply 25% opacity
+  // Get base color from centralized source and apply 35% opacity
   const baseColor = getMetricBaseColor(metric)
-  return `${baseColor}40`  // Add 25% opacity (hex '40' = 64/255)
+  return `${baseColor}59`  // Add 35% opacity (hex '59' = 89/255)
 }
 
 // ============================================================================

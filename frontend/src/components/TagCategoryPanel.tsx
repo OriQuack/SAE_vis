@@ -4,6 +4,7 @@ import {
   type TagCategoryConfig
 } from '../lib/tag-categories';
 import { useVisualizationStore } from '../store/index';
+import type { SankeyTreeNode } from '../types';
 import '../styles/TagCategoryPanel.css';
 
 interface TagCategoryPanelProps {
@@ -17,6 +18,79 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
 }) => {
   // Get all stages in order
   const stages = useMemo(() => getTagCategoriesInOrder(), []);
+
+  // Stage instructions mapping
+  const stageInstructions: Record<string, string> = {
+    'feature_splitting': 'Single or multiple concepts?',
+    'quality': 'Rate explanation quality',
+    'cause': 'Identify root cause'
+  };
+
+  // Get sankeyTree from left panel for color mapping
+  const sankeyTree = useVisualizationStore(state => state.leftPanel.sankeyTree);
+
+  // Helper function to get tag color from Sankey tree
+  const getTagColor = (stageId: string, tagIndex: number): string | null => {
+    if (!sankeyTree || sankeyTree.size === 0) {
+      console.log('[TagCategoryPanel.getTagColor] No sankeyTree available');
+      return null;
+    }
+
+    // Find the stage configuration
+    const stage = stages.find(s => s.id === stageId);
+    if (!stage) {
+      console.log('[TagCategoryPanel.getTagColor] Stage not found:', stageId);
+      return null;
+    }
+
+    // Get expected depth for this stage
+    const targetDepth = stage.stageOrder;
+
+    console.log('[TagCategoryPanel.getTagColor] Looking for color:', {
+      stageId,
+      tagIndex,
+      targetDepth,
+      metric: stage.metric,
+      treeSize: sankeyTree.size
+    });
+
+    // Debug: log all nodes
+    console.log('[TagCategoryPanel.getTagColor] All tree nodes:');
+    for (const [nodeId, node] of sankeyTree.entries()) {
+      console.log('  -', nodeId, '| depth:', node.depth, '| metric:', node.metric, '| color:', node.colorHex);
+    }
+
+    // Find matching nodes in the tree
+    // Strategy: look for nodes at the target depth whose ID contains the group index
+    const groupSuffix = `_group${tagIndex}`;
+
+    for (const [nodeId, node] of sankeyTree.entries()) {
+      // Check if node is at the right depth
+      if (node.depth !== targetDepth) continue;
+
+      console.log('[TagCategoryPanel.getTagColor] Found node at target depth:', nodeId, 'checking suffix:', groupSuffix);
+
+      // Check if node ID ends with the group suffix we're looking for
+      if (nodeId.endsWith(groupSuffix)) {
+        console.log('[TagCategoryPanel.getTagColor] Node ID matches suffix!');
+        // If stage has a metric, verify the node uses that metric
+        if (stage.metric) {
+          console.log('[TagCategoryPanel.getTagColor] Checking metric:', node.metric, 'vs', stage.metric);
+          if (node.metric === stage.metric) {
+            console.log('[TagCategoryPanel.getTagColor] ✅ MATCH! Returning color:', node.colorHex);
+            return node.colorHex || null;
+          }
+        } else {
+          // For pre-defined categories (like Cause), just match by group index
+          console.log('[TagCategoryPanel.getTagColor] ✅ MATCH (no metric check)! Returning color:', node.colorHex);
+          return node.colorHex || null;
+        }
+      }
+    }
+
+    console.log('[TagCategoryPanel.getTagColor] ❌ No matching node found');
+    return null;
+  };
 
   // Refs for flow line positioning
   const monosematicCountRef = useRef<HTMLSpanElement>(null);
@@ -142,30 +216,50 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
   return (
     <div className="tag-category-panel" ref={panelRef}>
       <div className="tag-category-panel__content">
-        {/* Left: Stage buttons row */}
+        {/* Left: Stage buttons and instructions */}
         <div className="tag-category-panel__stages">
-          {stages.map((stage) => {
-            const isActive = selectedCategory === stage.id;
-            const isCompleted = isStageCompleted(stage.stageOrder);
+          <div className="tag-category-panel__stages-buttons">
+            {stages.map((stage) => {
+              const isActive = selectedCategory === stage.id;
+              const isCompleted = isStageCompleted(stage.stageOrder);
 
-            return (
-              <button
-                key={stage.id}
-                className={`tag-category-panel__stage-button ${
-                  isActive ? 'tag-category-panel__stage-button--active' : ''
-                } ${
-                  isCompleted ? 'tag-category-panel__stage-button--completed' : ''
-                }`}
-                onClick={() => handleStageClick(stage.id)}
-                title={stage.description}
-              >
-                <span className="stage-number">
-                  {isCompleted ? '✓' : stage.stageOrder}
-                </span>
-                <span className="stage-name">{stage.label}</span>
-              </button>
-            );
-          })}
+              return (
+                <button
+                  key={stage.id}
+                  className={`tag-category-panel__stage-button ${
+                    isActive ? 'tag-category-panel__stage-button--active' : ''
+                  } ${
+                    isCompleted ? 'tag-category-panel__stage-button--completed' : ''
+                  }`}
+                  onClick={() => handleStageClick(stage.id)}
+                  title={stage.description}
+                >
+                  <span className="stage-number">
+                    {isCompleted ? '✓' : stage.stageOrder}
+                  </span>
+                  <span className="stage-name">{stage.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Stage instructions below buttons */}
+          <div className="tag-category-panel__stages-instructions">
+            {stages.map((stage) => {
+              const isActive = selectedCategory === stage.id;
+
+              return (
+                <div
+                  key={`instruction-${stage.id}`}
+                  className={`stage-instruction ${
+                    isActive ? 'stage-instruction--active' : ''
+                  }`}
+                >
+                  {stageInstructions[stage.id]}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Divider */}
@@ -203,19 +297,37 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
                     isCauseStage ? 'tag-category-panel__tag-column--grid' : ''
                   }`}
                 >
-                  {stage.tags.map((tag) => {
+                  {stage.tags.map((tag, tagIndex) => {
                     const isMonosemantic = stage.id === 'feature_splitting' && tag === 'monosemantic';
                     const isNeedRevision = stage.id === 'quality' && tag === 'need revision';
+
+                    // Get color from Sankey tree
+                    const color = getTagColor(stage.id, tagIndex);
+                    const fallbackColor = '#94a3b8'; // Neutral grey
+                    const tagColor = color || fallbackColor;
+
+                    // Create style object for dynamic coloring
+                    const tagStyle = {
+                      borderLeftColor: tagColor,
+                      backgroundColor: `${tagColor}14` // 8% opacity (14 in hex)
+                    };
+
+                    const countStyle = {
+                      backgroundColor: tagColor,
+                      color: 'white'
+                    };
 
                     return (
                       <span
                         key={tag}
                         className="tag-badge"
+                        style={tagStyle}
                         title={`${tag}: ${tagCounts[tag]} features`}
                       >
                         <span className="tag-badge__label">{tag}</span>
                         <span
                           className="tag-badge__count"
+                          style={countStyle}
                           ref={isMonosemantic ? monosematicCountRef :
                                isNeedRevision ? needRevisionCountRef : null}
                         >

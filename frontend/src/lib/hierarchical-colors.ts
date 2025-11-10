@@ -54,7 +54,7 @@ const BASE_RADIUS_PER_CHILD = 8
 const MAX_SAMPLING_ATTEMPTS = 1000
 
 // Fixed seed for consistent color generation across page loads
-const DEFAULT_SEED = 14
+const DEFAULT_SEED = 12
 
 // ============================================================================
 // SEEDED RANDOM NUMBER GENERATOR
@@ -118,7 +118,7 @@ export class HierarchicalColorAssigner {
 
     // Step 0: Assign dark grey color to root node
     const darkGreyColor: LABColor = {
-      L: 60,  // Dark lightness
+      L: 50,  // Dark lightness
       a: 0,   // Neutral (no red/green)
       b: -5    // Neutral (no blue/yellow)
     }
@@ -134,8 +134,8 @@ export class HierarchicalColorAssigner {
       return
     }
 
-    // Step 1: Assign colors to top-level nodes using blue noise sampling
-    this.assignTopLevelColors(topLevelNodes)
+    // Step 1: Assign colors to top-level nodes within sphere around root
+    this.assignTopLevelColors(topLevelNodes, root)
 
     // Step 2: Recursively assign colors to children
     for (const node of topLevelNodes) {
@@ -146,10 +146,19 @@ export class HierarchicalColorAssigner {
   }
 
   /**
-   * Assign colors to top-level nodes using blue noise sampling
+   * Assign colors to top-level nodes within sphere around root node
+   * This makes root's children get grey-ish variations of root's dark grey
    */
-  private assignTopLevelColors(nodes: SankeyTreeNode[]): void {
-    const colors = this.blueNoiseSampling(nodes.length, null)
+  private assignTopLevelColors(nodes: SankeyTreeNode[], root: SankeyTreeNode): void {
+    // Create sphere around root's color
+    // Use a large radius since these are top-level colors
+    const sphere: ColorSphere = {
+      center: root.color!,
+      radius: Math.sqrt(nodes.length) * BASE_RADIUS_PER_CHILD * 2  // 2x radius for more spread
+    }
+
+    // Sample colors within sphere
+    const colors = this.blueNoiseSampling(nodes.length, sphere)
 
     nodes.forEach((node, i) => {
       this.setNodeColor(node, colors[i])

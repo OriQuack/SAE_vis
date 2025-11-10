@@ -26,9 +26,11 @@
   border: 2px solid #2196f3;
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  min-width: 600px;
-  max-width: 700px;
+  width: 650px;
+  height: 620px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Header (follows HistogramPopover pattern) */
@@ -41,6 +43,7 @@
   border-top-left-radius: 6px;
   border-top-right-radius: 6px;
   user-select: none;
+  flex-shrink: 0;
 }
 
 .similarity-tagging-popover__title {
@@ -73,6 +76,10 @@
 /* Content area */
 .similarity-tagging-popover__content {
   padding: 16px;
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Loading state (follows HistogramPopover pattern) */
@@ -80,8 +87,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 12px;
-  padding: 40px;
+  flex: 1;
 }
 
 .similarity-tagging-popover__loading .spinner {
@@ -105,6 +113,8 @@
   padding: 12px;
   margin-bottom: 20px;
   border-radius: 4px;
+  flex-shrink: 0;
+  min-height: 90px;
 }
 
 .similarity-tagging-popover__info p {
@@ -118,6 +128,7 @@
 .similarity-tagging-popover__svg {
   display: block;
   margin: 0 auto 16px;
+  flex-shrink: 0;
 }
 
 /* Unique styles - Preview box */
@@ -127,6 +138,8 @@
   padding: 12px;
   margin-bottom: 16px;
   border-radius: 4px;
+  flex-shrink: 0;
+  min-height: 50px;
 }
 
 .similarity-tagging-popover__preview p {
@@ -141,6 +154,7 @@
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+  flex-shrink: 0;
 }
 
 .similarity-tagging-popover__button {
@@ -173,7 +187,10 @@
 
 /* Error state */
 .similarity-tagging-popover__error {
-  padding: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
   text-align: center;
   color: #f44336;
   font-size: 14px;

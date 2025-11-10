@@ -321,6 +321,16 @@
   overflow: hidden;
 }
 
+/* New Panel Above Table */
+.sankey-view__table-top-panel {
+  flex-shrink: 0;
+  height: 60px;
+  width: 100%;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  overflow: hidden;
+}
+
 /* ============================================================================
    COMPONENT CONTAINERS
    ============================================================================ */

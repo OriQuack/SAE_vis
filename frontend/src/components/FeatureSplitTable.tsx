@@ -7,7 +7,7 @@ import { TAG_CATEGORIES, TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/tag-categ
 import ActivationExample from './ActivationExample'
 import DecoderSimilarityOverlay from './FeatureSplitOverlay'
 import SimilarityTaggingPopover from './SimilarityTaggingPopover'
-import TableSelectionHeader from './TableSelectionHeader'
+import TableSelectionPanel from './TableSelectionPanel'
 import '../styles/QualityTablePanel.css'
 import '../styles/FeatureSplitTable.css'
 
@@ -25,6 +25,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
   const leftPanel = useVisualizationStore(state => state.leftPanel)
   const tableData = useVisualizationStore(state => state.tableData)
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
+  const pairSelectionSources = useVisualizationStore(state => state.pairSelectionSources)
   const togglePairSelection = useVisualizationStore(state => state.togglePairSelection)
   const clearPairSelection = useVisualizationStore(state => state.clearPairSelection)
   const loading = useVisualizationStore(state => state.loading)
@@ -306,6 +307,10 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
       return []
     }
 
+    // Build a Set of all feature IDs in stageFeatures for quick lookup
+    // This is used to determine which pairs have complete data available
+    const stageFeatureIds = new Set(stageFeatures.map(f => f.feature_id))
+
     // Transform to decoder stage pair rows - one row per pair (feature + similar feature)
     const rows: DecoderStagePairRow[] = stageFeatures.flatMap((feature: FeatureTableRow) => {
       // Get decoder similarity data - safely ensure it's an array
@@ -314,20 +319,28 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
       // Extract top 4 similar features (not including self)
       const top4Similar = decoderData.slice(0, 4)
 
-      // Create 4 rows, one for each pair (main feature + similar feature)
-      return top4Similar.map(similarItem => ({
-        pairKey: `${feature.feature_id}-${similarItem.feature_id}`,
-        mainFeature: {
-          feature_id: feature.feature_id,
-          pattern_type: (activationExamples[feature.feature_id]?.pattern_type || 'None') as 'Lexical' | 'Semantic' | 'Both' | 'None'
-        },
-        similarFeature: {
-          feature_id: similarItem.feature_id,
-          cosine_similarity: similarItem.cosine_similarity,
-          pattern_type: (activationExamples[similarItem.feature_id]?.pattern_type || 'None') as 'Lexical' | 'Semantic' | 'Both' | 'None',
-          inter_feature_similarity: similarItem.inter_feature_similarity || null
+      // Create rows for ALL pairs (even if similar feature not in current dataset)
+      // We'll track which pairs are "valid" (have complete data) separately
+      return top4Similar.map(similarItem => {
+        // IMPORTANT: Use canonical key format (smaller ID first) to match API response
+        const id1 = feature.feature_id
+        const id2 = similarItem.feature_id
+        const canonicalPairKey = id1 < id2 ? `${id1}-${id2}` : `${id2}-${id1}`
+
+        return {
+          pairKey: canonicalPairKey,
+          mainFeature: {
+            feature_id: feature.feature_id,
+            pattern_type: (activationExamples[feature.feature_id]?.pattern_type || 'None') as 'Lexical' | 'Semantic' | 'Both' | 'None'
+          },
+          similarFeature: {
+            feature_id: similarItem.feature_id,
+            cosine_similarity: similarItem.cosine_similarity,
+            pattern_type: (activationExamples[similarItem.feature_id]?.pattern_type || 'None') as 'Lexical' | 'Semantic' | 'Both' | 'None',
+            inter_feature_similarity: similarItem.inter_feature_similarity || null
+          }
         }
-      }))
+      })
     })
 
     // Deduplicate pairs: only keep one of (A, B) and (B, A)
@@ -394,12 +407,21 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
         console.warn('[FeatureSplitTable] ⚠️  pairSimilarityScores is empty - cannot sort by similarity!')
       }
 
+      // Sample a few scores for debugging
+      const samplePairs = unselected.slice(0, 3)
+      console.log('[FeatureSplitTable] Sample pair keys and scores:',
+        samplePairs.map(p => ({
+          key: p.pairKey,
+          score: pairSimilarityScores.get(p.pairKey) ?? 'MISSING'
+        }))
+      )
+
       unselected.sort((a, b) => {
         const aScore = pairSimilarityScores.get(a.pairKey) ?? -Infinity
         const bScore = pairSimilarityScores.get(b.pairKey) ?? -Infinity
 
-        // Debug: Log if scores are missing
-        if (aScore === -Infinity || bScore === -Infinity) {
+        // Debug: Log if scores are missing (only first few to avoid spam)
+        if ((aScore === -Infinity || bScore === -Infinity) && unselected.indexOf(a) < 5) {
           if (aScore === -Infinity) {
             console.warn('[FeatureSplitTable] Missing score for pair:', a.pairKey)
           }
@@ -483,7 +505,10 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
 
   // Handle pair selection
   const handlePairToggle = (mainFeatureId: number, similarFeatureId: number) => {
-    const pairKey = `${mainFeatureId}-${similarFeatureId}`
+    // IMPORTANT: Use canonical key format (smaller ID first)
+    const pairKey = mainFeatureId < similarFeatureId
+      ? `${mainFeatureId}-${similarFeatureId}`
+      : `${similarFeatureId}-${mainFeatureId}`
     const currentState = pairSelectionStates.get(pairKey)
 
     // After toggle, the new state will be: null -> selected -> rejected -> null
@@ -715,43 +740,12 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
         </div>
       )}
 
-      {/* Unified selection header using TableSelectionHeader component */}
-      <TableSelectionHeader
+      {/* Unified Selection Panel with header, buttons, and state bar */}
+      <TableSelectionPanel
         mode="pair"
         tagLabel={TAG_CATEGORIES[TAG_CATEGORY_FEATURE_SPLITTING].label}
-        currentCount={stageFeatures.length}
-        totalCount={tableData?.features.length || 0}
-        selectionStates={pairSelectionStates}
-        onSortBySimilarity={() => {
-          // Clear local sort state to avoid conflicts with global similarity sort
-          setSortBy(null)
-          setSortDirection(null)
-
-          // Extract all pair keys from current rows
-          const allPairKeys = sortedRows.map(row => row.pairKey)
-          console.log('[FeatureSplitTable] Initiating similarity sort with', allPairKeys.length, 'pairs')
-          sortPairsBySimilarity(allPairKeys)
-        }}
-        onClearSelection={() => {
-          // Clear selection states
-          clearPairSelection()
-
-          // Reset both local and global sort state
-          setSortBy(null)
-          setSortDirection(null)
-          const setTableSort = useVisualizationStore.getState().setTableSort
-          setTableSort(null, null)
-
-          console.log('[FeatureSplitTable] Cleared selections and reset all sort states')
-        }}
-        onShowTaggingPopover={showSimilarityTaggingPopover}
         onDone={moveToNextStep}
-        isSortLoading={isPairSimilaritySortLoading}
         doneButtonEnabled={true}
-        sortRequirements={{ minSelected: 1, minRejected: 1 }}
-        tagRequirements={{ minSelected: 5, minRejected: 5 }}
-        currentSortBy={tableSortBy}
-        expectedSortValue="pair_similarity"
       />
 
       {/* Table */}
@@ -802,22 +796,29 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
             {rowVirtualizer.getVirtualItems().map((virtualRow) => {
               const row = sortedRows[virtualRow.index]
               const pairSelectionState = pairSelectionStates.get(row.pairKey)
+              const pairSelectionSource = pairSelectionSources.get(row.pairKey)
 
               // Get frozen selection state (when sorted by similarity)
               const frozenPairState = pairSortedBySelectionStates?.get(row.pairKey)
               const doneState = donePairSelectionStates?.get(row.pairKey)
 
-              // Build row className with selection state AND frozen state indicator
+              // Determine category class based on selection state and source
+              let categoryClass = ''
+              if (pairSelectionState === 'selected') {
+                // Confirmed (manual) -> green, Expanded (auto) -> blue
+                categoryClass = pairSelectionSource === 'auto' ? 'table-panel__sub-row--expanded' : 'table-panel__sub-row--confirmed'
+              } else if (pairSelectionState === 'rejected') {
+                // Rejected -> red
+                categoryClass = 'table-panel__sub-row--rejected'
+              }
+              // No class for unsure state (default styling)
+
+              // Build row className with selection state AND auto-tagged indicator
               const rowClassName = [
                 'table-panel__sub-row',
-                pairSelectionState === 'selected' ? 'table-panel__sub-row--checkbox-selected' : '',
-                pairSelectionState === 'rejected' ? 'table-panel__sub-row--checkbox-rejected' : '',
-                // Add thick border indicator for pairs that were selected/rejected when sorted by similarity
-                frozenPairState === 'selected' ? 'table-panel__sub-row--sorted-as-selected' : '',
-                frozenPairState === 'rejected' ? 'table-panel__sub-row--sorted-as-rejected' : '',
-                // Add border for "Done" click
-                doneState === 'selected' ? 'table-panel__sub-row--sorted-as-selected' : '',
-                doneState === 'rejected' ? 'table-panel__sub-row--sorted-as-rejected' : ''
+                categoryClass,
+                // Add auto-tagged indicator for items tagged via "Tag Automatically"
+                pairSelectionSource === 'auto' ? 'table-panel__sub-row--auto-tagged' : ''
               ].filter(Boolean).join(' ')
 
               return (

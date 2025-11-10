@@ -586,7 +586,15 @@ class SimilaritySortService:
             all_feature_ids.add(main_id)
             all_feature_ids.add(similar_id)
 
-        logger.info(f"Extracting metrics for {len(all_feature_ids)} unique features in {len(pair_ids)} pairs")
+        # LIMITATION: _extract_metrics() only returns features that exist in the current
+        # filtered dataset (based on table filters like SAE, explainer, scorer).
+        # Pairs referencing features outside this filter will fail to get metrics.
+        #
+        # FUTURE FIX: To support all pairs regardless of filters:
+        # 1. Load feature metrics from unfiltered dataset (all features globally)
+        # 2. Or: Expand current dataset to include all referenced features
+        # 3. Or: Pre-compute pair metrics for all possible pairs
+        logger.info(f"Extracting metrics for {len(all_feature_ids)} unique features from {len(pair_ids)} pairs")
         metrics_df = await self._extract_metrics(list(all_feature_ids))
 
         if metrics_df is None or len(metrics_df) == 0:
@@ -595,6 +603,17 @@ class SimilaritySortService:
                 sorted_pairs=[],
                 total_pairs=0,
                 weights_used=[]
+            )
+
+        # Log how many features have metrics vs requested
+        features_with_metrics = len(metrics_df)
+        features_requested = len(all_feature_ids)
+        if features_with_metrics < features_requested:
+            missing = features_requested - features_with_metrics
+            logger.warning(
+                f"⚠️  Insufficient data: Only {features_with_metrics}/{features_requested} features have metrics. "
+                f"{missing} features are outside the current filtered dataset. "
+                f"Some pairs will be excluded from similarity sort."
             )
 
         # Extract pair metrics (cosine_similarity from decoder_similarity)
@@ -613,7 +632,10 @@ class SimilaritySortService:
         # Sort by score (descending - higher is better)
         pair_scores.sort(key=lambda x: x.score, reverse=True)
 
-        logger.info(f"Successfully scored and sorted {len(pair_scores)} pairs using SVM")
+        logger.info(
+            f"✅ Pair similarity sort complete: {len(pair_scores)}/{len(pair_ids)} pairs scored. "
+            f"({len(pair_ids) - len(pair_scores)} pairs excluded due to missing feature data)"
+        )
 
         return PairSimilaritySortResponse(
             sorted_pairs=pair_scores,
@@ -640,12 +662,19 @@ class SimilaritySortService:
             logger.warning("Main dataframe not available for pair metrics")
             return {}
 
-        # Extract unique main feature IDs from pairs
-        main_feature_ids = list(set(main_id for main_id, _ in pair_ids))
+        # Extract ALL unique feature IDs from pairs (both positions)
+        # This is critical for bidirectional lookup when using canonical keys
+        all_feature_ids = set()
+        for main_id, similar_id in pair_ids:
+            all_feature_ids.add(main_id)
+            all_feature_ids.add(similar_id)
+        all_feature_ids = list(all_feature_ids)
 
-        # Load the decoder_similarity data for these features
+        logger.info(f"Loading decoder_similarity data for {len(all_feature_ids)} unique features from {len(pair_ids)} pairs")
+
+        # Load the decoder_similarity data for ALL features (both positions in pairs)
         try:
-            df = lf.filter(pl.col("feature_id").is_in(main_feature_ids)).select([
+            df = lf.filter(pl.col("feature_id").is_in(all_feature_ids)).select([
                 "feature_id",
                 "decoder_similarity"
             ]).collect()
@@ -660,29 +689,37 @@ class SimilaritySortService:
         pair_metrics = {}
 
         for main_id, similar_id in pair_ids:
-            pair_key = f"{main_id}-{similar_id}"
+            # IMPORTANT: Use canonical key (smaller ID first)
+            pair_key = f"{min(main_id, similar_id)}-{max(main_id, similar_id)}"
 
             # Find decoder similarity entry for this pair
+            # Try BOTH directions since canonical keys might reverse the relationship
             try:
-                # Filter for the main feature
-                main_data = df.filter(pl.col("feature_id") == main_id)
-                if len(main_data) == 0:
-                    logger.debug(f"Feature {main_id} not found for pair {pair_key}")
-                    pair_metrics[pair_key] = 0.0
-                    continue
-
-                # Get decoder_similarity list
-                decoder_sims = main_data["decoder_similarity"][0]
-                if not isinstance(decoder_sims, list):
-                    pair_metrics[pair_key] = 0.0
-                    continue
-
-                # Find the similar feature in the list
                 similarity = 0.0
-                for sim_item in decoder_sims:
-                    if isinstance(sim_item, dict) and sim_item.get("feature_id") == similar_id:
-                        similarity = float(sim_item.get("cosine_similarity", 0.0))
-                        break
+
+                # Try direction 1: main_id -> similar_id
+                main_data = df.filter(pl.col("feature_id") == main_id)
+                if len(main_data) > 0:
+                    decoder_sims = main_data["decoder_similarity"][0]
+                    if isinstance(decoder_sims, list):
+                        for sim_item in decoder_sims:
+                            if isinstance(sim_item, dict) and sim_item.get("feature_id") == similar_id:
+                                similarity = float(sim_item.get("cosine_similarity", 0.0))
+                                break
+
+                # If not found, try direction 2: similar_id -> main_id
+                if similarity == 0.0:
+                    similar_data = df.filter(pl.col("feature_id") == similar_id)
+                    if len(similar_data) > 0:
+                        decoder_sims = similar_data["decoder_similarity"][0]
+                        if isinstance(decoder_sims, list):
+                            for sim_item in decoder_sims:
+                                if isinstance(sim_item, dict) and sim_item.get("feature_id") == main_id:
+                                    similarity = float(sim_item.get("cosine_similarity", 0.0))
+                                    break
+
+                if similarity == 0.0:
+                    logger.debug(f"No decoder similarity found for pair {pair_key} (tried both directions)")
 
                 pair_metrics[pair_key] = similarity
 
@@ -726,7 +763,8 @@ class SimilaritySortService:
         pair_key_list = []
 
         for main_id, similar_id in pair_ids:
-            pair_key = f"{main_id}-{similar_id}"
+            # IMPORTANT: Use canonical key (smaller ID first) to match pair_metrics
+            pair_key = f"{min(main_id, similar_id)}-{max(main_id, similar_id)}"
             pair_key_list.append(pair_key)
 
             # Get main and similar feature metrics
@@ -754,20 +792,31 @@ class SimilaritySortService:
             logger.info(f"Using cached SVM model for pairs (key: {cache_key[:8]}...)")
         else:
             # Extract training vectors
+            logger.info(f"Building training vectors for {len(selected_pair_keys)} selected and {len(rejected_pair_keys)} rejected pairs")
+            logger.info(f"Selected keys: {selected_pair_keys}")
+            logger.info(f"Rejected keys: {rejected_pair_keys}")
+            logger.info(f"Available pair_vectors keys (first 10): {list(pair_vectors.keys())[:10]}")
+
             selected_vectors = []
             for key in selected_pair_keys:
                 vec = pair_vectors.get(key)
                 if vec is not None:
                     selected_vectors.append(vec)
+                else:
+                    logger.warning(f"Selected pair key '{key}' not found in pair_vectors!")
 
             rejected_vectors = []
             for key in rejected_pair_keys:
                 vec = pair_vectors.get(key)
                 if vec is not None:
                     rejected_vectors.append(vec)
+                else:
+                    logger.warning(f"Rejected pair key '{key}' not found in pair_vectors!")
+
+            logger.info(f"Found {len(selected_vectors)} selected vectors and {len(rejected_vectors)} rejected vectors")
 
             if not selected_vectors or not rejected_vectors:
-                logger.warning("Insufficient training data for pair SVM")
+                logger.warning(f"Insufficient training data for pair SVM: {len(selected_vectors)} selected, {len(rejected_vectors)} rejected")
                 return []
 
             selected_vectors = np.array(selected_vectors)
@@ -1086,7 +1135,8 @@ class SimilaritySortService:
         pair_key_list = []
 
         for main_id, similar_id in pair_ids:
-            pair_key = f"{main_id}-{similar_id}"
+            # IMPORTANT: Use canonical key (smaller ID first) to match pair_metrics
+            pair_key = f"{min(main_id, similar_id)}-{max(main_id, similar_id)}"
             pair_key_list.append(pair_key)
 
             # Get main and similar feature metrics

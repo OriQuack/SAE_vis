@@ -1,0 +1,179 @@
+/* ============================================================================
+   SELECTION STATE BAR
+   Color values defined in: frontend/src/lib/constants.ts -> SELECTION_CATEGORY_COLORS
+   ============================================================================ */
+
+.selection-state-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* Header */
+.selection-state-bar__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.selection-state-bar__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.selection-state-bar__total {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* Stacked Bar Chart */
+.selection-state-bar__chart {
+  display: flex;
+  height: 24px;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.selection-state-bar__segment {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-right: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.selection-state-bar__segment:last-child {
+  border-right: none;
+}
+
+.selection-state-bar__segment:hover {
+  opacity: 0.85;
+  transform: scaleY(1.1);
+  z-index: 1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.selection-state-bar__segment:active {
+  transform: scaleY(1.05);
+}
+
+/* Segment Labels */
+.selection-state-bar__label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* Category-Specific Colors (fallback, mainly set inline) */
+.selection-state-bar__segment--confirmed {
+  background-color: #10b981; /* green */
+}
+
+.selection-state-bar__segment--expanded {
+  background-color: #3b82f6; /* blue */
+}
+
+.selection-state-bar__segment--rejected {
+  background-color: #ef4444; /* red */
+}
+
+.selection-state-bar__segment--unsure {
+  background-color: #9ca3af; /* gray */
+}
+
+/* Legend */
+.selection-state-bar__legend {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  padding: 2px 0;
+}
+
+.selection-state-bar__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.selection-state-bar__legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.selection-state-bar__legend-label {
+  font-weight: 500;
+  color: #374151;
+}
+
+.selection-state-bar__legend-count {
+  color: #6b7280;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .selection-state-bar__legend {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .selection-state-bar__legend-item {
+    flex: 0 0 auto;
+  }
+}
+
+/* Animation for segment appearance */
+@keyframes segmentAppear {
+  from {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+.selection-state-bar__segment {
+  animation: segmentAppear 0.3s ease;
+}
+
+/* Tooltip enhancement (uses native title attribute, but could be enhanced) */
+.selection-state-bar__segment {
+  position: relative;
+}
+
+/* Click feedback ripple effect */
+@keyframes clickRipple {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.6);
+  }
+  100% {
+    box-shadow: 0 0 0 10px rgba(255, 255, 255, 0);
+  }
+}
+
+.selection-state-bar__segment:active::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  animation: clickRipple 0.6s ease-out;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}

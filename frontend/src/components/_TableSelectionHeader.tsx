@@ -18,7 +18,7 @@ interface TableSelectionHeaderProps {
   // Actions
   onSortBySimilarity: () => void
   onClearSelection: () => void
-  onShowTaggingPopover: (mode: 'feature' | 'pair', position: {x: number, y: number}) => void
+  onShowTaggingPopover: (mode: 'feature' | 'pair', position: {x: number, y: number}, tagLabel: string) => void
   onDone?: () => void
 
   // Loading states
@@ -153,7 +153,7 @@ const TableSelectionHeader: React.FC<TableSelectionHeaderProps> = ({
               onShowTaggingPopover(mode, {
                 x: rect.left,
                 y: rect.bottom + 10
-              })
+              }, tagLabel)
             }}
             disabled={!canTagAutomatically}
           >

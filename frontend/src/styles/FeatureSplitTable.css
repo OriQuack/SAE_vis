@@ -173,7 +173,7 @@
 
 /* Decoder similarity column - wider for horizontal layout */
 .decoder-stage-table__selection-header ~ .table-panel__content .table-panel__header-cell--score {
-  width: auto;
+  width: 6%;
   min-width: 150px;
 }
 
@@ -408,23 +408,54 @@
  * CHECKBOX SELECTION HIGHLIGHTING - EXCLUDE INDEX AND DECODER SIM COLUMNS
  * ============================================================================ */
 
-/* For decoder similarity table, keep index column white even when row is selected */
+/* For decoder similarity table, keep index column gray even when row is selected */
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row--confirmed .table-panel__cell--index,
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row--expanded .table-panel__cell--index,
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row--rejected .table-panel__cell--index,
 .decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row--checkbox-selected .table-panel__cell--index,
 .decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row--checkbox-rejected .table-panel__cell--index {
   background: #f9fafb !important; /* Keep original gray background */
 }
 
 /* For decoder similarity table, keep decoder similarity column white even when row is selected */
-/* Using new independent class */
+/* New category classes */
+.table-panel__sub-row--confirmed .decoder-stage-table__cell--decoder-similarity,
+.table-panel__sub-row--expanded .decoder-stage-table__cell--decoder-similarity,
+.table-panel__sub-row--rejected .decoder-stage-table__cell--decoder-similarity,
 .table-panel__sub-row--checkbox-selected .decoder-stage-table__cell--decoder-similarity,
 .table-panel__sub-row--checkbox-rejected .decoder-stage-table__cell--decoder-similarity {
   background: white !important; /* Keep original white background */
 }
 
-/* Fallback for old class selector */
+/* Fallback for old class selector - keep score column white */
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row--confirmed .table-panel__cell--score,
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row--expanded .table-panel__cell--score,
+.decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row--rejected .table-panel__cell--score,
 .decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row--checkbox-selected .table-panel__cell--score,
 .decoder-stage-table__selection-header ~ .table-panel__content .table-panel__sub-row--checkbox-rejected .table-panel__cell--score {
   background: white !important; /* Keep original white background */
+}
+
+/* ============================================================================
+ * AUTO-TAGGED INDICATOR - Colored border on index column
+ * ============================================================================ */
+
+/* Confirmed (manual selection) - Green border */
+.table-panel__sub-row--confirmed.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
+  border-left: 5px solid #10b981 !important;
+  padding-left: 3px;
+}
+
+/* Expanded (auto-tagged) - Blue border */
+.table-panel__sub-row--expanded.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
+  border-left: 5px solid #3b82f6 !important;
+  padding-left: 3px;
+}
+
+/* Rejected - Red border */
+.table-panel__sub-row--rejected.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
+  border-left: 5px solid #ef4444 !important;
+  padding-left: 3px;
 }
 
 /* ============================================================================

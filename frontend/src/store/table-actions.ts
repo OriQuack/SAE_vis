@@ -732,6 +732,10 @@ export const createTableActions = (set: any, get: any) => ({
         scoresMap.set(ps.pair_key, ps.score)
       })
 
+      // Debug: Log sample of stored keys
+      const sampleKeys = Array.from(scoresMap.keys()).slice(0, 5)
+      console.log('[Store.sortPairsBySimilarity] Sample stored keys:', sampleKeys)
+
       // Generate selection signature to track this sort state
       // Format: "selected:[keys]|rejected:[keys]"
       const selectedSig = selectedPairKeys.sort().join(',')
@@ -767,8 +771,8 @@ export const createTableActions = (set: any, get: any) => ({
   // SIMILARITY TAGGING ACTIONS (automatic tagging based on histogram)
   // ============================================================================
 
-  showSimilarityTaggingPopover: async (mode: 'feature' | 'pair', position: { x: number; y: number }) => {
-    console.log(`[Store.showSimilarityTaggingPopover] Opening ${mode} tagging popover`)
+  showSimilarityTaggingPopover: async (mode: 'feature' | 'pair', position: { x: number; y: number }, tagLabel: string) => {
+    console.log(`[Store.showSimilarityTaggingPopover] Opening ${mode} tagging popover with label: ${tagLabel}`)
 
     // Extract selection states based on mode
     const { featureSelectionStates, pairSelectionStates, tableData } = get()
@@ -781,7 +785,8 @@ export const createTableActions = (set: any, get: any) => ({
           mode,
           position,
           histogramData: null,
-          threshold: 0, // Start at center (0)
+          selectThreshold: 0,
+          tagLabel,
           isLoading: true
         }
       })
@@ -817,8 +822,8 @@ export const createTableActions = (set: any, get: any) => ({
           allFeatureIds
         )
 
-        // Calculate dynamic thresholds based on data range
-        // Use 1/2 of max absolute value for symmetric thresholds
+        // Calculate dynamic threshold based on data range
+        // Use 1/2 of max value for initial threshold
         const { statistics } = histogramData
         const maxAbsValue = Math.max(
           Math.abs(statistics.min || 0),
@@ -828,15 +833,15 @@ export const createTableActions = (set: any, get: any) => ({
         const threshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? maxAbsValue / 2 : 0.2
 
         // Update state with histogram data
-        // Initialize with symmetric thresholds based on data range
+        // Initialize with single threshold for selecting
         set({
           similarityTaggingPopover: {
             visible: true,
             mode,
             position,
             histogramData,
-            rejectThreshold: -threshold,
             selectThreshold: threshold,
+            tagLabel,
             isLoading: false
           }
         })
@@ -886,8 +891,8 @@ export const createTableActions = (set: any, get: any) => ({
           allPairKeys
         )
 
-        // Calculate dynamic thresholds based on data range
-        // Use 1/2 of max absolute value for symmetric thresholds
+        // Calculate dynamic threshold based on data range
+        // Use 1/2 of max value for initial threshold
         const { statistics } = histogramData
         const maxAbsValue = Math.max(
           Math.abs(statistics.min || 0),
@@ -897,15 +902,15 @@ export const createTableActions = (set: any, get: any) => ({
         const threshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? maxAbsValue / 2 : 0.2
 
         // Update state with histogram data
-        // Initialize with symmetric thresholds based on data range
+        // Initialize with single threshold for selecting
         set({
           similarityTaggingPopover: {
             visible: true,
             mode,
             position,
             histogramData,
-            rejectThreshold: -threshold,
             selectThreshold: threshold,
+            tagLabel,
             isLoading: false
           }
         })
@@ -922,50 +927,38 @@ export const createTableActions = (set: any, get: any) => ({
     set({ similarityTaggingPopover: null })
   },
 
-  updateSimilarityThresholds: (rejectThreshold: number, selectThreshold: number) => {
+  updateSimilarityThresholds: (selectThreshold: number) => {
     const { similarityTaggingPopover } = get()
     if (!similarityTaggingPopover) return
-
-    // Enforce constraint: rejectThreshold must be < selectThreshold
-    // Clamp values to ensure valid state
-    let finalReject = rejectThreshold
-    let finalSelect = selectThreshold
-
-    if (finalReject >= finalSelect) {
-      // If reject tries to exceed select, push select forward
-      finalSelect = finalReject + 0.01
-    }
 
     set({
       similarityTaggingPopover: {
         ...similarityTaggingPopover,
-        rejectThreshold: finalReject,
-        selectThreshold: finalSelect
+        selectThreshold
       }
     })
   },
 
   applySimilarityTags: () => {
-    const { similarityTaggingPopover, featureSelectionStates, pairSelectionStates } = get()
+    const { similarityTaggingPopover, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources } = get()
 
     if (!similarityTaggingPopover || !similarityTaggingPopover.histogramData) {
       console.warn('[Store.applySimilarityTags] No popover data available')
       return
     }
 
-    const { mode, rejectThreshold, selectThreshold, histogramData } = similarityTaggingPopover
+    const { mode, selectThreshold, histogramData } = similarityTaggingPopover
     const scores = histogramData.scores
 
-    console.log(`[Store.applySimilarityTags] Applying ${mode} tags with thresholds:`, {
-      reject: rejectThreshold,
+    console.log(`[Store.applySimilarityTags] Applying ${mode} tags with threshold:`, {
       select: selectThreshold
     })
 
     if (mode === 'feature') {
-      // Apply tags to features (three-way logic)
+      // Apply tags to features (single threshold: only select)
       const newSelectionStates = new Map(featureSelectionStates)
+      const newSelectionSources = new Map(featureSelectionSources)
       let selectedCount = 0
-      let rejectedCount = 0
       let untaggedCount = 0
 
       Object.entries(scores).forEach(([idStr, score]) => {
@@ -976,18 +969,15 @@ export const createTableActions = (set: any, get: any) => ({
           return
         }
 
-        // Apply three-way threshold logic
+        // Apply single threshold logic: only select items >= threshold
         if (typeof score === 'number') {
-          if (score < rejectThreshold) {
-            // Red zone: reject
-            newSelectionStates.set(featureId, 'rejected')
-            rejectedCount++
-          } else if (score >= selectThreshold) {
+          if (score >= selectThreshold) {
             // Green zone: select
             newSelectionStates.set(featureId, 'selected')
+            newSelectionSources.set(featureId, 'auto')
             selectedCount++
           } else {
-            // Grey zone: leave untagged
+            // Below threshold: leave untagged
             untaggedCount++
           }
         }
@@ -995,18 +985,20 @@ export const createTableActions = (set: any, get: any) => ({
 
       console.log('[Store.applySimilarityTags] Feature tags applied:', {
         selected: selectedCount,
-        rejected: rejectedCount,
         untagged: untaggedCount,
         preserved: featureSelectionStates.size
       })
 
-      set({ featureSelectionStates: newSelectionStates })
+      set({
+        featureSelectionStates: newSelectionStates,
+        featureSelectionSources: newSelectionSources
+      })
 
     } else if (mode === 'pair') {
-      // Apply tags to pairs (three-way logic)
+      // Apply tags to pairs (single threshold: only select)
       const newPairSelectionStates = new Map(pairSelectionStates)
+      const newPairSelectionSources = new Map(pairSelectionSources)
       let selectedCount = 0
-      let rejectedCount = 0
       let untaggedCount = 0
 
       Object.entries(scores).forEach(([pairKey, score]) => {
@@ -1015,18 +1007,15 @@ export const createTableActions = (set: any, get: any) => ({
           return
         }
 
-        // Apply three-way threshold logic
+        // Apply single threshold logic: only select items >= threshold
         if (typeof score === 'number') {
-          if (score < rejectThreshold) {
-            // Red zone: reject
-            newPairSelectionStates.set(pairKey, 'rejected')
-            rejectedCount++
-          } else if (score >= selectThreshold) {
+          if (score >= selectThreshold) {
             // Green zone: select
             newPairSelectionStates.set(pairKey, 'selected')
+            newPairSelectionSources.set(pairKey, 'auto')
             selectedCount++
           } else {
-            // Grey zone: leave untagged
+            // Below threshold: leave untagged
             untaggedCount++
           }
         }
@@ -1034,15 +1023,148 @@ export const createTableActions = (set: any, get: any) => ({
 
       console.log('[Store.applySimilarityTags] Pair tags applied:', {
         selected: selectedCount,
-        rejected: rejectedCount,
         untagged: untaggedCount,
         preserved: pairSelectionStates.size
       })
 
-      set({ pairSelectionStates: newPairSelectionStates })
+      set({
+        pairSelectionStates: newPairSelectionStates,
+        pairSelectionSources: newPairSelectionSources
+      })
     }
 
     // Close popover after applying
     set({ similarityTaggingPopover: null })
+  },
+
+  /**
+   * Sort table by selection category
+   * Order: Confirmed -> Expanded -> Unsure -> Rejected (or clicked category first)
+   * If similarity sort is active, use it as secondary sort within each category
+   */
+  sortTableByCategory: (category: 'confirmed' | 'expanded' | 'rejected' | 'unsure', mode: 'feature' | 'pair') => {
+    const {
+      tableData,
+      featureSelectionStates,
+      featureSelectionSources,
+      pairSelectionStates,
+      pairSelectionSources,
+      similarityScores,
+      pairSimilarityScores
+    } = get()
+
+    if (!tableData) {
+      console.warn('[Store.sortTableByCategory] No table data available')
+      return
+    }
+
+    console.log(`[Store.sortTableByCategory] Sorting by category: ${category}, mode: ${mode}`)
+
+    // Define category order with clicked category first
+    const categoryOrder: Array<'confirmed' | 'expanded' | 'rejected' | 'unsure'> = (() => {
+      const baseOrder: Array<'confirmed' | 'expanded' | 'rejected' | 'unsure'> = ['confirmed', 'expanded', 'unsure', 'rejected']
+      // Move clicked category to front
+      return [category, ...baseOrder.filter(c => c !== category)]
+    })()
+
+    // Helper function to get category for a feature/pair
+    const getCategory = (id: number | string, isFeature: boolean): 'confirmed' | 'expanded' | 'rejected' | 'unsure' => {
+      if (isFeature) {
+        const featureId = id as number
+        const selectionState = featureSelectionStates.get(featureId)
+        const source = featureSelectionSources.get(featureId)
+
+        if (selectionState === 'selected') {
+          return source === 'auto' ? 'expanded' : 'confirmed'
+        } else if (selectionState === 'rejected') {
+          return 'rejected'
+        } else {
+          return 'unsure'
+        }
+      } else {
+        const pairKey = id as string
+        const selectionState = pairSelectionStates.get(pairKey)
+        const source = pairSelectionSources.get(pairKey)
+
+        if (selectionState === 'selected') {
+          return source === 'auto' ? 'expanded' : 'confirmed'
+        } else if (selectionState === 'rejected') {
+          return 'rejected'
+        } else {
+          return 'unsure'
+        }
+      }
+    }
+
+    if (mode === 'feature' && tableData.features) {
+      // Sort features by category
+      const sortedFeatures = [...tableData.features].sort((a, b) => {
+        const categoryA = getCategory(a.feature_id, true)
+        const categoryB = getCategory(b.feature_id, true)
+
+        const categoryIndexA = categoryOrder.indexOf(categoryA)
+        const categoryIndexB = categoryOrder.indexOf(categoryB)
+
+        // Primary sort: by category order
+        if (categoryIndexA !== categoryIndexB) {
+          return categoryIndexA - categoryIndexB
+        }
+
+        // Secondary sort: by similarity score if available (descending)
+        const scoreA = similarityScores.get(a.feature_id) ?? -1
+        const scoreB = similarityScores.get(b.feature_id) ?? -1
+
+        if (scoreA !== scoreB && (scoreA >= 0 || scoreB >= 0)) {
+          return scoreB - scoreA // descending
+        }
+
+        // Tertiary sort: by feature_id (ascending)
+        return a.feature_id - b.feature_id
+      })
+
+      set({
+        tableData: {
+          ...tableData,
+          features: sortedFeatures
+        }
+      })
+
+      console.log('[Store.sortTableByCategory] Features sorted by category')
+
+    } else if (mode === 'pair' && tableData.pairs) {
+      // Sort pairs by category
+      const sortedPairs = [...tableData.pairs].sort((a, b) => {
+        const categoryA = getCategory(a.pairKey, false)
+        const categoryB = getCategory(b.pairKey, false)
+
+        const categoryIndexA = categoryOrder.indexOf(categoryA)
+        const categoryIndexB = categoryOrder.indexOf(categoryB)
+
+        // Primary sort: by category order
+        if (categoryIndexA !== categoryIndexB) {
+          return categoryIndexA - categoryIndexB
+        }
+
+        // Secondary sort: by similarity score if available (descending)
+        const scoreA = pairSimilarityScores.get(a.pairKey) ?? -1
+        const scoreB = pairSimilarityScores.get(b.pairKey) ?? -1
+
+        if (scoreA !== scoreB && (scoreA >= 0 || scoreB >= 0)) {
+          return scoreB - scoreA // descending
+        }
+
+        // Tertiary sort: by pairKey (ascending)
+        return a.pairKey.localeCompare(b.pairKey)
+      })
+
+      set({
+        tableData: {
+          ...tableData,
+          pairs: sortedPairs
+        }
+      })
+
+      console.log('[Store.sortTableByCategory] Pairs sorted by category')
+    }
   }
 })

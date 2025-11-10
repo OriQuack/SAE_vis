@@ -25,17 +25,15 @@ const SimilarityTaggingPopover: React.FC = () => {
   const isDraggingPopoverRef = useRef(false)
 
   const [draggedPosition, setDraggedPosition] = useState<{ x: number; y: number } | null>(null)
-  const [rejectThreshold, setRejectThreshold] = useState(-0.1)
   const [selectThreshold, setSelectThreshold] = useState(0.1)
 
-  // Initialize thresholds and reset position when popover opens
+  // Initialize threshold and reset position when popover opens
   useEffect(() => {
     if (popoverState?.visible) {
-      setRejectThreshold(popoverState.rejectThreshold)
       setSelectThreshold(popoverState.selectThreshold)
       setDraggedPosition(null) // Reset to center
     }
-  }, [popoverState?.visible, popoverState?.rejectThreshold, popoverState?.selectThreshold])
+  }, [popoverState?.visible, popoverState?.selectThreshold])
 
   // Click outside to close
   useEffect(() => {
@@ -163,7 +161,7 @@ const SimilarityTaggingPopover: React.FC = () => {
 
   // Safe threshold positions and domain - clamp to valid range and handle NaN
   const safeThresholdPositions = useMemo(() => {
-    if (!histogramChart) return { rejectX: 0, selectX: 0, minDomain: -1, maxDomain: 1 }
+    if (!histogramChart) return { selectX: 0, minDomain: -1, maxDomain: 1 }
 
     // Get domain from xScale and validate
     const domain = histogramChart.xScale.domain()
@@ -174,28 +172,24 @@ const SimilarityTaggingPopover: React.FC = () => {
     if (!isFinite(minDomain)) minDomain = -1
     if (!isFinite(maxDomain)) maxDomain = 1
 
-    // Clamp thresholds to domain
-    const clampedReject = Math.max(minDomain, Math.min(maxDomain, rejectThreshold))
+    // Clamp threshold to domain
     const clampedSelect = Math.max(minDomain, Math.min(maxDomain, selectThreshold))
 
-    // Calculate positions
-    let rejectX = histogramChart.xScale(clampedReject)
+    // Calculate position
     let selectX = histogramChart.xScale(clampedSelect)
 
     // Validate and fallback to safe values
-    if (!isFinite(rejectX)) rejectX = 0
     if (!isFinite(selectX)) selectX = histogramChart.width
 
-    return { rejectX, selectX, minDomain, maxDomain }
-  }, [histogramChart, rejectThreshold, selectThreshold])
+    return { selectX, minDomain, maxDomain }
+  }, [histogramChart, selectThreshold])
 
-  // Calculate tag counts preview (three-way)
+  // Calculate tag counts preview (single threshold: only select)
   const tagCounts = useMemo(() => {
-    if (!popoverState?.histogramData?.scores) return { selected: 0, rejected: 0, untagged: 0, preserved: 0 }
+    if (!popoverState?.histogramData?.scores) return { selected: 0, untagged: 0, preserved: 0 }
 
     const scores = popoverState.histogramData.scores
     let selected = 0
-    let rejected = 0
     let untagged = 0
 
     // Count preserved items directly from selection states (not from scores)
@@ -214,11 +208,9 @@ const SimilarityTaggingPopover: React.FC = () => {
         return // Skip - already counted in preserved
       }
 
-      // Count new tags (three-way logic)
+      // Count new tags (single threshold logic)
       if (typeof score === 'number') {
-        if (score < rejectThreshold) {
-          rejected++
-        } else if (score >= selectThreshold) {
+        if (score >= selectThreshold) {
           selected++
         } else {
           untagged++
@@ -226,22 +218,21 @@ const SimilarityTaggingPopover: React.FC = () => {
       }
     })
 
-    return { selected, rejected, untagged, preserved }
-  }, [popoverState, rejectThreshold, selectThreshold, featureSelectionStates, pairSelectionStates])
+    return { selected, untagged, preserved }
+  }, [popoverState, selectThreshold, featureSelectionStates, pairSelectionStates])
 
-  // Threshold update callback for two thresholds
+  // Threshold update callback for single threshold
   const handleThresholdUpdate = (newThresholds: number[]) => {
-    if (newThresholds.length !== 2) return
+    if (newThresholds.length !== 1) return
 
-    const [newReject, newSelect] = newThresholds
-    setRejectThreshold(newReject)
+    const newSelect = newThresholds[0]
     setSelectThreshold(newSelect)
-    updateSimilarityThresholds(newReject, newSelect)
+    updateSimilarityThresholds(newSelect)
   }
 
   if (!popoverState?.visible) return null
 
-  const { mode, isLoading, histogramData } = popoverState
+  const { mode, isLoading, histogramData, tagLabel } = popoverState
 
   return (
     <>
@@ -290,9 +281,7 @@ const SimilarityTaggingPopover: React.FC = () => {
               <p>
                 Drag the threshold to tag {mode === 'feature' ? 'features' : 'pairs'} automatically.
                 <br />
-                <strong>Green</strong> (positive): more similar to selected
-                <br />
-                <strong>Red</strong> (negative): more similar to rejected
+                Items with scores <strong>above the threshold</strong> will be tagged as <strong style={{ color: '#4caf50' }}>{tagLabel}</strong>.
               </p>
             </div>
 
@@ -303,21 +292,12 @@ const SimilarityTaggingPopover: React.FC = () => {
               height={300}
             >
               <g transform={`translate(${histogramChart.margin.left}, ${histogramChart.margin.top})`}>
-                {/* Colored region backgrounds (red/grey/green zones) */}
-                {/* Red zone: left edge to reject threshold */}
+                {/* Colored region backgrounds (grey/green zones) */}
+                {/* Grey zone: left edge to select threshold */}
                 <rect
                   x={0}
                   y={0}
-                  width={Math.max(0, safeThresholdPositions.rejectX)}
-                  height={histogramChart.height}
-                  fill="#f44336"
-                  opacity={0.1}
-                />
-                {/* Grey zone: reject threshold to select threshold */}
-                <rect
-                  x={safeThresholdPositions.rejectX}
-                  y={0}
-                  width={Math.max(0, safeThresholdPositions.selectX - safeThresholdPositions.rejectX)}
+                  width={Math.max(0, safeThresholdPositions.selectX)}
                   height={histogramChart.height}
                   fill="#999"
                   opacity={0.1}
@@ -338,14 +318,9 @@ const SimilarityTaggingPopover: React.FC = () => {
                   const binCenter = (bar.binData.x0 + bar.binData.x1) / 2
 
                   // Determine color based on region:
-                  // - Dark grey if in untagged region (between thresholds)
-                  // - Green/red otherwise
-                  let barColor: string
-                  if (binCenter >= rejectThreshold && binCenter < selectThreshold) {
-                    barColor = '#666' // Dark grey for untagged region
-                  } else {
-                    barColor = bar.color === 'green' ? '#4caf50' : '#f44336'
-                  }
+                  // - Dark grey if below threshold (untagged)
+                  // - Green if above threshold (selected)
+                  const barColor = binCenter >= selectThreshold ? '#4caf50' : '#666'
 
                   return (
                     <rect
@@ -371,17 +346,6 @@ const SimilarityTaggingPopover: React.FC = () => {
                   strokeDasharray="4,4"
                   opacity={0.7}
                 />
-                {/* Label for 0 line */}
-                <text
-                  x={histogramChart.xScale(0)}
-                  y={-5}
-                  textAnchor="middle"
-                  fontSize={11}
-                  fill="#333"
-                  fontWeight="bold"
-                >
-                  0
-                </text>
 
                 {/* X axis */}
                 <line
@@ -470,14 +434,14 @@ const SimilarityTaggingPopover: React.FC = () => {
                   Count
                 </text>
 
-                {/* Two threshold handles (reject and select) */}
+                {/* Single threshold handle for selection */}
                 <ThresholdHandles
                   orientation="horizontal"
                   bounds={{
                     min: 0,
                     max: histogramChart.width
                   }}
-                  thresholds={[rejectThreshold, selectThreshold]}
+                  thresholds={[selectThreshold]}
                   metricRange={{
                     min: safeThresholdPositions.minDomain,  // Use validated domain
                     max: safeThresholdPositions.maxDomain
@@ -497,8 +461,7 @@ const SimilarityTaggingPopover: React.FC = () => {
             <div className="similarity-tagging-popover__preview">
               <p>
                 <strong>Preview:</strong> {tagCounts.selected} will be tagged as{' '}
-                <span style={{ color: '#4caf50', fontWeight: 'bold' }}>selected</span>, {tagCounts.rejected} as{' '}
-                <span style={{ color: '#f44336', fontWeight: 'bold' }}>rejected</span>, {tagCounts.untagged} will remain{' '}
+                <span style={{ color: '#4caf50', fontWeight: 'bold' }}>{tagLabel}</span>, {tagCounts.untagged} will remain{' '}
                 <span style={{ color: '#999', fontWeight: 'bold' }}>untagged</span>
                 {tagCounts.preserved > 0 && ` (${tagCounts.preserved} preserved)`}
               </p>
