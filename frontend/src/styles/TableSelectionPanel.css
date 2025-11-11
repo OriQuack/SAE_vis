@@ -172,10 +172,12 @@
   border: 1px solid #d1d5db;
   border-radius: 6px;
   font-size: 11px;
-  white-space: nowrap;
+  white-space: normal;
   z-index: 1000;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   pointer-events: none;
+  box-sizing: border-box;
+  text-align: center;
 }
 
 .table-selection-panel__tooltip::before {
@@ -212,6 +214,48 @@
 .table-selection-panel__tooltip-icon {
   margin-right: 6px;
   font-weight: bold;
+}
+
+/* ============================================================================
+   CATEGORY DROPDOWN (for cause table Sort by Similarity)
+   ============================================================================ */
+
+/* Override pointer-events for dropdown to allow clicks */
+.table-selection-panel__category-dropdown {
+  pointer-events: auto;
+}
+
+.table-selection-panel__tooltip-header {
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 6px;
+  font-size: 11px;
+}
+
+.table-selection-panel__category-option {
+  display: block;
+  width: 100%;
+  padding: 6px 8px;
+  margin: 2px 0;
+  font-size: 11px;
+  font-weight: 500;
+  text-align: left;
+  background: white;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.table-selection-panel__category-option:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  color: #111827;
+}
+
+.table-selection-panel__category-option:active {
+  background: #e5e7eb;
 }
 
 /* ============================================================================

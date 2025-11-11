@@ -182,8 +182,10 @@ interface AppState {
   pairSortedBySelectionStates: Map<string, 'selected' | 'rejected'> | null,  // Frozen pair selection states when sorted
   donePairSelectionStates: Map<string, 'selected' | 'rejected'> | null
 
-  // Cause similarity sort state (for cause table)
-  causeSimilarityScores: Map<number, number>
+  // Cause similarity sort state (for cause table - multi-class OvR)
+  causeSimilarityScores: Map<number, number>  // Legacy: single score per feature
+  causeCategoryConfidences: Map<number, Record<string, number>>  // New: per-category confidences
+  causeSortCategory: string | null  // Which category to sort by ('noisy-activation', 'missed-lexicon', 'missed-context', or null for max)
   isCauseSimilaritySortLoading: boolean
 
   // Similarity tagging popover state (for automatic tagging feature)
@@ -287,8 +289,10 @@ const initialState = {
   pairSortedBySelectionStates: null,
   donePairSelectionStates: null,
 
-  // Cause similarity sort state (for cause table)
-  causeSimilarityScores: new Map<number, number>(),
+  // Cause similarity sort state (for cause table - multi-class OvR)
+  causeSimilarityScores: new Map<number, number>(),  // Legacy
+  causeCategoryConfidences: new Map<number, Record<string, number>>(),  // New: per-category confidences
+  causeSortCategory: null,  // Sort by max confidence by default
   isCauseSimilaritySortLoading: false,
 
   // Similarity tagging popover state (for automatic tagging feature)

@@ -165,3 +165,76 @@ class SimilarityHistogramResponse(BaseModel):
         description="Statistical summary of scores"
     )
     total_items: int = Field(..., description="Total number of items (features or pairs)")
+
+
+# ============================================================================
+# CAUSE SIMILARITY MODELS (Multi-class One-vs-Rest SVM)
+# ============================================================================
+
+class CauseSimilaritySortRequest(BaseModel):
+    """Request model for cause similarity sorting (multi-class OvR)."""
+
+    cause_selections: Dict[int, str] = Field(
+        ...,
+        description="Map of feature_id to cause category ('noisy-activation', 'missed-lexicon', 'missed-context')",
+        min_length=1
+    )
+    feature_ids: List[int] = Field(
+        ...,
+        description="All feature IDs in the current table view",
+        min_length=1
+    )
+
+
+class CauseFeatureScore(BaseModel):
+    """Feature ID with per-category confidence scores."""
+
+    feature_id: int = Field(..., description="Feature ID")
+    category_confidences: Dict[str, float] = Field(
+        ...,
+        description="Confidence scores for each category (signed distances from SVM decision boundaries). "
+                    "Keys: 'noisy-activation', 'missed-lexicon', 'missed-context'"
+    )
+
+
+class CauseSimilaritySortResponse(BaseModel):
+    """Response model for cause similarity sorting."""
+
+    sorted_features: List[CauseFeatureScore] = Field(
+        ...,
+        description="Features with per-category confidence scores"
+    )
+    total_features: int = Field(..., description="Total number of features scored")
+
+
+class CauseSimilarityHistogramRequest(BaseModel):
+    """Request model for cause similarity histogram (multi-class OvR)."""
+
+    cause_selections: Dict[int, str] = Field(
+        ...,
+        description="Map of feature_id to cause category ('noisy-activation', 'missed-lexicon', 'missed-context')",
+        min_length=1
+    )
+    feature_ids: List[int] = Field(
+        ...,
+        description="All feature IDs to compute scores for",
+        min_length=1
+    )
+
+
+class CauseSimilarityHistogramResponse(BaseModel):
+    """Response model for cause similarity histogram (multi-class)."""
+
+    scores: Dict[str, Dict[str, float]] = Field(
+        ...,
+        description="Map of feature_id (as string) to {category: confidence} dict"
+    )
+    histograms: Dict[str, HistogramData] = Field(
+        ...,
+        description="Histogram per category. Keys: 'noisy-activation', 'missed-lexicon', 'missed-context'"
+    )
+    statistics: Dict[str, HistogramStatistics] = Field(
+        ...,
+        description="Statistics per category. Keys: 'noisy-activation', 'missed-lexicon', 'missed-context'"
+    )
+    total_items: int = Field(..., description="Total number of features")

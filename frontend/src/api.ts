@@ -51,7 +51,9 @@ const API_ENDPOINTS = {
   SIMILARITY_SORT: "/similarity-sort",
   PAIR_SIMILARITY_SORT: "/pair-similarity-sort",
   SIMILARITY_SCORE_HISTOGRAM: "/similarity-score-histogram",
-  PAIR_SIMILARITY_SCORE_HISTOGRAM: "/pair-similarity-score-histogram"
+  PAIR_SIMILARITY_SCORE_HISTOGRAM: "/pair-similarity-score-histogram",
+  CAUSE_SIMILARITY_SORT: "/cause-similarity-sort",
+  CAUSE_SIMILARITY_SCORE_HISTOGRAM: "/cause-similarity-score-histogram"
 } as const
 
 const API_BASE = API_BASE_URL
@@ -355,6 +357,85 @@ export async function getPairSimilarityScoreHistogram(
     scoresCount: data.scores ? Object.keys(data.scores).length : 0,
     histogramBins: data.histogram?.bins?.length || 0,
     statistics: data.statistics
+  })
+
+  return data
+}
+
+// ============================================================================
+// CAUSE SIMILARITY API (Multi-class One-vs-Rest SVM)
+// ============================================================================
+
+export async function getCauseSimilaritySort(
+  causeSelections: Record<number, string>,
+  featureIds: number[]
+): Promise<CauseSimilaritySortResponse> {
+  console.log('[API] getCauseSimilaritySort called with:', {
+    taggedCount: Object.keys(causeSelections).length,
+    totalFeatures: featureIds.length
+  })
+
+  const requestBody: CauseSimilaritySortRequest = {
+    cause_selections: causeSelections,
+    feature_ids: featureIds
+  }
+
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.CAUSE_SIMILARITY_SORT}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody)
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('[API] Cause similarity sort error:', response.status, errorText)
+    throw new Error(`Failed to calculate cause similarity sort: ${response.status} - ${errorText}`)
+  }
+
+  const data = await response.json()
+  console.log('[API] getCauseSimilaritySort response:', {
+    sortedCount: data.sorted_features?.length || 0,
+    totalFeatures: data.total_features
+  })
+
+  return data
+}
+
+export async function getCauseSimilarityScoreHistogram(
+  causeSelections: Record<number, string>,
+  featureIds: number[]
+): Promise<CauseSimilarityHistogramResponse> {
+  console.log('[API] getCauseSimilarityScoreHistogram called with:', {
+    taggedCount: Object.keys(causeSelections).length,
+    totalFeatures: featureIds.length
+  })
+
+  const requestBody: CauseSimilarityHistogramRequest = {
+    cause_selections: causeSelections,
+    feature_ids: featureIds
+  }
+
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.CAUSE_SIMILARITY_SCORE_HISTOGRAM}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody)
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('[API] Cause similarity score histogram error:', response.status, errorText)
+    throw new Error(`Failed to fetch cause similarity score histogram: ${response.status} - ${errorText}`)
+  }
+
+  const data = await response.json()
+  console.log('[API] getCauseSimilarityScoreHistogram response:', {
+    totalItems: data.total_items,
+    scoresCount: data.scores ? Object.keys(data.scores).length : 0,
+    histogramsCount: data.histograms ? Object.keys(data.histograms).length : 0
   })
 
   return data

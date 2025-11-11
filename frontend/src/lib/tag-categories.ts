@@ -72,8 +72,8 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     defaultThresholds: [0.4],
     showHistogram: true,
     tags: [
-      "monosemantic",       // Group 0 (< 0.4, LOW decoder similarity)
-      "fragmented"    // Group 1 (≥ 0.4, HIGH decoder similarity)
+      "Monosemantic",       // Group 0 (< 0.4, LOW decoder similarity)
+      "Fragmented"    // Group 1 (≥ 0.4, HIGH decoder similarity)
     ],
     relatedMetrics: [
       METRIC_DECODER_SIMILARITY,
@@ -90,8 +90,8 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     defaultThresholds: [0.7],
     showHistogram: true,
     tags: [
-      "need revision",       // Group 0 (< 0.5, LOW quality score)
-      "well-explained"       // Group 1 (≥ 0.5, HIGH quality score)
+      "Need Revision",       // Group 0 (< 0.5, LOW quality score)
+      "Well-Explained"       // Group 1 (≥ 0.5, HIGH quality score)
     ],
     relatedMetrics: [
       METRIC_SCORE_EMBEDDING,

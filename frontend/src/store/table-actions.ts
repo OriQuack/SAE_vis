@@ -802,8 +802,7 @@ export const createTableActions = (set: any, get: any) => ({
   },
 
   /**
-   * Sort cause table by similarity scores (multi-category)
-   * This requires a backend endpoint that can handle 4-category classification
+   * Sort cause table by similarity scores (multi-category with One-vs-Rest SVM)
    */
   sortCauseBySimilarity: async () => {
     const state = get()
@@ -825,7 +824,7 @@ export const createTableActions = (set: any, get: any) => ({
       return
     }
 
-    // Count features per cause category (3 explicit categories, unsure is untagged/null)
+    // Count features per cause category
     const categoryCounts: Record<string, number> = {
       'noisy-activation': 0,
       'missed-lexicon': 0,
@@ -851,27 +850,48 @@ export const createTableActions = (set: any, get: any) => ({
     try {
       set({ isCauseSimilaritySortLoading: true })
 
-      console.log('[Store.sortCauseBySimilarity] ⚠️  Backend API not yet implemented for cause similarity sorting')
-      console.log('[Store.sortCauseBySimilarity] Falling back to simple feature ID sorting...')
-
-      // TEMPORARY: Sort by feature_id as a placeholder until backend API is implemented
-      // In production, this would call: api.getCauseSimilaritySort(causeSelectionStates, allFeatureIds)
-      const scoresMap = new Map<number, number>()
-      tableData.features.forEach((feature: any, index: number) => {
-        // Assign scores based on reverse index (descending feature ID)
-        scoresMap.set(feature.feature_id, tableData.features.length - index)
+      // Convert Map to plain object for API
+      const causeSelections: Record<number, string> = {}
+      causeSelectionStates.forEach((category, featureId) => {
+        causeSelections[featureId] = category
       })
 
-      // Store scores and set sort mode
+      // Get all feature IDs
+      const allFeatureIds = tableData.features.map((f: any) => f.feature_id)
+
+      console.log('[Store.sortCauseBySimilarity] Calling API:', {
+        taggedFeatures: Object.keys(causeSelections).length,
+        totalFeatures: allFeatureIds.length,
+        categories: Array.from(new Set(Object.values(causeSelections)))
+      })
+
+      // Call new multi-class OvR endpoint
+      const response = await api.getCauseSimilaritySort(
+        causeSelections,
+        allFeatureIds
+      )
+
+      console.log('[Store.sortCauseBySimilarity] API response:', {
+        sortedFeaturesCount: response.sorted_features.length,
+        totalFeatures: response.total_features
+      })
+
+      // Store per-category confidences in a nested map
+      const categoryConfidences = new Map<number, Record<string, number>>()
+      response.sorted_features.forEach((fs) => {
+        categoryConfidences.set(fs.feature_id, fs.category_confidences)
+      })
+
+      // Store in state
       set({
-        causeSimilarityScores: scoresMap,
+        causeCategoryConfidences: categoryConfidences,
         tableSortBy: 'cause_similarity',
         tableSortDirection: 'desc',
         isCauseSimilaritySortLoading: false
       })
 
-      console.log('[Store.sortCauseBySimilarity] ✅ Cause similarity sort complete (placeholder):', {
-        scoresMapSize: scoresMap.size,
+      console.log('[Store.sortCauseBySimilarity] ✅ Cause similarity sort complete:', {
+        confidencesMapSize: categoryConfidences.size,
         sortBy: 'cause_similarity'
       })
 
@@ -879,6 +899,15 @@ export const createTableActions = (set: any, get: any) => ({
       console.error('[Store.sortCauseBySimilarity] ❌ Failed to calculate cause similarity sort:', error)
       set({ isCauseSimilaritySortLoading: false })
     }
+  },
+
+  /**
+   * Set which category to use for cause similarity sorting
+   * @param category - 'noisy-activation', 'missed-lexicon', 'missed-context', or null for max confidence
+   */
+  setCauseSortCategory: (category: string | null) => {
+    set({ causeSortCategory: category })
+    console.log('[Store.setCauseSortCategory] Cause sort category updated:', category)
   },
 
   // ============================================================================

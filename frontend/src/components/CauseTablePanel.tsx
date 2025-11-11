@@ -13,8 +13,9 @@ import {
 } from '../lib/constants'
 import type { ScoreStats } from '../lib/circle-encoding-utils'
 import ScoreCircle from './ScoreCircle'
-import CauseCheckbox from './CauseCheckbox'
 import { HighlightedExplanation } from './HighlightedExplanation'
+import { getBadgeColors } from '../lib/utils'
+import { TAG_CATEGORY_CAUSE, TAG_CATEGORIES } from '../lib/tag-categories'
 import ActivationExample from './ActivationExample'
 import TableSelectionPanel from './TableSelectionPanel'
 import SimilarityTaggingPopover from './SimilarityTaggingPopover'
@@ -46,6 +47,8 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
   const sortDirection = useVisualizationStore(state => state.tableSortDirection)
   const setTableSort = useVisualizationStore(state => state.setTableSort)
   const causeSimilarityScores = useVisualizationStore(state => state.causeSimilarityScores)
+  const causeCategoryConfidences = useVisualizationStore(state => state.causeCategoryConfidences)
+  const causeSortCategory = useVisualizationStore(state => state.causeSortCategory)
 
   // Table actions
   const moveToNextStep = useVisualizationStore(state => state.moveToNextStep)
@@ -78,6 +81,29 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
 
   // Get the left panel sankey tree to access node feature IDs
   const sankeyTree = useVisualizationStore(state => state.leftPanel.sankeyTree)
+
+  // Get badge labels and colors from tag categories
+  const causeConfig = useMemo(() => {
+    const colors = getBadgeColors(sankeyTree, TAG_CATEGORY_CAUSE, TAG_CATEGORIES)
+    const category = TAG_CATEGORIES[TAG_CATEGORY_CAUSE]
+
+    // Map state names to tag labels and colors
+    // tags array: ["Missed Context", "Missed Lexicon", "Noisy Activation", "Unsure"]
+    return {
+      'noisy-activation': {
+        label: category.tags[2], // "Noisy Activation"
+        color: colors[category.tags[2]] || '#f97316'
+      },
+      'missed-lexicon': {
+        label: category.tags[1], // "Missed Lexicon"
+        color: colors[category.tags[1]] || '#a855f7'
+      },
+      'missed-context': {
+        label: category.tags[0], // "Missed Context"
+        color: colors[category.tags[0]] || '#3b82f6'
+      }
+    }
+  }, [sankeyTree])
 
   // Collect feature IDs from all selected nodes (for filtering)
   const selectedFeatures = useMemo(() => {
@@ -136,18 +162,43 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
     // Apply sorting
     if (!tableData) return features
 
-    // Handle cause_similarity sorting separately (uses causeSimilarityScores from store)
+    // Handle cause_similarity sorting separately (uses causeCategoryConfidences from store)
     if (sortBy === 'cause_similarity' && sortDirection) {
       const sorted = [...features].sort((a, b) => {
-        const scoreA = causeSimilarityScores.get(a.feature_id) ?? -Infinity
-        const scoreB = causeSimilarityScores.get(b.feature_id) ?? -Infinity
+        const confidencesA = causeCategoryConfidences.get(a.feature_id)
+        const confidencesB = causeCategoryConfidences.get(b.feature_id)
+
+        // Calculate score based on selected category or max confidence
+        let scoreA = -Infinity
+        let scoreB = -Infinity
+
+        if (confidencesA) {
+          if (causeSortCategory && confidencesA[causeSortCategory] !== undefined) {
+            // Sort by selected category
+            scoreA = confidencesA[causeSortCategory]
+          } else {
+            // Sort by maximum confidence across all categories
+            scoreA = Math.max(...Object.values(confidencesA))
+          }
+        }
+
+        if (confidencesB) {
+          if (causeSortCategory && confidencesB[causeSortCategory] !== undefined) {
+            // Sort by selected category
+            scoreB = confidencesB[causeSortCategory]
+          } else {
+            // Sort by maximum confidence across all categories
+            scoreB = Math.max(...Object.values(confidencesB))
+          }
+        }
+
         return sortDirection === 'asc' ? scoreA - scoreB : scoreB - scoreA
       })
       return sorted
     }
 
     return sortFeatures(features, sortBy, sortDirection, tableData)
-  }, [tableData, selectedFeatures, tableSelectedNodeIds.length, sortBy, sortDirection, causeSimilarityScores])
+  }, [tableData, selectedFeatures, tableSelectedNodeIds.length, sortBy, sortDirection, causeCategoryConfidences, causeSortCategory])
 
   const totalRowCount = sortedFeatures.length
 
@@ -306,7 +357,9 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
                 <div className="table-panel__header-content">#</div>
               </th>
               <th className="table-panel__header-cell table-panel__header-cell--checkbox">
-                <div className="table-panel__header-content">Cause</div>
+                <div className="table-panel__header-content">
+                  Cause
+                </div>
               </th>
               <th
                 className="table-panel__header-cell table-panel__header-cell--id"
@@ -415,12 +468,18 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
                   const fuzzAvg = fuzzStats?.avg || null
                   const detectionAvg = detectionStats?.avg || null
 
-                  // Determine row class based on cause state
+                  // Determine row class and background color based on cause state
                   let rowClass = 'table-panel__sub-row'
+                  let rowBackgroundColor = ''
                   if (causeState) {
                     rowClass += ` table-panel__sub-row--${causeState}`
                     if (causeSource === 'auto') {
                       rowClass += ' table-panel__sub-row--auto-tagged'
+                    }
+                    // Apply dynamic color
+                    const config = causeConfig[causeState as keyof typeof causeConfig]
+                    if (config) {
+                      rowBackgroundColor = config.color
                     }
                   }
 
@@ -435,26 +494,49 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
                       className={rowClass}
                       onClick={(e) => {
                         const target = e.target as HTMLElement
-                        if (!target.closest('.table-panel__checkbox-custom, .cause-checkbox')) {
+                        // Only exclude the category badge itself
+                        if (!target.closest('.table-panel__category-badge')) {
                           toggleCauseCategory(featureRow.feature_id)
                         }
                       }}
-                      style={{ cursor: 'pointer' }}
+                      style={{
+                        cursor: 'pointer',
+                        // Use CSS custom properties for dynamic colors
+                        ...(rowBackgroundColor && {
+                          '--row-color': rowBackgroundColor, // Full opacity for borders
+                          '--row-bg-color': `${rowBackgroundColor}4D` // 30% opacity for backgrounds
+                        } as React.CSSProperties)
+                      }}
                     >
                       {/* Index */}
                       <td className="table-panel__cell table-panel__cell--index">
                         {virtualRow.index + 1}
                       </td>
 
-                      {/* Cause Checkbox */}
+                      {/* Cause Category Badge */}
                       <td className="table-panel__cell table-panel__cell--checkbox">
-                        <CauseCheckbox
-                          state={causeState || null}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            toggleCauseCategory(featureRow.feature_id)
-                          }}
-                        />
+                        {(() => {
+                          if (!causeState) return null
+
+                          const config = causeConfig[causeState as keyof typeof causeConfig]
+                          if (!config) return null
+
+                          const { label, color } = config
+
+                          return (
+                            <div
+                              className="table-panel__category-badge"
+                              style={{ backgroundColor: color }}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                toggleCauseCategory(featureRow.feature_id)
+                              }}
+                              title={label}
+                            >
+                              {label}
+                            </div>
+                          )
+                        })()}
                       </td>
 
                       {/* Feature ID */}

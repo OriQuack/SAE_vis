@@ -19,6 +19,7 @@ interface SelectionStateBarProps {
   showLegend?: boolean  // Default: true
   labelThreshold?: number  // Default: 10% - minimum width to show label
   mode?: 'feature' | 'pair' | 'cause'  // Mode determines labels/colors (default: 'feature')
+  categoryColors?: Partial<Record<SelectionCategory, string>>  // Optional: override colors dynamically
   className?: string
 }
 
@@ -89,10 +90,16 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   showLegend = true,
   labelThreshold = 10,
   mode = 'feature',
+  categoryColors,
   className = ''
 }) => {
   // Select config based on mode
   const categoryConfig = mode === 'cause' ? CAUSE_CATEGORY_CONFIG : CATEGORY_CONFIG
+
+  // Get final color for a category (use provided color or fallback to config)
+  const getColor = (category: SelectionCategory): string => {
+    return categoryColors?.[category] || categoryConfig[category].color
+  }
   // Calculate percentages for current state
   const percentages = useMemo(() => {
     if (counts.total === 0) {
@@ -150,7 +157,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
               }`}
               style={{
                 width: `${percentage}%`,
-                backgroundColor: config.color
+                backgroundColor: getColor(category)
               }}
               onClick={() => handleCategoryClick(category)}
               title={`${config.label}: ${count} (${percentage.toFixed(1)}%) - ${config.description}${
@@ -209,7 +216,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
               <div key={category} className="selection-state-bar__legend-item">
                 <div
                   className="selection-state-bar__legend-color"
-                  style={{ backgroundColor: config.color }}
+                  style={{ backgroundColor: getColor(category) }}
                 />
                 <span className="selection-state-bar__legend-label">
                   {config.label}

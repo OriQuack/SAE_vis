@@ -3,7 +3,8 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow, DecoderStagePairRow, StageTableContext } from '../types'
 import { METRIC_DECODER_SIMILARITY } from '../lib/constants'
-import { TAG_CATEGORIES, TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/tag-categories'
+import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORIES } from '../lib/tag-categories'
+import { getBadgeColors } from '../lib/utils'
 import ActivationExample from './ActivationExample'
 import DecoderSimilarityOverlay from './FeatureSplitOverlay'
 import SimilarityTaggingPopover from './SimilarityTaggingPopover'
@@ -34,6 +35,24 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
 
   // Similarity tagging (automatic tagging) state and action
   const moveToNextStep = useVisualizationStore(state => state.moveToNextStep)
+
+  // Get badge labels and colors from tag categories
+  const badgeConfig = useMemo(() => {
+    const sankeyTree = leftPanel.sankeyTree
+    const colors = getBadgeColors(sankeyTree, TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORIES)
+    const category = TAG_CATEGORIES[TAG_CATEGORY_FEATURE_SPLITTING]
+
+    return {
+      selected: {
+        label: category.tags[1], // "fragmented" (group 1, HIGH decoder similarity)
+        color: colors[category.tags[1]] || '#10b981'
+      },
+      rejected: {
+        label: category.tags[0], // "monosemantic" (group 0, LOW decoder similarity)
+        color: colors[category.tags[0]] || '#ef4444'
+      }
+    }
+  }, [leftPanel.sankeyTree])
 
   // Sorting state
   const [sortBy, setSortBy] = useState<'id' | 'decoder_similarity' | null>(null)
@@ -791,12 +810,18 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
 
               // Determine category class based on selection state and source
               let categoryClass = ''
+              let rowBackgroundColor = ''
               if (pairSelectionState === 'selected') {
-                // Confirmed (manual) -> green, Expanded (auto) -> blue
+                // Confirmed (manual) -> use "fragmented" color, Expanded (auto) -> keep blue
                 categoryClass = pairSelectionSource === 'auto' ? 'table-panel__sub-row--expanded' : 'table-panel__sub-row--confirmed'
+                // Use dynamic color with opacity 0.3 for manual selection
+                if (pairSelectionSource !== 'auto') {
+                  rowBackgroundColor = badgeConfig.selected.color
+                }
               } else if (pairSelectionState === 'rejected') {
-                // Rejected -> red
+                // Rejected -> use "monosemantic" color
                 categoryClass = 'table-panel__sub-row--rejected'
+                rowBackgroundColor = badgeConfig.rejected.color
               }
               // No class for unsure state (default styling)
 
@@ -814,37 +839,48 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                   className={rowClassName}
                   onClick={(e) => {
                     // Allow clicking anywhere on the row to toggle the pair selection
-                    // but don't double-toggle if clicking the checkbox div itself
+                    // Only exclude the category badge itself
                     const target = e.target as HTMLElement
-                    if (!target.closest('.table-panel__checkbox-custom')) {
+                    if (!target.closest('.table-panel__category-badge')) {
                       handlePairToggle(row.mainFeature.feature_id, row.similarFeature.feature_id)
                     }
                   }}
-                  style={{ cursor: 'pointer' }}
+                  style={{
+                    cursor: 'pointer',
+                    // Use CSS custom properties for dynamic colors
+                    ...(rowBackgroundColor && {
+                      '--row-color': rowBackgroundColor, // Full opacity for borders
+                      '--row-bg-color': `${rowBackgroundColor}4D` // 30% opacity for backgrounds
+                    } as React.CSSProperties)
+                  }}
                 >
                   {/* Index cell */}
                   <td className="table-panel__cell table-panel__cell--index">
                     {virtualRow.index + 1}
                   </td>
 
-                  {/* Three-state checkbox: null -> checkmark -> red X -> null */}
+                  {/* Category badge: null -> fragmented -> monosemantic -> null */}
                   <td className="table-panel__cell decoder-stage-table__cell--checkbox">
-                    <div
-                      className="table-panel__checkbox-custom"
-                      onClick={(e) => {
-                        e.stopPropagation() // Prevent row click from firing
-                        handlePairToggle(row.mainFeature.feature_id, row.similarFeature.feature_id)
-                      }}
-                    >
-                      {(() => {
-                        if (pairSelectionState === 'selected') {
-                          return <span className="table-panel__checkbox-checkmark">✓</span>
-                        } else if (pairSelectionState === 'rejected') {
-                          return <span className="table-panel__checkbox-reject">✗</span>
-                        }
-                        return null // Empty state
-                      })()}
-                    </div>
+                    {(() => {
+                      if (!pairSelectionState) return null
+
+                      const config = pairSelectionState === 'selected' ? badgeConfig.selected : badgeConfig.rejected
+                      const { label, color } = config
+
+                      return (
+                        <div
+                          className="table-panel__category-badge"
+                          style={{ backgroundColor: color }}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handlePairToggle(row.mainFeature.feature_id, row.similarFeature.feature_id)
+                          }}
+                          title={label}
+                        >
+                          {label}
+                        </div>
+                      )
+                    })()}
                   </td>
 
                   {/* ID Pair */}

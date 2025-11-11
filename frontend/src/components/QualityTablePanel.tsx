@@ -8,6 +8,8 @@ import {
   getExplainerDisplayName,
   findMaxQualityScoreExplainer
 } from '../lib/d3-table-utils'
+import { getBadgeColors } from '../lib/utils'
+import { TAG_CATEGORY_QUALITY, TAG_CATEGORIES } from '../lib/tag-categories'
 import {
   getCircleRadius
 } from '../lib/circle-encoding-utils'
@@ -93,6 +95,24 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
   // Activation examples from global store (centralized cache)
   const activationExamples = useVisualizationStore(state => state.activationExamples)
+
+  // Get badge labels and colors from tag categories
+  const badgeConfig = useMemo(() => {
+    const sankeyTree = leftPanel.sankeyTree
+    const colors = getBadgeColors(sankeyTree, TAG_CATEGORY_QUALITY, TAG_CATEGORIES)
+    const category = TAG_CATEGORIES[TAG_CATEGORY_QUALITY]
+
+    return {
+      selected: {
+        label: category.tags[1], // "well-explained" (group 1, HIGH quality)
+        color: colors[category.tags[1]] || '#10b981'
+      },
+      rejected: {
+        label: category.tags[0], // "need revision" (group 0, LOW quality)
+        color: colors[category.tags[0]] || '#ef4444'
+      }
+    }
+  }, [leftPanel.sankeyTree])
 
   // Get selected LLM explainers (needed for disabled logic)
   const selectedExplainers = new Set<string>()
@@ -553,7 +573,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
               </th>
               {/* Checkbox column */}
               <th className="table-panel__header-cell table-panel__header-cell--checkbox">
-                Well-Explained
+                Quality
               </th>
               <th
                 className="table-panel__header-cell table-panel__header-cell--id"
@@ -634,12 +654,18 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
               // Determine category class based on selection state and source
               let categoryClass = ''
+              let rowBackgroundColor = ''
               if (selectionState === 'selected') {
-                // Confirmed (manual) -> green, Expanded (auto) -> blue
+                // Confirmed (manual) -> use "well-explained" color, Expanded (auto) -> keep blue
                 categoryClass = selectionSource === 'auto' ? 'table-panel__sub-row--expanded' : 'table-panel__sub-row--confirmed'
+                // Use dynamic color with opacity 0.3 for manual selection
+                if (selectionSource !== 'auto') {
+                  rowBackgroundColor = badgeConfig.selected.color
+                }
               } else if (selectionState === 'rejected') {
-                // Rejected -> red
+                // Rejected -> use "need revision" color
                 categoryClass = 'table-panel__sub-row--rejected'
+                rowBackgroundColor = badgeConfig.rejected.color
               }
               // No class for unsure state (default styling)
 
@@ -666,38 +692,49 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                   className={rowClassName}
                   onClick={(e) => {
                     // Allow clicking anywhere on the row to toggle the feature selection
-                    // but don't double-toggle if clicking the checkbox div itself
+                    // Only exclude the category badge itself
                     const target = e.target as HTMLElement
-                    if (!target.closest('.table-panel__checkbox-custom')) {
+                    if (!target.closest('.table-panel__category-badge')) {
                       toggleFeatureSelection(featureRow.feature_id)
                     }
                   }}
-                  style={{ cursor: 'pointer' }}
+                  style={{
+                    cursor: 'pointer',
+                    // Use CSS custom properties for dynamic colors
+                    ...(rowBackgroundColor && {
+                      '--row-color': rowBackgroundColor, // Full opacity for borders
+                      '--row-bg-color': `${rowBackgroundColor}4D` // 30% opacity for backgrounds
+                    } as React.CSSProperties)
+                  }}
                 >
                   {/* Index - just row number */}
                   <td className="table-panel__cell table-panel__cell--index">
                     {featureIndex + 1}
                   </td>
 
-                  {/* Three-state checkbox: null -> checkmark -> red X -> null */}
+                  {/* Category badge: null -> well-explained -> need revision -> null */}
                   <td className="table-panel__cell table-panel__cell--checkbox">
-                    <div
-                      className="table-panel__checkbox-custom"
-                      onClick={(e) => {
-                        e.stopPropagation() // Prevent row click from firing
-                        toggleFeatureSelection(featureRow.feature_id)
-                      }}
-                    >
-                      {(() => {
-                        const state = featureSelectionStates.get(featureRow.feature_id)
-                        if (state === 'selected') {
-                          return <span className="table-panel__checkbox-checkmark">✓</span>
-                        } else if (state === 'rejected') {
-                          return <span className="table-panel__checkbox-reject">✗</span>
-                        }
-                        return null // Empty state
-                      })()}
-                    </div>
+                    {(() => {
+                      const state = featureSelectionStates.get(featureRow.feature_id)
+                      if (!state) return null
+
+                      const config = state === 'selected' ? badgeConfig.selected : badgeConfig.rejected
+                      const { label, color } = config
+
+                      return (
+                        <div
+                          className="table-panel__category-badge"
+                          style={{ backgroundColor: color }}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            toggleFeatureSelection(featureRow.feature_id)
+                          }}
+                          title={label}
+                        >
+                          {label}
+                        </div>
+                      )
+                    })()}
                   </td>
 
                   {/* Feature ID */}

@@ -725,22 +725,43 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
                   return (
                     <g key={`label-${node.id}`}>
-                      {nameLines.map((line, index) => (
-                        <text
-                          key={index}
-                          x={labelX}
-                          y={labelY + (index * 14)}
-                          dy="0.35em"
-                          fontSize={index === 0 ? 12 : 10}
-                          fill="#000000"
-                          opacity={1}
-                          fontWeight={isHovered ? 700 : 600}
-                          textAnchor={textAnchor}
-                          style={{ pointerEvents: 'none' }}
-                        >
-                          {line}{index === lastLineIndex ? ` (${node.feature_count.toLocaleString()})` : ''}
-                        </text>
-                      ))}
+                      {nameLines.map((line, index) => {
+                        const labelText = line + (index === lastLineIndex ? ` (${node.feature_count.toLocaleString()})` : '')
+                        return (
+                          <g key={index}>
+                            {/* White stroke outline */}
+                            <text
+                              x={labelX}
+                              y={labelY + (index * 14)}
+                              dy="0.35em"
+                              fontSize={index === 0 ? 12 : 10}
+                              fill="white"
+                              stroke="white"
+                              strokeWidth={3}
+                              opacity={1}
+                              fontWeight={isHovered ? 700 : 600}
+                              textAnchor={textAnchor}
+                              style={{ pointerEvents: 'none' }}
+                            >
+                              {labelText}
+                            </text>
+                            {/* Black text on top */}
+                            <text
+                              x={labelX}
+                              y={labelY + (index * 14)}
+                              dy="0.35em"
+                              fontSize={index === 0 ? 12 : 10}
+                              fill="#000000"
+                              opacity={1}
+                              fontWeight={isHovered ? 700 : 600}
+                              textAnchor={textAnchor}
+                              style={{ pointerEvents: 'none' }}
+                            >
+                              {labelText}
+                            </text>
+                          </g>
+                        )
+                      })}
                     </g>
                   )
                 }
@@ -779,22 +800,43 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
                 return (
                   <g key={`label-${node.id}`}>
-                    {nameLines.map((line, index) => (
-                      <text
-                        key={index}
-                        x={labelX}
-                        y={((node.y0 ?? 0) + (node.y1 ?? 0)) / 2 + (index * 14)}
-                        dy="0.35em"
-                        fontSize={index === 0 ? 12 : 10}
-                        fill="#000000"
-                        opacity={1}
-                        fontWeight={isHovered ? 700 : 600}
-                        textAnchor={textAnchor}
-                        style={{ pointerEvents: 'none' }}
-                      >
-                        {line}{index === lastLineIndex ? ` (${node.feature_count.toLocaleString()})` : ''}
-                      </text>
-                    ))}
+                    {nameLines.map((line, index) => {
+                      const labelText = line + (index === lastLineIndex ? ` (${node.feature_count.toLocaleString()})` : '')
+                      return (
+                        <g key={index}>
+                          {/* White stroke outline */}
+                          <text
+                            x={labelX}
+                            y={((node.y0 ?? 0) + (node.y1 ?? 0)) / 2 + (index * 14)}
+                            dy="0.35em"
+                            fontSize={index === 0 ? 12 : 10}
+                            fill="white"
+                            stroke="white"
+                            strokeWidth={3}
+                            opacity={1}
+                            fontWeight={isHovered ? 700 : 600}
+                            textAnchor={textAnchor}
+                            style={{ pointerEvents: 'none' }}
+                          >
+                            {labelText}
+                          </text>
+                          {/* Black text on top */}
+                          <text
+                            x={labelX}
+                            y={((node.y0 ?? 0) + (node.y1 ?? 0)) / 2 + (index * 14)}
+                            dy="0.35em"
+                            fontSize={index === 0 ? 12 : 10}
+                            fill="#000000"
+                            opacity={1}
+                            fontWeight={isHovered ? 700 : 600}
+                            textAnchor={textAnchor}
+                            style={{ pointerEvents: 'none' }}
+                          >
+                            {labelText}
+                          </text>
+                        </g>
+                      )
+                    })}
                   </g>
                 )
               })}

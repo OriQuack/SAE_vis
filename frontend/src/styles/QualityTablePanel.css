@@ -291,31 +291,62 @@ width: 39%;
 /* Category selection state backgrounds - 4 categories */
 /* Color values defined in: frontend/src/lib/constants.ts -> SELECTION_CATEGORY_COLORS */
 
-/* Confirmed: Manually selected - GREEN */
+/* Confirmed: Manually selected - Uses dynamic color from Sankey (30% opacity) */
 .table-panel__sub-row--confirmed .table-panel__cell {
-  background: rgba(16, 185, 129, 0.08) !important; /* Green with low opacity */
+  background: var(--row-bg-color, rgba(16, 185, 129, 0.3)) !important;
 }
 
 .table-panel__sub-row--confirmed:hover .table-panel__cell {
-  background: rgba(16, 185, 129, 0.15) !important;
+  background: var(--row-bg-color, rgba(16, 185, 129, 0.3)) !important;
+  filter: brightness(0.95);
 }
 
-/* Expanded: Auto-tagged by histogram - BLUE */
+/* Expanded: Auto-tagged by histogram - BLUE (keep hardcoded) */
 .table-panel__sub-row--expanded .table-panel__cell {
-  background: rgba(59, 130, 246, 0.08) !important; /* Blue with low opacity */
+  background: rgba(59, 130, 246, 0.3) !important; /* Blue with 30% opacity */
 }
 
 .table-panel__sub-row--expanded:hover .table-panel__cell {
-  background: rgba(59, 130, 246, 0.15) !important;
+  background: rgba(59, 130, 246, 0.3) !important;
+  filter: brightness(0.95);
 }
 
-/* Rejected: Manually or auto rejected - RED */
+/* Rejected: Manually or auto rejected - Uses dynamic color from Sankey (30% opacity) */
 .table-panel__sub-row--rejected .table-panel__cell {
-  background: rgba(239, 68, 68, 0.08) !important; /* Red with low opacity */
+  background: var(--row-bg-color, rgba(239, 68, 68, 0.3)) !important;
 }
 
 .table-panel__sub-row--rejected:hover .table-panel__cell {
-  background: rgba(239, 68, 68, 0.15) !important;
+  background: var(--row-bg-color, rgba(239, 68, 68, 0.3)) !important;
+  filter: brightness(0.95);
+}
+
+/* Cause Table - Row backgrounds with dynamic colors (30% opacity) */
+.table-panel__sub-row--noisy-activation .table-panel__cell {
+  background: var(--row-bg-color, rgba(249, 115, 22, 0.3)) !important; /* Orange */
+}
+
+.table-panel__sub-row--noisy-activation:hover .table-panel__cell {
+  background: var(--row-bg-color, rgba(249, 115, 22, 0.3)) !important;
+  filter: brightness(0.95);
+}
+
+.table-panel__sub-row--missed-lexicon .table-panel__cell {
+  background: var(--row-bg-color, rgba(168, 85, 247, 0.3)) !important; /* Purple */
+}
+
+.table-panel__sub-row--missed-lexicon:hover .table-panel__cell {
+  background: var(--row-bg-color, rgba(168, 85, 247, 0.3)) !important;
+  filter: brightness(0.95);
+}
+
+.table-panel__sub-row--missed-context .table-panel__cell {
+  background: var(--row-bg-color, rgba(59, 130, 246, 0.3)) !important; /* Blue */
+}
+
+.table-panel__sub-row--missed-context:hover .table-panel__cell {
+  background: var(--row-bg-color, rgba(59, 130, 246, 0.3)) !important;
+  filter: brightness(0.95);
 }
 
 /* Legacy class support (for backward compatibility) */
@@ -337,22 +368,39 @@ width: 39%;
 
 /* Auto-tagged indicator: Colored border on index column based on category */
 /* Apply thick left border to the first cell (index column) for auto-tagged items */
+/* Uses dynamic tag colors from Sankey tree (full opacity for visibility) */
 
-/* Confirmed (manual selection) - Green border */
+/* Confirmed (manual selection) - Uses tag color (full opacity) */
 .table-panel__sub-row--confirmed.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
-  border-left: 5px solid #10b981 !important;
+  border-left: 5px solid var(--row-color, #10b981) !important;
   padding-left: 3px;
 }
 
-/* Expanded (auto-tagged) - Blue border */
+/* Expanded (auto-tagged) - Blue border (keep hardcoded) */
 .table-panel__sub-row--expanded.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
   border-left: 5px solid #3b82f6 !important;
   padding-left: 3px;
 }
 
-/* Rejected - Red border */
+/* Rejected - Uses tag color (full opacity) */
 .table-panel__sub-row--rejected.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
-  border-left: 5px solid #ef4444 !important;
+  border-left: 5px solid var(--row-color, #ef4444) !important;
+  padding-left: 3px;
+}
+
+/* Cause categories - Auto-tagged borders (full opacity) */
+.table-panel__sub-row--noisy-activation.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
+  border-left: 5px solid var(--row-color, #f97316) !important;
+  padding-left: 3px;
+}
+
+.table-panel__sub-row--missed-lexicon.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
+  border-left: 5px solid var(--row-color, #a855f7) !important;
+  padding-left: 3px;
+}
+
+.table-panel__sub-row--missed-context.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
+  border-left: 5px solid var(--row-color, #3b82f6) !important;
   padding-left: 3px;
 }
 
@@ -394,7 +442,7 @@ width: 39%;
 
 /* Checkbox column */
 .table-panel__header-cell--checkbox {
-  width: 5%;
+  width: 10%;
   text-align: center;
 }
 
@@ -438,6 +486,82 @@ width: 39%;
 .table-panel__checkbox-reject {
   color: #ef4444;
   line-height: 1;
+}
+
+/* ============================================================================
+ * CATEGORY BADGES (replaces checkboxes)
+ * ============================================================================ */
+
+/* Base badge styles */
+.table-panel__category-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  white-space: nowrap;
+  line-height: 1.4;
+  color: white;  /* White text for better visibility on colored backgrounds */
+  opacity: 0.85;  /* Slightly transparent for softer appearance */
+}
+
+.table-panel__category-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Quality Table and Feature Split Table - Selected state (Well-Explained / Feature Split) */
+.table-panel__category-badge--selected {
+  background-color: #10b981;
+  color: white;
+}
+
+.table-panel__category-badge--selected:hover {
+  background-color: #059669;
+}
+
+/* Quality Table and Feature Split Table - Rejected state (Poor Quality / No Split) */
+.table-panel__category-badge--rejected {
+  background-color: #ef4444;
+  color: white;
+}
+
+.table-panel__category-badge--rejected:hover {
+  background-color: #dc2626;
+}
+
+/* Cause Table - Noisy Activation (orange) */
+.table-panel__category-badge--noisy-activation {
+  background-color: #f97316;
+  color: white;
+}
+
+.table-panel__category-badge--noisy-activation:hover {
+  background-color: #ea580c;
+}
+
+/* Cause Table - Missed Lexicon (purple) */
+.table-panel__category-badge--missed-lexicon {
+  background-color: #a855f7;
+  color: white;
+}
+
+.table-panel__category-badge--missed-lexicon:hover {
+  background-color: #9333ea;
+}
+
+/* Cause Table - Missed Context (blue) */
+.table-panel__category-badge--missed-context {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.table-panel__category-badge--missed-context:hover {
+  background-color: #2563eb;
 }
 
 .table-panel__cell--score {

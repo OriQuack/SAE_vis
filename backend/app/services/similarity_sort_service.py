@@ -1208,3 +1208,422 @@ class SimilaritySortService:
             pair_scores.append(PairScore(pair_key=pair_key, score=float(score)))
 
         return pair_scores
+
+    # ============================================================================
+    # CAUSE SIMILARITY SORTING (Multi-class One-vs-Rest SVM)
+    # ============================================================================
+
+    def _get_cause_cache_key(self, cause_selections: Dict[int, str]) -> str:
+        """
+        Generate unique cache key from cause selections.
+
+        Args:
+            cause_selections: Map of feature_id to cause category
+
+        Returns:
+            MD5 hash of category groupings
+        """
+        # Group feature IDs by category
+        groups = {
+            'noisy-activation': [],
+            'missed-lexicon': [],
+            'missed-context': []
+        }
+        for fid, category in cause_selections.items():
+            if category in groups:
+                groups[category].append(fid)
+
+        # Create key from sorted IDs per category
+        key_parts = [f"{cat}:{sorted(ids)}" for cat, ids in sorted(groups.items())]
+        key_str = '|'.join(key_parts)
+        return hashlib.md5(key_str.encode()).hexdigest()
+
+    async def get_cause_similarity_sorted(
+        self,
+        request: "CauseSimilaritySortRequest"
+    ) -> "CauseSimilaritySortResponse":
+        """
+        Calculate per-category confidence scores using One-vs-Rest SVM.
+
+        Trains 3 binary SVMs (one per cause category):
+        - noisy-activation vs (missed-lexicon + missed-context)
+        - missed-lexicon vs (noisy-activation + missed-context)
+        - missed-context vs (noisy-activation + missed-lexicon)
+
+        Each SVM outputs signed distance (confidence) for its category.
+
+        Args:
+            request: Request with cause_selections (feature_id -> category) and feature_ids
+
+        Returns:
+            Response with per-category confidence scores for each feature
+        """
+        from ..models.similarity_sort import CauseSimilaritySortResponse, CauseFeatureScore
+
+        if not self.data_service.is_ready():
+            raise RuntimeError("DataService not ready")
+
+        # Validate inputs
+        if len(request.feature_ids) == 0:
+            return CauseSimilaritySortResponse(
+                sorted_features=[],
+                total_features=0
+            )
+
+        # Extract metrics for all features
+        logger.info(f"Extracting metrics for {len(request.feature_ids)} features (cause sorting)")
+        metrics_df = await self._extract_metrics(request.feature_ids)
+
+        if metrics_df is None or len(metrics_df) == 0:
+            logger.warning("No metrics extracted for cause sorting, returning empty result")
+            return CauseSimilaritySortResponse(
+                sorted_features=[],
+                total_features=0
+            )
+
+        # Calculate per-category confidence scores using OvR SVM
+        logger.info(f"Calculating cause similarity scores with OvR SVM")
+        feature_scores = self._calculate_cause_similarity_scores(
+            metrics_df,
+            request.cause_selections
+        )
+
+        # Sort by maximum confidence across all categories (descending)
+        feature_scores.sort(key=lambda x: max(x.category_confidences.values()), reverse=True)
+
+        logger.info(f"Successfully scored {len(feature_scores)} features using OvR SVM (cause)")
+
+        return CauseSimilaritySortResponse(
+            sorted_features=feature_scores,
+            total_features=len(feature_scores)
+        )
+
+    def _calculate_cause_similarity_scores(
+        self,
+        metrics_df: pl.DataFrame,
+        cause_selections: Dict[int, str]
+    ) -> List["CauseFeatureScore"]:
+        """
+        Calculate per-category confidence scores for all features using OvR SVM.
+
+        Args:
+            metrics_df: DataFrame with metrics for all features
+            cause_selections: Map of feature_id to cause category
+
+        Returns:
+            List of CauseFeatureScore objects with per-category confidences
+        """
+        from ..models.similarity_sort import CauseFeatureScore
+
+        # Convert to numpy for SVM
+        feature_ids = metrics_df["feature_id"].to_numpy()
+        metrics_matrix = np.column_stack([
+            metrics_df[metric].to_numpy() for metric in self.METRICS
+        ])
+
+        # Group features by category
+        category_groups = {
+            'noisy-activation': [],
+            'missed-lexicon': [],
+            'missed-context': []
+        }
+        for fid, category in cause_selections.items():
+            if category in category_groups:
+                category_groups[category].append(int(fid))
+
+        # Count features per category and validate
+        category_counts = {cat: len(ids) for cat, ids in category_groups.items()}
+        categories_with_features = sum(1 for count in category_counts.values() if count > 0)
+
+        logger.info(f"Cause category distribution: {category_counts}")
+
+        if categories_with_features < 2:
+            logger.warning("Need at least 2 different categories for OvR SVM")
+            return []
+
+        # Check cache
+        cache_key = self._get_cause_cache_key(cause_selections)
+
+        # Train OvR SVMs (one per category)
+        models = {}
+
+        if cache_key in self._svm_cache:
+            logger.info(f"Using cached OvR SVM models (key: {cache_key[:8]}...)")
+            models = self._svm_cache[cache_key]
+        else:
+            logger.info(f"Training {len(category_groups)} OvR SVM models for cause classification")
+
+            for target_category, positive_ids in category_groups.items():
+                if len(positive_ids) == 0:
+                    continue
+
+                # Negative examples = all other categories
+                negative_ids = [
+                    fid for cat, fids in category_groups.items()
+                    if cat != target_category
+                    for fid in fids
+                ]
+
+                if len(negative_ids) == 0:
+                    logger.warning(f"No negative examples for category {target_category}, skipping")
+                    continue
+
+                # Extract training vectors
+                positive_indices = [i for i, fid in enumerate(feature_ids) if fid in positive_ids]
+                negative_indices = [i for i, fid in enumerate(feature_ids) if fid in negative_ids]
+
+                if not positive_indices or not negative_indices:
+                    logger.warning(f"Insufficient training data for {target_category}")
+                    continue
+
+                positive_vectors = metrics_matrix[positive_indices]
+                negative_vectors = metrics_matrix[negative_indices]
+
+                # Train SVM for this category
+                model, scaler = self._train_svm_model(positive_vectors, negative_vectors)
+                models[target_category] = (model, scaler)
+
+                logger.info(f"SVM trained for {target_category}: "
+                           f"{len(positive_vectors)} positive, {len(negative_vectors)} negative")
+
+            # Cache all models together
+            if len(self._svm_cache) >= self._max_cache_size:
+                oldest_key = next(iter(self._svm_cache))
+                self._svm_cache.pop(oldest_key)
+                logger.info(f"SVM cache full, evicted oldest entry")
+
+            self._svm_cache[cache_key] = models
+            logger.info(f"OvR SVM models cached (key: {cache_key[:8]}..., {len(models)} models)")
+
+        # Score all features with each category's SVM
+        feature_scores = []
+        tagged_ids = set(cause_selections.keys())
+
+        for i, feature_id in enumerate(feature_ids):
+            # Skip if already tagged
+            if feature_id in tagged_ids:
+                continue
+
+            # Get confidence score from each category's SVM
+            feature_vector = metrics_matrix[i:i+1]  # Shape (1, d)
+            category_confidences = {}
+
+            for category, (model, scaler) in models.items():
+                score = self._score_with_svm(model, scaler, feature_vector)[0]
+                category_confidences[category] = float(score)
+
+            # Only add if at least one category was trained
+            if category_confidences:
+                feature_scores.append(
+                    CauseFeatureScore(
+                        feature_id=int(feature_id),
+                        category_confidences=category_confidences
+                    )
+                )
+
+        return feature_scores
+
+    async def get_cause_similarity_score_histogram(
+        self,
+        request: "CauseSimilarityHistogramRequest"
+    ) -> "CauseSimilarityHistogramResponse":
+        """
+        Calculate per-category confidence score distributions for automatic tagging.
+
+        Returns 3 histograms (one per category) showing confidence distributions.
+
+        Args:
+            request: Request with cause_selections and feature_ids
+
+        Returns:
+            Response with per-category histograms and statistics
+        """
+        from ..models.similarity_sort import (
+            CauseSimilarityHistogramResponse,
+            HistogramData,
+            HistogramStatistics
+        )
+
+        if not self.data_service.is_ready():
+            raise RuntimeError("DataService not ready")
+
+        # Extract metrics for all features
+        logger.info(f"Extracting metrics for {len(request.feature_ids)} features (cause histogram)")
+        metrics_df = await self._extract_metrics(request.feature_ids)
+
+        if metrics_df is None or len(metrics_df) == 0:
+            logger.warning("No metrics extracted, returning empty histogram")
+            return CauseSimilarityHistogramResponse(
+                scores={},
+                histograms={},
+                statistics={},
+                total_items=0
+            )
+
+        # Calculate per-category confidence scores for ALL features
+        logger.info(f"Calculating cause similarity scores for histogram with OvR SVM")
+        feature_scores = self._calculate_cause_similarity_scores_for_histogram(
+            metrics_df,
+            request.cause_selections
+        )
+
+        if not feature_scores:
+            return CauseSimilarityHistogramResponse(
+                scores={},
+                histograms={},
+                statistics={},
+                total_items=0
+            )
+
+        # Extract all categories from results
+        all_categories = set()
+        for fs in feature_scores:
+            all_categories.update(fs.category_confidences.keys())
+
+        # Build scores dict: feature_id -> {category: confidence}
+        scores_dict = {}
+        for fs in feature_scores:
+            scores_dict[str(fs.feature_id)] = fs.category_confidences
+
+        # Build histogram and statistics per category
+        histograms = {}
+        statistics = {}
+
+        for category in sorted(all_categories):
+            # Extract scores for this category
+            category_scores = []
+            for fs in feature_scores:
+                if category in fs.category_confidences:
+                    category_scores.append(fs.category_confidences[category])
+
+            if not category_scores:
+                continue
+
+            score_values = np.array(category_scores)
+
+            # Compute histogram (40 bins)
+            counts, bin_edges = np.histogram(score_values, bins=40)
+            bins = (bin_edges[:-1] + bin_edges[1:]) / 2  # Bin centers
+
+            histograms[category] = HistogramData(
+                bins=bins.tolist(),
+                counts=counts.tolist(),
+                bin_edges=bin_edges.tolist()
+            )
+
+            statistics[category] = HistogramStatistics(
+                min=float(np.min(score_values)),
+                max=float(np.max(score_values)),
+                mean=float(np.mean(score_values)),
+                median=float(np.median(score_values))
+            )
+
+        logger.info(f"Successfully generated {len(histograms)} histograms for {len(feature_scores)} features")
+
+        return CauseSimilarityHistogramResponse(
+            scores=scores_dict,
+            histograms=histograms,
+            statistics=statistics,
+            total_items=len(feature_scores)
+        )
+
+    def _calculate_cause_similarity_scores_for_histogram(
+        self,
+        metrics_df: pl.DataFrame,
+        cause_selections: Dict[int, str]
+    ) -> List["CauseFeatureScore"]:
+        """
+        Calculate per-category confidence scores for ALL features using OvR SVM (including tagged).
+
+        This is different from _calculate_cause_similarity_scores() which skips tagged features.
+        For histogram visualization, we need scores for everything.
+
+        Args:
+            metrics_df: DataFrame with metrics for all features
+            cause_selections: Map of feature_id to cause category
+
+        Returns:
+            List of CauseFeatureScore objects for ALL features
+        """
+        from ..models.similarity_sort import CauseFeatureScore
+
+        # Convert to numpy for SVM
+        feature_ids = metrics_df["feature_id"].to_numpy()
+        metrics_matrix = np.column_stack([
+            metrics_df[metric].to_numpy() for metric in self.METRICS
+        ])
+
+        # Group features by category
+        category_groups = {
+            'noisy-activation': [],
+            'missed-lexicon': [],
+            'missed-context': []
+        }
+        for fid, category in cause_selections.items():
+            if category in category_groups:
+                category_groups[category].append(int(fid))
+
+        # Check cache (reuse models from main scoring)
+        cache_key = self._get_cause_cache_key(cause_selections)
+
+        # Train or load OvR SVMs
+        models = {}
+
+        if cache_key in self._svm_cache:
+            logger.info(f"Using cached OvR SVM models for histogram (key: {cache_key[:8]}...)")
+            models = self._svm_cache[cache_key]
+        else:
+            logger.info(f"Training {len(category_groups)} OvR SVM models for cause histogram")
+
+            for target_category, positive_ids in category_groups.items():
+                if len(positive_ids) == 0:
+                    continue
+
+                negative_ids = [
+                    fid for cat, fids in category_groups.items()
+                    if cat != target_category
+                    for fid in fids
+                ]
+
+                if len(negative_ids) == 0:
+                    continue
+
+                positive_indices = [i for i, fid in enumerate(feature_ids) if fid in positive_ids]
+                negative_indices = [i for i, fid in enumerate(feature_ids) if fid in negative_ids]
+
+                if not positive_indices or not negative_indices:
+                    continue
+
+                positive_vectors = metrics_matrix[positive_indices]
+                negative_vectors = metrics_matrix[negative_indices]
+
+                model, scaler = self._train_svm_model(positive_vectors, negative_vectors)
+                models[target_category] = (model, scaler)
+
+            # Cache
+            if len(self._svm_cache) >= self._max_cache_size:
+                oldest_key = next(iter(self._svm_cache))
+                self._svm_cache.pop(oldest_key)
+
+            self._svm_cache[cache_key] = models
+
+        # Score ALL features (including tagged ones for histogram)
+        feature_scores = []
+
+        for i, feature_id in enumerate(feature_ids):
+            feature_vector = metrics_matrix[i:i+1]
+            category_confidences = {}
+
+            for category, (model, scaler) in models.items():
+                score = self._score_with_svm(model, scaler, feature_vector)[0]
+                category_confidences[category] = float(score)
+
+            if category_confidences:
+                feature_scores.append(
+                    CauseFeatureScore(
+                        feature_id=int(feature_id),
+                        category_confidences=category_confidences
+                    )
+                )
+
+        return feature_scores

@@ -4,7 +4,7 @@ import {
   type TagCategoryConfig
 } from '../lib/tag-categories';
 import { useVisualizationStore } from '../store/index';
-import { parseSAEId, getLLMExplainerNames } from '../lib/utils';
+import { parseSAEId, getLLMExplainerNames, getTagColor } from '../lib/utils';
 import '../styles/TagCategoryPanel.css';
 
 interface TagCategoryPanelProps {
@@ -72,57 +72,6 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
     console.log('[TagCategoryPanel] LLM Explainer Names:', names);
     return names;
   }, [tableData]);
-
-  // Helper function to get tag color from Sankey tree
-  const getTagColor = (stageId: string, tagIndex: number, tagName: string): string | null => {
-    if (!sankeyTree || sankeyTree.size === 0) {
-      return null;
-    }
-
-    // Find the stage configuration
-    const stage = stages.find(s => s.id === stageId);
-    if (!stage) {
-      return null;
-    }
-
-    // Get expected depth for this stage
-    const targetDepth = stage.stageOrder;
-
-    // Find matching nodes in the tree
-    // Strategy depends on the stage:
-    // - Stages 1 & 2: look for nodes ending with _group{index}
-    // - Stage 3 (Cause): look for nodes ending with snake_case tag name
-    let nodeSuffix: string;
-
-    if (stageId === 'cause') {
-      // Convert tag name to snake_case (e.g., "Missed Context" -> "missed_context")
-      nodeSuffix = `_${tagName.toLowerCase().replace(/\s+/g, '_')}`;
-    } else {
-      nodeSuffix = `_group${tagIndex}`;
-    }
-
-    for (const [nodeId, node] of sankeyTree.entries()) {
-      // Check if node is at the right depth
-      if (node.depth !== targetDepth) continue;
-
-      // Check if node ID ends with the expected suffix
-      if (nodeId.endsWith(nodeSuffix)) {
-        // For stages with metrics, we need to verify the parent created these nodes with that metric
-        // But child nodes themselves have metric: null, so we check the parent instead
-        if (stage.metric && node.parentId) {
-          const parentNode = sankeyTree.get(node.parentId);
-          if (parentNode && parentNode.metric === stage.metric) {
-            return node.colorHex || null;
-          }
-        } else {
-          // For pre-defined categories (like Cause) or when no metric validation needed
-          return node.colorHex || null;
-        }
-      }
-    }
-
-    return null;
-  };
 
   // Refs for flow line positioning
   const monosematicCountRef = useRef<HTMLSpanElement>(null);
@@ -451,7 +400,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
                     const isNeedRevision = stage.id === 'quality' && tag === 'need revision';
 
                     // Get color from Sankey tree
-                    const color = getTagColor(stage.id, tagIndex, tag);
+                    const color = getTagColor(sankeyTree, stages, stage.id, tagIndex, tag);
                     const fallbackColor = '#94a3b8'; // Neutral grey
                     const tagColor = color || fallbackColor;
 

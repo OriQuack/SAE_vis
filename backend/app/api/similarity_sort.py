@@ -10,7 +10,9 @@ from ..models.similarity_sort import (
     SimilaritySortRequest, SimilaritySortResponse,
     PairSimilaritySortRequest, PairSimilaritySortResponse,
     SimilarityHistogramRequest, SimilarityHistogramResponse,
-    PairSimilarityHistogramRequest
+    PairSimilarityHistogramRequest,
+    CauseSimilaritySortRequest, CauseSimilaritySortResponse,
+    CauseSimilarityHistogramRequest, CauseSimilarityHistogramResponse
 )
 
 if TYPE_CHECKING:
@@ -303,4 +305,149 @@ async def pair_similarity_score_histogram(
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error during pair histogram calculation: {str(e)}"
+        )
+
+
+@router.post("/cause-similarity-sort", response_model=CauseSimilaritySortResponse)
+async def cause_similarity_sort(
+    request: CauseSimilaritySortRequest,
+    service: "SimilaritySortService" = Depends(get_similarity_sort_service)
+) -> CauseSimilaritySortResponse:
+    """
+    Sort features by per-category confidence using One-vs-Rest SVM.
+
+    This endpoint implements multi-class classification for cause categorization.
+    It trains 3 binary SVMs (one per cause category):
+    - noisy-activation vs (missed-lexicon + missed-context)
+    - missed-lexicon vs (noisy-activation + missed-context)
+    - missed-context vs (noisy-activation + missed-lexicon)
+
+    Each SVM outputs a signed distance (confidence score) from its decision boundary:
+    - Positive scores: feature is similar to this category
+    - Negative scores: feature is dissimilar to this category
+
+    Returns confidence scores for each of the 3 categories per feature.
+    Frontend can then sort by the highest confidence or by a specific category.
+
+    Args:
+        request: Request with cause_selections (feature_id -> category) and feature_ids
+        service: Injected similarity sort service
+
+    Returns:
+        Response with per-category confidence scores for each feature
+    """
+    try:
+        logger.info(
+            f"Cause similarity sort request: {len(request.cause_selections)} tagged features, "
+            f"{len(request.feature_ids)} total features"
+        )
+
+        # Validate request
+        if not request.feature_ids:
+            raise HTTPException(
+                status_code=400,
+                detail="feature_ids cannot be empty"
+            )
+
+        if not request.cause_selections:
+            raise HTTPException(
+                status_code=400,
+                detail="cause_selections cannot be empty (need tagged examples)"
+            )
+
+        # Validate: need at least 2 different categories
+        categories = set(request.cause_selections.values())
+        if len(categories) < 2:
+            raise HTTPException(
+                status_code=400,
+                detail="Need at least 2 different cause categories for meaningful classification"
+            )
+
+        # Call service to calculate per-category confidence scores
+        response = await service.get_cause_similarity_sorted(request)
+
+        logger.info(f"Cause similarity sort completed: {response.total_features} features scored")
+        return response
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        logger.error(f"Validation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error in cause similarity sort: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error during cause similarity calculation: {str(e)}"
+        )
+
+
+@router.post("/cause-similarity-score-histogram", response_model=CauseSimilarityHistogramResponse)
+async def cause_similarity_score_histogram(
+    request: CauseSimilarityHistogramRequest,
+    service: "SimilaritySortService" = Depends(get_similarity_sort_service)
+) -> CauseSimilarityHistogramResponse:
+    """
+    Calculate per-category confidence score distributions for automatic tagging.
+
+    Returns 3 separate histograms (one per cause category) showing confidence distributions.
+    Each histogram shows the signed distance from that category's SVM decision boundary.
+
+    - Positive scores: feature is similar to this category
+    - Negative scores: feature is dissimilar to this category
+    - Zero: on the decision boundary
+
+    This allows the frontend to set per-category thresholds for automatic tagging.
+    For example, "tag as noisy-activation if confidence >= 0.5".
+
+    Args:
+        request: Request with cause_selections and feature_ids
+        service: Injected similarity sort service
+
+    Returns:
+        Response with per-category histograms, statistics, and all scores
+    """
+    try:
+        logger.info(
+            f"Cause similarity histogram request: {len(request.cause_selections)} tagged features, "
+            f"{len(request.feature_ids)} total features"
+        )
+
+        # Validate request
+        if not request.feature_ids:
+            raise HTTPException(
+                status_code=400,
+                detail="feature_ids cannot be empty"
+            )
+
+        if not request.cause_selections:
+            raise HTTPException(
+                status_code=400,
+                detail="cause_selections cannot be empty (need tagged examples)"
+            )
+
+        # Validate: need at least 2 different categories
+        categories = set(request.cause_selections.values())
+        if len(categories) < 2:
+            raise HTTPException(
+                status_code=400,
+                detail="Need at least 2 different cause categories for histogram"
+            )
+
+        # Call service to calculate histogram
+        response = await service.get_cause_similarity_score_histogram(request)
+
+        logger.info(f"Cause similarity histogram completed: {response.total_items} features")
+        return response
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        logger.error(f"Validation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error in cause similarity histogram: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error during cause histogram calculation: {str(e)}"
         )

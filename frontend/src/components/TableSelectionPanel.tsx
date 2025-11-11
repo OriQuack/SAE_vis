@@ -1,9 +1,11 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useRef, useEffect } from 'react'
 import { useVisualizationStore } from '../store/index'
 import {
   type SelectionCategory,
   METRIC_DISPLAY_NAMES
 } from '../lib/constants'
+import { getBadgeColors } from '../lib/utils'
+import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE, TAG_CATEGORIES } from '../lib/tag-categories'
 import SelectionStateBar, { type CategoryCounts } from './SelectionStateBar'
 import '../styles/TableSelectionPanel.css'
 
@@ -39,6 +41,7 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
   const sortBySimilarity = useVisualizationStore(state => state.sortBySimilarity)
   const sortPairsBySimilarity = useVisualizationStore(state => state.sortPairsBySimilarity)
   const sortCauseBySimilarity = useVisualizationStore(state => state.sortCauseBySimilarity)
+  const setCauseSortCategory = useVisualizationStore(state => state.setCauseSortCategory)
   const showSimilarityTaggingPopover = useVisualizationStore(state => state.showSimilarityTaggingPopover)
   const clearFeatureSelection = useVisualizationStore(state => state.clearFeatureSelection)
   const clearPairSelection = useVisualizationStore(state => state.clearPairSelection)
@@ -68,6 +71,17 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
 
   // Tooltip state
   const [hoveredButton, setHoveredButton] = useState<'sort' | 'tag' | null>(null)
+
+  // Category dropdown state for cause mode
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false)
+
+  // Button refs for measuring width
+  const sortButtonRef = useRef<HTMLButtonElement>(null)
+  const tagButtonRef = useRef<HTMLButtonElement>(null)
+
+  // Button widths for tooltip sizing (button width + 4px)
+  const [sortTooltipWidth, setSortTooltipWidth] = useState<number | null>(null)
+  const [tagTooltipWidth, setTagTooltipWidth] = useState<number | null>(null)
 
   // Get selection states based on mode
   const selectionStates = mode === 'feature' ? featureSelectionStates
@@ -231,7 +245,11 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
           missedLexicon: missedLexiconCount,
           missedContext: missedContextCount,
           unsure: unsureCount
-        }
+        },
+        // Individual category flags for tooltip
+        hasNoisyActivation: noisyActivationCount >= 1,
+        hasMissedLexicon: missedLexiconCount >= 1,
+        hasMissedContext: missedContextCount >= 1
       }
     } else {
       // For feature/pair mode, count selected/rejected
@@ -245,9 +263,41 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
     }
   }, [mode, selectionStates, causeSelectionStates])
 
+  // Get dynamic colors from Sankey tree for SelectionStateBar
+  const barColors = useMemo(() => {
+    if (mode === 'feature') {
+      // Quality stage colors
+      const colors = getBadgeColors(sankeyTree, TAG_CATEGORY_QUALITY, TAG_CATEGORIES)
+      return {
+        confirmed: colors['well-explained'] || undefined,   // Use well-explained for confirmed (manual selection)
+        expanded: undefined,                                // Keep default blue for auto-tagged
+        rejected: colors['need revision'] || undefined,     // Use need revision for rejected
+        unsure: undefined                                    // Keep default gray
+      }
+    } else if (mode === 'pair') {
+      // Feature splitting stage colors
+      const colors = getBadgeColors(sankeyTree, TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORIES)
+      return {
+        confirmed: colors['fragmented'] || undefined,       // Use fragmented for confirmed
+        expanded: undefined,                                // Keep default blue for auto-tagged
+        rejected: colors['monosemantic'] || undefined,      // Use monosemantic for rejected
+        unsure: undefined                                    // Keep default gray
+      }
+    } else {
+      // Cause stage colors (maps categories to SelectionCategory keys)
+      const colors = getBadgeColors(sankeyTree, TAG_CATEGORY_CAUSE, TAG_CATEGORIES)
+      return {
+        confirmed: colors['Noisy Activation'] || undefined,  // Orange
+        expanded: colors['Missed Lexicon'] || undefined,     // Purple
+        rejected: colors['Missed Context'] || undefined,     // Blue
+        unsure: undefined                                     // Keep default gray
+      }
+    }
+  }, [mode, sankeyTree])
+
   // Sort requirements (different for cause mode)
   const sortRequirements = mode === 'cause'
-    ? { minSelected: 2, minRejected: 2 } // For cause: need ≥2 categories with features
+    ? { minSelected: 3, minRejected: 3 } // For cause: need ALL 3 categories with at least 1 feature each
     : { minSelected: 1, minRejected: 1 } // For feature/pair: need ≥1 selected and ≥1 rejected
   const hasSelected = selectionCounts.selectedCount >= sortRequirements.minSelected
   const hasRejected = selectionCounts.rejectedCount >= sortRequirements.minRejected
@@ -255,19 +305,19 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
 
   // Tag requirements (different for cause mode)
   const tagRequirements = mode === 'cause'
-    ? { minSelected: 2, minRejected: 2 } // For cause: need ≥2 categories with ≥5 features each
+    ? { minSelected: 2, minRejected: 2 } // For cause: need ≥2 categories with ≥3 features each
     : { minSelected: 5, minRejected: 5 } // For feature/pair: need ≥5 selected and ≥5 rejected
 
   let canTagAutomatically = false
   if (mode === 'cause' && selectionCounts.causeCategories) {
-    // For cause mode: require at least 2 explicit categories with ≥5 features each
+    // For cause mode: require at least 2 explicit categories with ≥3 features each
     // (unsure/untagged not counted toward this requirement)
-    const categoriesWith5Plus = [
-      selectionCounts.causeCategories.noisyActivation >= 5 ? 1 : 0,
-      selectionCounts.causeCategories.missedLexicon >= 5 ? 1 : 0,
-      selectionCounts.causeCategories.missedContext >= 5 ? 1 : 0
+    const categoriesWith3Plus = [
+      selectionCounts.causeCategories.noisyActivation >= 3 ? 1 : 0,
+      selectionCounts.causeCategories.missedLexicon >= 3 ? 1 : 0,
+      selectionCounts.causeCategories.missedContext >= 3 ? 1 : 0
     ].reduce((sum, val) => sum + val, 0)
-    canTagAutomatically = categoriesWith5Plus >= 2
+    canTagAutomatically = categoriesWith3Plus >= 2
   } else {
     const hasEnoughSelected = selectionCounts.selectedCount >= tagRequirements.minSelected
     const hasEnoughRejected = selectionCounts.rejectedCount >= tagRequirements.minRejected
@@ -285,6 +335,16 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
                       : mode === 'pair' ? isPairSimilaritySortLoading
                       : isCauseSimilaritySortLoading
 
+  // Measure button widths on mount and when text changes
+  useEffect(() => {
+    if (sortButtonRef.current) {
+      setSortTooltipWidth(sortButtonRef.current.offsetWidth + 20)
+    }
+    if (tagButtonRef.current) {
+      setTagTooltipWidth(tagButtonRef.current.offsetWidth + 20)
+    }
+  }, [isSortLoading, canSortBySimilarity, canTagAutomatically])
+
   // Handlers
   const handleSortBySimilarity = () => {
     if (mode === 'feature') {
@@ -294,9 +354,18 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
       const allPairKeys = tableData?.pairs?.map((p: any) => p.pairKey) || []
       sortPairsBySimilarity(allPairKeys)
     } else {
-      // For cause mode
-      sortCauseBySimilarity()
+      // For cause mode, show dropdown to select category
+      setShowCategoryDropdown(!showCategoryDropdown)
     }
+  }
+
+  const handleCategorySelect = (category: string | null) => {
+    // Set the category to sort by
+    setCauseSortCategory(category)
+    // Close dropdown
+    setShowCategoryDropdown(false)
+    // Run similarity sort
+    sortCauseBySimilarity()
   }
 
   const handleTagAutomatically = (e: React.MouseEvent) => {
@@ -354,6 +423,7 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
             onMouseLeave={() => setHoveredButton(null)}
           >
             <button
+              ref={sortButtonRef}
               className={`table-selection-panel__button ${canSortBySimilarity && !isSortLoading ? 'table-selection-panel__button--available' : ''}`}
               onClick={handleSortBySimilarity}
               disabled={isSortLoading || !canSortBySimilarity}
@@ -366,29 +436,72 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
                 'Sort by Similarity'
               )}
             </button>
-            {hoveredButton === 'sort' && (
-              <div className="table-selection-panel__tooltip">
+            {hoveredButton === 'sort' && !showCategoryDropdown && (
+              <div
+                className="table-selection-panel__tooltip"
+                style={{ width: sortTooltipWidth ? `${sortTooltipWidth}px` : undefined }}
+              >
                 {isSortedBySimilarity ? (
-                  <div>Click to re-sort with updated selections</div>
+                  <div>Click to sort with updated selections</div>
                 ) : mode === 'cause' ? (
                   <>
-                    <div className={hasSelected ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
-                      <span className="table-selection-panel__tooltip-icon">{hasSelected ? '✓' : '✗'}</span>
-                      Require ≥{sortRequirements.minSelected} cause categories with features
+                    <div className={(selectionCounts as any).hasNoisyActivation ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
+                      <span className="table-selection-panel__tooltip-icon">{(selectionCounts as any).hasNoisyActivation ? '✓' : '✗'}</span>
+                      ≥1 Noisy Activation
+                    </div>
+                    <div className={(selectionCounts as any).hasMissedLexicon ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
+                      <span className="table-selection-panel__tooltip-icon">{(selectionCounts as any).hasMissedLexicon ? '✓' : '✗'}</span>
+                      ≥1 Missed Lexicon
+                    </div>
+                    <div className={(selectionCounts as any).hasMissedContext ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
+                      <span className="table-selection-panel__tooltip-icon">{(selectionCounts as any).hasMissedContext ? '✓' : '✗'}</span>
+                      ≥1 Missed Context
                     </div>
                   </>
                 ) : (
                   <>
                     <div className={hasSelected ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
                       <span className="table-selection-panel__tooltip-icon">{hasSelected ? '✓' : '✗'}</span>
-                      Require {sortRequirements.minSelected} selected
+                      ≥{sortRequirements.minSelected} Selected
                     </div>
                     <div className={hasRejected ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
                       <span className="table-selection-panel__tooltip-icon">{hasRejected ? '✓' : '✗'}</span>
-                      Require {sortRequirements.minRejected} rejected
+                      ≥{sortRequirements.minRejected} Rejected
                     </div>
                   </>
                 )}
+              </div>
+            )}
+            {showCategoryDropdown && mode === 'cause' && (
+              <div
+                className="table-selection-panel__tooltip table-selection-panel__category-dropdown"
+                style={{ width: sortTooltipWidth ? `${sortTooltipWidth}px` : undefined }}
+              >
+                <div className="table-selection-panel__tooltip-header">Select category to sort by:</div>
+                <button
+                  className="table-selection-panel__category-option"
+                  onClick={() => handleCategorySelect('noisy-activation')}
+                >
+                  Noisy Activation
+                </button>
+                <button
+                  className="table-selection-panel__category-option"
+                  onClick={() => handleCategorySelect('missed-lexicon')}
+                >
+                  Missed Lexicon
+                </button>
+                <button
+                  className="table-selection-panel__category-option"
+                  onClick={() => handleCategorySelect('missed-context')}
+                >
+                  Missed Context
+                </button>
+                <button
+                  className="table-selection-panel__category-option"
+                  onClick={() => handleCategorySelect(null)}
+                >
+                  Max Confidence
+                </button>
               </div>
             )}
           </div>
@@ -400,6 +513,7 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
             onMouseLeave={() => setHoveredButton(null)}
           >
             <button
+              ref={tagButtonRef}
               className={`table-selection-panel__button ${canTagAutomatically ? 'table-selection-panel__button--available' : ''}`}
               onClick={handleTagAutomatically}
               disabled={!canTagAutomatically}
@@ -407,21 +521,34 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
               Tag Automatically
             </button>
             {hoveredButton === 'tag' && (
-              <div className="table-selection-panel__tooltip">
+              <div
+                className="table-selection-panel__tooltip"
+                style={{ width: tagTooltipWidth ? `${tagTooltipWidth}px` : undefined }}
+              >
                 {mode === 'cause' ? (
-                  <div className={canTagAutomatically ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
-                    <span className="table-selection-panel__tooltip-icon">{canTagAutomatically ? '✓' : '✗'}</span>
-                    Require ≥2 cause categories with ≥5 features each
-                  </div>
+                  <>
+                    <div className={(selectionCounts.causeCategories?.noisyActivation ?? 0) >= 3 ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
+                      <span className="table-selection-panel__tooltip-icon">{(selectionCounts.causeCategories?.noisyActivation ?? 0) >= 3 ? '✓' : '✗'}</span>
+                      ≥3 Noisy Activation
+                    </div>
+                    <div className={(selectionCounts.causeCategories?.missedLexicon ?? 0) >= 3 ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
+                      <span className="table-selection-panel__tooltip-icon">{(selectionCounts.causeCategories?.missedLexicon ?? 0) >= 3 ? '✓' : '✗'}</span>
+                      ≥3 Missed Lexicon
+                    </div>
+                    <div className={(selectionCounts.causeCategories?.missedContext ?? 0) >= 3 ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
+                      <span className="table-selection-panel__tooltip-icon">{(selectionCounts.causeCategories?.missedContext ?? 0) >= 3 ? '✓' : '✗'}</span>
+                      ≥3 Missed Context
+                    </div>
+                  </>
                 ) : (
                   <>
                     <div className={selectionCounts.selectedCount >= tagRequirements.minSelected ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
                       <span className="table-selection-panel__tooltip-icon">{selectionCounts.selectedCount >= tagRequirements.minSelected ? '✓' : '✗'}</span>
-                      Require {tagRequirements.minSelected} selected
+                      ≥{tagRequirements.minSelected} Selected
                     </div>
                     <div className={selectionCounts.rejectedCount >= tagRequirements.minRejected ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
                       <span className="table-selection-panel__tooltip-icon">{selectionCounts.rejectedCount >= tagRequirements.minRejected ? '✓' : '✗'}</span>
-                      Require {tagRequirements.minRejected} rejected
+                      ≥{tagRequirements.minRejected} Rejected
                     </div>
                   </>
                 )}
@@ -438,6 +565,7 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
             showLegend={true}
             height={24}
             mode={mode}
+            categoryColors={barColors}
           />
         </div>
 

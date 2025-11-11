@@ -859,3 +859,49 @@ export interface PairSimilarityHistogramRequest {
   pair_keys: string[]           // All pair keys to compute scores for
 }
 
+// ============================================================================
+// CAUSE SIMILARITY TYPES (Multi-class One-vs-Rest SVM)
+// ============================================================================
+
+/**
+ * Cause Similarity Sort Request - Multi-class classification request
+ */
+export interface CauseSimilaritySortRequest {
+  cause_selections: Record<number, string>  // Map of feature_id to cause category
+  feature_ids: number[]                     // All feature IDs in current table view
+}
+
+/**
+ * Cause Feature Score - Feature ID with per-category confidence scores
+ */
+export interface CauseFeatureScore {
+  feature_id: number
+  category_confidences: Record<string, number>  // Map of category to confidence score
+}
+
+/**
+ * Cause Similarity Sort Response - Per-category confidence scores
+ */
+export interface CauseSimilaritySortResponse {
+  sorted_features: CauseFeatureScore[]
+  total_features: number
+}
+
+/**
+ * Cause Similarity Histogram Request - Multi-class histogram request
+ */
+export interface CauseSimilarityHistogramRequest {
+  cause_selections: Record<number, string>  // Map of feature_id to cause category
+  feature_ids: number[]                     // All feature IDs to compute scores for
+}
+
+/**
+ * Cause Similarity Histogram Response - Per-category histograms
+ */
+export interface CauseSimilarityHistogramResponse {
+  scores: Record<string, Record<string, number>>  // Map of feature_id to {category: confidence}
+  histograms: Record<string, SimilarityHistogramData>  // Histogram per category
+  statistics: Record<string, SimilarityHistogramStatistics>  // Statistics per category
+  total_items: number
+}
+

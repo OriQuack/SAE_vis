@@ -11,13 +11,13 @@
 
 /* Checkbox column - wider to accommodate icons */
 .cause-table-panel .table-panel__header-cell--checkbox {
-  width: 5%;
+  width: 10%;
   min-width: 60px;
 }
 
 /* Index column */
 .cause-table-panel .table-panel__header-cell--index {
-  width: 4%;
+  width: 3%;
   min-width: 80px;
   text-align: center;
 }
@@ -31,7 +31,7 @@
 
 /* Score columns (Semantic Similarity, Fuzz, Embedding, Detection) */
 .cause-table-panel .table-panel__header-cell--score {
-  width: 6%;
+  width: 5%;
   min-width: 80px;
   text-align: center;
 }
@@ -45,7 +45,7 @@
 
 /* Explanation column */
 .cause-table-panel .table-panel__header-cell--explanation {
-  width: 30%;
+  width: 38%;
   min-width: 200px;
   text-align: left;
   padding-left: 12px;
@@ -53,7 +53,7 @@
 
 /* Activation example column */
 .cause-table-panel .table-panel__header-cell--activation-example {
-  width: 33%;
+  width: 38%;
   min-width: 100px;
 }
 

@@ -233,10 +233,10 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
             y1={thresholdY}
             x2={layout.width * 0.8}
             y2={thresholdY}
-            stroke={barColor}
+            stroke="#000000"
             strokeWidth={1.5}
-            strokeDasharray="4,3"
-            opacity={0.6}
+            strokeDasharray="2,2"
+            opacity={1.0}
             style={{
               pointerEvents: 'none'
             }}
@@ -273,76 +273,69 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
         return thresholds.map((threshold, index) => {
           const thresholdY = yScale(threshold)
 
-          // Position labels above and below the threshold, centered horizontally
+          // Position labels above and below the threshold, left-aligned
           // Note: Histogram is inverted (top = small values, bottom = large values)
           // So group 0 (lower values) appears above, group 1 (higher values) below
           const labelAboveY = thresholdY - 8   // 8px above threshold
           const labelBelowY = thresholdY + 16  // 16px below threshold (accounts for text height)
-          const labelX = layout.width * 0.4    // Center of histogram
+          const labelX = 5                     // Left edge with 5px padding
 
-          // Calculate text dimensions for background rectangles
           const tag0Text = `↑ ${capitalizeTag(tag0)}`
           const tag1Text = `↓ ${capitalizeTag(tag1)}`
 
-          // Approximate text width (10px font, ~6px per character on average)
-          const tag0Width = tag0Text.length * 6
-          const tag1Width = tag1Text.length * 6
-
-          // Background rectangle dimensions
-          const bgPadding = 3
-          const bgHeight = 14
-
           return (
             <g key={`threshold-labels-${index}`}>
-              {/* Background rectangle for label above threshold */}
-              <rect
-                x={labelX - tag0Width / 2 - bgPadding}
-                y={labelAboveY - 10}
-                width={tag0Width + bgPadding * 2}
-                height={bgHeight}
-                rx={2}
-                fill="white"
-                fillOpacity={0.9}
-                stroke="#e5e7eb"
-                strokeWidth={0.5}
-                style={{ pointerEvents: 'none' }}
-              />
-
               {/* Label above threshold (group 0 - lower metric values) with upward arrow */}
+              {/* White stroke outline */}
+              <text
+                x={labelX}
+                y={labelAboveY}
+                fontSize={10}
+                fill="white"
+                stroke="white"
+                strokeWidth={3}
+                fontWeight={600}
+                textAnchor="start"
+                style={{ pointerEvents: 'none', userSelect: 'none' }}
+              >
+                {tag0Text}
+              </text>
+              {/* Colored text on top */}
               <text
                 x={labelX}
                 y={labelAboveY}
                 fontSize={10}
                 fill={color0}
                 fontWeight={600}
-                textAnchor="middle"
+                textAnchor="start"
                 style={{ pointerEvents: 'none', userSelect: 'none' }}
               >
                 {tag0Text}
               </text>
 
-              {/* Background rectangle for label below threshold */}
-              <rect
-                x={labelX - tag1Width / 2 - bgPadding}
-                y={labelBelowY - 10}
-                width={tag1Width + bgPadding * 2}
-                height={bgHeight}
-                rx={2}
-                fill="white"
-                fillOpacity={0.9}
-                stroke="#e5e7eb"
-                strokeWidth={0.5}
-                style={{ pointerEvents: 'none' }}
-              />
-
               {/* Label below threshold (group 1 - higher metric values) with downward arrow */}
+              {/* White stroke outline */}
+              <text
+                x={labelX}
+                y={labelBelowY}
+                fontSize={10}
+                fill="white"
+                stroke="white"
+                strokeWidth={3}
+                fontWeight={600}
+                textAnchor="start"
+                style={{ pointerEvents: 'none', userSelect: 'none' }}
+              >
+                {tag1Text}
+              </text>
+              {/* Colored text on top */}
               <text
                 x={labelX}
                 y={labelBelowY}
                 fontSize={10}
                 fill={color1}
                 fontWeight={600}
-                textAnchor="middle"
+                textAnchor="start"
                 style={{ pointerEvents: 'none', userSelect: 'none' }}
               >
                 {tag1Text}
