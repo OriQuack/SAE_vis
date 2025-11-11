@@ -10,7 +10,8 @@ import {
 import {
   TAG_CATEGORIES,
   TAG_CATEGORY_FEATURE_SPLITTING,
-  TAG_CATEGORY_QUALITY
+  TAG_CATEGORY_QUALITY,
+  TAG_CATEGORY_CAUSE
 } from '../lib/tag-categories'
 
 // ============================================================================
@@ -472,6 +473,39 @@ export const createTableActions = (set: any, get: any) => ({
       metric: category.metric
     })
 
+    const tree = get().leftPanel.sankeyTree
+
+    // Special handling for Cause category (pre-defined groups)
+    if (categoryId === TAG_CATEGORY_CAUSE) {
+      console.log('[Store.activateCategoryTable] 📌 Cause category detected - selecting "unsure" node')
+
+      // Find the "unsure" node in the tree at depth 3
+      let unsureNodeId: string | null = null
+
+      if (tree) {
+        for (const [nodeId, node] of tree.entries()) {
+          // Check if node is at depth 3 (cause stage) and ends with "_unsure"
+          if (node.depth === 3 && nodeId.endsWith('_unsure')) {
+            unsureNodeId = nodeId
+            console.log('[Store.activateCategoryTable] ✅ Found unsure node:', nodeId)
+            break
+          }
+        }
+      }
+
+      if (!unsureNodeId) {
+        console.warn('[Store.activateCategoryTable] ⚠️  No "unsure" node found, using root as fallback')
+        unsureNodeId = 'root'
+      }
+
+      // Select the unsure node
+      get().selectSingleNode(unsureNodeId)
+      get().setActiveStageNode(unsureNodeId, categoryId)
+
+      console.log('[Store.activateCategoryTable] ✅ Cause table activated with unsure node:', unsureNodeId)
+      return
+    }
+
     // Find parent node with this category's metric in left panel
     let parentNodeId: string | null = null
 
@@ -485,7 +519,7 @@ export const createTableActions = (set: any, get: any) => ({
         parentNodeId = 'root'  // Fallback to root
       }
     } else {
-      // For non-metric categories (Cause), use root as fallback
+      // For non-metric categories (should not reach here after Cause check), use root as fallback
       parentNodeId = 'root'
     }
 
@@ -496,7 +530,6 @@ export const createTableActions = (set: any, get: any) => ({
     })
 
     // IMPORTANT: Select the LEAF NODE (last child), not the parent node!
-    const tree = get().leftPanel.sankeyTree
     const parentNode = tree?.get(parentNodeId)
     let selectedNodeId = parentNodeId
 
@@ -539,8 +572,9 @@ export const createTableActions = (set: any, get: any) => ({
       const frozenFeatureStates = new Map(featureSelectionStates)
       set({ doneFeatureSelectionStates: frozenFeatureStates })
 
-      // Next step would be Cause, but it's not fully implemented.
-      console.log('[Store.moveToNextStep] At Quality stage, freezing selections.')
+      // Next step is Cause
+      console.log('[Store.moveToNextStep] Transitioning from Quality to Cause')
+      state.activateCategoryTable(TAG_CATEGORY_CAUSE)
     } else {
       console.log('[Store.moveToNextStep] No next step defined for category:', activeStageCategory)
     }

@@ -66,6 +66,17 @@ interface AppState {
   togglePairSelection: (mainFeatureId: number, similarFeatureId: number) => void
   clearPairSelection: () => void
 
+  // Cause category selection state (used by CauseTablePanel)
+  // Four-state cycle: null -> noisy-activation -> missed-lexicon -> missed-context -> unsure -> null
+  causeSelectionStates: Map<number, 'noisy-activation' | 'missed-lexicon' | 'missed-context' | 'unsure'>
+  // Track how features were selected: 'manual' (user click) or 'auto' (automatic tagging)
+  causeSelectionSources: Map<number, 'manual' | 'auto'>
+  toggleCauseCategory: (featureId: number) => void
+  clearCauseSelection: () => void
+  // Cause table activation (similar to activeStageNodeId for other tables)
+  activeCauseStageNode: string | null
+  activateCauseTable: (nodeId: string) => void
+
   // Comparison view state
   showComparisonView: boolean
   toggleComparisonView: () => void
@@ -297,6 +308,11 @@ const initialState = {
   pairSelectionStates: new Map<string, 'selected' | 'rejected'>(),
   pairSelectionSources: new Map<string, 'manual' | 'auto'>(),
 
+  // Cause category selection state (used by CauseTablePanel)
+  causeSelectionStates: new Map<number, 'noisy-activation' | 'missed-lexicon' | 'missed-context' | 'unsure'>(),
+  causeSelectionSources: new Map<number, 'manual' | 'auto'>(),
+  activeCauseStageNode: null,
+
   // Comparison view state
   showComparisonView: false,
 
@@ -419,6 +435,56 @@ export const useStore = create<AppState>((set, get) => ({
       pairSelectionStates: new Map<string, 'selected' | 'rejected'>(),
       pairSelectionSources: new Map<string, 'manual' | 'auto'>()
     })
+  },
+
+  // Cause category selection actions (used by CauseTablePanel)
+  // Four-state cycle: null -> noisy-activation -> missed-lexicon -> missed-context -> unsure -> null
+  toggleCauseCategory: (featureId: number) => {
+    set((state) => {
+      const newStates = new Map(state.causeSelectionStates)
+      const newSources = new Map(state.causeSelectionSources)
+      const currentState = newStates.get(featureId)
+
+      // Four-state cycle
+      if (currentState === undefined) {
+        // null -> noisy-activation
+        newStates.set(featureId, 'noisy-activation')
+        newSources.set(featureId, 'manual')
+      } else if (currentState === 'noisy-activation') {
+        // noisy-activation -> missed-lexicon
+        newStates.set(featureId, 'missed-lexicon')
+        newSources.set(featureId, 'manual')
+      } else if (currentState === 'missed-lexicon') {
+        // missed-lexicon -> missed-context
+        newStates.set(featureId, 'missed-context')
+        newSources.set(featureId, 'manual')
+      } else if (currentState === 'missed-context') {
+        // missed-context -> unsure
+        newStates.set(featureId, 'unsure')
+        newSources.set(featureId, 'manual')
+      } else {
+        // unsure -> null (remove from map)
+        newStates.delete(featureId)
+        newSources.delete(featureId)
+      }
+
+      return {
+        causeSelectionStates: newStates,
+        causeSelectionSources: newSources
+      }
+    })
+  },
+
+  clearCauseSelection: () => {
+    set({
+      causeSelectionStates: new Map<number, 'noisy-activation' | 'missed-lexicon' | 'missed-context' | 'unsure'>(),
+      causeSelectionSources: new Map<number, 'manual' | 'auto'>()
+    })
+  },
+
+  activateCauseTable: (nodeId: string) => {
+    set({ activeCauseStageNode: nodeId })
+    console.log('[Store.activateCauseTable] Activated cause table for node:', nodeId)
   },
 
   // Comparison view actions

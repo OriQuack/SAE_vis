@@ -552,6 +552,7 @@ export type SortBy =
   | typeof METRIC_SCORE_EMBEDDING
   | typeof METRIC_DECODER_SIMILARITY
   | typeof METRIC_SEMANTIC_SIMILARITY
+  | 'emb_det_average'  // Average of embedding + detection scores (for cause table)
   | 'similarity'  // Similarity-based sorting (for quality table)
   | 'pair_similarity'  // Pair similarity-based sorting (for feature split table)
   | null

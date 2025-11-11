@@ -208,8 +208,15 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
     return selectedStage ? stageOrder < selectedStage.stageOrder : false;
   };
 
+  // Get activateCategoryTable action from store
+  const activateCategoryTable = useVisualizationStore(state => state.activateCategoryTable);
+
   // Handle stage click
   const handleStageClick = (categoryId: string) => {
+    // Activate the category table (this will also set the selected node)
+    activateCategoryTable(categoryId);
+
+    // Also notify parent component if callback provided
     if (onCategoryClick) {
       onCategoryClick(categoryId);
     }

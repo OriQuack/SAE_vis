@@ -54,6 +54,51 @@ export function getExplainerDisplayName(explainerId: string): string {
 }
 
 // ============================================================================
+// CAUSE CATEGORY UTILITIES
+// ============================================================================
+
+export type CauseCategoryState = 'noisy-activation' | 'missed-lexicon' | 'missed-context' | 'unsure'
+
+/**
+ * Get display name for cause category
+ */
+export function getCauseDisplayName(category: CauseCategoryState): string {
+  const CAUSE_NAME_MAP: Record<CauseCategoryState, string> = {
+    'noisy-activation': 'Noisy Activation Example',
+    'missed-lexicon': 'Missed Lexicon',
+    'missed-context': 'Missed Context',
+    'unsure': 'Unsure'
+  }
+  return CAUSE_NAME_MAP[category]
+}
+
+/**
+ * Get color for cause category
+ */
+export function getCauseCategoryColor(category: CauseCategoryState): string {
+  const CAUSE_COLOR_MAP: Record<CauseCategoryState, string> = {
+    'noisy-activation': '#f97316',  // Orange
+    'missed-lexicon': '#a855f7',    // Purple
+    'missed-context': '#3b82f6',    // Blue
+    'unsure': '#9ca3af'             // Gray
+  }
+  return CAUSE_COLOR_MAP[category]
+}
+
+/**
+ * Get icon for cause category
+ */
+export function getCauseCategoryIcon(category: CauseCategoryState): string {
+  const CAUSE_ICON_MAP: Record<CauseCategoryState, string> = {
+    'noisy-activation': '⚠',
+    'missed-lexicon': '📖',
+    'missed-context': '🔍',
+    'unsure': '?'
+  }
+  return CAUSE_ICON_MAP[category]
+}
+
+// ============================================================================
 // HELPER FUNCTIONS (INTERNAL UTILITIES)
 // ============================================================================
 
@@ -569,6 +614,36 @@ function calculateAvgSemanticSimilarityForSort(
  * @param tableData - Full table data for context (global stats, explainer IDs)
  * @returns Sorted copy of features array
  */
+/**
+ * Calculate average of embedding + detection scores for a feature (for Emb & Det column sorting)
+ * Averages across all explainers and all detection scorers
+ */
+function calculateEmbDetAverage(feature: FeatureTableRow): number | null {
+  const scores: number[] = []
+
+  // Iterate through all explainers
+  Object.values(feature.explainers).forEach(explData => {
+    if (!explData) return
+
+    // Add embedding score if available
+    if (explData.embedding !== null) {
+      scores.push(explData.embedding)
+    }
+
+    // Add detection scores (average of s1, s2, s3)
+    const detScores = [explData.detection.s1, explData.detection.s2, explData.detection.s3]
+      .filter(s => s !== null) as number[]
+    if (detScores.length > 0) {
+      const detAvg = detScores.reduce((sum, s) => sum + s, 0) / detScores.length
+      scores.push(detAvg)
+    }
+  })
+
+  // Return average of all collected scores
+  if (scores.length === 0) return null
+  return scores.reduce((sum, s) => sum + s, 0) / scores.length
+}
+
 export function sortFeatures(
   features: FeatureTableRow[],
   sortBy: 'featureId' | typeof METRIC_QUALITY_SCORE | string | null,
@@ -625,6 +700,13 @@ export function sortFeatures(
       const ssA = calculateAvgSemanticSimilarityForSort(a, explainerIds)
       const ssB = calculateAvgSemanticSimilarityForSort(b, explainerIds)
       return compareValues(ssA, ssB, sortDirection)
+    }
+
+    // Embedding + Detection Average sorting (for Cause Table dual column)
+    if (sortBy === 'emb_det_average') {
+      const avgA = calculateEmbDetAverage(a)
+      const avgB = calculateEmbDetAverage(b)
+      return compareValues(avgA, avgB, sortDirection)
     }
 
     return 0

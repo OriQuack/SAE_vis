@@ -1,0 +1,291 @@
+/* ============================================================================
+ * CAUSE TABLE PANEL - Table for "Cause" Tag Stage
+ * ============================================================================
+ * This stylesheet extends the base .table-panel__* classes from QualityTablePanel.css
+ * with cause-specific styling for the four-state category checkbox and row highlights.
+ */
+
+/* ============================================================================
+ * CAUSE-SPECIFIC CELL WIDTHS
+ * ============================================================================ */
+
+/* Checkbox column - wider to accommodate icons */
+.cause-table-panel .table-panel__header-cell--checkbox {
+  width: 5%;
+  min-width: 60px;
+}
+
+/* Index column */
+.cause-table-panel .table-panel__header-cell--index {
+  width: 4%;
+  min-width: 80px;
+  text-align: center;
+}
+
+/* ID column */
+.cause-table-panel .table-panel__header-cell--id {
+  width: 5%;
+  min-width: 80px;
+  text-align: center;
+}
+
+/* Score columns (Semantic Similarity, Fuzz, Embedding, Detection) */
+.cause-table-panel .table-panel__header-cell--score {
+  width: 7%;
+  min-width: 80px;
+  text-align: center;
+}
+
+/* Dual score column (Embedding & Detection side-by-side) */
+.cause-table-panel .table-panel__header-cell--score-dual {
+  width: 10%;
+  min-width: 120px;
+  text-align: center;
+}
+
+/* Explanation column */
+.cause-table-panel .table-panel__header-cell--explanation {
+  width: 30%;
+  min-width: 200px;
+  text-align: left;
+  padding-left: 12px;
+}
+
+/* Activation example column */
+.cause-table-panel .table-panel__header-cell--activation-example {
+  width: 33%;
+  min-width: 100px;
+}
+
+/* ============================================================================
+ * CAUSE CHECKBOX STYLING (Four-State Cycle)
+ * ============================================================================ */
+
+/* Reuse base checkbox styling from QualityTablePanel.css */
+.cause-checkbox {
+  /* Inherits from .table-panel__checkbox-custom */
+  font-size: 16px;  /* Slightly larger for icons */
+}
+
+/* Icon states */
+.cause-checkbox__icon {
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Note: Individual category icon colors are set via inline style in component:
+ * - noisy-activation: Orange #f97316
+ * - missed-lexicon: Purple #a855f7
+ * - missed-context: Blue #3b82f6
+ * - unsure: Gray #9ca3af
+ */
+
+/* ============================================================================
+ * DUAL SCORE CELL (Embedding & Detection Side-by-Side)
+ * ============================================================================ */
+
+.table-panel__cell--score-dual {
+  position: relative;
+  height: 60px;
+  padding: 4px 8px;
+  border-right: 1px solid #d1d5db;
+  box-sizing: border-box;
+  vertical-align: middle;
+}
+
+.cause-table-panel__score-dual-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-around;
+  height: 100%;
+  gap: 8px;
+}
+
+.cause-table-panel__score-dual-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+.cause-table-panel__score-dual-label {
+  font-size: 9px;
+  color: #6b7280;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+  letter-spacing: 0.5px;
+}
+
+/* ============================================================================
+ * ROW HIGHLIGHTING FOR CAUSE CATEGORIES
+ * ============================================================================
+ * Four-state system: noisy-activation, missed-lexicon, missed-context, unsure
+ * Each category gets its own color theme
+ */
+
+/* Noisy Activation Example - ORANGE */
+.table-panel__sub-row--noisy-activation .table-panel__cell {
+  background: rgba(249, 115, 22, 0.08) !important; /* Orange with low opacity */
+}
+
+.table-panel__sub-row--noisy-activation:hover .table-panel__cell {
+  background: rgba(249, 115, 22, 0.15) !important;
+}
+
+/* Auto-tagged indicator for noisy-activation */
+.table-panel__sub-row--noisy-activation.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
+  border-left: 5px solid #f97316 !important;  /* Orange border */
+  padding-left: 3px;
+}
+
+/* Missed Lexicon - PURPLE */
+.table-panel__sub-row--missed-lexicon .table-panel__cell {
+  background: rgba(168, 85, 247, 0.08) !important; /* Purple with low opacity */
+}
+
+.table-panel__sub-row--missed-lexicon:hover .table-panel__cell {
+  background: rgba(168, 85, 247, 0.15) !important;
+}
+
+/* Auto-tagged indicator for missed-lexicon */
+.table-panel__sub-row--missed-lexicon.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
+  border-left: 5px solid #a855f7 !important;  /* Purple border */
+  padding-left: 3px;
+}
+
+/* Missed Context - BLUE */
+.table-panel__sub-row--missed-context .table-panel__cell {
+  background: rgba(59, 130, 246, 0.08) !important; /* Blue with low opacity */
+}
+
+.table-panel__sub-row--missed-context:hover .table-panel__cell {
+  background: rgba(59, 130, 246, 0.15) !important;
+}
+
+/* Auto-tagged indicator for missed-context */
+.table-panel__sub-row--missed-context.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
+  border-left: 5px solid #3b82f6 !important;  /* Blue border */
+  padding-left: 3px;
+}
+
+/* Unsure - GRAY */
+.table-panel__sub-row--unsure .table-panel__cell {
+  background: rgba(156, 163, 175, 0.08) !important; /* Gray with low opacity */
+}
+
+.table-panel__sub-row--unsure:hover .table-panel__cell {
+  background: rgba(156, 163, 175, 0.15) !important;
+}
+
+/* Auto-tagged indicator for unsure */
+.table-panel__sub-row--unsure.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
+  border-left: 5px solid #9ca3af !important;  /* Gray border */
+  padding-left: 3px;
+}
+
+/* ============================================================================
+ * SCORE CIRCLE COMPONENT STYLING
+ * ============================================================================ */
+
+.score-circle {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.score-circle--null {
+  color: #d1d5db;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.score-circle__placeholder {
+  color: #d1d5db;
+}
+
+/* ============================================================================
+ * ROW BORDERS - Horizontal lines per cell
+ * ============================================================================ */
+
+/* Add bottom border to all cells for horizontal lines */
+.cause-table-panel .table-panel__cell {
+  border-bottom: 1px solid #e5e7eb;
+  border-right: 1px solid #f3f4f6;
+}
+
+/* Remove right border from last cell in each row */
+.cause-table-panel .table-panel__cell:last-child {
+  border-right: none;
+}
+
+/* Stronger border between rows */
+.cause-table-panel .table-panel__sub-row {
+  border-bottom: 1px solid #d1d5db;
+}
+
+/* Header cell borders for alignment */
+.cause-table-panel .table-panel__header-cell {
+  border-right: 1px solid #f3f4f6;
+  border-bottom: 2px solid #d1d5db;
+}
+
+.cause-table-panel .table-panel__header-cell:last-child {
+  border-right: none;
+}
+
+/* ============================================================================
+ * SORTABLE HEADER STYLES
+ * ============================================================================ */
+
+/* Make sortable headers visually distinct */
+.cause-table-panel .table-panel__header-cell--id,
+.cause-table-panel .table-panel__header-cell--score,
+.cause-table-panel .table-panel__header-cell--score-dual {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease;
+}
+
+/* Hover effect for sortable headers */
+.cause-table-panel .table-panel__header-cell--id:hover,
+.cause-table-panel .table-panel__header-cell--score:hover,
+.cause-table-panel .table-panel__header-cell--score-dual:hover {
+  background-color: #f9fafb;
+}
+
+/* Active/sorting header styling */
+.cause-table-panel .table-panel__header-cell--id:active,
+.cause-table-panel .table-panel__header-cell--score:active,
+.cause-table-panel .table-panel__header-cell--score-dual:active {
+  background-color: #f3f4f6;
+}
+
+/* ============================================================================
+ * RESPONSIVE ADJUSTMENTS
+ * ============================================================================ */
+
+@media (max-width: 1600px) {
+  .cause-table-panel .table-panel__header-cell--explanation {
+    width: 28%;
+  }
+
+  .cause-table-panel .table-panel__header-cell--activation-example {
+    width: 30%;
+  }
+}
+
+@media (max-width: 1400px) {
+  .cause-table-panel .table-panel__header-cell--explanation {
+    width: 25%;
+  }
+
+  .cause-table-panel .table-panel__header-cell--activation-example {
+    width: 28%;
+  }
+}

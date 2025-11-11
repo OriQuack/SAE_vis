@@ -16,12 +16,14 @@ import {
   CATEGORY_DECODER_SIMILARITY
 } from '../lib/constants'
 import {
-  TAG_CATEGORY_FEATURE_SPLITTING
+  TAG_CATEGORY_FEATURE_SPLITTING,
+  TAG_CATEGORY_CAUSE
 } from '../lib/tag-categories'
 import { HighlightedExplanation } from './HighlightedExplanation'
 import ActivationExample from './ActivationExample'
 import QualityScoreBreakdown from './QualityScoreBreakdown'
 import DecoderSimilarityTable from './FeatureSplitTable'
+import CauseTablePanel from './CauseTablePanel'
 import SimilarityTaggingPopover from './SimilarityTaggingPopover'
 import TableSelectionPanel from './TableSelectionPanel'
 import '../styles/QualityTablePanel.css'
@@ -49,7 +51,6 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
   const featureSelectionSources = useVisualizationStore(state => state.featureSelectionSources)
   const toggleFeatureSelection = useVisualizationStore(state => state.toggleFeatureSelection)
-  const _clearFeatureSelection = useVisualizationStore(state => state.clearFeatureSelection)
 
   const tableContainerRef = useRef<HTMLDivElement>(null)
   const qualityScoreCellRef = useRef<HTMLTableCellElement>(null)
@@ -67,14 +68,8 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
   // Similarity sort state and action
   const similarityScores = useVisualizationStore(state => state.similarityScores)
-  const _isSimilaritySortLoading = useVisualizationStore(state => state.isSimilaritySortLoading)
   const sortedBySelectionStates = useVisualizationStore(state => state.sortedBySelectionStates)
-  const doneFeatureSelectionStates = useVisualizationStore(state => state.doneFeatureSelectionStates)
-  const sortBySimilarity = useVisualizationStore(state => state.sortBySimilarity)
   const moveToNextStep = useVisualizationStore(state => state.moveToNextStep)
-
-  // Similarity tagging (automatic tagging) state and action
-  const _showSimilarityTaggingPopover = useVisualizationStore(state => state.showSimilarityTaggingPopover)
 
   // ============================================================================
   // STATE
@@ -172,11 +167,6 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
       width
     })
   }, [])
-
-  // Similarity sort: Handler
-  const _handleSimilaritySort = useCallback(() => {
-    sortBySimilarity()
-  }, [sortBySimilarity])
 
   // Fetch data when component mounts or when filters change
   useEffect(() => {
@@ -494,11 +484,13 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
       return <DecoderSimilarityTable className={className} />
     }
 
+    // Cause category → Show CauseTablePanel
+    if (activeStageCategory === TAG_CATEGORY_CAUSE) {
+      return <CauseTablePanel className={className} />
+    }
+
     // Quality category → Show normal TablePanel (fall through)
     // This is handled by continuing with the normal table rendering below
-
-    // Cause category → Disabled (future implementation)
-    // If somehow activated, fall through to normal table as fallback
   }
 
   // Legacy support: Check old CATEGORY_DECODER_SIMILARITY constant
@@ -639,10 +631,6 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
               // Get selection state for this feature (current selection)
               const selectionState = featureSelectionStates.get(featureRow.feature_id)
               const selectionSource = featureSelectionSources.get(featureRow.feature_id)
-
-              // Get frozen selection state (when sorted by similarity)
-              const _frozenSelectionState = sortedBySelectionStates?.get(featureRow.feature_id)
-              const _doneState = doneFeatureSelectionStates?.get(featureRow.feature_id)
 
               // Determine category class based on selection state and source
               let categoryClass = ''
