@@ -3,10 +3,10 @@ import React from 'react'
 // ============================================================================
 // CAUSE CHECKBOX COMPONENT
 // ============================================================================
-// Four-state cycle checkbox for cause categories
-// States: null → noisy-activation → missed-lexicon → missed-context → unsure → null
+// Three-state cycle checkbox for cause categories
+// States: null → noisy-activation → missed-lexicon → missed-context → null
 
-export type CauseCategoryState = 'noisy-activation' | 'missed-lexicon' | 'missed-context' | 'unsure'
+export type CauseCategoryState = 'noisy-activation' | 'missed-lexicon' | 'missed-context'
 
 interface CauseCheckboxProps {
   state: CauseCategoryState | null
@@ -34,11 +34,6 @@ const CATEGORY_CONFIG: Record<CauseCategoryState, {
     icon: '🔍',
     color: '#3b82f6',  // Blue
     label: 'Missed Context'
-  },
-  'unsure': {
-    icon: '?',
-    color: '#9ca3af',  // Gray
-    label: 'Unsure'
   }
 }
 

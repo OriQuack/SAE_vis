@@ -8,7 +8,7 @@ import SelectionStateBar, { type CategoryCounts } from './SelectionStateBar'
 import '../styles/TableSelectionPanel.css'
 
 interface TableSelectionPanelProps {
-  mode: 'feature' | 'pair'
+  mode: 'feature' | 'pair' | 'cause'
   tagLabel: string
   onDone?: () => void
   doneButtonEnabled?: boolean
@@ -34,14 +34,18 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
   const featureSelectionSources = useVisualizationStore(state => state.featureSelectionSources)
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
   const pairSelectionSources = useVisualizationStore(state => state.pairSelectionSources)
+  const causeSelectionStates = useVisualizationStore(state => state.causeSelectionStates)
   const sortTableByCategory = useVisualizationStore(state => state.sortTableByCategory)
   const sortBySimilarity = useVisualizationStore(state => state.sortBySimilarity)
   const sortPairsBySimilarity = useVisualizationStore(state => state.sortPairsBySimilarity)
+  const sortCauseBySimilarity = useVisualizationStore(state => state.sortCauseBySimilarity)
   const showSimilarityTaggingPopover = useVisualizationStore(state => state.showSimilarityTaggingPopover)
   const clearFeatureSelection = useVisualizationStore(state => state.clearFeatureSelection)
   const clearPairSelection = useVisualizationStore(state => state.clearPairSelection)
+  const clearCauseSelection = useVisualizationStore(state => state.clearCauseSelection)
   const isSimilaritySortLoading = useVisualizationStore(state => state.isSimilaritySortLoading)
   const isPairSimilaritySortLoading = useVisualizationStore(state => state.isPairSimilaritySortLoading)
+  const isCauseSimilaritySortLoading = useVisualizationStore(state => state.isCauseSimilaritySortLoading)
   const tableSortBy = useVisualizationStore(state => state.tableSortBy)
 
   // Sankey threshold info - use different node ID based on mode
@@ -49,7 +53,7 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
   const activeStageNodeId = useVisualizationStore(state => state.activeStageNodeId)
   const sankeyTree = useVisualizationStore(state => state.leftPanel.sankeyTree)
 
-  // For feature mode, use tableSelectedNodeIds; for pair mode, use activeStageNodeId
+  // For feature/cause mode, use tableSelectedNodeIds; for pair mode, use activeStageNodeId
   const selectedNode = useMemo(() => {
     if (!sankeyTree) return null
 
@@ -57,7 +61,7 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
       // Pair mode (feature split) uses activeStageNodeId
       return activeStageNodeId ? sankeyTree.get(activeStageNodeId) : null
     } else {
-      // Feature mode uses tableSelectedNodeIds
+      // Feature and cause modes use tableSelectedNodeIds
       return tableSelectedNodeIds.length > 0 ? sankeyTree.get(tableSelectedNodeIds[0]) : null
     }
   }, [mode, tableSelectedNodeIds, activeStageNodeId, sankeyTree])
@@ -66,7 +70,9 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
   const [hoveredButton, setHoveredButton] = useState<'sort' | 'tag' | null>(null)
 
   // Get selection states based on mode
-  const selectionStates = mode === 'feature' ? featureSelectionStates : pairSelectionStates
+  const selectionStates = mode === 'feature' ? featureSelectionStates
+                        : mode === 'pair' ? pairSelectionStates
+                        : causeSelectionStates
 
   // Calculate category counts
   const counts = useMemo((): CategoryCounts => {
@@ -118,6 +124,32 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
           unsure++
         }
       })
+    } else if (mode === 'cause' && tableData?.features) {
+      // Cause mode: 3 categories (noisy-activation, missed-lexicon, missed-context) + null (untagged = unsure)
+      // Map to CategoryCounts: confirmed=noisy-activation, expanded=missed-lexicon, rejected=missed-context, unsure=null/untagged
+      const features = filteredFeatureIds
+        ? tableData.features.filter((f: any) => filteredFeatureIds!.has(f.feature_id))
+        : tableData.features
+
+      features.forEach((feature: any) => {
+        const featureId = feature.feature_id
+        const causeState = causeSelectionStates.get(featureId)
+
+        if (causeState === 'noisy-activation') {
+          confirmed++ // Orange
+        } else if (causeState === 'missed-lexicon') {
+          expanded++ // Purple
+        } else if (causeState === 'missed-context') {
+          rejected++ // Blue
+        } else {
+          // null/undefined - treat as unsure
+          unsure++ // Gray
+        }
+      })
+
+      // Note: unsure now represents untagged/null features
+      const total = confirmed + expanded + rejected + unsure
+      return { confirmed, expanded, rejected, unsure, total }
     } else if (mode === 'pair' && tableData?.features) {
       // Filter features to only those in the selected node
       const features = filteredFeatureIds
@@ -161,46 +193,109 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
 
     const total = confirmed + expanded + rejected + unsure
     return { confirmed, expanded, rejected, unsure, total }
-  }, [mode, tableData, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources, selectedNode, sankeyTree])
+  }, [mode, tableData, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources, causeSelectionStates, selectedNode, sankeyTree])
 
   // Count selected and rejected for button requirements
   const selectionCounts = useMemo(() => {
-    let selectedCount = 0
-    let rejectedCount = 0
-    selectionStates.forEach(state => {
-      if (state === 'selected') selectedCount++
-      else if (state === 'rejected') rejectedCount++
-    })
-    return { selectedCount, rejectedCount }
-  }, [selectionStates])
+    if (mode === 'cause') {
+      // For cause mode, count each category (3 explicit + unsure for untagged)
+      let noisyActivationCount = 0
+      let missedLexiconCount = 0
+      let missedContextCount = 0
 
-  // Sort requirements
-  const sortRequirements = { minSelected: 1, minRejected: 1 }
+      causeSelectionStates.forEach(state => {
+        if (state === 'noisy-activation') noisyActivationCount++
+        else if (state === 'missed-lexicon') missedLexiconCount++
+        else if (state === 'missed-context') missedContextCount++
+      })
+
+      // Calculate unsure count: features not in causeSelectionStates map
+      // Get total feature count from tableData or selectedNode
+      const totalFeatures = tableData?.features?.length || 0
+      const taggedFeatures = causeSelectionStates.size
+      const unsureCount = totalFeatures - taggedFeatures
+
+      // Count how many categories have at least 1 feature (only count explicit 3 categories)
+      const categoriesWithFeatures = [
+        noisyActivationCount > 0 ? 1 : 0,
+        missedLexiconCount > 0 ? 1 : 0,
+        missedContextCount > 0 ? 1 : 0
+      ].reduce((sum, val) => sum + val, 0)
+
+      // Return counts for cause categories
+      return {
+        selectedCount: categoriesWithFeatures, // Number of explicit categories with ≥1 feature
+        rejectedCount: categoriesWithFeatures, // Same value (for button logic)
+        causeCategories: {
+          noisyActivation: noisyActivationCount,
+          missedLexicon: missedLexiconCount,
+          missedContext: missedContextCount,
+          unsure: unsureCount
+        }
+      }
+    } else {
+      // For feature/pair mode, count selected/rejected
+      let selectedCount = 0
+      let rejectedCount = 0
+      selectionStates.forEach(state => {
+        if (state === 'selected') selectedCount++
+        else if (state === 'rejected') rejectedCount++
+      })
+      return { selectedCount, rejectedCount }
+    }
+  }, [mode, selectionStates, causeSelectionStates])
+
+  // Sort requirements (different for cause mode)
+  const sortRequirements = mode === 'cause'
+    ? { minSelected: 2, minRejected: 2 } // For cause: need ≥2 categories with features
+    : { minSelected: 1, minRejected: 1 } // For feature/pair: need ≥1 selected and ≥1 rejected
   const hasSelected = selectionCounts.selectedCount >= sortRequirements.minSelected
   const hasRejected = selectionCounts.rejectedCount >= sortRequirements.minRejected
   const canSortBySimilarity = hasSelected && hasRejected
 
-  // Tag requirements
-  const tagRequirements = { minSelected: 5, minRejected: 5 }
-  const hasEnoughSelected = selectionCounts.selectedCount >= tagRequirements.minSelected
-  const hasEnoughRejected = selectionCounts.rejectedCount >= tagRequirements.minRejected
-  const canTagAutomatically = hasEnoughSelected && hasEnoughRejected
+  // Tag requirements (different for cause mode)
+  const tagRequirements = mode === 'cause'
+    ? { minSelected: 2, minRejected: 2 } // For cause: need ≥2 categories with ≥5 features each
+    : { minSelected: 5, minRejected: 5 } // For feature/pair: need ≥5 selected and ≥5 rejected
+
+  let canTagAutomatically = false
+  if (mode === 'cause' && selectionCounts.causeCategories) {
+    // For cause mode: require at least 2 explicit categories with ≥5 features each
+    // (unsure/untagged not counted toward this requirement)
+    const categoriesWith5Plus = [
+      selectionCounts.causeCategories.noisyActivation >= 5 ? 1 : 0,
+      selectionCounts.causeCategories.missedLexicon >= 5 ? 1 : 0,
+      selectionCounts.causeCategories.missedContext >= 5 ? 1 : 0
+    ].reduce((sum, val) => sum + val, 0)
+    canTagAutomatically = categoriesWith5Plus >= 2
+  } else {
+    const hasEnoughSelected = selectionCounts.selectedCount >= tagRequirements.minSelected
+    const hasEnoughRejected = selectionCounts.rejectedCount >= tagRequirements.minRejected
+    canTagAutomatically = hasEnoughSelected && hasEnoughRejected
+  }
 
   // Check if currently sorted
-  const expectedSortValue = mode === 'feature' ? 'similarity' : 'pair_similarity'
+  const expectedSortValue = mode === 'feature' ? 'similarity'
+                          : mode === 'pair' ? 'pair_similarity'
+                          : 'cause_similarity'
   const isSortedBySimilarity = tableSortBy === expectedSortValue
 
   // Loading state
-  const isSortLoading = mode === 'feature' ? isSimilaritySortLoading : isPairSimilaritySortLoading
+  const isSortLoading = mode === 'feature' ? isSimilaritySortLoading
+                      : mode === 'pair' ? isPairSimilaritySortLoading
+                      : isCauseSimilaritySortLoading
 
   // Handlers
   const handleSortBySimilarity = () => {
     if (mode === 'feature') {
       sortBySimilarity()
-    } else {
+    } else if (mode === 'pair') {
       // For pairs, need to get all pair keys
       const allPairKeys = tableData?.pairs?.map((p: any) => p.pairKey) || []
       sortPairsBySimilarity(allPairKeys)
+    } else {
+      // For cause mode
+      sortCauseBySimilarity()
     }
   }
 
@@ -215,8 +310,10 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
   const handleClearSelection = () => {
     if (mode === 'feature') {
       clearFeatureSelection()
-    } else {
+    } else if (mode === 'pair') {
       clearPairSelection()
+    } else {
+      clearCauseSelection()
     }
   }
 
@@ -273,6 +370,13 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
               <div className="table-selection-panel__tooltip">
                 {isSortedBySimilarity ? (
                   <div>Click to re-sort with updated selections</div>
+                ) : mode === 'cause' ? (
+                  <>
+                    <div className={hasSelected ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
+                      <span className="table-selection-panel__tooltip-icon">{hasSelected ? '✓' : '✗'}</span>
+                      Require ≥{sortRequirements.minSelected} cause categories with features
+                    </div>
+                  </>
                 ) : (
                   <>
                     <div className={hasSelected ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
@@ -304,14 +408,23 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
             </button>
             {hoveredButton === 'tag' && (
               <div className="table-selection-panel__tooltip">
-                <div className={hasEnoughSelected ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
-                  <span className="table-selection-panel__tooltip-icon">{hasEnoughSelected ? '✓' : '✗'}</span>
-                  Require {tagRequirements.minSelected} selected
-                </div>
-                <div className={hasEnoughRejected ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
-                  <span className="table-selection-panel__tooltip-icon">{hasEnoughRejected ? '✓' : '✗'}</span>
-                  Require {tagRequirements.minRejected} rejected
-                </div>
+                {mode === 'cause' ? (
+                  <div className={canTagAutomatically ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
+                    <span className="table-selection-panel__tooltip-icon">{canTagAutomatically ? '✓' : '✗'}</span>
+                    Require ≥2 cause categories with ≥5 features each
+                  </div>
+                ) : (
+                  <>
+                    <div className={selectionCounts.selectedCount >= tagRequirements.minSelected ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
+                      <span className="table-selection-panel__tooltip-icon">{selectionCounts.selectedCount >= tagRequirements.minSelected ? '✓' : '✗'}</span>
+                      Require {tagRequirements.minSelected} selected
+                    </div>
+                    <div className={selectionCounts.rejectedCount >= tagRequirements.minRejected ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
+                      <span className="table-selection-panel__tooltip-icon">{selectionCounts.rejectedCount >= tagRequirements.minRejected ? '✓' : '✗'}</span>
+                      Require {tagRequirements.minRejected} rejected
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -324,6 +437,7 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
             onCategoryClick={handleCategoryClick}
             showLegend={true}
             height={24}
+            mode={mode}
           />
         </div>
 

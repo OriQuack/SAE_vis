@@ -21,7 +21,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
 
   // Stage instructions mapping
   const stageInstructions: Record<string, string> = {
-    'feature_splitting': 'Single or multiple concepts?',
+    'feature_splitting': 'Fragmented or Monosemantic Feature?',
     'quality': 'Rate explanation quality',
     'cause': 'Identify root cause'
   };
@@ -331,24 +331,27 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
       <div className="tag-category-panel__content">
         {/* SAE Info - left of stage buttons */}
         {saeMetadata && (
-          <div className="tag-category-panel__sae-info">
-            <div className="sae-info__row">
-              <span className="sae-info__label">Model:</span>
-              <span className="sae-info__value">{saeMetadata.modelName}</span>
-            </div>
-            <div className="sae-info__row">
-              <span className="sae-info__label">Layer:</span>
-              <span className="sae-info__value">{saeMetadata.layer}</span>
-              <span className="sae-info__separator">|</span>
-              <span className="sae-info__label">Width:</span>
-              <span className="sae-info__value">{saeMetadata.width}</span>
-            </div>
-            {llmExplainerNames && (
+          <div className="tag-category-panel__section">
+            <div className="tag-category-panel__section-label">SAE Model</div>
+            <div className="tag-category-panel__sae-info">
               <div className="sae-info__row">
-                <span className="sae-info__label">LLM Explainers:</span>
-                <span className="sae-info__value">{llmExplainerNames}</span>
+                <span className="sae-info__label">Model:</span>
+                <span className="sae-info__value">{saeMetadata.modelName}</span>
               </div>
-            )}
+              <div className="sae-info__row">
+                <span className="sae-info__label">Layer:</span>
+                <span className="sae-info__value">{saeMetadata.layer}</span>
+                <span className="sae-info__separator">|</span>
+                <span className="sae-info__label">Features:</span>
+                <span className="sae-info__value">{saeMetadata.width}</span>
+              </div>
+              {llmExplainerNames && (
+                <div className="sae-info__row">
+                  <span className="sae-info__label">LLM Explainers:</span>
+                  <span className="sae-info__value">{llmExplainerNames}</span>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -358,7 +361,9 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
         )}
 
         {/* Stage buttons and instructions */}
-        <div className="tag-category-panel__stages">
+        <div className="tag-category-panel__section">
+          <div className="tag-category-panel__section-label">Stages</div>
+          <div className="tag-category-panel__stages">
           <div className="tag-category-panel__stages-buttons">
             {stages.map((stage) => {
               const isActive = selectedCategory === stage.id;
@@ -401,13 +406,16 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
               );
             })}
           </div>
+          </div>
         </div>
 
         {/* Divider */}
         <div className="tag-category-panel__divider" />
 
         {/* Middle: All tags flowing horizontally, each stage's tags stacked vertically */}
-        <div className="tag-category-panel__tags-area">
+        <div className="tag-category-panel__section tag-category-panel__section--tags">
+          <div className="tag-category-panel__section-label">Tags</div>
+          <div className="tag-category-panel__tags-area">
           {stages.map((stage) => {
             const isActive = selectedCategory === stage.id;
             const isCompleted = isStageCompleted(stage.stageOrder);
@@ -484,6 +492,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
               </div>
             );
           })}
+          </div>
         </div>
 
         {/* Right: Action buttons */}

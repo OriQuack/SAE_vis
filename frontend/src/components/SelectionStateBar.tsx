@@ -18,9 +18,11 @@ interface SelectionStateBarProps {
   showLabels?: boolean  // Default: true
   showLegend?: boolean  // Default: true
   labelThreshold?: number  // Default: 10% - minimum width to show label
+  mode?: 'feature' | 'pair' | 'cause'  // Mode determines labels/colors (default: 'feature')
   className?: string
 }
 
+// Category config for feature/pair modes
 const CATEGORY_CONFIG: Record<SelectionCategory, { label: string; color: string; description: string }> = {
   confirmed: {
     label: 'Confirmed',
@@ -44,6 +46,30 @@ const CATEGORY_CONFIG: Record<SelectionCategory, { label: string; color: string;
   }
 }
 
+// Category config for cause mode (maps to same keys but different labels/colors)
+const CAUSE_CATEGORY_CONFIG: Record<SelectionCategory, { label: string; color: string; description: string }> = {
+  confirmed: {
+    label: 'Noisy Activation',
+    color: '#f97316',  // Orange
+    description: 'Noisy activation example'
+  },
+  expanded: {
+    label: 'Missed Lexicon',
+    color: '#a855f7',  // Purple
+    description: 'Missed in lexicon'
+  },
+  rejected: {
+    label: 'Missed Context',
+    color: '#3b82f6',  // Blue
+    description: 'Missed in context'
+  },
+  unsure: {
+    label: 'Unsure',
+    color: '#9ca3af',  // Gray
+    description: 'Not yet categorized'
+  }
+}
+
 /**
  * SelectionStateBar - Horizontal stacked bar showing distribution of selection categories
  *
@@ -62,8 +88,11 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   showLabels = true,
   showLegend = true,
   labelThreshold = 10,
+  mode = 'feature',
   className = ''
 }) => {
+  // Select config based on mode
+  const categoryConfig = mode === 'cause' ? CAUSE_CATEGORY_CONFIG : CATEGORY_CONFIG
   // Calculate percentages for current state
   const percentages = useMemo(() => {
     if (counts.total === 0) {
@@ -99,10 +128,10 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
     <div className={`selection-state-bar ${className}`}>
       {/* Bar with segments */}
       <div className="selection-state-bar__bar" style={{ height: `${height}px` }}>
-        {(Object.keys(CATEGORY_CONFIG) as SelectionCategory[]).map((category) => {
+        {(Object.keys(categoryConfig) as SelectionCategory[]).map((category) => {
           const percentage = percentages[category]
           const count = counts[category]
-          const config = CATEGORY_CONFIG[category]
+          const config = categoryConfig[category]
 
           // Don't render segment if count is 0
           if (count === 0) {
@@ -170,9 +199,9 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
       {/* Legend */}
       {showLegend && (
         <div className="selection-state-bar__legend">
-          {(Object.keys(CATEGORY_CONFIG) as SelectionCategory[]).map((category) => {
+          {(Object.keys(categoryConfig) as SelectionCategory[]).map((category) => {
             const count = counts[category]
-            const config = CATEGORY_CONFIG[category]
+            const config = categoryConfig[category]
             const percentage = percentages[category]
             const previewChange = previewChanges ? previewChanges[category] : 0
 

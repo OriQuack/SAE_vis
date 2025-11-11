@@ -57,43 +57,49 @@ export function getExplainerDisplayName(explainerId: string): string {
 // CAUSE CATEGORY UTILITIES
 // ============================================================================
 
-export type CauseCategoryState = 'noisy-activation' | 'missed-lexicon' | 'missed-context' | 'unsure'
+export type CauseCategoryState = 'noisy-activation' | 'missed-lexicon' | 'missed-context'
 
 /**
  * Get display name for cause category
+ * Returns 'Unsure' for null/undefined (untagged features)
  */
-export function getCauseDisplayName(category: CauseCategoryState): string {
+export function getCauseDisplayName(category: CauseCategoryState | null): string {
+  if (!category) return 'Unsure'
+
   const CAUSE_NAME_MAP: Record<CauseCategoryState, string> = {
     'noisy-activation': 'Noisy Activation Example',
     'missed-lexicon': 'Missed Lexicon',
-    'missed-context': 'Missed Context',
-    'unsure': 'Unsure'
+    'missed-context': 'Missed Context'
   }
   return CAUSE_NAME_MAP[category]
 }
 
 /**
  * Get color for cause category
+ * Returns gray for null/undefined (untagged features)
  */
-export function getCauseCategoryColor(category: CauseCategoryState): string {
+export function getCauseCategoryColor(category: CauseCategoryState | null): string {
+  if (!category) return '#9ca3af'  // Gray for unsure/untagged
+
   const CAUSE_COLOR_MAP: Record<CauseCategoryState, string> = {
     'noisy-activation': '#f97316',  // Orange
     'missed-lexicon': '#a855f7',    // Purple
-    'missed-context': '#3b82f6',    // Blue
-    'unsure': '#9ca3af'             // Gray
+    'missed-context': '#3b82f6'     // Blue
   }
   return CAUSE_COLOR_MAP[category]
 }
 
 /**
  * Get icon for cause category
+ * Returns '?' for null/undefined (untagged features)
  */
-export function getCauseCategoryIcon(category: CauseCategoryState): string {
+export function getCauseCategoryIcon(category: CauseCategoryState | null): string {
+  if (!category) return '?'  // Question mark for unsure/untagged
+
   const CAUSE_ICON_MAP: Record<CauseCategoryState, string> = {
     'noisy-activation': '⚠',
     'missed-lexicon': '📖',
-    'missed-context': '🔍',
-    'unsure': '?'
+    'missed-context': '🔍'
   }
   return CAUSE_ICON_MAP[category]
 }

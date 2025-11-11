@@ -555,6 +555,7 @@ export type SortBy =
   | 'emb_det_average'  // Average of embedding + detection scores (for cause table)
   | 'similarity'  // Similarity-based sorting (for quality table)
   | 'pair_similarity'  // Pair similarity-based sorting (for feature split table)
+  | 'cause_similarity'  // Cause similarity-based sorting (for cause table)
   | null
 
 // ============================================================================

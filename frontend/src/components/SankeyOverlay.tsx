@@ -12,7 +12,7 @@ import {
   hasOutgoingLinks,
   calculateHistogramYAxisTicks
 } from '../lib/d3-sankey-histogram-utils'
-import { getNodeThresholds, getExactMetricFromPercentile } from '../lib/threshold-utils'
+import { getNodeThresholds, getExactMetricFromPercentile, getChildNodeTagName } from '../lib/threshold-utils'
 import { calculateHorizontalBarSegments } from '../lib/d3-histogram-utils'
 import { scaleLinear } from 'd3-scale'
 import { ThresholdHandles } from './ThresholdHandles'
@@ -243,6 +243,114 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
           />
         )
       })}
+
+      {/* Threshold labels - tag names above/below each threshold */}
+      {yScale && thresholds.length > 0 && (() => {
+        const treeNode = sankeyTree?.get(node.id || '')
+        // Only render labels if node has exactly 2 children (single threshold split)
+        if (!treeNode || treeNode.children.length !== 2) return null
+
+        const child0 = sankeyTree?.get(treeNode.children[0])
+        const child1 = sankeyTree?.get(treeNode.children[1])
+
+        if (!child0 || !child1) return null
+
+        // Get tag names for both groups
+        const tag0 = getChildNodeTagName(child0, treeNode, sankeyTree)
+        const tag1 = getChildNodeTagName(child1, treeNode, sankeyTree)
+
+        if (!tag0 || !tag1) return null
+
+        // Get child node colors at 100% opacity
+        const color0 = child0.colorHex || '#4b5563'
+        const color1 = child1.colorHex || '#4b5563'
+
+        // Capitalize tag names for display
+        const capitalizeTag = (tag: string) => tag.split(' ').map(word =>
+          word.charAt(0).toUpperCase() + word.slice(1)
+        ).join(' ')
+
+        return thresholds.map((threshold, index) => {
+          const thresholdY = yScale(threshold)
+
+          // Position labels above and below the threshold, centered horizontally
+          // Note: Histogram is inverted (top = small values, bottom = large values)
+          // So group 0 (lower values) appears above, group 1 (higher values) below
+          const labelAboveY = thresholdY - 8   // 8px above threshold
+          const labelBelowY = thresholdY + 16  // 16px below threshold (accounts for text height)
+          const labelX = layout.width * 0.4    // Center of histogram
+
+          // Calculate text dimensions for background rectangles
+          const tag0Text = `↑ ${capitalizeTag(tag0)}`
+          const tag1Text = `↓ ${capitalizeTag(tag1)}`
+
+          // Approximate text width (10px font, ~6px per character on average)
+          const tag0Width = tag0Text.length * 6
+          const tag1Width = tag1Text.length * 6
+
+          // Background rectangle dimensions
+          const bgPadding = 3
+          const bgHeight = 14
+
+          return (
+            <g key={`threshold-labels-${index}`}>
+              {/* Background rectangle for label above threshold */}
+              <rect
+                x={labelX - tag0Width / 2 - bgPadding}
+                y={labelAboveY - 10}
+                width={tag0Width + bgPadding * 2}
+                height={bgHeight}
+                rx={2}
+                fill="white"
+                fillOpacity={0.9}
+                stroke="#e5e7eb"
+                strokeWidth={0.5}
+                style={{ pointerEvents: 'none' }}
+              />
+
+              {/* Label above threshold (group 0 - lower metric values) with upward arrow */}
+              <text
+                x={labelX}
+                y={labelAboveY}
+                fontSize={10}
+                fill={color0}
+                fontWeight={600}
+                textAnchor="middle"
+                style={{ pointerEvents: 'none', userSelect: 'none' }}
+              >
+                {tag0Text}
+              </text>
+
+              {/* Background rectangle for label below threshold */}
+              <rect
+                x={labelX - tag1Width / 2 - bgPadding}
+                y={labelBelowY - 10}
+                width={tag1Width + bgPadding * 2}
+                height={bgHeight}
+                rx={2}
+                fill="white"
+                fillOpacity={0.9}
+                stroke="#e5e7eb"
+                strokeWidth={0.5}
+                style={{ pointerEvents: 'none' }}
+              />
+
+              {/* Label below threshold (group 1 - higher metric values) with downward arrow */}
+              <text
+                x={labelX}
+                y={labelBelowY}
+                fontSize={10}
+                fill={color1}
+                fontWeight={600}
+                textAnchor="middle"
+                style={{ pointerEvents: 'none', userSelect: 'none' }}
+              >
+                {tag1Text}
+              </text>
+            </g>
+          )
+        })
+      })()}
 
       {/* Y-axis: metric value labels and ticks */}
       {yAxisTicks.length > 0 && (

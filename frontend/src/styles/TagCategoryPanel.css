@@ -16,9 +16,41 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   width: 100%;
   overflow-x: auto;
+}
+
+/* ============================================================================
+   SECTION LABELS - Headers for each major section
+   ============================================================================ */
+
+.tag-category-panel__section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+  border: 1px solid #e2e8f0;
+}
+
+.tag-category-panel__section--tags {
+  flex: 1;
+  min-width: 0;
+}
+
+.tag-category-panel__section-label {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #1e293b;
+  padding: 0 2px;
+  line-height: 1;
+  margin-bottom: 2px;
+  text-shadow: 0 0.5px 1px rgba(255, 255, 255, 0.8);
 }
 
 /* ============================================================================
@@ -29,29 +61,19 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
-  padding: 6px 10px;
-  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
-  border: 1.5px solid #cbd5e1;
-  border-radius: 6px;
   font-size: 10px;
   line-height: 1.4;
   flex-shrink: 0;
   justify-content: center;
-  min-width: 190px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  transition: all 0.2s ease;
-}
-
-.tag-category-panel__sae-info:hover {
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
-  border-color: #94a3b8;
+  min-width: 170px;
 }
 
 .tag-category-panel__sae-separator {
-  width: 1px;
-  height: 36px;
-  background: #e2e8f0;
+  width: 2px;
+  height: 50px;
+  background: linear-gradient(to bottom, transparent, #cbd5e1 20%, #cbd5e1 80%, transparent);
   flex-shrink: 0;
+  margin: 0 4px;
 }
 
 .sae-info__row {
@@ -89,7 +111,7 @@
 .tag-category-panel__stages {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   flex-shrink: 0;
 }
 
@@ -111,7 +133,7 @@
   transition: all 0.2s ease;
   font-family: inherit;
   white-space: nowrap;
-  min-height: 32px;
+  min-height: 40px;
   width: 150px; /* Fixed width for all stage buttons */
 }
 
@@ -225,10 +247,11 @@
    ============================================================================ */
 
 .tag-category-panel__divider {
-  width: 1px;
-  height: 36px;
-  background: #e2e8f0;
+  width: 2px;
+  height: 50px;
+  background: linear-gradient(to bottom, transparent, #cbd5e1 20%, #cbd5e1 80%, transparent);
   flex-shrink: 0;
+  margin: 0 4px;
 }
 
 /* ============================================================================
@@ -236,7 +259,6 @@
    ============================================================================ */
 
 .tag-category-panel__tags-area {
-  flex: 1;
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -443,7 +465,15 @@
 
 @media (max-width: 1200px) {
   .tag-category-panel__content {
-    gap: 6px;
+    gap: 3px;
+  }
+
+  .tag-category-panel__section {
+    padding: 4px 8px;
+  }
+
+  .tag-category-panel__section-label {
+    font-size: 9px;
   }
 
   .tag-category-panel__tags-area {

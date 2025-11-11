@@ -16,6 +16,8 @@ import ScoreCircle from './ScoreCircle'
 import CauseCheckbox from './CauseCheckbox'
 import { HighlightedExplanation } from './HighlightedExplanation'
 import ActivationExample from './ActivationExample'
+import TableSelectionPanel from './TableSelectionPanel'
+import SimilarityTaggingPopover from './SimilarityTaggingPopover'
 import '../styles/QualityTablePanel.css'
 import '../styles/CauseTablePanel.css'
 
@@ -43,6 +45,10 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
   const sortBy = useVisualizationStore(state => state.tableSortBy)
   const sortDirection = useVisualizationStore(state => state.tableSortDirection)
   const setTableSort = useVisualizationStore(state => state.setTableSort)
+  const causeSimilarityScores = useVisualizationStore(state => state.causeSimilarityScores)
+
+  // Table actions
+  const moveToNextStep = useVisualizationStore(state => state.moveToNextStep)
 
   // Node selection for table filtering
   const tableSelectedNodeIds = useVisualizationStore(state => state.tableSelectedNodeIds)
@@ -129,8 +135,19 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
 
     // Apply sorting
     if (!tableData) return features
+
+    // Handle cause_similarity sorting separately (uses causeSimilarityScores from store)
+    if (sortBy === 'cause_similarity' && sortDirection) {
+      const sorted = [...features].sort((a, b) => {
+        const scoreA = causeSimilarityScores.get(a.feature_id) ?? -Infinity
+        const scoreB = causeSimilarityScores.get(b.feature_id) ?? -Infinity
+        return sortDirection === 'asc' ? scoreA - scoreB : scoreB - scoreA
+      })
+      return sorted
+    }
+
     return sortFeatures(features, sortBy, sortDirection, tableData)
-  }, [tableData, selectedFeatures, tableSelectedNodeIds.length, sortBy, sortDirection])
+  }, [tableData, selectedFeatures, tableSelectedNodeIds.length, sortBy, sortDirection, causeSimilarityScores])
 
   const totalRowCount = sortedFeatures.length
 
@@ -271,6 +288,14 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
         </div>
       )}
 
+      {/* Table Selection Panel - Header with actions */}
+      <TableSelectionPanel
+        mode="cause"
+        tagLabel="Cause"
+        onDone={moveToNextStep}
+        doneButtonEnabled={true}
+      />
+
       {/* Table Content */}
       <div className="table-panel__content" ref={tableContainerRef}>
         <table className="table-panel__table--simple">
@@ -315,7 +340,7 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
                 title="Fuzz Score"
               >
                 <div className="table-panel__header-content">
-                  Fuzz
+                  Fuzzing Score
                   {sortBy === METRIC_SCORE_FUZZ && (
                     <span className={`table-panel__sort-indicator ${sortDirection || ''}`} />
                   )}
@@ -328,7 +353,7 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
                 title="Embedding & Detection Scores (sorted by average)"
               >
                 <div className="table-panel__header-content">
-                  Emb & Det
+                  Embedding & Detetection Score
                   {sortBy === 'emb_det_average' && (
                     <span className={`table-panel__sort-indicator ${sortDirection || ''}`} />
                   )}
@@ -553,6 +578,9 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
           </tbody>
         </table>
       </div>
+
+      {/* Similarity Tagging Popover */}
+      <SimilarityTaggingPopover />
     </div>
   )
 }

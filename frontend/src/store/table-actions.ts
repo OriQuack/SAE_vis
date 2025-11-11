@@ -801,11 +801,91 @@ export const createTableActions = (set: any, get: any) => ({
     }
   },
 
+  /**
+   * Sort cause table by similarity scores (multi-category)
+   * This requires a backend endpoint that can handle 4-category classification
+   */
+  sortCauseBySimilarity: async () => {
+    const state = get()
+    const { causeSelectionStates, tableData } = state
+
+    console.log('[Store.sortCauseBySimilarity] Starting cause similarity sort:', {
+      selectionStatesSize: causeSelectionStates.size,
+      hasTableData: !!tableData
+    })
+
+    // Validate: need at least 2 different cause categories selected
+    if (causeSelectionStates.size < 1) {
+      console.warn('[Store.sortCauseBySimilarity] ⚠️  No cause categories selected for similarity sort')
+      return
+    }
+
+    if (!tableData?.features) {
+      console.warn('[Store.sortCauseBySimilarity] ⚠️  No table data available')
+      return
+    }
+
+    // Count features per cause category (3 explicit categories, unsure is untagged/null)
+    const categoryCounts: Record<string, number> = {
+      'noisy-activation': 0,
+      'missed-lexicon': 0,
+      'missed-context': 0
+    }
+
+    causeSelectionStates.forEach((category: 'noisy-activation' | 'missed-lexicon' | 'missed-context') => {
+      categoryCounts[category]++
+    })
+
+    const categoriesWithFeatures = Object.values(categoryCounts).filter(c => c > 0).length
+
+    console.log('[Store.sortCauseBySimilarity] Category counts:', categoryCounts, {
+      categoriesWithFeatures
+    })
+
+    // Need at least 2 different categories for meaningful sort
+    if (categoriesWithFeatures < 2) {
+      console.warn('[Store.sortCauseBySimilarity] ⚠️  Need at least 2 different cause categories selected')
+      return
+    }
+
+    try {
+      set({ isCauseSimilaritySortLoading: true })
+
+      console.log('[Store.sortCauseBySimilarity] ⚠️  Backend API not yet implemented for cause similarity sorting')
+      console.log('[Store.sortCauseBySimilarity] Falling back to simple feature ID sorting...')
+
+      // TEMPORARY: Sort by feature_id as a placeholder until backend API is implemented
+      // In production, this would call: api.getCauseSimilaritySort(causeSelectionStates, allFeatureIds)
+      const scoresMap = new Map<number, number>()
+      tableData.features.forEach((feature: any, index: number) => {
+        // Assign scores based on reverse index (descending feature ID)
+        scoresMap.set(feature.feature_id, tableData.features.length - index)
+      })
+
+      // Store scores and set sort mode
+      set({
+        causeSimilarityScores: scoresMap,
+        tableSortBy: 'cause_similarity',
+        tableSortDirection: 'desc',
+        isCauseSimilaritySortLoading: false
+      })
+
+      console.log('[Store.sortCauseBySimilarity] ✅ Cause similarity sort complete (placeholder):', {
+        scoresMapSize: scoresMap.size,
+        sortBy: 'cause_similarity'
+      })
+
+    } catch (error) {
+      console.error('[Store.sortCauseBySimilarity] ❌ Failed to calculate cause similarity sort:', error)
+      set({ isCauseSimilaritySortLoading: false })
+    }
+  },
+
   // ============================================================================
   // SIMILARITY TAGGING ACTIONS (automatic tagging based on histogram)
   // ============================================================================
 
-  showSimilarityTaggingPopover: async (mode: 'feature' | 'pair', position: { x: number; y: number }, tagLabel: string) => {
+  showSimilarityTaggingPopover: async (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string) => {
     console.log(`[Store.showSimilarityTaggingPopover] Opening ${mode} tagging popover with label: ${tagLabel}`)
 
     // Extract selection states based on mode
@@ -1076,7 +1156,7 @@ export const createTableActions = (set: any, get: any) => ({
    * Order: Confirmed -> Expanded -> Unsure -> Rejected (or clicked category first)
    * If similarity sort is active, use it as secondary sort within each category
    */
-  sortTableByCategory: (category: 'confirmed' | 'expanded' | 'rejected' | 'unsure', mode: 'feature' | 'pair') => {
+  sortTableByCategory: (category: 'confirmed' | 'expanded' | 'rejected' | 'unsure', mode: 'feature' | 'pair' | 'cause') => {
     const {
       tableData,
       featureSelectionStates,

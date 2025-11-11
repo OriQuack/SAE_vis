@@ -67,8 +67,8 @@ interface AppState {
   clearPairSelection: () => void
 
   // Cause category selection state (used by CauseTablePanel)
-  // Four-state cycle: null -> noisy-activation -> missed-lexicon -> missed-context -> unsure -> null
-  causeSelectionStates: Map<number, 'noisy-activation' | 'missed-lexicon' | 'missed-context' | 'unsure'>
+  // Three-state cycle: null -> noisy-activation -> missed-lexicon -> missed-context -> null
+  causeSelectionStates: Map<number, 'noisy-activation' | 'missed-lexicon' | 'missed-context'>
   // Track how features were selected: 'manual' (user click) or 'auto' (automatic tagging)
   causeSelectionSources: Map<number, 'manual' | 'auto'>
   toggleCauseCategory: (featureId: number) => void
@@ -136,10 +136,11 @@ interface AppState {
   swapMetricDisplay: (newMetric: typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION) => void
   sortBySimilarity: () => Promise<void>
   sortPairsBySimilarity: (allPairKeys: string[]) => Promise<void>
-  sortTableByCategory: (category: 'confirmed' | 'expanded' | 'rejected' | 'unsure', mode: 'feature' | 'pair') => void
+  sortCauseBySimilarity: () => Promise<void>
+  sortTableByCategory: (category: 'confirmed' | 'expanded' | 'rejected' | 'unsure', mode: 'feature' | 'pair' | 'cause') => void
 
   // Similarity tagging actions (automatic tagging based on histogram)
-  showSimilarityTaggingPopover: (mode: 'feature' | 'pair', position: { x: number; y: number }, tagLabel: string) => Promise<void>
+  showSimilarityTaggingPopover: (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string) => Promise<void>
   hideSimilarityTaggingPopover: () => void
   updateSimilarityThresholds: (selectThreshold: number) => void
   applySimilarityTags: () => void
@@ -180,6 +181,10 @@ interface AppState {
   lastPairSortedSelectionSignature: string | null  // Track pair selection state at last sort
   pairSortedBySelectionStates: Map<string, 'selected' | 'rejected'> | null,  // Frozen pair selection states when sorted
   donePairSelectionStates: Map<string, 'selected' | 'rejected'> | null
+
+  // Cause similarity sort state (for cause table)
+  causeSimilarityScores: Map<number, number>
+  isCauseSimilaritySortLoading: boolean
 
   // Similarity tagging popover state (for automatic tagging feature)
   similarityTaggingPopover: {
@@ -282,6 +287,10 @@ const initialState = {
   pairSortedBySelectionStates: null,
   donePairSelectionStates: null,
 
+  // Cause similarity sort state (for cause table)
+  causeSimilarityScores: new Map<number, number>(),
+  isCauseSimilaritySortLoading: false,
+
   // Similarity tagging popover state (for automatic tagging feature)
   similarityTaggingPopover: null,
 
@@ -309,7 +318,7 @@ const initialState = {
   pairSelectionSources: new Map<string, 'manual' | 'auto'>(),
 
   // Cause category selection state (used by CauseTablePanel)
-  causeSelectionStates: new Map<number, 'noisy-activation' | 'missed-lexicon' | 'missed-context' | 'unsure'>(),
+  causeSelectionStates: new Map<number, 'noisy-activation' | 'missed-lexicon' | 'missed-context'>(),
   causeSelectionSources: new Map<number, 'manual' | 'auto'>(),
   activeCauseStageNode: null,
 
@@ -438,14 +447,14 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   // Cause category selection actions (used by CauseTablePanel)
-  // Four-state cycle: null -> noisy-activation -> missed-lexicon -> missed-context -> unsure -> null
+  // Three-state cycle: null -> noisy-activation -> missed-lexicon -> missed-context -> null
   toggleCauseCategory: (featureId: number) => {
     set((state) => {
       const newStates = new Map(state.causeSelectionStates)
       const newSources = new Map(state.causeSelectionSources)
       const currentState = newStates.get(featureId)
 
-      // Four-state cycle
+      // Three-state cycle
       if (currentState === undefined) {
         // null -> noisy-activation
         newStates.set(featureId, 'noisy-activation')
@@ -459,11 +468,7 @@ export const useStore = create<AppState>((set, get) => ({
         newStates.set(featureId, 'missed-context')
         newSources.set(featureId, 'manual')
       } else if (currentState === 'missed-context') {
-        // missed-context -> unsure
-        newStates.set(featureId, 'unsure')
-        newSources.set(featureId, 'manual')
-      } else {
-        // unsure -> null (remove from map)
+        // missed-context -> null (remove from map)
         newStates.delete(featureId)
         newSources.delete(featureId)
       }
@@ -477,7 +482,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   clearCauseSelection: () => {
     set({
-      causeSelectionStates: new Map<number, 'noisy-activation' | 'missed-lexicon' | 'missed-context' | 'unsure'>(),
+      causeSelectionStates: new Map<number, 'noisy-activation' | 'missed-lexicon' | 'missed-context'>(),
       causeSelectionSources: new Map<number, 'manual' | 'auto'>()
     })
   },

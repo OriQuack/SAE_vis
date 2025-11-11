@@ -903,3 +903,56 @@ export async function getFeatureMetricValues(
 
   return values
 }
+
+// ============================================================================
+// THRESHOLD LABEL HELPERS
+// ============================================================================
+
+/**
+ * Get tag name for a child node based on its group index and parent's category.
+ * Used for labeling threshold handles on histograms.
+ *
+ * @param childNode - The child tree node to get tag name for
+ * @param parentNode - The parent tree node (contains the metric that created the split)
+ * @param sankeyTree - Full tree map (unused but kept for consistency)
+ * @returns Tag name (e.g., "monosemantic", "fragmented") or null if not found
+ *
+ * @example
+ * // For decoder_similarity split at 0.4:
+ * // Child with ID "root_stage1_group0" returns "monosemantic"
+ * // Child with ID "root_stage1_group1" returns "fragmented"
+ */
+export function getChildNodeTagName(
+  childNode: SankeyTreeNode,
+  parentNode: SankeyTreeNode,
+  _sankeyTree: Map<string, SankeyTreeNode>
+): string | null {
+  // Parent must have a metric to determine category
+  if (!parentNode?.metric) {
+    return null
+  }
+
+  // Find matching tag category by metric
+  const category = Object.values(TAG_CATEGORIES).find(c => c.metric === parentNode.metric)
+  if (!category || !category.tags || category.tags.length === 0) {
+    return null
+  }
+
+  // Extract the LAST group index from child node ID
+  // For "root_stage1_group0_stage2_group1", we want group1 (the last one)
+  const matches = childNode.id.match(/group(\d+)/g)
+  if (!matches || matches.length === 0) {
+    return null
+  }
+
+  const lastMatch = matches[matches.length - 1]
+  const groupIndexMatch = lastMatch.match(/\d+/)
+  if (!groupIndexMatch) {
+    return null
+  }
+
+  const groupIndex = parseInt(groupIndexMatch[0], 10)
+  const tagName = category.tags[groupIndex]
+
+  return tagName || null
+}
