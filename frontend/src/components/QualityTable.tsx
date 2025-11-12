@@ -8,8 +8,7 @@ import {
   getExplainerDisplayName,
   findMaxQualityScoreExplainer
 } from '../lib/table-utils'
-import { getBadgeColors } from '../lib/utils'
-import { TAG_CATEGORY_QUALITY, TAG_CATEGORIES } from '../lib/tag-constants'
+import { TAG_CATEGORY_QUALITY, TAG_CATEGORIES, getBadgeColors } from '../lib/tag-constants'
 import {
   getCircleRadius
 } from '../lib/circle-encoding-utils'
@@ -21,14 +20,14 @@ import {
   TAG_CATEGORY_FEATURE_SPLITTING,
   TAG_CATEGORY_CAUSE
 } from '../lib/tag-constants'
-import { HighlightedExplanation } from './HighlightedExplanation'
-import ActivationExample from './ActivationExample'
+import { HighlightedExplanation } from './TableExplanation'
+import ActivationExample from './TableActivationExample'
 import QualityScoreBreakdown from './QualityScoreBreakdown'
 import DecoderSimilarityTable from './FeatureSplitTable'
-import CauseTablePanel from './CauseTablePanel'
-import SimilarityTaggingPopover from './SimilarityTaggingPopover'
+import CauseTablePanel from './CauseTable'
+import SimilarityTaggingPopover from './TagAutomaticPopover'
 import TableSelectionPanel from './TableSelectionPanel'
-import '../styles/QualityTablePanel.css'
+import '../styles/QualityTable.css'
 
 // ============================================================================
 // MAIN TABLE PANEL COMPONENT
@@ -98,8 +97,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
   // Get badge labels and colors from tag categories
   const badgeConfig = useMemo(() => {
-    const sankeyTree = leftPanel.sankeyTree
-    const colors = getBadgeColors(sankeyTree, TAG_CATEGORY_QUALITY, TAG_CATEGORIES)
+    const colors = getBadgeColors(TAG_CATEGORY_QUALITY)
     const category = TAG_CATEGORIES[TAG_CATEGORY_QUALITY]
 
     return {
@@ -112,7 +110,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
         color: colors[category.tags[0]] || '#ef4444'
       }
     }
-  }, [leftPanel.sankeyTree])
+  }, [])  // No dependencies needed - colors are pre-computed at module load
 
   // Get selected LLM explainers (needed for disabled logic)
   const selectedExplainers = new Set<string>()

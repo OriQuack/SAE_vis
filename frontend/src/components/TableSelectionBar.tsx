@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { SELECTION_CATEGORY_COLORS, type SelectionCategory } from '../lib/constants'
-import '../styles/SelectionStateBar.css'
+import '../styles/TableSelectionBar.css'
 
 export interface CategoryCounts {
   confirmed: number

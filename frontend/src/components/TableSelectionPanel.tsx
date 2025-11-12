@@ -4,9 +4,8 @@ import {
   type SelectionCategory,
   METRIC_DISPLAY_NAMES
 } from '../lib/constants'
-import { getBadgeColors } from '../lib/utils'
-import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE, TAG_CATEGORIES } from '../lib/tag-constants'
-import SelectionStateBar, { type CategoryCounts } from './SelectionStateBar'
+import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE, getBadgeColors } from '../lib/tag-constants'
+import SelectionStateBar, { type CategoryCounts } from './TableSelectionBar'
 import '../styles/TableSelectionPanel.css'
 
 interface TableSelectionPanelProps {
@@ -41,7 +40,6 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
   const sortBySimilarity = useVisualizationStore(state => state.sortBySimilarity)
   const sortPairsBySimilarity = useVisualizationStore(state => state.sortPairsBySimilarity)
   const sortCauseBySimilarity = useVisualizationStore(state => state.sortCauseBySimilarity)
-  const setCauseSortCategory = useVisualizationStore(state => state.setCauseSortCategory)
   const showSimilarityTaggingPopover = useVisualizationStore(state => state.showSimilarityTaggingPopover)
   const clearFeatureSelection = useVisualizationStore(state => state.clearFeatureSelection)
   const clearPairSelection = useVisualizationStore(state => state.clearPairSelection)
@@ -261,31 +259,31 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
       })
       return { selectedCount, rejectedCount }
     }
-  }, [mode, selectionStates, causeSelectionStates])
+  }, [mode, selectionStates, causeSelectionStates, tableData?.features?.length])
 
-  // Get dynamic colors from Sankey tree for SelectionStateBar
+  // Get dynamic colors from tag categories for SelectionStateBar
   const barColors = useMemo(() => {
     if (mode === 'feature') {
       // Quality stage colors
-      const colors = getBadgeColors(sankeyTree, TAG_CATEGORY_QUALITY, TAG_CATEGORIES)
+      const colors = getBadgeColors(TAG_CATEGORY_QUALITY)
       return {
-        confirmed: colors['well-explained'] || undefined,   // Use well-explained for confirmed (manual selection)
+        confirmed: colors['Well-Explained'] || undefined,   // Use well-explained for confirmed (manual selection)
         expanded: undefined,                                // Keep default blue for auto-tagged
-        rejected: colors['need revision'] || undefined,     // Use need revision for rejected
+        rejected: colors['Need Revision'] || undefined,     // Use need revision for rejected
         unsure: undefined                                    // Keep default gray
       }
     } else if (mode === 'pair') {
       // Feature splitting stage colors
-      const colors = getBadgeColors(sankeyTree, TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORIES)
+      const colors = getBadgeColors(TAG_CATEGORY_FEATURE_SPLITTING)
       return {
-        confirmed: colors['fragmented'] || undefined,       // Use fragmented for confirmed
+        confirmed: colors['Fragmented'] || undefined,       // Use fragmented for confirmed
         expanded: undefined,                                // Keep default blue for auto-tagged
-        rejected: colors['monosemantic'] || undefined,      // Use monosemantic for rejected
+        rejected: colors['Monosemantic'] || undefined,      // Use monosemantic for rejected
         unsure: undefined                                    // Keep default gray
       }
     } else {
       // Cause stage colors (maps categories to SelectionCategory keys)
-      const colors = getBadgeColors(sankeyTree, TAG_CATEGORY_CAUSE, TAG_CATEGORIES)
+      const colors = getBadgeColors(TAG_CATEGORY_CAUSE)
       return {
         confirmed: colors['Noisy Activation'] || undefined,  // Orange
         expanded: colors['Missed Lexicon'] || undefined,     // Purple
@@ -293,7 +291,7 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
         unsure: undefined                                     // Keep default gray
       }
     }
-  }, [mode, sankeyTree])
+  }, [mode])  // No sankeyTree dependency - colors are pre-computed at module load
 
   // Sort requirements (different for cause mode)
   const sortRequirements = mode === 'cause'
@@ -359,9 +357,7 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
     }
   }
 
-  const handleCategorySelect = (category: string | null) => {
-    // Set the category to sort by
-    setCauseSortCategory(category)
+  const handleCategorySelect = (_category: string | null) => {
     // Close dropdown
     setShowCategoryDropdown(false)
     // Run similarity sort

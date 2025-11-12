@@ -12,15 +12,14 @@ import {
   METRIC_SCORE_FUZZ
 } from '../lib/constants'
 import type { ScoreStats } from '../lib/circle-encoding-utils'
-import ScoreCircle from './ScoreCircle'
-import { HighlightedExplanation } from './HighlightedExplanation'
-import { getBadgeColors } from '../lib/utils'
-import { TAG_CATEGORY_CAUSE, TAG_CATEGORIES } from '../lib/tag-constants'
-import ActivationExample from './ActivationExample'
+import ScoreCircle from './TableScoreCircle'
+import { HighlightedExplanation } from './TableExplanation'
+import { TAG_CATEGORY_CAUSE, TAG_CATEGORIES, getBadgeColors } from '../lib/tag-constants'
+import ActivationExample from './TableActivationExample'
 import TableSelectionPanel from './TableSelectionPanel'
-import SimilarityTaggingPopover from './SimilarityTaggingPopover'
-import '../styles/QualityTablePanel.css'
-import '../styles/CauseTablePanel.css'
+import SimilarityTaggingPopover from './TagAutomaticPopover'
+import '../styles/QualityTable.css'
+import '../styles/CauseTable.css'
 
 // ============================================================================
 // MAIN CAUSE TABLE PANEL COMPONENT
@@ -46,7 +45,6 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
   const sortBy = useVisualizationStore(state => state.tableSortBy)
   const sortDirection = useVisualizationStore(state => state.tableSortDirection)
   const setTableSort = useVisualizationStore(state => state.setTableSort)
-  const causeSimilarityScores = useVisualizationStore(state => state.causeSimilarityScores)
   const causeCategoryConfidences = useVisualizationStore(state => state.causeCategoryConfidences)
   const causeSortCategory = useVisualizationStore(state => state.causeSortCategory)
 
@@ -84,7 +82,7 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
 
   // Get badge labels and colors from tag categories
   const causeConfig = useMemo(() => {
-    const colors = getBadgeColors(sankeyTree, TAG_CATEGORY_CAUSE, TAG_CATEGORIES)
+    const colors = getBadgeColors(TAG_CATEGORY_CAUSE)
     const category = TAG_CATEGORIES[TAG_CATEGORY_CAUSE]
 
     // Map state names to tag labels and colors
@@ -103,7 +101,7 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
         color: colors[category.tags[0]] || '#3b82f6'
       }
     }
-  }, [sankeyTree])
+  }, [])  // No dependencies needed - colors are pre-computed at module load
 
   // Collect feature IDs from all selected nodes (for filtering)
   const selectedFeatures = useMemo(() => {

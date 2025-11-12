@@ -3,13 +3,12 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow, DecoderStagePairRow, StageTableContext } from '../types'
 import { METRIC_DECODER_SIMILARITY } from '../lib/constants'
-import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORIES } from '../lib/tag-constants'
-import { getBadgeColors } from '../lib/utils'
-import ActivationExample from './ActivationExample'
+import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORIES, getBadgeColors } from '../lib/tag-constants'
+import ActivationExample from './TableActivationExample'
 import DecoderSimilarityOverlay from './FeatureSplitOverlay'
-import SimilarityTaggingPopover from './SimilarityTaggingPopover'
+import SimilarityTaggingPopover from './TagAutomaticPopover'
 import TableSelectionPanel from './TableSelectionPanel'
-import '../styles/QualityTablePanel.css'
+import '../styles/QualityTable.css'
 import '../styles/FeatureSplitTable.css'
 
 // ============================================================================
@@ -38,8 +37,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
 
   // Get badge labels and colors from tag categories
   const badgeConfig = useMemo(() => {
-    const sankeyTree = leftPanel.sankeyTree
-    const colors = getBadgeColors(sankeyTree, TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORIES)
+    const colors = getBadgeColors(TAG_CATEGORY_FEATURE_SPLITTING)
     const category = TAG_CATEGORIES[TAG_CATEGORY_FEATURE_SPLITTING]
 
     return {
@@ -52,7 +50,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
         color: colors[category.tags[0]] || '#ef4444'
       }
     }
-  }, [leftPanel.sankeyTree])
+  }, [])  // No dependencies needed - colors are pre-computed at module load
 
   // Sorting state
   const [sortBy, setSortBy] = useState<'id' | 'decoder_similarity' | null>(null)

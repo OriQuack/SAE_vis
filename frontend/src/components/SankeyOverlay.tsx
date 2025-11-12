@@ -256,8 +256,8 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
         if (!child0 || !child1) return null
 
         // Get tag names for both groups
-        const tag0 = getChildNodeTagName(child0, treeNode, sankeyTree)
-        const tag1 = getChildNodeTagName(child1, treeNode, sankeyTree)
+        const tag0 = getChildNodeTagName(child0, treeNode)
+        const tag1 = getChildNodeTagName(child1, treeNode)
 
         if (!tag0 || !tag1) return null
 

@@ -11,6 +11,8 @@ import {
   METRIC_SCORE_FUZZ,
   METRIC_SEMANTIC_SIMILARITY
 } from './constants'
+import { HierarchicalColorAssigner } from './hierarchical-colors'
+import type { SankeyTreeNode } from '../types'
 
 // ============================================================================
 // TAG CATEGORY IDs
@@ -57,6 +59,12 @@ export interface TagCategoryConfig {
 
   /** User-facing instruction text displayed in the UI */
   instruction: string
+
+  /** Pre-computed colors for each tag (tag name → hex color) */
+  tagColors: Record<string, string>
+
+  /** Parent tag from previous stage (null for stage 1) */
+  parentTag: string | null
 }
 
 /**
@@ -87,7 +95,9 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     ],
     description: "Identifies whether a feature represents a single semantic concept or multiple overlapping concepts",
     parentTagForNextStage: "Monosemantic",
-    instruction: "Fragmented or Monosemantic Feature?"
+    instruction: "Fragmented or Monosemantic Feature?",
+    tagColors: {},  // Populated by initializeTagColors()
+    parentTag: null  // Stage 1 has no parent
   },
 
   [TAG_CATEGORY_QUALITY]: {
@@ -109,7 +119,9 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     ],
     description: "Assesses the overall quality of the feature explanation based on multiple scoring metrics",
     parentTagForNextStage: "Need Revision",
-    instruction: "Rate explanation quality"
+    instruction: "Rate explanation quality",
+    tagColors: {},  // Populated by initializeTagColors()
+    parentTag: "Monosemantic"  // Children of Monosemantic from stage 1
   },
 
   [TAG_CATEGORY_CAUSE]: {
@@ -137,7 +149,9 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     ],
     description: "Categorizes the root cause of explanation issues for features that need revision",
     parentTagForNextStage: null,
-    instruction: "Identify root cause"
+    instruction: "Identify root cause",
+    tagColors: {},  // Populated by initializeTagColors()
+    parentTag: "Need Revision"  // Children of Need Revision from stage 2
   }
 } as const
 
@@ -153,118 +167,168 @@ export function getTagCategoriesInOrder(): TagCategoryConfig[] {
   return Object.values(TAG_CATEGORIES).sort((a, b) => a.stageOrder - b.stageOrder)
 }
 
-/**
- * Get tag category configuration by ID
- */
-export function getTagCategory(categoryId: string): TagCategoryConfig | undefined {
-  return TAG_CATEGORIES[categoryId]
-}
-
-/**
- * Get the representative metric to display for a category
- * (This is the metric used in histograms if showHistogram is true)
- */
-export function getRepresentativeMetric(categoryId: string): string | null {
-  const category = TAG_CATEGORIES[categoryId]
-  return category?.metric ?? null
-}
-
-/**
- * Check if a category should show histogram visualization
- */
-export function shouldShowHistogram(categoryId: string): boolean {
-  const category = TAG_CATEGORIES[categoryId]
-  return category?.showHistogram ?? false
-}
-
-/**
- * Get default thresholds for a category
- */
-export function getDefaultThresholds(categoryId: string): number[] {
-  const category = TAG_CATEGORIES[categoryId]
-  return category?.defaultThresholds ?? []
-}
-
-/**
- * Check if a category uses metric-based grouping
- */
-export function isMetricBasedCategory(categoryId: string): boolean {
-  const category = TAG_CATEGORIES[categoryId]
-  return category?.metric !== null
-}
-
-/**
- * Check if a category uses pre-defined tag groups
- */
-export function isPreDefinedGroupCategory(categoryId: string): boolean {
-  return !isMetricBasedCategory(categoryId)
-}
-
 // ============================================================================
-// CAUSE CATEGORY DETAILED MAPPING
-// Detailed breakdown of which metrics relate to which cause tags
+// TAG COLOR SYSTEM
+// Pre-computed hierarchical colors based on parentTagForNextStage relationships
 // ============================================================================
 
-export interface CauseMetricMapping {
-  tag: string
-  description: string
-  indicatorMetrics: string[]
-}
-
 /**
- * CAUSE_METRIC_MAPPINGS - Detailed relationships between cause tags and metrics
- *
- * This provides the detailed rationale for each cause category:
- * - Which metrics indicate each type of issue
- * - How to interpret metric patterns for diagnosis
+ * Build virtual Sankey tree from tag category configuration
+ * This tree mimics the real Sankey tree structure but is based purely on
+ * parentTagForNextStage relationships for color generation
  */
-export const CAUSE_METRIC_MAPPINGS: CauseMetricMapping[] = [
-  {
-    tag: "Missed Context",
-    description: "Explanation fails to capture the full context of when the feature activates",
-    indicatorMetrics: [
-      METRIC_SCORE_DETECTION,    // Low detection = explanation doesn't predict activation well
-      METRIC_SCORE_EMBEDDING      // Low embedding = semantic mismatch between explanation and activations
-    ]
-  },
-  {
-    tag: "Missed Lexicon",
-    description: "Explanation uses incorrect or imprecise vocabulary to describe the feature",
-    indicatorMetrics: [
-      METRIC_SCORE_FUZZ          // Low fuzz = explanation not robust to perturbations
-    ]
-  },
-  {
-    tag: "Noisy Activation",
-    description: "Feature activates on inconsistent or unrelated examples, making explanation difficult",
-    indicatorMetrics: [
-      "intra_feature_similarity",  // Low intra-feature = activations are dissimilar
-      METRIC_SEMANTIC_SIMILARITY   // Low semantic = explanations from different LLMs disagree
-    ]
-  },
-  {
-    tag: "Unsure",
-    description: "Cause of explanation issue is unclear or not yet determined by user analysis",
-    indicatorMetrics: []  // Default category for unassigned features
+function buildVirtualTagTree(): Map<string, SankeyTreeNode> {
+  const tree = new Map<string, SankeyTreeNode>()
+
+  // Create root node
+  const root: SankeyTreeNode = {
+    id: 'root',
+    parentId: null,
+    metric: null,
+    thresholds: [],
+    depth: 0,
+    children: [],
+    featureIds: new Set(),
+    featureCount: 0,
+    rangeLabel: 'All Features'
   }
-]
+  tree.set('root', root)
 
-/**
- * Get cause metric mapping for a specific tag
- */
-export function getCauseMetricMapping(tag: string): CauseMetricMapping | undefined {
-  return CAUSE_METRIC_MAPPINGS.find(mapping => mapping.tag === tag)
+  // Get categories in stage order
+  const categoriesInOrder = getTagCategoriesInOrder()
+
+  // Build tree level by level
+  for (const category of categoriesInOrder) {
+    const depth = category.stageOrder
+
+    // Find parent node(s) for this stage
+    let parentNodes: SankeyTreeNode[] = []
+
+    if (depth === 1) {
+      // Stage 1: parent is root
+      parentNodes = [root]
+    } else {
+      // Stages 2 & 3: find parent based on parentTag
+      const prevCategory = categoriesInOrder.find(c => c.stageOrder === depth - 1)
+      if (!prevCategory) continue
+
+      // Find nodes from previous stage that match parentTag
+      for (const [nodeId, node] of tree.entries()) {
+        if (node.depth === depth - 1) {
+          // Extract tag name from node ID
+          const tagMatch = category.parentTag
+          if (tagMatch && nodeId.includes(tagMatch.toLowerCase().replace(/\s+/g, '_'))) {
+            parentNodes.push(node)
+          }
+        }
+      }
+    }
+
+    // Create child nodes for each tag under each parent
+    for (const parentNode of parentNodes) {
+      category.tags.forEach((tag, _tagIndex) => {
+        const childId = `${parentNode.id}_${category.id}_${tag.toLowerCase().replace(/\s+/g, '_')}`
+
+        const childNode: SankeyTreeNode = {
+          id: childId,
+          parentId: parentNode.id,
+          metric: category.metric,
+          thresholds: category.defaultThresholds,
+          depth,
+          children: [],
+          featureIds: new Set(),
+          featureCount: 0,
+          rangeLabel: tag
+        }
+
+        tree.set(childId, childNode)
+        parentNode.children.push(childId)
+      })
+    }
+  }
+
+  return tree
 }
 
+/**
+ * Initialize tag colors by building virtual tree and assigning colors
+ * This runs once at module load time
+ */
+function initializeTagColors(): void {
+  // Build virtual tree
+  const virtualTree = buildVirtualTagTree()
+
+  // Assign colors using hierarchical color assigner
+  const colorAssigner = new HierarchicalColorAssigner(3)  // Use same seed as main tree
+  colorAssigner.assignColors(virtualTree, 'root')
+
+  // Extract colors and populate TAG_CATEGORIES
+  const categoriesInOrder = getTagCategoriesInOrder()
+
+  for (const category of categoriesInOrder) {
+    const colors: Record<string, string> = {}
+
+    for (const tag of category.tags) {
+      // Find node in virtual tree that corresponds to this tag
+      const tagKey = tag.toLowerCase().replace(/\s+/g, '_')
+
+      for (const [nodeId, node] of virtualTree.entries()) {
+        if (node.depth === category.stageOrder && nodeId.endsWith(`_${tagKey}`)) {
+          if (node.colorHex) {
+            colors[tag] = node.colorHex
+          }
+          break
+        }
+      }
+    }
+
+    // Store colors in TAG_CATEGORIES (mutate the object)
+    ;(TAG_CATEGORIES[category.id] as any).tagColors = colors
+  }
+}
+
+// Initialize colors at module load
+initializeTagColors()
+
 // ============================================================================
-// STAGE ORDER CONSTANTS
-// For easy reference in components
+// TAG COLOR UTILITIES
+// Simple lookup functions for pre-computed tag colors
 // ============================================================================
 
-export const STAGE_ORDER = {
-  FEATURE_SPLITTING: 1,
-  QUALITY: 2,
-  CAUSE: 3
-} as const
+/**
+ * Get color for a specific tag
+ *
+ * @param categoryId - Category ID (e.g., 'quality', 'cause')
+ * @param tagName - Tag name (e.g., 'Well-Explained', 'Missed Context')
+ * @returns Hex color string or null if not found
+ */
+export function getTagColor(categoryId: string, tagName: string): string | null {
+  const category = TAG_CATEGORIES[categoryId]
+  if (!category) return null
+  return category.tagColors[tagName] || null
+}
 
-export const TOTAL_STAGES = 3
+/**
+ * Get all colors for a category as a map
+ *
+ * @param categoryId - Category ID (e.g., 'quality', 'cause')
+ * @returns Record of tag names to hex colors
+ */
+export function getBadgeColors(categoryId: string): Record<string, string> {
+  const category = TAG_CATEGORIES[categoryId]
+  if (!category) return {}
+  return { ...category.tagColors }  // Return copy to prevent mutation
+}
+
+/**
+ * Get all tag colors for all categories (useful for debugging)
+ *
+ * @returns Nested record of category IDs to tag name to hex color
+ */
+export function getAllTagColors(): Record<string, Record<string, string>> {
+  const result: Record<string, Record<string, string>> = {}
+  for (const [categoryId, category] of Object.entries(TAG_CATEGORIES)) {
+    result[categoryId] = { ...category.tagColors }
+  }
+  return result
+}

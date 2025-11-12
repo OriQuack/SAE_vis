@@ -1,462 +1,292 @@
 /* ============================================================================
-   TAG CATEGORY PANEL - Stage Buttons | Tags Columns | Actions
+   TAG CATEGORY PANEL - Notebook Tab Style Layout
+   Left: Stage Tabs | Center: Tags Horizontally | Right: SAE Info
    ============================================================================ */
 
 .tag-category-panel {
   width: 100%;
   height: 100%;
   display: flex;
-  align-items: stretch;
-  padding: 6px 8px;
-  background: white;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.tag-category-panel__content {
-  display: flex;
   flex-direction: row;
-  align-items: center;
-  gap: 4px;
-  width: 100%;
-  overflow-x: auto;
+  align-items: stretch;
+  background: white;
+  border-bottom: 4px solid #cbd5e1;
+  position: relative;
 }
 
 /* ============================================================================
-   SECTION LABELS - Headers for each major section
+   MAIN CONTENT - Stage tabs interspersed with tag tabs
    ============================================================================ */
 
-.tag-category-panel__section {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex-shrink: 0;
-  padding: 6px 12px;
-  border-radius: 6px;
-  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
-  border: 1px solid #e2e8f0;
-}
-
-.tag-category-panel__section--tags {
+.tag-category-panel__main-content {
   flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 0 12px;
+  padding-top: 8px;
+  background: #f8fafc;
+  overflow-x: auto;
+  overflow-y: hidden;
   min-width: 0;
 }
 
-.tag-category-panel__section-label {
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  color: #1e293b;
-  padding: 0 2px;
-  line-height: 1;
-  margin-bottom: 2px;
-  text-shadow: 0 0.5px 1px rgba(255, 255, 255, 0.8);
-}
-
-/* ============================================================================
-   SAE INFO - Left side of stage buttons
-   ============================================================================ */
-
-.tag-category-panel__sae-info {
+.stage-tab {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  font-size: 10px;
-  line-height: 1.4;
-  flex-shrink: 0;
+  align-items: center;
   justify-content: center;
-  min-width: 170px;
-}
-
-.tag-category-panel__sae-separator {
-  width: 2px;
-  height: 50px;
-  background: linear-gradient(to bottom, transparent, #cbd5e1 20%, #cbd5e1 80%, transparent);
-  flex-shrink: 0;
-  margin: 0 4px;
-}
-
-.sae-info__row {
-  display: flex;
-  align-items: center;
   gap: 4px;
-  white-space: nowrap;
-}
-
-.sae-info__label {
-  font-weight: 600;
-  color: #64748b;
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.sae-info__value {
-  font-weight: 600;
-  color: #1e293b;
-  font-size: 10px;
-}
-
-.sae-info__separator {
-  color: #cbd5e1;
-  margin: 0 3px;
-  font-size: 9px;
-  font-weight: 300;
-}
-
-/* ============================================================================
-   LEFT: STAGE BUTTONS AND INSTRUCTIONS
-   ============================================================================ */
-
-.tag-category-panel__stages {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  flex-shrink: 0;
-}
-
-.tag-category-panel__stages-buttons {
-  display: flex;
-  flex-direction: row;
-  gap: 4px;
-}
-
-.tag-category-panel__stage-button {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border-radius: 5px;
+  padding: 8px 12px;
+  min-width: 140px;
   background: #e2e8f0;
-  border: 2px solid #cbd5e1;
+  border: 3px solid #cbd5e1;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease;
   font-family: inherit;
-  white-space: nowrap;
-  min-height: 40px;
-  width: 150px; /* Fixed width for all stage buttons */
+  position: relative;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0);
 }
 
-.tag-category-panel__stage-button:hover {
+.stage-tab:hover {
   background: #cbd5e1;
-  border-color: #94a3b8;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
-.tag-category-panel__stage-button:active {
-  transform: translateY(0);
-  box-shadow: none;
-}
-
-/* Active State */
-.tag-category-panel__stage-button--active {
-  background: #3b82f6;
-  color: white;
+/* Active State - Tab extends down to connect with content below */
+.stage-tab--active {
+  background: rgba(59, 130, 246, 0.15);
   border-color: #3b82f6;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.35);
+  border-bottom-color: white;
+  box-shadow: 0 -2px 8px rgba(59, 130, 246, 0.2);
+  z-index: 10;
 }
 
-.tag-category-panel__stage-button--active:hover {
-  background: #2563eb;
-  border-color: #2563eb;
-  box-shadow: 0 3px 10px rgba(59, 130, 246, 0.4);
+.stage-tab--active:hover {
+  background: rgba(59, 130, 246, 0.2);
 }
 
 /* Completed State */
-.tag-category-panel__stage-button--completed {
-  background: #10b981;
-  color: white;
+.stage-tab--completed {
+  background: #d1fae5;
   border-color: #10b981;
-  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0);
 }
 
-.tag-category-panel__stage-button--completed:hover {
-  background: #059669;
-  border-color: #059669;
+.stage-tab--completed:hover {
+  background: #a7f3d0;
 }
 
-/* Stage Number Badge */
-.stage-number {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 4px;
-  border-radius: 50%;
-  background: white;
-  color: #3b82f6;
-  font-weight: 700;
-  font-size: 13px;
-  line-height: 1;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.tag-category-panel__stage-button--active .stage-number,
-.tag-category-panel__stage-button--completed .stage-number {
-  background: rgba(255, 255, 255, 0.98);
-}
-
-.tag-category-panel__stage-button--active .stage-number {
-  color: #3b82f6;
-}
-
-.tag-category-panel__stage-button--completed .stage-number {
-  color: #10b981;
-  font-size: 16px;
-}
-
-/* Stage Name */
-.stage-name {
-  font-weight: 600;
-  font-size: 13px;
-}
-
-/* Stage Instructions Row */
-.tag-category-panel__stages-instructions {
-  display: flex;
-  flex-direction: row;
-  gap: 4px;
-}
-
-.stage-instruction {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 150px;
-  padding: 2px 6px;
-  font-size: 9px;
-  font-weight: 500;
-  color: #475569;
-  text-align: center;
-  line-height: 1.2;
-  border-radius: 3px;
-  background: transparent;
-  transition: all 0.2s ease;
-}
-
-.stage-instruction--active {
-  color: #2563eb;
-  font-weight: 600;
-  background: rgba(59, 130, 246, 0.08);
-}
-
-/* ============================================================================
-   DIVIDER
-   ============================================================================ */
-
-.tag-category-panel__divider {
-  width: 2px;
-  height: 50px;
-  background: linear-gradient(to bottom, transparent, #cbd5e1 20%, #cbd5e1 80%, transparent);
-  flex-shrink: 0;
-  margin: 0 4px;
-}
-
-/* ============================================================================
-   MIDDLE: TAGS AREA - All tag columns flow horizontally
-   ============================================================================ */
-
-.tag-category-panel__tags-area {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-/* ============================================================================
-   STAGE CONTAINER - Wraps stage indicator + tags
-   ============================================================================ */
-
-.tag-category-panel__stage-container {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-  padding: 5px 6px;
-  border-radius: 6px;
-  background: transparent;
-  transition: all 0.2s ease;
-  position: relative;
-  z-index: 0;
-}
-
-/* Active stage container - blue gradient behind tags */
-.tag-category-panel__stage-container--active {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(59, 130, 246, 0.15));
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.12);
-}
-
-/* Completed stage container */
-.tag-category-panel__stage-container--completed {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.04), rgba(16, 185, 129, 0.08));
-}
-
-/* Stage number indicator (left of container) */
-.tag-category-panel__stage-indicator {
+/* Stage number badge */
+.stage-tab__number {
   display: flex;
   align-items: center;
   justify-content: center;
   min-width: 24px;
   height: 24px;
   padding: 0 6px;
-  background: #64748b;
-  color: white;
+  border-radius: 50%;
+  background: white;
+  color: #1e293b;
   font-weight: 700;
-  font-size: 12px;
-  border-radius: 12px;
+  font-size: 13px;
   line-height: 1;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
-  flex-shrink: 0;
-  position: relative;
-  z-index: 1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.tag-category-panel__stage-container--active .tag-category-panel__stage-indicator {
-  background: #3b82f6;
-  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.4);
-}
-
-.tag-category-panel__stage-container--completed .tag-category-panel__stage-indicator {
-  background: #10b981;
-  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.4);
-  font-size: 16px;
-}
-
-/* Tag column - each stage's tags stacked vertically */
-.tag-category-panel__tag-column {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex-shrink: 0;
-  position: relative;
-  z-index: 1;
-}
-
-/* Cause stage - 2 columns of 2 tags each */
-.tag-category-panel__tag-column--grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 2px;
-}
-
-/* ============================================================================
-   TAG BADGES
-   ============================================================================ */
-
-.tag-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 4px;
-  padding: 2px 6px;
-  padding-left: 4px;
-  border-radius: 3px;
-  background: #f1f5f9; /* Fallback, will be overridden by inline style */
-  border: 1px solid #e2e8f0;
-  border-left: 5px solid #94a3b8; /* Thick left border for color accent, will be overridden by inline style */
-  font-size: 10px;
-  transition: all 0.2s ease;
-  cursor: default;
-  white-space: nowrap;
-}
-
-.tag-badge:hover {
-  filter: brightness(0.95);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-/* Active stage tags - no filter/brightness changes, higher opacity handled by inline styles */
-.tag-category-panel__stage-container--active .tag-badge {
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.tag-category-panel__stage-container--active .tag-badge:hover {
+.stage-tab--active .stage-tab__number {
+  background: white;
+  color: #1e293b;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
-.tag-badge__label {
-  flex: 1;
-  font-weight: 500;
-  color: #475569;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-transform: capitalize;
+.stage-tab--completed .stage-tab__number {
+  background: #10b981;
+  color: white;
+  font-size: 16px;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.4);
 }
 
-.tag-category-panel__stage-container--active .tag-badge__label {
+/* Stage label */
+.stage-tab__label {
+  font-weight: 600;
+  font-size: 14px;
+  color: #1e293b;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.stage-tab--active .stage-tab__label {
   color: #1e293b;
   font-weight: 600;
 }
 
-/* Tag count badge (right side) */
-.tag-badge__count {
+.stage-tab--completed .stage-tab__label {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+/* Stage instruction */
+.stage-tab__instruction {
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+  text-align: center;
+  line-height: 1.2;
+  margin-top: 2px;
+}
+
+.stage-tab--active .stage-tab__instruction {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.stage-tab--completed .stage-tab__instruction {
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* ============================================================================
+   TAG TABS - Small notebook tabs between stage tabs
+   ============================================================================ */
+
+.tag-tabs-group {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+  margin-right: 20px; /* Larger gap after tag group to separate from next stage */
+}
+
+/* Individual tag tab (small notebook tab) */
+.tag-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 6px 8px;
+  min-width: 70px;
+  background: #f1f5f9; /* Fallback, will be overridden by inline style */
+  border: 3px solid #cbd5e1; /* Fallback, will be overridden by inline style */
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  font-size: 10px;
+  transition: background 0.2s ease, filter 0.2s ease;
+  cursor: default;
+  white-space: nowrap;
+  position: relative;
+  /* Bottom border effect will be set by inline style */
+}
+
+.tag-tab:hover {
+  filter: brightness(0.95);
+}
+
+/* Active stage tag tabs */
+.tag-tab--active {
+  z-index: 5;
+}
+
+.tag-tab--active:hover {
+  filter: brightness(0.98);
+}
+
+/* Completed stage tag tabs */
+.tag-tab--completed {
+  opacity: 0.85;
+}
+
+.tag-tab__label {
+  font-weight: 700;
+  color: #475569;
+  text-align: center;
+  text-transform: capitalize;
+  line-height: 1.2;
+  font-size: 10px;
+}
+
+.tag-tab--active .tag-tab__label {
+  color: #1e293b;
+  font-weight: 700;
+}
+
+/* Tag count badge */
+.tag-tab__count {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 20px;
-  padding: 1px 4px;
+  min-width: 22px;
+  padding: 1px 5px;
   background: #cbd5e1; /* Fallback, will be overridden by inline style */
-  color: white; /* Will be set by inline style */
-  font-weight: 600;
+  color: white;
+  font-weight: 700;
   font-size: 9px;
   border-radius: 8px;
   line-height: 1.3;
-  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
 }
-
-/* Active state inherits inline styles, no override needed */
 
 /* ============================================================================
-   RIGHT: ACTION BUTTONS
+   RIGHT: SAE MODEL INFO
    ============================================================================ */
 
-.tag-category-panel__actions {
+.tag-category-panel__sae-info {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 6px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #f1f5f9 0%, #ffffff 100%);
+  border-left: 3px solid #cbd5e1;
   flex-shrink: 0;
-  justify-content: center;
-  padding-left: 8px;
-  margin-left: auto;
-  border-left: 1px solid #e2e8f0;
+  min-width: 220px;
+  max-width: 280px;
+  align-self: stretch;
 }
 
-.action-button {
-  padding: 4px 10px;
-  border-radius: 5px;
+.sae-info__header {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #1e293b;
+  padding-bottom: 6px;
+  border-bottom: 3px solid #cbd5e1;
+  text-shadow: 0 0.5px 1px rgba(255, 255, 255, 0.8);
+}
+
+.sae-info__details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sae-info__row {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 6px;
   font-size: 11px;
+  line-height: 1.5;
+}
+
+.sae-info__label {
   font-weight: 600;
-  background: #3b82f6;
-  color: white;
-  border: 2px solid #3b82f6;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-  font-family: inherit;
-  cursor: pointer;
-  min-width: 85px;
+  color: #64748b;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
 }
 
-.action-button:not(:disabled):hover {
-  background: #2563eb;
-  border-color: #2563eb;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
-}
-
-.action-button:not(:disabled):active {
-  transform: translateY(0);
-  box-shadow: 0 1px 2px rgba(59, 130, 246, 0.2);
-}
-
-.action-button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  background: #94a3b8;
-  border-color: #94a3b8;
+.sae-info__value {
+  font-weight: 600;
+  color: #1e293b;
+  font-size: 11px;
+  word-break: break-word;
 }
 
 /* ============================================================================
@@ -464,81 +294,65 @@
    ============================================================================ */
 
 @media (max-width: 1200px) {
-  .tag-category-panel__content {
-    gap: 3px;
+  .stage-tab {
+    min-width: 120px;
+    padding: 6px 10px;
   }
 
-  .tag-category-panel__section {
-    padding: 4px 8px;
+  .stage-tab__label {
+    font-size: 13px;
   }
 
-  .tag-category-panel__section-label {
-    font-size: 9px;
-  }
-
-  .tag-category-panel__tags-area {
-    gap: 10px;
-  }
-
-  .stage-name {
-    font-size: 12px;
-  }
-
-  .tag-badge {
-    font-size: 9px;
-  }
-
-  .tag-category-panel__stage-indicator {
-    min-width: 20px;
-    height: 20px;
+  .stage-tab__instruction {
     font-size: 10px;
+  }
+
+  .tag-tab {
+    min-width: 60px;
+    padding: 5px 6px;
+  }
+
+  .tag-tab__label {
+    font-size: 9px;
+  }
+
+  .tag-category-panel__sae-info {
+    min-width: 180px;
   }
 }
 
 @media (max-width: 1000px) {
-  .tag-category-panel__tag-column--grid {
-    grid-template-columns: 1fr;
+  .stage-tab {
+    min-width: 100px;
+  }
+
+  .tag-tabs-group {
+    gap: 1px;
+  }
+
+  .tag-tab {
+    min-width: 50px;
   }
 }
 
 /* ============================================================================
-   FLOW OVERLAY - Hierarchical connections between tags and stages
+   SCROLLBAR STYLING
    ============================================================================ */
 
-.tag-flow-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 1;
+.tag-category-panel__main-content::-webkit-scrollbar {
+  height: 6px;
 }
 
-.tag-flow-path {
-  fill: #94a3b8;
-  opacity: 0.5;
-  transition: all 0.3s ease;
-  pointer-events: auto;
-  cursor: pointer;
+.tag-category-panel__main-content::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
 }
 
-.tag-flow-path:hover {
-  opacity: 0.8;
-  filter: url(#flow-glow);
-  fill: #3b82f6;
+.tag-category-panel__main-content::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
 }
 
-.tag-flow-path--active {
-  fill: #3b82f6;
-  opacity: 0.75;
-  filter: url(#flow-glow);
-}
-
-.tag-flow-path--active:hover {
-  opacity: 0.9;
-}
-
-.tag-category-panel {
-  position: relative;
+.tag-category-panel__main-content::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }

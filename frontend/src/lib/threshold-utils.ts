@@ -925,7 +925,6 @@ export async function getFeatureMetricValues(
 export function getChildNodeTagName(
   childNode: SankeyTreeNode,
   parentNode: SankeyTreeNode,
-  _sankeyTree: Map<string, SankeyTreeNode>
 ): string | null {
   // Parent must have a metric to determine category
   if (!parentNode?.metric) {

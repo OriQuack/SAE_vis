@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useMemo, useCallback, useState } from 'react'
 import { useVisualizationStore } from '../store/index'
-import '../styles/HistogramPopover.css'
+import '../styles/SankeyHistogramPopover.css'
 import {
   calculateHistogramLayout,
   validateHistogramData,

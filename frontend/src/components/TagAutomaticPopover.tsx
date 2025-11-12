@@ -7,9 +7,9 @@ import {
   calculateYAxisTicks
 } from '../lib/histogram-utils'
 import { SELECTION_CATEGORY_COLORS } from '../lib/constants'
-import SelectionStateBar, { type CategoryCounts } from './SelectionStateBar'
+import SelectionStateBar, { type CategoryCounts } from './TableSelectionBar'
 import ThresholdHandles from './ThresholdHandles'
-import '../styles/SimilarityTaggingPopover.css'
+import '../styles/TagAutomaticPopover.css'
 
 const SimilarityTaggingPopover: React.FC = () => {
   const popoverState = useVisualizationStore(state => state.similarityTaggingPopover)
