@@ -19,8 +19,7 @@ import { useResizeObserver } from '../lib/utils'
 import type { D3SankeyNode, D3SankeyLink } from '../types'
 import {
   PANEL_LEFT,
-  PANEL_RIGHT,
-  METRIC_DISPLAY_NAMES
+  PANEL_RIGHT
 } from '../lib/constants'
 import { SankeyOverlay } from './SankeyOverlay'
 // SankeyInlineSelector removed - no longer needed with fixed 3-stage auto-expansion
@@ -557,67 +556,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
               ))}
             </g>
 
-            {/* Metric labels - one per source node */}
-            <g className="sankey-diagram__metric-labels">
-              {(() => {
-                // Group links by source node
-                const sourceNodeMap = new Map<string, { node: D3SankeyNode; links: D3SankeyLink[] }>()
-
-                layout.links.forEach(link => {
-                  const sourceNode = typeof link.source === 'object' ? link.source : null
-                  if (!sourceNode || !sourceNode.metric || !sourceNode.id) return
-
-                  if (!sourceNodeMap.has(sourceNode.id)) {
-                    sourceNodeMap.set(sourceNode.id, { node: sourceNode, links: [] })
-                  }
-                  sourceNodeMap.get(sourceNode.id)!.links.push(link)
-                })
-
-                // Render one label per source node
-                return Array.from(sourceNodeMap.entries()).map(([nodeId, { node, links }]) => {
-                  if (node.x1 === undefined || node.y0 === undefined || node.y1 === undefined) return null
-
-                  // Calculate label position based on stage gap
-                  // This fixes positioning issues when targets are terminal nodes at stage 3
-                  const firstTargetNode = links.length > 0 && typeof links[0].target === 'object'
-                    ? links[0].target
-                    : null
-
-                  if (!firstTargetNode || firstTargetNode.x0 === undefined) return null
-
-                  // Use a fixed offset approach: position label halfway to the next stage
-                  // This works correctly even when all targets are vertical bars at stage 3
-                  const labelX = node.x1 + (firstTargetNode.x0 - node.x1) / 2
-
-                  // Find the topmost link from this source node
-                  const topY = Math.min(
-                    ...links.map(link => {
-                      const targetNode = typeof link.target === 'object' ? link.target : null
-                      return Math.min(node.y0!, targetNode?.y0 ?? Infinity)
-                    })
-                  )
-
-                  const labelY = topY - 12  // 12px above the top edge
-
-                  const metricLabel = METRIC_DISPLAY_NAMES[node.metric as keyof typeof METRIC_DISPLAY_NAMES] || node.metric
-
-                  return (
-                    <text
-                      key={`metric-label-${nodeId}`}
-                      x={labelX}
-                      y={labelY}
-                      dy="0.35em"
-                      fontSize={10}
-                      fill="#6b7280"
-                      textAnchor="middle"
-                      style={{ pointerEvents: 'none', userSelect: 'none' }}
-                    >
-                      {metricLabel}
-                    </text>
-                  )
-                })
-              })()}
-            </g>
+            {/* Metric labels removed - metric name now shown in node labels */}
 
             {/* Nodes */}
             <g className="sankey-diagram__nodes">
@@ -713,6 +652,11 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                   const nameLines = node.name.split('\n')
                   const allLines = [...nameLines, `(${node.feature_count.toLocaleString()})`]
 
+                  // Calculate vertical offset to center entire label group
+                  const lineHeight = 14
+                  const totalHeight = allLines.length * lineHeight
+                  const verticalOffset = -totalHeight / 2 + lineHeight
+
                   return (
                     <g key={`label-${node.id}`}>
                       {allLines.map((line, index) => {
@@ -722,7 +666,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                             {/* White stroke outline */}
                             <text
                               x={labelX}
-                              y={labelY + (index * 14)}
+                              y={labelY + verticalOffset + (index * lineHeight)}
                               dy="0.35em"
                               fontSize={index === 0 ? 12 : 10}
                               fill="white"
@@ -738,7 +682,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                             {/* Black text on top */}
                             <text
                               x={labelX}
-                              y={labelY + (index * 14)}
+                              y={labelY + verticalOffset + (index * lineHeight)}
                               dy="0.35em"
                               fontSize={index === 0 ? 12 : 10}
                               fill="#000000"
@@ -788,6 +732,12 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                 const nameLines = node.name.split('\n')
                 const allLines = [...nameLines, `(${node.feature_count.toLocaleString()})`]
 
+                // Calculate vertical offset to center entire label group
+                const lineHeight = 14
+                const totalHeight = allLines.length * lineHeight
+                const verticalOffset = -totalHeight / 2 + lineHeight / 2
+                const nodeCenterY = ((node.y0 ?? 0) + (node.y1 ?? 0)) / 2
+
                 return (
                   <g key={`label-${node.id}`}>
                     {allLines.map((line, index) => {
@@ -797,7 +747,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                           {/* White stroke outline */}
                           <text
                             x={labelX}
-                            y={((node.y0 ?? 0) + (node.y1 ?? 0)) / 2 + (index * 14)}
+                            y={nodeCenterY + verticalOffset + (index * lineHeight)}
                             dy="0.35em"
                             fontSize={index === 0 ? 12 : 10}
                             fill="white"
@@ -813,7 +763,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                           {/* Black text on top */}
                           <text
                             x={labelX}
-                            y={((node.y0 ?? 0) + (node.y1 ?? 0)) / 2 + (index * 14)}
+                            y={nodeCenterY + verticalOffset + (index * lineHeight)}
                             dy="0.35em"
                             fontSize={index === 0 ? 12 : 10}
                             fill="#000000"

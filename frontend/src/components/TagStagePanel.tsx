@@ -179,7 +179,8 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
 
                   const countStyle = {
                     backgroundColor: tagColor,
-                    color: 'white'
+                    color: 'black',
+                    opacity: 1.0
                   };
 
                   return (
@@ -189,7 +190,25 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
                       style={tagStyle}
                       title={`${tag}: ${tagCounts[tag]} features`}
                     >
-                      <span className="tag-tab__label">{tag}</span>
+                      <div className="tag-tab__header">
+                        <svg
+                          className="tag-tab__icon"
+                          viewBox="0 0 16 16"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            d="M2 3.5C2 2.67157 2.67157 2 3.5 2H7.08579C7.351 2 7.60536 2.10536 7.79289 2.29289L13.7071 8.20711C14.0976 8.59763 14.0976 9.23077 13.7071 9.62132L9.62132 13.7071C9.23077 14.0976 8.59763 14.0976 8.20711 13.7071L2.29289 7.79289C2.10536 7.60536 2 7.351 2 7.08579V3.5Z"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <circle cx="5.5" cy="5.5" r="1" fill="currentColor" />
+                        </svg>
+                        {/* <span className="tag-tab__icon">🏷️</span> */}
+                        <span className="tag-tab__label">{tag}</span>
+                      </div>
                       <span
                         className="tag-tab__count"
                         style={countStyle}

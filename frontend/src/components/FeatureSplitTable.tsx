@@ -908,7 +908,18 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                         containerWidth={activationColumnWidth}
                         interFeaturePositions={getInterFeaturePositionsForFeature(row.mainFeature.feature_id, row.pairKey)}
                         isHovered={hoveredPairKey === row.pairKey}
-                        onHoverChange={(isHovered) => setHoveredPairKey(isHovered ? row.pairKey : null)}
+                        onHoverChange={(isHovered) => {
+                          setHoveredPairKey(isHovered ? row.pairKey : null)
+                          if (isHovered) {
+                            // Trigger inter-feature highlighting on hover
+                            const feature = tableData?.features.find((f: FeatureTableRow) => f.feature_id === row.mainFeature.feature_id)
+                            const similarItem = feature?.decoder_similarity?.find((s: any) => s.feature_id === row.similarFeature.feature_id)
+                            const interfeatureData = similarItem?.inter_feature_similarity
+                            handleBadgeInteraction(row.mainFeature.feature_id, row.similarFeature.feature_id, interfeatureData, false)
+                          } else {
+                            handleBadgeLeave()
+                          }
+                        }}
                       />
                     ) : (
                       <span className="table-panel__placeholder">—</span>
@@ -923,7 +934,18 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                         containerWidth={activationColumnWidth}
                         interFeaturePositions={getInterFeaturePositionsForFeature(row.similarFeature.feature_id, row.pairKey)}
                         isHovered={hoveredPairKey === row.pairKey}
-                        onHoverChange={(isHovered) => setHoveredPairKey(isHovered ? row.pairKey : null)}
+                        onHoverChange={(isHovered) => {
+                          setHoveredPairKey(isHovered ? row.pairKey : null)
+                          if (isHovered) {
+                            // Trigger inter-feature highlighting on hover
+                            const feature = tableData?.features.find((f: FeatureTableRow) => f.feature_id === row.mainFeature.feature_id)
+                            const similarItem = feature?.decoder_similarity?.find((s: any) => s.feature_id === row.similarFeature.feature_id)
+                            const interfeatureData = similarItem?.inter_feature_similarity
+                            handleBadgeInteraction(row.mainFeature.feature_id, row.similarFeature.feature_id, interfeatureData, false)
+                          } else {
+                            handleBadgeLeave()
+                          }
+                        }}
                       />
                     ) : (
                       <span className="table-panel__placeholder">—</span>

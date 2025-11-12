@@ -184,8 +184,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: 6px 8px;
+  gap: 6px;
+  padding: 6px 8px 3px 8px;
   min-width: 70px;
   background: #f1f5f9; /* Fallback, will be overridden by inline style */
   border: 3px solid #cbd5e1; /* Fallback, will be overridden by inline style */
@@ -217,6 +217,34 @@
   opacity: 0.85;
 }
 
+/* Tag tab header - icon + label container */
+.tag-tab__header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+/* Tag icon (SVG) */
+.tag-tab__icon {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  color: #475569;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.tag-tab--active .tag-tab__icon {
+  color: #1e293b;
+  opacity: 0.85;
+}
+
+.tag-tab:hover .tag-tab__icon {
+  opacity: 1;
+}
+
 .tag-tab__label {
   font-weight: 700;
   color: #475569;
@@ -239,12 +267,14 @@
   min-width: 22px;
   padding: 1px 5px;
   background: #cbd5e1; /* Fallback, will be overridden by inline style */
-  color: white;
+  color: black;
   font-weight: 700;
   font-size: 9px;
   border-radius: 8px;
   line-height: 1.3;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  opacity: 1.0;
+  border: 1.5px solid #d1d5db;
 }
 
 /* ============================================================================
@@ -258,7 +288,7 @@
   transform: translateY(-50%);
   display: flex;
   flex-direction: column;
-  padding: 4px 14px;
+  padding: 1px 14px;
   background: white;
   border: 3px solid #cbd5e1;
   border-radius: 8px;
@@ -347,7 +377,7 @@
 
   .tag-tab {
     min-width: 60px;
-    padding: 5px 6px;
+    padding: 5px 6px 2px 6px;
   }
 
   .tag-tab__label {
@@ -370,6 +400,7 @@
 
   .tag-tab {
     min-width: 50px;
+    gap: 5px;
   }
 }
 
