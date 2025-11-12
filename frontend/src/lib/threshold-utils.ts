@@ -17,6 +17,7 @@ import type {
   MetricType
 } from '../types'
 import { TAG_CATEGORIES } from './tag-constants'
+import { METRIC_DISPLAY_NAMES } from './constants'
 
 
 // ============================================================================
@@ -283,8 +284,12 @@ function getNodeDisplayName(node: SankeyTreeNode, tree: Map<string, SankeyTreeNo
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
 
-  // Combine tag name with range label, separated by newline
-  return `${capitalizedTagName}\n${node.rangeLabel}`
+  // Get metric display name
+  const metricDisplayName = METRIC_DISPLAY_NAMES[parent.metric as keyof typeof METRIC_DISPLAY_NAMES] || parent.metric
+
+  // Combine tag name with metric and range label, separated by newline
+  // Format: "Monosemantic\nDecoder Similarity < 0.40"
+  return `${capitalizedTagName}\n${metricDisplayName} ${node.rangeLabel}`
 }
 
 /**

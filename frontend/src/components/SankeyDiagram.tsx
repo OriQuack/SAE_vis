@@ -709,14 +709,14 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                   const labelY = node.y0 !== undefined && node.y1 !== undefined ? (node.y0 + node.y1) / 2 : 0
                   const isHovered = hoveredNodeId === node.id
 
-                  // Split name into lines and append feature count to the last line
+                  // Split name into lines and add feature count on separate line
                   const nameLines = node.name.split('\n')
-                  const lastLineIndex = nameLines.length - 1
+                  const allLines = [...nameLines, `(${node.feature_count.toLocaleString()})`]
 
                   return (
                     <g key={`label-${node.id}`}>
-                      {nameLines.map((line, index) => {
-                        const labelText = line + (index === lastLineIndex ? ` (${node.feature_count.toLocaleString()})` : '')
+                      {allLines.map((line, index) => {
+                        const labelText = line
                         return (
                           <g key={index}>
                             {/* White stroke outline */}
@@ -784,14 +784,14 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
                 const isHovered = hoveredNodeId === node.id
 
-                // Split name into lines and append feature count to the last line
+                // Split name into lines and add feature count on separate line
                 const nameLines = node.name.split('\n')
-                const lastLineIndex = nameLines.length - 1
+                const allLines = [...nameLines, `(${node.feature_count.toLocaleString()})`]
 
                 return (
                   <g key={`label-${node.id}`}>
-                    {nameLines.map((line, index) => {
-                      const labelText = line + (index === lastLineIndex ? ` (${node.feature_count.toLocaleString()})` : '')
+                    {allLines.map((line, index) => {
+                      const labelText = line
                       return (
                         <g key={index}>
                           {/* White stroke outline */}

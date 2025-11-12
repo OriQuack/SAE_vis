@@ -12,6 +12,7 @@
   background: white;
   border-bottom: 4px solid #cbd5e1;
   position: relative;
+  overflow: visible;
 }
 
 /* ============================================================================
@@ -37,9 +38,10 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 8px 12px;
-  min-width: 140px;
+  gap: 5px;
+  padding: 6px 10px;
+  max-width: 220px;
+  height: 70px;
   background: #e2e8f0;
   border: 3px solid #cbd5e1;
   border-bottom: none;
@@ -49,6 +51,7 @@
   font-family: inherit;
   position: relative;
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0);
+  flex-shrink: 0;
 }
 
 .stage-tab:hover {
@@ -79,14 +82,23 @@
   background: #a7f3d0;
 }
 
+/* Stage header - number + label in one row */
+.stage-tab__header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
 /* Stage number badge */
 .stage-tab__number {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 24px;
-  height: 24px;
-  padding: 0 6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 2px;
   border-radius: 50%;
   background: white;
   color: #1e293b;
@@ -94,6 +106,7 @@
   font-size: 13px;
   line-height: 1;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
 }
 
 .stage-tab--active .stage-tab__number {
@@ -116,6 +129,7 @@
   color: #1e293b;
   text-align: center;
   line-height: 1.2;
+  white-space: nowrap;
 }
 
 .stage-tab--active .stage-tab__label {
@@ -135,7 +149,10 @@
   color: #64748b;
   text-align: center;
   line-height: 1.2;
-  margin-top: 2px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  max-width: 140px;
 }
 
 .stage-tab--active .stage-tab__instruction {
@@ -235,16 +252,19 @@
    ============================================================================ */
 
 .tag-category-panel__sae-info {
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 10px 16px;
-  background: linear-gradient(135deg, #f1f5f9 0%, #ffffff 100%);
-  border-left: 3px solid #cbd5e1;
-  flex-shrink: 0;
-  min-width: 220px;
-  max-width: 280px;
-  align-self: stretch;
+  padding: 4px 14px;
+  background: white;
+  border: 3px solid #cbd5e1;
+  border-radius: 8px;
+  z-index: 100;
+  min-width: 300px;
+  max-width: 400px;
 }
 
 .sae-info__header {
@@ -253,24 +273,23 @@
   text-transform: uppercase;
   letter-spacing: 0.8px;
   color: #1e293b;
-  padding-bottom: 6px;
-  border-bottom: 3px solid #cbd5e1;
+  border-bottom: 2px solid #cbd5e1;
   text-shadow: 0 0.5px 1px rgba(255, 255, 255, 0.8);
 }
 
 .sae-info__details {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 1px;
 }
 
 .sae-info__row {
   display: flex;
   flex-direction: row;
   align-items: baseline;
-  gap: 6px;
-  font-size: 11px;
-  line-height: 1.5;
+  gap: 4px;
+  font-size: 10px;
+  line-height: 1.4;
 }
 
 .sae-info__label {
@@ -289,14 +308,22 @@
   word-break: break-word;
 }
 
+.sae-info__separator {
+  color: #cbd5e1;
+  margin: 0 4px;
+  font-size: 10px;
+  font-weight: 300;
+}
+
 /* ============================================================================
    RESPONSIVE ADJUSTMENTS
    ============================================================================ */
 
 @media (max-width: 1200px) {
   .stage-tab {
-    min-width: 120px;
-    padding: 6px 10px;
+    width: 140px;
+    height: 48px;
+    padding: 5px 8px;
   }
 
   .stage-tab__label {
@@ -305,6 +332,17 @@
 
   .stage-tab__instruction {
     font-size: 10px;
+    max-width: 120px;
+  }
+
+  .stage-tab__number {
+    min-width: 22px;
+    height: 22px;
+    font-size: 12px;
+  }
+
+  .stage-tab--completed .stage-tab__number {
+    font-size: 15px;
   }
 
   .tag-tab {

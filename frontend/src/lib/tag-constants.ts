@@ -119,7 +119,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     ],
     description: "Assesses the overall quality of the feature explanation based on multiple scoring metrics",
     parentTagForNextStage: "Need Revision",
-    instruction: "Rate explanation quality",
+    instruction: "Assess LLM generated explanation quality",
     tagColors: {},  // Populated by initializeTagColors()
     parentTag: "Monosemantic"  // Children of Monosemantic from stage 1
   },
@@ -149,7 +149,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     ],
     description: "Categorizes the root cause of explanation issues for features that need revision",
     parentTagForNextStage: null,
-    instruction: "Identify root cause",
+    instruction: "Determine root cause for poor explanation quality",
     tagColors: {},  // Populated by initializeTagColors()
     parentTag: "Need Revision"  // Children of Need Revision from stage 2
   }

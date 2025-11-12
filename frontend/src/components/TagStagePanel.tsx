@@ -6,7 +6,7 @@ import {
 } from '../lib/tag-constants';
 import { useVisualizationStore } from '../store/index';
 import { parseSAEId, getLLMExplainerNames } from '../lib/utils';
-import '../styles/TagCategoryPanel.css';
+import '../styles/TagStagePanel.css';
 
 interface TagCategoryPanelProps {
   selectedCategory?: string | null;
@@ -151,10 +151,12 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
                 onClick={() => handleStageClick(stage.id)}
                 title={stage.description}
               >
-                <div className="stage-tab__number">
-                  {isCompleted ? '✓' : stage.stageOrder}
+                <div className="stage-tab__header">
+                  <div className="stage-tab__number">
+                    {isCompleted ? '✓' : stage.stageOrder}
+                  </div>
+                  <div className="stage-tab__label">{stage.label}</div>
                 </div>
-                <div className="stage-tab__label">{stage.label}</div>
                 <div className="stage-tab__instruction">{stage.instruction}</div>
               </button>
 
@@ -211,8 +213,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
             <div className="sae-info__row">
               <span className="sae-info__label">Model:</span>
               <span className="sae-info__value">{saeMetadata.modelName}</span>
-            </div>
-            <div className="sae-info__row">
+              <span className="sae-info__separator">|</span>
               <span className="sae-info__label">Layer:</span>
               <span className="sae-info__value">{saeMetadata.layer}</span>
             </div>
