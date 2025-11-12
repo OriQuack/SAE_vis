@@ -26,12 +26,12 @@ interface SelectionStateBarProps {
 // Category config for feature/pair modes
 const CATEGORY_CONFIG: Record<SelectionCategory, { label: string; color: string; description: string }> = {
   confirmed: {
-    label: 'Confirmed',
+    label: 'Selected',
     color: SELECTION_CATEGORY_COLORS.CONFIRMED.HEX,
     description: 'Manually selected by user'
   },
   expanded: {
-    label: 'Expanded',
+    label: 'Auto-Selected',
     color: SELECTION_CATEGORY_COLORS.EXPANDED.HEX,
     description: 'Auto-tagged by histogram thresholds'
   },

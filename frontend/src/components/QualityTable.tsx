@@ -9,9 +9,7 @@ import {
   findMaxQualityScoreExplainer
 } from '../lib/table-utils'
 import { TAG_CATEGORY_QUALITY, TAG_CATEGORIES, getBadgeColors } from '../lib/tag-constants'
-import {
-  getCircleRadius
-} from '../lib/circle-encoding-utils'
+import ScoreCircle from './TableScoreCircle'
 import {
   METRIC_QUALITY_SCORE,
   CATEGORY_DECODER_SIMILARITY
@@ -751,61 +749,21 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                   <td
                     ref={featureIndex === 0 ? qualityScoreCellRef : undefined}
                     className="table-panel__cell table-panel__cell--score"
-                    title={`Quality Score: ${maxQualityInfo.qualityScore.toFixed(3)} (${getExplainerDisplayName(explainerId)})\nComponent range: [${maxQualityInfo.componentRange.min.toFixed(3)}, ${maxQualityInfo.componentRange.max.toFixed(3)}]\nSize = score | Opacity = component variation`}
                     onMouseEnter={(e) => handleQualityScoreHover(featureRow, e.currentTarget)}
                     onMouseLeave={() => handleQualityScoreHover(null)}
                     style={{ cursor: 'pointer', position: 'relative' }}
                   >
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '4px',
-                        background: 'transparent'
+                    <ScoreCircle
+                      score={maxQualityInfo.qualityScore}
+                      scoreStats={{
+                        avg: maxQualityInfo.qualityScore,
+                        min: maxQualityInfo.componentRange.min,
+                        max: maxQualityInfo.componentRange.max
                       }}
-                    >
-                      {/* Circle */}
-                      <svg
-                        width={getCircleRadius(maxQualityInfo.qualityScore) * 2 + 4}
-                        height={getCircleRadius(maxQualityInfo.qualityScore) * 2 + 4}
-                        style={{
-                          display: 'block',
-                          marginBottom: '4px',
-                          background: 'transparent'
-                        }}
-                      >
-                        <circle
-                          cx={getCircleRadius(maxQualityInfo.qualityScore) + 2}
-                          cy={getCircleRadius(maxQualityInfo.qualityScore) + 2}
-                          r={getCircleRadius(maxQualityInfo.qualityScore)}
-                          fill="#1f2937"
-                          opacity={(() => {
-                            // Calculate opacity based on component range spread
-                            const spread = maxQualityInfo.componentRange.max - maxQualityInfo.componentRange.min
-                            // Low spread (all components similar) = high opacity (solid)
-                            // High spread (components vary) = low opacity (transparent)
-                            // Map spread [0, 1] to opacity [1.0, 0.3]
-                            return 1.0 - (spread)
-                          })()}
-                          stroke="none"
-                        />
-                      </svg>
-
-                      {/* Number below circle */}
-                      <div
-                        style={{
-                          fontSize: '11px',
-                          fontFamily: 'monospace',
-                          color: qualityPopover && qualityPopover.featureId === featureRow.feature_id ? '#3b82f6' : '#6b7280',
-                          fontWeight: qualityPopover && qualityPopover.featureId === featureRow.feature_id ? 600 : 400,
-                          transition: 'all 0.15s ease'
-                        }}
-                      >
-                        {maxQualityInfo.qualityScore.toFixed(3)}
-                      </div>
-                    </div>
+                      label={maxQualityInfo.qualityScore.toFixed(3)}
+                      tooltipText={`Quality Score: ${maxQualityInfo.qualityScore.toFixed(3)} (${getExplainerDisplayName(explainerId)})\nComponent range: [${maxQualityInfo.componentRange.min.toFixed(3)}, ${maxQualityInfo.componentRange.max.toFixed(3)}]\nSize = score | Opacity = consistency`}
+                      showLabel={true}
+                    />
                   </td>
 
                   {/* Explanation text */}

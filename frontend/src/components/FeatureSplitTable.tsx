@@ -5,7 +5,7 @@ import type { FeatureTableRow, DecoderStagePairRow, StageTableContext } from '..
 import { METRIC_DECODER_SIMILARITY } from '../lib/constants'
 import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORIES, getBadgeColors } from '../lib/tag-constants'
 import ActivationExample from './TableActivationExample'
-import DecoderSimilarityOverlay from './FeatureSplitOverlay'
+import ScoreCircle from './TableScoreCircle'
 import SimilarityTaggingPopover from './TagAutomaticPopover'
 import TableSelectionPanel from './TableSelectionPanel'
 import '../styles/QualityTable.css'
@@ -888,16 +888,65 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
 
                   {/* Decoder Similarity Score - Horizontal visualization */}
                   <td className="decoder-stage-table__cell--decoder-similarity" style={{ position: 'relative', overflow: 'visible' }}>
-                    <DecoderSimilarityOverlay
-                      mainFeature={row.mainFeature}
-                      similarFeature={row.similarFeature}
-                      mainFeatureId={row.mainFeature.feature_id}
-                      onBadgeInteraction={handleBadgeInteraction}
-                      onBadgeLeave={handleBadgeLeave}
-                      interFeatureHighlights={interFeatureHighlights}
-                      onHoverChange={(isHovered) => setHoveredPairKey(isHovered ? row.pairKey : null)}
-                      isRowSelected={pairSelectionState === 'selected'}
-                    />
+                    <div
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => {
+                        // Handle click interaction
+                        handleBadgeInteraction(
+                          row.mainFeature.feature_id,
+                          row.similarFeature.feature_id,
+                          row.similarFeature.inter_feature_similarity,
+                          true
+                        )
+                      }}
+                      onMouseEnter={() => {
+                        // Handle hover interaction
+                        handleBadgeInteraction(
+                          row.mainFeature.feature_id,
+                          row.similarFeature.feature_id,
+                          row.similarFeature.inter_feature_similarity,
+                          false
+                        )
+
+                        // Fetch activation examples if needed
+                        const featuresToFetch = []
+                        if (!activationExamples[row.mainFeature.feature_id]) {
+                          featuresToFetch.push(row.mainFeature.feature_id)
+                        }
+                        if (!activationExamples[row.similarFeature.feature_id]) {
+                          featuresToFetch.push(row.similarFeature.feature_id)
+                        }
+                        if (featuresToFetch.length > 0) {
+                          fetchActivationExamples(featuresToFetch)
+                        }
+
+                        // Notify parent to show activation overlays
+                        setHoveredPairKey(row.pairKey)
+                      }}
+                      onMouseLeave={() => {
+                        // Clear hover highlight
+                        handleBadgeLeave()
+
+                        // Notify parent to hide activation overlays
+                        setHoveredPairKey(null)
+                      }}
+                    >
+                      <ScoreCircle
+                        score={row.similarFeature.cosine_similarity}
+                        metric="decoder_similarity"
+                        useSolidColor={true}
+                        label={row.similarFeature.cosine_similarity.toFixed(3)}
+                        tooltipText={`Decoder Similarity: ${row.similarFeature.cosine_similarity.toFixed(3)}`}
+                        showLabel={true}
+                      />
+                    </div>
                   </td>
 
                   {/* Main Feature Activation Example */}
