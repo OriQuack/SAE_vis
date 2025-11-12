@@ -242,6 +242,7 @@ width: 39%;
   transition: background-color 0.15s ease, border-left 0.15s ease;
   cursor: pointer;
   min-height: 16px;
+  position: relative;  /* Allow absolute positioned children to extend beyond */
 }
 
 .table-panel__sub-row:hover {
@@ -749,7 +750,7 @@ width: 39%;
 
 .table-panel__explanation-popover {
   position: absolute;
-  z-index: 100;
+  z-index: 1000;  /* High z-index to appear above table rows */
   background: white;
   border: 1px solid #000000;
   border-radius: 6px;

@@ -54,7 +54,7 @@ const BASE_RADIUS_PER_CHILD = 8
 const MAX_SAMPLING_ATTEMPTS = 1000
 
 // Fixed seed for consistent color generation across page loads
-const DEFAULT_SEED = 15
+const DEFAULT_SEED = 17
 
 // ============================================================================
 // SEEDED RANDOM NUMBER GENERATOR
@@ -118,7 +118,7 @@ export class HierarchicalColorAssigner {
 
     // Step 0: Assign dark grey color to root node
     const darkGreyColor: LABColor = {
-      L: 40,  // Dark lightness
+      L: 60,  // Dark lightness
       a: 0,   // Neutral (no red/green)
       b: -5    // Neutral (no blue/yellow)
     }

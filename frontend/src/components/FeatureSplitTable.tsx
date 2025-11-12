@@ -839,9 +839,9 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                   className={rowClassName}
                   onClick={(e) => {
                     // Allow clicking anywhere on the row to toggle the pair selection
-                    // Only exclude the category badge itself
+                    // but don't toggle if clicking interactive elements
                     const target = e.target as HTMLElement
-                    if (!target.closest('.table-panel__category-badge')) {
+                    if (!target.closest('.table-panel__category-badge, .decoder-stage-table__cell--activation, .decoder-stage-table__cell--decoder-similarity')) {
                       handlePairToggle(row.mainFeature.feature_id, row.similarFeature.feature_id)
                     }
                   }}
@@ -889,7 +889,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                   </td>
 
                   {/* Decoder Similarity Score - Horizontal visualization */}
-                  <td className="decoder-stage-table__cell--decoder-similarity">
+                  <td className="decoder-stage-table__cell--decoder-similarity" style={{ position: 'relative', overflow: 'visible' }}>
                     <DecoderSimilarityOverlay
                       mainFeature={row.mainFeature}
                       similarFeature={row.similarFeature}
@@ -903,7 +903,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                   </td>
 
                   {/* Main Feature Activation Example */}
-                  <td className="table-panel__cell decoder-stage-table__cell--activation decoder-stage-table__cell--activation-main">
+                  <td className="table-panel__cell decoder-stage-table__cell--activation decoder-stage-table__cell--activation-main" style={{ position: 'relative', overflow: 'visible' }}>
                     {activationExamples[row.mainFeature.feature_id] ? (
                       <ActivationExample
                         examples={activationExamples[row.mainFeature.feature_id]}
@@ -918,7 +918,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                   </td>
 
                   {/* Similar Feature Activation Example */}
-                  <td className="table-panel__cell decoder-stage-table__cell--activation decoder-stage-table__cell--activation-similar">
+                  <td className="table-panel__cell decoder-stage-table__cell--activation decoder-stage-table__cell--activation-similar" style={{ position: 'relative', overflow: 'visible' }}>
                     {activationExamples[row.similarFeature.feature_id] ? (
                       <ActivationExample
                         examples={activationExamples[row.similarFeature.feature_id]}

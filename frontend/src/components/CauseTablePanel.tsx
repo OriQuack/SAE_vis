@@ -416,7 +416,7 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
                 <div className="table-panel__header-content">Explanation</div>
               </th>
               <th className="table-panel__header-cell table-panel__header-cell--activation-example">
-                <div className="table-panel__header-content">Activating Examples</div>
+                <div className="table-panel__header-content">Activation Examples</div>
               </th>
             </tr>
           </thead>
@@ -494,8 +494,8 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
                       className={rowClass}
                       onClick={(e) => {
                         const target = e.target as HTMLElement
-                        // Only exclude the category badge itself
-                        if (!target.closest('.table-panel__category-badge')) {
+                        // Don't trigger if clicking interactive elements (badge, explanation, activation example)
+                        if (!target.closest('.table-panel__category-badge, .table-panel__cell--explanation, .table-panel__cell--activation-example')) {
                           toggleCauseCategory(featureRow.feature_id)
                         }
                       }}
@@ -632,7 +632,7 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
                       </td>
 
                       {/* Activating Examples */}
-                      <td className="table-panel__cell table-panel__cell--activation-example">
+                      <td className="table-panel__cell table-panel__cell--activation-example" style={{ position: 'relative', overflow: 'visible' }}>
                         {activationExamples[featureRow.feature_id] ? (
                           <ActivationExample
                             examples={activationExamples[featureRow.feature_id]}

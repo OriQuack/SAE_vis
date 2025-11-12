@@ -612,7 +612,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                 </span>
               </th>
               <th className="table-panel__header-cell table-panel__header-cell--activation-example">
-                Activating Example
+                Activation Example
               </th>
             </tr>
           </thead>
@@ -692,9 +692,9 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                   className={rowClassName}
                   onClick={(e) => {
                     // Allow clicking anywhere on the row to toggle the feature selection
-                    // Only exclude the category badge itself
+                    // but don't trigger if clicking interactive elements (badge, explanation, activation example)
                     const target = e.target as HTMLElement
-                    if (!target.closest('.table-panel__category-badge')) {
+                    if (!target.closest('.table-panel__category-badge, .table-panel__cell--explanation, .table-panel__cell--activation-example')) {
                       toggleFeatureSelection(featureRow.feature_id)
                     }
                   }}
@@ -874,7 +874,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                   </td>
 
                   {/* Activation Example column */}
-                  <td className="table-panel__cell table-panel__cell--activation-example">
+                  <td className="table-panel__cell table-panel__cell--activation-example" style={{ position: 'relative', overflow: 'visible' }}>
                     {activationExamples[featureRow.feature_id] ? (
                       <ActivationExample
                         examples={activationExamples[featureRow.feature_id]}
