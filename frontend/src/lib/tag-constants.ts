@@ -51,6 +51,12 @@ export interface TagCategoryConfig {
 
   /** Description of what this category represents */
   description: string
+
+  /** Which tag from this category is parent of all next stage tags (null if none) */
+  parentTagForNextStage: string | null
+
+  /** User-facing instruction text displayed in the UI */
+  instruction: string
 }
 
 /**
@@ -66,7 +72,7 @@ export interface TagCategoryConfig {
 export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
   [TAG_CATEGORY_FEATURE_SPLITTING]: {
     id: TAG_CATEGORY_FEATURE_SPLITTING,
-    label: "Feature Splitting",
+    label: "Detect Feature Splitting",
     stageOrder: 1,
     metric: METRIC_DECODER_SIMILARITY,
     defaultThresholds: [0.4],
@@ -79,12 +85,14 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
       METRIC_DECODER_SIMILARITY,
       "inter_feature_similarity"  // Note: Not yet in backend data
     ],
-    description: "Identifies whether a feature represents a single semantic concept or multiple overlapping concepts"
+    description: "Identifies whether a feature represents a single semantic concept or multiple overlapping concepts",
+    parentTagForNextStage: "Monosemantic",
+    instruction: "Fragmented or Monosemantic Feature?"
   },
 
   [TAG_CATEGORY_QUALITY]: {
     id: TAG_CATEGORY_QUALITY,
-    label: "Quality",
+    label: "Assess Quality",
     stageOrder: 2,
     metric: METRIC_QUALITY_SCORE,
     defaultThresholds: [0.7],
@@ -99,12 +107,14 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
       METRIC_SCORE_DETECTION,
       METRIC_QUALITY_SCORE
     ],
-    description: "Assesses the overall quality of the feature explanation based on multiple scoring metrics"
+    description: "Assesses the overall quality of the feature explanation based on multiple scoring metrics",
+    parentTagForNextStage: "Need Revision",
+    instruction: "Rate explanation quality"
   },
 
   [TAG_CATEGORY_CAUSE]: {
     id: TAG_CATEGORY_CAUSE,
-    label: "Cause",
+    label: "Determine Cause",
     stageOrder: 3,
     metric: null,  // Pre-defined groups, not metric-based
     defaultThresholds: [],
@@ -125,7 +135,9 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
       "intra_feature_similarity",  // Note: Not yet in backend data
       METRIC_SEMANTIC_SIMILARITY
     ],
-    description: "Categorizes the root cause of explanation issues for features that need revision"
+    description: "Categorizes the root cause of explanation issues for features that need revision",
+    parentTagForNextStage: null,
+    instruction: "Identify root cause"
   }
 } as const
 

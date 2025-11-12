@@ -6,6 +6,7 @@ import { scaleLinear } from 'd3-scale'
 import {
   METRIC_COLORS
 } from './constants'
+import { getNodeColor as getNodeColorFromTree } from './hierarchical-colors'
 import type { FeatureTableRow } from '../types'
 
 // ============================================================================
@@ -388,11 +389,11 @@ export function getTagColor(
       if (stage.metric && node.parentId) {
         const parentNode = sankeyTree.get(node.parentId)
         if (parentNode && parentNode.metric === stage.metric) {
-          return node.colorHex || null
+          return getNodeColorFromTree(nodeId, sankeyTree)
         }
       } else {
         // For pre-defined categories (like Cause) or when no metric validation needed
-        return node.colorHex || null
+        return getNodeColorFromTree(nodeId, sankeyTree)
       }
     }
   }

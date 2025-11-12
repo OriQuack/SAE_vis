@@ -11,9 +11,9 @@ import {
   getNodeHistogramMetric,
   hasOutgoingLinks,
   calculateHistogramYAxisTicks
-} from '../lib/d3-sankey-histogram-utils'
+} from '../lib/sankey-histogram-utils'
 import { getNodeThresholds, getExactMetricFromPercentile, getChildNodeTagName } from '../lib/threshold-utils'
-import { calculateHorizontalBarSegments } from '../lib/d3-histogram-utils'
+import { calculateHorizontalBarSegments } from '../lib/histogram-utils'
 import { scaleLinear } from 'd3-scale'
 import { ThresholdHandles } from './ThresholdHandles'
 

@@ -12,7 +12,7 @@ import {
   calculateYAxisTicks,
   calculateGridLines,
   calculateBarSegments
-} from '../lib/d3-histogram-utils'
+} from '../lib/histogram-utils'
 import { scaleLinear } from 'd3-scale'
 import { getNodeThresholds } from '../lib/threshold-utils'
 import { METRIC_DISPLAY_NAMES, getMetricBaseColor, getThresholdRegionColors } from '../lib/constants'

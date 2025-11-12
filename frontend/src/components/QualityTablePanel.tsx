@@ -7,9 +7,9 @@ import {
   sortFeatures,
   getExplainerDisplayName,
   findMaxQualityScoreExplainer
-} from '../lib/d3-table-utils'
+} from '../lib/table-utils'
 import { getBadgeColors } from '../lib/utils'
-import { TAG_CATEGORY_QUALITY, TAG_CATEGORIES } from '../lib/tag-categories'
+import { TAG_CATEGORY_QUALITY, TAG_CATEGORIES } from '../lib/tag-constants'
 import {
   getCircleRadius
 } from '../lib/circle-encoding-utils'
@@ -20,7 +20,7 @@ import {
 import {
   TAG_CATEGORY_FEATURE_SPLITTING,
   TAG_CATEGORY_CAUSE
-} from '../lib/tag-categories'
+} from '../lib/tag-constants'
 import { HighlightedExplanation } from './HighlightedExplanation'
 import ActivationExample from './ActivationExample'
 import QualityScoreBreakdown from './QualityScoreBreakdown'

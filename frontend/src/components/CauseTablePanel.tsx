@@ -6,7 +6,7 @@ import {
   getExplainerDisplayName,
   findMaxQualityScoreExplainer,
   sortFeatures
-} from '../lib/d3-table-utils'
+} from '../lib/table-utils'
 import {
   METRIC_SEMANTIC_SIMILARITY,
   METRIC_SCORE_FUZZ
@@ -15,7 +15,7 @@ import type { ScoreStats } from '../lib/circle-encoding-utils'
 import ScoreCircle from './ScoreCircle'
 import { HighlightedExplanation } from './HighlightedExplanation'
 import { getBadgeColors } from '../lib/utils'
-import { TAG_CATEGORY_CAUSE, TAG_CATEGORIES } from '../lib/tag-categories'
+import { TAG_CATEGORY_CAUSE, TAG_CATEGORIES } from '../lib/tag-constants'
 import ActivationExample from './ActivationExample'
 import TableSelectionPanel from './TableSelectionPanel'
 import SimilarityTaggingPopover from './SimilarityTaggingPopover'

@@ -418,14 +418,14 @@ export function getLinkColor(link: D3SankeyLink): string {
   // Defensive checks for d3-sankey processed data
   if (!link?.source) {
     console.warn('getLinkColor: Link source is undefined, using default color')
-    return '#6b728059'  // 35% opacity
+    return '#6b728059'
   }
 
   const sourceNode = link.source as D3SankeyNode
 
   // Use hierarchical color from source node (preferred)
   if (sourceNode?.colorHex) {
-    return `${sourceNode.colorHex}59`  // Add 35% opacity
+    return `${sourceNode.colorHex}30`  // Add 35% opacity
   }
 
   // Fallback: Get metric from source node (links are colored by the metric that created them)

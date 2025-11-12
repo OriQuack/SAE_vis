@@ -10,8 +10,8 @@ import {
   getSankeyPath,
   applyRightToLeftTransform,
   RIGHT_SANKEY_MARGIN
-} from '../lib/d3-sankey-utils'
-import { calculateVerticalBarNodeLayout } from '../lib/d3-sankey-utils'
+} from '../lib/sankey-utils'
+import { calculateVerticalBarNodeLayout } from '../lib/sankey-utils'
 import {
   getNodeMetrics
 } from '../lib/threshold-utils'
@@ -105,28 +105,18 @@ const SankeyLink: React.FC<{
   onMouseLeave: () => void
   onClick?: (e: React.MouseEvent) => void
   animationDuration: number
-  gradientId?: string
   isHovered: boolean
-}> = ({ link, onMouseEnter, onMouseLeave, onClick, animationDuration, gradientId, isHovered }) => {
+}> = ({ link, onMouseEnter, onMouseLeave, onClick, animationDuration, isHovered }) => {
   const sourceNode = typeof link.source === 'object' ? link.source : null
   if (!sourceNode) return null
 
   const path = getSankeyPath(link)
-  const baseColor = gradientId ? `url(#${gradientId})` : getLinkColor(link)
+  const baseColor = getLinkColor(link)
 
   // Apply opacity by replacing last 2 characters (opacity suffix)
   // - Normal: 35% opacity ('59' hex)
   // - Hover: 50% opacity ('80' hex)
-  let color: string
-  if (gradientId) {
-    // Gradient URLs don't have opacity suffix, use as-is
-    color = baseColor
-  } else if (isHovered) {
-    // Replace only the last 2 characters (opacity) with '80'
-    color = baseColor.slice(0, -2) + '80'
-  } else {
-    color = baseColor
-  }
+  const color = isHovered ? baseColor.slice(0, -2) + '80' : baseColor
 
   return (
     <path

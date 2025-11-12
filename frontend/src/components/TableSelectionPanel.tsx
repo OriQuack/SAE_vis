@@ -5,7 +5,7 @@ import {
   METRIC_DISPLAY_NAMES
 } from '../lib/constants'
 import { getBadgeColors } from '../lib/utils'
-import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE, TAG_CATEGORIES } from '../lib/tag-categories'
+import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE, TAG_CATEGORIES } from '../lib/tag-constants'
 import SelectionStateBar, { type CategoryCounts } from './SelectionStateBar'
 import '../styles/TableSelectionPanel.css'
 

@@ -16,7 +16,7 @@ import type {
   TreeBasedSankeyStructure,
   MetricType
 } from '../types'
-import { TAG_CATEGORIES } from './tag-categories'
+import { TAG_CATEGORIES } from './tag-constants'
 
 
 // ============================================================================

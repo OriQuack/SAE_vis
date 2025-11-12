@@ -5,7 +5,7 @@ import {
   calculateCategoryStackedBars,
   calculateXAxisTicks,
   calculateYAxisTicks
-} from '../lib/d3-histogram-utils'
+} from '../lib/histogram-utils'
 import { SELECTION_CATEGORY_COLORS } from '../lib/constants'
 import SelectionStateBar, { type CategoryCounts } from './SelectionStateBar'
 import ThresholdHandles from './ThresholdHandles'

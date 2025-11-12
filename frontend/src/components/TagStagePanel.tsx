@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useEffect, useState } from 'react';
 import {
   getTagCategoriesInOrder,
   type TagCategoryConfig
-} from '../lib/tag-categories';
+} from '../lib/tag-constants';
 import { useVisualizationStore } from '../store/index';
 import { parseSAEId, getLLMExplainerNames, getTagColor } from '../lib/utils';
 import '../styles/TagCategoryPanel.css';
@@ -18,13 +18,6 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
 }) => {
   // Get all stages in order
   const stages = useMemo(() => getTagCategoriesInOrder(), []);
-
-  // Stage instructions mapping
-  const stageInstructions: Record<string, string> = {
-    'feature_splitting': 'Fragmented or Monosemantic Feature?',
-    'quality': 'Rate explanation quality',
-    'cause': 'Identify root cause'
-  };
 
   // Get sankeyTree from left panel for color mapping
   const sankeyTree = useVisualizationStore(state => state.leftPanel.sankeyTree);
@@ -350,7 +343,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
                     isActive ? 'stage-instruction--active' : ''
                   }`}
                 >
-                  {stageInstructions[stage.id]}
+                  {stage.instruction}
                 </div>
               );
             })}

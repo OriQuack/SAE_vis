@@ -54,7 +54,7 @@ const BASE_RADIUS_PER_CHILD = 8
 const MAX_SAMPLING_ATTEMPTS = 1000
 
 // Fixed seed for consistent color generation across page loads
-const DEFAULT_SEED = 17
+const DEFAULT_SEED = 3
 
 // ============================================================================
 // SEEDED RANDOM NUMBER GENERATOR

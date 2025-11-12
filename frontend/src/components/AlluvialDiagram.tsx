@@ -7,9 +7,9 @@ import {
   getConnectedFlowIds,
   getFlowOpacity,
   ALLUVIAL_LEGEND_ITEMS
-} from '../lib/d3-alluvial-utils'
-import { calculateSankeyLayout } from '../lib/d3-sankey-utils'
-import { ALLUVIAL_MARGIN } from '../lib/d3-alluvial-utils'
+} from '../lib/alluvial-utils'
+import { calculateSankeyLayout } from '../lib/sankey-utils'
+import { ALLUVIAL_MARGIN } from '../lib/alluvial-utils'
 import { useResizeObserver } from '../lib/utils'
 import type { AlluvialSankeyNode, AlluvialSankeyLink } from '../types'
 import '../styles/AlluvialDiagram.css'

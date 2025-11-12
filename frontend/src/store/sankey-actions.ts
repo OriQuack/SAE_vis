@@ -14,7 +14,7 @@ import {
   TAG_CATEGORY_FEATURE_SPLITTING,
   TAG_CATEGORY_QUALITY,
   TAG_CATEGORY_CAUSE
-} from '../lib/tag-categories'
+} from '../lib/tag-constants'
 import { HierarchicalColorAssigner } from '../lib/hierarchical-colors'
 
 type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
