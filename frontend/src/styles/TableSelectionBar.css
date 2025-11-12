@@ -23,7 +23,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
   border-right: 1px solid rgba(255, 255, 255, 0.3);
 }
 
@@ -70,6 +69,10 @@
 
 .selection-state-bar__segment--rejected {
   background-color: #ef4444; /* red */
+}
+
+.selection-state-bar__segment--auto-rejected {
+  background-color: #fca5a5; /* light red */
 }
 
 .selection-state-bar__segment--unsure {
@@ -150,27 +153,6 @@
   .selection-state-bar__legend-item {
     flex: 0 0 auto;
   }
-}
-
-/* Animation for segment appearance */
-@keyframes segmentAppear {
-  from {
-    opacity: 0;
-    transform: scaleX(0);
-  }
-  to {
-    opacity: 1;
-    transform: scaleX(1);
-  }
-}
-
-.selection-state-bar__segment {
-  animation: segmentAppear 0.3s ease;
-}
-
-/* Tooltip enhancement (uses native title attribute, but could be enhanced) */
-.selection-state-bar__segment {
-  position: relative;
 }
 
 /* Click feedback ripple effect */

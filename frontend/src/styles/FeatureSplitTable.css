@@ -392,15 +392,15 @@
  * AUTO-TAGGED INDICATOR - Colored border on index column
  * ============================================================================ */
 
-/* Confirmed (manual selection) - Green border */
+/* Confirmed (manual selection) - Blue border */
 .table-panel__sub-row--confirmed.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
-  border-left: 5px solid #10b981 !important;
+  border-left: 5px solid #3b82f6 !important;
   padding-left: 3px;
 }
 
-/* Expanded (auto-tagged) - Blue border */
+/* Expanded (auto-tagged) - Light blue border */
 .table-panel__sub-row--expanded.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
-  border-left: 5px solid #3b82f6 !important;
+  border-left: 5px solid #93c5fd !important;
   padding-left: 3px;
 }
 

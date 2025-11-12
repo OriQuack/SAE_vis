@@ -278,28 +278,36 @@ export const COMPONENT_COLORS = {
  * Unsure: Not selected or investigated - GRAY
  */
 export const SELECTION_CATEGORY_COLORS = {
-  // Confirmed - Manual selection by user (Green)
+  // Confirmed - Manual selection by user (Blue)
   CONFIRMED: {
-    HEX: '#10b981',                    // Tailwind green-500
-    RGB: { r: 16, g: 185, b: 129 },    // RGB components
-    LIGHT: 'rgba(16, 185, 129, 0.08)', // Background highlight
-    HOVER: 'rgba(16, 185, 129, 0.15)'  // Hover state
-  },
-
-  // Expanded - Auto-tagged by histogram (Blue)
-  EXPANDED: {
     HEX: '#3b82f6',                    // Tailwind blue-500
     RGB: { r: 59, g: 130, b: 246 },    // RGB components
     LIGHT: 'rgba(59, 130, 246, 0.08)', // Background highlight
     HOVER: 'rgba(59, 130, 246, 0.15)'  // Hover state
   },
 
-  // Rejected - Manually or auto rejected (Red)
+  // Expanded - Auto-tagged by histogram (Light Blue)
+  EXPANDED: {
+    HEX: '#93c5fd',                    // Tailwind blue-300
+    RGB: { r: 147, g: 197, b: 253 },   // RGB components
+    LIGHT: 'rgba(147, 197, 253, 0.08)', // Background highlight
+    HOVER: 'rgba(147, 197, 253, 0.15)'  // Hover state
+  },
+
+  // Rejected - Manually rejected (Red)
   REJECTED: {
     HEX: '#ef4444',                    // Tailwind red-500
     RGB: { r: 239, g: 68, b: 68 },     // RGB components
     LIGHT: 'rgba(239, 68, 68, 0.08)',  // Background highlight
     HOVER: 'rgba(239, 68, 68, 0.15)'   // Hover state
+  },
+
+  // Auto-Rejected - Auto-tagged by histogram threshold (Light Red)
+  AUTO_REJECTED: {
+    HEX: '#fca5a5',                    // Tailwind red-300
+    RGB: { r: 252, g: 165, b: 165 },   // RGB components
+    LIGHT: 'rgba(252, 165, 165, 0.08)', // Background highlight
+    HOVER: 'rgba(252, 165, 165, 0.15)'  // Hover state
   },
 
   // Unsure - Not selected or investigated (Gray)
@@ -314,7 +322,7 @@ export const SELECTION_CATEGORY_COLORS = {
 /**
  * Selection category type definition
  */
-export type SelectionCategory = 'confirmed' | 'expanded' | 'rejected' | 'unsure'
+export type SelectionCategory = 'confirmed' | 'expanded' | 'rejected' | 'auto-rejected' | 'unsure'
 
 /**
  * Get color for a selection category
@@ -329,6 +337,8 @@ export function getSelectionCategoryColor(category: SelectionCategory) {
       return SELECTION_CATEGORY_COLORS.EXPANDED
     case 'rejected':
       return SELECTION_CATEGORY_COLORS.REJECTED
+    case 'auto-rejected':
+      return SELECTION_CATEGORY_COLORS.AUTO_REJECTED
     case 'unsure':
       return SELECTION_CATEGORY_COLORS.UNSURE
     default:

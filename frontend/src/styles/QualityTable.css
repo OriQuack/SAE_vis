@@ -292,27 +292,27 @@ width: 39%;
 /* Category selection state backgrounds - 4 categories */
 /* Color values defined in: frontend/src/lib/constants.ts -> SELECTION_CATEGORY_COLORS */
 
-/* Confirmed: Manually selected - Uses dynamic color from Sankey (30% opacity) */
+/* Confirmed: Manually selected - Blue (30% opacity) */
 .table-panel__sub-row--confirmed .table-panel__cell {
-  background: var(--row-bg-color, rgba(16, 185, 129, 0.3)) !important;
+  background: var(--row-bg-color, rgba(59, 130, 246, 0.3)) !important;
 }
 
 .table-panel__sub-row--confirmed:hover .table-panel__cell {
-  background: var(--row-bg-color, rgba(16, 185, 129, 0.3)) !important;
+  background: var(--row-bg-color, rgba(59, 130, 246, 0.3)) !important;
   filter: brightness(0.95);
 }
 
-/* Expanded: Auto-tagged by histogram - BLUE (keep hardcoded) */
+/* Expanded: Auto-tagged by histogram - Light blue (30% opacity) */
 .table-panel__sub-row--expanded .table-panel__cell {
-  background: rgba(59, 130, 246, 0.3) !important; /* Blue with 30% opacity */
+  background: var(--row-bg-color, rgba(147, 197, 253, 0.3)) !important; /* Light blue with 30% opacity */
 }
 
 .table-panel__sub-row--expanded:hover .table-panel__cell {
-  background: rgba(59, 130, 246, 0.3) !important;
+  background: var(--row-bg-color, rgba(147, 197, 253, 0.3)) !important;
   filter: brightness(0.95);
 }
 
-/* Rejected: Manually or auto rejected - Uses dynamic color from Sankey (30% opacity) */
+/* Rejected: Manually rejected - Uses dynamic color from Sankey (30% opacity) */
 .table-panel__sub-row--rejected .table-panel__cell {
   background: var(--row-bg-color, rgba(239, 68, 68, 0.3)) !important;
 }
@@ -322,31 +322,44 @@ width: 39%;
   filter: brightness(0.95);
 }
 
-/* Cause Table - Row backgrounds with dynamic colors (30% opacity) */
+/* Auto-Rejected: Auto-tagged by histogram threshold - Light red (30% opacity) */
+.table-panel__sub-row--auto-rejected .table-panel__cell {
+  background: var(--row-bg-color, rgba(252, 165, 165, 0.3)) !important;
+}
+
+.table-panel__sub-row--auto-rejected:hover .table-panel__cell {
+  background: var(--row-bg-color, rgba(252, 165, 165, 0.3)) !important;
+  filter: brightness(0.95);
+}
+
+/* Cause Table - Row backgrounds using standard selection colors (30% opacity) */
+/* noisy-activation maps to confirmed (blue) */
 .table-panel__sub-row--noisy-activation .table-panel__cell {
-  background: var(--row-bg-color, rgba(249, 115, 22, 0.3)) !important; /* Orange */
-}
-
-.table-panel__sub-row--noisy-activation:hover .table-panel__cell {
-  background: var(--row-bg-color, rgba(249, 115, 22, 0.3)) !important;
-  filter: brightness(0.95);
-}
-
-.table-panel__sub-row--missed-lexicon .table-panel__cell {
-  background: var(--row-bg-color, rgba(168, 85, 247, 0.3)) !important; /* Purple */
-}
-
-.table-panel__sub-row--missed-lexicon:hover .table-panel__cell {
-  background: var(--row-bg-color, rgba(168, 85, 247, 0.3)) !important;
-  filter: brightness(0.95);
-}
-
-.table-panel__sub-row--missed-context .table-panel__cell {
   background: var(--row-bg-color, rgba(59, 130, 246, 0.3)) !important; /* Blue */
 }
 
-.table-panel__sub-row--missed-context:hover .table-panel__cell {
+.table-panel__sub-row--noisy-activation:hover .table-panel__cell {
   background: var(--row-bg-color, rgba(59, 130, 246, 0.3)) !important;
+  filter: brightness(0.95);
+}
+
+/* missed-lexicon maps to expanded (light blue) */
+.table-panel__sub-row--missed-lexicon .table-panel__cell {
+  background: var(--row-bg-color, rgba(147, 197, 253, 0.3)) !important; /* Light blue */
+}
+
+.table-panel__sub-row--missed-lexicon:hover .table-panel__cell {
+  background: var(--row-bg-color, rgba(147, 197, 253, 0.3)) !important;
+  filter: brightness(0.95);
+}
+
+/* missed-context maps to rejected (red) */
+.table-panel__sub-row--missed-context .table-panel__cell {
+  background: var(--row-bg-color, rgba(239, 68, 68, 0.3)) !important; /* Red */
+}
+
+.table-panel__sub-row--missed-context:hover .table-panel__cell {
+  background: var(--row-bg-color, rgba(239, 68, 68, 0.3)) !important;
   filter: brightness(0.95);
 }
 
@@ -369,39 +382,42 @@ width: 39%;
 
 /* Auto-tagged indicator: Colored border on index column based on category */
 /* Apply thick left border to the first cell (index column) for auto-tagged items */
-/* Uses dynamic tag colors from Sankey tree (full opacity for visibility) */
+/* Uses standard selection colors (full opacity for visibility) */
 
-/* Confirmed (manual selection) - Uses tag color (full opacity) */
+/* Confirmed - Blue border */
 .table-panel__sub-row--confirmed.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
-  border-left: 5px solid var(--row-color, #10b981) !important;
+  border-left: 5px solid var(--row-color, #3b82f6) !important;
   padding-left: 3px;
 }
 
-/* Expanded (auto-tagged) - Blue border (keep hardcoded) */
+/* Expanded - Light blue border */
 .table-panel__sub-row--expanded.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
-  border-left: 5px solid #3b82f6 !important;
+  border-left: 5px solid var(--row-color, #93c5fd) !important;
   padding-left: 3px;
 }
 
-/* Rejected - Uses tag color (full opacity) */
+/* Rejected - Red border */
 .table-panel__sub-row--rejected.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
   border-left: 5px solid var(--row-color, #ef4444) !important;
   padding-left: 3px;
 }
 
-/* Cause categories - Auto-tagged borders (full opacity) */
+/* Cause categories - Auto-tagged borders using standard colors */
+/* noisy-activation → blue */
 .table-panel__sub-row--noisy-activation.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
-  border-left: 5px solid var(--row-color, #f97316) !important;
-  padding-left: 3px;
-}
-
-.table-panel__sub-row--missed-lexicon.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
-  border-left: 5px solid var(--row-color, #a855f7) !important;
-  padding-left: 3px;
-}
-
-.table-panel__sub-row--missed-context.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
   border-left: 5px solid var(--row-color, #3b82f6) !important;
+  padding-left: 3px;
+}
+
+/* missed-lexicon → light blue */
+.table-panel__sub-row--missed-lexicon.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
+  border-left: 5px solid var(--row-color, #93c5fd) !important;
+  padding-left: 3px;
+}
+
+/* missed-context → red */
+.table-panel__sub-row--missed-context.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
+  border-left: 5px solid var(--row-color, #ef4444) !important;
   padding-left: 3px;
 }
 

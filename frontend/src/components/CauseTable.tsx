@@ -9,8 +9,12 @@ import {
 } from '../lib/table-utils'
 import {
   METRIC_SEMANTIC_SIMILARITY,
-  METRIC_SCORE_FUZZ
+  METRIC_SCORE_FUZZ,
+  SELECTION_CATEGORY_COLORS
 } from '../lib/constants'
+import {
+  getRowStyleProperties
+} from '../lib/table-color-utils'
 import type { ScoreStats } from '../lib/circle-encoding-utils'
 import ScoreCircle from './TableScoreCircle'
 import { HighlightedExplanation } from './TableExplanation'
@@ -466,18 +470,27 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
                   const fuzzAvg = fuzzStats?.avg || null
                   const detectionAvg = detectionStats?.avg || null
 
-                  // Determine row class and background color based on cause state
+                  // Determine row class and background color using standard selection colors
                   let rowClass = 'table-panel__sub-row'
                   let rowBackgroundColor = ''
                   if (causeState) {
-                    rowClass += ` table-panel__sub-row--${causeState}`
+                    // Map cause states to standard selection colors for row backgrounds
+                    // 'noisy-activation' → confirmed (blue)
+                    // 'missed-lexicon' → expanded (light blue)
+                    // 'missed-context' → rejected (red)
+                    if (causeState === 'noisy-activation') {
+                      rowClass += ' table-panel__sub-row--confirmed'
+                      rowBackgroundColor = SELECTION_CATEGORY_COLORS.CONFIRMED.HEX
+                    } else if (causeState === 'missed-lexicon') {
+                      rowClass += ' table-panel__sub-row--expanded'
+                      rowBackgroundColor = SELECTION_CATEGORY_COLORS.EXPANDED.HEX
+                    } else if (causeState === 'missed-context') {
+                      rowClass += ' table-panel__sub-row--rejected'
+                      rowBackgroundColor = SELECTION_CATEGORY_COLORS.REJECTED.HEX
+                    }
+
                     if (causeSource === 'auto') {
                       rowClass += ' table-panel__sub-row--auto-tagged'
-                    }
-                    // Apply dynamic color
-                    const config = causeConfig[causeState as keyof typeof causeConfig]
-                    if (config) {
-                      rowBackgroundColor = config.color
                     }
                   }
 
@@ -498,12 +511,8 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
                         }
                       }}
                       style={{
-                        cursor: 'pointer',
-                        // Use CSS custom properties for dynamic colors
-                        ...(rowBackgroundColor && {
-                          '--row-color': rowBackgroundColor, // Full opacity for borders
-                          '--row-bg-color': `${rowBackgroundColor}4D` // 30% opacity for backgrounds
-                        } as React.CSSProperties)
+                        ...getRowStyleProperties(rowBackgroundColor) as React.CSSProperties,
+                        cursor: 'pointer'
                       }}
                     >
                       {/* Index */}

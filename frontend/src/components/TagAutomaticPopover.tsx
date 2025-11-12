@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react'
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { useVisualizationStore } from '../store/index'
 import {
   calculateHistogramLayout,
@@ -29,13 +29,22 @@ const SimilarityTaggingPopover: React.FC = () => {
   const isDraggingPopoverRef = useRef(false)
 
   const [draggedPosition, setDraggedPosition] = useState<{ x: number; y: number } | null>(null)
-  const [selectThreshold, setSelectThreshold] = useState(0.1)
+  const [thresholds, setThresholds] = useState({ select: 0.1, reject: -0.1 })
+  const thresholdsRef = useRef(thresholds)
   const [hoveredBinIndex, setHoveredBinIndex] = useState<number | null>(null)
 
-  // Initialize threshold and reset position when popover opens
+  // Keep ref in sync with state
+  useEffect(() => {
+    thresholdsRef.current = thresholds
+  }, [thresholds])
+
+  // Initialize thresholds and reset position when popover opens
   useEffect(() => {
     if (popoverState?.visible) {
-      setSelectThreshold(popoverState.selectThreshold)
+      setThresholds({
+        select: popoverState.selectThreshold,
+        reject: -0.1
+      })
       setDraggedPosition(null) // Reset to center
     }
   }, [popoverState?.visible, popoverState?.selectThreshold])
@@ -162,7 +171,7 @@ const SimilarityTaggingPopover: React.FC = () => {
     // Initialize category counts for each bin
     bins.forEach((_, binIndex) => {
       return categoryMap.set(binIndex, {
-        confirmed: 0, expanded: 0, rejected: 0, unsure: 0,
+        confirmed: 0, expanded: 0, rejected: 0, autoRejected: 0, unsure: 0,
         total: 0
       })
     })
@@ -194,7 +203,11 @@ const SimilarityTaggingPopover: React.FC = () => {
             counts.confirmed++
           }
         } else if (selectionState === 'rejected') {
-          counts.rejected++
+          if (source === 'auto') {
+            counts.autoRejected++
+          } else {
+            counts.rejected++
+          }
         } else {
           counts.unsure++
         }
@@ -210,7 +223,11 @@ const SimilarityTaggingPopover: React.FC = () => {
             counts.confirmed++
           }
         } else if (selectionState === 'rejected') {
-          counts.rejected++
+          if (source === 'auto') {
+            counts.autoRejected++
+          } else {
+            counts.rejected++
+          }
         } else {
           counts.unsure++
         }
@@ -228,6 +245,7 @@ const SimilarityTaggingPopover: React.FC = () => {
       confirmed: SELECTION_CATEGORY_COLORS.CONFIRMED.HEX,
       expanded: SELECTION_CATEGORY_COLORS.EXPANDED.HEX,
       rejected: SELECTION_CATEGORY_COLORS.REJECTED.HEX,
+      autoRejected: SELECTION_CATEGORY_COLORS.AUTO_REJECTED.HEX,
       unsure: SELECTION_CATEGORY_COLORS.UNSURE.HEX
     }
 
@@ -237,7 +255,7 @@ const SimilarityTaggingPopover: React.FC = () => {
   // Calculate current category counts for SelectionStateBar
   const currentCounts = useMemo((): CategoryCounts => {
     if (!popoverState?.histogramData?.scores) {
-      return { confirmed: 0, expanded: 0, rejected: 0, unsure: 0, total: 0 }
+      return { confirmed: 0, expanded: 0, rejected: 0, autoRejected: 0, unsure: 0, total: 0 }
     }
 
     const scores = popoverState.histogramData.scores
@@ -245,6 +263,7 @@ const SimilarityTaggingPopover: React.FC = () => {
     let confirmed = 0
     let expanded = 0
     let rejected = 0
+    let autoRejected = 0
     let unsure = 0
 
     Object.entries(scores).forEach(([id, score]) => {
@@ -262,7 +281,11 @@ const SimilarityTaggingPopover: React.FC = () => {
             confirmed++
           }
         } else if (selectionState === 'rejected') {
-          rejected++
+          if (source === 'auto') {
+            autoRejected++
+          } else {
+            rejected++
+          }
         } else {
           unsure++
         }
@@ -277,15 +300,19 @@ const SimilarityTaggingPopover: React.FC = () => {
             confirmed++
           }
         } else if (selectionState === 'rejected') {
-          rejected++
+          if (source === 'auto') {
+            autoRejected++
+          } else {
+            rejected++
+          }
         } else {
           unsure++
         }
       }
     })
 
-    const total = confirmed + expanded + rejected + unsure
-    return { confirmed, expanded, rejected, unsure, total }
+    const total = confirmed + expanded + rejected + autoRejected + unsure
+    return { confirmed, expanded, rejected, autoRejected, unsure, total }
   }, [popoverState, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources])
 
   // Calculate preview counts after applying tags
@@ -299,10 +326,12 @@ const SimilarityTaggingPopover: React.FC = () => {
     let confirmed = currentCounts.confirmed
     let expanded = currentCounts.expanded
     let rejected = currentCounts.rejected
+    let autoRejected = currentCounts.autoRejected
     let unsure = currentCounts.unsure
 
-    // Calculate how many unsure items will become expanded
+    // Calculate how many unsure items will become expanded or auto-rejected
     let newlyExpanded = 0
+    let newlyAutoRejected = 0
 
     Object.entries(scores).forEach(([id, score]) => {
       if (typeof score !== 'number') return
@@ -312,19 +341,24 @@ const SimilarityTaggingPopover: React.FC = () => {
         ? featureSelectionStates.has(parseInt(id, 10))
         : pairSelectionStates.has(id)
 
-      // If not already tagged and above threshold, will become expanded
-      if (!isAlreadyTagged && score >= selectThreshold) {
-        newlyExpanded++
+      // If not already tagged, apply auto-tagging based on thresholds
+      if (!isAlreadyTagged) {
+        if (score >= thresholds.select) {
+          newlyExpanded++
+        } else if (score <= thresholds.reject) {
+          newlyAutoRejected++
+        }
       }
     })
 
-    // Update counts: unsure items become expanded
+    // Update counts: unsure items become expanded or auto-rejected
     expanded += newlyExpanded
-    unsure -= newlyExpanded
+    autoRejected += newlyAutoRejected
+    unsure -= (newlyExpanded + newlyAutoRejected)
 
-    const total = confirmed + expanded + rejected + unsure
-    return { confirmed, expanded, rejected, unsure, total }
-  }, [currentCounts, popoverState, selectThreshold, featureSelectionStates, pairSelectionStates])
+    const total = confirmed + expanded + rejected + autoRejected + unsure
+    return { confirmed, expanded, rejected, autoRejected, unsure, total }
+  }, [currentCounts, popoverState, thresholds, featureSelectionStates, pairSelectionStates])
 
   // Calculate axis ticks
   const xAxisTicks = useMemo(() => {
@@ -339,7 +373,7 @@ const SimilarityTaggingPopover: React.FC = () => {
 
   // Safe threshold positions and domain - clamp to valid range and handle NaN
   const safeThresholdPositions = useMemo(() => {
-    if (!histogramChart) return { selectX: 0, minDomain: -1, maxDomain: 1 }
+    if (!histogramChart) return { selectX: 0, rejectX: 0, minDomain: -1, maxDomain: 1 }
 
     // Get domain from xScale and validate
     const domain = histogramChart.xScale.domain()
@@ -350,30 +384,42 @@ const SimilarityTaggingPopover: React.FC = () => {
     if (!isFinite(minDomain)) minDomain = -1
     if (!isFinite(maxDomain)) maxDomain = 1
 
-    // Clamp threshold to domain
-    const clampedSelect = Math.max(minDomain, Math.min(maxDomain, selectThreshold))
+    // Clamp thresholds to domain
+    const clampedSelect = Math.max(minDomain, Math.min(maxDomain, thresholds.select))
+    const clampedReject = Math.max(minDomain, Math.min(maxDomain, thresholds.reject))
 
-    // Calculate position
+    // Calculate positions
     let selectX = histogramChart.xScale(clampedSelect)
+    let rejectX = histogramChart.xScale(clampedReject)
 
     // Validate and fallback to safe values
     if (!isFinite(selectX)) selectX = histogramChart.width
+    if (!isFinite(rejectX)) rejectX = 0
 
-    return { selectX, minDomain, maxDomain }
-  }, [histogramChart, selectThreshold])
+    return { selectX, rejectX, minDomain, maxDomain }
+  }, [histogramChart, thresholds])
 
-  // Threshold update callback for single threshold
-  const handleThresholdUpdate = (newThresholds: number[]) => {
-    if (newThresholds.length !== 1) return
+  // Threshold update callback for dual thresholds
+  const handleThresholdUpdate = useCallback((newThresholds: number[]) => {
+    if (newThresholds.length !== 2) return
 
-    const newSelect = newThresholds[0]
-    setSelectThreshold(newSelect)
-    updateSimilarityThresholds(newSelect)
-  }
+    const newReject = newThresholds[0]
+    const newSelect = newThresholds[1]
+
+    // Use functional update to ensure we have the latest state
+    setThresholds(prev => {
+      // Only update if values actually changed
+      if (newReject !== prev.reject || newSelect !== prev.select) {
+        updateSimilarityThresholds(newSelect) // Keep for backward compatibility
+        return { reject: newReject, select: newSelect }
+      }
+      return prev
+    })
+  }, [updateSimilarityThresholds])
 
   if (!popoverState?.visible) return null
 
-  const { mode, isLoading, histogramData, tagLabel } = popoverState
+  const { mode, isLoading, histogramData } = popoverState
 
   return (
     <>
@@ -420,12 +466,14 @@ const SimilarityTaggingPopover: React.FC = () => {
           <>
             <div className="similarity-tagging-popover__info">
               <p>
-                Drag the threshold to tag {mode === 'feature' ? 'features' : 'pairs'} automatically.
+                Drag the thresholds to tag {mode === 'feature' ? 'features' : 'pairs'} automatically.
                 <br />
-                Items with scores <strong>above the threshold</strong> will be tagged as <strong style={{ color: SELECTION_CATEGORY_COLORS.EXPANDED.HEX }}>{tagLabel}</strong>.
+                Items <strong>above the right threshold</strong> will be tagged as <strong style={{ color: SELECTION_CATEGORY_COLORS.EXPANDED.HEX }}>Auto-Selected</strong>.
+                <br />
+                Items <strong>below the left threshold</strong> will be tagged as <strong style={{ color: SELECTION_CATEGORY_COLORS.AUTO_REJECTED.HEX }}>Auto-Rejected</strong>.
                 <br />
                 <span style={{ fontSize: '0.9em', color: '#666' }}>
-                  The <strong style={{ color: SELECTION_CATEGORY_COLORS.EXPANDED.HEX }}>blue stripe</strong> shows the preview of features to be auto-tagged.
+                  The <strong style={{ color: SELECTION_CATEGORY_COLORS.EXPANDED.HEX }}>blue stripe</strong> shows auto-selected items and the <strong style={{ color: SELECTION_CATEGORY_COLORS.AUTO_REJECTED.HEX }}>light red stripe</strong> shows auto-rejected items.
                 </span>
               </p>
             </div>
@@ -436,7 +484,7 @@ const SimilarityTaggingPopover: React.FC = () => {
               width={600}
               height={300}
             >
-              {/* Define stripe pattern for preview */}
+              {/* Define stripe patterns for preview */}
               <defs>
                 <pattern
                   id="expandedPreviewStripe"
@@ -447,20 +495,46 @@ const SimilarityTaggingPopover: React.FC = () => {
                 >
                   <rect width="4" height="8" fill={SELECTION_CATEGORY_COLORS.EXPANDED.HEX} opacity={0.3} />
                 </pattern>
+                <pattern
+                  id="autoRejectedPreviewStripe"
+                  patternUnits="userSpaceOnUse"
+                  width="8"
+                  height="8"
+                  patternTransform="rotate(45)"
+                >
+                  <rect width="4" height="8" fill={SELECTION_CATEGORY_COLORS.AUTO_REJECTED.HEX} opacity={0.3} />
+                </pattern>
               </defs>
 
               <g transform={`translate(${histogramChart.margin.left}, ${histogramChart.margin.top})`}>
-                {/* Colored region backgrounds (grey/green zones) */}
-                {/* Grey zone: left edge to select threshold */}
+                {/* Colored region backgrounds with 4 zones */}
+                {/* Zone 1: Left edge to reject threshold (light red stripe, auto-rejected preview) */}
                 <rect
                   x={0}
                   y={0}
-                  width={Math.max(0, safeThresholdPositions.selectX)}
+                  width={Math.max(0, safeThresholdPositions.rejectX)}
+                  height={histogramChart.height}
+                  fill="url(#autoRejectedPreviewStripe)"
+                />
+                {/* Zone 2: Reject threshold to 0 (grey, unsure) */}
+                <rect
+                  x={safeThresholdPositions.rejectX}
+                  y={0}
+                  width={Math.max(0, histogramChart.xScale(0) - safeThresholdPositions.rejectX)}
                   height={histogramChart.height}
                   fill="#999"
                   opacity={0.1}
                 />
-                {/* Blue stripe preview zone: select threshold to right edge (expanded preview) */}
+                {/* Zone 3: 0 to select threshold (light grey, middle unsure) */}
+                <rect
+                  x={histogramChart.xScale(0)}
+                  y={0}
+                  width={Math.max(0, safeThresholdPositions.selectX - histogramChart.xScale(0))}
+                  height={histogramChart.height}
+                  fill="#999"
+                  opacity={0.05}
+                />
+                {/* Zone 4: Select threshold to right edge (blue stripe, auto-selected preview) */}
                 <rect
                   x={safeThresholdPositions.selectX}
                   y={0}
@@ -478,8 +552,7 @@ const SimilarityTaggingPopover: React.FC = () => {
                     width={segment.width}
                     height={segment.height}
                     fill={segment.color}
-                    stroke="#fff"
-                    strokeWidth={1}
+                    stroke="none"
                     opacity={hoveredBinIndex === segment.binIndex ? 1 : 0.85}
                     style={{ cursor: 'pointer' }}
                     onMouseEnter={() => setHoveredBinIndex(segment.binIndex)}
@@ -493,37 +566,40 @@ const SimilarityTaggingPopover: React.FC = () => {
                   const counts = categoryData.get(hoveredBinIndex)
                   if (!bin || !counts) return null
 
-                  const total = counts.confirmed + counts.expanded + counts.rejected + counts.unsure
+                  const total = counts.confirmed + counts.expanded + counts.rejected + counts.autoRejected + counts.unsure
                   const binX = histogramChart.xScale(bin.x0) as number
                   const binWidth = (histogramChart.xScale(bin.x1) as number) - binX
 
                   return (
                     <g transform={`translate(${binX + binWidth / 2}, ${-5})`}>
                       <rect
-                        x={-80}
-                        y={-65}
-                        width={160}
-                        height={60}
+                        x={-90}
+                        y={-75}
+                        width={180}
+                        height={70}
                         fill="#333"
                         opacity={0.95}
                         rx={4}
                       />
-                      <text x={0} y={-48} textAnchor="middle" fontSize={10} fill="#fff" fontWeight="bold">
+                      <text x={0} y={-58} textAnchor="middle" fontSize={10} fill="#fff" fontWeight="bold">
                         Bin [{bin.x0.toFixed(2)} - {bin.x1.toFixed(2)}]
                       </text>
-                      <text x={0} y={-36} textAnchor="middle" fontSize={9} fill={SELECTION_CATEGORY_COLORS.CONFIRMED.HEX}>
+                      <text x={0} y={-46} textAnchor="middle" fontSize={9} fill={SELECTION_CATEGORY_COLORS.CONFIRMED.HEX}>
                         Confirmed: {counts.confirmed}
                       </text>
-                      <text x={0} y={-26} textAnchor="middle" fontSize={9} fill={SELECTION_CATEGORY_COLORS.EXPANDED.HEX}>
+                      <text x={0} y={-36} textAnchor="middle" fontSize={9} fill={SELECTION_CATEGORY_COLORS.EXPANDED.HEX}>
                         Expanded: {counts.expanded}
                       </text>
-                      <text x={0} y={-16} textAnchor="middle" fontSize={9} fill={SELECTION_CATEGORY_COLORS.REJECTED.HEX}>
+                      <text x={0} y={-26} textAnchor="middle" fontSize={9} fill={SELECTION_CATEGORY_COLORS.REJECTED.HEX}>
                         Rejected: {counts.rejected}
+                      </text>
+                      <text x={0} y={-16} textAnchor="middle" fontSize={9} fill={SELECTION_CATEGORY_COLORS.AUTO_REJECTED.HEX}>
+                        Auto-Rejected: {counts.autoRejected}
                       </text>
                       <text x={0} y={-6} textAnchor="middle" fontSize={9} fill={SELECTION_CATEGORY_COLORS.UNSURE.HEX}>
                         Unsure: {counts.unsure}
                       </text>
-                      <text x={0} y={-48 + 60} textAnchor="middle" fontSize={9} fill="#aaa">
+                      <text x={0} y={-58 + 70} textAnchor="middle" fontSize={9} fill="#aaa">
                         Total: {total}
                       </text>
                     </g>
@@ -629,14 +705,14 @@ const SimilarityTaggingPopover: React.FC = () => {
                   Count
                 </text>
 
-                {/* Single threshold handle for selection */}
+                {/* Dual threshold handles for auto-rejection and auto-selection */}
                 <ThresholdHandles
                   orientation="horizontal"
                   bounds={{
                     min: 0,
                     max: histogramChart.width
                   }}
-                  thresholds={[selectThreshold]}
+                  thresholds={[thresholds.reject, thresholds.select]}
                   metricRange={{
                     min: safeThresholdPositions.minDomain,  // Use validated domain
                     max: safeThresholdPositions.maxDomain
@@ -658,6 +734,7 @@ const SimilarityTaggingPopover: React.FC = () => {
               <SelectionStateBar
                 counts={currentCounts}
                 previewCounts={previewCounts}
+                showLabels={false}
                 showLegend={true}
                 height={24}
               />

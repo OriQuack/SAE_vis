@@ -39,6 +39,7 @@ interface CategoryCounts {
   confirmed: number
   expanded: number
   rejected: number
+  autoRejected: number
   unsure: number
 }
 
@@ -48,7 +49,7 @@ interface CategoryBarSegment {
   width: number
   height: number
   color: string
-  category: 'confirmed' | 'expanded' | 'rejected' | 'unsure'
+  category: 'confirmed' | 'expanded' | 'rejected' | 'autoRejected' | 'unsure'
   count: number
   binIndex: number
 }
@@ -275,7 +276,7 @@ export function calculateDivergingBars(
 
 /**
  * Calculate stacked category bars for histogram
- * Used to show distribution of selection categories (confirmed, expanded, rejected, unsure)
+ * Used to show distribution of selection categories (confirmed, expanded, rejected, autoRejected, unsure)
  * within each histogram bin with exact-height fills
  *
  * @param chart - The histogram chart with bins and scales
@@ -290,16 +291,18 @@ export function calculateCategoryStackedBars(
     confirmed: string
     expanded: string
     rejected: string
+    autoRejected: string
     unsure: string
   }
 ): CategoryBarSegment[] {
   const segments: CategoryBarSegment[] = []
 
-  // Category stack order (bottom to top): confirmed → expanded → rejected → unsure
-  const categoryOrder: Array<'confirmed' | 'expanded' | 'rejected' | 'unsure'> = [
+  // Category stack order (bottom to top): confirmed → expanded → rejected → autoRejected → unsure
+  const categoryOrder: Array<'confirmed' | 'expanded' | 'rejected' | 'autoRejected' | 'unsure'> = [
     'confirmed',
     'expanded',
     'rejected',
+    'autoRejected',
     'unsure'
   ]
 
@@ -308,7 +311,7 @@ export function calculateCategoryStackedBars(
     if (!categories) return
 
     // Calculate total count for this bin
-    const totalCount = categories.confirmed + categories.expanded + categories.rejected + categories.unsure
+    const totalCount = categories.confirmed + categories.expanded + categories.rejected + categories.autoRejected + categories.unsure
     if (totalCount === 0) return
 
     // Calculate bar dimensions

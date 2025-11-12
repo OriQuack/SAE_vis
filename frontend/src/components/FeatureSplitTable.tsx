@@ -3,7 +3,14 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow, DecoderStagePairRow, StageTableContext } from '../types'
 import { METRIC_DECODER_SIMILARITY } from '../lib/constants'
-import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORIES, getBadgeColors } from '../lib/tag-constants'
+import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORIES } from '../lib/tag-constants'
+import {
+  getBadgeConfig,
+  getRowBackgroundColor,
+  getRowStyleProperties,
+  getRowCategoryClass
+} from '../lib/table-color-utils'
+import { extractInterFeaturePositions, mergeInterFeaturePositions } from '../lib/activation-utils'
 import ActivationExample from './TableActivationExample'
 import ScoreCircle from './TableScoreCircle'
 import SimilarityTaggingPopover from './TagAutomaticPopover'
@@ -35,22 +42,8 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
   // Similarity tagging (automatic tagging) state and action
   const moveToNextStep = useVisualizationStore(state => state.moveToNextStep)
 
-  // Get badge labels and colors from tag categories
-  const badgeConfig = useMemo(() => {
-    const colors = getBadgeColors(TAG_CATEGORY_FEATURE_SPLITTING)
-    const category = TAG_CATEGORIES[TAG_CATEGORY_FEATURE_SPLITTING]
-
-    return {
-      selected: {
-        label: category.tags[1], // "fragmented" (group 1, HIGH decoder similarity)
-        color: colors[category.tags[1]] || '#10b981'
-      },
-      rejected: {
-        label: category.tags[0], // "monosemantic" (group 0, LOW decoder similarity)
-        color: colors[category.tags[0]] || '#ef4444'
-      }
-    }
-  }, [])  // No dependencies needed - colors are pre-computed at module load
+  // Get badge labels and colors from centralized utility
+  const badgeConfig = useMemo(() => getBadgeConfig('pair'), [])
 
   // Sorting state
   const [sortBy, setSortBy] = useState<'id' | 'decoder_similarity' | null>(null)
@@ -82,50 +75,30 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
     interfeatureData: any,
     isClick: boolean
   ) => {
+    const key = `${mainFeatureId}-${similarFeatureId}`
+
     if (isClick) {
-      // For clicks, always update the Map to preserve connection state
-      // even if there's no pattern data (for visual highlighting only)
-      const key = `${mainFeatureId}-${similarFeatureId}`
+      // Click: Toggle persistent highlight
       setInterFeatureHighlights(prev => {
         const newMap = new Map(prev)
         if (newMap.has(key)) {
-          // Remove if already exists (toggle off)
-          newMap.delete(key)
+          newMap.delete(key) // Toggle off
         } else {
-          // Add new highlight (toggle on)
-          // Store minimal data - positions only if available
-          if (interfeatureData && interfeatureData.pattern_type !== 'None') {
-            const charJaccard = interfeatureData.char_jaccard || 0
-            const wordJaccard = interfeatureData.word_jaccard || 0
-            const type: 'char' | 'word' = charJaccard >= wordJaccard ? 'char' : 'word'
-            const mainPositions = type === 'char'
-              ? interfeatureData.main_char_ngram_positions
-              : interfeatureData.main_word_ngram_positions
-            const similarPositions = type === 'char'
-              ? interfeatureData.similar_char_ngram_positions
-              : interfeatureData.similar_word_ngram_positions
-
-            if (mainPositions && similarPositions) {
-              newMap.set(key, {
-                mainFeatureId,
-                similarFeatureId,
-                type,
-                mainPositions,
-                similarPositions
-              })
-            } else {
-              // No positions, but still mark as selected
-              newMap.set(key, {
-                mainFeatureId, similarFeatureId,
-                type: 'char',
-                mainPositions: undefined,
-                similarPositions: undefined
-              })
-            }
-          } else {
-            // No pattern data, but still mark as selected
+          // Extract positions using utility
+          const extracted = extractInterFeaturePositions(interfeatureData)
+          if (extracted) {
             newMap.set(key, {
-              mainFeatureId, similarFeatureId,
+              mainFeatureId,
+              similarFeatureId,
+              type: extracted.type!,
+              mainPositions: extracted.mainPositions,
+              similarPositions: extracted.similarPositions
+            })
+          } else {
+            // No positions, but still mark as selected (for visual highlighting)
+            newMap.set(key, {
+              mainFeatureId,
+              similarFeatureId,
               type: 'char',
               mainPositions: undefined,
               similarPositions: undefined
@@ -135,28 +108,16 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
         return newMap
       })
     } else {
-      // For hover, skip if no pattern data
-      if (!interfeatureData || interfeatureData.pattern_type === 'None') return
-
-      const charJaccard = interfeatureData.char_jaccard || 0
-      const wordJaccard = interfeatureData.word_jaccard || 0
-      const type: 'char' | 'word' = charJaccard >= wordJaccard ? 'char' : 'word'
-
-      const mainPositions = type === 'char'
-        ? interfeatureData.main_char_ngram_positions
-        : interfeatureData.main_word_ngram_positions
-      const similarPositions = type === 'char'
-        ? interfeatureData.similar_char_ngram_positions
-        : interfeatureData.similar_word_ngram_positions
-
-      if (!mainPositions || !similarPositions) return
+      // Hover: Temporary highlight (skip if no pattern data)
+      const extracted = extractInterFeaturePositions(interfeatureData)
+      if (!extracted) return
 
       setHoverHighlight({
         mainFeatureId,
         similarFeatureId,
-        type,
-        mainPositions,
-        similarPositions
+        type: extracted.type!,
+        mainPositions: extracted.mainPositions,
+        similarPositions: extracted.similarPositions
       })
     }
   }
@@ -173,8 +134,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
     return (featureId: number, currentPairKey?: string) => {
       const allHighlights: Array<{ type: 'char' | 'word', positions: any }> = []
 
-      // Collect from clicked highlights - ONLY if this row's pair is clicked
-      // This prevents highlighting all rows containing the same feature
+      // 1. Collect from clicked highlights (ONLY if currentPairKey matches)
       if (currentPairKey && interFeatureHighlights.has(currentPairKey)) {
         const highlight = interFeatureHighlights.get(currentPairKey)!
         if (highlight.mainFeatureId === featureId) {
@@ -184,8 +144,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
         }
       }
 
-      // Add hover highlight ONLY if this row's pair matches the hovered pair
-      // This prevents highlighting all rows that contain the feature
+      // 2. Add hover highlight (ONLY if currentPairKey matches)
       if (hoverHighlight && currentPairKey && hoveredPairKey === currentPairKey) {
         if (hoverHighlight.mainFeatureId === featureId) {
           allHighlights.push({ type: hoverHighlight.type, positions: hoverHighlight.mainPositions })
@@ -194,60 +153,8 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
         }
       }
 
-      if (allHighlights.length === 0) return undefined
-
-      // Merge ALL highlights regardless of type mismatch
-      // Strategy: Normalize all positions to char format (word positions become char without offset)
-      const mergedPositionsMap = new Map<number, {
-        prompt_id: number,
-        positions: Array<{token_position: number, char_offset?: number}>
-      }>()
-
-      allHighlights.forEach(({ type, positions }) => {
-        if (positions) {
-          positions.forEach((promptData: any) => {
-            const existing = mergedPositionsMap.get(promptData.prompt_id)
-
-            // Normalize positions to char format
-            let normalizedPositions: Array<{token_position: number, char_offset?: number}>
-            if (type === 'char') {
-              // Already in char format
-              normalizedPositions = promptData.positions as Array<{token_position: number, char_offset?: number}>
-            } else {
-              // Convert word positions (number[]) to char format
-              normalizedPositions = (promptData.positions as number[]).map(tokenPos => ({
-                token_position: tokenPos,
-                char_offset: undefined
-              }))
-            }
-
-            if (existing) {
-              // Merge positions for same prompt_id (deduplicate by token_position)
-              const posMap = new Map<number, {token_position: number, char_offset?: number}>()
-              existing.positions.forEach(p => posMap.set(p.token_position, p))
-              normalizedPositions.forEach(p => {
-                // Keep existing char_offset if present, otherwise use new one (or undefined)
-                if (!posMap.has(p.token_position)) {
-                  posMap.set(p.token_position, p)
-                }
-              })
-              existing.positions = Array.from(posMap.values())
-            } else {
-              // Add new prompt_id entry
-              mergedPositionsMap.set(promptData.prompt_id, {
-                prompt_id: promptData.prompt_id,
-                positions: [...normalizedPositions]
-              })
-            }
-          })
-        }
-      })
-
-      // Return merged positions in char format
-      return {
-        type: 'char' as const,
-        positions: Array.from(mergedPositionsMap.values())
-      }
+      // 3. Merge using utility function
+      return mergeInterFeaturePositions(allHighlights)
     }
   }, [interFeatureHighlights, hoverHighlight, hoveredPairKey])
 
@@ -528,27 +435,23 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
       const similarItem = feature?.decoder_similarity?.find((s: any) => s.feature_id === similarFeatureId)
       const interfeatureData = similarItem?.inter_feature_similarity
 
-      if (interfeatureData && interfeatureData.pattern_type !== 'None') {
-        const charJaccard = interfeatureData.char_jaccard || 0
-        const wordJaccard = interfeatureData.word_jaccard || 0
-        const type: 'char' | 'word' = charJaccard >= wordJaccard ? 'char' : 'word'
-        const mainPositions = type === 'char'
-          ? interfeatureData.main_char_ngram_positions
-          : interfeatureData.main_word_ngram_positions
-        const similarPositions = type === 'char'
-          ? interfeatureData.similar_char_ngram_positions
-          : interfeatureData.similar_word_ngram_positions
-
-        if (mainPositions && similarPositions) {
-          setInterFeatureHighlights(prev => {
-            const newMap = new Map(prev)
-            newMap.set(pairKey, { mainFeatureId, similarFeatureId, type, mainPositions, similarPositions })
-            return newMap
+      // Extract using utility (replaces 30 lines!)
+      const extracted = extractInterFeaturePositions(interfeatureData)
+      if (extracted) {
+        setInterFeatureHighlights(prev => {
+          const newMap = new Map(prev)
+          newMap.set(pairKey, {
+            mainFeatureId,
+            similarFeatureId,
+            type: extracted.type!,
+            mainPositions: extracted.mainPositions,
+            similarPositions: extracted.similarPositions
           })
-        }
+          return newMap
+        })
       }
     } else {
-      // Clear highlights when toggling away from 'selected'
+      // Clear highlights
       setInterFeatureHighlights(prev => {
         const newMap = new Map(prev)
         newMap.delete(pairKey)
@@ -806,22 +709,9 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
               const pairSelectionState = pairSelectionStates.get(row.pairKey)
               const pairSelectionSource = pairSelectionSources.get(row.pairKey)
 
-              // Determine category class based on selection state and source
-              let categoryClass = ''
-              let rowBackgroundColor = ''
-              if (pairSelectionState === 'selected') {
-                // Confirmed (manual) -> use "fragmented" color, Expanded (auto) -> keep blue
-                categoryClass = pairSelectionSource === 'auto' ? 'table-panel__sub-row--expanded' : 'table-panel__sub-row--confirmed'
-                // Use dynamic color with opacity 0.3 for manual selection
-                if (pairSelectionSource !== 'auto') {
-                  rowBackgroundColor = badgeConfig.selected.color
-                }
-              } else if (pairSelectionState === 'rejected') {
-                // Rejected -> use "monosemantic" color
-                categoryClass = 'table-panel__sub-row--rejected'
-                rowBackgroundColor = badgeConfig.rejected.color
-              }
-              // No class for unsure state (default styling)
+              // Determine row styling using centralized color functions
+              const categoryClass = getRowCategoryClass(pairSelectionState, pairSelectionSource)
+              const rowBackgroundColor = getRowBackgroundColor(pairSelectionState, pairSelectionSource)
 
               // Build row className with selection state AND auto-tagged indicator
               const rowClassName = [
@@ -844,12 +734,8 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                     }
                   }}
                   style={{
-                    cursor: 'pointer',
-                    // Use CSS custom properties for dynamic colors
-                    ...(rowBackgroundColor && {
-                      '--row-color': rowBackgroundColor, // Full opacity for borders
-                      '--row-bg-color': `${rowBackgroundColor}4D` // 30% opacity for backgrounds
-                    } as React.CSSProperties)
+                    ...getRowStyleProperties(rowBackgroundColor) as React.CSSProperties,
+                    cursor: 'pointer'
                   }}
                 >
                   {/* Index cell */}

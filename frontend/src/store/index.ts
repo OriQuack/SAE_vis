@@ -137,7 +137,7 @@ interface AppState {
   sortBySimilarity: () => Promise<void>
   sortPairsBySimilarity: (allPairKeys: string[]) => Promise<void>
   sortCauseBySimilarity: () => Promise<void>
-  sortTableByCategory: (category: 'confirmed' | 'expanded' | 'rejected' | 'unsure', mode: 'feature' | 'pair' | 'cause') => void
+  sortTableByCategory: (category: 'confirmed' | 'expanded' | 'rejected' | 'auto-rejected' | 'unsure', mode: 'feature' | 'pair' | 'cause') => void
 
   // Similarity tagging actions (automatic tagging based on histogram)
   showSimilarityTaggingPopover: (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string) => Promise<void>
@@ -194,7 +194,8 @@ interface AppState {
     mode: 'feature' | 'pair'
     position: { x: number; y: number }
     histogramData: any | null  // SimilarityScoreHistogramResponse
-    selectThreshold: number  // Threshold for selecting (green, right side)
+    selectThreshold: number  // Threshold for auto-selecting (blue, right side)
+    rejectThreshold: number  // Threshold for auto-rejecting (light red, left side)
     tagLabel: string  // Tag name (e.g., "well-explained", "fragmented")
     isLoading: boolean
   } | null

@@ -6,7 +6,6 @@ import { scaleLinear } from 'd3-scale'
 import {
   METRIC_COLORS
 } from './constants'
-import type { FeatureTableRow } from '../types'
 
 // ============================================================================
 // TYPES
@@ -219,41 +218,6 @@ export function getMetricColor(
     .range([gradient.LOW, gradient.MEDIUM, gradient.HIGH])
 
   return colorScale(clampedScore)
-}
-
-/**
- * Calculate average semantic similarity statistics for a feature across all explainers
- *
- * Aggregates all pairwise semantic similarities from all explainers for this feature
- * and returns min, max, average, and count statistics.
- *
- * @param feature - Feature table row containing explainer data
- * @returns Statistics object with min, max, avg, count or null if no similarity data
- */
-export function calculateAvgSemanticSimilarity(
-  feature: FeatureTableRow
-): { min: number; max: number; avg: number; count: number } | null {
-  const explainerIds = Object.keys(feature.explainers)
-  const similarities: number[] = []
-
-  for (const explainerId of explainerIds) {
-    const explainerData = feature.explainers[explainerId]
-    if (!explainerData?.semantic_similarity) continue
-
-    // Collect all pairwise similarities for this explainer
-    Object.values(explainerData.semantic_similarity).forEach(sim => {
-      similarities.push(sim)
-    })
-  }
-
-  if (similarities.length === 0) return null
-
-  return {
-    min: Math.min(...similarities),
-    max: Math.max(...similarities),
-    avg: similarities.reduce((a, b) => a + b, 0) / similarities.length,
-    count: similarities.length
-  }
 }
 
 // ============================================================================

@@ -5,7 +5,6 @@ import {
   type TagCategoryConfig
 } from '../lib/tag-constants';
 import { useVisualizationStore } from '../store/index';
-import { parseSAEId, getLLMExplainerNames } from '../lib/utils';
 import '../styles/TagStagePanel.css';
 
 interface TagCategoryPanelProps {
@@ -22,39 +21,6 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
 
   // Get sankeyTree from left panel for color mapping
   const sankeyTree = useVisualizationStore(state => state.leftPanel.sankeyTree);
-
-  // Get SAE metadata and LLM explainer information
-  const tableData = useVisualizationStore(state => state.tableData);
-  const currentFilters = useVisualizationStore(state => state.leftPanel.filters);
-  const filterOptions = useVisualizationStore(state => state.filterOptions);
-
-  // Parse SAE metadata - use selected SAE from filters, or first available from filterOptions
-  const saeMetadata = useMemo(() => {
-    // Try to get SAE from current filters first
-    let saeId = currentFilters.sae_id?.[0];
-
-    // If no SAE selected, use the first available SAE from filterOptions
-    if (!saeId && filterOptions?.sae_id && filterOptions.sae_id.length > 0) {
-      saeId = filterOptions.sae_id[0];
-    }
-
-    if (!saeId) {
-      return null;
-    }
-
-    const parsed = parseSAEId(saeId);
-    return parsed;
-  }, [currentFilters, filterOptions]);
-
-  // Get LLM explainer names
-  const llmExplainerNames = useMemo(() => {
-    if (!tableData?.explainer_ids || tableData.explainer_ids.length === 0) {
-      return null;
-    }
-
-    const names = getLLMExplainerNames(tableData.explainer_ids);
-    return names;
-  }, [tableData]);
 
   // Calculate dynamic tag counts based on filtered features from Sankey tree
   const getTagCounts = (category: TagCategoryConfig): Record<string, number> => {
@@ -223,32 +189,6 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
           );
         })}
       </div>
-
-      {/* Right: SAE Model Info */}
-      {saeMetadata && (
-        <div className="tag-category-panel__sae-info">
-          <div className="sae-info__header">SAE Model</div>
-          <div className="sae-info__details">
-            <div className="sae-info__row">
-              <span className="sae-info__label">Model:</span>
-              <span className="sae-info__value">{saeMetadata.modelName}</span>
-              <span className="sae-info__separator">|</span>
-              <span className="sae-info__label">Layer:</span>
-              <span className="sae-info__value">{saeMetadata.layer}</span>
-            </div>
-            <div className="sae-info__row">
-              <span className="sae-info__label">Features:</span>
-              <span className="sae-info__value">{saeMetadata.width}</span>
-            </div>
-            {llmExplainerNames && (
-              <div className="sae-info__row">
-                <span className="sae-info__label">Explainers:</span>
-                <span className="sae-info__value">{llmExplainerNames}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

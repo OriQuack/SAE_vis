@@ -6,6 +6,7 @@ export interface CategoryCounts {
   confirmed: number
   expanded: number
   rejected: number
+  autoRejected: number
   unsure: number
   total: number
 }
@@ -40,34 +41,15 @@ const CATEGORY_CONFIG: Record<SelectionCategory, { label: string; color: string;
     color: SELECTION_CATEGORY_COLORS.REJECTED.HEX,
     description: 'Manually rejected by user'
   },
+  'auto-rejected': {
+    label: 'Auto-Rejected',
+    color: SELECTION_CATEGORY_COLORS.AUTO_REJECTED.HEX,
+    description: 'Auto-tagged by histogram thresholds'
+  },
   unsure: {
     label: 'Unsure',
     color: SELECTION_CATEGORY_COLORS.UNSURE.HEX,
     description: 'Not selected or investigated'
-  }
-}
-
-// Category config for cause mode (maps to same keys but different labels/colors)
-const CAUSE_CATEGORY_CONFIG: Record<SelectionCategory, { label: string; color: string; description: string }> = {
-  confirmed: {
-    label: 'Noisy Activation',
-    color: '#f97316',  // Orange
-    description: 'Noisy activation example'
-  },
-  expanded: {
-    label: 'Missed Lexicon',
-    color: '#a855f7',  // Purple
-    description: 'Missed in lexicon'
-  },
-  rejected: {
-    label: 'Missed Context',
-    color: '#3b82f6',  // Blue
-    description: 'Missed in context'
-  },
-  unsure: {
-    label: 'Unsure',
-    color: '#9ca3af',  // Gray
-    description: 'Not yet categorized'
   }
 }
 
@@ -89,12 +71,11 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   showLabels = true,
   showLegend = true,
   labelThreshold = 10,
-  mode = 'feature',
   categoryColors,
   className = ''
 }) => {
-  // Select config based on mode
-  const categoryConfig = mode === 'cause' ? CAUSE_CATEGORY_CONFIG : CATEGORY_CONFIG
+  // Use standard category config for all modes
+  const categoryConfig = CATEGORY_CONFIG
 
   // Get final color for a category (use provided color or fallback to config)
   const getColor = (category: SelectionCategory): string => {
@@ -103,12 +84,13 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   // Calculate percentages for current state
   const percentages = useMemo(() => {
     if (counts.total === 0) {
-      return { confirmed: 0, expanded: 0, rejected: 0, unsure: 100 }
+      return { confirmed: 0, expanded: 0, rejected: 0, autoRejected: 0, unsure: 100 }
     }
     return {
       confirmed: (counts.confirmed / counts.total) * 100,
       expanded: (counts.expanded / counts.total) * 100,
       rejected: (counts.rejected / counts.total) * 100,
+      autoRejected: (counts.autoRejected / counts.total) * 100,
       unsure: (counts.unsure / counts.total) * 100
     }
   }, [counts])
@@ -121,9 +103,18 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
       confirmed: previewCounts.confirmed - counts.confirmed,
       expanded: previewCounts.expanded - counts.expanded,
       rejected: previewCounts.rejected - counts.rejected,
+      autoRejected: previewCounts.autoRejected - counts.autoRejected,
       unsure: previewCounts.unsure - counts.unsure
     }
   }, [counts, previewCounts])
+
+  // Helper to get count/percentage from objects with camelCase keys
+  const getCategoryValue = (category: SelectionCategory, obj: any): number => {
+    if (category === 'auto-rejected') {
+      return obj.autoRejected || 0
+    }
+    return obj[category] || 0
+  }
 
   const handleCategoryClick = (category: SelectionCategory) => {
     if (onCategoryClick) {
@@ -131,86 +122,115 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
     }
   }
 
+  // Render segments with specific order and adjacent stripe previews
+  const renderSegments = () => {
+    const segments: React.ReactNode[] = []
+
+    // Define rendering order: confirmed → expanded → rejected → auto-rejected → unsure
+    const categoryOrder: SelectionCategory[] = ['confirmed', 'expanded', 'rejected', 'auto-rejected', 'unsure']
+
+    categoryOrder.forEach((category) => {
+      const count = getCategoryValue(category, counts)
+      const config = categoryConfig[category]
+
+      // Skip if count is 0 (but still may render preview stripe for expanded/auto-rejected)
+      if (count === 0 && category !== 'expanded' && category !== 'auto-rejected') {
+        return
+      }
+
+      // Calculate percentage - for unsure, subtract items moving out
+      let percentage = getCategoryValue(category, percentages)
+      const previewChangeValue = previewChanges ? getCategoryValue(category, previewChanges) : 0
+
+      // For unsure, reduce width by items leaving (moving to expanded/auto-rejected)
+      if (category === 'unsure' && previewChanges) {
+        const unsurePreviewCount = previewCounts ? getCategoryValue('unsure', previewCounts) : count
+        percentage = counts.total > 0 ? (unsurePreviewCount / counts.total) * 100 : 0
+      }
+
+      // Render main segment if count > 0
+      if (count > 0) {
+        segments.push(
+          <div
+            key={category}
+            className={`selection-state-bar__segment selection-state-bar__segment--${category} ${
+              onCategoryClick ? 'selection-state-bar__segment--interactive' : ''
+            }`}
+            style={{
+              width: `${percentage}%`,
+              backgroundColor: getColor(category)
+            }}
+            onClick={() => handleCategoryClick(category)}
+            title={`${config.label}: ${count} (${percentage.toFixed(1)}%) - ${config.description}${
+              previewChangeValue !== 0 ? ` | Preview: ${previewChangeValue > 0 ? '+' : ''}${previewChangeValue}` : ''
+            }`}
+          >
+            {/* Show label if segment is wide enough */}
+            {showLabels && percentage > labelThreshold && (
+              <span className="selection-state-bar__segment-label">
+                {config.label} ({count})
+              </span>
+            )}
+          </div>
+        )
+      }
+
+      // Render adjacent stripe preview for expanded and auto-rejected if items are entering
+      if ((category === 'expanded' || category === 'auto-rejected') && previewChangeValue > 0 && previewChanges) {
+        const stripePercentage = (previewChangeValue / counts.total) * 100
+        const stripeColor = category === 'expanded'
+          ? SELECTION_CATEGORY_COLORS.EXPANDED.HEX
+          : SELECTION_CATEGORY_COLORS.AUTO_REJECTED.HEX
+
+        segments.push(
+          <div
+            key={`${category}-preview`}
+            className="selection-state-bar__segment selection-state-bar__segment--preview"
+            style={{
+              width: `${stripePercentage}%`,
+              backgroundColor: stripeColor,
+              position: 'relative'
+            }}
+            title={`Preview: +${previewChangeValue} ${config.label}`}
+          >
+            {/* Stripe pattern overlay */}
+            <svg width="100%" height="100%" style={{ position: 'absolute', top: 0, left: 0 }} xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <pattern
+                  id={`stripe-preview-${category}`}
+                  patternUnits="userSpaceOnUse"
+                  width="8"
+                  height="8"
+                  patternTransform="rotate(45)"
+                >
+                  <rect width="4" height="8" fill="#ffffff" opacity="0.3" />
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill={`url(#stripe-preview-${category})`} />
+            </svg>
+          </div>
+        )
+      }
+    })
+
+    return segments
+  }
+
   return (
     <div className={`selection-state-bar ${className}`}>
       {/* Bar with segments */}
       <div className="selection-state-bar__bar" style={{ height: `${height}px` }}>
-        {(Object.keys(categoryConfig) as SelectionCategory[]).map((category) => {
-          const percentage = percentages[category]
-          const count = counts[category]
-          const config = categoryConfig[category]
-
-          // Don't render segment if count is 0
-          if (count === 0) {
-            return null
-          }
-
-          // Check if this category has preview changes
-          const hasPreviewChange = previewChanges && previewChanges[category] !== 0
-          const previewChange = previewChanges ? previewChanges[category] : 0
-
-          return (
-            <div
-              key={category}
-              className={`selection-state-bar__segment selection-state-bar__segment--${category} ${
-                onCategoryClick ? 'selection-state-bar__segment--interactive' : ''
-              }`}
-              style={{
-                width: `${percentage}%`,
-                backgroundColor: getColor(category)
-              }}
-              onClick={() => handleCategoryClick(category)}
-              title={`${config.label}: ${count} (${percentage.toFixed(1)}%) - ${config.description}${
-                hasPreviewChange ? ` | Preview: ${previewChange > 0 ? '+' : ''}${previewChange}` : ''
-              }`}
-            >
-              {/* Show label if segment is wide enough */}
-              {showLabels && percentage > labelThreshold && (
-                <span className="selection-state-bar__segment-label">
-                  {config.label} ({count})
-                </span>
-              )}
-
-              {/* Preview overlay with stripe pattern - shows items entering (positive) or leaving (negative) */}
-              {hasPreviewChange && (
-                <div
-                  className={`selection-state-bar__preview-overlay ${
-                    previewChange < 0 ? 'selection-state-bar__preview-overlay--leaving' : 'selection-state-bar__preview-overlay--entering'
-                  }`}
-                  style={{
-                    width: `${(Math.abs(previewChange) / counts.total) * 100 / (percentage / 100)}%`,
-                    right: 0
-                  }}
-                >
-                  <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                      <pattern
-                        id={`stripe-${category}`}
-                        patternUnits="userSpaceOnUse"
-                        width="8"
-                        height="8"
-                        patternTransform="rotate(45)"
-                      >
-                        <rect width="4" height="8" fill={SELECTION_CATEGORY_COLORS.EXPANDED.HEX} fillOpacity="0.3" />
-                      </pattern>
-                    </defs>
-                    <rect width="100%" height="100%" fill={`url(#stripe-${category})`} />
-                  </svg>
-                </div>
-              )}
-            </div>
-          )
-        })}
+        {renderSegments()}
       </div>
 
       {/* Legend */}
       {showLegend && (
         <div className="selection-state-bar__legend">
           {(Object.keys(categoryConfig) as SelectionCategory[]).map((category) => {
-            const count = counts[category]
+            const count = getCategoryValue(category, counts)
             const config = categoryConfig[category]
-            const percentage = percentages[category]
-            const previewChange = previewChanges ? previewChanges[category] : 0
+            const percentage = getCategoryValue(category, percentages)
+            const previewChange = previewChanges ? getCategoryValue(category, previewChanges) : 0
 
             return (
               <div key={category} className="selection-state-bar__legend-item">

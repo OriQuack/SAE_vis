@@ -8,12 +8,17 @@ import {
   getExplainerDisplayName,
   findMaxQualityScoreExplainer
 } from '../lib/table-utils'
-import { TAG_CATEGORY_QUALITY, TAG_CATEGORIES, getBadgeColors } from '../lib/tag-constants'
 import ScoreCircle from './TableScoreCircle'
 import {
   METRIC_QUALITY_SCORE,
   CATEGORY_DECODER_SIMILARITY
 } from '../lib/constants'
+import {
+  getBadgeConfig,
+  getRowBackgroundColor,
+  getRowStyleProperties,
+  getRowCategoryClass
+} from '../lib/table-color-utils'
 import {
   TAG_CATEGORY_FEATURE_SPLITTING,
   TAG_CATEGORY_CAUSE
@@ -93,22 +98,9 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   // Activation examples from global store (centralized cache)
   const activationExamples = useVisualizationStore(state => state.activationExamples)
 
-  // Get badge labels and colors from tag categories
-  const badgeConfig = useMemo(() => {
-    const colors = getBadgeColors(TAG_CATEGORY_QUALITY)
-    const category = TAG_CATEGORIES[TAG_CATEGORY_QUALITY]
-
-    return {
-      selected: {
-        label: category.tags[1], // "well-explained" (group 1, HIGH quality)
-        color: colors[category.tags[1]] || '#10b981'
-      },
-      rejected: {
-        label: category.tags[0], // "need revision" (group 0, LOW quality)
-        color: colors[category.tags[0]] || '#ef4444'
-      }
-    }
-  }, [])  // No dependencies needed - colors are pre-computed at module load
+  // Get badge labels and colors from centralized utility
+  // Badges use tag-specific colors (Well-Explained green, Need Revision red)
+  const badgeConfig = useMemo(() => getBadgeConfig('feature'), [])
 
   // Get selected LLM explainers (needed for disabled logic)
   const selectedExplainers = new Set<string>()
@@ -648,22 +640,10 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
               const selectionState = featureSelectionStates.get(featureRow.feature_id)
               const selectionSource = featureSelectionSources.get(featureRow.feature_id)
 
-              // Determine category class based on selection state and source
-              let categoryClass = ''
-              let rowBackgroundColor = ''
-              if (selectionState === 'selected') {
-                // Confirmed (manual) -> use "well-explained" color, Expanded (auto) -> keep blue
-                categoryClass = selectionSource === 'auto' ? 'table-panel__sub-row--expanded' : 'table-panel__sub-row--confirmed'
-                // Use dynamic color with opacity 0.3 for manual selection
-                if (selectionSource !== 'auto') {
-                  rowBackgroundColor = badgeConfig.selected.color
-                }
-              } else if (selectionState === 'rejected') {
-                // Rejected -> use "need revision" color
-                categoryClass = 'table-panel__sub-row--rejected'
-                rowBackgroundColor = badgeConfig.rejected.color
-              }
-              // No class for unsure state (default styling)
+              // Get row styling from centralized utility
+              // Row backgrounds use fixed selection colors (blue/light blue/red/light red)
+              const categoryClass = getRowCategoryClass(selectionState, selectionSource)
+              const rowBackgroundColor = getRowBackgroundColor(selectionState, selectionSource)
 
               const rowClassName = [
                 'table-panel__sub-row',
@@ -696,11 +676,8 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                   }}
                   style={{
                     cursor: 'pointer',
-                    // Use CSS custom properties for dynamic colors
-                    ...(rowBackgroundColor && {
-                      '--row-color': rowBackgroundColor, // Full opacity for borders
-                      '--row-bg-color': `${rowBackgroundColor}4D` // 30% opacity for backgrounds
-                    } as React.CSSProperties)
+                    // Use CSS custom properties for dynamic colors (centralized)
+                    ...getRowStyleProperties(rowBackgroundColor) as React.CSSProperties
                   }}
                 >
                   {/* Index - just row number */}

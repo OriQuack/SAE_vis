@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { useVisualizationStore } from './store/index'
+import Header from './components/Header'
 import SankeyDiagram from './components/SankeyDiagram'
 import AlluvialDiagram from './components/AlluvialDiagram'
 import HistogramPopover from './components/SankeyHistogramPopover'
 import TablePanel from './components/QualityTable'
 import TagCategoryPanel from './components/TagStagePanel'
 import * as api from './api'
-import featureValidatorLogo from './assets/feature-validator-logo.svg'
 import './styles/base.css'
 import './styles/App.css'
 
@@ -144,12 +144,7 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
   return (
     <div className={containerClass}>
       {/* Header */}
-      <div className="sankey-view__header">
-        <div className="sankey-view__title-section">
-          <img src={featureValidatorLogo} alt="SAEGE" className="sankey-view__logo" />
-          <h1 className="sankey-view__title">SAEGE</h1>
-        </div>
-      </div>
+      <Header />
 
       {/* Main content - Tag Category at top, Sankey + Table below */}
       <div className={`sankey-view__content sankey-view__content--${layout}`}>

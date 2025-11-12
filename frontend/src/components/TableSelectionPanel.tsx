@@ -4,7 +4,6 @@ import {
   type SelectionCategory,
   METRIC_DISPLAY_NAMES
 } from '../lib/constants'
-import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE, getBadgeColors } from '../lib/tag-constants'
 import SelectionStateBar, { type CategoryCounts } from './TableSelectionBar'
 import '../styles/TableSelectionPanel.css'
 
@@ -91,6 +90,7 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
     let confirmed = 0
     let expanded = 0
     let rejected = 0
+    let autoRejected = 0
     let unsure = 0
 
     // Get filtered feature IDs from selected node
@@ -131,7 +131,11 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
             confirmed++
           }
         } else if (selectionState === 'rejected') {
-          rejected++
+          if (source === 'auto') {
+            autoRejected++
+          } else {
+            rejected++
+          }
         } else {
           unsure++
         }
@@ -160,8 +164,8 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
       })
 
       // Note: unsure now represents untagged/null features
-      const total = confirmed + expanded + rejected + unsure
-      return { confirmed, expanded, rejected, unsure, total }
+      const total = confirmed + expanded + rejected + autoRejected + unsure
+      return { confirmed, expanded, rejected, autoRejected, unsure, total }
     } else if (mode === 'pair' && tableData?.features) {
       // Filter features to only those in the selected node
       const features = filteredFeatureIds
@@ -195,7 +199,11 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
               confirmed++
             }
           } else if (selectionState === 'rejected') {
-            rejected++
+            if (source === 'auto') {
+              autoRejected++
+            } else {
+              rejected++
+            }
           } else {
             unsure++
           }
@@ -203,8 +211,8 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
       })
     }
 
-    const total = confirmed + expanded + rejected + unsure
-    return { confirmed, expanded, rejected, unsure, total }
+    const total = confirmed + expanded + rejected + autoRejected + unsure
+    return { confirmed, expanded, rejected, autoRejected, unsure, total }
   }, [mode, tableData, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources, causeSelectionStates, selectedNode, sankeyTree])
 
   // Count selected and rejected for button requirements
@@ -260,38 +268,6 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
       return { selectedCount, rejectedCount }
     }
   }, [mode, selectionStates, causeSelectionStates, tableData?.features?.length])
-
-  // Get dynamic colors from tag categories for SelectionStateBar
-  const barColors = useMemo(() => {
-    if (mode === 'feature') {
-      // Quality stage colors
-      const colors = getBadgeColors(TAG_CATEGORY_QUALITY)
-      return {
-        confirmed: colors['Well-Explained'] || undefined,   // Use well-explained for confirmed (manual selection)
-        expanded: undefined,                                // Keep default blue for auto-tagged
-        rejected: colors['Need Revision'] || undefined,     // Use need revision for rejected
-        unsure: undefined                                    // Keep default gray
-      }
-    } else if (mode === 'pair') {
-      // Feature splitting stage colors
-      const colors = getBadgeColors(TAG_CATEGORY_FEATURE_SPLITTING)
-      return {
-        confirmed: colors['Fragmented'] || undefined,       // Use fragmented for confirmed
-        expanded: undefined,                                // Keep default blue for auto-tagged
-        rejected: colors['Monosemantic'] || undefined,      // Use monosemantic for rejected
-        unsure: undefined                                    // Keep default gray
-      }
-    } else {
-      // Cause stage colors (maps categories to SelectionCategory keys)
-      const colors = getBadgeColors(TAG_CATEGORY_CAUSE)
-      return {
-        confirmed: colors['Noisy Activation'] || undefined,  // Orange
-        expanded: colors['Missed Lexicon'] || undefined,     // Purple
-        rejected: colors['Missed Context'] || undefined,     // Blue
-        unsure: undefined                                     // Keep default gray
-      }
-    }
-  }, [mode])  // No sankeyTree dependency - colors are pre-computed at module load
 
   // Sort requirements (different for cause mode)
   const sortRequirements = mode === 'cause'
@@ -558,10 +534,10 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
           <SelectionStateBar
             counts={counts}
             onCategoryClick={handleCategoryClick}
+            showLabels={true}
             showLegend={true}
             height={24}
             mode={mode}
-            categoryColors={barColors}
           />
         </div>
 

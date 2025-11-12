@@ -124,52 +124,54 @@
 /* ============================================================================
  * ROW HIGHLIGHTING FOR CAUSE CATEGORIES
  * ============================================================================
- * Four-state system: noisy-activation, missed-lexicon, missed-context, unsure
- * Each category gets its own color theme
+ * Using standard selection colors for row backgrounds (not cause-specific)
+ * noisy-activation → confirmed (blue)
+ * missed-lexicon → expanded (light blue)
+ * missed-context → rejected (red)
  */
 
-/* Noisy Activation Example - ORANGE */
+/* Noisy Activation → Confirmed (Blue) */
 .table-panel__sub-row--noisy-activation .table-panel__cell {
-  background: rgba(249, 115, 22, 0.08) !important; /* Orange with low opacity */
+  background: rgba(59, 130, 246, 0.08) !important; /* Blue with low opacity */
 }
 
 .table-panel__sub-row--noisy-activation:hover .table-panel__cell {
-  background: rgba(249, 115, 22, 0.15) !important;
+  background: rgba(59, 130, 246, 0.15) !important;
 }
 
 /* Auto-tagged indicator for noisy-activation */
 .table-panel__sub-row--noisy-activation.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
-  border-left: 5px solid #f97316 !important;  /* Orange border */
+  border-left: 5px solid #3b82f6 !important;  /* Blue border */
   padding-left: 3px;
 }
 
-/* Missed Lexicon - PURPLE */
+/* Missed Lexicon → Expanded (Light Blue) */
 .table-panel__sub-row--missed-lexicon .table-panel__cell {
-  background: rgba(168, 85, 247, 0.08) !important; /* Purple with low opacity */
+  background: rgba(147, 197, 253, 0.08) !important; /* Light blue with low opacity */
 }
 
 .table-panel__sub-row--missed-lexicon:hover .table-panel__cell {
-  background: rgba(168, 85, 247, 0.15) !important;
+  background: rgba(147, 197, 253, 0.15) !important;
 }
 
 /* Auto-tagged indicator for missed-lexicon */
 .table-panel__sub-row--missed-lexicon.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
-  border-left: 5px solid #a855f7 !important;  /* Purple border */
+  border-left: 5px solid #93c5fd !important;  /* Light blue border */
   padding-left: 3px;
 }
 
-/* Missed Context - BLUE */
+/* Missed Context → Rejected (Red) */
 .table-panel__sub-row--missed-context .table-panel__cell {
-  background: rgba(59, 130, 246, 0.08) !important; /* Blue with low opacity */
+  background: rgba(239, 68, 68, 0.08) !important; /* Red with low opacity */
 }
 
 .table-panel__sub-row--missed-context:hover .table-panel__cell {
-  background: rgba(59, 130, 246, 0.15) !important;
+  background: rgba(239, 68, 68, 0.15) !important;
 }
 
 /* Auto-tagged indicator for missed-context */
 .table-panel__sub-row--missed-context.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
-  border-left: 5px solid #3b82f6 !important;  /* Blue border */
+  border-left: 5px solid #ef4444 !important;  /* Red border */
   padding-left: 3px;
 }
 

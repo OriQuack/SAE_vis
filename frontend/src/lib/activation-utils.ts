@@ -189,3 +189,175 @@ export function formatTokensWithEllipsis(
 
   return { displayTokens, hasLeftEllipsis, hasRightEllipsis }
 }
+
+// ============================================================================
+// INTER-FEATURE PATTERN HIGHLIGHTING UTILITIES
+// ============================================================================
+
+/**
+ * Determine n-gram type (char vs word) based on Jaccard scores
+ * Returns the winning type and its score
+ *
+ * Used to decide whether to use char or word positions for inter-feature highlighting.
+ * Chooses the type with the higher Jaccard similarity score.
+ *
+ * @param interfeatureData - Inter-feature similarity data from decoder similarity
+ * @returns Object with winning type and its Jaccard score, or null if no pattern
+ */
+export function determineNgramType(
+  interfeatureData: any
+): { type: 'char' | 'word' | null, jaccard: number } {
+  if (!interfeatureData || interfeatureData.pattern_type === 'None') {
+    return { type: null, jaccard: 0 }
+  }
+
+  const charJaccard = interfeatureData.char_jaccard || 0
+  const wordJaccard = interfeatureData.word_jaccard || 0
+
+  if (charJaccard === 0 && wordJaccard === 0) {
+    return { type: null, jaccard: 0 }
+  }
+
+  // Choose type with higher Jaccard score
+  return charJaccard >= wordJaccard
+    ? { type: 'char', jaccard: charJaccard }
+    : { type: 'word', jaccard: wordJaccard }
+}
+
+/**
+ * Extract n-gram positions for a feature pair from inter-feature similarity data
+ * Automatically chooses char or word positions based on Jaccard scores
+ *
+ * Use this function to extract highlighting positions when displaying feature pairs
+ * with inter-feature pattern matching (e.g., in FeatureSplitTable).
+ *
+ * @param interfeatureData - Inter-feature similarity data from decoder similarity
+ * @returns Object with type and positions for both features, or null if no data
+ */
+export function extractInterFeaturePositions(
+  interfeatureData: any
+): {
+  type: 'char' | 'word' | null
+  mainPositions: any
+  similarPositions: any
+} | null {
+  if (!interfeatureData || interfeatureData.pattern_type === 'None') {
+    return null
+  }
+
+  const { type } = determineNgramType(interfeatureData)
+  if (!type) return null
+
+  // Extract positions based on winning type
+  const mainPositions = type === 'char'
+    ? interfeatureData.main_char_ngram_positions
+    : interfeatureData.main_word_ngram_positions
+
+  const similarPositions = type === 'char'
+    ? interfeatureData.similar_char_ngram_positions
+    : interfeatureData.similar_word_ngram_positions
+
+  if (!mainPositions || !similarPositions) return null
+
+  return { type, mainPositions, similarPositions }
+}
+
+/**
+ * Normalize position data to unified char format
+ * Handles both char positions (with offset) and word positions (without offset)
+ *
+ * Char format: Array<{ token_position: number, char_offset?: number }>
+ * Word format: Array<number> (just token positions)
+ *
+ * This normalization enables merging highlights from different n-gram types.
+ *
+ * @param type - Position type ('char' or 'word')
+ * @param positions - Raw position data
+ * @returns Normalized positions in char format
+ */
+export function normalizePositionsToCharFormat(
+  type: 'char' | 'word',
+  positions: any
+): Array<{token_position: number, char_offset?: number}> {
+  if (type === 'char') {
+    // Already in char format with optional char_offset
+    return positions as Array<{token_position: number, char_offset?: number}>
+  } else {
+    // Convert word positions (number[]) to char format (without offset)
+    return (positions as number[]).map(tokenPos => ({
+      token_position: tokenPos,
+      char_offset: undefined
+    }))
+  }
+}
+
+/**
+ * Merge multiple inter-feature highlights into a single position set
+ * Handles deduplication by token_position and normalizes to char format
+ *
+ * Use case: When a feature appears in multiple pairs, merge all highlights to show
+ * combined pattern matches. Also used to merge clicked and hovered highlights.
+ *
+ * Algorithm:
+ * 1. Group positions by prompt_id
+ * 2. Normalize all positions to char format
+ * 3. Deduplicate within each prompt by token_position
+ * 4. Return merged result
+ *
+ * @param highlights - Array of highlight objects with type and positions
+ * @returns Merged positions in char format, or undefined if no highlights
+ */
+export function mergeInterFeaturePositions(
+  highlights: Array<{
+    type: 'char' | 'word'
+    positions: any
+  }>
+): {
+  type: 'char',
+  positions: Array<{
+    prompt_id: number,
+    positions: Array<{token_position: number, char_offset?: number}>
+  }>
+} | undefined {
+  if (highlights.length === 0) return undefined
+
+  // Map: prompt_id -> { prompt_id, positions }
+  const mergedPositionsMap = new Map<number, {
+    prompt_id: number,
+    positions: Array<{token_position: number, char_offset?: number}>
+  }>()
+
+  highlights.forEach(({ type, positions }) => {
+    if (positions) {
+      positions.forEach((promptData: any) => {
+        const existing = mergedPositionsMap.get(promptData.prompt_id)
+
+        // Normalize to char format
+        const normalizedPositions = normalizePositionsToCharFormat(type, promptData.positions)
+
+        if (existing) {
+          // Merge and deduplicate by token_position
+          const posMap = new Map<number, {token_position: number, char_offset?: number}>()
+          existing.positions.forEach(p => posMap.set(p.token_position, p))
+          normalizedPositions.forEach(p => {
+            if (!posMap.has(p.token_position)) {
+              posMap.set(p.token_position, p)
+            }
+          })
+          existing.positions = Array.from(posMap.values())
+        } else {
+          // Add new prompt_id entry
+          mergedPositionsMap.set(promptData.prompt_id, {
+            prompt_id: promptData.prompt_id,
+            positions: [...normalizedPositions]
+          })
+        }
+      })
+    }
+  })
+
+  return {
+    type: 'char',
+    positions: Array.from(mergedPositionsMap.values())
+  }
+}

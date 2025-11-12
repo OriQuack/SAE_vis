@@ -13,7 +13,11 @@ import type {
   PairSimilaritySortResponse,
   SimilarityHistogramRequest,
   SimilarityScoreHistogramResponse,
-  PairSimilarityHistogramRequest
+  PairSimilarityHistogramRequest,
+  CauseSimilaritySortRequest,
+  CauseSimilaritySortResponse,
+  CauseSimilarityHistogramRequest,
+  CauseSimilarityHistogramResponse
 } from './types'
 
 // ============================================================================

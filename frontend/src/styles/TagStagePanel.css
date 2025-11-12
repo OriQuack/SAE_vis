@@ -175,7 +175,7 @@
   align-items: flex-end;
   gap: 2px;
   flex-shrink: 0;
-  margin-right: 20px; /* Larger gap after tag group to separate from next stage */
+  margin-right: 10px; /* Larger gap after tag group to separate from next stage */
 }
 
 /* Individual tag tab (small notebook tab) */
@@ -278,74 +278,6 @@
 }
 
 /* ============================================================================
-   RIGHT: SAE MODEL INFO
-   ============================================================================ */
-
-.tag-category-panel__sae-info {
-  position: absolute;
-  right: 2px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  flex-direction: column;
-  padding: 1px 14px;
-  background: white;
-  border: 3px solid #cbd5e1;
-  border-radius: 8px;
-  z-index: 100;
-  min-width: 300px;
-  max-width: 400px;
-}
-
-.sae-info__header {
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  color: #1e293b;
-  border-bottom: 2px solid #cbd5e1;
-  text-shadow: 0 0.5px 1px rgba(255, 255, 255, 0.8);
-}
-
-.sae-info__details {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.sae-info__row {
-  display: flex;
-  flex-direction: row;
-  align-items: baseline;
-  gap: 4px;
-  font-size: 10px;
-  line-height: 1.4;
-}
-
-.sae-info__label {
-  font-weight: 600;
-  color: #64748b;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  flex-shrink: 0;
-}
-
-.sae-info__value {
-  font-weight: 600;
-  color: #1e293b;
-  font-size: 11px;
-  word-break: break-word;
-}
-
-.sae-info__separator {
-  color: #cbd5e1;
-  margin: 0 4px;
-  font-size: 10px;
-  font-weight: 300;
-}
-
-/* ============================================================================
    RESPONSIVE ADJUSTMENTS
    ============================================================================ */
 
@@ -382,10 +314,6 @@
 
   .tag-tab__label {
     font-size: 9px;
-  }
-
-  .tag-category-panel__sae-info {
-    min-width: 180px;
   }
 }
 

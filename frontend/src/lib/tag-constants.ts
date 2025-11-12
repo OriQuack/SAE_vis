@@ -1,5 +1,5 @@
 // ============================================================================
-// TAG CATEGORY SYSTEM - Fixed 3-stage Sankey structure
+// TAG CATEGORY SYSTEM - Fixed 4-stage Sankey structure
 // Central configuration for tag-based feature categorization
 // ============================================================================
 
@@ -20,6 +20,7 @@ import type { SankeyTreeNode } from '../types'
 export const TAG_CATEGORY_FEATURE_SPLITTING = "feature_splitting" as const
 export const TAG_CATEGORY_QUALITY = "quality" as const
 export const TAG_CATEGORY_CAUSE = "cause" as const
+export const TAG_CATEGORY_TEMP = "temp" as const
 
 // ============================================================================
 // TAG CATEGORY CONFIGURATION
@@ -68,10 +69,10 @@ export interface TagCategoryConfig {
 }
 
 /**
- * TAG CATEGORIES - Complete configuration for the 3-stage Sankey structure
+ * TAG CATEGORIES - Complete configuration for the 4-stage Sankey structure
  *
  * This is the single source of truth for:
- * - Stage order in Sankey (Root → Feature Splitting → Quality → Cause)
+ * - Stage order in Sankey (Root → Feature Splitting → Quality → Cause → Temp)
  * - Grouping metrics and thresholds
  * - Histogram visibility
  * - Tag assignments
@@ -152,6 +153,22 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     instruction: "Determine root cause for poor explanation quality",
     tagColors: {},  // Populated by initializeTagColors()
     parentTag: "Need Revision"  // Children of Need Revision from stage 2
+  },
+
+  [TAG_CATEGORY_TEMP]: {
+    id: TAG_CATEGORY_TEMP,
+    label: "Temp",
+    stageOrder: 4,
+    metric: null,  // Placeholder, no metric-based logic
+    defaultThresholds: [],
+    showHistogram: false,
+    tags: [],  // No tags - only stage tab
+    relatedMetrics: [],
+    description: "Temporary placeholder stage for testing",
+    parentTagForNextStage: null,
+    instruction: "Placeholder stage",
+    tagColors: {},  // Populated by initializeTagColors()
+    parentTag: null  // Placeholder, no parent relationship
   }
 } as const
 

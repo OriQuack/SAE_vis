@@ -852,7 +852,7 @@ export const createTableActions = (set: any, get: any) => ({
 
       // Convert Map to plain object for API
       const causeSelections: Record<number, string> = {}
-      causeSelectionStates.forEach((category, featureId) => {
+      causeSelectionStates.forEach((category: string, featureId: number) => {
         causeSelections[featureId] = category
       })
 
@@ -928,7 +928,8 @@ export const createTableActions = (set: any, get: any) => ({
           mode,
           position,
           histogramData: null,
-          selectThreshold: 0,
+          selectThreshold: 0.1,
+          rejectThreshold: -0.1,
           tagLabel,
           isLoading: true
         }
@@ -965,25 +966,28 @@ export const createTableActions = (set: any, get: any) => ({
           allFeatureIds
         )
 
-        // Calculate dynamic threshold based on data range
-        // Use 1/2 of max value for initial threshold
+        // Calculate dynamic thresholds based on data range
+        // Use 1/2 of max value for initial select threshold (positive)
+        // Use -1/2 of max value for initial reject threshold (negative)
         const { statistics } = histogramData
         const maxAbsValue = Math.max(
           Math.abs(statistics.min || 0),
           Math.abs(statistics.max || 0)
         )
         // Default to 0.2 if data has no range or invalid values
-        const threshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? maxAbsValue / 2 : 0.2
+        const selectThreshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? maxAbsValue / 2 : 0.2
+        const rejectThreshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? -maxAbsValue / 2 : -0.2
 
         // Update state with histogram data
-        // Initialize with single threshold for selecting
+        // Initialize with dual thresholds for auto-selecting and auto-rejecting
         set({
           similarityTaggingPopover: {
             visible: true,
             mode,
             position,
             histogramData,
-            selectThreshold: threshold,
+            selectThreshold,
+            rejectThreshold,
             tagLabel,
             isLoading: false
           }
@@ -1034,25 +1038,28 @@ export const createTableActions = (set: any, get: any) => ({
           allPairKeys
         )
 
-        // Calculate dynamic threshold based on data range
-        // Use 1/2 of max value for initial threshold
+        // Calculate dynamic thresholds based on data range
+        // Use 1/2 of max value for initial select threshold (positive)
+        // Use -1/2 of max value for initial reject threshold (negative)
         const { statistics } = histogramData
         const maxAbsValue = Math.max(
           Math.abs(statistics.min || 0),
           Math.abs(statistics.max || 0)
         )
         // Default to 0.2 if data has no range or invalid values
-        const threshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? maxAbsValue / 2 : 0.2
+        const selectThreshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? maxAbsValue / 2 : 0.2
+        const rejectThreshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? -maxAbsValue / 2 : -0.2
 
         // Update state with histogram data
-        // Initialize with single threshold for selecting
+        // Initialize with dual thresholds for auto-selecting and auto-rejecting
         set({
           similarityTaggingPopover: {
             visible: true,
             mode,
             position,
             histogramData,
-            selectThreshold: threshold,
+            selectThreshold,
+            rejectThreshold,
             tagLabel,
             isLoading: false
           }
@@ -1090,18 +1097,20 @@ export const createTableActions = (set: any, get: any) => ({
       return
     }
 
-    const { mode, selectThreshold, histogramData } = similarityTaggingPopover
+    const { mode, selectThreshold, rejectThreshold, histogramData } = similarityTaggingPopover
     const scores = histogramData.scores
 
-    console.log(`[Store.applySimilarityTags] Applying ${mode} tags with threshold:`, {
-      select: selectThreshold
+    console.log(`[Store.applySimilarityTags] Applying ${mode} tags with thresholds:`, {
+      select: selectThreshold,
+      reject: rejectThreshold
     })
 
     if (mode === 'feature') {
-      // Apply tags to features (single threshold: only select)
+      // Apply tags to features (dual thresholds: auto-select and auto-reject)
       const newSelectionStates = new Map(featureSelectionStates)
       const newSelectionSources = new Map(featureSelectionSources)
       let selectedCount = 0
+      let rejectedCount = 0
       let untaggedCount = 0
 
       Object.entries(scores).forEach(([idStr, score]) => {
@@ -1112,15 +1121,20 @@ export const createTableActions = (set: any, get: any) => ({
           return
         }
 
-        // Apply single threshold logic: only select items >= threshold
+        // Apply dual threshold logic: auto-select above threshold, auto-reject below threshold
         if (typeof score === 'number') {
           if (score >= selectThreshold) {
-            // Green zone: select
+            // Blue zone: auto-select
             newSelectionStates.set(featureId, 'selected')
             newSelectionSources.set(featureId, 'auto')
             selectedCount++
+          } else if (score <= rejectThreshold) {
+            // Light red zone: auto-reject
+            newSelectionStates.set(featureId, 'rejected')
+            newSelectionSources.set(featureId, 'auto')
+            rejectedCount++
           } else {
-            // Below threshold: leave untagged
+            // Middle zone: leave untagged
             untaggedCount++
           }
         }
@@ -1128,6 +1142,7 @@ export const createTableActions = (set: any, get: any) => ({
 
       console.log('[Store.applySimilarityTags] Feature tags applied:', {
         selected: selectedCount,
+        rejected: rejectedCount,
         untagged: untaggedCount,
         preserved: featureSelectionStates.size
       })
@@ -1138,10 +1153,11 @@ export const createTableActions = (set: any, get: any) => ({
       })
 
     } else if (mode === 'pair') {
-      // Apply tags to pairs (single threshold: only select)
+      // Apply tags to pairs (dual thresholds: auto-select and auto-reject)
       const newPairSelectionStates = new Map(pairSelectionStates)
       const newPairSelectionSources = new Map(pairSelectionSources)
       let selectedCount = 0
+      let rejectedCount = 0
       let untaggedCount = 0
 
       Object.entries(scores).forEach(([pairKey, score]) => {
@@ -1150,15 +1166,20 @@ export const createTableActions = (set: any, get: any) => ({
           return
         }
 
-        // Apply single threshold logic: only select items >= threshold
+        // Apply dual threshold logic: auto-select above threshold, auto-reject below threshold
         if (typeof score === 'number') {
           if (score >= selectThreshold) {
-            // Green zone: select
+            // Blue zone: auto-select
             newPairSelectionStates.set(pairKey, 'selected')
             newPairSelectionSources.set(pairKey, 'auto')
             selectedCount++
+          } else if (score <= rejectThreshold) {
+            // Light red zone: auto-reject
+            newPairSelectionStates.set(pairKey, 'rejected')
+            newPairSelectionSources.set(pairKey, 'auto')
+            rejectedCount++
           } else {
-            // Below threshold: leave untagged
+            // Middle zone: leave untagged
             untaggedCount++
           }
         }
@@ -1166,6 +1187,7 @@ export const createTableActions = (set: any, get: any) => ({
 
       console.log('[Store.applySimilarityTags] Pair tags applied:', {
         selected: selectedCount,
+        rejected: rejectedCount,
         untagged: untaggedCount,
         preserved: pairSelectionStates.size
       })
@@ -1185,7 +1207,7 @@ export const createTableActions = (set: any, get: any) => ({
    * Order: Confirmed -> Expanded -> Unsure -> Rejected (or clicked category first)
    * If similarity sort is active, use it as secondary sort within each category
    */
-  sortTableByCategory: (category: 'confirmed' | 'expanded' | 'rejected' | 'unsure', mode: 'feature' | 'pair' | 'cause') => {
+  sortTableByCategory: (category: 'confirmed' | 'expanded' | 'rejected' | 'auto-rejected' | 'unsure', mode: 'feature' | 'pair' | 'cause') => {
     const {
       tableData,
       featureSelectionStates,
@@ -1204,14 +1226,14 @@ export const createTableActions = (set: any, get: any) => ({
     console.log(`[Store.sortTableByCategory] Sorting by category: ${category}, mode: ${mode}`)
 
     // Define category order with clicked category first
-    const categoryOrder: Array<'confirmed' | 'expanded' | 'rejected' | 'unsure'> = (() => {
-      const baseOrder: Array<'confirmed' | 'expanded' | 'rejected' | 'unsure'> = ['confirmed', 'expanded', 'unsure', 'rejected']
+    const categoryOrder: Array<'confirmed' | 'expanded' | 'rejected' | 'auto-rejected' | 'unsure'> = (() => {
+      const baseOrder: Array<'confirmed' | 'expanded' | 'rejected' | 'auto-rejected' | 'unsure'> = ['confirmed', 'expanded', 'unsure', 'rejected', 'auto-rejected']
       // Move clicked category to front
       return [category, ...baseOrder.filter(c => c !== category)]
     })()
 
     // Helper function to get category for a feature/pair
-    const getCategory = (id: number | string, isFeature: boolean): 'confirmed' | 'expanded' | 'rejected' | 'unsure' => {
+    const getCategory = (id: number | string, isFeature: boolean): 'confirmed' | 'expanded' | 'rejected' | 'auto-rejected' | 'unsure' => {
       if (isFeature) {
         const featureId = id as number
         const selectionState = featureSelectionStates.get(featureId)
@@ -1220,7 +1242,7 @@ export const createTableActions = (set: any, get: any) => ({
         if (selectionState === 'selected') {
           return source === 'auto' ? 'expanded' : 'confirmed'
         } else if (selectionState === 'rejected') {
-          return 'rejected'
+          return source === 'auto' ? 'auto-rejected' : 'rejected'
         } else {
           return 'unsure'
         }
@@ -1232,7 +1254,7 @@ export const createTableActions = (set: any, get: any) => ({
         if (selectionState === 'selected') {
           return source === 'auto' ? 'expanded' : 'confirmed'
         } else if (selectionState === 'rejected') {
-          return 'rejected'
+          return source === 'auto' ? 'auto-rejected' : 'rejected'
         } else {
           return 'unsure'
         }
