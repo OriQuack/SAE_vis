@@ -1,12 +1,40 @@
 # Backend CLAUDE.md - SAE Feature Visualization FastAPI Server
 
-This document provides comprehensive guidance for the FastAPI backend of the SAE Feature Visualization project. This backend implements a simplified feature grouping service designed to enable frontend-driven tree building for research demonstrations.
+Professional guidance for the FastAPI backend of the SAE Feature Visualization research prototype.
 
 ## 🎯 Backend Architecture Overview
 
 **Purpose**: Provide simple, stateless feature grouping API for frontend tree building
-**Status**: ✅ **PRODUCTION-READY** - 8 endpoints operational, all phases complete
+**Status**: Conference-ready research prototype - 8 endpoints operational, all phases complete
 **Key Innovation**: Simplified grouping service enables instant frontend threshold updates
+
+## 🎯 Important Development Principles
+
+### This is a Conference Prototype
+- **Keep it simple**: Straightforward data processing for research demonstrations, not production-scale systems
+- **Stateless design**: No complex session management or state tracking needed for demos
+- **Avoid over-engineering**: Use Polars for data processing; don't add unnecessary layers
+- **Research-focused**: Easy data manipulation and filtering more important than optimization
+
+### Code Quality Guidelines
+
+**Before Making Changes:**
+1. **Search existing services**: Check services/ directory for similar functionality before creating new services
+2. **Review data processing patterns**: Look at existing Polars usage in feature_group_service.py
+3. **Check API patterns**: Review existing endpoints for consistent request/response patterns
+4. **Ask about data**: If you need new data columns or metrics, check if they already exist in parquet files
+
+**After Making Changes:**
+1. **Remove dead code**: Delete unused service functions, API endpoints, and imports
+2. **Clean up models**: Remove unused Pydantic models from models/ directory
+3. **Update requirements.txt**: Only include actually used dependencies
+4. **Test with test_api.py**: Run basic tests to ensure demo functionality works
+
+**Code Reuse:**
+- **Service patterns**: Extend existing services rather than creating parallel implementations
+- **Filter logic**: Reuse filter building patterns from feature_group_service.py
+- **Data loading**: Use existing data service patterns; don't create new loading mechanisms
+- **Modularize when beneficial**: If you write the same Polars query twice, extract to a service method
 
 ## 🔄 Data Flow Through Backend
 
@@ -608,63 +636,57 @@ API_PORT = int(os.getenv("API_PORT", "8003"))
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 ```
 
-### Rate Limiting
-```python
-from slowapi import Limiter
-
-limiter = Limiter(key_func=lambda: "global")
-
-@app.get("/api/filter-options")
-@limiter.limit("100/minute")
-async def get_filter_options():
-    # Implementation
-```
-
-## 📈 Monitoring & Logging
-
-### Structured Logging
-```python
-import structlog
-
-logger = structlog.get_logger()
-
-logger.info(
-    "feature_grouping_complete",
-    metric=metric,
-    threshold_count=len(thresholds),
-    group_count=len(groups),
-    duration_ms=duration
-)
-```
-
-### Health Endpoint
+### Health Endpoint (Basic)
 ```python
 @app.get("/health")
 async def health_check():
     return {
         "status": "healthy",
         "timestamp": datetime.utcnow(),
-        "data_service": data_service.is_initialized,
-        "version": "1.0.0"
+        "data_service": data_service.is_initialized
     }
 ```
+
+### Logging (Keep it Simple)
+```python
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Basic logging for demo debugging
+logger.info(f"Feature grouping: {metric}, {len(thresholds)} thresholds → {len(groups)} groups")
+```
+
+**Note**: For a conference prototype, basic logging and error handling is sufficient. Avoid adding complex monitoring, structured logging, or rate limiting unless specifically needed.
 
 ## 🎓 Key Takeaways
 
 The backend implements a **simplified grouping service** where:
-1. **Stateless operations** enable easy scaling
+1. **Stateless operations** keep the architecture simple
 2. **Simple grouping** reduces complexity
 3. **Fast responses** (~50ms) support interactivity
 4. **Clear API** makes frontend development easy
-5. **Polars optimization** handles large datasets
+5. **Polars optimization** handles datasets efficiently
 
 This architecture provides:
 - 🚀 **Fast API responses** for smooth UX
 - 📊 **Efficient data processing** with Polars
-- 🔄 **Stateless scalability** for production
-- 🎯 **Clear responsibilities** for maintenance
-- 🏆 **Conference-ready reliability** for demos
+- 🔄 **Stateless design** for easy maintenance
+- 🎯 **Clear responsibilities** between frontend/backend
+- 🏆 **Conference-ready reliability** for demonstrations
 
 ---
 
-**Remember**: This backend is optimized for simplicity and performance. The stateless grouping service enables the frontend's advanced tree-building capabilities while maintaining clean separation of concerns.
+## 💡 Remember
+
+**This is a research prototype for conference demonstrations**
+
+When working on backend code:
+- **Keep it simple**: Use straightforward FastAPI + Polars patterns suitable for research demos
+- **Avoid over-engineering**: Don't add complex authentication, caching layers, or monitoring unless needed
+- **Clean up after changes**: Remove unused services, endpoints, models, and dependencies
+- **Reuse existing patterns**: Check services/ directory before implementing new data processing logic
+- **Modularize when needed**: Extract common Polars queries, but don't create unnecessary abstractions
+- **Focus on demos**: Ensure endpoints respond quickly and reliably for conference presentations
+
+The goal is a simple, stateless API that enables frontend exploration, not a production system.

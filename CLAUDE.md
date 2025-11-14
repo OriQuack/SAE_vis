@@ -1,14 +1,28 @@
 # CLAUDE.md - SAE Feature Visualization Project
 
-This file provides comprehensive guidance to Claude Code when working with the SAE Feature Visualization project repository. This is a research prototype interface for visualizing Sparse Autoencoder (SAE) feature explanation reliability for academic conference demonstrations.
+Professional guidance for working with the SAE Feature Visualization research prototype.
 
 ## Project Overview
 
-**Purpose**: Research prototype for visualizing the consistency between different interpretability scoring methods for Sparse Autoencoder (SAE) features. Designed specifically for EuroVIS conference demonstration with flexible, research-oriented architecture.
+**Purpose**: Research prototype for visualizing consistency between interpretability scoring methods for Sparse Autoencoder (SAE) features. Designed for EuroVIS conference demonstration.
 
-**Current Status**: 🚀 **ADVANCED RESEARCH PROTOTYPE** - All 8 phases complete, conference-ready
+**Status**: Conference-ready research prototype - All 8 phases complete
 **Dataset**: 1,648 features with multiple LLM explainers and scorers
-**Architecture Philosophy**: Simplified backend (feature grouping) + smart frontend (tree building)
+**Architecture**: Simplified backend (feature grouping) + smart frontend (tree building)
+
+## 🎯 Important Development Principles
+
+### This is a Conference Prototype
+- **Avoid over-engineering**: Prioritize working demonstrations over production-level architecture
+- **Simple solutions first**: Use straightforward implementations suitable for research demonstrations
+- **No premature optimization**: Focus on functionality and clarity over complex optimizations
+- **Flexibility over robustness**: Easy modification for research exploration is more valuable than production hardening
+
+### Code Quality Guidelines
+1. **Clean up after modifications**: Always remove unused code, commented-out sections, and obsolete styles
+2. **Analyze before adding**: Check existing code for similar functionality before implementing new features
+3. **Reuse and modularize**: Extract common patterns into reusable functions/utilities when beneficial
+4. **Keep it maintainable**: Code should be easy to understand and modify for research iterations
 
 ## 🔄 Comprehensive Data Flow Architecture
 
@@ -382,6 +396,25 @@ def get_feature_groups(filters, metric, thresholds):
 - **Fast Iteration**: Instant threshold experimentation
 - **Research Focus**: Optimized for exploration, not production
 
+## 📋 Development Workflow
+
+### Before Making Changes
+1. **Search for existing patterns**: Use Grep/Glob to find similar implementations
+2. **Ask about reusability**: Check if existing utilities can be extended rather than duplicated
+3. **Understand the context**: Read related code to maintain consistency
+
+### After Making Changes
+1. **Remove dead code**: Delete unused functions, components, and imports
+2. **Clean up styles**: Remove unused CSS classes and obsolete style definitions
+3. **Update types**: Ensure TypeScript definitions reflect changes
+4. **Test basic functionality**: Verify the feature works as intended for demonstrations
+
+### Development Guidelines
+1. **Type Safety**: Maintain TypeScript definitions in frontend
+2. **State Management**: Use Zustand actions, not direct state updates
+3. **API Changes**: Update both frontend api.ts and backend models
+4. **Code Reuse**: Modularize common patterns; check lib/ and services/ directories first
+
 ## 🚨 Important Notes
 
 ### Data Dependencies
@@ -389,13 +422,6 @@ def get_feature_groups(filters, metric, thresholds):
 - **Consistency**: `/data/master/consistency_scores.parquet` (required)
 - **LLM Stats**: `/data/llm_comparison/llm_comparison_stats.json`
 - **UMAP Data**: `/data/umap_*/` directories
-
-### Development Guidelines
-1. **Type Safety**: Maintain TypeScript definitions
-2. **State Management**: Use Zustand actions, not direct updates
-3. **API Changes**: Update both frontend api.ts and backend models
-4. **Testing**: Run test_api.py after backend changes
-5. **Performance**: Profile before adding complexity
 
 ### Common Tasks
 ```bash
@@ -437,8 +463,19 @@ This platform is optimized for **academic conference presentations**:
 - **Research Focus**: Explore SAE feature reliability
 - **Flexible**: Easy to modify for different scenarios
 
-The simplified architecture (backend grouping + frontend tree building) provides the perfect balance of performance, flexibility, and maintainability for research demonstrations.
+The simplified architecture (backend grouping + frontend tree building) provides the balance of performance, flexibility, and maintainability needed for research demonstrations.
 
 ---
 
-**Remember**: This is a research prototype designed for conference demonstrations, not production deployment. The architecture prioritizes flexibility and instant updates over complex backend processing.
+## 💡 Remember
+
+**This is a research prototype for conference demonstrations**
+
+When working on this codebase:
+- Prioritize simple, working solutions over production-level engineering
+- Clean up unused code and styles after each modification
+- Check existing code for reusable patterns before implementing new features
+- Keep modifications focused on research demonstration needs
+- Maintain code clarity for easy iteration and exploration
+
+The goal is a flexible, maintainable research tool, not a production system.

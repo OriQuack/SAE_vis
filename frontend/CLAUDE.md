@@ -1,12 +1,40 @@
 # Frontend CLAUDE.md - SAE Feature Visualization React Application
 
-This document provides comprehensive guidance for the React frontend of the SAE Feature Visualization project. This is the user interface for a research prototype designed for academic conference demonstrations.
+Professional guidance for the React frontend of the SAE Feature Visualization research prototype.
 
 ## 🎯 Frontend Architecture Overview
 
 **Purpose**: Interactive visualization interface for exploring SAE feature explanation reliability
-**Status**: ✅ **ADVANCED RESEARCH PROTOTYPE** - All 8 phases complete, conference-ready
+**Status**: Conference-ready research prototype - All 8 phases complete
 **Key Innovation**: Smart tree-based Sankey building with frontend-side set intersection
+
+## 🎯 Important Development Principles
+
+### This is a Conference Prototype
+- **Avoid over-engineering**: Use straightforward React patterns suitable for research demonstrations
+- **Simple solutions first**: Don't add complex state management, optimization, or abstraction unless clearly needed
+- **Research-focused**: Prioritize easy modification and exploration over production patterns
+- **Demo reliability**: Code should work reliably for demonstrations, not handle every edge case
+
+### Code Quality Guidelines
+
+**Before Making Changes:**
+1. **Search existing code**: Use Grep to find similar components or utilities before creating new ones
+2. **Check lib/ directory**: Many D3 utilities and helpers already exist - reuse or extend them
+3. **Review store/**: Understand existing state management patterns before adding new state
+4. **Ask about patterns**: If implementing something that feels common, check if it exists first
+
+**After Making Changes:**
+1. **Remove dead code**: Delete unused components, functions, and imports
+2. **Clean up styles**: Remove unused CSS classes, especially in component-specific CSS files
+3. **Update types**: Keep types.ts synchronized with your changes
+4. **Test the demo**: Verify the feature works for basic conference demonstration scenarios
+
+**Code Reuse:**
+- **D3 utilities**: Check lib/ for existing D3 calculation functions before writing new ones
+- **Store actions**: Extend existing actions rather than creating parallel patterns
+- **Common UI patterns**: Look for similar components before creating new ones
+- **Modularize when beneficial**: If you write the same logic twice, extract to lib/utils.ts
 
 ### 🔄 Recent Updates (November 2025)
 **Component Refactoring:**
@@ -352,41 +380,72 @@ frontend/src/
 ├── components/                    # React Components
 │   ├── SankeyDiagram.tsx         # Main Sankey visualization
 │   ├── SankeyOverlay.tsx         # Stage addition interface
+│   ├── SankeyHistogramPopover.tsx # Histogram popover with thresholds
+│   ├── ThresholdHandles.tsx      # Interactive threshold handles
 │   ├── AlluvialDiagram.tsx       # Cross-panel flows
-│   ├── HistogramPopover.tsx      # Threshold histograms
-│   ├── ThresholdHandles.tsx      # Interactive handles
-│   ├── FlowPanel.tsx             # Flow container
-│   ├── QualityTablePanel.tsx     # Feature scoring table
-│   ├── FeatureSplitOverlay.tsx   # Feature split analysis overlay
-│   ├── FeatureSplitTable.tsx     # Feature split data display
-│   ├── TagCategoryPanel.tsx      # Tag category management
-│   ├── ActivationExample.tsx     # Activation examples
-│   ├── HighlightedExplanation.tsx # Syntax highlighting
-│   └── QualityScoreBreakdown.tsx # Score details
+│   ├── QualityTable.tsx          # Feature scoring table (main)
+│   ├── FeatureSplitTable.tsx     # Feature split analysis table
+│   ├── CauseTable.tsx            # Cause analysis table
+│   ├── TagStagePanel.tsx         # Tag-based stage management
+│   ├── TagAutomaticPopover.tsx   # Automatic tag suggestions
+│   ├── TableSelectionPanel.tsx   # Table selection controls
+│   ├── TableSelectionBar.tsx     # Selection action bar
+│   ├── TableActivationExample.tsx # Activation examples display
+│   ├── TableExplanation.tsx      # Explanation text display
+│   ├── TableScoreCircle.tsx      # Score visualization circles
+│   ├── QualityScoreBreakdown.tsx # Score details breakdown
+│   ├── Header.tsx                # App header
+│   └── _FlowPanel.tsx            # (Deprecated) Flow container
 ├── lib/                          # Utilities
 │   ├── constants.ts              # App constants
-│   ├── d3-sankey-utils.ts        # Sankey calculations
-│   ├── d3-sankey-histogram-utils.ts # Inline histograms
-│   ├── d3-alluvial-utils.ts      # Alluvial flows
-│   ├── d3-histogram-utils.ts     # Histogram calculations
-│   ├── d3-table-utils.ts         # Table layout
-│   ├── d3-flow-utils.ts          # Flow utilities
+│   ├── sankey-utils.ts           # Sankey calculations
+│   ├── sankey-histogram-utils.ts # Inline histogram rendering
+│   ├── alluvial-utils.ts         # Alluvial flow calculations
+│   ├── histogram-utils.ts        # Histogram data processing
+│   ├── table-utils.ts            # Table layout & rendering
+│   ├── table-color-utils.ts      # Table color encoding
+│   ├── circle-encoding-utils.ts  # Circle visualization utils
+│   ├── activation-utils.ts       # Activation data processing
+│   ├── flow-utils.ts             # Flow utilities
 │   ├── threshold-utils.ts        # Tree building logic
+│   ├── tag-utils.ts              # Tag processing
+│   ├── tag-constants.ts          # Tag definitions
+│   ├── hierarchical-colors.ts    # Color schemes
 │   └── utils.ts                  # General helpers
-├── store/                        # State Management
-│   ├── index.ts                  # Main store
-│   ├── sankey-actions.ts         # Tree operations
-│   ├── table-actions.ts          # Table operations
-│   └── utils.ts                  # Store helpers
+├── store/                        # State Management (Zustand)
+│   ├── index.ts                  # Main store composition
+│   ├── sankey-actions.ts         # Sankey tree operations
+│   ├── table-actions.ts          # Table data operations
+│   ├── tag-actions.ts            # Tag management actions
+│   ├── activation-actions.ts     # Activation data actions
+│   └── utils.ts                  # Store helper functions
 ├── styles/                       # CSS Files
 │   ├── base.css                  # Global styles
-│   ├── App.css                   # App styles
-│   └── [component].css           # Component styles
-├── types.ts                      # TypeScript definitions
-├── api.ts                        # API client
-├── App.tsx                       # Main component
-└── main.tsx                      # Entry point
+│   ├── App.css                   # App-level styles
+│   ├── SankeyDiagram.css         # Sankey styles
+│   ├── SankeyHistogramPopover.css # Histogram popover
+│   ├── AlluvialDiagram.css       # Alluvial styles
+│   ├── QualityTable.css          # Table styles
+│   ├── FeatureSplitTable.css     # Split table styles
+│   ├── CauseTable.css            # Cause table styles
+│   ├── TagStagePanel.css         # Tag panel styles
+│   ├── TagAutomaticPopover.css   # Tag popover styles
+│   ├── TableSelectionPanel.css   # Selection panel
+│   ├── TableSelectionBar.css     # Selection bar
+│   ├── TableActivationExample.css # Activation display
+│   ├── Header.css                # Header styles
+│   ├── FlowPanel.css             # (Legacy)
+│   └── ProgressBar.css           # (Legacy)
+├── assets/                       # Static assets
+├── types.ts                      # TypeScript type definitions
+├── api.ts                        # API client (Axios)
+├── App.tsx                       # Main application component
+├── main.tsx                      # Entry point
+├── index.css                     # Root CSS
+└── vite-env.d.ts                 # Vite type declarations
 ```
+
+**Note**: Clean up unused CSS files and components after modifications. Remove legacy components prefixed with `_` when no longer referenced.
 
 ## 🚀 Development Workflow
 
@@ -482,13 +541,13 @@ function MyComponent({data, onNodeClick}: ComponentProps) {
   // Implementation
 }
 
-// Use proper error handling
+// Use proper error handling for demos
 try {
   const result = await api.fetchData()
   // Handle success
 } catch (error) {
   console.error('Failed to fetch:', error)
-  // Show user-friendly error
+  // Show user-friendly error for conference demo
 }
 ```
 
@@ -497,13 +556,14 @@ try {
 2. **Keep derived state in useMemo** - Don't store in Zustand
 3. **Use proper typing** - All state must be typed
 4. **Action naming** - Use verb prefixes (set, update, fetch, etc.)
+5. **Check existing actions** - Before adding new state or actions, verify similar patterns don't exist
 
 ### Component Guidelines
 1. **Single Responsibility** - One component, one purpose
 2. **Props Interface** - Always define TypeScript interface
-3. **Error Boundaries** - Wrap risky components
-4. **Accessibility** - Include ARIA labels
-5. **Responsive Design** - Use ResizeObserver
+3. **Keep it simple** - Don't add complex error boundaries unless necessary for demo reliability
+4. **Responsive Design** - Use ResizeObserver for D3 visualizations
+5. **Reuse patterns** - Check existing components for similar implementations
 
 ## 🐛 Common Issues & Solutions
 
@@ -531,12 +591,11 @@ try {
 - Advanced filtering UI with query builder
 - Real-time collaboration support
 
-### Performance Improvements
-- Virtual scrolling for QualityTablePanel (824 rows)
-- Web Workers for heavy calculations
-- Progressive rendering for large trees
-- IndexedDB for client-side persistence
-- Optimized feature split calculations for large datasets
+### Performance Improvements (If Needed)
+- Virtual scrolling for QualityTablePanel if performance becomes an issue
+- Debouncing for smooth interactions (already implemented)
+- Memoization for expensive calculations (already implemented)
+- Note: Avoid premature optimization - profile first
 
 ## 🎓 Key Takeaways
 
@@ -552,8 +611,19 @@ This architecture provides:
 - 🎯 **Precise feature tracking** through set operations
 - 📊 **Rich visualizations** with D3.js integration
 - 🔄 **Real-time interactivity** for research exploration
-- 🏆 **Conference-ready reliability** with error handling
+- 🏆 **Conference-ready reliability** for demonstrations
 
 ---
 
-**Remember**: This frontend is optimized for research demonstrations. The tree-building architecture prioritizes instant interactivity and exploration flexibility over traditional server-side processing.
+## 💡 Remember
+
+**This is a research prototype for conference demonstrations**
+
+When working on frontend code:
+- **Avoid over-engineering**: Use simple React patterns suitable for research demonstrations
+- **Clean up after changes**: Remove unused components, functions, styles, and imports
+- **Reuse existing code**: Check lib/, store/, and components/ before implementing new features
+- **Modularize when needed**: Extract common patterns, but don't create unnecessary abstractions
+- **Focus on demos**: Ensure features work reliably for conference presentations
+
+The goal is a flexible, maintainable visualization tool, not a production application.
