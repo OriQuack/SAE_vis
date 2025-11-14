@@ -10,9 +10,21 @@
   flex-direction: row;
   align-items: stretch;
   background: white;
-  border-bottom: 4px solid #cbd5e1;
   position: relative;
   overflow: visible;
+}
+
+/* Bottom border as pseudo-element (allows active tabs to cover it) */
+.tag-category-panel::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: #cbd5e1;
+  z-index: 1;
+  pointer-events: none;
 }
 
 /* ============================================================================
@@ -29,7 +41,7 @@
   padding-top: 8px;
   background: #f8fafc;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: visible;  /* Allow tab overlays to extend below */
   min-width: 0;
 }
 
@@ -52,23 +64,43 @@
   position: relative;
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0);
   flex-shrink: 0;
+  outline: none;
 }
 
 .stage-tab:hover {
   background: #cbd5e1;
 }
 
+.stage-tab:focus,
+.stage-tab:active,
+.stage-tab:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 /* Active State - Tab extends down to connect with content below */
 .stage-tab--active {
-  background: rgba(59, 130, 246, 0.15);
+  background: white;
   border-color: #3b82f6;
-  border-bottom-color: white;
   box-shadow: 0 -2px 8px rgba(59, 130, 246, 0.2);
   z-index: 10;
+  transform: translateY(-4px);
+}
+
+/* White overlay to cover panel border beneath active tab */
+.stage-tab--active::before {
+  content: '';
+  position: absolute;
+  left: 0px;
+  right: -3px;
+  bottom: -8px;  /* Extended to compensate for translateY(-4px) */
+  height: 8px;  /* Taller to ensure coverage */
+  background: white;
+  z-index: 2;  /* Above panel border */
 }
 
 .stage-tab--active:hover {
-  background: rgba(59, 130, 246, 0.2);
+  background: white;
 }
 
 /* Completed State */
@@ -110,9 +142,9 @@
 }
 
 .stage-tab--active .stage-tab__number {
-  background: white;
-  color: #1e293b;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  background: #3b82f6;
+  color: white;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.4);
 }
 
 .stage-tab--completed .stage-tab__number {
@@ -184,7 +216,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   padding: 6px 8px 3px 8px;
   min-width: 70px;
   background: #f1f5f9; /* Fallback, will be overridden by inline style */
@@ -196,7 +228,6 @@
   cursor: default;
   white-space: nowrap;
   position: relative;
-  /* Bottom border effect will be set by inline style */
 }
 
 .tag-tab:hover {
@@ -206,6 +237,19 @@
 /* Active stage tag tabs */
 .tag-tab--active {
   z-index: 5;
+  transform: translateY(-4px);
+}
+
+/* White overlay to cover panel border beneath active tag */
+.tag-tab--active::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  right: 0px;
+  bottom: -8px;  /* Extended to compensate for translateY(-4px) */
+  height: 8px;  /* Taller to ensure coverage */
+  background: white;
+  z-index: 2;  /* Above panel border */
 }
 
 .tag-tab--active:hover {
@@ -265,7 +309,7 @@
   align-items: center;
   justify-content: center;
   min-width: 22px;
-  padding: 1px 5px;
+  padding: 1px 10px;
   background: #cbd5e1; /* Fallback, will be overridden by inline style */
   color: black;
   font-weight: 700;

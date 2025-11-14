@@ -286,7 +286,7 @@
   flex-shrink: 0;
   width: 100%;
   overflow: visible;
-  max-height: 100px; /* Limit the height of tag category panel */
+  max-height: 105px; /* Allow active tab overlay to extend below */
 }
 
 /* Bottom Section - Sankey + Table Side by Side */
@@ -354,6 +354,7 @@
   overflow: hidden;
   background: white;
   position: relative;
+  border: none;
 }
 
 /* ============================================================================

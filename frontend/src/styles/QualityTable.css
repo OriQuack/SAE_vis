@@ -4,7 +4,7 @@
 
 .table-panel {
   background-color: white;
-  border: 1px solid #e5e7eb;
+  border: none;
   border-radius: 8px;
   padding: 0 0 10px 0;
   display: flex;
