@@ -727,9 +727,9 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                   className={rowClassName}
                   onClick={(e) => {
                     // Allow clicking anywhere on the row to toggle the pair selection
-                    // but don't toggle if clicking interactive elements
+                    // Only exclude badge (it has its own click handler with stopPropagation)
                     const target = e.target as HTMLElement
-                    if (!target.closest('.table-panel__category-badge, .decoder-stage-table__cell--activation, .decoder-stage-table__cell--decoder-similarity')) {
+                    if (!target.closest('.table-panel__category-badge')) {
                       handlePairToggle(row.mainFeature.feature_id, row.similarFeature.feature_id)
                     }
                   }}

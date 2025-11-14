@@ -505,8 +505,9 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
                       className={rowClass}
                       onClick={(e) => {
                         const target = e.target as HTMLElement
-                        // Don't trigger if clicking interactive elements (badge, explanation, activation example)
-                        if (!target.closest('.table-panel__category-badge, .table-panel__cell--explanation, .table-panel__cell--activation-example')) {
+                        // Allow clicking anywhere on the row to toggle the cause category
+                        // Only exclude badge (it has its own click handler with stopPropagation)
+                        if (!target.closest('.table-panel__category-badge')) {
                           toggleCauseCategory(featureRow.feature_id)
                         }
                       }}

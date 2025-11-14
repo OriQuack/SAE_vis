@@ -242,7 +242,7 @@ width: 39%;
   transition: background-color 0.15s ease, border-left 0.15s ease;
   cursor: pointer;
   min-height: 16px;
-  position: relative;  /* Allow absolute positioned children to extend beyond */
+  /* position: relative; */  /* REMOVED: Created stacking context that blocked popovers from appearing above subsequent rows */
 }
 
 .table-panel__sub-row:hover {
@@ -299,7 +299,7 @@ width: 39%;
 
 .table-panel__sub-row--confirmed:hover .table-panel__cell {
   background: var(--row-bg-color, rgba(59, 130, 246, 0.3)) !important;
-  filter: brightness(0.95);
+  /* filter: brightness(0.95); */  /* REMOVED: Creates stacking context that blocks popovers */
 }
 
 /* Expanded: Auto-tagged by histogram - Light blue (30% opacity) */
@@ -309,7 +309,7 @@ width: 39%;
 
 .table-panel__sub-row--expanded:hover .table-panel__cell {
   background: var(--row-bg-color, rgba(147, 197, 253, 0.3)) !important;
-  filter: brightness(0.95);
+  /* filter: brightness(0.95); */  /* REMOVED: Creates stacking context that blocks popovers */
 }
 
 /* Rejected: Manually rejected - Uses dynamic color from Sankey (30% opacity) */
@@ -319,7 +319,7 @@ width: 39%;
 
 .table-panel__sub-row--rejected:hover .table-panel__cell {
   background: var(--row-bg-color, rgba(239, 68, 68, 0.3)) !important;
-  filter: brightness(0.95);
+  /* filter: brightness(0.95); */  /* REMOVED: Creates stacking context that blocks popovers */
 }
 
 /* Auto-Rejected: Auto-tagged by histogram threshold - Light red (30% opacity) */
@@ -329,7 +329,7 @@ width: 39%;
 
 .table-panel__sub-row--auto-rejected:hover .table-panel__cell {
   background: var(--row-bg-color, rgba(252, 165, 165, 0.3)) !important;
-  filter: brightness(0.95);
+  /* filter: brightness(0.95); */  /* REMOVED: Creates stacking context that blocks popovers */
 }
 
 /* Cause Table - Row backgrounds using standard selection colors (30% opacity) */
@@ -340,7 +340,7 @@ width: 39%;
 
 .table-panel__sub-row--noisy-activation:hover .table-panel__cell {
   background: var(--row-bg-color, rgba(59, 130, 246, 0.3)) !important;
-  filter: brightness(0.95);
+  /* filter: brightness(0.95); */  /* REMOVED: Creates stacking context that blocks popovers */
 }
 
 /* missed-lexicon maps to expanded (light blue) */
@@ -350,7 +350,7 @@ width: 39%;
 
 .table-panel__sub-row--missed-lexicon:hover .table-panel__cell {
   background: var(--row-bg-color, rgba(147, 197, 253, 0.3)) !important;
-  filter: brightness(0.95);
+  /* filter: brightness(0.95); */  /* REMOVED: Creates stacking context that blocks popovers */
 }
 
 /* missed-context maps to rejected (red) */
@@ -360,7 +360,7 @@ width: 39%;
 
 .table-panel__sub-row--missed-context:hover .table-panel__cell {
   background: var(--row-bg-color, rgba(239, 68, 68, 0.3)) !important;
-  filter: brightness(0.95);
+  /* filter: brightness(0.95); */  /* REMOVED: Creates stacking context that blocks popovers */
 }
 
 /* Legacy class support (for backward compatibility) */
@@ -588,11 +588,6 @@ width: 39%;
   border-right: 1px solid #d1d5db;
   box-sizing: border-box;
   vertical-align: middle;
-}
-
-/* Remove absolute positioning when using flex layout */
-.table-panel__cell--score > div {
-  /* Flex container handles layout, no absolute positioning needed */
 }
 
 /* Legacy support: Keep absolute positioning for direct SVG children (if any) */

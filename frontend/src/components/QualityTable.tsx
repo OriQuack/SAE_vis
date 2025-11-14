@@ -668,9 +668,9 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                   className={rowClassName}
                   onClick={(e) => {
                     // Allow clicking anywhere on the row to toggle the feature selection
-                    // but don't trigger if clicking interactive elements (badge, explanation, activation example)
+                    // Only exclude badge (it has its own click handler with stopPropagation)
                     const target = e.target as HTMLElement
-                    if (!target.closest('.table-panel__category-badge, .table-panel__cell--explanation, .table-panel__cell--activation-example')) {
+                    if (!target.closest('.table-panel__category-badge')) {
                       toggleFeatureSelection(featureRow.feature_id)
                     }
                   }}
