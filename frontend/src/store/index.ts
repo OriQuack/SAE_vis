@@ -143,6 +143,7 @@ interface AppState {
   showSimilarityTaggingPopover: (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string) => Promise<void>
   hideSimilarityTaggingPopover: () => void
   updateSimilarityThresholds: (selectThreshold: number) => void
+  updateBothSimilarityThresholds: (selectThreshold: number, rejectThreshold: number) => void
   applySimilarityTags: () => void
 
   // Node selection actions

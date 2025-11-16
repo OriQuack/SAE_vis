@@ -16,7 +16,7 @@ import {
   getRowStyleProperties
 } from '../lib/table-color-utils'
 import type { ScoreStats } from '../lib/circle-encoding-utils'
-import ScoreCircle from './TableScoreCircle'
+import ScoreCircle, { TagBadge } from './TableIndicators'
 import { HighlightedExplanation } from './TableExplanation'
 import { TAG_CATEGORY_CAUSE, TAG_CATEGORIES, getBadgeColors, TAG_CATEGORY_TABLE_TITLES, TAG_CATEGORY_TABLE_INSTRUCTIONS } from '../lib/tag-constants'
 import ActivationExample from './TableActivationExample'
@@ -24,6 +24,27 @@ import TableSelectionPanel from './TableSelectionPanel'
 import SimilarityTaggingPopover from './TagAutomaticPopover'
 import '../styles/QualityTable.css'
 import '../styles/CauseTable.css'
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Convert cause category to tag name for TagBadge
+ */
+function getCauseTagName(cause: 'noisy-activation' | 'missed-lexicon' | 'missed-context' | null): string {
+  if (cause === 'noisy-activation') return 'Noisy Activation'
+  if (cause === 'missed-lexicon') return 'Missed Lexicon'
+  if (cause === 'missed-context') return 'Missed Context'
+  return 'Unsure'
+}
+
+/**
+ * Convert cause category to selection state for TagBadge
+ */
+function getCauseSelectionState(cause: 'noisy-activation' | 'missed-lexicon' | 'missed-context' | null): 'selected' | null {
+  return cause ? 'selected' : null
+}
 
 // ============================================================================
 // MAIN CAUSE TABLE PANEL COMPONENT
@@ -345,6 +366,7 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
       <TableSelectionPanel
         mode="cause"
         tagLabel={TAG_CATEGORY_TABLE_TITLES[TAG_CATEGORY_CAUSE]}
+        instruction={TAG_CATEGORY_TABLE_INSTRUCTIONS[TAG_CATEGORY_CAUSE]}
         onDone={moveToNextStep}
         doneButtonEnabled={true}
       />
@@ -358,18 +380,13 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
               <th className="table-panel__header-cell table-panel__header-cell--index">
                 <div className="table-panel__header-content">#</div>
               </th>
-              <th className="table-panel__header-cell table-panel__header-cell--checkbox">
-                <div className="table-panel__header-content">
-                  Cause
-                </div>
-              </th>
               <th
-                className="table-panel__header-cell table-panel__header-cell--id"
+                className="table-panel__header-cell table-panel__header-cell--feature"
                 onClick={() => handleSort('featureId')}
                 style={{ cursor: 'pointer' }}
               >
                 <div className="table-panel__header-content">
-                  ID
+                  Tag
                   {sortBy === 'featureId' && (
                     <span className={`table-panel__sort-indicator ${sortDirection || ''}`} />
                   )}
@@ -506,8 +523,8 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
                       onClick={(e) => {
                         const target = e.target as HTMLElement
                         // Allow clicking anywhere on the row to toggle the cause category
-                        // Only exclude badge (it has its own click handler with stopPropagation)
-                        if (!target.closest('.table-panel__category-badge')) {
+                        // Only exclude tag badge (it has its own click handler with stopPropagation)
+                        if (!target.closest('.tag-badge')) {
                           toggleCauseCategory(featureRow.feature_id)
                         }
                       }}
@@ -521,35 +538,18 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
                         {virtualRow.index + 1}
                       </td>
 
-                      {/* Cause Category Badge */}
-                      <td className="table-panel__cell table-panel__cell--checkbox">
-                        {(() => {
-                          if (!causeState) return null
-
-                          const config = causeConfig[causeState as keyof typeof causeConfig]
-                          if (!config) return null
-
-                          const { label, color } = config
-
-                          return (
-                            <div
-                              className="table-panel__category-badge"
-                              style={{ backgroundColor: color }}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                toggleCauseCategory(featureRow.feature_id)
-                              }}
-                              title={label}
-                            >
-                              {label}
-                            </div>
-                          )
-                        })()}
-                      </td>
-
-                      {/* Feature ID */}
-                      <td className="table-panel__cell table-panel__cell--id">
-                        {featureRow.feature_id}
+                      {/* Feature badge (merged checkbox + ID) */}
+                      <td className="table-panel__cell table-panel__cell--feature">
+                        <TagBadge
+                          featureId={featureRow.feature_id}
+                          tagName={getCauseTagName(causeState)}
+                          tagCategoryId={TAG_CATEGORY_CAUSE}
+                          selectionState={getCauseSelectionState(causeState)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            toggleCauseCategory(featureRow.feature_id)
+                          }}
+                        />
                       </td>
 
                       {/* Semantic Similarity */}

@@ -3,7 +3,12 @@
  * ============================================================================
  * This stylesheet extends the base .table-panel__* classes from QualityTablePanel.css
  * with cause-specific styling for the four-state category checkbox and row highlights.
- */
+ *
+ * UNIFIED BORDER SYSTEM
+ * Thin border (1px solid #e5e7eb): Divides subrows, subcolumns, rows, columns
+ * Thick border (2px solid #d1d5db): Divides header from content
+ * No shadows: Clean, professional appearance for conference presentation
+ * ============================================================================ */
 
 /* ============================================================================
  * CAUSE-SPECIFIC CELL WIDTHS
@@ -90,7 +95,7 @@
   position: relative;
   height: 60px;
   padding: 4px 8px;
-  border-right: 1px solid #d1d5db;
+  border-right: 1px solid #e5e7eb;
   box-sizing: border-box;
   vertical-align: middle;
 }
@@ -218,7 +223,7 @@
 /* Add bottom border to all cells for horizontal lines */
 .cause-table-panel .table-panel__cell {
   border-bottom: 1px solid #e5e7eb;
-  border-right: 1px solid #f3f4f6;
+  border-right: 1px solid #e5e7eb;
 }
 
 /* Remove right border from last cell in each row */
@@ -226,14 +231,14 @@
   border-right: none;
 }
 
-/* Stronger border between rows */
+/* Border between rows */
 .cause-table-panel .table-panel__sub-row {
-  border-bottom: 1px solid #d1d5db;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 /* Header cell borders for alignment */
 .cause-table-panel .table-panel__header-cell {
-  border-right: 1px solid #f3f4f6;
+  border-right: 1px solid #e5e7eb;
   border-bottom: 2px solid #d1d5db;
 }
 
@@ -258,7 +263,7 @@
 .cause-table-panel .table-panel__header-cell--id:hover,
 .cause-table-panel .table-panel__header-cell--score:hover,
 .cause-table-panel .table-panel__header-cell--score-dual:hover {
-  background-color: #f9fafb;
+  background-color: var(--bg-secondary);
 }
 
 /* Active/sorting header styling */

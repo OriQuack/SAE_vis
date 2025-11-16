@@ -376,14 +376,16 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
     <div className="table-selection-panel">
       {/* Simplified Header */}
       <div className="table-selection-panel__header">
-        <h3 className="table-selection-panel__title">
-          {tagLabel}
-        </h3>
-        {instruction && (
-          <p className="table-selection-panel__instruction">
-            {instruction}
-          </p>
-        )}
+        <div className="table-selection-panel__header-row">
+          <h3 className="table-selection-panel__title">
+            {tagLabel}
+          </h3>
+          {instruction && (
+            <p className="table-selection-panel__instruction">
+              {instruction}
+            </p>
+          )}
+        </div>
         {selectedNode && selectedNode.metric && selectedNode.rangeLabel && (
           <span className="table-selection-panel__threshold">
             Filter: {METRIC_DISPLAY_NAMES[selectedNode.metric as keyof typeof METRIC_DISPLAY_NAMES] || selectedNode.metric} = {selectedNode.rangeLabel}

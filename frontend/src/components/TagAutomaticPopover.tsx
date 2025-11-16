@@ -14,7 +14,7 @@ import '../styles/TagAutomaticPopover.css'
 const SimilarityTaggingPopover: React.FC = () => {
   const popoverState = useVisualizationStore(state => state.similarityTaggingPopover)
   const hideSimilarityTaggingPopover = useVisualizationStore(state => state.hideSimilarityTaggingPopover)
-  const updateSimilarityThresholds = useVisualizationStore(state => state.updateSimilarityThresholds)
+  const updateBothSimilarityThresholds = useVisualizationStore(state => state.updateBothSimilarityThresholds)
   const applySimilarityTags = useVisualizationStore(state => state.applySimilarityTags)
   const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
   const featureSelectionSources = useVisualizationStore(state => state.featureSelectionSources)
@@ -43,11 +43,11 @@ const SimilarityTaggingPopover: React.FC = () => {
     if (popoverState?.visible) {
       setThresholds({
         select: popoverState.selectThreshold,
-        reject: -0.1
+        reject: popoverState.rejectThreshold
       })
       setDraggedPosition(null) // Reset to center
     }
-  }, [popoverState?.visible, popoverState?.selectThreshold])
+  }, [popoverState?.visible])
 
   // Click outside to close
   useEffect(() => {
@@ -410,12 +410,12 @@ const SimilarityTaggingPopover: React.FC = () => {
     setThresholds(prev => {
       // Only update if values actually changed
       if (newReject !== prev.reject || newSelect !== prev.select) {
-        updateSimilarityThresholds(newSelect) // Keep for backward compatibility
+        updateBothSimilarityThresholds(newSelect, newReject)
         return { reject: newReject, select: newSelect }
       }
       return prev
     })
-  }, [updateSimilarityThresholds])
+  }, [updateBothSimilarityThresholds])
 
   if (!popoverState?.visible) return null
 

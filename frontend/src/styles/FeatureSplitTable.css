@@ -5,13 +5,11 @@
 
 /* ============================================================================
  * UNIFIED BORDER SYSTEM
+ * ============================================================================
+ * Thin border (1px solid #e5e7eb): Divides subrows, subcolumns, rows, columns
+ * Thick border (2px solid #d1d5db): Divides header from content
+ * No shadows: Clean, professional appearance for conference presentation
  * ============================================================================ */
-/*
- * Border hierarchy:
- * - Thin borders (1px #e5e7eb): Column separators, internal content rows
- * - Structural borders (1px #d1d5db): Labels column separator (vertical emphasis)
- * - Row separators (2px #e5e7eb): Between main rows (horizontal emphasis)
- */
 
 .spinner-mini {
   display: inline-block;
@@ -36,7 +34,7 @@
   top: calc(100% + 6px);
   left: 50%;
   transform: translateX(-50%);
-  background: white;
+  background: var(--bg-primary);
   color: #374151;
   padding: 8px 12px;
   border-radius: 6px;
@@ -45,7 +43,6 @@
   font-weight: 500;
   white-space: nowrap;
   z-index: 1000;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   pointer-events: none;
   line-height: 1.5;
 }
@@ -109,6 +106,7 @@
   padding: 8px;
   font-size: 12px;
   font-weight: 600;
+  background-color: var(--bg-tertiary);
   cursor: help;  /* Indicate tooltip is available */
 }
 
@@ -117,14 +115,14 @@
  * ============================================================================ */
 
 .decoder-stage-table__header-row {
-  background-color: #f9fafb;
+  background-color: var(--bg-tertiary);
   border-top: 1px solid #e5e7eb;
 }
 
 /* Header cell for labels column */
 .table-panel__header-cell--labels {
-  width: 100px;
-  background-color: #fafafa;
+  width: 65px;
+  background-color: var(--bg-tertiary);
 }
 
 /* Header cell for feature columns */
@@ -134,6 +132,7 @@
   padding: 8px;
   font-size: 12px;
   font-weight: 600;
+  background-color: var(--bg-tertiary);
   border-right: 1px solid #e5e7eb;  /* Thin border */
   cursor: pointer;  /* For sortable columns */
 }
@@ -148,7 +147,7 @@
 
 /* Grouped row - contains 6 table columns */
 .table-panel__grouped-row {
-  height: 154px;  /* 30px ID + 30px Splitting + 40px Decoder + 54px Activation */
+  height: 130px;  /* 36px Badge + 40px Decoder + 54px Activation */
 }
 
 /* Apply thick border to all cells in grouped row */
@@ -159,18 +158,18 @@
 /* Grouped index cell - spans full row height */
 .decoder-stage-table__cell--grouped-index {
   vertical-align: middle;
-  height: 154px;
+  height: 130px;
 }
 
 /* ============================================================================
- * ROW LABELS COLUMN - Left-side labels for ID, Splitting, Decoder Sim., Activation
+ * ROW LABELS COLUMN - Left-side labels for Tag, Decoder Similarity, Activation Example
  * ============================================================================ */
 
 .decoder-stage-table__labels-column {
   display: flex;
   flex-direction: column;
-  background-color: #fafafa;
-  height: 154px;
+  background-color: var(--bg-tertiary);
+  height: 130px;
 }
 
 .decoder-stage-table__label-cell {
@@ -186,12 +185,8 @@
   border-bottom: 1px solid #e5e7eb;  /* Thin divider between labels */
 }
 
-.decoder-stage-table__label-cell--id {
-  height: 30px;
-}
-
-.decoder-stage-table__label-cell--splitting {
-  height: 30px;
+.decoder-stage-table__label-cell--tag {
+  height: 36px;
 }
 
 .decoder-stage-table__label-cell--decoder {
@@ -211,20 +206,20 @@
 .decoder-stage-table__cell--labels {
   padding: 0 !important;
   width: 100px;
-  background-color: #fafafa;
-  border-right: 1px solid #d1d5db;  /* Structural border */
+  background-color: var(--bg-tertiary);
+  border-right: 1px solid #e5e7eb;  /* Thin border */
   vertical-align: top;
-  height: 154px;
+  height: 130px;
 }
 
 /* Feature column cells */
 .decoder-stage-table__cell--feature-column {
   padding: 0 !important;
   width: auto;  /* Will be calculated based on table width */
-  height: 154px;
+  height: 130px;
   vertical-align: top;
   border-right: 1px solid #e5e7eb;  /* Thin border */
-  background-color: white;
+  background-color: var(--bg-primary);
   overflow: hidden;
 }
 
@@ -234,7 +229,7 @@
 
 /* Main feature column - different background */
 .decoder-stage-table__cell--main-feature {
-  background-color: #f9fafb;
+  background-color: var(--bg-secondary);
 }
 
 .decoder-stage-table__cell--main-feature:hover {
@@ -243,7 +238,7 @@
 
 /* Empty feature column */
 .decoder-stage-table__cell--empty {
-  background-color: #f9fafb;
+  background-color: var(--bg-secondary);
   color: #9ca3af;
 }
 
@@ -255,7 +250,7 @@
 .decoder-stage-table__feature-content {
   display: flex;
   flex-direction: column;
-  height: 154px;
+  height: 130px;
   width: 100%;
 }
 
@@ -276,23 +271,18 @@
   flex-shrink: 0;  /* Prevent shrinking */
 }
 
-.decoder-stage-table__content-row--splitting {
-  height: 30px;
-  background-color: white;
-  position: relative;
-}
-
-.decoder-stage-table__content-row--id {
-  height: 30px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #374151;
-  background-color: white;
+.decoder-stage-table__content-row--badge {
+  height: 36px;
+  background-color: var(--bg-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
 }
 
 .decoder-stage-table__content-row--decoder {
   height: 40px;
-  background-color: white;
+  background-color: var(--bg-primary);
   position: relative;
 }
 
@@ -314,7 +304,7 @@
   height: 54px;  /* Fixed height: 3 quantiles × 18px each (matches QualityTable) */
   min-height: 54px;
   max-height: 54px;
-  background-color: white;
+  background-color: var(--bg-primary);
   padding: 2px;
   overflow: hidden;  /* Clip preview content to maintain consistent widths */
   border-bottom: none;  /* No border - cell itself has border from .table-panel__grouped-row > td */
@@ -399,11 +389,11 @@
 }
 
 .decoder-stage-table__badge--lexical.decoder-stage-table__badge--hover {
-  box-shadow: 0 0 6px rgba(59, 130, 246, 0.6);
+  /* No shadow for clean appearance */
 }
 
 .decoder-stage-table__badge--semantic.decoder-stage-table__badge--hover {
-  box-shadow: 0 0 6px rgba(168, 85, 247, 0.6);
+  /* No shadow for clean appearance */
 }
 
 /* ============================================================================
@@ -455,7 +445,7 @@
   vertical-align: middle !important;
 
   /* Visual styling */
-  background: white;
+  background: var(--bg-primary);
   border-right: 1px solid #e5e7eb;  /* Thin border */
 
   /* Typography */
@@ -510,7 +500,7 @@
 .feature-split-table .table-panel__sub-row--rejected .table-panel__cell--index,
 .feature-split-table .table-panel__sub-row--checkbox-selected .table-panel__cell--index,
 .feature-split-table .table-panel__sub-row--checkbox-rejected .table-panel__cell--index {
-  background: #f9fafb !important; /* Keep original gray background */
+  background: var(--bg-tertiary) !important; /* Keep index column darkest */
 }
 
 /* For decoder similarity table, keep decoder similarity column white even when row is selected */
@@ -520,7 +510,7 @@
 .feature-split-table .table-panel__sub-row--rejected .decoder-stage-table__cell--decoder-similarity,
 .feature-split-table .table-panel__sub-row--checkbox-selected .decoder-stage-table__cell--decoder-similarity,
 .feature-split-table .table-panel__sub-row--checkbox-rejected .decoder-stage-table__cell--decoder-similarity {
-  background: white !important; /* Keep original white background */
+  background: var(--bg-primary) !important; /* Keep original white background */
 }
 
 /* Fallback for old class selector - keep score column white */
@@ -529,7 +519,7 @@
 .feature-split-table .table-panel__sub-row--rejected .table-panel__cell--score,
 .feature-split-table .table-panel__sub-row--checkbox-selected .table-panel__cell--score,
 .feature-split-table .table-panel__sub-row--checkbox-rejected .table-panel__cell--score {
-  background: white !important; /* Keep original white background */
+  background: var(--bg-primary) !important; /* Keep original white background */
 }
 
 /* ============================================================================
@@ -561,10 +551,9 @@
 .decoder-activation-popover {
   position: absolute;
   /* top and left set dynamically via inline styles */
-  background: white;
+  background: var(--bg-primary);
   border: 1px solid #000000;
   border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 100;
   /* max-width set dynamically via inline styles based on activation column width */
   padding: 4px;

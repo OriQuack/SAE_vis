@@ -1097,6 +1097,19 @@ export const createTableActions = (set: any, get: any) => ({
     })
   },
 
+  updateBothSimilarityThresholds: (selectThreshold: number, rejectThreshold: number) => {
+    const { similarityTaggingPopover } = get()
+    if (!similarityTaggingPopover) return
+
+    set({
+      similarityTaggingPopover: {
+        ...similarityTaggingPopover,
+        selectThreshold,
+        rejectThreshold
+      }
+    })
+  },
+
   applySimilarityTags: () => {
     const { similarityTaggingPopover, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources } = get()
 

@@ -2,8 +2,16 @@
  * TABLE PANEL - Simplified Feature-Level Table
  * ============================================================================ */
 
+/* ============================================================================
+ * UNIFIED BORDER SYSTEM
+ * ============================================================================
+ * Thin border (1px solid #e5e7eb): Divides subrows, subcolumns, rows, columns
+ * Thick border (2px solid #d1d5db): Divides header from content
+ * No shadows: Clean, professional appearance for conference presentation
+ * ============================================================================ */
+
 .table-panel {
-  background-color: white;
+  background-color: var(--bg-primary);
   border: none;
   border-radius: 8px;
   padding: 0 0 10px 0;
@@ -125,12 +133,11 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  background: white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  background: var(--bg-primary);
 }
 
 .table-panel__thead tr {
-  background: white;
+  background: var(--bg-primary);
 }
 
 .table-panel__thead th {
@@ -158,7 +165,8 @@
   color: #374151;
   text-align: center;
   background: #f3f4f6;
-  border: 1px solid #d1d5db;
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 2px solid #d1d5db;
   padding: 8px 0px;
   vertical-align: middle;
   position: sticky;
@@ -171,18 +179,19 @@
   width: 3%;
   min-width: 40px;
   text-align: center;
-  background: #f9fafb;
+  background: var(--bg-tertiary);
   padding: 4px 0;
 }
 
-.table-panel__header-cell--id {
-  width: 5%;
-  min-width: 40px;
+.table-panel__header-cell--feature {
+  width: 12%;
+  min-width: 120px;
   cursor: pointer;
   user-select: none;
+  text-align: center;
 }
 
-.table-panel__header-cell--id:hover {
+.table-panel__header-cell--feature:hover {
   background: rgba(59, 130, 246, 0.1);
 }
 
@@ -238,7 +247,7 @@ width: 39%;
  * ============================================================================ */
 
 .table-panel__sub-row {
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid #e5e7eb;
   transition: background-color 0.15s ease, border-left 0.15s ease;
   cursor: pointer;
   min-height: 16px;
@@ -250,7 +259,7 @@ width: 39%;
 }
 
 .table-panel__sub-row--first {
-  border-top: 1px solid #d1d5db;
+  border-top: 1px solid #e5e7eb;
 }
 
 .table-panel__sub-row--highlighted {
@@ -432,42 +441,28 @@ width: 39%;
   padding: 0px 0;
   vertical-align: middle;
   text-align: center;
-  background: white;
+  background: var(--bg-primary);
   transition: background-color 0.1s ease;
 }
 
 /* Top border for cells in the first sub-row of each feature */
 .table-panel__sub-row--first .table-panel__cell {
-  border-top: 1px solid #d1d5db;
+  border-top: 1px solid #e5e7eb;
 }
 
 .table-panel__cell--index {
   text-align: center;
   font-weight: 500;
   font-size: 11px;
-  background: #f9fafb;
-  border-right: 1px solid #d1d5db;
+  background: var(--bg-tertiary);
+  border-right: 1px solid var(--border-thin);
 }
 
-.table-panel__cell--id {
+.table-panel__cell--feature {
   text-align: center;
-  font-weight: 500;
-  font-size: 11px;
-  background: #f9fafb;
-  border-right: 1px solid #d1d5db;
-}
-
-/* Checkbox column */
-.table-panel__header-cell--checkbox {
-  width: 10%;
-  text-align: center;
-}
-
-.table-panel__cell--checkbox {
-  text-align: center;
-  background: white;
-  border-right: 1px solid #d1d5db;
-  padding: 4px 0;
+  background: var(--bg-primary);
+  border-right: 1px solid var(--border-thin);
+  padding: 8px 4px;
 }
 
 /* Three-state custom checkbox */
@@ -481,7 +476,7 @@ width: 39%;
   justify-content: center;
   border: 1.5px solid #d1d5db;
   border-radius: 3px;
-  background: white;
+  background: var(--bg-primary);
   transition: all 0.15s ease;
   font-size: 14px;
   font-weight: 700;
@@ -490,7 +485,7 @@ width: 39%;
 
 .table-panel__checkbox-custom:hover {
   border-color: #9ca3af;
-  background: #f9fafb;
+  background: var(--bg-secondary);
 }
 
 /* Checkmark state (green) */
@@ -528,7 +523,6 @@ width: 39%;
 
 .table-panel__category-badge:hover {
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 /* Quality Table and Feature Split Table - Selected state (Well-Explained / Feature Split) */
@@ -585,7 +579,7 @@ width: 39%;
   position: relative;
   height: 60px; /* Fixed height to accommodate circle + text */
   padding: 0;
-  border-right: 1px solid #d1d5db;
+  border-right: 1px solid #e5e7eb;
   box-sizing: border-box;
   vertical-align: middle;
 }
@@ -602,7 +596,7 @@ width: 39%;
 .table-panel__cell--explainer {
   text-align: center;
   vertical-align: middle;
-  border-right: 1px solid #d1d5db;
+  border-right: 1px solid #e5e7eb;
 }
 
 .table-panel__explainer-badge {
@@ -630,8 +624,8 @@ width: 39%;
   line-height: 1.4;
   position: relative;
   padding-left: 2px;
-  border-left: 1px solid #d1d5db;
-  border-right: 1px solid #d1d5db;
+  border-left: 1px solid #e5e7eb;
+  border-right: 1px solid #e5e7eb;
 }
 
 /* Text wrapper with truncation (allows popover to escape) */
@@ -651,7 +645,7 @@ width: 39%;
 }
 
 .table-panel__cell--activation-example {
-  background: #fafafa;
+  background: var(--bg-primary);
 }
 
 /* ============================================================================
@@ -737,11 +731,10 @@ width: 39%;
 
 .table-panel__quality-breakdown {
   width: 100%;
-  background: white;
-  border: 1px solid #d1d5db;
+  background: var(--bg-primary);
+  border: 1px solid #e5e7eb;
   border-radius: 4px;
   padding: 0;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   pointer-events: none;
 }
 
@@ -762,11 +755,10 @@ width: 39%;
 .table-panel__explanation-popover {
   position: absolute;
   z-index: 1000;  /* High z-index to appear above table rows */
-  background: white;
+  background: var(--bg-primary);
   border: 1px solid #000000;
   border-radius: 6px;
   padding: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   pointer-events: none;  /* Non-interactive like activation example */
   max-width: 800px;
 }
@@ -871,7 +863,6 @@ width: 39%;
   outline: 2px solid #3b82f6;
   outline-offset: 1px;
   border-radius: 3px;
-  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.3);
 }
 
 /* Higher/lower match styling classes (for new 2-group system) */
@@ -926,7 +917,7 @@ width: 39%;
   width: 14px;
   height: 8px;
   border-radius: 2px;
-  border: 0.5px solid #d1d5db;
+  border: 0.5px solid #e5e7eb;
 }
 
 .table-panel__highlight-legend-label {
@@ -944,7 +935,7 @@ width: 39%;
   align-items: center;
   justify-content: space-between;
   padding: 0px 10px;
-  background-color: #f9fafb;
+  background-color: var(--bg-secondary);
   border-bottom: 1px solid #e5e7eb;
   gap: 0.5rem;
 }
@@ -982,10 +973,9 @@ width: 39%;
 
 .table-panel__floating-popover {
   position: fixed;
-  background: white;
+  background: var(--bg-primary);
   border: 1px solid #000000;  /* Black border like ActivationExample */
   border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   padding: 4px;  /* Minimal padding like ActivationExample */
   z-index: 9999;
   max-width: 800px;

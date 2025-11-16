@@ -318,6 +318,7 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  border-left: 1px solid #e5e7eb;
 }
 
 /* New Panel Above Table */

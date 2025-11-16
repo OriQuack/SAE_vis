@@ -2,6 +2,20 @@
    BASE STYLES - Reset and Global Styles
    ============================================================================ */
 
+/* ============================================================================
+   CSS CUSTOM PROPERTIES - Design Tokens
+   ============================================================================ */
+:root {
+  /* Background Colors - Table System (lightest to darkest) */
+  --bg-primary: #ffffff;      /* White - most content cells (ID, explanation, activation, etc.) */
+  --bg-secondary: #fafafa;    /* Second darkest - feature splitting labels */
+  --bg-tertiary: #f9fafb;     /* Darkest - headers and index column */
+
+  /* Border Colors - Unified System */
+  --border-thin: #e5e7eb;     /* Thin borders - divides rows, columns, subrows */
+  --border-thick: #d1d5db;    /* Thick borders - divides headers from content */
+}
+
 /* Reset and base styles */
 * {
   box-sizing: border-box;

@@ -9,11 +9,24 @@ import {
 } from '../lib/table-color-utils'
 import { extractInterFeaturePositions, mergeInterFeaturePositions } from '../lib/activation-utils'
 import ActivationExample from './TableActivationExample'
-import ScoreCircle from './TableScoreCircle'
+import ScoreCircle, { TagBadge } from './TableIndicators'
 import SimilarityTaggingPopover from './TagAutomaticPopover'
 import TableSelectionPanel from './TableSelectionPanel'
 import '../styles/QualityTable.css'
 import '../styles/FeatureSplitTable.css'
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Convert splitting selection state to tag name for TagBadge
+ */
+function getSplitTagName(state: 'selected' | 'rejected' | null): string {
+  if (state === 'selected') return 'Monosemantic'
+  if (state === 'rejected') return 'Fragmented'
+  return 'Unsure'
+}
 
 // ============================================================================
 // DECODER SIMILARITY STAGE TABLE
@@ -407,7 +420,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
   const rowVirtualizer = useVirtualizer({
     count: sortedGroupedRows.length,
     getScrollElement: () => tableContainerRef.current,
-    estimateSize: () => 154, // Estimate ~154px per row (4 sub-rows: ID 30px + Splitting 30px + Decoder 40px + Activation 54px)
+    estimateSize: () => 130, // Estimate ~130px per row (3 content rows: Badge 36px + Decoder 40px + Activation 54px)
     overscan: 3, // Render 3 extra items above/below for smooth scrolling (fewer due to larger rows)
   })
 
@@ -741,14 +754,11 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                   {/* Column 2: Labels */}
                   <td className="table-panel__cell decoder-stage-table__cell--labels">
                     <div className="decoder-stage-table__labels-column">
-                      <div className="decoder-stage-table__label-cell decoder-stage-table__label-cell--id">
-                        Feature ID
-                      </div>
-                      <div className="decoder-stage-table__label-cell decoder-stage-table__label-cell--splitting">
-                        Feature Splitting
+                      <div className="decoder-stage-table__label-cell decoder-stage-table__label-cell--tag">
+                        Tag
                       </div>
                       <div className="decoder-stage-table__label-cell decoder-stage-table__label-cell--decoder">
-                        Decoder Sim
+                        Decoder Similarity
                       </div>
                       <div className="decoder-stage-table__label-cell decoder-stage-table__label-cell--activation">
                         Activation Example
@@ -792,33 +802,21 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                         style={{ cursor: isMainFeature ? 'default' : 'pointer' }}
                       >
                         <div className="decoder-stage-table__feature-content">
-                          {/* Content row 1: Feature ID */}
-                          <div className="decoder-stage-table__content-row decoder-stage-table__content-row--id">
-                            {subCol.featureId}
+                          {/* Content row 1: Feature Badge (merged ID + splitting tag) */}
+                          <div className="decoder-stage-table__content-row decoder-stage-table__content-row--badge">
+                            <TagBadge
+                              featureId={subCol.featureId}
+                              tagName={!isMainFeature ? getSplitTagName(pairSelectionState) : 'Unsure'}
+                              tagCategoryId={TAG_CATEGORY_FEATURE_SPLITTING}
+                              selectionState={!isMainFeature ? pairSelectionState : null}
+                              onClick={!isMainFeature ? (e) => {
+                                e.stopPropagation()
+                                handlePairToggle(groupedRow.mainFeatureId, subCol.featureId)
+                              } : undefined}
+                            />
                           </div>
 
-                          {/* Content row 2: Feature Splitting Badge */}
-                          <div className="decoder-stage-table__content-row decoder-stage-table__content-row--splitting">
-                              {!isMainFeature && pairSelectionState && (
-                                <div
-                                  className="table-panel__category-badge decoder-stage-table__badge--inline"
-                                  style={{
-                                    backgroundColor: pairSelectionState === 'selected'
-                                      ? badgeConfig.selected.color
-                                      : badgeConfig.rejected.color
-                                  }}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handlePairToggle(groupedRow.mainFeatureId, subCol.featureId)
-                                  }}
-                                  title={`${pairSelectionState === 'selected' ? badgeConfig.selected.label : badgeConfig.rejected.label} (${groupedRow.mainFeatureId}, ${subCol.featureId})`}
-                                >
-                                  {pairSelectionState === 'selected' ? badgeConfig.selected.label : badgeConfig.rejected.label}
-                                </div>
-                              )}
-                          </div>
-
-                          {/* Content row 3: Decoder Similarity (empty for main feature) */}
+                          {/* Content row 2: Decoder Similarity (empty for main feature) */}
                           <div className="decoder-stage-table__content-row decoder-stage-table__content-row--decoder">
                               {!isMainFeature && subCol.decoderSimilarity !== null && (
                                 <div
@@ -834,7 +832,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                                       )
                                     }
 
-                                    // Fetch activation examples if needed
+                                    // Fetch activation examples if needed (for rendering, but don't show popover)
                                     const featuresToFetch = []
                                     if (!activationExamples[groupedRow.mainFeatureId]) {
                                       featuresToFetch.push(groupedRow.mainFeatureId)
@@ -846,23 +844,11 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                                       fetchActivationExamples(featuresToFetch)
                                     }
 
-                                    // Set hovered pair
-                                    setHoveredPairKey(pairKey!)
+                                    // Don't set hovered pair - activation popover disabled for decoder circle hover
                                   }}
                                   onMouseLeave={() => {
                                     handleBadgeLeave()
-                                    setHoveredPairKey(null)
-                                  }}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    if (subCol.interFeatureSimilarity) {
-                                      handleBadgeInteraction(
-                                        groupedRow.mainFeatureId,
-                                        subCol.featureId,
-                                        subCol.interFeatureSimilarity,
-                                        true
-                                      )
-                                    }
+                                    // Don't clear hovered pair - activation popover disabled for decoder circle hover
                                   }}
                                 >
                                   <ScoreCircle
@@ -877,7 +863,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                               )}
                           </div>
 
-                          {/* Content row 4: Activation Example */}
+                          {/* Content row 3: Activation Example */}
                           <div className="decoder-stage-table__content-row decoder-stage-table__content-row--activation">
                               {activationExamples[subCol.featureId] && (
                                 <ActivationExample

@@ -102,6 +102,18 @@
   position: relative;
 }
 
+/* Green bottom border using pseudo-element to layer behind red max token underline */
+.activation-token--interfeature::before {
+  content: '';
+  position: absolute;
+  bottom: -1.5px;  /* Align with token border spacing */
+  left: -2px;  /* Align with left border */
+  right: -2px;  /* Align with right border */
+  height: 2px;
+  background-color: #10b981;
+  z-index: -1;  /* Behind the token content and max token underline */
+}
+
 /* Newline token styling */
 .activation-token--newline {
   position: relative;

@@ -1,6 +1,7 @@
 import React from 'react'
 import { getCircleRadius, getCircleOpacity } from '../lib/circle-encoding-utils'
 import { getMetricColor } from '../lib/utils'
+import { getTagColor } from '../lib/tag-constants'
 import type { ScoreStats } from '../lib/circle-encoding-utils'
 
 // ============================================================================
@@ -98,6 +99,107 @@ const ScoreCircle: React.FC<ScoreCircleProps> = ({
           {label ?? score.toFixed(3)}
         </div>
       )}
+    </div>
+  )
+}
+
+// ============================================================================
+// TAG BADGE COMPONENT
+// ============================================================================
+// Unified tag badge showing Feature ID | Tag Name
+// - Left section: Feature ID with light gray background
+// - Right section: Tag name with tag-specific color
+
+interface TagBadgeProps {
+  featureId: number          // Feature ID to display on left
+  tagName: string            // Tag name to display on right (or "Unsure" if unselected)
+  tagCategoryId: string      // Category ID for color lookup
+  className?: string         // Additional CSS classes
+
+  // Selection state props
+  selectionState?: 'selected' | 'rejected' | 'confirmed' | null  // Visual selection state
+  onClick?: (e: React.MouseEvent) => void  // Click handler for selection
+}
+
+export const TagBadge: React.FC<TagBadgeProps> = ({
+  featureId,
+  tagName,
+  tagCategoryId,
+  className = '',
+  selectionState = null,
+  onClick
+}) => {
+  // Get tag color from pre-computed colors (or gray for unselected)
+  const baseTagColor = getTagColor(tagCategoryId, tagName) || '#9ca3af'
+
+  // Use consistent styling regardless of selection state
+  const selectionStyle = {
+    border: '1px solid rgba(0, 0, 0, 0.1)',
+    opacity: 1.0,
+    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
+  }
+
+  const isClickable = !!onClick
+
+  // Tag background color (gray for unselected, actual color otherwise)
+  const tagBgColor = tagName === 'Unsure' ? '#e5e7eb' : baseTagColor
+  const tagTextColor = tagName === 'Unsure' ? '#6b7280' : '#000'
+
+  return (
+    <div
+      className={`tag-badge ${className}`}
+      onClick={onClick}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        borderRadius: '4px',
+        overflow: 'hidden',
+        fontSize: '12px',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        fontWeight: 500,
+        cursor: isClickable ? 'pointer' : 'default',
+        transition: 'all 0.15s ease',
+        ...selectionStyle
+      }}
+      onMouseEnter={(e) => {
+        if (isClickable) {
+          e.currentTarget.style.transform = 'scale(1.02)'
+          e.currentTarget.style.boxShadow = '0 3px 8px rgba(0, 0, 0, 0.15)'
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (isClickable) {
+          e.currentTarget.style.transform = 'scale(1)'
+          e.currentTarget.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.05)'
+        }
+      }}
+    >
+      {/* Feature ID section (left) */}
+      <div
+        style={{
+          padding: '3px 8px',
+          backgroundColor: '#f3f4f6',
+          color: '#4b5563',
+          fontFamily: 'monospace',
+          fontSize: '11px',
+          fontWeight: 600,
+          borderRight: '1px solid rgba(0, 0, 0, 0.1)'
+        }}
+      >
+        {featureId}
+      </div>
+
+      {/* Tag name section (right) */}
+      <div
+        style={{
+          padding: '3px 10px',
+          backgroundColor: tagBgColor,
+          color: tagTextColor,
+          whiteSpace: 'nowrap'
+        }}
+      >
+        {tagName}
+      </div>
     </div>
   )
 }

@@ -8,7 +8,7 @@ import {
   getExplainerDisplayName,
   findMaxQualityScoreExplainer
 } from '../lib/table-utils'
-import ScoreCircle from './TableScoreCircle'
+import ScoreCircle, { TagBadge } from './TableIndicators'
 import {
   METRIC_QUALITY_SCORE,
   CATEGORY_DECODER_SIMILARITY
@@ -34,6 +34,19 @@ import CauseTablePanel from './CauseTable'
 import SimilarityTaggingPopover from './TagAutomaticPopover'
 import TableSelectionPanel from './TableSelectionPanel'
 import '../styles/QualityTable.css'
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Convert quality selection state to tag name for TagBadge
+ */
+function getQualityTagName(state: 'selected' | 'rejected' | null): string {
+  if (state === 'selected') return 'Well-Explained'
+  if (state === 'rejected') return 'Need Revision'
+  return 'Unsure'
+}
 
 // ============================================================================
 // MAIN TABLE PANEL COMPONENT
@@ -563,15 +576,12 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
               <th className="table-panel__header-cell table-panel__header-cell--index">
                 #
               </th>
-              {/* Checkbox column */}
-              <th className="table-panel__header-cell table-panel__header-cell--checkbox">
-                Quality
-              </th>
+              {/* Tag column (merged checkbox + ID) */}
               <th
-                className="table-panel__header-cell table-panel__header-cell--id"
+                className="table-panel__header-cell table-panel__header-cell--feature"
                 onClick={() => handleSort('featureId')}
               >
-                ID
+                Tag
                 {sortBy === 'featureId' && (
                   <span className={`table-panel__sort-indicator ${sortDirection || ''}`} />
                 )}
@@ -613,7 +623,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
             {/* Top padding spacer for virtual scrolling */}
             {rowVirtualizer.getVirtualItems().length > 0 && (
               <tr style={{ height: `${rowVirtualizer.getVirtualItems()[0]?.start ?? 0}px` }}>
-                <td colSpan={7} />
+                <td colSpan={6} />
               </tr>
             )}
 
@@ -672,9 +682,9 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                   className={rowClassName}
                   onClick={(e) => {
                     // Allow clicking anywhere on the row to toggle the feature selection
-                    // Only exclude badge (it has its own click handler with stopPropagation)
+                    // Only exclude tag badge (it has its own click handler with stopPropagation)
                     const target = e.target as HTMLElement
-                    if (!target.closest('.table-panel__category-badge')) {
+                    if (!target.closest('.tag-badge')) {
                       toggleFeatureSelection(featureRow.feature_id)
                     }
                   }}
@@ -689,34 +699,18 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                     {featureIndex + 1}
                   </td>
 
-                  {/* Category badge: null -> well-explained -> need revision -> null */}
-                  <td className="table-panel__cell table-panel__cell--checkbox">
-                    {(() => {
-                      const state = featureSelectionStates.get(featureRow.feature_id)
-                      if (!state) return null
-
-                      const config = state === 'selected' ? badgeConfig.selected : badgeConfig.rejected
-                      const { label, color } = config
-
-                      return (
-                        <div
-                          className="table-panel__category-badge"
-                          style={{ backgroundColor: color }}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            toggleFeatureSelection(featureRow.feature_id)
-                          }}
-                          title={label}
-                        >
-                          {label}
-                        </div>
-                      )
-                    })()}
-                  </td>
-
-                  {/* Feature ID */}
-                  <td className="table-panel__cell table-panel__cell--id">
-                    {featureRow.feature_id}
+                  {/* Feature badge (merged checkbox + ID) */}
+                  <td className="table-panel__cell table-panel__cell--feature">
+                    <TagBadge
+                      featureId={featureRow.feature_id}
+                      tagName={getQualityTagName(selectionState)}
+                      tagCategoryId={TAG_CATEGORY_QUALITY}
+                      selectionState={selectionState}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        toggleFeatureSelection(featureRow.feature_id)
+                      }}
+                    />
                   </td>
 
                   {/* LLM Explainer column - Badge showing max quality score explainer */}
