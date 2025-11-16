@@ -3,7 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow, DecoderStagePairRow, StageTableContext, FeatureSplitGroupedRow, FeatureSplitSubColumn } from '../types'
 import { METRIC_DECODER_SIMILARITY } from '../lib/constants'
-import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORIES } from '../lib/tag-constants'
+import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORIES, TAG_CATEGORY_TABLE_TITLES, TAG_CATEGORY_TABLE_INSTRUCTIONS } from '../lib/tag-constants'
 import {
   getBadgeConfig
 } from '../lib/table-color-utils'
@@ -677,7 +677,8 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
       {/* Unified Selection Panel with header, buttons, and state bar */}
       <TableSelectionPanel
         mode="pair"
-        tagLabel={TAG_CATEGORIES[TAG_CATEGORY_FEATURE_SPLITTING].label}
+        tagLabel={TAG_CATEGORY_TABLE_TITLES[TAG_CATEGORY_FEATURE_SPLITTING]}
+        instruction={TAG_CATEGORY_TABLE_INSTRUCTIONS[TAG_CATEGORY_FEATURE_SPLITTING]}
         onDone={moveToNextStep}
         doneButtonEnabled={true}
       />
@@ -882,7 +883,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                                 <ActivationExample
                                   examples={activationExamples[subCol.featureId]}
                                   containerWidth={activationColumnWidth}  // Already calculated for single column
-                                  interFeaturePositions={getInterFeaturePositionsForFeature(subCol.featureId, pairKey)}
+                                  interFeaturePositions={getInterFeaturePositionsForFeature(subCol.featureId, pairKey ?? undefined)}
                                   isHovered={pairKey !== null && hoveredPairKey === pairKey}
                                   onHoverChange={(isHovered) => {
                                     // Only set hover for non-main features

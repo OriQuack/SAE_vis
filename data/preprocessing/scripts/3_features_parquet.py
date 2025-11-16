@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Create Features Parquet with Nested Structure (Version 2.0)
+Create Features Parquet with Nested Structure (Version 2.1)
 
 This script generates features.parquet with nested structures by loading data from
 preprocessed directories and calculating semantic similarities on-the-fly from
@@ -17,6 +17,11 @@ Output:
 - data/master/features.parquet (nested structure with 3 List(Struct) fields)
 - data/master/features.parquet.metadata.json (processing metadata)
 
+Key Changes in v2.1:
+- Added configurable feature range processing (start/end)
+- Enables processing subsets for testing, debugging, or parallel processing
+- Range is inclusive of start, exclusive of end: [start, end)
+
 Key Changes in v2.0:
 - Removed dependency on semantic_similarities JSON files (script 3 output)
 - Semantic similarities now calculated on-the-fly from explanation embeddings
@@ -24,7 +29,17 @@ Key Changes in v2.0:
 - More flexible: can compare any pair of explainers without pre-computation
 
 Usage:
-    python 5_create_features_parquet.py --config config/5_features_parquet_config.json
+    # Process all features
+    python 3_features_parquet.py --config config/3_create_features_parquet.json
+
+    # Process first 100 features (testing)
+    python 3_features_parquet.py --config config/3_create_features_parquet_test.json
+
+    # Or create custom config with feature_range:
+    # "feature_range": {"start": 0, "end": 100}  # First 100 features
+    # "feature_range": {"start": 100, "end": 200}  # Features 100-199
+    # "feature_range": {"start": 500}  # All features from 500 onwards
+    # "feature_range": {"end": 1000}  # All features up to 999
 """
 
 import json
@@ -50,6 +65,10 @@ logger = logging.getLogger(__name__)
 class FeaturesParquetCreator:
     """Creates features.parquet with nested structure and on-the-fly semantic similarity calculation.
 
+    Version 2.1 changes:
+    - Added configurable feature range processing (start/end)
+    - Enables subset processing for testing, debugging, or parallel processing
+
     Version 2.0 changes:
     - Loads explanation embeddings from parquet (script 2 output)
     - Calculates semantic similarities on-the-fly using numpy
@@ -59,6 +78,15 @@ class FeaturesParquetCreator:
     def __init__(self, config: Dict):
         self.config = config
         self.sae_id = config["sae_id"]
+
+        # Feature range configuration (optional)
+        self.feature_range_start = config.get("feature_range", {}).get("start", None)
+        self.feature_range_end = config.get("feature_range", {}).get("end", None)
+
+        if self.feature_range_start is not None or self.feature_range_end is not None:
+            logger.info(f"Feature range configured: {self.feature_range_start} to {self.feature_range_end}")
+        else:
+            logger.info("Processing all features (no range specified)")
 
         # Resolve paths relative to project root
         self.project_root = self._find_project_root()
@@ -85,6 +113,10 @@ class FeaturesParquetCreator:
         # Load explanation embeddings parquet (from script 2) - contains text and embeddings
         logger.info("Loading explanation embeddings with text...")
         self.explanation_embeddings_df = self._load_explanation_embeddings()
+
+        # Apply feature range filter if configured
+        if self.feature_range_start is not None or self.feature_range_end is not None:
+            self.explanation_embeddings_df = self._apply_feature_range_filter(self.explanation_embeddings_df)
 
         # Load decoder similarities (top 10 neighbors per feature)
         logger.info("Loading decoder similarities...")
@@ -153,6 +185,43 @@ class FeaturesParquetCreator:
         df = pl.read_parquet(self.explanation_embeddings_path)
         logger.info(f"Loaded {len(df)} explanation embeddings with text")
         logger.info(f"Columns: {df.columns}")
+        return df
+
+    def _apply_feature_range_filter(self, df: pl.DataFrame) -> pl.DataFrame:
+        """Filter explanation embeddings by feature range.
+
+        Args:
+            df: Input DataFrame with feature_id column
+
+        Returns:
+            Filtered DataFrame containing only features in the specified range
+        """
+        if len(df) == 0:
+            return df
+
+        original_count = len(df)
+        unique_features_before = df["feature_id"].n_unique()
+
+        # Build filter expression
+        filter_expr = None
+
+        if self.feature_range_start is not None and self.feature_range_end is not None:
+            filter_expr = (pl.col("feature_id") >= self.feature_range_start) & (pl.col("feature_id") < self.feature_range_end)
+            logger.info(f"Filtering features: {self.feature_range_start} <= feature_id < {self.feature_range_end}")
+        elif self.feature_range_start is not None:
+            filter_expr = pl.col("feature_id") >= self.feature_range_start
+            logger.info(f"Filtering features: feature_id >= {self.feature_range_start}")
+        elif self.feature_range_end is not None:
+            filter_expr = pl.col("feature_id") < self.feature_range_end
+            logger.info(f"Filtering features: feature_id < {self.feature_range_end}")
+
+        if filter_expr is not None:
+            df = df.filter(filter_expr)
+
+        unique_features_after = df["feature_id"].n_unique()
+        logger.info(f"Feature range filter applied: {original_count} rows -> {len(df)} rows")
+        logger.info(f"Unique features: {unique_features_before} -> {unique_features_after}")
+
         return df
 
     def _load_decoder_similarities(self) -> Dict[int, List[Dict]]:
@@ -521,10 +590,15 @@ class FeaturesParquetCreator:
         """Save metadata file with processing information."""
         metadata = {
             "created_at": datetime.now().isoformat(),
-            "script_version": "2.0",
+            "script_version": "2.1",
             "sae_id": self.sae_id,
             "total_rows": len(df),
             "unique_features": df["feature_id"].n_unique(),
+            "feature_range": {
+                "start": self.feature_range_start,
+                "end": self.feature_range_end,
+                "enabled": self.feature_range_start is not None or self.feature_range_end is not None
+            },
             "schema": {
                 "feature_id": str(df["feature_id"].dtype),
                 "sae_id": str(df["sae_id"].dtype),
@@ -544,7 +618,8 @@ class FeaturesParquetCreator:
             "config_used": {
                 "input_paths": self.config["input_paths"],
                 "output_files": self.config["output_files"],
-                "sae_id": self.sae_id
+                "sae_id": self.sae_id,
+                "feature_range": self.config.get("feature_range")
             },
             "schema_notes": {
                 "semantic_similarity": "Pairwise cosine similarities between this explainer and all other explainers for the same feature, calculated directly from explanation embeddings. Replaces deprecated semsim_mean and semsim_max fields.",

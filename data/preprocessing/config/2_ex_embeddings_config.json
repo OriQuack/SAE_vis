@@ -1,8 +1,8 @@
 {
   "data_sources": [
-    "llama_e-llama_s",
-    "gwen_e-llama_s",
-    "openai_e-llama_s"
+    "llama_e-llama_s-16k",
+    "gemini_e-llama_s-16k",
+    "openai_e-llama_s-16k"
   ],
   "output_path": "data/master/explanation_embeddings.parquet",
 
@@ -11,7 +11,8 @@
   "llm_explainer_mapping": {
     "llama_e": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
     "gwen_e": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
-    "openai_e": "openai/gpt-oss-20b"
+    "openai_e": "openai/gpt-4o-mini",
+    "gemini_e": "google/gemini-flash-2.5"
   },
 
   "processing_parameters": {
@@ -29,8 +30,8 @@
   "delay_between_requests": 0,
 
   "processing_notes": {
-    "expected_features_per_source": 824,
-    "total_expected_rows": 2472,
+    "expected_features_per_source": 16384,
+    "total_expected_rows": 49152,
     "output_format": "parquet",
     "primary_key_fields": [
       "feature_id",

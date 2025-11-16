@@ -312,10 +312,6 @@ def process_single_data_source(
                     "success_count": total_examples - failure_count,
                     "variance": variance
                 }
-
-                avg_str = f"{avg_score:.4f}" if avg_score is not None else "N/A"
-                print(f"Latent {latent_id} - {method}: avg={avg_str}, "
-                      f"examples={total_examples}, failures={failure_count}")
             else:
                 processed_data["latent_scores"][latent_id][method] = {
                     "average_score": None,
@@ -324,7 +320,6 @@ def process_single_data_source(
                     "success_count": 0,
                     "variance": None
                 }
-                print(f"Latent {latent_id} - {method}: file not found")
 
     # Save results
     save_processed_scores(processed_data, str(output_dir), config["output_filename"], config, sae_id)

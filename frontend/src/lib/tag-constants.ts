@@ -23,6 +23,28 @@ export const TAG_CATEGORY_CAUSE = "cause" as const
 export const TAG_CATEGORY_TEMP = "temp" as const
 
 // ============================================================================
+// TABLE PANEL TITLES
+// Display names for table panels corresponding to each stage
+// ============================================================================
+export const TAG_CATEGORY_TABLE_TITLES: Record<string, string> = {
+  [TAG_CATEGORY_FEATURE_SPLITTING]: "Feature Splitting Detection",
+  [TAG_CATEGORY_QUALITY]: "Quality Assessment",
+  [TAG_CATEGORY_CAUSE]: "Root Cause Analysis",
+  [TAG_CATEGORY_TEMP]: "Temp Analysis"
+}
+
+// ============================================================================
+// TABLE PANEL INSTRUCTIONS
+// Instruction text shown below table panel titles
+// ============================================================================
+export const TAG_CATEGORY_TABLE_INSTRUCTIONS: Record<string, string> = {
+  [TAG_CATEGORY_FEATURE_SPLITTING]: "Select table feature columns to tag",
+  [TAG_CATEGORY_QUALITY]: "Select feature table rows to tag",
+  [TAG_CATEGORY_CAUSE]: "Select feature table rows to tag",
+  [TAG_CATEGORY_TEMP]: "Experimental analysis placeholder"
+}
+
+// ============================================================================
 // TAG CATEGORY CONFIGURATION
 // Single source of truth for all tag category metadata
 // ============================================================================

@@ -15,7 +15,7 @@ import {
 } from '../lib/histogram-utils'
 import { scaleLinear } from 'd3-scale'
 import { getNodeThresholds } from '../lib/threshold-utils'
-import { METRIC_DISPLAY_NAMES, getMetricBaseColor, getThresholdRegionColors } from '../lib/constants'
+import { METRIC_DISPLAY_NAMES, getThresholdRegionColors } from '../lib/constants'
 import type { HistogramData, HistogramChart } from '../types'
 import { ThresholdHandles } from './ThresholdHandles'
 
@@ -725,8 +725,8 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
                   max: data.statistics.max + 0.01
                 }
 
-                // Get metric-specific color (same logic as Sankey link overlay)
-                const metricColor = getMetricBaseColor(metric)
+                // Use neutral color for histogram bars
+                const metricColor = '#94a3b8'
 
                 return (
                   <HistogramChartComponent

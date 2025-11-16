@@ -1,9 +1,14 @@
 {
-  "created_at": "2025-11-04T00:52:31.200207",
-  "script_version": "2.0",
+  "created_at": "2025-11-17T00:08:57.357169",
+  "script_version": "2.1",
   "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
-  "total_rows": 2472,
-  "unique_features": 824,
+  "total_rows": 19203,
+  "unique_features": 6583,
+  "feature_range": {
+    "start": 0,
+    "end": 7500,
+    "enabled": true
+  },
   "schema": {
     "feature_id": "Int64",
     "sae_id": "Categorical",
@@ -17,8 +22,8 @@
   "processing_stats": {
     "unique_llm_explainers": 3,
     "features_with_decoder_similarity": 16384,
-    "explanation_embeddings_loaded": 2472,
-    "scores_sources_loaded": 9
+    "explanation_embeddings_loaded": 21227,
+    "scores_sources_loaded": 3
   },
   "config_used": {
     "input_paths": {
@@ -30,7 +35,11 @@
       "features_parquet": "data/master/features.parquet",
       "metadata": "data/master/features.parquet.metadata.json"
     },
-    "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120"
+    "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+    "feature_range": {
+      "start": 0,
+      "end": 7500
+    }
   },
   "schema_notes": {
     "semantic_similarity": "Pairwise cosine similarities between this explainer and all other explainers for the same feature, calculated directly from explanation embeddings. Replaces deprecated semsim_mean and semsim_max fields.",

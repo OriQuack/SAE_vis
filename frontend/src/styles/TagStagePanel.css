@@ -84,7 +84,6 @@
   border-color: #3b82f6;
   box-shadow: 0 -2px 8px rgba(59, 130, 246, 0.2);
   z-index: 10;
-  transform: translateY(-4px);
 }
 
 /* White overlay to cover panel border beneath active tab */

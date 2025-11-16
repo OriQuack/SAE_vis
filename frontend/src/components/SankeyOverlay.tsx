@@ -203,18 +203,12 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
       }}
     >
 
-      {/* Render horizontal histogram bars - as segments with child node colors */}
+      {/* Render horizontal histogram bars - with neutral color */}
       {barSegments.map((segments, barIndex) => (
         <g key={barIndex}>
           {segments.map((segment, segmentIndex) => {
-            // Get child node corresponding to this segment
-            const treeNode = sankeyTree?.get(node.id || '')
-            const childNodes = treeNode?.children || []
-            const childNodeId = childNodes[segment.patternIndex]
-            const childNode = childNodeId ? sankeyTree?.get(childNodeId) : null
-
-            // Use child node's hierarchical color, or fallback to default
-            const fillColor = childNode?.colorHex || barColor
+            // Use neutral color for all histogram bars
+            const fillColor = '#94a3b8'
 
             return (
               <rect

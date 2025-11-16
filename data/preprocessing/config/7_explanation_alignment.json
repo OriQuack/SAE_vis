@@ -13,7 +13,7 @@
   },
 
   "processing_notes": {
-    "expected_features": 824,
+    "expected_features": 16384,
     "processing_strategy": "semantic_embedding_alignment",
     "chunk_methods": {
       "sentence": "Split by sentence-ending punctuation (.!?;)",

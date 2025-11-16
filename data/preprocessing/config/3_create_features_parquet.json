@@ -14,6 +14,11 @@
     "metadata": "data/master/features.parquet.metadata.json"
   },
 
+  "feature_range": {
+    "start": 0,
+    "end": 7500
+  },
+
   "processing_notes": {
     "semantic_similarity_calculation": "Calculated on-the-fly from explanation embeddings using numpy cosine similarity",
     "data_source": "All data loaded from explanation_embeddings.parquet which contains both text and embeddings",
@@ -27,6 +32,7 @@
       "decoder_similarity: List(Struct)",
       "semantic_similarity: List(Struct)",
       "scores: List(Struct)"
-    ]
+    ],
+    "feature_range_usage": "Use 'feature_range' to process subsets for testing, debugging, or parallel processing. Range is [start, end) (end is exclusive)."
   }
 }

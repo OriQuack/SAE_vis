@@ -8,24 +8,35 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 8px 12px;
   background: #ffffff;
 }
 
 /* ============================================================================
-   HEADER - Tag name, count, and Sankey threshold
+   HEADER - Tag name, instruction, and Sankey threshold
    ============================================================================ */
 
 .table-selection-panel__header {
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
+  padding: 8px 12px;
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .table-selection-panel__title {
   font-size: 13px;
   font-weight: 600;
   color: #374151;
+  margin: 0;
+}
+
+.table-selection-panel__instruction {
+  font-size: 11px;
+  font-weight: 400;
+  color: #9ca3af;
+  margin: 0;
 }
 
 .table-selection-panel__threshold {
@@ -42,7 +53,7 @@
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  margin-top: 2px;
+  padding: 8px 12px;
 }
 
 /* Left Actions Container */

@@ -6,7 +6,8 @@ import {
   calculateThresholdFromPercentile,
   calculatePercentileFromThreshold,
   getFeatureMetricValues,
-  precomputePercentileMap
+  precomputePercentileMap,
+  groupFeaturesByThresholds
 } from '../lib/threshold-utils'
 import { PANEL_LEFT, PANEL_RIGHT } from '../lib/constants'
 import {
@@ -267,9 +268,9 @@ export const createTreeActions = (set: any, get: any) => ({
         throw new Error('Table data must be loaded before building Sankey tree. Call fetchTableData() first.')
       }
 
-      // Fetch feature groups from backend with default thresholds
-      const response = await api.getFeatureGroups({ filters, metric, thresholds: defaultThresholds })
-      const groups = processFeatureGroupResponse(response)
+      // Local feature grouping using pre-loaded tableData (no backend call)
+      console.log(`[Store.addStageToNodeInternal] 🚀 Local grouping for ${metric}:${defaultThresholds.join(',')}`)
+      const groups = groupFeaturesByThresholds(node.featureIds, metric, defaultThresholds, tableData)
 
       const newTree = new Map<string, SankeyTreeNode>(sankeyTree)
       const parentNode = newTree.get(nodeId)!
@@ -497,10 +498,9 @@ export const createTreeActions = (set: any, get: any) => ({
         throw new Error('Table data must be loaded before updating thresholds')
       }
 
-      // Fetch new groups from API
-      console.log(`[Store.updateNodeThresholds] Fetching groups for ${node.metric}:${thresholds.join(',')}`)
-      const response = await api.getFeatureGroups({ filters, metric: node.metric, thresholds })
-      const groups = processFeatureGroupResponse(response)
+      // Local feature grouping using pre-loaded tableData (no backend call)
+      console.log(`[Store.updateNodeThresholds] 🚀 Local grouping for ${node.metric}:${thresholds.join(',')}`)
+      const groups = groupFeaturesByThresholds(node.featureIds, node.metric, thresholds, tableData)
 
       const newTree = new Map<string, SankeyTreeNode>(sankeyTree)
       const parentNode = newTree.get(nodeId)!
@@ -584,18 +584,19 @@ export const createTreeActions = (set: any, get: any) => ({
         }
       }))
 
-      // Recompute Sankey
+      // 🎯 IMMEDIATE Stage 1 UI update
       get().recomputeSankeyTree(panel)
-
-      // Rebuild downstream stages (stages 2 and 3 for root updates, stage 3 for stage 1 updates)
-      // Skip if called from within rebuildDownstreamStages to avoid redundant rebuilding
-      if (!skipDownstreamRebuild) {
-        console.log(`[Store.updateNodeThresholds] 🔄 Rebuilding downstream stages for ${nodeId}`)
-        await get().rebuildDownstreamStages(nodeId, parentNode.depth, panel)
-      }
-
       state.setLoading(loadingKey, false)
-      console.log(`[Store.updateNodeThresholds] ✅ Threshold update complete`)
+      console.log(`[Store.updateNodeThresholds] ✅ Stage 1 visible immediately`)
+
+      // 🔄 Defer downstream rebuild to next tick (non-blocking)
+      if (!skipDownstreamRebuild) {
+        setTimeout(async () => {
+          console.log(`[Store.updateNodeThresholds] 🔄 Rebuilding downstream stages (deferred)`)
+          await get().rebuildDownstreamStages(nodeId, parentNode.depth, panel)
+          console.log(`[Store.updateNodeThresholds] ✅ Downstream rebuild complete`)
+        }, 0)
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to update thresholds'
       state.setError(errorKey, errorMessage)
@@ -1066,6 +1067,9 @@ export const createTreeActions = (set: any, get: any) => ({
       }
 
       console.log('[Store.rebuildDownstreamStages] ✅ Stages 2 and 3 rebuilt successfully')
+
+      // 🎯 Final recompute after all downstream stages rebuilt
+      get().recomputeSankeyTree(panel)
     }
     // Depth 1 (stage 1 child): Rebuild Cause (stage 3) for non-terminal children
     else if (nodeDepth === 1) {
@@ -1123,6 +1127,9 @@ export const createTreeActions = (set: any, get: any) => ({
       }
 
       console.log('[Store.rebuildDownstreamStages] ✅ Stage 3 rebuilt successfully')
+
+      // 🎯 Final recompute after stage 3 rebuilt
+      get().recomputeSankeyTree(panel)
     }
     // Depth 2+ (stage 2+ children): No rebuilding needed (they're leaf cause nodes)
     else {

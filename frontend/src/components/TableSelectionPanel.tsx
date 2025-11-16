@@ -10,6 +10,7 @@ import '../styles/TableSelectionPanel.css'
 interface TableSelectionPanelProps {
   mode: 'feature' | 'pair' | 'cause'
   tagLabel: string
+  instruction?: string
   onDone?: () => void
   doneButtonEnabled?: boolean
 }
@@ -25,6 +26,7 @@ interface TableSelectionPanelProps {
 const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
   mode,
   tagLabel,
+  instruction,
   onDone,
   doneButtonEnabled = false
 }) => {
@@ -374,9 +376,14 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
     <div className="table-selection-panel">
       {/* Simplified Header */}
       <div className="table-selection-panel__header">
-        <span className="table-selection-panel__title">
+        <h3 className="table-selection-panel__title">
           {tagLabel}
-        </span>
+        </h3>
+        {instruction && (
+          <p className="table-selection-panel__instruction">
+            {instruction}
+          </p>
+        )}
         {selectedNode && selectedNode.metric && selectedNode.rangeLabel && (
           <span className="table-selection-panel__threshold">
             Filter: {METRIC_DISPLAY_NAMES[selectedNode.metric as keyof typeof METRIC_DISPLAY_NAMES] || selectedNode.metric} = {selectedNode.rangeLabel}

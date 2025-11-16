@@ -1,7 +1,7 @@
 {
-  "created_at": "2025-11-04T00:51:38.861567",
+  "created_at": "2025-11-16T22:38:25.061731",
   "script_version": "2.0",
-  "total_rows": 2472,
+  "total_rows": 46327,
   "schema": {
     "feature_id": "UInt32",
     "sae_id": "Categorical",
@@ -11,47 +11,48 @@
     "embedding": "List(Float32)"
   },
   "processing_stats": {
-    "total_features_processed": 2472,
-    "total_embeddings_generated": 2472,
+    "total_features_processed": 46327,
+    "total_embeddings_generated": 46327,
     "failed_embeddings": 0,
     "data_sources_processed": 3,
     "per_source_stats": {
-      "llama_e-llama_s": {
-        "total_files": 824,
-        "successful": 824,
+      "llama_e-llama_s-16k": {
+        "total_files": 13559,
+        "successful": 13559,
         "failed": 0
       },
-      "gwen_e-llama_s": {
-        "total_files": 824,
-        "successful": 824,
+      "gemini_e-llama_s-16k": {
+        "total_files": 16384,
+        "successful": 16384,
         "failed": 0
       },
-      "openai_e-llama_s": {
-        "total_files": 824,
-        "successful": 824,
+      "openai_e-llama_s-16k": {
+        "total_files": 16384,
+        "successful": 16384,
         "failed": 0
       }
     }
   },
   "result_stats": {
-    "total_rows": 2472,
-    "unique_features": 824,
+    "total_rows": 46327,
+    "unique_features": 16384,
     "unique_data_sources": 3,
     "unique_explainers": 3,
     "embedding_dimension": 768
   },
   "config_used": {
     "data_sources": [
-      "llama_e-llama_s",
-      "gwen_e-llama_s",
-      "openai_e-llama_s"
+      "llama_e-llama_s-16k",
+      "gemini_e-llama_s-16k",
+      "openai_e-llama_s-16k"
     ],
     "output_path": "data/master/explanation_embeddings.parquet",
     "description": "Configuration for generating embeddings from SAE feature explanations across multiple data sources",
     "llm_explainer_mapping": {
       "llama_e": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
       "gwen_e": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
-      "openai_e": "openai/gpt-oss-20b"
+      "openai_e": "openai/gpt-4o-mini",
+      "gemini_e": "google/gemini-flash-2.5"
     },
     "processing_parameters": {
       "file_pattern": "layers.30_latent*.txt",
@@ -65,8 +66,8 @@
     "task_type": "semantic_similarity",
     "delay_between_requests": 0,
     "processing_notes": {
-      "expected_features_per_source": 824,
-      "total_expected_rows": 2472,
+      "expected_features_per_source": 16384,
+      "total_expected_rows": 49152,
       "output_format": "parquet",
       "primary_key_fields": [
         "feature_id",

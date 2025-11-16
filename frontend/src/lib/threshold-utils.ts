@@ -950,6 +950,121 @@ export async function getFeatureMetricValues(
 // ============================================================================
 
 /**
+ * Group features by threshold ranges using local metric values.
+ * Replaces backend /api/feature-groups call for instant threshold updates.
+ *
+ * @param parentFeatureIds - Set of feature IDs from parent node
+ * @param metric - Metric name (e.g., "decoder_similarity", "quality_score")
+ * @param thresholds - Threshold values to split by (unsorted is OK)
+ * @param tableData - Pre-loaded table data with all metric values
+ * @returns Array of feature groups (N+1 groups from N thresholds)
+ *
+ * @example
+ * // With thresholds [0.4] and decoder_similarity metric:
+ * // Returns 2 groups: [< 0.40, >= 0.40]
+ *
+ * @example
+ * // With thresholds [0.3, 0.7] and quality_score metric:
+ * // Returns 3 groups: [< 0.30, 0.30 - 0.70, >= 0.70]
+ */
+export function groupFeaturesByThresholds(
+  parentFeatureIds: Set<number>,
+  metric: string,
+  thresholds: number[],
+  tableData: any // Type as FeatureTableDataResponse if imported
+): FeatureGroup[] {
+  // 1. Extract metric values for parent's features
+  const metricValues = new Map<number, number>()
+
+  if (!tableData || !tableData.features || tableData.features.length === 0) {
+    console.warn('[groupFeaturesByThresholds] ⚠️ No table data available')
+    return []
+  }
+
+  for (const feature of tableData.features) {
+    if (parentFeatureIds.has(feature.feature_id)) {
+      let metricValue: number | null = null
+
+      // Special handling for decoder_similarity (extract max cosine_similarity)
+      if (metric === 'decoder_similarity' && Array.isArray(feature[metric]) && feature[metric].length > 0) {
+        metricValue = Math.max(...feature[metric].map((item: any) => item.cosine_similarity))
+      }
+      // Special handling for quality_score (average across explainers)
+      else if (metric === 'quality_score' && feature.explainers) {
+        const explainerValues: number[] = []
+        for (const explainerKey in feature.explainers) {
+          const explainerData = feature.explainers[explainerKey]
+          if (explainerData.quality_score !== null && explainerData.quality_score !== undefined) {
+            explainerValues.push(explainerData.quality_score)
+          }
+        }
+        if (explainerValues.length > 0) {
+          metricValue = explainerValues.reduce((a, b) => a + b, 0) / explainerValues.length
+        }
+      }
+      // Direct metric access for other metrics
+      else {
+        metricValue = feature[metric]
+      }
+
+      // Only add if valid numeric value
+      if (metricValue !== null && metricValue !== undefined && !isNaN(metricValue)) {
+        metricValues.set(feature.feature_id, Number(metricValue))
+      }
+    }
+  }
+
+  // 2. Sort thresholds in ascending order
+  const sortedThresholds = [...thresholds].sort((a, b) => a - b)
+
+  // 3. Create N+1 groups from N thresholds
+  const groups: FeatureGroup[] = []
+
+  for (let i = 0; i <= sortedThresholds.length; i++) {
+    const featureIds = new Set<number>()
+    let rangeLabel: string
+
+    if (i === 0) {
+      // Group 0: < threshold[0]
+      rangeLabel = `< ${sortedThresholds[0].toFixed(2)}`
+      for (const [featureId, value] of metricValues) {
+        if (value < sortedThresholds[0]) {
+          featureIds.add(featureId)
+        }
+      }
+    } else if (i === sortedThresholds.length) {
+      // Last group: >= threshold[i-1]
+      rangeLabel = `>= ${sortedThresholds[i - 1].toFixed(2)}`
+      for (const [featureId, value] of metricValues) {
+        if (value >= sortedThresholds[i - 1]) {
+          featureIds.add(featureId)
+        }
+      }
+    } else {
+      // Middle groups: threshold[i-1] <= value < threshold[i]
+      rangeLabel = `${sortedThresholds[i - 1].toFixed(2)} - ${sortedThresholds[i].toFixed(2)}`
+      for (const [featureId, value] of metricValues) {
+        if (value >= sortedThresholds[i - 1] && value < sortedThresholds[i]) {
+          featureIds.add(featureId)
+        }
+      }
+    }
+
+    groups.push({
+      groupIndex: i,
+      rangeLabel,
+      featureIds,
+      featureCount: featureIds.size
+    })
+  }
+
+  console.log(`[groupFeaturesByThresholds] ✅ Created ${groups.length} groups for ${metric}:`,
+    groups.map(g => `${g.rangeLabel} (${g.featureCount} features)`).join(', '))
+
+  return groups
+}
+
+/**
  * Get tag name for a child node based on its group index and parent's category.
  * Used for labeling threshold handles on histograms.
  *

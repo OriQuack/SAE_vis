@@ -21,7 +21,10 @@ import {
 } from '../lib/table-color-utils'
 import {
   TAG_CATEGORY_FEATURE_SPLITTING,
-  TAG_CATEGORY_CAUSE
+  TAG_CATEGORY_CAUSE,
+  TAG_CATEGORY_QUALITY,
+  TAG_CATEGORY_TABLE_TITLES,
+  TAG_CATEGORY_TABLE_INSTRUCTIONS
 } from '../lib/tag-constants'
 import { HighlightedExplanation } from './TableExplanation'
 import ActivationExample from './TableActivationExample'
@@ -543,7 +546,8 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
       {/* Unified Selection Panel with header, buttons, and state bar */}
       <TableSelectionPanel
         mode="feature"
-        tagLabel="Well-Explained"
+        tagLabel={TAG_CATEGORY_TABLE_TITLES[TAG_CATEGORY_QUALITY]}
+        instruction={TAG_CATEGORY_TABLE_INSTRUCTIONS[TAG_CATEGORY_QUALITY]}
         onDone={moveToNextStep}
         doneButtonEnabled={true}
       />

@@ -18,7 +18,7 @@ import {
 import type { ScoreStats } from '../lib/circle-encoding-utils'
 import ScoreCircle from './TableScoreCircle'
 import { HighlightedExplanation } from './TableExplanation'
-import { TAG_CATEGORY_CAUSE, TAG_CATEGORIES, getBadgeColors } from '../lib/tag-constants'
+import { TAG_CATEGORY_CAUSE, TAG_CATEGORIES, getBadgeColors, TAG_CATEGORY_TABLE_TITLES, TAG_CATEGORY_TABLE_INSTRUCTIONS } from '../lib/tag-constants'
 import ActivationExample from './TableActivationExample'
 import TableSelectionPanel from './TableSelectionPanel'
 import SimilarityTaggingPopover from './TagAutomaticPopover'
@@ -344,7 +344,7 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
       {/* Table Selection Panel - Header with actions */}
       <TableSelectionPanel
         mode="cause"
-        tagLabel="Cause"
+        tagLabel={TAG_CATEGORY_TABLE_TITLES[TAG_CATEGORY_CAUSE]}
         onDone={moveToNextStep}
         doneButtonEnabled={true}
       />

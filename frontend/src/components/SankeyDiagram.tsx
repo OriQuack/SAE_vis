@@ -111,9 +111,7 @@ const SankeyLink: React.FC<{
   const baseColor = getLinkColor(link)
 
   // Apply opacity by replacing last 2 characters (opacity suffix)
-  // - Normal: 35% opacity ('59' hex)
-  // - Hover: 50% opacity ('80' hex)
-  const color = isHovered ? baseColor.slice(0, -2) + '80' : baseColor
+  const color = isHovered ? baseColor.slice(0, -2) + '48' : baseColor
 
   return (
     <path
@@ -534,6 +532,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     <div className={`sankey-diagram ${className}`}>
       <div className="sankey-diagram__header">
         <h3 className="sankey-diagram__title">Filter View</h3>
+        <p className="sankey-diagram__instruction">Move threshold do filter candidates</p>
       </div>
       <div
         ref={setContainerRef}

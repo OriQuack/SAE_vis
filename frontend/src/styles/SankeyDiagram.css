@@ -36,6 +36,12 @@
   margin: 0;
 }
 
+.sankey-diagram__instruction {
+  font-size: 11px;
+  font-weight: 400;
+  color: #9ca3af;
+}
+
 .sankey-diagram__container {
   position: relative;
   background: white;
@@ -327,24 +333,14 @@
               font-weight var(--sankey-animation-duration) var(--sankey-animation-easing);
 }
 
-/* Histograms - Smooth transitions */
+/* Histograms - No transitions for instant updates */
 .sankey-diagram__node-histograms rect {
-  transition: x var(--sankey-animation-duration) var(--sankey-animation-easing),
-              y var(--sankey-animation-duration) var(--sankey-animation-easing),
-              width var(--sankey-animation-duration) var(--sankey-animation-easing),
-              height var(--sankey-animation-duration) var(--sankey-animation-easing),
-              opacity var(--sankey-animation-duration) var(--sankey-animation-easing);
+  /* Transitions removed to prevent animation on threshold changes */
 }
 
 .sankey-diagram__node-histograms line,
 .sankey-diagram__node-histograms text {
-  transition: x1 var(--sankey-animation-duration) var(--sankey-animation-easing),
-              y1 var(--sankey-animation-duration) var(--sankey-animation-easing),
-              x2 var(--sankey-animation-duration) var(--sankey-animation-easing),
-              y2 var(--sankey-animation-duration) var(--sankey-animation-easing),
-              x var(--sankey-animation-duration) var(--sankey-animation-easing),
-              y var(--sankey-animation-duration) var(--sankey-animation-easing),
-              opacity var(--sankey-animation-duration) var(--sankey-animation-easing);
+  /* Transitions removed to prevent animation on threshold changes */
 }
 
 /* Threshold Sliders - Smooth transitions */
