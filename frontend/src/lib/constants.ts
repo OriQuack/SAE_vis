@@ -322,7 +322,7 @@ export const SELECTION_CATEGORY_COLORS = {
 /**
  * Selection category type definition
  */
-export type SelectionCategory = 'confirmed' | 'expanded' | 'rejected' | 'auto-rejected' | 'unsure'
+export type SelectionCategory = 'confirmed' | 'expanded' | 'rejected' | 'autoRejected' | 'unsure'
 
 /**
  * Get color for a selection category
@@ -337,7 +337,7 @@ export function getSelectionCategoryColor(category: SelectionCategory) {
       return SELECTION_CATEGORY_COLORS.EXPANDED
     case 'rejected':
       return SELECTION_CATEGORY_COLORS.REJECTED
-    case 'auto-rejected':
+    case 'autoRejected':
       return SELECTION_CATEGORY_COLORS.AUTO_REJECTED
     case 'unsure':
       return SELECTION_CATEGORY_COLORS.UNSURE

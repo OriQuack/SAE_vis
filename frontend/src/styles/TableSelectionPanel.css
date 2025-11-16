@@ -40,9 +40,9 @@
 
 .table-selection-panel__actions {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 4px;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 2px;
 }
 
 /* Left Actions Container */
@@ -70,7 +70,8 @@
 }
 
 .table-selection-panel__button {
-  padding: 6px 12px;
+  height: 24px;
+  padding: 0 12px;
   font-size: 12px;
   font-weight: 500;
   border: 1px solid #d1d5db;
@@ -80,6 +81,10 @@
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .table-selection-panel__button:hover:not(:disabled) {

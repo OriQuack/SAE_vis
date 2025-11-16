@@ -708,10 +708,12 @@ export const createTreeActions = (set: any, get: any) => ({
     const state = get()
     const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
     const { sankeyTree } = state[panelKey]
+    const { activeStageCategory } = state
 
     console.log(`[Store.recomputeSankeyTree] 🔄 Called for ${panel}:`, {
       hasSankeyTree: !!sankeyTree,
-      treeSize: sankeyTree?.size
+      treeSize: sankeyTree?.size,
+      activeStageCategory
     })
 
     if (!sankeyTree) {
@@ -725,13 +727,23 @@ export const createTreeActions = (set: any, get: any) => ({
       colorAssigner.assignColors(sankeyTree, 'root')
       console.log(`[Store.recomputeSankeyTree] 🎨 Assigned hierarchical colors to tree`)
 
+      // Determine max visible stage based on active category
+      let maxVisibleStage: number | undefined
+      if (activeStageCategory && TAG_CATEGORIES[activeStageCategory]) {
+        maxVisibleStage = TAG_CATEGORIES[activeStageCategory].stageOrder
+        console.log(`[Store.recomputeSankeyTree] 📊 Using maxVisibleStage=${maxVisibleStage} from category "${activeStageCategory}"`)
+      } else {
+        console.log(`[Store.recomputeSankeyTree] 📊 No active stage category, showing all stages`)
+      }
+
       // Use the utility function to convert tree to Sankey structure
-      const computedSankey = convertTreeToSankeyStructure(sankeyTree)
+      const computedSankey = convertTreeToSankeyStructure(sankeyTree, maxVisibleStage)
 
       console.log(`[Store.recomputeSankeyTree] ✅ Computed Sankey for ${panel}:`, {
         nodes: computedSankey.nodes.length,
         links: computedSankey.links.length,
-        maxDepth: computedSankey.maxDepth
+        maxDepth: computedSankey.maxDepth,
+        maxVisibleStage
       })
 
       set((state: any) => ({

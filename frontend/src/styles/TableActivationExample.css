@@ -3,9 +3,9 @@
  * ============================================================================ */
 
 .activation-example {
-  position: relative;
+  position: relative;  /* Positioning context for absolute popover */
   width: 100%;  /* Fill entire table cell */
-  font-family: inherit;  /* Inherit system font from body (same as table panel explanation) */
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;  /* Monospace font for predictable character widths */
   font-size: 11px;
   font-weight: 500;
   line-height: 1.4;
@@ -15,6 +15,13 @@
   height: 54px;  /* Fixed height: 3 quantiles × 18px each */
   min-height: 54px;
   max-height: 54px;
+  overflow: hidden;  /* Clip preview content to container */
+  z-index: 1;  /* Create stacking context */
+}
+
+/* Elevate z-index when hovered to ensure popover appears above adjacent cells */
+.activation-example:hover {
+  z-index: 9998;
 }
 
 /* ============================================================================
@@ -121,29 +128,26 @@
  * ============================================================================ */
 
 .activation-example__popover {
-  position: absolute;
-  width: 100%;
+  position: fixed;  /* Use fixed positioning to escape overflow: hidden parents */
   background: white;
   border: 1px solid #000000;
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1000;  /* Increased to ensure overlay appears on top of row */
+  z-index: 9999;  /* Very high z-index to ensure overlay appears above all table cells */
   padding: 4px;
   pointer-events: none;  /* Mouse events pass through to allow hover loss on row change */
   overflow: auto;  /* Allow scrolling if content exceeds column height */
   box-sizing: border-box;  /* Include padding in width calculation */
+  max-height: 300px;  /* Limit popover height */
 }
 
-/* Position variants */
+/* Position variants - will be set via inline styles with calculated coordinates */
 .activation-example__popover--below {
-  top: 0;
-  left: 0;
+  /* top and left set via inline styles */
 }
 
 .activation-example__popover--above {
-  bottom: 0;
-  left: 0;
-  top: auto;
+  /* bottom and left set via inline styles */
 }
 
 .activation-example__popover-header {

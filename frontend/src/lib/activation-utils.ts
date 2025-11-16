@@ -85,37 +85,17 @@ export function getActivationColor(
 }
 
 /**
- * Get border style based on cross-example similarity
+ * Format tokens with ellipsis - SIMPLIFIED CENTERING
  *
- * Border represents how similar the activation examples are to each other:
- * - Green (3px): High semantic similarity (>0.7)
- * - Blue (3px): High lexical pattern (>0.5)
- * - Purple (2px): Moderate similarity (>0.3)
- * - Gray (1px): Low similarity
- */
-export function getBorderStyle(
-  semanticSim: number,
-  maxJaccard: number
-): { color: string, width: string, style: string } {
-  // High similarity → stronger border
-  if (semanticSim > 0.7) {
-    return { color: '#10b981', width: '3px', style: 'solid' }  // Green
-  } else if (maxJaccard > 0.5) {
-    return { color: '#3b82f6', width: '3px', style: 'solid' }  // Blue
-  } else if (semanticSim > 0.3 || maxJaccard > 0.3) {
-    return { color: '#8b5cf6', width: '2px', style: 'solid' }  // Purple
-  } else {
-    return { color: '#d1d5db', width: '1px', style: 'solid' }  // Gray
-  }
-}
-
-/**
- * Format tokens with ellipsis - SYMMETRIC TRUNCATION
+ * Positions max activation token in the middle and expands symmetrically.
+ * Uses character width to calculate positions and always shows full tokens.
+ * Adjusts preview length based on available character budget.
  *
- * Truncates token display if total length exceeds maxLength,
- * centering the max activation token with equal amounts before/after.
- *
- * Returns left and right ellipsis flags for symmetric display.
+ * Algorithm:
+ * 1. Start with max activation token (always fully shown)
+ * 2. Expand symmetrically left/right, adding full tokens alternating
+ * 3. Stop when adding next full token would exceed character budget
+ * 4. Return display tokens with ellipsis flags for truncation indicators
  */
 export function formatTokensWithEllipsis(
   tokens: ActivationToken[],
@@ -131,55 +111,74 @@ export function formatTokensWithEllipsis(
   // Find max token position
   const maxTokenIdx = tokens.findIndex(t => t.is_max)
   if (maxTokenIdx === -1) {
-    // No max token found, fallback to simple truncation
+    // No max token found, fallback to simple truncation from start
     let currentLength = 0
     const displayTokens: ActivationToken[] = []
     for (const token of tokens) {
-      if (currentLength + token.text.length > maxLength - 3) break
+      if (currentLength + token.text.length > maxLength) break
       displayTokens.push(token)
       currentLength += token.text.length
     }
-    return { displayTokens, hasLeftEllipsis: false, hasRightEllipsis: true }
+    return {
+      displayTokens,
+      hasLeftEllipsis: false,
+      hasRightEllipsis: displayTokens.length < tokens.length
+    }
   }
 
-  // Reserve space for ellipsis (3 chars each side if needed)
-  const reservedSpace = 6
-  const availableSpace = maxLength - reservedSpace
-
-  // Symmetric expansion from max token
+  // Start with max token (always include it fully)
   const selected = new Set<number>([maxTokenIdx])
   let currentLength = tokens[maxTokenIdx].text.length
   let leftIdx = maxTokenIdx - 1
   let rightIdx = maxTokenIdx + 1
 
-  // Expand symmetrically until we run out of space
-  while ((leftIdx >= 0 || rightIdx < tokens.length) && currentLength < availableSpace) {
+  // Expand symmetrically left and right
+  // IMPORTANT:
+  // - Left (first) tokens: Only add if they FULLY fit within budget (exclude if cut off)
+  // - Right (last) tokens: Show full token even if it exceeds budget (always include complete token)
+  while (leftIdx >= 0 || rightIdx < tokens.length) {
+    let addedToken = false
+
     // Try to add from left
+    // STRICT: Don't show first token if it doesn't fully fit in character budget
     if (leftIdx >= 0) {
       const leftToken = tokens[leftIdx]
-      if (currentLength + leftToken.text.length <= availableSpace) {
+      if (currentLength + leftToken.text.length <= maxLength) {
         selected.add(leftIdx)
         currentLength += leftToken.text.length
         leftIdx--
+        addedToken = true
       } else {
-        leftIdx = -1 // Can't add more from left
+        // Token doesn't fit - don't show it at all
+        leftIdx = -1
       }
     }
 
     // Try to add from right
-    if (rightIdx < tokens.length && currentLength < availableSpace) {
+    // PERMISSIVE: Show last token in full even if it's cut off by character budget
+    if (rightIdx < tokens.length) {
       const rightToken = tokens[rightIdx]
-      if (currentLength + rightToken.text.length <= availableSpace) {
+      // Try to fit within budget, but if we're at the end and can't expand left anymore,
+      // we still add the right token to show it in full
+      if (currentLength + rightToken.text.length <= maxLength) {
         selected.add(rightIdx)
         currentLength += rightToken.text.length
         rightIdx++
+        addedToken = true
+      } else if (leftIdx < 0) {
+        // Can't expand left anymore, so add right token anyway (show full token)
+        selected.add(rightIdx)
+        currentLength += rightToken.text.length
+        rightIdx++
+        addedToken = true
       } else {
-        rightIdx = tokens.length // Can't add more from right
+        // Still have room on left, so stop expanding right
+        rightIdx = tokens.length
       }
     }
 
-    // If both sides exhausted, break
-    if (leftIdx < 0 && rightIdx >= tokens.length) break
+    // If both sides can't add, stop
+    if (!addedToken) break
   }
 
   // Build display tokens in order

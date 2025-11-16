@@ -86,7 +86,6 @@ const SankeyNode: React.FC<{
         stroke={isSelected ? '#2563eb' : color}
         strokeWidth={isSelected ? 4 : 1}
         style={{
-        //   transition: `all ${animationDuration}ms ease-out`,
           cursor: onClick ? 'pointer' : 'default',
           filter: (isHovered || isHighlighted) ? 'brightness(1.1)' : 'none'
         }}
@@ -103,9 +102,8 @@ const SankeyLink: React.FC<{
   onMouseEnter: (e: React.MouseEvent) => void
   onMouseLeave: () => void
   onClick?: (e: React.MouseEvent) => void
-  animationDuration: number
   isHovered: boolean
-}> = ({ link, onMouseEnter, onMouseLeave, onClick, animationDuration, isHovered }) => {
+}> = ({ link, onMouseEnter, onMouseLeave, onClick, isHovered }) => {
   const sourceNode = typeof link.source === 'object' ? link.source : null
   if (!sourceNode) return null
 
@@ -125,7 +123,7 @@ const SankeyLink: React.FC<{
       strokeWidth={Math.max(1, link.width || 0)}
       opacity={1.0}
       style={{
-        transition: `stroke ${animationDuration}ms ease-out`,
+        transition: `all 500ms cubic-bezier(0.4, 0.0, 0.2, 1)`,
         cursor: onClick ? 'pointer' : 'default'
       }}
       onMouseEnter={onMouseEnter}
@@ -159,8 +157,6 @@ const VerticalBarSankeyNode: React.FC<{
     width: layout.totalWidth,
     height: Math.max(...layout.subNodes.map(sn => sn.y + sn.height)) - Math.min(...layout.subNodes.map(sn => sn.y))
   } : null
-
-  // Scroll indicator will be calculated using visibleFeatureIds from scrollState
 
   return (
     <g
@@ -197,7 +193,8 @@ const VerticalBarSankeyNode: React.FC<{
           strokeWidth={4}
           rx={2}
           style={{
-            pointerEvents: 'none'
+            pointerEvents: 'none',
+            transition: `all 500ms cubic-bezier(0.4, 0.0, 0.2, 1)`
           }}
         />
       )}
@@ -212,7 +209,10 @@ const VerticalBarSankeyNode: React.FC<{
           fill="rgba(30, 41, 59, 0.25)"
           stroke="#4b5563"
           strokeWidth={1}
-          style={{ pointerEvents: 'none' }}
+          style={{
+            pointerEvents: 'none',
+            transition: `all 500ms cubic-bezier(0.4, 0.0, 0.2, 1)`
+          }}
         />
       )}
     </g>
@@ -532,6 +532,9 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
   return (
     <div className={`sankey-diagram ${className}`}>
+      <div className="sankey-diagram__header">
+        <h3 className="sankey-diagram__title">Filter View</h3>
+      </div>
       <div
         ref={setContainerRef}
         className="sankey-diagram__container"
@@ -547,7 +550,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                 <SankeyLink
                   key={`link-${index}`}
                   link={link}
-                  animationDuration={animationDuration}
                   onMouseEnter={() => setHoveredLinkIndex(index)}
                   onMouseLeave={() => setHoveredLinkIndex(null)}
                   onClick={showHistogramOnClick ? () => handleLinkHistogramClick(link) : undefined}
@@ -675,7 +677,10 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                               opacity={1}
                               fontWeight={isHovered ? 700 : 600}
                               textAnchor={textAnchor}
-                              style={{ pointerEvents: 'none' }}
+                              style={{
+                                pointerEvents: 'none',
+                                transition: `all 500ms cubic-bezier(0.4, 0.0, 0.2, 1)`
+                              }}
                             >
                               {labelText}
                             </text>
@@ -689,7 +694,10 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                               opacity={1}
                               fontWeight={isHovered ? 700 : 600}
                               textAnchor={textAnchor}
-                              style={{ pointerEvents: 'none' }}
+                              style={{
+                                pointerEvents: 'none',
+                                transition: `all 500ms cubic-bezier(0.4, 0.0, 0.2, 1)`
+                              }}
                             >
                               {labelText}
                             </text>
@@ -756,7 +764,10 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                             opacity={1}
                             fontWeight={isHovered ? 700 : 600}
                             textAnchor={textAnchor}
-                            style={{ pointerEvents: 'none' }}
+                            style={{
+                              pointerEvents: 'none',
+                              transition: `all 500ms cubic-bezier(0.4, 0.0, 0.2, 1)`
+                            }}
                           >
                             {labelText}
                           </text>
@@ -770,7 +781,10 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                             opacity={1}
                             fontWeight={isHovered ? 700 : 600}
                             textAnchor={textAnchor}
-                            style={{ pointerEvents: 'none' }}
+                            style={{
+                              pointerEvents: 'none',
+                              transition: `all 500ms cubic-bezier(0.4, 0.0, 0.2, 1)`
+                            }}
                           >
                             {labelText}
                           </text>

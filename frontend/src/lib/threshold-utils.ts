@@ -297,32 +297,67 @@ function getNodeDisplayName(node: SankeyTreeNode, tree: Map<string, SankeyTreeNo
  * This function traverses the tree and creates the flat nodes/links arrays needed by D3.
  *
  * @param tree - Map of node ID to SankeyTreeNode
+ * @param maxVisibleStage - Optional maximum stage to show (filters nodes by depth)
  * @returns TreeBasedSankeyStructure with nodes, links, and metadata
  */
-export function convertTreeToSankeyStructure(tree: Map<string, SankeyTreeNode>): TreeBasedSankeyStructure {
+export function convertTreeToSankeyStructure(tree: Map<string, SankeyTreeNode>, maxVisibleStage?: number): TreeBasedSankeyStructure {
   const nodes: SankeyNode[] = []
   const links: SankeyLink[] = []
   let maxDepth = 0
   let maxStage = 0
 
-  // First pass: Find maximum depth and maximum stage
+  // First pass: Find maximum depth and maximum stage (considering visibility filter)
   tree.forEach((node) => {
+    // If maxVisibleStage is specified, only consider nodes up to that depth
+    if (maxVisibleStage !== undefined && node.depth > maxVisibleStage) {
+      return
+    }
+
     if (node.depth > maxDepth) {
       maxDepth = node.depth
     }
-    const nodeStage = node.stage ?? node.depth
+    // When filtering by stage, use depth for determining max stage
+    // Otherwise use the node's explicit stage (which may be terminal stage 3)
+    const nodeStage = maxVisibleStage !== undefined ? node.depth : (node.stage ?? node.depth)
     if (nodeStage > maxStage) {
       maxStage = nodeStage
     }
   })
 
-  // Second pass: Build nodes and links
+  // Build a set of visible node IDs for quick lookup
+  const visibleNodeIds = new Set<string>()
   tree.forEach((node) => {
-    // Use explicit stage if available, otherwise use depth
-    const nodeStage = node.stage ?? node.depth
+    if (maxVisibleStage === undefined || node.depth <= maxVisibleStage) {
+      visibleNodeIds.add(node.id)
+    }
+  })
 
-    // Check if this node is at the maximum stage (rightmost column)
-    const isAtMaxStage = nodeStage === maxStage && nodeStage > 0
+  // Second pass: Build nodes and links (only for visible nodes)
+  tree.forEach((node) => {
+    // Skip nodes beyond the maxVisibleStage
+    if (maxVisibleStage !== undefined && node.depth > maxVisibleStage) {
+      return
+    }
+
+    // Check if this node has any visible children
+    const hasVisibleChildren = node.children.some(childId => visibleNodeIds.has(childId))
+
+    // Determine node stage position
+    // Terminal nodes (no visible children) should be positioned at maxStage
+    let nodeStage: number
+    if (!hasVisibleChildren && node.depth > 0) {
+      // Terminal node: move to rightmost position
+      nodeStage = maxStage
+    } else if (maxVisibleStage !== undefined) {
+      // When filtering by stage, use depth for positioning
+      nodeStage = node.depth
+    } else {
+      // Otherwise use the node's explicit stage (which may be terminal stage 3)
+      nodeStage = node.stage ?? node.depth
+    }
+
+    // All nodes at maxStage should be vertical bars
+    const shouldBeVerticalBar = nodeStage === maxStage && nodeStage > 0
 
     // Create node for D3
     const sankeyNode: SankeyNode = {
@@ -334,18 +369,19 @@ export function convertTreeToSankeyStructure(tree: Map<string, SankeyTreeNode>):
       category: getNodeCategory(node, tree),  // Pass tree for parent lookup
       metric: node.metric,  // Include metric for stage labels
       feature_ids: Array.from(node.featureIds),
-      // Mark nodes at maximum stage as vertical_bar type
-      node_type: isAtMaxStage ? 'vertical_bar' : 'standard',
+      // Mark nodes at maximum stage OR terminal nodes as vertical_bar type
+      node_type: shouldBeVerticalBar ? 'vertical_bar' : 'standard',
       // Copy hierarchical color from tree node
       colorHex: node.colorHex
     }
     nodes.push(sankeyNode)
 
-    // Create links to children
+    // Create links to children (only if children are also visible)
     if (node.children.length > 0) {
       node.children.forEach(childId => {
         const child = tree.get(childId)
-        if (child && child.featureCount > 0) {
+        // Only create link if child exists, has features, AND is visible
+        if (child && child.featureCount > 0 && visibleNodeIds.has(childId)) {
           links.push({
             source: node.id,
             target: childId,

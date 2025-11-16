@@ -4,7 +4,8 @@
 
 /* CSS Variables */
 :root {
-  --sankey-animation-duration: 300ms;
+  --sankey-animation-duration: 500ms;
+  --sankey-animation-easing: cubic-bezier(0.4, 0.0, 0.2, 1);
   --sankey-button-radius: 12px;
   --sankey-button-offset: 15px;
   --sankey-modal-overlay: rgba(0, 0, 0, 0.5);
@@ -19,6 +20,20 @@
   flex: 1;
   display: flex;
   flex-direction: column;
+}
+
+.sankey-diagram__header {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.sankey-diagram__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0;
 }
 
 .sankey-diagram__container {
@@ -282,6 +297,71 @@
   cursor: not-allowed;
 }
 
+/* ============================================================================
+   SANKEY ANIMATIONS - Smooth Transitions for Stage Changes
+   ============================================================================ */
+
+/* Nodes - Smooth position, size, and opacity transitions */
+.sankey-diagram__nodes rect {
+  transition: x var(--sankey-animation-duration) var(--sankey-animation-easing),
+              y var(--sankey-animation-duration) var(--sankey-animation-easing),
+              width var(--sankey-animation-duration) var(--sankey-animation-easing),
+              height var(--sankey-animation-duration) var(--sankey-animation-easing),
+              opacity var(--sankey-animation-duration) var(--sankey-animation-easing),
+              fill var(--sankey-animation-duration) var(--sankey-animation-easing);
+}
+
+/* Links - Smooth path and opacity transitions */
+.sankey-diagram__links path {
+  transition: d var(--sankey-animation-duration) var(--sankey-animation-easing),
+              opacity var(--sankey-animation-duration) var(--sankey-animation-easing),
+              stroke var(--sankey-animation-duration) var(--sankey-animation-easing),
+              stroke-width var(--sankey-animation-duration) var(--sankey-animation-easing);
+}
+
+/* Node Labels - Smooth position transitions */
+.sankey-diagram__node-labels text {
+  transition: x var(--sankey-animation-duration) var(--sankey-animation-easing),
+              y var(--sankey-animation-duration) var(--sankey-animation-easing),
+              opacity var(--sankey-animation-duration) var(--sankey-animation-easing),
+              font-weight var(--sankey-animation-duration) var(--sankey-animation-easing);
+}
+
+/* Histograms - Smooth transitions */
+.sankey-diagram__node-histograms rect {
+  transition: x var(--sankey-animation-duration) var(--sankey-animation-easing),
+              y var(--sankey-animation-duration) var(--sankey-animation-easing),
+              width var(--sankey-animation-duration) var(--sankey-animation-easing),
+              height var(--sankey-animation-duration) var(--sankey-animation-easing),
+              opacity var(--sankey-animation-duration) var(--sankey-animation-easing);
+}
+
+.sankey-diagram__node-histograms line,
+.sankey-diagram__node-histograms text {
+  transition: x1 var(--sankey-animation-duration) var(--sankey-animation-easing),
+              y1 var(--sankey-animation-duration) var(--sankey-animation-easing),
+              x2 var(--sankey-animation-duration) var(--sankey-animation-easing),
+              y2 var(--sankey-animation-duration) var(--sankey-animation-easing),
+              x var(--sankey-animation-duration) var(--sankey-animation-easing),
+              y var(--sankey-animation-duration) var(--sankey-animation-easing),
+              opacity var(--sankey-animation-duration) var(--sankey-animation-easing);
+}
+
+/* Threshold Sliders - Smooth transitions */
+.sankey-threshold-sliders-group {
+  transition: opacity var(--sankey-animation-duration) var(--sankey-animation-easing);
+}
+
+/* Vertical Bar Nodes - Smooth transitions */
+.sankey-vertical-bar-node rect {
+  transition: x var(--sankey-animation-duration) var(--sankey-animation-easing),
+              y var(--sankey-animation-duration) var(--sankey-animation-easing),
+              width var(--sankey-animation-duration) var(--sankey-animation-easing),
+              height var(--sankey-animation-duration) var(--sankey-animation-easing),
+              opacity var(--sankey-animation-duration) var(--sankey-animation-easing),
+              fill var(--sankey-animation-duration) var(--sankey-animation-easing);
+}
+
 /* Node and Link Styles */
 .sankey-node__rect {
   cursor: pointer;
@@ -289,7 +369,6 @@
 
 .sankey-node__text {
   pointer-events: none;
-  transition: font-weight var(--sankey-animation-duration) ease-out;
 }
 
 .sankey-node__count-text {
@@ -309,8 +388,6 @@
 }
 
 .sankey-link__path {
-  transition: opacity var(--sankey-animation-duration) ease-out,
-              stroke var(--sankey-animation-duration) ease-out;
   cursor: pointer;
 }
 

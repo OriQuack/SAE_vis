@@ -631,6 +631,28 @@ export interface DecoderStagePairRow {
 }
 
 /**
+ * Feature Split Sub-Column - Single sub-column in the grouped row layout
+ * Represents one feature (main or similar) with its decoder similarity and activation
+ */
+export interface FeatureSplitSubColumn {
+  featureId: number  // Feature ID (main feature ID for first column, similar feature ID for others)
+  isMainFeature: boolean  // True for the first sub-column (main feature itself)
+  decoderSimilarity: number | null  // Decoder similarity score (null for main feature)
+  pairKey: string | null  // Pair identifier (null for main feature)
+  patternType: 'Lexical' | 'Semantic' | 'Both' | 'None'  // Feature's pattern type
+  interFeatureSimilarity?: InterFeatureSimilarityInfo | null  // Inter-feature pattern data
+}
+
+/**
+ * Feature Split Grouped Row - Compact 1-row layout showing main feature + top 3 similar features
+ * Each row contains 4 sub-columns with 3 sub-rows each (ID, Decoder Sim, Activation)
+ */
+export interface FeatureSplitGroupedRow {
+  mainFeatureId: number  // Main feature ID for this row
+  subColumns: [FeatureSplitSubColumn, FeatureSplitSubColumn, FeatureSplitSubColumn, FeatureSplitSubColumn]  // Exactly 4 sub-columns
+}
+
+/**
  * Stage Table Context - Metadata for the currently selected stage
  */
 export interface StageTableContext {

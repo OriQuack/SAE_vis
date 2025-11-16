@@ -71,7 +71,7 @@
   background-color: #ef4444; /* red */
 }
 
-.selection-state-bar__segment--auto-rejected {
+.selection-state-bar__segment--autoRejected {
   background-color: #fca5a5; /* light red */
 }
 

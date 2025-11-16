@@ -1,14 +1,11 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useVisualizationStore } from '../store/index'
-import type { FeatureTableRow, DecoderStagePairRow, StageTableContext } from '../types'
+import type { FeatureTableRow, DecoderStagePairRow, StageTableContext, FeatureSplitGroupedRow, FeatureSplitSubColumn } from '../types'
 import { METRIC_DECODER_SIMILARITY } from '../lib/constants'
 import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORIES } from '../lib/tag-constants'
 import {
-  getBadgeConfig,
-  getRowBackgroundColor,
-  getRowStyleProperties,
-  getRowCategoryClass
+  getBadgeConfig
 } from '../lib/table-color-utils'
 import { extractInterFeaturePositions, mergeInterFeaturePositions } from '../lib/activation-utils'
 import ActivationExample from './TableActivationExample'
@@ -32,7 +29,6 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
   const leftPanel = useVisualizationStore(state => state.leftPanel)
   const tableData = useVisualizationStore(state => state.tableData)
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
-  const pairSelectionSources = useVisualizationStore(state => state.pairSelectionSources)
   const togglePairSelection = useVisualizationStore(state => state.togglePairSelection)
   const loading = useVisualizationStore(state => state.loading)
   const setTableScrollState = useVisualizationStore(state => state.setTableScrollState)
@@ -162,7 +158,8 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
   const tableContainerRef = useRef<HTMLDivElement>(null)
 
   // Track activation column width to pass to ActivationExample components
-  const [activationColumnWidth, setActivationColumnWidth] = useState<number>(630) // Default width
+  // Default: Assume ~85% table width for combined cell, minus 100px labels, divided by 4 columns
+  const [activationColumnWidth, setActivationColumnWidth] = useState<number>(300) // Default width per column
 
   // Activation examples from global store (centralized cache)
   const activationExamples = useVisualizationStore(state => state.activationExamples)
@@ -280,103 +277,123 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
     return deduplicatedRows
   }, [stageContext, tableData, stageFeatures, activationExamples])
 
-  // Get frozen selection states from store (used when sorted by similarity)
-  const pairSortedBySelectionStates = useVisualizationStore(state => state.pairSortedBySelectionStates)
+  // Group pairs by main feature ID for compact row layout
+  // Creates 1 row per main feature with 4 sub-columns: [main, similar1, similar2, similar3]
+  const groupedRows = useMemo<FeatureSplitGroupedRow[]>(() => {
+    if (stageRows.length === 0) return []
 
-  // Sort rows by main feature ID, decoder similarity, or by pair similarity (three-tier)
-  const sortedRows = useMemo(() => {
-    console.log('[FeatureSplitTable] sortedRows useMemo triggered:', {
+    // Group pairs by main feature ID
+    const groupsMap = new Map<number, DecoderStagePairRow[]>()
+    stageRows.forEach(row => {
+      const mainId = row.mainFeature.feature_id
+      if (!groupsMap.has(mainId)) {
+        groupsMap.set(mainId, [])
+      }
+      groupsMap.get(mainId)!.push(row)
+    })
+
+    // Build grouped rows with 4 sub-columns each
+    const grouped: FeatureSplitGroupedRow[] = []
+    groupsMap.forEach((pairs, mainFeatureId) => {
+      // Get main feature activation and pattern type
+      const mainActivation = activationExamples[mainFeatureId]
+      const mainPatternType = (mainActivation?.pattern_type || 'None') as 'Lexical' | 'Semantic' | 'Both' | 'None'
+
+      // Build sub-columns: first is main feature, rest are top 3 similar features
+      const subColumns: FeatureSplitSubColumn[] = [
+        // Sub-column 1: Main feature (no decoder similarity)
+        {
+          featureId: mainFeatureId,
+          isMainFeature: true,
+          decoderSimilarity: null,
+          pairKey: null,
+          patternType: mainPatternType,
+          interFeatureSimilarity: null
+        },
+        // Sub-columns 2-4: Top 3 similar features
+        ...pairs.slice(0, 3).map(pair => ({
+          featureId: pair.similarFeature.feature_id,
+          isMainFeature: false,
+          decoderSimilarity: pair.similarFeature.cosine_similarity,
+          pairKey: pair.pairKey,
+          patternType: pair.similarFeature.pattern_type,
+          interFeatureSimilarity: pair.similarFeature.inter_feature_similarity || null
+        }))
+      ]
+
+      // Pad with empty sub-columns if less than 4 similar features
+      while (subColumns.length < 4) {
+        subColumns.push({
+          featureId: -1,  // Invalid ID to indicate empty
+          isMainFeature: false,
+          decoderSimilarity: null,
+          pairKey: null,
+          patternType: 'None',
+          interFeatureSimilarity: null
+        })
+      }
+
+      grouped.push({
+        mainFeatureId,
+        subColumns: subColumns as [FeatureSplitSubColumn, FeatureSplitSubColumn, FeatureSplitSubColumn, FeatureSplitSubColumn]
+      })
+    })
+
+    return grouped
+  }, [stageRows, activationExamples])
+
+  // Sort grouped rows by main feature ID or average decoder similarity
+  const sortedGroupedRows = useMemo(() => {
+    console.log('[FeatureSplitTable] sortedGroupedRows useMemo triggered:', {
       tableSortBy,
       localSortBy: sortBy,
       localSortDirection: sortDirection,
-      willUsePairSimilarity: tableSortBy === 'pair_similarity'
+      groupedRowsCount: groupedRows.length
     })
 
-    // If using pair similarity sort, implement three-tier logic with FROZEN states
-    if (tableSortBy === 'pair_similarity') {
-      const selected: DecoderStagePairRow[] = []
-      const unselected: DecoderStagePairRow[] = []
-      const rejected: DecoderStagePairRow[] = []
-
-      // Use FROZEN selection states from when sort was performed
-      // This prevents re-grouping when user changes selection after sorting
-      const groupingStates = pairSortedBySelectionStates || new Map<string, 'selected' | 'rejected'>()
-
-      // Separate into three groups based on FROZEN states
-      stageRows.forEach(row => {
-        const frozenState = groupingStates.get(row.pairKey)
-
-        if (frozenState === 'selected') {
-          selected.push(row)
-        } else if (frozenState === 'rejected') {
-          rejected.push(row)
-        } else {
-          unselected.push(row)
-        }
-      })
-
-      // Sort unselected by similarity score (descending)
-      // Validate that we have scores before sorting
-      const scoresAvailable = pairSimilarityScores.size > 0
-      if (!scoresAvailable) {
-        console.warn('[FeatureSplitTable] ⚠️  pairSimilarityScores is empty - cannot sort by similarity!')
-      }
-
-      // Sample a few scores for debugging
-      const samplePairs = unselected.slice(0, 3)
-      console.log('[FeatureSplitTable] Sample pair keys and scores:',
-        samplePairs.map(p => ({
-          key: p.pairKey,
-          score: pairSimilarityScores.get(p.pairKey) ?? 'MISSING'
-        }))
-      )
-
-      unselected.sort((a, b) => {
-        const aScore = pairSimilarityScores.get(a.pairKey) ?? -Infinity
-        const bScore = pairSimilarityScores.get(b.pairKey) ?? -Infinity
-
-        // Debug: Log if scores are missing (only first few to avoid spam)
-        if ((aScore === -Infinity || bScore === -Infinity) && unselected.indexOf(a) < 5) {
-          if (aScore === -Infinity) {
-            console.warn('[FeatureSplitTable] Missing score for pair:', a.pairKey)
-          }
-          if (bScore === -Infinity) {
-            console.warn('[FeatureSplitTable] Missing score for pair:', b.pairKey)
-          }
+    // For pair similarity sort, we'll need to sort by the average similarity of non-main sub-columns
+    if (tableSortBy === 'pair_similarity' && pairSimilarityScores.size > 0) {
+      const sorted = [...groupedRows]
+      sorted.sort((a, b) => {
+        // Calculate average pair similarity for each grouped row (excluding main feature)
+        const getAvgScore = (row: FeatureSplitGroupedRow) => {
+          const scores = row.subColumns
+            .filter(col => !col.isMainFeature && col.pairKey)
+            .map(col => pairSimilarityScores.get(col.pairKey!) ?? -Infinity)
+            .filter(s => s !== -Infinity)
+          return scores.length > 0 ? scores.reduce((sum, s) => sum + s, 0) / scores.length : -Infinity
         }
 
-        return bScore - aScore // Descending (higher scores first)
+        const aScore = getAvgScore(a)
+        const bScore = getAvgScore(b)
+        return bScore - aScore  // Descending
       })
 
-      console.log('[FeatureSplitTable] Pair similarity sort applied:', {
-        selected: selected.length,
-        unselected: unselected.length,
-        rejected: rejected.length,
-        usingFrozenStates: !!pairSortedBySelectionStates,
-        scoresMapSize: pairSimilarityScores.size,
-        hasScores: scoresAvailable
-      })
-
-      // Return three-tier: selected, sorted unselected, rejected
-      return [...selected, ...unselected, ...rejected]
+      console.log('[FeatureSplitTable] Pair similarity sort applied to grouped rows')
+      return sorted
     }
 
-    // Otherwise, apply regular sorting (ID or decoder similarity)
-    if (!sortBy || !sortDirection) return stageRows
+    // Apply regular sorting (ID or decoder similarity)
+    if (!sortBy || !sortDirection) return groupedRows
 
-    const sorted = [...stageRows]
+    const sorted = [...groupedRows]
     sorted.sort((a, b) => {
       let compareValue = 0
 
       if (sortBy === 'id') {
-        // Sort by the main feature ID
-        const aMainId = a.mainFeature.feature_id
-        const bMainId = b.mainFeature.feature_id
-        compareValue = aMainId - bMainId
+        // Sort by main feature ID
+        compareValue = a.mainFeatureId - b.mainFeatureId
       } else if (sortBy === 'decoder_similarity') {
-        // Sort by the decoder similarity of this pair
-        const aSim = a.similarFeature.cosine_similarity
-        const bSim = b.similarFeature.cosine_similarity
+        // Sort by average decoder similarity of similar features (excluding main)
+        const getAvgSim = (row: FeatureSplitGroupedRow) => {
+          const sims = row.subColumns
+            .filter(col => !col.isMainFeature && col.decoderSimilarity !== null)
+            .map(col => col.decoderSimilarity!)
+          return sims.length > 0 ? sims.reduce((sum, s) => sum + s, 0) / sims.length : -Infinity
+        }
+
+        const aSim = getAvgSim(a)
+        const bSim = getAvgSim(b)
         compareValue = aSim - bSim
       }
 
@@ -384,14 +401,14 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
     })
 
     return sorted
-  }, [stageRows, sortBy, sortDirection, tableSortBy, pairSortedBySelectionStates, pairSimilarityScores])
+  }, [groupedRows, sortBy, sortDirection, tableSortBy, pairSimilarityScores])
 
   // Virtual scrolling for performance with large datasets
   const rowVirtualizer = useVirtualizer({
-    count: sortedRows.length,
+    count: sortedGroupedRows.length,
     getScrollElement: () => tableContainerRef.current,
-    estimateSize: () => 60, // Estimate ~60px per row (single pair with activation examples)
-    overscan: 5, // Render 5 extra items above/below for smooth scrolling
+    estimateSize: () => 154, // Estimate ~154px per row (4 sub-rows: ID 30px + Splitting 30px + Decoder 40px + Activation 54px)
+    overscan: 3, // Render 3 extra items above/below for smooth scrolling (fewer due to larger rows)
   })
 
   // Handle sort click
@@ -467,11 +484,15 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
     if (!tableContainerRef.current) return
 
     const measureActivationColumn = () => {
-      const headerCell = tableContainerRef.current?.querySelector('.decoder-stage-table__header-cell--activation')
-      if (headerCell) {
-        const width = headerCell.getBoundingClientRect().width
-        if (width > 0) {
-          setActivationColumnWidth(width)
+      // Measure a single feature column cell directly
+      const featureCell = tableContainerRef.current?.querySelector('.decoder-stage-table__cell--feature-column')
+      if (featureCell) {
+        const cellWidth = featureCell.getBoundingClientRect().width
+        if (cellWidth > 0) {
+          // Subtract cell padding (4px × 2 sides = 8px)
+          const cellPadding = 8
+          const singleColumnWidth = cellWidth - cellPadding
+          setActivationColumnWidth(singleColumnWidth)
         }
       }
     }
@@ -503,15 +524,16 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
   // For now, this ensures decoder similarity table works correctly.
   // ============================================================================
   useEffect(() => {
-    if (!stageContext || sortedRows.length === 0) return
+    if (!stageContext || sortedGroupedRows.length === 0) return
 
-    // Extract all unique feature IDs from decoder similarity rows (main + similar)
+    // Extract all unique feature IDs from grouped rows (main + all sub-columns)
     const allFeatureIds = Array.from(
       new Set(
-        sortedRows.flatMap(row => [
-          row.mainFeature.feature_id,
-          row.similarFeature.feature_id
-        ])
+        sortedGroupedRows.flatMap(groupedRow =>
+          groupedRow.subColumns
+            .filter(col => col.featureId > 0)  // Exclude empty sub-columns (featureId: -1)
+            .map(col => col.featureId)
+        )
       )
     )
 
@@ -538,7 +560,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
       // Store's fetchActivationExamples handles cache checking and deduplication
       fetchActivationExamples(missingFeatureIds)
     }
-  }, [stageContext, sortedRows, fetchActivationExamples])
+  }, [stageContext, sortedGroupedRows, fetchActivationExamples])
   // NOTE: activationExamples is NOT in dependencies to prevent infinite loop
 
   // Track scroll state for Sankey vertical bar scroll indicator
@@ -556,7 +578,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
       }
 
       rafId = requestAnimationFrame(() => {
-        const totalFeatures = sortedRows.length
+        const totalRows = sortedGroupedRows.length
 
         // FIXED: Correct scroll percentage calculation
         // scrollPercentage should be: scrollTop / (scrollHeight - clientHeight)
@@ -571,18 +593,19 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
 
         // Calculate visible range based on corrected scroll percentage
         const visibleRange = container.clientHeight / container.scrollHeight
-        const firstVisibleIndex = Math.floor(clampedScrollPercentage * totalFeatures)
+        const firstVisibleIndex = Math.floor(clampedScrollPercentage * totalRows)
         const lastVisibleIndex = Math.min(
-          Math.ceil((clampedScrollPercentage + visibleRange) * totalFeatures),
-          totalFeatures
+          Math.ceil((clampedScrollPercentage + visibleRange) * totalRows),
+          totalRows
         )
 
-        // Extract visible feature IDs using simple array slice
+        // Extract visible feature IDs from visible grouped rows
         const visibleFeatureIds = new Set<number>(
-          sortedRows.slice(firstVisibleIndex, lastVisibleIndex).flatMap(row => [
-            row.mainFeature.feature_id,
-            row.similarFeature.feature_id
-          ])
+          sortedGroupedRows.slice(firstVisibleIndex, lastVisibleIndex).flatMap(groupedRow =>
+            groupedRow.subColumns
+              .filter(col => col.featureId > 0)  // Exclude empty sub-columns
+              .map(col => col.featureId)
+          )
         )
 
         const scrollState = {
@@ -628,7 +651,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
       container.removeEventListener('scroll', handleScrollEvent)
       resizeObserver.disconnect()
     }
-  }, [setTableScrollState, sortedRows])  // FIXED: Removed rowVirtualizer to prevent cascade re-runs
+  }, [setTableScrollState, sortedGroupedRows])  // FIXED: Removed rowVirtualizer to prevent cascade re-runs
 
   // Empty state
   if (!stageContext) {
@@ -663,34 +686,31 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
       <div className="table-panel__content feature-split-table" ref={tableContainerRef}>
         <table className="table-panel__table--simple">
           <thead className="table-panel__thead">
-            <tr className="table-panel__header-row">
+            {/* Header row with 6 columns */}
+            <tr className="table-panel__header-row decoder-stage-table__header-row">
               <th className="table-panel__header-cell table-panel__header-cell--index">
                 #
               </th>
-              <th className="table-panel__header-cell decoder-stage-table__header-cell--checkbox">
-                Feature Splitting
+              <th className="table-panel__header-cell table-panel__header-cell--labels">
+                {/* Empty header for labels column */}
               </th>
               <th
-                className="table-panel__header-cell table-panel__header-cell--id-pair"
-                onClick={() => handleSort('id')}
-              >
-                ID Pair
-                {sortBy === 'id' && sortDirection === 'asc' && <span className="table-panel__sort-indicator asc" />}
-                {sortBy === 'id' && sortDirection === 'desc' && <span className="table-panel__sort-indicator desc" />}
-              </th>
-              <th
-                className="table-panel__header-cell table-panel__header-cell--score"
+                className="table-panel__header-cell decoder-stage-table__header-cell--feature-column"
                 onClick={() => handleSort('decoder_similarity')}
+                title="Main feature with decoder similarity and activation examples"
               >
-                Decoder Similarity
+                Main Feature
                 {sortBy === 'decoder_similarity' && sortDirection === 'asc' && <span className="table-panel__sort-indicator asc" />}
                 {sortBy === 'decoder_similarity' && sortDirection === 'desc' && <span className="table-panel__sort-indicator desc" />}
               </th>
-              <th className="table-panel__header-cell decoder-stage-table__header-cell--activation decoder-stage-table__header-cell--activation-main">
-                Activation Example
+              <th className="table-panel__header-cell decoder-stage-table__header-cell--feature-column">
+                Similar 1
               </th>
-              <th className="table-panel__header-cell decoder-stage-table__header-cell--activation decoder-stage-table__header-cell--activation-similar">
-                Activation Example
+              <th className="table-panel__header-cell decoder-stage-table__header-cell--feature-column">
+                Similar 2
+              </th>
+              <th className="table-panel__header-cell decoder-stage-table__header-cell--feature-column">
+                Similar 3
               </th>
             </tr>
           </thead>
@@ -703,189 +723,190 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
               </tr>
             )}
 
-            {/* Render only visible virtual items (each item is a single pair row) */}
+            {/* Render only visible virtual items (each item is a grouped row with 6 columns) */}
             {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-              const row = sortedRows[virtualRow.index]
-              const pairSelectionState = pairSelectionStates.get(row.pairKey)
-              const pairSelectionSource = pairSelectionSources.get(row.pairKey)
-
-              // Determine row styling using centralized color functions
-              const categoryClass = getRowCategoryClass(pairSelectionState, pairSelectionSource)
-              const rowBackgroundColor = getRowBackgroundColor(pairSelectionState, pairSelectionSource)
-
-              // Build row className with selection state AND auto-tagged indicator
-              const rowClassName = [
-                'table-panel__sub-row',
-                categoryClass,
-                // Add auto-tagged indicator for items tagged via "Tag Automatically"
-                pairSelectionSource === 'auto' ? 'table-panel__sub-row--auto-tagged' : ''
-              ].filter(Boolean).join(' ')
+              const groupedRow = sortedGroupedRows[virtualRow.index]
 
               return (
                 <tr
-                  key={row.pairKey}
-                  className={rowClassName}
-                  onClick={(e) => {
-                    // Allow clicking anywhere on the row to toggle the pair selection
-                    // Only exclude badge (it has its own click handler with stopPropagation)
-                    const target = e.target as HTMLElement
-                    if (!target.closest('.table-panel__category-badge')) {
-                      handlePairToggle(row.mainFeature.feature_id, row.similarFeature.feature_id)
-                    }
-                  }}
-                  style={{
-                    ...getRowStyleProperties(rowBackgroundColor) as React.CSSProperties,
-                    cursor: 'pointer'
-                  }}
+                  key={groupedRow.mainFeatureId}
+                  className="table-panel__grouped-row"
                 >
-                  {/* Index cell */}
-                  <td className="table-panel__cell table-panel__cell--index">
+                  {/* Column 1: Index */}
+                  <td className="table-panel__cell table-panel__cell--index decoder-stage-table__cell--grouped-index">
                     {virtualRow.index + 1}
                   </td>
 
-                  {/* Category badge: null -> fragmented -> monosemantic -> null */}
-                  <td className="table-panel__cell decoder-stage-table__cell--checkbox">
-                    {(() => {
-                      if (!pairSelectionState) return null
-
-                      const config = pairSelectionState === 'selected' ? badgeConfig.selected : badgeConfig.rejected
-                      const { label, color } = config
-
-                      return (
-                        <div
-                          className="table-panel__category-badge"
-                          style={{ backgroundColor: color }}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handlePairToggle(row.mainFeature.feature_id, row.similarFeature.feature_id)
-                          }}
-                          title={label}
-                        >
-                          {label}
-                        </div>
-                      )
-                    })()}
-                  </td>
-
-                  {/* ID Pair */}
-                  <td className="table-panel__cell table-panel__cell--id-pair">
-                    ({row.mainFeature.feature_id}, {row.similarFeature.feature_id})
-                  </td>
-
-                  {/* Decoder Similarity Score - Horizontal visualization */}
-                  <td className="decoder-stage-table__cell--decoder-similarity" style={{ position: 'relative', overflow: 'visible' }}>
-                    <div
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer'
-                      }}
-                      onClick={() => {
-                        // Handle click interaction
-                        handleBadgeInteraction(
-                          row.mainFeature.feature_id,
-                          row.similarFeature.feature_id,
-                          row.similarFeature.inter_feature_similarity,
-                          true
-                        )
-                      }}
-                      onMouseEnter={() => {
-                        // Handle hover interaction
-                        handleBadgeInteraction(
-                          row.mainFeature.feature_id,
-                          row.similarFeature.feature_id,
-                          row.similarFeature.inter_feature_similarity,
-                          false
-                        )
-
-                        // Fetch activation examples if needed
-                        const featuresToFetch = []
-                        if (!activationExamples[row.mainFeature.feature_id]) {
-                          featuresToFetch.push(row.mainFeature.feature_id)
-                        }
-                        if (!activationExamples[row.similarFeature.feature_id]) {
-                          featuresToFetch.push(row.similarFeature.feature_id)
-                        }
-                        if (featuresToFetch.length > 0) {
-                          fetchActivationExamples(featuresToFetch)
-                        }
-
-                        // Notify parent to show activation overlays
-                        setHoveredPairKey(row.pairKey)
-                      }}
-                      onMouseLeave={() => {
-                        // Clear hover highlight
-                        handleBadgeLeave()
-
-                        // Notify parent to hide activation overlays
-                        setHoveredPairKey(null)
-                      }}
-                    >
-                      <ScoreCircle
-                        score={row.similarFeature.cosine_similarity}
-                        metric="decoder_similarity"
-                        useSolidColor={true}
-                        label={row.similarFeature.cosine_similarity.toFixed(3)}
-                        tooltipText={`Decoder Similarity: ${row.similarFeature.cosine_similarity.toFixed(3)}`}
-                        showLabel={true}
-                      />
+                  {/* Column 2: Labels */}
+                  <td className="table-panel__cell decoder-stage-table__cell--labels">
+                    <div className="decoder-stage-table__labels-column">
+                      <div className="decoder-stage-table__label-cell decoder-stage-table__label-cell--id">
+                        Feature ID
+                      </div>
+                      <div className="decoder-stage-table__label-cell decoder-stage-table__label-cell--splitting">
+                        Feature Splitting
+                      </div>
+                      <div className="decoder-stage-table__label-cell decoder-stage-table__label-cell--decoder">
+                        Decoder Sim
+                      </div>
+                      <div className="decoder-stage-table__label-cell decoder-stage-table__label-cell--activation">
+                        Activation Example
+                      </div>
                     </div>
                   </td>
 
-                  {/* Main Feature Activation Example */}
-                  <td className="table-panel__cell decoder-stage-table__cell--activation decoder-stage-table__cell--activation-main" style={{ position: 'relative', overflow: 'visible' }}>
-                    {activationExamples[row.mainFeature.feature_id] ? (
-                      <ActivationExample
-                        examples={activationExamples[row.mainFeature.feature_id]}
-                        containerWidth={activationColumnWidth}
-                        interFeaturePositions={getInterFeaturePositionsForFeature(row.mainFeature.feature_id, row.pairKey)}
-                        isHovered={hoveredPairKey === row.pairKey}
-                        onHoverChange={(isHovered) => {
-                          setHoveredPairKey(isHovered ? row.pairKey : null)
-                          if (isHovered) {
-                            // Trigger inter-feature highlighting on hover
-                            const feature = tableData?.features.find((f: FeatureTableRow) => f.feature_id === row.mainFeature.feature_id)
-                            const similarItem = feature?.decoder_similarity?.find((s: any) => s.feature_id === row.similarFeature.feature_id)
-                            const interfeatureData = similarItem?.inter_feature_similarity
-                            handleBadgeInteraction(row.mainFeature.feature_id, row.similarFeature.feature_id, interfeatureData, false)
-                          } else {
-                            handleBadgeLeave()
-                          }
-                        }}
-                      />
-                    ) : (
-                      <span className="table-panel__placeholder">—</span>
-                    )}
-                  </td>
+                  {/* Columns 3-6: Feature columns */}
+                  {groupedRow.subColumns.map((subCol, subColIdx) => {
+                    // Handle empty columns
+                    if (subCol.featureId <= 0) {
+                      return (
+                        <td
+                          key={subColIdx}
+                          className="table-panel__cell decoder-stage-table__cell--feature-column decoder-stage-table__cell--empty"
+                        >
+                          <div className="decoder-stage-table__feature-content decoder-stage-table__feature-content--empty">
+                          </div>
+                        </td>
+                      )
+                    }
 
-                  {/* Similar Feature Activation Example */}
-                  <td className="table-panel__cell decoder-stage-table__cell--activation decoder-stage-table__cell--activation-similar" style={{ position: 'relative', overflow: 'visible' }}>
-                    {activationExamples[row.similarFeature.feature_id] ? (
-                      <ActivationExample
-                        examples={activationExamples[row.similarFeature.feature_id]}
-                        containerWidth={activationColumnWidth}
-                        interFeaturePositions={getInterFeaturePositionsForFeature(row.similarFeature.feature_id, row.pairKey)}
-                        isHovered={hoveredPairKey === row.pairKey}
-                        onHoverChange={(isHovered) => {
-                          setHoveredPairKey(isHovered ? row.pairKey : null)
-                          if (isHovered) {
-                            // Trigger inter-feature highlighting on hover
-                            const feature = tableData?.features.find((f: FeatureTableRow) => f.feature_id === row.mainFeature.feature_id)
-                            const similarItem = feature?.decoder_similarity?.find((s: any) => s.feature_id === row.similarFeature.feature_id)
-                            const interfeatureData = similarItem?.inter_feature_similarity
-                            handleBadgeInteraction(row.mainFeature.feature_id, row.similarFeature.feature_id, interfeatureData, false)
-                          } else {
-                            handleBadgeLeave()
+                    const isMainFeature = subCol.isMainFeature
+                    const pairKey = subCol.pairKey
+
+                    // Get badge state for this pair
+                    const pairSelectionState = pairKey ? pairSelectionStates.get(pairKey) : null
+
+                    return (
+                      <td
+                        key={subColIdx}
+                        className={`table-panel__cell decoder-stage-table__cell--feature-column ${
+                          isMainFeature ? 'decoder-stage-table__cell--main-feature' : ''
+                        }`}
+                        onClick={() => {
+                          // Only allow selection for non-main features
+                          if (!isMainFeature && pairKey) {
+                            handlePairToggle(groupedRow.mainFeatureId, subCol.featureId)
                           }
                         }}
-                      />
-                    ) : (
-                      <span className="table-panel__placeholder">—</span>
-                    )}
-                  </td>
+                        style={{ cursor: isMainFeature ? 'default' : 'pointer' }}
+                      >
+                        <div className="decoder-stage-table__feature-content">
+                          {/* Content row 1: Feature ID */}
+                          <div className="decoder-stage-table__content-row decoder-stage-table__content-row--id">
+                            {subCol.featureId}
+                          </div>
+
+                          {/* Content row 2: Feature Splitting Badge */}
+                          <div className="decoder-stage-table__content-row decoder-stage-table__content-row--splitting">
+                              {!isMainFeature && pairSelectionState && (
+                                <div
+                                  className="table-panel__category-badge decoder-stage-table__badge--inline"
+                                  style={{
+                                    backgroundColor: pairSelectionState === 'selected'
+                                      ? badgeConfig.selected.color
+                                      : badgeConfig.rejected.color
+                                  }}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handlePairToggle(groupedRow.mainFeatureId, subCol.featureId)
+                                  }}
+                                  title={`${pairSelectionState === 'selected' ? badgeConfig.selected.label : badgeConfig.rejected.label} (${groupedRow.mainFeatureId}, ${subCol.featureId})`}
+                                >
+                                  {pairSelectionState === 'selected' ? badgeConfig.selected.label : badgeConfig.rejected.label}
+                                </div>
+                              )}
+                          </div>
+
+                          {/* Content row 3: Decoder Similarity (empty for main feature) */}
+                          <div className="decoder-stage-table__content-row decoder-stage-table__content-row--decoder">
+                              {!isMainFeature && subCol.decoderSimilarity !== null && (
+                                <div
+                                  className="decoder-stage-table__decoder-circle-wrapper"
+                                  onMouseEnter={() => {
+                                    // Handle hover interaction for inter-feature highlighting
+                                    if (subCol.interFeatureSimilarity) {
+                                      handleBadgeInteraction(
+                                        groupedRow.mainFeatureId,
+                                        subCol.featureId,
+                                        subCol.interFeatureSimilarity,
+                                        false
+                                      )
+                                    }
+
+                                    // Fetch activation examples if needed
+                                    const featuresToFetch = []
+                                    if (!activationExamples[groupedRow.mainFeatureId]) {
+                                      featuresToFetch.push(groupedRow.mainFeatureId)
+                                    }
+                                    if (!activationExamples[subCol.featureId]) {
+                                      featuresToFetch.push(subCol.featureId)
+                                    }
+                                    if (featuresToFetch.length > 0) {
+                                      fetchActivationExamples(featuresToFetch)
+                                    }
+
+                                    // Set hovered pair
+                                    setHoveredPairKey(pairKey!)
+                                  }}
+                                  onMouseLeave={() => {
+                                    handleBadgeLeave()
+                                    setHoveredPairKey(null)
+                                  }}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    if (subCol.interFeatureSimilarity) {
+                                      handleBadgeInteraction(
+                                        groupedRow.mainFeatureId,
+                                        subCol.featureId,
+                                        subCol.interFeatureSimilarity,
+                                        true
+                                      )
+                                    }
+                                  }}
+                                >
+                                  <ScoreCircle
+                                    score={subCol.decoderSimilarity}
+                                    metric="decoder_similarity"
+                                    useSolidColor={true}
+                                    label={subCol.decoderSimilarity.toFixed(3)}
+                                    tooltipText={`Decoder Similarity: ${subCol.decoderSimilarity.toFixed(3)}`}
+                                    showLabel={true}
+                                  />
+                                </div>
+                              )}
+                          </div>
+
+                          {/* Content row 4: Activation Example */}
+                          <div className="decoder-stage-table__content-row decoder-stage-table__content-row--activation">
+                              {activationExamples[subCol.featureId] && (
+                                <ActivationExample
+                                  examples={activationExamples[subCol.featureId]}
+                                  containerWidth={activationColumnWidth}  // Already calculated for single column
+                                  interFeaturePositions={getInterFeaturePositionsForFeature(subCol.featureId, pairKey)}
+                                  isHovered={pairKey !== null && hoveredPairKey === pairKey}
+                                  onHoverChange={(isHovered) => {
+                                    // Only set hover for non-main features
+                                    if (!isMainFeature && pairKey) {
+                                      setHoveredPairKey(isHovered ? pairKey : null)
+                                      if (isHovered && subCol.interFeatureSimilarity) {
+                                        handleBadgeInteraction(
+                                          groupedRow.mainFeatureId,
+                                          subCol.featureId,
+                                          subCol.interFeatureSimilarity,
+                                          false
+                                        )
+                                      } else if (!isHovered) {
+                                        handleBadgeLeave()
+                                      }
+                                    }
+                                  }}
+                                />
+                              )}
+                          </div>
+                        </div>
+                      </td>
+                    )
+                  })}
                 </tr>
               )
             })}

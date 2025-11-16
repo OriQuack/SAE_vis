@@ -82,6 +82,13 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
     return selectedStage ? stageOrder < selectedStage.stageOrder : false;
   };
 
+  // Check if a stage is in the future (comes after selected stage, not yet clicked)
+  const isStageFuture = (stageOrder: number): boolean => {
+    if (!selectedCategory) return true; // All stages are future if none selected
+    const selectedStage = stages.find(s => s.id === selectedCategory);
+    return selectedStage ? stageOrder > selectedStage.stageOrder : true;
+  };
+
   // Get activateCategoryTable action from store
   const activateCategoryTable = useVisualizationStore(state => state.activateCategoryTable);
 
@@ -103,6 +110,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
         {stages.map((stage) => {
           const isActive = selectedCategory === stage.id;
           const isCompleted = isStageCompleted(stage.stageOrder);
+          const isFuture = isStageFuture(stage.stageOrder);
           const tagCounts = getTagCounts(stage);
 
           return (
@@ -113,6 +121,8 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
                   isActive ? 'stage-tab--active' : ''
                 } ${
                   isCompleted ? 'stage-tab--completed' : ''
+                } ${
+                  isFuture ? 'stage-tab--future' : ''
                 }`}
                 onClick={() => handleStageClick(stage.id)}
                 title={stage.description}

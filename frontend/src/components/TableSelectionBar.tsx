@@ -27,22 +27,22 @@ interface SelectionStateBarProps {
 // Category config for feature/pair modes
 const CATEGORY_CONFIG: Record<SelectionCategory, { label: string; color: string; description: string }> = {
   confirmed: {
-    label: 'Selected',
+    label: 'True Positive',
     color: SELECTION_CATEGORY_COLORS.CONFIRMED.HEX,
     description: 'Manually selected by user'
   },
   expanded: {
-    label: 'Auto-Selected',
+    label: 'Expanded True Positive',
     color: SELECTION_CATEGORY_COLORS.EXPANDED.HEX,
     description: 'Auto-tagged by histogram thresholds'
   },
   rejected: {
-    label: 'Rejected',
+    label: 'False Positive',
     color: SELECTION_CATEGORY_COLORS.REJECTED.HEX,
     description: 'Manually rejected by user'
   },
-  'auto-rejected': {
-    label: 'Auto-Rejected',
+  autoRejected: {
+    label: 'Expanded False Positive',
     color: SELECTION_CATEGORY_COLORS.AUTO_REJECTED.HEX,
     description: 'Auto-tagged by histogram thresholds'
   },
@@ -108,11 +108,8 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
     }
   }, [counts, previewCounts])
 
-  // Helper to get count/percentage from objects with camelCase keys
+  // Helper to get count/percentage from objects
   const getCategoryValue = (category: SelectionCategory, obj: any): number => {
-    if (category === 'auto-rejected') {
-      return obj.autoRejected || 0
-    }
     return obj[category] || 0
   }
 
@@ -126,15 +123,15 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   const renderSegments = () => {
     const segments: React.ReactNode[] = []
 
-    // Define rendering order: confirmed → expanded → rejected → auto-rejected → unsure
-    const categoryOrder: SelectionCategory[] = ['confirmed', 'expanded', 'rejected', 'auto-rejected', 'unsure']
+    // Define rendering order: confirmed → expanded → rejected → autoRejected → unsure
+    const categoryOrder: SelectionCategory[] = ['confirmed', 'expanded', 'rejected', 'autoRejected', 'unsure']
 
     categoryOrder.forEach((category) => {
       const count = getCategoryValue(category, counts)
       const config = categoryConfig[category]
 
-      // Skip if count is 0 (but still may render preview stripe for expanded/auto-rejected)
-      if (count === 0 && category !== 'expanded' && category !== 'auto-rejected') {
+      // Skip if count is 0 (but still may render preview stripe for expanded/autoRejected)
+      if (count === 0 && category !== 'expanded' && category !== 'autoRejected') {
         return
       }
 
@@ -142,7 +139,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
       let percentage = getCategoryValue(category, percentages)
       const previewChangeValue = previewChanges ? getCategoryValue(category, previewChanges) : 0
 
-      // For unsure, reduce width by items leaving (moving to expanded/auto-rejected)
+      // For unsure, reduce width by items leaving (moving to expanded/autoRejected)
       if (category === 'unsure' && previewChanges) {
         const unsurePreviewCount = previewCounts ? getCategoryValue('unsure', previewCounts) : count
         percentage = counts.total > 0 ? (unsurePreviewCount / counts.total) * 100 : 0
@@ -175,8 +172,8 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
         )
       }
 
-      // Render adjacent stripe preview for expanded and auto-rejected if items are entering
-      if ((category === 'expanded' || category === 'auto-rejected') && previewChangeValue > 0 && previewChanges) {
+      // Render adjacent stripe preview for expanded and autoRejected if items are entering
+      if ((category === 'expanded' || category === 'autoRejected') && previewChangeValue > 0 && previewChanges) {
         const stripePercentage = (previewChangeValue / counts.total) * 100
         const stripeColor = category === 'expanded'
           ? SELECTION_CATEGORY_COLORS.EXPANDED.HEX

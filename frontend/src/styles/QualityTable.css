@@ -323,11 +323,11 @@ width: 39%;
 }
 
 /* Auto-Rejected: Auto-tagged by histogram threshold - Light red (30% opacity) */
-.table-panel__sub-row--auto-rejected .table-panel__cell {
+.table-panel__sub-row--autoRejected .table-panel__cell {
   background: var(--row-bg-color, rgba(252, 165, 165, 0.3)) !important;
 }
 
-.table-panel__sub-row--auto-rejected:hover .table-panel__cell {
+.table-panel__sub-row--autoRejected:hover .table-panel__cell {
   background: var(--row-bg-color, rgba(252, 165, 165, 0.3)) !important;
   /* filter: brightness(0.95); */  /* REMOVED: Creates stacking context that blocks popovers */
 }

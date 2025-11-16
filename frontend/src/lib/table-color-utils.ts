@@ -189,7 +189,7 @@ export function getRowCategoryClass(
       : 'table-panel__sub-row--confirmed'
   } else if (selectionState === 'rejected') {
     return selectionSource === 'auto'
-      ? 'table-panel__sub-row--auto-rejected'
+      ? 'table-panel__sub-row--autoRejected'
       : 'table-panel__sub-row--rejected'
   }
   return ''  // No class for unsure state

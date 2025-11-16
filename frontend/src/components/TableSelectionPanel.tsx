@@ -556,15 +556,14 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
           )}
 
           {/* Clear Button */}
-          {hasAnySelection && (
-            <button
-              className="table-selection-panel__button table-selection-panel__button--clear"
-              onClick={handleClearSelection}
-              title="Clear all selections and reset sort"
-            >
-              Clear
-            </button>
-          )}
+          <button
+            className="table-selection-panel__button table-selection-panel__button--clear"
+            onClick={handleClearSelection}
+            disabled={!hasAnySelection}
+            title={!hasAnySelection ? "No selections to clear" : "Clear all selections and reset sort"}
+          >
+            Clear
+          </button>
         </div>
       </div>
     </div>

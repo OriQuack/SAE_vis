@@ -129,25 +129,41 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
 }) => {
   const [showPopover, setShowPopover] = useState<boolean>(false)
   const [popoverPosition, setPopoverPosition] = useState<'above' | 'below'>('below')
+  const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({})
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Show popover if either locally hovered or parent says this pair is hovered
   const effectiveShowPopover = showPopover || (isHovered ?? false)
 
-  // Detect popover position (above/below) based on available space
+  // Detect popover position (above/below) and calculate fixed coordinates
   const detectPopoverPosition = () => {
     if (!containerRef.current) return
     const rect = containerRef.current.getBoundingClientRect()
+
     // Estimated popover height ~200px
     const spaceBelow = window.innerHeight - rect.bottom
     const position = spaceBelow < 200 ? 'above' : 'below'
     setPopoverPosition(position)
+
+    // Calculate fixed position coordinates
+    const style: React.CSSProperties = {
+      left: `${rect.left}px`,
+      width: `${rect.width}px`
+    }
+
+    if (position === 'below') {
+      style.top = `${rect.top}px`
+    } else {
+      style.bottom = `${window.innerHeight - rect.bottom}px`
+    }
+
+    setPopoverStyle(style)
   }
 
   // Calculate max characters based on container width passed from parent
-  // Assume ~7px per character at 11px monospace font
-  // No ResizeObserver needed - parent measures once and passes width down
-  const maxLength = useMemo(() => Math.floor(containerWidth / 7), [containerWidth])
+  // Monospace fonts (Consolas/Monaco) at 11px: ~6.8px per character (conservative to prevent overflow)
+  const CHAR_WIDTH = 8
+  const maxLength = useMemo(() => Math.floor(containerWidth / CHAR_WIDTH), [containerWidth])
 
   // Determine which n-gram type to underline (char vs word) and get Jaccard score
   const ngramInfo = useMemo(() => getNgramUnderlineType(examples), [examples])
@@ -191,9 +207,12 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
         const example = quantileGroups[qIndex]?.[0]
         if (!example) return null
 
-        // Build tokens from 32-token window
-        const tokens = buildActivationTokens(example, 32)
-        // Truncate based on available width (symmetric around max token)
+        // Use a reasonable window size centered on max activation
+        // Window size is at least 8 tokens or based on available character width
+        const windowSize = Math.max(8, maxLength)
+        const tokens = buildActivationTokens(example, windowSize)
+
+        // Truncate based on available width (symmetric around max token with full tokens)
         const { displayTokens, hasLeftEllipsis, hasRightEllipsis } = formatTokensWithEllipsis(tokens, maxLength)
 
         return (
@@ -234,7 +253,10 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
 
       {/* Hover popover: All 8 examples (2 per quantile) - shows when this row is hovered */}
       {effectiveShowPopover && (
-        <div className={`activation-example__popover activation-example__popover--${popoverPosition}`}>
+        <div
+          className={`activation-example__popover activation-example__popover--${popoverPosition}`}
+          style={popoverStyle}
+        >
           <div className="activation-example__popover-content">
             {quantileGroups.map((group, qIdx) => (
               <div key={qIdx} className="activation-example__popover-quantile-group">

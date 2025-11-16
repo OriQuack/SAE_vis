@@ -16,6 +16,8 @@ import { getNodeThresholds, getExactMetricFromPercentile, getChildNodeTagName } 
 import { calculateHorizontalBarSegments } from '../lib/histogram-utils'
 import { scaleLinear } from 'd3-scale'
 import { ThresholdHandles } from './ThresholdHandles'
+import { useVisualizationStore } from '../store/index'
+import { TAG_CATEGORIES } from '../lib/tag-constants'
 
 // ============================================================================
 // CONSTANTS & TYPES
@@ -59,11 +61,12 @@ export const AVAILABLE_STAGES: StageOption[] = [
 
 /**
  * Determine if node should show threshold slider handles
- * Shows handles when node has a metric and children
+ * Shows handles based on active stage - handles appear on parent nodes of current stage
  */
 function shouldShowHandles(
   node: D3SankeyNode,
-  sankeyTree: Map<string, any> | null
+  sankeyTree: Map<string, any> | null,
+  activeStageOrder: number | null
 ): boolean {
   if (!sankeyTree) return false
 
@@ -72,6 +75,15 @@ function shouldShowHandles(
 
   // Show handles if node has a metric set (regardless of whether children have their own children)
   if (!treeNode.metric) return false
+
+  // If no active stage, don't show handles
+  if (activeStageOrder === null) return false
+
+  // Show handles on nodes at depth = activeStageOrder - 1
+  // Stage 1 (stageOrder=1): handles at depth 0 (root) for Feature Splitting
+  // Stage 2 (stageOrder=2): handles at depth 1 (feature splitting children) for Quality
+  // Stage 3 (stageOrder=3): handles at depth 2 (quality children) for Cause
+  if (treeNode.depth !== activeStageOrder - 1) return false
 
   return true
 }
@@ -231,12 +243,12 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
             key={`threshold-${index}`}
             x1={0}
             y1={thresholdY}
-            x2={layout.width * 0.8}
+            x2={layout.width}
             y2={thresholdY}
-            stroke="#000000"
-            strokeWidth={1.5}
+            stroke="#474747ff"
+            strokeWidth={2}
             strokeDasharray="2,2"
-            opacity={1.0}
+            opacity={0.85}
             style={{
               pointerEvents: 'none'
             }}
@@ -443,6 +455,16 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
   onThresholdUpdate: _onThresholdUpdate,
   onThresholdUpdateByPercentile
 }) => {
+  // Get active stage category from store
+  const activeStageCategory = useVisualizationStore(state => state.activeStageCategory)
+
+  // Convert active stage category to stage order
+  const activeStageOrder = useMemo(() => {
+    if (!activeStageCategory) return null
+    const category = TAG_CATEGORIES[activeStageCategory]
+    return category ? category.stageOrder : null
+  }, [activeStageCategory])
+
   // Track drag preview thresholds by node ID (for live histogram updates without committing)
   const [nodeDragThresholds, setNodeDragThresholds] = useState<Record<string, number[]>>({})
 
@@ -537,8 +559,8 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
       {/* Threshold Sliders - For nodes with children (split nodes) */}
       <g className="sankey-threshold-sliders-group">
         {layout.nodes.map((node) => {
-          // Only show handles for split nodes with metrics
-          const shouldShow = shouldShowHandles(node, sankeyTree)
+          // Only show handles for split nodes with metrics based on active stage
+          const shouldShow = shouldShowHandles(node, sankeyTree, activeStageOrder)
 
           if (!shouldShow || !sankeyTree) {
             return null

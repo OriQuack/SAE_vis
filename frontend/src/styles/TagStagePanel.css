@@ -41,7 +41,7 @@
   padding-top: 8px;
   background: #f8fafc;
   overflow-x: auto;
-  overflow-y: visible;  /* Allow tab overlays to extend below */
+  overflow-y: hidden;  /* Clip content that moves below panel border */
   min-width: 0;
 }
 
@@ -92,7 +92,7 @@
   content: '';
   position: absolute;
   left: 0px;
-  right: -3px;
+  right: 0px;
   bottom: -8px;  /* Extended to compensate for translateY(-4px) */
   height: 8px;  /* Taller to ensure coverage */
   background: white;
@@ -112,6 +112,17 @@
 
 .stage-tab--completed:hover {
   background: #a7f3d0;
+}
+
+/* Future State - Not yet clicked stages */
+.stage-tab--future {
+  transform: translateY(30px);
+  transition: transform 0.3s ease;
+}
+
+.stage-tab--future:hover {
+  transform: translateY(0);
+  background: #cbd5e1;
 }
 
 /* Stage header - number + label in one row */
@@ -208,6 +219,12 @@
   gap: 2px;
   flex-shrink: 0;
   margin-right: 10px; /* Larger gap after tag group to separate from next stage */
+  transition: transform 0.3s ease;
+}
+
+/* Show only labels for tag tabs of future stages by moving them down */
+.stage-tab--future + .tag-tabs-group {
+  transform: translateY(22px);
 }
 
 /* Individual tag tab (small notebook tab) */
@@ -216,8 +233,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 6px 8px 3px 8px;
+  gap: 6px;
+  padding: 6px 8px 8px 8px;
   min-width: 70px;
   background: #f1f5f9; /* Fallback, will be overridden by inline style */
   border: 3px solid #cbd5e1; /* Fallback, will be overridden by inline style */
@@ -238,18 +255,7 @@
 .tag-tab--active {
   z-index: 5;
   transform: translateY(-4px);
-}
-
-/* White overlay to cover panel border beneath active tag */
-.tag-tab--active::before {
-  content: '';
-  position: absolute;
-  left: -8px;
-  right: 0px;
-  bottom: -8px;  /* Extended to compensate for translateY(-4px) */
-  height: 8px;  /* Taller to ensure coverage */
-  background: white;
-  z-index: 2;  /* Above panel border */
+  transition: transform 0.3s ease;
 }
 
 .tag-tab--active:hover {

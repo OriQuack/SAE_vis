@@ -137,7 +137,7 @@ interface AppState {
   sortBySimilarity: () => Promise<void>
   sortPairsBySimilarity: (allPairKeys: string[]) => Promise<void>
   sortCauseBySimilarity: () => Promise<void>
-  sortTableByCategory: (category: 'confirmed' | 'expanded' | 'rejected' | 'auto-rejected' | 'unsure', mode: 'feature' | 'pair' | 'cause') => void
+  sortTableByCategory: (category: 'confirmed' | 'expanded' | 'rejected' | 'autoRejected' | 'unsure', mode: 'feature' | 'pair' | 'cause') => void
 
   // Similarity tagging actions (automatic tagging based on histogram)
   showSimilarityTaggingPopover: (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string) => Promise<void>

@@ -440,6 +440,10 @@ export const createTableActions = (set: any, get: any) => ({
       activeStageCategory: state.activeStageCategory
     })
     console.log('[Store.setActiveStageNode] ✅ Set active stage node:', nodeId, 'category:', category)
+
+    // Trigger Sankey recompute to update visible stages
+    console.log('[Store.setActiveStageNode] 🔄 Triggering Sankey recompute for left panel')
+    get().recomputeSankeyTree('left')
   },
 
   /**
@@ -451,6 +455,10 @@ export const createTableActions = (set: any, get: any) => ({
       activeStageCategory: null
     })
     console.log('[Store.clearActiveStageNode] Cleared active stage node')
+
+    // Trigger Sankey recompute to show all stages
+    console.log('[Store.clearActiveStageNode] 🔄 Triggering Sankey recompute to show all stages')
+    get().recomputeSankeyTree('left')
   },
 
   /**
@@ -1207,7 +1215,7 @@ export const createTableActions = (set: any, get: any) => ({
    * Order: Confirmed -> Expanded -> Unsure -> Rejected (or clicked category first)
    * If similarity sort is active, use it as secondary sort within each category
    */
-  sortTableByCategory: (category: 'confirmed' | 'expanded' | 'rejected' | 'auto-rejected' | 'unsure', mode: 'feature' | 'pair' | 'cause') => {
+  sortTableByCategory: (category: 'confirmed' | 'expanded' | 'rejected' | 'autoRejected' | 'unsure', mode: 'feature' | 'pair' | 'cause') => {
     const {
       tableData,
       featureSelectionStates,
@@ -1226,14 +1234,14 @@ export const createTableActions = (set: any, get: any) => ({
     console.log(`[Store.sortTableByCategory] Sorting by category: ${category}, mode: ${mode}`)
 
     // Define category order with clicked category first
-    const categoryOrder: Array<'confirmed' | 'expanded' | 'rejected' | 'auto-rejected' | 'unsure'> = (() => {
-      const baseOrder: Array<'confirmed' | 'expanded' | 'rejected' | 'auto-rejected' | 'unsure'> = ['confirmed', 'expanded', 'unsure', 'rejected', 'auto-rejected']
+    const categoryOrder: Array<'confirmed' | 'expanded' | 'rejected' | 'autoRejected' | 'unsure'> = (() => {
+      const baseOrder: Array<'confirmed' | 'expanded' | 'rejected' | 'autoRejected' | 'unsure'> = ['confirmed', 'expanded', 'unsure', 'rejected', 'autoRejected']
       // Move clicked category to front
       return [category, ...baseOrder.filter(c => c !== category)]
     })()
 
     // Helper function to get category for a feature/pair
-    const getCategory = (id: number | string, isFeature: boolean): 'confirmed' | 'expanded' | 'rejected' | 'auto-rejected' | 'unsure' => {
+    const getCategory = (id: number | string, isFeature: boolean): 'confirmed' | 'expanded' | 'rejected' | 'autoRejected' | 'unsure' => {
       if (isFeature) {
         const featureId = id as number
         const selectionState = featureSelectionStates.get(featureId)
@@ -1242,7 +1250,7 @@ export const createTableActions = (set: any, get: any) => ({
         if (selectionState === 'selected') {
           return source === 'auto' ? 'expanded' : 'confirmed'
         } else if (selectionState === 'rejected') {
-          return source === 'auto' ? 'auto-rejected' : 'rejected'
+          return source === 'auto' ? 'autoRejected' : 'rejected'
         } else {
           return 'unsure'
         }
@@ -1254,7 +1262,7 @@ export const createTableActions = (set: any, get: any) => ({
         if (selectionState === 'selected') {
           return source === 'auto' ? 'expanded' : 'confirmed'
         } else if (selectionState === 'rejected') {
-          return source === 'auto' ? 'auto-rejected' : 'rejected'
+          return source === 'auto' ? 'autoRejected' : 'rejected'
         } else {
           return 'unsure'
         }
