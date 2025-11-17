@@ -232,9 +232,7 @@
   background-color: var(--bg-secondary);
 }
 
-.decoder-stage-table__cell--main-feature:hover {
-  background-color: #f3f4f6;
-}
+/* No hover effect - main feature is not clickable */
 
 /* Empty feature column */
 .decoder-stage-table__cell--empty {
@@ -273,7 +271,7 @@
 
 .decoder-stage-table__content-row--badge {
   height: 36px;
-  background-color: var(--bg-primary);
+  background-color: transparent;  /* Allow parent cell background to show through for selection highlighting */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -282,7 +280,7 @@
 
 .decoder-stage-table__content-row--decoder {
   height: 40px;
-  background-color: var(--bg-primary);
+  background-color: transparent;  /* Allow parent cell background to show through for selection highlighting */
   position: relative;
 }
 
@@ -304,7 +302,7 @@
   height: 54px;  /* Fixed height: 3 quantiles × 18px each (matches QualityTable) */
   min-height: 54px;
   max-height: 54px;
-  background-color: var(--bg-primary);
+  background-color: transparent;  /* Allow parent cell background to show through for selection highlighting */
   padding: 2px;
   overflow: hidden;  /* Clip preview content to maintain consistent widths */
   border-bottom: none;  /* No border - cell itself has border from .table-panel__grouped-row > td */
@@ -593,4 +591,67 @@
   line-height: 1.6;
   padding-bottom: 1px;
   margin-bottom: 2px;
+}
+
+/* ============================================================================
+   THRESHOLD VISUALIZATION
+   Colored lines showing select/reject thresholds in table
+   ============================================================================ */
+
+.table-panel__row--select-threshold {
+  position: relative;
+}
+
+.table-panel__row--select-threshold::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background-color: #67e8f9; /* SELECTION_CATEGORY_COLORS.EXPANDED.HEX - cyan */
+  z-index: 10;
+}
+
+.table-panel__row--reject-threshold {
+  position: relative;
+}
+
+.table-panel__row--reject-threshold::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background-color: #f9a8d4; /* SELECTION_CATEGORY_COLORS.AUTO_REJECTED.HEX - pink */
+  z-index: 10;
+}
+
+/* ============================================================================
+   PREVIEW STRIPE PATTERNS
+   Diagonal stripes showing which rows would be auto-tagged
+   Applied directly to cells to avoid table layout issues
+   ============================================================================ */
+
+.table-panel__row--preview-auto-selected > td {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 4px,
+    rgba(103, 232, 249, 0.3) 4px,
+    rgba(103, 232, 249, 0.3) 8px
+  );
+  background-blend-mode: normal;
+}
+
+.table-panel__row--preview-auto-rejected > td {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 4px,
+    rgba(249, 168, 212, 0.3) 4px,
+    rgba(249, 168, 212, 0.3) 8px
+  );
+  background-blend-mode: normal;
 }

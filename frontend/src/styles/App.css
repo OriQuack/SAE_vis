@@ -311,7 +311,7 @@
 
 /* Table Column - Right side */
 .sankey-view__table-column {
-  flex: 3;
+  flex: 4;
   display: flex;
   flex-direction: column;
   gap: 0;

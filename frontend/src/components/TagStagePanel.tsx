@@ -22,6 +22,10 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
   // Get sankeyTree from left panel for color mapping
   const sankeyTree = useVisualizationStore(state => state.leftPanel.sankeyTree);
 
+  // Check if threshold preview is active
+  const thresholdVisualization = useVisualizationStore(state => state.thresholdVisualization);
+  const isPreviewActive = thresholdVisualization?.visible ?? false;
+
   // Calculate dynamic tag counts based on filtered features from Sankey tree
   const getTagCounts = (category: TagCategoryConfig): Record<string, number> => {
     const counts: Record<string, number> = {};
@@ -94,6 +98,9 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
 
   // Handle stage click
   const handleStageClick = (categoryId: string) => {
+    // Disable clicking when threshold preview is active
+    if (isPreviewActive) return;
+
     // Activate the category table (this will also set the selected node)
     activateCategoryTable(categoryId);
 
@@ -123,9 +130,12 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
                   isCompleted ? 'stage-tab--completed' : ''
                 } ${
                   isFuture ? 'stage-tab--future' : ''
+                } ${
+                  isPreviewActive ? 'stage-tab--disabled' : ''
                 }`}
                 onClick={() => handleStageClick(stage.id)}
-                title={stage.description}
+                disabled={isPreviewActive}
+                title={isPreviewActive ? "Close threshold preview to switch stages" : stage.description}
               >
                 <div className="stage-tab__header">
                   <div className="stage-tab__number">

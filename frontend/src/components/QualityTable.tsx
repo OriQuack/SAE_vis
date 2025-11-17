@@ -66,6 +66,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   const tableSelectedNodeIds = useVisualizationStore(state => state.tableSelectedNodeIds)
   const activeStageNodeId = useVisualizationStore(state => state.activeStageNodeId)
   const activeStageCategory = useVisualizationStore(state => state.activeStageCategory)
+  const thresholdVisualization = useVisualizationStore(state => state.thresholdVisualization)
 
   // Feature selection state (three-state: null -> selected -> rejected -> null)
   const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
@@ -664,7 +665,21 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                 'table-panel__sub-row--first',
                 categoryClass,
                 // Add auto-tagged indicator for items tagged via "Tag Automatically"
-                selectionSource === 'auto' ? 'table-panel__sub-row--auto-tagged' : ''
+                selectionSource === 'auto' ? 'table-panel__sub-row--auto-tagged' : '',
+                // Add threshold line indicators
+                thresholdVisualization?.visible && thresholdVisualization.mode === 'feature' && featureIndex === thresholdVisualization.selectPosition
+                  ? 'table-panel__row--select-threshold'
+                  : '',
+                thresholdVisualization?.visible && thresholdVisualization.mode === 'feature' && featureIndex === thresholdVisualization.rejectPosition
+                  ? 'table-panel__row--reject-threshold'
+                  : '',
+                // Add preview stripe patterns
+                thresholdVisualization?.visible && thresholdVisualization.mode === 'feature' && thresholdVisualization.previewAutoSelected?.has(featureRow.feature_id)
+                  ? 'table-panel__row--preview-auto-selected'
+                  : '',
+                thresholdVisualization?.visible && thresholdVisualization.mode === 'feature' && thresholdVisualization.previewAutoRejected?.has(featureRow.feature_id)
+                  ? 'table-panel__row--preview-auto-rejected'
+                  : ''
               ].filter(Boolean).join(' ')
 
               return (

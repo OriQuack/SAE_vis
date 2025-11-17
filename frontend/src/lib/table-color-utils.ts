@@ -40,9 +40,9 @@ export interface BadgeConfig {
  *
  * Color Rules:
  * - Confirmed (manual selected): Blue #3b82f6
- * - Expanded (auto selected): Light Blue #93c5fd
+ * - Expanded (auto selected): Cyan #67e8f9
  * - Rejected (manual rejected): Red #ef4444
- * - Auto-Rejected: Light Red #fca5a5
+ * - Auto-Rejected: Pink #f9a8d4
  * - Unsure: null (no background color)
  *
  * @param selectionState - The selection state ('selected', 'rejected', or null)
@@ -57,14 +57,14 @@ export function getRowBackgroundColor(
   if (selectionState === 'selected') {
     // Manual selected → Blue
     if (selectionSource === 'auto') {
-      return SELECTION_CATEGORY_COLORS.EXPANDED.HEX  // Light blue #93c5fd
+      return SELECTION_CATEGORY_COLORS.EXPANDED.HEX  // Cyan #67e8f9
     } else {
       return SELECTION_CATEGORY_COLORS.CONFIRMED.HEX  // Blue #3b82f6
     }
   } else if (selectionState === 'rejected') {
-    // Manual rejected → Red, Auto rejected → Light red
+    // Manual rejected → Red, Auto rejected → Pink
     if (selectionSource === 'auto') {
-      return SELECTION_CATEGORY_COLORS.AUTO_REJECTED.HEX  // Light red #fca5a5
+      return SELECTION_CATEGORY_COLORS.AUTO_REJECTED.HEX  // Pink #f9a8d4
     } else {
       return SELECTION_CATEGORY_COLORS.REJECTED.HEX  // Red #ef4444
     }

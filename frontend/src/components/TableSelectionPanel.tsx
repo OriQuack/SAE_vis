@@ -13,6 +13,7 @@ interface TableSelectionPanelProps {
   instruction?: string
   onDone?: () => void
   doneButtonEnabled?: boolean
+  pairKeys?: string[]  // For pair mode: provide pair keys from parent component
 }
 
 /**
@@ -28,7 +29,8 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
   tagLabel,
   instruction,
   onDone,
-  doneButtonEnabled = false
+  doneButtonEnabled = false,
+  pairKeys
 }) => {
   // State from store
   const tableData = useVisualizationStore(state => state.tableData)
@@ -49,6 +51,9 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
   const isPairSimilaritySortLoading = useVisualizationStore(state => state.isPairSimilaritySortLoading)
   const isCauseSimilaritySortLoading = useVisualizationStore(state => state.isCauseSimilaritySortLoading)
   const tableSortBy = useVisualizationStore(state => state.tableSortBy)
+  const thresholdVisualization = useVisualizationStore(state => state.thresholdVisualization)
+  const similarityTaggingPopover = useVisualizationStore(state => state.similarityTaggingPopover)
+  const restoreSimilarityTaggingPopover = useVisualizationStore(state => state.restoreSimilarityTaggingPopover)
 
   // Sankey threshold info - use different node ID based on mode
   const tableSelectedNodeIds = useVisualizationStore(state => state.tableSelectedNodeIds)
@@ -73,6 +78,9 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
 
   // Category dropdown state for cause mode
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false)
+
+  // Track if threshold button should highlight (first time showing preview)
+  const [shouldHighlightThresholdButton, setShouldHighlightThresholdButton] = useState(false)
 
   // Button refs for measuring width
   const sortButtonRef = useRef<HTMLButtonElement>(null)
@@ -311,6 +319,10 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
                       : mode === 'pair' ? isPairSimilaritySortLoading
                       : isCauseSimilaritySortLoading
 
+  // Check if threshold preview is active
+  const isPreviewActive = thresholdVisualization?.visible ?? false
+  const showThresholdControls = isPreviewActive && similarityTaggingPopover?.minimized
+
   // Measure button widths on mount and when text changes
   useEffect(() => {
     if (sortButtonRef.current) {
@@ -321,13 +333,22 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
     }
   }, [isSortLoading, canSortBySimilarity, canTagAutomatically])
 
+  // Highlight threshold button when preview first becomes active
+  useEffect(() => {
+    if (showThresholdControls) {
+      setShouldHighlightThresholdButton(true)
+    } else {
+      setShouldHighlightThresholdButton(false)
+    }
+  }, [showThresholdControls])
+
   // Handlers
   const handleSortBySimilarity = () => {
     if (mode === 'feature') {
       sortBySimilarity()
     } else if (mode === 'pair') {
-      // For pairs, need to get all pair keys
-      const allPairKeys = tableData?.pairs?.map((p: any) => p.pairKey) || []
+      // For pairs, use provided pairKeys prop or fallback to tableData.pairs
+      const allPairKeys = pairKeys || tableData?.pairs?.map((p: any) => p.pairKey) || []
       sortPairsBySimilarity(allPairKeys)
     } else {
       // For cause mode, show dropdown to select category
@@ -365,6 +386,11 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
     sortTableByCategory(category, mode)
   }
 
+  const handleGoBackToHistogram = () => {
+    setShouldHighlightThresholdButton(false)
+    restoreSimilarityTaggingPopover()
+  }
+
   const hasAnySelection = selectionStates.size > 0
 
   // Don't render if no table data loaded yet
@@ -395,8 +421,21 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
 
       {/* Actions Row: Buttons + Bar + Buttons */}
       <div className="table-selection-panel__actions">
-        {/* Left Actions: Sort & Tag */}
+        {/* Left Actions: Sort & Tag OR Threshold Controls */}
         <div className="table-selection-panel__left-actions">
+          {showThresholdControls ? (
+            <>
+              {/* Go Back to Histogram Button */}
+              <button
+                className={`table-selection-panel__button table-selection-panel__button--histogram ${shouldHighlightThresholdButton ? 'table-selection-panel__button--highlighted' : ''}`}
+                onClick={handleGoBackToHistogram}
+                title="Return to histogram to adjust thresholds"
+              >
+                Go Back to Histogram
+              </button>
+            </>
+          ) : (
+            <>
           {/* Sort by Similarity Button */}
           <div
             className="table-selection-panel__button-wrapper"
@@ -405,9 +444,9 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
           >
             <button
               ref={sortButtonRef}
-              className={`table-selection-panel__button ${canSortBySimilarity && !isSortLoading ? 'table-selection-panel__button--available' : ''}`}
+              className={`table-selection-panel__button ${canSortBySimilarity && !isSortLoading && !isPreviewActive ? 'table-selection-panel__button--available' : ''}`}
               onClick={handleSortBySimilarity}
-              disabled={isSortLoading || !canSortBySimilarity}
+              disabled={isSortLoading || !canSortBySimilarity || isPreviewActive}
             >
               {isSortLoading ? (
                 <>
@@ -422,7 +461,9 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
                 className="table-selection-panel__tooltip"
                 style={{ width: sortTooltipWidth ? `${sortTooltipWidth}px` : undefined }}
               >
-                {isSortedBySimilarity ? (
+                {isPreviewActive ? (
+                  <div>Close threshold preview to enable sorting</div>
+                ) : isSortedBySimilarity ? (
                   <div>Click to sort with updated selections</div>
                 ) : mode === 'cause' ? (
                   <>
@@ -495,9 +536,9 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
           >
             <button
               ref={tagButtonRef}
-              className={`table-selection-panel__button ${canTagAutomatically ? 'table-selection-panel__button--available' : ''}`}
+              className={`table-selection-panel__button ${canTagAutomatically && !isPreviewActive ? 'table-selection-panel__button--available' : ''}`}
               onClick={handleTagAutomatically}
-              disabled={!canTagAutomatically}
+              disabled={!canTagAutomatically || isPreviewActive}
             >
               Tag Automatically
             </button>
@@ -506,7 +547,9 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
                 className="table-selection-panel__tooltip"
                 style={{ width: tagTooltipWidth ? `${tagTooltipWidth}px` : undefined }}
               >
-                {mode === 'cause' ? (
+                {isPreviewActive ? (
+                  <div>Close threshold preview to enable automatic tagging</div>
+                ) : mode === 'cause' ? (
                   <>
                     <div className={(selectionCounts.causeCategories?.noisyActivation ?? 0) >= 3 ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
                       <span className="table-selection-panel__tooltip-icon">{(selectionCounts.causeCategories?.noisyActivation ?? 0) >= 3 ? '✓' : '✗'}</span>
@@ -536,6 +579,8 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
               </div>
             )}
           </div>
+            </>
+          )}
         </div>
 
         {/* Center: Selection State Bar */}
@@ -557,8 +602,8 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
             <button
               className="table-selection-panel__button table-selection-panel__button--done"
               onClick={onDone}
-              disabled={!hasAnySelection || !doneButtonEnabled}
-              title={!doneButtonEnabled ? "Next step not available for this stage" : !hasAnySelection ? "Make at least one selection to proceed" : "Proceed to next stage"}
+              disabled={!hasAnySelection || !doneButtonEnabled || isPreviewActive}
+              title={isPreviewActive ? "Close threshold preview to proceed" : !doneButtonEnabled ? "Next step not available for this stage" : !hasAnySelection ? "Make at least one selection to proceed" : "Proceed to next stage"}
             >
               Done
             </button>
@@ -568,8 +613,8 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
           <button
             className="table-selection-panel__button table-selection-panel__button--clear"
             onClick={handleClearSelection}
-            disabled={!hasAnySelection}
-            title={!hasAnySelection ? "No selections to clear" : "Clear all selections and reset sort"}
+            disabled={!hasAnySelection || isPreviewActive}
+            title={isPreviewActive ? "Close threshold preview to clear" : !hasAnySelection ? "No selections to clear" : "Clear all selections and reset sort"}
           >
             Clear
           </button>

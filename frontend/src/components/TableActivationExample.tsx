@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react'
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import type { ActivationExamples, QuantileExample } from '../types'
 import {
   buildActivationTokens,
@@ -136,7 +136,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
   const effectiveShowPopover = showPopover || (isHovered ?? false)
 
   // Detect popover position (above/below) and calculate fixed coordinates
-  const detectPopoverPosition = () => {
+  const detectPopoverPosition = useCallback(() => {
     if (!containerRef.current) return
     const rect = containerRef.current.getBoundingClientRect()
 
@@ -158,7 +158,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
     }
 
     setPopoverStyle(style)
-  }
+  }, [])
 
   // Calculate max characters based on container width passed from parent
   // Monospace fonts (Consolas/Monaco) at 11px: ~6.8px per character (conservative to prevent overflow)
@@ -186,6 +186,16 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
       return sorted.slice(0, 2)
     })
   }, [examples.quantile_examples, underlineType])
+
+  // Recalculate popover position when isHovered becomes true
+  // This handles the case where the main feature's popover is shown
+  // when hovering a similar feature (via parent's isHovered prop)
+  useEffect(() => {
+    if (isHovered && !showPopover) {
+      // Parent is triggering hover, but we haven't calculated position yet
+      detectPopoverPosition()
+    }
+  }, [isHovered, showPopover, detectPopoverPosition])
 
   return (
     <div

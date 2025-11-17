@@ -286,12 +286,12 @@ export const SELECTION_CATEGORY_COLORS = {
     HOVER: 'rgba(59, 130, 246, 0.15)'  // Hover state
   },
 
-  // Expanded - Auto-tagged by histogram (Light Blue)
+  // Expanded - Auto-tagged by histogram (Cyan/Teal)
   EXPANDED: {
-    HEX: '#93c5fd',                    // Tailwind blue-300
-    RGB: { r: 147, g: 197, b: 253 },   // RGB components
-    LIGHT: 'rgba(147, 197, 253, 0.08)', // Background highlight
-    HOVER: 'rgba(147, 197, 253, 0.15)'  // Hover state
+    HEX: '#67e8f9',                    // Tailwind cyan-300
+    RGB: { r: 103, g: 232, b: 249 },   // RGB components
+    LIGHT: 'rgba(103, 232, 249, 0.08)', // Background highlight
+    HOVER: 'rgba(103, 232, 249, 0.15)'  // Hover state
   },
 
   // Rejected - Manually rejected (Red)
@@ -302,12 +302,12 @@ export const SELECTION_CATEGORY_COLORS = {
     HOVER: 'rgba(239, 68, 68, 0.15)'   // Hover state
   },
 
-  // Auto-Rejected - Auto-tagged by histogram threshold (Light Red)
+  // Auto-Rejected - Auto-tagged by histogram threshold (Pink)
   AUTO_REJECTED: {
-    HEX: '#fca5a5',                    // Tailwind red-300
-    RGB: { r: 252, g: 165, b: 165 },   // RGB components
-    LIGHT: 'rgba(252, 165, 165, 0.08)', // Background highlight
-    HOVER: 'rgba(252, 165, 165, 0.15)'  // Hover state
+    HEX: '#f9a8d4',                    // Tailwind pink-300
+    RGB: { r: 249, g: 168, b: 212 },   // RGB components
+    LIGHT: 'rgba(249, 168, 212, 0.08)', // Background highlight
+    HOVER: 'rgba(249, 168, 212, 0.15)'  // Hover state
   },
 
   // Unsure - Not selected or investigated (Gray)

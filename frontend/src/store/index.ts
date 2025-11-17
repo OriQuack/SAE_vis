@@ -145,6 +145,12 @@ interface AppState {
   updateSimilarityThresholds: (selectThreshold: number) => void
   updateBothSimilarityThresholds: (selectThreshold: number, rejectThreshold: number) => void
   applySimilarityTags: () => void
+  minimizeSimilarityTaggingPopover: () => void
+  restoreSimilarityTaggingPopover: () => void
+
+  // Threshold visualization actions
+  showThresholdsOnTable: () => Promise<void>
+  hideThresholdsOnTable: () => void
 
   // Node selection actions
   toggleNodeSelection: (nodeId: string) => void
@@ -192,6 +198,7 @@ interface AppState {
   // Similarity tagging popover state (for automatic tagging feature)
   similarityTaggingPopover: {
     visible: boolean
+    minimized: boolean  // Whether popover is minimized
     mode: 'feature' | 'pair'
     position: { x: number; y: number }
     histogramData: any | null  // SimilarityScoreHistogramResponse
@@ -199,6 +206,18 @@ interface AppState {
     rejectThreshold: number  // Threshold for auto-rejecting (light red, left side)
     tagLabel: string  // Tag name (e.g., "well-explained", "fragmented")
     isLoading: boolean
+  } | null
+
+  // Threshold visualization state (for showing thresholds in table)
+  thresholdVisualization: {
+    visible: boolean
+    mode: 'feature' | 'pair' | 'cause'
+    selectThreshold: number       // Blue line threshold
+    rejectThreshold: number       // Red line threshold
+    selectPosition: number | null  // Row index for blue line
+    rejectPosition: number | null  // Row index for red line
+    previewAutoSelected: Set<number | string>  // IDs that would be auto-selected (blue stripe)
+    previewAutoRejected: Set<number | string>  // IDs that would be auto-rejected (red stripe)
   } | null
 
   // Node selection for table filtering
@@ -299,6 +318,9 @@ const initialState = {
 
   // Similarity tagging popover state (for automatic tagging feature)
   similarityTaggingPopover: null,
+
+  // Threshold visualization state (for showing thresholds in table)
+  thresholdVisualization: null,
 
   // Node selection for table filtering
   tableSelectedNodeIds: [],

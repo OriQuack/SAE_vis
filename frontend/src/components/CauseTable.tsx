@@ -57,6 +57,7 @@ interface CauseTablePanelProps {
 const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => {
   const tableData = useVisualizationStore(state => state.tableData) as FeatureTableDataResponse | null
   const isLoading = useVisualizationStore(state => state.loading.table)
+  const thresholdVisualization = useVisualizationStore(state => state.thresholdVisualization)
 
   // Cause category selection state
   const causeSelectionStates = useVisualizationStore(state => state.causeSelectionStates)
@@ -451,7 +452,8 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
 
             {/* Render only visible virtual items */}
             {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                  const featureRow = sortedFeatures[virtualRow.index]
+                  const featureIndex = virtualRow.index
+                  const featureRow = sortedFeatures[featureIndex]
                   if (!featureRow) return null
 
                   // Get max quality score explainer
@@ -488,28 +490,47 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
                   const detectionAvg = detectionStats?.avg || null
 
                   // Determine row class and background color using standard selection colors
-                  let rowClass = 'table-panel__sub-row'
+                  const rowClassParts = ['table-panel__sub-row']
                   let rowBackgroundColor = ''
+
                   if (causeState) {
                     // Map cause states to standard selection colors for row backgrounds
                     // 'noisy-activation' → confirmed (blue)
                     // 'missed-lexicon' → expanded (light blue)
                     // 'missed-context' → rejected (red)
                     if (causeState === 'noisy-activation') {
-                      rowClass += ' table-panel__sub-row--confirmed'
+                      rowClassParts.push('table-panel__sub-row--confirmed')
                       rowBackgroundColor = SELECTION_CATEGORY_COLORS.CONFIRMED.HEX
                     } else if (causeState === 'missed-lexicon') {
-                      rowClass += ' table-panel__sub-row--expanded'
+                      rowClassParts.push('table-panel__sub-row--expanded')
                       rowBackgroundColor = SELECTION_CATEGORY_COLORS.EXPANDED.HEX
                     } else if (causeState === 'missed-context') {
-                      rowClass += ' table-panel__sub-row--rejected'
+                      rowClassParts.push('table-panel__sub-row--rejected')
                       rowBackgroundColor = SELECTION_CATEGORY_COLORS.REJECTED.HEX
                     }
 
                     if (causeSource === 'auto') {
-                      rowClass += ' table-panel__sub-row--auto-tagged'
+                      rowClassParts.push('table-panel__sub-row--auto-tagged')
                     }
                   }
+
+                  // Add threshold line indicators
+                  if (thresholdVisualization?.visible && thresholdVisualization.mode === 'cause' && featureIndex === thresholdVisualization.selectPosition) {
+                    rowClassParts.push('table-panel__row--select-threshold')
+                  }
+                  if (thresholdVisualization?.visible && thresholdVisualization.mode === 'cause' && featureIndex === thresholdVisualization.rejectPosition) {
+                    rowClassParts.push('table-panel__row--reject-threshold')
+                  }
+
+                  // Add preview stripe patterns
+                  if (thresholdVisualization?.visible && thresholdVisualization.mode === 'cause' && thresholdVisualization.previewAutoSelected?.has(featureRow.feature_id)) {
+                    rowClassParts.push('table-panel__row--preview-auto-selected')
+                  }
+                  if (thresholdVisualization?.visible && thresholdVisualization.mode === 'cause' && thresholdVisualization.previewAutoRejected?.has(featureRow.feature_id)) {
+                    rowClassParts.push('table-panel__row--preview-auto-rejected')
+                  }
+
+                  const rowClass = rowClassParts.join(' ')
 
                   // Get valid explainer IDs for popover
                   const validExplainerIds = Object.keys(featureRow.explainers).filter(

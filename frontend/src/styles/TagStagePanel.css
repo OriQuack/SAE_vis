@@ -124,6 +124,13 @@
   background: #cbd5e1;
 }
 
+/* Disabled State - When threshold preview is active */
+.stage-tab--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 /* Stage header - number + label in one row */
 .stage-tab__header {
   display: flex;

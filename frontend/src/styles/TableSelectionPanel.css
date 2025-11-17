@@ -160,6 +160,40 @@
   border-color: #fca5a5;
 }
 
+/* Go Back to Histogram Button */
+.table-selection-panel__button--histogram {
+  background: #2196f3;
+  color: white;
+  border-color: #2196f3;
+  font-weight: 600;
+}
+
+.table-selection-panel__button--histogram:hover:not(:disabled) {
+  background: #1976d2;
+  border-color: #1976d2;
+}
+
+/* Highlighted state - continuous pulsing animation */
+.table-selection-panel__button--highlighted {
+  animation: pulse-highlight 1.5s ease-in-out infinite;
+  box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.7);
+}
+
+@keyframes pulse-highlight {
+  0% {
+    box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.7);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(33, 150, 243, 0);
+    transform: scale(1.02);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(33, 150, 243, 0);
+    transform: scale(1);
+  }
+}
+
 /* Mini Spinner for Loading State */
 .spinner-mini {
   display: inline-block;

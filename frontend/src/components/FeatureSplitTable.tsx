@@ -5,7 +5,9 @@ import type { FeatureTableRow, DecoderStagePairRow, StageTableContext, FeatureSp
 import { METRIC_DECODER_SIMILARITY } from '../lib/constants'
 import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORIES, TAG_CATEGORY_TABLE_TITLES, TAG_CATEGORY_TABLE_INSTRUCTIONS } from '../lib/tag-constants'
 import {
-  getBadgeConfig
+  getBadgeConfig,
+  getRowBackgroundColor,
+  addOpacityToHex
 } from '../lib/table-color-utils'
 import { extractInterFeaturePositions, mergeInterFeaturePositions } from '../lib/activation-utils'
 import ActivationExample from './TableActivationExample'
@@ -23,9 +25,40 @@ import '../styles/FeatureSplitTable.css'
  * Convert splitting selection state to tag name for TagBadge
  */
 function getSplitTagName(state: 'selected' | 'rejected' | null): string {
-  if (state === 'selected') return 'Monosemantic'
-  if (state === 'rejected') return 'Fragmented'
+  if (state === 'selected') return 'Fragmented'
+  if (state === 'rejected') return 'Monosemantic'
   return 'Unsure'
+}
+
+/**
+ * Compute derived selection state for main feature based on similar features
+ * Logic:
+ * - If ANY similar feature is 'selected' → 'selected' (Fragmented)
+ * - If ALL similar features are 'rejected' → 'rejected' (Monosemantic)
+ * - Otherwise → null (Unsure)
+ */
+function getDerivedMainFeatureState(
+  row: FeatureSplitGroupedRow,
+  pairSelectionStates: Map<string, 'selected' | 'rejected'>
+): 'selected' | 'rejected' | null {
+  // Get all similar features (non-main sub-columns with valid pairs)
+  const similarPairs = row.subColumns
+    .filter(col => !col.isMainFeature && col.pairKey)
+
+  if (similarPairs.length === 0) return null
+
+  // Get selection states for all similar features
+  const states = similarPairs
+    .map(col => pairSelectionStates.get(col.pairKey!))
+
+  // If ANY similar feature is 'selected' → main = 'selected' (Fragmented)
+  if (states.some(s => s === 'selected')) return 'selected'
+
+  // If ALL similar features are 'rejected' → main = 'rejected' (Monosemantic)
+  if (states.every(s => s === 'rejected')) return 'rejected'
+
+  // Otherwise → Unsure
+  return null
 }
 
 // ============================================================================
@@ -47,6 +80,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
   const setTableScrollState = useVisualizationStore(state => state.setTableScrollState)
   const pairSimilarityScores = useVisualizationStore(state => state.pairSimilarityScores)
   const tableSortBy = useVisualizationStore(state => state.tableSortBy)
+  const thresholdVisualization = useVisualizationStore(state => state.thresholdVisualization)
 
   // Similarity tagging (automatic tagging) state and action
   const moveToNextStep = useVisualizationStore(state => state.moveToNextStep)
@@ -290,6 +324,11 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
     return deduplicatedRows
   }, [stageContext, tableData, stageFeatures, activationExamples])
 
+  // Extract all pair keys for similarity sorting
+  const allPairKeys = useMemo(() => {
+    return stageRows.map(row => row.pairKey)
+  }, [stageRows])
+
   // Group pairs by main feature ID for compact row layout
   // Creates 1 row per main feature with 4 sub-columns: [main, similar1, similar2, similar3]
   const groupedRows = useMemo<FeatureSplitGroupedRow[]>(() => {
@@ -369,12 +408,35 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
       const sorted = [...groupedRows]
       sorted.sort((a, b) => {
         // Calculate average pair similarity for each grouped row (excluding main feature)
+        // Logic:
+        // - If row has ≥1 fragmented pair (selected): use average of ONLY fragmented pairs
+        // - Else: use average of ONLY rejected pairs
         const getAvgScore = (row: FeatureSplitGroupedRow) => {
-          const scores = row.subColumns
+          // Get all valid similar feature pairs
+          const validPairs = row.subColumns
             .filter(col => !col.isMainFeature && col.pairKey)
+
+          // Check if any pairs are fragmented (selected)
+          const hasFragmentedPairs = validPairs.some(col =>
+            pairSelectionStates.get(col.pairKey!) === 'selected'
+          )
+
+          // Filter pairs based on logic:
+          // - If has fragmented pairs: use only fragmented pairs
+          // - Else: use only rejected pairs
+          const targetState = hasFragmentedPairs ? 'selected' : 'rejected'
+          const filteredPairs = validPairs.filter(col =>
+            pairSelectionStates.get(col.pairKey!) === targetState
+          )
+
+          // Get similarity scores for filtered pairs
+          const scores = filteredPairs
             .map(col => pairSimilarityScores.get(col.pairKey!) ?? -Infinity)
             .filter(s => s !== -Infinity)
-          return scores.length > 0 ? scores.reduce((sum, s) => sum + s, 0) / scores.length : -Infinity
+
+          return scores.length > 0
+            ? scores.reduce((sum, s) => sum + s, 0) / scores.length
+            : -Infinity
         }
 
         const aScore = getAvgScore(a)
@@ -502,10 +564,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
       if (featureCell) {
         const cellWidth = featureCell.getBoundingClientRect().width
         if (cellWidth > 0) {
-          // Subtract cell padding (4px × 2 sides = 8px)
-          const cellPadding = 8
-          const singleColumnWidth = cellWidth - cellPadding
-          setActivationColumnWidth(singleColumnWidth)
+          setActivationColumnWidth(cellWidth)
         }
       }
     }
@@ -694,6 +753,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
         instruction={TAG_CATEGORY_TABLE_INSTRUCTIONS[TAG_CATEGORY_FEATURE_SPLITTING]}
         onDone={moveToNextStep}
         doneButtonEnabled={true}
+        pairKeys={allPairKeys}
       />
 
       {/* Table */}
@@ -718,13 +778,13 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                 {sortBy === 'decoder_similarity' && sortDirection === 'desc' && <span className="table-panel__sort-indicator desc" />}
               </th>
               <th className="table-panel__header-cell decoder-stage-table__header-cell--feature-column">
-                Similar 1
+                Similar Feature 1
               </th>
               <th className="table-panel__header-cell decoder-stage-table__header-cell--feature-column">
-                Similar 2
+                Similar Feature 2
               </th>
               <th className="table-panel__header-cell decoder-stage-table__header-cell--feature-column">
-                Similar 3
+                Similar Feature 3
               </th>
             </tr>
           </thead>
@@ -740,11 +800,30 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
             {/* Render only visible virtual items (each item is a grouped row with 6 columns) */}
             {rowVirtualizer.getVirtualItems().map((virtualRow) => {
               const groupedRow = sortedGroupedRows[virtualRow.index]
+              const rowIndex = virtualRow.index
+
+              // Build row className with threshold indicators
+              const rowClassName = [
+                'table-panel__grouped-row',
+                thresholdVisualization?.visible && thresholdVisualization.mode === 'pair' && rowIndex === thresholdVisualization.selectPosition
+                  ? 'table-panel__row--select-threshold'
+                  : '',
+                thresholdVisualization?.visible && thresholdVisualization.mode === 'pair' && rowIndex === thresholdVisualization.rejectPosition
+                  ? 'table-panel__row--reject-threshold'
+                  : '',
+                // Add preview stripe patterns
+                thresholdVisualization?.visible && thresholdVisualization.mode === 'pair' && thresholdVisualization.previewAutoSelected?.has(groupedRow.mainFeatureId)
+                  ? 'table-panel__row--preview-auto-selected'
+                  : '',
+                thresholdVisualization?.visible && thresholdVisualization.mode === 'pair' && thresholdVisualization.previewAutoRejected?.has(groupedRow.mainFeatureId)
+                  ? 'table-panel__row--preview-auto-rejected'
+                  : ''
+              ].filter(Boolean).join(' ')
 
               return (
                 <tr
                   key={groupedRow.mainFeatureId}
-                  className="table-panel__grouped-row"
+                  className={rowClassName}
                 >
                   {/* Column 1: Index */}
                   <td className="table-panel__cell table-panel__cell--index decoder-stage-table__cell--grouped-index">
@@ -787,6 +866,19 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                     // Get badge state for this pair
                     const pairSelectionState = pairKey ? pairSelectionStates.get(pairKey) : null
 
+                    // Compute derived state for main feature based on similar features
+                    const mainFeatureDerivedState = isMainFeature
+                      ? getDerivedMainFeatureState(groupedRow, pairSelectionStates)
+                      : null
+
+                    // Get background color based on selection state (30% opacity)
+                    const selectionColor = !isMainFeature && pairSelectionState
+                      ? getRowBackgroundColor(pairSelectionState, 'manual')
+                      : null
+                    const backgroundColor = selectionColor
+                      ? addOpacityToHex(selectionColor, 0.3)
+                      : undefined
+
                     return (
                       <td
                         key={subColIdx}
@@ -799,16 +891,27 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                             handlePairToggle(groupedRow.mainFeatureId, subCol.featureId)
                           }
                         }}
-                        style={{ cursor: isMainFeature ? 'default' : 'pointer' }}
+                        style={{
+                          cursor: isMainFeature ? 'default' : 'pointer',
+                          backgroundColor
+                        }}
                       >
                         <div className="decoder-stage-table__feature-content">
                           {/* Content row 1: Feature Badge (merged ID + splitting tag) */}
                           <div className="decoder-stage-table__content-row decoder-stage-table__content-row--badge">
                             <TagBadge
                               featureId={subCol.featureId}
-                              tagName={!isMainFeature ? getSplitTagName(pairSelectionState) : 'Unsure'}
+                              tagName={
+                                isMainFeature
+                                  ? getSplitTagName(mainFeatureDerivedState)
+                                  : getSplitTagName(pairSelectionState)
+                              }
                               tagCategoryId={TAG_CATEGORY_FEATURE_SPLITTING}
-                              selectionState={!isMainFeature ? pairSelectionState : null}
+                              selectionState={
+                                isMainFeature
+                                  ? mainFeatureDerivedState
+                                  : pairSelectionState
+                              }
                               onClick={!isMainFeature ? (e) => {
                                 e.stopPropagation()
                                 handlePairToggle(groupedRow.mainFeatureId, subCol.featureId)
@@ -870,9 +973,17 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                                   examples={activationExamples[subCol.featureId]}
                                   containerWidth={activationColumnWidth}  // Already calculated for single column
                                   interFeaturePositions={getInterFeaturePositionsForFeature(subCol.featureId, pairKey ?? undefined)}
-                                  isHovered={pairKey !== null && hoveredPairKey === pairKey}
+                                  isHovered={
+                                    isMainFeature
+                                      ? // Main feature: show hover when ANY similar feature in this row is hovered
+                                        groupedRow.subColumns.some(col =>
+                                          !col.isMainFeature && col.pairKey && hoveredPairKey === col.pairKey
+                                        )
+                                      : // Similar feature: hover if this specific pair is hovered
+                                        pairKey !== null && hoveredPairKey === pairKey
+                                  }
                                   onHoverChange={(isHovered) => {
-                                    // Only set hover for non-main features
+                                    // Only set hover for non-main features (main feature cell is not clickable)
                                     if (!isMainFeature && pairKey) {
                                       setHoveredPairKey(isHovered ? pairKey : null)
                                       if (isHovered && subCol.interFeatureSimilarity) {

@@ -16,6 +16,8 @@ const SimilarityTaggingPopover: React.FC = () => {
   const hideSimilarityTaggingPopover = useVisualizationStore(state => state.hideSimilarityTaggingPopover)
   const updateBothSimilarityThresholds = useVisualizationStore(state => state.updateBothSimilarityThresholds)
   const applySimilarityTags = useVisualizationStore(state => state.applySimilarityTags)
+  const showThresholdsOnTable = useVisualizationStore(state => state.showThresholdsOnTable)
+  const hideThresholdsOnTable = useVisualizationStore(state => state.hideThresholdsOnTable)
   const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
   const featureSelectionSources = useVisualizationStore(state => state.featureSelectionSources)
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
@@ -32,6 +34,7 @@ const SimilarityTaggingPopover: React.FC = () => {
   const [thresholds, setThresholds] = useState({ select: 0.1, reject: -0.1 })
   const thresholdsRef = useRef(thresholds)
   const [hoveredBinIndex, setHoveredBinIndex] = useState<number | null>(null)
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false)
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -417,7 +420,26 @@ const SimilarityTaggingPopover: React.FC = () => {
     })
   }, [updateBothSimilarityThresholds])
 
-  if (!popoverState?.visible) return null
+  // Handle preview on table with loading state
+  const handlePreviewOnTable = useCallback(async () => {
+    setIsPreviewLoading(true)
+    try {
+      await showThresholdsOnTable()
+    } finally {
+      setIsPreviewLoading(false)
+    }
+  }, [showThresholdsOnTable])
+
+  // Handle apply tags - apply tags, hide thresholds, and close popover
+  const handleApplyTags = useCallback(() => {
+    applySimilarityTags()
+    hideThresholdsOnTable()
+    hideSimilarityTaggingPopover()
+  }, [applySimilarityTags, hideThresholdsOnTable, hideSimilarityTaggingPopover])
+
+  // Note: Threshold control buttons are now shown in TableSelectionPanel
+  // when thresholds are visible and popover is minimized
+  if (!popoverState?.visible || popoverState?.minimized) return null
 
   const { mode, isLoading, histogramData } = popoverState
 
@@ -748,8 +770,23 @@ const SimilarityTaggingPopover: React.FC = () => {
                 Cancel
               </button>
               <button
+                className="similarity-tagging-popover__button similarity-tagging-popover__button--threshold"
+                onClick={handlePreviewOnTable}
+                disabled={isPreviewLoading}
+                title="Preview which rows would be auto-tagged with stripe patterns and threshold lines"
+              >
+                {isPreviewLoading ? (
+                  <>
+                    <span className="spinner spinner--small" />
+                    Loading...
+                  </>
+                ) : (
+                  'Preview on Table'
+                )}
+              </button>
+              <button
                 className="similarity-tagging-popover__button similarity-tagging-popover__button--apply"
-                onClick={applySimilarityTags}
+                onClick={handleApplyTags}
               >
                 Apply Tags
               </button>

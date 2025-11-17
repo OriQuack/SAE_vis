@@ -568,8 +568,9 @@ export const createTableActions = (set: any, get: any) => ({
     if (activeStageCategory === TAG_CATEGORY_FEATURE_SPLITTING) {
       // This is the feature split table (pair selection)
       // Freeze the current pair selection states
-      const frozenPairStates = new Map(pairSelectionStates)
-      set({ donePairSelectionStates: frozenPairStates })
+      // COMMENTED OUT: Thick border indicator for previously tagged rows
+      // const frozenPairStates = new Map(pairSelectionStates)
+      // set({ donePairSelectionStates: frozenPairStates })
 
       // Next step is Quality
       console.log('[Store.moveToNextStep] Transitioning from Feature Splitting to Quality')
@@ -577,8 +578,9 @@ export const createTableActions = (set: any, get: any) => ({
     } else if (activeStageCategory === TAG_CATEGORY_QUALITY) {
       // This is the quality table (feature selection)
       // Freeze the current feature selection states
-      const frozenFeatureStates = new Map(featureSelectionStates)
-      set({ doneFeatureSelectionStates: frozenFeatureStates })
+      // COMMENTED OUT: Thick border indicator for previously tagged rows
+      // const frozenFeatureStates = new Map(featureSelectionStates)
+      // set({ doneFeatureSelectionStates: frozenFeatureStates })
 
       // Next step is Cause
       console.log('[Store.moveToNextStep] Transitioning from Quality to Cause')
@@ -594,7 +596,7 @@ export const createTableActions = (set: any, get: any) => ({
 
   sortBySimilarity: async () => {
     const state = get()
-    const { featureSelectionStates, tableData } = state
+    const { featureSelectionStates, featureSelectionSources, tableData } = state
 
     console.log('[Store.sortBySimilarity] Starting similarity sort:', {
       selectionStatesSize: featureSelectionStates.size,
@@ -612,19 +614,23 @@ export const createTableActions = (set: any, get: any) => ({
       return
     }
 
-    // Extract selected and rejected IDs
+    // Extract selected and rejected IDs (ONLY manually labeled features)
     const selectedIds: number[] = []
     const rejectedIds: number[] = []
 
     featureSelectionStates.forEach((selectionState: string, featureId: number) => {
-      if (selectionState === 'selected') {
-        selectedIds.push(featureId)
-      } else if (selectionState === 'rejected') {
-        rejectedIds.push(featureId)
+      const source = featureSelectionSources.get(featureId)
+      // Only use manually labeled features for similarity sorting
+      if (source === 'manual') {
+        if (selectionState === 'selected') {
+          selectedIds.push(featureId)
+        } else if (selectionState === 'rejected') {
+          rejectedIds.push(featureId)
+        }
       }
     })
 
-    console.log('[Store.sortBySimilarity] Selection counts:', {
+    console.log('[Store.sortBySimilarity] Selection counts (manual only):', {
       selected: selectedIds.length,
       rejected: rejectedIds.length
     })
@@ -703,7 +709,7 @@ export const createTableActions = (set: any, get: any) => ({
 
   sortPairsBySimilarity: async (allPairKeys: string[]) => {
     const state = get()
-    const { pairSelectionStates } = state
+    const { pairSelectionStates, pairSelectionSources } = state
 
     console.log('[Store.sortPairsBySimilarity] Starting pair similarity sort:', {
       selectionStatesSize: pairSelectionStates.size,
@@ -721,19 +727,23 @@ export const createTableActions = (set: any, get: any) => ({
       return
     }
 
-    // Extract selected and rejected pair keys
+    // Extract selected and rejected pair keys (ONLY manually labeled pairs)
     const selectedPairKeys: string[] = []
     const rejectedPairKeys: string[] = []
 
     pairSelectionStates.forEach((selectionState: string, pairKey: string) => {
-      if (selectionState === 'selected') {
-        selectedPairKeys.push(pairKey)
-      } else if (selectionState === 'rejected') {
-        rejectedPairKeys.push(pairKey)
+      const source = pairSelectionSources.get(pairKey)
+      // Only use manually labeled pairs for similarity sorting
+      if (source === 'manual') {
+        if (selectionState === 'selected') {
+          selectedPairKeys.push(pairKey)
+        } else if (selectionState === 'rejected') {
+          rejectedPairKeys.push(pairKey)
+        }
       }
     })
 
-    console.log('[Store.sortPairsBySimilarity] Selection counts:', {
+    console.log('[Store.sortPairsBySimilarity] Selection counts (manual only):', {
       selected: selectedPairKeys.length,
       rejected: rejectedPairKeys.length
     })
@@ -814,7 +824,7 @@ export const createTableActions = (set: any, get: any) => ({
    */
   sortCauseBySimilarity: async () => {
     const state = get()
-    const { causeSelectionStates, tableData } = state
+    const { causeSelectionStates, causeSelectionSources, tableData } = state
 
     console.log('[Store.sortCauseBySimilarity] Starting cause similarity sort:', {
       selectionStatesSize: causeSelectionStates.size,
@@ -832,36 +842,44 @@ export const createTableActions = (set: any, get: any) => ({
       return
     }
 
-    // Count features per cause category
+    // Count features per cause category (ONLY manually labeled)
     const categoryCounts: Record<string, number> = {
       'noisy-activation': 0,
       'missed-lexicon': 0,
       'missed-context': 0
     }
 
-    causeSelectionStates.forEach((category: 'noisy-activation' | 'missed-lexicon' | 'missed-context') => {
-      categoryCounts[category]++
+    causeSelectionStates.forEach((category: 'noisy-activation' | 'missed-lexicon' | 'missed-context', featureId: number) => {
+      const source = causeSelectionSources.get(featureId)
+      // Only count manually labeled features
+      if (source === 'manual') {
+        categoryCounts[category]++
+      }
     })
 
     const categoriesWithFeatures = Object.values(categoryCounts).filter(c => c > 0).length
 
-    console.log('[Store.sortCauseBySimilarity] Category counts:', categoryCounts, {
+    console.log('[Store.sortCauseBySimilarity] Category counts (manual only):', categoryCounts, {
       categoriesWithFeatures
     })
 
     // Need at least 2 different categories for meaningful sort
     if (categoriesWithFeatures < 2) {
-      console.warn('[Store.sortCauseBySimilarity] ⚠️  Need at least 2 different cause categories selected')
+      console.warn('[Store.sortCauseBySimilarity] ⚠️  Need at least 2 different cause categories selected (manual only)')
       return
     }
 
     try {
       set({ isCauseSimilaritySortLoading: true })
 
-      // Convert Map to plain object for API
+      // Convert Map to plain object for API (ONLY manually labeled)
       const causeSelections: Record<number, string> = {}
       causeSelectionStates.forEach((category: string, featureId: number) => {
-        causeSelections[featureId] = category
+        const source = causeSelectionSources.get(featureId)
+        // Only use manually labeled features for similarity sorting
+        if (source === 'manual') {
+          causeSelections[featureId] = category
+        }
       })
 
       // Get all feature IDs
@@ -933,6 +951,7 @@ export const createTableActions = (set: any, get: any) => ({
       set({
         similarityTaggingPopover: {
           visible: true,
+          minimized: false,
           mode,
           position,
           histogramData: null,
@@ -991,6 +1010,7 @@ export const createTableActions = (set: any, get: any) => ({
         set({
           similarityTaggingPopover: {
             visible: true,
+            minimized: false,
             mode,
             position,
             histogramData,
@@ -1063,6 +1083,7 @@ export const createTableActions = (set: any, get: any) => ({
         set({
           similarityTaggingPopover: {
             visible: true,
+            minimized: false,
             mode,
             position,
             histogramData,
@@ -1352,5 +1373,338 @@ export const createTableActions = (set: any, get: any) => ({
 
       console.log('[Store.sortTableByCategory] Pairs sorted by category')
     }
+  },
+
+  /**
+   * Minimize the similarity tagging popover
+   */
+  minimizeSimilarityTaggingPopover: () => {
+    const { similarityTaggingPopover } = get()
+    if (!similarityTaggingPopover) return
+
+    set({
+      similarityTaggingPopover: {
+        ...similarityTaggingPopover,
+        minimized: true
+      }
+    })
+    console.log('[Store.minimizeSimilarityTaggingPopover] Popover minimized')
+  },
+
+  /**
+   * Restore the similarity tagging popover from minimized state
+   */
+  restoreSimilarityTaggingPopover: () => {
+    const { similarityTaggingPopover } = get()
+    if (!similarityTaggingPopover) return
+
+    set({
+      similarityTaggingPopover: {
+        ...similarityTaggingPopover,
+        minimized: false
+      }
+    })
+    console.log('[Store.restoreSimilarityTaggingPopover] Popover restored')
+  },
+
+  /**
+   * Show thresholds on table - sorts by similarity and shows threshold lines
+   */
+  showThresholdsOnTable: async () => {
+    const { similarityTaggingPopover, tableData } = get()
+    if (!similarityTaggingPopover) {
+      console.warn('[Store.showThresholdsOnTable] No popover state available')
+      return
+    }
+
+    const { mode, selectThreshold, rejectThreshold } = similarityTaggingPopover
+
+    console.log('[Store.showThresholdsOnTable] Showing thresholds on table:', {
+      mode,
+      selectThreshold,
+      rejectThreshold
+    })
+
+    try {
+      // Step 1: Trigger appropriate sort function
+      if (mode === 'feature') {
+        await get().sortBySimilarity()
+      } else if (mode === 'pair') {
+        // Extract all pair keys from table data
+        const allPairKeys: string[] = []
+        if (tableData && tableData.features) {
+          tableData.features.forEach((feature: any) => {
+            if (feature.decoder_similarity && Array.isArray(feature.decoder_similarity)) {
+              feature.decoder_similarity.slice(0, 4).forEach((similarItem: any) => {
+                const mainId = feature.feature_id
+                const similarId = similarItem.feature_id
+                // Use canonical format (smaller ID first)
+                const pairKey = mainId < similarId
+                  ? `${mainId}-${similarId}`
+                  : `${similarId}-${mainId}`
+                if (!allPairKeys.includes(pairKey)) {
+                  allPairKeys.push(pairKey)
+                }
+              })
+            }
+          })
+        }
+        await get().sortPairsBySimilarity(allPairKeys)
+      } else if (mode === 'cause') {
+        await get().sortCauseBySimilarity()
+      }
+
+      // Step 2: Calculate threshold positions
+      const { similarityScores, pairSimilarityScores, causeCategoryConfidences, causeSortCategory } = get()
+
+      let selectPosition: number | null = null
+      let rejectPosition: number | null = null
+
+      if (mode === 'feature') {
+        // Get table data and replicate the sorting logic from QualityTable.tsx
+        const updatedTableData = get().tableData
+        const { featureSelectionStates, sortedBySelectionStates } = get()
+
+        if (updatedTableData && updatedTableData.features) {
+          const features = updatedTableData.features
+
+          // Replicate the three-tier sorting logic from QualityTable.tsx (lines 274-310)
+          const selected: any[] = []
+          const rejected: any[] = []
+          const unselected: any[] = []
+
+          // Use frozen selection states if available (from similarity sort)
+          const groupingStates = sortedBySelectionStates || featureSelectionStates
+
+          // Separate into three groups
+          features.forEach(feature => {
+            const selectionState = groupingStates.get(feature.feature_id)
+            if (selectionState === 'selected') {
+              selected.push(feature)
+            } else if (selectionState === 'rejected') {
+              rejected.push(feature)
+            } else {
+              unselected.push(feature)
+            }
+          })
+
+          // Sort unselected by similarity score (descending)
+          unselected.sort((a, b) => {
+            const scoreA = similarityScores.get(a.feature_id) ?? -Infinity
+            const scoreB = similarityScores.get(b.feature_id) ?? -Infinity
+            return scoreB - scoreA
+          })
+
+          // Create sorted features array in display order
+          const sortedFeatures = [...selected, ...unselected, ...rejected]
+
+          // Find position of select threshold (blue line)
+          // This is the last feature with score >= selectThreshold
+          for (let i = 0; i < sortedFeatures.length; i++) {
+            const score = similarityScores.get(sortedFeatures[i].feature_id)
+            if (score !== undefined && score >= selectThreshold) {
+              selectPosition = i
+            } else if (selectPosition !== null) {
+              break // Stop when we pass the threshold
+            }
+          }
+
+          // Find position of reject threshold (red line)
+          // This is the last feature with score >= rejectThreshold
+          for (let i = 0; i < sortedFeatures.length; i++) {
+            const score = similarityScores.get(sortedFeatures[i].feature_id)
+            if (score !== undefined && score >= rejectThreshold) {
+              rejectPosition = i
+            } else if (rejectPosition !== null) {
+              break
+            }
+          }
+        }
+      } else if (mode === 'pair') {
+        // Get sorted pair list from tableData
+        const updatedTableData = get().tableData
+        if (updatedTableData && updatedTableData.pairs) {
+          const pairs = updatedTableData.pairs
+
+          for (let i = 0; i < pairs.length; i++) {
+            const score = pairSimilarityScores.get(pairs[i].pairKey)
+            if (score !== undefined && score >= selectThreshold) {
+              selectPosition = i
+            } else if (selectPosition !== null) {
+              break
+            }
+          }
+
+          for (let i = 0; i < pairs.length; i++) {
+            const score = pairSimilarityScores.get(pairs[i].pairKey)
+            if (score !== undefined && score >= rejectThreshold) {
+              rejectPosition = i
+            } else if (rejectPosition !== null) {
+              break
+            }
+          }
+        }
+      } else if (mode === 'cause') {
+        // For cause mode, replicate CauseTable sorting logic
+        const updatedTableData = get().tableData
+        if (updatedTableData && updatedTableData.features) {
+          const features = [...updatedTableData.features]
+
+          // Sort by confidence scores (descending) to match CauseTable display
+          const sorted = features.sort((a, b) => {
+            const confidencesA = causeCategoryConfidences.get(a.feature_id)
+            const confidencesB = causeCategoryConfidences.get(b.feature_id)
+
+            let scoreA = -Infinity
+            let scoreB = -Infinity
+
+            if (confidencesA) {
+              if (causeSortCategory && confidencesA[causeSortCategory] !== undefined) {
+                scoreA = confidencesA[causeSortCategory]
+              } else {
+                scoreA = Math.max(...Object.values(confidencesA))
+              }
+            }
+
+            if (confidencesB) {
+              if (causeSortCategory && confidencesB[causeSortCategory] !== undefined) {
+                scoreB = confidencesB[causeSortCategory]
+              } else {
+                scoreB = Math.max(...Object.values(confidencesB))
+              }
+            }
+
+            return scoreB - scoreA  // Descending order
+          })
+
+          // Find threshold positions in sorted array
+          for (let i = 0; i < sorted.length; i++) {
+            const confidences = causeCategoryConfidences.get(sorted[i].feature_id)
+            let score = -Infinity
+            if (confidences) {
+              if (causeSortCategory) {
+                score = confidences[causeSortCategory] ?? -Infinity
+              } else {
+                score = Math.max(...Object.values(confidences))
+              }
+            }
+
+            if (score >= selectThreshold) {
+              selectPosition = i
+            } else if (selectPosition !== null) {
+              break
+            }
+          }
+
+          for (let i = 0; i < sorted.length; i++) {
+            const confidences = causeCategoryConfidences.get(sorted[i].feature_id)
+            let score = -Infinity
+            if (confidences) {
+              if (causeSortCategory) {
+                score = confidences[causeSortCategory] ?? -Infinity
+              } else {
+                score = Math.max(...Object.values(confidences))
+              }
+            }
+
+            if (score >= rejectThreshold) {
+              rejectPosition = i
+            } else if (rejectPosition !== null) {
+              break
+            }
+          }
+        }
+      }
+
+      // Step 2.5: Calculate preview sets (which items would be auto-tagged)
+      const previewAutoSelected = new Set<number | string>()
+      const previewAutoRejected = new Set<number | string>()
+
+      if (mode === 'feature') {
+        const { featureSelectionStates } = get()
+        // Check each feature with a similarity score
+        similarityScores.forEach((score, featureId) => {
+          const isAlreadyTagged = featureSelectionStates.has(featureId)
+          if (!isAlreadyTagged) {
+            if (score >= selectThreshold) {
+              previewAutoSelected.add(featureId)
+            } else if (score <= rejectThreshold) {
+              previewAutoRejected.add(featureId)
+            }
+          }
+        })
+      } else if (mode === 'pair') {
+        const { pairSelectionStates } = get()
+        // Check each pair with a similarity score
+        pairSimilarityScores.forEach((score, pairKey) => {
+          const isAlreadyTagged = pairSelectionStates.has(pairKey)
+          if (!isAlreadyTagged) {
+            if (score >= selectThreshold) {
+              previewAutoSelected.add(pairKey)
+            } else if (score <= rejectThreshold) {
+              previewAutoRejected.add(pairKey)
+            }
+          }
+        })
+      } else if (mode === 'cause') {
+        const { causeSelectionStates } = get()
+        // Check each feature with confidence scores
+        causeCategoryConfidences.forEach((confidences, featureId) => {
+          const isAlreadyTagged = causeSelectionStates.has(featureId)
+          if (!isAlreadyTagged) {
+            let score = -Infinity
+            if (causeSortCategory && confidences[causeSortCategory] !== undefined) {
+              score = confidences[causeSortCategory]
+            } else {
+              score = Math.max(...Object.values(confidences))
+            }
+            if (score >= selectThreshold) {
+              previewAutoSelected.add(featureId)
+            } else if (score <= rejectThreshold) {
+              previewAutoRejected.add(featureId)
+            }
+          }
+        })
+      }
+
+      console.log('[Store.showThresholdsOnTable] Preview sets calculated:', {
+        autoSelected: previewAutoSelected.size,
+        autoRejected: previewAutoRejected.size
+      })
+
+      // Step 3: Store visualization state
+      // Note: Setting positions to null - stripe patterns are sufficient for preview
+      set({
+        thresholdVisualization: {
+          visible: true,
+          mode,
+          selectThreshold,
+          rejectThreshold,
+          selectPosition: null,
+          rejectPosition: null,
+          previewAutoSelected,
+          previewAutoRejected
+        }
+      })
+
+      // Step 4: Minimize popover
+      get().minimizeSimilarityTaggingPopover()
+
+      console.log('[Store.showThresholdsOnTable] Thresholds displayed:', {
+        selectPosition,
+        rejectPosition
+      })
+
+    } catch (error) {
+      console.error('[Store.showThresholdsOnTable] Failed to show thresholds:', error)
+    }
+  },
+
+  /**
+   * Hide thresholds from table
+   */
+  hideThresholdsOnTable: () => {
+    set({ thresholdVisualization: null })
+    console.log('[Store.hideThresholdsOnTable] Thresholds hidden')
   }
 })

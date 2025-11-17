@@ -1066,3 +1066,66 @@ width: 39%;
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
+
+/* ============================================================================
+   THRESHOLD VISUALIZATION
+   Colored lines showing select/reject thresholds in table
+   ============================================================================ */
+
+.table-panel__row--select-threshold {
+  position: relative;
+}
+
+.table-panel__row--select-threshold::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background-color: #93c5fd; /* SELECTION_CATEGORY_COLORS.EXPANDED.HEX - blue */
+  z-index: 10;
+}
+
+.table-panel__row--reject-threshold {
+  position: relative;
+}
+
+.table-panel__row--reject-threshold::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background-color: #fca5a5; /* SELECTION_CATEGORY_COLORS.AUTO_REJECTED.HEX - light red */
+  z-index: 10;
+}
+
+/* ============================================================================
+   PREVIEW STRIPE PATTERNS
+   Diagonal stripes showing which rows would be auto-tagged
+   Applied directly to cells to avoid table layout issues
+   ============================================================================ */
+
+.table-panel__row--preview-auto-selected > td {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 4px,
+    rgba(103, 232, 249, 0.3) 4px,
+    rgba(103, 232, 249, 0.3) 8px
+  );
+  background-blend-mode: normal;
+}
+
+.table-panel__row--preview-auto-rejected > td {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 4px,
+    rgba(249, 168, 212, 0.3) 4px,
+    rgba(249, 168, 212, 0.3) 8px
+  );
+  background-blend-mode: normal;
+}
