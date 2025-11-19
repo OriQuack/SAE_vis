@@ -158,7 +158,7 @@ const VerticalBarSankeyNode: React.FC<{
     const segments = optimisticSegments || structureNode.segments
 
     // Convert segments to rendering format
-    return segments.map((seg: any, index: number) => ({
+    return segments.map((seg: any) => ({
       y: node.y0! + seg.yPosition * ((node.y1! - node.y0!) || 0),
       height: seg.height * ((node.y1! - node.y0!) || 0),
       color: seg.color,
@@ -186,7 +186,7 @@ const VerticalBarSankeyNode: React.FC<{
       {/* Render vertical bar with stage segments or as single unified rectangle */}
       {stageSegments.length > 0 ? (
         // Render segmented bar (progressive reveal)
-        stageSegments.map((segment, index) => (
+        stageSegments.map((segment: any, index: number) => (
           <rect
             key={`segment-${index}`}
             className="sankey-vertical-bar-segment"
@@ -198,6 +198,9 @@ const VerticalBarSankeyNode: React.FC<{
             opacity={0.85}
             stroke="#ffffff"
             strokeWidth={1}
+            style={{
+              transition: 'all 300ms ease-out'
+            }}
           >
             <title>{`${segment.label}\n${segment.featureCount} features`}</title>
           </rect>
@@ -235,6 +238,9 @@ const VerticalBarSankeyNode: React.FC<{
                 stroke="#2563eb"
                 strokeWidth={3}
                 pointerEvents="none"
+                style={{
+                  transition: 'all 300ms ease-out'
+                }}
               />
             )
           }
@@ -691,63 +697,148 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
                   const labelX = isRightToLeft && node.x1 !== undefined ? node.x1 + 6 : (node.x0 !== undefined ? node.x0 - 6 : 0)
                   const textAnchor = isRightToLeft ? 'start' : 'end'
-                  const labelY = node.y0 !== undefined && node.y1 !== undefined ? (node.y0 + node.y1) / 2 : 0
                   const isHovered = hoveredNodeId === node.id
 
-                  // Split name into lines and add feature count on separate line
-                  const nameLines = node.name.split('\n')
-                  const allLines = [...nameLines, `(${node.feature_count.toLocaleString()})`]
+                  // Get segments for this node (with optimistic preview support)
+                  const structureNode = sankeyStructure?.nodes.find((n: any) => n.id === node.id)
+                  const segments = structureNode?.type === 'segment'
+                    ? (optimisticSegments[node.id || ''] || structureNode.segments || [])
+                    : []
 
-                  // Calculate vertical offset to center entire label group
-                  const lineHeight = 14
-                  const totalHeight = allLines.length * lineHeight
-                  const verticalOffset = -totalHeight / 2 + lineHeight
+                  // Render labels for each segment
+                  if (segments.length > 0) {
+                    return (
+                      <g key={`label-${node.id}`}>
+                        {segments.map((segment: any, segmentIndex: number) => {
+                          // Calculate segment position
+                          const segmentY = (node.y0 || 0) + segment.yPosition * ((node.y1 || 0) - (node.y0 || 0))
+                          const segmentHeight = segment.height * ((node.y1 || 0) - (node.y0 || 0))
+                          const segmentCenterY = segmentY + segmentHeight / 2
+
+                          // Prepare label lines (tag name + metric comparison + feature count)
+                          // Only segment nodes have metric and threshold
+                          const metric = structureNode?.type === 'segment' ? structureNode.metric : null
+                          const threshold = structureNode?.type === 'segment' ? structureNode.threshold : null
+                          const comparison = segmentIndex === 0 ? '<' : '≥'
+                          // Replace underscores with spaces and capitalize first letter of each word
+                          const metricDisplay = metric ? metric.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : ''
+
+                          const labelLines = [
+                            segment.tagName,
+                            metricDisplay && threshold !== null ? `${metricDisplay} ${comparison} ${threshold.toFixed(2)}` : '',
+                            `(${segment.featureCount.toLocaleString()})`
+                          ].filter(line => line !== '') // Remove empty metric line if no metric
+
+                          // Calculate vertical offset to center label group
+                          const lineHeight = 14
+                          const totalHeight = labelLines.length * lineHeight
+                          const verticalOffset = -totalHeight / 2 + lineHeight
+
+                          return (
+                            <g key={`segment-label-${segmentIndex}`}>
+                              {labelLines.map((line: string, lineIndex: number) => (
+                                <g key={lineIndex}>
+                                  {/* White stroke outline */}
+                                  <text
+                                    x={labelX}
+                                    y={segmentCenterY + verticalOffset + (lineIndex * lineHeight)}
+                                    dy="0.35em"
+                                    fontSize={lineIndex === 0 ? 12 : 10}
+                                    fill="white"
+                                    stroke="white"
+                                    strokeWidth={3}
+                                    opacity={1}
+                                    fontWeight={isHovered ? 700 : 600}
+                                    textAnchor={textAnchor}
+                                    style={{
+                                      pointerEvents: 'none',
+                                      transition: `all 300ms ease-out`
+                                    }}
+                                  >
+                                    {line}
+                                  </text>
+                                  {/* Black text on top */}
+                                  <text
+                                    x={labelX}
+                                    y={segmentCenterY + verticalOffset + (lineIndex * lineHeight)}
+                                    dy="0.35em"
+                                    fontSize={lineIndex === 0 ? 12 : 10}
+                                    fill="#000000"
+                                    opacity={1}
+                                    fontWeight={isHovered ? 700 : 600}
+                                    textAnchor={textAnchor}
+                                    style={{
+                                      pointerEvents: 'none',
+                                      transition: `all 300ms ease-out`
+                                    }}
+                                  >
+                                    {line}
+                                  </text>
+                                </g>
+                              ))}
+                            </g>
+                          )
+                        })}
+                      </g>
+                    )
+                  }
+
+                  // Fallback: if no segments, render simple label for terminal/regular vertical bar nodes
+                  const fallbackLabelX = isRightToLeft ? node.x1! + 6 : node.x0! - 6
+                  const fallbackTextAnchor = isRightToLeft ? 'start' : 'end'
+                  const fallbackIsHovered = hoveredNodeId === node.id
+                  const fallbackNodeCenterY = ((node.y0 ?? 0) + (node.y1 ?? 0)) / 2
+
+                  // Split name into lines and add feature count
+                  const fallbackNameLines = node.name.split('\n')
+                  const fallbackAllLines = [...fallbackNameLines, `(${node.feature_count.toLocaleString()})`]
+
+                  const fallbackLineHeight = 14
+                  const fallbackTotalHeight = fallbackAllLines.length * fallbackLineHeight
+                  const fallbackVerticalOffset = -fallbackTotalHeight / 2 + fallbackLineHeight / 2
 
                   return (
                     <g key={`label-${node.id}`}>
-                      {allLines.map((line, index) => {
-                        const labelText = line
-                        return (
-                          <g key={index}>
-                            {/* White stroke outline */}
-                            <text
-                              x={labelX}
-                              y={labelY + verticalOffset + (index * lineHeight)}
-                              dy="0.35em"
-                              fontSize={index === 0 ? 12 : 10}
-                              fill="white"
-                              stroke="white"
-                              strokeWidth={3}
-                              opacity={1}
-                              fontWeight={isHovered ? 700 : 600}
-                              textAnchor={textAnchor}
-                              style={{
-                                pointerEvents: 'none',
-                                transition: `all 500ms cubic-bezier(0.4, 0.0, 0.2, 1)`
-                              }}
-                            >
-                              {labelText}
-                            </text>
-                            {/* Black text on top */}
-                            <text
-                              x={labelX}
-                              y={labelY + verticalOffset + (index * lineHeight)}
-                              dy="0.35em"
-                              fontSize={index === 0 ? 12 : 10}
-                              fill="#000000"
-                              opacity={1}
-                              fontWeight={isHovered ? 700 : 600}
-                              textAnchor={textAnchor}
-                              style={{
-                                pointerEvents: 'none',
-                                transition: `all 500ms cubic-bezier(0.4, 0.0, 0.2, 1)`
-                              }}
-                            >
-                              {labelText}
-                            </text>
-                          </g>
-                        )
-                      })}
+                      {fallbackAllLines.map((line: string, lineIndex: number) => (
+                        <g key={lineIndex}>
+                          {/* White stroke outline */}
+                          <text
+                            x={fallbackLabelX}
+                            y={fallbackNodeCenterY + fallbackVerticalOffset + (lineIndex * fallbackLineHeight)}
+                            dy="0.35em"
+                            fontSize={lineIndex === fallbackAllLines.length - 1 ? 10 : 12}
+                            fill="white"
+                            stroke="white"
+                            strokeWidth={3}
+                            opacity={1}
+                            fontWeight={fallbackIsHovered ? 700 : 600}
+                            textAnchor={fallbackTextAnchor}
+                            style={{
+                              pointerEvents: 'none',
+                              transition: `all 300ms ease-out`
+                            }}
+                          >
+                            {line}
+                          </text>
+                          {/* Black text on top */}
+                          <text
+                            x={fallbackLabelX}
+                            y={fallbackNodeCenterY + fallbackVerticalOffset + (lineIndex * fallbackLineHeight)}
+                            dy="0.35em"
+                            fontSize={lineIndex === fallbackAllLines.length - 1 ? 10 : 12}
+                            fill="#000000"
+                            opacity={1}
+                            fontWeight={fallbackIsHovered ? 700 : 600}
+                            textAnchor={fallbackTextAnchor}
+                            style={{
+                              pointerEvents: 'none',
+                              transition: `all 300ms ease-out`
+                            }}
+                          >
+                            {line}
+                          </text>
+                        </g>
+                      ))}
                     </g>
                   )
                 }
