@@ -72,12 +72,12 @@ export function convertToD3Format(
     let stage: number
     if (node.id === 'root') {
       stage = 0
-    } else if (node.depth === 1) {
-      stage = 1
-    } else if (node.depth === 2) {
-      stage = 2
+    } else if (node.type === 'terminal') {
+      // Terminal nodes always extend to rightmost position
+      stage = structure.currentStage
     } else {
-      stage = 3
+      // Non-terminal nodes use their depth
+      stage = node.depth
     }
 
     return convertNode(node, stage)

@@ -64,18 +64,40 @@ export const createTableActions = (set: any, get: any) => ({
    * Select a single node (replaces previous selection with new one)
    * Part of new single-select behavior where only one node can be selected at a time
    */
-  selectSingleNode: (nodeId: string | null) => {
+  selectSingleNode: (nodeId: string | null, segmentIndex?: number | null) => {
     if (nodeId === null) {
       // Deselect: clear selection
-      set({ tableSelectedNodeIds: [] })
+      set({ tableSelectedNodeIds: [], selectedSegment: null })
       console.log('[Store.selectSingleNode] Cleared selection')
     } else {
       // Select: replace array with single node
       set({ tableSelectedNodeIds: [nodeId] })
-      console.log('[Store.selectSingleNode] Selected node:', nodeId)
+
+      // V2: If segment index provided, also set selectedSegment
+      if (segmentIndex !== undefined && segmentIndex !== null) {
+        set({ selectedSegment: { nodeId, segmentIndex } })
+        console.log('[Store.selectSingleNode] Selected node with segment:', nodeId, 'segment:', segmentIndex)
+      } else {
+        set({ selectedSegment: null })
+        console.log('[Store.selectSingleNode] Selected node:', nodeId)
+      }
     }
 
     // No need to re-fetch - TablePanel will filter based on new selection
+  },
+
+  // V2: Segment-specific selection actions
+  selectSegment: (nodeId: string, segmentIndex: number) => {
+    set({
+      selectedSegment: { nodeId, segmentIndex },
+      tableSelectedNodeIds: [nodeId]
+    })
+    console.log('[Store.selectSegment] Selected segment:', { nodeId, segmentIndex })
+  },
+
+  clearSegmentSelection: () => {
+    set({ selectedSegment: null, tableSelectedNodeIds: [] })
+    console.log('[Store.clearSegmentSelection] Cleared segment selection')
   },
 
   /**
@@ -140,13 +162,31 @@ export const createTableActions = (set: any, get: any) => ({
    */
   getSelectedNodeFeatures: () => {
     const state = get()
-    const { tableSelectedNodeIds, leftPanel } = state
+    const { tableSelectedNodeIds, leftPanel, selectedSegment } = state
 
     if (tableSelectedNodeIds.length === 0) {
       return null // No selection - show all features
     }
 
-    // Collect feature IDs from all selected nodes
+    // V2: If a specific segment is selected, return only that segment's features
+    if (selectedSegment && leftPanel.sankeyStructure) {
+      const segmentNode = leftPanel.sankeyStructure.nodes.find(n => n.id === selectedSegment.nodeId)
+
+      if (segmentNode && segmentNode.type === 'segment' && segmentNode.segments) {
+        const segment = segmentNode.segments[selectedSegment.segmentIndex]
+        if (segment) {
+          console.log('[Store.getSelectedNodeFeatures] V2: Got features from selected segment:', {
+            nodeId: selectedSegment.nodeId,
+            segmentIndex: selectedSegment.segmentIndex,
+            segmentTag: segment.tagName,
+            featureCount: segment.featureIds.size
+          })
+          return segment.featureIds
+        }
+      }
+    }
+
+    // Legacy: Collect feature IDs from all selected nodes
     const featureIds = new Set<number>()
 
     for (const nodeId of tableSelectedNodeIds) {
@@ -485,16 +525,30 @@ export const createTableActions = (set: any, get: any) => ({
 
     const tree = get().leftPanel.sankeyTree
 
-    // NEW: Check if stage is already built, build if needed
-    const stageDepth = category.stageOrder - 1
-    const stageExists = tree && Array.from(tree.values()).some(node =>
-      node.depth === stageDepth && node.children.length > 0
-    )
+    // V2: Check if stage is already active in v2 system, activate if needed
+    const sankeyStructure = get().leftPanel.sankeyStructure
+    const currentStage = sankeyStructure?.currentStage || 1
 
-    if (!stageExists) {
-      console.log(`[Store.activateCategoryTable] 📊 Stage not built yet, building ${category.label} stage...`)
-      await get().buildStageForCategory(categoryId, PANEL_LEFT)
-      console.log(`[Store.activateCategoryTable] ✅ Stage built, now activating table`)
+    // Map category to stage number
+    const stageNumber = category.stageOrder  // 1, 2, or 3
+
+    // Check if we need to activate this stage
+    if (stageNumber > currentStage) {
+      console.log(`[Store.activateCategoryTable] 📊 Stage ${stageNumber} not active yet (current: ${currentStage}), activating ${category.label} stage...`)
+
+      // Activate stages sequentially up to the target
+      if (stageNumber === 2 && currentStage === 1) {
+        await get().activateStage2(PANEL_LEFT)
+      } else if (stageNumber === 3) {
+        // Need to activate Stage 2 first if not already active
+        if (currentStage === 1) {
+          await get().activateStage2(PANEL_LEFT)
+        }
+        // Then activate Stage 3
+        await get().activateStage3(PANEL_LEFT)
+      }
+
+      console.log(`[Store.activateCategoryTable] ✅ Stage ${stageNumber} activated, now activating table`)
     }
 
     // Special handling for Cause category (pre-defined groups)
@@ -528,41 +582,35 @@ export const createTableActions = (set: any, get: any) => ({
       return
     }
 
-    // Find parent node with this category's metric in left panel
-    let parentNodeId: string | null = null
+    // V2: Find the segment node and specific segment index for this stage
+    let selectedNodeId: string
+    let segmentIndex: number
 
-    if (category.metric) {
-      // For metric-based categories (Feature Splitting, Quality), find node with that metric
-      parentNodeId = get().findNodeWithMetric(category.metric)
-
-      if (!parentNodeId) {
-        console.warn('[Store.activateCategoryTable] ⚠️  No node found with metric:', category.metric)
-        console.warn('[Store.activateCategoryTable] Using fallback nodeId: root')
-        parentNodeId = 'root'  // Fallback to root
-      }
+    // Select terminal segments: Fragmented (Stage 1), Well-Explained (Stage 2)
+    if (stageNumber === 1) {
+      selectedNodeId = 'stage1_segment'
+      segmentIndex = 1  // Fragmented (second segment, >= 0.4)
+    } else if (stageNumber === 2) {
+      selectedNodeId = 'stage2_segment'
+      segmentIndex = 1  // Well-Explained (second segment, >= 0.7)
+    } else if (stageNumber === 3) {
+      selectedNodeId = 'stage3_segment'
+      segmentIndex = 3  // Unsure (fourth segment)
     } else {
-      // For non-metric categories (should not reach here after Cause check), use root as fallback
-      parentNodeId = 'root'
+      selectedNodeId = 'root'  // Fallback
+      segmentIndex = 0
     }
 
-    console.log('[Store.activateCategoryTable] ✅ Activating:', {
+    console.log('[Store.activateCategoryTable] ✅ V2 Activating with segment selection:', {
       categoryId,
-      parentNodeId,
+      stageNumber,
+      selectedNodeId,
+      segmentIndex,
       metric: category.metric
     })
 
-    // IMPORTANT: Select the LEAF NODE (last child), not the parent node!
-    const parentNode = tree?.get(parentNodeId)
-    let selectedNodeId = parentNodeId
-
-    if (parentNode && parentNode.children.length > 0) {
-      // Select the last leaf node (highest quality/well-explained)
-      selectedNodeId = parentNode.children[parentNode.children.length - 1]
-      console.log('[Store.activateCategoryTable] 🎯 Selecting leaf node:', selectedNodeId)
-    }
-
-    // BIDIRECTIONAL LINKING: 1. Select the leaf node for table filtering
-    get().selectSingleNode(selectedNodeId)
+    // BIDIRECTIONAL LINKING: 1. Select the specific segment for table filtering
+    get().selectSingleNode(selectedNodeId, segmentIndex)
 
     // BIDIRECTIONAL LINKING: 2. Set active stage node with the category ID
     get().setActiveStageNode(selectedNodeId, categoryId)

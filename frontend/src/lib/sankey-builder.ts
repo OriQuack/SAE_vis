@@ -72,7 +72,7 @@ export async function calculateSegments(
 
     const tagName = tags[index] || `Group ${index}`
     const height = intersectedFeatures.size / totalFeatures
-    const color = tagColors[tagName.toLowerCase()] || '#999999'
+    const color = tagColors[tagName] || '#999999'
 
     const segment: NodeSegment = {
       tagName,
@@ -365,7 +365,7 @@ export function buildStage3(
     const featureIds = isUnsure ? needRevisionNode.featureIds : new Set<number>()
     const featureCount = isUnsure ? needRevisionNode.featureCount : 0
     const height = isUnsure ? 1.0 : 0
-    const color = tagColors[tagName.toLowerCase()] || '#999999'
+    const color = tagColors[tagName] || '#999999'
 
     return {
       tagName,

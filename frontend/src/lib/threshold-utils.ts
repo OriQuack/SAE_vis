@@ -1111,6 +1111,49 @@ export function groupFeaturesByThresholds(
 }
 
 /**
+ * Calculate segment proportions for v2 segment nodes from feature groups.
+ * Converts feature groups into NodeSegment[] format with colors and proportional heights.
+ *
+ * @param groups - Feature groups from groupFeaturesByThresholds()
+ * @param tags - Tag names for each group (from stage config)
+ * @param tagColors - Color mapping for tags (from tag-constants.ts)
+ * @param totalFeatures - Total number of features in parent node
+ * @returns Array of NodeSegment with proportional heights and colors
+ */
+export function calculateSegmentProportions(
+  groups: FeatureGroup[],
+  tags: string[],
+  tagColors: Record<string, string>,
+  totalFeatures: number
+): any[] { // Returns NodeSegment[]
+  if (totalFeatures === 0) {
+    console.warn('[calculateSegmentProportions] ⚠️ Total features is 0')
+    return []
+  }
+
+  let currentY = 0
+  const segments = groups.map((group, index) => {
+    const tagName = tags[index] || `Group ${index}`
+    const height = group.featureCount / totalFeatures
+    const color = tagColors[tagName] || '#999999'
+
+    const segment = {
+      tagName,
+      featureIds: group.featureIds,
+      featureCount: group.featureCount,
+      color,
+      height,
+      yPosition: currentY
+    }
+
+    currentY += height
+    return segment
+  })
+
+  return segments
+}
+
+/**
  * Get tag name for a child node based on its group index and parent's category.
  * Used for labeling threshold handles on histograms.
  *

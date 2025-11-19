@@ -14,9 +14,11 @@ import {
 } from '../lib/sankey-histogram-utils'
 // Removed: getNodeThresholds, getExactMetricFromPercentile - using v2 simplified system
 import { calculateHorizontalBarSegments } from '../lib/histogram-utils'
+import { groupFeaturesByThresholds, calculateSegmentProportions } from '../lib/threshold-utils'
+import { TAG_CATEGORIES } from '../lib/tag-constants'
 import { scaleLinear } from 'd3-scale'
 import { ThresholdHandles } from './ThresholdHandles'
-// Removed: TAG_CATEGORIES import - not needed in v2
+// Removed: TAG_CATEGORIES import - not needed in v2 (RE-ADDED for optimistic segments)
 
 // ============================================================================
 // CONSTANTS & TYPES
@@ -66,11 +68,29 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
 
   const committedThreshold = targetSegmentNode?.threshold || null
 
-  // Calculate histogram layout (V2: metric passed as prop)
+  // Extract segment colors from target segment node
+  const segmentColors = useMemo(() => {
+    if (!targetSegmentNode || !targetSegmentNode.segments || targetSegmentNode.segments.length < 2) {
+      return null
+    }
+    return {
+      below: targetSegmentNode.segments[0].color,  // First segment (< threshold)
+      above: targetSegmentNode.segments[1].color   // Second segment (>= threshold)
+    }
+  }, [targetSegmentNode])
+
+  // Calculate histogram layout (V2: metric, threshold, and segment colors passed)
   const layout = useMemo(() => {
     if (!histogramData) return null
-    return calculateNodeHistogramLayout(node, histogramData, links, metric)
-  }, [node, histogramData, links, metric])
+    return calculateNodeHistogramLayout(
+      node,
+      histogramData,
+      links,
+      metric,
+      committedThreshold,
+      segmentColors
+    )
+  }, [node, histogramData, links, metric, committedThreshold, segmentColors])
 
   // V2: Use single threshold (drag or committed)
   const threshold = dragThreshold ?? committedThreshold
@@ -113,9 +133,6 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
 
   if (!layout) return null
 
-  // Get bar color as fallback (metric-specific color for background)
-  const barColor = layout.bars[0]?.color || '#94a3b8'
-
   return (
     <g
       transform={`translate(${layout.x}, ${layout.y})`}
@@ -125,30 +142,44 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
       }}
     >
 
-      {/* Render horizontal histogram bars - with neutral color */}
-      {barSegments.map((segments, barIndex) => (
-        <g key={barIndex}>
-          {segments.map((segment, segmentIndex) => {
-            // Use neutral color for all histogram bars
-            const fillColor = '#94a3b8'
+      {/* Render horizontal histogram bars - with fine-grained tag colors */}
+      {barSegments.map((segments, barIndex) => {
+        const bar = layout.bars[barIndex]
+        if (!bar) return null
 
-            return (
-              <rect
-                key={`${barIndex}-${segmentIndex}`}
-                x={segment.x}
-                y={segment.y - layout.y}  // Adjust y relative to group transform
-                width={segment.width}
-                height={segment.height}
-                fill={fillColor}
-                fillOpacity={0.85}
-                stroke="white"
-                strokeWidth={0.3}
-                strokeOpacity={0.6}
-              />
-            )
-          })}
-        </g>
-      ))}
+        return (
+          <g key={barIndex}>
+            {segments.map((segment, segmentIndex) => {
+              // Calculate segment's midpoint Y position in metric space
+              const segmentCenterY = segment.y + segment.height / 2
+
+              // Determine color based on segment position relative to threshold
+              let fillColor = bar.color || '#94a3b8'  // Fallback to bar's base color
+
+              if (threshold !== null && segmentColors && yScale) {
+                // Get the metric value at this segment's center
+                const metricValue = yScale.invert(segmentCenterY - layout.y)
+                fillColor = metricValue < threshold ? segmentColors.below : segmentColors.above
+              }
+
+              return (
+                <rect
+                  key={`${barIndex}-${segmentIndex}`}
+                  x={segment.x}
+                  y={segment.y - layout.y}  // Adjust y relative to group transform
+                  width={segment.width}
+                  height={segment.height}
+                  fill={fillColor}
+                  fillOpacity={0.85}
+                  stroke="white"
+                  strokeWidth={0.3}
+                  strokeOpacity={0.6}
+                />
+              )
+            })}
+          </g>
+        )
+      })}
 
       {/* Threshold lines - horizontal lines at threshold Y positions */}
       {yScale && thresholds.length > 0 && thresholds.map((threshold, index) => {
@@ -331,6 +362,8 @@ interface SankeyOverlayProps {
   animationDuration: number
   sankeyStructure: any | null  // V2: simplified structure
   onThresholdUpdate: (nodeId: string, newThreshold: number) => void
+  tableData?: any | null  // For client-side segment calculation
+  onOptimisticSegmentsChange?: (segments: Record<string, any[]>) => void  // Notify parent of preview segments
 }
 
 export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
@@ -338,24 +371,39 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
   histogramData,
   animationDuration,
   sankeyStructure,
-  onThresholdUpdate
+  onThresholdUpdate,
+  tableData,
+  onOptimisticSegmentsChange
 }) => {
-  // V2: Get current stage from sankeyStructure
-  const currentStage = sankeyStructure?.currentStage || 1
-
   // Track drag preview thresholds by node ID (for live histogram updates without committing)
   const [nodeDragThresholds, setNodeDragThresholds] = useState<Record<string, number[]>>({})
 
-  // V2: Cleanup drag thresholds when structure updates
+  // Track optimistic segment proportions during drag (for real-time visual updates)
+  const [optimisticSegments, setOptimisticSegments] = useState<Record<string, any[]>>({})
+
+  // Debounce timer ref for smooth segment updates
+  const segmentUpdateTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // V2: Cleanup drag thresholds and optimistic segments when structure updates
   React.useEffect(() => {
     if (!sankeyStructure) return
 
     const timeoutId = setTimeout(() => {
       setNodeDragThresholds({})  // Simply clear all drag thresholds
+      setOptimisticSegments({})  // Clear optimistic segments
     }, 100)
 
     return () => clearTimeout(timeoutId)
   }, [sankeyStructure])
+
+  // Cleanup debounce timer on unmount
+  React.useEffect(() => {
+    return () => {
+      if (segmentUpdateTimerRef.current) {
+        clearTimeout(segmentUpdateTimerRef.current)
+      }
+    }
+  }, [])
 
   if (!layout) return null
 
@@ -385,7 +433,7 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
           const metric = targetStructureNode.metric
           if (!metric) return null
 
-          // Look up histogram using target segment node's ID
+        // Look up histogram using target segment node's ID
           const compositeKey = `${metric}:${targetNode.id}`
           const metricHistogramData = histogramData?.[compositeKey] || null
 
@@ -457,11 +505,75 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
                 onThresholdUpdate(targetNode.id || '', values[0])
               }}
               onDragUpdate={(values) => {
-                // Live preview using target node ID
+                const newThreshold = values[0]
+                const targetNodeId = targetNode.id || ''
+
+                // Live preview using target node ID (immediate update for histogram line)
                 setNodeDragThresholds(prev => ({
                   ...prev,
-                  [targetNode.id || '']: values
+                  [targetNodeId]: values
                 }))
+
+                // Debounce segment calculation for smooth transitions
+                if (segmentUpdateTimerRef.current) {
+                  clearTimeout(segmentUpdateTimerRef.current)
+                }
+
+                segmentUpdateTimerRef.current = setTimeout(() => {
+                  // Calculate segment proportions if table data is available
+                  if (tableData && targetStructureNode) {
+                    try {
+                      // Get parent node's feature IDs (features flowing into this segment)
+                      const parentNode = sankeyStructure?.nodes.find((n: any) => n.id === targetStructureNode.parentId)
+                      if (!parentNode) return
+
+                      // Get stage configuration for metric, tags, and colors
+                      const metric = targetStructureNode.metric
+                      if (!metric) return
+
+                      // Find the stage config based on metric
+                      let stageConfig = null
+                      for (const category of Object.values(TAG_CATEGORIES)) {
+                        if (category.metric === metric) {
+                          stageConfig = category
+                          break
+                        }
+                      }
+                      if (!stageConfig) return
+
+                      // Calculate new groups with updated threshold
+                      const groups = groupFeaturesByThresholds(
+                        parentNode.featureIds,
+                        metric,
+                        [newThreshold],
+                        tableData
+                      )
+
+                      if (groups.length > 0) {
+                        // Convert groups to segment proportions
+                        const newSegments = calculateSegmentProportions(
+                          groups,
+                          stageConfig.tags,
+                          stageConfig.tagColors,
+                          parentNode.featureCount
+                        )
+
+                        // Update optimistic segments
+                        setOptimisticSegments(prev => ({
+                          ...prev,
+                          [targetNodeId]: newSegments
+                        }))
+
+                        // Notify parent component if callback provided
+                        if (onOptimisticSegmentsChange) {
+                          onOptimisticSegmentsChange({ [targetNodeId]: newSegments })
+                        }
+                      }
+                    } catch (error) {
+                      console.warn('[onDragUpdate] Failed to calculate segments:', error)
+                    }
+                  }
+                }, 100) // 150ms debounce for smooth updates
               }}
             />
           )

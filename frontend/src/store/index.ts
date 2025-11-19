@@ -164,10 +164,15 @@ interface AppState {
   // Node selection actions
   toggleNodeSelection: (nodeId: string) => void
   clearNodeSelection: () => void
-  selectSingleNode: (nodeId: string | null) => void
+  selectSingleNode: (nodeId: string | null, segmentIndex?: number | null) => void
   getNodeCategory: (nodeId: string) => string | null
   selectNodeWithCategory: (nodeId: string, categoryId: string) => void
   getSelectedNodeFeatures: () => Set<number> | null
+
+  // V2: Segment-specific selection
+  selectedSegment: { nodeId: string; segmentIndex: number } | null
+  selectSegment: (nodeId: string, segmentIndex: number) => void
+  clearSegmentSelection: () => void
 
   // Table data
   tableData: any | null
@@ -235,6 +240,7 @@ interface AppState {
 
   // Node selection for table filtering
   tableSelectedNodeIds: string[]
+  selectedSegment: { nodeId: string; segmentIndex: number } | null
 
   // Table column display state
   scoreColumnDisplay: typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION
@@ -341,6 +347,7 @@ const initialState = {
 
   // Node selection for table filtering
   tableSelectedNodeIds: [],
+  selectedSegment: null,
 
   // Table column display state
   scoreColumnDisplay: METRIC_QUALITY_SCORE as typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION,

@@ -138,7 +138,9 @@ function calculateNodeHistogramBars(
   data: HistogramData,
   node: D3SankeyNode,
   maxBarWidth: number,
-  metric: string
+  metric: string,
+  threshold?: number | null,
+  segmentColors?: { below: string; above: string } | null
 ): NodeHistogramBar[] {
   if (!data.histogram?.counts || data.histogram.counts.length === 0) {
     return []
@@ -162,13 +164,14 @@ function calculateNodeHistogramBars(
     .domain([data.statistics.min, data.statistics.max])
     .range([nodeY0, nodeY1])  // min at top, max at bottom
 
-  // Get metric-specific color
-  const barColor = getHistogramColorForMetric(metric)
+  // Get fallback metric-specific color
+  const fallbackColor = getHistogramColorForMetric(metric)
 
   // Calculate bars
   const bars: NodeHistogramBar[] = data.histogram.counts.map((count, i) => {
     const binStart = data.histogram.bin_edges[i]
     const binEnd = data.histogram.bin_edges[i + 1]
+    const binMidpoint = (binStart + binEnd) / 2
 
     // Calculate Y positions for this bin
     const y1 = yScale(binStart)
@@ -180,6 +183,12 @@ function calculateNodeHistogramBars(
 
     // Bar width based on count
     const barWidth = xScale(count)
+
+    // Determine bar color based on threshold and segment colors
+    let barColor = fallbackColor
+    if (threshold != null && segmentColors) {
+      barColor = binMidpoint < threshold ? segmentColors.below : segmentColors.above
+    }
 
     return {
       x: 0,  // Bars start at node's right edge
@@ -207,13 +216,18 @@ function calculateNodeHistogramBars(
  * @param node - The source Sankey node
  * @param histogramData - Histogram data for the node's metric
  * @param links - All Sankey links (to check if node has outgoing links)
+ * @param metric - V2: metric can be passed explicitly
+ * @param threshold - V2: threshold value for coloring histogram bars by segment
+ * @param segmentColors - V2: colors for segments (below and above threshold)
  * @returns Layout data for rendering, or null if calculation fails
  */
 export function calculateNodeHistogramLayout(
   node: D3SankeyNode,
   histogramData: HistogramData | null,
   links: D3SankeyLink[],
-  metric?: string  // V2: metric can be passed explicitly
+  metric?: string,
+  threshold?: number | null,
+  segmentColors?: { below: string; above: string } | null
 ): NodeHistogramLayout | null {
   // Validate inputs
   if (!histogramData || node.x0 == null || node.x1 == null || node.y0 == null || node.y1 == null) {
@@ -250,12 +264,14 @@ export function calculateNodeHistogramLayout(
     }
   }
 
-  // Calculate bars with metric-specific colors
+  // Calculate bars with segment-based coloring
   const bars = calculateNodeHistogramBars(
     histogramData,
     node,
     histogramMaxWidth * 0.8,
-    nodeMetric
+    nodeMetric,
+    threshold,
+    segmentColors
   )
 
   return {

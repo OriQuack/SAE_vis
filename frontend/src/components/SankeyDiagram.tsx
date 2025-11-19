@@ -139,28 +139,33 @@ const VerticalBarSankeyNode: React.FC<{
   featureSelectionStates?: Map<number, 'selected' | 'rejected'>
   tableSortedFeatureIds?: number[]
   sankeyStructure?: any | null  // V2: simplified structure
-}> = ({ node, scrollState, flowDirection: _flowDirection, onClick, onMouseEnter, onMouseLeave, isSelected = false, isHovered = false, featureSelectionStates, tableSortedFeatureIds, sankeyStructure }) => {
+  selectedSegment?: { nodeId: string; segmentIndex: number } | null  // V2: segment selection
+  optimisticSegments?: any[]  // V2: preview segments during threshold drag
+}> = ({ node, scrollState, flowDirection: _flowDirection, onClick, onMouseEnter, onMouseLeave, isSelected = false, isHovered = false, featureSelectionStates, tableSortedFeatureIds, sankeyStructure, selectedSegment, optimisticSegments }) => {
   const layout = calculateVerticalBarNodeLayout(node, scrollState, featureSelectionStates, tableSortedFeatureIds)
 
   // Check if this is a placeholder node
   const isPlaceholder = node.id === 'placeholder_vertical_bar'
 
-  // V2: Get segments from sankeyStructure
+  // V2: Get segments from sankeyStructure (with optimistic preview support)
   const stageSegments = useMemo(() => {
     if (!sankeyStructure) return []
 
     const structureNode = sankeyStructure.nodes.find((n: any) => n.id === node.id)
     if (!structureNode || structureNode.type !== 'segment') return []
 
+    // Use optimistic segments if available (during threshold drag), otherwise use committed segments
+    const segments = optimisticSegments || structureNode.segments
+
     // Convert segments to rendering format
-    return structureNode.segments.map((seg: any, index: number) => ({
+    return segments.map((seg: any, index: number) => ({
       y: node.y0! + seg.yPosition * ((node.y1! - node.y0!) || 0),
       height: seg.height * ((node.y1! - node.y0!) || 0),
       color: seg.color,
       label: seg.tagName,
       featureCount: seg.featureCount
     }))
-  }, [sankeyStructure, node])
+  }, [sankeyStructure, node, optimisticSegments])
 
   // Calculate bounding box for selection border
   const boundingBox = layout.subNodes.length > 0 ? {
@@ -214,23 +219,46 @@ const VerticalBarSankeyNode: React.FC<{
         )
       )}
 
-      {/* Selection border around entire vertical bar */}
-      {isSelected && boundingBox && (
-        <rect
-          x={boundingBox.x - 2}
-          y={boundingBox.y - 2}
-          width={boundingBox.width + 4}
-          height={boundingBox.height + 4}
-          fill="none"
-          stroke="#2563eb"
-          strokeWidth={4}
-          rx={2}
-          style={{
-            pointerEvents: 'none',
-            transition: `all 500ms cubic-bezier(0.4, 0.0, 0.2, 1)`
-          }}
-        />
-      )}
+      {/* Selection border - either on specific segment or entire bar */}
+      {isSelected && (() => {
+        // V2: If a specific segment is selected for this node, highlight only that segment
+        if (selectedSegment && selectedSegment.nodeId === node.id && stageSegments.length > 0) {
+          const segment = stageSegments[selectedSegment.segmentIndex]
+          if (segment) {
+            return (
+              <rect
+                x={(node.x0 || 0) - 2}
+                y={segment.y - 2}
+                width={((node.x1 || 0) - (node.x0 || 0)) + 4}
+                height={segment.height + 4}
+                fill="none"
+                stroke="#2563eb"
+                strokeWidth={3}
+                pointerEvents="none"
+              />
+            )
+          }
+        }
+
+        // Default: highlight entire bar
+        if (!boundingBox) return null
+        return (
+          <rect
+            x={boundingBox.x - 2}
+            y={boundingBox.y - 2}
+            width={boundingBox.width + 4}
+            height={boundingBox.height + 4}
+            fill="none"
+            stroke="#2563eb"
+            strokeWidth={4}
+            rx={2}
+            style={{
+              pointerEvents: 'none',
+              transition: `all 500ms cubic-bezier(0.4, 0.0, 0.2, 1)`
+            }}
+          />
+        )
+      })()}
 
       {/* Global scroll indicator */}
       {layout.scrollIndicator && layout.subNodes.length > 0 && (
@@ -277,6 +305,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const hoveredAlluvialPanel = useVisualizationStore(state => state.hoveredAlluvialPanel)
   const tableScrollState = useVisualizationStore(state => state.tableScrollState)
   const tableSelectedNodeIds = useVisualizationStore(state => state.tableSelectedNodeIds)
+  const selectedSegment = useVisualizationStore(state => state.selectedSegment)
   const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
   const tableData = useVisualizationStore(state => state.tableData)
   const {
@@ -322,6 +351,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const [displayData, setDisplayData] = useState(data)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
   const [hoveredLinkIndex, setHoveredLinkIndex] = useState<number | null>(null)
+  const [optimisticSegments, setOptimisticSegments] = useState<Record<string, any[]>>({})
   // const [inlineSelector, setInlineSelector] = useState<...>(null) // REMOVED: No longer needed
 
   // Resize observer hook with minimal debounce for responsiveness
@@ -612,6 +642,8 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                           featureSelectionStates={featureSelectionStates}
                           tableSortedFeatureIds={tableSortedFeatureIds || undefined}
                           sankeyStructure={sankeyStructure}
+                          selectedSegment={selectedSegment}
+                          optimisticSegments={optimisticSegments[node.id || '']}
                         />
                       </g>
                     )
@@ -643,6 +675,8 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
               animationDuration={animationDuration}
               sankeyStructure={sankeyStructure}
               onThresholdUpdate={handleThresholdUpdate}
+              tableData={tableData}
+              onOptimisticSegmentsChange={setOptimisticSegments}
             />
 
             {/* Node Labels - rendered after histograms to appear in front */}
