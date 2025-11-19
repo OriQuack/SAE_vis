@@ -1,0 +1,221 @@
+/* ============================================================================
+ * TAG AUTOMATIC PANEL - Embedded histogram panel for automatic tagging
+ * ============================================================================ */
+
+.tag-automatic-panel {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-primary);
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  overflow: hidden;
+  max-height: 40vh;
+  transition: max-height 0.3s ease;
+}
+
+.tag-automatic-panel--minimized {
+  max-height: 60px;
+}
+
+.tag-automatic-panel--empty {
+  max-height: 100px;
+}
+
+/* ============================================================================
+ * HEADER
+ * ============================================================================ */
+
+.tag-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: #f9fafb;
+  border-bottom: 1px solid #d1d5db;
+}
+
+.tag-panel__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.tag-panel__minimize-button {
+  padding: 4px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #6b7280;
+  background-color: white;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tag-panel__minimize-button:hover {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+/* ============================================================================
+ * CONTENT
+ * ============================================================================ */
+
+.tag-panel__content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.tag-panel__info {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #4b5563;
+  padding: 8px 12px;
+  background-color: #f9fafb;
+  border-radius: 4px;
+  border: 1px solid #e5e7eb;
+}
+
+.tag-panel__info p {
+  margin: 0;
+}
+
+.tag-panel__svg {
+  display: block;
+  margin: 0 auto;
+}
+
+.tag-panel__state-bar {
+  padding: 0 12px;
+}
+
+.tag-panel__actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding-top: 8px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.tag-panel__button {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid;
+}
+
+.tag-panel__button--reset {
+  color: #6b7280;
+  background-color: white;
+  border-color: #d1d5db;
+}
+
+.tag-panel__button--reset:hover {
+  background-color: #f3f4f6;
+}
+
+.tag-panel__button--apply {
+  color: white;
+  background-color: #8b5cf6;
+  border-color: #8b5cf6;
+}
+
+.tag-panel__button--apply:hover {
+  background-color: #7c3aed;
+}
+
+/* ============================================================================
+ * LOADING STATE
+ * ============================================================================ */
+
+.tag-panel__loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px;
+  color: #6b7280;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #8b5cf6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================================================================
+ * ERROR STATE
+ * ============================================================================ */
+
+.tag-panel__error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: #ef4444;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* ============================================================================
+ * EMPTY STATE
+ * ============================================================================ */
+
+.tag-panel__empty-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  color: #9ca3af;
+  font-size: 14px;
+  font-style: italic;
+}
+
+/* ============================================================================
+ * MINIMIZED SUMMARY
+ * ============================================================================ */
+
+.tag-panel__minimized-summary {
+  padding: 12px 16px;
+}
+
+/* ============================================================================
+ * SCROLLBAR STYLING
+ * ============================================================================ */
+
+.tag-panel__content::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.tag-panel__content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.tag-panel__content::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.tag-panel__content::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}

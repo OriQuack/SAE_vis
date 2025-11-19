@@ -14,7 +14,6 @@ import {
   CATEGORY_DECODER_SIMILARITY
 } from '../lib/constants'
 import {
-  getBadgeConfig,
   getRowBackgroundColor,
   getRowStyleProperties,
   getRowCategoryClass
@@ -27,7 +26,9 @@ import {
 import { HighlightedExplanation } from './TableExplanation'
 import ActivationExample from './TableActivationExample'
 import QualityScoreBreakdown from './QualityScoreBreakdown'
-import DecoderSimilarityTable from './FeatureSplitTable'
+// DEPRECATED: import DecoderSimilarityTable from './FeatureSplitTable' - Replaced by FeatureSplitPairViewer + TagAutomaticPanel
+import FeatureSplitPairViewer from './FeatureSplitPairViewer'
+import TagAutomaticPanel from './TagAutomaticPanel'
 import CauseTablePanel from './CauseTable'
 import SimilarityTaggingPopover from './TagAutomaticPopover'
 import '../styles/QualityTable.css'
@@ -87,7 +88,6 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   // Similarity sort state and action
   const similarityScores = useVisualizationStore(state => state.similarityScores)
   const sortedBySelectionStates = useVisualizationStore(state => state.sortedBySelectionStates)
-  const moveToNextStep = useVisualizationStore(state => state.moveToNextStep)
 
   // ============================================================================
   // STATE
@@ -111,10 +111,6 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
   // Activation examples from global store (centralized cache)
   const activationExamples = useVisualizationStore(state => state.activationExamples)
-
-  // Get badge labels and colors from centralized utility
-  // Badges use tag-specific colors (Well-Explained green, Need Revision red)
-  const badgeConfig = useMemo(() => getBadgeConfig('feature'), [])
 
   // Get selected LLM explainers (needed for disabled logic)
   const selectedExplainers = new Set<string>()
@@ -501,9 +497,15 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   // Check if we should render stage-specific table (moved before other early returns)
   // Use stored category for simple and reliable check
   if (activeStageNodeId && activeStageCategory) {
-    // Feature Splitting category → Show DecoderSimilarityTable
+    // Feature Splitting category → Show FeatureSplitPairViewer + TagAutomaticPanel
     if (activeStageCategory === TAG_CATEGORY_FEATURE_SPLITTING) {
-      return <DecoderSimilarityTable className={className} />
+      return (
+        <div className={`table-panel ${className}`} style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '10px' }}>
+          <FeatureSplitPairViewer />
+          <TagAutomaticPanel mode="pair" />
+          <SimilarityTaggingPopover />
+        </div>
+      )
     }
 
     // Cause category → Show CauseTablePanel
@@ -515,9 +517,15 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     // This is handled by continuing with the normal table rendering below
   }
 
-  // Legacy support: Check old CATEGORY_DECODER_SIMILARITY constant
+  // Legacy support: Check old CATEGORY_DECODER_SIMILARITY constant (deprecated)
   if (activeStageNodeId && activeStageCategory === CATEGORY_DECODER_SIMILARITY) {
-    return <DecoderSimilarityTable className={className} />
+    return (
+      <div className={`table-panel ${className}`} style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '10px' }}>
+        <FeatureSplitPairViewer />
+        <TagAutomaticPanel mode="pair" />
+        <SimilarityTaggingPopover />
+      </div>
+    )
   }
 
   // Show loading indicator during initial fetch
@@ -706,9 +714,9 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
                   <td className="table-panel__cell table-panel__cell--feature">
                     <TagBadge
                       featureId={featureRow.feature_id}
-                      tagName={getQualityTagName(selectionState)}
+                      tagName={getQualityTagName(selectionState ?? null)}
                       tagCategoryId={TAG_CATEGORY_QUALITY}
-                      selectionState={selectionState}
+                      selectionState={selectionState ?? null}
                       onClick={(e) => {
                         e.stopPropagation()
                         toggleFeatureSelection(featureRow.feature_id)

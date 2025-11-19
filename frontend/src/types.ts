@@ -94,6 +94,80 @@ export interface TreeBasedSankeyStructure {
   maxDepth: number                     // Maximum depth in the tree
 }
 
+// ============================================================================
+// FIXED 3-STAGE SANKEY NODE TYPES (Simplified Architecture)
+// ============================================================================
+
+/**
+ * Sankey node type for fixed 3-stage architecture
+ */
+export type SankeyNodeType = 'regular' | 'segment' | 'terminal'
+
+/**
+ * Node segment for progressive reveal - represents a hidden child in a segment node
+ */
+export interface NodeSegment {
+  tagName: string         // Tag name (e.g., "Monosemantic", "Fragmented")
+  featureIds: Set<number> // Features in this segment
+  featureCount: number    // Number of features
+  color: string          // Hex color for this tag
+  height: number         // Visual height (0-1, proportional)
+  yPosition: number      // Y position (0-1, normalized)
+}
+
+/**
+ * Base properties for all Sankey nodes
+ */
+export interface BaseSankeyNode {
+  id: string
+  type: SankeyNodeType
+  featureIds: Set<number>
+  featureCount: number
+  parentId: string | null
+  depth: number
+  tagName?: string
+  color?: string
+}
+
+/**
+ * Regular Sankey node - standard rectangle
+ */
+export interface RegularSankeyNode extends BaseSankeyNode {
+  type: 'regular'
+}
+
+/**
+ * Terminal Sankey node - solid vertical bar at rightmost position (no further expansion)
+ */
+export interface TerminalSankeyNode extends BaseSankeyNode {
+  type: 'terminal'
+  position: 'rightmost'
+}
+
+/**
+ * Segment Sankey node - single vertical bar with colored segments representing hidden children
+ */
+export interface SegmentSankeyNode extends BaseSankeyNode {
+  type: 'segment'
+  metric: string | null
+  threshold: number | null
+  segments: NodeSegment[]
+}
+
+/**
+ * Union type for all node types
+ */
+export type SimplifiedSankeyNode = RegularSankeyNode | TerminalSankeyNode | SegmentSankeyNode
+
+/**
+ * Simplified Sankey structure for fixed 3-stage system
+ */
+export interface SankeyStructure {
+  nodes: SimplifiedSankeyNode[]
+  links: SankeyLink[]
+  currentStage: 1 | 2 | 3
+}
+
 export interface FilterOptions {
   sae_id: string[]
   explanation_method: string[]

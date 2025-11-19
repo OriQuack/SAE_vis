@@ -10,7 +10,8 @@ from .api import router as api_router
 from .services.data_service import DataService
 from .services.alignment_service import AlignmentService
 from .services.similarity_sort_service import SimilaritySortService
-from .api import feature_groups, similarity_sort
+from .services.distributed_features_service import DistributedFeaturesService
+from .api import feature_groups, similarity_sort, distributed_features
 
 # Configure logging for the application
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -38,10 +39,11 @@ logger = logging.getLogger(__name__)
 data_service = None
 alignment_service = None
 similarity_sort_service = None
+distributed_features_service = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global data_service, alignment_service, similarity_sort_service
+    global data_service, alignment_service, similarity_sort_service, distributed_features_service
     try:
         data_service = DataService()
         await data_service.initialize()
@@ -63,6 +65,11 @@ async def lifespan(app: FastAPI):
         similarity_sort_service = SimilaritySortService(data_service=data_service)
         similarity_sort.set_similarity_sort_service(similarity_sort_service)
         logger.info("Similarity sort service initialized successfully")
+
+        # Initialize distributed features service (depends on similarity_sort_service)
+        distributed_features_service = DistributedFeaturesService(similarity_service=similarity_sort_service)
+        distributed_features.set_distributed_features_service(distributed_features_service)
+        logger.info("Distributed features service initialized successfully")
 
         yield
     except Exception as e:

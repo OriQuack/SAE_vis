@@ -5,7 +5,8 @@ import {
   METRIC_SCORE_EMBEDDING,
   METRIC_SCORE_FUZZ,
   METRIC_SCORE_DETECTION,
-  METRIC_DECODER_SIMILARITY
+  METRIC_DECODER_SIMILARITY,
+  PANEL_LEFT
 } from '../lib/constants'
 import {
   TAG_CATEGORIES,
@@ -464,10 +465,11 @@ export const createTableActions = (set: any, get: any) => ({
   /**
    * Activate table view for a specific tag category
    * Maps category ID to the appropriate node and sets active stage state
+   * Builds the stage on-demand if it doesn't exist yet
    * Selects the LEAF NODE for table filtering (not the parent node!)
    * (bidirectional linking)
    */
-  activateCategoryTable: (categoryId: string) => {
+  activateCategoryTable: async (categoryId: string) => {
     const category = TAG_CATEGORIES[categoryId]
 
     if (!category) {
@@ -482,6 +484,18 @@ export const createTableActions = (set: any, get: any) => ({
     })
 
     const tree = get().leftPanel.sankeyTree
+
+    // NEW: Check if stage is already built, build if needed
+    const stageDepth = category.stageOrder - 1
+    const stageExists = tree && Array.from(tree.values()).some(node =>
+      node.depth === stageDepth && node.children.length > 0
+    )
+
+    if (!stageExists) {
+      console.log(`[Store.activateCategoryTable] 📊 Stage not built yet, building ${category.label} stage...`)
+      await get().buildStageForCategory(categoryId, PANEL_LEFT)
+      console.log(`[Store.activateCategoryTable] ✅ Stage built, now activating table`)
+    }
 
     // Special handling for Cause category (pre-defined groups)
     if (categoryId === TAG_CATEGORY_CAUSE) {
@@ -1706,5 +1720,63 @@ export const createTableActions = (set: any, get: any) => ({
   hideThresholdsOnTable: () => {
     set({ thresholdVisualization: null })
     console.log('[Store.hideThresholdsOnTable] Thresholds hidden')
+  },
+
+  /**
+   * Fetch evenly distributed features for pair viewer
+   * Uses K-Means clustering in 9D metric space to select n distributed features
+   */
+  fetchDistributedPairs: async (n: number = 30) => {
+    const { tableData } = get()
+
+    console.log('[Store.fetchDistributedPairs] Starting distributed pair fetch:', { n })
+
+    if (!tableData?.rows) {
+      console.warn('[Store.fetchDistributedPairs] ⚠️  No table data available')
+      return
+    }
+
+    try {
+      set({ isLoadingDistributedPairs: true })
+
+      // Extract all feature IDs from table data
+      const featureIds = tableData.rows.map((row: any) => row.feature_id)
+
+      console.log('[Store.fetchDistributedPairs] Calling API:', {
+        totalFeatures: featureIds.length,
+        requestedN: n
+      })
+
+      // Call API to get distributed features
+      const response = await api.getDistributedFeatures(featureIds, n)
+
+      console.log('[Store.fetchDistributedPairs] API response:', {
+        selectedCount: response.selected_features.length,
+        totalAvailable: response.total_available,
+        method: response.method_used
+      })
+
+      set({
+        distributedPairFeatureIds: response.selected_features,
+        isLoadingDistributedPairs: false
+      })
+
+      console.log('[Store.fetchDistributedPairs] ✅ Distributed pairs loaded successfully')
+
+    } catch (error) {
+      console.error('[Store.fetchDistributedPairs] ❌ Failed to fetch distributed features:', error)
+      set({
+        distributedPairFeatureIds: null,
+        isLoadingDistributedPairs: false
+      })
+    }
+  },
+
+  /**
+   * Clear distributed pairs
+   */
+  clearDistributedPairs: () => {
+    set({ distributedPairFeatureIds: null })
+    console.log('[Store.clearDistributedPairs] Distributed pairs cleared')
   }
 })

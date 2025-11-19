@@ -26,6 +26,7 @@ import {
 } from '../lib/constants'
 import { createInitialPanelState, type PanelState } from './utils'
 import { createTreeActions } from './sankey-actions'
+import { createSimplifiedSankeyActions } from './sankey-actions-v2'
 import { createTableActions } from './table-actions'
 import { createActivationActions } from './activation-actions'
 
@@ -84,16 +85,24 @@ interface AppState {
   // Data actions
   setFilters: (filters: Partial<any>, panel?: PanelSide) => void
 
-  // Tree-based threshold system actions (from tree-actions.ts)
+  // Tree-based threshold system actions (from tree-actions.ts) - LEGACY
   initializeFixedSankeyTree: (panel?: PanelSide) => Promise<void>
   addStageToNodeInternal: (nodeId: string, categoryId: string, panel?: PanelSide) => Promise<void>
   addCauseStage: (nodeId: string, panel?: PanelSide) => Promise<void>
+  buildStageForCategory: (categoryId: string, panel?: PanelSide) => Promise<void>
   updateNodeThresholds: (nodeId: string, thresholds: number[], panel?: PanelSide) => Promise<void>
   updateNodeThresholdsByPercentile: (nodeId: string, percentiles: number[], panel?: PanelSide) => Promise<void>
   recomputeSankeyTree: (panel?: PanelSide) => void
   removeNodeStage: (nodeId: string, panel?: PanelSide) => void
   initializeSankeyTree: (panel?: PanelSide) => void
   loadRootFeatures: (panel?: PanelSide) => Promise<void>
+
+  // NEW: Simplified 3-stage Sankey actions (from sankey-actions-v2.ts)
+  initializeSankey: (panel?: PanelSide) => Promise<void>
+  activateStage2: (panel?: PanelSide) => Promise<void>
+  activateStage3: (panel?: PanelSide) => Promise<void>
+  updateStageThreshold: (stageNumber: 1 | 2, newThreshold: number, panel?: PanelSide) => Promise<void>
+  recomputeD3StructureV2: (panel?: PanelSide) => void
 
   // Data setters
   setHistogramData: (data: Record<string, HistogramData> | null, panel?: PanelSide, nodeId?: string) => void
@@ -189,6 +198,10 @@ interface AppState {
   pairSortedBySelectionStates: Map<string, 'selected' | 'rejected'> | null,  // Frozen pair selection states when sorted
   donePairSelectionStates: Map<string, 'selected' | 'rejected'> | null
 
+  // Distributed feature pairs state (for FeatureSplitPairViewer)
+  distributedPairFeatureIds: number[] | null  // Feature IDs selected via K-Means distribution
+  isLoadingDistributedPairs: boolean
+
   // Cause similarity sort state (for cause table - multi-class OvR)
   causeSimilarityScores: Map<number, number>  // Legacy: single score per feature
   causeCategoryConfidences: Map<number, Record<string, number>>  // New: per-category confidences
@@ -233,7 +246,7 @@ interface AppState {
   // Stage table actions
   setActiveStageNode: (nodeId: string | null, category?: string | null) => void
   clearActiveStageNode: () => void
-  activateCategoryTable: (categoryId: string) => void
+  activateCategoryTable: (categoryId: string) => Promise<void>
   moveToNextStep: () => void
 
   // Activation examples cache (centralized for all components)
@@ -310,6 +323,10 @@ const initialState = {
   pairSortedBySelectionStates: null,
   donePairSelectionStates: null,
 
+  // Distributed feature pairs state (for FeatureSplitPairViewer)
+  distributedPairFeatureIds: null,
+  isLoadingDistributedPairs: false,
+
   // Cause similarity sort state (for cause table - multi-class OvR)
   causeSimilarityScores: new Map<number, number>(),  // Legacy
   causeCategoryConfidences: new Map<number, Record<string, number>>(),  // New: per-category confidences
@@ -362,8 +379,11 @@ const initialState = {
 export const useStore = create<AppState>((set, get) => ({
   ...initialState,
 
-  // Compose tree actions
+  // Compose tree actions (LEGACY)
   ...createTreeActions(set, get),
+
+  // Compose simplified Sankey actions (NEW)
+  ...createSimplifiedSankeyActions(set, get),
 
   // Compose table actions
   ...createTableActions(set, get),
@@ -872,10 +892,10 @@ export const useStore = create<AppState>((set, get) => ({
     await get().fetchTableData()
     console.log('✅ Table data loaded - now building Sankey tree')
 
-    // Initialize fixed 3-stage Sankey tree automatically
-    console.log('🌱 Initializing fixed Sankey tree: Root → Feature Splitting → Quality → Cause')
-    await get().initializeFixedSankeyTree(PANEL_LEFT)
-    console.log('✅ Fixed 3-stage tree initialized - decoder similarity table ready')
+    // V2: Initialize simplified 3-stage Sankey automatically
+    console.log('🌱 Initializing V2 Sankey: Root → Stage 1 (Feature Splitting)')
+    await get().initializeSankey(PANEL_LEFT)
+    console.log('✅ V2 Sankey Stage 1 initialized - ready for progressive reveal')
   }
 }))
 

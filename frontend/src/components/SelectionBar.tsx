@@ -67,7 +67,6 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   counts,
   previewCounts,
   onCategoryClick,
-  height = 24,
   showLabels = true,
   showLegend = true,
   labelThreshold = 10,

@@ -212,7 +212,8 @@ function calculateNodeHistogramBars(
 export function calculateNodeHistogramLayout(
   node: D3SankeyNode,
   histogramData: HistogramData | null,
-  links: D3SankeyLink[]
+  links: D3SankeyLink[],
+  metric?: string  // V2: metric can be passed explicitly
 ): NodeHistogramLayout | null {
   // Validate inputs
   if (!histogramData || node.x0 == null || node.x1 == null || node.y0 == null || node.y1 == null) {
@@ -224,9 +225,9 @@ export function calculateNodeHistogramLayout(
     return null
   }
 
-  // Get metric for this node
-  const metric = getNodeHistogramMetric(node, links)
-  if (!metric) {
+  // Get metric for this node (V2: use explicit metric if provided)
+  const nodeMetric = metric || getNodeHistogramMetric(node, links)
+  if (!nodeMetric) {
     return null
   }
 
@@ -254,7 +255,7 @@ export function calculateNodeHistogramLayout(
     histogramData,
     node,
     histogramMaxWidth * 0.8,
-    metric
+    nodeMetric
   )
 
   return {
@@ -263,7 +264,7 @@ export function calculateNodeHistogramLayout(
     y: node.y0,                      // Top of node
     width: histogramMaxWidth,
     height: nodeHeight,
-    metric,
+    metric: nodeMetric,
     nodeId: node.id || '',
     totalFeatures: histogramData.total_features || 0
   }

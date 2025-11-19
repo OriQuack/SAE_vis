@@ -758,15 +758,62 @@ export function getNodeSegments(
   node: D3SankeyNode,
   tree: Map<string, SankeyTreeNode>
 ): StageSegment[] {
-  // Get the tree node to access children
+  const totalHeight = (node.y1 || 0) - (node.y0 || 0)
+  const totalFeatures = node.feature_count
+  let currentY = node.y0 || 0
+
+  // Handle consolidated vertical bar nodes (from progressive reveal)
+  if (node.id.startsWith('consolidated_stage')) {
+    const stageMatch = node.id.match(/consolidated_stage(\d+)/)
+    if (stageMatch) {
+      const stageDepth = parseInt(stageMatch[1], 10)
+      console.log(`[getNodeSegments] 🎯 Consolidated node at depth ${stageDepth}, showing segments for hidden children`)
+
+      // Find all tree nodes at this depth
+      const childrenAtDepth: SankeyTreeNode[] = []
+      tree.forEach((treeNode) => {
+        if (treeNode.depth === stageDepth && treeNode.featureCount > 0) {
+          childrenAtDepth.push(treeNode)
+        }
+      })
+
+      // Sort children by group index for consistent ordering
+      childrenAtDepth.sort((a, b) => {
+        const aMatch = a.id.match(/group(\d+)/)
+        const bMatch = b.id.match(/group(\d+)/)
+        const aIndex = aMatch ? parseInt(aMatch[1], 10) : 0
+        const bIndex = bMatch ? parseInt(bMatch[1], 10) : 0
+        return aIndex - bIndex
+      })
+
+      console.log(`[getNodeSegments] 📊 Creating ${childrenAtDepth.length} segments for consolidated bar`)
+
+      // Create segments for each child
+      const segments: StageSegment[] = []
+      for (const child of childrenAtDepth) {
+        const segmentHeight = (child.featureCount / totalFeatures) * totalHeight
+
+        segments.push({
+          childNodeId: child.id,
+          y: currentY,
+          height: segmentHeight,
+          color: child.colorHex || '#999999',
+          featureCount: child.featureCount,
+          label: child.rangeLabel
+        })
+
+        currentY += segmentHeight
+      }
+
+      return segments
+    }
+  }
+
+  // Handle regular tree nodes (original logic)
   const treeNode = tree.get(node.id)
   if (!treeNode || treeNode.children.length === 0) {
     return []  // No children = solid bar (terminal node)
   }
-
-  const totalHeight = (node.y1 || 0) - (node.y0 || 0)
-  const totalFeatures = node.feature_count
-  let currentY = node.y0 || 0
 
   // Calculate segment for each child
   const segments: StageSegment[] = []

@@ -127,3 +127,19 @@ class ComparisonRequest(BaseModel):
         description="Filter criteria for data subset"
     )
     # Minimal model for API compatibility - actual implementation pending
+
+class DistributedFeaturesRequest(BaseModel):
+    """Request model for distributed features endpoint"""
+    feature_ids: List[int] = Field(
+        ...,
+        description="List of feature IDs to sample from"
+    )
+    n: int = Field(
+        ...,
+        gt=0,
+        description="Number of evenly distributed features to select"
+    )
+    method: Optional[str] = Field(
+        default='kmeans',
+        description="Distribution method ('kmeans' only for now)"
+    )

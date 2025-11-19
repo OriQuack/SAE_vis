@@ -116,118 +116,29 @@ export const createTreeActions = (set: any, get: any) => ({
   },
 
   /**
-   * Initialize the fixed 3-stage Sankey tree structure.
-   * Automatically expands the tree to: Root → Feature Splitting → Quality → Cause
-   *
-   * Terminal nodes (high similarity, high quality) are marked with stage=3 and not expanded.
-   * This replaces the old interactive "add stage" workflow with a fixed structure
-   * based on tag categories.
+   * Initialize Sankey tree with root node only.
+   * Stages are built on-demand when user clicks category tabs.
    */
   initializeFixedSankeyTree: async (panel: PanelSide = PANEL_LEFT) => {
     const state = get()
-    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
     const loadingKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
     const errorKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
 
-    console.log(`[Store.initializeFixedSankeyTree] 🚀 Initializing fixed 3-stage structure for ${panel}`)
+    console.log(`[Store.initializeFixedSankeyTree] 🚀 Initializing root node for ${panel}`)
 
     state.setLoading(loadingKey, true)
     state.clearError(errorKey)
 
     try {
-      // Stage 1: Initialize and load root features
+      // Initialize and load root features only
       get().initializeSankeyTree(panel)
       await get().loadRootFeatures(panel)
 
-      // Get updated state after root loading
-      const currentState = get()
-      const { sankeyTree } = currentState[panelKey]
-
-      if (!sankeyTree || !sankeyTree.has('root')) {
-        throw new Error('Root node not initialized')
-      }
-
-      // Stage 2: Expand Feature Splitting stage (decoder_similarity, threshold [0.4])
-      console.log('[Store.initializeFixedSankeyTree] 📊 Building Stage 1: Feature Splitting')
-      await get().addStageToNodeInternal('root', TAG_CATEGORY_FEATURE_SPLITTING, panel)
-
-      // Mark high similarity nodes (last group) as terminal
-      const afterStage1 = get()
-      const stage1Tree = afterStage1[panelKey].sankeyTree
-      const rootNode = stage1Tree?.get('root')
-
-      if (rootNode && rootNode.children.length > 0) {
-        const lastChildId = rootNode.children[rootNode.children.length - 1]
-        const lastChild = stage1Tree?.get(lastChildId)
-
-        if (lastChild) {
-          // Mark as terminal at stage 3
-          lastChild.stage = 3
-          stage1Tree?.set(lastChildId, { ...lastChild })
-          console.log(`[Store.initializeFixedSankeyTree] 🎯 Marked high similarity node ${lastChildId} as terminal (stage=3)`)
-        }
-      }
-
-      // Stage 3: Expand Quality stage for non-terminal Feature Splitting children
-      console.log('[Store.initializeFixedSankeyTree] 📊 Building Stage 2: Quality')
-      const afterMarkingStage1 = get()
-      const updatedStage1Tree = afterMarkingStage1[panelKey].sankeyTree
-      const updatedRootNode = updatedStage1Tree?.get('root')
-
-      if (updatedRootNode && updatedRootNode.children.length > 0) {
-        // Add Quality stage only to non-terminal children (all except last)
-        for (let i = 0; i < updatedRootNode.children.length - 1; i++) {
-          const childId = updatedRootNode.children[i]
-          await get().addStageToNodeInternal(childId, TAG_CATEGORY_QUALITY, panel)
-        }
-      }
-
-      // Mark high quality nodes (last group of each quality split) as terminal
-      const afterStage2 = get()
-      const stage2Tree = afterStage2[panelKey].sankeyTree
-
-      if (stage2Tree && updatedRootNode) {
-        // For each non-terminal Feature Splitting child
-        for (let i = 0; i < updatedRootNode.children.length - 1; i++) {
-          const featureSplittingNodeId = updatedRootNode.children[i]
-          const featureSplittingNode = stage2Tree.get(featureSplittingNodeId)
-
-          if (featureSplittingNode && featureSplittingNode.children.length > 0) {
-            const lastChildId = featureSplittingNode.children[featureSplittingNode.children.length - 1]
-            const lastChild = stage2Tree.get(lastChildId)
-
-            if (lastChild) {
-              // Mark as terminal at stage 3
-              lastChild.stage = 3
-              stage2Tree.set(lastChildId, { ...lastChild })
-              console.log(`[Store.initializeFixedSankeyTree] 🎯 Marked high quality node ${lastChildId} as terminal (stage=3)`)
-            }
-          }
-        }
-      }
-
-      // Stage 4: Expand Cause stage for non-terminal Quality children
-      console.log('[Store.initializeFixedSankeyTree] 📊 Building Stage 3: Cause')
-      const afterMarkingStage2 = get()
-      const updatedStage2Tree = afterMarkingStage2[panelKey].sankeyTree
-
-      if (updatedStage2Tree) {
-        // Find all nodes at depth 2 without stage override (non-terminal quality nodes)
-        const allNodes = Array.from(updatedStage2Tree.values()) as SankeyTreeNode[]
-        const depth2Nodes = allNodes.filter(
-          node => node.depth === 2 && node.stage === undefined
-        )
-
-        for (const node of depth2Nodes) {
-          await get().addCauseStage(node.id, panel)
-        }
-      }
-
       state.setLoading(loadingKey, false)
-      console.log('[Store.initializeFixedSankeyTree] ✅ Fixed 3-stage tree initialized successfully!')
+      console.log('[Store.initializeFixedSankeyTree] ✅ Root initialized - stages build on-demand')
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to initialize fixed Sankey tree'
+      const errorMessage = error instanceof Error ? error.message : 'Failed to initialize Sankey tree'
       state.setError(errorKey, errorMessage)
       state.setLoading(loadingKey, false)
       console.error('[Store.initializeFixedSankeyTree] ❌ Error:', error)
@@ -461,13 +372,101 @@ export const createTreeActions = (set: any, get: any) => ({
   },
 
   /**
-   * Update thresholds for a rightmost stage node.
-   * Only nodes whose children are all leaf nodes can have their thresholds updated.
-   * This simplification eliminates the need for complex subtree rebuilding.
+   * Build a stage on-demand for a specific category.
+   * Incrementally builds only the requested stage instead of building all stages upfront.
    *
-   * @param skipDownstreamRebuild - If true, skip rebuilding downstream stages (used internally to avoid double-rebuilding)
+   * @param categoryId - Category ID (TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE)
+   * @param panel - Which panel to build in
    */
-  updateNodeThresholds: async (nodeId: string, thresholds: number[], panel: PanelSide = PANEL_LEFT, skipDownstreamRebuild = false) => {
+  buildStageForCategory: async (categoryId: string, panel: PanelSide = PANEL_LEFT) => {
+    const state = get()
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
+    const { sankeyTree } = state[panelKey]
+
+    if (!sankeyTree) {
+      console.error(`[Store.buildStageForCategory] ❌ No tree found for ${panel}`)
+      return
+    }
+
+    const category = TAG_CATEGORIES[categoryId]
+    if (!category) {
+      console.error(`[Store.buildStageForCategory] ❌ Invalid category: ${categoryId}`)
+      return
+    }
+
+    console.log(`[Store.buildStageForCategory] 📊 Building ${category.label} stage (order=${category.stageOrder})`)
+
+    // Determine parent depth (nodes we'll add children to)
+    const parentDepth = category.stageOrder - 1
+
+    if (categoryId === TAG_CATEGORY_CAUSE) {
+      // Cause category: Add to all depth=2 nodes (Quality children) without Cause children
+      const qualityNodes = Array.from(sankeyTree.values()).filter(
+        node => node.depth === parentDepth && node.children.length === 0 && node.stage !== 3
+      )
+
+      console.log(`[Store.buildStageForCategory] 🎯 Found ${qualityNodes.length} quality nodes for Cause stage`)
+
+      for (const node of qualityNodes) {
+        await get().addCauseStage(node.id, panel)
+      }
+    } else {
+      // Metric-based category (Feature Splitting, Quality)
+      const parentNodes = Array.from(sankeyTree.values()).filter(node => {
+        // Find nodes at correct depth without this category's metric already applied
+        return node.depth === parentDepth && node.metric !== category.metric
+      })
+
+      console.log(`[Store.buildStageForCategory] 🎯 Found ${parentNodes.length} parent nodes for ${category.label} stage`)
+
+      for (const parentNode of parentNodes) {
+        // Skip terminal nodes (marked with stage override)
+        if (parentNode.stage !== undefined && parentNode.stage !== parentNode.depth) {
+          console.log(`[Store.buildStageForCategory] ⏭️  Skipping terminal node ${parentNode.id}`)
+          continue
+        }
+
+        await get().addStageToNodeInternal(parentNode.id, categoryId, panel)
+
+        // Mark terminal nodes after building
+        if (categoryId === TAG_CATEGORY_FEATURE_SPLITTING) {
+          // Mark last child (high similarity) as terminal
+          const updatedTree = get()[panelKey].sankeyTree
+          const updatedParent = updatedTree?.get(parentNode.id)
+          if (updatedParent && updatedParent.children.length > 0) {
+            const lastChildId = updatedParent.children[updatedParent.children.length - 1]
+            const lastChild = updatedTree?.get(lastChildId)
+            if (lastChild) {
+              lastChild.stage = 3
+              updatedTree?.set(lastChildId, { ...lastChild })
+              console.log(`[Store.buildStageForCategory] 🎯 Marked ${lastChildId} as terminal (high similarity)`)
+            }
+          }
+        } else if (categoryId === TAG_CATEGORY_QUALITY) {
+          // Mark last child (high quality) as terminal
+          const updatedTree = get()[panelKey].sankeyTree
+          const updatedParent = updatedTree?.get(parentNode.id)
+          if (updatedParent && updatedParent.children.length > 0) {
+            const lastChildId = updatedParent.children[updatedParent.children.length - 1]
+            const lastChild = updatedTree?.get(lastChildId)
+            if (lastChild) {
+              lastChild.stage = 3
+              updatedTree?.set(lastChildId, { ...lastChild })
+              console.log(`[Store.buildStageForCategory] 🎯 Marked ${lastChildId} as terminal (high quality)`)
+            }
+          }
+        }
+      }
+    }
+
+    console.log(`[Store.buildStageForCategory] ✅ ${category.label} stage built successfully`)
+  },
+
+  /**
+   * Update thresholds for a node.
+   * Updates the node's children based on new threshold values using local feature grouping.
+   */
+  updateNodeThresholds: async (nodeId: string, thresholds: number[], panel: PanelSide = PANEL_LEFT) => {
     const state = get()
     const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
     const loadingKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
@@ -582,19 +581,11 @@ export const createTreeActions = (set: any, get: any) => ({
         }
       }))
 
-      // 🎯 IMMEDIATE Stage 1 UI update
+      // Recompute Sankey structure
       get().recomputeSankeyTree(panel)
       state.setLoading(loadingKey, false)
-      console.log(`[Store.updateNodeThresholds] ✅ Stage 1 visible immediately`)
+      console.log(`[Store.updateNodeThresholds] ✅ Thresholds updated successfully`)
 
-      // 🔄 Defer downstream rebuild to next tick (non-blocking)
-      if (!skipDownstreamRebuild) {
-        setTimeout(async () => {
-          console.log(`[Store.updateNodeThresholds] 🔄 Rebuilding downstream stages (deferred)`)
-          await get().rebuildDownstreamStages(nodeId, parentNode.depth, panel)
-          console.log(`[Store.updateNodeThresholds] ✅ Downstream rebuild complete`)
-        }, 0)
-      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to update thresholds'
       state.setError(errorKey, errorMessage)
@@ -960,178 +951,5 @@ export const createTreeActions = (set: any, get: any) => ({
     get().recomputeSankeyTree(panel)
 
     console.log(`[Store.rebuildCauseStageWithPreservation] ✅ Cause stage rebuilt successfully`)
-  },
-
-  /**
-   * Rebuild downstream stages after a threshold update.
-   * Handles cascading updates: Stage 1 change → rebuild 2 & 3, Stage 2 change → rebuild 3.
-   */
-  rebuildDownstreamStages: async (nodeId: string, nodeDepth: number, panel: PanelSide = PANEL_LEFT) => {
-    const state = get()
-    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
-    const { sankeyTree } = state[panelKey]
-
-    console.log(`[Store.rebuildDownstreamStages] 🔄 Rebuilding downstream stages for ${nodeId} (depth ${nodeDepth})`)
-
-    if (!sankeyTree || !sankeyTree.has(nodeId)) {
-      console.error(`[Store.rebuildDownstreamStages] ❌ Node ${nodeId} not found`)
-      return
-    }
-
-    const parentNode = sankeyTree.get(nodeId)!
-
-    // Depth 0 (root): Rebuild Quality (stage 2) and Cause (stage 3) for all non-terminal children
-    if (nodeDepth === 0) {
-      console.log('[Store.rebuildDownstreamStages] 📊 Node is root - rebuilding stages 2 and 3')
-
-      // IMPORTANT: Mark high similarity node as terminal (last child of root) BEFORE rebuilding
-      // This ensures we skip it when iterating through children
-      const currentTree = get()[panelKey].sankeyTree
-      const currentRoot = currentTree?.get(nodeId)
-      if (currentRoot && currentRoot.children.length > 0) {
-        const lastStage1ChildId = currentRoot.children[currentRoot.children.length - 1]
-        const lastStage1Child = currentTree?.get(lastStage1ChildId)
-        if (lastStage1Child) {
-          lastStage1Child.stage = 3
-          currentTree?.set(lastStage1ChildId, { ...lastStage1Child })
-          console.log(`[Store.rebuildDownstreamStages] 🎯 Marked ${lastStage1ChildId} as terminal (high similarity) BEFORE rebuilding`)
-        }
-      }
-
-      // Get current quality thresholds to preserve user settings
-      const { metric: qualityMetric, thresholds: qualityThresholds } = get().getStageThresholds(
-        parentNode.children[0],
-        panel
-      )
-
-      // Get refreshed tree state after marking terminal node
-      const refreshedTree = get()[panelKey].sankeyTree
-      const refreshedRoot = refreshedTree?.get(nodeId)
-
-      if (refreshedRoot) {
-        for (const stage1ChildId of refreshedRoot.children) {
-          const stage1Child = refreshedTree?.get(stage1ChildId)
-          if (!stage1Child) continue
-
-          // Skip terminal nodes (high similarity nodes marked with stage=3)
-          if (stage1Child.stage === 3) {
-            console.log(`[Store.rebuildDownstreamStages] ⏭️  Skipping terminal node ${stage1ChildId}`)
-            continue
-          }
-
-          console.log(`[Store.rebuildDownstreamStages] 📊 Rebuilding Quality stage for ${stage1ChildId}`)
-
-          // Rebuild Quality stage (stage 2)
-          // Use preserved thresholds if available, otherwise use default
-          if (qualityMetric && qualityThresholds.length > 0) {
-            // Rebuild with preserved thresholds (skip downstream rebuild to avoid redundancy)
-            await get().addStageToNodeInternal(stage1ChildId, TAG_CATEGORY_QUALITY, panel)
-            await get().updateNodeThresholds(stage1ChildId, qualityThresholds, panel, true)
-          } else {
-            // Use default thresholds
-            await get().addStageToNodeInternal(stage1ChildId, TAG_CATEGORY_QUALITY, panel)
-          }
-
-          // Mark high quality node as terminal (last child)
-          const updatedTree = get()[panelKey].sankeyTree
-          const updatedStage1Child = updatedTree?.get(stage1ChildId)
-          if (updatedStage1Child && updatedStage1Child.children.length > 0) {
-            const lastQualityChildId = updatedStage1Child.children[updatedStage1Child.children.length - 1]
-            const lastQualityChild = updatedTree?.get(lastQualityChildId)
-            if (lastQualityChild) {
-              lastQualityChild.stage = 3
-              updatedTree?.set(lastQualityChildId, { ...lastQualityChild })
-              console.log(`[Store.rebuildDownstreamStages] 🎯 Marked ${lastQualityChildId} as terminal`)
-            }
-          }
-
-          // Now rebuild Cause stage (stage 3) for each non-terminal Quality child
-          // Since stage 1 children are completely new, we can't preserve cause assignments
-          const afterQualityTree = get()[panelKey].sankeyTree
-          const afterQualityStage1Child = afterQualityTree?.get(stage1ChildId)
-
-          if (afterQualityStage1Child) {
-            for (const stage2ChildId of afterQualityStage1Child.children) {
-              const stage2Child = afterQualityTree?.get(stage2ChildId)
-              if (!stage2Child || stage2Child.stage === 3) continue
-
-              console.log(`[Store.rebuildDownstreamStages] 📊 Rebuilding Cause stage for ${stage2ChildId}`)
-
-              // Use fresh Cause stage (no preservation - all features go to "Unsure")
-              await get().addCauseStage(stage2ChildId, panel)
-            }
-          }
-        }
-      }
-
-      console.log('[Store.rebuildDownstreamStages] ✅ Stages 2 and 3 rebuilt successfully')
-
-      // 🎯 Final recompute after all downstream stages rebuilt
-      get().recomputeSankeyTree(panel)
-    }
-    // Depth 1 (stage 1 child): Rebuild Cause (stage 3) for non-terminal children
-    else if (nodeDepth === 1) {
-      console.log('[Store.rebuildDownstreamStages] 📊 Node is stage 1 child - rebuilding stage 3')
-
-      // IMPORTANT: Collect previous cause assignments BEFORE we rebuild quality children
-      // (otherwise the assignments will be lost when we delete the old children)
-      const causeAssignmentsByQualityNode = new Map<string, Map<number, string>>()
-
-      for (const stage2ChildId of parentNode.children) {
-        const stage2Child = sankeyTree.get(stage2ChildId)
-        if (!stage2Child || stage2Child.stage === 3) continue
-
-        const previousAssignments = get().getCauseAssignments(stage2ChildId, panel)
-        causeAssignmentsByQualityNode.set(stage2ChildId, previousAssignments)
-      }
-
-      // Now rebuild quality children (which will delete the old cause children)
-      // Get the current tree state after potential parent threshold update
-      const currentTree = get()[panelKey].sankeyTree
-      const currentParent = currentTree?.get(nodeId)
-
-      if (currentParent) {
-        for (const stage2ChildId of currentParent.children) {
-          const stage2Child = currentTree?.get(stage2ChildId)
-          if (!stage2Child) continue
-
-          // Skip terminal nodes
-          if (stage2Child.stage === 3) {
-            console.log(`[Store.rebuildDownstreamStages] ⏭️  Skipping terminal node ${stage2ChildId}`)
-            continue
-          }
-
-          console.log(`[Store.rebuildDownstreamStages] 📊 Rebuilding Cause stage for ${stage2ChildId}`)
-
-          // Get previous cause assignments (collected before rebuilding)
-          const previousAssignments = causeAssignmentsByQualityNode.get(stage2ChildId) || new Map<number, string>()
-
-          // Rebuild with preservation
-          await get().rebuildCauseStageWithPreservation(stage2ChildId, previousAssignments, panel)
-        }
-      }
-
-      // Mark high quality node as terminal (last child)
-      const finalTree = get()[panelKey].sankeyTree
-      const finalParent = finalTree?.get(nodeId)
-      if (finalParent && finalParent.children.length > 0) {
-        const lastStage2ChildId = finalParent.children[finalParent.children.length - 1]
-        const lastStage2Child = finalTree?.get(lastStage2ChildId)
-        if (lastStage2Child) {
-          lastStage2Child.stage = 3
-          finalTree?.set(lastStage2ChildId, { ...lastStage2Child })
-          console.log(`[Store.rebuildDownstreamStages] 🎯 Marked ${lastStage2ChildId} as terminal (high quality)`)
-        }
-      }
-
-      console.log('[Store.rebuildDownstreamStages] ✅ Stage 3 rebuilt successfully')
-
-      // 🎯 Final recompute after stage 3 rebuilt
-      get().recomputeSankeyTree(panel)
-    }
-    // Depth 2+ (stage 2+ children): No rebuilding needed (they're leaf cause nodes)
-    else {
-      console.log('[Store.rebuildDownstreamStages] ℹ️  Node is at depth 2+, no rebuilding needed')
-    }
   }
 })

@@ -18,7 +18,7 @@ import {
 import type { ScoreStats } from '../lib/circle-encoding-utils'
 import ScoreCircle, { TagBadge } from './TableIndicators'
 import { HighlightedExplanation } from './TableExplanation'
-import { TAG_CATEGORY_CAUSE, TAG_CATEGORIES, getBadgeColors, TAG_CATEGORY_TABLE_TITLES, TAG_CATEGORY_TABLE_INSTRUCTIONS } from '../lib/tag-constants'
+import { TAG_CATEGORY_CAUSE } from '../lib/tag-constants'
 import ActivationExample from './TableActivationExample'
 import SimilarityTaggingPopover from './TagAutomaticPopover'
 import '../styles/QualityTable.css'
@@ -73,9 +73,6 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
   const causeCategoryConfidences = useVisualizationStore(state => state.causeCategoryConfidences)
   const causeSortCategory = useVisualizationStore(state => state.causeSortCategory)
 
-  // Table actions
-  const moveToNextStep = useVisualizationStore(state => state.moveToNextStep)
-
   // Node selection for table filtering
   const tableSelectedNodeIds = useVisualizationStore(state => state.tableSelectedNodeIds)
 
@@ -104,29 +101,6 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
 
   // Get the left panel sankey tree to access node feature IDs
   const sankeyTree = useVisualizationStore(state => state.leftPanel.sankeyTree)
-
-  // Get badge labels and colors from tag categories
-  const causeConfig = useMemo(() => {
-    const colors = getBadgeColors(TAG_CATEGORY_CAUSE)
-    const category = TAG_CATEGORIES[TAG_CATEGORY_CAUSE]
-
-    // Map state names to tag labels and colors
-    // tags array: ["Missed Context", "Missed Lexicon", "Noisy Activation", "Unsure"]
-    return {
-      'noisy-activation': {
-        label: category.tags[2], // "Noisy Activation"
-        color: colors[category.tags[2]] || '#f97316'
-      },
-      'missed-lexicon': {
-        label: category.tags[1], // "Missed Lexicon"
-        color: colors[category.tags[1]] || '#a855f7'
-      },
-      'missed-context': {
-        label: category.tags[0], // "Missed Context"
-        color: colors[category.tags[0]] || '#3b82f6'
-      }
-    }
-  }, [])  // No dependencies needed - colors are pre-computed at module load
 
   // Collect feature IDs from all selected nodes (for filtering)
   const selectedFeatures = useMemo(() => {
@@ -552,9 +526,9 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
                       <td className="table-panel__cell table-panel__cell--feature">
                         <TagBadge
                           featureId={featureRow.feature_id}
-                          tagName={getCauseTagName(causeState)}
+                          tagName={getCauseTagName(causeState ?? null)}
                           tagCategoryId={TAG_CATEGORY_CAUSE}
-                          selectionState={getCauseSelectionState(causeState)}
+                          selectionState={getCauseSelectionState(causeState ?? null)}
                           onClick={(e) => {
                             e.stopPropagation()
                             toggleCauseCategory(featureRow.feature_id)

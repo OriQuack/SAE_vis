@@ -57,7 +57,8 @@ const API_ENDPOINTS = {
   SIMILARITY_SCORE_HISTOGRAM: "/similarity-score-histogram",
   PAIR_SIMILARITY_SCORE_HISTOGRAM: "/pair-similarity-score-histogram",
   CAUSE_SIMILARITY_SORT: "/cause-similarity-sort",
-  CAUSE_SIMILARITY_SCORE_HISTOGRAM: "/cause-similarity-score-histogram"
+  CAUSE_SIMILARITY_SCORE_HISTOGRAM: "/cause-similarity-score-histogram",
+  DISTRIBUTED_FEATURES: "/distributed-features"
 } as const
 
 const API_BASE = API_BASE_URL
@@ -443,4 +444,33 @@ export async function getCauseSimilarityScoreHistogram(
   })
 
   return data
+}
+
+export async function getDistributedFeatures(
+  featureIds: number[],
+  n: number = 30
+): Promise<{
+  selected_features: number[]
+  total_available: number
+  method_used: string
+}> {
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.DISTRIBUTED_FEATURES}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      feature_ids: featureIds,
+      n: n,
+      method: 'kmeans'
+    })
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('[API] Distributed features error:', response.status, errorText)
+    throw new Error(`Failed to fetch distributed features: ${response.status} - ${errorText}`)
+  }
+
+  return response.json()
 }

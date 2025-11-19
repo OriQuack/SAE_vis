@@ -12,81 +12,23 @@ import {
   hasOutgoingLinks,
   calculateHistogramYAxisTicks
 } from '../lib/sankey-histogram-utils'
-import { getNodeThresholds, getExactMetricFromPercentile, getChildNodeTagName } from '../lib/threshold-utils'
+// Removed: getNodeThresholds, getExactMetricFromPercentile - using v2 simplified system
 import { calculateHorizontalBarSegments } from '../lib/histogram-utils'
 import { scaleLinear } from 'd3-scale'
 import { ThresholdHandles } from './ThresholdHandles'
-import { useVisualizationStore } from '../store/index'
-import { TAG_CATEGORIES } from '../lib/tag-constants'
+// Removed: TAG_CATEGORIES import - not needed in v2
 
 // ============================================================================
 // CONSTANTS & TYPES
 // ============================================================================
 
-// Simple stage configuration for inline selector
-interface StageOption {
-  id: string
-  name: string
-  description: string
-  metric: string
-  thresholds: readonly number[]
-  category: 'Decoder Similarity' | 'Score'
-}
-
-// DEPRECATED: Legacy stage configuration kept for backward compatibility with threshold handles
-// TODO: Replace with tag category system
-// eslint-disable-next-line react-refresh/only-export-components
-export const AVAILABLE_STAGES: StageOption[] = [
-  {
-    id: 'decoder_similarity',
-    name: 'Decoder Similarity',
-    description: 'Feature Splitting',
-    metric: METRIC_DECODER_SIMILARITY,
-    thresholds: [0.4],
-    category: 'Decoder Similarity'
-  },
-  {
-    id: 'overall_score',
-    name: 'Quality Score',
-    description: 'Quality Assessment',
-    metric: METRIC_QUALITY_SCORE,
-    thresholds: CONSISTENCY_THRESHOLDS[METRIC_QUALITY_SCORE],
-    category: 'Score'
-  }
-]
+// REMOVED: AVAILABLE_STAGES - using fixed stage configs from lib/sankey-stages.ts
 
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
-/**
- * Determine if node should show threshold slider handles
- * Shows handles based on active stage - handles appear on parent nodes of current stage
- */
-function shouldShowHandles(
-  node: D3SankeyNode,
-  sankeyTree: Map<string, any> | null,
-  activeStageOrder: number | null
-): boolean {
-  if (!sankeyTree) return false
-
-  const treeNode = sankeyTree.get(node.id)
-  if (!treeNode || treeNode.children.length === 0) return false
-
-  // Show handles if node has a metric set (regardless of whether children have their own children)
-  if (!treeNode.metric) return false
-
-  // If no active stage, don't show handles
-  if (activeStageOrder === null) return false
-
-  // Show handles on nodes at depth = activeStageOrder - 1
-  // Stage 1 (stageOrder=1): handles at depth 0 (root) for Feature Splitting
-  // Stage 2 (stageOrder=2): handles at depth 1 (feature splitting children) for Quality
-  // Stage 3 (stageOrder=3): handles at depth 2 (quality children) for Cause
-  if (treeNode.depth !== activeStageOrder - 1) return false
-
-  return true
-}
+// REMOVED: shouldShowHandles - v2 now shows handles on source nodes, not segment nodes
 
 // ============================================================================
 // SUB-COMPONENTS
@@ -96,63 +38,43 @@ interface SankeyNodeHistogramProps {
   node: D3SankeyNode
   histogramData: HistogramData | null
   links: D3SankeyLink[]
-  sankeyTree: Map<string, SankeyTreeNode> | null
+  sankeyStructure: any | null  // V2: simplified structure
   animationDuration: number
-  dragThresholds?: number[] | null  // Preview thresholds during drag (from parent)
+  dragThreshold?: number | null  // V2: single threshold for segment nodes
+  metric: string  // V2: metric passed explicitly from parent
 }
 
 const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
   node,
   histogramData,
   links,
-  sankeyTree,
+  sankeyStructure,
   animationDuration,
-  dragThresholds: dragThresholdsFromParent
+  dragThreshold,
+  metric
 }) => {
-  // Cache the percentileToMetricMap to prevent loss during tree updates
-  const percentileMapRef = useRef<Map<number, number> | undefined>(undefined)
+  // V2: Find the target segment node to get committed threshold
+  const targetSegmentNode = useMemo(() => {
+    const outgoingLink = links.find(l => {
+      const sourceNode = typeof l.source === 'object' ? l.source : null
+      return sourceNode?.id === node.id
+    })
+    const targetNode = typeof outgoingLink?.target === 'object' ? outgoingLink?.target : null
+    if (!targetNode) return null
+    return sankeyStructure?.nodes.find((n: any) => n.id === targetNode.id)
+  }, [node, links, sankeyStructure])
 
-  // Update cached map when tree node changes (but keep old one if new one is missing)
-  useEffect(() => {
-    const treeNode = sankeyTree?.get(node.id || '')
-    if (treeNode?.percentileToMetricMap && treeNode.percentileToMetricMap.size > 0) {
-      percentileMapRef.current = treeNode.percentileToMetricMap
-    }
-  }, [sankeyTree, node.id])
+  const committedThreshold = targetSegmentNode?.threshold || null
 
-  // Calculate histogram layout
+  // Calculate histogram layout (V2: metric passed as prop)
   const layout = useMemo(() => {
     if (!histogramData) return null
-    return calculateNodeHistogramLayout(node, histogramData, links)
-  }, [node, histogramData, links])
+    return calculateNodeHistogramLayout(node, histogramData, links, metric)
+  }, [node, histogramData, links, metric])
 
-  // Get node thresholds for pattern generation
-  const committedThresholds = useMemo(() => {
-    if (!sankeyTree || !node.id) return []
-    return getNodeThresholds(node.id, sankeyTree)
-  }, [sankeyTree, node.id])
-
-  // Convert percentile drag thresholds to metric values for histogram rendering
-  // Only depend on dragThresholdsFromParent and histogramData, not sankeyTree
-  // This prevents recalculation and potential null returns during tree updates
-  const dragThresholdsInMetricSpace = useMemo(() => {
-    if (!dragThresholdsFromParent || !histogramData) return null
-
-    // Use cached percentileToMetricMap to avoid losing it during tree updates
-    const percentileMap = percentileMapRef.current
-
-    if (!percentileMap || percentileMap.size === 0) {
-      console.warn('[SankeyNodeHistogram] percentileToMetricMap not available for drag conversion')
-      return null
-    }
-
-    return dragThresholdsFromParent.map(percentile => {
-      return getExactMetricFromPercentile(percentile, percentileMap)
-    })
-  }, [dragThresholdsFromParent, histogramData]) // Remove sankeyTree and node.id from deps
-
-  // Use converted drag thresholds during drag, otherwise use committed thresholds
-  const thresholds = dragThresholdsInMetricSpace ?? committedThresholds
+  // V2: Use single threshold (drag or committed)
+  const threshold = dragThreshold ?? committedThreshold
+  const thresholds = threshold !== null ? [threshold] : []
 
   // Create Y scale for horizontal bar segment calculation
   // For horizontal bars, Y axis represents the metric values
@@ -252,24 +174,18 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
 
       {/* Threshold labels - tag names above/below each threshold */}
       {yScale && thresholds.length > 0 && (() => {
-        const treeNode = sankeyTree?.get(node.id || '')
-        // Only render labels if node has exactly 2 children (single threshold split)
-        if (!treeNode || treeNode.children.length !== 2) return null
+        // V2: Get segments from targetSegmentNode
+        if (!targetSegmentNode || targetSegmentNode.type !== 'segment') return null
+        if (!targetSegmentNode.segments || targetSegmentNode.segments.length !== 2) return null
 
-        const child0 = sankeyTree?.get(treeNode.children[0])
-        const child1 = sankeyTree?.get(treeNode.children[1])
+        const seg0 = targetSegmentNode.segments[0]
+        const seg1 = targetSegmentNode.segments[1]
 
-        if (!child0 || !child1) return null
-
-        // Get tag names for both groups
-        const tag0 = getChildNodeTagName(child0, treeNode)
-        const tag1 = getChildNodeTagName(child1, treeNode)
-
-        if (!tag0 || !tag1) return null
-
-        // Get child node colors at 100% opacity
-        const color0 = child0.colorHex || '#4b5563'
-        const color1 = child1.colorHex || '#4b5563'
+        // Get tag names and colors from segments
+        const tag0 = seg0.tagName
+        const tag1 = seg1.tagName
+        const color0 = seg0.color || '#4b5563'
+        const color1 = seg1.color || '#4b5563'
 
         // Capitalize tag names for display
         const capitalizeTag = (tag: string) => tag.split(' ').map(word =>
@@ -402,29 +318,8 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
   )
 }
 
-// REMOVED: MetricOverlayPanel and SankeyInlineSelector components
-// These are no longer needed with the fixed 3-stage auto-expansion architecture
-
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
-/**
- * Create percentile-to-metric converter function.
- * Uses exact cached mappings - no fallback.
- */
-function createPercentileToMetric(
-  node: SankeyTreeNode | undefined
-): (percentile: number) => number {
-  return (percentile: number) => {
-    if (!node?.percentileToMetricMap || node.percentileToMetricMap.size === 0) {
-      console.error('[createPercentileToMetric] percentileToMetricMap is missing! This should never happen.')
-      return 0  // Return error value
-    }
-
-    return getExactMetricFromPercentile(percentile, node.percentileToMetricMap)
-  }
-}
+// REMOVED: MetricOverlayPanel, SankeyInlineSelector, createPercentileToMetric
+// No longer needed with v2 fixed 3-stage architecture
 
 // ============================================================================
 // MAIN COMPONENT
@@ -434,107 +329,67 @@ interface SankeyOverlayProps {
   layout: SankeyLayout | null
   histogramData: Record<string, HistogramData> | null
   animationDuration: number
-  sankeyTree: Map<string, any> | null
-  // onMetricClick: (metric: string) => void // REMOVED: No longer needed with auto-expansion
-  onThresholdUpdate: (nodeId: string, newThresholds: number[]) => void
-  onThresholdUpdateByPercentile: (nodeId: string, percentiles: number[]) => void
+  sankeyStructure: any | null  // V2: simplified structure
+  onThresholdUpdate: (nodeId: string, newThreshold: number) => void
 }
 
 export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
   layout,
   histogramData,
   animationDuration,
-  sankeyTree,
-  // onMetricClick, // REMOVED
-  onThresholdUpdate: _onThresholdUpdate,
-  onThresholdUpdateByPercentile
+  sankeyStructure,
+  onThresholdUpdate
 }) => {
-  // Get active stage category from store
-  const activeStageCategory = useVisualizationStore(state => state.activeStageCategory)
-
-  // Convert active stage category to stage order
-  const activeStageOrder = useMemo(() => {
-    if (!activeStageCategory) return null
-    const category = TAG_CATEGORIES[activeStageCategory]
-    return category ? category.stageOrder : null
-  }, [activeStageCategory])
+  // V2: Get current stage from sankeyStructure
+  const currentStage = sankeyStructure?.currentStage || 1
 
   // Track drag preview thresholds by node ID (for live histogram updates without committing)
   const [nodeDragThresholds, setNodeDragThresholds] = useState<Record<string, number[]>>({})
 
-  // Cleanup: Clear drag thresholds when committed thresholds update to match
-  // IMPORTANT: Only run when sankeyTree changes (after commit), not during drag.
-  // We must verify the tree update is COMPLETE before clearing drag state.
-  // The tree updates multiple times during async operations, and clearing too early
-  // causes the histogram to jump back to old thresholds.
+  // V2: Cleanup drag thresholds when structure updates
   React.useEffect(() => {
-    if (!sankeyTree) return
+    if (!sankeyStructure) return
 
-    // Use a small delay to ensure all tree updates have completed
-    // This prevents clearing drag state during intermediate tree updates
     const timeoutId = setTimeout(() => {
-      setNodeDragThresholds(prev => {
-        // Early return if no drag thresholds to cleanup
-        if (Object.keys(prev).length === 0) return prev
-
-        const updated = { ...prev }
-        let hasChanges = false
-
-        for (const nodeId in prev) {
-          const treeNode = sankeyTree.get(nodeId)
-          if (!treeNode || !treeNode.percentiles) continue
-
-          const committedPercentiles = treeNode.percentiles
-          const dragPercentiles = prev[nodeId]
-
-          // Only clear drag state if:
-          // 1. Percentiles match (indicating update started), AND
-          // 2. Node has children (indicating update completed) OR no metric (stage removed)
-          // This prevents clearing during intermediate metadata-only updates
-          const hasChildren = treeNode.children && treeNode.children.length > 0
-          const noMetric = !treeNode.metric
-          const updateComplete = hasChildren || noMetric
-
-          if (committedPercentiles.length === dragPercentiles.length && updateComplete) {
-            const matches = committedPercentiles.every((cp: number, i: number) => {
-              return Math.abs(cp - dragPercentiles[i]) < 0.001
-            })
-
-            if (matches) {
-              delete updated[nodeId]
-              hasChanges = true
-            }
-          }
-        }
-
-        return hasChanges ? updated : prev
-      })
-    }, 100) // 100ms delay to allow async updates to complete
+      setNodeDragThresholds({})  // Simply clear all drag thresholds
+    }, 100)
 
     return () => clearTimeout(timeoutId)
-  }, [sankeyTree]) // Only sankeyTree - NOT nodeDragThresholds (would cause jump during drag)
+  }, [sankeyStructure])
 
   if (!layout) return null
 
   return (
     <>
-      {/* Node Histograms - One per source node */}
+      {/* Node Histograms - On source nodes, using target segment metrics */}
       <g className="sankey-diagram__node-histograms">
         {layout.nodes.map((node) => {
           // Only render histogram for nodes with outgoing links
           if (!hasOutgoingLinks(node, layout.links)) return null
 
-          // Get metric for this node
-          const metric = getNodeHistogramMetric(node, layout.links)
+          // V2: Find the target segment node to get its metric
+          const outgoingLink = layout.links.find(l => {
+            const sourceNode = typeof l.source === 'object' ? l.source : null
+            return sourceNode?.id === node.id
+          })
 
+          if (!outgoingLink) return null
+
+          const targetNode = typeof outgoingLink.target === 'object' ? outgoingLink.target : null
+          if (!targetNode) return null
+
+          // Get the target segment node from structure to access its metric
+          const targetStructureNode = sankeyStructure?.nodes.find((n: any) => n.id === targetNode.id)
+          if (!targetStructureNode || targetStructureNode.type !== 'segment') return null
+
+          const metric = targetStructureNode.metric
           if (!metric) return null
 
-          // Get histogram data for the metric using composite key (metric:nodeId)
-          const compositeKey = `${metric}:${node.id}`
+          // Look up histogram using target segment node's ID
+          const compositeKey = `${metric}:${targetNode.id}`
           const metricHistogramData = histogramData?.[compositeKey] || null
 
-          // Only render if we should display histogram for this node
-          if (!shouldDisplayNodeHistogram(node, layout.links, histogramData)) return null
+          if (!metricHistogramData) return null
 
           return (
             <SankeyNodeHistogram
@@ -542,110 +397,70 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
               node={node}
               histogramData={metricHistogramData}
               links={layout.links}
-              sankeyTree={sankeyTree}
+              sankeyStructure={sankeyStructure}
               animationDuration={animationDuration}
-              dragThresholds={nodeDragThresholds[node.id || '']}
+              dragThreshold={nodeDragThresholds[targetNode.id || '']?.[0] || null}
+              metric={metric}
             />
           )
         })}
       </g>
 
-      {/* Threshold Sliders - For nodes with children (split nodes) */}
+      {/* Threshold Sliders - On source nodes (root), controlling target segments */}
       <g className="sankey-threshold-sliders-group">
-        {layout.nodes.map((node) => {
-          // Only show handles for split nodes with metrics based on active stage
-          const shouldShow = shouldShowHandles(node, sankeyTree, activeStageOrder)
+        {layout.nodes.map((sourceNode) => {
+          // V2: Show handles on SOURCE nodes that link to segment nodes
+          if (!hasOutgoingLinks(sourceNode, layout.links)) return null
 
-          if (!shouldShow || !sankeyTree) {
-            return null
-          }
+          // Find the target segment node
+          const outgoingLink = layout.links.find(l => {
+            const linkSourceNode = typeof l.source === 'object' ? l.source : null
+            return linkSourceNode?.id === sourceNode.id
+          })
 
-          // Get metric from children (same logic as histograms)
-          const metric = getNodeHistogramMetric(node, layout.links)
+          if (!outgoingLink) return null
 
-          if (!metric) {
-            return null
-          }
+          const targetNode = typeof outgoingLink.target === 'object' ? outgoingLink.target : null
+          if (!targetNode) return null
 
-          // Get histogram data for min/max values using composite key (metric:nodeId)
-          const compositeKey = `${metric}:${node.id}`
+          // Get the target segment node from structure
+          const targetStructureNode = sankeyStructure?.nodes.find((n: any) => n.id === targetNode.id)
+          if (!targetStructureNode || targetStructureNode.type !== 'segment') return null
+          if (!targetStructureNode.metric) return null
+
+          // Get histogram data for min/max values (using target node's ID)
+          const compositeKey = `${targetStructureNode.metric}:${targetNode.id}`
           const metricHistogramData = histogramData?.[compositeKey]
+          if (!metricHistogramData) return null
 
-          if (!metricHistogramData) {
-            return null
-          }
-
-          // Get thresholds for this node
-          const thresholds = getNodeThresholds(node.id || '', sankeyTree)
           const { min, max } = metricHistogramData.statistics
-
-          // Dynamic handle count based on metric configuration
-          let displayThresholds: number[]
-
-          // Extend range slightly to prevent edge cases
           const metricMin = min - 0.01
           const metricMax = max + 0.01
 
-          // Check if node has percentiles stored (from percentile-based updates)
-          const treeNode = sankeyTree.get(node.id || '')
-          const nodePercentiles = treeNode?.percentiles
-
-          if (nodePercentiles && nodePercentiles.length > 0) {
-            // Use stored percentiles for rendering
-            displayThresholds = [...nodePercentiles]
-          } else if (!thresholds || thresholds.length === 0) {
-            // No thresholds: initialize with metric-specific defaults
-            // Find the stage configuration for this metric
-            const stageConfig = AVAILABLE_STAGES.find(s => s.metric === metric)
-            if (stageConfig && stageConfig.thresholds.length > 0) {
-              // Convert metric defaults to percentiles for consistent percentile-based rendering
-              displayThresholds = stageConfig.thresholds.map(t => {
-                const clampedT = Math.max(metricMin, Math.min(metricMax, t))
-                // Convert metric value to percentile (0-1 range)
-                return (clampedT - metricMin) / (metricMax - metricMin)
-              })
-            } else {
-              // Fallback: single handle at midpoint (50% percentile)
-              displayThresholds = [0.5]
-            }
-          } else {
-            // Convert metric thresholds to percentiles for rendering
-            displayThresholds = thresholds.map(t =>
-              (t - metricMin) / (metricMax - metricMin)
-            )
-          }
-
-          // Always use percentile mode for Sankey vertical handles
-          const usePercentilesMode = true
-
-          // Create conversion function using exact mappings from treeNode
-          const percentileToMetric = createPercentileToMetric(treeNode)
+          // V2: Use single threshold value from target segment
+          const currentThreshold = targetStructureNode.threshold || ((metricMin + metricMax) / 2)
 
           return (
             <ThresholdHandles
-              key={`sliders-${node.id}`}
+              key={`sliders-${sourceNode.id}-to-${targetNode.id}`}
               orientation="vertical"
-              bounds={{ min: 0, max: (node.y1 || 0) - (node.y0 || 0) }}
-              thresholds={displayThresholds}
+              bounds={{ min: 0, max: (sourceNode.y1 || 0) - (sourceNode.y0 || 0) }}
+              thresholds={[currentThreshold]}
               metricRange={{ min: metricMin, max: metricMax }}
-              position={{ x: node.x0 || 0, y: node.y0 || 0 }}
+              position={{ x: sourceNode.x0 || 0, y: sourceNode.y0 || 0 }}
               parentOffset={{ x: layout.margin.left, y: layout.margin.top }}
               showThresholdLine={false}
               showDragTooltip={false}
-              usePercentiles={usePercentilesMode}
-              percentileToMetric={percentileToMetric}
+              usePercentiles={false}
               onUpdate={(values) => {
-                // DON'T clear drag state immediately - keep it until committed thresholds update
-                // This prevents histogram from jumping back to old values during async store update
-
-                // Always use percentile-based splitting for vertical Sankey handles
-                onThresholdUpdateByPercentile(node.id || '', values)
+                // V2: Call onThresholdUpdate with target segment node ID
+                onThresholdUpdate(targetNode.id || '', values[0])
               }}
               onDragUpdate={(values) => {
-                // Live preview: update drag thresholds without committing
+                // Live preview using target node ID
                 setNodeDragThresholds(prev => ({
                   ...prev,
-                  [node.id || '']: values
+                  [targetNode.id || '']: values
                 }))
               }}
             />

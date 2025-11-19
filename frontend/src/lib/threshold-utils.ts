@@ -306,58 +306,102 @@ export function convertTreeToSankeyStructure(tree: Map<string, SankeyTreeNode>, 
   let maxDepth = 0
   let maxStage = 0
 
-  // First pass: Find maximum depth and maximum stage (considering visibility filter)
-  tree.forEach((node) => {
-    let includeNode = false
+  // NEW: When maxVisibleStage is set, consolidate all children at that depth into ONE vertical bar
+  if (maxVisibleStage !== undefined && maxVisibleStage > 0) {
+    console.log(`[convertTreeToSankeyStructure] 📊 Progressive reveal mode: maxVisibleStage=${maxVisibleStage}`)
 
-    // Standard visibility check
-    if (maxVisibleStage === undefined || node.depth <= maxVisibleStage) {
-      includeNode = true
+    // 1. Add root node
+    const rootNode = tree.get('root')
+    if (!rootNode) {
+      console.error('[convertTreeToSankeyStructure] ❌ Root node not found')
+      return { tree, nodes: [], links: [], maxDepth: 0 }
     }
 
-    if (!includeNode) return
+    nodes.push({
+      id: 'root',
+      name: rootNode.rangeLabel,
+      stage: 0,
+      depth: 0,
+      feature_count: rootNode.featureCount,
+      category: 'root' as NodeCategory,
+      metric: null,
+      feature_ids: Array.from(rootNode.featureIds),
+      node_type: 'standard',
+      colorHex: rootNode.colorHex
+    })
 
+    // 2. Collect all nodes at maxVisibleStage depth
+    const nodesAtBoundary: SankeyTreeNode[] = []
+    let totalFeaturesAtBoundary = 0
+    const allFeaturesAtBoundary = new Set<number>()
+
+    tree.forEach((node) => {
+      if (node.depth === maxVisibleStage) {
+        nodesAtBoundary.push(node)
+        totalFeaturesAtBoundary += node.featureCount
+        node.featureIds.forEach(id => allFeaturesAtBoundary.add(id))
+      }
+    })
+
+    console.log(`[convertTreeToSankeyStructure] 🎯 Found ${nodesAtBoundary.length} nodes at depth ${maxVisibleStage}, consolidating into ONE vertical bar`)
+
+    // 3. Create ONE consolidated vertical bar at maxVisibleStage
+    if (nodesAtBoundary.length > 0) {
+      // Get parent node to determine category
+      const firstNode = nodesAtBoundary[0]
+      const parent = firstNode.parentId ? tree.get(firstNode.parentId) : null
+
+      nodes.push({
+        id: `consolidated_stage${maxVisibleStage}`,
+        name: parent?.metric ? `${parent.metric} Groups` : `Stage ${maxVisibleStage}`,
+        stage: maxVisibleStage,
+        depth: maxVisibleStage,
+        feature_count: totalFeaturesAtBoundary,
+        category: getNodeCategory(firstNode, tree),
+        metric: parent?.metric || null,
+        feature_ids: Array.from(allFeaturesAtBoundary),
+        node_type: 'vertical_bar',
+        colorHex: firstNode.colorHex
+      })
+
+      // 4. Create link from root to consolidated vertical bar
+      links.push({
+        source: 'root',
+        target: `consolidated_stage${maxVisibleStage}`,
+        value: totalFeaturesAtBoundary
+      })
+
+      maxDepth = maxVisibleStage
+      maxStage = maxVisibleStage
+    }
+
+    return { tree, nodes, links, maxDepth }
+  }
+
+  // ORIGINAL LOGIC: When maxVisibleStage is undefined, show full tree
+  // First pass: Find maximum depth and maximum stage
+  tree.forEach((node) => {
     if (node.depth > maxDepth) {
       maxDepth = node.depth
     }
-    // When filtering by stage, use depth for determining max stage
-    // Otherwise use the node's explicit stage (which may be terminal stage 3)
-    const nodeStage = maxVisibleStage !== undefined ? node.depth : (node.stage ?? node.depth)
+    const nodeStage = node.stage ?? node.depth
     if (nodeStage > maxStage) {
       maxStage = nodeStage
     }
   })
 
-  // Build a set of visible node IDs for quick lookup
-  const visibleNodeIds = new Set<string>()
+  // Second pass: Build nodes and links (show all nodes)
   tree.forEach((node) => {
-    // Standard visibility: nodes up to maxVisibleStage
-    if (maxVisibleStage === undefined || node.depth <= maxVisibleStage) {
-      visibleNodeIds.add(node.id)
-    }
-  })
-
-  // Second pass: Build nodes and links (only for visible nodes)
-  tree.forEach((node) => {
-    // Skip nodes that are not visible
-    if (!visibleNodeIds.has(node.id)) {
-      return
-    }
-
-    // Check if this node has any visible children
-    const hasVisibleChildren = node.children.some(childId => visibleNodeIds.has(childId))
+    // Check if this node has any children
+    const hasChildren = node.children.length > 0
 
     // Determine node stage position
-    // Terminal nodes (no visible children) should be positioned at maxStage
     let nodeStage: number
-    if (!hasVisibleChildren && node.depth > 0) {
-      // Terminal node: move to rightmost position
-      nodeStage = maxStage
-    } else if (maxVisibleStage !== undefined) {
-      // When filtering by stage, use depth for positioning
-      nodeStage = node.depth
+    if (!hasChildren && node.depth > 0) {
+      // Terminal node: use explicit stage or maxStage
+      nodeStage = node.stage ?? maxStage
     } else {
-      // Otherwise use the node's explicit stage (which may be terminal stage 3)
+      // Otherwise use the node's explicit stage or depth
       nodeStage = node.stage ?? node.depth
     }
 
@@ -369,29 +413,21 @@ export function convertTreeToSankeyStructure(tree: Map<string, SankeyTreeNode>, 
       id: node.id,
       name: getNodeDisplayName(node, tree),
       stage: nodeStage,
-      depth: node.depth,  // Preserve tree depth for sorting
+      depth: node.depth,
       feature_count: node.featureCount,
-      category: getNodeCategory(node, tree),  // Pass tree for parent lookup
-      metric: node.metric,  // Include metric for stage labels
+      category: getNodeCategory(node, tree),
+      metric: node.metric,
       feature_ids: Array.from(node.featureIds),
-      // Mark nodes at maximum stage OR terminal nodes as vertical_bar type
       node_type: shouldBeVerticalBar ? 'vertical_bar' : 'standard',
-      // Copy hierarchical color from tree node
       colorHex: node.colorHex
     }
     nodes.push(sankeyNode)
 
-    // Debug: log when we add key nodes
-    if (node.id.includes('monosemantic') || node.id.includes('group0')) {
-      console.log('[convertTreeToSankeyStructure] Added below-threshold node:', node.id, 'at stage', nodeStage)
-    }
-
-    // Create links to children (only if children are also visible)
+    // Create links to children
     if (node.children.length > 0) {
       node.children.forEach(childId => {
         const child = tree.get(childId)
-        // Only create link if child exists, has features, AND is visible
-        if (child && child.featureCount > 0 && visibleNodeIds.has(childId)) {
+        if (child && child.featureCount > 0) {
           links.push({
             source: node.id,
             target: childId,

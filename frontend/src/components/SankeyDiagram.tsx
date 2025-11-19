@@ -11,11 +11,8 @@ import {
   applyRightToLeftTransform,
   RIGHT_SANKEY_MARGIN
 } from '../lib/sankey-utils'
-import { calculateVerticalBarNodeLayout, getNodeSegments } from '../lib/sankey-utils'
-import type { SankeyTreeNode } from '../types'
-import {
-  getNodeMetrics
-} from '../lib/threshold-utils'
+import { calculateVerticalBarNodeLayout } from '../lib/sankey-utils'
+// Removed: SankeyTreeNode, getNodeMetrics, getNodeSegments - using v2 system
 import { useResizeObserver } from '../lib/utils'
 import type { D3SankeyNode, D3SankeyLink } from '../types'
 import {
@@ -54,7 +51,6 @@ const SankeyNode: React.FC<{
   isSelected?: boolean
   flowDirection: 'left-to-right' | 'right-to-left'
   animationDuration: number
-  sankeyTree?: Map<string, any> | null
 }> = ({
   node,
   onMouseEnter,
@@ -64,8 +60,7 @@ const SankeyNode: React.FC<{
   isHighlighted,
   isSelected = false,
   flowDirection: _flowDirection,
-  animationDuration: _animationDuration,
-  sankeyTree: _sankeyTree
+  animationDuration: _animationDuration
 }) => {
   if (node.x0 === undefined || node.x1 === undefined || node.y0 === undefined || node.y1 === undefined) {
     return null
@@ -143,15 +138,29 @@ const VerticalBarSankeyNode: React.FC<{
   isHovered?: boolean
   featureSelectionStates?: Map<number, 'selected' | 'rejected'>
   tableSortedFeatureIds?: number[]
-  sankeyTree?: Map<string, SankeyTreeNode> | null
-}> = ({ node, scrollState, flowDirection: _flowDirection, onClick, onMouseEnter, onMouseLeave, isSelected = false, isHovered = false, featureSelectionStates, tableSortedFeatureIds, sankeyTree }) => {
+  sankeyStructure?: any | null  // V2: simplified structure
+}> = ({ node, scrollState, flowDirection: _flowDirection, onClick, onMouseEnter, onMouseLeave, isSelected = false, isHovered = false, featureSelectionStates, tableSortedFeatureIds, sankeyStructure }) => {
   const layout = calculateVerticalBarNodeLayout(node, scrollState, featureSelectionStates, tableSortedFeatureIds)
 
   // Check if this is a placeholder node
   const isPlaceholder = node.id === 'placeholder_vertical_bar'
 
-  // Check for stage segments (progressive reveal)
-  const stageSegments = sankeyTree ? getNodeSegments(node, sankeyTree) : []
+  // V2: Get segments from sankeyStructure
+  const stageSegments = useMemo(() => {
+    if (!sankeyStructure) return []
+
+    const structureNode = sankeyStructure.nodes.find((n: any) => n.id === node.id)
+    if (!structureNode || structureNode.type !== 'segment') return []
+
+    // Convert segments to rendering format
+    return structureNode.segments.map((seg: any, index: number) => ({
+      y: node.y0! + seg.yPosition * ((node.y1! - node.y0!) || 0),
+      height: seg.height * ((node.y1! - node.y0!) || 0),
+      color: seg.color,
+      label: seg.tagName,
+      featureCount: seg.featureCount
+    }))
+  }, [sankeyStructure, node])
 
   // Calculate bounding box for selection border
   const boundingBox = layout.subNodes.length > 0 ? {
@@ -257,8 +266,9 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const loadingKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
   const errorKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
 
-  // Get data from store - NEW TREE-BASED SYSTEM ONLY
-  const computedSankey = useVisualizationStore(state => state[panelKey].computedSankey)
+  // Get data from store - V2 SIMPLIFIED SYSTEM
+  const d3Layout = useVisualizationStore(state => state[panelKey].d3Layout)
+  const sankeyStructure = useVisualizationStore(state => state[panelKey].sankeyStructure)
   const filters = useVisualizationStore(state => state[panelKey].filters)
   const histogramData = useVisualizationStore(state => state[panelKey].histogramData)
   const loading = useVisualizationStore(state => state.loading[loadingKey])
@@ -266,16 +276,12 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const hoveredAlluvialNodeId = useVisualizationStore(state => state.hoveredAlluvialNodeId)
   const hoveredAlluvialPanel = useVisualizationStore(state => state.hoveredAlluvialPanel)
   const tableScrollState = useVisualizationStore(state => state.tableScrollState)
-  const sankeyTree = useVisualizationStore(state => state[panelKey].sankeyTree)
   const tableSelectedNodeIds = useVisualizationStore(state => state.tableSelectedNodeIds)
   const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
   const tableData = useVisualizationStore(state => state.tableData)
   const {
     showHistogramPopover,
-    // addStageToNode, // REMOVED: No longer needed with fixed 3-stage auto-expansion
-    // removeNodeStage, // REMOVED: No longer needed with fixed 3-stage auto-expansion
-    updateNodeThresholds,
-    updateNodeThresholdsByPercentile,
+    updateStageThreshold,
     selectNodeWithCategory,
     getNodeCategory
   } = useVisualizationStore()
@@ -288,30 +294,29 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     return tableData.features.map((f: any) => f.feature_id)
   }, [tableData])
 
-  // NEW TREE-BASED SYSTEM: use computedSankey directly
+  // V2 SIMPLIFIED SYSTEM: use d3Layout directly
   const data = useMemo(() => {
-    if (!computedSankey) {
-      console.log(`[SankeyDiagram ${panel}] ⚠️ No computed sankey data`)
+    if (!d3Layout || !sankeyStructure) {
+      console.log(`[SankeyDiagram ${panel}] ⚠️ No D3 layout data`)
       return null
     }
 
-    console.log(`[SankeyDiagram ${panel}] ✅ Using TREE-BASED system`, {
-      nodes: computedSankey.nodes.length,
-      links: computedSankey.links.length,
-      maxDepth: computedSankey.maxDepth,
-      sankeyTreeSize: sankeyTree?.size
+    console.log(`[SankeyDiagram ${panel}] ✅ Using V2 SIMPLIFIED system`, {
+      nodes: d3Layout.nodes.length,
+      links: d3Layout.links.length,
+      currentStage: sankeyStructure.currentStage
     })
 
-    // Return computed structure in SankeyData format
+    // Return D3 layout in SankeyData format
     return {
-      nodes: computedSankey.nodes,
-      links: computedSankey.links,
+      nodes: d3Layout.nodes,
+      links: d3Layout.links,
       metadata: {
-        total_features: computedSankey.nodes.find((n: any) => n.id === 'root')?.feature_count || 0,
+        total_features: d3Layout.nodes.find((n: any) => n.id === 'root')?.feature_count || 0,
         applied_filters: filters
       }
     }
-  }, [computedSankey, filters, panel, sankeyTree])
+  }, [d3Layout, sankeyStructure, filters, panel])
 
   // Track previous data for smooth transitions
   const [displayData, setDisplayData] = useState(data)
@@ -381,14 +386,14 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
   // Event handlers
   const handleNodeHistogramClick = useCallback((node: D3SankeyNode) => {
-    if (!showHistogramOnClick || !sankeyTree) return
+    if (!showHistogramOnClick || !sankeyStructure) return
 
-    const treeNode = sankeyTree.get(node.id)
-    if (!treeNode) return
+    // V2: Only show histograms for segment nodes with metrics
+    const structureNode = sankeyStructure.nodes.find(n => n.id === node.id)
+    if (!structureNode || structureNode.type !== 'segment') return
 
-    // Get metrics for this node (root shows all, others show their metric)
-    const metrics = getNodeMetrics(treeNode, sankeyTree)
-    if (metrics.length === 0) return
+    const metric = structureNode.metric
+    if (!metric) return
 
     const containerRect = containerElementRef.current?.getBoundingClientRect()
     const position = {
@@ -396,34 +401,18 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       y: containerRect ? containerRect.top + containerRect.height / 2 : window.innerHeight / 2
     }
 
-    showHistogramPopover(node.id, node.name, metrics, position, undefined, undefined, panel, node.category)
-  }, [showHistogramOnClick, showHistogramPopover, sankeyTree, panel])
+    showHistogramPopover(node.id, node.name, [metric as any], position, undefined, undefined, panel, node.category)
+  }, [showHistogramOnClick, showHistogramPopover, sankeyStructure, panel])
 
   const handleLinkHistogramClick = useCallback((link: D3SankeyLink) => {
-    if (!showHistogramOnClick || !sankeyTree) return
+    if (!showHistogramOnClick) return
 
     const sourceNode = typeof link.source === 'object' ? link.source : null
-    const targetNode = typeof link.target === 'object' ? link.target : null
+    if (!sourceNode) return
 
-    if (!sourceNode || !targetNode) return
-
-    // Get the metric from the source node (the metric that created this link)
-    const metric = sourceNode.metric
-    if (!metric) {
-      // If no metric, fall back to showing all metrics for the source node
-      handleNodeHistogramClick(sourceNode)
-      return
-    }
-
-    // Show histogram for only this specific metric
-    const containerRect = containerElementRef.current?.getBoundingClientRect()
-    const position = {
-      x: containerRect ? containerRect.right + 20 : window.innerWidth - 600,
-      y: containerRect ? containerRect.top + containerRect.height / 2 : window.innerHeight / 2
-    }
-
-    showHistogramPopover(sourceNode.id, sourceNode.name, [metric as any], position, undefined, undefined, panel, sourceNode.category)
-  }, [showHistogramOnClick, showHistogramPopover, sankeyTree, panel, handleNodeHistogramClick])
+    // V2: Delegate to node histogram click
+    handleNodeHistogramClick(sourceNode)
+  }, [showHistogramOnClick, handleNodeHistogramClick])
 
   // REMOVED: handleAddStageClick - No longer needed with fixed 3-stage auto-expansion
   // const handleAddStageClick = useCallback((event: React.MouseEvent, node: D3SankeyNode) => {
@@ -435,23 +424,20 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   // const handleStageSelect = useCallback(async (stageTypeId: string) => { ... }, [inlineSelector, panel])
   // const handleOverlayMetricClick = useCallback(async (metric: string) => { ... }, [panel])
 
-  const handleThresholdUpdate = useCallback((nodeId: string, newThresholds: number[]) => {
-    console.log('[SankeyDiagram.handleThresholdUpdate] 🎯 Thresholds updated:', {
+  const handleThresholdUpdate = useCallback((nodeId: string, newThreshold: number) => {
+    console.log('[SankeyDiagram.handleThresholdUpdate] 🎯 Threshold updated:', {
       nodeId,
-      newThresholds,
+      newThreshold,
       panel
     })
-    updateNodeThresholds(nodeId, newThresholds, panel)
-  }, [updateNodeThresholds, panel])
 
-  const handleThresholdUpdateByPercentile = useCallback((nodeId: string, percentiles: number[]) => {
-    console.log('[SankeyDiagram.handleThresholdUpdateByPercentile] 🎯 Percentiles updated:', {
-      nodeId,
-      percentiles,
-      panel
-    })
-    updateNodeThresholdsByPercentile(nodeId, percentiles, panel)
-  }, [updateNodeThresholdsByPercentile, panel])
+    // V2: Determine which stage this node belongs to
+    if (nodeId === 'stage1_segment') {
+      updateStageThreshold(1, newThreshold, panel)
+    } else if (nodeId === 'stage2_segment') {
+      updateStageThreshold(2, newThreshold, panel)
+    }
+  }, [updateStageThreshold, panel])
 
   const handleNodeSelectionClick = useCallback((event: React.MouseEvent, node: D3SankeyNode) => {
     console.log('[SankeyDiagram.handleNodeSelectionClick] ⚡ CLICK EVENT FIRED!')
@@ -625,7 +611,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                           isHovered={hoveredNodeId === node.id}
                           featureSelectionStates={featureSelectionStates}
                           tableSortedFeatureIds={tableSortedFeatureIds || undefined}
-                          sankeyTree={sankeyTree}
+                          sankeyStructure={sankeyStructure}
                         />
                       </g>
                     )
@@ -644,21 +630,19 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                       onClick={(e) => handleNodeSelectionClick(e, node)}
                       flowDirection={flowDirection}
                       animationDuration={animationDuration}
-                      sankeyTree={sankeyTree}
                     />
                   )
                 })
               })()}
             </g>
 
-            {/* Sankey Overlay - histograms and threshold sliders */}
+            {/* Sankey Overlay - histograms and threshold sliders (V2) */}
             <SankeyOverlay
               layout={layout}
               histogramData={histogramData}
               animationDuration={animationDuration}
-              sankeyTree={sankeyTree}
+              sankeyStructure={sankeyStructure}
               onThresholdUpdate={handleThresholdUpdate}
-              onThresholdUpdateByPercentile={handleThresholdUpdateByPercentile}
             />
 
             {/* Node Labels - rendered after histograms to appear in front */}
@@ -740,18 +724,16 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                 let textAnchor: 'start' | 'end' | 'middle'
                 let showLabel = true
 
-                if (node.id === 'root' && sankeyTree) {
-                  const rootTreeNode = sankeyTree.get('root')
-                  if (rootTreeNode && rootTreeNode.children.length === 0) {
+                // V2: Check if root has children in sankeyStructure
+                if (node.id === 'root' && sankeyStructure) {
+                  const hasChildren = sankeyStructure.links.some((l: any) => l.source === 'root')
+                  if (!hasChildren) {
                     labelX = node.x1! + 6
                     textAnchor = 'start'
-                  } else if (rootTreeNode && rootTreeNode.children.length > 0) {
+                  } else {
                     showLabel = false
                     labelX = node.x0! - 6
                     textAnchor = 'end'
-                  } else {
-                    labelX = isRightToLeft ? node.x1! + 6 : node.x0! - 6
-                    textAnchor = isRightToLeft ? 'start' : 'end'
                   }
                 } else {
                   labelX = isRightToLeft ? node.x1! + 6 : node.x0! - 6

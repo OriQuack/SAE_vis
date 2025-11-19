@@ -11,7 +11,6 @@ import {
   METRIC_SCORE_FUZZ,
   METRIC_SEMANTIC_SIMILARITY,
   OKABE_ITO_PALETTE,
-  PAUL_TOL_BRIGHT
 } from './constants'
 import { HierarchicalColorAssigner } from './hierarchical-colors'
 import type { SankeyTreeNode } from '../types'

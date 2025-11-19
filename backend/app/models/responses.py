@@ -564,3 +564,18 @@ class ActivationExamplesResponse(BaseModel):
         ...,
         description="Dictionary mapping feature_id to activation example data"
     )
+
+class DistributedFeaturesResponse(BaseModel):
+    """Response model for distributed features endpoint"""
+    selected_features: List[int] = Field(
+        ...,
+        description="List of evenly distributed feature IDs"
+    )
+    total_available: int = Field(
+        ...,
+        description="Total number of features available to select from"
+    )
+    method_used: str = Field(
+        ...,
+        description="Distribution method used ('kmeans')"
+    )

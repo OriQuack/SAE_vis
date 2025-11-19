@@ -1,11 +1,21 @@
+/**
+ * DEPRECATED: This file has been replaced by FeatureSplitPairViewer.tsx + TagAutomaticPanel.tsx
+ *
+ * The old table-based interface has been replaced with:
+ * 1. FeatureSplitPairViewer.tsx - Carousel-style pair viewer showing one pair at a time
+ * 2. TagAutomaticPanel.tsx - Always-visible embedded histogram panel for automatic tagging
+ *
+ * This file is kept for reference only and will be removed in a future cleanup.
+ * Do not import or use this component.
+ */
+
 import React, { useMemo, useState, useEffect, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow, DecoderStagePairRow, StageTableContext, FeatureSplitGroupedRow, FeatureSplitSubColumn } from '../types'
 import { METRIC_DECODER_SIMILARITY } from '../lib/constants'
-import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORIES, TAG_CATEGORY_TABLE_TITLES, TAG_CATEGORY_TABLE_INSTRUCTIONS } from '../lib/tag-constants'
+import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/tag-constants'
 import {
-  getBadgeConfig,
   getRowBackgroundColor,
   addOpacityToHex
 } from '../lib/table-color-utils'
@@ -14,7 +24,7 @@ import ActivationExample from './TableActivationExample'
 import ScoreCircle, { TagBadge } from './TableIndicators'
 import SimilarityTaggingPopover from './TagAutomaticPopover'
 import '../styles/QualityTable.css'
-import '../styles/FeatureSplitTable.css'
+// import '../styles/FeatureSplitTable.css' // DEPRECATED - CSS also moved to _FeatureSplitTable.css.deprecated
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -80,12 +90,6 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
   const pairSimilarityScores = useVisualizationStore(state => state.pairSimilarityScores)
   const tableSortBy = useVisualizationStore(state => state.tableSortBy)
   const thresholdVisualization = useVisualizationStore(state => state.thresholdVisualization)
-
-  // Similarity tagging (automatic tagging) state and action
-  const moveToNextStep = useVisualizationStore(state => state.moveToNextStep)
-
-  // Get badge labels and colors from centralized utility
-  const badgeConfig = useMemo(() => getBadgeConfig('pair'), [])
 
   // Sorting state
   const [sortBy, setSortBy] = useState<'id' | 'decoder_similarity' | null>(null)
@@ -322,11 +326,6 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
 
     return deduplicatedRows
   }, [stageContext, tableData, stageFeatures, activationExamples])
-
-  // Extract all pair keys for similarity sorting
-  const allPairKeys = useMemo(() => {
-    return stageRows.map(row => row.pairKey)
-  }, [stageRows])
 
   // Group pairs by main feature ID for compact row layout
   // Creates 1 row per main feature with 4 sub-columns: [main, similar1, similar2, similar3]
@@ -934,8 +933,8 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
                               featureId={subCol.featureId}
                               tagName={
                                 isMainFeature
-                                  ? getSplitTagName(mainFeatureDerivedState)
-                                  : getSplitTagName(pairSelectionState)
+                                  ? getSplitTagName(mainFeatureDerivedState ?? null)
+                                  : getSplitTagName(pairSelectionState ?? null)
                               }
                               tagCategoryId={TAG_CATEGORY_FEATURE_SPLITTING}
                               selectionState={
