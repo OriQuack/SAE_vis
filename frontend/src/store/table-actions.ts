@@ -170,7 +170,7 @@ export const createTableActions = (set: any, get: any) => ({
 
     // V2: If a specific segment is selected, return only that segment's features
     if (selectedSegment && leftPanel.sankeyStructure) {
-      const segmentNode = leftPanel.sankeyStructure.nodes.find(n => n.id === selectedSegment.nodeId)
+      const segmentNode = leftPanel.sankeyStructure.nodes.find((n: any) => n.id === selectedSegment.nodeId)
 
       if (segmentNode && segmentNode.type === 'segment' && segmentNode.segments) {
         const segment = segmentNode.segments[selectedSegment.segmentIndex]
@@ -484,7 +484,7 @@ export const createTableActions = (set: any, get: any) => ({
 
     // Trigger Sankey recompute to update visible stages
     console.log('[Store.setActiveStageNode] 🔄 Triggering Sankey recompute for left panel')
-    get().recomputeSankeyTree('left')
+    get().recomputeD3StructureV2('left')
   },
 
   /**
@@ -499,7 +499,7 @@ export const createTableActions = (set: any, get: any) => ({
 
     // Trigger Sankey recompute to show all stages
     console.log('[Store.clearActiveStageNode] 🔄 Triggering Sankey recompute to show all stages')
-    get().recomputeSankeyTree('left')
+    get().recomputeD3StructureV2('left')
   },
 
   /**
@@ -623,7 +623,7 @@ export const createTableActions = (set: any, get: any) => ({
    */
   moveToNextStep: () => {
     const state = get()
-    const { activeStageCategory, featureSelectionStates, pairSelectionStates } = state
+    const { activeStageCategory } = state
 
     console.log('[Store.moveToNextStep] Moving to next step from category:', activeStageCategory)
 
@@ -1539,7 +1539,7 @@ export const createTableActions = (set: any, get: any) => ({
           const groupingStates = sortedBySelectionStates || featureSelectionStates
 
           // Separate into three groups
-          features.forEach(feature => {
+          features.forEach((feature: any) => {
             const selectionState = groupingStates.get(feature.feature_id)
             if (selectionState === 'selected') {
               selected.push(feature)
@@ -1622,17 +1622,17 @@ export const createTableActions = (set: any, get: any) => ({
 
             if (confidencesA) {
               if (causeSortCategory && confidencesA[causeSortCategory] !== undefined) {
-                scoreA = confidencesA[causeSortCategory]
+                scoreA = confidencesA[causeSortCategory] as number
               } else {
-                scoreA = Math.max(...Object.values(confidencesA))
+                scoreA = Math.max(...Object.values(confidencesA) as number[])
               }
             }
 
             if (confidencesB) {
               if (causeSortCategory && confidencesB[causeSortCategory] !== undefined) {
-                scoreB = confidencesB[causeSortCategory]
+                scoreB = confidencesB[causeSortCategory] as number
               } else {
-                scoreB = Math.max(...Object.values(confidencesB))
+                scoreB = Math.max(...Object.values(confidencesB) as number[])
               }
             }
 
@@ -1645,9 +1645,9 @@ export const createTableActions = (set: any, get: any) => ({
             let score = -Infinity
             if (confidences) {
               if (causeSortCategory) {
-                score = confidences[causeSortCategory] ?? -Infinity
+                score = (confidences[causeSortCategory] as number) ?? -Infinity
               } else {
-                score = Math.max(...Object.values(confidences))
+                score = Math.max(...Object.values(confidences) as number[])
               }
             }
 
@@ -1663,9 +1663,9 @@ export const createTableActions = (set: any, get: any) => ({
             let score = -Infinity
             if (confidences) {
               if (causeSortCategory) {
-                score = confidences[causeSortCategory] ?? -Infinity
+                score = (confidences[causeSortCategory] as number) ?? -Infinity
               } else {
-                score = Math.max(...Object.values(confidences))
+                score = Math.max(...Object.values(confidences) as number[])
               }
             }
 
@@ -1685,7 +1685,7 @@ export const createTableActions = (set: any, get: any) => ({
       if (mode === 'feature') {
         const { featureSelectionStates } = get()
         // Check each feature with a similarity score
-        similarityScores.forEach((score, featureId) => {
+        similarityScores.forEach((score: any, featureId: any) => {
           const isAlreadyTagged = featureSelectionStates.has(featureId)
           if (!isAlreadyTagged) {
             if (score >= selectThreshold) {
@@ -1698,7 +1698,7 @@ export const createTableActions = (set: any, get: any) => ({
       } else if (mode === 'pair') {
         const { pairSelectionStates } = get()
         // Check each pair with a similarity score
-        pairSimilarityScores.forEach((score, pairKey) => {
+        pairSimilarityScores.forEach((score: any, pairKey: any) => {
           const isAlreadyTagged = pairSelectionStates.has(pairKey)
           if (!isAlreadyTagged) {
             if (score >= selectThreshold) {
@@ -1711,14 +1711,14 @@ export const createTableActions = (set: any, get: any) => ({
       } else if (mode === 'cause') {
         const { causeSelectionStates } = get()
         // Check each feature with confidence scores
-        causeCategoryConfidences.forEach((confidences, featureId) => {
+        causeCategoryConfidences.forEach((confidences: any, featureId: any) => {
           const isAlreadyTagged = causeSelectionStates.has(featureId)
           if (!isAlreadyTagged) {
             let score = -Infinity
             if (causeSortCategory && confidences[causeSortCategory] !== undefined) {
-              score = confidences[causeSortCategory]
+              score = confidences[causeSortCategory] as number
             } else {
-              score = Math.max(...Object.values(confidences))
+              score = Math.max(...Object.values(confidences) as number[])
             }
             if (score >= selectThreshold) {
               previewAutoSelected.add(featureId)

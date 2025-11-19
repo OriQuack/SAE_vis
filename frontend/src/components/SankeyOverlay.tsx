@@ -1,14 +1,7 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react'
-import type { D3SankeyNode, D3SankeyLink, HistogramData, SankeyLayout, SankeyTreeNode } from '../types'
-import {
-  METRIC_DECODER_SIMILARITY,
-  METRIC_QUALITY_SCORE,
-  CONSISTENCY_THRESHOLDS
-} from '../lib/constants'
+import React, { useMemo, useState, useRef } from 'react'
+import type { D3SankeyNode, D3SankeyLink, HistogramData, SankeyLayout } from '../types'
 import {
   calculateNodeHistogramLayout,
-  shouldDisplayNodeHistogram,
-  getNodeHistogramMetric,
   hasOutgoingLinks,
   calculateHistogramYAxisTicks
 } from '../lib/sankey-histogram-utils'
@@ -263,11 +256,8 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
   // Track drag preview thresholds by node ID (for live histogram updates without committing)
   const [nodeDragThresholds, setNodeDragThresholds] = useState<Record<string, number[]>>({})
 
-  // Track optimistic segment proportions during drag (for real-time visual updates)
-  const [optimisticSegments, setOptimisticSegments] = useState<Record<string, any[]>>({})
-
   // Debounce timer ref for smooth segment updates
-  const segmentUpdateTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const segmentUpdateTimerRef = useRef<number | null>(null)
 
   // V2: Cleanup drag thresholds and optimistic segments when structure updates
   React.useEffect(() => {
@@ -275,11 +265,14 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
 
     const timeoutId = setTimeout(() => {
       setNodeDragThresholds({})  // Simply clear all drag thresholds
-      setOptimisticSegments({})  // Clear optimistic segments
+      // Clear optimistic segments in parent
+      if (onOptimisticSegmentsChange) {
+        onOptimisticSegmentsChange({})
+      }
     }, 100)
 
     return () => clearTimeout(timeoutId)
-  }, [sankeyStructure])
+  }, [sankeyStructure, onOptimisticSegmentsChange])
 
   // Cleanup debounce timer on unmount
   React.useEffect(() => {
@@ -443,13 +436,7 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
                           parentNode.featureCount
                         )
 
-                        // Update optimistic segments
-                        setOptimisticSegments(prev => ({
-                          ...prev,
-                          [targetNodeId]: newSegments
-                        }))
-
-                        // Notify parent component if callback provided
+                        // Notify parent component of optimistic segments
                         if (onOptimisticSegmentsChange) {
                           onOptimisticSegmentsChange({ [targetNodeId]: newSegments })
                         }

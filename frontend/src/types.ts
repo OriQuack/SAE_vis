@@ -33,12 +33,6 @@ export type CategoryType =
 /**
  * Stage Definition - Simplified stage configuration for new system
  */
-export interface StageDefinition {
-  index: number
-  metric: string
-  thresholds: number[]
-}
-
 /**
  * Feature Group - Group of features within threshold range
  */
@@ -47,15 +41,6 @@ export interface FeatureGroup {
   rangeLabel: string
   featureIds: Set<number>
   featureCount: number
-}
-
-/**
- * Computed Sankey Structure - Result of local intersection computation
- */
-export interface ComputedSankeyStructure {
-  nodes: SankeyNode[]
-  links: SankeyLink[]
-  nodeFeatures: Map<string, Set<number>>
 }
 
 // ============================================================================
@@ -82,16 +67,6 @@ export interface SankeyTreeNode {
   percentileToMetricMap?: Map<number, number>  // Cached exact percentile to metric mappings
   color?: { L: number; a: number; b: number }  // CIELAB color for hierarchical coloring
   colorHex?: string                   // Cached hex color (converted from LAB)
-}
-
-/**
- * Tree-based Sankey Structure - Complete tree representation for Sankey diagram
- */
-export interface TreeBasedSankeyStructure {
-  tree: Map<string, SankeyTreeNode>    // Node ID to node mapping
-  nodes: SankeyNode[]                  // Flat array of nodes for D3 rendering
-  links: SankeyLink[]                  // Links between nodes
-  maxDepth: number                     // Maximum depth in the tree
 }
 
 // ============================================================================

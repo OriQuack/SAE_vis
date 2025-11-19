@@ -25,8 +25,7 @@ import {
   METRIC_SCORE_DETECTION
 } from '../lib/constants'
 import { createInitialPanelState, type PanelState } from './utils'
-import { createTreeActions } from './sankey-actions'
-import { createSimplifiedSankeyActions } from './sankey-actions-v2'
+import { createSimplifiedSankeyActions } from './sankey-actions'
 import { createTableActions } from './table-actions'
 import { createActivationActions } from './activation-actions'
 
@@ -85,19 +84,7 @@ interface AppState {
   // Data actions
   setFilters: (filters: Partial<any>, panel?: PanelSide) => void
 
-  // Tree-based threshold system actions (from tree-actions.ts) - LEGACY
-  initializeFixedSankeyTree: (panel?: PanelSide) => Promise<void>
-  addStageToNodeInternal: (nodeId: string, categoryId: string, panel?: PanelSide) => Promise<void>
-  addCauseStage: (nodeId: string, panel?: PanelSide) => Promise<void>
-  buildStageForCategory: (categoryId: string, panel?: PanelSide) => Promise<void>
-  updateNodeThresholds: (nodeId: string, thresholds: number[], panel?: PanelSide) => Promise<void>
-  updateNodeThresholdsByPercentile: (nodeId: string, percentiles: number[], panel?: PanelSide) => Promise<void>
-  recomputeSankeyTree: (panel?: PanelSide) => void
-  removeNodeStage: (nodeId: string, panel?: PanelSide) => void
-  initializeSankeyTree: (panel?: PanelSide) => void
-  loadRootFeatures: (panel?: PanelSide) => Promise<void>
-
-  // NEW: Simplified 3-stage Sankey actions (from sankey-actions-v2.ts)
+  // Simplified 3-stage Sankey actions (from sankey-actions-v2.ts)
   initializeSankey: (panel?: PanelSide) => Promise<void>
   activateStage2: (panel?: PanelSide) => Promise<void>
   activateStage3: (panel?: PanelSide) => Promise<void>
@@ -386,10 +373,7 @@ const initialState = {
 export const useStore = create<AppState>((set, get) => ({
   ...initialState,
 
-  // Compose tree actions (LEGACY)
-  ...createTreeActions(set, get),
-
-  // Compose simplified Sankey actions (NEW)
+  // Compose simplified Sankey actions
   ...createSimplifiedSankeyActions(set, get),
 
   // Compose table actions

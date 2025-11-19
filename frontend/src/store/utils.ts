@@ -57,29 +57,14 @@ export const mapSankeyMetricToTableSort = (metric: string | null): string | null
 export interface PanelState {
   filters: Filters
   histogramData: Record<string, any> | null
-  sankeyTree: Map<string, SankeyTreeNode>  // Legacy: will be deprecated
-  computedSankey?: any  // Legacy: will be deprecated
 
-  // NEW: Simplified 3-stage architecture
+  // Simplified 3-stage architecture
   sankeyStructure?: SankeyStructure  // Simplified structure (Stage 1/2/3)
   rootFeatureIds?: Set<number>  // All features after filtering
   d3Layout?: { nodes: D3SankeyNode[], links: D3SankeyLink[] }  // D3 layout cache
 }
 
 export const createInitialPanelState = (): PanelState => {
-  // Initialize tree-based system with root node
-  const rootNode: SankeyTreeNode = {
-    id: 'root',
-    parentId: null,
-    metric: null,
-    thresholds: [],
-    depth: 0,
-    children: [],
-    featureIds: new Set(),
-    featureCount: 0,
-    rangeLabel: 'All Features'
-  }
-
   return {
     filters: {
       sae_id: [],
@@ -87,7 +72,6 @@ export const createInitialPanelState = (): PanelState => {
       llm_explainer: [],
       llm_scorer: []
     },
-    histogramData: null,
-    sankeyTree: new Map([['root', rootNode]])
+    histogramData: null
   }
 }

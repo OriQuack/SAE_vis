@@ -14,7 +14,6 @@ import {
   calculateBarSegments
 } from '../lib/histogram-utils'
 import { scaleLinear } from 'd3-scale'
-import { getNodeThresholds } from '../lib/threshold-utils'
 import { METRIC_DISPLAY_NAMES, getThresholdRegionColors } from '../lib/constants'
 import type { HistogramData, HistogramChart } from '../types'
 import { ThresholdHandles } from './ThresholdHandles'
@@ -319,12 +318,13 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
   const histogramData = useVisualizationStore(state => state[panelKey].histogramData)
   const loading = useVisualizationStore(state => state.loading.histogram)
   const error = useVisualizationStore(state => state.errors.histogram)
-  const sankeyTree = useVisualizationStore(state => state[panelKey].sankeyTree)
+  // V2: sankeyTree removed - using sankeyStructure instead
+  const sankeyStructure = useVisualizationStore(state => state[panelKey].sankeyStructure)
 
   const {
     hideHistogramPopover,
     fetchMultipleHistogramData,
-    updateNodeThresholds,
+    updateStageThreshold,  // V2: replaces updateNodeThresholds
     clearError
   } = useVisualizationStore()
 
@@ -373,11 +373,18 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
   }, [popoverData?.visible, popoverData?.position, containerSize])
 
   // Get node's threshold values (for displaying multiple sliders)
+  // V2: Get thresholds from sankeyStructure segment nodes
   const nodeThresholds = useMemo(() => {
     const nodeId = popoverData?.nodeId
-    if (!nodeId || !sankeyTree) return []
-    return getNodeThresholds(nodeId, sankeyTree)
-  }, [popoverData?.nodeId, sankeyTree])
+    if (!nodeId || !sankeyStructure) return []
+
+    // Find the segment node by ID
+    const node = sankeyStructure.nodes.find((n: any) => n.id === nodeId)
+    if (node && node.type === 'segment' && node.threshold != null) {
+      return [node.threshold]
+    }
+    return []
+  }, [popoverData?.nodeId, sankeyStructure])
 
   // Get effective threshold values for display (1 handle to match Sankey)
   const getEffectiveThresholds = useCallback((metric: string): number[] => {
@@ -737,8 +744,10 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
                     animationDuration={animationDuration}
                     barColor={metricColor}
                     onThresholdUpdate={(newThresholds) => {
-                      if (popoverData?.nodeId) {
-                        updateNodeThresholds(popoverData.nodeId, newThresholds, panel)
+                      if (popoverData?.nodeId && newThresholds.length > 0) {
+                        // V2: Map nodeId to stage number and update
+                        const stageNumber = popoverData.nodeId === 'stage1_segment' ? 1 : 2
+                        updateStageThreshold(stageNumber as 1 | 2, newThresholds[0], panel)
                       }
                     }}
                     onBarHover={handleBarHover}

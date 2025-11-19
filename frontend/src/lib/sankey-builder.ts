@@ -17,7 +17,7 @@ import type {
   NodeSegment,
   Filters
 } from '../types'
-import { STAGE_CONFIGS, getStageConfig, isTerminalTag } from './sankey-stages'
+import { getStageConfig } from './sankey-stages'
 import { processFeatureGroupResponse } from './threshold-utils'
 import { TAG_CATEGORIES } from './tag-constants'
 import * as api from '../api'
