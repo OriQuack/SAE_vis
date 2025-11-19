@@ -342,7 +342,7 @@ function assignConstantColors(): void {
         // Cause Category (Categorical colors)
         // ========================================
         case 'Missed Context':
-          colors[tag] = OKABE_ITO_PALETTE.BLUE  // #0072B2 - Blue
+          colors[tag] = OKABE_ITO_PALETTE.VERMILLION  // #0072B2 - Blue
           break
         case 'Missed Lexicon':
           colors[tag] = OKABE_ITO_PALETTE.ORANGE  // #E69F00 - Orange

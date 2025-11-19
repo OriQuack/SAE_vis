@@ -131,13 +131,15 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
   /**
    * Fetch evenly distributed features for pair viewer
    * Uses K-Means clustering in 9D metric space to select n distributed features
+   * @param n - Number of distributed samples to fetch
+   * @param filterFeatureIds - Optional set of feature IDs to sample from (if not provided, uses all tableData features)
    */
-  fetchDistributedPairs: async (n: number = 30) => {
+  fetchDistributedPairs: async (n: number = 30, filterFeatureIds?: Set<number>) => {
     const { tableData } = get()
 
-    console.log('[Store.fetchDistributedPairs] Starting distributed pair fetch:', { n })
+    console.log('[Store.fetchDistributedPairs] Starting distributed pair fetch:', { n, hasFilter: !!filterFeatureIds, filterSize: filterFeatureIds?.size })
 
-    if (!tableData?.rows) {
+    if (!tableData?.features) {
       console.warn('[Store.fetchDistributedPairs] ⚠️  No table data available')
       return
     }
@@ -145,8 +147,13 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
     try {
       set({ isLoadingDistributedPairs: true })
 
-      // Extract all feature IDs from table data
-      const featureIds = tableData.rows.map((row: any) => row.feature_id)
+      // Extract feature IDs - either from filter or all table data
+      let featureIds: number[]
+      if (filterFeatureIds && filterFeatureIds.size > 0) {
+        featureIds = Array.from(filterFeatureIds)
+      } else {
+        featureIds = tableData.features.map((row: any) => row.feature_id)
+      }
 
       console.log('[Store.fetchDistributedPairs] Calling API:', {
         totalFeatures: featureIds.length,

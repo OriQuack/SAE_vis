@@ -24,7 +24,7 @@ import {
   TAG_CATEGORY_QUALITY,
 } from '../lib/tag-constants'
 import { HighlightedExplanation } from './TableExplanation'
-import ActivationExample from './TableActivationExample'
+import ActivationExample from './ActivationExample'
 import QualityScoreBreakdown from './QualityScoreBreakdown'
 // DEPRECATED: import DecoderSimilarityTable from './FeatureSplitTable' - Replaced by FeatureSplitPairViewer + TagAutomaticPanel
 import FeatureSplitPairViewer from './FeatureSplitPairViewer'

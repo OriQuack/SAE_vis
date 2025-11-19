@@ -1,10 +1,7 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react'
 import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow } from '../types'
-import { METRIC_DECODER_SIMILARITY } from '../lib/constants'
-import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/tag-constants'
-import ActivationExample from './TableActivationExample'
-import { TagBadge } from './TableIndicators'
+import ActivationExample from './ActivationExample'
 import { extractInterFeaturePositions } from '../lib/activation-utils'
 import '../styles/FeatureSplitPairViewer.css'
 
@@ -18,15 +15,6 @@ const DISTRIBUTED_SAMPLE_SIZE = 30
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
-
-/**
- * Convert splitting selection state to tag name for TagBadge
- */
-function getSplitTagName(state: 'selected' | 'rejected' | null): string {
-  if (state === 'selected') return 'Fragmented'
-  if (state === 'rejected') return 'Monosemantic'
-  return 'Unsure'
-}
 
 /**
  * Build list of all pairs from decoder_similarity data in tableData
@@ -76,7 +64,7 @@ function buildPairList(tableData: any): Array<{
       pairs.push({
         mainFeatureId: mainId,
         similarFeatureId: similarId,
-        decoderSimilarity: similarData.decoder_similarity,
+        decoderSimilarity: similarData.cosine_similarity,
         pairKey,
         row,
         similarRow: rowMap.get(similarId) || null
@@ -137,7 +125,7 @@ function buildDistributedPairList(
     pairs.push({
       mainFeatureId: featureId,
       similarFeatureId: similarId,
-      decoderSimilarity: topSimilar.decoder_similarity,
+      decoderSimilarity: topSimilar.cosine_similarity,
       pairKey,
       row,
       similarRow: rowMap.get(similarId) || null
@@ -161,30 +149,64 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
   const togglePairSelection = useVisualizationStore(state => state.togglePairSelection)
   const clearPairSelection = useVisualizationStore(state => state.clearPairSelection)
-  const activeStageNodeId = useVisualizationStore(state => state.activeStageNodeId)
   const leftPanel = useVisualizationStore(state => state.leftPanel)
   const sortPairsBySimilarity = useVisualizationStore(state => state.sortPairsBySimilarity)
   const isPairSimilaritySortLoading = useVisualizationStore(state => state.isPairSimilaritySortLoading)
   const showSimilarityTaggingPopover = useVisualizationStore(state => state.showSimilarityTaggingPopover)
-  const donePairSelectionStates = useVisualizationStore(state => state.donePairSelectionStates)
-  const activationExamples = useVisualizationStore(state => state.activationExamples)
-  const fetchActivationExamples = useVisualizationStore(state => state.fetchActivationExamples)
   const distributedPairFeatureIds = useVisualizationStore(state => state.distributedPairFeatureIds)
   const isLoadingDistributedPairs = useVisualizationStore(state => state.isLoadingDistributedPairs)
-  const fetchDistributedPairs = useVisualizationStore(state => state.fetchDistributedPairs)
-  const clearDistributedPairs = useVisualizationStore(state => state.clearDistributedPairs)
+  const fetchDistributedPairs = useVisualizationStore(state => (state as any).fetchDistributedPairs)
+  const clearDistributedPairs = useVisualizationStore(state => (state as any).clearDistributedPairs)
+  const getSelectedNodeFeatures = useVisualizationStore(state => state.getSelectedNodeFeatures)
+  const selectedSegment = useVisualizationStore(state => state.selectedSegment)
+  const activationExamples = useVisualizationStore(state => state.activationExamples)
+  const fetchActivationExamples = useVisualizationStore(state => state.fetchActivationExamples)
 
   // Local state for carousel navigation
   const [currentPairIndex, setCurrentPairIndex] = useState(0)
-  const containerWidth = 800 // Fixed width for now
+  const containerWidth = 1400 // Fixed width for full-width activation examples
 
-  // Fetch distributed pairs on mount when tableData is available
-  useEffect(() => {
-    if (tableData?.rows && tableData.rows.length > 0 && !distributedPairFeatureIds && !isLoadingDistributedPairs) {
-      console.log('[FeatureSplitPairViewer] Fetching distributed pairs on mount')
-      fetchDistributedPairs(DISTRIBUTED_SAMPLE_SIZE)
+  // Get selected feature IDs from the selected node/segment
+  const selectedFeatureIds = useMemo(() => {
+    const features = getSelectedNodeFeatures()
+    console.log('[FeatureSplitPairViewer] Selected feature IDs:', features ? features.size : 0)
+    return features
+  }, [getSelectedNodeFeatures, selectedSegment, leftPanel])
+
+  // Filter tableData to only include selected features
+  const filteredTableData = useMemo(() => {
+    if (!tableData?.features || !selectedFeatureIds || selectedFeatureIds.size === 0) {
+      console.log('[FeatureSplitPairViewer] No filtered data:', {
+        hasTableData: !!tableData,
+        hasFeatures: !!tableData?.features,
+        selectedCount: selectedFeatureIds?.size || 0
+      })
+      return null
     }
-  }, [tableData, distributedPairFeatureIds, isLoadingDistributedPairs, fetchDistributedPairs])
+
+    const filteredFeatures = tableData.features.filter((row: FeatureTableRow) => selectedFeatureIds.has(row.feature_id))
+    console.log('[FeatureSplitPairViewer] Filtered table data:', {
+      totalFeatures: tableData.features.length,
+      selectedFeatures: selectedFeatureIds.size,
+      filteredFeatures: filteredFeatures.length
+    })
+
+    return {
+      rows: filteredFeatures
+    }
+  }, [tableData, selectedFeatureIds])
+
+  // Fetch distributed pairs on mount when filteredTableData is available
+  useEffect(() => {
+    if (filteredTableData?.rows && filteredTableData.rows.length > 0 && !distributedPairFeatureIds && !isLoadingDistributedPairs && selectedFeatureIds) {
+      console.log('[FeatureSplitPairViewer] Fetching distributed pairs on mount:', {
+        filteredFeatures: filteredTableData.rows.length,
+        selectedFeatures: selectedFeatureIds.size,
+        requestingSamples: DISTRIBUTED_SAMPLE_SIZE
+      })
+      fetchDistributedPairs(DISTRIBUTED_SAMPLE_SIZE, selectedFeatureIds)
+    }
+  }, [filteredTableData, distributedPairFeatureIds, isLoadingDistributedPairs, fetchDistributedPairs, selectedFeatureIds])
 
   // Clear distributed pairs on unmount
   useEffect(() => {
@@ -193,27 +215,27 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
     }
   }, [clearDistributedPairs])
 
-  // Build pair list from table data - use distributed pairs if available, otherwise all pairs
+  // Build pair list from filtered table data - use distributed pairs if available, otherwise all pairs
   const pairList = useMemo(() => {
+    if (!filteredTableData) {
+      console.log('[FeatureSplitPairViewer] No filtered table data available')
+      return []
+    }
+
     if (distributedPairFeatureIds && distributedPairFeatureIds.length > 0) {
       console.log('[FeatureSplitPairViewer] Using distributed pairs:', distributedPairFeatureIds.length)
-      return buildDistributedPairList(tableData, distributedPairFeatureIds)
+      return buildDistributedPairList(filteredTableData, distributedPairFeatureIds)
     }
     // Fallback to all pairs (original behavior)
-    return buildPairList(tableData)
-  }, [tableData, distributedPairFeatureIds])
+    console.log('[FeatureSplitPairViewer] Building all pairs from filtered data')
+    return buildPairList(filteredTableData)
+  }, [filteredTableData, distributedPairFeatureIds])
 
   // Current pair
   const currentPair = pairList[currentPairIndex] || null
 
   // Get selection state for current pair
   const pairSelectionState = currentPair ? pairSelectionStates.get(currentPair.pairKey) || null : null
-
-  // Get stage node info (for display)
-  const stageNode = useMemo(() => {
-    if (!activeStageNodeId) return null
-    return leftPanel.sankeyTree.get(activeStageNodeId) || null
-  }, [activeStageNodeId, leftPanel.sankeyTree])
 
   // Navigation handlers
   const goToNextPair = useCallback(() => {
@@ -253,6 +275,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
 
     fetchActivationExamples(featureIds)
   }, [currentPair, fetchActivationExamples])
+
 
   // Selection handlers
   const handleFragmentedClick = () => {
@@ -324,30 +347,10 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
     )
   }
 
-  const handleDoneClick = () => {
-    // TODO: Implement done logic (likely close overlay or navigate back)
-    console.log('Done clicked')
-  }
-
   const handleClearClick = () => {
     clearPairSelection()
   }
 
-  // Calculate selection counts for progress bar
-  const selectionCounts = useMemo(() => {
-    let fragmented = 0
-    let monosemantic = 0
-    let unsure = 0
-
-    pairList.forEach(pair => {
-      const state = pairSelectionStates.get(pair.pairKey)
-      if (state === 'selected') fragmented++
-      else if (state === 'rejected') monosemantic++
-      else unsure++
-    })
-
-    return { fragmented, monosemantic, unsure }
-  }, [pairList, pairSelectionStates])
 
   // Show loading state while fetching distributed pairs
   if (isLoadingDistributedPairs) {
@@ -400,194 +403,143 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
 
   return (
     <div className={`feature-split-pair-viewer ${className}`}>
-      {/* Header */}
+      {/* Compact header with navigation and selection */}
       <div className="pair-viewer__header">
-        <div className="pair-viewer__title">
-          <h3>Feature Splitting Detection</h3>
-          <p className="pair-viewer__subtitle">
-            Select pairs to tag as Fragmented (similar features) or Monosemantic (distinct features)
-          </p>
-        </div>
-
-        {/* Stage info */}
-        {stageNode && (
-          <div className="pair-viewer__stage-info">
-            <span className="stage-info__metric">{METRIC_DECODER_SIMILARITY}</span>
-            <span className="stage-info__range">{stageNode.rangeLabel}</span>
-            <span className="stage-info__count">{stageNode.featureCount} features</span>
-          </div>
-        )}
-      </div>
-
-      {/* Progress and navigation */}
-      <div className="pair-viewer__progress">
-        <button
-          className="progress__nav-button"
-          onClick={goToPreviousPair}
-          disabled={currentPairIndex === 0}
-        >
-          ← Previous
-        </button>
-
-        <div className="progress__indicator">
-          <span className="progress__text">
-            Pair {currentPairIndex + 1} / {pairList.length}
+        {/* Navigation */}
+        <div className="pair-viewer__navigation">
+          <button
+            className="nav__button"
+            onClick={goToPreviousPair}
+            disabled={currentPairIndex === 0}
+          >
+            ← Prev
+          </button>
+          <span className="nav__counter">
+            {currentPairIndex + 1} / {pairList.length}
           </span>
-          <div className="progress__bar">
-            <div
-              className="progress__bar-fill progress__bar-fill--fragmented"
-              style={{ width: `${(selectionCounts.fragmented / pairList.length) * 100}%` }}
-            />
-            <div
-              className="progress__bar-fill progress__bar-fill--monosemantic"
-              style={{ width: `${(selectionCounts.monosemantic / pairList.length) * 100}%` }}
-            />
+          <button
+            className="nav__button"
+            onClick={goToNextPair}
+            disabled={currentPairIndex === pairList.length - 1}
+          >
+            Next →
+          </button>
+        </div>
+
+        {/* Pair Info */}
+        <div className="pair-viewer__info">
+          <div className="pair-info__feature">
+            <span className="feature__label">Main:</span>
+            <span className="feature__id">#{currentPair.mainFeatureId}</span>
           </div>
-          <div className="progress__counts">
-            <span className="count--fragmented">{selectionCounts.fragmented} Fragmented</span>
-            <span className="count--monosemantic">{selectionCounts.monosemantic} Monosemantic</span>
-            <span className="count--unsure">{selectionCounts.unsure} Unsure</span>
+          <span className="pair-info__separator">|</span>
+          <div className="pair-info__feature">
+            <span className="feature__label">Similar:</span>
+            <span className="feature__id">#{currentPair.similarFeatureId}</span>
+          </div>
+          <div className="pair-info__similarity">
+            <span className="similarity__icon">↔</span>
+            <span className="similarity__value">
+              {currentPair.decoderSimilarity.toFixed(3)}
+            </span>
           </div>
         </div>
 
-        <button
-          className="progress__nav-button"
-          onClick={goToNextPair}
-          disabled={currentPairIndex === pairList.length - 1}
-        >
-          Next →
-        </button>
+        {/* Selection buttons */}
+        <div className="pair-viewer__selection">
+          <button
+            className={`selection__button selection__button--fragmented ${pairSelectionState === 'selected' ? 'selected' : ''}`}
+            onClick={handleFragmentedClick}
+          >
+            <span className="button__icon">✓</span>
+            Fragmented
+          </button>
+          <button
+            className={`selection__button selection__button--monosemantic ${pairSelectionState === 'rejected' ? 'selected' : ''}`}
+            onClick={handleMonosemanticClick}
+          >
+            <span className="button__icon">✓</span>
+            Monosemantic
+          </button>
+          <button
+            className={`selection__button selection__button--unsure ${pairSelectionState === null ? 'selected' : ''}`}
+            onClick={handleUnsureClick}
+          >
+            <span className="button__icon">○</span>
+            Unsure
+          </button>
+        </div>
+
+        {/* Action buttons */}
+        <div className="pair-viewer__actions">
+          <button
+            className="action__button action__button--sort"
+            onClick={handleSortClick}
+            disabled={isPairSimilaritySortLoading}
+          >
+            {isPairSimilaritySortLoading ? 'Sorting...' : 'Sort'}
+          </button>
+          <button
+            className="action__button action__button--tag"
+            onClick={handleTagClick}
+          >
+            Auto-Tag
+          </button>
+          <button
+            className="action__button action__button--clear"
+            onClick={handleClearClick}
+            disabled={pairSelectionStates.size === 0}
+          >
+            Clear
+          </button>
+        </div>
       </div>
 
-      {/* Selection buttons */}
-      <div className="pair-viewer__selection">
-        <button
-          className={`selection__button selection__button--fragmented ${pairSelectionState === 'selected' ? 'selected' : ''}`}
-          onClick={handleFragmentedClick}
-        >
-          <span className="button__icon">✓</span>
-          Fragmented
-        </button>
-        <button
-          className={`selection__button selection__button--monosemantic ${pairSelectionState === 'rejected' ? 'selected' : ''}`}
-          onClick={handleMonosemanticClick}
-        >
-          <span className="button__icon">✓</span>
-          Monosemantic
-        </button>
-        <button
-          className={`selection__button selection__button--unsure ${pairSelectionState === null ? 'selected' : ''}`}
-          onClick={handleUnsureClick}
-        >
-          <span className="button__icon">○</span>
-          Unsure
-        </button>
-      </div>
-
-      {/* Pair cards */}
-      <div className="pair-viewer__cards">
-        {/* Main feature card */}
-        <div className="feature-card">
-          <div className="feature-card__header">
-            <div className="card-header__title">
-              <span className="card-title__label">Main Feature</span>
-              <span className="card-title__id">#{currentPair.mainFeatureId}</span>
-            </div>
-            <div className="card-header__badge">
-              <TagBadge
-                featureId={currentPair.mainFeatureId}
-                tagName={getSplitTagName(pairSelectionState)}
-                tagCategoryId={TAG_CATEGORY_FEATURE_SPLITTING}
-              />
-            </div>
+      {/* Activation examples side-by-side */}
+      <div className="pair-viewer__content">
+        {/* Main feature activation */}
+        <div className="activation-panel activation-panel--main">
+          <div className="activation-panel__header">
+            <span className="panel-header__label">Main Feature</span>
+            <span className="panel-header__id">#{currentPair.mainFeatureId}</span>
           </div>
-
-          <div className="feature-card__info">
-            <div className="card-info__label">Decoder Similarity with similar features</div>
-          </div>
-
-          {mainActivation && (
-            <div className="feature-card__activation">
+          {mainActivation ? (
+            <div className="activation-panel__examples">
               <ActivationExample
                 examples={mainActivation}
-                containerWidth={containerWidth / 2 - 60}
+                containerWidth={containerWidth - 40}
                 interFeaturePositions={mainInterFeaturePositions}
+                numQuantiles={4}
               />
             </div>
+          ) : (
+            <div className="activation-panel__loading">Loading activation examples...</div>
           )}
         </div>
 
-        {/* Similarity arrow */}
-        <div className="pair-viewer__arrow">
-          <div className="arrow__similarity">
-            {currentPair.decoderSimilarity.toFixed(3)}
+        {/* Similar feature activation */}
+        <div className="activation-panel activation-panel--similar">
+          <div className="activation-panel__header">
+            <span className="panel-header__label">Similar Feature</span>
+            <span className="panel-header__id">#{currentPair.similarFeatureId}</span>
           </div>
-          <div className="arrow__icon">↔</div>
-          <div className="arrow__label">Decoder Similarity</div>
-        </div>
-
-        {/* Similar feature card */}
-        <div className="feature-card">
-          <div className="feature-card__header">
-            <div className="card-header__title">
-              <span className="card-title__label">Similar Feature</span>
-              <span className="card-title__id">#{currentPair.similarFeatureId}</span>
-            </div>
-          </div>
-
-          {similarFeatureRow && (
-            <>
-              <div className="feature-card__info">
-                <div className="card-info__label">Similar feature based on decoder similarity</div>
+          {similarFeatureRow ? (
+            similarActivation ? (
+              <div className="activation-panel__examples">
+                <ActivationExample
+                  examples={similarActivation}
+                  containerWidth={containerWidth - 40}
+                  interFeaturePositions={similarInterFeaturePositions}
+                  numQuantiles={4}
+                />
               </div>
-
-              {similarActivation && (
-                <div className="feature-card__activation">
-                  <ActivationExample
-                    examples={similarActivation}
-                    containerWidth={containerWidth / 2 - 60}
-                    interFeaturePositions={similarInterFeaturePositions}
-                  />
-                </div>
-              )}
-            </>
-          )}
-
-          {!similarFeatureRow && (
-            <div className="feature-card__missing">Feature data not available</div>
+            ) : (
+              <div className="activation-panel__loading">Loading activation examples...</div>
+            )
+          ) : (
+            <div className="activation-panel__missing">Feature data not available</div>
           )}
         </div>
-      </div>
-
-      {/* Action buttons */}
-      <div className="pair-viewer__actions">
-        <button
-          className="action__button action__button--sort"
-          onClick={handleSortClick}
-          disabled={isPairSimilaritySortLoading}
-        >
-          {isPairSimilaritySortLoading ? 'Sorting...' : 'Sort by Similarity'}
-        </button>
-        <button
-          className="action__button action__button--tag"
-          onClick={handleTagClick}
-        >
-          Tag Automatically
-        </button>
-        <button
-          className="action__button action__button--clear"
-          onClick={handleClearClick}
-          disabled={pairSelectionStates.size === 0}
-        >
-          Clear All
-        </button>
-        <button
-          className="action__button action__button--done"
-          onClick={handleDoneClick}
-          disabled={!donePairSelectionStates}
-        >
-          Done
-        </button>
       </div>
     </div>
   )

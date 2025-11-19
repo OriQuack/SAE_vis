@@ -5,7 +5,7 @@ import {
   getActivationColor,
   formatTokensWithEllipsis
 } from '../lib/activation-utils'
-import '../styles/TableActivationExample.css'
+import '../styles/ActivationExample.css'
 
 interface ActivationExampleProps {
   examples: ActivationExamples
@@ -18,6 +18,8 @@ interface ActivationExampleProps {
   // Hover coordination for paired activation examples
   isHovered?: boolean  // Whether this pair is currently hovered (from parent)
   onHoverChange?: (isHovered: boolean) => void  // Callback when hover state changes
+  // Number of quantiles to show (1-4, default 3 for tables, 4 for feature split)
+  numQuantiles?: number
 }
 
 /**
@@ -125,7 +127,8 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
   containerWidth,
   interFeaturePositions,
   isHovered,
-  onHoverChange
+  onHoverChange,
+  numQuantiles = 3  // Default to 3 quantiles for tables, override to 4 for feature split
 }) => {
   const [showPopover, setShowPopover] = useState<boolean>(false)
   const [popoverPosition, setPopoverPosition] = useState<'above' | 'below'>('below')
@@ -173,7 +176,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
   // Group examples by quantile_index (memoized for performance)
   // Prioritize examples with positions for the winning type
   const quantileGroups = useMemo(() => {
-    return [0, 1, 2, 3].map(qIndex => {
+    return Array.from({ length: numQuantiles }, (_, qIndex) => {
       const filtered = examples.quantile_examples.filter(ex => ex.quantile_index === qIndex)
       // Sort to put examples with winning type positions first
       const sorted = [...filtered].sort((a, b) => {
@@ -185,7 +188,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
       })
       return sorted.slice(0, 2)
     })
-  }, [examples.quantile_examples, underlineType])
+  }, [examples.quantile_examples, underlineType, numQuantiles])
 
   // Recalculate popover position when isHovered becomes true
   // This handles the case where the main feature's popover is shown
@@ -200,7 +203,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
   return (
     <div
       ref={containerRef}
-      className="activation-example"
+      className={`activation-example activation-example--quantiles-${numQuantiles}`}
       onMouseEnter={() => {
         detectPopoverPosition()
         setShowPopover(true)
@@ -211,8 +214,8 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
         onHoverChange?.(false)
       }}
     >
-      {/* Default view: 3 quantiles (0, 1, 2), character-based truncation */}
-      {[0, 1, 2].map(qIndex => {
+      {/* Default view: Configurable quantiles, character-based truncation */}
+      {Array.from({ length: numQuantiles }, (_, i) => i).map(qIndex => {
         // Use the first example from sorted quantileGroups (prioritizes examples with positions)
         const example = quantileGroups[qIndex]?.[0]
         if (!example) return null

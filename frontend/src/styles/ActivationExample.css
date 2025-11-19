@@ -12,11 +12,36 @@
   display: flex;
   flex-direction: column;
   cursor: pointer;
-  height: 54px;  /* Fixed height: 3 quantiles × 18px each */
+  height: 54px;  /* Default: 3 quantiles × 18px each */
   min-height: 54px;
   max-height: 54px;
   overflow: hidden;  /* Clip preview content to container */
   z-index: 1;  /* Create stacking context */
+}
+
+/* Flexible height variants based on number of quantiles */
+.activation-example--quantiles-1 {
+  height: 18px;
+  min-height: 18px;
+  max-height: 18px;
+}
+
+.activation-example--quantiles-2 {
+  height: 36px;
+  min-height: 36px;
+  max-height: 36px;
+}
+
+.activation-example--quantiles-3 {
+  height: 54px;
+  min-height: 54px;
+  max-height: 54px;
+}
+
+.activation-example--quantiles-4 {
+  height: 72px;
+  min-height: 72px;
+  max-height: 72px;
 }
 
 /* Elevate z-index when hovered to ensure popover appears above adjacent cells */
