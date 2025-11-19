@@ -8,9 +8,6 @@
 import type {
   SankeyStructure,
   SimplifiedSankeyNode,
-  RegularSankeyNode,
-  SegmentSankeyNode,
-  TerminalSankeyNode,
   SankeyNode,
   D3SankeyNode,
   SankeyLink,
@@ -92,8 +89,10 @@ export function convertToD3Format(
   // 3. Transform links to use numeric indices instead of string IDs
   const transformedLinks: any[] = []
   for (const link of structure.links) {
-    const sourceId = typeof link.source === 'object' ? link.source?.id : link.source
-    const targetId = typeof link.target === 'object' ? link.target?.id : link.target
+    // Cast to any to handle both string IDs and potential object references
+    const linkAny = link as any
+    const sourceId = typeof linkAny.source === 'object' ? linkAny.source?.id : linkAny.source
+    const targetId = typeof linkAny.target === 'object' ? linkAny.target?.id : linkAny.target
 
     const sourceIndex = typeof sourceId === 'number' ? sourceId : nodeIdMap.get(String(sourceId))
     const targetIndex = typeof targetId === 'number' ? targetId : nodeIdMap.get(String(targetId))
@@ -154,8 +153,8 @@ export function convertToD3Format(
   }
 
   return {
-    nodes: sankeyLayout.nodes,
-    links: sankeyLayout.links
+    nodes: sankeyLayout.nodes as D3SankeyNode[],
+    links: sankeyLayout.links as D3SankeyLink[]
   }
 }
 

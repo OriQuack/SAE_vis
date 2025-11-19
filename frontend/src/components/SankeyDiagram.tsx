@@ -23,6 +23,16 @@ import { SankeyOverlay } from './SankeyOverlay'
 // SankeyInlineSelector removed - no longer needed with fixed 3-stage auto-expansion
 import '../styles/SankeyDiagram.css'
 
+// ==================== HELPER FUNCTIONS ====================
+/**
+ * Check if a segment tag represents a terminal (end-of-pipeline) state
+ * Terminal segments get striped pattern overlay
+ */
+const isTerminalSegment = (tagName: string): boolean => {
+  const terminalTags = ['Fragmented', 'Well-Explained', 'Unsure']
+  return terminalTags.includes(tagName)
+}
+
 // ==================== COMPONENT-SPECIFIC TYPES ====================
 interface SankeyDiagramProps {
   width?: number
@@ -186,25 +196,46 @@ const VerticalBarSankeyNode: React.FC<{
       {/* Render vertical bar with stage segments or as single unified rectangle */}
       {stageSegments.length > 0 ? (
         // Render segmented bar (progressive reveal)
-        stageSegments.map((segment: any, index: number) => (
-          <rect
-            key={`segment-${index}`}
-            className="sankey-vertical-bar-segment"
-            x={node.x0}
-            y={segment.y}
-            width={(node.x1 || 0) - (node.x0 || 0)}
-            height={segment.height}
-            fill={segment.color}
-            opacity={0.85}
-            stroke="#ffffff"
-            strokeWidth={1}
-            style={{
-              transition: 'all 300ms ease-out'
-            }}
-          >
-            <title>{`${segment.label}\n${segment.featureCount} features`}</title>
-          </rect>
-        ))
+        stageSegments.map((segment: any, index: number) => {
+          const isTerminal = isTerminalSegment(segment.label)
+          return (
+            <g key={`segment-${index}`}>
+              {/* Base colored rectangle */}
+              <rect
+                className="sankey-vertical-bar-segment"
+                x={node.x0}
+                y={segment.y}
+                width={(node.x1 || 0) - (node.x0 || 0)}
+                height={segment.height}
+                fill={segment.color}
+                opacity={0.85}
+                stroke="#ffffff"
+                strokeWidth={1}
+                style={{
+                  transition: 'all 300ms ease-out'
+                }}
+              >
+                <title>{`${segment.label}\n${segment.featureCount} features`}</title>
+              </rect>
+              {/* Stripe overlay for terminal segments */}
+              {isTerminal && (
+                <rect
+                  className="sankey-vertical-bar-segment-stripes"
+                  x={node.x0}
+                  y={segment.y}
+                  width={(node.x1 || 0) - (node.x0 || 0)}
+                  height={segment.height}
+                  fill="url(#terminal-stripes)"
+                  stroke="none"
+                  pointerEvents="none"
+                  style={{
+                    transition: 'all 300ms ease-out'
+                  }}
+                />
+              )}
+            </g>
+          )
+        })
       ) : (
         // Render solid bar (terminal node or LLM explainer bars)
         layout.subNodes.length > 0 && (
@@ -358,6 +389,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
   const [hoveredLinkIndex, setHoveredLinkIndex] = useState<number | null>(null)
   const [optimisticSegments, setOptimisticSegments] = useState<Record<string, any[]>>({})
+  const [optimisticThresholds, setOptimisticThresholds] = useState<Record<string, number>>({})
   // const [inlineSelector, setInlineSelector] = useState<...>(null) // REMOVED: No longer needed
 
   // Resize observer hook with minimal debounce for responsiveness
@@ -588,6 +620,12 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
         style={{ width: '100%', height: '100%', position: 'relative' }}
       >
         <svg width={containerSize.width} height={containerSize.height} className="sankey-diagram__svg">
+          <defs>
+            {/* Stripe pattern for terminal segments */}
+            <pattern id="terminal-stripes" patternUnits="userSpaceOnUse" width="12" height="12" patternTransform="rotate(45)">
+              <line x1="0" y1="0" x2="0" y2="12" stroke="white" strokeWidth="5" opacity="0.4" />
+            </pattern>
+          </defs>
           <rect width={containerSize.width} height={containerSize.height} fill="#ffffff" />
 
           <g transform={`translate(${layout.margin.left},${layout.margin.top})`}>
@@ -683,6 +721,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
               onThresholdUpdate={handleThresholdUpdate}
               tableData={tableData}
               onOptimisticSegmentsChange={setOptimisticSegments}
+              onOptimisticThresholdsChange={setOptimisticThresholds}
             />
 
             {/* Node Labels - rendered after histograms to appear in front */}
@@ -718,7 +757,9 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                           // Prepare label lines (tag name + metric comparison + feature count)
                           // Only segment nodes have metric and threshold
                           const metric = structureNode?.type === 'segment' ? structureNode.metric : null
-                          const threshold = structureNode?.type === 'segment' ? structureNode.threshold : null
+                          // Use optimistic threshold during drag, otherwise use committed threshold
+                          const committedThreshold = structureNode?.type === 'segment' ? structureNode.threshold : null
+                          const threshold = optimisticThresholds[node.id || ''] ?? committedThreshold
                           const comparison = segmentIndex === 0 ? '<' : '≥'
                           // Replace underscores with spaces and capitalize first letter of each word
                           const metricDisplay = metric ? metric.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : ''
@@ -732,7 +773,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                           // Calculate vertical offset to center label group
                           const lineHeight = 14
                           const totalHeight = labelLines.length * lineHeight
-                          const verticalOffset = -totalHeight / 2 + lineHeight
+                          const verticalOffset = -totalHeight / 2 + lineHeight / 2
 
                           return (
                             <g key={`segment-label-${segmentIndex}`}>
@@ -875,8 +916,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
                 // Calculate vertical offset to center entire label group
                 const lineHeight = 14
-                const totalHeight = allLines.length * lineHeight
-                const verticalOffset = -totalHeight / 2 + lineHeight / 2
                 const nodeCenterY = ((node.y0 ?? 0) + (node.y1 ?? 0)) / 2
 
                 return (
@@ -888,7 +927,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                           {/* White stroke outline */}
                           <text
                             x={labelX}
-                            y={nodeCenterY + verticalOffset + (index * lineHeight)}
+                            y={nodeCenterY + lineHeight / 2 + (index * lineHeight)}
                             dy="0.35em"
                             fontSize={index === 0 ? 12 : 10}
                             fill="white"
@@ -907,7 +946,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                           {/* Black text on top */}
                           <text
                             x={labelX}
-                            y={nodeCenterY + verticalOffset + (index * lineHeight)}
+                            y={nodeCenterY + lineHeight / 2 + (index * lineHeight)}
                             dy="0.35em"
                             fontSize={index === 0 ? 12 : 10}
                             fill="#000000"
@@ -928,13 +967,9 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                 )
               })}
             </g>
-
-            {/* Node Buttons - REMOVED: No longer needed with fixed 3-stage structure */}
           </g>
         </svg>
       </div>
-
-      {/* REMOVED: Inline Stage Selector - no longer needed with fixed 3-stage auto-expansion */}
     </div>
   )
 }

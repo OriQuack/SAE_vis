@@ -18,7 +18,6 @@ import { getNodeThresholdPath } from '../lib/threshold-utils'
 import {
   PANEL_LEFT,
   PANEL_RIGHT,
-  METRIC_SEMANTIC_SIMILARITY,
   METRIC_QUALITY_SCORE,
   METRIC_SCORE_EMBEDDING,
   METRIC_SCORE_FUZZ,
@@ -38,7 +37,6 @@ interface AppState {
 
   // Shared state
   filterOptions: FilterOptions | null
-  currentMetric: MetricType
   popoverState: PopoverState
   loading: LoadingStates & { sankeyLeft?: boolean; sankeyRight?: boolean }
   errors: ErrorStates & { sankeyLeft?: string | null; sankeyRight?: string | null }
@@ -112,7 +110,6 @@ interface AppState {
 
   // API actions
   fetchFilterOptions: () => Promise<void>
-  fetchHistogramData: (metric?: MetricType, nodeId?: string, panel?: PanelSide) => Promise<void>
   fetchMultipleHistogramData: (metrics: MetricType[], nodeId?: string, panel?: PanelSide) => Promise<void>
 
   // Alluvial flows data
@@ -122,10 +119,6 @@ interface AppState {
   updateAlluvialFlows: () => void
 
   // Table data actions (from table-actions.ts)
-  getRightmostStageFeatureIds: () => Set<number> | null
-  getMaxStageMetric: () => string | null
-  getRightmostNodeWithScrollIndicator: () => string
-  findNodeWithMetric: (metric: string) => string | null
   fetchTableData: () => Promise<void>
   setTableScrollState: (state: { scrollTop: number; scrollHeight: number; clientHeight: number } | null) => void
   setTableSort: (sortBy: SortBy | null, sortDirection: SortDirection | null) => void
@@ -227,7 +220,6 @@ interface AppState {
 
   // Node selection for table filtering
   tableSelectedNodeIds: string[]
-  selectedSegment: { nodeId: string; segmentIndex: number } | null
 
   // Table column display state
   scoreColumnDisplay: typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION
@@ -266,7 +258,6 @@ const initialState = {
 
   // Shared state
   filterOptions: null,
-  currentMetric: METRIC_SEMANTIC_SIMILARITY as MetricType,
   popoverState: {
     histogram: null
   },
@@ -640,50 +631,6 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  fetchHistogramData: async (metric?: MetricType, nodeId?: string, panel = PANEL_LEFT) => {
-    const state = get()
-    const targetMetric = metric || state.currentMetric
-    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
-    const panelState = state[panelKey]
-    const { filters } = panelState
-
-    const hasActiveFilters = Object.values(filters).some(
-      filterArray => filterArray && filterArray.length > 0
-    )
-
-    if (!hasActiveFilters) {
-      return
-    }
-
-    state.setLoading('histogram', true)
-    state.clearError('histogram')
-
-    try {
-      // Compute threshold path if nodeId provided
-      const thresholdPath = nodeId
-        ? getNodeThresholdPath(nodeId, panelState.sankeyTree)
-        : undefined
-
-      const request = {
-        filters,
-        metric: targetMetric,
-        nodeId,
-        thresholdPath,
-        bins: 50
-      }
-
-      const histogramData = await api.getHistogramData(request)
-
-      state.setHistogramData({ [targetMetric]: histogramData }, panel, nodeId)
-
-      state.setLoading('histogram', false)
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch histogram data'
-      state.setError('histogram', errorMessage)
-      state.setLoading('histogram', false)
-    }
-  },
-
   fetchMultipleHistogramData: async (metrics, nodeId?: string, panel = PANEL_LEFT) => {
     const state = get()
     const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
@@ -711,7 +658,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     try {
       // Compute threshold path if nodeId provided
-      const thresholdPath = nodeId
+      const thresholdPath = nodeId && panelState.sankeyTree
         ? getNodeThresholdPath(nodeId, panelState.sankeyTree)
         : undefined
 
@@ -748,22 +695,22 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  // Update alluvial flows from both panel data (uses computedSankey)
+  // Update alluvial flows from both panel data (uses d3Layout)
   updateAlluvialFlows: () => {
     const state = get()
     const { leftPanel, rightPanel } = state
 
     // Return null if either panel doesn't have visualization data
-    if (!leftPanel.computedSankey || !rightPanel.computedSankey) {
+    if (!leftPanel.d3Layout || !rightPanel.d3Layout) {
       set({ alluvialFlows: null })
       return
     }
 
     // Extract leaf nodes (nodes with feature_ids) from both panels
-    const leftFinalNodes = leftPanel.computedSankey.nodes.filter((node: SankeyNode) =>
+    const leftFinalNodes = leftPanel.d3Layout.nodes.filter((node: SankeyNode) =>
       node.feature_ids && node.feature_ids.length > 0
     )
-    const rightFinalNodes = rightPanel.computedSankey.nodes.filter((node: SankeyNode) =>
+    const rightFinalNodes = rightPanel.d3Layout.nodes.filter((node: SankeyNode) =>
       node.feature_ids && node.feature_ids.length > 0
     )
 
@@ -829,7 +776,7 @@ export const useStore = create<AppState>((set, get) => ({
       allLLMScorers: llmScorers
     })
 
-    console.log('🌳 Initializing tree-based system with empty root nodes (no computedSankey yet)')
+    console.log('🌳 Initializing tree-based system with empty root nodes (no d3Layout yet)')
 
     // Set filters: Left panel gets ALL LLM explainers, right panel stays empty
     set((state) => ({

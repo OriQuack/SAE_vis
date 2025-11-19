@@ -23,6 +23,15 @@ import { ThresholdHandles } from './ThresholdHandles'
 // HELPER FUNCTIONS
 // ============================================================================
 
+/**
+ * Check if a segment tag represents a terminal (end-of-pipeline) state
+ * Terminal segments get striped pattern overlay
+ */
+const isTerminalSegment = (tagName: string): boolean => {
+  const terminalTags = ['Fragmented', 'Well-Explained', 'Unsure']
+  return terminalTags.includes(tagName)
+}
+
 // REMOVED: shouldShowHandles - v2 now shows handles on source nodes, not segment nodes
 
 // ============================================================================
@@ -148,26 +157,51 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
 
               // Determine color based on segment position relative to threshold
               let fillColor = bar.color || '#94a3b8'  // Fallback to bar's base color
+              let segmentTagName: string | null = null
 
               if (threshold !== null && segmentColors && yScale) {
                 // Get the metric value at this segment's center
                 const metricValue = yScale.invert(segmentCenterY - layout.y)
-                fillColor = metricValue < threshold ? segmentColors.below : segmentColors.above
+                const isBelowThreshold = metricValue < threshold
+                fillColor = isBelowThreshold ? segmentColors.below : segmentColors.above
+
+                // Get the tag name for this segment
+                if (targetSegmentNode && targetSegmentNode.segments) {
+                  const segmentIndex = isBelowThreshold ? 0 : 1
+                  segmentTagName = targetSegmentNode.segments[segmentIndex]?.tagName || null
+                }
               }
 
+              // Check if this is a terminal segment
+              const isTerminal = segmentTagName ? isTerminalSegment(segmentTagName) : false
+
               return (
-                <rect
-                  key={`${barIndex}-${segmentIndex}`}
-                  x={segment.x}
-                  y={segment.y - layout.y}  // Adjust y relative to group transform
-                  width={segment.width}
-                  height={segment.height}
-                  fill={fillColor}
-                  fillOpacity={0.85}
-                  stroke="white"
-                  strokeWidth={0.3}
-                  strokeOpacity={0.6}
-                />
+                <g key={`${barIndex}-${segmentIndex}`}>
+                  {/* Base colored rectangle */}
+                  <rect
+                    x={segment.x}
+                    y={segment.y - layout.y}  // Adjust y relative to group transform
+                    width={segment.width}
+                    height={segment.height}
+                    fill={fillColor}
+                    fillOpacity={0.85}
+                    stroke="white"
+                    strokeWidth={0.3}
+                    strokeOpacity={0.6}
+                  />
+                  {/* Stripe overlay for terminal segments */}
+                  {isTerminal && (
+                    <rect
+                      x={segment.x}
+                      y={segment.y - layout.y}
+                      width={segment.width}
+                      height={segment.height}
+                      fill="url(#terminal-stripes)"
+                      stroke="none"
+                      pointerEvents="none"
+                    />
+                  )}
+                </g>
               )
             })}
           </g>
@@ -242,6 +276,7 @@ interface SankeyOverlayProps {
   onThresholdUpdate: (nodeId: string, newThreshold: number) => void
   tableData?: any | null  // For client-side segment calculation
   onOptimisticSegmentsChange?: (segments: Record<string, any[]>) => void  // Notify parent of preview segments
+  onOptimisticThresholdsChange?: (thresholds: Record<string, number>) => void  // Notify parent of preview thresholds
 }
 
 export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
@@ -251,7 +286,8 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
   sankeyStructure,
   onThresholdUpdate,
   tableData,
-  onOptimisticSegmentsChange
+  onOptimisticSegmentsChange,
+  onOptimisticThresholdsChange
 }) => {
   // Track drag preview thresholds by node ID (for live histogram updates without committing)
   const [nodeDragThresholds, setNodeDragThresholds] = useState<Record<string, number[]>>({})
@@ -265,14 +301,17 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
 
     const timeoutId = setTimeout(() => {
       setNodeDragThresholds({})  // Simply clear all drag thresholds
-      // Clear optimistic segments in parent
+      // Clear optimistic segments and thresholds in parent
       if (onOptimisticSegmentsChange) {
         onOptimisticSegmentsChange({})
+      }
+      if (onOptimisticThresholdsChange) {
+        onOptimisticThresholdsChange({})
       }
     }, 100)
 
     return () => clearTimeout(timeoutId)
-  }, [sankeyStructure, onOptimisticSegmentsChange])
+  }, [sankeyStructure, onOptimisticSegmentsChange, onOptimisticThresholdsChange])
 
   // Cleanup debounce timer on unmount
   React.useEffect(() => {
@@ -391,6 +430,11 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
                   ...prev,
                   [targetNodeId]: values
                 }))
+
+                // Immediately notify parent of new threshold value (for label update)
+                if (onOptimisticThresholdsChange) {
+                  onOptimisticThresholdsChange({ [targetNodeId]: newThreshold })
+                }
 
                 // Debounce segment calculation for smooth transitions
                 if (segmentUpdateTimerRef.current) {

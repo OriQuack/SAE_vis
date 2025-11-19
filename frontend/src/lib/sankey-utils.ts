@@ -4,7 +4,6 @@ import type {
   D3SankeyNode,
   D3SankeyLink,
   SankeyLayout,
-  SankeyTreeNode
 } from '../types'
 import {
   CATEGORY_ROOT,
@@ -744,98 +743,5 @@ export function calculateVerticalBarNodeLayout(
     totalWidth,
     totalHeight
   }
-}
-
-/**
- * Calculate segments for a vertical bar based on hidden children in the tree.
- * Used for progressive reveal - shows child distribution as colored segments.
- *
- * @param node - D3 Sankey node to calculate segments for
- * @param tree - Full Sankey tree (contains all nodes, even hidden ones)
- * @returns Array of segments, each representing a child node
- */
-export function getNodeSegments(
-  node: D3SankeyNode,
-  tree: Map<string, SankeyTreeNode>
-): StageSegment[] {
-  const totalHeight = (node.y1 || 0) - (node.y0 || 0)
-  const totalFeatures = node.feature_count
-  let currentY = node.y0 || 0
-
-  // Handle consolidated vertical bar nodes (from progressive reveal)
-  if (node.id.startsWith('consolidated_stage')) {
-    const stageMatch = node.id.match(/consolidated_stage(\d+)/)
-    if (stageMatch) {
-      const stageDepth = parseInt(stageMatch[1], 10)
-      console.log(`[getNodeSegments] 🎯 Consolidated node at depth ${stageDepth}, showing segments for hidden children`)
-
-      // Find all tree nodes at this depth
-      const childrenAtDepth: SankeyTreeNode[] = []
-      tree.forEach((treeNode) => {
-        if (treeNode.depth === stageDepth && treeNode.featureCount > 0) {
-          childrenAtDepth.push(treeNode)
-        }
-      })
-
-      // Sort children by group index for consistent ordering
-      childrenAtDepth.sort((a, b) => {
-        const aMatch = a.id.match(/group(\d+)/)
-        const bMatch = b.id.match(/group(\d+)/)
-        const aIndex = aMatch ? parseInt(aMatch[1], 10) : 0
-        const bIndex = bMatch ? parseInt(bMatch[1], 10) : 0
-        return aIndex - bIndex
-      })
-
-      console.log(`[getNodeSegments] 📊 Creating ${childrenAtDepth.length} segments for consolidated bar`)
-
-      // Create segments for each child
-      const segments: StageSegment[] = []
-      for (const child of childrenAtDepth) {
-        const segmentHeight = (child.featureCount / totalFeatures) * totalHeight
-
-        segments.push({
-          childNodeId: child.id,
-          y: currentY,
-          height: segmentHeight,
-          color: child.colorHex || '#999999',
-          featureCount: child.featureCount,
-          label: child.rangeLabel
-        })
-
-        currentY += segmentHeight
-      }
-
-      return segments
-    }
-  }
-
-  // Handle regular tree nodes (original logic)
-  const treeNode = tree.get(node.id)
-  if (!treeNode || treeNode.children.length === 0) {
-    return []  // No children = solid bar (terminal node)
-  }
-
-  // Calculate segment for each child
-  const segments: StageSegment[] = []
-  for (const childId of treeNode.children) {
-    const child = tree.get(childId)
-    if (!child || child.featureCount === 0) continue
-
-    // Proportional height based on feature count
-    const segmentHeight = (child.featureCount / totalFeatures) * totalHeight
-
-    segments.push({
-      childNodeId: childId,
-      y: currentY,
-      height: segmentHeight,
-      color: child.colorHex || '#999999',
-      featureCount: child.featureCount,
-      label: child.rangeLabel
-    })
-
-    currentY += segmentHeight
-  }
-
-  return segments
 }
 

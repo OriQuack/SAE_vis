@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useVisualizationStore } from '../store/index';
 import { parseSAEId, getLLMExplainerNames } from '../lib/utils';
 import featureValidatorLogo from '../assets/feature-validator-logo.svg';
-import '../styles/Header.css';
+import '../styles/AppHeader.css';
 
 /**
  * Header component that displays SAEGE branding and SAE model information

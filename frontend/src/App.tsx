@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { useVisualizationStore } from './store/index'
-import Header from './components/Header'
+import Header from './components/AppHeader'
 import SankeyDiagram from './components/SankeyDiagram'
 import AlluvialDiagram from './components/AlluvialDiagram'
 import HistogramPopover from './components/SankeyHistogramPopover'

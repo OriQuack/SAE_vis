@@ -58,6 +58,9 @@ export interface PanelState {
   filters: Filters
   histogramData: Record<string, any> | null
 
+  // Tree-based Sankey system
+  sankeyTree?: Map<string, SankeyTreeNode>  // Tree structure for node-based operations
+
   // Simplified 3-stage architecture
   sankeyStructure?: SankeyStructure  // Simplified structure (Stage 1/2/3)
   rootFeatureIds?: Set<number>  // All features after filtering
