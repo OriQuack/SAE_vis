@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { SELECTION_CATEGORY_COLORS, type SelectionCategory } from '../lib/constants'
-import '../styles/TableSelectionBar.css'
+import '../styles/SelectionBar.css'
 
 export interface CategoryCounts {
   confirmed: number
@@ -54,10 +54,10 @@ const CATEGORY_CONFIG: Record<SelectionCategory, { label: string; color: string;
 }
 
 /**
- * SelectionStateBar - Horizontal stacked bar showing distribution of selection categories
+ * SelectionStateBar - Vertical stacked bar showing distribution of selection categories
  *
  * Features:
- * - Displays 4 categories (confirmed, expanded, rejected, unsure) with proportional widths
+ * - Displays 4 categories (confirmed, expanded, rejected, unsure) with proportional heights
  * - Optional preview state with stripe pattern overlay
  * - Interactive click handling (optional)
  * - Legend display (optional)
@@ -119,7 +119,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
     }
   }
 
-  // Render segments with specific order and adjacent stripe previews
+  // Render segments with specific order and adjacent stripe previews (VERTICAL orientation)
   const renderSegments = () => {
     const segments: React.ReactNode[] = []
 
@@ -139,13 +139,13 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
       let percentage = getCategoryValue(category, percentages)
       const previewChangeValue = previewChanges ? getCategoryValue(category, previewChanges) : 0
 
-      // For unsure, reduce width by items leaving (moving to expanded/autoRejected)
+      // For unsure, reduce height by items leaving (moving to expanded/autoRejected)
       if (category === 'unsure' && previewChanges) {
         const unsurePreviewCount = previewCounts ? getCategoryValue('unsure', previewCounts) : count
         percentage = counts.total > 0 ? (unsurePreviewCount / counts.total) * 100 : 0
       }
 
-      // Render main segment if count > 0
+      // Render main segment if count > 0 (using FLEX for vertical bar)
       if (count > 0) {
         segments.push(
           <div
@@ -154,7 +154,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
               onCategoryClick ? 'selection-state-bar__segment--interactive' : ''
             }`}
             style={{
-              width: `${percentage}%`,
+              flex: percentage,
               backgroundColor: getColor(category)
             }}
             onClick={() => handleCategoryClick(category)}
@@ -162,7 +162,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
               previewChangeValue !== 0 ? ` | Preview: ${previewChangeValue > 0 ? '+' : ''}${previewChangeValue}` : ''
             }`}
           >
-            {/* Show label if segment is wide enough */}
+            {/* Show label if segment is tall enough */}
             {showLabels && percentage > labelThreshold && (
               <span className="selection-state-bar__segment-label">
                 {config.label} ({count})
@@ -184,7 +184,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
             key={`${category}-preview`}
             className="selection-state-bar__segment selection-state-bar__segment--preview"
             style={{
-              width: `${stripePercentage}%`,
+              flex: stripePercentage,
               backgroundColor: stripeColor,
               position: 'relative'
             }}
@@ -215,8 +215,8 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
 
   return (
     <div className={`selection-state-bar ${className}`}>
-      {/* Bar with segments */}
-      <div className="selection-state-bar__bar" style={{ height: `${height}px` }}>
+      {/* Bar with segments - height controlled by CSS for vertical orientation */}
+      <div className="selection-state-bar__bar">
         {renderSegments()}
       </div>
 

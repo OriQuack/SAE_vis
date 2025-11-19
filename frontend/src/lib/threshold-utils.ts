@@ -247,16 +247,6 @@ function getNodeDisplayName(node: SankeyTreeNode, tree: Map<string, SankeyTreeNo
     return node.rangeLabel
   }
 
-  // Candidate nodes: show "Candidate (Review)" label
-  if (node.isCandidate) {
-    return `Candidate\n(Review)`
-  }
-
-  // Unsure nodes (children of candidate): show "Unsure"
-  if (node.parentId && tree.get(node.parentId)?.isCandidate && node.rangeLabel === 'Unsure') {
-    return 'Unsure'
-  }
-
   // Get parent to determine which metric/category was used
   const parent = tree.get(node.parentId)
   if (!parent?.metric) {
@@ -325,14 +315,6 @@ export function convertTreeToSankeyStructure(tree: Map<string, SankeyTreeNode>, 
       includeNode = true
     }
 
-    // Special case: include candidate children when candidate is at maxVisibleStage
-    if (maxVisibleStage !== undefined && node.depth === maxVisibleStage + 1) {
-      const parent = tree.get(node.parentId || '')
-      if (parent && parent.isCandidate && parent.depth === maxVisibleStage) {
-        includeNode = true
-      }
-    }
-
     if (!includeNode) return
 
     if (node.depth > maxDepth) {
@@ -340,19 +322,7 @@ export function convertTreeToSankeyStructure(tree: Map<string, SankeyTreeNode>, 
     }
     // When filtering by stage, use depth for determining max stage
     // Otherwise use the node's explicit stage (which may be terminal stage 3)
-    // Special case: candidate children at maxVisibleStage+1 should contribute to maxStage
-    let nodeStage: number
-    if (maxVisibleStage !== undefined) {
-      // If this is a candidate child, it should be at the rightmost position
-      const parent = node.parentId ? tree.get(node.parentId) : null
-      if (parent?.isCandidate && parent?.depth === maxVisibleStage && node.depth === maxVisibleStage + 1) {
-        nodeStage = maxVisibleStage + 1  // Candidate children go to rightmost
-      } else {
-        nodeStage = node.depth
-      }
-    } else {
-      nodeStage = node.stage ?? node.depth
-    }
+    const nodeStage = maxVisibleStage !== undefined ? node.depth : (node.stage ?? node.depth)
     if (nodeStage > maxStage) {
       maxStage = nodeStage
     }
@@ -365,15 +335,6 @@ export function convertTreeToSankeyStructure(tree: Map<string, SankeyTreeNode>, 
     if (maxVisibleStage === undefined || node.depth <= maxVisibleStage) {
       visibleNodeIds.add(node.id)
     }
-
-    // Special case: include candidate children when candidate is at maxVisibleStage
-    // This allows us to show Unsure and Fragmented nodes at stage 1
-    if (maxVisibleStage !== undefined && node.depth === maxVisibleStage + 1) {
-      const parent = tree.get(node.parentId || '')
-      if (parent && parent.isCandidate && parent.depth === maxVisibleStage) {
-        visibleNodeIds.add(node.id)
-      }
-    }
   })
 
   // Second pass: Build nodes and links (only for visible nodes)
@@ -383,34 +344,13 @@ export function convertTreeToSankeyStructure(tree: Map<string, SankeyTreeNode>, 
       return
     }
 
-    // Special handling for candidate destination nodes when parent candidate is at maxVisibleStage
-    const parent = node.parentId ? tree.get(node.parentId) : null
-    const isRejectedDestination = parent?.isCandidate &&
-                                 parent?.candidateDestinations?.rejected === node.id &&
-                                 parent?.depth === maxVisibleStage
-
-    // Skip rejected destination nodes - their features will flow back to below-threshold sibling
-    if (isRejectedDestination) {
-      console.log('[convertTreeToSankeyStructure] Skipping rejected destination node:', node.id)
-      return
-    }
-
     // Check if this node has any visible children
     const hasVisibleChildren = node.children.some(childId => visibleNodeIds.has(childId))
 
     // Determine node stage position
     // Terminal nodes (no visible children) should be positioned at maxStage
     let nodeStage: number
-
-    // Special positioning for candidate destination nodes
-    const isCandidateDestination = parent?.isCandidate &&
-                                  parent?.depth === maxVisibleStage &&
-                                  node.depth === maxVisibleStage + 1
-
-    if (isCandidateDestination) {
-      // Candidate destination nodes (Unsure, Fragmented) should be at rightmost position
-      nodeStage = maxStage
-    } else if (!hasVisibleChildren && node.depth > 0) {
+    if (!hasVisibleChildren && node.depth > 0) {
       // Terminal node: move to rightmost position
       nodeStage = maxStage
     } else if (maxVisibleStage !== undefined) {
@@ -437,9 +377,7 @@ export function convertTreeToSankeyStructure(tree: Map<string, SankeyTreeNode>, 
       // Mark nodes at maximum stage OR terminal nodes as vertical_bar type
       node_type: shouldBeVerticalBar ? 'vertical_bar' : 'standard',
       // Copy hierarchical color from tree node
-      colorHex: node.colorHex,
-      // Pass through the isBetweenStages flag for visual positioning
-      isBetweenStages: node.isBetweenStages
+      colorHex: node.colorHex
     }
     nodes.push(sankeyNode)
 
@@ -447,99 +385,20 @@ export function convertTreeToSankeyStructure(tree: Map<string, SankeyTreeNode>, 
     if (node.id.includes('monosemantic') || node.id.includes('group0')) {
       console.log('[convertTreeToSankeyStructure] Added below-threshold node:', node.id, 'at stage', nodeStage)
     }
-    if (node.isCandidate) {
-      console.log('[convertTreeToSankeyStructure] Added candidate node:', node.id, 'at stage', nodeStage)
-    }
 
     // Create links to children (only if children are also visible)
     if (node.children.length > 0) {
-      // Special handling for candidate nodes at maxVisibleStage
-      if (node.isCandidate && node.depth === maxVisibleStage && node.candidateDestinations) {
-        // Find the below-threshold sibling node (e.g., Monosemantic for Feature Splitting)
-        const parentNode = node.parentId ? tree.get(node.parentId) : null
-        let belowThresholdSibling: SankeyTreeNode | undefined
-
-        if (parentNode) {
-          // Find sibling that is not the candidate (should be the below-threshold node)
-          // For stage 1 feature splitting, this would be the Monosemantic node (group0)
-          for (const siblingId of parentNode.children) {
-            const sibling = tree.get(siblingId)
-            // Look specifically for group0 (below threshold) or any non-candidate sibling
-            if (sibling && sibling.id !== node.id && !sibling.isCandidate) {
-              // Prefer group0 (below threshold) if available
-              if (sibling.id.includes('group0') || sibling.rangeLabel?.includes('<')) {
-                belowThresholdSibling = sibling
-                console.log('[convertTreeToSankeyStructure] Found below-threshold sibling:', belowThresholdSibling.id, 'for candidate:', node.id)
-                break
-              } else if (!belowThresholdSibling) {
-                // Fall back to first non-candidate sibling if no group0 found
-                belowThresholdSibling = sibling
-              }
-            }
-          }
+      node.children.forEach(childId => {
+        const child = tree.get(childId)
+        // Only create link if child exists, has features, AND is visible
+        if (child && child.featureCount > 0 && visibleNodeIds.has(childId)) {
+          links.push({
+            source: node.id,
+            target: childId,
+            value: child.featureCount
+          })
         }
-
-        if (!belowThresholdSibling) {
-          console.warn('[convertTreeToSankeyStructure] No below-threshold sibling found for candidate:', node.id)
-        }
-
-        // Process each candidate destination
-        node.children.forEach(childId => {
-          const child = tree.get(childId)
-          if (!child) {
-            console.log('[convertTreeToSankeyStructure] Child not found:', childId)
-            return
-          }
-
-          // Route rejected features back to below-threshold sibling
-          if (childId === node.candidateDestinations.rejected) {
-            console.log('[convertTreeToSankeyStructure] Processing rejected destination:', childId, 'with', child.featureCount, 'features')
-            // Create a link from candidate to below-threshold sibling for rejected features
-            // This link should always exist if there are rejected features
-            if (belowThresholdSibling && child.featureCount > 0) {
-              console.log('[convertTreeToSankeyStructure] ✅ Creating rejected link from', node.id, 'to', belowThresholdSibling.id, 'with value', child.featureCount)
-              links.push({
-                source: node.id,
-                target: belowThresholdSibling.id,
-                value: child.featureCount
-              })
-            } else {
-              console.log('[convertTreeToSankeyStructure] ⚠️ NOT creating rejected link:', {
-                hasSibling: !!belowThresholdSibling,
-                siblingId: belowThresholdSibling?.id,
-                rejectedFeatureCount: child.featureCount,
-                rejectedNodeId: childId
-              })
-            }
-            return // Skip creating a link to the rejected destination itself
-          }
-
-          // Skip non-rejected nodes with 0 features
-          if (child.featureCount === 0) return
-
-          // Create normal links for Unsure and Selected destinations
-          if (visibleNodeIds.has(childId)) {
-            links.push({
-              source: node.id,
-              target: childId,
-              value: child.featureCount
-            })
-          }
-        })
-      } else {
-        // Normal link creation for non-candidate nodes
-        node.children.forEach(childId => {
-          const child = tree.get(childId)
-          // Only create link if child exists, has features, AND is visible
-          if (child && child.featureCount > 0 && visibleNodeIds.has(childId)) {
-            links.push({
-              source: node.id,
-              target: childId,
-              value: child.featureCount
-            })
-          }
-        })
-      }
+      })
     }
   })
 

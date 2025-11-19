@@ -82,15 +82,6 @@ export interface SankeyTreeNode {
   percentileToMetricMap?: Map<number, number>  // Cached exact percentile to metric mappings
   color?: { L: number; a: number; b: number }  // CIELAB color for hierarchical coloring
   colorHex?: string                   // Cached hex color (converted from LAB)
-  // Candidate stage properties (for manual review of above-threshold features)
-  isCandidate?: boolean               // True for candidate review nodes
-  isBetweenStages?: boolean           // True if node should be visually positioned between stages
-  candidateCategory?: string          // Category ID (TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY)
-  candidateDestinations?: {           // Target node IDs for review outcomes
-    selected: string                  // Node for confirmed high (Fragmented/Well-Explained)
-    rejected: string                  // Node for rejected (Monosemantic/Need Revision)
-    unsure: string                    // Node for unreviewed
-  }
 }
 
 /**
@@ -164,7 +155,6 @@ export interface SankeyNode {
   feature_ids?: number[]
   node_type?: 'standard' | 'vertical_bar'
   colorHex?: string  // Hierarchical color (from HierarchicalColorAssigner)
-  isBetweenStages?: boolean  // True if node should be visually positioned between stages
 }
 
 export interface D3SankeyNode extends SankeyNode {

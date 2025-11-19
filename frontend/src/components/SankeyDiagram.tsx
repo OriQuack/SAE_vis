@@ -11,7 +11,8 @@ import {
   applyRightToLeftTransform,
   RIGHT_SANKEY_MARGIN
 } from '../lib/sankey-utils'
-import { calculateVerticalBarNodeLayout } from '../lib/sankey-utils'
+import { calculateVerticalBarNodeLayout, getNodeSegments } from '../lib/sankey-utils'
+import type { SankeyTreeNode } from '../types'
 import {
   getNodeMetrics
 } from '../lib/threshold-utils'
@@ -142,11 +143,15 @@ const VerticalBarSankeyNode: React.FC<{
   isHovered?: boolean
   featureSelectionStates?: Map<number, 'selected' | 'rejected'>
   tableSortedFeatureIds?: number[]
-}> = ({ node, scrollState, flowDirection: _flowDirection, onClick, onMouseEnter, onMouseLeave, isSelected = false, isHovered = false, featureSelectionStates, tableSortedFeatureIds }) => {
+  sankeyTree?: Map<string, SankeyTreeNode> | null
+}> = ({ node, scrollState, flowDirection: _flowDirection, onClick, onMouseEnter, onMouseLeave, isSelected = false, isHovered = false, featureSelectionStates, tableSortedFeatureIds, sankeyTree }) => {
   const layout = calculateVerticalBarNodeLayout(node, scrollState, featureSelectionStates, tableSortedFeatureIds)
 
   // Check if this is a placeholder node
   const isPlaceholder = node.id === 'placeholder_vertical_bar'
+
+  // Check for stage segments (progressive reveal)
+  const stageSegments = sankeyTree ? getNodeSegments(node, sankeyTree) : []
 
   // Calculate bounding box for selection border
   const boundingBox = layout.subNodes.length > 0 ? {
@@ -164,19 +169,40 @@ const VerticalBarSankeyNode: React.FC<{
       onMouseLeave={onMouseLeave}
       style={{ cursor: onClick ? 'pointer' : 'default' }}
     >
-      {/* Render vertical bar as a single unified rectangle */}
-      {layout.subNodes.length > 0 && (
-        <rect
-          className="sankey-vertical-bar-rect"
-          x={layout.subNodes[0].x}
-          y={Math.min(...layout.subNodes.map(sn => sn.y))}
-          width={layout.totalWidth}
-          height={Math.max(...layout.subNodes.map(sn => sn.y + sn.height)) - Math.min(...layout.subNodes.map(sn => sn.y))}
-          fill={node.colorHex || layout.subNodes[0].color}
-          opacity={0.85}
-          stroke="none"
-          strokeDasharray={isPlaceholder ? "3,3" : undefined}
-        />
+      {/* Render vertical bar with stage segments or as single unified rectangle */}
+      {stageSegments.length > 0 ? (
+        // Render segmented bar (progressive reveal)
+        stageSegments.map((segment, index) => (
+          <rect
+            key={`segment-${index}`}
+            className="sankey-vertical-bar-segment"
+            x={node.x0}
+            y={segment.y}
+            width={(node.x1 || 0) - (node.x0 || 0)}
+            height={segment.height}
+            fill={segment.color}
+            opacity={0.85}
+            stroke="#ffffff"
+            strokeWidth={1}
+          >
+            <title>{`${segment.label}\n${segment.featureCount} features`}</title>
+          </rect>
+        ))
+      ) : (
+        // Render solid bar (terminal node or LLM explainer bars)
+        layout.subNodes.length > 0 && (
+          <rect
+            className="sankey-vertical-bar-rect"
+            x={layout.subNodes[0].x}
+            y={Math.min(...layout.subNodes.map(sn => sn.y))}
+            width={layout.totalWidth}
+            height={Math.max(...layout.subNodes.map(sn => sn.y + sn.height)) - Math.min(...layout.subNodes.map(sn => sn.y))}
+            fill={node.colorHex || layout.subNodes[0].color}
+            opacity={0.85}
+            stroke="none"
+            strokeDasharray={isPlaceholder ? "3,3" : undefined}
+          />
+        )
       )}
 
       {/* Selection border around entire vertical bar */}
@@ -599,6 +625,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                           isHovered={hoveredNodeId === node.id}
                           featureSelectionStates={featureSelectionStates}
                           tableSortedFeatureIds={tableSortedFeatureIds || undefined}
+                          sankeyTree={sankeyTree}
                         />
                       </g>
                     )

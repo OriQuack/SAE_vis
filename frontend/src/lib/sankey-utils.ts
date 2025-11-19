@@ -3,7 +3,8 @@ import type {
   NodeCategory,
   D3SankeyNode,
   D3SankeyLink,
-  SankeyLayout
+  SankeyLayout,
+  SankeyTreeNode
 } from '../types'
 import {
   CATEGORY_ROOT,
@@ -47,6 +48,16 @@ export interface VerticalBarNodeLayout {
   scrollIndicator: ScrollIndicator | null  // Global scroll indicator
   totalWidth: number         // Total width of the bar
   totalHeight: number        // Total height
+}
+
+// Segment for stage-based vertical bars (progressive reveal)
+export interface StageSegment {
+  childNodeId: string        // Child's node ID in the tree
+  y: number                  // Top edge y-coordinate
+  height: number             // Segment height (proportional to features)
+  color: string              // Child's hierarchical color
+  featureCount: number       // Features in this child
+  label: string              // Child's rangeLabel
 }
 
 // ============================================================================
@@ -356,40 +367,6 @@ export function calculateSankeyLayout(
   const sankeyLayout = sankeyGenerator({
     nodes: nodesWithOrder,
     links: transformedLinks
-  })
-
-  // Adjust x positions for nodes marked with isBetweenStages (candidate nodes)
-  // These nodes should appear visually between columns
-  sankeyLayout.nodes.forEach((node: any) => {
-    if (node.isBetweenStages) {
-      // This node should be positioned between its current stage and the next stage
-      const currentStage = node.stage || 0
-      const prevStage = Math.max(0, currentStage - 1)
-
-      // Find the x positions of the columns on either side
-      const nodesAtPrevStage = sankeyLayout.nodes.filter((n: any) =>
-        n.stage === prevStage && !n.isBetweenStages
-      )
-      const nodesAtCurrentStage = sankeyLayout.nodes.filter((n: any) =>
-        n.stage === currentStage && !n.isBetweenStages
-      )
-
-      // Calculate average x positions for interpolation
-      const prevX = nodesAtPrevStage.length > 0
-        ? nodesAtPrevStage.reduce((sum: number, n: any) => sum + (n.x0 || 0), 0) / nodesAtPrevStage.length
-        : 0
-      const currentX = nodesAtCurrentStage.length > 0
-        ? nodesAtCurrentStage.reduce((sum: number, n: any) => sum + (n.x0 || 0), 0) / nodesAtCurrentStage.length
-        : (node.x0 || 0)
-
-      // Position the node halfway between the two columns
-      const interpolatedX = prevX + (currentX - prevX)
-      const nodeWidth = (node.x1 || 0) - (node.x0 || 0)
-
-      // Update node position
-      node.x0 = interpolatedX
-      node.x1 = interpolatedX + nodeWidth
-    }
   })
 
   // Expand width of vertical bar nodes (3x for three LLM explainer bars)
@@ -767,5 +744,51 @@ export function calculateVerticalBarNodeLayout(
     totalWidth,
     totalHeight
   }
+}
+
+/**
+ * Calculate segments for a vertical bar based on hidden children in the tree.
+ * Used for progressive reveal - shows child distribution as colored segments.
+ *
+ * @param node - D3 Sankey node to calculate segments for
+ * @param tree - Full Sankey tree (contains all nodes, even hidden ones)
+ * @returns Array of segments, each representing a child node
+ */
+export function getNodeSegments(
+  node: D3SankeyNode,
+  tree: Map<string, SankeyTreeNode>
+): StageSegment[] {
+  // Get the tree node to access children
+  const treeNode = tree.get(node.id)
+  if (!treeNode || treeNode.children.length === 0) {
+    return []  // No children = solid bar (terminal node)
+  }
+
+  const totalHeight = (node.y1 || 0) - (node.y0 || 0)
+  const totalFeatures = node.feature_count
+  let currentY = node.y0 || 0
+
+  // Calculate segment for each child
+  const segments: StageSegment[] = []
+  for (const childId of treeNode.children) {
+    const child = tree.get(childId)
+    if (!child || child.featureCount === 0) continue
+
+    // Proportional height based on feature count
+    const segmentHeight = (child.featureCount / totalFeatures) * totalHeight
+
+    segments.push({
+      childNodeId: childId,
+      y: currentY,
+      height: segmentHeight,
+      color: child.colorHex || '#999999',
+      featureCount: child.featureCount,
+      label: child.rangeLabel
+    })
+
+    currentY += segmentHeight
+  }
+
+  return segments
 }
 

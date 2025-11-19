@@ -161,21 +161,10 @@ export const createTreeActions = (set: any, get: any) => ({
         const lastChild = stage1Tree?.get(lastChildId)
 
         if (lastChild) {
-          if (lastChild.isCandidate && lastChild.candidateDestinations) {
-            // If last child is a candidate node, mark its "selected" destination as terminal
-            const selectedNodeId = lastChild.candidateDestinations.selected
-            const selectedNode = stage1Tree?.get(selectedNodeId)
-            if (selectedNode) {
-              selectedNode.stage = 3
-              stage1Tree?.set(selectedNodeId, { ...selectedNode })
-              console.log(`[Store.initializeFixedSankeyTree] 🎯 Marked candidate's selected node ${selectedNodeId} as terminal (stage=3)`)
-            }
-          } else {
-            // Mark as terminal at stage 3 (normal behavior)
-            lastChild.stage = 3
-            stage1Tree?.set(lastChildId, { ...lastChild })
-            console.log(`[Store.initializeFixedSankeyTree] 🎯 Marked high similarity node ${lastChildId} as terminal (stage=3)`)
-          }
+          // Mark as terminal at stage 3
+          lastChild.stage = 3
+          stage1Tree?.set(lastChildId, { ...lastChild })
+          console.log(`[Store.initializeFixedSankeyTree] 🎯 Marked high similarity node ${lastChildId} as terminal (stage=3)`)
         }
       }
 
@@ -208,21 +197,10 @@ export const createTreeActions = (set: any, get: any) => ({
             const lastChild = stage2Tree.get(lastChildId)
 
             if (lastChild) {
-              if (lastChild.isCandidate && lastChild.candidateDestinations) {
-                // If last child is a candidate node, mark its "selected" destination as terminal
-                const selectedNodeId = lastChild.candidateDestinations.selected
-                const selectedNode = stage2Tree.get(selectedNodeId)
-                if (selectedNode) {
-                  selectedNode.stage = 3
-                  stage2Tree.set(selectedNodeId, { ...selectedNode })
-                  console.log(`[Store.initializeFixedSankeyTree] 🎯 Marked candidate's selected node ${selectedNodeId} as terminal (stage=3)`)
-                }
-              } else {
-                // Mark as terminal at stage 3 (normal behavior)
-                lastChild.stage = 3
-                stage2Tree.set(lastChildId, { ...lastChild })
-                console.log(`[Store.initializeFixedSankeyTree] 🎯 Marked high quality node ${lastChildId} as terminal (stage=3)`)
-              }
+              // Mark as terminal at stage 3
+              lastChild.stage = 3
+              stage2Tree.set(lastChildId, { ...lastChild })
+              console.log(`[Store.initializeFixedSankeyTree] 🎯 Marked high quality node ${lastChildId} as terminal (stage=3)`)
             }
           }
         }
@@ -328,10 +306,6 @@ export const createTreeActions = (set: any, get: any) => ({
       parentNode.children.forEach(childId => newTree.delete(childId))
       parentNode.children = []
 
-      // Determine if this category uses candidate nodes (Feature Splitting and Quality only)
-      const usesCandidateNodes = categoryId === TAG_CATEGORY_FEATURE_SPLITTING || categoryId === TAG_CATEGORY_QUALITY
-      const aboveThresholdGroupIndex = 1  // For both categories, group 1 is above threshold
-
       // Create new children from groups
       for (const [index, group] of groups.entries()) {
         const intersectedFeatures = new Set<number>()
@@ -348,118 +322,22 @@ export const createTreeActions = (set: any, get: any) => ({
           }
         }
 
-        // Check if this is the above-threshold group that needs candidate node
-        if (usesCandidateNodes && index === aboveThresholdGroupIndex) {
-          // Create CANDIDATE node at integer depth for d3-sankey compatibility
-          const candidateId = `${nodeId}_stage${parentNode.depth + 1}_candidate`
-          const candidateDepth = parentNode.depth + 1  // Use integer stage for d3-sankey
-
-          // Determine tag names based on category
-          const tagNames = category.tags  // ["Monosemantic", "Fragmented"] or ["Need Revision", "Well-Explained"]
-          const rejectedTagName = tagNames[0]  // Below-threshold tag (Monosemantic, Need Revision)
-          const selectedTagName = tagNames[1]  // Above-threshold tag (Fragmented, Well-Explained)
-
-          // Create destination node IDs
-          const rejectedNodeId = `${candidateId}_${rejectedTagName.toLowerCase().replace(/\s+/g, '_')}`
-          const unsureNodeId = `${candidateId}_unsure`
-          const selectedNodeId = `${candidateId}_${selectedTagName.toLowerCase().replace(/\s+/g, '_')}`
-
-          // Create candidate node with neutral gray color
-          const candidateNode: SankeyTreeNode = {
-            id: candidateId,
-            parentId: nodeId,
-            metric: null,
-            thresholds: [],
-            depth: candidateDepth,
-            stage: candidateDepth,  // Integer stage for d3-sankey
-            children: [rejectedNodeId, unsureNodeId, selectedNodeId],
-            featureIds: intersectedFeatures,
-            featureCount: intersectedFeatures.size,
-            rangeLabel: `${group.rangeLabel} (Review)`,
-            isCandidate: true,
-            isBetweenStages: true,  // Mark for visual positioning between stages
-            candidateCategory: categoryId,
-            candidateDestinations: {
-              rejected: rejectedNodeId,
-              unsure: unsureNodeId,
-              selected: selectedNodeId
-            },
-            // Neutral beige/gray color for candidate nodes
-            colorHex: '#E8E8E8'
-          }
-
-          newTree.set(candidateId, candidateNode)
-          parentNode.children.push(candidateId)
-
-          // Create 3 destination nodes at depth + 1
-          // Initially, all features go to "Unsure" node
-
-          // 1. Rejected node (e.g., Monosemantic, Need Revision)
-          const rejectedNode: SankeyTreeNode = {
-            id: rejectedNodeId,
-            parentId: candidateId,
-            metric: null,
-            thresholds: [],
-            depth: candidateDepth + 1,  // Next integer depth after candidate
-            stage: candidateDepth + 1,  // Regular integer stage
-            children: [],
-            featureIds: new Set<number>(),  // Empty initially
-            featureCount: 0,
-            rangeLabel: rejectedTagName
-          }
-          newTree.set(rejectedNodeId, rejectedNode)
-
-          // 2. Unsure node (unreviewed features) with yellow/orange color
-          const unsureNode: SankeyTreeNode = {
-            id: unsureNodeId,
-            parentId: candidateId,
-            metric: null,
-            thresholds: [],
-            depth: candidateDepth + 1,  // Next integer depth after candidate
-            stage: candidateDepth + 1,  // Regular integer stage
-            children: [],
-            featureIds: new Set(intersectedFeatures),  // All features initially
-            featureCount: intersectedFeatures.size,
-            rangeLabel: 'Unsure',
-            // Light orange/yellow for unsure (warning color)
-            colorHex: '#FFF3CD'
-          }
-          newTree.set(unsureNodeId, unsureNode)
-
-          // 3. Selected node (e.g., Fragmented, Well-Explained)
-          const selectedNode: SankeyTreeNode = {
-            id: selectedNodeId,
-            parentId: candidateId,
-            metric: null,
-            thresholds: [],
-            depth: candidateDepth + 1,  // Next integer depth after candidate
-            stage: candidateDepth + 1,  // Regular integer stage
-            children: [],
-            featureIds: new Set<number>(),  // Empty initially
-            featureCount: 0,
-            rangeLabel: selectedTagName
-          }
-          newTree.set(selectedNodeId, selectedNode)
-
-          console.log(`[Store.addStageToNodeInternal] 🎯 Created candidate node ${candidateId} with 3 destinations`)
-        } else {
-          // Create normal child node at depth + 1
-          const childId = `${nodeId}_stage${parentNode.depth + 1}_group${index}`
-          const childNode: SankeyTreeNode = {
-            id: childId,
-            parentId: nodeId,
-            metric: null,
-            thresholds: [],
-            depth: parentNode.depth + 1,
-            children: [],
-            featureIds: intersectedFeatures,
-            featureCount: intersectedFeatures.size,
-            rangeLabel: group.rangeLabel
-          }
-
-          newTree.set(childId, childNode)
-          parentNode.children.push(childId)
+        // Create normal child node at depth + 1
+        const childId = `${nodeId}_stage${parentNode.depth + 1}_group${index}`
+        const childNode: SankeyTreeNode = {
+          id: childId,
+          parentId: nodeId,
+          metric: null,
+          thresholds: [],
+          depth: parentNode.depth + 1,
+          children: [],
+          featureIds: intersectedFeatures,
+          featureCount: intersectedFeatures.size,
+          rangeLabel: group.rangeLabel
         }
+
+        newTree.set(childId, childNode)
+        parentNode.children.push(childId)
       }
 
       // Update parent's metric, thresholds, and percentile metadata
@@ -503,21 +381,10 @@ export const createTreeActions = (set: any, get: any) => ({
         const parentNode = updatedTree?.get(nodeId)
 
         if (parentNode && parentNode.children.length > 0) {
-          // Check if we created a candidate node
           const lastChildId = parentNode.children[parentNode.children.length - 1]
-          const lastChild = updatedTree?.get(lastChildId)
-
-          if (lastChild && lastChild.isCandidate) {
-            // Activate the candidate node for manual review
-            console.log('[Store.addStageToNodeInternal] 🎯 Auto-activating candidate node for review:', lastChildId)
-            get().selectSingleNode(lastChildId)
-            get().setActiveStageNode(lastChildId, TAG_CATEGORY_FEATURE_SPLITTING)
-          } else {
-            // Normal activation for non-candidate nodes
-            console.log('[Store.addStageToNodeInternal] 🎯 Auto-activating decoder similarity table for leaf node:', lastChildId)
-            get().selectSingleNode(lastChildId)
-            get().setActiveStageNode(lastChildId, TAG_CATEGORY_FEATURE_SPLITTING)
-          }
+          console.log('[Store.addStageToNodeInternal] 🎯 Auto-activating decoder similarity table for leaf node:', lastChildId)
+          get().selectSingleNode(lastChildId)
+          get().setActiveStageNode(lastChildId, TAG_CATEGORY_FEATURE_SPLITTING)
         }
       }
 
@@ -1266,93 +1133,5 @@ export const createTreeActions = (set: any, get: any) => ({
     else {
       console.log('[Store.rebuildDownstreamStages] ℹ️  Node is at depth 2+, no rebuilding needed')
     }
-  },
-
-  /**
-   * Update candidate node links based on feature selection states.
-   * Called after feature selection changes to redistribute features between
-   * rejected, unsure, and selected destination nodes.
-   *
-   * @param candidateNodeId - ID of the candidate node to update
-   * @param panel - Which panel (left or right)
-   */
-  updateCandidateNodeLinks: (candidateNodeId: string, panel: PanelSide = PANEL_LEFT) => {
-    const state = get()
-    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
-    const { sankeyTree } = state[panelKey]
-    const { featureSelectionStates } = state
-
-    if (!sankeyTree || !sankeyTree.has(candidateNodeId)) {
-      console.error(`[Store.updateCandidateNodeLinks] ❌ Candidate node ${candidateNodeId} not found`)
-      return
-    }
-
-    const candidateNode = sankeyTree.get(candidateNodeId)!
-    if (!candidateNode.isCandidate || !candidateNode.candidateDestinations) {
-      console.error(`[Store.updateCandidateNodeLinks] ❌ Node ${candidateNodeId} is not a candidate node`)
-      return
-    }
-
-    console.log(`[Store.updateCandidateNodeLinks] 🔄 Updating links for candidate node ${candidateNodeId}`)
-
-    // Partition features by selection state
-    const selectedFeatures = new Set<number>()
-    const rejectedFeatures = new Set<number>()
-    const unsureFeatures = new Set<number>()
-
-    for (const featureId of candidateNode.featureIds) {
-      const state = featureSelectionStates.get(featureId)
-      if (state === 'selected') {
-        selectedFeatures.add(featureId)
-      } else if (state === 'rejected') {
-        rejectedFeatures.add(featureId)
-      } else {
-        // undefined or null = unsure
-        unsureFeatures.add(featureId)
-      }
-    }
-
-    console.log(`[Store.updateCandidateNodeLinks] 📊 Distribution: ${selectedFeatures.size} selected, ${rejectedFeatures.size} rejected, ${unsureFeatures.size} unsure`)
-
-    // Update destination nodes
-    const newTree = new Map(sankeyTree)
-    const { rejected: rejectedNodeId, unsure: unsureNodeId, selected: selectedNodeId } = candidateNode.candidateDestinations
-
-    // Update rejected node
-    const rejectedNode = newTree.get(rejectedNodeId)
-    if (rejectedNode) {
-      rejectedNode.featureIds = rejectedFeatures
-      rejectedNode.featureCount = rejectedFeatures.size
-      newTree.set(rejectedNodeId, { ...rejectedNode })
-    }
-
-    // Update unsure node
-    const unsureNode = newTree.get(unsureNodeId)
-    if (unsureNode) {
-      unsureNode.featureIds = unsureFeatures
-      unsureNode.featureCount = unsureFeatures.size
-      newTree.set(unsureNodeId, { ...unsureNode })
-    }
-
-    // Update selected node
-    const selectedNode = newTree.get(selectedNodeId)
-    if (selectedNode) {
-      selectedNode.featureIds = selectedFeatures
-      selectedNode.featureCount = selectedFeatures.size
-      newTree.set(selectedNodeId, { ...selectedNode })
-    }
-
-    // Update state with new tree
-    set((state: any) => ({
-      [panelKey]: {
-        ...state[panelKey],
-        sankeyTree: newTree
-      }
-    }))
-
-    // Recompute Sankey structure for visual update
-    get().recomputeSankeyTree(panel)
-
-    console.log(`[Store.updateCandidateNodeLinks] ✅ Candidate node links updated successfully`)
   }
 })

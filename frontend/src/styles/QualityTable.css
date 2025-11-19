@@ -10,7 +10,9 @@
  * No shadows: Clean, professional appearance for conference presentation
  * ============================================================================ */
 
+/* Main table panel - fills parent container */
 .table-panel {
+  flex: 1;
   background-color: var(--bg-primary);
   border: none;
   border-radius: 8px;
@@ -19,13 +21,14 @@
   flex-direction: column;
   overflow: hidden;
   position: relative;
-  height: 100%;
-  width: 100%;
+  min-width: 0;
+  min-height: 0;
   user-select: none;
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
 }
+
 
 /* ============================================================================
  * LOADING OVERLAY AND SPINNER
@@ -66,6 +69,7 @@
 
 .table-panel__content {
   flex: 1;
+  min-width: 0;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;

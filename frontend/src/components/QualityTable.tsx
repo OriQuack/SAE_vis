@@ -23,8 +23,6 @@ import {
   TAG_CATEGORY_FEATURE_SPLITTING,
   TAG_CATEGORY_CAUSE,
   TAG_CATEGORY_QUALITY,
-  TAG_CATEGORY_TABLE_TITLES,
-  TAG_CATEGORY_TABLE_INSTRUCTIONS
 } from '../lib/tag-constants'
 import { HighlightedExplanation } from './TableExplanation'
 import ActivationExample from './TableActivationExample'
@@ -32,7 +30,6 @@ import QualityScoreBreakdown from './QualityScoreBreakdown'
 import DecoderSimilarityTable from './FeatureSplitTable'
 import CauseTablePanel from './CauseTable'
 import SimilarityTaggingPopover from './TagAutomaticPopover'
-import TableSelectionPanel from './TableSelectionPanel'
 import '../styles/QualityTable.css'
 
 // ============================================================================
@@ -550,26 +547,17 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   // Render new simplified table with 3 sub-rows per feature
   return (
     <div className={`table-panel${className ? ` ${className}` : ''}`}>
-      {/* Loading Overlay */}
-      {isLoading && (
-        <div className="table-panel__loading-overlay">
-          <div className="table-panel__loading-spinner" />
-        </div>
-      )}
+        {/* Loading Overlay */}
+        {isLoading && (
+          <div className="table-panel__loading-overlay">
+            <div className="table-panel__loading-spinner" />
+          </div>
+        )}
 
-      {/* Unified Selection Panel with header, buttons, and state bar */}
-      <TableSelectionPanel
-        mode="feature"
-        tagLabel={TAG_CATEGORY_TABLE_TITLES[TAG_CATEGORY_QUALITY]}
-        instruction={TAG_CATEGORY_TABLE_INSTRUCTIONS[TAG_CATEGORY_QUALITY]}
-        onDone={moveToNextStep}
-        doneButtonEnabled={true}
-      />
-
-      <div
-        className={`table-panel__content ${isLoading ? 'loading' : ''}`}
-        ref={tableContainerRef}
-      >
+        <div
+          className={`table-panel__content ${isLoading ? 'loading' : ''}`}
+          ref={tableContainerRef}
+        >
         <table className="table-panel__table table-panel__table--simple">
           <thead className="table-panel__thead">
             <tr className="table-panel__header-row">
@@ -880,7 +868,6 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
 
       {/* Similarity tagging popover (automatic tagging) */}
       <SimilarityTaggingPopover />
-
     </div>
   )
 }

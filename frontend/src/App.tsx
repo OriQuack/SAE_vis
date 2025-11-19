@@ -6,6 +6,8 @@ import AlluvialDiagram from './components/AlluvialDiagram'
 import HistogramPopover from './components/SankeyHistogramPopover'
 import TablePanel from './components/QualityTable'
 import TagCategoryPanel from './components/TagStagePanel'
+import TableSelectionPanel from './components/SelectionPanel'
+import { TAG_CATEGORY_QUALITY, TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_CAUSE, TAG_CATEGORY_TABLE_TITLES, TAG_CATEGORY_TABLE_INSTRUCTIONS } from './lib/tag-constants'
 import * as api from './api'
 import './styles/base.css'
 import './styles/App.css'
@@ -82,7 +84,9 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
     showComparisonView,
     toggleComparisonView,
     activeStageCategory,
-    activateCategoryTable
+    activateCategoryTable,
+    moveToNextStep,
+    tableData
   } = useVisualizationStore()
 
   // Health check function
@@ -156,7 +160,7 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
           />
         </div>
 
-        {/* Bottom Section - Sankey + Table Side by Side */}
+        {/* Bottom Section - Sankey + Selection Panel + Table */}
         <div className="sankey-view__main-content">
           {/* Left Column - Sankey */}
           <div className="sankey-view__sankey-column">
@@ -176,6 +180,40 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
               </button>
             </div>
           </div>
+
+          {/* Middle Column - Selection Panel */}
+          {tableData && (
+            <div className="sankey-view__selection-panel-column">
+              {activeStageCategory === TAG_CATEGORY_QUALITY && (
+                <TableSelectionPanel
+                  mode="feature"
+                  tagLabel={TAG_CATEGORY_TABLE_TITLES[TAG_CATEGORY_QUALITY]}
+                  instruction={TAG_CATEGORY_TABLE_INSTRUCTIONS[TAG_CATEGORY_QUALITY]}
+                  onDone={moveToNextStep}
+                  doneButtonEnabled={true}
+                />
+              )}
+              {activeStageCategory === TAG_CATEGORY_FEATURE_SPLITTING && (
+                <TableSelectionPanel
+                  mode="pair"
+                  tagLabel={TAG_CATEGORY_TABLE_TITLES[TAG_CATEGORY_FEATURE_SPLITTING]}
+                  instruction={TAG_CATEGORY_TABLE_INSTRUCTIONS[TAG_CATEGORY_FEATURE_SPLITTING]}
+                  onDone={moveToNextStep}
+                  doneButtonEnabled={true}
+                  pairKeys={tableData?.pairs?.map((p: any) => p.pairKey) || []}
+                />
+              )}
+              {activeStageCategory === TAG_CATEGORY_CAUSE && (
+                <TableSelectionPanel
+                  mode="cause"
+                  tagLabel={TAG_CATEGORY_TABLE_TITLES[TAG_CATEGORY_CAUSE]}
+                  instruction={TAG_CATEGORY_TABLE_INSTRUCTIONS[TAG_CATEGORY_CAUSE]}
+                  onDone={moveToNextStep}
+                  doneButtonEnabled={true}
+                />
+              )}
+            </div>
+          )}
 
           {/* Right Column - Table */}
           <div className="sankey-view__table-column">

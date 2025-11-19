@@ -20,7 +20,6 @@ import ScoreCircle, { TagBadge } from './TableIndicators'
 import { HighlightedExplanation } from './TableExplanation'
 import { TAG_CATEGORY_CAUSE, TAG_CATEGORIES, getBadgeColors, TAG_CATEGORY_TABLE_TITLES, TAG_CATEGORY_TABLE_INSTRUCTIONS } from '../lib/tag-constants'
 import ActivationExample from './TableActivationExample'
-import TableSelectionPanel from './TableSelectionPanel'
 import SimilarityTaggingPopover from './TagAutomaticPopover'
 import '../styles/QualityTable.css'
 import '../styles/CauseTable.css'
@@ -356,24 +355,14 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
 
   return (
     <div className={`table-panel cause-table-panel${className ? ` ${className}` : ''}`}>
-      {/* Loading Overlay */}
-      {isLoading && (
-        <div className="table-panel__loading-overlay">
-          <div className="table-panel__loading-spinner" />
-        </div>
-      )}
+        {/* Loading Overlay */}
+        {isLoading && (
+          <div className="table-panel__loading-overlay">
+            <div className="table-panel__loading-spinner" />
+          </div>
+        )}
 
-      {/* Table Selection Panel - Header with actions */}
-      <TableSelectionPanel
-        mode="cause"
-        tagLabel={TAG_CATEGORY_TABLE_TITLES[TAG_CATEGORY_CAUSE]}
-        instruction={TAG_CATEGORY_TABLE_INSTRUCTIONS[TAG_CATEGORY_CAUSE]}
-        onDone={moveToNextStep}
-        doneButtonEnabled={true}
-      />
-
-      {/* Table Content */}
-      <div className="table-panel__content" ref={tableContainerRef}>
+        <div className="table-panel__content" ref={tableContainerRef}>
         <table className="table-panel__table--simple">
           {/* Table Header */}
           <thead className="table-panel__thead">

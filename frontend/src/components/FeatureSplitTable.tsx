@@ -13,7 +13,6 @@ import { extractInterFeaturePositions, mergeInterFeaturePositions } from '../lib
 import ActivationExample from './TableActivationExample'
 import ScoreCircle, { TagBadge } from './TableIndicators'
 import SimilarityTaggingPopover from './TagAutomaticPopover'
-import TableSelectionPanel from './TableSelectionPanel'
 import '../styles/QualityTable.css'
 import '../styles/FeatureSplitTable.css'
 
@@ -782,25 +781,14 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
   // Render
   return (
     <div className={`table-panel${className ? ` ${className}` : ''}`}>
-      {/* Loading Overlay */}
-      {loading.table && (
-        <div className="table-panel__loading-overlay">
-          <div className="table-panel__loading-spinner" />
-        </div>
-      )}
+        {/* Loading Overlay */}
+        {loading.table && (
+          <div className="table-panel__loading-overlay">
+            <div className="table-panel__loading-spinner" />
+          </div>
+        )}
 
-      {/* Unified Selection Panel with header, buttons, and state bar */}
-      <TableSelectionPanel
-        mode="pair"
-        tagLabel={TAG_CATEGORY_TABLE_TITLES[TAG_CATEGORY_FEATURE_SPLITTING]}
-        instruction={TAG_CATEGORY_TABLE_INSTRUCTIONS[TAG_CATEGORY_FEATURE_SPLITTING]}
-        onDone={moveToNextStep}
-        doneButtonEnabled={true}
-        pairKeys={allPairKeys}
-      />
-
-      {/* Table */}
-      <div className="table-panel__content feature-split-table" ref={tableContainerRef}>
+        <div className="table-panel__content feature-split-table" ref={tableContainerRef}>
         <table className="table-panel__table--simple">
           <thead className="table-panel__thead">
             {/* Header row with 6 columns */}
@@ -1069,7 +1057,6 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
 
       {/* Similarity tagging popover (automatic tagging) */}
       <SimilarityTaggingPopover />
-
     </div>
   )
 }

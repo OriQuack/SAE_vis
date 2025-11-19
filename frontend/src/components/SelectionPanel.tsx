@@ -4,10 +4,10 @@ import {
   type SelectionCategory,
   METRIC_DISPLAY_NAMES
 } from '../lib/constants'
-import SelectionStateBar, { type CategoryCounts } from './TableSelectionBar'
-import '../styles/TableSelectionPanel.css'
+import SelectionStateBar, { type CategoryCounts } from './SelectionBar'
+import '../styles/SelectionPanel.css'
 
-interface TableSelectionPanelProps {
+interface SelectionPanelProps {
   mode: 'feature' | 'pair' | 'cause'
   tagLabel: string
   instruction?: string
@@ -24,7 +24,7 @@ interface TableSelectionPanelProps {
  * - Action buttons (Sort, Tag, Done, Clear)
  * - Selection state bar (4-category visualization)
  */
-const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
+const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
   mode,
   tagLabel,
   instruction,
@@ -82,13 +82,9 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
   // Track if threshold button should highlight (first time showing preview)
   const [shouldHighlightThresholdButton, setShouldHighlightThresholdButton] = useState(false)
 
-  // Button refs for measuring width
+  // Button refs (no longer need width measurement for vertical layout)
   const sortButtonRef = useRef<HTMLButtonElement>(null)
   const tagButtonRef = useRef<HTMLButtonElement>(null)
-
-  // Button widths for tooltip sizing (button width + 4px)
-  const [sortTooltipWidth, setSortTooltipWidth] = useState<number | null>(null)
-  const [tagTooltipWidth, setTagTooltipWidth] = useState<number | null>(null)
 
   // Get selection states based on mode
   const selectionStates = mode === 'feature' ? featureSelectionStates
@@ -323,15 +319,7 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
   const isPreviewActive = thresholdVisualization?.visible ?? false
   const showThresholdControls = isPreviewActive && similarityTaggingPopover?.minimized
 
-  // Measure button widths on mount and when text changes
-  useEffect(() => {
-    if (sortButtonRef.current) {
-      setSortTooltipWidth(sortButtonRef.current.offsetWidth + 20)
-    }
-    if (tagButtonRef.current) {
-      setTagTooltipWidth(tagButtonRef.current.offsetWidth + 20)
-    }
-  }, [isSortLoading, canSortBySimilarity, canTagAutomatically])
+  // Note: Tooltip width measurement removed for vertical layout (tooltips now positioned to the right)
 
   // Highlight threshold button when preview first becomes active
   useEffect(() => {
@@ -457,10 +445,7 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
               )}
             </button>
             {hoveredButton === 'sort' && !showCategoryDropdown && (
-              <div
-                className="table-selection-panel__tooltip"
-                style={{ width: sortTooltipWidth ? `${sortTooltipWidth}px` : undefined }}
-              >
+              <div className="table-selection-panel__tooltip">
                 {isPreviewActive ? (
                   <div>Close threshold preview to enable sorting</div>
                 ) : isSortedBySimilarity ? (
@@ -495,10 +480,7 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
               </div>
             )}
             {showCategoryDropdown && mode === 'cause' && (
-              <div
-                className="table-selection-panel__tooltip table-selection-panel__category-dropdown"
-                style={{ width: sortTooltipWidth ? `${sortTooltipWidth}px` : undefined }}
-              >
+              <div className="table-selection-panel__tooltip table-selection-panel__category-dropdown">
                 <div className="table-selection-panel__tooltip-header">Select category to sort by:</div>
                 <button
                   className="table-selection-panel__category-option"
@@ -543,10 +525,7 @@ const TableSelectionPanel: React.FC<TableSelectionPanelProps> = ({
               Tag Automatically
             </button>
             {hoveredButton === 'tag' && (
-              <div
-                className="table-selection-panel__tooltip"
-                style={{ width: tagTooltipWidth ? `${tagTooltipWidth}px` : undefined }}
-              >
+              <div className="table-selection-panel__tooltip">
                 {isPreviewActive ? (
                   <div>Close threshold preview to enable automatic tagging</div>
                 ) : mode === 'cause' ? (

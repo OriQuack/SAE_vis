@@ -7,7 +7,7 @@ import {
   calculateYAxisTicks
 } from '../lib/histogram-utils'
 import { SELECTION_CATEGORY_COLORS } from '../lib/constants'
-import SelectionStateBar, { type CategoryCounts } from './TableSelectionBar'
+import SelectionStateBar, { type CategoryCounts } from './SelectionBar'
 import ThresholdHandles from './ThresholdHandles'
 import '../styles/TagAutomaticPopover.css'
 

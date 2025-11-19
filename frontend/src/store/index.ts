@@ -94,7 +94,6 @@ interface AppState {
   removeNodeStage: (nodeId: string, panel?: PanelSide) => void
   initializeSankeyTree: (panel?: PanelSide) => void
   loadRootFeatures: (panel?: PanelSide) => Promise<void>
-  updateCandidateNodeLinks: (candidateNodeId: string, panel?: PanelSide) => void
 
   // Data setters
   setHistogramData: (data: Record<string, HistogramData> | null, panel?: PanelSide, nodeId?: string) => void
@@ -407,17 +406,6 @@ export const useStore = create<AppState>((set, get) => ({
         doneFeatureSelectionStates: null
       }
     })
-
-    // Update candidate node links if active node is a candidate
-    const state = get()
-    const { activeStageNodeId, leftPanel } = state
-    if (activeStageNodeId && leftPanel.sankeyTree) {
-      const activeNode = leftPanel.sankeyTree.get(activeStageNodeId)
-      if (activeNode && activeNode.isCandidate) {
-        // Update candidate node links to reflect new selection state
-        get().updateCandidateNodeLinks(activeStageNodeId, PANEL_LEFT)
-      }
-    }
   },
 
   selectAllFeatures: () => {
@@ -477,62 +465,6 @@ export const useStore = create<AppState>((set, get) => ({
         donePairSelectionStates: null
       }
     })
-
-    // Update feature selection states based on pair selections
-    // and trigger Sankey updates if viewing a candidate node
-    const state = get()
-    const { activeStageNodeId, pairSelectionStates, leftPanel } = state
-
-    // Only proceed if we're viewing a candidate node
-    if (activeStageNodeId?.includes('candidate')) {
-      // Get the candidate node from the Sankey tree
-      const candidateNode = leftPanel.sankeyTree?.get(activeStageNodeId)
-      if (!candidateNode || !candidateNode.isCandidate) return
-
-      // Derive feature selection states from pair selections
-      const featureStates = new Map<number, 'selected' | 'rejected'>()
-
-      // Use features from the candidate node itself
-      const candidateFeatures = candidateNode.featureIds
-
-      // For each feature, determine its state based on pair selections
-      candidateFeatures.forEach(featureId => {
-        let hasSelected = false
-        let hasAnyPair = false
-        let allRejected = true
-
-        // Check all pairs involving this feature
-        pairSelectionStates.forEach((state, pairKey) => {
-          const [id1, id2] = pairKey.split('-').map(Number)
-          if (id1 === featureId || id2 === featureId) {
-            hasAnyPair = true
-            if (state === 'selected') {
-              hasSelected = true
-              allRejected = false
-            } else if (state !== 'rejected') {
-              allRejected = false
-            }
-          }
-        })
-
-        // Derive feature state:
-        // - If ANY pair is selected -> feature is selected (Fragmented)
-        // - If ALL pairs are rejected -> feature is rejected (Monosemantic)
-        // - Otherwise -> unsure (null)
-        if (hasSelected) {
-          featureStates.set(featureId, 'selected')
-        } else if (hasAnyPair && allRejected) {
-          featureStates.set(featureId, 'rejected')
-        }
-        // If no state, feature remains unsure (not added to map)
-      })
-
-      // Update the global feature selection states
-      set({ featureSelectionStates: featureStates })
-
-      // Trigger Sankey update for the candidate node
-      get().updateCandidateNodeLinks(activeStageNodeId, PANEL_LEFT)
-    }
   },
 
   clearPairSelection: () => {
@@ -541,13 +473,6 @@ export const useStore = create<AppState>((set, get) => ({
       pairSelectionSources: new Map<string, 'manual' | 'auto'>(),
       featureSelectionStates: new Map<number, 'selected' | 'rejected'>()
     })
-
-    // Clear Sankey updates if viewing a candidate node
-    const state = get()
-    const { activeStageNodeId } = state
-    if (activeStageNodeId?.includes('candidate')) {
-      get().updateCandidateNodeLinks(activeStageNodeId, PANEL_LEFT)
-    }
   },
 
   // Cause category selection actions (used by CauseTablePanel)
