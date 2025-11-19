@@ -86,6 +86,7 @@ const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
  * D3-sankey node alignment function that respects actual stage positions
  */
 function stageBasedAlign(node: D3SankeyNode): number {
+  // Return the stage directly (it's already an integer from tree structure)
   return node.stage || 0
 }
 
@@ -206,7 +207,9 @@ export function calculateSankeyLayout(
     ...node,
     originalIndex: index,
     // Convert snake_case feature_ids to camelCase featureIds if it exists
-    featureIds: node.feature_ids ? new Set(node.feature_ids) : undefined
+    featureIds: node.feature_ids ? new Set(node.feature_ids) : undefined,
+    // stage is already an integer from the tree structure
+    stage: node.stage ?? 0
   }))
 
   // Build parent-child relationships
@@ -257,9 +260,17 @@ export function calculateSankeyLayout(
 
   // Node sorting function
   const smartNodeSort = (a: D3SankeyNode, b: D3SankeyNode) => {
+    // Ensure nodes are defined
+    if (!a || !b) {
+      console.warn('Undefined node in sort comparison', { a, b })
+      return 0
+    }
+
     // Sort by stage first
-    if (a.stage !== b.stage) {
-      return (a.stage || 0) - (b.stage || 0)
+    const stageA = a.stage ?? 0
+    const stageB = b.stage ?? 0
+    if (stageA !== stageB) {
+      return stageA - stageB
     }
 
     // Within same stage, sort by stage-1 ancestor to group by subtree
@@ -306,10 +317,22 @@ export function calculateSankeyLayout(
 
   // Link sorting function
   const linkSort = (a: D3SankeyLink, b: D3SankeyLink) => {
+    // Ensure links are defined
+    if (!a || !b) {
+      console.warn('Undefined link in sort comparison', { a, b })
+      return 0
+    }
+
     const sourceA = a.source as D3SankeyNode
     const sourceB = b.source as D3SankeyNode
     const targetA = a.target as D3SankeyNode
     const targetB = b.target as D3SankeyNode
+
+    // Ensure source/target nodes are defined
+    if (!sourceA || !sourceB || !targetA || !targetB) {
+      console.warn('Undefined node in link sort', { sourceA, sourceB, targetA, targetB })
+      return 0
+    }
 
     // Sort by source node index
     if (sourceA.index !== sourceB.index) {
@@ -333,6 +356,40 @@ export function calculateSankeyLayout(
   const sankeyLayout = sankeyGenerator({
     nodes: nodesWithOrder,
     links: transformedLinks
+  })
+
+  // Adjust x positions for nodes marked with isBetweenStages (candidate nodes)
+  // These nodes should appear visually between columns
+  sankeyLayout.nodes.forEach((node: any) => {
+    if (node.isBetweenStages) {
+      // This node should be positioned between its current stage and the next stage
+      const currentStage = node.stage || 0
+      const prevStage = Math.max(0, currentStage - 1)
+
+      // Find the x positions of the columns on either side
+      const nodesAtPrevStage = sankeyLayout.nodes.filter((n: any) =>
+        n.stage === prevStage && !n.isBetweenStages
+      )
+      const nodesAtCurrentStage = sankeyLayout.nodes.filter((n: any) =>
+        n.stage === currentStage && !n.isBetweenStages
+      )
+
+      // Calculate average x positions for interpolation
+      const prevX = nodesAtPrevStage.length > 0
+        ? nodesAtPrevStage.reduce((sum: number, n: any) => sum + (n.x0 || 0), 0) / nodesAtPrevStage.length
+        : 0
+      const currentX = nodesAtCurrentStage.length > 0
+        ? nodesAtCurrentStage.reduce((sum: number, n: any) => sum + (n.x0 || 0), 0) / nodesAtCurrentStage.length
+        : (node.x0 || 0)
+
+      // Position the node halfway between the two columns
+      const interpolatedX = prevX + (currentX - prevX)
+      const nodeWidth = (node.x1 || 0) - (node.x0 || 0)
+
+      // Update node position
+      node.x0 = interpolatedX
+      node.x1 = interpolatedX + nodeWidth
+    }
   })
 
   // Expand width of vertical bar nodes (3x for three LLM explainer bars)

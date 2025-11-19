@@ -405,38 +405,74 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
 
     // For pair similarity sort, we'll need to sort by the average similarity of non-main sub-columns
     if (tableSortBy === 'pair_similarity' && pairSimilarityScores.size > 0) {
+      console.log('[FeatureSplitTable] Applying pair similarity sort:', {
+        pairSimilarityScoresSize: pairSimilarityScores.size,
+        pairSelectionStatesSize: pairSelectionStates.size,
+        groupedRowsCount: groupedRows.length
+      })
+
       const sorted = [...groupedRows]
+
+      // Debug: Track score distribution
+      const scoreDebug = { withScores: 0, withoutScores: 0, sampleScores: [] as number[] }
+
       sorted.sort((a, b) => {
         // Calculate average pair similarity for each grouped row (excluding main feature)
         // Logic:
         // - If row has ≥1 fragmented pair (selected): use average of ONLY fragmented pairs
-        // - Else: use average of ONLY rejected pairs
+        // - Else if row has ≥1 rejected pair: use average of ONLY rejected pairs
+        // - Else (no manually tagged pairs): use average of ALL pairs
         const getAvgScore = (row: FeatureSplitGroupedRow) => {
           // Get all valid similar feature pairs
           const validPairs = row.subColumns
             .filter(col => !col.isMainFeature && col.pairKey)
 
-          // Check if any pairs are fragmented (selected)
+          // Check if row has any selected (fragmented) or rejected pairs
           const hasFragmentedPairs = validPairs.some(col =>
             pairSelectionStates.get(col.pairKey!) === 'selected'
+          )
+          const hasRejectedPairs = validPairs.some(col =>
+            pairSelectionStates.get(col.pairKey!) === 'rejected'
           )
 
           // Filter pairs based on logic:
           // - If has fragmented pairs: use only fragmented pairs
-          // - Else: use only rejected pairs
-          const targetState = hasFragmentedPairs ? 'selected' : 'rejected'
-          const filteredPairs = validPairs.filter(col =>
-            pairSelectionStates.get(col.pairKey!) === targetState
-          )
+          // - Else if has rejected pairs: use only rejected pairs
+          // - Else (no manually tagged pairs): use ALL pairs
+          let filteredPairs
+          if (hasFragmentedPairs) {
+            filteredPairs = validPairs.filter(col =>
+              pairSelectionStates.get(col.pairKey!) === 'selected'
+            )
+          } else if (hasRejectedPairs) {
+            filteredPairs = validPairs.filter(col =>
+              pairSelectionStates.get(col.pairKey!) === 'rejected'
+            )
+          } else {
+            // No manual tags - use all pairs
+            filteredPairs = validPairs
+          }
 
           // Get similarity scores for filtered pairs
           const scores = filteredPairs
             .map(col => pairSimilarityScores.get(col.pairKey!) ?? -Infinity)
             .filter(s => s !== -Infinity)
 
-          return scores.length > 0
+          const avgScore = scores.length > 0
             ? scores.reduce((sum, s) => sum + s, 0) / scores.length
             : -Infinity
+
+          // Debug: Track this score
+          if (scoreDebug.sampleScores.length < 10) {
+            scoreDebug.sampleScores.push(avgScore)
+          }
+          if (avgScore !== -Infinity) {
+            scoreDebug.withScores++
+          } else {
+            scoreDebug.withoutScores++
+          }
+
+          return avgScore
         }
 
         const aScore = getAvgScore(a)
@@ -444,7 +480,14 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
         return bScore - aScore  // Descending
       })
 
-      console.log('[FeatureSplitTable] Pair similarity sort applied to grouped rows')
+      console.log('[FeatureSplitTable] Pair similarity sort completed:', {
+        firstThreeRows: sorted.slice(0, 3).map(r => r.mainFeatureId),
+        scoreDistribution: {
+          rowsWithScores: scoreDebug.withScores,
+          rowsWithoutScores: scoreDebug.withoutScores,
+          sampleScores: scoreDebug.sampleScores
+        }
+      })
       return sorted
     }
 
@@ -476,7 +519,7 @@ const DecoderSimilarityTable: React.FC<DecoderSimilarityTableProps> = ({ classNa
     })
 
     return sorted
-  }, [groupedRows, sortBy, sortDirection, tableSortBy, pairSimilarityScores])
+  }, [groupedRows, sortBy, sortDirection, tableSortBy, pairSimilarityScores, pairSelectionStates])
 
   // Virtual scrolling for performance with large datasets
   const rowVirtualizer = useVirtualizer({

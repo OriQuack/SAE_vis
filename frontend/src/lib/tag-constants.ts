@@ -9,10 +9,19 @@ import {
   METRIC_SCORE_EMBEDDING,
   METRIC_SCORE_DETECTION,
   METRIC_SCORE_FUZZ,
-  METRIC_SEMANTIC_SIMILARITY
+  METRIC_SEMANTIC_SIMILARITY,
+  OKABE_ITO_PALETTE,
+  PAUL_TOL_BRIGHT
 } from './constants'
 import { HierarchicalColorAssigner } from './hierarchical-colors'
 import type { SankeyTreeNode } from '../types'
+
+// ============================================================================
+// COLOR MODE TYPES
+// ============================================================================
+
+/** Color assignment mode for tag categories */
+export type TagColorMode = 'hierarchical' | 'constant'
 
 // ============================================================================
 // TAG CATEGORY IDs
@@ -290,10 +299,87 @@ function buildVirtualTagTree(): Map<string, SankeyTreeNode> {
 }
 
 /**
- * Initialize tag colors by building virtual tree and assigning colors
- * This runs once at module load time
+ * Assign colors using predefined constants from constants.ts
+ * Maps each tag to a specific color from Okabe-Ito and Paul Tol palettes
+ *
+ * Color Semantics:
+ * - GREEN: Positive quality (Monosemantic, Well-Explained)
+ * - RED: Needs attention (Fragmented, Need Revision)
+ * - BLUE/ORANGE/PURPLE: Categorical distinctions (Cause tags)
+ * - GRAY: Uncertain/Unclassified (Unsure)
+ *
+ * All colors are colorblind-friendly (Okabe-Ito and Paul Tol palettes)
  */
-function initializeTagColors(): void {
+function assignConstantColors(): void {
+  const categoriesInOrder = getTagCategoriesInOrder()
+
+  for (const category of categoriesInOrder) {
+    const colors: Record<string, string> = {}
+
+    // Map tags to constant colors based on semantic meaning
+    for (const tag of category.tags) {
+      switch (tag) {
+        // ========================================
+        // Feature Splitting Category
+        // ========================================
+        case 'Monosemantic':
+          colors[tag] = OKABE_ITO_PALETTE.GRAY  // #009E73 - Green (good: single concept)
+          break
+        case 'Fragmented':
+          colors[tag] = OKABE_ITO_PALETTE.YELLOW  // #EE6677 - Red (bad: split features)
+          break
+
+        // ========================================
+        // Quality Category
+        // ========================================
+        case 'Need Revision':
+          colors[tag] = OKABE_ITO_PALETTE.GRAY  // #EE6677 - Red (bad: low quality)
+          break
+        case 'Well-Explained':
+          colors[tag] = OKABE_ITO_PALETTE.BLUISH_GREEN  // #009E73 - Green (good: high quality)
+          break
+
+        // ========================================
+        // Cause Category (Categorical colors)
+        // ========================================
+        case 'Missed Context':
+          colors[tag] = OKABE_ITO_PALETTE.BLUE  // #0072B2 - Blue
+          break
+        case 'Missed Lexicon':
+          colors[tag] = OKABE_ITO_PALETTE.ORANGE  // #E69F00 - Orange
+          break
+        case 'Noisy Activation':
+          colors[tag] = OKABE_ITO_PALETTE.REDDISH_PURPLE  // #CC79A7 - Purple
+          break
+        case 'Unsure':
+          colors[tag] = OKABE_ITO_PALETTE.GRAY  // #999999 - Gray (uncertain)
+          break
+
+        default:
+          // Fallback: Use first available color from palette
+          colors[tag] = OKABE_ITO_PALETTE.GRAY
+          break
+      }
+    }
+
+    // Store colors in TAG_CATEGORIES (mutate the object)
+    ;(TAG_CATEGORIES[category.id] as any).tagColors = colors
+  }
+}
+
+/**
+ * Initialize tag colors by building virtual tree and assigning colors
+ *
+ * @param mode - Color assignment mode:
+ *   - 'hierarchical': Use HierarchicalColorAssigner for perceptually-optimized colors (default)
+ *   - 'constant': Use predefined colors from Okabe-Ito and Paul Tol palettes
+ */
+function initializeTagColors(mode: TagColorMode = 'hierarchical'): void {
+  if (mode === 'constant') {
+    // Use predefined constant colors
+    assignConstantColors()
+    return
+  }
   // Build virtual tree
   const virtualTree = buildVirtualTagTree()
 
@@ -327,7 +413,8 @@ function initializeTagColors(): void {
 }
 
 // Initialize colors at module load
-initializeTagColors()
+// Switch between 'constant' (predefined Okabe-Ito/Paul Tol colors) and 'hierarchical' (perceptually-optimized)
+initializeTagColors('constant')
 
 // ============================================================================
 // TAG COLOR UTILITIES

@@ -58,6 +58,7 @@ const SimilarityTaggingPopover: React.FC = () => {
 
     const handleClickOutside = (e: MouseEvent) => {
       if (backdropRef.current && e.target === backdropRef.current) {
+        hideThresholdsOnTable()
         hideSimilarityTaggingPopover()
       }
     }
@@ -66,7 +67,7 @@ const SimilarityTaggingPopover: React.FC = () => {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [popoverState?.visible, hideSimilarityTaggingPopover])
+  }, [popoverState?.visible, hideSimilarityTaggingPopover, hideThresholdsOnTable])
 
   // Dragging logic (centered modal with offset)
   useEffect(() => {
@@ -437,6 +438,12 @@ const SimilarityTaggingPopover: React.FC = () => {
     hideSimilarityTaggingPopover()
   }, [applySimilarityTags, hideThresholdsOnTable, hideSimilarityTaggingPopover])
 
+  // Handle cancel - hide thresholds and close popover
+  const handleCancel = useCallback(() => {
+    hideThresholdsOnTable()
+    hideSimilarityTaggingPopover()
+  }, [hideThresholdsOnTable, hideSimilarityTaggingPopover])
+
   // Note: Threshold control buttons are now shown in TableSelectionPanel
   // when thresholds are visible and popover is minimized
   if (!popoverState?.visible || popoverState?.minimized) return null
@@ -472,7 +479,7 @@ const SimilarityTaggingPopover: React.FC = () => {
           </span>
           <button
             className="similarity-tagging-popover__close"
-            onClick={hideSimilarityTaggingPopover}
+            onClick={handleCancel}
           >
             ×
           </button>
@@ -765,7 +772,7 @@ const SimilarityTaggingPopover: React.FC = () => {
             <div className="similarity-tagging-popover__actions">
               <button
                 className="similarity-tagging-popover__button similarity-tagging-popover__button--cancel"
-                onClick={hideSimilarityTaggingPopover}
+                onClick={handleCancel}
               >
                 Cancel
               </button>
