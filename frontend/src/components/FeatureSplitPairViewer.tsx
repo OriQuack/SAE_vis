@@ -2,6 +2,8 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react'
 import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow } from '../types'
 import ActivationExample from './ActivationExample'
+import { TagBadge } from './TableIndicators'
+import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/tag-constants'
 import { extractInterFeaturePositions } from '../lib/activation-utils'
 import '../styles/FeatureSplitPairViewer.css'
 
@@ -250,6 +252,13 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
     }
   }, [currentPairIndex])
 
+  // Jump to specific pair handler
+  const goToPair = useCallback((index: number) => {
+    if (index >= 0 && index < pairList.length) {
+      setCurrentPairIndex(index)
+    }
+  }, [pairList.length])
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -372,7 +381,12 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
 
   // Get activation data
   const mainActivation = activationExamples[currentPair.mainFeatureId]
-  const similarActivation = currentPair.similarRow ? activationExamples[currentPair.similarFeatureId] : null
+
+  // TEMPORARY FIX: We have 16k features but only ~7500 in tableData
+  // However, we DO have activation examples for features > 7500
+  // So we get activation data directly, even if similarRow doesn't exist
+  // TODO: Remove this workaround when full feature data is available
+  const similarActivation = activationExamples[currentPair.similarFeatureId] || null
 
   // Extract inter-feature positions for highlighting (if available)
   const mainFeatureRow = currentPair.row
@@ -403,8 +417,49 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
 
   return (
     <div className={`feature-split-pair-viewer ${className}`}>
-      {/* Compact header with navigation and selection */}
-      <div className="pair-viewer__header">
+      {/* Sidebar with pair list */}
+      <div className="pair-viewer__sidebar">
+        <div className="sidebar__header">
+          <span className="sidebar__title">Pairs</span>
+          <span className="sidebar__count">{pairList.length}</span>
+        </div>
+        <div className="pair-list__container">
+          {pairList.map((pair, index) => {
+            const isCurrent = index === currentPairIndex
+            const selectionState = pairSelectionStates.get(pair.pairKey) || null
+
+            // Map selection state to tag name
+            let tagName = 'Unsure'
+            if (selectionState === 'selected') {
+              tagName = 'Fragmented'
+            } else if (selectionState === 'rejected') {
+              tagName = 'Monosemantic'
+            }
+
+            // Format pair ID as string for TagBadge
+            const pairIdString = `${pair.mainFeatureId}-${pair.similarFeatureId}`
+
+            return (
+              <div
+                key={pair.pairKey}
+                className={`pair-list-item ${isCurrent ? 'pair-list-item--current' : ''}`}
+              >
+                <TagBadge
+                  featureId={pairIdString as any}
+                  tagName={tagName}
+                  tagCategoryId={TAG_CATEGORY_FEATURE_SPLITTING}
+                  onClick={() => goToPair(index)}
+                />
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Main content area */}
+      <div className="pair-viewer__main">
+        {/* Compact header with navigation and selection */}
+        <div className="pair-viewer__header">
         {/* Navigation */}
         <div className="pair-viewer__navigation">
           <button
@@ -523,23 +578,23 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
             <span className="panel-header__label">Similar Feature</span>
             <span className="panel-header__id">#{currentPair.similarFeatureId}</span>
           </div>
-          {similarFeatureRow ? (
-            similarActivation ? (
-              <div className="activation-panel__examples">
-                <ActivationExample
-                  examples={similarActivation}
-                  containerWidth={containerWidth - 40}
-                  interFeaturePositions={similarInterFeaturePositions}
-                  numQuantiles={4}
-                />
-              </div>
-            ) : (
-              <div className="activation-panel__loading">Loading activation examples...</div>
-            )
+          {/* TEMPORARY FIX: Check for activation data instead of feature row */}
+          {/* TODO: Remove when full feature data is available for all 16k features */}
+          {similarActivation ? (
+            <div className="activation-panel__examples">
+              <ActivationExample
+                examples={similarActivation}
+                containerWidth={containerWidth - 40}
+                interFeaturePositions={similarInterFeaturePositions}
+                numQuantiles={4}
+              />
+            </div>
           ) : (
-            <div className="activation-panel__missing">Feature data not available</div>
+            <div className="activation-panel__loading">Loading activation examples...</div>
           )}
         </div>
+      </div>
+      {/* Close pair-viewer__main */}
       </div>
     </div>
   )

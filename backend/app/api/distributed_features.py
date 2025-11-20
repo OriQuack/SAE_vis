@@ -10,23 +10,23 @@ from ..models.requests import DistributedFeaturesRequest
 from ..models.responses import DistributedFeaturesResponse
 
 if TYPE_CHECKING:
-    from ..services.distributed_features_service import DistributedFeaturesService
+    from ..services.feature_cluster_service import FeatureClusterService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 # Service instance will be injected
-_distributed_features_service: "DistributedFeaturesService" = None
+_distributed_features_service: "FeatureClusterService" = None
 
 
-def set_distributed_features_service(service: "DistributedFeaturesService"):
+def set_distributed_features_service(service: "FeatureClusterService"):
     """Set the distributed features service instance."""
     global _distributed_features_service
     _distributed_features_service = service
 
 
-def get_distributed_features_service() -> "DistributedFeaturesService":
+def get_distributed_features_service() -> "FeatureClusterService":
     """Dependency to get distributed features service."""
     if _distributed_features_service is None:
         raise HTTPException(
@@ -39,7 +39,7 @@ def get_distributed_features_service() -> "DistributedFeaturesService":
 @router.post("/distributed-features", response_model=DistributedFeaturesResponse)
 async def distributed_features(
     request: DistributedFeaturesRequest,
-    service: "DistributedFeaturesService" = Depends(get_distributed_features_service)
+    service: "FeatureClusterService" = Depends(get_distributed_features_service)
 ) -> DistributedFeaturesResponse:
     """
     Select n evenly distributed features from the input list.

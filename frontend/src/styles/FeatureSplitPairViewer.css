@@ -4,13 +4,112 @@
 
 .feature-split-pair-viewer {
   display: flex;
+  flex-direction: row;
+  gap: 0;
+  padding: 0;
+  background-color: #ffffff;
+  flex: 1;
+  max-height: 50%;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+}
+
+/* ============================================================================
+ * SIDEBAR - Pair list on the left
+ * ============================================================================ */
+
+.pair-viewer__sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background-color: #f9fafb;
+  border-right: 1px solid #e5e7eb;
+  padding: 6px;
+  overflow: hidden;
+}
+
+.sidebar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px;
+  background-color: white;
+  border-radius: 4px;
+  border: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.sidebar__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.sidebar__count {
+  font-size: 11px;
+  font-weight: 700;
+  color: #6b7280;
+  background-color: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.pair-list__container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Scrollbar styles for pair list (reuse from activation examples) */
+.pair-list__container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.pair-list__container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.pair-list__container::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.pair-list__container::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Pair list item - wrapper for TagBadge component */
+.pair-list-item {
+  position: relative;
+}
+
+.pair-list-item--current {
+  padding: 2px;
+  border: 3px solid #3b82f6;
+  border-radius: 6px;
+  background-color: white;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+/* ============================================================================
+ * MAIN CONTENT AREA - Right side with header and activations
+ * ============================================================================ */
+
+.pair-viewer__main {
+  flex: 1;
+  display: flex;
   flex-direction: column;
   gap: 6px;
   padding: 6px;
-  background-color: #ffffff;
-  height: 100%;
+  min-width: 0;
   overflow: hidden;
-  border: 1px solid #e5e7eb;
 }
 
 /* ============================================================================

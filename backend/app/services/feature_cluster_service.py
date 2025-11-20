@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class DistributedFeaturesService:
+class FeatureClusterService:
     """Service for selecting evenly distributed features in metric space."""
 
     def __init__(self, similarity_service: "SimilaritySortService"):

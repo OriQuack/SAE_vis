@@ -9,7 +9,8 @@
   border: 1px solid #d1d5db;
   border-radius: 8px;
   overflow: hidden;
-  max-height: 40vh;
+  flex: 1;
+  max-height: 50%;
   transition: max-height 0.3s ease;
 }
 

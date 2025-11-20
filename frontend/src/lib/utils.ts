@@ -244,9 +244,19 @@ export function parseSAEId(saeId: string): {
   // Extract layer (e.g., "layer_30" → 30)
   const layer = parts[2] ? parseInt(parts[2].replace('layer_', '')) : null
 
-  // Extract width (e.g., "width_16k" → "16k")
-  const width = parts[3] ? parts[3].replace('width_', '') : null
-
+  // Extract width (e.g., "width_16k" → "16384")
+  let width: string | null = null
+  if (parts[3]) {
+    const widthStr = parts[3].replace('width_', '')
+    // Expand "k" suffix to full number (e.g., "16k" → "16384")
+    if (widthStr.endsWith('k')) {
+      const numValue = parseFloat(widthStr.slice(0, -1))
+      width = (numValue * 1024).toString()
+    } else {
+      width = widthStr
+    }
+  }
+  
   return {
     modelName,
     layer,

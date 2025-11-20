@@ -122,6 +122,10 @@ class FeaturesParquetCreator:
         logger.info("Loading decoder similarities...")
         self.decoder_similarities = self._load_decoder_similarities()
 
+        # Load first merge distances from clustering
+        logger.info("Loading first merge distances from clustering...")
+        self.first_merge_distances = self._load_first_merge_distances()
+
     def _find_project_root(self) -> Path:
         """Find the project root directory (interface)."""
         current = Path.cwd()
@@ -269,6 +273,50 @@ class FeaturesParquetCreator:
         """Get top 10 decoder similarities (sorted descending)."""
         return self.decoder_similarities.get(feature_id, [])
 
+    def _load_first_merge_distances(self) -> Dict[int, float]:
+        """
+        Load first merge distances from clustering parquet.
+
+        Returns:
+            Dict mapping feature_id to first_merge_distance
+            {0: 0.754854, 1: 0.557611, ...}
+        """
+        first_merge_distances = {}
+
+        sae_dir_name = self._sanitize_sae_id_for_path(self.sae_id)
+        clustering_dir = self.feature_similarity_dir / sae_dir_name
+        clustering_file = clustering_dir / "first_merge_clustering.parquet"
+
+        if clustering_file.exists():
+            try:
+                df = pl.read_parquet(clustering_file)
+
+                # Convert to dictionary for fast lookup
+                for row in df.iter_rows(named=True):
+                    feature_id = row["feature_id"]
+                    first_merge_distance = row["first_merge_distance"]
+                    first_merge_distances[int(feature_id)] = float(first_merge_distance)
+
+                logger.info(f"Loaded first merge distances for {len(first_merge_distances)} features")
+            except Exception as e:
+                logger.warning(f"Error loading first merge distances: {e}")
+        else:
+            logger.warning(f"First merge clustering file not found: {clustering_file}")
+
+        return first_merge_distances
+
+    def _get_first_merge_distance(self, feature_id: int) -> Optional[float]:
+        """
+        Get first merge distance for a feature, converted to similarity.
+
+        Returns:
+            1 - distance (similarity: 1 = very similar, 0 = very different)
+        """
+        distance = self.first_merge_distances.get(feature_id, None)
+        if distance is not None:
+            return 1.0 - distance
+        return None
+
     def _get_explainer_from_data_source(self, data_source: str) -> str:
         """Extract explainer prefix from data_source name (e.g., 'llama_e-llama_s' -> 'llama_e')."""
         if "_e-" in data_source:
@@ -373,6 +421,10 @@ class FeaturesParquetCreator:
             # Get decoder similarity once per feature (cached in dict)
             decoder_sim = self._get_decoder_similarity(int(feature_id))
 
+            # Get first merge similarity (converted from distance: 1 - distance)
+            # Higher values = feature is more similar to its neighbors
+            first_merge_similarity = self._get_first_merge_distance(int(feature_id))
+
             # Get explainer prefix for matching with scorers
             explainer_prefix = self._get_explainer_from_data_source(data_source)
 
@@ -419,7 +471,8 @@ class FeaturesParquetCreator:
                     "score_simulation": score_simulation,
                     "score_detection": score_detection,
                     "score_embedding": score_embedding,
-                    "decoder_similarity": decoder_sim
+                    "decoder_similarity": decoder_sim,
+                    "decoder_similarity_merge_threshold": first_merge_similarity
                 }
                 rows.append(row_data)
 
@@ -456,6 +509,7 @@ class FeaturesParquetCreator:
         nested = flat_df.group_by(primary_key).agg([
             pl.col("explanation_text").first(),
             pl.col("decoder_similarity").first(),
+            pl.col("decoder_similarity_merge_threshold").first(),
             pl.col("semantic_similarity").first(),  # NEW: List of pairwise similarities
             pl.col("scorer_scores").alias("scores")  # This is now List(Struct)
         ])
@@ -506,6 +560,7 @@ class FeaturesParquetCreator:
         final_columns = primary_key + [
             "explanation_text",
             "decoder_similarity",
+            "decoder_similarity_merge_threshold",
             "semantic_similarity",  # NEW: Replaces semsim_mean/max
             "scores"
         ]
@@ -606,12 +661,14 @@ class FeaturesParquetCreator:
                 "llm_explainer": str(df["llm_explainer"].dtype),
                 "explanation_text": str(df["explanation_text"].dtype),
                 "decoder_similarity": "List(Struct([Field('feature_id', UInt32), Field('cosine_similarity', Float32)]))",
+                "decoder_similarity_merge_threshold": f"{df['decoder_similarity_merge_threshold'].dtype} - Similarity threshold when feature first merges in agglomerative clustering (1 - distance). Higher = more similar to neighbors.",
                 "semantic_similarity": "List(Struct([Field('explainer', Categorical), Field('cosine_similarity', Float32)]))",
                 "scores": "List(Struct([Field('scorer', Utf8), Field('fuzz', Float32), Field('simulation', Float32), Field('detection', Float32), Field('embedding', Float32)]))"
             },
             "processing_stats": {
                 "unique_llm_explainers": df["llm_explainer"].n_unique(),
                 "features_with_decoder_similarity": len([v for v in self.decoder_similarities.values() if v]),
+                "features_with_merge_threshold": len(self.first_merge_distances),
                 "explanation_embeddings_loaded": len(self.explanation_embeddings_df),
                 "scores_sources_loaded": len(self.scores_data)
             },
