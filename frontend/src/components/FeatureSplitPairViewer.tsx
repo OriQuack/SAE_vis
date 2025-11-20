@@ -3,7 +3,7 @@ import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow } from '../types'
 import ActivationExample from './ActivationExample'
 import { TagBadge } from './TableIndicators'
-import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/tag-constants'
+import { TAG_CATEGORY_FEATURE_SPLITTING, getTagColor } from '../lib/tag-constants'
 import { extractInterFeaturePositions } from '../lib/activation-utils'
 import '../styles/FeatureSplitPairViewer.css'
 
@@ -102,13 +102,11 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
   const tableData = useVisualizationStore(state => state.tableData)
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
   const togglePairSelection = useVisualizationStore(state => state.togglePairSelection)
-  const leftPanel = useVisualizationStore(state => state.leftPanel)
   const clusterGroups = useVisualizationStore(state => state.clusterGroups)
   const isLoadingDistributedPairs = useVisualizationStore(state => state.isLoadingDistributedPairs)
   const fetchDistributedPairs = useVisualizationStore(state => (state as any).fetchDistributedPairs)
   const clearDistributedPairs = useVisualizationStore(state => (state as any).clearDistributedPairs)
   const getSelectedNodeFeatures = useVisualizationStore(state => state.getSelectedNodeFeatures)
-  const selectedSegment = useVisualizationStore(state => state.selectedSegment)
   const activationExamples = useVisualizationStore(state => state.activationExamples)
   const fetchActivationExamples = useVisualizationStore(state => state.fetchActivationExamples)
 
@@ -121,7 +119,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
     const features = getSelectedNodeFeatures()
     console.log('[FeatureSplitPairViewer] Selected feature IDs:', features ? features.size : 0)
     return features
-  }, [getSelectedNodeFeatures, selectedSegment, leftPanel])
+  }, [getSelectedNodeFeatures])
 
   // Filter tableData to only include selected features
   const filteredTableData = useMemo(() => {
@@ -344,6 +342,11 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
     }
   }
 
+  // Get tag colors for buttons
+  const fragmentedColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Fragmented') || '#F0E442'
+  const monosemanticColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Monosemantic') || '#999999'
+  const unsureColor = '#999999'  // Gray for unsure state
+
   return (
     <div className={`feature-split-pair-viewer ${className}`}>
       {/* Sidebar with pair list grouped by cluster */}
@@ -379,10 +382,19 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
             // Check if this pair is in the same cluster as the current pair
             const isInCurrentCluster = currentPair && pair.clusterId === currentPair.clusterId
 
+            // Detect cluster boundaries for continuous background
+            const prevPair = index > 0 ? pairList[index - 1] : null
+            const nextPair = index < pairList.length - 1 ? pairList[index + 1] : null
+            const prevInSameCluster = prevPair && currentPair && prevPair.clusterId === currentPair.clusterId
+            const nextInSameCluster = nextPair && currentPair && nextPair.clusterId === currentPair.clusterId
+
+            const isClusterFirst = isInCurrentCluster && !prevInSameCluster
+            const isClusterLast = isInCurrentCluster && !nextInSameCluster
+
             return (
               <div
                 key={pair.pairKey}
-                className={`pair-list-item ${isCurrent ? 'pair-list-item--current' : ''} ${isInCurrentCluster ? 'pair-list-item--same-cluster' : ''}`}
+                className={`pair-list-item ${isCurrent ? 'pair-list-item--current' : ''} ${isInCurrentCluster ? 'pair-list-item--same-cluster' : ''} ${isClusterFirst ? 'pair-list-item--cluster-first' : ''} ${isClusterLast ? 'pair-list-item--cluster-last' : ''}`}
               >
                 <TagBadge
                   featureId={pairIdString as any}
@@ -401,71 +413,84 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
       <div className="pair-viewer__main">
         {/* Compact header with navigation and selection */}
         <div className="pair-viewer__header">
-        {/* Navigation */}
-        <div className="pair-viewer__navigation">
-          <button
-            className="nav__button"
-            onClick={goToPreviousPair}
-            disabled={currentPairIndex === 0}
-          >
-            ← Prev
-          </button>
-          <span className="nav__counter">
-            {currentPairIndex + 1} / {pairList.length}
-          </span>
-          <button
-            className="nav__button"
-            onClick={goToNextPair}
-            disabled={currentPairIndex === pairList.length - 1}
-          >
-            Next →
-          </button>
+        {/* Prev button */}
+        <button
+          className="nav__button"
+          onClick={goToPreviousPair}
+          disabled={currentPairIndex === 0}
+        >
+          ← Prev
+        </button>
+
+        {/* Counter */}
+        <span className="nav__counter">
+          {currentPairIndex + 1} / {pairList.length}
+        </span>
+
+        {/* Separator */}
+        <span className="pair-info__separator">|</span>
+
+        {/* Feature IDs */}
+        <div className="pair-info__ids">
+          <span className="feature__id">#{currentPair.mainFeatureId}</span>
+          <span className="similarity__icon"> ↔ </span>
+          <span className="feature__id">#{currentPair.similarFeatureId}</span>
         </div>
 
-        {/* Pair Info */}
-        <div className="pair-viewer__info">
-          <div className="pair-info__similarity">
-            <span className="similarity__label">Sim:</span>
-            <span className="similarity__value">
-              {currentPair.decoderSimilarity !== null ? currentPair.decoderSimilarity.toFixed(3) : 'N/A'}
-            </span>
-          </div>
-          <span className="pair-info__separator">|</span>
-          <div className="pair-info__ids">
-            <span className="feature__id">#{currentPair.mainFeatureId}</span>
-            <span className="similarity__icon">↔</span>
-            <span className="feature__id">#{currentPair.similarFeatureId}</span>
-          </div>
+        {/* Separator */}
+        <span className="pair-info__separator">|</span>
+
+        {/* Decoder Similarity */}
+        <div className="pair-info__similarity">
+          <span className="similarity__label">Decoder Similarity:</span>
+          <span className="similarity__value">
+            {currentPair.decoderSimilarity !== null ? currentPair.decoderSimilarity.toFixed(3) : 'N/A'}
+          </span>
         </div>
+
+        {/* Flexible gap */}
+        <div style={{ flex: 1 }}></div>
 
         {/* Selection buttons */}
-        <div className="pair-viewer__selection">
-          <button
-            className={`selection__button selection__button--fragmented ${pairSelectionState === 'selected' ? 'selected' : ''}`}
-            onClick={handleFragmentedClick}
-          >
-            <span className="button__icon">✓</span>
-            Fragmented
-          </button>
-          <button
-            className={`selection__button selection__button--monosemantic ${pairSelectionState === 'rejected' ? 'selected' : ''}`}
-            onClick={handleMonosemanticClick}
-          >
-            <span className="button__icon">✓</span>
-            Monosemantic
-          </button>
-          <button
-            className={`selection__button selection__button--unsure ${pairSelectionState === null ? 'selected' : ''}`}
-            onClick={handleUnsureClick}
-          >
-            <span className="button__icon">○</span>
-            Unsure
-          </button>
-        </div>
+        <button
+          className={`selection__button selection__button--unsure ${pairSelectionState === null ? 'selected' : ''}`}
+          onClick={handleUnsureClick}
+          style={{
+            '--tag-color': unsureColor
+          } as React.CSSProperties}
+        >
+          <span className="button__icon">○</span>
+          Unsure
+        </button>
+        <button
+          className={`selection__button selection__button--monosemantic ${pairSelectionState === 'rejected' ? 'selected' : ''}`}
+          onClick={handleMonosemanticClick}
+          style={{
+            '--tag-color': monosemanticColor
+          } as React.CSSProperties}
+        >
+          <span className="button__icon">✓</span>
+          Monosemantic
+        </button>
+        <button
+          className={`selection__button selection__button--fragmented ${pairSelectionState === 'selected' ? 'selected' : ''}`}
+          onClick={handleFragmentedClick}
+          style={{
+            '--tag-color': fragmentedColor
+          } as React.CSSProperties}
+        >
+          <span className="button__icon">✓</span>
+          Fragmented
+        </button>
 
-        {/* Action buttons */}
-        <div className="pair-viewer__actions">
-        </div>
+        {/* Next button */}
+        <button
+          className="nav__button"
+          onClick={goToNextPair}
+          disabled={currentPairIndex === pairList.length - 1}
+        >
+          Next →
+        </button>
       </div>
 
       {/* Activation examples side-by-side */}

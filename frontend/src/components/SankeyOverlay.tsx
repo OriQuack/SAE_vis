@@ -96,7 +96,7 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
 
   // V2: Use single threshold (drag or committed)
   const threshold = dragThreshold ?? committedThreshold
-  const thresholds = threshold !== null ? [threshold] : []
+  const thresholds = useMemo(() => threshold !== null ? [threshold] : [], [threshold])
 
   // Create Y scale for horizontal bar segment calculation
   // For horizontal bars, Y axis represents the metric values

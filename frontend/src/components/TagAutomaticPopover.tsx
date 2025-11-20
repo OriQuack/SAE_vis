@@ -50,6 +50,7 @@ const SimilarityTaggingPopover: React.FC = () => {
       })
       setDraggedPosition(null) // Reset to center
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [popoverState?.visible])
 
   // Click outside to close

@@ -129,7 +129,6 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
   tagName,
   tagCategoryId,
   className = '',
-  selectionState = null,
   onClick,
   fullWidth = false
 }) => {

@@ -117,15 +117,41 @@
 
 /* Highlight all pairs in the same cluster as the currently selected pair */
 .pair-list-item--same-cluster {
-  background-color: #f0f9ff;  /* Light blue background for same cluster */
+  background-color: #bfdbfe;  /* More visible blue background for same cluster */
+  border: 1px solid #93c5fd;  /* Add subtle border for extra visibility */
+  border-radius: 0;
+  margin-top: -1px;  /* Collapse borders between items */
+  margin-bottom: 0;
+}
+
+/* First item in cluster group - top rounded corners */
+.pair-list-item--cluster-first {
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  margin-top: 0;
+}
+
+/* Last item in cluster group - bottom rounded corners */
+.pair-list-item--cluster-last {
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
 }
 
 .pair-list-item--current {
-  padding: 3px;
-  border: 1px solid #3b82f6;
+  padding: 2px;  /* Reduce padding to compensate for thicker border */
+  border: 2px solid #3b82f6;  /* Use 2px border, adjust padding to maintain size */
   border-radius: 6px;
   background-color: white;
   box-shadow: 0 0 0 1px #3b82f6;
+  z-index: 1;  /* Ensure current item appears above cluster background */
+}
+
+/* When current item is also in same cluster, keep cluster background */
+.pair-list-item--current.pair-list-item--same-cluster {
+  background-color: #bfdbfe;  /* Keep cluster background */
+  padding: 2px;  /* Same padding adjustment */
+  border: 2px solid #3b82f6;  /* Stronger blue border for current */
+  box-shadow: 0 0 0 2px #3b82f6;  /* Stronger shadow for current */
 }
 
 /* Ensure TagBadge inside has no extra margins */
@@ -155,7 +181,7 @@
 .pair-viewer__header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
   padding: 4px 6px;
   background-color: #f9fafb;
@@ -164,15 +190,8 @@
 }
 
 /* ============================================================================
- * NAVIGATION SECTION
+ * NAVIGATION BUTTONS
  * ============================================================================ */
-
-.pair-viewer__navigation {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
 
 .nav__button {
   padding: 3px 8px;
@@ -208,16 +227,8 @@
 }
 
 /* ============================================================================
- * PAIR INFO SECTION
+ * PAIR INFO ELEMENTS
  * ============================================================================ */
-
-.pair-viewer__info {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
-}
 
 .pair-info__feature {
   display: flex;
@@ -277,13 +288,6 @@
  * SELECTION BUTTONS
  * ============================================================================ */
 
-.pair-viewer__selection {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-  flex-shrink: 0;
-}
-
 .selection__button {
   padding: 3px 8px;
   font-size: 11px;
@@ -297,51 +301,91 @@
   justify-content: center;
   gap: 3px;
   white-space: nowrap;
+  position: relative;
+  isolation: isolate;
+  outline: none;  /* Remove default focus outline */
+}
+
+.selection__button:focus {
+  outline: none;  /* Remove focus outline when clicked */
+}
+
+.selection__button:focus-visible {
+  outline: none;  /* Remove focus outline for keyboard navigation too */
+}
+
+.selection__button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 2px;
+  background-color: var(--tag-color, #F0E442);
+  opacity: var(--bg-opacity, 0.6);
+  z-index: -1;
+  transition: opacity 0.15s ease;
 }
 
 .selection__button--fragmented {
-  color: #f59e0b;
-  border-color: #fbbf24;
-  background-color: white;
+  color: #000;
+  border-color: var(--tag-color, #F0E442);
+  background-color: transparent;
 }
 
 .selection__button--fragmented.selected {
-  background-color: #fef3c7;
-  border-color: #f59e0b;
+  border-color: var(--tag-color, #F0E442);
+  color: #000;
+  font-weight: 600;
+  --bg-opacity: 1.0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+  border-width: 2px;
 }
 
 .selection__button--fragmented:hover:not(.selected) {
-  background-color: #fffbeb;
+  color: #000;
+  --bg-opacity: 0.8;
 }
 
 .selection__button--monosemantic {
-  color: #10b981;
-  border-color: #34d399;
-  background-color: white;
+  color: #000;
+  border-color: var(--tag-color, #999999);
+  background-color: transparent;
 }
 
 .selection__button--monosemantic.selected {
-  background-color: #d1fae5;
-  border-color: #10b981;
+  border-color: var(--tag-color, #999999);
+  color: #000;
+  font-weight: 600;
+  --bg-opacity: 1.0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+  border-width: 2px;
 }
 
 .selection__button--monosemantic:hover:not(.selected) {
-  background-color: #ecfdf5;
+  color: #000;
+  --bg-opacity: 0.8;
 }
 
 .selection__button--unsure {
-  color: #6b7280;
-  border-color: #d1d5db;
-  background-color: white;
+  color: #000;
+  border-color: var(--tag-color, #999999);
+  background-color: transparent;
 }
 
 .selection__button--unsure.selected {
-  background-color: #f3f4f6;
-  border-color: #9ca3af;
+  border-color: var(--tag-color, #999999);
+  color: #000;
+  font-weight: 600;
+  --bg-opacity: 1.0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+  border-width: 2px;
 }
 
 .selection__button--unsure:hover:not(.selected) {
-  background-color: #f9fafb;
+  color: #000;
+  --bg-opacity: 0.8;
 }
 
 .button__icon {

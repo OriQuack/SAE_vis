@@ -232,7 +232,7 @@ export const createCauseActions = (set: any, get: any) => ({
    * Show thresholds on table - sorts by similarity and shows threshold lines
    */
   showThresholdsOnTable: async () => {
-    const { similarityTaggingPopover, tableData } = get()
+    const { similarityTaggingPopover } = get()
     if (!similarityTaggingPopover) {
       console.warn('[Store.showThresholdsOnTable] No popover state available')
       return

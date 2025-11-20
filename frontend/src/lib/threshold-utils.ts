@@ -6,18 +6,11 @@
  */
 
 import type {
-  SankeyNode,
-  SankeyLink,
-  NodeCategory,
-  StageDefinition,
   FeatureGroup,
-  ComputedSankeyStructure,
   SankeyTreeNode,
-  TreeBasedSankeyStructure,
   MetricType
 } from '../types'
 import { TAG_CATEGORIES } from './tag-constants'
-import { METRIC_DISPLAY_NAMES } from './constants'
 
 
 // ============================================================================
