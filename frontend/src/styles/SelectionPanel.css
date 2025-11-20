@@ -4,6 +4,77 @@
    Color values defined in: frontend/src/lib/constants.ts -> SELECTION_CATEGORY_COLORS
    ============================================================================ */
 
+/* ============================================================================
+   SIMPLE SELECTION BAR - Compact bar for Tag Automatic Popover
+   ============================================================================ */
+
+.simple-selection-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.simple-selection-bar__bar {
+  display: flex;
+  width: 100%;
+  height: 24px;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+}
+
+.simple-selection-bar__segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: opacity 0.2s ease;
+}
+
+.simple-selection-bar__segment:hover {
+  opacity: 0.85;
+}
+
+.simple-selection-bar__label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+
+.simple-selection-bar__legend {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.simple-selection-bar__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.simple-selection-bar__legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.simple-selection-bar__empty {
+  text-align: center;
+  padding: 8px;
+  font-size: 11px;
+  color: #9ca3af;
+  font-style: italic;
+}
+
 .table-selection-panel {
   display: flex;
   flex-direction: column;

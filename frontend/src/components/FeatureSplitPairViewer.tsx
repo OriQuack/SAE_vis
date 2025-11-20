@@ -109,6 +109,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
   const getSelectedNodeFeatures = useVisualizationStore(state => state.getSelectedNodeFeatures)
   const activationExamples = useVisualizationStore(state => state.activationExamples)
   const fetchActivationExamples = useVisualizationStore(state => state.fetchActivationExamples)
+  const showSimilarityTaggingPopover = useVisualizationStore(state => state.showSimilarityTaggingPopover)
 
   // Local state for carousel navigation
   const [currentPairIndex, setCurrentPairIndex] = useState(0)
@@ -151,7 +152,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
         filteredFeatures: filteredTableData.rows.length,
         selectedFeatures: selectedFeatureIds.size
       })
-      fetchDistributedPairs(20, selectedFeatureIds)  // Default 10 clusters
+      fetchDistributedPairs(15, selectedFeatureIds)
     }
   }, [filteredTableData, clusterGroups, isLoadingDistributedPairs, fetchDistributedPairs, selectedFeatureIds])
 
@@ -183,6 +184,28 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
 
   // Get selection state for current pair
   const pairSelectionState = currentPair ? pairSelectionStates.get(currentPair.pairKey) || null : null
+
+  // Calculate counts for Tag Automatically button (must be before early returns)
+  const selectionCounts = useMemo(() => {
+    let selectedCount = 0
+    let rejectedCount = 0
+    pairSelectionStates.forEach(state => {
+      if (state === 'selected') selectedCount++
+      else if (state === 'rejected') rejectedCount++
+    })
+    return { selectedCount, rejectedCount }
+  }, [pairSelectionStates])
+
+  const canTagAutomatically = selectionCounts.selectedCount >= 5 && selectionCounts.rejectedCount >= 5
+
+  // Handler for Tag Automatically button (must be before early returns)
+  const handleTagAutomatically = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    showSimilarityTaggingPopover('pair', {
+      x: rect.left,
+      y: rect.bottom + 10
+    }, 'Fragmented')
+  }, [showSimilarityTaggingPopover])
 
   // Navigation handlers
   const goToNextPair = useCallback(() => {
@@ -349,8 +372,22 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
 
   return (
     <div className={`feature-split-pair-viewer ${className}`}>
-      {/* Sidebar with pair list grouped by cluster */}
-      <div className="pair-viewer__sidebar">
+      <div className="pair-viewer__header-title">
+        <h3 className="pair-viewer__title">Candidate Validation</h3>
+        <p className="pair-viewer__description">
+          Validate candidates for{' '}
+          <span
+            className="pair-viewer__tag-badge"
+            style={{ backgroundColor: fragmentedColor }}
+          >
+            Fragmented
+          </span>{' '}
+          tag
+        </p>
+      </div>
+      <div className="pair-viewer__body">
+        {/* Sidebar with pair list grouped by cluster */}
+        <div className="pair-viewer__sidebar">
         <div className="sidebar__header">
           <div className="sidebar__badge">
             <span className="badge__label">Pairs</span>
@@ -407,6 +444,15 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
             )
           })}
         </div>
+        {/* Tag Automatically Button */}
+        <button
+          className={`sidebar__tag-button ${canTagAutomatically ? 'sidebar__tag-button--available' : ''}`}
+          onClick={handleTagAutomatically}
+          disabled={!canTagAutomatically}
+          title={canTagAutomatically ? 'Tag remaining pairs automatically' : `Need ≥5 Fragmented and ≥5 Monosemantic (${selectionCounts.selectedCount}/5 Fragmented, ${selectionCounts.rejectedCount}/5 Monosemantic)`}
+        >
+          Tag Automatically
+        </button>
       </div>
 
       {/* Main content area */}
@@ -459,7 +505,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
             '--tag-color': unsureColor
           } as React.CSSProperties}
         >
-          <span className="button__icon">○</span>
+          {pairSelectionState === null && <span className="button__icon">○</span>}
           Unsure
         </button>
         <button
@@ -469,7 +515,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
             '--tag-color': monosemanticColor
           } as React.CSSProperties}
         >
-          <span className="button__icon">✓</span>
+          {pairSelectionState === 'rejected' && <span className="button__icon">✓</span>}
           Monosemantic
         </button>
         <button
@@ -479,7 +525,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
             '--tag-color': fragmentedColor
           } as React.CSSProperties}
         >
-          <span className="button__icon">✓</span>
+          {pairSelectionState === 'selected' && <span className="button__icon">✓</span>}
           Fragmented
         </button>
 
@@ -536,6 +582,8 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
         </div>
       </div>
       {/* Close pair-viewer__main */}
+      </div>
+      {/* Close pair-viewer__body */}
       </div>
     </div>
   )

@@ -4,7 +4,7 @@
 
 .feature-split-pair-viewer {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   gap: 0;
   padding: 0;
   background-color: #ffffff;
@@ -12,6 +12,63 @@
   max-height: 50%;
   overflow: hidden;
   border: 1px solid #e5e7eb;
+}
+
+/* ============================================================================
+ * HEADER TITLE - Top title bar
+ * ============================================================================ */
+
+.pair-viewer__header-title {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 12px;
+  padding: 2px 8px;
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.pair-viewer__title {
+  font-size: 20px;
+  font-weight: 500;
+  color: #374151;
+  margin: 0;
+}
+
+.pair-viewer__description {
+  font-size: 14px;
+  font-weight: 400;
+  color: #383838;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pair-viewer__tag-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #000000;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* ============================================================================
+ * BODY - Container for sidebar and main content
+ * ============================================================================ */
+
+.pair-viewer__body {
+  display: flex;
+  flex-direction: row;
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* ============================================================================
@@ -158,6 +215,43 @@
 .pair-list-item .tag-badge {
   margin: 0;
   vertical-align: middle;
+}
+
+/* Tag Automatically Button */
+.sidebar__tag-button {
+  flex-shrink: 0;
+  width: 100%;
+  padding: 6px 12px;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  background-color: white;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sidebar__tag-button:hover:not(:disabled) {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.sidebar__tag-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sidebar__tag-button--available {
+  color: #8b5cf6;
+  border-color: #8b5cf6;
+  font-weight: 700;
+}
+
+.sidebar__tag-button--available:hover:not(:disabled) {
+  background-color: #f5f3ff;
+  border-color: #7c3aed;
 }
 
 /* ============================================================================

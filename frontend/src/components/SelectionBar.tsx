@@ -18,7 +18,7 @@ interface SelectionStateBarProps {
   height?: number  // Default: 24px
   showLabels?: boolean  // Default: true
   showLegend?: boolean  // Default: true
-  labelThreshold?: number  // Default: 10% - minimum width to show label
+  labelThreshold?: number  // Default: 10% - minimum percentage to show label
   mode?: 'feature' | 'pair' | 'cause'  // Mode determines labels/colors (default: 'feature')
   categoryColors?: Partial<Record<SelectionCategory, string>>  // Optional: override colors dynamically
   className?: string
@@ -54,10 +54,10 @@ const CATEGORY_CONFIG: Record<SelectionCategory, { label: string; color: string;
 }
 
 /**
- * SelectionStateBar - Vertical stacked bar showing distribution of selection categories
+ * SelectionStateBar - Horizontal stacked bar showing distribution of selection categories
  *
  * Features:
- * - Displays 4 categories (confirmed, expanded, rejected, unsure) with proportional heights
+ * - Displays 4 categories (confirmed, expanded, rejected, unsure) with proportional widths
  * - Optional preview state with stripe pattern overlay
  * - Interactive click handling (optional)
  * - Legend display (optional)
@@ -67,6 +67,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   counts,
   previewCounts,
   onCategoryClick,
+  height = 24,
   showLabels = true,
   showLegend = true,
   labelThreshold = 10,
@@ -118,7 +119,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
     }
   }
 
-  // Render segments with specific order and adjacent stripe previews (VERTICAL orientation)
+  // Render segments with specific order and adjacent stripe previews
   const renderSegments = () => {
     const segments: React.ReactNode[] = []
 
@@ -138,13 +139,13 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
       let percentage = getCategoryValue(category, percentages)
       const previewChangeValue = previewChanges ? getCategoryValue(category, previewChanges) : 0
 
-      // For unsure, reduce height by items leaving (moving to expanded/autoRejected)
+      // For unsure, reduce width by items leaving (moving to expanded/autoRejected)
       if (category === 'unsure' && previewChanges) {
         const unsurePreviewCount = previewCounts ? getCategoryValue('unsure', previewCounts) : count
         percentage = counts.total > 0 ? (unsurePreviewCount / counts.total) * 100 : 0
       }
 
-      // Render main segment if count > 0 (using FLEX for vertical bar)
+      // Render main segment if count > 0
       if (count > 0) {
         segments.push(
           <div
@@ -153,7 +154,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
               onCategoryClick ? 'selection-state-bar__segment--interactive' : ''
             }`}
             style={{
-              flex: percentage,
+              width: `${percentage}%`,
               backgroundColor: getColor(category)
             }}
             onClick={() => handleCategoryClick(category)}
@@ -161,7 +162,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
               previewChangeValue !== 0 ? ` | Preview: ${previewChangeValue > 0 ? '+' : ''}${previewChangeValue}` : ''
             }`}
           >
-            {/* Show label if segment is tall enough */}
+            {/* Show label if segment is wide enough */}
             {showLabels && percentage > labelThreshold && (
               <span className="selection-state-bar__segment-label">
                 {config.label} ({count})
@@ -183,7 +184,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
             key={`${category}-preview`}
             className="selection-state-bar__segment selection-state-bar__segment--preview"
             style={{
-              flex: stripePercentage,
+              width: `${stripePercentage}%`,
               backgroundColor: stripeColor,
               position: 'relative'
             }}
@@ -214,8 +215,8 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
 
   return (
     <div className={`selection-state-bar ${className}`}>
-      {/* Bar with segments - height controlled by CSS for vertical orientation */}
-      <div className="selection-state-bar__bar">
+      {/* Bar with segments */}
+      <div className="selection-state-bar__bar" style={{ height: `${height}px` }}>
         {renderSegments()}
       </div>
 

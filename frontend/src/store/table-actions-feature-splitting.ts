@@ -159,7 +159,7 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
       // Default to 0.5 if no Sankey structure exists yet
       let threshold = 0.5
       if (leftPanel?.sankeyStructure) {
-        const stage1Segment = leftPanel.sankeyStructure.nodes.find(n => n.id === 'stage1_segment')
+        const stage1Segment = leftPanel.sankeyStructure.nodes.find((n: any) => n.id === 'stage1_segment')
         if (stage1Segment && 'threshold' in stage1Segment && stage1Segment.threshold !== null) {
           threshold = 1.0 - stage1Segment.threshold  // Convert distance to similarity for clustering
         }

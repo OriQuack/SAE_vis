@@ -9,14 +9,10 @@
   gap: 8px;
 }
 
-/* Main Bar - Vertical Orientation */
+/* Main Bar */
 .selection-state-bar__bar {
   display: flex;
-  flex-direction: column;
-  width: 100%;
-  flex: 1;
-  min-height: 200px;
-  max-height: 400px;
+  height: 24px;
   border-radius: 4px;
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -27,13 +23,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
-  width: 100%;
-  min-height: 20px;
+  border-right: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .selection-state-bar__segment:last-child {
-  border-bottom: none;
+  border-right: none;
 }
 
 /* Interactive segments (with click handler) */
@@ -43,18 +37,18 @@
 
 .selection-state-bar__segment--interactive:hover {
   opacity: 0.85;
-  transform: scaleX(1.05);
+  transform: scaleY(1.1);
   z-index: 1;
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .selection-state-bar__segment--interactive:active {
-  transform: scaleX(1.02);
+  transform: scaleY(1.05);
 }
 
-/* Segment Labels - Vertical Display */
+/* Segment Labels */
 .selection-state-bar__segment-label {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   color: #ffffff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
@@ -62,9 +56,6 @@
   user-select: none;
   position: relative;
   z-index: 2;
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  padding: 4px 0;
 }
 
 /* Category-Specific Colors (fallback, mainly set inline) */
@@ -116,19 +107,19 @@
    LEGEND - Category labels and counts below bar
    ============================================================================ */
 
-/* Legend - Compact Vertical Layout */
+/* Legend */
 .selection-state-bar__legend {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 8px 0;
+  gap: 16px;
+  justify-content: center;
+  padding: 2px 0;
 }
 
 .selection-state-bar__legend-item {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .selection-state-bar__legend-color {

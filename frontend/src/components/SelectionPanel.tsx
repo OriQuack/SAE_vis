@@ -1,19 +1,131 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { useVisualizationStore } from '../store/index'
 import {
   type SelectionCategory,
-  METRIC_DISPLAY_NAMES
+  SELECTION_CATEGORY_COLORS
 } from '../lib/constants'
 import SelectionStateBar, { type CategoryCounts } from './SelectionBar'
 import '../styles/SelectionPanel.css'
 
+// ============================================================================
+// SIMPLE SELECTION BAR - For Tag Automatic Popover
+// ============================================================================
+
+interface SimpleSelectionBarProps {
+  selectedCount: number
+  rejectedCount: number
+  unsureCount: number
+  total: number
+  mode?: 'feature' | 'pair' | 'cause'
+}
+
+/**
+ * SimpleSelectionBar - Compact horizontal bar showing selection distribution
+ * Used in Tag Automatic Popover to show current selection state
+ */
+const SimpleSelectionBar: React.FC<SimpleSelectionBarProps> = ({
+  selectedCount,
+  rejectedCount,
+  unsureCount,
+  total
+}) => {
+  if (total === 0) {
+    return (
+      <div className="simple-selection-bar">
+        <div className="simple-selection-bar__empty">No selections</div>
+      </div>
+    )
+  }
+
+  const selectedPercent = (selectedCount / total) * 100
+  const rejectedPercent = (rejectedCount / total) * 100
+  const unsurePercent = (unsureCount / total) * 100
+
+  return (
+    <div className="simple-selection-bar">
+      <div className="simple-selection-bar__bar">
+        {/* Selected (True Positive) */}
+        {selectedCount > 0 && (
+          <div
+            className="simple-selection-bar__segment simple-selection-bar__segment--selected"
+            style={{
+              width: `${selectedPercent}%`,
+              backgroundColor: SELECTION_CATEGORY_COLORS.CONFIRMED.HEX
+            }}
+            title={`Selected: ${selectedCount} (${selectedPercent.toFixed(1)}%)`}
+          >
+            {selectedPercent > 10 && (
+              <span className="simple-selection-bar__label">{selectedCount}</span>
+            )}
+          </div>
+        )}
+
+        {/* Rejected (False Positive) */}
+        {rejectedCount > 0 && (
+          <div
+            className="simple-selection-bar__segment simple-selection-bar__segment--rejected"
+            style={{
+              width: `${rejectedPercent}%`,
+              backgroundColor: SELECTION_CATEGORY_COLORS.REJECTED.HEX
+            }}
+            title={`Rejected: ${rejectedCount} (${rejectedPercent.toFixed(1)}%)`}
+          >
+            {rejectedPercent > 10 && (
+              <span className="simple-selection-bar__label">{rejectedCount}</span>
+            )}
+          </div>
+        )}
+
+        {/* Unsure */}
+        {unsureCount > 0 && (
+          <div
+            className="simple-selection-bar__segment simple-selection-bar__segment--unsure"
+            style={{
+              width: `${unsurePercent}%`,
+              backgroundColor: SELECTION_CATEGORY_COLORS.UNSURE.HEX
+            }}
+            title={`Unsure: ${unsureCount} (${unsurePercent.toFixed(1)}%)`}
+          >
+            {unsurePercent > 10 && (
+              <span className="simple-selection-bar__label">{unsureCount}</span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Compact legend */}
+      <div className="simple-selection-bar__legend">
+        <div className="simple-selection-bar__legend-item">
+          <div
+            className="simple-selection-bar__legend-dot"
+            style={{ backgroundColor: SELECTION_CATEGORY_COLORS.CONFIRMED.HEX }}
+          />
+          <span>Selected: {selectedCount}</span>
+        </div>
+        <div className="simple-selection-bar__legend-item">
+          <div
+            className="simple-selection-bar__legend-dot"
+            style={{ backgroundColor: SELECTION_CATEGORY_COLORS.REJECTED.HEX }}
+          />
+          <span>Rejected: {rejectedCount}</span>
+        </div>
+        <div className="simple-selection-bar__legend-item">
+          <div
+            className="simple-selection-bar__legend-dot"
+            style={{ backgroundColor: SELECTION_CATEGORY_COLORS.UNSURE.HEX }}
+          />
+          <span>Unsure: {unsureCount}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 interface SelectionPanelProps {
   mode: 'feature' | 'pair' | 'cause'
   tagLabel: string
-  instruction?: string
   onDone?: () => void
   doneButtonEnabled?: boolean
-  pairKeys?: string[]  // For pair mode: provide pair keys from parent component
 }
 
 /**
@@ -26,11 +138,8 @@ interface SelectionPanelProps {
  */
 const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
   mode,
-  tagLabel,
-  instruction,
   onDone,
-  doneButtonEnabled = false,
-  pairKeys
+  doneButtonEnabled = false
 }) => {
   // State from store
   const tableData = useVisualizationStore(state => state.tableData)
@@ -40,17 +149,6 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
   const pairSelectionSources = useVisualizationStore(state => state.pairSelectionSources)
   const causeSelectionStates = useVisualizationStore(state => state.causeSelectionStates)
   const sortTableByCategory = useVisualizationStore(state => state.sortTableByCategory)
-  const sortBySimilarity = useVisualizationStore(state => state.sortBySimilarity)
-  const sortPairsBySimilarity = useVisualizationStore(state => state.sortPairsBySimilarity)
-  const sortCauseBySimilarity = useVisualizationStore(state => state.sortCauseBySimilarity)
-  const showSimilarityTaggingPopover = useVisualizationStore(state => state.showSimilarityTaggingPopover)
-  const clearFeatureSelection = useVisualizationStore(state => state.clearFeatureSelection)
-  const clearPairSelection = useVisualizationStore(state => state.clearPairSelection)
-  const clearCauseSelection = useVisualizationStore(state => state.clearCauseSelection)
-  const isSimilaritySortLoading = useVisualizationStore(state => state.isSimilaritySortLoading)
-  const isPairSimilaritySortLoading = useVisualizationStore(state => state.isPairSimilaritySortLoading)
-  const isCauseSimilaritySortLoading = useVisualizationStore(state => state.isCauseSimilaritySortLoading)
-  const tableSortBy = useVisualizationStore(state => state.tableSortBy)
   const thresholdVisualization = useVisualizationStore(state => state.thresholdVisualization)
   const similarityTaggingPopover = useVisualizationStore(state => state.similarityTaggingPopover)
   const restoreSimilarityTaggingPopover = useVisualizationStore(state => state.restoreSimilarityTaggingPopover)
@@ -73,18 +171,28 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
     }
   }, [mode, tableSelectedNodeIds, activeStageNodeId, sankeyTree])
 
-  // Tooltip state
-  const [hoveredButton, setHoveredButton] = useState<'sort' | 'tag' | null>(null)
+  // Get filtered feature IDs from selected node (used in counts calculation)
+  const filteredFeatureIds = useMemo(() => {
+    if (!selectedNode || !sankeyTree) return null
 
-  // Category dropdown state for cause mode
-  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false)
+    const featureIds = new Set<number>()
+    if (selectedNode.children && selectedNode.children.length > 0) {
+      // Collect from all child nodes (for split stages)
+      selectedNode.children.forEach(childId => {
+        const childNode = sankeyTree.get(childId)
+        if (childNode?.featureIds) {
+          childNode.featureIds.forEach(fid => featureIds.add(fid))
+        }
+      })
+    } else {
+      // Use node's own featureIds
+      selectedNode.featureIds.forEach(fid => featureIds.add(fid))
+    }
+    return featureIds
+  }, [selectedNode, sankeyTree])
 
   // Track if threshold button should highlight (first time showing preview)
   const [shouldHighlightThresholdButton, setShouldHighlightThresholdButton] = useState(false)
-
-  // Button refs (no longer need width measurement for vertical layout)
-  const sortButtonRef = useRef<HTMLButtonElement>(null)
-  const tagButtonRef = useRef<HTMLButtonElement>(null)
 
   // Get selection states based on mode
   const selectionStates = mode === 'feature' ? featureSelectionStates
@@ -98,26 +206,6 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
     let rejected = 0
     let autoRejected = 0
     let unsure = 0
-
-    // Get filtered feature IDs from selected node
-    // For decoder similarity stages, collect from all children if they exist
-    let filteredFeatureIds: Set<number> | null = null
-    if (selectedNode) {
-      filteredFeatureIds = new Set<number>()
-
-      if (selectedNode.children && selectedNode.children.length > 0) {
-        // Collect from all child nodes (for split stages)
-        selectedNode.children.forEach(childId => {
-          const childNode = sankeyTree.get(childId)
-          if (childNode?.featureIds) {
-            childNode.featureIds.forEach(fid => filteredFeatureIds!.add(fid))
-          }
-        })
-      } else {
-        // Use node's own featureIds
-        selectedNode.featureIds.forEach(fid => filteredFeatureIds!.add(fid))
-      }
-    }
 
     if (mode === 'feature' && tableData?.features) {
       // Filter features to only those in the selected node
@@ -219,101 +307,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
 
     const total = confirmed + expanded + rejected + autoRejected + unsure
     return { confirmed, expanded, rejected, autoRejected, unsure, total }
-  }, [mode, tableData, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources, causeSelectionStates, selectedNode, sankeyTree])
-
-  // Count selected and rejected for button requirements
-  const selectionCounts = useMemo(() => {
-    if (mode === 'cause') {
-      // For cause mode, count each category (3 explicit + unsure for untagged)
-      let noisyActivationCount = 0
-      let missedLexiconCount = 0
-      let missedContextCount = 0
-
-      causeSelectionStates.forEach(state => {
-        if (state === 'noisy-activation') noisyActivationCount++
-        else if (state === 'missed-lexicon') missedLexiconCount++
-        else if (state === 'missed-context') missedContextCount++
-      })
-
-      // Calculate unsure count: features not in causeSelectionStates map
-      // Get total feature count from tableData or selectedNode
-      const totalFeatures = tableData?.features?.length || 0
-      const taggedFeatures = causeSelectionStates.size
-      const unsureCount = totalFeatures - taggedFeatures
-
-      // Count how many categories have at least 1 feature (only count explicit 3 categories)
-      const categoriesWithFeatures = [
-        noisyActivationCount > 0 ? 1 : 0,
-        missedLexiconCount > 0 ? 1 : 0,
-        missedContextCount > 0 ? 1 : 0
-      ].reduce((sum, val) => sum + val, 0)
-
-      // Return counts for cause categories
-      return {
-        selectedCount: categoriesWithFeatures, // Number of explicit categories with ≥1 feature
-        rejectedCount: categoriesWithFeatures, // Same value (for button logic)
-        causeCategories: {
-          noisyActivation: noisyActivationCount,
-          missedLexicon: missedLexiconCount,
-          missedContext: missedContextCount,
-          unsure: unsureCount
-        },
-        // Individual category flags for tooltip
-        hasNoisyActivation: noisyActivationCount >= 1,
-        hasMissedLexicon: missedLexiconCount >= 1,
-        hasMissedContext: missedContextCount >= 1
-      }
-    } else {
-      // For feature/pair mode, count selected/rejected
-      let selectedCount = 0
-      let rejectedCount = 0
-      selectionStates.forEach(state => {
-        if (state === 'selected') selectedCount++
-        else if (state === 'rejected') rejectedCount++
-      })
-      return { selectedCount, rejectedCount }
-    }
-  }, [mode, selectionStates, causeSelectionStates, tableData?.features?.length])
-
-  // Sort requirements (different for cause mode)
-  const sortRequirements = mode === 'cause'
-    ? { minSelected: 3, minRejected: 3 } // For cause: need ALL 3 categories with at least 1 feature each
-    : { minSelected: 1, minRejected: 1 } // For feature/pair: need ≥1 selected and ≥1 rejected
-  const hasSelected = selectionCounts.selectedCount >= sortRequirements.minSelected
-  const hasRejected = selectionCounts.rejectedCount >= sortRequirements.minRejected
-  const canSortBySimilarity = hasSelected && hasRejected
-
-  // Tag requirements (different for cause mode)
-  const tagRequirements = mode === 'cause'
-    ? { minSelected: 2, minRejected: 2 } // For cause: need ≥2 categories with ≥3 features each
-    : { minSelected: 5, minRejected: 5 } // For feature/pair: need ≥5 selected and ≥5 rejected
-
-  let canTagAutomatically = false
-  if (mode === 'cause' && selectionCounts.causeCategories) {
-    // For cause mode: require at least 2 explicit categories with ≥3 features each
-    // (unsure/untagged not counted toward this requirement)
-    const categoriesWith3Plus = [
-      selectionCounts.causeCategories.noisyActivation >= 3 ? 1 : 0,
-      selectionCounts.causeCategories.missedLexicon >= 3 ? 1 : 0,
-      selectionCounts.causeCategories.missedContext >= 3 ? 1 : 0
-    ].reduce((sum, val) => sum + val, 0)
-    canTagAutomatically = categoriesWith3Plus >= 2
-  } else {
-    const hasEnoughSelected = selectionCounts.selectedCount >= tagRequirements.minSelected
-    const hasEnoughRejected = selectionCounts.rejectedCount >= tagRequirements.minRejected
-    canTagAutomatically = hasEnoughSelected && hasEnoughRejected
-  }
-
-  // Check if currently sorted
-  const expectedSortValue = mode === 'feature' ? 'similarity'
-                          : mode === 'pair' ? 'pair_similarity'
-                          : 'cause_similarity'
-  const isSortedBySimilarity = tableSortBy === expectedSortValue
-
-  // Loading state
-  const isSortLoading = mode === 'feature' ? isSimilaritySortLoading
-                      : mode === 'pair' ? isPairSimilaritySortLoading
-                      : isCauseSimilaritySortLoading
+  }, [mode, tableData, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources, causeSelectionStates, filteredFeatureIds])
 
   // Check if threshold preview is active
   const isPreviewActive = thresholdVisualization?.visible ?? false
@@ -331,44 +325,6 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
   }, [showThresholdControls])
 
   // Handlers
-  const handleSortBySimilarity = () => {
-    if (mode === 'feature') {
-      sortBySimilarity()
-    } else if (mode === 'pair') {
-      // For pairs, use provided pairKeys prop or fallback to tableData.pairs
-      const allPairKeys = pairKeys || tableData?.pairs?.map((p: any) => p.pairKey) || []
-      sortPairsBySimilarity(allPairKeys)
-    } else {
-      // For cause mode, show dropdown to select category
-      setShowCategoryDropdown(!showCategoryDropdown)
-    }
-  }
-
-  const handleCategorySelect = (_category: string | null) => {
-    // Close dropdown
-    setShowCategoryDropdown(false)
-    // Run similarity sort
-    sortCauseBySimilarity()
-  }
-
-  const handleTagAutomatically = (e: React.MouseEvent) => {
-    const rect = e.currentTarget.getBoundingClientRect()
-    showSimilarityTaggingPopover(mode, {
-      x: rect.left,
-      y: rect.bottom + 10
-    }, tagLabel)
-  }
-
-  const handleClearSelection = () => {
-    if (mode === 'feature') {
-      clearFeatureSelection()
-    } else if (mode === 'pair') {
-      clearPairSelection()
-    } else {
-      clearCauseSelection()
-    }
-  }
-
   const handleCategoryClick = (category: SelectionCategory) => {
     console.log(`[TableSelectionPanel] Clicked category: ${category}`)
     sortTableByCategory(category, mode)
@@ -388,179 +344,21 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
 
   return (
     <div className="table-selection-panel">
-      {/* Simplified Header */}
-      <div className="table-selection-panel__header">
-        <div className="table-selection-panel__header-row">
-          <h3 className="table-selection-panel__title">
-            {tagLabel}
-          </h3>
-          {instruction && (
-            <p className="table-selection-panel__instruction">
-              {instruction}
-            </p>
-          )}
-        </div>
-        {selectedNode && selectedNode.metric && selectedNode.rangeLabel && (
-          <span className="table-selection-panel__threshold">
-            Filter: {METRIC_DISPLAY_NAMES[selectedNode.metric as keyof typeof METRIC_DISPLAY_NAMES] || selectedNode.metric} = {selectedNode.rangeLabel}
-          </span>
-        )}
-      </div>
-
-      {/* Actions Row: Buttons + Bar + Buttons */}
+      {/* Actions Row: Bar + Buttons */}
       <div className="table-selection-panel__actions">
-        {/* Left Actions: Sort & Tag OR Threshold Controls */}
-        <div className="table-selection-panel__left-actions">
-          {showThresholdControls ? (
-            <>
-              {/* Go Back to Histogram Button */}
-              <button
-                className={`table-selection-panel__button table-selection-panel__button--histogram ${shouldHighlightThresholdButton ? 'table-selection-panel__button--highlighted' : ''}`}
-                onClick={handleGoBackToHistogram}
-                title="Return to histogram to adjust thresholds"
-              >
-                Go Back to Histogram
-              </button>
-            </>
-          ) : (
-            <>
-          {/* Sort by Similarity Button */}
-          <div
-            className="table-selection-panel__button-wrapper"
-            onMouseEnter={() => setHoveredButton('sort')}
-            onMouseLeave={() => setHoveredButton(null)}
-          >
+        {/* Threshold Controls (if active) */}
+        {showThresholdControls && (
+          <div className="table-selection-panel__left-actions">
+            {/* Go Back to Histogram Button */}
             <button
-              ref={sortButtonRef}
-              className={`table-selection-panel__button ${canSortBySimilarity && !isSortLoading && !isPreviewActive ? 'table-selection-panel__button--available' : ''}`}
-              onClick={handleSortBySimilarity}
-              disabled={isSortLoading || !canSortBySimilarity || isPreviewActive}
+              className={`table-selection-panel__button table-selection-panel__button--histogram ${shouldHighlightThresholdButton ? 'table-selection-panel__button--highlighted' : ''}`}
+              onClick={handleGoBackToHistogram}
+              title="Return to histogram to adjust thresholds"
             >
-              {isSortLoading ? (
-                <>
-                  <span className="spinner-mini" /> Sorting...
-                </>
-              ) : (
-                'Sort by Similarity'
-              )}
+              Go Back to Histogram
             </button>
-            {hoveredButton === 'sort' && !showCategoryDropdown && (
-              <div className="table-selection-panel__tooltip">
-                {isPreviewActive ? (
-                  <div>Close threshold preview to enable sorting</div>
-                ) : isSortedBySimilarity ? (
-                  <div>Click to sort with updated selections</div>
-                ) : mode === 'cause' ? (
-                  <>
-                    <div className={(selectionCounts as any).hasNoisyActivation ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
-                      <span className="table-selection-panel__tooltip-icon">{(selectionCounts as any).hasNoisyActivation ? '✓' : '✗'}</span>
-                      ≥1 Noisy Activation
-                    </div>
-                    <div className={(selectionCounts as any).hasMissedLexicon ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
-                      <span className="table-selection-panel__tooltip-icon">{(selectionCounts as any).hasMissedLexicon ? '✓' : '✗'}</span>
-                      ≥1 Missed Lexicon
-                    </div>
-                    <div className={(selectionCounts as any).hasMissedContext ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
-                      <span className="table-selection-panel__tooltip-icon">{(selectionCounts as any).hasMissedContext ? '✓' : '✗'}</span>
-                      ≥1 Missed Context
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className={hasSelected ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
-                      <span className="table-selection-panel__tooltip-icon">{hasSelected ? '✓' : '✗'}</span>
-                      ≥{sortRequirements.minSelected} Selected
-                    </div>
-                    <div className={hasRejected ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
-                      <span className="table-selection-panel__tooltip-icon">{hasRejected ? '✓' : '✗'}</span>
-                      ≥{sortRequirements.minRejected} Rejected
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-            {showCategoryDropdown && mode === 'cause' && (
-              <div className="table-selection-panel__tooltip table-selection-panel__category-dropdown">
-                <div className="table-selection-panel__tooltip-header">Select category to sort by:</div>
-                <button
-                  className="table-selection-panel__category-option"
-                  onClick={() => handleCategorySelect('noisy-activation')}
-                >
-                  Noisy Activation
-                </button>
-                <button
-                  className="table-selection-panel__category-option"
-                  onClick={() => handleCategorySelect('missed-lexicon')}
-                >
-                  Missed Lexicon
-                </button>
-                <button
-                  className="table-selection-panel__category-option"
-                  onClick={() => handleCategorySelect('missed-context')}
-                >
-                  Missed Context
-                </button>
-                <button
-                  className="table-selection-panel__category-option"
-                  onClick={() => handleCategorySelect(null)}
-                >
-                  Max Confidence
-                </button>
-              </div>
-            )}
           </div>
-
-          {/* Tag Automatically Button */}
-          <div
-            className="table-selection-panel__button-wrapper"
-            onMouseEnter={() => setHoveredButton('tag')}
-            onMouseLeave={() => setHoveredButton(null)}
-          >
-            <button
-              ref={tagButtonRef}
-              className={`table-selection-panel__button ${canTagAutomatically && !isPreviewActive ? 'table-selection-panel__button--available' : ''}`}
-              onClick={handleTagAutomatically}
-              disabled={!canTagAutomatically || isPreviewActive}
-            >
-              Tag Automatically
-            </button>
-            {hoveredButton === 'tag' && (
-              <div className="table-selection-panel__tooltip">
-                {isPreviewActive ? (
-                  <div>Close threshold preview to enable automatic tagging</div>
-                ) : mode === 'cause' ? (
-                  <>
-                    <div className={(selectionCounts.causeCategories?.noisyActivation ?? 0) >= 3 ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
-                      <span className="table-selection-panel__tooltip-icon">{(selectionCounts.causeCategories?.noisyActivation ?? 0) >= 3 ? '✓' : '✗'}</span>
-                      ≥3 Noisy Activation
-                    </div>
-                    <div className={(selectionCounts.causeCategories?.missedLexicon ?? 0) >= 3 ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
-                      <span className="table-selection-panel__tooltip-icon">{(selectionCounts.causeCategories?.missedLexicon ?? 0) >= 3 ? '✓' : '✗'}</span>
-                      ≥3 Missed Lexicon
-                    </div>
-                    <div className={(selectionCounts.causeCategories?.missedContext ?? 0) >= 3 ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
-                      <span className="table-selection-panel__tooltip-icon">{(selectionCounts.causeCategories?.missedContext ?? 0) >= 3 ? '✓' : '✗'}</span>
-                      ≥3 Missed Context
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className={selectionCounts.selectedCount >= tagRequirements.minSelected ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
-                      <span className="table-selection-panel__tooltip-icon">{selectionCounts.selectedCount >= tagRequirements.minSelected ? '✓' : '✗'}</span>
-                      ≥{tagRequirements.minSelected} Selected
-                    </div>
-                    <div className={selectionCounts.rejectedCount >= tagRequirements.minRejected ? 'table-selection-panel__tooltip-line--met' : 'table-selection-panel__tooltip-line--unmet'}>
-                      <span className="table-selection-panel__tooltip-icon">{selectionCounts.rejectedCount >= tagRequirements.minRejected ? '✓' : '✗'}</span>
-                      ≥{tagRequirements.minRejected} Rejected
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-            </>
-          )}
-        </div>
+        )}
 
         {/* Center: Selection State Bar */}
         <div className="table-selection-panel__bar-container">
@@ -574,7 +372,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
           />
         </div>
 
-        {/* Right Actions: Done & Clear */}
+        {/* Right Actions: Done */}
         <div className="table-selection-panel__right-actions">
           {/* Done Button */}
           {onDone && (
@@ -587,16 +385,6 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
               Done
             </button>
           )}
-
-          {/* Clear Button */}
-          <button
-            className="table-selection-panel__button table-selection-panel__button--clear"
-            onClick={handleClearSelection}
-            disabled={!hasAnySelection || isPreviewActive}
-            title={isPreviewActive ? "Close threshold preview to clear" : !hasAnySelection ? "No selections to clear" : "Clear all selections and reset sort"}
-          >
-            Clear
-          </button>
         </div>
       </div>
     </div>
@@ -604,3 +392,5 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
 }
 
 export default TableSelectionPanel
+export { SimpleSelectionBar }
+export type { SimpleSelectionBarProps }
