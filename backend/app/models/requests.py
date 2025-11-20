@@ -143,3 +143,22 @@ class DistributedFeaturesRequest(BaseModel):
         default='kmeans',
         description="Distribution method ('kmeans' only for now)"
     )
+
+
+class ClusterCandidatesRequest(BaseModel):
+    """Request model for hierarchical clustering-based cluster selection"""
+    feature_ids: List[int] = Field(
+        ...,
+        description="List of feature IDs to sample from"
+    )
+    n: int = Field(
+        ...,
+        gt=0,
+        description="Number of clusters to select (only clusters with 2+ features)"
+    )
+    threshold: Optional[float] = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Distance threshold for cutting dendrogram (0-1, higher=fewer clusters)"
+    )

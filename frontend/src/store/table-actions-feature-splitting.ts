@@ -129,15 +129,15 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
   // ============================================================================
 
   /**
-   * Fetch evenly distributed features for pair viewer
-   * Uses K-Means clustering in 9D metric space to select n distributed features
-   * @param n - Number of distributed samples to fetch
+   * Fetch cluster groups for pair viewer
+   * Uses hierarchical clustering to select n clusters (each with 2+ features)
+   * @param n - Number of clusters to fetch (default 10)
    * @param filterFeatureIds - Optional set of feature IDs to sample from (if not provided, uses all tableData features)
    */
-  fetchDistributedPairs: async (n: number = 30, filterFeatureIds?: Set<number>) => {
-    const { tableData } = get()
+  fetchDistributedPairs: async (n: number = 10, filterFeatureIds?: Set<number>) => {
+    const { tableData, leftPanel } = get()
 
-    console.log('[Store.fetchDistributedPairs] Starting distributed pair fetch:', { n, hasFilter: !!filterFeatureIds, filterSize: filterFeatureIds?.size })
+    console.log('[Store.fetchDistributedPairs] Starting cluster fetch:', { n, hasFilter: !!filterFeatureIds, filterSize: filterFeatureIds?.size })
 
     if (!tableData?.features) {
       console.warn('[Store.fetchDistributedPairs] ⚠️  No table data available')
@@ -155,42 +155,56 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
         featureIds = tableData.features.map((row: any) => row.feature_id)
       }
 
+      // Get stage 1 threshold from Sankey structure (use decoder_similarity_merge_threshold)
+      // Default to 0.5 if no Sankey structure exists yet
+      let threshold = 0.5
+      if (leftPanel?.sankeyStructure) {
+        const stage1Segment = leftPanel.sankeyStructure.nodes.find(n => n.id === 'stage1_segment')
+        if (stage1Segment && 'threshold' in stage1Segment && stage1Segment.threshold !== null) {
+          threshold = 1.0 - stage1Segment.threshold  // Convert distance to similarity for clustering
+        }
+      }
+
       console.log('[Store.fetchDistributedPairs] Calling API:', {
         totalFeatures: featureIds.length,
-        requestedN: n
+        requestedClusters: n,
+        threshold: threshold,
+        source: leftPanel?.sankeyStructure ? 'stage1_segment' : 'default'
       })
 
-      // Call API to get distributed features
-      const response = await api.getDistributedFeatures(featureIds, n)
+      // Call API to get cluster groups using hierarchical clustering
+      const response = await api.getClusterCandidates(featureIds, n, threshold)
 
       console.log('[Store.fetchDistributedPairs] API response:', {
-        selectedCount: response.selected_features.length,
-        totalAvailable: response.total_available,
-        method: response.method_used
+        clusterCount: response.cluster_groups.length,
+        totalClusters: response.total_clusters,
+        thresholdUsed: response.threshold_used
       })
 
       set({
-        distributedPairFeatureIds: response.selected_features,
+        clusterGroups: response.cluster_groups,
+        featureToClusterMap: response.feature_to_cluster,
+        totalClusters: response.total_clusters,
         isLoadingDistributedPairs: false
       })
 
-      console.log('[Store.fetchDistributedPairs] ✅ Distributed pairs loaded successfully')
+      console.log('[Store.fetchDistributedPairs] ✅ Cluster groups loaded successfully')
 
     } catch (error) {
-      console.error('[Store.fetchDistributedPairs] ❌ Failed to fetch distributed features:', error)
+      console.error('[Store.fetchDistributedPairs] ❌ Failed to fetch cluster groups:', error)
       set({
-        distributedPairFeatureIds: null,
+        clusterGroups: null,
         isLoadingDistributedPairs: false
       })
     }
   },
 
   /**
-   * Clear distributed pairs
+   * Clear cluster groups
    */
   clearDistributedPairs: () => {
-    set({ distributedPairFeatureIds: null })
-    console.log('[Store.clearDistributedPairs] Distributed pairs cleared')
+    set({ clusterGroups: null })
+    console.log('[Store.clearDistributedPairs] Cluster groups cleared')
   },
 
   // ============================================================================

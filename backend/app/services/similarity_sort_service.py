@@ -31,17 +31,14 @@ logger = logging.getLogger(__name__)
 class SimilaritySortService:
     """Service for calculating feature similarity scores."""
 
-    # 9 metrics used for similarity calculation
+    # 4 feature-level metrics used for pair similarity calculation
+    # Only intrinsic feature properties, excluding explanation-related metrics
+    # Note: Pair-specific decoder similarity is handled separately in _extract_pair_metrics()
     METRICS = [
-        'decoder_similarity_count',  # Count of similar features (from decoder_similarity)
-        'intra_ngram_jaccard',       # Max of char and word ngram jaccard
-        'intra_semantic_sim',        # Semantic similarity from activation examples
-        'inter_ngram_jaccard',       # Inter-feature ngram jaccard
-        'inter_semantic_sim',        # Inter-feature semantic similarity
-        'embed_score',               # Embedding alignment score
-        'fuzz_score',                # Fuzzing robustness score (avg across scorers)
-        'detection_score',           # Detection utility score (avg across scorers)
-        'llm_explainer_semantic_sim' # LLM explainer semantic similarity (mean pairwise)
+        'intra_ngram_jaccard',       # Feature-level: lexical consistency within activations (max of char/word)
+        'intra_semantic_sim',        # Feature-level: semantic consistency within activations
+        'inter_ngram_jaccard',       # Feature-level: lexical similarity between features (max of char/word)
+        'inter_semantic_sim',        # Feature-level: semantic similarity between features
     ]
 
     def __init__(self, data_service: "DataService"):
@@ -138,58 +135,17 @@ class SimilaritySortService:
             lf = lf.filter(pl.col("feature_id").is_in(feature_ids))
             logger.info("[_extract_metrics] Filtered to requested features")
 
-            # Extract metrics from List(Struct) columns BEFORE grouping
-            # This pattern follows data_service.py approach (lines 146-157)
-            logger.info("[_extract_metrics] Pre-extracting metrics from nested columns")
-            lf = lf.with_columns([
-                # Decoder similarity: count of similar features
-                pl.col("decoder_similarity").list.len().alias("decoder_similarity_count"),
-
-                # LLM explainer semantic similarity (mean of pairwise similarities)
-                pl.col("semantic_similarity")
-                  .list.eval(pl.element().struct.field("cosine_similarity"))
-                  .list.mean()
-                  .alias("llm_explainer_semantic_sim_raw")
-            ])
-
-            # Now aggregate on the pre-extracted scalar columns
-            # Average scores across scorers for each feature-explainer combination
-            logger.info("[_extract_metrics] Starting aggregation by feature_id and llm_explainer")
+            # No need to extract from main dataframe - all metrics come from activation and inter-feature data
+            # Pair-specific decoder similarity is handled separately in _extract_pair_metrics()
+            logger.info("[_extract_metrics] Creating base feature ID dataframe")
 
             try:
-                base_df = lf.group_by(["feature_id", "llm_explainer"]).agg([
-                    # Use first() on pre-extracted columns (they're the same for all rows in a group)
-                    pl.col("decoder_similarity_count").first(),
-                    pl.col("llm_explainer_semantic_sim_raw").first().alias("llm_explainer_semantic_sim_per_explainer"),
-
-                    # Score metrics (average across scorers per explainer)
-                    pl.col("score_embedding").mean().alias("embed_score"),
-                    pl.col("score_fuzz").mean().alias("fuzz_score"),
-                    pl.col("score_detection").mean().alias("detection_score")
-                ]).collect()
-                logger.info(f"[_extract_metrics] First aggregation complete: {len(base_df)} rows")
+                # Just get unique feature IDs - actual metrics come from activation and inter-feature joins
+                base_df = lf.select("feature_id").unique().collect()
+                logger.info(f"[_extract_metrics] Base dataframe created: {len(base_df)} features")
             except Exception as agg_error:
-                logger.error(f"[_extract_metrics] Aggregation failed: {agg_error}", exc_info=True)
+                logger.error(f"[_extract_metrics] Base dataframe creation failed: {agg_error}", exc_info=True)
                 raise
-
-            # Compute quality score per explainer (average of embed, fuzz, detection)
-            base_df = base_df.with_columns([
-                ((pl.col("embed_score") + pl.col("fuzz_score") + pl.col("detection_score")) / 3.0)
-                .alias("quality_score_per_explainer")
-            ])
-
-            # Aggregate across explainers: take MAX quality score and corresponding scores
-            logger.info("[_extract_metrics] Starting second aggregation by feature_id")
-            base_df = base_df.group_by("feature_id").agg([
-                pl.col("decoder_similarity_count").first(),
-                pl.col("quality_score_per_explainer").max().alias("quality_score"),
-                # Take max of individual scores (best explainer's values)
-                pl.col("embed_score").max(),
-                pl.col("fuzz_score").max(),
-                pl.col("detection_score").max(),
-                pl.col("llm_explainer_semantic_sim_per_explainer").mean().alias("llm_explainer_semantic_sim")
-            ])
-            logger.info(f"[_extract_metrics] Second aggregation complete: {len(base_df)} rows")
 
             # Cast feature_id to UInt32 to match activation and inter-feature dataframes
             base_df = base_df.with_columns(pl.col("feature_id").cast(pl.UInt32))
@@ -298,6 +254,8 @@ class SimilaritySortService:
         """
         Extract inter-feature similarity metrics.
 
+        Optimized: Uses Polars native list operations instead of Python loops.
+
         Args:
             feature_ids: List of feature IDs
 
@@ -313,53 +271,36 @@ class SimilaritySortService:
                 pl.col("feature_id").is_in(feature_ids)
             ).collect()
 
-            # Extract max jaccard and semantic similarity across all similar features
-            # Process both semantic_pairs and lexical_pairs
-            rows = []
+            # Use Polars list operations to extract max values from nested structures
+            result_df = df.select([
+                "feature_id",
+                # Extract max char_jaccard from both semantic_pairs and lexical_pairs
+                pl.max_horizontal([
+                    pl.col("semantic_pairs").list.eval(pl.element().struct.field("char_jaccard")).list.max().fill_null(0.0),
+                    pl.col("lexical_pairs").list.eval(pl.element().struct.field("char_jaccard")).list.max().fill_null(0.0)
+                ]).alias("max_char_jaccard"),
 
-            for row in df.iter_rows(named=True):
-                feature_id = row["feature_id"]
+                # Extract max word_jaccard from both semantic_pairs and lexical_pairs
+                pl.max_horizontal([
+                    pl.col("semantic_pairs").list.eval(pl.element().struct.field("word_jaccard")).list.max().fill_null(0.0),
+                    pl.col("lexical_pairs").list.eval(pl.element().struct.field("word_jaccard")).list.max().fill_null(0.0)
+                ]).alias("max_word_jaccard"),
 
-                max_char_jaccard = 0.0
-                max_word_jaccard = 0.0
-                max_semantic_sim = 0.0
+                # Extract max semantic_similarity from both pairs
+                pl.max_horizontal([
+                    pl.col("semantic_pairs").list.eval(pl.element().struct.field("semantic_similarity")).list.max().fill_null(0.0),
+                    pl.col("lexical_pairs").list.eval(pl.element().struct.field("semantic_similarity")).list.max().fill_null(0.0)
+                ]).alias("max_semantic_sim")
+            ]).select([
+                "feature_id",
+                # Combine char and word jaccard to get final inter_ngram_jaccard
+                pl.max_horizontal("max_char_jaccard", "max_word_jaccard").alias("inter_ngram_jaccard"),
+                pl.col("max_semantic_sim").alias("inter_semantic_sim")
+            ]).unique(subset=["feature_id"])
 
-                # Process semantic pairs
-                semantic_pairs = row.get("semantic_pairs")
-                if semantic_pairs:
-                    for pair in semantic_pairs:
-                        if pair.get("char_jaccard") is not None:
-                            max_char_jaccard = max(max_char_jaccard, float(pair["char_jaccard"]))
-                        if pair.get("word_jaccard") is not None:
-                            max_word_jaccard = max(max_word_jaccard, float(pair["word_jaccard"]))
-                        if pair.get("semantic_similarity") is not None:
-                            max_semantic_sim = max(max_semantic_sim, float(pair["semantic_similarity"]))
-
-                # Process lexical pairs
-                lexical_pairs = row.get("lexical_pairs")
-                if lexical_pairs:
-                    for pair in lexical_pairs:
-                        if pair.get("char_jaccard") is not None:
-                            max_char_jaccard = max(max_char_jaccard, float(pair["char_jaccard"]))
-                        if pair.get("word_jaccard") is not None:
-                            max_word_jaccard = max(max_word_jaccard, float(pair["word_jaccard"]))
-                        if pair.get("semantic_similarity") is not None:
-                            max_semantic_sim = max(max_semantic_sim, float(pair["semantic_similarity"]))
-
-                rows.append({
-                    "feature_id": feature_id,
-                    "inter_ngram_jaccard": max(max_char_jaccard, max_word_jaccard),
-                    "inter_semantic_sim": max_semantic_sim
-                })
-
-            if not rows:
-                logger.warning("No inter-feature metrics extracted")
-                return None
-
-            result_df = pl.DataFrame(rows)
             # Cast feature_id to UInt32 to match other dataframes
             result_df = result_df.with_columns(pl.col("feature_id").cast(pl.UInt32))
-            logger.info(f"Extracted inter-feature metrics for {len(result_df)} features")
+            logger.info(f"Extracted inter-feature metrics for {len(result_df)} features using Polars operations")
             return result_df
 
         except Exception as e:
@@ -540,8 +481,13 @@ class SimilaritySortService:
         """
         Calculate similarity scores for feature pairs and return sorted pairs.
 
-        Pair vectors are 19-dimensional: 9 metrics (main) + 9 metrics (similar) + 1 pair metric
-        Weights are 10-dimensional: one per metric type (applied to both features) + one for pair metric
+        Pair vectors are 13-dimensional using symmetric operations:
+        - 4 dims: A + B (combined properties)
+        - 4 dims: |A - B| (dissimilarity)
+        - 4 dims: A * B (interaction)
+        - 1 dim: decoder similarity between A and B (pair-specific metric from _extract_pair_metrics)
+
+        Only uses feature-level metrics (no explanation-related metrics).
 
         Args:
             request: Request containing selected, rejected, and all pair keys
@@ -650,6 +596,8 @@ class SimilaritySortService:
         """
         Extract pair-specific metrics (cosine similarity from decoder_similarity).
 
+        Optimized: Single filter + dict lookup instead of filtering per pair.
+
         Args:
             pair_ids: List of (main_id, similar_id) tuples
 
@@ -663,16 +611,11 @@ class SimilaritySortService:
             return {}
 
         # Extract ALL unique feature IDs from pairs (both positions)
-        # This is critical for bidirectional lookup when using canonical keys
-        all_feature_ids = set()
-        for main_id, similar_id in pair_ids:
-            all_feature_ids.add(main_id)
-            all_feature_ids.add(similar_id)
-        all_feature_ids = list(all_feature_ids)
+        all_feature_ids = list(set(fid for main_id, similar_id in pair_ids for fid in (main_id, similar_id)))
 
         logger.info(f"Loading decoder_similarity data for {len(all_feature_ids)} unique features from {len(pair_ids)} pairs")
 
-        # Load the decoder_similarity data for ALL features (both positions in pairs)
+        # Load the decoder_similarity data for ALL features (single filter)
         try:
             df = lf.filter(pl.col("feature_id").is_in(all_feature_ids)).select([
                 "feature_id",
@@ -686,47 +629,40 @@ class SimilaritySortService:
             logger.error(f"Failed to load decoder_similarity data: {e}")
             return {}
 
-        pair_metrics = {}
+        # Build lookup dictionary once (instead of filtering repeatedly)
+        # Maps: feature_id -> {similar_feature_id -> cosine_similarity}
+        feature_to_sims = {}
+        for row in df.iter_rows(named=True):
+            feature_id = row["feature_id"]
+            decoder_sims = row["decoder_similarity"]
+            if isinstance(decoder_sims, list):
+                # Build a dict: similar_feature_id -> cosine_similarity
+                feature_to_sims[feature_id] = {
+                    sim["feature_id"]: float(sim.get("cosine_similarity", 0.0))
+                    for sim in decoder_sims
+                    if isinstance(sim, dict) and "feature_id" in sim
+                }
 
+        # Process pairs using O(1) dict lookups
+        pair_metrics = {}
         for main_id, similar_id in pair_ids:
             # IMPORTANT: Use canonical key (smaller ID first)
             pair_key = f"{min(main_id, similar_id)}-{max(main_id, similar_id)}"
 
-            # Find decoder similarity entry for this pair
-            # Try BOTH directions since canonical keys might reverse the relationship
-            try:
-                similarity = 0.0
+            # Try both directions using dict lookup (O(1))
+            similarity = 0.0
+            if main_id in feature_to_sims:
+                similarity = feature_to_sims[main_id].get(similar_id, 0.0)
 
-                # Try direction 1: main_id -> similar_id
-                main_data = df.filter(pl.col("feature_id") == main_id)
-                if len(main_data) > 0:
-                    decoder_sims = main_data["decoder_similarity"][0]
-                    if isinstance(decoder_sims, list):
-                        for sim_item in decoder_sims:
-                            if isinstance(sim_item, dict) and sim_item.get("feature_id") == similar_id:
-                                similarity = float(sim_item.get("cosine_similarity", 0.0))
-                                break
+            if similarity == 0.0 and similar_id in feature_to_sims:
+                similarity = feature_to_sims[similar_id].get(main_id, 0.0)
 
-                # If not found, try direction 2: similar_id -> main_id
-                if similarity == 0.0:
-                    similar_data = df.filter(pl.col("feature_id") == similar_id)
-                    if len(similar_data) > 0:
-                        decoder_sims = similar_data["decoder_similarity"][0]
-                        if isinstance(decoder_sims, list):
-                            for sim_item in decoder_sims:
-                                if isinstance(sim_item, dict) and sim_item.get("feature_id") == main_id:
-                                    similarity = float(sim_item.get("cosine_similarity", 0.0))
-                                    break
+            if similarity == 0.0:
+                logger.debug(f"No decoder similarity found for pair {pair_key}")
 
-                if similarity == 0.0:
-                    logger.debug(f"No decoder similarity found for pair {pair_key} (tried both directions)")
+            pair_metrics[pair_key] = similarity
 
-                pair_metrics[pair_key] = similarity
-
-            except Exception as e:
-                logger.warning(f"Error extracting pair metric for {pair_key}: {e}")
-                pair_metrics[pair_key] = 0.0
-
+        logger.info(f"Extracted pair metrics for {len(pair_metrics)} pairs using dict lookup")
         return pair_metrics
 
     def _calculate_pair_similarity_scores(
@@ -740,11 +676,11 @@ class SimilaritySortService:
         """
         Calculate similarity scores for all pairs using SVM.
 
-        19-dim pair vector = [9 main metrics] + [9 similar metrics] + [1 pair metric]
+        13-dim symmetric pair vector = [A+B (4)] + [|A-B| (4)] + [A*B (4)] + [decoder_sim (1)]
 
         Args:
             metrics_df: DataFrame with metrics for all features
-            pair_metrics: Dictionary mapping pair_key to cosine_similarity
+            pair_metrics: Dictionary mapping pair_key to cosine_similarity between the two features
             selected_pair_keys: Pair keys marked as selected (✓)
             rejected_pair_keys: Pair keys marked as rejected (✗)
             pair_ids: List of (main_id, similar_id) tuples
@@ -776,12 +712,18 @@ class SimilaritySortService:
                 pair_vectors[pair_key] = None
                 continue
 
-            # Build 19-dim vector
-            main_metrics = metrics_matrix[main_idx[0]]  # 9 dims
-            similar_metrics = metrics_matrix[similar_idx[0]]  # 9 dims
-            pair_metric = pair_metrics.get(pair_key, 0.0)  # 1 dim
+            # Build symmetric 13-dim vector: concat(A+B, |A-B|, A*B, decoder_sim)
+            # This ensures pair(A,B) = pair(B,A) regardless of feature order
+            main_metrics = metrics_matrix[main_idx[0]]  # 4 dims
+            similar_metrics = metrics_matrix[similar_idx[0]]  # 4 dims
+            pair_metric = pair_metrics.get(pair_key, 0.0)  # 1 dim (specific similarity between these two features)
 
-            pair_vector = np.concatenate([main_metrics, similar_metrics, [pair_metric]])
+            # Symmetric operations
+            pair_sum = main_metrics + similar_metrics  # Combined properties (4 dims)
+            pair_diff = np.abs(main_metrics - similar_metrics)  # Dissimilarity (4 dims)
+            pair_product = main_metrics * similar_metrics  # Interaction (4 dims)
+
+            pair_vector = np.concatenate([pair_sum, pair_diff, pair_product, [pair_metric]])
             pair_vectors[pair_key] = pair_vector
 
         # Check cache
@@ -1114,9 +1056,11 @@ class SimilaritySortService:
         This is different from _calculate_pair_similarity_scores() which skips selected/rejected.
         For histogram visualization, we need scores for everything.
 
+        13-dim symmetric pair vector = [A+B (4)] + [|A-B| (4)] + [A*B (4)] + [decoder_sim (1)]
+
         Args:
             metrics_df: DataFrame with metrics for all features
-            pair_metrics: Dictionary mapping pair_key to cosine_similarity
+            pair_metrics: Dictionary mapping pair_key to cosine_similarity between the two features
             selected_pair_keys: Pair keys marked as selected (✓)
             rejected_pair_keys: Pair keys marked as rejected (✗)
             pair_ids: List of (main_id, similar_id) tuples
@@ -1148,12 +1092,18 @@ class SimilaritySortService:
                 pair_vectors[pair_key] = None
                 continue
 
-            # Build 19-dim vector
-            main_metrics = metrics_matrix[main_idx[0]]  # 9 dims
-            similar_metrics = metrics_matrix[similar_idx[0]]  # 9 dims
-            pair_metric = pair_metrics.get(pair_key, 0.0)  # 1 dim
+            # Build symmetric 13-dim vector: concat(A+B, |A-B|, A*B, decoder_sim)
+            # This ensures pair(A,B) = pair(B,A) regardless of feature order
+            main_metrics = metrics_matrix[main_idx[0]]  # 4 dims
+            similar_metrics = metrics_matrix[similar_idx[0]]  # 4 dims
+            pair_metric = pair_metrics.get(pair_key, 0.0)  # 1 dim (specific similarity between these two features)
 
-            pair_vector = np.concatenate([main_metrics, similar_metrics, [pair_metric]])
+            # Symmetric operations
+            pair_sum = main_metrics + similar_metrics  # Combined properties (4 dims)
+            pair_diff = np.abs(main_metrics - similar_metrics)  # Dissimilarity (4 dims)
+            pair_product = main_metrics * similar_metrics  # Interaction (4 dims)
+
+            pair_vector = np.concatenate([pair_sum, pair_diff, pair_product, [pair_metric]])
             pair_vectors[pair_key] = pair_vector
 
         # Check cache (reuse model from main pair scoring)

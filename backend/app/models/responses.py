@@ -579,3 +579,39 @@ class DistributedFeaturesResponse(BaseModel):
         ...,
         description="Distribution method used ('kmeans')"
     )
+
+
+class ClusterGroup(BaseModel):
+    """Single cluster with its member features"""
+    cluster_id: int = Field(
+        ...,
+        description="Cluster identifier (1-indexed from scipy fcluster)"
+    )
+    feature_ids: List[int] = Field(
+        ...,
+        description="Feature IDs belonging to this cluster (sorted)"
+    )
+
+
+class ClusterCandidatesResponse(BaseModel):
+    """Response model for hierarchical clustering-based cluster selection"""
+    cluster_groups: List[ClusterGroup] = Field(
+        ...,
+        description="Selected clusters with their member features (only clusters with 2+ features)"
+    )
+    feature_to_cluster: Dict[int, int] = Field(
+        ...,
+        description="Mapping of ALL feature IDs (0-16383) to their cluster IDs at this threshold"
+    )
+    total_clusters: int = Field(
+        ...,
+        description="Total number of clusters formed at this distance threshold"
+    )
+    clusters_selected: int = Field(
+        ...,
+        description="Number of clusters selected (may be < n if not enough valid clusters)"
+    )
+    threshold_used: float = Field(
+        ...,
+        description="Distance threshold used for cutting the dendrogram"
+    )

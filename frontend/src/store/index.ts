@@ -183,8 +183,10 @@ interface AppState {
   pairSortedBySelectionStates: Map<string, 'selected' | 'rejected'> | null,  // Frozen pair selection states when sorted
   donePairSelectionStates: Map<string, 'selected' | 'rejected'> | null
 
-  // Distributed feature pairs state (for FeatureSplitPairViewer)
-  distributedPairFeatureIds: number[] | null  // Feature IDs selected via K-Means distribution
+  // Cluster-based feature pairs state (for FeatureSplitPairViewer)
+  clusterGroups: Array<{cluster_id: number, feature_ids: number[]}> | null  // Selected clusters with their members
+  featureToClusterMap: Record<number, number> | null  // Map of all feature IDs to their cluster IDs
+  totalClusters: number | null  // Total number of clusters at the threshold used
   isLoadingDistributedPairs: boolean
 
   // Cause similarity sort state (for cause table - multi-class OvR)
@@ -307,8 +309,10 @@ const initialState = {
   pairSortedBySelectionStates: null,
   donePairSelectionStates: null,
 
-  // Distributed feature pairs state (for FeatureSplitPairViewer)
-  distributedPairFeatureIds: null,
+  // Cluster-based feature pairs state (for FeatureSplitPairViewer)
+  clusterGroups: null,
+  featureToClusterMap: null,
+  totalClusters: null,
   isLoadingDistributedPairs: false,
 
   // Cause similarity sort state (for cause table - multi-class OvR)

@@ -10,8 +10,8 @@ from .api import router as api_router
 from .services.data_service import DataService
 from .services.alignment_service import AlignmentService
 from .services.similarity_sort_service import SimilaritySortService
-from .services.feature_cluster_service import FeatureClusterService
-from .api import feature_groups, similarity_sort, distributed_features
+from .services.hierarchical_cluster_candidate_service import HierarchicalClusterCandidateService
+from .api import feature_groups, similarity_sort, cluster_candidates
 
 # Configure logging for the application
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -39,11 +39,11 @@ logger = logging.getLogger(__name__)
 data_service = None
 alignment_service = None
 similarity_sort_service = None
-distributed_features_service = None
+cluster_candidate_service = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global data_service, alignment_service, similarity_sort_service, distributed_features_service
+    global data_service, alignment_service, similarity_sort_service, cluster_candidate_service
     try:
         data_service = DataService()
         await data_service.initialize()
@@ -66,10 +66,12 @@ async def lifespan(app: FastAPI):
         similarity_sort.set_similarity_sort_service(similarity_sort_service)
         logger.info("Similarity sort service initialized successfully")
 
-        # Initialize distributed features service (depends on similarity_sort_service)
-        distributed_features_service = FeatureClusterService(similarity_service=similarity_sort_service)
-        distributed_features.set_distributed_features_service(distributed_features_service)
-        logger.info("Distributed features service initialized successfully")
+        # Initialize hierarchical cluster candidate service
+        from pathlib import Path
+        project_root = Path(__file__).parent.parent.parent
+        cluster_candidate_service = HierarchicalClusterCandidateService(project_root=project_root)
+        cluster_candidates.set_cluster_candidate_service(cluster_candidate_service)
+        logger.info("Hierarchical cluster candidate service initialized successfully")
 
         yield
     except Exception as e:

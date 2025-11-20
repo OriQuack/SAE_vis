@@ -8,130 +8,82 @@ import { extractInterFeaturePositions } from '../lib/activation-utils'
 import '../styles/FeatureSplitPairViewer.css'
 
 // ============================================================================
-// CONFIGURATION
-// ============================================================================
-
-// Easy configuration for developers - change this to adjust sample size
-const DISTRIBUTED_SAMPLE_SIZE = 30
-
-// ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
 /**
- * Build list of all pairs from decoder_similarity data in tableData
- * Returns array of {mainFeatureId, similarFeatureId, decoderSimilarity, pairKey}
+ * Build pairs from cluster groups
+ * For each cluster, generate all within-cluster pairs (e.g., cluster [1,2,3] → pairs 1-2, 1-3, 2-3)
+ * Returns array of {mainFeatureId, similarFeatureId, decoderSimilarity, pairKey, clusterId, ...}
  */
-function buildPairList(tableData: any): Array<{
-  mainFeatureId: number
-  similarFeatureId: number
-  decoderSimilarity: number
-  pairKey: string
-  row: FeatureTableRow
-  similarRow: FeatureTableRow | null
-}> {
-  if (!tableData?.rows) return []
-
-  const pairs: Array<{
-    mainFeatureId: number
-    similarFeatureId: number
-    decoderSimilarity: number
-    pairKey: string
-    row: FeatureTableRow
-    similarRow: FeatureTableRow | null
-  }> = []
-
-  const rowMap = new Map<number, FeatureTableRow>()
-  tableData.rows.forEach((row: FeatureTableRow) => {
-    rowMap.set(row.feature_id, row)
-  })
-
-  for (const row of tableData.rows) {
-    const decoderData = row.decoder_similarity
-    if (!decoderData || !Array.isArray(decoderData)) continue
-
-    // Get top 3 similar features
-    const topSimilar = decoderData.slice(0, 3)
-
-    for (const similarData of topSimilar) {
-      const mainId = row.feature_id
-      const similarId = similarData.feature_id
-
-      // Create canonical pair key (smaller ID first)
-      const pairKey = mainId < similarId ? `${mainId}-${similarId}` : `${similarId}-${mainId}`
-
-      // Check if we already added this pair (prevent duplicates)
-      if (pairs.some(p => p.pairKey === pairKey)) continue
-
-      pairs.push({
-        mainFeatureId: mainId,
-        similarFeatureId: similarId,
-        decoderSimilarity: similarData.cosine_similarity,
-        pairKey,
-        row,
-        similarRow: rowMap.get(similarId) || null
-      })
-    }
-  }
-
-  return pairs
-}
-
-/**
- * Build list of distributed pairs from selected feature IDs
- * For each distributed feature, find its top-1 decoder_similarity match
- * Returns array of {mainFeatureId, similarFeatureId, decoderSimilarity, pairKey}
- */
-function buildDistributedPairList(
+function buildClusterPairs(
   tableData: any,
-  distributedFeatureIds: number[]
+  clusterGroups: Array<{cluster_id: number, feature_ids: number[]}>
 ): Array<{
   mainFeatureId: number
   similarFeatureId: number
-  decoderSimilarity: number
+  decoderSimilarity: number | null
   pairKey: string
-  row: FeatureTableRow
+  clusterId: number
+  row: FeatureTableRow | null
   similarRow: FeatureTableRow | null
 }> {
-  if (!tableData?.rows || !distributedFeatureIds || distributedFeatureIds.length === 0) return []
+  if (!tableData?.rows || !clusterGroups || clusterGroups.length === 0) return []
 
   const pairs: Array<{
     mainFeatureId: number
     similarFeatureId: number
-    decoderSimilarity: number
+    decoderSimilarity: number | null
     pairKey: string
-    row: FeatureTableRow
+    clusterId: number
+    row: FeatureTableRow | null
     similarRow: FeatureTableRow | null
   }> = []
 
+  // Build feature ID to row mapping
   const rowMap = new Map<number, FeatureTableRow>()
   tableData.rows.forEach((row: FeatureTableRow) => {
     rowMap.set(row.feature_id, row)
   })
 
-  // For each distributed feature, get its top-1 decoder_similarity pair
-  for (const featureId of distributedFeatureIds) {
-    const row = rowMap.get(featureId)
-    if (!row) continue
+  // For each cluster, generate all pairs
+  for (const cluster of clusterGroups) {
+    const featureIds = cluster.feature_ids
 
-    const decoderData = row.decoder_similarity
-    if (!decoderData || !Array.isArray(decoderData) || decoderData.length === 0) continue
+    // Generate all combinations within this cluster
+    for (let i = 0; i < featureIds.length; i++) {
+      for (let j = i + 1; j < featureIds.length; j++) {
+        const id1 = featureIds[i]
+        const id2 = featureIds[j]
 
-    // Get top-1 similar feature (first in the array)
-    const topSimilar = decoderData[0]
-    const similarId = topSimilar.feature_id
+        // Ensure smaller ID first for canonical pair key
+        const mainId = Math.min(id1, id2)
+        const similarId = Math.max(id1, id2)
+        const pairKey = `${mainId}-${similarId}`
 
-    // Create canonical pair key (smaller ID first)
-    const pairKey = featureId < similarId ? `${featureId}-${similarId}` : `${similarId}-${featureId}`
+        // Try to find decoder similarity if available
+        const mainRow = rowMap.get(mainId)
+        const similarRow = rowMap.get(similarId)
+        let decoderSimilarity: number | null = null
 
-    pairs.push({
-      mainFeatureId: featureId,
-      similarFeatureId: similarId,
-      decoderSimilarity: topSimilar.cosine_similarity,
-      pairKey,
-      row,
-      similarRow: rowMap.get(similarId) || null
-    })
+        if (mainRow?.decoder_similarity) {
+          const similarData = mainRow.decoder_similarity.find(d => d.feature_id === similarId)
+          if (similarData) {
+            decoderSimilarity = similarData.cosine_similarity
+          }
+        }
+
+        pairs.push({
+          mainFeatureId: mainId,
+          similarFeatureId: similarId,
+          decoderSimilarity,
+          pairKey,
+          clusterId: cluster.cluster_id,
+          row: mainRow || null,
+          similarRow: similarRow || null
+        })
+      }
+    }
   }
 
   return pairs
@@ -150,12 +102,8 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
   const tableData = useVisualizationStore(state => state.tableData)
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
   const togglePairSelection = useVisualizationStore(state => state.togglePairSelection)
-  const clearPairSelection = useVisualizationStore(state => state.clearPairSelection)
   const leftPanel = useVisualizationStore(state => state.leftPanel)
-  const sortPairsBySimilarity = useVisualizationStore(state => state.sortPairsBySimilarity)
-  const isPairSimilaritySortLoading = useVisualizationStore(state => state.isPairSimilaritySortLoading)
-  const showSimilarityTaggingPopover = useVisualizationStore(state => state.showSimilarityTaggingPopover)
-  const distributedPairFeatureIds = useVisualizationStore(state => state.distributedPairFeatureIds)
+  const clusterGroups = useVisualizationStore(state => state.clusterGroups)
   const isLoadingDistributedPairs = useVisualizationStore(state => state.isLoadingDistributedPairs)
   const fetchDistributedPairs = useVisualizationStore(state => (state as any).fetchDistributedPairs)
   const clearDistributedPairs = useVisualizationStore(state => (state as any).clearDistributedPairs)
@@ -198,40 +146,39 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
     }
   }, [tableData, selectedFeatureIds])
 
-  // Fetch distributed pairs on mount when filteredTableData is available
+  // Fetch cluster groups on mount when filteredTableData is available
   useEffect(() => {
-    if (filteredTableData?.rows && filteredTableData.rows.length > 0 && !distributedPairFeatureIds && !isLoadingDistributedPairs && selectedFeatureIds) {
-      console.log('[FeatureSplitPairViewer] Fetching distributed pairs on mount:', {
+    if (filteredTableData?.rows && filteredTableData.rows.length > 0 && !clusterGroups && !isLoadingDistributedPairs && selectedFeatureIds) {
+      console.log('[FeatureSplitPairViewer] Fetching cluster groups on mount:', {
         filteredFeatures: filteredTableData.rows.length,
-        selectedFeatures: selectedFeatureIds.size,
-        requestingSamples: DISTRIBUTED_SAMPLE_SIZE
+        selectedFeatures: selectedFeatureIds.size
       })
-      fetchDistributedPairs(DISTRIBUTED_SAMPLE_SIZE, selectedFeatureIds)
+      fetchDistributedPairs(20, selectedFeatureIds)  // Default 10 clusters
     }
-  }, [filteredTableData, distributedPairFeatureIds, isLoadingDistributedPairs, fetchDistributedPairs, selectedFeatureIds])
+  }, [filteredTableData, clusterGroups, isLoadingDistributedPairs, fetchDistributedPairs, selectedFeatureIds])
 
-  // Clear distributed pairs on unmount
+  // Clear cluster groups on unmount
   useEffect(() => {
     return () => {
       clearDistributedPairs()
     }
   }, [clearDistributedPairs])
 
-  // Build pair list from filtered table data - use distributed pairs if available, otherwise all pairs
+  // Build pair list from cluster groups
   const pairList = useMemo(() => {
     if (!filteredTableData) {
       console.log('[FeatureSplitPairViewer] No filtered table data available')
       return []
     }
 
-    if (distributedPairFeatureIds && distributedPairFeatureIds.length > 0) {
-      console.log('[FeatureSplitPairViewer] Using distributed pairs:', distributedPairFeatureIds.length)
-      return buildDistributedPairList(filteredTableData, distributedPairFeatureIds)
+    if (clusterGroups && clusterGroups.length > 0) {
+      console.log('[FeatureSplitPairViewer] Building pairs from cluster groups:', clusterGroups.length)
+      return buildClusterPairs(filteredTableData, clusterGroups)
     }
-    // Fallback to all pairs (original behavior)
-    console.log('[FeatureSplitPairViewer] Building all pairs from filtered data')
-    return buildPairList(filteredTableData)
-  }, [filteredTableData, distributedPairFeatureIds])
+
+    console.log('[FeatureSplitPairViewer] No cluster groups available')
+    return []
+  }, [filteredTableData, clusterGroups])
 
   // Current pair
   const currentPair = pairList[currentPairIndex] || null
@@ -341,31 +288,13 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
     }
   }
 
-  // Action handlers
-  const handleSortClick = async () => {
-    const allPairKeys = pairList.map(p => p.pairKey)
-    await sortPairsBySimilarity(allPairKeys)
-  }
-
-  const handleTagClick = (e: React.MouseEvent) => {
-    const rect = e.currentTarget.getBoundingClientRect()
-    showSimilarityTaggingPopover(
-      'pair',
-      { x: rect.left, y: rect.bottom + 8 },
-      'Feature Splitting'
-    )
-  }
-
-  const handleClearClick = () => {
-    clearPairSelection()
-  }
 
 
-  // Show loading state while fetching distributed pairs
+  // Show loading state while fetching cluster groups
   if (isLoadingDistributedPairs) {
     return (
       <div className={`feature-split-pair-viewer ${className}`}>
-        <div className="pair-viewer__empty">Loading distributed sample...</div>
+        <div className="pair-viewer__empty">Loading cluster groups...</div>
       </div>
     )
   }
@@ -417,11 +346,19 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
 
   return (
     <div className={`feature-split-pair-viewer ${className}`}>
-      {/* Sidebar with pair list */}
+      {/* Sidebar with pair list grouped by cluster */}
       <div className="pair-viewer__sidebar">
         <div className="sidebar__header">
-          <span className="sidebar__title">Pairs</span>
-          <span className="sidebar__count">{pairList.length}</span>
+          <div className="sidebar__badge">
+            <span className="badge__label">Pairs</span>
+            <span className="badge__count">{pairList.length}</span>
+          </div>
+          {clusterGroups && clusterGroups.length > 0 && (
+            <div className="sidebar__badge">
+              <span className="badge__label">Clusters</span>
+              <span className="badge__count">{clusterGroups.length}</span>
+            </div>
+          )}
         </div>
         <div className="pair-list__container">
           {pairList.map((pair, index) => {
@@ -439,16 +376,20 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
             // Format pair ID as string for TagBadge
             const pairIdString = `${pair.mainFeatureId}-${pair.similarFeatureId}`
 
+            // Check if this pair is in the same cluster as the current pair
+            const isInCurrentCluster = currentPair && pair.clusterId === currentPair.clusterId
+
             return (
               <div
                 key={pair.pairKey}
-                className={`pair-list-item ${isCurrent ? 'pair-list-item--current' : ''}`}
+                className={`pair-list-item ${isCurrent ? 'pair-list-item--current' : ''} ${isInCurrentCluster ? 'pair-list-item--same-cluster' : ''}`}
               >
                 <TagBadge
                   featureId={pairIdString as any}
                   tagName={tagName}
                   tagCategoryId={TAG_CATEGORY_FEATURE_SPLITTING}
                   onClick={() => goToPair(index)}
+                  fullWidth={true}
                 />
               </div>
             )
@@ -483,20 +424,17 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
 
         {/* Pair Info */}
         <div className="pair-viewer__info">
-          <div className="pair-info__feature">
-            <span className="feature__label">Main:</span>
-            <span className="feature__id">#{currentPair.mainFeatureId}</span>
+          <div className="pair-info__similarity">
+            <span className="similarity__label">Sim:</span>
+            <span className="similarity__value">
+              {currentPair.decoderSimilarity !== null ? currentPair.decoderSimilarity.toFixed(3) : 'N/A'}
+            </span>
           </div>
           <span className="pair-info__separator">|</span>
-          <div className="pair-info__feature">
-            <span className="feature__label">Similar:</span>
-            <span className="feature__id">#{currentPair.similarFeatureId}</span>
-          </div>
-          <div className="pair-info__similarity">
+          <div className="pair-info__ids">
+            <span className="feature__id">#{currentPair.mainFeatureId}</span>
             <span className="similarity__icon">↔</span>
-            <span className="similarity__value">
-              {currentPair.decoderSimilarity.toFixed(3)}
-            </span>
+            <span className="feature__id">#{currentPair.similarFeatureId}</span>
           </div>
         </div>
 
@@ -527,26 +465,6 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
 
         {/* Action buttons */}
         <div className="pair-viewer__actions">
-          <button
-            className="action__button action__button--sort"
-            onClick={handleSortClick}
-            disabled={isPairSimilaritySortLoading}
-          >
-            {isPairSimilaritySortLoading ? 'Sorting...' : 'Sort'}
-          </button>
-          <button
-            className="action__button action__button--tag"
-            onClick={handleTagClick}
-          >
-            Auto-Tag
-          </button>
-          <button
-            className="action__button action__button--clear"
-            onClick={handleClearClick}
-            disabled={pairSelectionStates.size === 0}
-          >
-            Clear
-          </button>
         </div>
       </div>
 
@@ -555,7 +473,6 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
         {/* Main feature activation */}
         <div className="activation-panel activation-panel--main">
           <div className="activation-panel__header">
-            <span className="panel-header__label">Main Feature</span>
             <span className="panel-header__id">#{currentPair.mainFeatureId}</span>
           </div>
           {mainActivation ? (
@@ -575,7 +492,6 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
         {/* Similar feature activation */}
         <div className="activation-panel activation-panel--similar">
           <div className="activation-panel__header">
-            <span className="panel-header__label">Similar Feature</span>
             <span className="panel-header__id">#{currentPair.similarFeatureId}</span>
           </div>
           {/* TEMPORARY FIX: Check for activation data instead of feature row */}

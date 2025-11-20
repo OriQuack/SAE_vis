@@ -58,7 +58,7 @@ const API_ENDPOINTS = {
   PAIR_SIMILARITY_SCORE_HISTOGRAM: "/pair-similarity-score-histogram",
   CAUSE_SIMILARITY_SORT: "/cause-similarity-sort",
   CAUSE_SIMILARITY_SCORE_HISTOGRAM: "/cause-similarity-score-histogram",
-  DISTRIBUTED_FEATURES: "/distributed-features"
+  CLUSTER_CANDIDATES: "/cluster-candidates"
 } as const
 
 const API_BASE = API_BASE_URL
@@ -446,15 +446,18 @@ export async function getCauseSimilarityScoreHistogram(
   return data
 }
 
-export async function getDistributedFeatures(
+export async function getClusterCandidates(
   featureIds: number[],
-  n: number = 30
+  n: number = 10,
+  threshold: number = 0.5
 ): Promise<{
-  selected_features: number[]
-  total_available: number
-  method_used: string
+  cluster_groups: Array<{cluster_id: number, feature_ids: number[]}>
+  feature_to_cluster: Record<number, number>
+  total_clusters: number
+  clusters_selected: number
+  threshold_used: number
 }> {
-  const response = await fetch(`${API_BASE}${API_ENDPOINTS.DISTRIBUTED_FEATURES}`, {
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.CLUSTER_CANDIDATES}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -462,14 +465,14 @@ export async function getDistributedFeatures(
     body: JSON.stringify({
       feature_ids: featureIds,
       n: n,
-      method: 'kmeans'
+      threshold: threshold
     })
   })
 
   if (!response.ok) {
     const errorText = await response.text()
-    console.error('[API] Distributed features error:', response.status, errorText)
-    throw new Error(`Failed to fetch distributed features: ${response.status} - ${errorText}`)
+    console.error('[API] Cluster candidates error:', response.status, errorText)
+    throw new Error(`Failed to fetch cluster candidates: ${response.status} - ${errorText}`)
   }
 
   return response.json()

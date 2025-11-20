@@ -119,6 +119,9 @@ interface TagBadgeProps {
   // Selection state props
   selectionState?: 'selected' | 'rejected' | 'confirmed' | null  // Visual selection state
   onClick?: (e: React.MouseEvent) => void  // Click handler for selection
+
+  // Layout props
+  fullWidth?: boolean        // If true, use flex: 1 to fill container width (default: false)
 }
 
 export const TagBadge: React.FC<TagBadgeProps> = ({
@@ -127,7 +130,8 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
   tagCategoryId,
   className = '',
   selectionState = null,
-  onClick
+  onClick,
+  fullWidth = false
 }) => {
   // Get tag color from pre-computed colors (or gray for unselected)
   const baseTagColor = getTagColor(tagCategoryId, tagName) || '#9ca3af'
@@ -150,7 +154,8 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
       className={`tag-badge ${className}`}
       onClick={onClick}
       style={{
-        display: 'inline-flex',
+        display: fullWidth ? 'flex' : 'inline-flex',
+        flex: fullWidth ? 1 : 'none',
         alignItems: 'center',
         borderRadius: '4px',
         overflow: 'hidden',
@@ -177,13 +182,15 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
       {/* Feature ID section (left) */}
       <div
         style={{
-          padding: '3px 8px',
+          padding: '2px 6px',
           backgroundColor: '#f3f4f6',
           color: '#4b5563',
           fontFamily: 'monospace',
           fontSize: '11px',
           fontWeight: 600,
-          borderRight: '1px solid rgba(0, 0, 0, 0.1)'
+          borderRight: '1px solid rgba(0, 0, 0, 0.1)',
+          flex: fullWidth ? 1 : 'none',
+          textAlign: fullWidth ? 'center' : 'left'
         }}
       >
         {featureId}
@@ -192,10 +199,12 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
       {/* Tag name section (right) */}
       <div
         style={{
-          padding: '3px 10px',
+          padding: '2px 4px',
           backgroundColor: tagBgColor,
           color: tagTextColor,
-          whiteSpace: 'nowrap'
+          whiteSpace: 'nowrap',
+          flex: fullWidth ? 1 : 'none',
+          textAlign: fullWidth ? 'center' : 'left'
         }}
       >
         {tagName}
