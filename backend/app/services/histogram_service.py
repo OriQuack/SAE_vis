@@ -23,7 +23,10 @@ from .data_constants import (
     COL_SAE_ID,
     COL_EXPLANATION_METHOD,
     COL_LLM_EXPLAINER,
-    COL_LLM_SCORER
+    COL_LLM_SCORER,
+    COL_DECODER_SIMILARITY,
+    COL_DECODER_SIMILARITY_MERGE_THRESHOLD,
+    DECODER_METRIC_FOR_AGGREGATION
 )
 
 # Import for type hints only (avoids circular imports)
@@ -75,6 +78,24 @@ class HistogramService:
             data_service: Instance of DataService for raw data access
         """
         self.data_service = data_service
+
+    @staticmethod
+    def _get_actual_column_name(metric_name: str) -> str:
+        """
+        Map metric name to actual column name based on configuration.
+
+        When metric is "decoder_similarity", returns the actual column to use
+        based on DECODER_METRIC_FOR_AGGREGATION constant.
+
+        Args:
+            metric_name: Metric name from API request
+
+        Returns:
+            Actual column name to use in DataFrame operations
+        """
+        if metric_name == COL_DECODER_SIMILARITY:
+            return DECODER_METRIC_FOR_AGGREGATION
+        return metric_name
 
     async def get_histogram_data(
         self,
@@ -160,14 +181,17 @@ class HistogramService:
         # IMPORTANT: Transform decoder_similarity from List(Struct) to float BEFORE threshold filtering
         # This is needed even when generating histograms for other metrics, because threshold_path
         # may include decoder_similarity constraints that need to compare scalar values
-        if "decoder_similarity" in filtered_df.columns:
+        # NOTE: Only transform if using original decoder_similarity for aggregation
+        if DECODER_METRIC_FOR_AGGREGATION == COL_DECODER_SIMILARITY and COL_DECODER_SIMILARITY in filtered_df.columns:
             logger.info("Transforming decoder_similarity from List(Struct) to max float value")
             filtered_df = filtered_df.with_columns([
-                pl.col("decoder_similarity")
+                pl.col(COL_DECODER_SIMILARITY)
                   .list.eval(pl.element().struct.field("cosine_similarity"))
                   .list.max()
-                  .alias("decoder_similarity")
+                  .alias(COL_DECODER_SIMILARITY)
             ])
+        elif DECODER_METRIC_FOR_AGGREGATION == COL_DECODER_SIMILARITY_MERGE_THRESHOLD:
+            logger.info(f"Using {COL_DECODER_SIMILARITY_MERGE_THRESHOLD} for aggregation (no transformation needed)")
 
         # Apply threshold path constraints if provided
         if threshold_path:
@@ -180,16 +204,19 @@ class HistogramService:
                     logger.warning(f"Skipping invalid constraint: {constraint}")
                     continue
 
+                # Map metric name to actual column based on configuration
+                actual_col = self._get_actual_column_name(metric_col)
+
                 # Parse range and apply filter
                 min_val, max_val = parse_range_label(range_label)
 
                 if min_val is not None:
-                    filtered_df = filtered_df.filter(pl.col(metric_col) >= min_val)
-                    logger.debug(f"Applied constraint: {metric_col} >= {min_val}")
+                    filtered_df = filtered_df.filter(pl.col(actual_col) >= min_val)
+                    logger.debug(f"Applied constraint: {actual_col} >= {min_val} (requested as {metric_col})")
 
                 if max_val is not None:
-                    filtered_df = filtered_df.filter(pl.col(metric_col) < max_val)
-                    logger.debug(f"Applied constraint: {metric_col} < {max_val}")
+                    filtered_df = filtered_df.filter(pl.col(actual_col) < max_val)
+                    logger.debug(f"Applied constraint: {actual_col} < {max_val} (requested as {metric_col})")
 
             logger.info(f"After threshold path filtering: {len(filtered_df)} rows")
 
@@ -218,7 +245,9 @@ class HistogramService:
 
     def _extract_metric_values(self, df: pl.DataFrame, metric: MetricType) -> np.ndarray:
         """Extract and validate metric values from DataFrame."""
-        metric_data = df.select([pl.col(metric.value).alias("metric_value")])
+        # Map metric name to actual column based on configuration
+        actual_column = self._get_actual_column_name(metric.value)
+        metric_data = df.select([pl.col(actual_column).alias("metric_value")])
         values = metric_data.get_column("metric_value").drop_nulls().to_numpy()
 
         if len(values) == 0:

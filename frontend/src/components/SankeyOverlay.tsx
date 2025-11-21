@@ -412,10 +412,10 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
               bounds={{ min: 0, max: (sourceNode.y1 || 0) - (sourceNode.y0 || 0) }}
               thresholds={[currentThreshold]}
               metricRange={{ min: metricMin, max: metricMax }}
-              position={{ x: sourceNode.x0 || 0, y: sourceNode.y0 || 0 }}
+              position={{ x: ((sourceNode.x0 || 0) + (sourceNode.x1 || 0)) / 2, y: sourceNode.y0 || 0 }}
               parentOffset={{ x: layout.margin.left, y: layout.margin.top }}
               showThresholdLine={false}
-              showDragTooltip={false}
+              showDragTooltip={true}
               usePercentiles={false}
               onUpdate={(values) => {
                 // V2: Call onThresholdUpdate with target segment node ID

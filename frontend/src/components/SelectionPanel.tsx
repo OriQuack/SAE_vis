@@ -261,6 +261,10 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
         top4Similar.forEach((similarItem: any) => {
           const id1 = feature.feature_id
           const id2 = similarItem.feature_id
+
+          // Skip if similarItem is not in the filtered set
+          if (filteredFeatureIds && !filteredFeatureIds.has(id2)) return
+
           const canonicalPairKey = id1 < id2 ? `${id1}-${id2}` : `${id2}-${id1}`
 
           // Skip if we've already counted this pair

@@ -329,13 +329,13 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
         const isDragging = draggingHandle === index
         const isHovered = hoveredHandle === index && !isDragging
 
-        // Professional color states
-        const lineColor = isDragging || isHovered ? OKABE_ITO_PALETTE.BLUE : NEUTRAL_ICON_COLORS.ICON_FILL
-        const lineOpacity = isDragging ? 1.0 : isHovered ? 0.8 : 0.4
-        const handleFillColor = isDragging || isHovered ? OKABE_ITO_PALETTE.BLUE : NEUTRAL_ICON_COLORS.ICON_FILL
-        const handleFillOpacity = isDragging ? 1.0 : isHovered ? 0.9 : 0.6
-        const handleStrokeColor = isDragging || isHovered ? OKABE_ITO_PALETTE.BLUE : NEUTRAL_ICON_COLORS.ICON_STROKE
-        const handleStrokeOpacity = isDragging ? 1.0 : isHovered ? 0.8 : 0.5
+        // Professional color states - always blue
+        const lineColor = OKABE_ITO_PALETTE.BLUE
+        const lineOpacity = isDragging ? 1.0 : isHovered ? 0.8 : 0.6
+        const handleFillColor = OKABE_ITO_PALETTE.BLUE
+        const handleFillOpacity = isDragging ? 1.0 : isHovered ? 0.9 : 0.7
+        const handleStrokeColor = OKABE_ITO_PALETTE.BLUE
+        const handleStrokeOpacity = isDragging ? 1.0 : isHovered ? 0.9 : 0.7
         const gripColor = '#ffffff'
         const gripOpacity = isDragging || isHovered ? 1.0 : 0.8
 

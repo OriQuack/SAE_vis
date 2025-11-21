@@ -16,7 +16,10 @@ from .data_constants import (
     COL_SAE_ID,
     COL_EXPLANATION_METHOD,
     COL_LLM_EXPLAINER,
-    COL_LLM_SCORER
+    COL_LLM_SCORER,
+    COL_DECODER_SIMILARITY,
+    COL_DECODER_SIMILARITY_MERGE_THRESHOLD,
+    DECODER_METRIC_FOR_AGGREGATION
 )
 
 logger = logging.getLogger(__name__)
@@ -45,6 +48,24 @@ class FeatureGroupService:
         self.feature_df = self._transform_to_flat_schema(self.feature_df)
         logger.info(f"Loaded features from {FEATURES_PATH}")
 
+    @staticmethod
+    def _get_actual_column_name(metric_name: str) -> str:
+        """
+        Map metric name to actual column name based on configuration.
+
+        When metric is "decoder_similarity", returns the actual column to use
+        based on DECODER_METRIC_FOR_AGGREGATION constant.
+
+        Args:
+            metric_name: Metric name from API request
+
+        Returns:
+            Actual column name to use in DataFrame operations
+        """
+        if metric_name == COL_DECODER_SIMILARITY:
+            return DECODER_METRIC_FOR_AGGREGATION
+        return metric_name
+
     def _transform_to_flat_schema(self, df_lazy: pl.LazyFrame) -> pl.LazyFrame:
         """
         Transform nested features.parquet schema to flat schema expected by backend.
@@ -71,12 +92,17 @@ class FeatureGroupService:
 
         # Convert decoder_similarity list to max value for numeric operations
         # Overwrites the list column with max cosine_similarity value
-        df_lazy = df_lazy.with_columns([
-            pl.col("decoder_similarity")
-              .list.eval(pl.element().struct.field("cosine_similarity"))
-              .list.max()
-              .alias("decoder_similarity")
-        ])
+        # NOTE: Only transform if using original decoder_similarity for aggregation
+        if DECODER_METRIC_FOR_AGGREGATION == COL_DECODER_SIMILARITY:
+            logger.info("Transforming decoder_similarity from List(Struct) to max float value")
+            df_lazy = df_lazy.with_columns([
+                pl.col(COL_DECODER_SIMILARITY)
+                  .list.eval(pl.element().struct.field("cosine_similarity"))
+                  .list.max()
+                  .alias(COL_DECODER_SIMILARITY)
+            ])
+        else:
+            logger.info(f"Using {DECODER_METRIC_FOR_AGGREGATION} for aggregation (no transformation needed)")
 
         # Drop only scores and explanation_text, keep decoder_similarity
         df_lazy = df_lazy.drop(["scores", "explanation_text"])
@@ -158,20 +184,25 @@ class FeatureGroupService:
         Returns:
             Tuple of (groups, total_features)
         """
+        # Map metric name to actual column based on configuration
+        actual_metric = self._get_actual_column_name(metric)
+        logger.debug(f"Mapping metric '{metric}' to actual column '{actual_metric}'")
+
         # Collect dataframe for processing
         df_collected = df.collect()
 
-        if metric not in df_collected.columns:
-            raise ValueError(f"Metric '{metric}' not found in dataset")
+        if actual_metric not in df_collected.columns:
+            raise ValueError(f"Metric '{actual_metric}' (requested as '{metric}') not found in dataset")
 
         # CRITICAL FIX: For score metrics that vary by explainer/scorer,
         # we need to aggregate BEFORE grouping to avoid duplicate features in groups
 
         # Determine which metrics need aggregation (same logic as histogram_service)
+        # NOTE: Check actual_metric since decoder_similarity might map to decoder_similarity_merge_threshold
         score_metrics = {'score_fuzz', 'score_detection', 'score_embedding', 'quality_score'}
 
-        if metric in score_metrics:
-            logger.info(f"Aggregating {metric} by feature_id before grouping (avoiding duplicates)")
+        if actual_metric in score_metrics:
+            logger.info(f"Aggregating {actual_metric} by feature_id before grouping (avoiding duplicates)")
 
             # For score_fuzz and score_detection: these vary by scorer, aggregate by feature_id
             # For score_embedding and quality_score: these vary by explainer, aggregate by feature_id
@@ -180,7 +211,7 @@ class FeatureGroupService:
                 df_collected
                 .group_by([COL_FEATURE_ID])
                 .agg([
-                    pl.col(metric).mean().alias(metric),
+                    pl.col(actual_metric).mean().alias(actual_metric),
                     # Keep first value of other columns for reference
                     pl.col(COL_SAE_ID).first(),
                     pl.col(COL_EXPLANATION_METHOD).first(),
@@ -202,17 +233,17 @@ class FeatureGroupService:
             # Determine range and label
             if i == 0:
                 # First group: < threshold[0]
-                range_df = df_aggregated.filter(pl.col(metric) < sorted_thresholds[0])
+                range_df = df_aggregated.filter(pl.col(actual_metric) < sorted_thresholds[0])
                 label = f"< {sorted_thresholds[0]:.2f}"
             elif i == len(sorted_thresholds):
                 # Last group: >= threshold[-1]
-                range_df = df_aggregated.filter(pl.col(metric) >= sorted_thresholds[-1])
+                range_df = df_aggregated.filter(pl.col(actual_metric) >= sorted_thresholds[-1])
                 label = f">= {sorted_thresholds[-1]:.2f}"
             else:
                 # Middle groups: threshold[i-1] <= x < threshold[i]
                 range_df = df_aggregated.filter(
-                    (pl.col(metric) >= sorted_thresholds[i-1]) &
-                    (pl.col(metric) < sorted_thresholds[i])
+                    (pl.col(actual_metric) >= sorted_thresholds[i-1]) &
+                    (pl.col(actual_metric) < sorted_thresholds[i])
                 )
                 label = f"{sorted_thresholds[i-1]:.2f} - {sorted_thresholds[i]:.2f}"
 
