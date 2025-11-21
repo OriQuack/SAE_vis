@@ -286,7 +286,7 @@
   flex-shrink: 0;
   width: 100%;
   overflow: visible;
-  max-height: 105px; /* Allow active tab overlay to extend below */
+  max-height: 130px; /* Allow active tab overlay to extend below */
 }
 
 /* Bottom Section - Sankey + Table Side by Side */

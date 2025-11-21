@@ -152,44 +152,27 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
   const thresholdVisualization = useVisualizationStore(state => state.thresholdVisualization)
   const similarityTaggingPopover = useVisualizationStore(state => state.similarityTaggingPopover)
   const restoreSimilarityTaggingPopover = useVisualizationStore(state => state.restoreSimilarityTaggingPopover)
+  const getSelectedNodeFeatures = useVisualizationStore(state => state.getSelectedNodeFeatures)
 
   // Sankey threshold info - use different node ID based on mode
   const tableSelectedNodeIds = useVisualizationStore(state => state.tableSelectedNodeIds)
   const activeStageNodeId = useVisualizationStore(state => state.activeStageNodeId)
   const sankeyTree = useVisualizationStore(state => state.leftPanel.sankeyTree)
 
-  // For feature/cause mode, use tableSelectedNodeIds; for pair mode, use activeStageNodeId
-  const selectedNode = useMemo(() => {
-    if (!sankeyTree) return null
-
-    if (mode === 'pair') {
-      // Pair mode (feature split) uses activeStageNodeId
-      return activeStageNodeId ? sankeyTree.get(activeStageNodeId) : null
-    } else {
-      // Feature and cause modes use tableSelectedNodeIds
-      return tableSelectedNodeIds.length > 0 ? sankeyTree.get(tableSelectedNodeIds[0]) : null
-    }
-  }, [mode, tableSelectedNodeIds, activeStageNodeId, sankeyTree])
-
-  // Get filtered feature IDs from selected node (used in counts calculation)
+  // Get filtered feature IDs - use store's getSelectedNodeFeatures for proper segment handling
   const filteredFeatureIds = useMemo(() => {
-    if (!selectedNode || !sankeyTree) return null
+    // Use store's method which handles both regular nodes and segments
+    // Returns Set<number> of feature IDs or null
+    const featureIds = getSelectedNodeFeatures()
 
-    const featureIds = new Set<number>()
-    if (selectedNode.children && selectedNode.children.length > 0) {
-      // Collect from all child nodes (for split stages)
-      selectedNode.children.forEach(childId => {
-        const childNode = sankeyTree.get(childId)
-        if (childNode?.featureIds) {
-          childNode.featureIds.forEach(fid => featureIds.add(fid))
-        }
-      })
-    } else {
-      // Use node's own featureIds
-      selectedNode.featureIds.forEach(fid => featureIds.add(fid))
+    if (!featureIds || featureIds.size === 0) {
+      console.log('[SelectionPanel] No selection or empty - showing all features')
+      return null
     }
+
+    console.log('[SelectionPanel] filteredFeatureIds:', featureIds.size, 'features from getSelectedNodeFeatures()')
     return featureIds
-  }, [selectedNode, sankeyTree])
+  }, [getSelectedNodeFeatures])
 
   // Track if threshold button should highlight (first time showing preview)
   const [shouldHighlightThresholdButton, setShouldHighlightThresholdButton] = useState(false)
@@ -212,6 +195,8 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
       const features = filteredFeatureIds
         ? tableData.features.filter((f: any) => filteredFeatureIds!.has(f.feature_id))
         : tableData.features
+
+      console.log('[SelectionPanel] Feature mode - Total features:', tableData.features.length, ', Filtered features:', features.length, ', filteredFeatureIds:', filteredFeatureIds ? `${filteredFeatureIds.size} IDs` : 'null')
 
       features.forEach((feature: any) => {
         const featureId = feature.feature_id
@@ -306,6 +291,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
     }
 
     const total = confirmed + expanded + rejected + autoRejected + unsure
+    console.log('[SelectionPanel] Final counts:', { confirmed, expanded, rejected, autoRejected, unsure, total })
     return { confirmed, expanded, rejected, autoRejected, unsure, total }
   }, [mode, tableData, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources, causeSelectionStates, filteredFeatureIds])
 

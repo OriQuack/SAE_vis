@@ -36,7 +36,7 @@
   display: flex;
   flex-direction: row;
   align-items: flex-end;
-  gap: 2px;
+  gap: 8px;
   padding: 0 12px;
   padding-top: 8px;
   background: #f8fafc;
@@ -49,11 +49,11 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 5px;
+  justify-content: flex-start;
+  gap: 4px;
   padding: 6px 10px;
-  max-width: 220px;
-  height: 70px;
+  width: 350px;
+  height: 125px;
   background: #e2e8f0;
   border: 3px solid #cbd5e1;
   border-bottom: none;
@@ -104,23 +104,36 @@
 
 /* Completed State */
 .stage-tab--completed {
-  background: #d1fae5;
   border-color: #10b981;
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0);
 }
 
-.stage-tab--completed:hover {
+/* Background highlight layer for completed stage (behind content) */
+.stage-tab--completed::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #d1fae5;
+  border-radius: 8px 8px 0 0;
+  z-index: -1;
+  transition: background 0.2s ease;
+  pointer-events: none;
+}
+
+.stage-tab--completed:hover::after {
   background: #a7f3d0;
 }
 
 /* Future State - Not yet clicked stages */
 .stage-tab--future {
-  transform: translateY(30px);
+  /* Remove translateY to always show full content */
   transition: transform 0.3s ease;
 }
 
 .stage-tab--future:hover {
-  transform: translateY(0);
   background: #cbd5e1;
 }
 
@@ -145,14 +158,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 2px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 3px;
   border-radius: 50%;
   background: white;
   color: #1e293b;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 16px;
   line-height: 1;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
@@ -167,14 +180,14 @@
 .stage-tab--completed .stage-tab__number {
   background: #10b981;
   color: white;
-  font-size: 16px;
+  font-size: 18px;
   box-shadow: 0 2px 6px rgba(16, 185, 129, 0.4);
 }
 
 /* Stage label */
 .stage-tab__label {
   font-weight: 600;
-  font-size: 14px;
+  font-size: 18px;
   color: #1e293b;
   text-align: center;
   line-height: 1.2;
@@ -193,15 +206,15 @@
 
 /* Stage instruction */
 .stage-tab__instruction {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 500;
   color: #64748b;
   text-align: center;
   line-height: 1.2;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  hyphens: auto;
-  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 330px;
 }
 
 .stage-tab--active .stage-tab__instruction {
@@ -215,122 +228,75 @@
 }
 
 /* ============================================================================
-   TAG TABS - Small notebook tabs between stage tabs
+   STAGE TAG BADGES - Compact pill badges inside stage tabs
    ============================================================================ */
 
-.tag-tabs-group {
+/* Badge container */
+.stage-tab__badges {
   display: flex;
   flex-direction: row;
-  align-items: flex-end;
-  gap: 2px;
-  flex-shrink: 0;
-  margin-right: 10px; /* Larger gap after tag group to separate from next stage */
-  transition: transform 0.3s ease;
-}
-
-/* Show only labels for tag tabs of future stages by moving them down */
-.stage-tab--future + .tag-tabs-group {
-  transform: translateY(22px);
-}
-
-/* Individual tag tab (small notebook tab) */
-.tag-tab {
-  display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 3px;
+  margin-top: auto;
+  margin-bottom: auto;
+  flex-wrap: wrap;
+  width: 100%;
+  max-width: 320px;
+}
+
+/* Individual badge (pill style) */
+.stage-tag-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 6px;
-  padding: 6px 8px 8px 8px;
-  min-width: 70px;
+  padding: 5px 10px;
+  flex: 1 1 calc(50% - 1.5px);
+  min-width: 0;
   background: #f1f5f9; /* Fallback, will be overridden by inline style */
-  border: 3px solid #cbd5e1; /* Fallback, will be overridden by inline style */
-  border-bottom: none;
-  border-radius: 6px 6px 0 0;
-  font-size: 10px;
-  transition: background 0.2s ease, filter 0.2s ease;
-  cursor: default;
+  border: 1px solid #cbd5e1; /* Fallback, will be overridden by inline style */
+  border-radius: 12px;
+  font-size: 12px;
   white-space: nowrap;
-  position: relative;
+  transition: filter 0.2s ease, transform 0.2s ease;
+  cursor: default;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
-.tag-tab:hover {
-  filter: brightness(0.95);
+/* Active stage badges */
+.stage-tag-badge--active {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
-/* Active stage tag tabs */
-.tag-tab--active {
-  z-index: 5;
-  transform: translateY(-4px);
-  transition: transform 0.3s ease;
+/* Completed stage badges */
+.stage-tag-badge--completed {
+  opacity: 0.8;
 }
 
-.tag-tab--active:hover {
-  filter: brightness(0.98);
-}
-
-/* Completed stage tag tabs */
-.tag-tab--completed {
-  opacity: 0.85;
-}
-
-/* Tag tab header - icon + label container */
-.tag-tab__header {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-}
-
-/* Tag icon (SVG) */
-.tag-tab__icon {
-  width: 12px;
-  height: 12px;
-  flex-shrink: 0;
-  color: #475569;
-  opacity: 0.7;
-  transition: opacity 0.2s ease;
-}
-
-.tag-tab--active .tag-tab__icon {
+/* Badge label */
+.stage-tag-badge__label {
+  font-size: 12px;
+  font-weight: 600;
   color: #1e293b;
-  opacity: 0.85;
-}
-
-.tag-tab:hover .tag-tab__icon {
-  opacity: 1;
-}
-
-.tag-tab__label {
-  font-weight: 700;
-  color: #475569;
-  text-align: center;
-  text-transform: capitalize;
   line-height: 1.2;
-  font-size: 10px;
+  text-transform: capitalize;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.tag-tab--active .tag-tab__label {
-  color: #1e293b;
+/* Badge count (right side) */
+.stage-tag-badge__count {
+  font-size: 12px;
   font-weight: 700;
-}
-
-/* Tag count badge */
-.tag-tab__count {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 22px;
-  padding: 1px 10px;
-  background: #cbd5e1; /* Fallback, will be overridden by inline style */
-  color: black;
-  font-weight: 700;
-  font-size: 9px;
-  border-radius: 8px;
-  line-height: 1.3;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
-  opacity: 1.0;
-  border: 1.5px solid #d1d5db;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  color: #0f172a;
+  line-height: 1.2;
+  padding-left: 4px;
+  min-width: 18px;
+  text-align: right;
+  flex-shrink: 0;
 }
 
 /* ============================================================================
@@ -339,52 +305,102 @@
 
 @media (max-width: 1200px) {
   .stage-tab {
-    width: 140px;
-    height: 48px;
-    padding: 5px 8px;
+    max-width: 200px;
+    height: 120px;
+    padding: 6px 8px;
+    gap: 3px;
   }
 
   .stage-tab__label {
-    font-size: 13px;
+    font-size: 14px;
+  }
+
+  .stage-tab__instruction {
+    font-size: 11px;
+    max-width: 180px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .stage-tab__number {
+    min-width: 24px;
+    height: 24px;
+    font-size: 14px;
+  }
+
+  .stage-tab--completed .stage-tab__number {
+    font-size: 16px;
+  }
+
+  .stage-tab__badges {
+    gap: 3px;
+    max-width: 100%;
+  }
+
+  .stage-tag-badge {
+    padding: 4px 8px;
+    gap: 4px;
+    flex: 1 1 calc(50% - 1.5px);
+  }
+
+  .stage-tag-badge__label {
+    font-size: 11px;
+  }
+
+  .stage-tag-badge__count {
+    font-size: 11px;
+    min-width: 16px;
+  }
+}
+
+@media (max-width: 1000px) {
+  .stage-tab {
+    max-width: 160px;
+    height: 110px;
+    padding: 5px 6px;
+  }
+
+  .stage-tab__label {
+    font-size: 12px;
   }
 
   .stage-tab__instruction {
     font-size: 10px;
-    max-width: 120px;
+    max-width: 140px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .stage-tab__number {
     min-width: 22px;
     height: 22px;
-    font-size: 12px;
+    font-size: 13px;
   }
 
   .stage-tab--completed .stage-tab__number {
     font-size: 15px;
   }
 
-  .tag-tab {
-    min-width: 60px;
-    padding: 5px 6px 2px 6px;
+  .stage-tab__badges {
+    gap: 3px;
+    max-width: 100%;
   }
 
-  .tag-tab__label {
-    font-size: 9px;
-  }
-}
-
-@media (max-width: 1000px) {
-  .stage-tab {
-    min-width: 100px;
+  .stage-tag-badge {
+    padding: 3px 6px;
+    gap: 3px;
+    flex: 1 1 calc(50% - 1.5px);
   }
 
-  .tag-tabs-group {
-    gap: 1px;
+  .stage-tag-badge__label {
+    font-size: 10px;
   }
 
-  .tag-tab {
-    min-width: 50px;
-    gap: 5px;
+  .stage-tag-badge__count {
+    font-size: 10px;
+    min-width: 14px;
   }
 }
 

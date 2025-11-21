@@ -121,91 +121,57 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
           const tagCounts = getTagCounts(stage);
 
           return (
-            <React.Fragment key={stage.id}>
-              {/* Stage tab */}
-              <button
-                className={`stage-tab ${
-                  isActive ? 'stage-tab--active' : ''
-                } ${
-                  isCompleted ? 'stage-tab--completed' : ''
-                } ${
-                  isFuture ? 'stage-tab--future' : ''
-                } ${
-                  isPreviewActive ? 'stage-tab--disabled' : ''
-                }`}
-                onClick={() => handleStageClick(stage.id)}
-                disabled={isPreviewActive}
-                title={isPreviewActive ? "Close threshold preview to switch stages" : stage.description}
-              >
-                <div className="stage-tab__header">
-                  <div className="stage-tab__number">
-                    {isCompleted ? '✓' : stage.stageOrder}
-                  </div>
-                  <div className="stage-tab__label">{stage.label}</div>
+            <button
+              key={stage.id}
+              className={`stage-tab ${
+                isActive ? 'stage-tab--active' : ''
+              } ${
+                isCompleted ? 'stage-tab--completed' : ''
+              } ${
+                isFuture ? 'stage-tab--future' : ''
+              } ${
+                isPreviewActive ? 'stage-tab--disabled' : ''
+              }`}
+              onClick={() => handleStageClick(stage.id)}
+              disabled={isPreviewActive}
+              title={isPreviewActive ? "Close threshold preview to switch stages" : stage.description}
+            >
+              <div className="stage-tab__header">
+                <div className="stage-tab__number">
+                  {isCompleted ? '✓' : stage.stageOrder}
                 </div>
-                <div className="stage-tab__instruction">{stage.instruction}</div>
-              </button>
+                <div className="stage-tab__label">{stage.label}</div>
+              </div>
+              <div className="stage-tab__instruction">{stage.instruction}</div>
 
-              {/* Tags for this stage (small notebook tabs) */}
-              <div className="tag-tabs-group">
-                {stage.tags.map((tag, _tagIndex) => {
+              {/* Tag badges displayed inline below instruction */}
+              <div className="stage-tab__badges">
+                {stage.tags.map((tag) => {
                   // Get color from tag-constants (pre-computed at module load)
                   const color = getTagColor(stage.id, tag);
                   const fallbackColor = '#94a3b8'; // Neutral grey
                   const tagColor = color || fallbackColor;
 
-                  // Use higher opacity for active stage (90% vs 50%)
-                  const opacityHex = isActive ? 'E6' : '80'; // 90% : 50%
-
-                  // Create style object for dynamic coloring
-                  const tagStyle = {
-                    borderColor: tagColor,
-                    backgroundColor: `${tagColor}${opacityHex}`,
-                  };
-
-                  const countStyle = {
+                  // Create style object for badge background (full opacity)
+                  const badgeStyle = {
                     backgroundColor: tagColor,
-                    color: 'black',
-                    opacity: 1.0
+                    borderColor: tagColor,
                   };
 
                   return (
                     <div
                       key={tag}
-                      className={`tag-tab ${isActive ? 'tag-tab--active' : ''} ${isCompleted ? 'tag-tab--completed' : ''}`}
-                      style={tagStyle}
+                      className={`stage-tag-badge ${isActive ? 'stage-tag-badge--active' : ''} ${isCompleted ? 'stage-tag-badge--completed' : ''}`}
+                      style={badgeStyle}
                       title={`${tag}: ${tagCounts[tag]} features`}
                     >
-                      <div className="tag-tab__header">
-                        <svg
-                          className="tag-tab__icon"
-                          viewBox="0 0 16 16"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="M2 3.5C2 2.67157 2.67157 2 3.5 2H7.08579C7.351 2 7.60536 2.10536 7.79289 2.29289L13.7071 8.20711C14.0976 8.59763 14.0976 9.23077 13.7071 9.62132L9.62132 13.7071C9.23077 14.0976 8.59763 14.0976 8.20711 13.7071L2.29289 7.79289C2.10536 7.60536 2 7.351 2 7.08579V3.5Z"
-                            stroke="currentColor"
-                            strokeWidth="1.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                          <circle cx="5.5" cy="5.5" r="1" fill="currentColor" />
-                        </svg>
-                        {/* <span className="tag-tab__icon">🏷️</span> */}
-                        <span className="tag-tab__label">{tag}</span>
-                      </div>
-                      <span
-                        className="tag-tab__count"
-                        style={countStyle}
-                      >
-                        {tagCounts[tag] || 0}
-                      </span>
+                      <span className="stage-tag-badge__label">{tag}</span>
+                      <span className="stage-tag-badge__count">{tagCounts[tag] || 0}</span>
                     </div>
                   );
                 })}
               </div>
-            </React.Fragment>
+            </button>
           );
         })}
       </div>
