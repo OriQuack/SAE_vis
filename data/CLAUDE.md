@@ -51,15 +51,15 @@ data/
 │   └── config/                  # JSON configuration files
 │
 ├── master/                       # 🎯 PRIMARY DATA FILES (used by backend)
-│   ├── features.parquet         # Main dataset (288KB, 2,472 rows)
-│   ├── explanation_embeddings.parquet # Pre-computed (7.4MB)
+│   ├── features.parquet         # Main dataset (1.5MB, 2,472 rows)
+│   ├── explanation_embeddings.parquet # Pre-computed (140MB)
 │   ├── activation_examples.parquet # Activation data (246MB)
-│   ├── activation_embeddings.parquet # Pre-computed (985MB)
-│   ├── activation_example_similarity.parquet # Metrics (2.4MB)
-│   ├── activation_display.parquet # Frontend-optimized (5-10MB)
-│   ├── interfeature_similarity.parquet # Cross-feature analysis
-│   ├── explanation_alignment.parquet # Phrase alignments
-│   └── ex_act_pattern_matching.parquet # Pattern validation
+│   ├── activation_embeddings.parquet # Pre-computed (810MB)
+│   ├── activation_example_similarity.parquet # Metrics (5.7MB)
+│   ├── activation_display.parquet # Frontend-optimized (64MB)
+│   ├── interfeature_activation_similarity.parquet # Cross-feature analysis (211KB)
+│   ├── explanation_alignment.parquet # Phrase alignments (382KB)
+│   └── ex_act_pattern_matching.parquet # Pattern validation (80KB)
 │
 ├── scores/                       # Processed scoring data
 ├── feature_similarity/           # Decoder weight similarities
@@ -69,7 +69,7 @@ data/
 
 ## 🏗️ Core Data Files (Master Directory)
 
-### 1. features.parquet (PRIMARY - 288KB)
+### 1. features.parquet (PRIMARY - 1.5MB)
 **The main dataset powering all visualizations**
 
 **Key Fields**:
@@ -80,7 +80,7 @@ data/
 
 **Stats**: 2,472 rows (824 features × 3 explainers), nested structure
 
-### 2. explanation_embeddings.parquet (7.4MB)
+### 2. explanation_embeddings.parquet (140MB)
 **Pre-computed 768-dim embeddings for all explanations**
 
 **Purpose**: Used for on-the-fly similarity calculations in Script 3
@@ -91,13 +91,13 @@ data/
 
 **Stats**: 1M+ activation examples across 16,384 features
 
-### 4. activation_embeddings.parquet (985MB)
+### 4. activation_embeddings.parquet (810MB)
 **Pre-computed embeddings for quantile-sampled activations**
 
 **Purpose**: Semantic similarity calculations
 **Optimization**: Natural text reconstruction (strips '▁' prefix, joins subwords)
 
-### 5. activation_example_similarity.parquet (2.4MB)
+### 5. activation_example_similarity.parquet (5.7MB)
 **Dual n-gram analysis with pattern metrics**
 
 **Key Innovation**:
@@ -105,16 +105,16 @@ data/
 - **Word n-grams**: Semantics (reconstructed words) with `start_position`
 - **Dual Jaccard**: Separate scores for char and word pattern consistency
 
-### 6. activation_display.parquet (⭐ 5-10MB)
+### 6. activation_display.parquet (⭐ 64MB)
 **Frontend-optimized display data**
 
 **Purpose**: Reduce frontend load time from ~5s to ~20ms (250x faster)
 **Structure**: 824 rows (feature-level) with pre-processed tokens, pattern classification, n-gram positions
 
 ### 7-9. Pattern Validation Files
-- `interfeature_similarity.parquet`: Cross-feature activation comparisons
-- `explanation_alignment.parquet`: Semantically aligned phrases across LLMs
-- `ex_act_pattern_matching.parquet`: Dual lexical+semantic validation
+- `interfeature_activation_similarity.parquet` (211KB): Cross-feature activation comparisons
+- `explanation_alignment.parquet` (382KB): Semantically aligned phrases across LLMs
+- `ex_act_pattern_matching.parquet` (80KB): Dual lexical+semantic validation
 
 ## 🔧 Processing Pipeline (Scripts 0-9)
 
@@ -214,9 +214,20 @@ scores = row["scores"]  # Nested scoring data
 - **Total Explanations**: 2,472 (824 × 3 LLM explainers)
 - **Activation Examples**: 1M+
 - **Embedding Dimensions**: 768
-- **Total Storage**: ~1.2GB compressed
+- **Total Storage**: ~1.3GB compressed (master directory)
 - **Master Files**: 9 parquet files
 - **Processing Scripts**: 10 (0a, 0b, 1-9)
+
+### File Size Breakdown:
+- activation_embeddings.parquet: 810MB (largest)
+- activation_examples.parquet: 246MB
+- explanation_embeddings.parquet: 140MB
+- activation_display.parquet: 64MB
+- activation_example_similarity.parquet: 5.7MB
+- features.parquet: 1.5MB
+- explanation_alignment.parquet: 382KB
+- interfeature_activation_similarity.parquet: 211KB
+- ex_act_pattern_matching.parquet: 80KB
 
 ## 🔍 Key Design Decisions
 

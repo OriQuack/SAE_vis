@@ -37,29 +37,47 @@ Professional guidance for the React frontend of the SAE Feature Visualization re
 - **Modularize when beneficial**: If you write the same logic twice, extract to lib/utils.ts
 
 ### 🔄 Recent Updates (November 2025)
-**Component Refactoring:**
-- `TablePanel.tsx` → `QualityTablePanel.tsx` - Renamed for clarity of purpose
-- `DecoderSimilarityOverlay.tsx` → `FeatureSplitOverlay.tsx` - Better describes functionality
-- `DecoderSimilarityTable.tsx` → `FeatureSplitTable.tsx` - Aligned with overlay naming
-- **New**: `TagCategoryPanel.tsx` - Tag-based feature categorization
-- **New**: `ActivationExample.tsx` - Display feature activation examples
+**Major Architecture Evolution:**
+- **3-Stage Tag Workflow**: Quality Assessment → Feature Splitting Detection → Root Cause Analysis
+- **Unified Selection System**: SelectionPanel.tsx handles all 3 modes (feature/pair/cause)
+- **Component Consolidation**: TagStagePanel.tsx replaces TagCategoryPanel.tsx
+- **Store Modularization**: table-actions.ts split into mode-specific modules
+- **Sankey Refactoring**: Split into sankey-builder.ts, sankey-d3-converter.ts, sankey-stages.ts
+
+**New Components:**
+- `SelectionPanel.tsx` - Unified selection panel for all table modes
+- `SelectionBar.tsx` - Standalone selection state visualization
+- `FeatureSplitPairViewer.tsx` - Interactive pair similarity viewer
+- `TagAutomaticPanel.tsx` - Automatic tagging interface
+- `TagAutomaticPopover.tsx` - Histogram-based threshold tagging
+- `CauseTable.tsx` - Root cause analysis table
+- `TableIndicators.tsx` - Visual indicators for table cells
+- `ActivationExample.tsx` - Display feature activation examples
+
+**Removed/Replaced Components:**
+- FeatureSplitOverlay.tsx - Functionality merged into FeatureSplitPairViewer
+- FeatureSplitTable.tsx - Replaced by integrated table system
+- TagCategoryPanel.tsx → TagStagePanel.tsx - Renamed and refactored
 
 ## 🔄 Data Flow Through Frontend
 
 ### High-Level Component Flow
 ```mermaid
 graph TD
-    A[App.tsx] --> B[TagCategoryPanel]
-    A --> C[Dual SankeyDiagram]
-    A --> D[QualityTablePanel]
-    C --> E[SankeyOverlay]
-    C --> F[ThresholdHandles]
-    C --> G[HistogramPopover]
-    C --> H[AlluvialDiagram]
-    C --> I[FeatureSplitOverlay]
-    D --> J[HighlightedExplanation]
-    D --> K[QualityScoreBreakdown]
-    D --> L[FeatureSplitTable]
+    A[App.tsx] --> B[TagStagePanel]
+    A --> C[SankeyDiagram]
+    A --> D[SelectionPanel]
+    A --> E[Table: Quality/Cause]
+    A --> F[FeatureSplitPairViewer]
+    C --> G[SankeyOverlay]
+    C --> H[SankeyHistogramPopover]
+    C --> I[AlluvialDiagram]
+    D --> J[SelectionBar]
+    D --> K[TagAutomaticPopover]
+    E --> L[TableExplanation]
+    E --> M[QualityScoreBreakdown]
+    E --> N[ActivationExample]
+    F --> O[TableIndicators]
 ```
 
 ### Detailed Data Flow Architecture
@@ -248,26 +266,49 @@ interface AppState {
 - Calculates consistency between trees
 - Overlay on comparison view
 
-**QualityTablePanel.tsx** - Feature Scoring Table
+**QualityTable.tsx** - Quality Assessment Table
 - 824 rows of feature scores
 - 5 consistency visualization modes
 - Cell group selection
 - Explanation highlighting
 
-**FeatureSplitOverlay.tsx** - Feature Split Analysis
-- Interactive overlay for analyzing feature splits
-- Metric-based feature grouping interface
-- Threshold configuration for splits
+**CauseTable.tsx** - Root Cause Analysis Table
+- 3-category tagging: noisy-activation, missed-lexicon, missed-context
+- Color-coded cause indicators
+- Integrated with tag workflow
 
-**FeatureSplitTable.tsx** - Feature Split Data Display
-- Tabular view of feature split analysis
-- Detailed breakdown of feature groups
-- Interactive cell selection
+**SelectionPanel.tsx** - Unified Selection Interface
+- Handles 3 modes: feature, pair, cause
+- Selection state bar with 4 categories (confirmed, expanded, rejected, unsure)
+- Auto-tagging preview integration
+- Mode-specific filtering and actions
 
-**TagCategoryPanel.tsx** - Tag Category Management
-- Tag-based feature categorization
-- Category selection and filtering
-- Stage category activation
+**SelectionBar.tsx** - Selection State Visualization
+- Horizontal stacked bar showing distribution
+- 4 selection categories with color encoding
+- Preview state with stripe pattern overlay
+- Interactive category filtering
+
+**FeatureSplitPairViewer.tsx** - Feature Pair Analysis
+- Interactive similarity pair exploration
+- Top-4 decoder similarity visualization
+- Clustering integration
+- Selection and rejection interface
+
+**TagStagePanel.tsx** - Tag Stage Management
+- 3-stage workflow: Quality → Feature Splitting → Cause
+- Stage activation and navigation
+- Progress tracking across stages
+
+**TagAutomaticPanel.tsx** - Automatic Tagging Controls
+- Histogram-based threshold configuration
+- Batch tagging operations
+- Preview before apply
+
+**TagAutomaticPopover.tsx** - Threshold Tagging Interface
+- Histogram visualization with draggable thresholds
+- Real-time preview of tagging effects
+- Minimize/restore functionality
 
 **HistogramPopover.tsx** - Threshold Visualization
 - Portal-based rendering
@@ -383,21 +424,25 @@ frontend/src/
 │   ├── SankeyHistogramPopover.tsx # Histogram popover with thresholds
 │   ├── ThresholdHandles.tsx      # Interactive threshold handles
 │   ├── AlluvialDiagram.tsx       # Cross-panel flows
-│   ├── QualityTable.tsx          # Feature scoring table (main)
-│   ├── FeatureSplitTable.tsx     # Feature split analysis table
-│   ├── CauseTable.tsx            # Cause analysis table
-│   ├── TagStagePanel.tsx         # Tag-based stage management
-│   ├── TagAutomaticPopover.tsx   # Automatic tag suggestions
-│   ├── TableSelectionPanel.tsx   # Table selection controls
-│   ├── TableSelectionBar.tsx     # Selection action bar
-│   ├── TableActivationExample.tsx # Activation examples display
+│   ├── QualityTable.tsx          # Quality assessment table
+│   ├── CauseTable.tsx            # Root cause analysis table
+│   ├── FeatureSplitPairViewer.tsx # Feature pair similarity viewer
+│   ├── TagStagePanel.tsx         # 3-stage workflow management
+│   ├── TagAutomaticPanel.tsx     # Automatic tagging controls
+│   ├── TagAutomaticPopover.tsx   # Threshold tagging popover
+│   ├── SelectionPanel.tsx        # Unified selection panel (3 modes)
+│   ├── SelectionBar.tsx          # Selection state visualization
+│   ├── ActivationExample.tsx     # Activation examples display
 │   ├── TableExplanation.tsx      # Explanation text display
-│   ├── TableScoreCircle.tsx      # Score visualization circles
+│   ├── TableIndicators.tsx       # Visual table indicators
 │   ├── QualityScoreBreakdown.tsx # Score details breakdown
-│   ├── Header.tsx                # App header
+│   ├── AppHeader.tsx             # App header
 │   └── _FlowPanel.tsx            # (Deprecated) Flow container
 ├── lib/                          # Utilities
 │   ├── constants.ts              # App constants
+│   ├── sankey-builder.ts         # Sankey tree builder (refactored)
+│   ├── sankey-d3-converter.ts    # D3 data conversion (refactored)
+│   ├── sankey-stages.ts          # Stage management logic (refactored)
 │   ├── sankey-utils.ts           # Sankey calculations
 │   ├── sankey-histogram-utils.ts # Inline histogram rendering
 │   ├── alluvial-utils.ts         # Alluvial flow calculations
@@ -409,13 +454,16 @@ frontend/src/
 │   ├── flow-utils.ts             # Flow utilities
 │   ├── threshold-utils.ts        # Tree building logic
 │   ├── tag-utils.ts              # Tag processing
-│   ├── tag-constants.ts          # Tag definitions
+│   ├── tag-constants.ts          # Tag definitions (3-stage workflow)
 │   ├── hierarchical-colors.ts    # Color schemes
 │   └── utils.ts                  # General helpers
 ├── store/                        # State Management (Zustand)
 │   ├── index.ts                  # Main store composition
 │   ├── sankey-actions.ts         # Sankey tree operations
-│   ├── table-actions.ts          # Table data operations
+│   ├── table-actions-quality.ts  # Quality table mode (refactored)
+│   ├── table-actions-feature-splitting.ts # Pair mode (refactored)
+│   ├── table-actions-cause.ts    # Cause table mode (refactored)
+│   ├── table-actions-common.ts   # Shared table operations (refactored)
 │   ├── tag-actions.ts            # Tag management actions
 │   ├── activation-actions.ts     # Activation data actions
 │   └── utils.ts                  # Store helper functions
@@ -425,17 +473,17 @@ frontend/src/
 │   ├── SankeyDiagram.css         # Sankey styles
 │   ├── SankeyHistogramPopover.css # Histogram popover
 │   ├── AlluvialDiagram.css       # Alluvial styles
-│   ├── QualityTable.css          # Table styles
-│   ├── FeatureSplitTable.css     # Split table styles
+│   ├── QualityTable.css          # Quality table styles
 │   ├── CauseTable.css            # Cause table styles
+│   ├── FeatureSplitPairViewer.css # Pair viewer styles
 │   ├── TagStagePanel.css         # Tag panel styles
+│   ├── TagAutomaticPanel.css     # Tag automatic panel styles
 │   ├── TagAutomaticPopover.css   # Tag popover styles
-│   ├── TableSelectionPanel.css   # Selection panel
-│   ├── TableSelectionBar.css     # Selection bar
-│   ├── TableActivationExample.css # Activation display
-│   ├── Header.css                # Header styles
-│   ├── FlowPanel.css             # (Legacy)
-│   └── ProgressBar.css           # (Legacy)
+│   ├── SelectionPanel.css        # Selection panel
+│   ├── SelectionBar.css          # Selection bar
+│   ├── ActivationExample.css     # Activation display
+│   ├── AppHeader.css             # Header styles
+│   └── FlowPanel.css             # (Legacy)
 ├── assets/                       # Static assets
 ├── types.ts                      # TypeScript type definitions
 ├── api.ts                        # API client (Axios)
@@ -488,25 +536,30 @@ npm run lint
 ### Phase Completion Summary
 | Phase | Feature | Status | Key Components |
 |-------|---------|--------|----------------|
-| 1 | Dual Sankey | ✅ Complete | SankeyDiagram, TagCategoryPanel |
-| 2 | Tree Building | ✅ Complete | sankey-actions, threshold-utils |
+| 1 | Dual Sankey | ✅ Complete | SankeyDiagram, TagStagePanel |
+| 2 | Tree Building | ✅ Complete | sankey-builder, sankey-stages |
 | 3 | Performance | ✅ Complete | Feature group cache, set intersection |
-| 4 | Threshold Groups | ✅ Complete | HistogramPopover, ThresholdHandles |
-| 5 | LLM Comparison | ✅ Complete | FeatureSplitOverlay, FeatureSplitTable |
+| 4 | Threshold Groups | ✅ Complete | SankeyHistogramPopover, ThresholdHandles |
+| 5 | LLM Comparison | ✅ Complete | FeatureSplitPairViewer, clustering |
 | 6 | UMAP | ✅ Complete | Alluvial flows |
-| 7 | Quality Table | ✅ Complete | QualityTablePanel, cell selection |
+| 7 | Quality Table | ✅ Complete | QualityTable, SelectionPanel |
 | 8 | Consistency | ✅ Complete | 8 metrics integrated |
+| 9 | Tag Workflow | ✅ Complete | 3-stage workflow with auto-tagging |
+| 10 | Cause Analysis | ✅ Complete | CauseTable, 3-category system |
 
 ### Current Active Features
+- **3-Stage Tag Workflow**: Quality Assessment → Feature Splitting → Root Cause Analysis
 - **Tree-Based Sankey**: Dynamic tree building with instant updates
 - **Inline Histograms**: Embedded directly on Sankey nodes
 - **Comparison Overlay**: Toggle between single/comparison view
-- **Cell Group Selection**: Drag-to-select in QualityTablePanel
-- **Feature Split Analysis**: Interactive overlays and tables for feature grouping
-- **Tag Category Management**: Filter and categorize features by tags
+- **Unified Selection System**: 4-category selection (confirmed, expanded, rejected, unsure)
+- **Auto-Tagging**: Histogram-based threshold tagging with preview
+- **Feature Split Analysis**: Pair similarity with clustering support
+- **Tag Category Management**: 3-stage workflow navigation
 - **Explanation Highlighting**: Semantic alignment-based coloring
 - **Quality Score Breakdown**: Detailed metric contributions
 - **Activation Examples**: Display feature activation examples
+- **Cause Analysis**: 3-category root cause tagging
 
 ## 🎯 Performance Characteristics
 

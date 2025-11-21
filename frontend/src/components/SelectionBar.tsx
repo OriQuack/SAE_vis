@@ -15,7 +15,9 @@ interface SelectionStateBarProps {
   counts: CategoryCounts
   previewCounts?: CategoryCounts  // Optional: preview state after changes
   onCategoryClick?: (category: SelectionCategory) => void
-  height?: number  // Default: 24px
+  orientation?: 'horizontal' | 'vertical'  // Default: 'horizontal'
+  height?: number | string  // For horizontal: height in px (default: 24). For vertical: height in % or px (default: '100%')
+  width?: number | string  // For horizontal: width in % or px (default: '100%'). For vertical: width in % or px (default: '80%')
   showLabels?: boolean  // Default: true
   showLegend?: boolean  // Default: true
   labelThreshold?: number  // Default: 10% - minimum percentage to show label
@@ -54,10 +56,11 @@ const CATEGORY_CONFIG: Record<SelectionCategory, { label: string; color: string;
 }
 
 /**
- * SelectionStateBar - Horizontal stacked bar showing distribution of selection categories
+ * SelectionStateBar - Stacked bar showing distribution of selection categories
  *
  * Features:
- * - Displays 4 categories (confirmed, expanded, rejected, unsure) with proportional widths
+ * - Displays 4 categories (confirmed, expanded, rejected, unsure) with proportional widths/heights
+ * - Supports both horizontal and vertical orientations
  * - Optional preview state with stripe pattern overlay
  * - Interactive click handling (optional)
  * - Legend display (optional)
@@ -67,13 +70,19 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   counts,
   previewCounts,
   onCategoryClick,
-  height = 24,
+  orientation = 'horizontal',
+  height,
+  width,
   showLabels = true,
   showLegend = true,
   labelThreshold = 10,
   categoryColors,
   className = ''
 }) => {
+  // Set default dimensions based on orientation
+  const isVertical = orientation === 'vertical'
+  const containerHeight = height ?? (isVertical ? '100%' : 24)
+  const containerWidth = width ?? (isVertical ? '70%' : '100%')
   // Use standard category config for all modes
   const categoryConfig = CATEGORY_CONFIG
 
@@ -154,7 +163,15 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
               onCategoryClick ? 'selection-state-bar__segment--interactive' : ''
             }`}
             style={{
-              width: `${percentage}%`,
+              ...(isVertical ? {
+                height: `${percentage}%`,
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              } : {
+                width: `${percentage}%`
+              }),
               backgroundColor: getColor(category)
             }}
             onClick={() => handleCategoryClick(category)}
@@ -162,7 +179,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
               previewChangeValue !== 0 ? ` | Preview: ${previewChangeValue > 0 ? '+' : ''}${previewChangeValue}` : ''
             }`}
           >
-            {/* Show label if segment is wide enough */}
+            {/* Show label if segment is wide/tall enough */}
             {showLabels && percentage > labelThreshold && (
               <span className="selection-state-bar__segment-label">
                 {config.label} ({count})
@@ -184,7 +201,12 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
             key={`${category}-preview`}
             className="selection-state-bar__segment selection-state-bar__segment--preview"
             style={{
-              width: `${stripePercentage}%`,
+              ...(isVertical ? {
+                height: `${stripePercentage}%`,
+                width: '100%'
+              } : {
+                width: `${stripePercentage}%`
+              }),
               backgroundColor: stripeColor,
               position: 'relative'
             }}
@@ -214,14 +236,31 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   }
 
   return (
-    <div className={`selection-state-bar ${className}`}>
+    <div
+      className={`selection-state-bar ${className}`}
+      style={{
+        width: typeof containerWidth === 'number' ? `${containerWidth}px` : containerWidth,
+        height: typeof containerHeight === 'number' ? `${containerHeight}px` : containerHeight,
+        display: 'flex',
+        flexDirection: isVertical ? 'column' : 'row'
+      }}
+    >
       {/* Bar with segments */}
-      <div className="selection-state-bar__bar" style={{ height: `${height}px` }}>
+      <div
+        className="selection-state-bar__bar"
+        style={{
+          width: isVertical ? '100%' : undefined,
+          height: isVertical ? '100%' : (typeof containerHeight === 'number' ? `${containerHeight}px` : containerHeight),
+          display: 'flex',
+          flexDirection: isVertical ? 'column' : 'row',
+          position: 'relative'
+        }}
+      >
         {renderSegments()}
       </div>
 
-      {/* Legend */}
-      {showLegend && (
+      {/* Legend - Only show for horizontal orientation */}
+      {showLegend && !isVertical && (
         <div className="selection-state-bar__legend">
           {(Object.keys(categoryConfig) as SelectionCategory[]).map((category) => {
             const count = getCategoryValue(category, counts)

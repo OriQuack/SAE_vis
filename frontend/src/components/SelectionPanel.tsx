@@ -367,7 +367,9 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
             onCategoryClick={handleCategoryClick}
             showLabels={true}
             showLegend={true}
-            height={24}
+            orientation="vertical"
+            width="80%"
+            height="100%"
             mode={mode}
           />
         </div>

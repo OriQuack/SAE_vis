@@ -1,12 +1,10 @@
 import { sankey, sankeyLinkHorizontal } from 'd3-sankey'
 import type {
-  NodeCategory,
   D3SankeyNode,
   D3SankeyLink,
   SankeyLayout,
 } from '../types'
 import {
-  CATEGORY_ROOT,
   CATEGORY_DECODER_SIMILARITY,
   CATEGORY_SEMANTIC_SIMILARITY,
   getMetricBaseColor
@@ -15,13 +13,6 @@ import {
 // ============================================================================
 // UTILS-SPECIFIC TYPES (Internal use only - not exported)
 // ============================================================================
-
-interface StageLabel {
-  x: number
-  y: number
-  label: string
-  stage: number
-}
 
 export interface ScrollIndicator {
   y: number
@@ -68,25 +59,12 @@ export const DEFAULT_ANIMATION = {
   easing: 'ease-out'
 } as const
 
-export const SANKEY_COLORS: Record<NodeCategory, string> = {
-  [CATEGORY_ROOT]: '#d1d5db',
-  [CATEGORY_DECODER_SIMILARITY]: '#9ca3af',
-  [CATEGORY_SEMANTIC_SIMILARITY]: '#6b7280'
-} as const
-
-export const DEFAULT_SANKEY_MARGIN = { top: 10, right: 50, bottom: 20, left: 20 } as const
+const DEFAULT_SANKEY_MARGIN = { top: 10, right: 50, bottom: 20, left: 20 } as const
 export const RIGHT_SANKEY_MARGIN = { top: 80, right: 80, bottom: 50, left: 120 } as const
 
 // Validation constants
-export const MIN_CONTAINER_WIDTH = 200
-export const MIN_CONTAINER_HEIGHT = 250
-
-// Category display names
-const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
-  [CATEGORY_ROOT]: 'All Features',
-  [CATEGORY_DECODER_SIMILARITY]: 'Decoder Similarity',
-  [CATEGORY_SEMANTIC_SIMILARITY]: 'Semantic Similarity'
-} as const
+const MIN_CONTAINER_WIDTH = 200
+const MIN_CONTAINER_HEIGHT = 250
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -544,57 +522,6 @@ export function validateSankeyData(data: any): string[] {
 }
 
 // ============================================================================
-// STAGE LABEL CALCULATIONS
-// ============================================================================
-
-/**
- * Calculate stage label positions from layout data
- */
-export function calculateStageLabels(
-  layout: SankeyLayout | null,
-  displayData: any
-): StageLabel[] {
-  if (!layout || !displayData) return []
-
-  // Group nodes by stage
-  const nodesByStage = new Map<number, D3SankeyNode[]>()
-  layout.nodes.forEach(node => {
-    const stage = node.stage
-    if (!nodesByStage.has(stage)) {
-      nodesByStage.set(stage, [])
-    }
-    nodesByStage.get(stage)!.push(node)
-  })
-
-  // Calculate position and label for each stage
-  const labels: StageLabel[] = []
-
-  nodesByStage.forEach((nodes, stage) => {
-    if (nodes.length === 0) return
-
-    let label: string
-
-    if (stage === 0) {
-      // Stage 0 (root): always use category display name
-      const category = nodes[0].category
-      label = CATEGORY_DISPLAY_NAMES[category] || category
-    } else {
-      // Other stages: use category display name (derived from parent metric)
-      // With new architecture, children don't have metric, but category is derived from parent
-      const category = nodes[0].category
-      label = CATEGORY_DISPLAY_NAMES[category] || category
-    }
-
-    // Calculate x position (average of all nodes in the stage)
-    const avgX = nodes.reduce((sum, node) => sum + ((node.x0 || 0) + (node.x1 || 0)) / 2, 0) / nodes.length
-
-    labels.push({ x: avgX, y: -40, label, stage })
-  })
-
-  return labels
-}
-
-// ============================================================================
 // LAYOUT TRANSFORMATIONS
 // ============================================================================
 
@@ -742,6 +669,140 @@ export function calculateVerticalBarNodeLayout(
     scrollIndicator,
     totalWidth,
     totalHeight
+  }
+}
+
+// ============================================================================
+// D3 FORMAT CONVERSION (Moved from sankey-d3-converter.ts)
+// ============================================================================
+
+/**
+ * Convert simplified SankeyStructure to D3-compatible format for rendering
+ * Handles node positioning based on stage and type (regular, segment, terminal)
+ *
+ * Note: This is the NEW architecture converter for the fixed 3-stage system.
+ * The old calculateSankeyLayout() above is kept for backward compatibility.
+ */
+export function convertToD3Format(
+  structure: any,  // SankeyStructure from types
+  width: number,
+  height: number
+): { nodes: D3SankeyNode[], links: D3SankeyLink[] } {
+  const margin = { top: 10, right: 50, bottom: 20, left: 20 }
+  const innerWidth = width - margin.left - margin.right
+  const innerHeight = height - margin.top - margin.bottom
+
+  // Helper: Convert node
+  function convertNode(node: any, stage: number): any {
+    const baseNode: any = {
+      id: node.id,
+      name: node.tagName || node.id,
+      stage,
+      depth: node.depth,
+      feature_count: node.featureCount,
+      category: 'root',
+      feature_ids: Array.from(node.featureIds),
+      colorHex: node.color
+    }
+
+    if (node.type === 'segment' || node.type === 'terminal') {
+      baseNode.node_type = 'vertical_bar'
+    } else {
+      baseNode.node_type = 'standard'
+    }
+
+    if (node.type === 'segment') {
+      baseNode.metric = node.metric
+    }
+
+    return baseNode
+  }
+
+  // 1. Convert nodes
+  const nodes: any[] = structure.nodes.map((node: any) => {
+    let stage: number
+    if (node.id === 'root') {
+      stage = 0
+    } else if (node.type === 'terminal') {
+      stage = structure.currentStage
+    } else {
+      stage = node.depth
+    }
+    return convertNode(node, stage)
+  })
+
+  // 2. Create node ID map
+  const nodeIdMap = new Map<string, number>()
+  nodes.forEach((node, index) => {
+    nodeIdMap.set(node.id || '', index)
+  })
+
+  // 3. Transform links
+  const transformedLinks: any[] = []
+  for (const link of structure.links) {
+    const linkAny = link as any
+    const sourceId = typeof linkAny.source === 'object' ? linkAny.source?.id : linkAny.source
+    const targetId = typeof linkAny.target === 'object' ? linkAny.target?.id : linkAny.target
+
+    const sourceIndex = typeof sourceId === 'number' ? sourceId : nodeIdMap.get(String(sourceId))
+    const targetIndex = typeof targetId === 'number' ? targetId : nodeIdMap.get(String(targetId))
+
+    if (sourceIndex === undefined || targetIndex === undefined) {
+      console.warn(`[convertToD3Format] Skipping invalid link: ${sourceId} -> ${targetId}`)
+      continue
+    }
+
+    transformedLinks.push({
+      ...link,
+      source: sourceIndex,
+      target: targetIndex
+    })
+  }
+
+  // 4. Create D3 sankey generator
+  const sankeyGenerator = sankey<any, any>()
+    .nodeWidth(15)
+    .nodePadding(10)
+    .extent([[1, 1], [innerWidth - 1, innerHeight - 1]])
+    .nodeAlign((node: any) => node.stage || 0)
+
+  // 5. Process with D3
+  const sankeyLayout = sankeyGenerator({
+    nodes,
+    links: transformedLinks
+  })
+
+  // 6. Expand vertical bar nodes (6x for better visibility)
+  const nodeWidth = 15
+  sankeyLayout.nodes.forEach(node => {
+    if (node.node_type === 'vertical_bar' && node.x0 !== undefined && node.x1 !== undefined) {
+      const newWidth = nodeWidth * 6
+      node.x1 = node.x0 + newWidth
+    }
+  })
+
+  // 7. Handle 2-node special case
+  if (sankeyLayout.links.length === 1 && sankeyLayout.nodes.length === 2) {
+    const [rootNode, segmentNode] = sankeyLayout.nodes
+    const nodeHeight = Math.min(200, innerHeight * 0.8)
+
+    const leftMargin = 20
+    rootNode.x0 = leftMargin
+    rootNode.x1 = rootNode.x0 + nodeWidth
+    rootNode.y0 = (innerHeight - nodeHeight) / 2
+    rootNode.y1 = rootNode.y0 + nodeHeight
+
+    const rightMargin = 20
+    const segmentWidth = nodeWidth * 6
+    segmentNode.x0 = innerWidth - rightMargin - segmentWidth
+    segmentNode.x1 = segmentNode.x0 + segmentWidth
+    segmentNode.y0 = (innerHeight - nodeHeight) / 2
+    segmentNode.y1 = segmentNode.y0 + nodeHeight
+  }
+
+  return {
+    nodes: sankeyLayout.nodes as D3SankeyNode[],
+    links: sankeyLayout.links as D3SankeyLink[]
   }
 }
 

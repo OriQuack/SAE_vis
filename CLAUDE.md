@@ -179,29 +179,28 @@ function buildChildNodes(parent: SankeyTreeNode, groups: FeatureGroup[]) {
 - ~50ms new groups, instant cached
 
 ### ✅ Phase 4: Threshold Groups (COMPLETE)
-- HistogramPanel with 5 metrics
+- SankeyHistogramPopover with 5 metrics
 - ThresholdGroupPanel UI
 - Named groups with visibility toggle
 - Drag-to-select histogram bars
 - Professional styling
 
 ### ✅ Phase 5: LLM Comparison (COMPLETE)
-- Triangle-based visualization
-- Consistency scoring (green→yellow→red)
+- Feature pair similarity visualization
+- Decoder weight clustering (FeatureSplitPairViewer)
 - Pre-calculated statistics
 - Interactive selection
 
-### ✅ Phase 6: UMAP Visualization (COMPLETE)
-- Dual-panel projections
-- Hierarchical clustering
-- Convex hull overlays
-- Cross-panel linking
+### ✅ Phase 6: Alluvial Flows (COMPLETE)
+- Cross-panel feature tracking
+- Consistency visualization
+- Dynamic flow rendering
 
-### ✅ Phase 7: TablePanel (COMPLETE)
+### ✅ Phase 7: Quality Assessment (COMPLETE)
 - 824 rows × multiple explainers
 - 5 consistency types
+- Unified SelectionPanel (3 modes)
 - Cell group selection
-- Saved groups management
 - Dynamic sorting
 
 ### ✅ Phase 8: Consistency Integration (COMPLETE)
@@ -209,6 +208,18 @@ function buildChildNodes(parent: SankeyTreeNode, groups: FeatureGroup[]) {
 - 8 consistency metrics
 - Sankey stage support
 - Backend integration
+
+### ✅ Phase 9: Tag Workflow System (COMPLETE)
+- 3-stage workflow: Quality → Feature Splitting → Cause
+- TagStagePanel for navigation
+- Auto-tagging with histogram thresholds
+- 4-category selection (confirmed, expanded, rejected, unsure)
+
+### ✅ Phase 10: Root Cause Analysis (COMPLETE)
+- CauseTable with 3 categories
+- noisy-activation, missed-lexicon, missed-context
+- Integrated with tag workflow
+- Color-coded cause indicators
 
 ## 🛠️ Technology Stack
 
@@ -345,9 +356,11 @@ def get_feature_groups(filters, metric, thresholds):
 - **Inline Histograms**: Embedded directly on Sankey nodes
 - **Threshold Handles**: Interactive threshold manipulation
 - **Alluvial Flows**: Cross-panel feature tracking
-- **TablePanel**: 824-row scoring table with highlighting
-- **UMAP**: Dual projections with clustering
-- **LLM Comparison**: Triangle-based consistency viz
+- **Quality Table**: 824-row scoring table with 5 consistency modes
+- **Cause Table**: 3-category root cause analysis
+- **Feature Pair Viewer**: Top-4 decoder similarity with clustering
+- **Selection System**: 4-category tagging with auto-threshold support
+- **Tag Workflow**: 3-stage navigation (Quality → Splitting → Cause)
 
 ### Performance Features
 - **Feature Group Caching**: Instant threshold updates
@@ -359,6 +372,9 @@ def get_feature_groups(filters, metric, thresholds):
 ### Research Features
 - **8 Consistency Metrics**: Pre-computed for performance
 - **Multiple LLM Models**: Llama, Qwen, OpenAI
+- **3-Stage Tag Workflow**: Quality → Feature Splitting → Root Cause
+- **Auto-Tagging**: Histogram-based threshold tagging with preview
+- **Clustering Support**: Decoder weight similarity clustering
 - **Flexible Filtering**: Complex boolean logic
 - **Export Support**: CSV/JSON for analysis
 - **Real-time Updates**: Live threshold manipulation
@@ -451,8 +467,9 @@ python test_api.py
 | POST /api/table-data | Scoring table | ~300ms |
 | POST /api/comparison-data | Alluvial flows | ~100ms |
 | POST /api/llm-comparison | LLM consistency | ~10ms |
-| POST /api/umap-data | UMAP projections | ~20ms |
-| GET /api/feature/{id} | Feature details | ~10ms |
+| POST /api/activation-examples | Activation data | ~100ms |
+| POST /api/similarity-sort | Similarity sorting | ~50ms |
+| POST /api/cluster-candidates | Clustering candidates | ~80ms |
 
 ## 🎓 Conference Demonstration Ready
 

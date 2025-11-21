@@ -5,7 +5,7 @@ Professional guidance for the FastAPI backend of the SAE Feature Visualization r
 ## 🎯 Backend Architecture Overview
 
 **Purpose**: Provide simple, stateless feature grouping API for frontend tree building
-**Status**: Conference-ready research prototype - 8 endpoints operational, all phases complete
+**Status**: Conference-ready research prototype - 9 endpoints operational, all phases complete
 **Key Innovation**: Simplified grouping service enables instant frontend threshold updates
 
 ## 🎯 Important Development Principles
@@ -316,6 +316,46 @@ app.include_router(table_router)
 }
 ```
 
+#### POST /api/activation-examples
+**Purpose**: Activation example data for feature visualization
+```json
+{
+  "feature_id": 123,
+  "examples": [
+    {
+      "tokens": ["the", "cat", "sat"],
+      "activations": [0.1, 0.9, 0.2],
+      "pattern_type": "semantic"
+    }
+  ]
+}
+```
+
+#### POST /api/similarity-sort
+**Purpose**: Sort features by similarity metrics
+```json
+{
+  "feature_ids": [1, 2, 3],
+  "metric": "decoder_similarity",
+  "sorted_ids": [2, 1, 3]
+}
+```
+
+#### POST /api/cluster-candidates
+**Purpose**: Get clustering candidates for feature pairs
+```json
+{
+  "feature_id": 123,
+  "candidates": [
+    {
+      "feature_id": 456,
+      "similarity": 0.85,
+      "cluster_id": 42
+    }
+  ]
+}
+```
+
 ## 🛠️ Technology Stack
 
 ### Core Framework
@@ -352,8 +392,10 @@ backend/
 │   │   ├── table.py              # Table data
 │   │   ├── llm_comparison.py     # LLM stats
 │   │   ├── comparison.py         # Alluvial flows
-│   │   ├── umap.py               # UMAP projections
-│   │   └── feature.py            # Feature details
+│   │   ├── umap.py               # UMAP projections (deprecated)
+│   │   ├── activation_examples.py # Activation data
+│   │   ├── similarity_sort.py    # Similarity sorting
+│   │   └── cluster_candidates.py # Clustering support
 │   ├── models/                    # Pydantic schemas
 │   │   ├── requests.py           # Request models
 │   │   ├── responses.py          # Response models
@@ -422,7 +464,9 @@ uvicorn app.main:app --workers 4 --host 0.0.0.0 --port 8000
 | /api/histogram-data | ~200ms | O(n) binning |
 | /api/table-data | ~300ms | O(n×m) scores |
 | /api/llm-comparison | ~10ms | Static JSON |
-| /api/umap-data | ~20ms | Pre-computed |
+| /api/activation-examples | ~100ms | Parquet query |
+| /api/similarity-sort | ~50ms | Sort operation |
+| /api/cluster-candidates | ~80ms | Clustering lookup |
 | /health | ~5ms | Status check |
 
 ### Optimization Strategies

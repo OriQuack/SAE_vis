@@ -16,7 +16,7 @@ import {
   buildStage3,
   updateStageThreshold as updateThresholdInStructure
 } from '../lib/sankey-builder'
-import { convertToD3Format } from '../lib/sankey-d3-converter'
+import { convertToD3Format } from '../lib/sankey-utils'
 import { getStageConfig } from '../lib/sankey-stages'
 import { PANEL_LEFT, PANEL_RIGHT } from '../lib/constants'
 import * as api from '../api'
@@ -28,7 +28,7 @@ type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
  * Get threshold path for v2 segment nodes to enable histogram filtering.
  * Returns the sequence of metric constraints from root to this node.
  */
-function getV2ThresholdPath(nodeId: string, structure: SankeyStructure): ThresholdPathConstraint[] | undefined {
+function getThresholdPath(nodeId: string, structure: SankeyStructure): ThresholdPathConstraint[] | undefined {
   // Stage 1 segment: no constraints (shows all root features)
   if (nodeId === 'stage1_segment') {
     return undefined
@@ -134,7 +134,7 @@ export const createSimplifiedSankeyActions = (set: any, get: any) => ({
       const stage1Config = getStageConfig(1)
       if (stage1Config.metric) {
         const nodeId = 'stage1_segment'
-        const thresholdPath = getV2ThresholdPath(nodeId, stage1Structure)
+        const thresholdPath = getThresholdPath(nodeId, stage1Structure)
         console.log(`[initializeSankey] 📊 Fetching histogram for ${stage1Config.metric} on ${nodeId}`, { thresholdPath })
 
         // Fetch histogram using API directly (bypassing legacy fetchHistogramData)
@@ -216,7 +216,7 @@ export const createSimplifiedSankeyActions = (set: any, get: any) => ({
       const stage2Config = getStageConfig(2)
       if (stage2Config.metric) {
         const nodeId = 'stage2_segment'
-        const thresholdPath = getV2ThresholdPath(nodeId, stage2Structure)
+        const thresholdPath = getThresholdPath(nodeId, stage2Structure)
         console.log(`[activateStage2] 📊 Fetching histogram for ${stage2Config.metric} on ${nodeId}`, { thresholdPath })
 
         // Fetch histogram using API directly
@@ -367,7 +367,7 @@ export const createSimplifiedSankeyActions = (set: any, get: any) => ({
       const config = getStageConfig(stageNumber)
       const nodeId = `stage${stageNumber}_segment`
       if (config.metric) {
-        const thresholdPath = getV2ThresholdPath(nodeId, updatedStructure)
+        const thresholdPath = getThresholdPath(nodeId, updatedStructure)
         console.log(`[updateStageThreshold] 📊 Re-fetching histogram for ${config.metric} on ${nodeId}`, { thresholdPath })
 
         // Fetch histogram using API directly
