@@ -1117,8 +1117,8 @@ width: 39%;
     45deg,
     transparent,
     transparent 4px,
-    rgba(103, 232, 249, 0.3) 4px,
-    rgba(103, 232, 249, 0.3) 8px
+    rgba(0, 158, 115, 0.3) 4px,  /* Well-Explained green */
+    rgba(0, 158, 115, 0.3) 8px
   );
   background-blend-mode: normal;
 }
@@ -1128,8 +1128,8 @@ width: 39%;
     45deg,
     transparent,
     transparent 4px,
-    rgba(249, 168, 212, 0.3) 4px,
-    rgba(249, 168, 212, 0.3) 8px
+    rgba(153, 153, 153, 0.3) 4px,  /* Need Revision gray */
+    rgba(153, 153, 153, 0.3) 8px
   );
   background-blend-mode: normal;
 }

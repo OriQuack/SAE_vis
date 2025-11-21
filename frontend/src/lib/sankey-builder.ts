@@ -19,7 +19,7 @@ import type {
 } from '../types'
 import { getStageConfig } from './sankey-stages'
 import { processFeatureGroupResponse } from './threshold-utils'
-import { TAG_CATEGORIES } from './tag-constants'
+import { TAG_CATEGORIES } from './constants'
 import * as api from '../api'
 
 // ============================================================================

@@ -1,7 +1,7 @@
 import React from 'react'
 import { getCircleRadius, getCircleOpacity } from '../lib/circle-encoding-utils'
 import { getMetricColor } from '../lib/utils'
-import { getTagColor } from '../lib/tag-constants'
+import { getTagColor } from '../lib/tag-system'
 import type { ScoreStats } from '../lib/circle-encoding-utils'
 
 // ============================================================================

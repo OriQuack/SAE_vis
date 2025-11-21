@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react'
-import { SELECTION_CATEGORY_COLORS, type SelectionCategory } from '../lib/constants'
+import { type SelectionCategory } from '../lib/constants'
+import { getSelectionColors, type TableMode } from '../lib/color-utils'
 import '../styles/SelectionBar.css'
 
 export interface CategoryCounts {
@@ -21,38 +22,9 @@ interface SelectionStateBarProps {
   showLabels?: boolean  // Default: true
   showLegend?: boolean  // Default: true
   labelThreshold?: number  // Default: 10% - minimum percentage to show label
-  mode?: 'feature' | 'pair' | 'cause'  // Mode determines labels/colors (default: 'feature')
+  mode?: TableMode  // Mode determines labels/colors (default: 'feature')
   categoryColors?: Partial<Record<SelectionCategory, string>>  // Optional: override colors dynamically
   className?: string
-}
-
-// Category config for feature/pair modes
-const CATEGORY_CONFIG: Record<SelectionCategory, { label: string; color: string; description: string }> = {
-  confirmed: {
-    label: 'True Positive',
-    color: SELECTION_CATEGORY_COLORS.CONFIRMED.HEX,
-    description: 'Manually selected by user'
-  },
-  expanded: {
-    label: 'Expanded True Positive',
-    color: SELECTION_CATEGORY_COLORS.EXPANDED.HEX,
-    description: 'Auto-tagged by histogram thresholds'
-  },
-  rejected: {
-    label: 'False Positive',
-    color: SELECTION_CATEGORY_COLORS.REJECTED.HEX,
-    description: 'Manually rejected by user'
-  },
-  autoRejected: {
-    label: 'Expanded False Positive',
-    color: SELECTION_CATEGORY_COLORS.AUTO_REJECTED.HEX,
-    description: 'Auto-tagged by histogram thresholds'
-  },
-  unsure: {
-    label: 'Unsure',
-    color: SELECTION_CATEGORY_COLORS.UNSURE.HEX,
-    description: 'Not selected or investigated'
-  }
 }
 
 /**
@@ -76,6 +48,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   showLabels = true,
   showLegend = true,
   labelThreshold = 10,
+  mode = 'feature',
   categoryColors,
   className = ''
 }) => {
@@ -83,10 +56,40 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   const isVertical = orientation === 'vertical'
   const containerHeight = height ?? (isVertical ? '100%' : 24)
   const containerWidth = width ?? (isVertical ? 24 : '100%')
-  // Use standard category config for all modes
-  const categoryConfig = CATEGORY_CONFIG
 
-  // Get final color for a category (use provided color or fallback to config)
+  // Get mode-specific colors from tag system
+  const modeColors = useMemo(() => getSelectionColors(mode), [mode])
+
+  // Generate category config dynamically based on mode
+  const categoryConfig = useMemo((): Record<SelectionCategory, { label: string; color: string; description: string }> => ({
+    confirmed: {
+      label: 'True Positive',
+      color: modeColors.confirmed,
+      description: 'Manually selected by user'
+    },
+    expanded: {
+      label: 'Expanded True Positive',
+      color: modeColors.expanded,
+      description: 'Auto-tagged by histogram thresholds'
+    },
+    rejected: {
+      label: 'False Positive',
+      color: modeColors.rejected,
+      description: 'Manually rejected by user'
+    },
+    autoRejected: {
+      label: 'Expanded False Positive',
+      color: modeColors.autoRejected,
+      description: 'Auto-tagged by histogram thresholds'
+    },
+    unsure: {
+      label: 'Unsure',
+      color: modeColors.unsure,
+      description: 'Not selected or investigated'
+    }
+  }), [modeColors])
+
+  // Get final color for a category (use provided override or mode-specific color)
   const getColor = (category: SelectionCategory): string => {
     return categoryColors?.[category] || categoryConfig[category].color
   }
@@ -132,8 +135,9 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   const renderSegments = () => {
     const segments: React.ReactNode[] = []
 
-    // Define rendering order: confirmed → expanded → rejected → autoRejected → unsure
-    const categoryOrder: SelectionCategory[] = ['confirmed', 'expanded', 'rejected', 'autoRejected', 'unsure']
+    // Define rendering order: rejected → autoRejected → unsure → confirmed → expanded
+    // This creates visual grouping: False Positive (left/top) | Neutral (center) | True Positive (right/bottom)
+    const categoryOrder: SelectionCategory[] = ['rejected', 'autoRejected', 'unsure', 'confirmed', 'expanded']
 
     categoryOrder.forEach((category) => {
       const count = getCategoryValue(category, counts)
@@ -193,8 +197,8 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
       if ((category === 'expanded' || category === 'autoRejected') && previewChangeValue > 0 && previewChanges) {
         const stripePercentage = (previewChangeValue / counts.total) * 100
         const stripeColor = category === 'expanded'
-          ? SELECTION_CATEGORY_COLORS.EXPANDED.HEX
-          : SELECTION_CATEGORY_COLORS.AUTO_REJECTED.HEX
+          ? modeColors.expanded
+          : modeColors.autoRejected
 
         segments.push(
           <div

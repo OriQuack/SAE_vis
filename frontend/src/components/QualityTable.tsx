@@ -17,12 +17,12 @@ import {
   getRowBackgroundColor,
   getRowStyleProperties,
   getRowCategoryClass
-} from '../lib/table-color-utils'
+} from '../lib/color-utils'
 import {
   TAG_CATEGORY_FEATURE_SPLITTING,
   TAG_CATEGORY_CAUSE,
   TAG_CATEGORY_QUALITY,
-} from '../lib/tag-constants'
+} from '../lib/constants'
 import { HighlightedExplanation } from './TableExplanation'
 import ActivationExample from './ActivationExample'
 import QualityScoreBreakdown from './QualityScoreBreakdown'
@@ -652,9 +652,9 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
               const selectionSource = featureSelectionSources.get(featureRow.feature_id)
 
               // Get row styling from centralized utility
-              // Row backgrounds use fixed selection colors (blue/light blue/red/light red)
+              // Row backgrounds use mode-specific tag colors
               const categoryClass = getRowCategoryClass(selectionState, selectionSource)
-              const rowBackgroundColor = getRowBackgroundColor(selectionState, selectionSource)
+              const rowBackgroundColor = getRowBackgroundColor(selectionState, selectionSource, 'feature')
 
               const rowClassName = [
                 'table-panel__sub-row',

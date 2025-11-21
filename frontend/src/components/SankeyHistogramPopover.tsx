@@ -14,7 +14,8 @@ import {
   calculateBarSegments
 } from '../lib/histogram-utils'
 import { scaleLinear } from 'd3-scale'
-import { METRIC_DISPLAY_NAMES, getThresholdRegionColors } from '../lib/constants'
+import { METRIC_DISPLAY_NAMES } from '../lib/constants'
+import { getThresholdRegionColors } from '../lib/color-utils'
 import type { HistogramData, HistogramChart } from '../types'
 import { ThresholdHandles } from './ThresholdHandles'
 

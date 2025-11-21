@@ -343,8 +343,8 @@
     45deg,
     transparent,
     transparent 4px,
-    rgba(103, 232, 249, 0.3) 4px,
-    rgba(103, 232, 249, 0.3) 8px
+    rgba(230, 159, 0, 0.3) 4px,  /* Missed Lexicon orange */
+    rgba(230, 159, 0, 0.3) 8px
   );
   background-blend-mode: normal;
 }
@@ -354,8 +354,8 @@
     45deg,
     transparent,
     transparent 4px,
-    rgba(249, 168, 212, 0.3) 4px,
-    rgba(249, 168, 212, 0.3) 8px
+    rgba(213, 94, 0, 0.3) 4px,  /* Missed Context vermillion */
+    rgba(213, 94, 0, 0.3) 8px
   );
   background-blend-mode: normal;
 }

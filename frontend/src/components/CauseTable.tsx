@@ -9,16 +9,16 @@ import {
 } from '../lib/table-utils'
 import {
   METRIC_SEMANTIC_SIMILARITY,
-  METRIC_SCORE_FUZZ,
-  SELECTION_CATEGORY_COLORS
+  METRIC_SCORE_FUZZ
 } from '../lib/constants'
 import {
-  getRowStyleProperties
-} from '../lib/table-color-utils'
+  getRowStyleProperties,
+  getSelectionColors
+} from '../lib/color-utils'
 import type { ScoreStats } from '../lib/circle-encoding-utils'
 import ScoreCircle, { TagBadge } from './TableIndicators'
 import { HighlightedExplanation } from './TableExplanation'
-import { TAG_CATEGORY_CAUSE } from '../lib/tag-constants'
+import { TAG_CATEGORY_CAUSE } from '../lib/constants'
 import ActivationExample from './ActivationExample'
 import SimilarityTaggingPopover from './TagAutomaticPopover'
 import '../styles/QualityTable.css'
@@ -452,24 +452,25 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
                   const fuzzAvg = fuzzStats?.avg || null
                   const detectionAvg = detectionStats?.avg || null
 
-                  // Determine row class and background color using standard selection colors
+                  // Determine row class and background color using cause-specific tag colors
                   const rowClassParts = ['table-panel__sub-row']
+                  const causeColors = getSelectionColors('cause')
                   let rowBackgroundColor = ''
 
                   if (causeState) {
-                    // Map cause states to standard selection colors for row backgrounds
-                    // 'noisy-activation' → confirmed (blue)
-                    // 'missed-lexicon' → expanded (light blue)
-                    // 'missed-context' → rejected (red)
+                    // Map cause states to cause tag colors for row backgrounds
+                    // 'noisy-activation' → confirmed color (purple)
+                    // 'missed-lexicon' → expanded color (orange)
+                    // 'missed-context' → rejected color (vermillion)
                     if (causeState === 'noisy-activation') {
                       rowClassParts.push('table-panel__sub-row--confirmed')
-                      rowBackgroundColor = SELECTION_CATEGORY_COLORS.CONFIRMED.HEX
+                      rowBackgroundColor = causeColors.confirmed
                     } else if (causeState === 'missed-lexicon') {
                       rowClassParts.push('table-panel__sub-row--expanded')
-                      rowBackgroundColor = SELECTION_CATEGORY_COLORS.EXPANDED.HEX
+                      rowBackgroundColor = causeColors.expanded
                     } else if (causeState === 'missed-context') {
                       rowClassParts.push('table-panel__sub-row--rejected')
-                      rowBackgroundColor = SELECTION_CATEGORY_COLORS.REJECTED.HEX
+                      rowBackgroundColor = causeColors.rejected
                     }
 
                     if (causeSource === 'auto') {

@@ -6,7 +6,7 @@ import {
   calculateXAxisTicks,
   calculateYAxisTicks
 } from '../lib/histogram-utils'
-import { SELECTION_CATEGORY_COLORS } from '../lib/constants'
+import { getSelectionColors } from '../lib/color-utils'
 import SelectionStateBar, { type CategoryCounts } from './SelectionBar'
 import ThresholdHandles from './ThresholdHandles'
 import '../styles/TagAutomaticPopover.css'
@@ -22,6 +22,12 @@ const SimilarityTaggingPopover: React.FC = () => {
   const featureSelectionSources = useVisualizationStore(state => state.featureSelectionSources)
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
   const pairSelectionSources = useVisualizationStore(state => state.pairSelectionSources)
+
+  // Get mode-specific colors (mode extracted from popoverState inside render)
+  const modeColors = useMemo(() => {
+    const currentMode = popoverState?.mode || 'feature'
+    return getSelectionColors(currentMode)
+  }, [popoverState?.mode])
 
   const containerRef = useRef<HTMLDivElement>(null)
   const backdropRef = useRef<HTMLDivElement>(null)
@@ -246,16 +252,8 @@ const SimilarityTaggingPopover: React.FC = () => {
   const categoryBars = useMemo(() => {
     if (!histogramChart || categoryData.size === 0) return []
 
-    const categoryColors = {
-      confirmed: SELECTION_CATEGORY_COLORS.CONFIRMED.HEX,
-      expanded: SELECTION_CATEGORY_COLORS.EXPANDED.HEX,
-      rejected: SELECTION_CATEGORY_COLORS.REJECTED.HEX,
-      autoRejected: SELECTION_CATEGORY_COLORS.AUTO_REJECTED.HEX,
-      unsure: SELECTION_CATEGORY_COLORS.UNSURE.HEX
-    }
-
-    return calculateCategoryStackedBars(histogramChart, categoryData, categoryColors)
-  }, [histogramChart, categoryData])
+    return calculateCategoryStackedBars(histogramChart, categoryData, modeColors)
+  }, [histogramChart, categoryData, modeColors])
 
   // Calculate current category counts for SelectionStateBar
   const currentCounts = useMemo((): CategoryCounts => {
@@ -498,12 +496,12 @@ const SimilarityTaggingPopover: React.FC = () => {
               <p>
                 Drag the thresholds to tag {mode === 'feature' ? 'features' : 'pairs'} automatically.
                 <br />
-                Items <strong>above the right threshold</strong> will be tagged as <strong style={{ color: SELECTION_CATEGORY_COLORS.EXPANDED.HEX }}>Auto-Selected</strong>.
+                Items <strong>above the right threshold</strong> will be tagged as <strong style={{ color: modeColors.expanded }}>Auto-Selected</strong>.
                 <br />
-                Items <strong>below the left threshold</strong> will be tagged as <strong style={{ color: SELECTION_CATEGORY_COLORS.AUTO_REJECTED.HEX }}>Auto-Rejected</strong>.
+                Items <strong>below the left threshold</strong> will be tagged as <strong style={{ color: modeColors.autoRejected }}>Auto-Rejected</strong>.
                 <br />
                 <span style={{ fontSize: '0.9em', color: '#666' }}>
-                  The <strong style={{ color: SELECTION_CATEGORY_COLORS.EXPANDED.HEX }}>blue stripe</strong> shows auto-selected items and the <strong style={{ color: SELECTION_CATEGORY_COLORS.AUTO_REJECTED.HEX }}>light red stripe</strong> shows auto-rejected items.
+                  The <strong style={{ color: modeColors.expanded }}>stripe</strong> shows auto-selected items and the <strong style={{ color: modeColors.autoRejected }}>stripe</strong> shows auto-rejected items.
                 </span>
               </p>
             </div>
@@ -523,7 +521,7 @@ const SimilarityTaggingPopover: React.FC = () => {
                   height="8"
                   patternTransform="rotate(45)"
                 >
-                  <rect width="4" height="8" fill={SELECTION_CATEGORY_COLORS.EXPANDED.HEX} opacity={0.3} />
+                  <rect width="4" height="8" fill={modeColors.expanded} opacity={0.3} />
                 </pattern>
                 <pattern
                   id="autoRejectedPreviewStripe"
@@ -532,7 +530,7 @@ const SimilarityTaggingPopover: React.FC = () => {
                   height="8"
                   patternTransform="rotate(45)"
                 >
-                  <rect width="4" height="8" fill={SELECTION_CATEGORY_COLORS.AUTO_REJECTED.HEX} opacity={0.3} />
+                  <rect width="4" height="8" fill={modeColors.autoRejected} opacity={0.3} />
                 </pattern>
               </defs>
 
@@ -614,19 +612,19 @@ const SimilarityTaggingPopover: React.FC = () => {
                       <text x={0} y={-58} textAnchor="middle" fontSize={10} fill="#fff" fontWeight="bold">
                         Bin [{bin.x0.toFixed(2)} - {bin.x1.toFixed(2)}]
                       </text>
-                      <text x={0} y={-46} textAnchor="middle" fontSize={9} fill={SELECTION_CATEGORY_COLORS.CONFIRMED.HEX}>
+                      <text x={0} y={-46} textAnchor="middle" fontSize={9} fill={modeColors.confirmed}>
                         Confirmed: {counts.confirmed}
                       </text>
-                      <text x={0} y={-36} textAnchor="middle" fontSize={9} fill={SELECTION_CATEGORY_COLORS.EXPANDED.HEX}>
+                      <text x={0} y={-36} textAnchor="middle" fontSize={9} fill={modeColors.expanded}>
                         Expanded: {counts.expanded}
                       </text>
-                      <text x={0} y={-26} textAnchor="middle" fontSize={9} fill={SELECTION_CATEGORY_COLORS.REJECTED.HEX}>
+                      <text x={0} y={-26} textAnchor="middle" fontSize={9} fill={modeColors.rejected}>
                         Rejected: {counts.rejected}
                       </text>
-                      <text x={0} y={-16} textAnchor="middle" fontSize={9} fill={SELECTION_CATEGORY_COLORS.AUTO_REJECTED.HEX}>
+                      <text x={0} y={-16} textAnchor="middle" fontSize={9} fill={modeColors.autoRejected}>
                         Auto-Rejected: {counts.autoRejected}
                       </text>
-                      <text x={0} y={-6} textAnchor="middle" fontSize={9} fill={SELECTION_CATEGORY_COLORS.UNSURE.HEX}>
+                      <text x={0} y={-6} textAnchor="middle" fontSize={9} fill={modeColors.unsure}>
                         Unsure: {counts.unsure}
                       </text>
                       <text x={0} y={-58 + 70} textAnchor="middle" fontSize={9} fill="#aaa">

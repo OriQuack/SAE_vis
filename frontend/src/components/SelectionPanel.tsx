@@ -1,9 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { useVisualizationStore } from '../store/index'
-import {
-  type SelectionCategory,
-  SELECTION_CATEGORY_COLORS
-} from '../lib/constants'
+import { type SelectionCategory } from '../lib/constants'
+import { getSelectionColors, type TableMode } from '../lib/color-utils'
 import SelectionStateBar, { type CategoryCounts } from './SelectionBar'
 import '../styles/SelectionPanel.css'
 
@@ -27,8 +25,11 @@ const SimpleSelectionBar: React.FC<SimpleSelectionBarProps> = ({
   selectedCount,
   rejectedCount,
   unsureCount,
-  total
+  total,
+  mode = 'feature'
 }) => {
+  const modeColors = useMemo(() => getSelectionColors(mode), [mode])
+
   if (total === 0) {
     return (
       <div className="simple-selection-bar">
@@ -50,7 +51,7 @@ const SimpleSelectionBar: React.FC<SimpleSelectionBarProps> = ({
             className="simple-selection-bar__segment simple-selection-bar__segment--selected"
             style={{
               width: `${selectedPercent}%`,
-              backgroundColor: SELECTION_CATEGORY_COLORS.CONFIRMED.HEX
+              backgroundColor: modeColors.confirmed
             }}
             title={`Selected: ${selectedCount} (${selectedPercent.toFixed(1)}%)`}
           >
@@ -66,7 +67,7 @@ const SimpleSelectionBar: React.FC<SimpleSelectionBarProps> = ({
             className="simple-selection-bar__segment simple-selection-bar__segment--rejected"
             style={{
               width: `${rejectedPercent}%`,
-              backgroundColor: SELECTION_CATEGORY_COLORS.REJECTED.HEX
+              backgroundColor: modeColors.rejected
             }}
             title={`Rejected: ${rejectedCount} (${rejectedPercent.toFixed(1)}%)`}
           >
@@ -82,7 +83,7 @@ const SimpleSelectionBar: React.FC<SimpleSelectionBarProps> = ({
             className="simple-selection-bar__segment simple-selection-bar__segment--unsure"
             style={{
               width: `${unsurePercent}%`,
-              backgroundColor: SELECTION_CATEGORY_COLORS.UNSURE.HEX
+              backgroundColor: modeColors.unsure
             }}
             title={`Unsure: ${unsureCount} (${unsurePercent.toFixed(1)}%)`}
           >
@@ -98,21 +99,21 @@ const SimpleSelectionBar: React.FC<SimpleSelectionBarProps> = ({
         <div className="simple-selection-bar__legend-item">
           <div
             className="simple-selection-bar__legend-dot"
-            style={{ backgroundColor: SELECTION_CATEGORY_COLORS.CONFIRMED.HEX }}
+            style={{ backgroundColor: modeColors.confirmed }}
           />
           <span>Selected: {selectedCount}</span>
         </div>
         <div className="simple-selection-bar__legend-item">
           <div
             className="simple-selection-bar__legend-dot"
-            style={{ backgroundColor: SELECTION_CATEGORY_COLORS.REJECTED.HEX }}
+            style={{ backgroundColor: modeColors.rejected }}
           />
           <span>Rejected: {rejectedCount}</span>
         </div>
         <div className="simple-selection-bar__legend-item">
           <div
             className="simple-selection-bar__legend-dot"
-            style={{ backgroundColor: SELECTION_CATEGORY_COLORS.UNSURE.HEX }}
+            style={{ backgroundColor: modeColors.unsure }}
           />
           <span>Unsure: {unsureCount}</span>
         </div>

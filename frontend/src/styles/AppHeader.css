@@ -26,16 +26,29 @@
 }
 
 .header__logo {
-  height: 20px;
+  height: 26px;
   width: auto;
   flex-shrink: 0;
 }
 
 .header__title {
-  font-size: 1.125rem;
+  font-size: 26px;
   font-weight: 600;
   color: #1f2937;
   margin: 0;
+}
+
+/* ============================================================================
+   BADGE CONTAINER - Horizontal Layout
+   ============================================================================ */
+
+.header__badges {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 /* ============================================================================
@@ -47,10 +60,9 @@
   flex-direction: row;
   align-items: center;
   gap: 10px;
-  padding: 6px 16px;
+  padding: 4px 12px;
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   border-radius: 20px;
-  font-size: 11px;
   line-height: 1.4;
   flex-shrink: 1;
   min-width: 0;
@@ -59,18 +71,18 @@
 }
 
 .header__sae-label {
-  font-weight: 600;
+  font-weight: 500;
   color: #475569;
-  font-size: 10.5px;
+  font-size: 14px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   flex-shrink: 0;
 }
 
 .header__sae-value {
-  font-weight: 700;
+  font-weight: 600;
   color: #0f172a;
-  font-size: 12px;
+  font-size: 14px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   white-space: nowrap;
   overflow: hidden;

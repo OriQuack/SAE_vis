@@ -1,218 +1,18 @@
 // ============================================================================
-// TAG CATEGORY SYSTEM - Fixed 4-stage Sankey structure
-// Central configuration for tag-based feature categorization
+// TAG SYSTEM - Tag color initialization and utility functions
+// Extracted from tag-constants.ts for clear separation of logic
 // ============================================================================
 
 import {
-  METRIC_DECODER_SIMILARITY,
-  METRIC_QUALITY_SCORE,
-  METRIC_SCORE_EMBEDDING,
-  METRIC_SCORE_DETECTION,
-  METRIC_SCORE_FUZZ,
-  METRIC_SEMANTIC_SIMILARITY,
-  OKABE_ITO_PALETTE,
+  TAG_CATEGORIES,
+  TAG_CATEGORY_QUALITY,
+  TAG_CATEGORY_FEATURE_SPLITTING,
+  type TagCategoryConfig,
+  type TagColorMode,
+  OKABE_ITO_PALETTE
 } from './constants'
 import { HierarchicalColorAssigner } from './hierarchical-colors'
 import type { SankeyTreeNode } from '../types'
-
-// ============================================================================
-// COLOR MODE TYPES
-// ============================================================================
-
-/** Color assignment mode for tag categories */
-export type TagColorMode = 'hierarchical' | 'constant'
-
-// ============================================================================
-// TAG CATEGORY IDs
-// ============================================================================
-export const TAG_CATEGORY_FEATURE_SPLITTING = "feature_splitting" as const
-export const TAG_CATEGORY_QUALITY = "quality" as const
-export const TAG_CATEGORY_CAUSE = "cause" as const
-export const TAG_CATEGORY_TEMP = "temp" as const
-
-// ============================================================================
-// TABLE PANEL TITLES
-// Display names for table panels corresponding to each stage
-// ============================================================================
-export const TAG_CATEGORY_TABLE_TITLES: Record<string, string> = {
-  [TAG_CATEGORY_FEATURE_SPLITTING]: "Feature Splitting Detection",
-  [TAG_CATEGORY_QUALITY]: "Quality Assessment",
-  [TAG_CATEGORY_CAUSE]: "Root Cause Analysis",
-  [TAG_CATEGORY_TEMP]: "Temp Analysis"
-}
-
-// ============================================================================
-// TABLE PANEL INSTRUCTIONS
-// Instruction text shown below table panel titles
-// ============================================================================
-export const TAG_CATEGORY_TABLE_INSTRUCTIONS: Record<string, string> = {
-  [TAG_CATEGORY_FEATURE_SPLITTING]: "Select table feature columns to tag",
-  [TAG_CATEGORY_QUALITY]: "Select feature table rows to tag",
-  [TAG_CATEGORY_CAUSE]: "Select feature table rows to tag",
-  [TAG_CATEGORY_TEMP]: "Experimental analysis placeholder"
-}
-
-// ============================================================================
-// TAG CATEGORY CONFIGURATION
-// Single source of truth for all tag category metadata
-// ============================================================================
-
-export interface TagCategoryConfig {
-  /** Unique identifier for this category */
-  id: string
-
-  /** Display name shown in UI */
-  label: string
-
-  /** Stage order in the fixed Sankey structure (1-3) */
-  stageOrder: number
-
-  /** Primary metric used for grouping features (null for pre-defined groups) */
-  metric: string | null
-
-  /** Default thresholds for metric-based splitting */
-  defaultThresholds: number[]
-
-  /** Whether to show histogram visualization on Sankey nodes */
-  showHistogram: boolean
-
-  /** Tag values for this category */
-  tags: string[]
-
-  /** Related metrics for reference and future analysis */
-  relatedMetrics: string[]
-
-  /** Description of what this category represents */
-  description: string
-
-  /** Which tag from this category is parent of all next stage tags (null if none) */
-  parentTagForNextStage: string | null
-
-  /** User-facing instruction text displayed in the UI */
-  instruction: string
-
-  /** Pre-computed colors for each tag (tag name → hex color) */
-  tagColors: Record<string, string>
-
-  /** Parent tag from previous stage (null for stage 1) */
-  parentTag: string | null
-}
-
-/**
- * TAG CATEGORIES - Complete configuration for the 4-stage Sankey structure
- *
- * This is the single source of truth for:
- * - Stage order in Sankey (Root → Feature Splitting → Quality → Cause → Temp)
- * - Grouping metrics and thresholds
- * - Histogram visibility
- * - Tag assignments
- * - Related metrics for each category
- */
-export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
-  [TAG_CATEGORY_FEATURE_SPLITTING]: {
-    id: TAG_CATEGORY_FEATURE_SPLITTING,
-    label: "Detect Feature Splitting",
-    stageOrder: 1,
-    metric: METRIC_DECODER_SIMILARITY,
-    defaultThresholds: [0.4],
-    showHistogram: true,
-    tags: [
-      "Monosemantic",       // Group 0 (< 0.4, LOW decoder similarity)
-      "Fragmented"    // Group 1 (≥ 0.4, HIGH decoder similarity)
-    ],
-    relatedMetrics: [
-      METRIC_DECODER_SIMILARITY,
-      "inter_feature_similarity"  // Note: Not yet in backend data
-    ],
-    description: "Identifies whether a feature represents a single semantic concept or multiple overlapping concepts",
-    parentTagForNextStage: "Monosemantic",
-    instruction: "Fragmented or Monosemantic Feature?",
-    tagColors: {},  // Populated by initializeTagColors()
-    parentTag: null  // Stage 1 has no parent
-  },
-
-  [TAG_CATEGORY_QUALITY]: {
-    id: TAG_CATEGORY_QUALITY,
-    label: "Assess Quality",
-    stageOrder: 2,
-    metric: METRIC_QUALITY_SCORE,
-    defaultThresholds: [0.7],
-    showHistogram: true,
-    tags: [
-      "Need Revision",       // Group 0 (< 0.5, LOW quality score)
-      "Well-Explained"       // Group 1 (≥ 0.5, HIGH quality score)
-    ],
-    relatedMetrics: [
-      METRIC_SCORE_EMBEDDING,
-      METRIC_SCORE_FUZZ,
-      METRIC_SCORE_DETECTION,
-      METRIC_QUALITY_SCORE
-    ],
-    description: "Assesses the overall quality of the feature explanation based on multiple scoring metrics",
-    parentTagForNextStage: "Need Revision",
-    instruction: "Assess LLM generated explanation quality",
-    tagColors: {},  // Populated by initializeTagColors()
-    parentTag: "Monosemantic"  // Children of Monosemantic from stage 1
-  },
-
-  [TAG_CATEGORY_CAUSE]: {
-    id: TAG_CATEGORY_CAUSE,
-    label: "Determine Cause",
-    stageOrder: 3,
-    metric: null,  // Pre-defined groups, not metric-based
-    defaultThresholds: [],
-    showHistogram: false,
-    tags: [
-      "Missed Context",
-      "Missed Lexicon",
-      "Noisy Activation",
-      "Unsure"
-    ],
-    relatedMetrics: [
-      // Missed Context indicators
-      METRIC_SCORE_DETECTION,
-      METRIC_SCORE_EMBEDDING,
-      // Missed Lexicon indicators
-      METRIC_SCORE_FUZZ,
-      // Noisy Activation indicators
-      "intra_feature_similarity",  // Note: Not yet in backend data
-      METRIC_SEMANTIC_SIMILARITY
-    ],
-    description: "Categorizes the root cause of explanation issues for features that need revision",
-    parentTagForNextStage: null,
-    instruction: "Determine root cause for poor explanation quality",
-    tagColors: {},  // Populated by initializeTagColors()
-    parentTag: "Need Revision"  // Children of Need Revision from stage 2
-  },
-
-  [TAG_CATEGORY_TEMP]: {
-    id: TAG_CATEGORY_TEMP,
-    label: "Temp",
-    stageOrder: 4,
-    metric: null,  // Placeholder, no metric-based logic
-    defaultThresholds: [],
-    showHistogram: false,
-    tags: [],  // No tags - only stage tab
-    relatedMetrics: [],
-    description: "Temporary placeholder stage for testing",
-    parentTagForNextStage: null,
-    instruction: "Placeholder stage",
-    tagColors: {},  // Populated by initializeTagColors()
-    parentTag: null  // Placeholder, no parent relationship
-  }
-} as const
-
-// ============================================================================
-// TAG CATEGORY HELPERS
-// Utility functions for working with tag categories
-// ============================================================================
-
-/**
- * Get tag categories in stage order (1 → 2 → 3)
- */
-export function getTagCategoriesInOrder(): TagCategoryConfig[] {
-  return Object.values(TAG_CATEGORIES).sort((a, b) => a.stageOrder - b.stageOrder)
-}
 
 // ============================================================================
 // TAG COLOR SYSTEM
@@ -416,6 +216,18 @@ function initializeTagColors(mode: TagColorMode = 'hierarchical'): void {
 initializeTagColors('constant')
 
 // ============================================================================
+// TAG CATEGORY HELPERS
+// Utility functions for working with tag categories
+// ============================================================================
+
+/**
+ * Get tag categories in stage order (1 → 2 → 3)
+ */
+export function getTagCategoriesInOrder(): TagCategoryConfig[] {
+  return Object.values(TAG_CATEGORIES).sort((a, b) => a.stageOrder - b.stageOrder)
+}
+
+// ============================================================================
 // TAG COLOR UTILITIES
 // Simple lookup functions for pre-computed tag colors
 // ============================================================================
@@ -457,3 +269,6 @@ export function getAllTagColors(): Record<string, Record<string, string>> {
   }
   return result
 }
+
+// Re-export tag category constants for convenience
+export { TAG_CATEGORY_QUALITY, TAG_CATEGORY_FEATURE_SPLITTING }

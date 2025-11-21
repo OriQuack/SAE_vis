@@ -41,6 +41,164 @@ export const PANEL_SIDES = {
 } as const
 
 // ============================================================================
+// TAG CATEGORY SYSTEM - Fixed 4-stage Sankey structure
+// Configuration for tag-based feature categorization
+// ============================================================================
+
+/** Color assignment mode for tag categories */
+export type TagColorMode = 'hierarchical' | 'constant'
+
+// Tag Category IDs
+export const TAG_CATEGORY_FEATURE_SPLITTING = "feature_splitting" as const
+export const TAG_CATEGORY_QUALITY = "quality" as const
+export const TAG_CATEGORY_CAUSE = "cause" as const
+export const TAG_CATEGORY_TEMP = "temp" as const
+
+// Table Panel Titles - Display names for table panels corresponding to each stage
+export const TAG_CATEGORY_TABLE_TITLES: Record<string, string> = {
+  [TAG_CATEGORY_FEATURE_SPLITTING]: "Feature Splitting Detection",
+  [TAG_CATEGORY_QUALITY]: "Quality Assessment",
+  [TAG_CATEGORY_CAUSE]: "Root Cause Analysis",
+  [TAG_CATEGORY_TEMP]: "Temp Analysis"
+}
+
+// Table Panel Instructions - Instruction text shown below table panel titles
+export const TAG_CATEGORY_TABLE_INSTRUCTIONS: Record<string, string> = {
+  [TAG_CATEGORY_FEATURE_SPLITTING]: "Select table feature columns to tag",
+  [TAG_CATEGORY_QUALITY]: "Select feature table rows to tag",
+  [TAG_CATEGORY_CAUSE]: "Select feature table rows to tag",
+  [TAG_CATEGORY_TEMP]: "Experimental analysis placeholder"
+}
+
+// Tag Category Configuration Interface
+export interface TagCategoryConfig {
+  /** Unique identifier for this category */
+  id: string
+  /** Display name shown in UI */
+  label: string
+  /** Stage order in the fixed Sankey structure (1-3) */
+  stageOrder: number
+  /** Primary metric used for grouping features (null for pre-defined groups) */
+  metric: string | null
+  /** Default thresholds for metric-based splitting */
+  defaultThresholds: number[]
+  /** Whether to show histogram visualization on Sankey nodes */
+  showHistogram: boolean
+  /** Tag values for this category */
+  tags: string[]
+  /** Related metrics for reference and future analysis */
+  relatedMetrics: string[]
+  /** Description of what this category represents */
+  description: string
+  /** Which tag from this category is parent of all next stage tags (null if none) */
+  parentTagForNextStage: string | null
+  /** User-facing instruction text displayed in the UI */
+  instruction: string
+  /** Pre-computed colors for each tag (tag name → hex color) */
+  tagColors: Record<string, string>
+  /** Parent tag from previous stage (null for stage 1) */
+  parentTag: string | null
+}
+
+/**
+ * TAG CATEGORIES - Complete configuration for the 4-stage Sankey structure
+ * Colors are populated at runtime by tag-system.ts
+ */
+export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
+  [TAG_CATEGORY_FEATURE_SPLITTING]: {
+    id: TAG_CATEGORY_FEATURE_SPLITTING,
+    label: "Detect Feature Splitting",
+    stageOrder: 1,
+    metric: METRIC_DECODER_SIMILARITY,
+    defaultThresholds: [0.4],
+    showHistogram: true,
+    tags: [
+      "Monosemantic",       // Group 0 (< 0.4, LOW decoder similarity)
+      "Fragmented"    // Group 1 (≥ 0.4, HIGH decoder similarity)
+    ],
+    relatedMetrics: [
+      METRIC_DECODER_SIMILARITY,
+      "inter_feature_similarity"  // Note: Not yet in backend data
+    ],
+    description: "Identifies whether a feature represents a single semantic concept or multiple overlapping concepts",
+    parentTagForNextStage: "Monosemantic",
+    instruction: "Fragmented or Monosemantic Feature?",
+    tagColors: {},  // Populated by tag-system.ts
+    parentTag: null  // Stage 1 has no parent
+  },
+
+  [TAG_CATEGORY_QUALITY]: {
+    id: TAG_CATEGORY_QUALITY,
+    label: "Assess Quality",
+    stageOrder: 2,
+    metric: METRIC_QUALITY_SCORE,
+    defaultThresholds: [0.7],
+    showHistogram: true,
+    tags: [
+      "Need Revision",       // Group 0 (< 0.5, LOW quality score)
+      "Well-Explained"       // Group 1 (≥ 0.5, HIGH quality score)
+    ],
+    relatedMetrics: [
+      METRIC_SCORE_EMBEDDING,
+      METRIC_SCORE_FUZZ,
+      METRIC_SCORE_DETECTION,
+      METRIC_QUALITY_SCORE
+    ],
+    description: "Assesses the overall quality of the feature explanation based on multiple scoring metrics",
+    parentTagForNextStage: "Need Revision",
+    instruction: "Assess LLM generated explanation quality",
+    tagColors: {},  // Populated by tag-system.ts
+    parentTag: "Monosemantic"  // Children of Monosemantic from stage 1
+  },
+
+  [TAG_CATEGORY_CAUSE]: {
+    id: TAG_CATEGORY_CAUSE,
+    label: "Determine Cause",
+    stageOrder: 3,
+    metric: null,  // Pre-defined groups, not metric-based
+    defaultThresholds: [],
+    showHistogram: false,
+    tags: [
+      "Missed Context",
+      "Missed Lexicon",
+      "Noisy Activation",
+      "Unsure"
+    ],
+    relatedMetrics: [
+      // Missed Context indicators
+      METRIC_SCORE_DETECTION,
+      METRIC_SCORE_EMBEDDING,
+      // Missed Lexicon indicators
+      METRIC_SCORE_FUZZ,
+      // Noisy Activation indicators
+      "intra_feature_similarity",  // Note: Not yet in backend data
+      METRIC_SEMANTIC_SIMILARITY
+    ],
+    description: "Categorizes the root cause of explanation issues for features that need revision",
+    parentTagForNextStage: null,
+    instruction: "Determine root cause for poor explanation quality",
+    tagColors: {},  // Populated by tag-system.ts
+    parentTag: "Need Revision"  // Children of Need Revision from stage 2
+  },
+
+  [TAG_CATEGORY_TEMP]: {
+    id: TAG_CATEGORY_TEMP,
+    label: "Temp",
+    stageOrder: 4,
+    metric: null,  // Placeholder, no metric-based logic
+    defaultThresholds: [],
+    showHistogram: false,
+    tags: [],  // No tags - only stage tab
+    relatedMetrics: [],
+    description: "Temporary placeholder stage for testing",
+    parentTagForNextStage: null,
+    instruction: "Placeholder stage",
+    tagColors: {},  // Populated by tag-system.ts
+    parentTag: null  // Placeholder, no parent relationship
+  }
+} as const
+
+// ============================================================================
 // CUSTOM THRESHOLDS - Per-metric custom threshold configurations
 // Used for creating custom value splits with explicit threshold boundaries
 // ============================================================================
@@ -152,30 +310,6 @@ export const THRESHOLD_COLORS = {
   GREEN: OKABE_ITO_PALETTE.BLUISH_GREEN + 'FF'    // Green with 60% opacity - Used for "good" regions
 } as const
 
-/**
- * Get threshold region colors for a metric based on its interpretation
- * - decoder_similarity: Above threshold (solid) = RED (bad/split), Below (stripes) = GREEN (good/consistent)
- * - quality_score: Above threshold (solid) = GREEN (good quality), Below (stripes) = RED (bad quality)
- * - Other metrics: null (use default metric colors)
- *
- * @deprecated - Now using hierarchical color system. Histogram segments use child node colors.
- * @param metric - Metric type
- * @returns Object with 'above' and 'below' colors, or null for default behavior
- */
-export function getThresholdRegionColors(metric: string): { above: string; below: string } | null {
-  switch (metric) {
-    case METRIC_DECODER_SIMILARITY:
-      // Feature splitting: high values indicate split/inconsistent features (bad)
-      return { above: THRESHOLD_COLORS.RED, below: THRESHOLD_COLORS.GREEN }
-    case METRIC_QUALITY_SCORE:
-      // Quality: high values indicate good quality features
-      return { above: THRESHOLD_COLORS.GREEN, below: THRESHOLD_COLORS.RED }
-    default:
-      // Other metrics use default metric-specific colors
-      return null
-  }
-}
-
 // ============================================================================
 // METRIC-SPECIFIC COLORS - Opacity-based gradients for score metrics
 // Based on Okabe-Ito colorblind-safe palette
@@ -218,36 +352,6 @@ export const METRIC_COLORS = {
   }
 } as const
 
-/**
- * Get the base 6-digit hex color for a metric (without alpha channel)
- * Handles both simple colors and gradient objects
- *
- * Single source of truth for metric colors - change colors in METRIC_COLORS
- * and all visualizations update automatically
- *
- * @param metric - Metric type
- * @returns 6-digit hex color string (e.g., '#0072B2')
- */
-export function getMetricBaseColor(metric: string): string {
-  switch (metric) {
-    case METRIC_DECODER_SIMILARITY:
-      return METRIC_COLORS.DECODER_SIMILARITY
-    case METRIC_SEMANTIC_SIMILARITY:
-      return METRIC_COLORS.SEMANTIC_SIMILARITY
-    case METRIC_SCORE_EMBEDDING:
-      // Extract base color from HIGH value (strip 'FF' alpha)
-      return METRIC_COLORS.SCORE_EMBEDDING.HIGH.slice(0, 7)
-    case METRIC_SCORE_FUZZ:
-      return METRIC_COLORS.SCORE_FUZZ.HIGH.slice(0, 7)
-    case METRIC_SCORE_DETECTION:
-      return METRIC_COLORS.SCORE_DETECTION.HIGH.slice(0, 7)
-    case METRIC_QUALITY_SCORE:
-      return METRIC_COLORS.QUALITY_SCORE_COLORS.HIGH.slice(0, 7)
-    default:
-      return '#6b7280'  // Default gray
-  }
-}
-
 // ============================================================================
 // COMPONENT TYPE COLORS - Centralized color mapping for SAE components
 // Updated to use neutral grayscale for UI elements (Explainer, Scorer)
@@ -264,87 +368,10 @@ export const COMPONENT_COLORS = {
   QUALITY_SCORE: METRIC_COLORS.QUALITY_SCORE_COLORS.HIGH,  // Full dark gray
 } as const
 
-// ============================================================================
-// SELECTION CATEGORY COLORS - 4-category system for feature selection states
-// Used across: SelectionStateBar.tsx, QualityTablePanel.css, FeatureSplitTable.css
-// ============================================================================
-
-/**
- * Selection Category Color System
- *
- * Confirmed (Manual Selection): User manually clicked checkbox - GREEN
- * Expanded (Auto-Tagged): Automatically tagged by histogram thresholds - BLUE
- * Rejected: User rejected feature/pair - RED
- * Unsure: Not selected or investigated - GRAY
- */
-export const SELECTION_CATEGORY_COLORS = {
-  // Confirmed - Manual selection by user (Blue)
-  CONFIRMED: {
-    HEX: '#3b82f6',                    // Tailwind blue-500
-    RGB: { r: 59, g: 130, b: 246 },    // RGB components
-    LIGHT: 'rgba(59, 130, 246, 0.08)', // Background highlight
-    HOVER: 'rgba(59, 130, 246, 0.15)'  // Hover state
-  },
-
-  // Expanded - Auto-tagged by histogram (Cyan/Teal)
-  EXPANDED: {
-    HEX: '#67e8f9',                    // Tailwind cyan-300
-    RGB: { r: 103, g: 232, b: 249 },   // RGB components
-    LIGHT: 'rgba(103, 232, 249, 0.08)', // Background highlight
-    HOVER: 'rgba(103, 232, 249, 0.15)'  // Hover state
-  },
-
-  // Rejected - Manually rejected (Red)
-  REJECTED: {
-    HEX: '#ef4444',                    // Tailwind red-500
-    RGB: { r: 239, g: 68, b: 68 },     // RGB components
-    LIGHT: 'rgba(239, 68, 68, 0.08)',  // Background highlight
-    HOVER: 'rgba(239, 68, 68, 0.15)'   // Hover state
-  },
-
-  // Auto-Rejected - Auto-tagged by histogram threshold (Pink)
-  AUTO_REJECTED: {
-    HEX: '#f9a8d4',                    // Tailwind pink-300
-    RGB: { r: 249, g: 168, b: 212 },   // RGB components
-    LIGHT: 'rgba(249, 168, 212, 0.08)', // Background highlight
-    HOVER: 'rgba(249, 168, 212, 0.15)'  // Hover state
-  },
-
-  // Unsure - Not selected or investigated (Gray)
-  UNSURE: {
-    HEX: '#9ca3af',                    // Tailwind gray-400
-    RGB: { r: 156, g: 163, b: 175 },   // RGB components
-    LIGHT: 'rgba(156, 163, 175, 0.08)', // Background highlight
-    HOVER: 'rgba(156, 163, 175, 0.15)'  // Hover state
-  }
-} as const
-
 /**
  * Selection category type definition
  */
 export type SelectionCategory = 'confirmed' | 'expanded' | 'rejected' | 'autoRejected' | 'unsure'
-
-/**
- * Get color for a selection category
- * @param category - The selection category
- * @returns Color object with HEX, RGB, LIGHT, and HOVER variants
- */
-export function getSelectionCategoryColor(category: SelectionCategory) {
-  switch (category) {
-    case 'confirmed':
-      return SELECTION_CATEGORY_COLORS.CONFIRMED
-    case 'expanded':
-      return SELECTION_CATEGORY_COLORS.EXPANDED
-    case 'rejected':
-      return SELECTION_CATEGORY_COLORS.REJECTED
-    case 'autoRejected':
-      return SELECTION_CATEGORY_COLORS.AUTO_REJECTED
-    case 'unsure':
-      return SELECTION_CATEGORY_COLORS.UNSURE
-    default:
-      return SELECTION_CATEGORY_COLORS.UNSURE
-  }
-}
 
 // ============================================================================
 // LLM ICON SVG PATHS - Reusable icon definitions for LLM components

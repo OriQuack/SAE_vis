@@ -10,7 +10,7 @@ import {
   TAG_CATEGORY_FEATURE_SPLITTING,
   TAG_CATEGORY_QUALITY,
   TAG_CATEGORY_CAUSE
-} from '../lib/tag-constants'
+} from '../lib/constants'
 
 // ============================================================================
 // COMMON TABLE ACTIONS (shared by all stages)

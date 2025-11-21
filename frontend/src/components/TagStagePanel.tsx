@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
 import {
   getTagCategoriesInOrder,
-  getTagColor,
-  type TagCategoryConfig
-} from '../lib/tag-constants';
+  getTagColor
+} from '../lib/tag-system';
+import { type TagCategoryConfig } from '../lib/constants';
 import { useVisualizationStore } from '../store/index';
 import '../styles/TagStagePanel.css';
 

@@ -49,26 +49,30 @@ const Header: React.FC = () => {
         <h1 className="header__title">SAEGE</h1>
       </div>
 
-      {/* SAE Model Info - Single Line */}
-      {saeMetadata && (
-        <div className="header__sae-info">
-          <span className="header__sae-label">Model:</span>
-          <span className="header__sae-value">{saeMetadata.modelName}</span>
-          <span className="header__sae-separator"></span>
-          <span className="header__sae-label">Layer:</span>
-          <span className="header__sae-value">{saeMetadata.layer}</span>
-          <span className="header__sae-separator"></span>
-          <span className="header__sae-label">Features:</span>
-          <span className="header__sae-value">{saeMetadata.width}</span>
-          {llmExplainerNames && (
-            <>
-              <span className="header__sae-separator"></span>
-              <span className="header__sae-label">LLM Explainers:</span>
-              <span className="header__sae-value">{llmExplainerNames}</span>
-            </>
-          )}
-        </div>
-      )}
+      {/* Badge Container - Horizontal Layout */}
+      <div className="header__badges">
+        {/* SAE Model Info Badge */}
+        {saeMetadata && (
+          <div className="header__sae-info">
+            <span className="header__sae-label">Model:</span>
+            <span className="header__sae-value">{saeMetadata.modelName}</span>
+            <span className="header__sae-separator"></span>
+            <span className="header__sae-label">Layer:</span>
+            <span className="header__sae-value">{saeMetadata.layer}</span>
+            <span className="header__sae-separator"></span>
+            <span className="header__sae-label">Features:</span>
+            <span className="header__sae-value">{saeMetadata.width}</span>
+          </div>
+        )}
+
+        {/* LLM Explainers Badge */}
+        {llmExplainerNames && (
+          <div className="header__sae-info">
+            <span className="header__sae-label">LLM Explainers:</span>
+            <span className="header__sae-value">{llmExplainerNames}</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

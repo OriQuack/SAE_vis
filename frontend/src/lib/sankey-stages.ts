@@ -7,7 +7,7 @@
  * Stage 3: Cause Determination (pre-defined groups)
  */
 
-import { TAG_CATEGORIES } from './tag-constants'
+import { TAG_CATEGORIES } from './constants'
 
 export interface StageConfig {
   stageNumber: 1 | 2 | 3

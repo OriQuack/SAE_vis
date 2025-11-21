@@ -6,9 +6,9 @@ import type {
 } from '../types'
 import {
   CATEGORY_DECODER_SIMILARITY,
-  CATEGORY_SEMANTIC_SIMILARITY,
-  getMetricBaseColor
+  CATEGORY_SEMANTIC_SIMILARITY
 } from './constants'
+import { getMetricBaseColor } from './color-utils'
 
 // ============================================================================
 // UTILS-SPECIFIC TYPES (Internal use only - not exported)
@@ -66,9 +66,26 @@ export const RIGHT_SANKEY_MARGIN = { top: 80, right: 80, bottom: 50, left: 120 }
 const MIN_CONTAINER_WIDTH = 200
 const MIN_CONTAINER_HEIGHT = 250
 
+// Link opacity constants (0-1 range)
+export const LINK_OPACITY = {
+  DEFAULT: 0.35,   // 35% opacity for normal links
+  HOVER: 0.28      // 28% opacity for hovered links
+} as const
+
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
+
+/**
+ * Apply opacity to a hex color
+ * @param hexColor - Base color in hex format (e.g., "#ff0000")
+ * @param opacity - Opacity value (0-1 range)
+ * @returns Color with opacity as hex (e.g., "#ff000059")
+ */
+export function applyOpacity(hexColor: string, opacity: number): string {
+  const opacityHex = Math.round(opacity * 255).toString(16).padStart(2, '0')
+  return `${hexColor}${opacityHex}`
+}
 
 /**
  * D3-sankey node alignment function that respects actual stage positions
@@ -425,18 +442,22 @@ export function getNodeColor(node: D3SankeyNode): string {
   return '#6b7280' // Default gray
 }
 
+/**
+ * Get the base color for a link (without opacity)
+ * Links are colored based on their source node
+ */
 export function getLinkColor(link: D3SankeyLink): string {
   // Defensive checks for d3-sankey processed data
   if (!link?.source) {
     console.warn('getLinkColor: Link source is undefined, using default color')
-    return '#6b728059'
+    return '#6b7280'  // Default gray
   }
 
   const sourceNode = link.source as D3SankeyNode
 
   // Use hierarchical color from source node (preferred)
   if (sourceNode?.colorHex) {
-    return `${sourceNode.colorHex}30`  // Add 35% opacity
+    return sourceNode.colorHex
   }
 
   // Fallback: Get metric from source node (links are colored by the metric that created them)
@@ -444,12 +465,11 @@ export function getLinkColor(link: D3SankeyLink): string {
 
   if (!metric) {
     // No metric: use default gray (root node or nodes without metrics)
-    return '#6b728059'  // 35% opacity
+    return '#6b7280'
   }
 
-  // Get base color from centralized source and apply 35% opacity
-  const baseColor = getMetricBaseColor(metric)
-  return `${baseColor}59`  // Add 35% opacity (hex '59' = 89/255)
+  // Get base color from centralized source
+  return getMetricBaseColor(metric)
 }
 
 // ============================================================================

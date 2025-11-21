@@ -10,7 +10,7 @@ import type {
   SankeyTreeNode,
   MetricType
 } from '../types'
-import { TAG_CATEGORIES } from './tag-constants'
+import { TAG_CATEGORIES } from './constants'
 
 
 // ============================================================================

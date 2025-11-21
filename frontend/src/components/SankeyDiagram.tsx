@@ -8,7 +8,9 @@ import {
   getLinkColor,
   getSankeyPath,
   applyRightToLeftTransform,
-  RIGHT_SANKEY_MARGIN
+  RIGHT_SANKEY_MARGIN,
+  LINK_OPACITY,
+  applyOpacity
 } from '../lib/sankey-utils'
 import { calculateVerticalBarNodeLayout } from '../lib/sankey-utils'
 // Removed: SankeyTreeNode, getNodeMetrics, getNodeSegments - using v2 system
@@ -166,8 +168,9 @@ const SankeyLink: React.FC<{
   const path = getSankeyPath(link)
   const baseColor = getLinkColor(link)
 
-  // Apply opacity by replacing last 2 characters (opacity suffix)
-  const color = isHovered ? baseColor.slice(0, -2) + '48' : baseColor
+  // Apply opacity using centralized constants
+  const opacity = isHovered ? LINK_OPACITY.HOVER : LINK_OPACITY.DEFAULT
+  const color = applyOpacity(baseColor, opacity)
 
   return (
     <path
@@ -175,7 +178,6 @@ const SankeyLink: React.FC<{
       fill="none"
       stroke={color}
       strokeWidth={Math.max(1, link.width || 0)}
-      opacity={1.0}
       style={{
         transition: `all 500ms cubic-bezier(0.4, 0.0, 0.2, 1)`,
         cursor: onClick ? 'pointer' : 'default'

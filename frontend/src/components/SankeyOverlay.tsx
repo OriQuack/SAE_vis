@@ -8,7 +8,7 @@ import {
 // Removed: getNodeThresholds, getExactMetricFromPercentile - using v2 simplified system
 import { calculateHorizontalBarSegments } from '../lib/histogram-utils'
 import { groupFeaturesByThresholds, calculateSegmentProportions } from '../lib/threshold-utils'
-import { TAG_CATEGORIES } from '../lib/tag-constants'
+import { TAG_CATEGORIES } from '../lib/constants'
 import { scaleLinear } from 'd3-scale'
 import { ThresholdHandles } from './ThresholdHandles'
 // Removed: TAG_CATEGORIES import - not needed in v2 (RE-ADDED for optimistic segments)
@@ -398,9 +398,11 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
           const metricHistogramData = histogramData?.[compositeKey]
           if (!metricHistogramData) return null
 
-          const { min, max } = metricHistogramData.statistics
-          const metricMin = min - 0.01
-          const metricMax = max + 0.01
+          // Use bin edges for metric range to match yScale domain in histogram
+          const binEdges = metricHistogramData.histogram.bin_edges
+          if (!binEdges || binEdges.length < 2) return null
+          const metricMin = binEdges[0]
+          const metricMax = binEdges[binEdges.length - 1]
 
           // V2: Use single threshold value from target segment
           const currentThreshold = targetStructureNode.threshold || ((metricMin + metricMax) / 2)

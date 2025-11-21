@@ -57,23 +57,7 @@
   z-index: 2;
 }
 
-/* Category-Specific Colors (fallback, mainly set inline) */
-.selection-state-bar__segment--confirmed {
-  background-color: #10b981; /* green */
-}
-
-.selection-state-bar__segment--expanded {
-  background-color: #3b82f6; /* blue */
-}
-
-.selection-state-bar__segment--rejected {
-  background-color: #ef4444; /* red */
-}
-
-.selection-state-bar__segment--autoRejected {
-  background-color: #fca5a5; /* light red */
-}
-
+/* Category-Specific Colors (set inline based on mode, fallback for unsure) */
 .selection-state-bar__segment--unsure {
   background-color: #9ca3af; /* gray */
 }
