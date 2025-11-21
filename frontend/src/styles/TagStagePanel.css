@@ -163,7 +163,7 @@
   padding: 0 3px;
   border-radius: 50%;
   background: white;
-  color: #1e293b;
+  color: #7b7b7b;
   font-weight: 700;
   font-size: 16px;
   line-height: 1;
@@ -186,9 +186,9 @@
 
 /* Stage label */
 .stage-tab__label {
-  font-weight: 600;
-  font-size: 18px;
-  color: #1e293b;
+  font-weight: 500;
+  font-size: 20px;
+  color: #7b7b7b;
   text-align: center;
   line-height: 1.2;
   white-space: nowrap;
@@ -196,19 +196,19 @@
 
 .stage-tab--active .stage-tab__label {
   color: #1e293b;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .stage-tab--completed .stage-tab__label {
   color: #1e293b;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 /* Stage instruction */
 .stage-tab__instruction {
   font-size: 14px;
   font-weight: 500;
-  color: #64748b;
+  color: #7b7b7b;
   text-align: center;
   line-height: 1.2;
   white-space: nowrap;
@@ -218,12 +218,12 @@
 }
 
 .stage-tab--active .stage-tab__instruction {
-  color: #64748b;
+  color: #000000;
   font-weight: 500;
 }
 
 .stage-tab--completed .stage-tab__instruction {
-  color: #64748b;
+  color: #000000;
   font-weight: 500;
 }
 

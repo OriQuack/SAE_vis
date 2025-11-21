@@ -25,26 +25,27 @@
 .sankey-diagram__header {
   flex-shrink: 0;
   display: flex;
-  flex-direction: row;
-  align-items: baseline;
-  gap: 8px;
-  padding: 4px 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 8px;
   background: white;
   border-bottom: 1px solid #e5e7eb;
 }
 
 .sankey-diagram__title {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: 500;
   color: #374151;
   margin: 0;
+  white-space: nowrap;
 }
 
 .sankey-diagram__instruction {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 400;
-  color: #9ca3af;
+  color: #000000;
   margin: 0;
+  white-space: nowrap;
 }
 
 .sankey-diagram__container {
@@ -338,16 +339,6 @@
               font-weight var(--sankey-animation-duration) var(--sankey-animation-easing);
 }
 
-/* Histograms - No transitions for instant updates */
-.sankey-diagram__node-histograms rect {
-  /* Transitions removed to prevent animation on threshold changes */
-}
-
-.sankey-diagram__node-histograms line,
-.sankey-diagram__node-histograms text {
-  /* Transitions removed to prevent animation on threshold changes */
-}
-
 /* Threshold Sliders - Smooth transitions */
 .sankey-threshold-sliders-group {
   transition: opacity var(--sankey-animation-duration) var(--sankey-animation-easing);
@@ -408,9 +399,6 @@
 /* Selected vertical bar nodes - no additional styling needed */
 /* Note: Selection is indicated by the blue border rectangle in SankeyDiagram.tsx */
 /* Individual rects keep their hierarchical colors without blue override */
-.sankey-vertical-bar-node--selected .sankey-vertical-bar-rect {
-  /* Removed: stroke, stroke-width, and drop-shadow to preserve hierarchical colors */
-}
 
 /* Hovered vertical bar nodes */
 .sankey-vertical-bar-node--hovered .sankey-vertical-bar-rect {
