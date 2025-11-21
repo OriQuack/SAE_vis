@@ -59,7 +59,7 @@ export const DEFAULT_ANIMATION = {
   easing: 'ease-out'
 } as const
 
-const DEFAULT_SANKEY_MARGIN = { top: 10, right: 50, bottom: 20, left: 20 } as const
+const DEFAULT_SANKEY_MARGIN = { top: 10, right: 30, bottom: 20, left: 10 } as const
 export const RIGHT_SANKEY_MARGIN = { top: 80, right: 80, bottom: 50, left: 120 } as const
 
 // Validation constants

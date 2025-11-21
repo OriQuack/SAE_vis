@@ -1,13 +1,18 @@
 /* ============================================================================
  * TAG AUTOMATIC PANEL - Embedded histogram panel for automatic tagging
+ * ============================================================================
+ * Consistent styling with FeatureSplitPairViewer:
+ * - Border: 1px solid #e5e7eb (professional, subtle border)
+ * - Background: #ffffff (white background)
+ * - No border-radius (clean, consistent edges)
+ * - Parent container provides padding
  * ============================================================================ */
 
 .tag-automatic-panel {
   display: flex;
   flex-direction: column;
-  background-color: var(--bg-primary);
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
+  background-color: #ffffff;
+  /* border: 1px solid #e5e7eb; */
   overflow: hidden;
   flex: 1;
   max-height: 50%;
@@ -24,21 +29,28 @@
 
 /* ============================================================================
  * HEADER
+ * ============================================================================
+ * Matches FeatureSplitPairViewer header style:
+ * - Minimal padding: 2px 8px
+ * - White background
+ * - Subtle border: 1px solid #e5e7eb
  * ============================================================================ */
 
 .tag-panel__header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
-  background-color: #f9fafb;
-  border-bottom: 1px solid #d1d5db;
+  padding: 2px 8px;
+  background-color: white;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
 }
 
 .tag-panel__title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1f2937;
+  font-size: 22px;
+  font-weight: 500;
+  color: #374151;
+  margin: 0;
 }
 
 .tag-panel__minimize-button {

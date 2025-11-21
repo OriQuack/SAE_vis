@@ -13,13 +13,24 @@
   --sankey-button-remove: #ef4444;
 }
 
-/* Main Container */
+/* ============================================================================
+ * Main Container
+ * ============================================================================
+ * Consistent styling with FeatureSplitPairViewer and other major components:
+ * - Border: 1px solid #e5e7eb (professional, subtle border)
+ * - Background: white
+ * - Overflow: hidden (clean edges)
+ * - Parent container (.sankey-view__sankey-left) provides 6px padding
+ * ============================================================================ */
 .sankey-diagram {
   width: 100%;
   height: 100%;
   flex: 1;
   display: flex;
   flex-direction: column;
+  /* border: 1px solid #e5e7eb; */
+  background-color: #ffffff;
+  overflow: hidden;
 }
 
 .sankey-diagram__header {
@@ -27,7 +38,7 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  padding: 8px;
+  padding: 2px 8px;
   background: white;
   border-bottom: 1px solid #e5e7eb;
 }
@@ -51,12 +62,11 @@
 .sankey-diagram__container {
   position: relative;
   background: white;
-  border: none;
-  border-radius: 0.25rem;
   overflow: hidden;
   flex: 1;
   width: 100%;
   height: 100%;
+  min-height: 0;
 }
 
 .sankey-diagram__svg {

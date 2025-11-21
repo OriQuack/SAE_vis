@@ -354,7 +354,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
     return (
       <div className="tag-automatic-panel tag-automatic-panel--empty">
         <div className="tag-panel__header">
-          <span className="tag-panel__title">Automatic Tagging - {mode === 'feature' ? 'Features' : 'Pairs'}</span>
+          <span className="tag-panel__title">Automatic Tagging</span>
         </div>
         <div className="tag-panel__empty-message">
           Click "Tag Automatically" to configure thresholds
@@ -367,7 +367,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
     <div className={`tag-automatic-panel ${isMinimized ? 'tag-automatic-panel--minimized' : ''}`}>
       <div className="tag-panel__header">
         <span className="tag-panel__title">
-          Automatic Tagging - {mode === 'feature' ? 'Features' : 'Pairs'}
+          Automatic Tagging
         </span>
         <button
           className="tag-panel__minimize-button"

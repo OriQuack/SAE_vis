@@ -494,13 +494,13 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
     }
   }, [setTableScrollState, sortedFeatures, explainerIds, rowVirtualizer, totalRowCount, tableData?.features.length])  // Re-run when features change
 
-  // Check if we should render stage-specific table (moved before other early returns)
+  // Check if we should render stage-specific views (moved before other early returns)
   // Use stored category for simple and reliable check
   if (activeStageNodeId && activeStageCategory) {
     // Feature Splitting category → Show FeatureSplitPairViewer + TagAutomaticPanel
     if (activeStageCategory === TAG_CATEGORY_FEATURE_SPLITTING) {
       return (
-        <div className={`table-panel ${className}`} style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '10px' }}>
+        <div className="feature-splitting-stage-view">
           <FeatureSplitPairViewer />
           <TagAutomaticPanel mode="pair" />
           <SimilarityTaggingPopover />
@@ -520,7 +520,7 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   // Legacy support: Check old CATEGORY_DECODER_SIMILARITY constant (deprecated)
   if (activeStageNodeId && activeStageCategory === CATEGORY_DECODER_SIMILARITY) {
     return (
-      <div className={`table-panel ${className}`} style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '10px' }}>
+      <div className="feature-splitting-stage-view">
         <FeatureSplitPairViewer />
         <TagAutomaticPanel mode="pair" />
         <SimilarityTaggingPopover />

@@ -14,7 +14,6 @@ import {
   TAG_CATEGORY_QUALITY,
   TAG_CATEGORY_FEATURE_SPLITTING,
   TAG_CATEGORY_CAUSE,
-  type SelectionCategory
 } from './constants'
 import { getBadgeColors } from './tag-system'
 

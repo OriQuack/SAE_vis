@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { useVisualizationStore } from '../store/index'
 import { type SelectionCategory } from '../lib/constants'
-import { getSelectionColors, type TableMode } from '../lib/color-utils'
+import { getSelectionColors } from '../lib/color-utils'
 import SelectionStateBar, { type CategoryCounts } from './SelectionBar'
 import '../styles/SelectionPanel.css'
 
