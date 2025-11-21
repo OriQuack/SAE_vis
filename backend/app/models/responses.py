@@ -456,6 +456,10 @@ class FeatureTableRow(BaseModel):
         None,
         description="List of top 10 most similar decoder features (sorted descending by cosine_similarity)"
     )
+    decoder_similarity_merge_threshold: Optional[float] = Field(
+        None,
+        description="Merge threshold value for decoder similarity (aggregate metric for grouping/filtering)"
+    )
     explainers: Dict[str, ExplainerScoreData] = Field(
         ...,
         description="Scores for each explainer (llama, qwen, openai)"

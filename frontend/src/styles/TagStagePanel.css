@@ -250,9 +250,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
-  padding: 5px 10px;
-  flex: 1 1 calc(50% - 1.5px);
+  gap: 2px;
+  padding: 4px 8px;
+  flex-shrink: 1;
   min-width: 0;
   background: #f1f5f9; /* Fallback, will be overridden by inline style */
   border: 1px solid #cbd5e1; /* Fallback, will be overridden by inline style */
@@ -276,7 +276,7 @@
 
 /* Badge label */
 .stage-tag-badge__label {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: #1e293b;
   line-height: 1.2;
@@ -288,7 +288,7 @@
 
 /* Badge count (right side) */
 .stage-tag-badge__count {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
   color: #0f172a;

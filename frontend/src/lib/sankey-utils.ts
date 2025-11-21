@@ -333,7 +333,7 @@ export function calculateSankeyLayout(
 
   // Create D3 sankey generator
   const sankeyGenerator = sankey<D3SankeyNode, D3SankeyLink>()
-    .nodeWidth(15)
+    .nodeWidth(20)
     .nodePadding(10)
     .extent([[1, 1], [width - 1, height - 1]])
     .nodeAlign(stageBasedAlign)

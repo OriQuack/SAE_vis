@@ -30,6 +30,11 @@ from ..models.responses import (
 )
 from .consistency_service import ExplainerDataBuilder
 from .alignment_service import AlignmentService
+from .data_constants import (
+    COL_DECODER_SIMILARITY,
+    COL_DECODER_SIMILARITY_MERGE_THRESHOLD,
+    DECODER_METRIC_FOR_AGGREGATION
+)
 
 # Import for type hints only (avoids circular imports)
 if TYPE_CHECKING:
@@ -212,9 +217,17 @@ class TableDataService:
 
         # Add additional columns if available
         available_columns = lf.columns
-        logger.info(f"Checking for decoder_similarity: {'decoder_similarity' in available_columns}")
-        if "decoder_similarity" in available_columns:
-            base_columns.append("decoder_similarity")
+
+        # Always include decoder_similarity (List) for feature pair display
+        logger.info(f"Checking for {COL_DECODER_SIMILARITY}: {COL_DECODER_SIMILARITY in available_columns}")
+        if COL_DECODER_SIMILARITY in available_columns:
+            base_columns.append(COL_DECODER_SIMILARITY)
+
+        # Also include decoder_similarity_merge_threshold if available (for aggregate metric display)
+        logger.info(f"Checking for {COL_DECODER_SIMILARITY_MERGE_THRESHOLD}: {COL_DECODER_SIMILARITY_MERGE_THRESHOLD in available_columns}")
+        if COL_DECODER_SIMILARITY_MERGE_THRESHOLD in available_columns:
+            base_columns.append(COL_DECODER_SIMILARITY_MERGE_THRESHOLD)
+            logger.info(f"Including {COL_DECODER_SIMILARITY_MERGE_THRESHOLD} column for table display")
 
         logger.info(f"Selecting columns: {base_columns}")
         df = lf.select(base_columns).collect()
@@ -622,6 +635,15 @@ class TableDataService:
             logger.error(f"Error building decoder lookup: {e}", exc_info=True)
             raise
 
+        try:
+            # Build decoder_similarity_merge_threshold lookup: feature_id -> merge_threshold_value
+            logger.info("Building decoder merge threshold lookup...")
+            merge_threshold_lookup = self._build_merge_threshold_lookup(scores_df)
+            logger.info(f"Merge threshold lookup built: {len(merge_threshold_lookup)} entries")
+        except Exception as e:
+            logger.error(f"Error building merge threshold lookup: {e}", exc_info=True)
+            raise
+
         logger.info(f"All lookups pre-computed successfully")
 
         features = []
@@ -630,6 +652,9 @@ class TableDataService:
             # OPTIMIZATION 2: Use decoder lookup instead of filtering
             decoder_sim_value = decoder_lookup.get(feature_id)
             decoder_similarity = None
+
+            # Get decoder_similarity_merge_threshold for this feature
+            merge_threshold = merge_threshold_lookup.get(feature_id)
 
             if decoder_sim_value is not None:
                 # Get interfeature lookup for this feature (already pre-computed)
@@ -743,6 +768,7 @@ class TableDataService:
                 features.append(FeatureTableRow(
                     feature_id=feature_id,
                     decoder_similarity=decoder_similarity,
+                    decoder_similarity_merge_threshold=merge_threshold,
                     explainers=explainers_dict
                 ))
 
@@ -813,6 +839,25 @@ class TableDataService:
                 decoder_sim = first_row["decoder_similarity"][0]
                 if decoder_sim is not None:
                     lookup[feature_id] = decoder_sim
+        return lookup
+
+    def _build_merge_threshold_lookup(self, scores_df: pl.DataFrame) -> Dict[int, float]:
+        """
+        Build lookup dict: feature_id -> decoder_similarity_merge_threshold value.
+        Takes first row per feature (merge threshold is same for all rows).
+        """
+        lookup = {}
+        if COL_DECODER_SIMILARITY_MERGE_THRESHOLD not in scores_df.columns:
+            logger.debug(f"Column {COL_DECODER_SIMILARITY_MERGE_THRESHOLD} not found in scores_df")
+            return lookup
+
+        # Get unique feature_ids and their merge threshold (first row per feature)
+        for feature_id in scores_df["feature_id"].unique().to_list():
+            first_row = scores_df.filter(pl.col("feature_id") == feature_id).head(1)
+            if len(first_row) > 0:
+                merge_threshold = first_row[COL_DECODER_SIMILARITY_MERGE_THRESHOLD][0]
+                if merge_threshold is not None and not pl.datatypes.Null == type(merge_threshold):
+                    lookup[feature_id] = float(merge_threshold)
         return lookup
 
     def _build_all_interfeature_lookups(self, interfeature_df: pl.DataFrame) -> Dict[int, Dict[int, Dict]]:

@@ -244,10 +244,10 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
               {/* Tick label - vertical (90 degrees), smaller font */}
               <text
                 x={-2}
-                y={11}
+                y={12}
                 textAnchor="middle"
                 dominantBaseline="middle"
-                fontSize={8}
+                fontSize={12}
                 fill={'#000000ff'}
                 transform="rotate(90)"
               >

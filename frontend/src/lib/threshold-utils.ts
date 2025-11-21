@@ -569,9 +569,18 @@ export function groupFeaturesByThresholds(
     if (parentFeatureIds.has(feature.feature_id)) {
       let metricValue: number | null = null
 
-      // Special handling for decoder_similarity (extract max cosine_similarity)
-      if (metric === 'decoder_similarity' && Array.isArray(feature[metric]) && feature[metric].length > 0) {
-        metricValue = Math.max(...feature[metric].map((item: any) => item.cosine_similarity))
+      // Special handling for decoder_similarity
+      if (metric === 'decoder_similarity') {
+        // First, check if decoder_similarity_merge_threshold exists (new metric)
+        if (feature.decoder_similarity_merge_threshold !== null &&
+            feature.decoder_similarity_merge_threshold !== undefined &&
+            !isNaN(feature.decoder_similarity_merge_threshold)) {
+          metricValue = feature.decoder_similarity_merge_threshold
+        }
+        // Fallback: extract max cosine_similarity from array (old behavior)
+        else if (Array.isArray(feature[metric]) && feature[metric].length > 0) {
+          metricValue = Math.max(...feature[metric].map((item: any) => item.cosine_similarity))
+        }
       }
       // Special handling for quality_score (average across explainers)
       else if (metric === 'quality_score' && feature.explainers) {

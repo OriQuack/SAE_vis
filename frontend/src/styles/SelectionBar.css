@@ -13,7 +13,6 @@
 .selection-state-bar__bar {
   display: flex;
   height: 24px;
-  border-radius: 4px;
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }

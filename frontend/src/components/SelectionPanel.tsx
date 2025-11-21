@@ -154,10 +154,10 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
   const restoreSimilarityTaggingPopover = useVisualizationStore(state => state.restoreSimilarityTaggingPopover)
   const getSelectedNodeFeatures = useVisualizationStore(state => state.getSelectedNodeFeatures)
 
-  // Sankey threshold info - use different node ID based on mode
+  // Dependencies that change when thresholds update
+  const sankeyStructure = useVisualizationStore(state => state.leftPanel.sankeyStructure)
+  const selectedSegment = useVisualizationStore(state => state.selectedSegment)
   const tableSelectedNodeIds = useVisualizationStore(state => state.tableSelectedNodeIds)
-  const activeStageNodeId = useVisualizationStore(state => state.activeStageNodeId)
-  const sankeyTree = useVisualizationStore(state => state.leftPanel.sankeyTree)
 
   // Get filtered feature IDs - use store's getSelectedNodeFeatures for proper segment handling
   const filteredFeatureIds = useMemo(() => {
@@ -172,7 +172,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
 
     console.log('[SelectionPanel] filteredFeatureIds:', featureIds.size, 'features from getSelectedNodeFeatures()')
     return featureIds
-  }, [getSelectedNodeFeatures])
+  }, [getSelectedNodeFeatures, sankeyStructure, selectedSegment, tableSelectedNodeIds])
 
   // Track if threshold button should highlight (first time showing preview)
   const [shouldHighlightThresholdButton, setShouldHighlightThresholdButton] = useState(false)
@@ -358,7 +358,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
             showLabels={true}
             showLegend={true}
             orientation="vertical"
-            width="80%"
+            width="42px"
             height="100%"
             mode={mode}
           />

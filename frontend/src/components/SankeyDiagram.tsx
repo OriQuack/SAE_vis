@@ -5,7 +5,6 @@ import {
   calculateSankeyLayout,
   validateSankeyData,
   validateDimensions,
-  getNodeColor,
   getLinkColor,
   getSankeyPath,
   applyRightToLeftTransform,
@@ -51,6 +50,59 @@ const ErrorMessage: React.FC<{ message: string }> = ({ message }) => (
   </div>
 )
 
+/**
+ * Reusable label component with white outline and black text
+ * Used for all Sankey node and segment labels
+ */
+const OutlinedLabel: React.FC<{
+  x: number
+  y: number
+  text: string
+  fontSize: number
+  textAnchor: 'start' | 'end' | 'middle'
+  isHovered: boolean
+  transition?: string
+}> = ({ x, y, text, fontSize, textAnchor, isHovered, transition = 'all 300ms ease-out' }) => (
+  <>
+    {/* White stroke outline */}
+    <text
+      x={x}
+      y={y}
+      dy="0.35em"
+      fontSize={fontSize}
+      fill="white"
+      stroke="white"
+      strokeWidth={3}
+      opacity={1}
+      fontWeight={isHovered ? 700 : 600}
+      textAnchor={textAnchor}
+      style={{
+        pointerEvents: 'none',
+        transition
+      }}
+    >
+      {text}
+    </text>
+    {/* Black text on top */}
+    <text
+      x={x}
+      y={y}
+      dy="0.35em"
+      fontSize={fontSize}
+      fill="#000000"
+      opacity={1}
+      fontWeight={isHovered ? 700 : 600}
+      textAnchor={textAnchor}
+      style={{
+        pointerEvents: 'none',
+        transition
+      }}
+    >
+      {text}
+    </text>
+  </>
+)
+
 const SankeyNode: React.FC<{
   node: D3SankeyNode
   onMouseEnter: (e: React.MouseEvent) => void
@@ -76,7 +128,6 @@ const SankeyNode: React.FC<{
     return null
   }
 
-  const color = getNodeColor(node)
   const width = node.x1 - node.x0
   const height = node.y1 - node.y0
 
@@ -87,10 +138,9 @@ const SankeyNode: React.FC<{
         y={node.y0}
         width={width}
         height={height}
-        fill={color}
-        fillOpacity={0.85}
-        stroke={isSelected ? '#2563eb' : color}
-        strokeWidth={isSelected ? 4 : 1}
+        fill="none"
+        stroke={isSelected ? '#2563eb' : '#000000'}
+        strokeWidth={isSelected ? 3 : 1}
         style={{
           cursor: onClick ? 'pointer' : 'default',
           filter: (isHovered || isHighlighted) ? 'brightness(1.1)' : 'none'
@@ -764,14 +814,19 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                           // Replace underscores with spaces and capitalize first letter of each word
                           const metricDisplay = metric ? metric.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : ''
 
+                          // Add "?" suffix for terminal segments (with stripe pattern) to show unsure status
+                          const displayTagName = isTerminalSegment(segment.tagName)
+                            ? `${segment.tagName}?`
+                            : segment.tagName
+
                           const labelLines = [
-                            segment.tagName,
+                            displayTagName,
                             metricDisplay && threshold !== null ? `${metricDisplay} ${comparison} ${threshold.toFixed(2)}` : '',
                             `(${segment.featureCount.toLocaleString()})`
                           ].filter(line => line !== '') // Remove empty metric line if no metric
 
                           // Calculate vertical offset to center label group
-                          const lineHeight = 14
+                          const lineHeight = 16
                           const totalHeight = labelLines.length * lineHeight
                           const verticalOffset = -totalHeight / 2 + lineHeight / 2
 
@@ -779,42 +834,14 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                             <g key={`segment-label-${segmentIndex}`}>
                               {labelLines.map((line: string, lineIndex: number) => (
                                 <g key={lineIndex}>
-                                  {/* White stroke outline */}
-                                  <text
+                                  <OutlinedLabel
                                     x={labelX}
                                     y={segmentCenterY + verticalOffset + (lineIndex * lineHeight)}
-                                    dy="0.35em"
-                                    fontSize={lineIndex === 0 ? 12 : 10}
-                                    fill="white"
-                                    stroke="white"
-                                    strokeWidth={3}
-                                    opacity={1}
-                                    fontWeight={isHovered ? 700 : 600}
+                                    text={line}
+                                    fontSize={lineIndex === 0 ? 16 : 12}
                                     textAnchor={textAnchor}
-                                    style={{
-                                      pointerEvents: 'none',
-                                      transition: `all 300ms ease-out`
-                                    }}
-                                  >
-                                    {line}
-                                  </text>
-                                  {/* Black text on top */}
-                                  <text
-                                    x={labelX}
-                                    y={segmentCenterY + verticalOffset + (lineIndex * lineHeight)}
-                                    dy="0.35em"
-                                    fontSize={lineIndex === 0 ? 12 : 10}
-                                    fill="#000000"
-                                    opacity={1}
-                                    fontWeight={isHovered ? 700 : 600}
-                                    textAnchor={textAnchor}
-                                    style={{
-                                      pointerEvents: 'none',
-                                      transition: `all 300ms ease-out`
-                                    }}
-                                  >
-                                    {line}
-                                  </text>
+                                    isHovered={isHovered}
+                                  />
                                 </g>
                               ))}
                             </g>
@@ -834,7 +861,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                   const fallbackNameLines = node.name.split('\n')
                   const fallbackAllLines = [...fallbackNameLines, `(${node.feature_count.toLocaleString()})`]
 
-                  const fallbackLineHeight = 14
+                  const fallbackLineHeight = 16
                   const fallbackTotalHeight = fallbackAllLines.length * fallbackLineHeight
                   const fallbackVerticalOffset = -fallbackTotalHeight / 2 + fallbackLineHeight / 2
 
@@ -842,42 +869,14 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                     <g key={`label-${node.id}`}>
                       {fallbackAllLines.map((line: string, lineIndex: number) => (
                         <g key={lineIndex}>
-                          {/* White stroke outline */}
-                          <text
+                          <OutlinedLabel
                             x={fallbackLabelX}
                             y={fallbackNodeCenterY + fallbackVerticalOffset + (lineIndex * fallbackLineHeight)}
-                            dy="0.35em"
-                            fontSize={lineIndex === fallbackAllLines.length - 1 ? 10 : 12}
-                            fill="white"
-                            stroke="white"
-                            strokeWidth={3}
-                            opacity={1}
-                            fontWeight={fallbackIsHovered ? 700 : 600}
+                            text={line}
+                            fontSize={lineIndex === fallbackAllLines.length - 1 ? 12 : 16}
                             textAnchor={fallbackTextAnchor}
-                            style={{
-                              pointerEvents: 'none',
-                              transition: `all 300ms ease-out`
-                            }}
-                          >
-                            {line}
-                          </text>
-                          {/* Black text on top */}
-                          <text
-                            x={fallbackLabelX}
-                            y={fallbackNodeCenterY + fallbackVerticalOffset + (lineIndex * fallbackLineHeight)}
-                            dy="0.35em"
-                            fontSize={lineIndex === fallbackAllLines.length - 1 ? 10 : 12}
-                            fill="#000000"
-                            opacity={1}
-                            fontWeight={fallbackIsHovered ? 700 : 600}
-                            textAnchor={fallbackTextAnchor}
-                            style={{
-                              pointerEvents: 'none',
-                              transition: `all 300ms ease-out`
-                            }}
-                          >
-                            {line}
-                          </text>
+                            isHovered={fallbackIsHovered}
+                          />
                         </g>
                       ))}
                     </g>
@@ -915,54 +914,24 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                 const allLines = [...nameLines, `(${node.feature_count.toLocaleString()})`]
 
                 // Calculate vertical offset to center entire label group
-                const lineHeight = 14
+                const lineHeight = 16
                 const nodeCenterY = ((node.y0 ?? 0) + (node.y1 ?? 0)) / 2
 
                 return (
                   <g key={`label-${node.id}`}>
-                    {allLines.map((line, index) => {
-                      const labelText = line
-                      return (
-                        <g key={index}>
-                          {/* White stroke outline */}
-                          <text
-                            x={labelX}
-                            y={nodeCenterY + lineHeight / 2 + (index * lineHeight)}
-                            dy="0.35em"
-                            fontSize={index === 0 ? 12 : 10}
-                            fill="white"
-                            stroke="white"
-                            strokeWidth={3}
-                            opacity={1}
-                            fontWeight={isHovered ? 700 : 600}
-                            textAnchor={textAnchor}
-                            style={{
-                              pointerEvents: 'none',
-                              transition: `all 500ms cubic-bezier(0.4, 0.0, 0.2, 1)`
-                            }}
-                          >
-                            {labelText}
-                          </text>
-                          {/* Black text on top */}
-                          <text
-                            x={labelX}
-                            y={nodeCenterY + lineHeight / 2 + (index * lineHeight)}
-                            dy="0.35em"
-                            fontSize={index === 0 ? 12 : 10}
-                            fill="#000000"
-                            opacity={1}
-                            fontWeight={isHovered ? 700 : 600}
-                            textAnchor={textAnchor}
-                            style={{
-                              pointerEvents: 'none',
-                              transition: `all 500ms cubic-bezier(0.4, 0.0, 0.2, 1)`
-                            }}
-                          >
-                            {labelText}
-                          </text>
-                        </g>
-                      )
-                    })}
+                    {allLines.map((line, index) => (
+                      <g key={index}>
+                        <OutlinedLabel
+                          x={labelX}
+                          y={nodeCenterY + lineHeight / 2 + (index * lineHeight)}
+                          text={line}
+                          fontSize={index === 0 ? 16 : 12}
+                          textAnchor={textAnchor}
+                          isHovered={isHovered}
+                          transition="all 500ms cubic-bezier(0.4, 0.0, 0.2, 1)"
+                        />
+                      </g>
+                    ))}
                   </g>
                 )
               })}

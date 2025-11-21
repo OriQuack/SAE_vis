@@ -16,8 +16,8 @@ interface SelectionStateBarProps {
   previewCounts?: CategoryCounts  // Optional: preview state after changes
   onCategoryClick?: (category: SelectionCategory) => void
   orientation?: 'horizontal' | 'vertical'  // Default: 'horizontal'
-  height?: number | string  // For horizontal: height in px (default: 24). For vertical: height in % or px (default: '100%')
-  width?: number | string  // For horizontal: width in % or px (default: '100%'). For vertical: width in % or px (default: '80%')
+  height?: number | string  // For horizontal: height in px (default: 24). For vertical: height in px (default: 200)
+  width?: number | string  // For horizontal: width in % or px (default: '100%'). For vertical: width in % or px (default: '70%')
   showLabels?: boolean  // Default: true
   showLegend?: boolean  // Default: true
   labelThreshold?: number  // Default: 10% - minimum percentage to show label
@@ -82,7 +82,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   // Set default dimensions based on orientation
   const isVertical = orientation === 'vertical'
   const containerHeight = height ?? (isVertical ? '100%' : 24)
-  const containerWidth = width ?? (isVertical ? '70%' : '100%')
+  const containerWidth = width ?? (isVertical ? 24 : '100%')
   // Use standard category config for all modes
   const categoryConfig = CATEGORY_CONFIG
 
