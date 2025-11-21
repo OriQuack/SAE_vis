@@ -6,6 +6,7 @@ import { TagBadge } from './TableIndicators'
 import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import { extractInterFeaturePositions } from '../lib/activation-utils'
+import { UNSURE_GRAY } from '../lib/color-utils'
 import '../styles/FeatureSplitPairViewer.css'
 
 // ============================================================================
@@ -197,7 +198,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
     return { selectedCount, rejectedCount }
   }, [pairSelectionStates])
 
-  const canTagAutomatically = selectionCounts.selectedCount >= 5 && selectionCounts.rejectedCount >= 5
+  const canTagAutomatically = selectionCounts.selectedCount >= 1 && selectionCounts.rejectedCount >= 1
 
   // Handler for Tag Automatically button (must be before early returns)
   const handleTagAutomatically = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
@@ -368,8 +369,8 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
 
   // Get tag colors for buttons
   const fragmentedColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Fragmented') || '#F0E442'
-  const monosemanticColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Monosemantic') || '#999999'
-  const unsureColor = '#999999'  // Gray for unsure state
+  const monosemanticColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Monosemantic') || UNSURE_GRAY
+  const unsureColor = UNSURE_GRAY  // Gray for unsure state
 
   return (
     <div className={`feature-split-pair-viewer ${className}`}>
@@ -450,7 +451,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({ classNa
           className={`sidebar__tag-button ${canTagAutomatically ? 'sidebar__tag-button--available' : ''}`}
           onClick={handleTagAutomatically}
           disabled={!canTagAutomatically}
-          title={canTagAutomatically ? 'Tag remaining pairs automatically' : `Need ≥5 Fragmented and ≥5 Monosemantic (${selectionCounts.selectedCount}/5 Fragmented, ${selectionCounts.rejectedCount}/5 Monosemantic)`}
+          title={canTagAutomatically ? 'Tag remaining pairs automatically' : `Need ≥1 Fragmented and ≥1 Monosemantic (${selectionCounts.selectedCount}/1 Fragmented, ${selectionCounts.rejectedCount}/1 Monosemantic)`}
         >
           Tag Automatically
         </button>

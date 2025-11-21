@@ -84,7 +84,7 @@
  * - noisy-activation: Orange #f97316
  * - missed-lexicon: Purple #a855f7
  * - missed-context: Blue #3b82f6
- * - unsure: Gray #9ca3af
+ * - unsure: Gray var(--unsure-gray)
  */
 
 /* ============================================================================
@@ -182,16 +182,16 @@
 
 /* Unsure - GRAY */
 .table-panel__sub-row--unsure .table-panel__cell {
-  background: rgba(156, 163, 175, 0.08) !important; /* Gray with low opacity */
+  background: color-mix(in srgb, var(--unsure-gray) 8%, transparent) !important; /* Gray with low opacity */
 }
 
 .table-panel__sub-row--unsure:hover .table-panel__cell {
-  background: rgba(156, 163, 175, 0.15) !important;
+  background: color-mix(in srgb, var(--unsure-gray) 15%, transparent) !important;
 }
 
 /* Auto-tagged indicator for unsure */
 .table-panel__sub-row--unsure.table-panel__sub-row--auto-tagged .table-panel__cell:first-child {
-  border-left: 5px solid #9ca3af !important;  /* Gray border */
+  border-left: 5px solid var(--unsure-gray) !important;  /* Gray border */
   padding-left: 3px;
 }
 

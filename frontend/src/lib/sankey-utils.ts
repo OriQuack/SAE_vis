@@ -8,7 +8,7 @@ import {
   CATEGORY_DECODER_SIMILARITY,
   CATEGORY_SEMANTIC_SIMILARITY
 } from './constants'
-import { getMetricBaseColor } from './color-utils'
+import { getMetricBaseColor, UNSURE_GRAY } from './color-utils'
 
 // ============================================================================
 // UTILS-SPECIFIC TYPES (Internal use only - not exported)
@@ -592,7 +592,7 @@ export function applyRightToLeftTransform(
 // ============================================================================
 
 
-const BAR_COLOR = '#9ca3af'  // Gray-400
+const BAR_COLOR = UNSURE_GRAY  // Centralized unsure/untagged color
 
 /**
  * Calculate layout for a vertical bar node within Sankey diagram

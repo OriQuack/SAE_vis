@@ -1,6 +1,7 @@
 import { sum } from 'd3-array'
 import { sankey, sankeyLinkHorizontal } from 'd3-sankey'
 import type { AlluvialFlow, D3SankeyNode, AlluvialSankeyNode, AlluvialSankeyLink, AlluvialLayoutData } from '../types'
+import { UNSURE_GRAY } from './color-utils'
 
 // ============================================================================
 // UTILS-SPECIFIC TYPES
@@ -25,7 +26,7 @@ const ALLUVIAL_COLORS = {
   minor: '#60a5fa',
   moderate: '#fb923c',
   major: '#ef4444',
-  differentStage: '#9ca3af',
+  differentStage: UNSURE_GRAY,
   hover: '#3b82f6',
   consistent: '#10b981',
   inconsistent: '#ef4444'

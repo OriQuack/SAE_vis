@@ -211,33 +211,14 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
   // SIMILARITY TAGGING ACTIONS (pair mode)
   // ============================================================================
 
-  showSimilarityTaggingPopover: async (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string) => {
-    // Only handle pair mode in this file
-    if (mode !== 'pair') {
-      console.warn('[FeatureSplitting.showSimilarityTaggingPopover] Wrong mode:', mode)
-      return
-    }
-
-    console.log(`[Store.showSimilarityTaggingPopover] Opening ${mode} tagging popover with label: ${tagLabel}`)
-
+  /**
+   * Fetch similarity histogram data for pairs
+   * This can be called independently without showing the popover
+   */
+  fetchSimilarityHistogram: async () => {
     const { pairSelectionStates, tableData } = get()
 
     try {
-      // Set loading state
-      set({
-        similarityTaggingPopover: {
-          visible: true,
-          minimized: false,
-          mode,
-          position,
-          histogramData: null,
-          selectThreshold: 0.1,
-          rejectThreshold: -0.1,
-          tagLabel,
-          isLoading: true
-        }
-      })
-
       // Extract selected and rejected pair keys
       const selectedPairKeys: string[] = []
       const rejectedPairKeys: string[] = []
@@ -269,11 +250,17 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
         })
       }
 
-      console.log('[Store.showSimilarityTaggingPopover] Fetching pair histogram:', {
+      console.log('[Store.fetchSimilarityHistogram] Fetching pair histogram:', {
         selected: selectedPairKeys.length,
         rejected: rejectedPairKeys.length,
         total: allPairKeys.length
       })
+
+      // Need at least 1 selected and 1 rejected for meaningful histogram
+      if (selectedPairKeys.length === 0 || rejectedPairKeys.length === 0) {
+        console.warn('[Store.fetchSimilarityHistogram] Need at least 1 selected and 1 rejected pair')
+        return null
+      }
 
       // Fetch histogram data
       const histogramData = await api.getPairSimilarityScoreHistogram(
@@ -283,19 +270,63 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
       )
 
       // Calculate dynamic thresholds based on data range
-      // Use 1/2 of max value for initial select threshold (positive)
-      // Use -1/2 of max value for initial reject threshold (negative)
       const { statistics } = histogramData
       const maxAbsValue = Math.max(
         Math.abs(statistics.min || 0),
         Math.abs(statistics.max || 0)
       )
-      // Default to 0.2 if data has no range or invalid values
       const selectThreshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? maxAbsValue / 2 : 0.2
       const rejectThreshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? -maxAbsValue / 2 : -0.2
 
+      return {
+        histogramData,
+        selectThreshold,
+        rejectThreshold
+      }
+
+    } catch (error) {
+      console.error('[Store.fetchSimilarityHistogram] ❌ Failed to fetch histogram:', error)
+      return null
+    }
+  },
+
+  showSimilarityTaggingPopover: async (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string) => {
+    // Only handle pair mode in this file
+    if (mode !== 'pair') {
+      console.warn('[FeatureSplitting.showSimilarityTaggingPopover] Wrong mode:', mode)
+      return
+    }
+
+    console.log(`[Store.showSimilarityTaggingPopover] Opening ${mode} tagging popover with label: ${tagLabel}`)
+
+    try {
+      // Set loading state
+      set({
+        similarityTaggingPopover: {
+          visible: true,
+          minimized: false,
+          mode,
+          position,
+          histogramData: null,
+          selectThreshold: 0.1,
+          rejectThreshold: -0.1,
+          tagLabel,
+          isLoading: true
+        }
+      })
+
+      // Fetch histogram data using the extracted function
+      const result = await get().fetchSimilarityHistogram()
+
+      if (!result) {
+        console.warn('[Store.showSimilarityTaggingPopover] No histogram data available')
+        set({ similarityTaggingPopover: null })
+        return
+      }
+
+      const { histogramData, selectThreshold, rejectThreshold } = result
+
       // Update state with histogram data
-      // Initialize with dual thresholds for auto-selecting and auto-rejecting
       set({
         similarityTaggingPopover: {
           visible: true,

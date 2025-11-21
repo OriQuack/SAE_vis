@@ -11,6 +11,7 @@ import {
   getQualityScoreColor,
   getMetricColor
 } from './utils'
+import { UNSURE_GRAY } from './color-utils'
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -79,7 +80,7 @@ export function getCauseDisplayName(category: CauseCategoryState | null): string
  * Returns gray for null/undefined (untagged features)
  */
 export function getCauseCategoryColor(category: CauseCategoryState | null): string {
-  if (!category) return '#9ca3af'  // Gray for unsure/untagged
+  if (!category) return UNSURE_GRAY  // Gray for unsure/untagged
 
   const CAUSE_COLOR_MAP: Record<CauseCategoryState, string> = {
     'noisy-activation': '#f97316',  // Orange

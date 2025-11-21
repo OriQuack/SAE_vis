@@ -59,7 +59,7 @@
 
 /* Category-Specific Colors (set inline based on mode, fallback for unsure) */
 .selection-state-bar__segment--unsure {
-  background-color: #9ca3af; /* gray */
+  background-color: var(--unsure-gray);
 }
 
 /* ============================================================================

@@ -147,7 +147,7 @@
 /* Newline symbol - visible by default */
 .newline-symbol {
   display: inline-block;
-  color: #9ca3af;
+  color: var(--unsure-gray);
   font-weight: 600;
   user-select: none;
   transition: color 0.15s ease;
@@ -161,7 +161,7 @@
 }
 
 .activation-example__ellipsis {
-  color: #9ca3af;
+  color: var(--unsure-gray);
   margin-left: 2px;
 }
 

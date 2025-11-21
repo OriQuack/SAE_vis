@@ -75,6 +75,16 @@ export function getMetricBaseColor(metric: string): string {
   }
 }
 
+// ============================================================================
+// SELECTION STATE COLORS
+// ============================================================================
+
+/**
+ * Centralized unsure/untagged color used across all components
+ * Used for: badges, buttons, bars, tags, table states
+ */
+export const UNSURE_GRAY = '#c0c0c0ff'
+
 /**
  * Get mode-specific selection colors based on tag colors
  *
@@ -88,7 +98,6 @@ export function getSelectionColors(mode: TableMode): {
   autoRejected: string
   unsure: string
 } {
-  const UNSURE_GRAY = '#9ca3af'
 
   if (mode === 'feature') {
     // Quality Assessment stage

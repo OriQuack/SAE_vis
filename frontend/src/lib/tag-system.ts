@@ -13,6 +13,7 @@ import {
 } from './constants'
 import { HierarchicalColorAssigner } from './hierarchical-colors'
 import type { SankeyTreeNode } from '../types'
+import { UNSURE_GRAY } from './color-utils'
 
 // ============================================================================
 // TAG COLOR SYSTEM
@@ -151,12 +152,12 @@ function assignConstantColors(): void {
           colors[tag] = OKABE_ITO_PALETTE.REDDISH_PURPLE  // #CC79A7 - Purple
           break
         case 'Unsure':
-          colors[tag] = OKABE_ITO_PALETTE.GRAY  // #999999 - Gray (uncertain)
+          colors[tag] = UNSURE_GRAY  // Centralized unsure/untagged color
           break
 
         default:
-          // Fallback: Use first available color from palette
-          colors[tag] = OKABE_ITO_PALETTE.GRAY
+          // Fallback: Use centralized unsure color
+          colors[tag] = UNSURE_GRAY
           break
       }
     }

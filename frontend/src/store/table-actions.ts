@@ -85,6 +85,7 @@ export const createTableActions = (set: any, get: any) => {
     sortPairsBySimilarity: featureSplittingActions.sortPairsBySimilarity,
     fetchDistributedPairs: featureSplittingActions.fetchDistributedPairs,
     clearDistributedPairs: featureSplittingActions.clearDistributedPairs,
+    fetchSimilarityHistogram: featureSplittingActions.fetchSimilarityHistogram,
 
     // Quality actions (features)
     sortBySimilarity: qualityActions.sortBySimilarity,

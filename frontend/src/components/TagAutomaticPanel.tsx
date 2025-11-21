@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useCallback, useState } from 'react'
+import React, { useRef, useMemo, useCallback, useState, useEffect } from 'react'
 import { useVisualizationStore } from '../store/index'
 import {
   calculateHistogramLayout,
@@ -7,7 +7,7 @@ import {
   calculateYAxisTicks
 } from '../lib/histogram-utils'
 import { getSelectionColors } from '../lib/color-utils'
-import SelectionStateBar, { type CategoryCounts } from './SelectionBar'
+import { useResizeObserver } from '../lib/utils'
 import ThresholdHandles from './ThresholdHandles'
 import '../styles/TagAutomaticPanel.css'
 
@@ -18,8 +18,7 @@ interface TagAutomaticPanelProps {
 const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
   const similarityTaggingPopover = useVisualizationStore(state => state.similarityTaggingPopover)
   const updateBothSimilarityThresholds = useVisualizationStore(state => state.updateBothSimilarityThresholds)
-  const applySimilarityTags = useVisualizationStore(state => state.applySimilarityTags)
-  const hideThresholdsOnTable = useVisualizationStore(state => state.hideThresholdsOnTable)
+  const fetchSimilarityHistogram = useVisualizationStore(state => state.fetchSimilarityHistogram)
   const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
   const featureSelectionSources = useVisualizationStore(state => state.featureSelectionSources)
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
@@ -33,10 +32,75 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
   const [isMinimized, setIsMinimized] = useState(false)
   const [thresholds, setThresholds] = useState({ select: 0.1, reject: -0.1 })
   const [hoveredBinIndex, setHoveredBinIndex] = useState<number | null>(null)
+  const [isLocalLoading, setIsLocalLoading] = useState(false)
+  const [localHistogramData, setLocalHistogramData] = useState<any>(null)
 
-  // Get histogram data from store (if available)
-  const histogramData = similarityTaggingPopover?.histogramData || null
-  const isLoading = similarityTaggingPopover?.isLoading || false
+  // Resize observer for responsive histogram
+  const { ref: containerRef, size: containerSize } = useResizeObserver<HTMLDivElement>({
+    defaultWidth: 900,
+    defaultHeight: 450,
+    debounceMs: 100,
+    debugId: 'tag-automatic-histogram'
+  })
+
+  // Get histogram data from store (if available) or local state
+  const histogramData = similarityTaggingPopover?.histogramData || localHistogramData
+  const isLoading = similarityTaggingPopover?.isLoading || isLocalLoading
+
+  // Calculate selection counts for current mode
+  const selectionCounts = useMemo(() => {
+    if (mode === 'pair') {
+      let selectedCount = 0
+      let rejectedCount = 0
+      pairSelectionStates.forEach((state, _) => {
+        if (state === 'selected') selectedCount++
+        else if (state === 'rejected') rejectedCount++
+      })
+      return { selectedCount, rejectedCount }
+    }
+    return { selectedCount: 0, rejectedCount: 0 }
+  }, [mode, pairSelectionStates])
+
+  // Fetch histogram data when component mounts or selection changes
+  useEffect(() => {
+    // Only fetch for pair mode (feature mode not yet implemented)
+    if (mode !== 'pair') return
+
+    // Debounce the fetch to avoid excessive API calls
+    const timeoutId = setTimeout(async () => {
+      // Need at least 1 selected and 1 rejected for meaningful histogram
+      if (selectionCounts.selectedCount < 1 || selectionCounts.rejectedCount < 1) {
+        // Clear histogram if insufficient data
+        setLocalHistogramData(null)
+        return
+      }
+
+      console.log('[TagAutomaticPanel] Fetching histogram with counts:', selectionCounts)
+      setIsLocalLoading(true)
+      try {
+        const result = await fetchSimilarityHistogram()
+        if (result) {
+          console.log('[TagAutomaticPanel] Histogram fetched successfully')
+          setLocalHistogramData(result.histogramData)
+          // Update thresholds based on fetched data
+          setThresholds({
+            select: result.selectThreshold,
+            reject: result.rejectThreshold
+          })
+        } else {
+          console.log('[TagAutomaticPanel] No histogram data returned')
+          setLocalHistogramData(null)
+        }
+      } catch (error) {
+        console.error('[TagAutomaticPanel] Failed to fetch histogram:', error)
+        setLocalHistogramData(null)
+      } finally {
+        setIsLocalLoading(false)
+      }
+    }, 500) // 500ms debounce
+
+    return () => clearTimeout(timeoutId)
+  }, [mode, selectionCounts.selectedCount, selectionCounts.rejectedCount, fetchSimilarityHistogram])
 
   // Calculate histogram layout and bars with symmetric domain
   const histogramChart = useMemo(() => {
@@ -68,15 +132,18 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
       similarity: symmetricHistogramData
     }
 
-    const layout = calculateHistogramLayout(histogramDataMap, 900, 250)
+    const layout = calculateHistogramLayout(histogramDataMap, containerSize.width, containerSize.height)
     const chart = layout.charts[0]
 
-    // Increase top margin to prevent "0" label cutoff
+    // Adjust margins to prevent label cutoff
+    // Top: 20px for threshold labels above histogram
+    // Bottom: 50px for x-axis ticks + label (label at height + 35)
+    // Left: 60px for y-axis label "Count" (positioned at y: -40)
     return {
       ...chart,
-      margin: { ...chart.margin, top: 20 }
+      margin: { ...chart.margin, top: 20, bottom: 50, left: 60 }
     }
-  }, [histogramData])
+  }, [histogramData, containerSize])
 
   // Compute category breakdown per bin
   const categoryData = useMemo(() => {
@@ -164,112 +231,6 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
     return calculateCategoryStackedBars(histogramChart, categoryData, modeColors)
   }, [histogramChart, categoryData, modeColors])
 
-  // Calculate current category counts for SelectionStateBar
-  const currentCounts = useMemo((): CategoryCounts => {
-    if (!histogramData?.scores) {
-      return { confirmed: 0, expanded: 0, rejected: 0, autoRejected: 0, unsure: 0, total: 0 }
-    }
-
-    const scores = histogramData.scores
-    let confirmed = 0
-    let expanded = 0
-    let rejected = 0
-    let autoRejected = 0
-    let unsure = 0
-
-    Object.entries(scores).forEach(([id, score]) => {
-      if (typeof score !== 'number') return
-
-      if (mode === 'feature') {
-        const featureId = parseInt(id, 10)
-        const selectionState = featureSelectionStates.get(featureId)
-        const source = featureSelectionSources.get(featureId)
-
-        if (selectionState === 'selected') {
-          if (source === 'auto') {
-            expanded++
-          } else {
-            confirmed++
-          }
-        } else if (selectionState === 'rejected') {
-          if (source === 'auto') {
-            autoRejected++
-          } else {
-            rejected++
-          }
-        } else {
-          unsure++
-        }
-      } else {
-        const selectionState = pairSelectionStates.get(id)
-        const source = pairSelectionSources.get(id)
-
-        if (selectionState === 'selected') {
-          if (source === 'auto') {
-            expanded++
-          } else {
-            confirmed++
-          }
-        } else if (selectionState === 'rejected') {
-          if (source === 'auto') {
-            autoRejected++
-          } else {
-            rejected++
-          }
-        } else {
-          unsure++
-        }
-      }
-    })
-
-    const total = confirmed + expanded + rejected + autoRejected + unsure
-    return { confirmed, expanded, rejected, autoRejected, unsure, total }
-  }, [histogramData, mode, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources])
-
-  // Calculate preview counts after applying tags
-  const previewCounts = useMemo((): CategoryCounts => {
-    if (!histogramData?.scores) {
-      return currentCounts
-    }
-
-    const scores = histogramData.scores
-    let confirmed = currentCounts.confirmed
-    let expanded = currentCounts.expanded
-    let rejected = currentCounts.rejected
-    let autoRejected = currentCounts.autoRejected
-    let unsure = currentCounts.unsure
-
-    // Calculate how many unsure items will become expanded or auto-rejected
-    let newlyExpanded = 0
-    let newlyAutoRejected = 0
-
-    Object.entries(scores).forEach(([id, score]) => {
-      if (typeof score !== 'number') return
-
-      // Check current state
-      const isAlreadyTagged = mode === 'feature'
-        ? featureSelectionStates.has(parseInt(id, 10))
-        : pairSelectionStates.has(id)
-
-      // If not already tagged, apply auto-tagging based on thresholds
-      if (!isAlreadyTagged) {
-        if (score >= thresholds.select) {
-          newlyExpanded++
-        } else if (score <= thresholds.reject) {
-          newlyAutoRejected++
-        }
-      }
-    })
-
-    // Update counts: unsure items become expanded or auto-rejected
-    expanded += newlyExpanded
-    autoRejected += newlyAutoRejected
-    unsure -= (newlyExpanded + newlyAutoRejected)
-
-    const total = confirmed + expanded + rejected + autoRejected + unsure
-    return { confirmed, expanded, rejected, autoRejected, unsure, total }
-  }, [currentCounts, histogramData, thresholds, mode, featureSelectionStates, pairSelectionStates])
-
   // Calculate axis ticks
   const xAxisTicks = useMemo(() => {
     if (!histogramChart) return []
@@ -327,37 +288,24 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
     })
   }, [updateBothSimilarityThresholds])
 
-  // Handle preview on table with loading state (not applicable for embedded panel - removed)
-  // const handlePreviewOnTable = useCallback(async () => {
-  //   setIsPreviewLoading(true)
-  //   try {
-  //     await showThresholdsOnTable()
-  //   } finally {
-  //     setIsPreviewLoading(false)
-  //   }
-  // }, [showThresholdsOnTable])
+  // Show empty state with helpful message
+  if (!histogramData && !isLoading) {
+    const message = mode === 'pair'
+      ? `Select at least 1 Fragmented (blue) and 1 Monosemantic (red) pair to enable automatic tagging`
+      : 'Select features to enable automatic tagging'
 
-  // Handle apply tags
-  const handleApplyTags = useCallback(() => {
-    applySimilarityTags()
-    hideThresholdsOnTable()
-  }, [applySimilarityTags, hideThresholdsOnTable])
-
-  // Handle reset thresholds
-  const handleResetThresholds = useCallback(() => {
-    setThresholds({ select: 0.1, reject: -0.1 })
-    updateBothSimilarityThresholds(0.1, -0.1)
-    hideThresholdsOnTable()
-  }, [updateBothSimilarityThresholds, hideThresholdsOnTable])
-
-  if (!histogramData) {
     return (
       <div className="tag-automatic-panel tag-automatic-panel--empty">
         <div className="tag-panel__header">
-          <span className="tag-panel__title">Automatic Tagging</span>
+          <span className="tag-panel__title">Tag Propagation</span>
         </div>
         <div className="tag-panel__empty-message">
-          Click "Tag Automatically" to configure thresholds
+          {message}
+          {mode === 'pair' && (
+            <div style={{ marginTop: '8px', fontSize: '11px', color: '#888' }}>
+              Currently selected: {selectionCounts.selectedCount} Fragmented, {selectionCounts.rejectedCount} Monosemantic
+            </div>
+          )}
         </div>
       </div>
     )
@@ -367,7 +315,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
     <div className={`tag-automatic-panel ${isMinimized ? 'tag-automatic-panel--minimized' : ''}`}>
       <div className="tag-panel__header">
         <span className="tag-panel__title">
-          Automatic Tagging
+          Tag Propagation
         </span>
         <button
           className="tag-panel__minimize-button"
@@ -387,20 +335,13 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
             </div>
           ) : histogramChart ? (
             <>
-              <div className="tag-panel__info">
-                <p>
-                  Drag the thresholds to tag {mode === 'feature' ? 'features' : 'pairs'} automatically.
-                  Items <strong>above the right threshold</strong> will be tagged as <strong style={{ color: modeColors.expanded }}>Auto-Selected</strong>.
-                  Items <strong>below the left threshold</strong> will be tagged as <strong style={{ color: modeColors.autoRejected }}>Auto-Rejected</strong>.
-                </p>
-              </div>
-
-              <svg
-                ref={svgRef}
-                className="tag-panel__svg"
-                width={900}
-                height={260}
-              >
+              <div ref={containerRef} className="tag-panel__histogram-container">
+                <svg
+                  ref={svgRef}
+                  className="tag-panel__svg"
+                  width={containerSize.width}
+                  height={containerSize.height}
+                >
                 {/* Define stripe patterns for preview */}
                 <defs>
                   <pattern
@@ -643,33 +584,38 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
                     onUpdate={handleThresholdUpdate}
                     onDragUpdate={handleThresholdUpdate}
                   />
+
+                  {/* Threshold labels with arrows */}
+                  <g>
+                    {/* Left threshold: Monosemantic (rejected) - colored arrow + black text */}
+                    <text
+                      x={safeThresholdPositions.rejectX}
+                      y={-8}
+                      textAnchor="middle"
+                      fontSize={14}
+                      fontWeight={600}
+                      fill="#272121ff"
+                    >
+                      <tspan fill={modeColors.rejected} fontSize={16}>← </tspan>
+                      <tspan>Monosemantic</tspan>
+                    </text>
+                  </g>
+                  <g>
+                    {/* Right threshold: Fragmented (selected) - black text + colored arrow */}
+                    <text
+                      x={safeThresholdPositions.selectX}
+                      y={-8}
+                      textAnchor="middle"
+                      fontSize={14}
+                      fontWeight={600}
+                      fill="#000000"
+                    >
+                      <tspan>Fragmented </tspan>
+                      <tspan fill={modeColors.confirmed} fontSize={16}>→</tspan>
+                    </text>
+                  </g>
                 </g>
               </svg>
-
-              {/* Selection State Bar with Preview */}
-              <div className="tag-panel__state-bar">
-                <SelectionStateBar
-                  counts={currentCounts}
-                  previewCounts={previewCounts}
-                  showLabels={false}
-                  showLegend={true}
-                  height={24}
-                />
-              </div>
-
-              <div className="tag-panel__actions">
-                <button
-                  className="tag-panel__button tag-panel__button--reset"
-                  onClick={handleResetThresholds}
-                >
-                  Reset Thresholds
-                </button>
-                <button
-                  className="tag-panel__button tag-panel__button--apply"
-                  onClick={handleApplyTags}
-                >
-                  Apply Tags
-                </button>
               </div>
             </>
           ) : (
@@ -677,18 +623,6 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
               Failed to load histogram data
             </div>
           )}
-        </div>
-      )}
-
-      {isMinimized && (
-        <div className="tag-panel__minimized-summary">
-          <SelectionStateBar
-            counts={currentCounts}
-            previewCounts={previewCounts}
-            showLabels={true}
-            showLegend={false}
-            height={20}
-          />
         </div>
       )}
     </div>

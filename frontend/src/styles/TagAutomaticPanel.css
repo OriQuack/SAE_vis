@@ -84,65 +84,18 @@
   min-height: 0;
 }
 
-.tag-panel__info {
-  font-size: 13px;
-  line-height: 1.6;
-  color: #4b5563;
-  padding: 8px 12px;
-  background-color: #f9fafb;
-  border-radius: 4px;
-  border: 1px solid #e5e7eb;
-}
-
-.tag-panel__info p {
-  margin: 0;
+.tag-panel__histogram-container {
+  height: 450px;
+  max-height: 60vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .tag-panel__svg {
   display: block;
   margin: 0 auto;
-}
-
-.tag-panel__state-bar {
-  padding: 0 12px;
-}
-
-.tag-panel__actions {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-  padding-top: 8px;
-  border-top: 1px solid #e5e7eb;
-}
-
-.tag-panel__button {
-  padding: 10px 20px;
-  font-size: 14px;
-  font-weight: 600;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: 1px solid;
-}
-
-.tag-panel__button--reset {
-  color: #6b7280;
-  background-color: white;
-  border-color: #d1d5db;
-}
-
-.tag-panel__button--reset:hover {
-  background-color: #f3f4f6;
-}
-
-.tag-panel__button--apply {
-  color: white;
-  background-color: #8b5cf6;
-  border-color: #8b5cf6;
-}
-
-.tag-panel__button--apply:hover {
-  background-color: #7c3aed;
 }
 
 /* ============================================================================
@@ -200,14 +153,6 @@
   color: #9ca3af;
   font-size: 14px;
   font-style: italic;
-}
-
-/* ============================================================================
- * MINIMIZED SUMMARY
- * ============================================================================ */
-
-.tag-panel__minimized-summary {
-  padding: 12px 16px;
 }
 
 /* ============================================================================

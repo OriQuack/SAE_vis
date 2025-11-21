@@ -14,6 +14,9 @@
   /* Border Colors - Unified System */
   --border-thin: #e5e7eb;     /* Thin borders - divides rows, columns, subrows */
   --border-thick: #d1d5db;    /* Thick borders - divides headers from content */
+
+  /* Selection State Colors */
+  --unsure-gray: #9d9d9dff;   /* Unsure/untagged state - badges, buttons, bars, tags */
 }
 
 /* Reset and base styles */

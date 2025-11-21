@@ -409,7 +409,7 @@
   position: absolute;
   inset: 0;
   border-radius: 2px;
-  background-color: var(--tag-color, #F0E442);
+  background-color: var(--tag-color, var(--unsure-gray));
   opacity: var(--bg-opacity, 0.6);
   z-index: -1;
   transition: opacity 0.15s ease;
@@ -438,12 +438,12 @@
 
 .selection__button--monosemantic {
   color: #000;
-  border-color: var(--tag-color, #999999);
+  border-color: var(--tag-color, var(--unsure-gray));
   background-color: transparent;
 }
 
 .selection__button--monosemantic.selected {
-  border-color: var(--tag-color, #999999);
+  border-color: var(--tag-color, var(--unsure-gray));
   color: #000;
   font-weight: 600;
   --bg-opacity: 1.0;
@@ -459,12 +459,12 @@
 
 .selection__button--unsure {
   color: #000;
-  border-color: var(--tag-color, #999999);
+  border-color: var(--tag-color, var(--unsure-gray));
   background-color: transparent;
 }
 
 .selection__button--unsure.selected {
-  border-color: var(--tag-color, #999999);
+  border-color: var(--tag-color, var(--unsure-gray));
   color: #000;
   font-weight: 600;
   --bg-opacity: 1.0;
