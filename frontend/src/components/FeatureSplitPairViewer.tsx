@@ -3,10 +3,9 @@ import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow } from '../types'
 import ActivationExample from './ActivationExample'
 import { TagBadge } from './TableIndicators'
-import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
+import { TAG_CATEGORY_FEATURE_SPLITTING, UNSURE_GRAY } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import { extractInterFeaturePositions } from '../lib/activation-utils'
-import { UNSURE_GRAY } from '../lib/color-utils'
 import '../styles/FeatureSplitPairViewer.css'
 
 // ============================================================================

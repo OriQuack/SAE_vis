@@ -9,11 +9,11 @@ import {
   TAG_CATEGORY_FEATURE_SPLITTING,
   type TagCategoryConfig,
   type TagColorMode,
-  OKABE_ITO_PALETTE
+  OKABE_ITO_PALETTE,
+  UNSURE_GRAY
 } from './constants'
 import { HierarchicalColorAssigner } from './hierarchical-colors'
 import type { SankeyTreeNode } from '../types'
-import { UNSURE_GRAY } from './color-utils'
 
 // ============================================================================
 // TAG COLOR SYSTEM

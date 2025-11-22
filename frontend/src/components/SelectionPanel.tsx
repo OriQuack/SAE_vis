@@ -127,6 +127,7 @@ interface SelectionPanelProps {
   tagLabel: string
   onDone?: () => void
   doneButtonEnabled?: boolean
+  onCategoryRefsReady?: (refs: Map<SelectionCategory, HTMLDivElement>) => void  // Callback for flow overlay
 }
 
 /**
@@ -140,7 +141,8 @@ interface SelectionPanelProps {
 const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
   mode,
   onDone,
-  doneButtonEnabled = false
+  doneButtonEnabled = false,
+  onCategoryRefsReady
 }) => {
   // State from store
   const tableData = useVisualizationStore(state => state.tableData)
@@ -362,6 +364,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
             width="42px"
             height="100%"
             mode={mode}
+            onCategoryRefsReady={onCategoryRefsReady}
           />
         </div>
 

@@ -6,9 +6,10 @@ import type {
 } from '../types'
 import {
   CATEGORY_DECODER_SIMILARITY,
-  CATEGORY_SEMANTIC_SIMILARITY
+  CATEGORY_SEMANTIC_SIMILARITY,
+  UNSURE_GRAY
 } from './constants'
-import { getMetricBaseColor, UNSURE_GRAY } from './color-utils'
+import { getMetricBaseColor } from './color-utils'
 
 // ============================================================================
 // UTILS-SPECIFIC TYPES (Internal use only - not exported)

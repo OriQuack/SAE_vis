@@ -7,7 +7,9 @@ import HistogramPopover from './components/SankeyHistogramPopover'
 import TablePanel from './components/QualityTable'
 import TagCategoryPanel from './components/TagStagePanel'
 import TableSelectionPanel from './components/SelectionPanel'
+import SankeyToSelectionFlowOverlay from './components/SankeyToSelectionFlowOverlay'
 import { TAG_CATEGORY_QUALITY, TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_CAUSE, TAG_CATEGORY_TABLE_TITLES, TAG_CATEGORY_TABLE_INSTRUCTIONS } from './lib/constants'
+import type { SelectionCategory } from './types'
 import * as api from './api'
 import './styles/base.css'
 import './styles/App.css'
@@ -75,6 +77,10 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
     isChecking: true,
     error: null
   })
+
+  // Refs for Sankey-to-Selection flow overlay
+  const [sankeySegmentRefs, setSankeySegmentRefs] = useState<Map<string, SVGRectElement>>(new Map())
+  const [selectionCategoryRefs, setSelectionCategoryRefs] = useState<Map<SelectionCategory, HTMLDivElement>>(new Map())
 
   // Store state - now with dual panel support
   const {
@@ -169,6 +175,7 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
                 showHistogramOnClick={true}
                 flowDirection="left-to-right"
                 panel="left"
+                onSegmentRefsReady={setSankeySegmentRefs}
               />
               {/* Floating Comparison Toggle Button */}
               <button
@@ -191,6 +198,7 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
                   instruction={TAG_CATEGORY_TABLE_INSTRUCTIONS[TAG_CATEGORY_QUALITY]}
                   onDone={moveToNextStep}
                   doneButtonEnabled={true}
+                  onCategoryRefsReady={setSelectionCategoryRefs}
                 />
               )}
               {activeStageCategory === TAG_CATEGORY_FEATURE_SPLITTING && (
@@ -201,6 +209,7 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
                   onDone={moveToNextStep}
                   doneButtonEnabled={true}
                   pairKeys={tableData?.pairs?.map((p: any) => p.pairKey) || []}
+                  onCategoryRefsReady={setSelectionCategoryRefs}
                 />
               )}
               {activeStageCategory === TAG_CATEGORY_CAUSE && (
@@ -210,6 +219,7 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
                   instruction={TAG_CATEGORY_TABLE_INSTRUCTIONS[TAG_CATEGORY_CAUSE]}
                   onDone={moveToNextStep}
                   doneButtonEnabled={true}
+                  onCategoryRefsReady={setSelectionCategoryRefs}
                 />
               )}
             </div>
@@ -252,6 +262,12 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
               )}
             </div>
           </div>
+
+          {/* Flow Overlay - Visualizes flows from Sankey segments to SelectionBar */}
+          <SankeyToSelectionFlowOverlay
+            segmentRefs={sankeySegmentRefs}
+            categoryRefs={selectionCategoryRefs}
+          />
         </div>
       </div>
 

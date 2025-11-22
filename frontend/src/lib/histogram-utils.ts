@@ -19,7 +19,7 @@ const METRIC_TITLES: Record<string, string> = {
 }
 
 // ============================================================================
-// UTILS-SPECIFIC TYPES (Internal use only - not exported)
+// UTILS-SPECIFIC TYPES
 // ============================================================================
 
 interface HistogramBarData {
@@ -35,7 +35,8 @@ interface HistogramBarData {
   }
 }
 
-interface CategoryCounts {
+// Exported for use in components (TagAutomaticPanel, etc.)
+export interface CategoryCounts {
   confirmed: number
   expanded: number
   rejected: number

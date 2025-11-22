@@ -5,13 +5,13 @@ import {
   METRIC_SCORE_FUZZ,
   METRIC_QUALITY_SCORE,
   METRIC_DECODER_SIMILARITY,
-  METRIC_SEMANTIC_SIMILARITY
+  METRIC_SEMANTIC_SIMILARITY,
+  UNSURE_GRAY
 } from './constants'
 import {
   getQualityScoreColor,
   getMetricColor
 } from './utils'
-import { UNSURE_GRAY } from './color-utils'
 
 // ============================================================================
 // TYPE DEFINITIONS

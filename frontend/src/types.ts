@@ -976,3 +976,47 @@ export interface CauseSimilarityHistogramResponse {
   total_items: number
 }
 
+// ============================================================================
+// SANKEY TO SELECTION FLOW TYPES (Flow visualization from Sankey segments to SelectionBar)
+// ============================================================================
+
+/**
+ * Sankey Segment Selection - Identifies a selected segment in the Sankey diagram
+ */
+export interface SankeySegmentSelection {
+  nodeId: string          // Sankey node ID
+  segmentIndex: number    // Index of segment within node (0-based)
+  panel: typeof PANEL_LEFT | typeof PANEL_RIGHT  // Which panel the segment is from
+}
+
+/**
+ * Selection Category Type - Categories in the SelectionBar
+ */
+export type SelectionCategory = 'confirmed' | 'expanded' | 'rejected' | 'autoRejected' | 'unsure'
+
+/**
+ * Sankey To Selection Flow - Represents a flow from a Sankey segment to a SelectionBar category
+ */
+export interface SankeyToSelectionFlow {
+  id: string                        // Unique flow ID: "{nodeId}_{segmentIndex}_to_{category}"
+  sourceNodeId: string             // Source Sankey node ID
+  sourceSegmentIndex: number       // Source segment index
+  targetCategory: SelectionCategory  // Target SelectionBar category
+  featureCount: number             // Number of features flowing
+  featureIds: number[]             // Feature IDs in this flow
+  color: string                    // Flow color (from segment color)
+  opacity: number                  // Flow opacity (0-1)
+}
+
+/**
+ * Flow Path Data - Contains calculated path and position data for rendering
+ */
+export interface FlowPathData extends SankeyToSelectionFlow {
+  pathD: string                    // SVG path data (d attribute)
+  strokeWidth: number              // Calculated stroke width based on feature count
+  sourceX: number                  // Source position X (in overlay coordinates)
+  sourceY: number                  // Source position Y (in overlay coordinates)
+  targetX: number                  // Target position X (in overlay coordinates)
+  targetY: number                  // Target position Y (in overlay coordinates)
+}
+

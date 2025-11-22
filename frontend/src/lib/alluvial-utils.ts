@@ -1,7 +1,7 @@
 import { sum } from 'd3-array'
 import { sankey, sankeyLinkHorizontal } from 'd3-sankey'
 import type { AlluvialFlow, D3SankeyNode, AlluvialSankeyNode, AlluvialSankeyLink, AlluvialLayoutData } from '../types'
-import { UNSURE_GRAY } from './color-utils'
+import { UNSURE_GRAY } from './constants'
 
 // ============================================================================
 // UTILS-SPECIFIC TYPES

@@ -296,6 +296,12 @@ export const NEUTRAL_ICON_COLORS = {
   TEXT_SECONDARY: '#64748b'    // Medium gray - secondary text
 } as const
 
+/**
+ * Centralized unsure/untagged color used across all components
+ * Used for: badges, buttons, bars, tags, table states
+ */
+export const UNSURE_GRAY = '#c0c0c0ff'
+
 // ============================================================================
 // THRESHOLD REGION COLORS - User-friendly colors for histogram threshold regions
 // Used to indicate good/bad feature quality based on metric type

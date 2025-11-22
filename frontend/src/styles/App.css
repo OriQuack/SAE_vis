@@ -297,6 +297,7 @@
   gap: 0;
   min-height: 0;
   overflow: hidden;
+  position: relative; /* Required for absolutely positioned overlay (SankeyToSelectionFlowOverlay) */
 }
 
 /* Sankey Column - Left side */

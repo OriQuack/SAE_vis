@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useRef, useEffect } from 'react'
 import { type SelectionCategory } from '../lib/constants'
 import { getSelectionColors, type TableMode } from '../lib/color-utils'
 import '../styles/SelectionBar.css'
@@ -25,6 +25,7 @@ interface SelectionStateBarProps {
   mode?: TableMode  // Mode determines labels/colors (default: 'feature')
   categoryColors?: Partial<Record<SelectionCategory, string>>  // Optional: override colors dynamically
   className?: string
+  onCategoryRefsReady?: (refs: Map<SelectionCategory, HTMLDivElement>) => void  // Callback for exposing refs
 }
 
 /**
@@ -50,12 +51,24 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   labelThreshold = 10,
   mode = 'feature',
   categoryColors,
-  className = ''
+  className = '',
+  onCategoryRefsReady
 }) => {
   // Set default dimensions based on orientation
   const isVertical = orientation === 'vertical'
   const containerHeight = height ?? (isVertical ? '100%' : 24)
   const containerWidth = width ?? (isVertical ? 24 : '100%')
+
+  // Store refs to category segments for external access (e.g., flow overlays)
+  const categoryRefs = useRef<Map<SelectionCategory, HTMLDivElement>>(new Map())
+
+  // Notify parent when refs are ready
+  useEffect(() => {
+    if (onCategoryRefsReady && categoryRefs.current.size > 0) {
+      // Create new Map instance to trigger React's change detection
+      onCategoryRefsReady(new Map(categoryRefs.current))
+    }
+  }, [onCategoryRefsReady, counts])  // Re-run when counts change (segments may re-render)
 
   // Get mode-specific colors from tag system
   const modeColors = useMemo(() => getSelectionColors(mode), [mode])
@@ -163,6 +176,13 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
         segments.push(
           <div
             key={category}
+            ref={(el) => {
+              if (el) {
+                categoryRefs.current.set(category, el)
+              } else {
+                categoryRefs.current.delete(category)
+              }
+            }}
             className={`selection-state-bar__segment selection-state-bar__segment--${category} ${
               onCategoryClick ? 'selection-state-bar__segment--interactive' : ''
             }`}

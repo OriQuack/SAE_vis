@@ -6,10 +6,25 @@ import {
   calculateXAxisTicks,
   calculateYAxisTicks
 } from '../lib/histogram-utils'
+import type { CategoryCounts } from '../lib/histogram-utils'
 import { getSelectionColors } from '../lib/color-utils'
-import { useResizeObserver } from '../lib/utils'
 import ThresholdHandles from './ThresholdHandles'
 import '../styles/TagAutomaticPanel.css'
+
+// ============================================================================
+// SPACING CONSTANTS - Single source of truth for all margins/paddings
+// ============================================================================
+const TAG_HISTOGRAM_SPACING = {
+  content: {
+    padding: 8  // Content area padding (sync with CSS)
+  },
+  svg: {
+    margin: { top: 20, right: 15, bottom: 20, left: 60 },  // SVG internal margins
+    xLabelOffset: 30,   // Distance below chart for x-axis label
+    yLabelOffset: -40,  // Distance left of chart for y-axis label
+    xTickOffset: 18     // Distance below chart for x-axis tick labels
+  }
+}
 
 interface TagAutomaticPanelProps {
   mode: 'feature' | 'pair'
@@ -28,20 +43,14 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
   const modeColors = useMemo(() => getSelectionColors(mode), [mode])
 
   const svgRef = useRef<SVGSVGElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   const [isMinimized, setIsMinimized] = useState(false)
+  const [containerSize, setContainerSize] = useState({ width: 800, height: 300 })
   const [thresholds, setThresholds] = useState({ select: 0.1, reject: -0.1 })
   const [hoveredBinIndex, setHoveredBinIndex] = useState<number | null>(null)
   const [isLocalLoading, setIsLocalLoading] = useState(false)
   const [localHistogramData, setLocalHistogramData] = useState<any>(null)
-
-  // Resize observer for responsive histogram
-  const { ref: containerRef, size: containerSize } = useResizeObserver<HTMLDivElement>({
-    defaultWidth: 900,
-    defaultHeight: 450,
-    debounceMs: 100,
-    debugId: 'tag-automatic-histogram'
-  })
 
   // Get histogram data from store (if available) or local state
   const histogramData = similarityTaggingPopover?.histogramData || localHistogramData
@@ -60,6 +69,26 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
     }
     return { selectedCount: 0, rejectedCount: 0 }
   }, [mode, pairSelectionStates])
+
+  // Measure container size
+  useEffect(() => {
+    if (!containerRef.current) return
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect
+        // Reserve space for padding (left + right + top + bottom)
+        const totalPadding = TAG_HISTOGRAM_SPACING.content.padding * 4
+        setContainerSize({
+          width: Math.max(400, width - totalPadding),
+          height: Math.max(200, height - totalPadding)
+        })
+      }
+    })
+
+    resizeObserver.observe(containerRef.current)
+    return () => resizeObserver.disconnect()
+  }, [])
 
   // Fetch histogram data when component mounts or selection changes
   useEffect(() => {
@@ -135,13 +164,10 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
     const layout = calculateHistogramLayout(histogramDataMap, containerSize.width, containerSize.height)
     const chart = layout.charts[0]
 
-    // Adjust margins to prevent label cutoff
-    // Top: 20px for threshold labels above histogram
-    // Bottom: 50px for x-axis ticks + label (label at height + 35)
-    // Left: 60px for y-axis label "Count" (positioned at y: -40)
+    // Use centralized spacing constants for consistent margins
     return {
       ...chart,
-      margin: { ...chart.margin, top: 20, bottom: 50, left: 60 }
+      margin: TAG_HISTOGRAM_SPACING.svg.margin
     }
   }, [histogramData, containerSize])
 
@@ -158,8 +184,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
     // Initialize category counts for each bin
     bins.forEach((_, binIndex) => {
       return categoryMap.set(binIndex, {
-        confirmed: 0, expanded: 0, rejected: 0, autoRejected: 0, unsure: 0,
-        total: 0
+        confirmed: 0, expanded: 0, rejected: 0, autoRejected: 0, unsure: 0
       })
     })
 
@@ -499,7 +524,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
                       />
                       <text
                         x={tick.position}
-                        y={histogramChart.height + 18}
+                        y={histogramChart.height + TAG_HISTOGRAM_SPACING.svg.xTickOffset}
                         textAnchor="middle"
                         fontSize={10}
                         fill="#666"
@@ -545,20 +570,20 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
                   {/* Axis labels */}
                   <text
                     x={histogramChart.width / 2}
-                    y={histogramChart.height + 35}
+                    y={histogramChart.height + TAG_HISTOGRAM_SPACING.svg.xLabelOffset}
                     textAnchor="middle"
-                    fontSize={12}
+                    fontSize={11}
                     fill="#666"
                   >
                     Similarity Score (Selected - Rejected)
                   </text>
                   <text
                     x={-histogramChart.height / 2}
-                    y={-40}
+                    y={TAG_HISTOGRAM_SPACING.svg.yLabelOffset}
                     textAnchor="middle"
                     fontSize={12}
                     fill="#666"
-                    transform={`rotate(-90, ${-histogramChart.height / 2}, -40)`}
+                    transform={`rotate(-90, ${-histogramChart.height / 2}, ${TAG_HISTOGRAM_SPACING.svg.yLabelOffset})`}
                   >
                     Count
                   </text>

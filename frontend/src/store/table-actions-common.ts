@@ -1,5 +1,5 @@
 import * as api from '../api'
-import type { SortBy, SortDirection } from '../types'
+import type { SortBy, SortDirection, SankeySegmentSelection } from '../types'
 import {
   METRIC_DECODER_SIMILARITY,
   METRIC_QUALITY_SCORE,
@@ -95,6 +95,15 @@ export const createCommonTableActions = (set: any, get: any) => ({
   clearSegmentSelection: () => {
     set({ selectedSegment: null, tableSelectedNodeIds: [] })
     console.log('[Store.clearSegmentSelection] Cleared segment selection')
+  },
+
+  // Sankey-to-Selection flow visualization actions
+  setSelectedSankeySegment: (selection: SankeySegmentSelection | null) => {
+    set({
+      selectedSankeySegment: selection,
+      sankeyToSelectionFlows: null  // Clear flows, will be recalculated by overlay component
+    })
+    console.log('[Store.setSelectedSankeySegment] Selected Sankey segment for flow:', selection)
   },
 
   /**

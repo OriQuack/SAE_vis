@@ -12,7 +12,9 @@ import type {
   NodeCategory,
   SortBy,
   SortDirection,
-  ActivationExamples
+  ActivationExamples,
+  SankeySegmentSelection,
+  FlowPathData
 } from '../types'
 import { getNodeThresholdPath } from '../lib/threshold-utils'
 import {
@@ -127,6 +129,7 @@ interface AppState {
   sortPairsBySimilarity: (allPairKeys: string[]) => Promise<void>
   sortCauseBySimilarity: () => Promise<void>
   sortTableByCategory: (category: 'confirmed' | 'expanded' | 'rejected' | 'autoRejected' | 'unsure', mode: 'feature' | 'pair' | 'cause') => void
+  fetchSimilarityHistogram: () => Promise<any>
 
   // Similarity tagging actions (automatic tagging based on histogram)
   showSimilarityTaggingPopover: (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string) => Promise<void>
@@ -153,6 +156,11 @@ interface AppState {
   selectedSegment: { nodeId: string; segmentIndex: number } | null
   selectSegment: (nodeId: string, segmentIndex: number) => void
   clearSegmentSelection: () => void
+
+  // Sankey-to-Selection flow visualization
+  selectedSankeySegment: SankeySegmentSelection | null
+  sankeyToSelectionFlows: FlowPathData[] | null
+  setSelectedSankeySegment: (selection: SankeySegmentSelection | null) => void
 
   // Table data
   tableData: any | null
@@ -330,6 +338,10 @@ const initialState = {
   // Node selection for table filtering
   tableSelectedNodeIds: [],
   selectedSegment: null,
+
+  // Sankey-to-Selection flow visualization state
+  selectedSankeySegment: null,
+  sankeyToSelectionFlows: null,
 
   // Table column display state
   scoreColumnDisplay: METRIC_QUALITY_SCORE as typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION,

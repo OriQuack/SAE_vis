@@ -1,0 +1,82 @@
+/* ============================================================================
+   SANKEY TO SELECTION FLOW OVERLAY
+   ============================================================================
+
+   Visualizes flows from Sankey node segments to SelectionBar categories.
+   Follows AlluvialDiagram pattern for consistent styling.
+
+   ============================================================================ */
+
+.sankey-to-selection-flow-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none; /* Allow clicks to pass through to underlying elements */
+  z-index: 100; /* Above Sankey and SelectionPanel, below modals */
+}
+
+.sankey-to-selection-flow-overlay__svg {
+  overflow: visible; /* Allow flows to extend beyond bounds if needed */
+}
+
+/* Flow Paths */
+.sankey-to-selection-flow-overlay__flow {
+  pointer-events: auto; /* Enable hover on flows */
+  stroke-linecap: round; /* Smooth flow endings */
+  stroke-linejoin: round;
+  mix-blend-mode: multiply; /* Blend overlapping flows */
+}
+
+.sankey-to-selection-flow-overlay__flow:hover {
+  filter: brightness(1.1); /* Slightly brighten on hover */
+}
+
+/* Instructions */
+.sankey-to-selection-flow-overlay__instructions {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  pointer-events: none;
+  z-index: 200;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  animation: fadeInUp 300ms ease-out;
+}
+
+.sankey-to-selection-flow-overlay__instructions kbd {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-family: monospace;
+  font-size: 12px;
+  margin: 0 4px;
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+  .sankey-to-selection-flow-overlay__instructions {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+}

@@ -43,6 +43,7 @@ interface SankeyDiagramProps {
   showHistogramOnClick?: boolean
   flowDirection?: 'left-to-right' | 'right-to-left'
   panel?: typeof PANEL_LEFT | typeof PANEL_RIGHT
+  onSegmentRefsReady?: (refs: Map<string, SVGRectElement>) => void  // Callback for exposing segment refs (key: "{nodeId}_{segmentIndex}")
 }
 
 // ==================== HELPER COMPONENTS ====================
@@ -203,7 +204,9 @@ const VerticalBarSankeyNode: React.FC<{
   sankeyStructure?: any | null  // V2: simplified structure
   selectedSegment?: { nodeId: string; segmentIndex: number } | null  // V2: segment selection
   optimisticSegments?: any[]  // V2: preview segments during threshold drag
-}> = ({ node, scrollState, flowDirection: _flowDirection, onClick, onMouseEnter, onMouseLeave, isSelected = false, isHovered = false, featureSelectionStates, tableSortedFeatureIds, sankeyStructure, selectedSegment, optimisticSegments }) => {
+  onSegmentClick?: (nodeId: string, segmentIndex: number) => void  // Segment click handler
+  segmentRefs?: React.MutableRefObject<Map<string, SVGRectElement>>  // Ref map for segments
+}> = ({ node, scrollState, flowDirection: _flowDirection, onClick, onMouseEnter, onMouseLeave, isSelected = false, isHovered = false, featureSelectionStates, tableSortedFeatureIds, sankeyStructure, selectedSegment, optimisticSegments, onSegmentClick, segmentRefs }) => {
   const layout = calculateVerticalBarNodeLayout(node, scrollState, featureSelectionStates, tableSortedFeatureIds)
 
   // Check if this is a placeholder node
@@ -250,10 +253,18 @@ const VerticalBarSankeyNode: React.FC<{
         // Render segmented bar (progressive reveal)
         stageSegments.map((segment: any, index: number) => {
           const isTerminal = isTerminalSegment(segment.label)
+          const segmentKey = `${node.id}_${index}`
           return (
             <g key={`segment-${index}`}>
               {/* Base colored rectangle */}
               <rect
+                ref={(el) => {
+                  if (el && segmentRefs) {
+                    segmentRefs.current.set(segmentKey, el)
+                  } else if (!el && segmentRefs) {
+                    segmentRefs.current.delete(segmentKey)
+                  }
+                }}
                 className="sankey-vertical-bar-segment"
                 x={node.x0}
                 y={segment.y}
@@ -263,8 +274,15 @@ const VerticalBarSankeyNode: React.FC<{
                 opacity={0.85}
                 stroke="#ffffff"
                 strokeWidth={1}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (onSegmentClick) {
+                    onSegmentClick(node.id, index)
+                  }
+                }}
                 style={{
-                  transition: 'all 300ms ease-out'
+                  transition: 'all 300ms ease-out',
+                  cursor: onSegmentClick ? 'pointer' : 'default'
                 }}
               >
                 <title>{`${segment.label}\n${segment.featureCount} features`}</title>
@@ -377,7 +395,8 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   animationDuration = DEFAULT_ANIMATION.duration,
   showHistogramOnClick = true,
   flowDirection = 'left-to-right',
-  panel = PANEL_LEFT
+  panel = PANEL_LEFT,
+  onSegmentRefsReady
 }) => {
   const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
   const loadingKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
@@ -401,8 +420,12 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     showHistogramPopover,
     updateStageThreshold,
     selectNodeWithCategory,
-    getNodeCategory
+    getNodeCategory,
+    setSelectedSankeySegment
   } = useVisualizationStore()
+
+  // Store refs to segment rectangles for external access (e.g., flow overlays)
+  const segmentRefs = React.useRef<Map<string, SVGRectElement>>(new Map())
 
   // Extract sorted feature IDs from table data (for vertical bar feature line ordering)
   const tableSortedFeatureIds = useMemo(() => {
@@ -443,6 +466,14 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const [optimisticSegments, setOptimisticSegments] = useState<Record<string, any[]>>({})
   const [optimisticThresholds, setOptimisticThresholds] = useState<Record<string, number>>({})
   // const [inlineSelector, setInlineSelector] = useState<...>(null) // REMOVED: No longer needed
+
+  // Notify parent when segment refs are ready
+  React.useEffect(() => {
+    if (onSegmentRefsReady && segmentRefs.current.size > 0) {
+      // Create new Map instance to trigger React's change detection
+      onSegmentRefsReady(new Map(segmentRefs.current))
+    }
+  }, [onSegmentRefsReady, displayData])  // Re-run when display data changes
 
   // Resize observer hook with minimal debounce for responsiveness
   const containerElementRef = React.useRef<HTMLDivElement | null>(null)
@@ -740,6 +771,17 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                           sankeyStructure={sankeyStructure}
                           selectedSegment={selectedSegment}
                           optimisticSegments={optimisticSegments[node.id || '']}
+                          onSegmentClick={(nodeId, segmentIndex) => {
+                            // Only allow segment selection for left panel
+                            if (panel === PANEL_LEFT && setSelectedSankeySegment) {
+                              setSelectedSankeySegment({
+                                nodeId,
+                                segmentIndex,
+                                panel
+                              })
+                            }
+                          }}
+                          segmentRefs={segmentRefs}
                         />
                       </g>
                     )
