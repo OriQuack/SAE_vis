@@ -26,9 +26,6 @@ import {
 import { HighlightedExplanation } from './TableExplanation'
 import ActivationExample from './ActivationExample'
 import QualityScoreBreakdown from './QualityScoreBreakdown'
-// DEPRECATED: import DecoderSimilarityTable from './FeatureSplitTable' - Replaced by FeatureSplitPairViewer + TagAutomaticPanel
-import FeatureSplitPairViewer from './FeatureSplitPairViewer'
-import TagAutomaticPanel from './TagAutomaticPanel'
 import CauseTablePanel from './CauseTable'
 import SimilarityTaggingPopover from './TagAutomaticPopover'
 import '../styles/QualityTable.css'
@@ -497,17 +494,6 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   // Check if we should render stage-specific views (moved before other early returns)
   // Use stored category for simple and reliable check
   if (activeStageNodeId && activeStageCategory) {
-    // Feature Splitting category → Show FeatureSplitPairViewer + TagAutomaticPanel
-    if (activeStageCategory === TAG_CATEGORY_FEATURE_SPLITTING) {
-      return (
-        <div className="feature-splitting-stage-view">
-          <FeatureSplitPairViewer />
-          <TagAutomaticPanel mode="pair" />
-          <SimilarityTaggingPopover />
-        </div>
-      )
-    }
-
     // Cause category → Show CauseTablePanel
     if (activeStageCategory === TAG_CATEGORY_CAUSE) {
       return <CauseTablePanel className={className} />

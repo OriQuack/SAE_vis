@@ -21,16 +21,9 @@
   overflow: visible; /* Allow flows to extend beyond bounds if needed */
 }
 
-/* Flow Paths */
+/* Flow Paths - Simple filled bands */
 .sankey-to-selection-flow-overlay__flow {
-  pointer-events: auto; /* Enable hover on flows */
-  stroke-linecap: round; /* Smooth flow endings */
-  stroke-linejoin: round;
-  mix-blend-mode: multiply; /* Blend overlapping flows */
-}
-
-.sankey-to-selection-flow-overlay__flow:hover {
-  filter: brightness(1.1); /* Slightly brighten on hover */
+  pointer-events: none;
 }
 
 /* Instructions */

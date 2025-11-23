@@ -19,7 +19,6 @@ const FLOW_OPACITY = {
 
 const MIN_STROKE_WIDTH = 2
 const MAX_STROKE_WIDTH = 40
-const CONTROL_POINT_OFFSET = 50  // Distance for bezier curve control points
 
 // ============================================================================
 // POSITION CALCULATION UTILITIES
@@ -74,26 +73,37 @@ export function getSelectionBarCategoryPosition(
 // ============================================================================
 
 /**
- * Generate SVG path data for a flow using cubic bezier curve
- * @param sourceX - Source X coordinate
- * @param sourceY - Source Y coordinate (center)
- * @param targetX - Target X coordinate
- * @param targetY - Target Y coordinate (center)
- * @returns SVG path data string
+ * Generate SVG path data for a flow band using smooth cubic bezier curves
+ * Creates a simple filled area between two parallel curves
+ * @param sourceX - Source X coordinate (right edge)
+ * @param sourceTopY - Source top Y coordinate
+ * @param sourceBottomY - Source bottom Y coordinate
+ * @param targetX - Target X coordinate (left edge)
+ * @param targetTopY - Target top Y coordinate
+ * @param targetBottomY - Target bottom Y coordinate
+ * @returns SVG path data string for filled band
  */
 export function generateFlowPath(
   sourceX: number,
-  sourceY: number,
+  sourceTopY: number,
+  sourceBottomY: number,
   targetX: number,
-  targetY: number
+  targetTopY: number,
+  targetBottomY: number
 ): string {
-  // Control points for smooth bezier curve
-  const controlPoint1X = sourceX + CONTROL_POINT_OFFSET
-  const controlPoint1Y = sourceY
-  const controlPoint2X = targetX - CONTROL_POINT_OFFSET
-  const controlPoint2Y = targetY
+  // Horizontal distance for smooth curves
+  const dx = targetX - sourceX
+  const cp1X = sourceX + dx / 3  // Control point 1/3 along
+  const cp2X = targetX - dx / 3  // Control point 2/3 along
 
-  return `M${sourceX},${sourceY} C${controlPoint1X},${controlPoint1Y} ${controlPoint2X},${controlPoint2Y} ${targetX},${targetY}`
+  // Create smooth flow band with simple bezier curves
+  return [
+    `M${sourceX},${sourceTopY}`,                                              // Start at segment top
+    `C${cp1X},${sourceTopY} ${cp2X},${targetTopY} ${targetX},${targetTopY}`, // Smooth curve to bar top
+    `L${targetX},${targetBottomY}`,                                           // Straight line down bar edge
+    `C${cp2X},${targetBottomY} ${cp1X},${sourceBottomY} ${sourceX},${sourceBottomY}`, // Smooth curve back to segment bottom
+    'Z'                                                                       // Close path
+  ].join(' ')
 }
 
 /**
@@ -155,9 +165,10 @@ export function calculateSankeyToSelectionFlows(
   const segmentPos = getSankeySegmentPosition(segmentRef, containerRect)
   if (!segmentPos) return []
 
-  // Calculate source position (right edge, center of segment)
+  // Calculate source positions (right edge)
   const sourceX = segmentPos.x + segmentPos.width
-  const sourceY = segmentPos.y + segmentPos.height / 2
+  const sourceTopY = segmentPos.y
+  const sourceBottomY = segmentPos.y + segmentPos.height
 
   // Get the entire SelectionBar bounds by finding min/max of all categories
   let barTop = Infinity
@@ -179,9 +190,10 @@ export function calculateSankeyToSelectionFlows(
   // If no valid bar position found, return empty
   if (barTop === Infinity || barBottom === -Infinity || barLeft === Infinity) return []
 
-  // Calculate target position (left edge of bar, vertical center)
+  // Calculate target positions (left edge of bar)
   const targetX = barLeft
-  const targetY = (barTop + barBottom) / 2
+  const targetTopY = barTop
+  const targetBottomY = barBottom
 
   // Create single flow to the whole bar
   const flow: SankeyToSelectionFlow = {
@@ -195,20 +207,24 @@ export function calculateSankeyToSelectionFlows(
     opacity: FLOW_OPACITY.default
   }
 
-  // Generate path
-  const pathD = generateFlowPath(sourceX, sourceY, targetX, targetY)
-
-  // Use segment height as stroke width (clamped to max)
-  const strokeWidth = Math.min(segmentPos.height, MAX_STROKE_WIDTH)
+  // Generate path for flow band (filled area between two curves)
+  const pathD = generateFlowPath(
+    sourceX,
+    sourceTopY,
+    sourceBottomY,
+    targetX,
+    targetTopY,
+    targetBottomY
+  )
 
   const flowPath: FlowPathData = {
     ...flow,
     pathD,
-    strokeWidth,
+    strokeWidth: 0, // No stroke, using fill instead
     sourceX,
-    sourceY,
+    sourceY: (sourceTopY + sourceBottomY) / 2, // Center for reference
     targetX,
-    targetY
+    targetY: (targetTopY + targetBottomY) / 2  // Center for reference
   }
 
   return [flowPath]

@@ -15,12 +15,11 @@ import '../styles/TagAutomaticPanel.css'
 // SPACING CONSTANTS - Single source of truth for all margins/paddings
 // ============================================================================
 const TAG_HISTOGRAM_SPACING = {
-  content: {
-    padding: 8  // Content area padding (sync with CSS)
-  },
   svg: {
-    margin: { top: 20, right: 15, bottom: 20, left: 60 },  // SVG internal margins
-    xLabelOffset: 30,   // Distance below chart for x-axis label
+    // Fixed margins that always accommodate labels (no complex calculations needed)
+    margin: { top: 35, right: 20, bottom: -40, left: 80 },
+    // Label offsets (relative to chart area)
+    xLabelOffset: 40,   // Distance below chart for x-axis label
     yLabelOffset: -40,  // Distance left of chart for y-axis label
     xTickOffset: 18     // Distance below chart for x-axis tick labels
   }
@@ -43,7 +42,6 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
   const modeColors = useMemo(() => getSelectionColors(mode), [mode])
 
   const svgRef = useRef<SVGSVGElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
 
   const [isMinimized, setIsMinimized] = useState(false)
   const [containerSize, setContainerSize] = useState({ width: 800, height: 300 })
@@ -70,23 +68,22 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
     return { selectedCount: 0, rejectedCount: 0 }
   }, [mode, pairSelectionStates])
 
-  // Measure container size
+  // Measure SVG size directly (SVG fills container via CSS)
   useEffect(() => {
-    if (!containerRef.current) return
+    if (!svgRef.current) return
 
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect
-        // Reserve space for padding (left + right + top + bottom)
-        const totalPadding = TAG_HISTOGRAM_SPACING.content.padding * 4
+        // SVG size = container size (100% width/height from CSS)
         setContainerSize({
-          width: Math.max(400, width - totalPadding),
-          height: Math.max(200, height - totalPadding)
+          width: Math.max(400, width),
+          height: Math.max(200, height)
         })
       }
     })
 
-    resizeObserver.observe(containerRef.current)
+    resizeObserver.observe(svgRef.current)
     return () => resizeObserver.disconnect()
   }, [])
 
@@ -161,13 +158,19 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
       similarity: symmetricHistogramData
     }
 
-    const layout = calculateHistogramLayout(histogramDataMap, containerSize.width, containerSize.height)
+    // Simple calculation: SVG size minus fixed margins = chart size
+    const margin = TAG_HISTOGRAM_SPACING.svg.margin
+    const chartWidth = containerSize.width - margin.left - margin.right
+    const chartHeight = containerSize.height - margin.top - margin.bottom
+
+    // Calculate histogram with chart dimensions
+    const layout = calculateHistogramLayout(histogramDataMap, chartWidth, chartHeight)
     const chart = layout.charts[0]
 
-    // Use centralized spacing constants for consistent margins
+    // Return chart with our fixed margins
     return {
       ...chart,
-      margin: TAG_HISTOGRAM_SPACING.svg.margin
+      margin
     }
   }, [histogramData, containerSize])
 
@@ -359,13 +362,10 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
               <span>Calculating similarity scores...</span>
             </div>
           ) : histogramChart ? (
-            <>
-              <div ref={containerRef} className="tag-panel__histogram-container">
+            <div className="tag-panel__histogram-container">
                 <svg
                   ref={svgRef}
                   className="tag-panel__svg"
-                  width={containerSize.width}
-                  height={containerSize.height}
                 >
                 {/* Define stripe patterns for preview */}
                 <defs>
@@ -526,7 +526,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
                         x={tick.position}
                         y={histogramChart.height + TAG_HISTOGRAM_SPACING.svg.xTickOffset}
                         textAnchor="middle"
-                        fontSize={10}
+                        fontSize={12}
                         fill="#666"
                       >
                         {tick.label}
@@ -559,7 +559,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
                         x={-10}
                         y={tick.position + 3}
                         textAnchor="end"
-                        fontSize={10}
+                        fontSize={12}
                         fill="#666"
                       >
                         {tick.label}
@@ -572,7 +572,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
                     x={histogramChart.width / 2}
                     y={histogramChart.height + TAG_HISTOGRAM_SPACING.svg.xLabelOffset}
                     textAnchor="middle"
-                    fontSize={11}
+                    fontSize={14}
                     fill="#666"
                   >
                     Similarity Score (Selected - Rejected)
@@ -581,7 +581,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
                     x={-histogramChart.height / 2}
                     y={TAG_HISTOGRAM_SPACING.svg.yLabelOffset}
                     textAnchor="middle"
-                    fontSize={12}
+                    fontSize={14}
                     fill="#666"
                     transform={`rotate(-90, ${-histogramChart.height / 2}, ${TAG_HISTOGRAM_SPACING.svg.yLabelOffset})`}
                   >
@@ -641,8 +641,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
                   </g>
                 </g>
               </svg>
-              </div>
-            </>
+            </div>
           ) : (
             <div className="tag-panel__error">
               Failed to load histogram data

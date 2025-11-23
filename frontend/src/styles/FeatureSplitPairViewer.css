@@ -9,7 +9,7 @@
   padding: 0;
   background-color: #ffffff;
   flex: 1;
-  max-height: 50%;
+  min-height: 0;
   overflow: hidden;
   /* border: 1px solid #e5e7eb; */
 }
@@ -26,7 +26,6 @@
   gap: 12px;
   padding: 2px 8px;
   background: white;
-  border-bottom: 1px solid #e5e7eb;
 }
 
 .pair-viewer__title {
@@ -59,93 +58,8 @@
 }
 
 /* ============================================================================
- * BODY - Container for sidebar and main content
+ * MAIN - Content area (sidebar removed, managed by parent FeatureSplitView)
  * ============================================================================ */
-
-.pair-viewer__body {
-  display: flex;
-  flex-direction: row;
-  gap: 0;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
-/* ============================================================================
- * SIDEBAR - Pair list on the left
- * ============================================================================ */
-
-.pair-viewer__sidebar {
-  width: 200px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  background-color: #f9fafb;
-  border-right: 1px solid #e5e7eb;
-  overflow: hidden;
-}
-
-.sidebar__header {
-  display: flex;
-  align-items: stretch;
-  gap: 4px;
-  padding: 4px;
-  background-color: white;
-  flex-shrink: 0;
-}
-
-.sidebar__badge {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 4px;
-  background-color: #f3f4f6;
-  border: 1px solid #e5e7eb;
-  border-radius: 3px;
-}
-
-.badge__label {
-  font-size: 10px;
-  font-weight: 600;
-  color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.badge__count {
-  font-size: 11px;
-  font-weight: 700;
-  color: #374151;
-  font-family: 'Consolas', 'Monaco', monospace;
-}
-
-.pair-list__container {
-  flex: 1;
-  overflow-y: scroll;
-  overflow-x: hidden;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 2px;
-  padding: 2px 2px;
-  scrollbar-width: thin;
-  scrollbar-color: #6b7280 #e5e7eb;
-}
-
-/* Scrollbar styles for pair list - always visible */
-.pair-list__container::-webkit-scrollbar {
-  width: 10px;
-  -webkit-appearance: none;
-}
-
-.pair-list__container::-webkit-scrollbar-track {
-  background: #e5e7eb;
-  border-radius: 5px;
-  margin: 2px 0;
-}
 
 .pair-list__container::-webkit-scrollbar-thumb {
   background: #6b7280;
@@ -562,12 +476,13 @@
   flex-direction: column;
   gap: 4px;
   min-width: 0;
+  min-height: 0;
   background-color: white;
   border: 1px solid #e5e7eb;
   border-radius: 4px;
   padding: 6px;
   overflow: hidden;
-  flex-shrink: 0;  /* Don't shrink below content size */
+  flex: 1;  /* Allow panels to share space equally */
 }
 
 .activation-panel__header {
@@ -595,7 +510,8 @@
 .activation-panel__examples {
   overflow-y: auto;
   overflow-x: hidden;
-  flex-shrink: 0;  /* Fit content height */
+  flex: 1;
+  min-height: 0;
 }
 
 /* Scrollbar for activation examples */

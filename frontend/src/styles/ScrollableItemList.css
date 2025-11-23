@@ -1,0 +1,194 @@
+/* ============================================================================
+ * SCROLLABLE ITEM LIST - Reusable scrollable sidebar component
+ * ============================================================================
+ * Extracted from FeatureSplitPairViewer.css for reusability
+ * ============================================================================ */
+
+.scrollable-list {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background-color: #f9fafb;
+  border-right: 1px solid #e5e7eb;
+  overflow: hidden;
+}
+
+/* ============================================================================
+ * HEADER - Count badges
+ * ============================================================================ */
+
+.scrollable-list__header {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  padding: 4px;
+  background-color: white;
+  flex-shrink: 0;
+}
+
+.scrollable-list__badge {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  background-color: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 3px;
+}
+
+.scrollable-list__badge-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.scrollable-list__badge-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: #374151;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+/* ============================================================================
+ * SCROLLABLE CONTAINER
+ * ============================================================================ */
+
+.scrollable-list__container {
+  flex: 1;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 2px 2px;
+  scrollbar-width: thin;
+  scrollbar-color: #6b7280 #e5e7eb;
+}
+
+/* Scrollbar styles - always visible */
+.scrollable-list__container::-webkit-scrollbar {
+  width: 10px;
+  -webkit-appearance: none;
+}
+
+.scrollable-list__container::-webkit-scrollbar-track {
+  background: #e5e7eb;
+  border-radius: 5px;
+  margin: 2px 0;
+}
+
+.scrollable-list__container::-webkit-scrollbar-thumb {
+  background: #6b7280;
+  border-radius: 5px;
+  border: 2px solid #e5e7eb;
+}
+
+.scrollable-list__container::-webkit-scrollbar-thumb:hover {
+  background: #374151;
+}
+
+/* ============================================================================
+ * LIST ITEMS
+ * ============================================================================ */
+
+.scrollable-list-item {
+  position: relative;
+  padding: 3px;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+  border: 1px solid transparent;
+  display: flex;
+  align-items: stretch;
+}
+
+/* Highlighted items (e.g., same cluster) */
+.scrollable-list-item--highlighted {
+  background-color: #bfdbfe;
+  border: 1px solid #93c5fd;
+  border-radius: 0;
+  margin-top: -1px;
+  margin-bottom: 0;
+}
+
+/* First item in highlighted group - top rounded corners */
+.scrollable-list-item--highlight-first {
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  margin-top: 0;
+}
+
+/* Last item in highlighted group - bottom rounded corners */
+.scrollable-list-item--highlight-last {
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+
+/* Current/selected item */
+.scrollable-list-item--current {
+  padding: 2px;
+  border: 2px solid #3b82f6;
+  border-radius: 6px;
+  background-color: white;
+  box-shadow: 0 0 0 1px #3b82f6;
+  z-index: 1;
+}
+
+/* When current item is also highlighted */
+.scrollable-list-item--current.scrollable-list-item--highlighted {
+  background-color: #bfdbfe;
+  padding: 2px;
+  border: 2px solid #3b82f6;
+  box-shadow: 0 0 0 2px #3b82f6;
+}
+
+/* Ensure children have no extra margins */
+.scrollable-list-item > * {
+  margin: 0;
+  vertical-align: middle;
+}
+
+/* ============================================================================
+ * FOOTER BUTTON
+ * ============================================================================ */
+
+.scrollable-list__footer-button {
+  flex-shrink: 0;
+  width: 100%;
+  padding: 6px 12px;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  background-color: white;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.scrollable-list__footer-button:hover:not(:disabled) {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.scrollable-list__footer-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.scrollable-list__footer-button--available {
+  color: #8b5cf6;
+  border-color: #8b5cf6;
+  font-weight: 700;
+}
+
+.scrollable-list__footer-button--available:hover:not(:disabled) {
+  background-color: #f5f3ff;
+  border-color: #7c3aed;
+}

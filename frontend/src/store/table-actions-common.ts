@@ -64,18 +64,34 @@ export const createCommonTableActions = (set: any, get: any) => ({
   selectSingleNode: (nodeId: string | null, segmentIndex?: number | null) => {
     if (nodeId === null) {
       // Deselect: clear selection
-      set({ tableSelectedNodeIds: [], selectedSegment: null })
+      set({
+        tableSelectedNodeIds: [],
+        selectedSegment: null,
+        // Also clear flow visualization
+        selectedSankeySegment: null,
+        sankeyToSelectionFlows: null
+      })
       console.log('[Store.selectSingleNode] Cleared selection')
     } else {
       // Select: replace array with single node
       set({ tableSelectedNodeIds: [nodeId] })
 
-      // V2: If segment index provided, also set selectedSegment
+      // V2: If segment index provided, also set selectedSegment and flow visualization
       if (segmentIndex !== undefined && segmentIndex !== null) {
-        set({ selectedSegment: { nodeId, segmentIndex } })
+        set({
+          selectedSegment: { nodeId, segmentIndex },
+          // Also set flow visualization
+          selectedSankeySegment: { nodeId, segmentIndex, panel: 'left' },
+          sankeyToSelectionFlows: null
+        })
         console.log('[Store.selectSingleNode] Selected node with segment:', nodeId, 'segment:', segmentIndex)
       } else {
-        set({ selectedSegment: null })
+        set({
+          selectedSegment: null,
+          // Clear flow visualization when no segment
+          selectedSankeySegment: null,
+          sankeyToSelectionFlows: null
+        })
         console.log('[Store.selectSingleNode] Selected node:', nodeId)
       }
     }
@@ -87,13 +103,22 @@ export const createCommonTableActions = (set: any, get: any) => ({
   selectSegment: (nodeId: string, segmentIndex: number) => {
     set({
       selectedSegment: { nodeId, segmentIndex },
-      tableSelectedNodeIds: [nodeId]
+      tableSelectedNodeIds: [nodeId],
+      // Also set flow visualization for auto-selected segments
+      selectedSankeySegment: { nodeId, segmentIndex, panel: 'left' },
+      sankeyToSelectionFlows: null
     })
     console.log('[Store.selectSegment] Selected segment:', { nodeId, segmentIndex })
   },
 
   clearSegmentSelection: () => {
-    set({ selectedSegment: null, tableSelectedNodeIds: [] })
+    set({
+      selectedSegment: null,
+      tableSelectedNodeIds: [],
+      // Also clear flow visualization
+      selectedSankeySegment: null,
+      sankeyToSelectionFlows: null
+    })
     console.log('[Store.clearSegmentSelection] Cleared segment selection')
   },
 

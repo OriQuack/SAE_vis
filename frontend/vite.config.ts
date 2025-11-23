@@ -7,6 +7,9 @@ export default defineConfig({
   server: {
     port: 3003,
     host: '0.0.0.0', // Allow access from any IP
+    watch: {
+      ignored: ['**/data/**'] // Exclude data directory from file watching
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:8003',

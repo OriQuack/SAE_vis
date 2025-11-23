@@ -1,0 +1,149 @@
+/* ============================================================================
+ * FEATURE SPLIT VIEW - Organized layout for feature splitting workflow
+ * ============================================================================
+ * Layout:
+ *   Header (full width at top)
+ *   Body: [SelectionPanel bar (42px)] | [2-column content area]
+ *     Content area has 2 rows:
+ *       Row 1 (top 50%): [pair list (200px)][FeatureSplitPairViewer]
+ *       Row 2 (bottom 50%): [left boundary list (180px)][TagAutomaticPanel][right boundary list (180px)]
+ * ============================================================================ */
+
+.feature-split-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  background-color: #ffffff;
+  gap: 0;
+}
+
+/* ============================================================================
+ * HEADER - Full width title and description
+ * ============================================================================ */
+
+.feature-split-view__header {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 12px;
+  padding: 2px 8px;
+  background: white;
+}
+
+.feature-split-view__title {
+  font-size: 22px;
+  font-weight: 500;
+  color: #374151;
+  margin: 0;
+}
+
+.feature-split-view__description {
+  font-size: 14px;
+  font-weight: 400;
+  color: #383838;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.feature-split-view__tag-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #000000;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* ============================================================================
+ * BODY - SelectionPanel + Content area
+ * ============================================================================ */
+
+.feature-split-view__body {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  min-height: 0;
+  gap: 0;
+}
+
+/* SelectionPanel in FeatureSplitView should have fixed width */
+.feature-split-view .table-selection-panel {
+  flex: 0 0 42px;
+  width: 42px;
+  min-width: 42px;
+  max-width: 42px;
+}
+
+/* ============================================================================
+ * CONTENT AREA - Right column with 2 rows
+ * ============================================================================ */
+
+.feature-split-view__content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  gap: 8px;
+  overflow: hidden;
+}
+
+/* ============================================================================
+ * TOP ROW - Pair list + FeatureSplitPairViewer
+ * ============================================================================ */
+
+.feature-split-view__row-top {
+  display: flex;
+  flex-direction: row;
+  max-height: 50%;
+  min-height: 0;
+  gap: 0;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* ============================================================================
+ * BOTTOM ROW - Left boundary + TagAutomaticPanel + Right boundary
+ * ============================================================================ */
+
+.feature-split-view__row-bottom {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  min-height: 0;
+  gap: 0;
+  overflow: hidden;
+}
+
+/* Ensure ScrollableItemLists in bottom row maintain their width */
+.feature-split-view__row-bottom > .scrollable-list {
+  flex: 0 0 auto;
+  min-width: 180px;  /* Prevent collapse */
+}
+
+/* ============================================================================
+ * BOUNDARY LISTS CONTAINER - Vertical stacking of Above/Below threshold lists
+ * ============================================================================ */
+
+.boundary-lists-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-width: 180px;
+  overflow: hidden;
+}
+
+.boundary-lists-container > .scrollable-list {
+  flex: 1;
+  min-height: 0;
+}

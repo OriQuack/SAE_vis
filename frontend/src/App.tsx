@@ -5,6 +5,8 @@ import SankeyDiagram from './components/SankeyDiagram'
 import AlluvialDiagram from './components/AlluvialDiagram'
 import HistogramPopover from './components/SankeyHistogramPopover'
 import TablePanel from './components/QualityTable'
+import FeatureSplitView from './components/FeatureSplitView'
+import SimilarityTaggingPopover from './components/TagAutomaticPopover'
 import TagCategoryPanel from './components/TagStagePanel'
 import TableSelectionPanel from './components/SelectionPanel'
 import SankeyToSelectionFlowOverlay from './components/SankeyToSelectionFlowOverlay'
@@ -188,48 +190,18 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
             </div>
           </div>
 
-          {/* Middle Column - Selection Panel */}
-          {tableData && (
-            <div className="sankey-view__selection-panel-column">
-              {activeStageCategory === TAG_CATEGORY_QUALITY && (
-                <TableSelectionPanel
-                  mode="feature"
-                  tagLabel={TAG_CATEGORY_TABLE_TITLES[TAG_CATEGORY_QUALITY]}
-                  instruction={TAG_CATEGORY_TABLE_INSTRUCTIONS[TAG_CATEGORY_QUALITY]}
-                  onDone={moveToNextStep}
-                  doneButtonEnabled={true}
-                  onCategoryRefsReady={setSelectionCategoryRefs}
-                />
-              )}
-              {activeStageCategory === TAG_CATEGORY_FEATURE_SPLITTING && (
-                <TableSelectionPanel
-                  mode="pair"
-                  tagLabel={TAG_CATEGORY_TABLE_TITLES[TAG_CATEGORY_FEATURE_SPLITTING]}
-                  instruction={TAG_CATEGORY_TABLE_INSTRUCTIONS[TAG_CATEGORY_FEATURE_SPLITTING]}
-                  onDone={moveToNextStep}
-                  doneButtonEnabled={true}
-                  pairKeys={tableData?.pairs?.map((p: any) => p.pairKey) || []}
-                  onCategoryRefsReady={setSelectionCategoryRefs}
-                />
-              )}
-              {activeStageCategory === TAG_CATEGORY_CAUSE && (
-                <TableSelectionPanel
-                  mode="cause"
-                  tagLabel={TAG_CATEGORY_TABLE_TITLES[TAG_CATEGORY_CAUSE]}
-                  instruction={TAG_CATEGORY_TABLE_INSTRUCTIONS[TAG_CATEGORY_CAUSE]}
-                  onDone={moveToNextStep}
-                  doneButtonEnabled={true}
-                  onCategoryRefsReady={setSelectionCategoryRefs}
-                />
-              )}
-            </div>
-          )}
-
           {/* Right Column - Table */}
           <div className="sankey-view__table-column">
             <div className="sankey-view__center-left">
-              {/* Table Panel - Full Height */}
-              <TablePanel />
+              {/* Conditional Rendering: Feature Split View or Table Panel */}
+              {activeStageCategory === TAG_CATEGORY_FEATURE_SPLITTING ? (
+                <>
+                  <FeatureSplitView onCategoryRefsReady={setSelectionCategoryRefs} />
+                  <SimilarityTaggingPopover />
+                </>
+              ) : (
+                <TablePanel />
+              )}
 
               {/* Comparison Overlay - Alluvial + Right Sankey */}
               {showComparisonView && (

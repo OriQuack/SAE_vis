@@ -1,4 +1,4 @@
-import React, { useRef, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useStore as useVisualizationStore } from '../store'
 import {
   calculateSankeyToSelectionFlows
@@ -36,8 +36,8 @@ export const SankeyToSelectionFlowOverlay: React.FC<SankeyToSelectionFlowOverlay
   const activeStageCategory = useVisualizationStore(state => state.activeStageCategory)
   const activeCauseStageNode = useVisualizationStore(state => state.activeCauseStageNode)
 
-  // Container ref for coordinate calculations
-  const containerRef = useRef<HTMLDivElement>(null)
+  // Container element - use state instead of ref to trigger re-renders
+  const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null)
 
   // Determine current table mode based on active stage
   const tableMode = useMemo((): 'feature' | 'pair' | 'cause' => {
@@ -113,36 +113,21 @@ export const SankeyToSelectionFlowOverlay: React.FC<SankeyToSelectionFlowOverlay
     return state
   }, [tableMode, featureSelectionStates, pairSelectionStates, causeSelectionStates])
 
-  // Calculate flows from selected segment
-  const flows = useMemo((): FlowPathData[] => {
-    console.log('[SankeyToSelectionFlowOverlay] Flow calculation:', {
-      hasSelection: !!selectedSankeySegment,
-      hasContainer: !!containerRef.current,
-      segmentRefsSize: segmentRefs.size,
-      categoryRefsSize: categoryRefs.size,
-      selectedSankeySegment
-    })
-
-    if (!selectedSankeySegment || !containerRef.current || segmentRefs.size === 0 || categoryRefs.size === 0) {
-      console.log('[SankeyToSelectionFlowOverlay] Early return - missing dependencies')
+  // Calculate flows from selected segment (recalculates on every render for responsive positioning)
+  const calculateFlows = (): FlowPathData[] => {
+    if (!selectedSankeySegment || !containerElement || segmentRefs.size === 0 || categoryRefs.size === 0) {
       return []
     }
 
     const segmentKey = `${selectedSankeySegment.nodeId}_${selectedSankeySegment.segmentIndex}`
     const segmentRef = segmentRefs.get(segmentKey)
 
-    console.log('[SankeyToSelectionFlowOverlay] Looking for segment ref:', {
-      segmentKey,
-      found: !!segmentRef,
-      availableKeys: Array.from(segmentRefs.keys())
-    })
-
     if (!segmentRef) {
-      console.log('[SankeyToSelectionFlowOverlay] Segment ref not found!')
       return []
     }
 
-    const containerRect = containerRef.current.getBoundingClientRect()
+    // Recalculate positions every render - positions change with window resize, gap changes, etc.
+    const containerRect = containerElement.getBoundingClientRect()
     const nodes = sankeyStructure?.nodes || []
 
     const calculatedFlows = calculateSankeyToSelectionFlows(
@@ -154,51 +139,50 @@ export const SankeyToSelectionFlowOverlay: React.FC<SankeyToSelectionFlowOverlay
       containerRect
     )
 
-    console.log('[SankeyToSelectionFlowOverlay] Calculated flows:', calculatedFlows)
     return calculatedFlows
-  }, [selectedSankeySegment, segmentRefs, categoryRefs, sankeyStructure, selectionState])
-
-  // Don't render if no selection
-  if (!selectedSankeySegment || flows.length === 0) {
-    return null
   }
 
+  const flows = calculateFlows()
+
+  // Always render the container div (needed for containerElement ref)
+  // Only show flows when selection exists
   return (
     <div
-      ref={containerRef}
+      ref={setContainerElement}
       className={`sankey-to-selection-flow-overlay ${className}`}
     >
-      <svg
-        className="sankey-to-selection-flow-overlay__svg"
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          pointerEvents: 'none',
-          zIndex: 100
-        }}
-      >
-        <g className="sankey-to-selection-flow-overlay__flows">
-          {flows.map((flow) => (
-            <path
-              key={flow.id}
-              className="sankey-to-selection-flow-overlay__flow"
-              d={flow.pathD}
-              fill="none"
-              stroke={flow.color}
-              strokeWidth={flow.strokeWidth}
-              opacity={0.3}
-              style={{
-                pointerEvents: 'none'
-              }}
-            >
-              <title>{`${flow.featureCount} features → Selection Bar`}</title>
-            </path>
-          ))}
-        </g>
-      </svg>
+      {selectedSankeySegment && flows.length > 0 && (
+        <svg
+          className="sankey-to-selection-flow-overlay__svg"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            pointerEvents: 'none',
+            zIndex: 100
+          }}
+        >
+          <g className="sankey-to-selection-flow-overlay__flows">
+            {flows.map((flow) => (
+              <path
+                key={flow.id}
+                className="sankey-to-selection-flow-overlay__flow"
+                d={flow.pathD}
+                fill={flow.color}
+                fillOpacity={0.3}
+                stroke="none"
+                style={{
+                  pointerEvents: 'none'
+                }}
+              >
+                <title>{`${flow.featureCount} features → Selection Bar`}</title>
+              </path>
+            ))}
+          </g>
+        </svg>
+      )}
     </div>
   )
 }
