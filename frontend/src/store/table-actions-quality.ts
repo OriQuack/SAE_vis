@@ -125,21 +125,21 @@ export const createQualityActions = (set: any, get: any) => ({
   // SIMILARITY TAGGING ACTIONS (feature mode)
   // ============================================================================
 
-  showSimilarityTaggingPopover: async (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string) => {
+  showTagAutomaticPopover: async (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string) => {
     // Only handle feature mode in this file
     if (mode !== 'feature') {
-      console.warn('[Quality.showSimilarityTaggingPopover] Wrong mode:', mode)
+      console.warn('[Quality.showTagAutomaticPopover] Wrong mode:', mode)
       return
     }
 
-    console.log(`[Store.showSimilarityTaggingPopover] Opening ${mode} tagging popover with label: ${tagLabel}`)
+    console.log(`[Store.showTagAutomaticPopover] Opening ${mode} tagging popover with label: ${tagLabel}`)
 
     const { featureSelectionStates, tableData } = get()
 
     try {
       // Set loading state
       set({
-        similarityTaggingPopover: {
+        tagAutomaticState: {
           visible: true,
           minimized: false,
           mode,
@@ -169,7 +169,7 @@ export const createQualityActions = (set: any, get: any) => ({
         })
       }
 
-      console.log('[Store.showSimilarityTaggingPopover] Fetching feature histogram:', {
+      console.log('[Store.showTagAutomaticPopover] Fetching feature histogram:', {
         selected: selectedIds.length,
         rejected: rejectedIds.length,
         total: allFeatureIds.length
@@ -197,7 +197,7 @@ export const createQualityActions = (set: any, get: any) => ({
       // Update state with histogram data
       // Initialize with dual thresholds for auto-selecting and auto-rejecting
       set({
-        similarityTaggingPopover: {
+        tagAutomaticState: {
           visible: true,
           minimized: false,
           mode,
@@ -211,35 +211,35 @@ export const createQualityActions = (set: any, get: any) => ({
       })
 
     } catch (error) {
-      console.error('[Store.showSimilarityTaggingPopover] ❌ Failed to fetch histogram:', error)
-      set({ similarityTaggingPopover: null })
+      console.error('[Store.showTagAutomaticPopover] ❌ Failed to fetch histogram:', error)
+      set({ tagAutomaticState: null })
     }
   },
 
-  hideSimilarityTaggingPopover: () => {
-    console.log('[Store.hideSimilarityTaggingPopover] Closing tagging popover')
-    set({ similarityTaggingPopover: null })
+  hideTagAutomaticPopover: () => {
+    console.log('[Store.hideTagAutomaticPopover] Closing tagging popover')
+    set({ tagAutomaticState: null })
   },
 
   updateSimilarityThresholds: (selectThreshold: number) => {
-    const { similarityTaggingPopover } = get()
-    if (!similarityTaggingPopover) return
+    const { tagAutomaticState } = get()
+    if (!tagAutomaticState) return
 
     set({
-      similarityTaggingPopover: {
-        ...similarityTaggingPopover,
+      tagAutomaticState: {
+        ...tagAutomaticState,
         selectThreshold
       }
     })
   },
 
   updateBothSimilarityThresholds: (selectThreshold: number, rejectThreshold: number) => {
-    const { similarityTaggingPopover } = get()
-    if (!similarityTaggingPopover) return
+    const { tagAutomaticState } = get()
+    if (!tagAutomaticState) return
 
     set({
-      similarityTaggingPopover: {
-        ...similarityTaggingPopover,
+      tagAutomaticState: {
+        ...tagAutomaticState,
         selectThreshold,
         rejectThreshold
       }
@@ -247,14 +247,14 @@ export const createQualityActions = (set: any, get: any) => ({
   },
 
   applySimilarityTags: () => {
-    const { similarityTaggingPopover, featureSelectionStates, featureSelectionSources } = get()
+    const { tagAutomaticState, featureSelectionStates, featureSelectionSources } = get()
 
-    if (!similarityTaggingPopover || !similarityTaggingPopover.histogramData) {
+    if (!tagAutomaticState || !tagAutomaticState.histogramData) {
       console.warn('[Store.applySimilarityTags] No popover data available')
       return
     }
 
-    const { mode, selectThreshold, rejectThreshold, histogramData } = similarityTaggingPopover
+    const { mode, selectThreshold, rejectThreshold, histogramData } = tagAutomaticState
 
     // Only handle feature mode in this file
     if (mode !== 'feature') {
@@ -316,16 +316,16 @@ export const createQualityActions = (set: any, get: any) => ({
     })
 
     // Close popover after applying
-    set({ similarityTaggingPopover: null })
+    set({ tagAutomaticState: null })
   },
 
   minimizeSimilarityTaggingPopover: () => {
-    const { similarityTaggingPopover } = get()
-    if (!similarityTaggingPopover) return
+    const { tagAutomaticState } = get()
+    if (!tagAutomaticState) return
 
     set({
-      similarityTaggingPopover: {
-        ...similarityTaggingPopover,
+      tagAutomaticState: {
+        ...tagAutomaticState,
         minimized: true
       }
     })
@@ -333,12 +333,12 @@ export const createQualityActions = (set: any, get: any) => ({
   },
 
   restoreSimilarityTaggingPopover: () => {
-    const { similarityTaggingPopover } = get()
-    if (!similarityTaggingPopover) return
+    const { tagAutomaticState } = get()
+    if (!tagAutomaticState) return
 
     set({
-      similarityTaggingPopover: {
-        ...similarityTaggingPopover,
+      tagAutomaticState: {
+        ...tagAutomaticState,
         minimized: false
       }
     })
@@ -349,13 +349,13 @@ export const createQualityActions = (set: any, get: any) => ({
    * Show thresholds on table - sorts by similarity and shows threshold lines
    */
   showThresholdsOnTable: async () => {
-    const { similarityTaggingPopover } = get()
-    if (!similarityTaggingPopover) {
+    const { tagAutomaticState } = get()
+    if (!tagAutomaticState) {
       console.warn('[Store.showThresholdsOnTable] No popover state available')
       return
     }
 
-    const { mode, selectThreshold, rejectThreshold } = similarityTaggingPopover
+    const { mode, selectThreshold, rejectThreshold } = tagAutomaticState
 
     // Only handle feature mode in this file
     if (mode !== 'feature') {

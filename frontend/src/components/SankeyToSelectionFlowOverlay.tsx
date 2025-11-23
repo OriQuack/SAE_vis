@@ -113,8 +113,8 @@ export const SankeyToSelectionFlowOverlay: React.FC<SankeyToSelectionFlowOverlay
     return state
   }, [tableMode, featureSelectionStates, pairSelectionStates, causeSelectionStates])
 
-  // Calculate flows from selected segment (recalculates on every render for responsive positioning)
-  const calculateFlows = (): FlowPathData[] => {
+  // Calculate flows from selected segment - memoized to update when sankeyStructure changes during drag
+  const flows = useMemo((): FlowPathData[] => {
     if (!selectedSankeySegment || !containerElement || segmentRefs.size === 0 || categoryRefs.size === 0) {
       return []
     }
@@ -126,7 +126,7 @@ export const SankeyToSelectionFlowOverlay: React.FC<SankeyToSelectionFlowOverlay
       return []
     }
 
-    // Recalculate positions every render - positions change with window resize, gap changes, etc.
+    // Read current DOM positions - updates when sankeyStructure changes
     const containerRect = containerElement.getBoundingClientRect()
     const nodes = sankeyStructure?.nodes || []
 
@@ -140,9 +140,7 @@ export const SankeyToSelectionFlowOverlay: React.FC<SankeyToSelectionFlowOverlay
     )
 
     return calculatedFlows
-  }
-
-  const flows = calculateFlows()
+  }, [selectedSankeySegment, containerElement, segmentRefs, categoryRefs, sankeyStructure, selectionState])
 
   // Always render the container div (needed for containerElement ref)
   // Only show flows when selection exists

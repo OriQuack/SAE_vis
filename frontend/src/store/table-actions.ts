@@ -15,7 +15,7 @@ import { createCauseActions } from './table-actions-cause'
 /**
  * Factory function to create all table-related actions for the store
  *
- * Note: Similarity tagging functions (showSimilarityTaggingPopover, applySimilarityTags, etc.)
+ * Note: Similarity tagging functions (showTagAutomaticPopover, applySimilarityTags, etc.)
  * are present in all 3 stage modules. They route to the correct implementation based on mode.
  * The routing happens within each function by checking the mode parameter.
  */
@@ -28,21 +28,21 @@ export const createTableActions = (set: any, get: any) => {
 
   // Create unified similarity tagging actions that route based on mode
   const unifiedSimilarityActions = {
-    showSimilarityTaggingPopover: async (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string) => {
+    showTagAutomaticPopover: async (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string) => {
       if (mode === 'feature') {
-        return qualityActions.showSimilarityTaggingPopover(mode, position, tagLabel)
+        return qualityActions.showTagAutomaticPopover(mode, position, tagLabel)
       } else if (mode === 'pair') {
-        return featureSplittingActions.showSimilarityTaggingPopover(mode, position, tagLabel)
+        return featureSplittingActions.showTagAutomaticPopover(mode, position, tagLabel)
       } else if (mode === 'cause') {
-        return causeActions.showSimilarityTaggingPopover(mode, position, tagLabel)
+        return causeActions.showTagAutomaticPopover(mode, position, tagLabel)
       }
     },
 
     applySimilarityTags: () => {
-      const { similarityTaggingPopover } = get()
-      if (!similarityTaggingPopover) return
+      const { tagAutomaticState } = get()
+      if (!tagAutomaticState) return
 
-      const { mode } = similarityTaggingPopover
+      const { mode } = tagAutomaticState
       if (mode === 'feature') {
         return qualityActions.applySimilarityTags()
       } else if (mode === 'pair') {
@@ -53,10 +53,10 @@ export const createTableActions = (set: any, get: any) => {
     },
 
     showThresholdsOnTable: async () => {
-      const { similarityTaggingPopover } = get()
-      if (!similarityTaggingPopover) return
+      const { tagAutomaticState } = get()
+      if (!tagAutomaticState) return
 
-      const { mode } = similarityTaggingPopover
+      const { mode } = tagAutomaticState
       if (mode === 'feature') {
         return qualityActions.showThresholdsOnTable()
       } else if (mode === 'pair') {
@@ -66,10 +66,43 @@ export const createTableActions = (set: any, get: any) => {
       }
     },
 
+    // Threshold update actions - route based on current mode
+    updateSimilarityThresholds: (selectThreshold: number) => {
+      const { tagAutomaticState } = get()
+      if (!tagAutomaticState) return
+
+      const { mode } = tagAutomaticState
+      if (mode === 'feature') {
+        return qualityActions.updateSimilarityThresholds(selectThreshold)
+      } else if (mode === 'pair') {
+        return featureSplittingActions.updateSimilarityThresholds(selectThreshold)
+      } else if (mode === 'cause') {
+        return causeActions.updateSimilarityThresholds(selectThreshold)
+      }
+    },
+
+    updateBothSimilarityThresholds: (selectThreshold: number, rejectThreshold: number) => {
+      const { tagAutomaticState } = get()
+
+      // If no state exists yet, we need to determine mode from context
+      // For now, try to call all implementations that handle null state
+      if (!tagAutomaticState) {
+        // Try feature splitting first (most likely to handle null state properly)
+        return featureSplittingActions.updateBothSimilarityThresholds(selectThreshold, rejectThreshold)
+      }
+
+      const { mode } = tagAutomaticState
+      if (mode === 'feature') {
+        return qualityActions.updateBothSimilarityThresholds(selectThreshold, rejectThreshold)
+      } else if (mode === 'pair') {
+        return featureSplittingActions.updateBothSimilarityThresholds(selectThreshold, rejectThreshold)
+      } else if (mode === 'cause') {
+        return causeActions.updateBothSimilarityThresholds(selectThreshold, rejectThreshold)
+      }
+    },
+
     // These functions are shared across all modes (use any implementation)
-    hideSimilarityTaggingPopover: qualityActions.hideSimilarityTaggingPopover,
-    updateSimilarityThresholds: qualityActions.updateSimilarityThresholds,
-    updateBothSimilarityThresholds: qualityActions.updateBothSimilarityThresholds,
+    hideTagAutomaticPopover: qualityActions.hideTagAutomaticPopover,
     minimizeSimilarityTaggingPopover: qualityActions.minimizeSimilarityTaggingPopover,
     restoreSimilarityTaggingPopover: qualityActions.restoreSimilarityTaggingPopover,
     hideThresholdsOnTable: qualityActions.hideThresholdsOnTable

@@ -1,9 +1,9 @@
 {
-  "created_at": "2025-11-10T13:22:06.284892",
+  "created_at": "2025-11-24T00:29:17.181229",
   "script_version": "4.0",
   "architecture": "dual_ngram_with_position_tracking",
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
-  "total_rows": 824,
+  "total_rows": 14316,
   "schema": {
     "feature_id": "UInt32",
     "sae_id": "Categorical",
@@ -11,22 +11,22 @@
     "lexical_pairs": "List(Struct([Field('similar_feature_id', UInt32), Field('decoder_similarity', Float32), Field('pattern_type', Utf8), Field('semantic_similarity', Float32), Field('char_jaccard', Float32), Field('word_jaccard', Float32), Field('main_prompt_ids', List(UInt32)), Field('similar_prompt_ids', List(UInt32)), Field('num_comparisons', UInt32), Field('max_char_ngram', Utf8), Field('max_char_ngram_size', UInt8), Field('max_word_ngram', Utf8), Field('max_word_ngram_size', UInt8), Field('main_char_ngram_positions', List(Struct([Field('prompt_id', UInt32), Field('positions', List(Struct([Field('token_position', UInt16), Field('char_offset', UInt8)])))]))), Field('similar_char_ngram_positions', List(Struct([Field('prompt_id', UInt32), Field('positions', List(Struct([Field('token_position', UInt16), Field('char_offset', UInt8)])))]))), Field('main_word_ngram_positions', List(Struct([Field('prompt_id', UInt32), Field('positions', List(UInt16))]))), Field('similar_word_ngram_positions', List(Struct([Field('prompt_id', UInt32), Field('positions', List(UInt16))])))]))"
   },
   "processing_stats": {
-    "features_processed": 824,
-    "total_pairs_compared": 3295,
-    "semantic_pairs": 195,
-    "lexical_pairs": 847,
-    "no_pattern_pairs": 2292,
+    "features_processed": 14316,
+    "total_pairs_compared": 57252,
+    "semantic_pairs": 3161,
+    "lexical_pairs": 15672,
+    "no_pattern_pairs": 38991,
     "features_with_insufficient_decoder_similar": 0,
-    "features_with_no_activations": 0
+    "features_with_no_activations": 1
   },
   "result_stats": {
-    "features_with_any_pairs": 563,
-    "features_with_semantic_pairs": 111,
-    "features_with_lexical_pairs": 499,
-    "total_semantic_pairs": 195,
-    "total_lexical_pairs": 847,
-    "total_all_pairs": 1042,
-    "mean_pairs_per_feature": 1.2645631067961165
+    "features_with_any_pairs": 10052,
+    "features_with_semantic_pairs": 1824,
+    "features_with_lexical_pairs": 9053,
+    "total_semantic_pairs": 3161,
+    "total_lexical_pairs": 15672,
+    "total_all_pairs": 18833,
+    "mean_pairs_per_feature": 1.3155210952780105
   },
   "config_used": {
     "features_path": "data/master/features.parquet",

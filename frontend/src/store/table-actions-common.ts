@@ -240,7 +240,13 @@ export const createCommonTableActions = (set: any, get: any) => ({
    */
   fetchTableData: async () => {
     const state = get()
-    const { leftPanel, rightPanel } = state
+    const { leftPanel, rightPanel, loading } = state
+
+    // 🚫 DEDUPLICATION: Skip if already loading to prevent redundant API calls
+    if (loading.table) {
+      console.log('[Store.fetchTableData] Already loading, skipping duplicate request')
+      return
+    }
 
     // Collect all selected LLM explainers from both panels
     const explainers = new Set<string>()
@@ -289,12 +295,8 @@ export const createCommonTableActions = (set: any, get: any) => ({
         loading: { ...state.loading, table: false }
       }))
 
-      // 🚀 SMART PRE-FETCHING: Immediately fetch ALL activation examples
-      // This batches main features + similar features into ONE API call
-      // so components render instantly from cache (no loading states)
-      console.log('[Store.fetchTableData] Table data loaded, starting pre-fetch of activation examples')
-      const updatedState = get()
-      await updatedState.prefetchAllActivationData()
+      // ✅ Table data loaded - activation examples fetched on-demand
+      console.log('[Store.fetchTableData] Table data loaded successfully')
     } catch (error) {
       console.error('Failed to fetch table data:', error)
       set((state: any) => ({

@@ -153,7 +153,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
   const causeSelectionStates = useVisualizationStore(state => state.causeSelectionStates)
   const sortTableByCategory = useVisualizationStore(state => state.sortTableByCategory)
   const thresholdVisualization = useVisualizationStore(state => state.thresholdVisualization)
-  const similarityTaggingPopover = useVisualizationStore(state => state.similarityTaggingPopover)
+  const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
   const restoreSimilarityTaggingPopover = useVisualizationStore(state => state.restoreSimilarityTaggingPopover)
   const getSelectedNodeFeatures = useVisualizationStore(state => state.getSelectedNodeFeatures)
 
@@ -302,9 +302,81 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
     return { confirmed, expanded, rejected, autoRejected, unsure, total }
   }, [mode, tableData, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources, causeSelectionStates, filteredFeatureIds])
 
+  // Calculate preview counts when thresholds are active (real-time preview during threshold drag)
+  const previewCounts = useMemo((): CategoryCounts | undefined => {
+    // Only show preview for pair mode when histogram data is available
+    if (mode !== 'pair' || !tagAutomaticState?.histogramData?.scores) {
+      return undefined
+    }
+
+    const thresholds = {
+      select: tagAutomaticState.selectThreshold,
+      reject: tagAutomaticState.rejectThreshold
+    }
+
+    // Start with current counts
+    let confirmed = counts.confirmed
+    let expanded = counts.expanded
+    let rejected = counts.rejected
+    let autoRejected = counts.autoRejected
+    let unsure = counts.unsure
+
+    // Calculate how many unsure items will become expanded or auto-rejected
+    let newlyExpanded = 0
+    let newlyAutoRejected = 0
+    let totalHistogramPairs = 0
+    let filteredHistogramPairs = 0
+
+    Object.entries(tagAutomaticState.histogramData.scores).forEach(([pairKey, score]) => {
+      if (typeof score !== 'number') return
+      totalHistogramPairs++
+
+      // Filter: Only count pairs where BOTH features are in the selected segment
+      if (filteredFeatureIds) {
+        const [id1Str, id2Str] = pairKey.split('-')
+        const id1 = parseInt(id1Str, 10)
+        const id2 = parseInt(id2Str, 10)
+
+        // Skip if either feature is not in the filtered set
+        if (!filteredFeatureIds.has(id1) || !filteredFeatureIds.has(id2)) {
+          return
+        }
+        filteredHistogramPairs++
+      }
+
+      // Check if pair is already tagged
+      const isAlreadyTagged = pairSelectionStates.has(pairKey)
+
+      // If not already tagged, apply auto-tagging based on thresholds
+      if (!isAlreadyTagged) {
+        if (score >= thresholds.select) {
+          newlyExpanded++
+        } else if (score <= thresholds.reject) {
+          newlyAutoRejected++
+        }
+      }
+    })
+
+    // Update counts: unsure items become expanded or auto-rejected
+    expanded += newlyExpanded
+    autoRejected += newlyAutoRejected
+    unsure -= (newlyExpanded + newlyAutoRejected)
+
+    console.log('[SelectionPanel.previewCounts] Histogram filtering:', {
+      totalHistogramPairs,
+      filteredHistogramPairs,
+      filteredFeatureCount: filteredFeatureIds?.size || 'all',
+      newlyExpanded,
+      newlyAutoRejected
+    })
+
+    const total = confirmed + expanded + rejected + autoRejected + unsure
+    return { confirmed, expanded, rejected, autoRejected, unsure, total }
+  }, [counts, mode, tagAutomaticState, pairSelectionStates, filteredFeatureIds])
+
   // Check if threshold preview is active
   const isPreviewActive = thresholdVisualization?.visible ?? false
-  const showThresholdControls = isPreviewActive && similarityTaggingPopover?.minimized
+  const showThresholdControls = isPreviewActive && tagAutomaticState?.minimized
 
   // Note: Tooltip width measurement removed for vertical layout (tooltips now positioned to the right)
 
@@ -357,6 +429,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
         <div className="table-selection-panel__bar-container">
           <SelectionStateBar
             counts={counts}
+            previewCounts={previewCounts}
             onCategoryClick={handleCategoryClick}
             showLabels={true}
             showLegend={true}

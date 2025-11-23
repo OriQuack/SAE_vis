@@ -278,6 +278,34 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
       const selectThreshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? maxAbsValue / 2 : 0.2
       const rejectThreshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? -maxAbsValue / 2 : -0.2
 
+      // Always update/create tagAutomaticState for real-time preview in SelectionPanel
+      const currentState = get().tagAutomaticState
+      if (currentState) {
+        // Update existing state - preserve thresholds if user has already modified them
+        set({
+          tagAutomaticState: {
+            ...currentState,
+            histogramData
+            // Don't overwrite selectThreshold/rejectThreshold - user may have dragged them
+          }
+        })
+      } else {
+        // Create minimal state if doesn't exist (for TagAutomaticPanel → SelectionPanel communication)
+        set({
+          tagAutomaticState: {
+            visible: false,
+            minimized: false,
+            mode: 'pair',
+            position: { x: 0, y: 0 },
+            histogramData,
+            selectThreshold,
+            rejectThreshold,
+            tagLabel: 'Fragmented',
+            isLoading: false
+          }
+        })
+      }
+
       return {
         histogramData,
         selectThreshold,
@@ -290,19 +318,19 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
     }
   },
 
-  showSimilarityTaggingPopover: async (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string) => {
+  showTagAutomaticPopover: async (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string) => {
     // Only handle pair mode in this file
     if (mode !== 'pair') {
-      console.warn('[FeatureSplitting.showSimilarityTaggingPopover] Wrong mode:', mode)
+      console.warn('[FeatureSplitting.showTagAutomaticPopover] Wrong mode:', mode)
       return
     }
 
-    console.log(`[Store.showSimilarityTaggingPopover] Opening ${mode} tagging popover with label: ${tagLabel}`)
+    console.log(`[Store.showTagAutomaticPopover] Opening ${mode} tagging popover with label: ${tagLabel}`)
 
     try {
       // Set loading state
       set({
-        similarityTaggingPopover: {
+        tagAutomaticState: {
           visible: true,
           minimized: false,
           mode,
@@ -319,8 +347,8 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
       const result = await get().fetchSimilarityHistogram()
 
       if (!result) {
-        console.warn('[Store.showSimilarityTaggingPopover] No histogram data available')
-        set({ similarityTaggingPopover: null })
+        console.warn('[Store.showTagAutomaticPopover] No histogram data available')
+        set({ tagAutomaticState: null })
         return
       }
 
@@ -328,7 +356,7 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
 
       // Update state with histogram data
       set({
-        similarityTaggingPopover: {
+        tagAutomaticState: {
           visible: true,
           minimized: false,
           mode,
@@ -342,35 +370,54 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
       })
 
     } catch (error) {
-      console.error('[Store.showSimilarityTaggingPopover] ❌ Failed to fetch histogram:', error)
-      set({ similarityTaggingPopover: null })
+      console.error('[Store.showTagAutomaticPopover] ❌ Failed to fetch histogram:', error)
+      set({ tagAutomaticState: null })
     }
   },
 
-  hideSimilarityTaggingPopover: () => {
-    console.log('[Store.hideSimilarityTaggingPopover] Closing tagging popover')
-    set({ similarityTaggingPopover: null })
+  hideTagAutomaticPopover: () => {
+    console.log('[Store.hideTagAutomaticPopover] Closing tagging popover')
+    set({ tagAutomaticState: null })
   },
 
   updateSimilarityThresholds: (selectThreshold: number) => {
-    const { similarityTaggingPopover } = get()
-    if (!similarityTaggingPopover) return
+    const { tagAutomaticState } = get()
+    if (!tagAutomaticState) return
 
     set({
-      similarityTaggingPopover: {
-        ...similarityTaggingPopover,
+      tagAutomaticState: {
+        ...tagAutomaticState,
         selectThreshold
       }
     })
   },
 
   updateBothSimilarityThresholds: (selectThreshold: number, rejectThreshold: number) => {
-    const { similarityTaggingPopover } = get()
-    if (!similarityTaggingPopover) return
+    const { tagAutomaticState } = get()
+
+    console.log('[FeatureSplitting.updateBothSimilarityThresholds] Updating thresholds:', { selectThreshold, rejectThreshold, hadState: !!tagAutomaticState })
+
+    // If tagAutomaticState doesn't exist, create a minimal one
+    if (!tagAutomaticState) {
+      set({
+        tagAutomaticState: {
+          visible: false,
+          minimized: false,
+          mode: 'pair',
+          position: { x: 0, y: 0 },
+          histogramData: null,
+          selectThreshold,
+          rejectThreshold,
+          tagLabel: 'Fragmented',
+          isLoading: false
+        }
+      })
+      return
+    }
 
     set({
-      similarityTaggingPopover: {
-        ...similarityTaggingPopover,
+      tagAutomaticState: {
+        ...tagAutomaticState,
         selectThreshold,
         rejectThreshold
       }
@@ -378,14 +425,14 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
   },
 
   applySimilarityTags: () => {
-    const { similarityTaggingPopover, pairSelectionStates, pairSelectionSources } = get()
+    const { tagAutomaticState, pairSelectionStates, pairSelectionSources } = get()
 
-    if (!similarityTaggingPopover || !similarityTaggingPopover.histogramData) {
+    if (!tagAutomaticState || !tagAutomaticState.histogramData) {
       console.warn('[Store.applySimilarityTags] No popover data available')
       return
     }
 
-    const { mode, selectThreshold, rejectThreshold, histogramData } = similarityTaggingPopover
+    const { mode, selectThreshold, rejectThreshold, histogramData } = tagAutomaticState
 
     // Only handle pair mode in this file
     if (mode !== 'pair') {
@@ -445,16 +492,16 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
     })
 
     // Close popover after applying
-    set({ similarityTaggingPopover: null })
+    set({ tagAutomaticState: null })
   },
 
   minimizeSimilarityTaggingPopover: () => {
-    const { similarityTaggingPopover } = get()
-    if (!similarityTaggingPopover) return
+    const { tagAutomaticState } = get()
+    if (!tagAutomaticState) return
 
     set({
-      similarityTaggingPopover: {
-        ...similarityTaggingPopover,
+      tagAutomaticState: {
+        ...tagAutomaticState,
         minimized: true
       }
     })
@@ -462,12 +509,12 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
   },
 
   restoreSimilarityTaggingPopover: () => {
-    const { similarityTaggingPopover } = get()
-    if (!similarityTaggingPopover) return
+    const { tagAutomaticState } = get()
+    if (!tagAutomaticState) return
 
     set({
-      similarityTaggingPopover: {
-        ...similarityTaggingPopover,
+      tagAutomaticState: {
+        ...tagAutomaticState,
         minimized: false
       }
     })
@@ -478,13 +525,13 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
    * Show thresholds on table - sorts by similarity and shows threshold lines
    */
   showThresholdsOnTable: async () => {
-    const { similarityTaggingPopover, tableData } = get()
-    if (!similarityTaggingPopover) {
+    const { tagAutomaticState, tableData } = get()
+    if (!tagAutomaticState) {
       console.warn('[Store.showThresholdsOnTable] No popover state available')
       return
     }
 
-    const { mode, selectThreshold, rejectThreshold } = similarityTaggingPopover
+    const { mode, selectThreshold, rejectThreshold } = tagAutomaticState
 
     // Only handle pair mode in this file
     if (mode !== 'pair') {

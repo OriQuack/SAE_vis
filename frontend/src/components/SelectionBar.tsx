@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useEffect } from 'react'
+import React, { useMemo, useRef, useEffect, useState } from 'react'
 import { type SelectionCategory } from '../lib/constants'
 import { getSelectionColors, type TableMode } from '../lib/color-utils'
 import '../styles/SelectionBar.css'
@@ -62,6 +62,10 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   // Store refs to category segments for external access (e.g., flow overlays)
   const categoryRefs = useRef<Map<SelectionCategory, HTMLDivElement>>(new Map())
 
+  // Tooltip state
+  const [hoveredCategory, setHoveredCategory] = useState<SelectionCategory | null>(null)
+  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
+
   // Notify parent when refs are ready
   useEffect(() => {
     if (onCategoryRefsReady && categoryRefs.current.size > 0) {
@@ -74,33 +78,55 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   const modeColors = useMemo(() => getSelectionColors(mode), [mode])
 
   // Generate category config dynamically based on mode
-  const categoryConfig = useMemo((): Record<SelectionCategory, { label: string; color: string; description: string }> => ({
-    confirmed: {
-      label: 'True Positive',
-      color: modeColors.confirmed,
-      description: 'Manually selected by user'
-    },
-    expanded: {
-      label: 'Expanded True Positive',
-      color: modeColors.expanded,
-      description: 'Auto-tagged by histogram thresholds'
-    },
-    rejected: {
-      label: 'False Positive',
-      color: modeColors.rejected,
-      description: 'Manually rejected by user'
-    },
-    autoRejected: {
-      label: 'Expanded False Positive',
-      color: modeColors.autoRejected,
-      description: 'Auto-tagged by histogram thresholds'
-    },
-    unsure: {
-      label: 'Unsure',
-      color: modeColors.unsure,
-      description: 'Not selected or investigated'
+  const categoryConfig = useMemo((): Record<SelectionCategory, { label: string; color: string; description: string }> => {
+    // Mode-specific tag names
+    const tagNames = {
+      feature: {
+        confirmed: 'Well-Explained',
+        rejected: 'Need Revision'
+      },
+      pair: {
+        confirmed: 'Fragmented',
+        rejected: 'Monosemantic'
+      },
+      cause: {
+        // TODO: Implement cause mode tag mapping
+        // Available tags: "Missed Context", "Missed Lexicon", "Noisy Activation", "Unsure"
+        confirmed: 'TBD',
+        rejected: 'TBD'
+      }
     }
-  }), [modeColors])
+
+    const currentTags = tagNames[mode]
+
+    return {
+      confirmed: {
+        label: currentTags.confirmed,
+        color: modeColors.confirmed,
+        description: 'Manually selected by user'
+      },
+      expanded: {
+        label: `${currentTags.confirmed} (auto)`,
+        color: modeColors.expanded,
+        description: 'Auto-tagged by histogram thresholds'
+      },
+      rejected: {
+        label: currentTags.rejected,
+        color: modeColors.rejected,
+        description: 'Manually selected by user'
+      },
+      autoRejected: {
+        label: `${currentTags.rejected} (auto)`,
+        color: modeColors.autoRejected,
+        description: 'Auto-tagged by histogram thresholds'
+      },
+      unsure: {
+        label: 'Unsure',
+        color: modeColors.unsure,
+        description: 'Not selected or investigated'
+      }
+    }
+  }, [mode, modeColors])
 
   // Get final color for a category (use provided override or mode-specific color)
   const getColor = (category: SelectionCategory): string => {
@@ -142,6 +168,28 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
     if (onCategoryClick) {
       onCategoryClick(category)
     }
+  }
+
+  const handleMouseEnter = (category: SelectionCategory, event: React.MouseEvent<HTMLDivElement>) => {
+    setHoveredCategory(category)
+    setTooltipPosition({
+      x: event.clientX,
+      y: event.clientY
+    })
+  }
+
+  const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (hoveredCategory) {
+      setTooltipPosition({
+        x: event.clientX,
+        y: event.clientY
+      })
+    }
+  }
+
+  const handleMouseLeave = () => {
+    setHoveredCategory(null)
+    setTooltipPosition(null)
   }
 
   // Render segments with specific order and adjacent stripe previews
@@ -199,12 +247,12 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
               backgroundColor: getColor(category)
             }}
             onClick={() => handleCategoryClick(category)}
-            title={`${config.label}: ${count} (${percentage.toFixed(1)}%) - ${config.description}${
-              previewChangeValue !== 0 ? ` | Preview: ${previewChangeValue > 0 ? '+' : ''}${previewChangeValue}` : ''
-            }`}
+            onMouseEnter={(e) => handleMouseEnter(category, e)}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
           >
-            {/* Show label if segment is wide/tall enough */}
-            {showLabels && percentage > labelThreshold && (
+            {/* Show label if segment is wide enough (horizontal only - vertical labels are not helpful) */}
+            {showLabels && percentage > labelThreshold && !isVertical && (
               <span className="selection-state-bar__segment-label">
                 {config.label} ({count})
               </span>
@@ -234,7 +282,6 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
               backgroundColor: stripeColor,
               position: 'relative'
             }}
-            title={`Preview: +${previewChangeValue} ${config.label}`}
           >
             {/* Stripe pattern overlay */}
             <svg width="100%" height="100%" style={{ position: 'absolute', top: 0, left: 0 }} xmlns="http://www.w3.org/2000/svg">
@@ -312,6 +359,32 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Custom Tooltip */}
+      {hoveredCategory && tooltipPosition && (
+        <div
+          className="selection-state-bar__tooltip"
+          style={{
+            position: 'fixed',
+            left: `${tooltipPosition.x + 12}px`,
+            top: `${tooltipPosition.y - 8}px`,
+            pointerEvents: 'none',
+            zIndex: 10000
+          }}
+        >
+          <div className="selection-state-bar__tooltip-content">
+            <div className="selection-state-bar__tooltip-label">
+              {categoryConfig[hoveredCategory].label}
+            </div>
+            <div className="selection-state-bar__tooltip-count">
+              {getCategoryValue(hoveredCategory, counts)} {mode === 'pair' ? 'pairs' : mode === 'cause' ? 'items' : 'features'}
+            </div>
+            <div className="selection-state-bar__tooltip-percentage">
+              {getCategoryValue(hoveredCategory, percentages).toFixed(1)}%
+            </div>
+          </div>
         </div>
       )}
     </div>

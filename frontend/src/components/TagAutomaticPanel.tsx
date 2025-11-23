@@ -30,7 +30,7 @@ interface TagAutomaticPanelProps {
 }
 
 const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
-  const similarityTaggingPopover = useVisualizationStore(state => state.similarityTaggingPopover)
+  const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
   const updateBothSimilarityThresholds = useVisualizationStore(state => state.updateBothSimilarityThresholds)
   const fetchSimilarityHistogram = useVisualizationStore(state => state.fetchSimilarityHistogram)
   const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
@@ -51,8 +51,8 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
   const [localHistogramData, setLocalHistogramData] = useState<any>(null)
 
   // Get histogram data from store (if available) or local state
-  const histogramData = similarityTaggingPopover?.histogramData || localHistogramData
-  const isLoading = similarityTaggingPopover?.isLoading || isLocalLoading
+  const histogramData = tagAutomaticState?.histogramData || localHistogramData
+  const isLoading = tagAutomaticState?.isLoading || isLocalLoading
 
   // Calculate selection counts for current mode
   const selectionCounts = useMemo(() => {
@@ -109,10 +109,14 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
           console.log('[TagAutomaticPanel] Histogram fetched successfully')
           setLocalHistogramData(result.histogramData)
           // Update thresholds based on fetched data
-          setThresholds({
+          const newThresholds = {
             select: result.selectThreshold,
             reject: result.rejectThreshold
-          })
+          }
+          setThresholds(newThresholds)
+
+          // IMPORTANT: Also update store state so FeatureSplitView can react to threshold changes
+          updateBothSimilarityThresholds(newThresholds.select, newThresholds.reject)
         } else {
           console.log('[TagAutomaticPanel] No histogram data returned')
           setLocalHistogramData(null)
@@ -126,7 +130,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
     }, 500) // 500ms debounce
 
     return () => clearTimeout(timeoutId)
-  }, [mode, selectionCounts.selectedCount, selectionCounts.rejectedCount, fetchSimilarityHistogram])
+  }, [mode, selectionCounts.selectedCount, selectionCounts.rejectedCount, fetchSimilarityHistogram, updateBothSimilarityThresholds])
 
   // Calculate histogram layout and bars with symmetric domain
   const histogramChart = useMemo(() => {
@@ -305,10 +309,13 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
     const newReject = newThresholds[0]
     const newSelect = newThresholds[1]
 
+    console.log('[TagAutomaticPanel.handleThresholdUpdate] New thresholds:', { newReject, newSelect })
+
     // Use functional update to ensure we have the latest state
     setThresholds(prev => {
       // Only update if values actually changed
       if (newReject !== prev.reject || newSelect !== prev.select) {
+        console.log('[TagAutomaticPanel.handleThresholdUpdate] Calling updateBothSimilarityThresholds')
         updateBothSimilarityThresholds(newSelect, newReject)
         return { reject: newReject, select: newSelect }
       }
@@ -408,14 +415,14 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
                     fill="#999"
                     opacity={0.1}
                   />
-                  {/* Zone 3: 0 to select threshold (light grey, middle unsure) */}
+                  {/* Zone 3: 0 to select threshold (grey, unsure - same as zone 2) */}
                   <rect
                     x={histogramChart.xScale(0)}
                     y={0}
                     width={Math.max(0, safeThresholdPositions.selectX - histogramChart.xScale(0))}
                     height={histogramChart.height}
                     fill="#999"
-                    opacity={0.05}
+                    opacity={0.1}
                   />
                   {/* Zone 4: Select threshold to right edge (blue stripe, auto-selected preview) */}
                   <rect

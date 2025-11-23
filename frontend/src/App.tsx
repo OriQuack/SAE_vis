@@ -36,12 +36,12 @@ interface AppProps {
 // INLINE UI COMPONENTS
 // ============================================================================
 
-const LoadingSpinner: React.FC = () => (
+const LoadingSpinner: React.FC<{ message?: string }> = ({ message = 'Checking connection to the backend API...' }) => (
   <div className="health-check">
     <div className="health-check__content">
       <div className="health-check__icon">🔄</div>
-      <h2 className="health-check__title">SAEGE - Connecting...</h2>
-      <p className="health-check__message">Checking connection to the backend API...</p>
+      <h2 className="health-check__title">SAEGE</h2>
+      <p className="health-check__message">{message}</p>
       <div className="health-check__spinner">
         <div className="spinner"></div>
       </div>
@@ -80,6 +80,9 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
     error: null
   })
 
+  // Loading stage tracking for user feedback
+  const [loadingStage, setLoadingStage] = useState<string>('health')
+
   // Refs for Sankey-to-Selection flow overlay
   const [sankeySegmentRefs, setSankeySegmentRefs] = useState<Map<string, SVGRectElement>>(new Map())
   const [selectionCategoryRefs, setSelectionCategoryRefs] = useState<Map<SelectionCategory, HTMLDivElement>>(new Map())
@@ -99,12 +102,14 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
 
   // Health check function
   const checkHealth = useCallback(async () => {
+    setLoadingStage('health')
     setHealthState(prev => ({ ...prev, isChecking: true, error: null }))
 
     try {
       const isHealthy = await api.healthCheck()
       if (isHealthy) {
         setHealthState({ isHealthy: true, isChecking: false, error: null })
+        setLoadingStage('filters')
       } else {
         setHealthState({
           isHealthy: false,
@@ -129,25 +134,43 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
   // Initialize filter options after health check passes
   useEffect(() => {
     if (healthState.isHealthy && !filterOptions && autoLoad) {
-      fetchFilterOptions()
+      setLoadingStage('filters')
+      fetchFilterOptions().then(() => {
+        setLoadingStage('initialization')
+      })
     }
   }, [healthState.isHealthy, filterOptions, autoLoad, fetchFilterOptions])
 
   // Initialize with default filters after filter options are loaded
   useEffect(() => {
     if (filterOptions && autoLoad) {
-      initializeWithDefaultFilters().catch(error => {
-        console.error('[App] Failed to initialize with default filters:', error)
-      })
+      setLoadingStage('initialization')
+      initializeWithDefaultFilters()
+        .then(() => {
+          setLoadingStage('ready')
+        })
+        .catch(error => {
+          console.error('[App] Failed to initialize with default filters:', error)
+        })
     }
   }, [filterOptions, autoLoad, initializeWithDefaultFilters])
 
-  // Show loading/error states if health check hasn't passed
+  // Show loading/error states if health check hasn't passed or still initializing
   if (!healthState.isHealthy) {
     if (healthState.isChecking) {
-      return <LoadingSpinner />
+      return <LoadingSpinner message="Connecting to server..." />
     }
     return <ErrorDisplay error={healthState.error || 'Connection failed'} onRetry={checkHealth} />
+  }
+
+  // Show loading message during initialization stages
+  if (loadingStage !== 'ready' && tableData === null) {
+    const stageMessages: Record<string, string> = {
+      'health': 'Connecting to server...',
+      'filters': 'Loading filter options...',
+      'initialization': 'Loading features and building visualization...'
+    }
+    return <LoadingSpinner message={stageMessages[loadingStage] || 'Loading...'} />
   }
 
   // Main application render

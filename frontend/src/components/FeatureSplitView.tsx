@@ -6,7 +6,7 @@ import FeatureSplitPairViewer from './FeatureSplitPairViewer'
 import TagAutomaticPanel from './TagAutomaticPanel'
 import ScrollableItemList from './ScrollableItemList'
 import { TagBadge } from './TableIndicators'
-import { TAG_CATEGORY_FEATURE_SPLITTING, UNSURE_GRAY } from '../lib/constants'
+import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import '../styles/FeatureSplitView.css'
 
@@ -108,13 +108,17 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   // Store state
   const tableData = useVisualizationStore(state => state.tableData)
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
+  const pairSelectionSources = useVisualizationStore(state => state.pairSelectionSources)
   const clusterGroups = useVisualizationStore(state => state.clusterGroups)
   const isLoadingDistributedPairs = useVisualizationStore(state => state.isLoadingDistributedPairs)
   const fetchDistributedPairs = useVisualizationStore(state => (state as any).fetchDistributedPairs)
   const clearDistributedPairs = useVisualizationStore(state => (state as any).clearDistributedPairs)
   const getSelectedNodeFeatures = useVisualizationStore(state => state.getSelectedNodeFeatures)
-  const similarityTaggingPopover = useVisualizationStore(state => state.similarityTaggingPopover)
-  const showSimilarityTaggingPopover = useVisualizationStore(state => state.showSimilarityTaggingPopover)
+  const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
+  const showTagAutomaticPopover = useVisualizationStore(state => state.showTagAutomaticPopover)
+  const pairSimilarityScores = useVisualizationStore(state => state.pairSimilarityScores)
+  const lastPairSortedSelectionSignature = useVisualizationStore(state => state.lastPairSortedSelectionSignature)
+  const sortPairsBySimilarity = useVisualizationStore(state => state.sortPairsBySimilarity)
 
   // Local state for carousel navigation
   const [currentPairIndex, setCurrentPairIndex] = useState(0)
@@ -137,12 +141,13 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
   }, [tableData, selectedFeatureIds])
 
-  // Fetch cluster groups on mount when filteredTableData is available
+  // Fetch cluster groups on mount when selectedFeatureIds is available
+  // Refined dependencies: use selectedFeatureIds.size instead of filteredTableData to prevent cascade refetches
   useEffect(() => {
-    if (filteredTableData?.rows && filteredTableData.rows.length > 0 && !clusterGroups && !isLoadingDistributedPairs && selectedFeatureIds) {
+    if (selectedFeatureIds && selectedFeatureIds.size > 0 && !clusterGroups && !isLoadingDistributedPairs) {
       fetchDistributedPairs(15, selectedFeatureIds)
     }
-  }, [filteredTableData, clusterGroups, isLoadingDistributedPairs, fetchDistributedPairs, selectedFeatureIds])
+  }, [selectedFeatureIds, clusterGroups, isLoadingDistributedPairs, fetchDistributedPairs])
 
   // Clear cluster groups on unmount
   useEffect(() => {
@@ -164,8 +169,34 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     return []
   }, [filteredTableData, clusterGroups])
 
-  // Get current pair
-  const currentPair = pairList[currentPairIndex] || null
+  // Auto-populate similarity scores when pair list is ready or selection states change
+  useEffect(() => {
+    // Extract manual selections to compute signature
+    const currentSelectedKeys: string[] = []
+    const currentRejectedKeys: string[] = []
+    pairSelectionStates.forEach((state, pairKey) => {
+      const source = pairSelectionSources.get(pairKey)
+      if (source === 'manual') {
+        if (state === 'selected') currentSelectedKeys.push(pairKey)
+        else if (state === 'rejected') currentRejectedKeys.push(pairKey)
+      }
+    })
+
+    const hasRequiredSelections = currentSelectedKeys.length >= 1 && currentRejectedKeys.length >= 1
+
+    // Compute current signature to detect if scores are stale
+    const currentSignature = `selected:${currentSelectedKeys.sort().join(',')}|rejected:${currentRejectedKeys.sort().join(',')}`
+    const scoresAreStale = lastPairSortedSelectionSignature !== currentSignature
+
+    // Need to compute scores if: (1) empty OR (2) selection signature changed
+    const needsScores = (pairSimilarityScores.size === 0 || scoresAreStale) && pairList.length > 0
+
+    if (hasRequiredSelections && needsScores) {
+      const allPairKeys = pairList.map(p => p.pairKey)
+      console.log('[FeatureSplitView] Computing similarity scores for', allPairKeys.length, 'pairs (stale:', scoresAreStale, ')')
+      sortPairsBySimilarity(allPairKeys)
+    }
+  }, [pairList, pairSelectionStates, pairSelectionSources, pairSimilarityScores.size, lastPairSortedSelectionSignature, sortPairsBySimilarity])
 
   // ============================================================================
   // PAIR LIST LOGIC (for top row list)
@@ -185,13 +216,14 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   const canTagAutomatically = selectionCounts.selectedCount >= 1 && selectionCounts.rejectedCount >= 1
 
   // Handler for Tag Automatically button
-  const handleTagAutomatically = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect()
-    showSimilarityTaggingPopover('pair', {
-      x: rect.left,
-      y: rect.bottom + 10
+  const handleTagAutomatically = useCallback(() => {
+    // Use a default position since we don't have access to the event
+    // The popover will be positioned at a reasonable default location
+    showTagAutomaticPopover('pair', {
+      x: 250,
+      y: 400
     }, 'Fragmented')
-  }, [showSimilarityTaggingPopover])
+  }, [showTagAutomaticPopover])
 
   // Jump to specific pair handler
   const goToPair = useCallback((index: number) => {
@@ -205,52 +237,68 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   // ============================================================================
 
   const boundaryItems = useMemo(() => {
-    // Use pairList with decoder similarity scores
+    // Extract threshold values inside useMemo for proper React reactivity
+    const selectThreshold = tagAutomaticState?.selectThreshold ?? 0.8
+    const rejectThreshold = tagAutomaticState?.rejectThreshold ?? 0.3
+
+    console.log('[FeatureSplitView.boundaryItems] Recomputing with thresholds:', { selectThreshold, rejectThreshold, pairCount: pairList.length })
+
+    // Use pairList with SVM similarity scores
     if (!pairList || pairList.length === 0) {
       return { rejectAbove: [], rejectBelow: [], selectAbove: [], selectBelow: [] }
     }
 
-    // Get thresholds from popover (updates when user drags handles)
+    // Use threshold values from above
     const thresholds = {
-      select: similarityTaggingPopover?.selectThreshold || 0.8,
-      reject: similarityTaggingPopover?.rejectThreshold || 0.3
+      select: selectThreshold,
+      reject: rejectThreshold
     }
 
-    // Filter pairs that have decoder similarity scores
-    const pairsWithScores = pairList.filter(pair => pair.decoderSimilarity !== null)
+    // Filter pairs that have SVM similarity scores (from pairSimilarityScores Map)
+    const pairsWithScores = pairList.filter(pair => pairSimilarityScores.has(pair.pairKey))
 
     if (pairsWithScores.length === 0) {
       return { rejectAbove: [], rejectBelow: [], selectAbove: [], selectBelow: [] }
     }
 
     // REJECT THRESHOLD LISTS
-    // Above reject: 3 pairs >= rejectThreshold, sorted descending (highest first), closest to threshold
+    // Above reject: all pairs >= rejectThreshold, sorted ascending (lowest first), closest to threshold
     const rejectAbove = pairsWithScores
-      .filter(pair => pair.decoderSimilarity! >= thresholds.reject)
-      .sort((a, b) => a.decoderSimilarity! - b.decoderSimilarity!) // Ascending: closest to threshold first
-      .slice(0, 3)
+      .filter(pair => pairSimilarityScores.get(pair.pairKey)! >= thresholds.reject)
+      .sort((a, b) => pairSimilarityScores.get(a.pairKey)! - pairSimilarityScores.get(b.pairKey)!) // Ascending: closest to threshold first
 
-    // Below reject: 3 pairs < rejectThreshold, sorted descending (highest first), closest to threshold
+    // Below reject: all pairs < rejectThreshold, sorted descending (highest first), closest to threshold
     const rejectBelow = pairsWithScores
-      .filter(pair => pair.decoderSimilarity! < thresholds.reject)
-      .sort((a, b) => b.decoderSimilarity! - a.decoderSimilarity!) // Descending: closest to threshold first
-      .slice(0, 3)
+      .filter(pair => pairSimilarityScores.get(pair.pairKey)! < thresholds.reject)
+      .sort((a, b) => pairSimilarityScores.get(b.pairKey)! - pairSimilarityScores.get(a.pairKey)!) // Descending: closest to threshold first
 
     // SELECT THRESHOLD LISTS
-    // Above select: 3 pairs >= selectThreshold, sorted ascending (lowest first), closest to threshold
+    // Above select: all pairs >= selectThreshold, sorted ascending (lowest first), closest to threshold
     const selectAbove = pairsWithScores
-      .filter(pair => pair.decoderSimilarity! >= thresholds.select)
-      .sort((a, b) => a.decoderSimilarity! - b.decoderSimilarity!) // Ascending: closest to threshold first
-      .slice(0, 3)
+      .filter(pair => pairSimilarityScores.get(pair.pairKey)! >= thresholds.select)
+      .sort((a, b) => pairSimilarityScores.get(a.pairKey)! - pairSimilarityScores.get(b.pairKey)!) // Ascending: closest to threshold first
 
-    // Below select: 3 pairs < selectThreshold, sorted descending (highest first), closest to threshold
+    // Below select: all pairs < selectThreshold, sorted descending (highest first), closest to threshold
     const selectBelow = pairsWithScores
-      .filter(pair => pair.decoderSimilarity! < thresholds.select)
-      .sort((a, b) => b.decoderSimilarity! - a.decoderSimilarity!) // Descending: closest to threshold first
-      .slice(0, 3)
+      .filter(pair => pairSimilarityScores.get(pair.pairKey)! < thresholds.select)
+      .sort((a, b) => pairSimilarityScores.get(b.pairKey)! - pairSimilarityScores.get(a.pairKey)!) // Descending: closest to threshold first
 
-    return { rejectAbove, rejectBelow, selectAbove, selectBelow }
-  }, [pairList, similarityTaggingPopover?.selectThreshold, similarityTaggingPopover?.rejectThreshold])
+    const result = { rejectAbove, rejectBelow, selectAbove, selectBelow }
+    console.log('[FeatureSplitView.boundaryItems] Results:', {
+      thresholds,
+      rejectAbove: rejectAbove.length,
+      rejectBelow: rejectBelow.length,
+      selectAbove: selectAbove.length,
+      selectBelow: selectBelow.length,
+      pairsWithScores: pairsWithScores.length,
+      allScores: pairsWithScores.map(p => pairSimilarityScores.get(p.pairKey)).sort((a, b) => a! - b!),
+      rejectAboveIds: rejectAbove.map(p => `${p.mainFeatureId}-${p.similarFeatureId}`),
+      rejectAboveScores: rejectAbove.map(p => pairSimilarityScores.get(p.pairKey)),
+      selectAboveIds: selectAbove.map(p => `${p.mainFeatureId}-${p.similarFeatureId}`),
+      selectAboveScores: selectAbove.map(p => pairSimilarityScores.get(p.pairKey))
+    })
+    return result
+  }, [pairList, tagAutomaticState, pairSimilarityScores])
 
   // Get tag color for header badge
   const fragmentedColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Fragmented') || '#F0E442'
@@ -307,7 +355,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             items={pairList}
             currentIndex={currentPairIndex}
             highlightPredicate={(pair, currentPair) =>
-              currentPair && pair.clusterId === currentPair.clusterId
+              !!currentPair && pair.clusterId === currentPair.clusterId
             }
             renderItem={(pair, index) => {
               const selectionState = pairSelectionStates.get(pair.pairKey) || null

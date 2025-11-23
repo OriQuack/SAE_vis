@@ -160,3 +160,40 @@
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
+
+/* ============================================================================
+   CUSTOM TOOLTIP - Professional and simple style
+   ============================================================================ */
+
+.selection-state-bar__tooltip {
+  pointer-events: none;
+  user-select: none;
+}
+
+.selection-state-bar__tooltip-content {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 8px 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  white-space: nowrap;
+}
+
+.selection-state-bar__tooltip-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 4px;
+}
+
+.selection-state-bar__tooltip-count {
+  font-size: 11px;
+  color: #374151;
+  font-weight: 500;
+}
+
+.selection-state-bar__tooltip-percentage {
+  font-size: 10px;
+  color: #6b7280;
+  margin-top: 2px;
+}

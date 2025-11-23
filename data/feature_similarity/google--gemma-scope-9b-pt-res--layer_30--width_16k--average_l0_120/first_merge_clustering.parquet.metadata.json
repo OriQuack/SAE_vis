@@ -1,5 +1,5 @@
 {
-  "created_at": "2025-11-20T15:27:23.375079",
+  "created_at": "2025-11-24T00:05:37.495229",
   "script_version": "1.0",
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
   "n_features": 16384,
@@ -29,7 +29,7 @@
     "min_first_merge": 0.16301512718200684,
     "max_first_merge": 0.99752201795578,
     "mean_first_merge": 0.7780123204212895,
-    "clustering_time_seconds": 5.042640924453735,
+    "clustering_time_seconds": 5.261319637298584,
     "total_processing_time_seconds": 0.0
   },
   "config_used": {

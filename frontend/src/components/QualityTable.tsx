@@ -184,14 +184,18 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   }, [])
 
   // Fetch data when component mounts or when filters change
+  // Skip if data already exists (prevents redundant fetches during initialization)
   useEffect(() => {
-    fetchTableData()
+    if (!tableData) {
+      fetchTableData()
+    }
   }, [
     fetchTableData,
     leftPanel.filters.llm_explainer,
     rightPanel.filters.llm_explainer,
     leftPanel.filters.llm_scorer,
-    rightPanel.filters.llm_scorer
+    rightPanel.filters.llm_scorer,
+    tableData
   ])
 
   // Measure activation column width once (eliminates shifting in ActivationExample)

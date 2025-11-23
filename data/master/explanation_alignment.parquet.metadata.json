@@ -1,5 +1,5 @@
 {
-  "created_at": "2025-11-16T22:56:11.189534",
+  "created_at": "2025-11-24T00:39:06.339531",
   "script_version": "1.0",
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
   "total_rows": 14316,
@@ -13,15 +13,15 @@
   "processing_stats": {
     "features_processed": 14316,
     "features_with_alignments": 7850,
-    "total_aligned_groups": 10389,
+    "total_aligned_groups": 10394,
     "features_with_single_explanation": 215,
     "features_with_no_alignments": 6251
   },
   "result_stats": {
     "features_with_alignments": 7850,
-    "total_aligned_groups": 10389,
-    "mean_groups_per_feature": 0.7256915339480302,
-    "mean_similarity_score": 0.7921208931072644,
+    "total_aligned_groups": 10394,
+    "mean_groups_per_feature": 0.7260407935177424,
+    "mean_similarity_score": 0.79139049896514,
     "alignment_coverage": 0.5483375244481699
   },
   "config_used": {

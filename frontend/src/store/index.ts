@@ -23,7 +23,8 @@ import {
   METRIC_QUALITY_SCORE,
   METRIC_SCORE_EMBEDDING,
   METRIC_SCORE_FUZZ,
-  METRIC_SCORE_DETECTION
+  METRIC_SCORE_DETECTION,
+  TAG_CATEGORY_FEATURE_SPLITTING
 } from '../lib/constants'
 import { createInitialPanelState, type PanelState } from './utils'
 import { createSimplifiedSankeyActions } from './sankey-actions'
@@ -132,8 +133,8 @@ interface AppState {
   fetchSimilarityHistogram: () => Promise<any>
 
   // Similarity tagging actions (automatic tagging based on histogram)
-  showSimilarityTaggingPopover: (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string) => Promise<void>
-  hideSimilarityTaggingPopover: () => void
+  showTagAutomaticPopover: (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string) => Promise<void>
+  hideTagAutomaticPopover: () => void
   updateSimilarityThresholds: (selectThreshold: number) => void
   updateBothSimilarityThresholds: (selectThreshold: number, rejectThreshold: number) => void
   applySimilarityTags: () => void
@@ -203,8 +204,8 @@ interface AppState {
   causeSortCategory: string | null  // Which category to sort by ('noisy-activation', 'missed-lexicon', 'missed-context', or null for max)
   isCauseSimilaritySortLoading: boolean
 
-  // Similarity tagging popover state (for automatic tagging feature)
-  similarityTaggingPopover: {
+  // Tag automatic state (for automatic tagging feature with threshold controls)
+  tagAutomaticState: {
     visible: boolean
     minimized: boolean  // Whether popover is minimized
     mode: 'feature' | 'pair'
@@ -330,7 +331,7 @@ const initialState = {
   isCauseSimilaritySortLoading: false,
 
   // Similarity tagging popover state (for automatic tagging feature)
-  similarityTaggingPopover: null,
+  tagAutomaticState: null,
 
   // Threshold visualization state (for showing thresholds in table)
   thresholdVisualization: null,
@@ -840,16 +841,19 @@ export const useStore = create<AppState>((set, get) => ({
       }
     }))
 
-    // OPTIMIZATION: Pre-load table data BEFORE tree building
-    // This ensures activation examples are cached when decoder similarity table renders
-    console.log('📥 Pre-loading table data before tree building...')
-    await get().fetchTableData()
-    console.log('✅ Table data loaded - now building Sankey tree')
+    // OPTIMIZATION: Parallelize table data and Sankey initialization
+    // This allows Sankey to render immediately while table loads in background
+    console.log('🚀 Starting parallel initialization: Table data + Sankey tree')
+    await Promise.all([
+      get().fetchTableData(),
+      get().initializeSankey(PANEL_LEFT)
+    ])
+    console.log('✅ Parallel initialization complete - Table data + Sankey ready')
 
-    // V2: Initialize simplified 3-stage Sankey automatically
-    console.log('🌱 Initializing V2 Sankey: Root → Stage 1 (Feature Splitting)')
-    await get().initializeSankey(PANEL_LEFT)
-    console.log('✅ V2 Sankey Stage 1 initialized - ready for progressive reveal')
+    // Activate Feature Splitting view by default
+    console.log('🎯 Activating Feature Splitting stage by default')
+    await get().activateCategoryTable(TAG_CATEGORY_FEATURE_SPLITTING)
+    console.log('✅ Feature Splitting stage activated - FeatureSplitView ready')
   }
 }))
 

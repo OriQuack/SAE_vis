@@ -12,8 +12,8 @@ import ThresholdHandles from './ThresholdHandles'
 import '../styles/TagAutomaticPopover.css'
 
 const SimilarityTaggingPopover: React.FC = () => {
-  const popoverState = useVisualizationStore(state => state.similarityTaggingPopover)
-  const hideSimilarityTaggingPopover = useVisualizationStore(state => state.hideSimilarityTaggingPopover)
+  const popoverState = useVisualizationStore(state => state.tagAutomaticState)
+  const hideTagAutomaticPopover = useVisualizationStore(state => state.hideTagAutomaticPopover)
   const updateBothSimilarityThresholds = useVisualizationStore(state => state.updateBothSimilarityThresholds)
   const applySimilarityTags = useVisualizationStore(state => state.applySimilarityTags)
   const showThresholdsOnTable = useVisualizationStore(state => state.showThresholdsOnTable)
@@ -66,7 +66,7 @@ const SimilarityTaggingPopover: React.FC = () => {
     const handleClickOutside = (e: MouseEvent) => {
       if (backdropRef.current && e.target === backdropRef.current) {
         hideThresholdsOnTable()
-        hideSimilarityTaggingPopover()
+        hideTagAutomaticPopover()
       }
     }
 
@@ -74,7 +74,7 @@ const SimilarityTaggingPopover: React.FC = () => {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [popoverState?.visible, hideSimilarityTaggingPopover, hideThresholdsOnTable])
+  }, [popoverState?.visible, hideTagAutomaticPopover, hideThresholdsOnTable])
 
   // Dragging logic (centered modal with offset)
   useEffect(() => {
@@ -434,14 +434,14 @@ const SimilarityTaggingPopover: React.FC = () => {
   const handleApplyTags = useCallback(() => {
     applySimilarityTags()
     hideThresholdsOnTable()
-    hideSimilarityTaggingPopover()
-  }, [applySimilarityTags, hideThresholdsOnTable, hideSimilarityTaggingPopover])
+    hideTagAutomaticPopover()
+  }, [applySimilarityTags, hideThresholdsOnTable, hideTagAutomaticPopover])
 
   // Handle cancel - hide thresholds and close popover
   const handleCancel = useCallback(() => {
     hideThresholdsOnTable()
-    hideSimilarityTaggingPopover()
-  }, [hideThresholdsOnTable, hideSimilarityTaggingPopover])
+    hideTagAutomaticPopover()
+  }, [hideThresholdsOnTable, hideTagAutomaticPopover])
 
   // Note: Threshold control buttons are now shown in TableSelectionPanel
   // when thresholds are visible and popover is minimized

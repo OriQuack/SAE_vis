@@ -84,9 +84,10 @@ const HistogramChartComponent: React.FC<{
   animationDuration: number
   barColor?: string
   onThresholdUpdate: (newThresholds: number[]) => void
+  onDragUpdate?: (newThresholds: number[]) => void  // Called during drag for real-time store updates
   onBarHover: (barIndex: number | null, chart: HistogramChart) => void
   onDragStateChange?: (isDragging: boolean) => void
-}> = ({ chart, thresholds, metricRange, animationDuration, barColor, onThresholdUpdate, onBarHover, onDragStateChange }) => {
+}> = ({ chart, thresholds, metricRange, animationDuration, barColor, onThresholdUpdate, onDragUpdate, onBarHover, onDragStateChange }) => {
   // Local state for drag preview (updates in real-time during drag)
   const [dragThresholds, setDragThresholds] = useState<number[] | null>(null)
 
@@ -271,7 +272,12 @@ const HistogramChartComponent: React.FC<{
           setDragThresholds(null) // Clear drag state on commit
           onThresholdUpdate(newThresholds)
         }}
-        onDragUpdate={setDragThresholds} // Live preview during drag
+        onDragUpdate={(newThresholds) => {
+          setDragThresholds(newThresholds) // Local preview
+          if (onDragUpdate) {
+            onDragUpdate(newThresholds) // Notify parent for store update
+          }
+        }}
       />
 
       {/* X-axis */}
@@ -341,6 +347,7 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
   const isDraggingPopoverRef = useRef(false) // Tracks if popover is being dragged
   const dragOffsetRef = useRef<{ x: number; y: number } | null>(null) // Mouse offset from popover origin
   const currentDragPositionRef = useRef<{ x: number; y: number } | null>(null) // Current drag position (updated via RAF)
+  const dragUpdateTimerRef = useRef<NodeJS.Timeout | null>(null) // Debounce timer for real-time store updates during drag
 
   // Local state for dragging
   const [draggedPosition, setDraggedPosition] = useState<{ x: number; y: number } | null>(null)
@@ -589,6 +596,10 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
       if (rafIdRef.current !== null) {
         cancelAnimationFrame(rafIdRef.current)
       }
+      // Clear any pending drag update timers
+      if (dragUpdateTimerRef.current !== null) {
+        clearTimeout(dragUpdateTimerRef.current)
+      }
       // Reset user-select
       document.body.style.userSelect = ''
     }
@@ -750,6 +761,18 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
                         const stageNumber = popoverData.nodeId === 'stage1_segment' ? 1 : 2
                         updateStageThreshold(stageNumber as 1 | 2, newThresholds[0], panel)
                       }
+                    }}
+                    onDragUpdate={(newThresholds) => {
+                      // Debounced store update during drag for real-time flow visualization
+                      if (dragUpdateTimerRef.current) {
+                        clearTimeout(dragUpdateTimerRef.current)
+                      }
+                      dragUpdateTimerRef.current = setTimeout(() => {
+                        if (popoverData?.nodeId && newThresholds.length > 0) {
+                          const stageNumber = popoverData.nodeId === 'stage1_segment' ? 1 : 2
+                          updateStageThreshold(stageNumber as 1 | 2, newThresholds[0], panel)
+                        }
+                      }, 100) // 100ms debounce = ~10fps updates, smooth without overwhelming
                     }}
                     onBarHover={handleBarHover}
                     onDragStateChange={setIsDraggingThreshold}
