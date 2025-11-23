@@ -43,7 +43,6 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
 
   const svgRef = useRef<SVGSVGElement>(null)
 
-  const [isMinimized, setIsMinimized] = useState(false)
   const [containerSize, setContainerSize] = useState({ width: 800, height: 300 })
   const [thresholds, setThresholds] = useState({ select: 0.1, reject: -0.1 })
   const [hoveredBinIndex, setHoveredBinIndex] = useState<number | null>(null)
@@ -127,7 +126,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
       } finally {
         setIsLocalLoading(false)
       }
-    }, 500) // 500ms debounce
+    }, 0) // No debounce - fetch immediately
 
     return () => clearTimeout(timeoutId)
   }, [mode, selectionCounts.selectedCount, selectionCounts.rejectedCount, fetchSimilarityHistogram, updateBothSimilarityThresholds])
@@ -309,13 +308,10 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
     const newReject = newThresholds[0]
     const newSelect = newThresholds[1]
 
-    console.log('[TagAutomaticPanel.handleThresholdUpdate] New thresholds:', { newReject, newSelect })
-
     // Use functional update to ensure we have the latest state
     setThresholds(prev => {
       // Only update if values actually changed
       if (newReject !== prev.reject || newSelect !== prev.select) {
-        console.log('[TagAutomaticPanel.handleThresholdUpdate] Calling updateBothSimilarityThresholds')
         updateBothSimilarityThresholds(newSelect, newReject)
         return { reject: newReject, select: newSelect }
       }
@@ -331,9 +327,6 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
 
     return (
       <div className="tag-automatic-panel tag-automatic-panel--empty">
-        <div className="tag-panel__header">
-          <span className="tag-panel__title">Tag Propagation</span>
-        </div>
         <div className="tag-panel__empty-message">
           {message}
           {mode === 'pair' && (
@@ -347,29 +340,15 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
   }
 
   return (
-    <div className={`tag-automatic-panel ${isMinimized ? 'tag-automatic-panel--minimized' : ''}`}>
-      <div className="tag-panel__header">
-        <span className="tag-panel__title">
-          Tag Propagation
-        </span>
-        <button
-          className="tag-panel__minimize-button"
-          onClick={() => setIsMinimized(!isMinimized)}
-          title={isMinimized ? 'Expand' : 'Minimize'}
-        >
-          {isMinimized ? '▲' : '▼'}
-        </button>
-      </div>
-
-      {!isMinimized && (
-        <div className="tag-panel__content">
-          {isLoading ? (
-            <div className="tag-panel__loading">
-              <div className="spinner" />
-              <span>Calculating similarity scores...</span>
-            </div>
-          ) : histogramChart ? (
-            <div className="tag-panel__histogram-container">
+    <div className="tag-automatic-panel">
+      <div className="tag-panel__content">
+        {isLoading ? (
+          <div className="tag-panel__loading">
+            <div className="spinner" />
+            <span>Calculating similarity scores...</span>
+          </div>
+        ) : histogramChart ? (
+          <div className="tag-panel__histogram-container">
                 <svg
                   ref={svgRef}
                   className="tag-panel__svg"
@@ -654,8 +633,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
               Failed to load histogram data
             </div>
           )}
-        </div>
-      )}
+      </div>
     </div>
   )
 }

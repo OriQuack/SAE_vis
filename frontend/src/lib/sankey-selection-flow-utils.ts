@@ -131,7 +131,7 @@ export function calculateStrokeWidth(
  * Creates a single flow connecting to the whole bar height
  * @param selection - Selected segment information
  * @param segmentRef - DOM reference to the segment
- * @param categoryRefs - Map of category to DOM reference (used to calculate bar bounds)
+ * @param categoryRefs - Map of category to DOM reference (not used, kept for compatibility)
  * @param sankeyNodes - Sankey node data
  * @param selectionState - Not used (kept for compatibility)
  * @param containerRect - Container bounding rect
@@ -151,7 +151,7 @@ export function calculateSankeyToSelectionFlows(
   },
   containerRect: DOMRect
 ): FlowPathData[] {
-  if (!selection || !segmentRef || categoryRefs.size === 0) return []
+  if (!selection || !segmentRef) return []
 
   // Find the selected node and segment
   const selectedNode = sankeyNodes.find(node => node.id === selection.nodeId)
@@ -165,30 +165,29 @@ export function calculateSankeyToSelectionFlows(
   const segmentPos = getSankeySegmentPosition(segmentRef, containerRect)
   if (!segmentPos) return []
 
+  // Don't show flow if segment hasn't been positioned yet (width or height is 0)
+  // This prevents wrong positioning during initial Sankey render
+  if (segmentPos.width === 0 || segmentPos.height === 0) return []
+
   // Calculate source positions (right edge)
   const sourceX = segmentPos.x + segmentPos.width
   const sourceTopY = segmentPos.y
   const sourceBottomY = segmentPos.y + segmentPos.height
 
-  // Get the entire SelectionBar bounds by finding min/max of all categories
-  let barTop = Infinity
-  let barBottom = -Infinity
-  let barLeft = Infinity
+  // Get the entire SelectionBar bounds by querying the DOM
+  // This automatically includes preview segments since they're part of the bar container
+  const barElement = document.querySelector('.selection-state-bar__bar') as HTMLElement
+  if (!barElement) return []
 
-  for (const categoryRef of categoryRefs.values()) {
-    if (!categoryRef) continue
-    const rect = categoryRef.getBoundingClientRect()
-    const relativeTop = rect.top - containerRect.top
-    const relativeBottom = rect.bottom - containerRect.top
-    const relativeLeft = rect.left - containerRect.left
+  const barRect = barElement.getBoundingClientRect()
 
-    barTop = Math.min(barTop, relativeTop)
-    barBottom = Math.max(barBottom, relativeBottom)
-    barLeft = Math.min(barLeft, relativeLeft)
-  }
+  // Don't show flow if bar hasn't been positioned yet (width or height is 0)
+  // This prevents weird positioning during initial component loading
+  if (barRect.width === 0 || barRect.height === 0) return []
 
-  // If no valid bar position found, return empty
-  if (barTop === Infinity || barBottom === -Infinity || barLeft === Infinity) return []
+  const barTop = barRect.top - containerRect.top
+  const barBottom = barRect.bottom - containerRect.top
+  const barLeft = barRect.left - containerRect.left
 
   // Calculate target positions (left edge of bar)
   const targetX = barLeft

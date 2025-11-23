@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { useStore as useVisualizationStore } from '../store'
 import {
   calculateSankeyToSelectionFlows
@@ -38,6 +38,20 @@ export const SankeyToSelectionFlowOverlay: React.FC<SankeyToSelectionFlowOverlay
 
   // Container element - use state instead of ref to trigger re-renders
   const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null)
+
+  // Force recalculation after layout settles (fixes initial positioning issue)
+  const [layoutVersion, setLayoutVersion] = useState(0)
+
+  // Trigger recalculation after layout is complete
+  useEffect(() => {
+    if (containerElement && selectedSankeySegment) {
+      // Use requestAnimationFrame to wait for layout to complete
+      const frame = requestAnimationFrame(() => {
+        setLayoutVersion(v => v + 1)
+      })
+      return () => cancelAnimationFrame(frame)
+    }
+  }, [containerElement, selectedSankeySegment, segmentRefs.size, categoryRefs.size])
 
   // Determine current table mode based on active stage
   const tableMode = useMemo((): 'feature' | 'pair' | 'cause' => {
@@ -140,7 +154,7 @@ export const SankeyToSelectionFlowOverlay: React.FC<SankeyToSelectionFlowOverlay
     )
 
     return calculatedFlows
-  }, [selectedSankeySegment, containerElement, segmentRefs, categoryRefs, sankeyStructure, selectionState])
+  }, [selectedSankeySegment, containerElement, segmentRefs, categoryRefs, sankeyStructure, selectionState, layoutVersion])
 
   // Always render the container div (needed for containerElement ref)
   // Only show flows when selection exists

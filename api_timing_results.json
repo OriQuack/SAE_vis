@@ -1,8 +1,8 @@
 {
-  "health_check": 1.6078948974609375,
-  "filter_options": 1.1439323425292969,
-  "table_data": 31914.65187072754,
-  "root_features": 82.62014389038086,
-  "histogram_decoder_similarity": 99.98726844787598,
-  "histogram_quality": 101.16839408874512
+  "health_check": 1.5892982482910156,
+  "filter_options": 1.1937618255615234,
+  "table_data": 11842.49758720398,
+  "root_features": 11427.098989486694,
+  "histogram_decoder_similarity": 97.7475643157959,
+  "histogram_quality": 92.49210357666016
 }
