@@ -28,13 +28,14 @@ export const createTableActions = (set: any, get: any) => {
 
   // Create unified similarity tagging actions that route based on mode
   const unifiedSimilarityActions = {
-    showTagAutomaticPopover: async (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string) => {
+    showTagAutomaticPopover: async (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string, selectedFeatureIds?: Set<number>, threshold?: number) => {
+      console.log('[table-actions] Routing showTagAutomaticPopover - mode:', mode, ', features:', selectedFeatureIds?.size || 0, ', threshold:', threshold ?? 0.5)
       if (mode === 'feature') {
-        return qualityActions.showTagAutomaticPopover(mode, position, tagLabel)
+        return qualityActions.showTagAutomaticPopover(mode, position, tagLabel, selectedFeatureIds, threshold)
       } else if (mode === 'pair') {
-        return featureSplittingActions.showTagAutomaticPopover(mode, position, tagLabel)
+        return featureSplittingActions.showTagAutomaticPopover(mode, position, tagLabel, selectedFeatureIds, threshold)
       } else if (mode === 'cause') {
-        return causeActions.showTagAutomaticPopover(mode, position, tagLabel)
+        return causeActions.showTagAutomaticPopover(mode, position, tagLabel, selectedFeatureIds, threshold)
       }
     },
 

@@ -26,6 +26,7 @@ interface SelectionStateBarProps {
   categoryColors?: Partial<Record<SelectionCategory, string>>  // Optional: override colors dynamically
   className?: string
   onCategoryRefsReady?: (refs: Map<SelectionCategory, HTMLDivElement>) => void  // Callback for exposing refs
+  featureCount?: number  // Optional: number of unique features (for pair mode)
 }
 
 /**
@@ -52,7 +53,8 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   mode = 'feature',
   categoryColors,
   className = '',
-  onCategoryRefsReady
+  onCategoryRefsReady,
+  featureCount
 }) => {
   // Set default dimensions based on orientation
   const isVertical = orientation === 'vertical'
@@ -196,9 +198,9 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   const renderSegments = () => {
     const segments: React.ReactNode[] = []
 
-    // Define rendering order: rejected → autoRejected → unsure → confirmed → expanded
+    // Define rendering order: rejected → autoRejected → unsure → expanded → confirmed
     // This creates visual grouping: False Positive (left/top) | Neutral (center) | True Positive (right/bottom)
-    const categoryOrder: SelectionCategory[] = ['rejected', 'autoRejected', 'unsure', 'confirmed', 'expanded']
+    const categoryOrder: SelectionCategory[] = ['rejected', 'autoRejected', 'unsure', 'expanded', 'confirmed']
 
     categoryOrder.forEach((category) => {
       const count = getCategoryValue(category, counts)
@@ -251,10 +253,10 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
           >
-            {/* Show label if segment is wide enough (horizontal only - vertical labels are not helpful) */}
-            {showLabels && percentage > labelThreshold && !isVertical && (
+            {/* Show label if segment is large enough */}
+            {showLabels && percentage > labelThreshold && (
               <span className="selection-state-bar__segment-label">
-                {config.label} ({count})
+                {isVertical ? count : `${config.label} (${count})`}
               </span>
             )}
           </div>
@@ -275,15 +277,21 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
             style={{
               ...(isVertical ? {
                 height: `${stripePercentage}%`,
-                width: '100%'
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               } : {
                 width: `${stripePercentage}%`
               }),
               backgroundColor: stripeColor,
               position: 'relative'
             }}
+            onMouseEnter={(e) => handleMouseEnter(category, e)}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
           >
-            {/* Stripe pattern overlay */}
+            {/* Stripe pattern overlay - alternating tag color and unsure color */}
             <svg width="100%" height="100%" style={{ position: 'absolute', top: 0, left: 0 }} xmlns="http://www.w3.org/2000/svg">
               <defs>
                 <pattern
@@ -293,11 +301,17 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
                   height="8"
                   patternTransform="rotate(45)"
                 >
-                  <rect width="4" height="8" fill="#ffffff" opacity="0.3" />
+                  <rect width="4" height="8" fill={modeColors.unsure} />
                 </pattern>
               </defs>
               <rect width="100%" height="100%" fill={`url(#stripe-preview-${category})`} />
             </svg>
+            {/* Show label if segment is large enough */}
+            {showLabels && stripePercentage > labelThreshold && (
+              <span className="selection-state-bar__segment-label">
+                {isVertical ? previewChangeValue : `${config.label} (${previewChangeValue})`}
+              </span>
+            )}
           </div>
         )
       }
@@ -316,6 +330,22 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
         flexDirection: isVertical ? 'column' : 'row'
       }}
     >
+      {/* Total Count Header (vertical orientation only) */}
+      {isVertical && (
+        <div className="selection-state-bar__header">
+          <div className="selection-state-bar__total">
+            <div className="selection-state-bar__total-primary">
+              {counts.total} {mode === 'pair' ? 'pairs' : mode === 'cause' ? 'items' : 'features'}
+            </div>
+            {mode === 'pair' && featureCount !== undefined && (
+              <div className="selection-state-bar__total-secondary">
+                ({featureCount} features)
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Bar with segments */}
       <div
         className="selection-state-bar__bar"
@@ -363,30 +393,49 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
       )}
 
       {/* Custom Tooltip */}
-      {hoveredCategory && tooltipPosition && (
-        <div
-          className="selection-state-bar__tooltip"
-          style={{
-            position: 'fixed',
-            left: `${tooltipPosition.x + 12}px`,
-            top: `${tooltipPosition.y - 8}px`,
-            pointerEvents: 'none',
-            zIndex: 10000
-          }}
-        >
-          <div className="selection-state-bar__tooltip-content">
-            <div className="selection-state-bar__tooltip-label">
-              {categoryConfig[hoveredCategory].label}
-            </div>
-            <div className="selection-state-bar__tooltip-count">
-              {getCategoryValue(hoveredCategory, counts)} {mode === 'pair' ? 'pairs' : mode === 'cause' ? 'items' : 'features'}
-            </div>
-            <div className="selection-state-bar__tooltip-percentage">
-              {getCategoryValue(hoveredCategory, percentages).toFixed(1)}%
+      {hoveredCategory && tooltipPosition && (() => {
+        // Calculate displayed count and percentage (accounting for preview state)
+        let displayedCount = getCategoryValue(hoveredCategory, counts)
+        let displayedPercentage = getCategoryValue(hoveredCategory, percentages)
+
+        // When preview is active, show preview totals for all categories
+        if (previewCounts) {
+          if (hoveredCategory === 'unsure') {
+            // For unsure, show the reduced count (after items leave)
+            displayedCount = getCategoryValue('unsure', previewCounts)
+            displayedPercentage = counts.total > 0 ? (displayedCount / counts.total) * 100 : 0
+          } else if (hoveredCategory === 'expanded' || hoveredCategory === 'autoRejected') {
+            // For auto categories, show the total after preview (current + incoming)
+            displayedCount = getCategoryValue(hoveredCategory, previewCounts)
+            displayedPercentage = counts.total > 0 ? (displayedCount / counts.total) * 100 : 0
+          }
+        }
+
+        return (
+          <div
+            className="selection-state-bar__tooltip"
+            style={{
+              position: 'fixed',
+              left: `${tooltipPosition.x + 12}px`,
+              top: `${tooltipPosition.y - 8}px`,
+              pointerEvents: 'none',
+              zIndex: 10000
+            }}
+          >
+            <div className="selection-state-bar__tooltip-content">
+              <div className="selection-state-bar__tooltip-label">
+                {categoryConfig[hoveredCategory].label}
+              </div>
+              <div className="selection-state-bar__tooltip-count">
+                {displayedCount} {mode === 'pair' ? 'pairs' : mode === 'cause' ? 'items' : 'features'}
+              </div>
+              <div className="selection-state-bar__tooltip-percentage">
+                {displayedPercentage.toFixed(1)}%
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
     </div>
   )
 }

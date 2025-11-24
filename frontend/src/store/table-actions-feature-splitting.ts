@@ -155,13 +155,14 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
         featureIds = tableData.features.map((row: any) => row.feature_id)
       }
 
-      // Get stage 1 threshold from Sankey structure (use decoder_similarity_merge_threshold)
+      // Get stage 1 threshold from Sankey structure
+      // The threshold is already a similarity value (higher = more similar), use it directly
       // Default to 0.5 if no Sankey structure exists yet
       let threshold = 0.5
       if (leftPanel?.sankeyStructure) {
         const stage1Segment = leftPanel.sankeyStructure.nodes.find((n: any) => n.id === 'stage1_segment')
         if (stage1Segment && 'threshold' in stage1Segment && stage1Segment.threshold !== null) {
-          threshold = 1.0 - stage1Segment.threshold  // Convert distance to similarity for clustering
+          threshold = stage1Segment.threshold
         }
       }
 
@@ -214,40 +215,57 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
   /**
    * Fetch similarity histogram data for pairs
    * This can be called independently without showing the popover
+   *
+   * @param selectedFeatureIds - Optional set of feature IDs from selected segment (e.g., from Sankey selection)
+   *                            If provided, fetches ALL cluster-based pairs for these features.
+   *                            If not provided, falls back to all pairs from tableData (global view).
+   * @param threshold - Optional clustering threshold (0-1). If provided, uses this for hierarchical clustering.
+   *                   If not provided, defaults to 0.5. Should match Sankey segment threshold.
    */
-  fetchSimilarityHistogram: async () => {
+  fetchSimilarityHistogram: async (selectedFeatureIds?: Set<number>, threshold?: number) => {
     const { pairSelectionStates, tableData } = get()
+    console.log('[fetchSimilarityHistogram] Called with features:', selectedFeatureIds?.size || 0, ', threshold:', threshold ?? 0.5)
 
     try {
       // Extract selected and rejected pair keys
       const selectedPairKeys: string[] = []
       const rejectedPairKeys: string[] = []
-      const allPairKeys: string[] = []
+      let allPairKeys: string[] = []
 
       pairSelectionStates.forEach((state: string | null, pairKey: string) => {
         if (state === 'selected') selectedPairKeys.push(pairKey)
         else if (state === 'rejected') rejectedPairKeys.push(pairKey)
       })
 
-      // Get all pair keys from current table view
-      // This would need to be passed from the component or computed from tableData
-      // For now, use the pairs that have been displayed
-      pairSelectionStates.forEach((_: string | null, pairKey: string) => {
-        allPairKeys.push(pairKey)
-      })
-
-      // Also add pairs that exist in table but not yet selected
-      if (tableData && tableData.features) {
-        tableData.features.forEach((feature: any) => {
-          if (feature.decoder_similarity && Array.isArray(feature.decoder_similarity)) {
-            feature.decoder_similarity.slice(0, 4).forEach((similarItem: any) => {
-              const pairKey = `${feature.feature_id}-${similarItem.feature_id}`
-              if (!allPairKeys.includes(pairKey)) {
-                allPairKeys.push(pairKey)
-              }
-            })
-          }
+      // SEGMENT-SPECIFIC MODE: Fetch ALL cluster-based pairs for selected features
+      if (selectedFeatureIds && selectedFeatureIds.size > 0) {
+        const clusterThreshold = threshold ?? 0.5
+        console.log(`[Store.fetchSimilarityHistogram] Fetching ALL cluster pairs for ${selectedFeatureIds.size} features at threshold ${clusterThreshold}`)
+        const featureArray = Array.from(selectedFeatureIds)
+        allPairKeys = await api.getSegmentClusterPairs(featureArray, clusterThreshold)
+        console.log(`[Store.fetchSimilarityHistogram] Got ${allPairKeys.length} cluster-based pairs from segment`)
+      } else {
+        // GLOBAL MODE (FALLBACK): Get all pair keys from current table view
+        // This would need to be passed from the component or computed from tableData
+        // For now, use the pairs that have been displayed
+        pairSelectionStates.forEach((_: string | null, pairKey: string) => {
+          allPairKeys.push(pairKey)
         })
+
+        // Also add pairs that exist in table but not yet selected
+        if (tableData && tableData.features) {
+          tableData.features.forEach((feature: any) => {
+            if (feature.decoder_similarity && Array.isArray(feature.decoder_similarity)) {
+              feature.decoder_similarity.slice(0, 4).forEach((similarItem: any) => {
+                const pairKey = `${feature.feature_id}-${similarItem.feature_id}`
+                if (!allPairKeys.includes(pairKey)) {
+                  allPairKeys.push(pairKey)
+                }
+              })
+            }
+          })
+        }
+        console.log('[Store.fetchSimilarityHistogram] Using global pairs (fallback):', allPairKeys.length)
       }
 
       console.log('[Store.fetchSimilarityHistogram] Fetching pair histogram:', {
@@ -318,14 +336,20 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
     }
   },
 
-  showTagAutomaticPopover: async (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string) => {
+  showTagAutomaticPopover: async (
+    mode: 'feature' | 'pair' | 'cause',
+    position: { x: number; y: number },
+    tagLabel: string,
+    selectedFeatureIds?: Set<number>,  // Optional: segment-specific feature IDs from FeatureSplitView
+    threshold?: number  // Optional: clustering threshold from Sankey segment
+  ) => {
     // Only handle pair mode in this file
     if (mode !== 'pair') {
       console.warn('[FeatureSplitting.showTagAutomaticPopover] Wrong mode:', mode)
       return
     }
 
-    console.log(`[Store.showTagAutomaticPopover] Opening ${mode} tagging popover with label: ${tagLabel}`)
+    console.log('[FeatureSplitting.showTagAutomaticPopover] Received features:', selectedFeatureIds?.size || 0, ', threshold:', threshold ?? 0.5, ', mode:', mode, ', tagLabel:', tagLabel)
 
     try {
       // Set loading state
@@ -344,7 +368,10 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
       })
 
       // Fetch histogram data using the extracted function
-      const result = await get().fetchSimilarityHistogram()
+      // Pass segment-specific feature IDs if provided (from FeatureSplitView)
+      // This will fetch ALL cluster-based pairs for those features
+      // Also pass threshold to ensure clustering matches Sankey segment threshold
+      const result = await get().fetchSimilarityHistogram(selectedFeatureIds, threshold)
 
       if (!result) {
         console.warn('[Store.showTagAutomaticPopover] No histogram data available')

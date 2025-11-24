@@ -8,6 +8,9 @@ import {
 } from '../lib/histogram-utils'
 import type { CategoryCounts } from '../lib/histogram-utils'
 import { getSelectionColors } from '../lib/color-utils'
+import { getTagColor } from '../lib/tag-system'
+import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
+import { isPairInSelection } from '../lib/pairUtils'
 import ThresholdHandles from './ThresholdHandles'
 import '../styles/TagAutomaticPanel.css'
 
@@ -17,7 +20,7 @@ import '../styles/TagAutomaticPanel.css'
 const TAG_HISTOGRAM_SPACING = {
   svg: {
     // Fixed margins that always accommodate labels (no complex calculations needed)
-    margin: { top: 35, right: 20, bottom: -40, left: 80 },
+    margin: { top: 30, right: 50, bottom: -60, left: 40 },
     // Label offsets (relative to chart area)
     xLabelOffset: 40,   // Distance below chart for x-axis label
     yLabelOffset: -40,  // Distance left of chart for y-axis label
@@ -27,9 +30,15 @@ const TAG_HISTOGRAM_SPACING = {
 
 interface TagAutomaticPanelProps {
   mode: 'feature' | 'pair'
+  availablePairs?: Array<{pairKey: string, mainFeatureId: number, similarFeatureId: number}>  // Cluster-based pairs (single source of truth)
+  filteredFeatureIds?: Set<number>  // Selected feature IDs from Sankey segment
 }
 
-const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
+const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
+  mode,
+  availablePairs,
+  filteredFeatureIds
+}) => {
   const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
   const updateBothSimilarityThresholds = useVisualizationStore(state => state.updateBothSimilarityThresholds)
   const fetchSimilarityHistogram = useVisualizationStore(state => state.fetchSimilarityHistogram)
@@ -100,12 +109,12 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
         return
       }
 
-      console.log('[TagAutomaticPanel] Fetching histogram with counts:', selectionCounts)
+      console.log('[TagAutomaticPanel] Fetching histogram - features:', filteredFeatureIds?.size || 0, ', counts:', selectionCounts)
       setIsLocalLoading(true)
       try {
-        const result = await fetchSimilarityHistogram()
+        // Pass selected feature IDs to fetch ALL cluster-based pairs from segment
+        const result = await fetchSimilarityHistogram(filteredFeatureIds)
         if (result) {
-          console.log('[TagAutomaticPanel] Histogram fetched successfully')
           setLocalHistogramData(result.histogramData)
           // Update thresholds based on fetched data
           const newThresholds = {
@@ -117,7 +126,6 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
           // IMPORTANT: Also update store state so FeatureSplitView can react to threshold changes
           updateBothSimilarityThresholds(newThresholds.select, newThresholds.reject)
         } else {
-          console.log('[TagAutomaticPanel] No histogram data returned')
           setLocalHistogramData(null)
         }
       } catch (error) {
@@ -129,7 +137,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
     }, 0) // No debounce - fetch immediately
 
     return () => clearTimeout(timeoutId)
-  }, [mode, selectionCounts.selectedCount, selectionCounts.rejectedCount, fetchSimilarityHistogram, updateBothSimilarityThresholds])
+  }, [mode, selectionCounts.selectedCount, selectionCounts.rejectedCount, fetchSimilarityHistogram, updateBothSimilarityThresholds, filteredFeatureIds])
 
   // Calculate histogram layout and bars with symmetric domain
   const histogramChart = useMemo(() => {
@@ -230,7 +238,17 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
           counts.unsure++
         }
       } else {
-        // Pair mode
+        // Pair mode - only count pairs that are in selection
+        // FILTER: Skip pairs not in availablePairs or filteredFeatureIds
+        if (availablePairs) {
+          // If availablePairs provided, only count pairs in the list
+          const pairExists = availablePairs.some(p => p.pairKey === id)
+          if (!pairExists) return
+        } else if (filteredFeatureIds) {
+          // Otherwise, check if both features in pair are in filteredFeatureIds
+          if (!isPairInSelection(id, filteredFeatureIds)) return
+        }
+
         const selectionState = pairSelectionStates.get(id)
         const source = pairSelectionSources.get(id)
 
@@ -253,7 +271,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
     })
 
     return categoryMap
-  }, [histogramChart, histogramData, mode, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources])
+  }, [histogramChart, histogramData, mode, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources, availablePairs, filteredFeatureIds])
 
   // Calculate stacked category bars
   const categoryBars = useMemo(() => {
@@ -321,17 +339,39 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({ mode }) => {
 
   // Show empty state with helpful message
   if (!histogramData && !isLoading) {
-    const message = mode === 'pair'
-      ? `Select at least 1 Fragmented (blue) and 1 Monosemantic (red) pair to enable automatic tagging`
-      : 'Select features to enable automatic tagging'
+    // Get tag colors for highlighting
+    const fragmentedColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Fragmented') || '#F0E442'
+    const monosemanticColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Monosemantic') || '#D3D3D3'
 
     return (
       <div className="tag-automatic-panel tag-automatic-panel--empty">
         <div className="tag-panel__empty-message">
-          {message}
+          <div className="tag-panel__main-instruction">
+            {mode === 'pair' ? (
+              <>
+                Select at least 1
+                <span className="tag-panel__tag-badge" style={{ backgroundColor: fragmentedColor }}>
+                  Fragmented
+                </span>
+                and 1
+                <span className="tag-panel__tag-badge" style={{ backgroundColor: monosemanticColor }}>
+                  Monosemantic
+                </span>
+                pair to enable automatic tagging
+              </>
+            ) : (
+              'Select features to enable automatic tagging'
+            )}
+          </div>
           {mode === 'pair' && (
-            <div style={{ marginTop: '8px', fontSize: '11px', color: '#888' }}>
-              Currently selected: {selectionCounts.selectedCount} Fragmented, {selectionCounts.rejectedCount} Monosemantic
+            <div className="tag-panel__sub-description">
+              Currently Selected:
+              <span className="tag-panel__count-badge" style={{ backgroundColor: fragmentedColor }}>
+                {selectionCounts.selectedCount} Fragmented
+              </span>
+              <span className="tag-panel__count-badge" style={{ backgroundColor: monosemanticColor }}>
+                {selectionCounts.rejectedCount} Monosemantic
+              </span>
             </div>
           )}
         </div>

@@ -9,7 +9,7 @@ import '../styles/ScrollableItemList.css'
 
 interface Badge {
   label: string
-  count: number
+  count: number | string
 }
 
 interface FooterButton {

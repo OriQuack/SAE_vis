@@ -58,7 +58,8 @@ const API_ENDPOINTS = {
   PAIR_SIMILARITY_SCORE_HISTOGRAM: "/pair-similarity-score-histogram",
   CAUSE_SIMILARITY_SORT: "/cause-similarity-sort",
   CAUSE_SIMILARITY_SCORE_HISTOGRAM: "/cause-similarity-score-histogram",
-  CLUSTER_CANDIDATES: "/cluster-candidates"
+  CLUSTER_CANDIDATES: "/cluster-candidates",
+  SEGMENT_CLUSTER_PAIRS: "/segment-cluster-pairs"
 } as const
 
 const API_BASE = API_BASE_URL
@@ -476,4 +477,32 @@ export async function getClusterCandidates(
   }
 
   return response.json()
+}
+
+export async function getSegmentClusterPairs(
+  featureIds: number[],
+  threshold: number = 0.5
+): Promise<string[]> {
+  console.log(`[API.getSegmentClusterPairs] Requesting pairs for ${featureIds.length} features at threshold ${threshold}`)
+
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.SEGMENT_CLUSTER_PAIRS}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      feature_ids: featureIds,
+      threshold: threshold
+    })
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('[API] Segment cluster pairs error:', response.status, errorText)
+    throw new Error(`Failed to fetch segment cluster pairs: ${response.status} - ${errorText}`)
+  }
+
+  const data = await response.json()
+  console.log(`[API.getSegmentClusterPairs] Received ${data.total_pairs} pairs from ${data.total_clusters} clusters`)
+  return data.pair_keys
 }

@@ -133,7 +133,7 @@ interface AppState {
   fetchSimilarityHistogram: () => Promise<any>
 
   // Similarity tagging actions (automatic tagging based on histogram)
-  showTagAutomaticPopover: (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string) => Promise<void>
+  showTagAutomaticPopover: (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string, selectedFeatureIds?: Set<number>, threshold?: number) => Promise<void>
   hideTagAutomaticPopover: () => void
   updateSimilarityThresholds: (selectThreshold: number) => void
   updateBothSimilarityThresholds: (selectThreshold: number, rejectThreshold: number) => void

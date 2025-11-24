@@ -9,6 +9,36 @@
   gap: 8px;
 }
 
+/* Header - Total count display */
+.selection-state-bar__header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.selection-state-bar__total {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.selection-state-bar__total-primary {
+  font-size: 12px;
+  font-weight: 600;
+  color: #111827;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.selection-state-bar__total-secondary {
+  font-size: 11px;
+  font-weight: 500;
+  color: #6b7280;
+  text-align: center;
+  line-height: 1.2;
+}
+
 /* Main Bar */
 .selection-state-bar__bar {
   display: flex;
@@ -47,14 +77,17 @@
 
 /* Segment Labels */
 .selection-state-bar__segment-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: #ffffff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  font-size: 13px;
+  font-weight: 700;
+  color: #000000;
+  text-shadow: 0 0 3px rgba(255, 255, 255, 0.8),
+               0 0 5px rgba(255, 255, 255, 0.6);
   white-space: nowrap;
   user-select: none;
   position: relative;
   z-index: 2;
+  pointer-events: none;
+  letter-spacing: 0.02em;
 }
 
 /* Category-Specific Colors (set inline based on mode, fallback for unsure) */

@@ -619,3 +619,18 @@ class ClusterCandidatesResponse(BaseModel):
         ...,
         description="Distance threshold used for cutting the dendrogram"
     )
+
+class SegmentClusterPairsResponse(BaseModel):
+    """Response model for segment cluster pairs"""
+    pair_keys: List[str] = Field(
+        ...,
+        description="List of all cluster-based pair keys (format: 'id1-id2')"
+    )
+    total_clusters: int = Field(
+        ...,
+        description="Total number of clusters with 2+ features"
+    )
+    total_pairs: int = Field(
+        ...,
+        description="Total number of pairs generated from clusters"
+    )

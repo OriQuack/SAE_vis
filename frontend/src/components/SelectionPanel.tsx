@@ -128,6 +128,8 @@ interface SelectionPanelProps {
   onDone?: () => void
   doneButtonEnabled?: boolean
   onCategoryRefsReady?: (refs: Map<SelectionCategory, HTMLDivElement>) => void  // Callback for flow overlay
+  availablePairs?: Array<{pairKey: string, mainFeatureId: number, similarFeatureId: number}>  // Cluster-based pairs (single source of truth)
+  filteredFeatureIds?: Set<number>  // Selected feature IDs from Sankey segment
 }
 
 /**
@@ -142,7 +144,9 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
   mode,
   onDone,
   doneButtonEnabled = false,
-  onCategoryRefsReady
+  onCategoryRefsReady,
+  availablePairs,
+  filteredFeatureIds: propFilteredFeatureIds
 }) => {
   // State from store
   const tableData = useVisualizationStore(state => state.tableData)
@@ -162,9 +166,15 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
   const selectedSegment = useVisualizationStore(state => state.selectedSegment)
   const tableSelectedNodeIds = useVisualizationStore(state => state.tableSelectedNodeIds)
 
-  // Get filtered feature IDs - use store's getSelectedNodeFeatures for proper segment handling
+  // Get filtered feature IDs - prefer prop if provided, otherwise use store's method
   const filteredFeatureIds = useMemo(() => {
-    // Use store's method which handles both regular nodes and segments
+    // If prop is provided, use it (from FeatureSplitView)
+    if (propFilteredFeatureIds) {
+      console.log('[SelectionPanel] Using prop filteredFeatureIds:', propFilteredFeatureIds.size, 'features')
+      return propFilteredFeatureIds
+    }
+
+    // Otherwise, use store's method which handles both regular nodes and segments
     // Returns Set<number> of feature IDs or null
     const featureIds = getSelectedNodeFeatures()
 
@@ -175,7 +185,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
 
     console.log('[SelectionPanel] filteredFeatureIds:', featureIds.size, 'features from getSelectedNodeFeatures()')
     return featureIds
-  }, [getSelectedNodeFeatures, sankeyStructure, selectedSegment, tableSelectedNodeIds])
+  }, [propFilteredFeatureIds, getSelectedNodeFeatures, sankeyStructure, selectedSegment, tableSelectedNodeIds])
 
   // Track if threshold button should highlight (first time showing preview)
   const [shouldHighlightThresholdButton, setShouldHighlightThresholdButton] = useState(false)
@@ -248,35 +258,14 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
       // Note: unsure now represents untagged/null features
       const total = confirmed + expanded + rejected + autoRejected + unsure
       return { confirmed, expanded, rejected, autoRejected, unsure, total }
-    } else if (mode === 'pair' && tableData?.features) {
-      // Filter features to only those in the selected node
-      const features = filteredFeatureIds
-        ? tableData.features.filter((f: any) => filteredFeatureIds!.has(f.feature_id))
-        : tableData.features
-
-      // Generate pairs dynamically from decoder_similarity (same logic as FeatureSplitTable)
-      const seenPairs = new Set<string>()
-
-      features.forEach((feature: any) => {
-        const decoderData = Array.isArray(feature.decoder_similarity) ? feature.decoder_similarity : []
-        const top4Similar = decoderData.slice(0, 4)
-
-        top4Similar.forEach((similarItem: any) => {
-          const id1 = feature.feature_id
-          const id2 = similarItem.feature_id
-
-          // Skip if similarItem is not in the filtered set
-          if (filteredFeatureIds && !filteredFeatureIds.has(id2)) return
-
-          const canonicalPairKey = id1 < id2 ? `${id1}-${id2}` : `${id2}-${id1}`
-
-          // Skip if we've already counted this pair
-          if (seenPairs.has(canonicalPairKey)) return
-          seenPairs.add(canonicalPairKey)
-
-          // Count this pair
-          const selectionState = pairSelectionStates.get(canonicalPairKey)
-          const source = pairSelectionSources.get(canonicalPairKey)
+    } else if (mode === 'pair') {
+      // Use cluster-based pairs if provided (single source of truth from FeatureSplitView)
+      console.log('[SelectionPanel] Pair mode - availablePairs:', availablePairs?.length || 0, ', filteredFeatureIds:', filteredFeatureIds?.size || 0)
+      if (availablePairs) {
+        // Count from cluster pairs (matches what's displayed)
+        availablePairs.forEach(pair => {
+          const selectionState = pairSelectionStates.get(pair.pairKey)
+          const source = pairSelectionSources.get(pair.pairKey)
 
           if (selectionState === 'selected') {
             if (source === 'auto') {
@@ -294,13 +283,60 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
             unsure++
           }
         })
-      })
+      } else if (tableData?.features) {
+        // FALLBACK: Generate pairs from decoder_similarity (for backward compatibility)
+        // This path is only used when availablePairs is not provided
+        const features = filteredFeatureIds
+          ? tableData.features.filter((f: any) => filteredFeatureIds!.has(f.feature_id))
+          : tableData.features
+
+        const seenPairs = new Set<string>()
+
+        features.forEach((feature: any) => {
+          const decoderData = Array.isArray(feature.decoder_similarity) ? feature.decoder_similarity : []
+          const top4Similar = decoderData.slice(0, 4)
+
+          top4Similar.forEach((similarItem: any) => {
+            const id1 = feature.feature_id
+            const id2 = similarItem.feature_id
+
+            // Skip if similarItem is not in the filtered set
+            if (filteredFeatureIds && !filteredFeatureIds.has(id2)) return
+
+            const canonicalPairKey = id1 < id2 ? `${id1}-${id2}` : `${id2}-${id1}`
+
+            // Skip if we've already counted this pair
+            if (seenPairs.has(canonicalPairKey)) return
+            seenPairs.add(canonicalPairKey)
+
+            // Count this pair
+            const selectionState = pairSelectionStates.get(canonicalPairKey)
+            const source = pairSelectionSources.get(canonicalPairKey)
+
+            if (selectionState === 'selected') {
+              if (source === 'auto') {
+                expanded++
+              } else {
+                confirmed++
+              }
+            } else if (selectionState === 'rejected') {
+              if (source === 'auto') {
+                autoRejected++
+              } else {
+                rejected++
+              }
+            } else {
+              unsure++
+            }
+          })
+        })
+      }
     }
 
     const total = confirmed + expanded + rejected + autoRejected + unsure
     console.log('[SelectionPanel] Final counts:', { confirmed, expanded, rejected, autoRejected, unsure, total })
     return { confirmed, expanded, rejected, autoRejected, unsure, total }
-  }, [mode, tableData, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources, causeSelectionStates, filteredFeatureIds])
+  }, [mode, tableData, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources, causeSelectionStates, filteredFeatureIds, availablePairs])
 
   // Calculate preview counts when thresholds are active (real-time preview during threshold drag)
   const previewCounts = useMemo((): CategoryCounts | undefined => {
@@ -438,6 +474,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
             height="100%"
             mode={mode}
             onCategoryRefsReady={onCategoryRefsReady}
+            featureCount={filteredFeatureIds?.size}
           />
         </div>
 

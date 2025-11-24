@@ -9,8 +9,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background-color: #f9fafb;
-  border-right: 1px solid #e5e7eb;
+  background-color: #ffffff;
   overflow: hidden;
 }
 
@@ -40,7 +39,7 @@
 }
 
 .scrollable-list__badge-label {
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 600;
   color: #6b7280;
   text-transform: uppercase;
@@ -48,7 +47,7 @@
 }
 
 .scrollable-list__badge-count {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: #374151;
   font-family: 'Consolas', 'Monaco', monospace;
@@ -60,7 +59,7 @@
 
 .scrollable-list__container {
   flex: 1;
-  overflow-y: scroll;
+  overflow-y: auto;
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
@@ -71,7 +70,7 @@
   scrollbar-color: #6b7280 #e5e7eb;
 }
 
-/* Scrollbar styles - always visible */
+/* Scrollbar styles - only visible when needed */
 .scrollable-list__container::-webkit-scrollbar {
   width: 10px;
   -webkit-appearance: none;

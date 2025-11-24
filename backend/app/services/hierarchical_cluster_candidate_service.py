@@ -205,3 +205,117 @@ class HierarchicalClusterCandidateService:
         ]
 
         return cluster_groups
+
+    async def get_all_cluster_pairs(
+        self,
+        feature_ids: List[int],
+        threshold: float = 0.5
+    ) -> Dict:
+        """
+        Get ALL cluster-based pair keys for a set of features.
+
+        Unlike get_cluster_candidates which returns n random clusters,
+        this returns ALL clusters and ALL pairs within those clusters.
+        Used for histogram computation where we need complete pair distribution.
+
+        Process:
+        1. Cut dendrogram at threshold
+        2. Assign features to clusters
+        3. Generate ALL pairwise combinations within each cluster
+        4. Return complete list of pair keys
+
+        Args:
+            feature_ids: Feature IDs to process
+            threshold: Distance threshold for cutting dendrogram (0-1)
+
+        Returns:
+            Dictionary with:
+                - pair_keys: List of all pair keys (format: "id1-id2")
+                - total_clusters: Total number of clusters found
+                - total_pairs: Total number of pairs generated
+                - clusters: List of cluster objects with feature_ids
+
+        Raises:
+            ValueError: If inputs are invalid
+        """
+        # Validate inputs
+        if not feature_ids:
+            raise ValueError("feature_ids cannot be empty")
+
+        if not (0.0 < threshold < 1.0):
+            raise ValueError(f"threshold must be in (0, 1), got {threshold}")
+
+        # Validate feature IDs are in valid range
+        invalid_features = [fid for fid in feature_ids if fid < 0 or fid >= self.n_features]
+        if invalid_features:
+            raise ValueError(
+                f"Invalid feature IDs (must be 0-{self.n_features-1}): "
+                f"{invalid_features[:10]}{'...' if len(invalid_features) > 10 else ''}"
+            )
+
+        logger.info(
+            f"Getting all cluster pairs: "
+            f"n_features={len(feature_ids)}, threshold={threshold}"
+        )
+
+        # Step 1: Get cluster labels for ALL features by cutting dendrogram
+        all_labels = fcluster(self.linkage_matrix, t=threshold, criterion='distance')
+
+        # Step 2: Build feature_to_cluster mapping for requested features only
+        feature_to_cluster = {
+            feature_id: int(all_labels[feature_id])
+            for feature_id in feature_ids
+        }
+
+        # Step 3: Build cluster_to_features mapping
+        cluster_to_features = {}
+        for feature_id in feature_ids:
+            cluster_id = feature_to_cluster[feature_id]
+            if cluster_id not in cluster_to_features:
+                cluster_to_features[cluster_id] = []
+            cluster_to_features[cluster_id].append(feature_id)
+
+        # Step 4: Filter to only clusters with 2+ features (can make pairs)
+        valid_clusters = {
+            cluster_id: features
+            for cluster_id, features in cluster_to_features.items()
+            if len(features) >= 2
+        }
+
+        logger.info(
+            f"Found {len(cluster_to_features)} clusters total, "
+            f"{len(valid_clusters)} have 2+ features"
+        )
+
+        # Step 5: Generate ALL pairwise combinations within each cluster
+        pair_keys = []
+        cluster_details = []
+
+        for cluster_id, cluster_features in valid_clusters.items():
+            sorted_features = sorted(cluster_features)
+            cluster_pairs = []
+
+            # Generate all pairs within this cluster
+            for i in range(len(sorted_features)):
+                for j in range(i + 1, len(sorted_features)):
+                    id1, id2 = sorted_features[i], sorted_features[j]
+                    # Canonical pair key: smaller ID first
+                    pair_key = f"{min(id1, id2)}-{max(id1, id2)}"
+                    pair_keys.append(pair_key)
+                    cluster_pairs.append(pair_key)
+
+            cluster_details.append({
+                "cluster_id": cluster_id,
+                "feature_ids": sorted_features,
+                "pair_count": len(cluster_pairs)
+            })
+
+        total_pairs = len(pair_keys)
+        logger.info(f"Generated {total_pairs} pairs from {len(valid_clusters)} clusters")
+
+        return {
+            "pair_keys": pair_keys,
+            "total_clusters": len(valid_clusters),
+            "total_pairs": total_pairs,
+            "clusters": cluster_details
+        }

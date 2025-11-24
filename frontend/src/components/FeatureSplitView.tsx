@@ -8,6 +8,7 @@ import ScrollableItemList from './ScrollableItemList'
 import { TagBadge } from './TableIndicators'
 import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
+import { getCanonicalPairKey } from '../lib/pairUtils'
 import '../styles/FeatureSplitView.css'
 
 // ============================================================================
@@ -17,10 +18,16 @@ import '../styles/FeatureSplitView.css'
 /**
  * Build pairs from cluster groups
  * For each cluster, generate all within-cluster pairs (e.g., cluster [1,2,3] → pairs 1-2, 1-3, 2-3)
+ *
+ * @param tableData Table data with feature rows
+ * @param clusterGroups Clusters with feature IDs (from backend)
+ * @param selectedFeatureIds Set of selected feature IDs (for defensive filtering)
+ * @returns Array of feature pairs with metadata
  */
 function buildClusterPairs(
   tableData: any,
-  clusterGroups: Array<{cluster_id: number, feature_ids: number[]}>
+  clusterGroups: Array<{cluster_id: number, feature_ids: number[]}>,
+  selectedFeatureIds: Set<number>
 ): Array<{
   mainFeatureId: number
   similarFeatureId: number
@@ -50,22 +57,30 @@ function buildClusterPairs(
 
   // For each cluster, generate all pairs
   for (const cluster of clusterGroups) {
-    const featureIds = cluster.feature_ids
+    // DEFENSIVE FILTER: Only include features that are:
+    // 1. In the selected feature set
+    // 2. Have corresponding table rows
+    const validFeatures = cluster.feature_ids.filter(id =>
+      selectedFeatureIds.has(id) && rowMap.has(id)
+    )
+
+    // Skip clusters with < 2 valid features (can't make pairs)
+    if (validFeatures.length < 2) continue
 
     // Generate all combinations within this cluster
-    for (let i = 0; i < featureIds.length; i++) {
-      for (let j = i + 1; j < featureIds.length; j++) {
-        const id1 = featureIds[i]
-        const id2 = featureIds[j]
+    for (let i = 0; i < validFeatures.length; i++) {
+      for (let j = i + 1; j < validFeatures.length; j++) {
+        const id1 = validFeatures[i]
+        const id2 = validFeatures[j]
 
-        // Ensure smaller ID first for canonical pair key
+        // Use canonical pair key utility
+        const pairKey = getCanonicalPairKey(id1, id2)
         const mainId = Math.min(id1, id2)
         const similarId = Math.max(id1, id2)
-        const pairKey = `${mainId}-${similarId}`
 
         // Try to find decoder similarity if available
-        const mainRow = rowMap.get(mainId)
-        const similarRow = rowMap.get(similarId)
+        const mainRow = rowMap.get(mainId)!  // Safe: filtered by rowMap.has()
+        const similarRow = rowMap.get(similarId)!
         let decoderSimilarity: number | null = null
 
         if (mainRow?.decoder_similarity) {
@@ -81,8 +96,8 @@ function buildClusterPairs(
           decoderSimilarity,
           pairKey,
           clusterId: cluster.cluster_id,
-          row: mainRow || null,
-          similarRow: similarRow || null
+          row: mainRow,
+          similarRow: similarRow
         })
       }
     }
@@ -114,6 +129,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   const fetchDistributedPairs = useVisualizationStore(state => (state as any).fetchDistributedPairs)
   const clearDistributedPairs = useVisualizationStore(state => (state as any).clearDistributedPairs)
   const getSelectedNodeFeatures = useVisualizationStore(state => state.getSelectedNodeFeatures)
+  const leftPanel = useVisualizationStore(state => state.leftPanel)
   const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
   const showTagAutomaticPopover = useVisualizationStore(state => state.showTagAutomaticPopover)
   const pairSimilarityScores = useVisualizationStore(state => state.pairSimilarityScores)
@@ -125,8 +141,23 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
   // Get selected feature IDs from the selected node/segment
   const selectedFeatureIds = useMemo(() => {
-    return getSelectedNodeFeatures()
+    const features = getSelectedNodeFeatures()
+    console.log('[FeatureSplitView] Sankey segment features:', features?.size || 0)
+    return features
   }, [getSelectedNodeFeatures])
+
+  // Extract clustering threshold from Sankey structure
+  const clusterThreshold = useMemo(() => {
+    const sankeyStructure = leftPanel?.sankeyStructure
+    if (!sankeyStructure) return 0.5
+
+    const stage1Segment = sankeyStructure.nodes.find(n => n.id === 'stage1_segment')
+    if (stage1Segment && 'threshold' in stage1Segment && stage1Segment.threshold !== null) {
+      // Sankey threshold is already a similarity value, use it directly
+      return stage1Segment.threshold
+    }
+    return 0.5
+  }, [leftPanel?.sankeyStructure])
 
   // Filter tableData to only include selected features
   const filteredTableData = useMemo(() => {
@@ -141,13 +172,24 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
   }, [tableData, selectedFeatureIds])
 
-  // Fetch cluster groups on mount when selectedFeatureIds is available
-  // Refined dependencies: use selectedFeatureIds.size instead of filteredTableData to prevent cascade refetches
+  // Clear cluster groups when threshold or selected features change
+  useEffect(() => {
+    if (clusterGroups) {
+      console.log('[FeatureSplitView] Threshold or features changed, clearing cluster groups')
+      clearDistributedPairs()
+    }
+  }, [clusterThreshold, selectedFeatureIds])
+  // NOTE: clearDistributedPairs NOT in dependencies to avoid triggering on clear
+
+  // Fetch cluster groups when features change or when groups are cleared
   useEffect(() => {
     if (selectedFeatureIds && selectedFeatureIds.size > 0 && !clusterGroups && !isLoadingDistributedPairs) {
+      console.log('[FeatureSplitView] Fetching cluster groups for', selectedFeatureIds.size, 'features')
       fetchDistributedPairs(15, selectedFeatureIds)
     }
-  }, [selectedFeatureIds, clusterGroups, isLoadingDistributedPairs, fetchDistributedPairs])
+  }, [selectedFeatureIds, clusterGroups, fetchDistributedPairs])
+  // NOTE: clusterGroups IS in dependencies to fetch after clearing
+  // NOTE: isLoadingDistributedPairs NOT in dependencies to avoid infinite loop
 
   // Clear cluster groups on unmount
   useEffect(() => {
@@ -158,16 +200,18 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
   // Build pair list from cluster groups
   const pairList = useMemo(() => {
-    if (!filteredTableData) {
+    if (!filteredTableData || !selectedFeatureIds) {
       return []
     }
 
     if (clusterGroups && clusterGroups.length > 0) {
-      return buildClusterPairs(filteredTableData, clusterGroups)
+      const pairs = buildClusterPairs(filteredTableData, clusterGroups, selectedFeatureIds)
+      console.log('[FeatureSplitView] Built cluster pairs:', pairs.length, 'from', clusterGroups.length, 'clusters')
+      return pairs
     }
 
     return []
-  }, [filteredTableData, clusterGroups])
+  }, [filteredTableData, clusterGroups, selectedFeatureIds])
 
   // Auto-populate similarity scores when pair list is ready or selection states change
   useEffect(() => {
@@ -219,11 +263,13 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   const handleTagAutomatically = useCallback(() => {
     // Use a default position since we don't have access to the event
     // The popover will be positioned at a reasonable default location
+    // Pass selected feature IDs AND threshold to fetch ALL cluster-based pairs from segment
+    console.log('[FeatureSplitView] Tag Automatically clicked - passing features:', selectedFeatureIds?.size || 0, ', threshold:', clusterThreshold)
     showTagAutomaticPopover('pair', {
       x: 250,
       y: 400
-    }, 'Fragmented')
-  }, [showTagAutomaticPopover])
+    }, 'Fragmented', selectedFeatureIds, clusterThreshold)
+  }, [showTagAutomaticPopover, selectedFeatureIds, clusterThreshold])
 
   // Jump to specific pair handler
   const goToPair = useCallback((index: number) => {
@@ -340,6 +386,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
           mode="pair"
           tagLabel="Feature Splitting"
           onCategoryRefsReady={onCategoryRefsReady}
+          availablePairs={pairList}
+          filteredFeatureIds={selectedFeatureIds}
         />
 
         {/* Right column: 2 rows */}
@@ -347,10 +395,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
         {/* Top row: Pair list + FeatureSplitPairViewer */}
         <div className="feature-split-view__row-top">
           <ScrollableItemList
-            width={200}
+            width={210}
             badges={[
-              { label: 'Pairs', count: pairList.length },
-              ...(clusterGroups && clusterGroups.length > 0 ? [{ label: 'Clusters', count: clusterGroups.length }] : [])
+              { label: 'Sampled Pairs', count: pairList.length }
             ]}
             items={pairList}
             currentIndex={currentPairIndex}
@@ -403,13 +450,13 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
         <div className="feature-split-view__row-bottom">
           {/* Left boundary lists - items near reject threshold */}
           <div className="boundary-lists-container">
-            {/* Above reject threshold */}
+            {/* Below reject threshold - will be tagged Monosemantic */}
             <ScrollableItemList
-              width={180}
+              width={210}
               badges={[
-                { label: 'Above Reject', count: boundaryItems.rejectAbove.length }
+                { label: '← Monosemantic', count: `${Math.min(10, boundaryItems.rejectBelow.length)} of ${boundaryItems.rejectBelow.length}` }
               ]}
-              items={boundaryItems.rejectAbove}
+              items={boundaryItems.rejectBelow.slice(0, 10)}
               renderItem={(item) => {
                 const selectionState = pairSelectionStates.get(item.pairKey)
 
@@ -435,13 +482,13 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               }}
             />
 
-            {/* Below reject threshold */}
+            {/* Above reject threshold - borderline, stays unsure */}
             <ScrollableItemList
-              width={180}
+              width={210}
               badges={[
-                { label: 'Below Reject', count: boundaryItems.rejectBelow.length }
+                { label: 'Unsure →', count: `${Math.min(10, boundaryItems.rejectAbove.length)} of ${boundaryItems.rejectAbove.length}` }
               ]}
-              items={boundaryItems.rejectBelow}
+              items={boundaryItems.rejectAbove.slice(0, 10)}
               renderItem={(item) => {
                 const selectionState = pairSelectionStates.get(item.pairKey)
 
@@ -468,17 +515,21 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             />
           </div>
 
-          <TagAutomaticPanel mode="pair" />
+          <TagAutomaticPanel
+            mode="pair"
+            availablePairs={pairList}
+            filteredFeatureIds={selectedFeatureIds}
+          />
 
           {/* Right boundary lists - items near select threshold */}
           <div className="boundary-lists-container">
             {/* Above select threshold */}
             <ScrollableItemList
-              width={180}
+              width={210}
               badges={[
-                { label: 'Above Select', count: boundaryItems.selectAbove.length }
+                { label: 'Fragmented →', count: `${Math.min(10, boundaryItems.selectAbove.length)} of ${boundaryItems.selectAbove.length}` }
               ]}
-              items={boundaryItems.selectAbove}
+              items={boundaryItems.selectAbove.slice(0, 10)}
               renderItem={(item) => {
                 const selectionState = pairSelectionStates.get(item.pairKey)
 
@@ -506,11 +557,11 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
             {/* Below select threshold */}
             <ScrollableItemList
-              width={180}
+              width={210}
               badges={[
-                { label: 'Below Select', count: boundaryItems.selectBelow.length }
+                { label: '← Unsure', count: `${Math.min(10, boundaryItems.selectBelow.length)} of ${boundaryItems.selectBelow.length}` }
               ]}
-              items={boundaryItems.selectBelow}
+              items={boundaryItems.selectBelow.slice(0, 10)}
               renderItem={(item) => {
                 const selectionState = pairSelectionStates.get(item.pairKey)
 
