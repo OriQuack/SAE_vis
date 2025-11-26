@@ -548,6 +548,26 @@ export function findMaxQualityScoreExplainer(
   }
 }
 
+/**
+ * Get the best explanation text for a feature (from the explainer with max quality score)
+ *
+ * @param feature - Feature row (can be null)
+ * @param globalStats - Global normalization statistics
+ * @returns Explanation text or null
+ */
+export function getBestExplanation(
+  feature: FeatureTableRow | null,
+  globalStats: Record<string, MetricNormalizationStats> | undefined
+): string | null {
+  if (!feature) return null
+
+  const maxQualityInfo = findMaxQualityScoreExplainer(feature, globalStats)
+  if (!maxQualityInfo) return null
+
+  const explainerData = feature.explainers[maxQualityInfo.explainerId]
+  return explainerData?.explanation_text || null
+}
+
 
 /**
  * Calculate average score across all explainers for a specific metric

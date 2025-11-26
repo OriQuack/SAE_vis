@@ -22,6 +22,7 @@ const SimilarityTaggingPopover: React.FC = () => {
   const featureSelectionSources = useVisualizationStore(state => state.featureSelectionSources)
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
   const pairSelectionSources = useVisualizationStore(state => state.pairSelectionSources)
+  const setDraggingThreshold = useVisualizationStore(state => state.setDraggingThreshold)
 
   // Get mode-specific colors (mode extracted from popoverState inside render)
   const modeColors = useMemo(() => {
@@ -420,6 +421,15 @@ const SimilarityTaggingPopover: React.FC = () => {
     })
   }, [updateBothSimilarityThresholds])
 
+  // Drag start/end callbacks to notify store
+  const handleDragStart = useCallback(() => {
+    setDraggingThreshold(true)
+  }, [setDraggingThreshold])
+
+  const handleDragEnd = useCallback(() => {
+    setDraggingThreshold(false)
+  }, [setDraggingThreshold])
+
   // Handle preview on table with loading state
   const handlePreviewOnTable = useCallback(async () => {
     setIsPreviewLoading(true)
@@ -752,7 +762,8 @@ const SimilarityTaggingPopover: React.FC = () => {
                   }}
                   showThresholdLine={true}
                   onUpdate={handleThresholdUpdate}
-                  onDragUpdate={handleThresholdUpdate}
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
                 />
               </g>
             </svg>

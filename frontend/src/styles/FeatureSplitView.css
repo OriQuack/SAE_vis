@@ -147,3 +147,30 @@
   flex: 1;
   min-height: 0;
 }
+
+/* ============================================================================
+ * PAIR ITEM WITH SIMILARITY SCORE
+ * ============================================================================ */
+
+.pair-item-with-score {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.pair-item-with-score .tag-badge {
+  flex: 1;
+  min-width: 0;
+}
+
+.pair-similarity-score {
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'Consolas', 'Monaco', monospace;
+  color: #6b7280;
+  flex-shrink: 0;
+  min-width: 32px;
+  text-align: right;
+}

@@ -695,7 +695,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     <div className={`sankey-diagram ${className}`}>
       <div className="sankey-diagram__header">
         <h3 className="sankey-diagram__title">Filter View</h3>
-        <p className="sankey-diagram__instruction">Move threshold do filter candidates</p>
+        <p className="sankey-diagram__instruction">Move threshold to filter</p>
       </div>
       <div
         ref={setContainerRef}

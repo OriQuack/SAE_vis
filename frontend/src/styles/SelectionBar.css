@@ -65,14 +65,13 @@
 }
 
 .selection-state-bar__segment--interactive:hover {
-  opacity: 0.85;
-  transform: scaleY(1.1);
+  filter: brightness(1.1);
   z-index: 1;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .selection-state-bar__segment--interactive:active {
-  transform: scaleY(1.05);
+  filter: brightness(0.95);
 }
 
 /* Segment Labels */
@@ -229,4 +228,9 @@
   font-size: 10px;
   color: #6b7280;
   margin-top: 2px;
+}
+
+.selection-state-bar__tooltip-preview {
+  font-weight: 600;
+  color: #3b82f6; /* Blue to indicate preview/change */
 }

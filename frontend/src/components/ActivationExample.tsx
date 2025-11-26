@@ -20,6 +20,12 @@ interface ActivationExampleProps {
   onHoverChange?: (isHovered: boolean) => void  // Callback when hover state changes
   // Number of quantiles to show (1-4, default 3 for tables, 4 for feature split)
   numQuantiles?: number
+  // Examples per quantile - array specifying how many examples to show per quantile
+  // e.g., [2, 2, 1, 1] means 2 from Q0, 2 from Q1, 1 from Q2, 1 from Q3
+  // If not provided, defaults to 1 per quantile
+  examplesPerQuantile?: number[]
+  // Disable hover popover (for FeatureSplitPairViewer where we show more examples inline)
+  disableHover?: boolean
 }
 
 /**
@@ -128,15 +134,17 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
   interFeaturePositions,
   isHovered,
   onHoverChange,
-  numQuantiles = 3  // Default to 3 quantiles for tables, override to 4 for feature split
+  numQuantiles = 3,  // Default to 3 quantiles for tables, override to 4 for feature split
+  examplesPerQuantile,  // Custom examples per quantile, e.g., [2, 2, 1, 1]
+  disableHover = false  // Disable hover popover
 }) => {
   const [showPopover, setShowPopover] = useState<boolean>(false)
   const [popoverPosition, setPopoverPosition] = useState<'above' | 'below'>('below')
   const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({})
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Show popover if either locally hovered or parent says this pair is hovered
-  const effectiveShowPopover = showPopover || (isHovered ?? false)
+  // Show popover if either locally hovered or parent says this pair is hovered (unless disabled)
+  const effectiveShowPopover = !disableHover && (showPopover || (isHovered ?? false))
 
   // Detect popover position (above/below) and calculate fixed coordinates
   const detectPopoverPosition = useCallback(() => {
@@ -176,7 +184,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
   // Group examples by quantile_index (memoized for performance)
   // Prioritize examples with positions for the winning type
   const quantileGroups = useMemo(() => {
-    return Array.from({ length: numQuantiles }, (_, qIndex) => {
+    const groups = Array.from({ length: numQuantiles }, (_, qIndex) => {
       const filtered = examples.quantile_examples.filter(ex => ex.quantile_index === qIndex)
       // Sort to put examples with winning type positions first
       const sorted = [...filtered].sort((a, b) => {
@@ -188,6 +196,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
       })
       return sorted.slice(0, 2)
     })
+    return groups
   }, [examples.quantile_examples, underlineType, numQuantiles])
 
   // Recalculate popover position when isHovered becomes true
@@ -200,10 +209,24 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
     }
   }, [isHovered, showPopover, detectPopoverPosition])
 
+  // Calculate total rows to determine CSS class
+  // If examplesPerQuantile is provided, sum it; otherwise use numQuantiles
+  const totalRows = examplesPerQuantile
+    ? examplesPerQuantile.reduce((sum, n) => sum + n, 0)
+    : numQuantiles
+
+  // Determine CSS class based on total rows
+  // Use rows-N for custom row counts, otherwise fall back to quantiles-based class
+  const heightClass = totalRows === 8
+    ? 'activation-example--rows-8'
+    : totalRows === 6
+      ? 'activation-example--rows-6'
+      : `activation-example--quantiles-${numQuantiles}`
+
   return (
     <div
       ref={containerRef}
-      className={`activation-example activation-example--quantiles-${numQuantiles}`}
+      className={`activation-example ${heightClass}${disableHover ? ' activation-example--no-hover' : ''}`}
       onMouseEnter={() => {
         detectPopoverPosition()
         setShowPopover(true)
@@ -215,54 +238,58 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
       }}
     >
       {/* Default view: Configurable quantiles, character-based truncation */}
-      {Array.from({ length: numQuantiles }, (_, i) => i).map(qIndex => {
-        // Use the first example from sorted quantileGroups (prioritizes examples with positions)
-        const example = quantileGroups[qIndex]?.[0]
-        if (!example) return null
+      {/* If examplesPerQuantile is provided, show multiple examples per quantile */}
+      {Array.from({ length: numQuantiles }, (_, qIndex) => {
+        const numExamples = examplesPerQuantile?.[qIndex] ?? 1
+        const examples_to_show = quantileGroups[qIndex]?.slice(0, numExamples) || []
 
-        // Use a reasonable window size centered on max activation
-        // Window size is at least 8 tokens or based on available character width
-        const windowSize = Math.max(8, maxLength)
-        const tokens = buildActivationTokens(example, windowSize)
+        return examples_to_show.map((example, exampleIdx) => {
+          if (!example) return null
 
-        // Truncate based on available width (symmetric around max token with full tokens)
-        const { displayTokens, hasLeftEllipsis, hasRightEllipsis } = formatTokensWithEllipsis(tokens, maxLength)
+          // Use a reasonable window size centered on max activation
+          // Window size is at least 8 tokens or based on available character width
+          const windowSize = Math.max(8, maxLength)
+          const tokens = buildActivationTokens(example, windowSize)
 
-        return (
-          <div
-            key={qIndex}
-            className="activation-example__quantile"
-          >
-            {hasLeftEllipsis && <span className="activation-example__ellipsis">...</span>}
-            {displayTokens.map((token, tokenIdx) => {
-              const hasUnderline = shouldUnderlineToken(token.position, example, underlineType)
-              const hasInterfeatureHighlight = shouldHighlightInterfeature(token.position, example, interFeaturePositions)
+          // Truncate based on available width (symmetric around max token with full tokens)
+          const { displayTokens, hasLeftEllipsis, hasRightEllipsis } = formatTokensWithEllipsis(tokens, maxLength)
 
-              // Get confidence-based CSS class for n-gram underline
-              const ngramClass = hasUnderline ? getNgramConfidenceClass(ngramJaccard) : ''
+          return (
+            <div
+              key={`${qIndex}-${exampleIdx}`}
+              className="activation-example__quantile"
+            >
+              {hasLeftEllipsis && <span className="activation-example__ellipsis">...</span>}
+              {displayTokens.map((token, tokenIdx) => {
+                const hasUnderline = shouldUnderlineToken(token.position, example, underlineType)
+                const hasInterfeatureHighlight = shouldHighlightInterfeature(token.position, example, interFeaturePositions)
 
-              return (
-                <span
-                  key={tokenIdx}
-                  className={`activation-token ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${ngramClass} ${hasInterfeatureHighlight ? 'activation-token--interfeature' : ''}`}
-                  style={{
-                    backgroundColor: token.activation_value
-                      ? getActivationColor(token.activation_value, example.max_activation)
-                      : 'transparent'
-                  }}
-                >
-                  {token.is_newline ? (
-                    <span className="newline-symbol">{getWhitespaceSymbol(token.text)}</span>
-                  ) : (
-                    token.text
-                  )}
-                </span>
-              )
-            })}
-            {hasRightEllipsis && <span className="activation-example__ellipsis">...</span>}
-          </div>
-        )
-      })}
+                // Get confidence-based CSS class for n-gram underline
+                const ngramClass = hasUnderline ? getNgramConfidenceClass(ngramJaccard) : ''
+
+                return (
+                  <span
+                    key={tokenIdx}
+                    className={`activation-token ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${ngramClass} ${hasInterfeatureHighlight ? 'activation-token--interfeature' : ''}`}
+                    style={{
+                      backgroundColor: token.activation_value
+                        ? getActivationColor(token.activation_value, example.max_activation)
+                        : 'transparent'
+                    }}
+                  >
+                    {token.is_newline ? (
+                      <span className="newline-symbol">{getWhitespaceSymbol(token.text)}</span>
+                    ) : (
+                      token.text
+                    )}
+                  </span>
+                )
+              })}
+              {hasRightEllipsis && <span className="activation-example__ellipsis">...</span>}
+            </div>
+          )
+        })
+      }).flat()}
 
       {/* Hover popover: All 8 examples (2 per quantile) - shows when this row is hovered */}
       {effectiveShowPopover && (

@@ -11,7 +11,8 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  /* border: 1px solid #e5e7eb; */
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
 }
 
 /* ============================================================================
@@ -31,14 +32,14 @@
 .pair-viewer__title {
   font-size: 22px;
   font-weight: 500;
-  color: #374151;
+  color: #000000;
   margin: 0;
 }
 
 .pair-viewer__description {
   font-size: 14px;
   font-weight: 400;
-  color: #383838;
+  color: #000000;
   margin: 0;
   display: flex;
   align-items: center;
@@ -172,8 +173,8 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 6px;
+  gap: 2px;
+  padding: 4px;
   min-width: 0;
   overflow: hidden;
 }
@@ -187,10 +188,84 @@
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
-  padding: 4px 6px;
-  background-color: #f9fafb;
-  border-radius: 4px;
-  border: 1px solid #e5e7eb;
+  padding: 4px 8px;
+  background-color: transparent;
+  border: none;
+}
+
+/* ============================================================================
+ * LEGEND - Visual guide for activation token styling
+ * ============================================================================ */
+
+.pair-viewer__legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+/* Individual legend item */
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 8px;
+  margin-right: 8px;
+  border-right: 1px solid #d1d5db;
+}
+
+/* Remove separator from last item */
+.legend-item:last-child {
+  border-right: none;
+  margin-right: 0;
+  padding-right: 0;
+}
+
+/* Sample token styling */
+.legend-sample {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 14px;
+  padding: 0px 2px;
+  border-radius: 2px;
+  border: 1.5px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1.4;
+  min-height: 1.4em;
+}
+
+/* Activation strength - orange gradient background */
+.legend-sample--activation {
+  background: linear-gradient(90deg,
+    rgba(255, 165, 0, 0.1) 0%,
+    rgba(255, 165, 0, 0.3) 20%,
+    rgba(255, 140, 0, 0.7) 60%,
+    rgba(255, 120, 0, 0.9) 100%);
+  border: none;
+}
+
+/* Within-feature pattern - blue border (medium confidence) */
+.legend-sample--intra {
+  box-shadow: inset 0 0 0 2px #3b82f6;
+}
+
+/* Cross-feature pattern - green border (all sides) */
+.legend-sample--inter {
+  border: 2px solid #10b981;
+}
+
+/* Peak token - red underline */
+.legend-sample--max {
+  border-bottom: 2px solid #dc2626;
+}
+
+/* Label text */
+.legend-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+  white-space: nowrap;
 }
 
 /* ============================================================================
@@ -222,7 +297,7 @@
 }
 
 .nav__counter {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 600;
   color: #1f2937;
   white-space: nowrap;
@@ -238,7 +313,7 @@
   display: flex;
   align-items: center;
   gap: 3px;
-  font-size: 11px;
+  font-size: 14px;
   white-space: nowrap;
 }
 
@@ -248,7 +323,7 @@
 }
 
 .feature__id {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 700;
   color: #1f2937;
   font-family: 'Consolas', 'Monaco', monospace;
@@ -258,27 +333,24 @@
   display: flex;
   align-items: center;
   gap: 3px;
-  padding: 2px 6px;
-  background-color: #eff6ff;
-  border-radius: 3px;
   white-space: nowrap;
 }
 
 .similarity__label {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 500;
-  color: #6b7280;
+  color: #1f2937;
 }
 
 .similarity__value {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 700;
-  color: #3b82f6;
+  color: #1f2937;
   font-family: 'Consolas', 'Monaco', monospace;
 }
 
 .similarity__icon {
-  font-size: 10px;
+  font-size: 14px;
   color: #9ca3af;
 }
 
@@ -501,10 +573,55 @@
 }
 
 .panel-header__id {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   color: #1f2937;
   font-family: 'Consolas', 'Monaco', monospace;
+  padding: 0px 4px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background-color: #f9fafb;
+  flex-shrink: 0;
+}
+
+/* Header content wrapper for ID + explanation */
+.panel-header__content {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;  /* Allow flex child to shrink below content size */
+  overflow: hidden;
+}
+
+/* Explanation text - same style as ID, truncates with ellipsis */
+.panel-header__explanation {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1f2937;
+  font-family: 'Consolas', 'Monaco', monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+  cursor: default;
+  position: relative;
+}
+
+/* Explanation popover - shows full text on hover, covers the header */
+.explanation-popover {
+  background: #f9fafb;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  padding: 4px 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  font-size: 13px;
+  font-weight: 700;
+  color: #1f2937;
+  font-family: 'Consolas', 'Monaco', monospace;
+  white-space: normal;
+  word-wrap: break-word;
+  pointer-events: none;
 }
 
 .activation-panel__examples {
@@ -551,6 +668,25 @@
   color: #9ca3af;
   font-style: italic;
   height: 72px;  /* Match 4-quantile activation example height */
+}
+
+/* ============================================================================
+ * BOTTOM CONTROLS - Floating pill control panel below activation examples
+ * ============================================================================ */
+
+.pair-viewer__floating-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 12px;
+  margin: 0px auto;
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+  width: fit-content;
 }
 
 /* ============================================================================

@@ -44,6 +44,20 @@
   max-height: 72px;
 }
 
+/* Custom height for 6 examples (e.g., [2,2,1,1] pattern) */
+.activation-example--rows-6 {
+  height: 108px;
+  min-height: 108px;
+  max-height: 108px;
+}
+
+/* Custom height for 8 examples (e.g., [2,2,2,2] pattern) */
+.activation-example--rows-8 {
+  height: 144px;
+  min-height: 144px;
+  max-height: 144px;
+}
+
 /* Elevate z-index when hovered to ensure popover appears above adjacent cells */
 .activation-example:hover {
   z-index: 9998;
@@ -74,6 +88,11 @@
 
 .activation-example:hover .activation-example__quantile {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Disable hover effects when no-hover class is present */
+.activation-example--no-hover:hover .activation-example__quantile {
+  box-shadow: none;
 }
 
 /* ============================================================================

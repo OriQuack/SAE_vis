@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useState, useRef, useCallback } from 'react'
 import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow } from '../types'
 import ActivationExample from './ActivationExample'
@@ -6,7 +6,55 @@ import { UNSURE_GRAY } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
 import { extractInterFeaturePositions } from '../lib/activation-utils'
+import { getBestExplanation } from '../lib/table-utils'
 import '../styles/FeatureSplitPairViewer.css'
+
+// ============================================================================
+// EXPLANATION WITH POPOVER - Inline component for truncated text with hover
+// ============================================================================
+interface ExplanationWithPopoverProps {
+  text: string
+}
+
+const ExplanationWithPopover: React.FC<ExplanationWithPopoverProps> = ({ text }) => {
+  const [showPopover, setShowPopover] = useState(false)
+  const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({})
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const handleMouseEnter = useCallback(() => {
+    if (!containerRef.current) return
+    // Get the parent header element for full width
+    const header = containerRef.current.closest('.panel-header__content')
+    if (!header) return
+    const rect = header.getBoundingClientRect()
+
+    // Position popover over the header, aligned right
+    setPopoverStyle({
+      position: 'fixed',
+      right: `${window.innerWidth - rect.right}px`,
+      top: `${rect.top}px`,
+      maxWidth: `${rect.width}px`,
+      zIndex: 10000
+    })
+    setShowPopover(true)
+  }, [])
+
+  return (
+    <div
+      ref={containerRef}
+      className="panel-header__explanation"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={() => setShowPopover(false)}
+    >
+      {text}
+      {showPopover && (
+        <div className="explanation-popover" style={popoverStyle}>
+          {text}
+        </div>
+      )}
+    </div>
+  )
+}
 
 // ============================================================================
 // FEATURE SPLIT PAIR VIEWER COMPONENT
@@ -14,18 +62,21 @@ import '../styles/FeatureSplitPairViewer.css'
 // Displays activation examples for the current pair
 // Parent (FeatureSplitView) manages pair list and navigation
 
+type PairData = {
+  mainFeatureId: number
+  similarFeatureId: number
+  decoderSimilarity: number | null
+  pairKey: string
+  clusterId: number
+  row: FeatureTableRow | null
+  similarRow: FeatureTableRow | null
+}
+
 interface FeatureSplitPairViewerProps {
   className?: string
   currentPairIndex: number
-  pairList: Array<{
-    mainFeatureId: number
-    similarFeatureId: number
-    decoderSimilarity: number | null
-    pairKey: string
-    clusterId: number
-    row: FeatureTableRow | null
-    similarRow: FeatureTableRow | null
-  }>
+  pairList: Array<PairData>
+  currentPair?: PairData | null  // Optional: pass directly to avoid recomputation during drag
   onNavigatePrevious?: () => void
   onNavigateNext?: () => void
 }
@@ -34,6 +85,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   className = '',
   currentPairIndex,
   pairList,
+  currentPair: currentPairProp,
   onNavigatePrevious,
   onNavigateNext
 }) => {
@@ -41,27 +93,18 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
   const togglePairSelection = useVisualizationStore(state => state.togglePairSelection)
   const activationExamples = useVisualizationStore(state => state.activationExamples)
-  const fetchActivationExamples = useVisualizationStore(state => state.fetchActivationExamples)
+  const tableData = useVisualizationStore(state => state.tableData)
 
   const containerWidth = 1400 // Fixed width for full-width activation examples
 
-  // Current pair (from props)
-  const currentPair = pairList[currentPairIndex] || null
+  // Current pair - use prop if provided, otherwise compute from list
+  const currentPair = currentPairProp !== undefined ? currentPairProp : (pairList[currentPairIndex] || null)
 
   // Get selection state for current pair
   const pairSelectionState = currentPair ? pairSelectionStates.get(currentPair.pairKey) || null : null
 
-  // Fetch activation examples for current pair when pair changes
-  useEffect(() => {
-    if (!currentPair) return
-
-    const featureIds = [currentPair.mainFeatureId]
-    if (currentPair.similarRow) {
-      featureIds.push(currentPair.similarFeatureId)
-    }
-
-    fetchActivationExamples(featureIds)
-  }, [currentPair, fetchActivationExamples])
+  // NOTE: Activation examples are pre-fetched by parent (FeatureSplitView) for the entire page
+  // This component just reads from the activationExamples cache
 
 
   // Selection handlers
@@ -83,6 +126,10 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
         togglePairSelection(currentPair.mainFeatureId, currentPair.similarFeatureId)
         togglePairSelection(currentPair.mainFeatureId, currentPair.similarFeatureId)
       }
+      // Auto-advance to next pair
+      if (onNavigateNext && currentPairIndex < pairList.length - 1) {
+        setTimeout(() => onNavigateNext(), 150)
+      }
     }
   }
 
@@ -102,6 +149,10 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
         // selected -> rejected
         togglePairSelection(currentPair.mainFeatureId, currentPair.similarFeatureId)
       }
+      // Auto-advance to next pair
+      if (onNavigateNext && currentPairIndex < pairList.length - 1) {
+        setTimeout(() => onNavigateNext(), 150)
+      }
     }
   }
 
@@ -116,6 +167,10 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
     } else if (pairSelectionState === 'rejected') {
       // rejected -> null
       togglePairSelection(currentPair.mainFeatureId, currentPair.similarFeatureId)
+    }
+    // Auto-advance to next pair
+    if (onNavigateNext && currentPairIndex < pairList.length - 1) {
+      setTimeout(() => onNavigateNext(), 150)
     }
   }
 
@@ -140,6 +195,10 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   // Extract inter-feature positions for highlighting (if available)
   const mainFeatureRow = currentPair.row
   const similarFeatureRow = currentPair.similarRow
+
+  // Get best explanations for each feature
+  const mainExplanation = getBestExplanation(mainFeatureRow, tableData?.global_stats)
+  const similarExplanation = getBestExplanation(similarFeatureRow, tableData?.global_stats)
 
   let mainInterFeaturePositions = undefined
   let similarInterFeaturePositions = undefined
@@ -173,35 +232,8 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
     <div className={`feature-split-pair-viewer ${className}`}>
       {/* Main content area */}
       <div className="pair-viewer__main">
-        {/* Compact header with pair info and selection */}
+        {/* Compact header with pair info and legend */}
         <div className="pair-viewer__header">
-        {/* Previous button */}
-        <button
-          className="nav__button"
-          onClick={onNavigatePrevious}
-          disabled={currentPairIndex === 0 || !onNavigatePrevious}
-        >
-          ← Prev
-        </button>
-
-        {/* Counter */}
-        <span className="nav__counter">
-          {currentPairIndex + 1} / {pairList.length}
-        </span>
-
-        {/* Separator */}
-        <span className="pair-info__separator">|</span>
-
-        {/* Feature IDs */}
-        <div className="pair-info__ids">
-          <span className="feature__id">#{currentPair.mainFeatureId}</span>
-          <span className="similarity__icon"> ↔ </span>
-          <span className="feature__id">#{currentPair.similarFeatureId}</span>
-        </div>
-
-        {/* Separator */}
-        <span className="pair-info__separator">|</span>
-
         {/* Decoder Similarity */}
         <div className="pair-info__similarity">
           <span className="similarity__label">Decoder Similarity:</span>
@@ -210,8 +242,97 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
           </span>
         </div>
 
-        {/* Flexible gap */}
+        {/* Flexible gap to push legend to the right */}
         <div style={{ flex: 1 }}></div>
+
+        {/* Legend - aligned right */}
+        <div className="pair-viewer__legend">
+          <div className="legend-item">
+            <span className="legend-sample legend-sample--activation">token</span>
+            <span className="legend-label">Activation Strength</span>
+          </div>
+          <div className="legend-item">
+            <span className="legend-sample legend-sample--max">token</span>
+            <span className="legend-label">Max Activation</span>
+          </div>
+          <div className="legend-item">
+            <span className="legend-sample legend-sample--intra">token</span>
+            <span className="legend-label">Within-Feature Pattern</span>
+          </div>
+          <div className="legend-item">
+            <span className="legend-sample legend-sample--inter">token</span>
+            <span className="legend-label">Cross-Feature Pattern</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Activation examples side-by-side */}
+      <div className="pair-viewer__content">
+        {/* Main feature activation */}
+        <div className="activation-panel activation-panel--main">
+          <div className="activation-panel__header">
+            <div className="panel-header__content">
+              <span className="panel-header__id">#{currentPair.mainFeatureId}</span>
+              {mainExplanation && (
+                <ExplanationWithPopover text={mainExplanation} />
+              )}
+            </div>
+          </div>
+          {mainActivation ? (
+            <div className="activation-panel__examples">
+              <ActivationExample
+                examples={mainActivation}
+                containerWidth={containerWidth - 40}
+                interFeaturePositions={mainInterFeaturePositions}
+                numQuantiles={4}
+                examplesPerQuantile={[2, 2, 2, 2]}
+                disableHover={true}
+              />
+            </div>
+          ) : (
+            <div className="activation-panel__loading">Loading activation examples...</div>
+          )}
+        </div>
+
+        {/* Similar feature activation */}
+        <div className="activation-panel activation-panel--similar">
+          <div className="activation-panel__header">
+            <div className="panel-header__content">
+              <span className="panel-header__id">#{currentPair.similarFeatureId}</span>
+              {similarExplanation && (
+                <ExplanationWithPopover text={similarExplanation} />
+              )}
+            </div>
+          </div>
+          {/* TEMPORARY FIX: Check for activation data instead of feature row */}
+          {/* TODO: Remove when full feature data is available for all 16k features */}
+          {similarActivation ? (
+            <div className="activation-panel__examples">
+              <ActivationExample
+                examples={similarActivation}
+                containerWidth={containerWidth - 40}
+                interFeaturePositions={similarInterFeaturePositions}
+                numQuantiles={4}
+                examplesPerQuantile={[2, 2, 2, 2]}
+                disableHover={true}
+              />
+            </div>
+          ) : (
+            <div className="activation-panel__loading">Loading activation examples...</div>
+          )}
+        </div>
+      </div>
+
+      {/* Floating control panel at bottom */}
+      <div className="pair-viewer__floating-controls">
+        {/* Previous button */}
+        <button
+          className="nav__button"
+          onClick={onNavigatePrevious}
+          disabled={currentPairIndex === 0 || !onNavigatePrevious}
+        >
+          ← Prev
+        </button>
 
         {/* Selection buttons */}
         <button
@@ -245,7 +366,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
           Fragmented
         </button>
 
-        {/* Next button - positioned at far right */}
+        {/* Next button */}
         <button
           className="nav__button"
           onClick={onNavigateNext}
@@ -253,49 +374,6 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
         >
           Next →
         </button>
-      </div>
-
-      {/* Activation examples side-by-side */}
-      <div className="pair-viewer__content">
-        {/* Main feature activation */}
-        <div className="activation-panel activation-panel--main">
-          <div className="activation-panel__header">
-            <span className="panel-header__id">#{currentPair.mainFeatureId}</span>
-          </div>
-          {mainActivation ? (
-            <div className="activation-panel__examples">
-              <ActivationExample
-                examples={mainActivation}
-                containerWidth={containerWidth - 40}
-                interFeaturePositions={mainInterFeaturePositions}
-                numQuantiles={4}
-              />
-            </div>
-          ) : (
-            <div className="activation-panel__loading">Loading activation examples...</div>
-          )}
-        </div>
-
-        {/* Similar feature activation */}
-        <div className="activation-panel activation-panel--similar">
-          <div className="activation-panel__header">
-            <span className="panel-header__id">#{currentPair.similarFeatureId}</span>
-          </div>
-          {/* TEMPORARY FIX: Check for activation data instead of feature row */}
-          {/* TODO: Remove when full feature data is available for all 16k features */}
-          {similarActivation ? (
-            <div className="activation-panel__examples">
-              <ActivationExample
-                examples={similarActivation}
-                containerWidth={containerWidth - 40}
-                interFeaturePositions={similarInterFeaturePositions}
-                numQuantiles={4}
-              />
-            </div>
-          ) : (
-            <div className="activation-panel__loading">Loading activation examples...</div>
-          )}
-        </div>
       </div>
     </div>
   </div>

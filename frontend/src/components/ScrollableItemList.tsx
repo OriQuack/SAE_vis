@@ -1,4 +1,5 @@
-import React from 'react'
+import React, { useMemo } from 'react'
+import { createStripePattern, getSelectionColors, type TableMode } from '../lib/color-utils'
 import '../styles/ScrollableItemList.css'
 
 // ============================================================================
@@ -20,9 +21,32 @@ interface FooterButton {
   className?: string
 }
 
+interface PageNavigation {
+  currentPage: number
+  totalPages: number
+  onPreviousPage: () => void
+  onNextPage: () => void
+}
+
+interface ColumnHeader {
+  label: string
+  sortDirection?: 'asc' | 'desc'
+}
+
+interface HeaderStripe {
+  type: 'expand' | 'autoReject'
+  mode?: TableMode
+}
+
 export interface ScrollableItemListProps<T = any> {
   // Header badges showing counts
   badges: Badge[]
+
+  // Optional column header (sub-header below badges showing column label)
+  columnHeader?: ColumnHeader
+
+  // Optional stripe pattern for header (for auto-tagging indication)
+  headerStripe?: HeaderStripe
 
   // Items to display (generic)
   items: T[]
@@ -36,8 +60,14 @@ export interface ScrollableItemListProps<T = any> {
   // Predicate to determine if item should be highlighted (e.g., same cluster)
   highlightPredicate?: (item: T, currentItem: T | null) => boolean
 
+  // Whether this list is the currently active source (visual indicator in header)
+  isActive?: boolean
+
   // Optional footer button
   footerButton?: FooterButton
+
+  // Optional page navigation (replaces footerButton if provided)
+  pageNavigation?: PageNavigation
 
   // Styling
   width?: number | string
@@ -46,30 +76,60 @@ export interface ScrollableItemListProps<T = any> {
 
 export function ScrollableItemList<T = any>({
   badges,
+  columnHeader,
+  headerStripe,
   items,
   renderItem,
   currentIndex = -1,
   highlightPredicate,
+  isActive = false,
   footerButton,
+  pageNavigation,
   width = 200,
   className = ''
 }: ScrollableItemListProps<T>) {
   const currentItem = currentIndex >= 0 && currentIndex < items.length ? items[currentIndex] : null
 
+  // Get colors for stripe pattern based on mode
+  const stripeColors = useMemo(() => {
+    if (!headerStripe) return null
+    const mode = headerStripe.mode || 'pair'
+    const colors = getSelectionColors(mode)
+    return {
+      background: headerStripe.type === 'expand' ? colors.expanded : colors.autoRejected,
+      stripe: colors.unsure
+    }
+  }, [headerStripe])
+
   return (
     <div
-      className={`scrollable-list ${className}`}
+      className={`scrollable-list ${isActive ? 'scrollable-list--active' : ''} ${className}`}
       style={{ width: typeof width === 'number' ? `${width}px` : width }}
     >
-      {/* Header with count badges */}
-      <div className="scrollable-list__header">
+      {/* Header with count inline: "Name (Count)" */}
+      <div
+        className={`scrollable-list__header ${headerStripe ? 'scrollable-list__header--striped' : ''}`}
+        style={stripeColors ? { backgroundColor: stripeColors.background } : undefined}
+      >
         {badges.map((badge, i) => (
           <div key={i} className="scrollable-list__badge">
-            <span className="scrollable-list__badge-label">{badge.label}</span>
-            <span className="scrollable-list__badge-count">{badge.count}</span>
+            <span className="scrollable-list__badge-label">
+              {badge.label} <span className="scrollable-list__badge-count">({badge.count})</span>
+            </span>
           </div>
         ))}
+        {/* Stripe pattern overlay for auto-tagging indication */}
+        {stripeColors && createStripePattern(`header-stripe-${headerStripe?.type}`, stripeColors.stripe)}
       </div>
+
+      {/* Optional column header (sub-header with sort indicator) */}
+      {columnHeader && (
+        <div className="scrollable-list__column-header">
+          <span className="column-header__label">
+            {columnHeader.sortDirection === 'asc' ? '▲' : '▼'} {columnHeader.label}
+          </span>
+        </div>
+      )}
 
       {/* Scrollable list container */}
       <div className="scrollable-list__container">
@@ -107,8 +167,33 @@ export function ScrollableItemList<T = any>({
         })}
       </div>
 
-      {/* Optional footer button */}
-      {footerButton && (
+      {/* Page navigation (takes priority over footerButton) */}
+      {pageNavigation && (
+        <div className="scrollable-list__page-nav">
+          <button
+            className="scrollable-list__page-nav-button"
+            onClick={pageNavigation.onPreviousPage}
+            disabled={pageNavigation.currentPage <= 0}
+            title="Previous page"
+          >
+            ←
+          </button>
+          <span className="scrollable-list__page-nav-info">
+            {pageNavigation.currentPage + 1} / {pageNavigation.totalPages}
+          </span>
+          <button
+            className="scrollable-list__page-nav-button"
+            onClick={pageNavigation.onNextPage}
+            disabled={pageNavigation.currentPage >= pageNavigation.totalPages - 1}
+            title="Next page"
+          >
+            →
+          </button>
+        </div>
+      )}
+
+      {/* Optional footer button (only if no pageNavigation) */}
+      {!pageNavigation && footerButton && (
         <button
           className={`scrollable-list__footer-button ${footerButton.className || ''}`}
           onClick={footerButton.onClick}

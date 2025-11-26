@@ -218,6 +218,10 @@ interface AppState {
     isLoading: boolean
   } | null
 
+  // Whether threshold handle is currently being dragged (to prevent rapid updates)
+  isDraggingThreshold: boolean
+  setDraggingThreshold: (isDragging: boolean) => void
+
   // Threshold visualization state (for showing thresholds in table)
   thresholdVisualization: {
     visible: boolean
@@ -335,6 +339,9 @@ const initialState = {
   // Similarity tagging popover state (for automatic tagging feature)
   tagAutomaticState: null,
 
+  // Whether threshold handle is currently being dragged
+  isDraggingThreshold: false,
+
   // Threshold visualization state (for showing thresholds in table)
   thresholdVisualization: null,
 
@@ -395,6 +402,9 @@ export const useStore = create<AppState>((set, get) => ({
   // Hover state actions
   setHoveredAlluvialNode: (nodeId: string | null, panel: 'left' | 'right' | null) =>
     set({ hoveredAlluvialNodeId: nodeId, hoveredAlluvialPanel: panel }),
+
+  // Threshold drag state action
+  setDraggingThreshold: (isDragging: boolean) => set({ isDraggingThreshold: isDragging }),
 
   // Feature selection actions (used by TablePanel checkboxes)
   // Three-state toggle: null -> 'selected' -> 'rejected' -> null

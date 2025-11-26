@@ -370,7 +370,6 @@ class DataService:
             quantile_df = df.filter(pl.col("quantile") == q).head(1)
             if len(quantile_df) > 0:
                 row = quantile_df.to_dicts()[0]
-
                 # Find max activation value and position
                 max_act = row["max_activation"]
                 max_pos = 0

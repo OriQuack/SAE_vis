@@ -27,6 +27,7 @@ interface SelectionStateBarProps {
   className?: string
   onCategoryRefsReady?: (refs: Map<SelectionCategory, HTMLDivElement>) => void  // Callback for exposing refs
   featureCount?: number  // Optional: number of unique features (for pair mode)
+  pairCount?: number  // Optional: number of pairs (for pair mode, shown as secondary info)
 }
 
 /**
@@ -49,12 +50,13 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   width,
   showLabels = true,
   showLegend = true,
-  labelThreshold = 10,
+  labelThreshold = 2,
   mode = 'feature',
   categoryColors,
   className = '',
   onCategoryRefsReady,
-  featureCount
+  featureCount,
+  pairCount
 }) => {
   // Set default dimensions based on orientation
   const isVertical = orientation === 'vertical'
@@ -194,7 +196,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
     setTooltipPosition(null)
   }
 
-  // Render segments with specific order and adjacent stripe previews
+  // Render segments with specific order (uses preview counts when available)
   const renderSegments = () => {
     const segments: React.ReactNode[] = []
 
@@ -220,6 +222,11 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
         const unsurePreviewCount = previewCounts ? getCategoryValue('unsure', previewCounts) : count
         percentage = counts.total > 0 ? (unsurePreviewCount / counts.total) * 100 : 0
       }
+
+      // For unsure, use preview count for label when preview is active
+      const displayCount = (category === 'unsure' && previewCounts)
+        ? getCategoryValue('unsure', previewCounts)
+        : count
 
       // Render main segment if count > 0
       if (count > 0) {
@@ -256,7 +263,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
             {/* Show label if segment is large enough */}
             {showLabels && percentage > labelThreshold && (
               <span className="selection-state-bar__segment-label">
-                {isVertical ? count : `${config.label} (${count})`}
+                {isVertical ? displayCount : `${config.label} (${displayCount})`}
               </span>
             )}
           </div>
@@ -309,7 +316,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
             {/* Show label if segment is large enough */}
             {showLabels && stripePercentage > labelThreshold && (
               <span className="selection-state-bar__segment-label">
-                {isVertical ? previewChangeValue : `${config.label} (${previewChangeValue})`}
+                {isVertical ? `+${previewChangeValue}` : `${config.label} (+${previewChangeValue})`}
               </span>
             )}
           </div>
@@ -335,11 +342,11 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
         <div className="selection-state-bar__header">
           <div className="selection-state-bar__total">
             <div className="selection-state-bar__total-primary">
-              {counts.total} {mode === 'pair' ? 'pairs' : mode === 'cause' ? 'items' : 'features'}
+              {counts.total} {mode === 'cause' ? 'items' : 'features'}
             </div>
-            {mode === 'pair' && featureCount !== undefined && (
+            {mode === 'pair' && pairCount !== undefined && (
               <div className="selection-state-bar__total-secondary">
-                ({featureCount} features)
+                ({pairCount} pairs)
               </div>
             )}
           </div>
@@ -394,22 +401,9 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
 
       {/* Custom Tooltip */}
       {hoveredCategory && tooltipPosition && (() => {
-        // Calculate displayed count and percentage (accounting for preview state)
-        let displayedCount = getCategoryValue(hoveredCategory, counts)
-        let displayedPercentage = getCategoryValue(hoveredCategory, percentages)
-
-        // When preview is active, show preview totals for all categories
-        if (previewCounts) {
-          if (hoveredCategory === 'unsure') {
-            // For unsure, show the reduced count (after items leave)
-            displayedCount = getCategoryValue('unsure', previewCounts)
-            displayedPercentage = counts.total > 0 ? (displayedCount / counts.total) * 100 : 0
-          } else if (hoveredCategory === 'expanded' || hoveredCategory === 'autoRejected') {
-            // For auto categories, show the total after preview (current + incoming)
-            displayedCount = getCategoryValue(hoveredCategory, previewCounts)
-            displayedPercentage = counts.total > 0 ? (displayedCount / counts.total) * 100 : 0
-          }
-        }
+        const count = getCategoryValue(hoveredCategory, counts)
+        const percentage = getCategoryValue(hoveredCategory, percentages)
+        const previewChange = previewChanges ? getCategoryValue(hoveredCategory, previewChanges) : 0
 
         return (
           <div
@@ -427,10 +421,15 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
                 {categoryConfig[hoveredCategory].label}
               </div>
               <div className="selection-state-bar__tooltip-count">
-                {displayedCount} {mode === 'pair' ? 'pairs' : mode === 'cause' ? 'items' : 'features'}
+                {count} features
+                {previewChange !== 0 && (
+                  <span className="selection-state-bar__tooltip-preview">
+                    {' '}→ {count + previewChange}
+                  </span>
+                )}
               </div>
               <div className="selection-state-bar__tooltip-percentage">
-                {displayedPercentage.toFixed(1)}%
+                {percentage.toFixed(1)}%
               </div>
             </div>
           </div>

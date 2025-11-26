@@ -6,6 +6,89 @@ import SelectionStateBar, { type CategoryCounts } from './SelectionBar'
 import '../styles/SelectionPanel.css'
 
 // ============================================================================
+// HELPER: Derive feature states from pair states
+// ============================================================================
+
+interface ClusterPair {
+  main_id: number
+  similar_id: number
+  pair_key: string
+}
+
+type SelectionState = 'selected' | 'rejected'
+type SelectionSource = 'manual' | 'auto'
+
+/**
+ * Derives feature states from pair tagging states.
+ * Priority rules:
+ * 1. Fragmented: feature belongs to at least one fragmented (selected) pair
+ * 2. Monosemantic: feature belongs to at least one monosemantic (rejected) pair, but NOT fragmented
+ * 3. Unsure: feature does not belong to any tagged pair
+ *
+ * For source: 'manual' takes priority over 'auto'
+ */
+function deriveFeatureStatesFromPairs(
+  allPairs: ClusterPair[],
+  pairSelectionStates: Map<string, SelectionState>,
+  pairSelectionSources: Map<string, SelectionSource>,
+  filteredFeatureIds: Set<number>
+): Map<number, { state: 'fragmented' | 'monosemantic' | 'unsure'; source: SelectionSource }> {
+  // Track features with their derived states
+  const fragmentedFeatures = new Map<number, SelectionSource>() // featureId -> source
+  const monosematicFeatures = new Map<number, SelectionSource>() // featureId -> source
+
+  // Helper: prioritize 'manual' over 'auto' for source tracking
+  const updateFeatureSource = (map: Map<number, SelectionSource>, featureId: number, source: SelectionSource) => {
+    const existing = map.get(featureId)
+    if (!existing || (existing === 'auto' && source === 'manual')) {
+      map.set(featureId, source)
+    }
+  }
+
+  // Iterate through all pairs
+  for (const pair of allPairs) {
+    // Filter: only consider pairs where both features are in selection
+    if (!filteredFeatureIds.has(pair.main_id) || !filteredFeatureIds.has(pair.similar_id)) {
+      continue
+    }
+
+    const pairState = pairSelectionStates.get(pair.pair_key)
+    const pairSource = pairSelectionSources.get(pair.pair_key) || 'manual'
+
+    if (pairState === 'selected') {
+      // Fragmented pair -> both features are fragmented
+      updateFeatureSource(fragmentedFeatures, pair.main_id, pairSource)
+      updateFeatureSource(fragmentedFeatures, pair.similar_id, pairSource)
+    } else if (pairState === 'rejected') {
+      // Monosemantic pair -> both features are potentially monosemantic
+      updateFeatureSource(monosematicFeatures, pair.main_id, pairSource)
+      updateFeatureSource(monosematicFeatures, pair.similar_id, pairSource)
+    }
+  }
+
+  // Build final feature states with priority: fragmented > monosemantic > unsure
+  const featureStates = new Map<number, { state: 'fragmented' | 'monosemantic' | 'unsure'; source: SelectionSource }>()
+
+  for (const featureId of filteredFeatureIds) {
+    if (fragmentedFeatures.has(featureId)) {
+      featureStates.set(featureId, {
+        state: 'fragmented',
+        source: fragmentedFeatures.get(featureId)!
+      })
+    } else if (monosematicFeatures.has(featureId)) {
+      featureStates.set(featureId, {
+        state: 'monosemantic',
+        source: monosematicFeatures.get(featureId)!
+      })
+    } else {
+      featureStates.set(featureId, { state: 'unsure', source: 'manual' })
+    }
+  }
+
+  return featureStates
+}
+
+// ============================================================================
 // SIMPLE SELECTION BAR - For Tag Automatic Popover
 // ============================================================================
 
@@ -198,6 +281,8 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
 
   // Calculate category counts
   const counts = useMemo((): CategoryCounts => {
+    console.log('[SelectionPanel.counts] useMemo triggered - mode:', mode, ', pairSelectionStates.size:', pairSelectionStates.size)
+
     let confirmed = 0
     let expanded = 0
     let rejected = 0
@@ -260,28 +345,33 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
       const total = confirmed + expanded + rejected + autoRejected + unsure
       return { confirmed, expanded, rejected, autoRejected, unsure, total }
     } else if (mode === 'pair') {
-      // Count from ALL cluster pairs (immediate) or histogram data (after load)
-      console.log('[SelectionPanel] Pair mode - allClusterPairs:', allClusterPairs?.length || 0, ', histogram:', !!tagAutomaticState?.histogramData, ', filteredFeatureIds:', filteredFeatureIds?.size || 0)
+      // In pair mode, we show FEATURE counts (derived from pair states)
+      // Priority: fragmented > monosemantic > unsure
+      console.log('[SelectionPanel] Pair mode - pairSelectionStates.size:', pairSelectionStates.size, ', filteredFeatureIds:', filteredFeatureIds?.size || 0)
 
-      if (allClusterPairs && filteredFeatureIds) {
-        // PRIMARY: Count ALL pairs from cluster data (available immediately)
-        allClusterPairs.forEach((pair) => {
-          // Filter: Only count pairs where BOTH features are in the filtered set
-          if (!filteredFeatureIds.has(pair.main_id) || !filteredFeatureIds.has(pair.similar_id)) {
-            return
-          }
+      if (filteredFeatureIds && filteredFeatureIds.size > 0) {
+        // Use allClusterPairs as the primary source (from FeatureSplitView's cluster API)
+        const pairsToProcess: ClusterPair[] = allClusterPairs || []
 
-          // Count this pair
-          const selectionState = pairSelectionStates.get(pair.pair_key)
-          const source = pairSelectionSources.get(pair.pair_key)
+        // Derive feature states from pair states
+        const featureStates = deriveFeatureStatesFromPairs(
+          pairsToProcess,
+          pairSelectionStates,
+          pairSelectionSources,
+          filteredFeatureIds
+        )
 
-          if (selectionState === 'selected') {
+        console.log('[SelectionPanel] featureStates.size:', featureStates.size, ', expected:', filteredFeatureIds.size)
+
+        // Count by derived feature state
+        featureStates.forEach(({ state, source }) => {
+          if (state === 'fragmented') {
             if (source === 'auto') {
               expanded++
             } else {
               confirmed++
             }
-          } else if (selectionState === 'rejected') {
+          } else if (state === 'monosemantic') {
             if (source === 'auto') {
               autoRejected++
             } else {
@@ -291,121 +381,21 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
             unsure++
           }
         })
-      } else if (tagAutomaticState?.histogramData?.scores && filteredFeatureIds) {
-        // FALLBACK 1: Use histogram data if cluster pairs not available yet
-        Object.entries(tagAutomaticState.histogramData.scores).forEach(([pairKey, score]) => {
-          if (typeof score !== 'number') return
 
-          // Filter: Only count pairs where BOTH features are in the filtered set
-          const [id1Str, id2Str] = pairKey.split('-')
-          const id1 = parseInt(id1Str, 10)
-          const id2 = parseInt(id2Str, 10)
-
-          if (!filteredFeatureIds.has(id1) || !filteredFeatureIds.has(id2)) {
-            return
-          }
-
-          // Count this pair
-          const selectionState = pairSelectionStates.get(pairKey)
-          const source = pairSelectionSources.get(pairKey)
-
-          if (selectionState === 'selected') {
-            if (source === 'auto') {
-              expanded++
-            } else {
-              confirmed++
-            }
-          } else if (selectionState === 'rejected') {
-            if (source === 'auto') {
-              autoRejected++
-            } else {
-              rejected++
-            }
-          } else {
-            unsure++
-          }
-        })
-      } else if (availablePairs) {
-        // FALLBACK 1: Use sampled pairs if no histogram data
-        availablePairs.forEach(pair => {
-          const selectionState = pairSelectionStates.get(pair.pairKey)
-          const source = pairSelectionSources.get(pair.pairKey)
-
-          if (selectionState === 'selected') {
-            if (source === 'auto') {
-              expanded++
-            } else {
-              confirmed++
-            }
-          } else if (selectionState === 'rejected') {
-            if (source === 'auto') {
-              autoRejected++
-            } else {
-              rejected++
-            }
-          } else {
-            unsure++
-          }
-        })
-      } else if (tableData?.features) {
-        // FALLBACK: Generate pairs from decoder_similarity (for backward compatibility)
-        // This path is only used when availablePairs is not provided
-        const features = filteredFeatureIds
-          ? tableData.features.filter((f: any) => filteredFeatureIds!.has(f.feature_id))
-          : tableData.features
-
-        const seenPairs = new Set<string>()
-
-        features.forEach((feature: any) => {
-          const decoderData = Array.isArray(feature.decoder_similarity) ? feature.decoder_similarity : []
-          const top4Similar = decoderData.slice(0, 4)
-
-          top4Similar.forEach((similarItem: any) => {
-            const id1 = feature.feature_id
-            const id2 = similarItem.feature_id
-
-            // Skip if similarItem is not in the filtered set
-            if (filteredFeatureIds && !filteredFeatureIds.has(id2)) return
-
-            const canonicalPairKey = id1 < id2 ? `${id1}-${id2}` : `${id2}-${id1}`
-
-            // Skip if we've already counted this pair
-            if (seenPairs.has(canonicalPairKey)) return
-            seenPairs.add(canonicalPairKey)
-
-            // Count this pair
-            const selectionState = pairSelectionStates.get(canonicalPairKey)
-            const source = pairSelectionSources.get(canonicalPairKey)
-
-            if (selectionState === 'selected') {
-              if (source === 'auto') {
-                expanded++
-              } else {
-                confirmed++
-              }
-            } else if (selectionState === 'rejected') {
-              if (source === 'auto') {
-                autoRejected++
-              } else {
-                rejected++
-              }
-            } else {
-              unsure++
-            }
-          })
-        })
+        console.log('[SelectionPanel] Counts:', { confirmed, expanded, rejected, autoRejected, unsure })
       }
     }
 
     const total = confirmed + expanded + rejected + autoRejected + unsure
     console.log('[SelectionPanel] Final counts:', { confirmed, expanded, rejected, autoRejected, unsure, total })
     return { confirmed, expanded, rejected, autoRejected, unsure, total }
-  }, [mode, tableData, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources, causeSelectionStates, filteredFeatureIds, allClusterPairs, availablePairs, tagAutomaticState?.histogramData])
+  }, [mode, tableData, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources, causeSelectionStates, filteredFeatureIds, allClusterPairs])
 
   // Calculate preview counts when thresholds are active (real-time preview during threshold drag)
+  // This simulates what feature counts would look like after applying the thresholds
   const previewCounts = useMemo((): CategoryCounts | undefined => {
     // Only show preview for pair mode when histogram data is available
-    if (mode !== 'pair' || !tagAutomaticState?.histogramData?.scores) {
+    if (mode !== 'pair' || !tagAutomaticState?.histogramData?.scores || !filteredFeatureIds) {
       return undefined
     }
 
@@ -414,69 +404,83 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
       reject: tagAutomaticState.rejectThreshold
     }
 
-    // Start with current counts
-    let confirmed = counts.confirmed
-    let expanded = counts.expanded
-    let rejected = counts.rejected
-    let autoRejected = counts.autoRejected
-    let unsure = counts.unsure
+    // Build simulated pair states (current + what would be auto-tagged)
+    const simulatedPairStates = new Map<string, SelectionState>(pairSelectionStates)
+    const simulatedPairSources = new Map<string, SelectionSource>(pairSelectionSources)
 
-    // Calculate how many unsure items will become expanded or auto-rejected
-    let newlyExpanded = 0
-    let newlyAutoRejected = 0
-    let totalHistogramPairs = 0
-    let filteredHistogramPairs = 0
+    // Build pairs from histogram scores
+    const pairsFromHistogram: ClusterPair[] = []
 
     Object.entries(tagAutomaticState.histogramData.scores).forEach(([pairKey, score]) => {
       if (typeof score !== 'number') return
-      totalHistogramPairs++
 
-      // Filter: Only count pairs where BOTH features are in the selected segment
-      if (filteredFeatureIds) {
-        const [id1Str, id2Str] = pairKey.split('-')
-        const id1 = parseInt(id1Str, 10)
-        const id2 = parseInt(id2Str, 10)
+      // Filter: Only consider pairs where BOTH features are in the selected segment
+      const [id1Str, id2Str] = pairKey.split('-')
+      const id1 = parseInt(id1Str, 10)
+      const id2 = parseInt(id2Str, 10)
 
-        // Skip if either feature is not in the filtered set
-        if (!filteredFeatureIds.has(id1) || !filteredFeatureIds.has(id2)) {
-          return
-        }
-        filteredHistogramPairs++
+      if (!filteredFeatureIds.has(id1) || !filteredFeatureIds.has(id2)) {
+        return
       }
 
-      // Check if pair is already tagged
-      const isAlreadyTagged = pairSelectionStates.has(pairKey)
+      pairsFromHistogram.push({ main_id: id1, similar_id: id2, pair_key: pairKey })
 
-      // If not already tagged, apply auto-tagging based on thresholds
-      if (!isAlreadyTagged) {
+      // If not already tagged, simulate auto-tagging based on thresholds
+      if (!pairSelectionStates.has(pairKey)) {
         if (score >= thresholds.select) {
-          newlyExpanded++
+          simulatedPairStates.set(pairKey, 'selected')
+          simulatedPairSources.set(pairKey, 'auto')
         } else if (score <= thresholds.reject) {
-          newlyAutoRejected++
+          simulatedPairStates.set(pairKey, 'rejected')
+          simulatedPairSources.set(pairKey, 'auto')
         }
       }
     })
 
-    // Update counts: unsure items become expanded or auto-rejected
-    expanded += newlyExpanded
-    autoRejected += newlyAutoRejected
-    unsure -= (newlyExpanded + newlyAutoRejected)
+    // Use cluster pairs if available, otherwise use histogram pairs
+    const pairsToProcess = (allClusterPairs && allClusterPairs.length > 0) ? allClusterPairs : pairsFromHistogram
 
-    console.log('[SelectionPanel.previewCounts] Histogram filtering:', {
-      totalHistogramPairs,
-      filteredHistogramPairs,
-      filteredFeatureCount: filteredFeatureIds?.size || 'all',
-      newlyExpanded,
-      newlyAutoRejected
+    // Derive feature states from simulated pair states
+    const featureStates = deriveFeatureStatesFromPairs(
+      pairsToProcess,
+      simulatedPairStates,
+      simulatedPairSources,
+      filteredFeatureIds
+    )
+
+    // Count by derived feature state
+    let confirmed = 0
+    let expanded = 0
+    let rejected = 0
+    let autoRejected = 0
+    let unsure = 0
+
+    featureStates.forEach(({ state, source }) => {
+      if (state === 'fragmented') {
+        if (source === 'auto') {
+          expanded++
+        } else {
+          confirmed++
+        }
+      } else if (state === 'monosemantic') {
+        if (source === 'auto') {
+          autoRejected++
+        } else {
+          rejected++
+        }
+      } else {
+        unsure++
+      }
     })
 
     const total = confirmed + expanded + rejected + autoRejected + unsure
     return { confirmed, expanded, rejected, autoRejected, unsure, total }
-  }, [counts, mode, tagAutomaticState, pairSelectionStates, filteredFeatureIds])
+  }, [mode, tagAutomaticState, pairSelectionStates, pairSelectionSources, filteredFeatureIds, allClusterPairs])
 
-  // Check if threshold preview is active
-  const isPreviewActive = thresholdVisualization?.visible ?? false
-  const showThresholdControls = isPreviewActive && tagAutomaticState?.minimized
+  // Preview is active when TagAutomaticPanel has histogram data (user can drag thresholds)
+  const isPreviewActive = mode === 'pair' && !!tagAutomaticState?.histogramData
+  // Show threshold controls only when thresholdVisualization is visible (after "Show on Table")
+  const showThresholdControls = thresholdVisualization?.visible ?? false
 
   // Note: Tooltip width measurement removed for vertical layout (tooltips now positioned to the right)
 
@@ -501,6 +505,34 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
   }
 
   const hasAnySelection = selectionStates.size > 0
+
+  // Calculate pair count for pair mode (to show as secondary info in header)
+  const pairCount = useMemo(() => {
+    if (mode !== 'pair' || !filteredFeatureIds) return undefined
+
+    let count = 0
+
+    if (allClusterPairs && allClusterPairs.length > 0) {
+      // Count pairs where both features are in the filtered set
+      allClusterPairs.forEach(pair => {
+        if (filteredFeatureIds.has(pair.main_id) && filteredFeatureIds.has(pair.similar_id)) {
+          count++
+        }
+      })
+    } else if (tagAutomaticState?.histogramData?.scores) {
+      // Count from histogram data
+      Object.keys(tagAutomaticState.histogramData.scores).forEach(pairKey => {
+        const [id1Str, id2Str] = pairKey.split('-')
+        const id1 = parseInt(id1Str, 10)
+        const id2 = parseInt(id2Str, 10)
+        if (filteredFeatureIds.has(id1) && filteredFeatureIds.has(id2)) {
+          count++
+        }
+      })
+    }
+
+    return count
+  }, [mode, filteredFeatureIds, allClusterPairs, tagAutomaticState?.histogramData?.scores])
 
   // Don't render if no table data loaded yet
   if (!tableData) {
@@ -529,7 +561,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
         <div className="table-selection-panel__bar-container">
           <SelectionStateBar
             counts={counts}
-            previewCounts={previewCounts}
+            previewCounts={isPreviewActive ? previewCounts : undefined}
             onCategoryClick={handleCategoryClick}
             showLabels={true}
             showLegend={true}
@@ -538,7 +570,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
             height="100%"
             mode={mode}
             onCategoryRefsReady={onCategoryRefsReady}
-            featureCount={filteredFeatureIds?.size}
+            pairCount={pairCount}
           />
         </div>
 

@@ -18,6 +18,8 @@ interface ThresholdHandlesProps {
   usePercentiles?: boolean                  // If true, return percentiles (0-1) instead of metric values
   onUpdate: (newThresholds: number[]) => void
   onDragUpdate?: (newThresholds: number[]) => void  // Called during drag for live preview
+  onDragStart?: () => void                   // Called when drag starts
+  onDragEnd?: () => void                     // Called when drag ends
   handleDimensions?: { width: number; height: number }
   percentileToMetric?: (percentile: number) => number  // Optional: Convert percentile to metric value for tooltip
 }
@@ -116,6 +118,8 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
   usePercentiles = false,
   onUpdate,
   onDragUpdate,
+  onDragStart,
+  onDragEnd,
   handleDimensions = { width: 20, height: 16 },
   percentileToMetric
 }) => {
@@ -196,8 +200,11 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
     document.body.style.userSelect = 'none'
     document.body.style.cursor = orientation === 'horizontal' ? 'ew-resize' : 'ns-resize'
 
+    // Notify parent that drag started
+    onDragStart?.()
+
     setDraggingHandle(handleIndex)
-  }, [orientation, parentOffset, position, tempThresholds, metricRange, bounds, usePercentiles])
+  }, [orientation, parentOffset, position, tempThresholds, metricRange, bounds, usePercentiles, onDragStart])
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (draggingHandle === null) return
@@ -299,8 +306,12 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
 
     // Call update with final thresholds
     onUpdate(tempThresholds)
+
+    // Notify parent that drag ended
+    onDragEnd?.()
+
     setDraggingHandle(null)
-  }, [draggingHandle, tempThresholds, onUpdate])
+  }, [draggingHandle, tempThresholds, onUpdate, onDragEnd])
 
   // Global mouse event listeners during drag
   React.useEffect(() => {

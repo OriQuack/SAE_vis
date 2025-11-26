@@ -25,8 +25,7 @@ export const createActivationActions = (set: any, get: any) => ({
    * @returns Promise that resolves when fetch completes
    */
   fetchActivationExamples: async (featureIds: number[]) => {
-    const state = get()
-    const { activationExamples, activationLoading } = state
+    const { activationExamples, activationLoading } = get()
 
     if (!featureIds || featureIds.length === 0) {
       console.log('[Store.fetchActivationExamples] No feature IDs provided, skipping')

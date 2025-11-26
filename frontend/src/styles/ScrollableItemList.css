@@ -8,9 +8,11 @@
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
   background-color: #ffffff;
   overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
 }
 
 /* ============================================================================
@@ -20,37 +22,63 @@
 .scrollable-list__header {
   display: flex;
   align-items: stretch;
-  gap: 4px;
-  padding: 4px;
   background-color: white;
   flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.scrollable-list__header--striped .scrollable-list__badge-label {
+  position: relative;
+  z-index: 1;
 }
 
 .scrollable-list__badge {
   flex: 1;
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  flex-direction: row;
+  align-items: baseline;
   justify-content: center;
-  padding: 4px;
-  background-color: #f3f4f6;
-  border: 1px solid #e5e7eb;
-  border-radius: 3px;
+  background-color: transparent;
+  border: none;
+  border-radius: 0;
 }
 
 .scrollable-list__badge-label {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+  color: #374151;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .scrollable-list__badge-count {
-  font-size: 12px;
-  font-weight: 700;
-  color: #374151;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
   font-family: 'Consolas', 'Monaco', monospace;
+}
+
+/* ============================================================================
+ * COLUMN HEADER - Sub-header with sort indicator
+ * ============================================================================ */
+
+.scrollable-list__column-header {
+  display: flex;
+  justify-content: flex-end;
+  padding: 2px 8px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+  flex-shrink: 0;
+}
+
+.column-header__label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #6b7280;
+  font-family: 'Consolas', 'Monaco', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 /* ============================================================================
@@ -64,8 +92,6 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 2px;
-  padding: 2px 2px;
   scrollbar-width: thin;
   scrollbar-color: #6b7280 #e5e7eb;
 }
@@ -190,4 +216,67 @@
 .scrollable-list__footer-button--available:hover:not(:disabled) {
   background-color: #f5f3ff;
   border-color: #7c3aed;
+}
+
+/* ============================================================================
+ * PAGE NAVIGATION
+ * ============================================================================ */
+
+.scrollable-list__page-nav {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+}
+
+.scrollable-list__page-nav-button {
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  background-color: white;
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.scrollable-list__page-nav-button:hover:not(:disabled) {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.scrollable-list__page-nav-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.scrollable-list__page-nav-info {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+/* ============================================================================
+ * ACTIVE STATE - Visual indicator when list is controlling the viewer
+ * ============================================================================ */
+
+.scrollable-list--active {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+.scrollable-list--active .scrollable-list__header {
+  background-color: #eff6ff;
+  border-bottom: 2px solid #3b82f6;
+}
+
+.scrollable-list--active .scrollable-list__badge-label {
+  color: #1d4ed8;
+  font-weight: 600;
 }

@@ -44,6 +44,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
   const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
   const updateBothSimilarityThresholds = useVisualizationStore(state => state.updateBothSimilarityThresholds)
   const fetchSimilarityHistogram = useVisualizationStore(state => state.fetchSimilarityHistogram)
+  const setDraggingThreshold = useVisualizationStore(state => state.setDraggingThreshold)
   const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
   const featureSelectionSources = useVisualizationStore(state => state.featureSelectionSources)
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
@@ -339,6 +340,15 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
     })
   }, [updateBothSimilarityThresholds])
 
+  // Drag start/end callbacks to prevent rapid fetches
+  const handleDragStart = useCallback(() => {
+    setDraggingThreshold(true)
+  }, [setDraggingThreshold])
+
+  const handleDragEnd = useCallback(() => {
+    setDraggingThreshold(false)
+  }, [setDraggingThreshold])
+
   // Show empty state with helpful message
   if (!histogramData && !isLoading) {
     // Get tag colors for highlighting
@@ -603,7 +613,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
                     fontSize={14}
                     fill="#666"
                   >
-                    Similarity Score (Selected - Rejected)
+                    Similarity Score
                   </text>
                   <text
                     x={-histogramChart.height / 2}
@@ -635,7 +645,8 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
                     }}
                     showThresholdLine={true}
                     onUpdate={handleThresholdUpdate}
-                    onDragUpdate={handleThresholdUpdate}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
                   />
 
                   {/* Threshold labels with arrows */}

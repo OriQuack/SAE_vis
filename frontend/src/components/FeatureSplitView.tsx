@@ -8,103 +8,7 @@ import ScrollableItemList from './ScrollableItemList'
 import { TagBadge } from './TableIndicators'
 import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
-import { getCanonicalPairKey } from '../lib/pairUtils'
 import '../styles/FeatureSplitView.css'
-
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
-/**
- * Build pairs from cluster groups
- * For each cluster, generate all within-cluster pairs (e.g., cluster [1,2,3] → pairs 1-2, 1-3, 2-3)
- *
- * @param tableData Table data with feature rows
- * @param clusterGroups Clusters with feature IDs (from backend)
- * @param selectedFeatureIds Set of selected feature IDs (for defensive filtering)
- * @returns Array of feature pairs with metadata
- */
-function buildClusterPairs(
-  tableData: any,
-  clusterGroups: Array<{cluster_id: number, feature_ids: number[]}>,
-  selectedFeatureIds: Set<number>
-): Array<{
-  mainFeatureId: number
-  similarFeatureId: number
-  decoderSimilarity: number | null
-  pairKey: string
-  clusterId: number
-  row: FeatureTableRow | null
-  similarRow: FeatureTableRow | null
-}> {
-  if (!tableData?.rows || !clusterGroups || clusterGroups.length === 0) return []
-
-  const pairs: Array<{
-    mainFeatureId: number
-    similarFeatureId: number
-    decoderSimilarity: number | null
-    pairKey: string
-    clusterId: number
-    row: FeatureTableRow | null
-    similarRow: FeatureTableRow | null
-  }> = []
-
-  // Build feature ID to row mapping
-  const rowMap = new Map<number, FeatureTableRow>()
-  tableData.rows.forEach((row: FeatureTableRow) => {
-    rowMap.set(row.feature_id, row)
-  })
-
-  // For each cluster, generate all pairs
-  for (const cluster of clusterGroups) {
-    // DEFENSIVE FILTER: Only include features that are:
-    // 1. In the selected feature set
-    // 2. Have corresponding table rows
-    const validFeatures = cluster.feature_ids.filter(id =>
-      selectedFeatureIds.has(id) && rowMap.has(id)
-    )
-
-    // Skip clusters with < 2 valid features (can't make pairs)
-    if (validFeatures.length < 2) continue
-
-    // Generate all combinations within this cluster
-    for (let i = 0; i < validFeatures.length; i++) {
-      for (let j = i + 1; j < validFeatures.length; j++) {
-        const id1 = validFeatures[i]
-        const id2 = validFeatures[j]
-
-        // Use canonical pair key utility
-        const pairKey = getCanonicalPairKey(id1, id2)
-        const mainId = Math.min(id1, id2)
-        const similarId = Math.max(id1, id2)
-
-        // Try to find decoder similarity if available
-        const mainRow = rowMap.get(mainId)!  // Safe: filtered by rowMap.has()
-        const similarRow = rowMap.get(similarId)!
-        let decoderSimilarity: number | null = null
-
-        if (mainRow?.decoder_similarity) {
-          const similarData = mainRow.decoder_similarity.find(d => d.feature_id === similarId)
-          if (similarData) {
-            decoderSimilarity = similarData.cosine_similarity
-          }
-        }
-
-        pairs.push({
-          mainFeatureId: mainId,
-          similarFeatureId: similarId,
-          decoderSimilarity,
-          pairKey,
-          clusterId: cluster.cluster_id,
-          row: mainRow,
-          similarRow: similarRow
-        })
-      }
-    }
-  }
-
-  return pairs
-}
 
 // ============================================================================
 // FEATURE SPLIT VIEW - Organized layout for feature splitting workflow
@@ -132,24 +36,30 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   const getSelectedNodeFeatures = useVisualizationStore(state => state.getSelectedNodeFeatures)
   const leftPanel = useVisualizationStore(state => state.leftPanel)
   const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
-  const applySimilarityTags = useVisualizationStore(state => state.applySimilarityTags)
   const pairSimilarityScores = useVisualizationStore(state => state.pairSimilarityScores)
   const lastPairSortedSelectionSignature = useVisualizationStore(state => state.lastPairSortedSelectionSignature)
   const sortPairsBySimilarity = useVisualizationStore(state => state.sortPairsBySimilarity)
+  const fetchActivationExamples = useVisualizationStore(state => state.fetchActivationExamples)
 
-  // Local state for carousel navigation
+  // Local state for navigation
   const [currentPairIndex, setCurrentPairIndex] = useState(0)
+  // Which list is currently controlling the viewer: 'all', 'reject' (Monosemantic), or 'select' (Fragmented)
+  const [activeListSource, setActiveListSource] = useState<'all' | 'reject' | 'select'>('all')
+
+  // Dependencies for selectedFeatureIds - ensure it updates when Sankey selection changes
+  const sankeyStructure = leftPanel?.sankeyStructure
+  const selectedSegment = useVisualizationStore(state => state.selectedSegment)
+  const tableSelectedNodeIds = useVisualizationStore(state => state.tableSelectedNodeIds)
 
   // Get selected feature IDs from the selected node/segment
   const selectedFeatureIds = useMemo(() => {
     const features = getSelectedNodeFeatures()
     console.log('[FeatureSplitView] Sankey segment features:', features?.size || 0)
     return features
-  }, [getSelectedNodeFeatures])
+  }, [getSelectedNodeFeatures, sankeyStructure, selectedSegment, tableSelectedNodeIds])
 
   // Extract clustering threshold from Sankey structure
   const clusterThreshold = useMemo(() => {
-    const sankeyStructure = leftPanel?.sankeyStructure
     if (!sankeyStructure) return 0.5
 
     const stage1Segment = sankeyStructure.nodes.find(n => n.id === 'stage1_segment')
@@ -158,7 +68,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       return stage1Segment.threshold
     }
     return 0.5
-  }, [leftPanel?.sankeyStructure])
+  }, [sankeyStructure])
 
   // Convert Sankey threshold to clustering distance threshold
   // Sankey threshold is similarity-based (lower = less similar)
@@ -213,37 +123,79 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
   }, [clearDistributedPairs])
 
-  // Build and randomly sample pair list from ALL cluster pairs (Simplified Flow)
+  // Pagination constant
+  const PAIRS_PER_PAGE = 10
+
+  // Build pair list from ALL cluster pairs (no sampling)
   const pairList = useMemo(() => {
-    if (!filteredTableData || !selectedFeatureIds) {
+    if (!filteredTableData || !selectedFeatureIds || !allClusterPairs || allClusterPairs.length === 0) {
       return []
     }
 
-    if (clusterGroups && clusterGroups.length > 0) {
-      // Select 10 random clusters (or all if fewer than 10)
-      const NUM_CLUSTERS_TO_DISPLAY = 10
-      const selectedClusters = clusterGroups.length <= NUM_CLUSTERS_TO_DISPLAY
-        ? clusterGroups  // Use all clusters if we have 10 or fewer
-        : (() => {
-            // Randomly sample 10 clusters using Fisher-Yates shuffle
-            const shuffled = [...clusterGroups]
-            for (let i = shuffled.length - 1; i > 0; i--) {
-              const j = Math.floor(Math.random() * (i + 1));
-              [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-            }
-            return shuffled.slice(0, NUM_CLUSTERS_TO_DISPLAY)
-          })()
+    // Build row map for metadata lookup
+    const rowMap = new Map<number, FeatureTableRow>()
+    filteredTableData.rows.forEach((row: FeatureTableRow) => {
+      rowMap.set(row.feature_id, row)
+    })
 
-      // Build ALL pairs from the selected clusters
-      const pairs = buildClusterPairs(filteredTableData, selectedClusters, selectedFeatureIds)
+    // Convert ALL cluster pairs to pair objects with full metadata
+    const pairs = allClusterPairs
+      .filter(p => selectedFeatureIds.has(p.main_id) && selectedFeatureIds.has(p.similar_id))
+      .map(p => {
+        const mainRow = rowMap.get(p.main_id) || null
+        const similarRow = rowMap.get(p.similar_id) || null
 
-      console.log('[FeatureSplitView] [SIMPLIFIED FLOW] Selected', selectedClusters.length, 'clusters from', clusterGroups.length, 'total → built', pairs.length, 'pairs')
+        // Try to find decoder similarity if available
+        let decoderSimilarity: number | null = null
+        if (mainRow?.decoder_similarity) {
+          const similarData = mainRow.decoder_similarity.find(d => d.feature_id === p.similar_id)
+          if (similarData) {
+            decoderSimilarity = similarData.cosine_similarity
+          }
+        }
 
-      return pairs
-    }
+        return {
+          mainFeatureId: p.main_id,
+          similarFeatureId: p.similar_id,
+          pairKey: p.pair_key,
+          clusterId: p.cluster_id,
+          row: mainRow,
+          similarRow: similarRow,
+          decoderSimilarity
+        }
+      })
 
-    return []
-  }, [filteredTableData, clusterGroups, selectedFeatureIds])
+    console.log('[FeatureSplitView] All pairs built:', pairs.length, 'pairs from', allClusterPairs.length, 'cluster pairs')
+
+    return pairs
+  }, [filteredTableData, allClusterPairs, selectedFeatureIds])
+
+  // Pagination derived state
+  const currentPage = Math.floor(currentPairIndex / PAIRS_PER_PAGE)
+  const totalPages = Math.ceil(pairList.length / PAIRS_PER_PAGE) || 1
+
+  // Get pairs for current page (for pre-fetching activation examples)
+  const currentPagePairs = useMemo(() => {
+    const startIdx = currentPage * PAIRS_PER_PAGE
+    return pairList.slice(startIdx, startIdx + PAIRS_PER_PAGE)
+  }, [pairList, currentPage])
+
+  // Pre-fetch activation examples for all pairs on current page (All Pairs list)
+  useEffect(() => {
+    if (currentPagePairs.length === 0) return
+
+    // Collect all unique feature IDs from current page pairs
+    const featureIds = new Set<number>()
+    currentPagePairs.forEach(pair => {
+      featureIds.add(pair.mainFeatureId)
+      featureIds.add(pair.similarFeatureId)
+    })
+
+    console.log('[FeatureSplitView] Pre-fetching activation examples for page', currentPage + 1, ':', featureIds.size, 'features')
+
+    // Fetch all at once (the store handles caching, won't re-fetch already cached)
+    fetchActivationExamples(Array.from(featureIds))
+  }, [currentPagePairs, currentPage, fetchActivationExamples])
 
   // Auto-populate similarity scores when pair list is ready or selection states change
   useEffect(() => {
@@ -275,46 +227,46 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   }, [pairList, pairSelectionStates, pairSelectionSources, pairSimilarityScores.size, lastPairSortedSelectionSignature, sortPairsBySimilarity])
 
   // ============================================================================
-  // PAIR LIST LOGIC (for top row list)
+  // PAGE NAVIGATION HANDLERS (for All Pairs list pagination)
   // ============================================================================
 
-  // Jump to specific pair handler
-  const goToPair = useCallback((index: number) => {
-    if (index >= 0 && index < pairList.length) {
-      setCurrentPairIndex(index)
+  // Page navigation handlers
+  const handlePreviousPage = useCallback(() => {
+    if (currentPage > 0) {
+      // Go to first item of previous page
+      setCurrentPairIndex((currentPage - 1) * PAIRS_PER_PAGE)
     }
-  }, [pairList.length])
+  }, [currentPage])
 
-  // Apply tags button handler
-  const handleApplyTags = useCallback(() => {
-    console.log('[FeatureSplitView] Applying tags')
-    applySimilarityTags()
-  }, [applySimilarityTags])
+  const handleNextPage = useCallback(() => {
+    if (currentPage < totalPages - 1) {
+      // Go to first item of next page
+      setCurrentPairIndex((currentPage + 1) * PAIRS_PER_PAGE)
+    }
+  }, [currentPage, totalPages])
 
   // ============================================================================
   // BOUNDARY ITEMS LOGIC (for bottom row left/right lists)
   // ============================================================================
+
+  // Boundary items type (same as pairList for FeatureSplitPairViewer compatibility)
+  type PairWithMetadata = {
+    mainFeatureId: number
+    similarFeatureId: number
+    pairKey: string
+    clusterId: number
+    row: FeatureTableRow | null
+    similarRow: FeatureTableRow | null
+    decoderSimilarity: number | null
+  }
 
   const boundaryItems = useMemo(() => {
     // Extract threshold values inside useMemo for proper React reactivity
     const selectThreshold = tagAutomaticState?.selectThreshold ?? 0.8
     const rejectThreshold = tagAutomaticState?.rejectThreshold ?? 0.3
 
-    console.log('[FeatureSplitView.boundaryItems] Recomputing with thresholds:', {
-      selectThreshold,
-      rejectThreshold,
-      allPairsCount: allClusterPairs?.length || 0,
-      sampledPairsCount: pairList.length
-    })
-
-    // Build ALL pairs from allClusterPairs (not just sampled)
-    let allPairs: Array<{
-      mainFeatureId: number
-      similarFeatureId: number
-      pairKey: string
-      row: FeatureTableRow | null
-      similarRow: FeatureTableRow | null
-    }> = []
+    // Build ALL pairs from allClusterPairs with FULL metadata for FeatureSplitPairViewer
+    let allPairs: PairWithMetadata[] = []
 
     if (allClusterPairs && filteredTableData?.rows && selectedFeatureIds) {
       // Build row map
@@ -323,23 +275,39 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
         rowMap.set(row.feature_id, row)
       })
 
-      // Convert all cluster pairs to pair objects
+      // Convert all cluster pairs to pair objects with full metadata
       allPairs = allClusterPairs
         .filter(p => selectedFeatureIds.has(p.main_id) && selectedFeatureIds.has(p.similar_id))
-        .map(p => ({
-          mainFeatureId: p.main_id,
-          similarFeatureId: p.similar_id,
-          pairKey: p.pair_key,
-          row: rowMap.get(p.main_id) || null,
-          similarRow: rowMap.get(p.similar_id) || null
-        }))
+        .map(p => {
+          const mainRow = rowMap.get(p.main_id) || null
+          const similarRow = rowMap.get(p.similar_id) || null
+
+          // Try to find decoder similarity if available
+          let decoderSimilarity: number | null = null
+          if (mainRow?.decoder_similarity) {
+            const similarData = mainRow.decoder_similarity.find(d => d.feature_id === p.similar_id)
+            if (similarData) {
+              decoderSimilarity = similarData.cosine_similarity
+            }
+          }
+
+          return {
+            mainFeatureId: p.main_id,
+            similarFeatureId: p.similar_id,
+            pairKey: p.pair_key,
+            clusterId: p.cluster_id,
+            row: mainRow,
+            similarRow: similarRow,
+            decoderSimilarity
+          }
+        })
     } else if (pairList.length > 0) {
-      // Fallback: use sampled pairs
+      // Fallback: use sampled pairs (already has full metadata)
       allPairs = pairList
     }
 
     if (allPairs.length === 0) {
-      return { rejectAbove: [], rejectBelow: [], selectAbove: [], selectBelow: [] }
+      return { rejectBelow: [] as PairWithMetadata[], selectAbove: [] as PairWithMetadata[] }
     }
 
     // Use threshold values from above
@@ -352,59 +320,104 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     const pairsWithScores = allPairs.filter(pair => pairSimilarityScores.has(pair.pairKey))
 
     if (pairsWithScores.length === 0) {
-      return { rejectAbove: [], rejectBelow: [], selectAbove: [], selectBelow: [] }
+      return { rejectBelow: [] as PairWithMetadata[], selectAbove: [] as PairWithMetadata[] }
     }
 
-    // REJECT THRESHOLD LISTS
-    // Above reject: all pairs >= rejectThreshold, sorted ascending (lowest first), closest to threshold
-    const rejectAbove = pairsWithScores
-      .filter(pair => pairSimilarityScores.get(pair.pairKey)! >= thresholds.reject)
-      .sort((a, b) => pairSimilarityScores.get(a.pairKey)! - pairSimilarityScores.get(b.pairKey)!) // Ascending: closest to threshold first
-
-    // Below reject: all pairs < rejectThreshold, sorted descending (highest first), closest to threshold
+    // REJECT THRESHOLD - Below reject: all pairs < rejectThreshold, sorted descending (highest first), closest to threshold
     const rejectBelow = pairsWithScores
       .filter(pair => pairSimilarityScores.get(pair.pairKey)! < thresholds.reject)
       .sort((a, b) => pairSimilarityScores.get(b.pairKey)! - pairSimilarityScores.get(a.pairKey)!) // Descending: closest to threshold first
 
-    // SELECT THRESHOLD LISTS
-    // Above select: all pairs >= selectThreshold, sorted ascending (lowest first), closest to threshold
+    // SELECT THRESHOLD - Above select: all pairs >= selectThreshold, sorted ascending (lowest first), closest to threshold
     const selectAbove = pairsWithScores
       .filter(pair => pairSimilarityScores.get(pair.pairKey)! >= thresholds.select)
       .sort((a, b) => pairSimilarityScores.get(a.pairKey)! - pairSimilarityScores.get(b.pairKey)!) // Ascending: closest to threshold first
 
-    // Below select: all pairs < selectThreshold, sorted descending (highest first), closest to threshold
-    const selectBelow = pairsWithScores
-      .filter(pair => pairSimilarityScores.get(pair.pairKey)! < thresholds.select)
-      .sort((a, b) => pairSimilarityScores.get(b.pairKey)! - pairSimilarityScores.get(a.pairKey)!) // Descending: closest to threshold first
-
-    const result = { rejectAbove, rejectBelow, selectAbove, selectBelow }
-    console.log('[FeatureSplitView.boundaryItems] Results:', {
-      thresholds,
-      rejectAbove: rejectAbove.length,
-      rejectBelow: rejectBelow.length,
-      selectAbove: selectAbove.length,
-      selectBelow: selectBelow.length,
-      pairsWithScores: pairsWithScores.length,
-      allScores: pairsWithScores.map(p => pairSimilarityScores.get(p.pairKey)).sort((a, b) => a! - b!),
-      rejectAboveIds: rejectAbove.map(p => `${p.mainFeatureId}-${p.similarFeatureId}`),
-      rejectAboveScores: rejectAbove.map(p => pairSimilarityScores.get(p.pairKey)),
-      selectAboveIds: selectAbove.map(p => `${p.mainFeatureId}-${p.similarFeatureId}`),
-      selectAboveScores: selectAbove.map(p => pairSimilarityScores.get(p.pairKey))
-    })
-    return result
+    return { rejectBelow, selectAbove }
   }, [pairList, tagAutomaticState, pairSimilarityScores, allClusterPairs, filteredTableData, selectedFeatureIds])
 
   // Get tag color for header badge
   const fragmentedColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Fragmented') || '#F0E442'
 
-  // Navigation handlers
+  // ============================================================================
+  // ACTIVE PAIR LIST - Determines which list the viewer shows
+  // ============================================================================
+
+  // Active pair list depends on which list is selected
+  const activePairList = useMemo(() => {
+    switch (activeListSource) {
+      case 'reject':
+        return boundaryItems.rejectBelow
+      case 'select':
+        return boundaryItems.selectAbove
+      default:
+        return pairList
+    }
+  }, [activeListSource, pairList, boundaryItems])
+
+  // Fetch activation examples for current pair when it changes
+  useEffect(() => {
+    const currentPair = activePairList[currentPairIndex]
+    if (currentPair) {
+      fetchActivationExamples([currentPair.mainFeatureId, currentPair.similarFeatureId])
+    }
+  }, [activePairList, currentPairIndex, fetchActivationExamples])
+
+  // ============================================================================
+  // CLICK HANDLERS FOR ALL THREE LISTS
+  // ============================================================================
+
+  // All Pairs list click handler
+  const handleAllPairsListClick = useCallback((pageRelativeIndex: number) => {
+    const globalIndex = currentPage * PAIRS_PER_PAGE + pageRelativeIndex
+    if (globalIndex >= 0 && globalIndex < pairList.length) {
+      setActiveListSource('all')
+      setCurrentPairIndex(globalIndex)
+      // Pre-fetch activation examples for clicked pair
+      const pair = pairList[globalIndex]
+      if (pair) {
+        fetchActivationExamples([pair.mainFeatureId, pair.similarFeatureId])
+      }
+    }
+  }, [pairList, currentPage, fetchActivationExamples])
+
+  // Monosemantic (reject) list click handler
+  const handleRejectListClick = useCallback((index: number) => {
+    if (index >= 0 && index < boundaryItems.rejectBelow.length) {
+      setActiveListSource('reject')
+      setCurrentPairIndex(index)
+      // Pre-fetch activation examples for clicked pair
+      const pair = boundaryItems.rejectBelow[index]
+      if (pair) {
+        fetchActivationExamples([pair.mainFeatureId, pair.similarFeatureId])
+      }
+    }
+  }, [boundaryItems.rejectBelow, fetchActivationExamples])
+
+  // Fragmented (select) list click handler
+  const handleSelectListClick = useCallback((index: number) => {
+    if (index >= 0 && index < boundaryItems.selectAbove.length) {
+      setActiveListSource('select')
+      setCurrentPairIndex(index)
+      // Pre-fetch activation examples for clicked pair
+      const pair = boundaryItems.selectAbove[index]
+      if (pair) {
+        fetchActivationExamples([pair.mainFeatureId, pair.similarFeatureId])
+      }
+    }
+  }, [boundaryItems.selectAbove, fetchActivationExamples])
+
+  // ============================================================================
+  // NAVIGATION HANDLERS - Work with active list
+  // ============================================================================
+
   const handleNavigatePrevious = useCallback(() => {
     setCurrentPairIndex(prev => Math.max(0, prev - 1))
   }, [])
 
   const handleNavigateNext = useCallback(() => {
-    setCurrentPairIndex(prev => Math.min(pairList.length - 1, prev + 1))
-  }, [pairList.length])
+    setCurrentPairIndex(prev => Math.min(activePairList.length - 1, prev + 1))
+  }, [activePairList.length])
 
   // ============================================================================
   // RENDER
@@ -435,7 +448,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
           tagLabel="Feature Splitting"
           onCategoryRefsReady={onCategoryRefsReady}
           availablePairs={pairList}
-          filteredFeatureIds={selectedFeatureIds}
+          filteredFeatureIds={selectedFeatureIds || undefined}
         />
 
         {/* Right column: 2 rows */}
@@ -445,10 +458,11 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
           <ScrollableItemList
             width={210}
             badges={[
-              { label: 'Sampled Pairs', count: pairList.length }
+              { label: 'All Pairs', count: pairList.length }
             ]}
-            items={pairList}
-            currentIndex={currentPairIndex}
+            items={currentPagePairs}
+            currentIndex={activeListSource === 'all' ? currentPairIndex % PAIRS_PER_PAGE : -1}
+            isActive={activeListSource === 'all'}
             highlightPredicate={(pair, currentPair) =>
               !!currentPair && pair.clusterId === currentPair.clusterId
             }
@@ -471,170 +485,119 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
                   featureId={pairIdString as any}
                   tagName={tagName}
                   tagCategoryId={TAG_CATEGORY_FEATURE_SPLITTING}
-                  onClick={() => goToPair(index)}
+                  onClick={() => handleAllPairsListClick(index)}
                   fullWidth={true}
                 />
               )
             }}
-            footerButton={{
-              label: 'Apply Tags',
-              onClick: handleApplyTags,
-              disabled: !tagAutomaticState?.histogramData,
-              title: tagAutomaticState?.histogramData
-                ? 'Apply auto-tagging based on current thresholds'
-                : 'Adjust thresholds in histogram first'
+            pageNavigation={{
+              currentPage,
+              totalPages,
+              onPreviousPage: handlePreviousPage,
+              onNextPage: handleNextPage
             }}
           />
           <FeatureSplitPairViewer
             currentPairIndex={currentPairIndex}
-            pairList={pairList}
+            pairList={activePairList}
             onNavigatePrevious={handleNavigatePrevious}
             onNavigateNext={handleNavigateNext}
           />
         </div>
 
-        {/* Bottom row: Left boundary lists + TagAutomaticPanel + Right boundary lists */}
+        {/* Bottom row: Histogram + Monosemantic list + Fragmented list */}
         <div className="feature-split-view__row-bottom">
-          {/* Left boundary lists - items near reject threshold */}
-          <div className="boundary-lists-container">
-            {/* Below reject threshold - will be tagged Monosemantic */}
-            <ScrollableItemList
-              width={210}
-              badges={[
-                { label: '← Monosemantic', count: `${Math.min(10, boundaryItems.rejectBelow.length)} of ${boundaryItems.rejectBelow.length}` }
-              ]}
-              items={boundaryItems.rejectBelow.slice(0, 10)}
-              renderItem={(item) => {
-                const selectionState = pairSelectionStates.get(item.pairKey)
-
-                let tagName = 'Unsure'
-                if (selectionState === 'selected') {
-                  tagName = 'Fragmented'
-                } else if (selectionState === 'rejected') {
-                  tagName = 'Monosemantic'
-                }
-
-                // Format pair ID as string for TagBadge
-                const pairIdString = `${item.mainFeatureId}-${item.similarFeatureId}`
-
-                return (
-                  <TagBadge
-                    featureId={pairIdString as any}
-                    tagName={tagName}
-                    tagCategoryId={TAG_CATEGORY_FEATURE_SPLITTING}
-                    onClick={() => {}}
-                    fullWidth={true}
-                  />
-                )
-              }}
-            />
-
-            {/* Above reject threshold - borderline, stays unsure */}
-            <ScrollableItemList
-              width={210}
-              badges={[
-                { label: 'Unsure →', count: `${Math.min(10, boundaryItems.rejectAbove.length)} of ${boundaryItems.rejectAbove.length}` }
-              ]}
-              items={boundaryItems.rejectAbove.slice(0, 10)}
-              renderItem={(item) => {
-                const selectionState = pairSelectionStates.get(item.pairKey)
-
-                let tagName = 'Unsure'
-                if (selectionState === 'selected') {
-                  tagName = 'Fragmented'
-                } else if (selectionState === 'rejected') {
-                  tagName = 'Monosemantic'
-                }
-
-                // Format pair ID as string for TagBadge
-                const pairIdString = `${item.mainFeatureId}-${item.similarFeatureId}`
-
-                return (
-                  <TagBadge
-                    featureId={pairIdString as any}
-                    tagName={tagName}
-                    tagCategoryId={TAG_CATEGORY_FEATURE_SPLITTING}
-                    onClick={() => {}}
-                    fullWidth={true}
-                  />
-                )
-              }}
-            />
-          </div>
-
+          {/* Left: Histogram */}
           <TagAutomaticPanel
             mode="pair"
             availablePairs={pairList}
-            filteredFeatureIds={selectedFeatureIds}
+            filteredFeatureIds={selectedFeatureIds || undefined}
             threshold={clusteringThreshold}
           />
 
-          {/* Right boundary lists - items near select threshold */}
-          <div className="boundary-lists-container">
-            {/* Above select threshold */}
-            <ScrollableItemList
-              width={210}
-              badges={[
-                { label: 'Fragmented →', count: `${Math.min(10, boundaryItems.selectAbove.length)} of ${boundaryItems.selectAbove.length}` }
-              ]}
-              items={boundaryItems.selectAbove.slice(0, 10)}
-              renderItem={(item) => {
-                const selectionState = pairSelectionStates.get(item.pairKey)
+          {/* Monosemantic list - below reject threshold */}
+          <ScrollableItemList
+            width={260}
+            badges={[
+              { label: '← Monosemantic', count: boundaryItems.rejectBelow.length }
+            ]}
+            columnHeader={{ label: 'Sim', sortDirection: 'desc' }}
+            headerStripe={{ type: 'autoReject', mode: 'pair' }}
+            items={boundaryItems.rejectBelow}
+            currentIndex={activeListSource === 'reject' ? currentPairIndex : -1}
+            isActive={activeListSource === 'reject'}
+            renderItem={(item, index) => {
+              const selectionState = pairSelectionStates.get(item.pairKey)
+              const similarityScore = pairSimilarityScores.get(item.pairKey)
 
-                let tagName = 'Unsure'
-                if (selectionState === 'selected') {
-                  tagName = 'Fragmented'
-                } else if (selectionState === 'rejected') {
-                  tagName = 'Monosemantic'
-                }
+              let tagName = 'Unsure'
+              if (selectionState === 'selected') {
+                tagName = 'Fragmented'
+              } else if (selectionState === 'rejected') {
+                tagName = 'Monosemantic'
+              }
 
-                // Format pair ID as string for TagBadge
-                const pairIdString = `${item.mainFeatureId}-${item.similarFeatureId}`
+              // Format pair ID as string for TagBadge
+              const pairIdString = `${item.mainFeatureId}-${item.similarFeatureId}`
 
-                return (
+              return (
+                <div className="pair-item-with-score">
                   <TagBadge
                     featureId={pairIdString as any}
                     tagName={tagName}
                     tagCategoryId={TAG_CATEGORY_FEATURE_SPLITTING}
-                    onClick={() => {}}
+                    onClick={() => handleRejectListClick(index)}
                     fullWidth={true}
                   />
-                )
-              }}
-            />
+                  {similarityScore !== undefined && (
+                    <span className="pair-similarity-score">{similarityScore.toFixed(2)}</span>
+                  )}
+                </div>
+              )
+            }}
+          />
 
-            {/* Below select threshold */}
-            <ScrollableItemList
-              width={210}
-              badges={[
-                { label: '← Unsure', count: `${Math.min(10, boundaryItems.selectBelow.length)} of ${boundaryItems.selectBelow.length}` }
-              ]}
-              items={boundaryItems.selectBelow.slice(0, 10)}
-              renderItem={(item) => {
-                const selectionState = pairSelectionStates.get(item.pairKey)
+          {/* Fragmented list - above select threshold */}
+          <ScrollableItemList
+            width={260}
+            badges={[
+              { label: 'Fragmented →', count: boundaryItems.selectAbove.length }
+            ]}
+            columnHeader={{ label: 'Sim', sortDirection: 'asc' }}
+            headerStripe={{ type: 'expand', mode: 'pair' }}
+            items={boundaryItems.selectAbove}
+            currentIndex={activeListSource === 'select' ? currentPairIndex : -1}
+            isActive={activeListSource === 'select'}
+            renderItem={(item, index) => {
+              const selectionState = pairSelectionStates.get(item.pairKey)
+              const similarityScore = pairSimilarityScores.get(item.pairKey)
 
-                let tagName = 'Unsure'
-                if (selectionState === 'selected') {
-                  tagName = 'Fragmented'
-                } else if (selectionState === 'rejected') {
-                  tagName = 'Monosemantic'
-                }
+              let tagName = 'Unsure'
+              if (selectionState === 'selected') {
+                tagName = 'Fragmented'
+              } else if (selectionState === 'rejected') {
+                tagName = 'Monosemantic'
+              }
 
-                // Format pair ID as string for TagBadge
-                const pairIdString = `${item.mainFeatureId}-${item.similarFeatureId}`
+              // Format pair ID as string for TagBadge
+              const pairIdString = `${item.mainFeatureId}-${item.similarFeatureId}`
 
-                return (
+              return (
+                <div className="pair-item-with-score">
                   <TagBadge
                     featureId={pairIdString as any}
                     tagName={tagName}
                     tagCategoryId={TAG_CATEGORY_FEATURE_SPLITTING}
-                    onClick={() => {}}
+                    onClick={() => handleSelectListClick(index)}
                     fullWidth={true}
                   />
-                )
-              }}
-            />
-          </div>
+                  {similarityScore !== undefined && (
+                    <span className="pair-similarity-score">{similarityScore.toFixed(2)}</span>
+                  )}
+                </div>
+              )
+            }}
+          />
         </div>
       </div>
       </div>
