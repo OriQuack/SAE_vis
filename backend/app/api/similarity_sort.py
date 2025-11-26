@@ -264,19 +264,26 @@ async def pair_similarity_score_histogram(
         Response with similarity scores and histogram data
     """
     try:
-        logger.info(
-            f"Pair similarity histogram request: {len(request.selected_pair_keys)} selected, "
-            f"{len(request.rejected_pair_keys)} rejected, "
-            f"{len(request.pair_keys)} total pairs"
-        )
-
-        # Validate request
-        if not request.pair_keys:
+        # Support both simplified (feature_ids + threshold) and legacy (pair_keys) flows
+        if request.feature_ids is not None and request.threshold is not None:
+            logger.info(
+                f"Pair similarity histogram request (SIMPLIFIED): {len(request.selected_pair_keys)} selected, "
+                f"{len(request.rejected_pair_keys)} rejected, "
+                f"{len(request.feature_ids)} features at threshold {request.threshold}"
+            )
+        elif request.pair_keys is not None:
+            logger.info(
+                f"Pair similarity histogram request (LEGACY): {len(request.selected_pair_keys)} selected, "
+                f"{len(request.rejected_pair_keys)} rejected, "
+                f"{len(request.pair_keys)} total pairs"
+            )
+        else:
             raise HTTPException(
                 status_code=400,
-                detail="pair_keys cannot be empty"
+                detail="Must provide either (feature_ids + threshold) or pair_keys"
             )
 
+        # Validate: need at least 1 selected and 1 rejected for SVM training
         if not request.selected_pair_keys:
             raise HTTPException(
                 status_code=400,

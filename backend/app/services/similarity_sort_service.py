@@ -24,6 +24,7 @@ from ..models.similarity_sort import (
 
 if TYPE_CHECKING:
     from .data_service import DataService
+    from .hierarchical_cluster_candidate_service import HierarchicalClusterCandidateService
 
 logger = logging.getLogger(__name__)
 
@@ -41,14 +42,16 @@ class SimilaritySortService:
         'inter_semantic_sim',        # Feature-level: semantic similarity between features
     ]
 
-    def __init__(self, data_service: "DataService"):
+    def __init__(self, data_service: "DataService", cluster_service: Optional["HierarchicalClusterCandidateService"] = None):
         """
         Initialize SimilaritySortService.
 
         Args:
             data_service: Instance of DataService for data access
+            cluster_service: Optional instance of HierarchicalClusterCandidateService for pair generation
         """
         self.data_service = data_service
+        self.cluster_service = cluster_service
 
         # SVM model cache: (selected_ids, rejected_ids) hash -> (model, scaler)
         self._svm_cache: Dict[str, Tuple[SVC, StandardScaler]] = {}
@@ -943,8 +946,17 @@ class SimilaritySortService:
         """
         Calculate pair similarity scores and return histogram distribution for automatic tagging.
 
+        Simplified Flow (recommended):
+            - Provide feature_ids + threshold
+            - Pairs generated via hierarchical clustering
+            - Reuses same clustering logic as candidate endpoint
+
+        Legacy Flow (backward compatibility):
+            - Provide pair_keys explicitly
+            - No clustering, scores explicit pairs
+
         Args:
-            request: Request containing selected, rejected, and all pair keys
+            request: Request with either (feature_ids + threshold) or pair_keys
 
         Returns:
             Response with scores and histogram data
@@ -952,18 +964,58 @@ class SimilaritySortService:
         if not self.data_service.is_ready():
             raise RuntimeError("DataService not ready")
 
-        # Parse pair keys to (main_id, similar_id)
-        pair_ids = []
-        for pair_key in request.pair_keys:
-            parts = pair_key.split('-')
-            if len(parts) == 2:
-                try:
-                    main_id = int(parts[0])
-                    similar_id = int(parts[1])
-                    pair_ids.append((main_id, similar_id))
-                except ValueError:
-                    logger.warning(f"Invalid pair key format: {pair_key}")
-                    continue
+        # Simplified flow: Generate pairs via clustering
+        if request.feature_ids is not None and request.threshold is not None:
+            if self.cluster_service is None:
+                raise RuntimeError("Cluster service not available for pair generation")
+
+            logger.info(
+                f"[Simplified Flow] Generating pairs via clustering: "
+                f"{len(request.feature_ids)} features at threshold {request.threshold}"
+            )
+
+            # Use hierarchical clustering service to get ALL pairs
+            cluster_result = await self.cluster_service.get_all_cluster_pairs(
+                feature_ids=request.feature_ids,
+                threshold=request.threshold
+            )
+
+            # Extract pair keys from cluster result
+            pair_keys_from_clustering = cluster_result["pair_keys"]
+            logger.info(f"[Simplified Flow] Generated {len(pair_keys_from_clustering)} pairs from clustering")
+
+            # Parse to (main_id, similar_id) tuples
+            pair_ids = []
+            for pair_key in pair_keys_from_clustering:
+                parts = pair_key.split('-')
+                if len(parts) == 2:
+                    try:
+                        main_id = int(parts[0])
+                        similar_id = int(parts[1])
+                        pair_ids.append((main_id, similar_id))
+                    except ValueError:
+                        logger.warning(f"Invalid pair key from clustering: {pair_key}")
+                        continue
+
+        # Legacy flow: Use explicit pair_keys
+        elif request.pair_keys is not None:
+            logger.info(f"[Legacy Flow] Using {len(request.pair_keys)} explicit pair keys")
+
+            # Parse pair keys to (main_id, similar_id)
+            pair_ids = []
+            for pair_key in request.pair_keys:
+                parts = pair_key.split('-')
+                if len(parts) == 2:
+                    try:
+                        main_id = int(parts[0])
+                        similar_id = int(parts[1])
+                        pair_ids.append((main_id, similar_id))
+                    except ValueError:
+                        logger.warning(f"Invalid pair key format: {pair_key}")
+                        continue
+
+        else:
+            raise ValueError("Must provide either (feature_ids + threshold) or pair_keys")
 
         if not pair_ids:
             return SimilarityHistogramResponse(

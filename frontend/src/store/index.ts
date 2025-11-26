@@ -192,8 +192,9 @@ interface AppState {
   pairSortedBySelectionStates: Map<string, 'selected' | 'rejected'> | null,  // Frozen pair selection states when sorted
   donePairSelectionStates: Map<string, 'selected' | 'rejected'> | null
 
-  // Cluster-based feature pairs state (for FeatureSplitPairViewer)
-  clusterGroups: Array<{cluster_id: number, feature_ids: number[]}> | null  // Selected clusters with their members
+  // Cluster-based feature pairs state (for FeatureSplitPairViewer) - SIMPLIFIED FLOW
+  allClusterPairs: Array<{main_id: number, similar_id: number, pair_key: string, cluster_id: number}> | null  // ALL pair objects from clustering
+  clusterGroups: Array<{cluster_id: number, feature_ids: number[]}> | null  // All clusters with their members
   featureToClusterMap: Record<number, number> | null  // Map of all feature IDs to their cluster IDs
   totalClusters: number | null  // Total number of clusters at the threshold used
   isLoadingDistributedPairs: boolean
@@ -318,7 +319,8 @@ const initialState = {
   pairSortedBySelectionStates: null,
   donePairSelectionStates: null,
 
-  // Cluster-based feature pairs state (for FeatureSplitPairViewer)
+  // Cluster-based feature pairs state (for FeatureSplitPairViewer) - SIMPLIFIED FLOW
+  allClusterPairs: null,  // ALL pair objects from clustering
   clusterGroups: null,
   featureToClusterMap: null,
   totalClusters: null,

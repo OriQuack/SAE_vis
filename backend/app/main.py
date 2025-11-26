@@ -61,17 +61,20 @@ async def lifespan(app: FastAPI):
         feature_groups.initialize_service()
         logger.info("Feature groups service initialized successfully")
 
-        # Initialize similarity sort service
-        similarity_sort_service = SimilaritySortService(data_service=data_service)
-        similarity_sort.set_similarity_sort_service(similarity_sort_service)
-        logger.info("Similarity sort service initialized successfully")
-
-        # Initialize hierarchical cluster candidate service
+        # Initialize hierarchical cluster candidate service (BEFORE similarity sort service)
         from pathlib import Path
         project_root = Path(__file__).parent.parent.parent
         cluster_candidate_service = HierarchicalClusterCandidateService(project_root=project_root)
         cluster_candidates.set_cluster_candidate_service(cluster_candidate_service)
         logger.info("Hierarchical cluster candidate service initialized successfully")
+
+        # Initialize similarity sort service with cluster service for pair generation
+        similarity_sort_service = SimilaritySortService(
+            data_service=data_service,
+            cluster_service=cluster_candidate_service  # NEW: Pass cluster service
+        )
+        similarity_sort.set_similarity_sort_service(similarity_sort_service)
+        logger.info("Similarity sort service initialized successfully")
 
         yield
     except Exception as e:

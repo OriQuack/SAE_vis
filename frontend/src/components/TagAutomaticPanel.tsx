@@ -32,12 +32,14 @@ interface TagAutomaticPanelProps {
   mode: 'feature' | 'pair'
   availablePairs?: Array<{pairKey: string, mainFeatureId: number, similarFeatureId: number}>  // Cluster-based pairs (single source of truth)
   filteredFeatureIds?: Set<number>  // Selected feature IDs from Sankey segment
+  threshold?: number  // Clustering threshold from Sankey (required for simplified flow)
 }
 
 const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
   mode,
   availablePairs,
-  filteredFeatureIds
+  filteredFeatureIds,
+  threshold
 }) => {
   const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
   const updateBothSimilarityThresholds = useVisualizationStore(state => state.updateBothSimilarityThresholds)
@@ -109,11 +111,11 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
         return
       }
 
-      console.log('[TagAutomaticPanel] Fetching histogram - features:', filteredFeatureIds?.size || 0, ', counts:', selectionCounts)
+      console.log('[TagAutomaticPanel] Fetching histogram - features:', filteredFeatureIds?.size || 0, ', threshold:', threshold ?? 0.5, ', counts:', selectionCounts)
       setIsLocalLoading(true)
       try {
-        // Pass selected feature IDs to fetch ALL cluster-based pairs from segment
-        const result = await fetchSimilarityHistogram(filteredFeatureIds)
+        // Pass selected feature IDs AND threshold to fetch ALL cluster-based pairs from segment
+        const result = await fetchSimilarityHistogram(filteredFeatureIds, threshold)
         if (result) {
           setLocalHistogramData(result.histogramData)
           // Update thresholds based on fetched data
@@ -389,10 +391,10 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
           </div>
         ) : histogramChart ? (
           <div className="tag-panel__histogram-container">
-                <svg
-                  ref={svgRef}
-                  className="tag-panel__svg"
-                >
+            <svg
+              ref={svgRef}
+              className="tag-panel__svg"
+            >
                 {/* Define stripe patterns for preview */}
                 <defs>
                   <pattern

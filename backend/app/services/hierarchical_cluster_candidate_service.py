@@ -61,6 +61,81 @@ class HierarchicalClusterCandidateService:
             f"(n_features={self.n_features}, linkage_shape={self.linkage_matrix.shape})"
         )
 
+    def _cluster_features_at_threshold(
+        self,
+        feature_ids: List[int],
+        threshold: float
+    ) -> tuple[Dict[int, int], Dict[int, List[int]], int]:
+        """
+        Core clustering logic: cut dendrogram and group features into clusters.
+
+        This is the shared foundation for all cluster-based operations.
+
+        Args:
+            feature_ids: Feature IDs to cluster
+            threshold: Distance threshold for cutting dendrogram (0-1)
+
+        Returns:
+            Tuple of:
+                - feature_to_cluster: Mapping of feature_id -> cluster_id for ALL features
+                - valid_clusters: Mapping of cluster_id -> feature_ids (only clusters with 2+ features)
+                - total_clusters: Total number of clusters at this threshold
+
+        Raises:
+            ValueError: If inputs are invalid
+        """
+        # Validate inputs
+        if not feature_ids:
+            raise ValueError("feature_ids cannot be empty")
+
+        if not (0.0 < threshold < 1.0):
+            raise ValueError(f"threshold must be in (0, 1), got {threshold}")
+
+        # Validate feature IDs are in valid range
+        invalid_features = [fid for fid in feature_ids if fid < 0 or fid >= self.n_features]
+        if invalid_features:
+            raise ValueError(
+                f"Invalid feature IDs (must be 0-{self.n_features-1}): "
+                f"{invalid_features[:10]}{'...' if len(invalid_features) > 10 else ''}"
+            )
+
+        # Step 1: Cut dendrogram at threshold
+        all_labels = fcluster(self.linkage_matrix, t=threshold, criterion='distance')
+        total_clusters = len(np.unique(all_labels))
+
+        logger.info(
+            f"Dendrogram cut at threshold={threshold} produced {total_clusters} clusters "
+            f"for {len(feature_ids)} features"
+        )
+
+        # Step 2: Build feature_to_cluster mapping for ALL features (used by frontend)
+        feature_to_cluster = {
+            feature_id: int(all_labels[feature_id])
+            for feature_id in range(self.n_features)
+        }
+
+        # Step 3: Build cluster_to_features mapping for requested features only
+        cluster_to_features = {}
+        for feature_id in feature_ids:
+            cluster_id = feature_to_cluster[feature_id]
+            if cluster_id not in cluster_to_features:
+                cluster_to_features[cluster_id] = []
+            cluster_to_features[cluster_id].append(feature_id)
+
+        # Step 4: Filter to only clusters with 2+ features (can make pairs)
+        valid_clusters = {
+            cluster_id: features
+            for cluster_id, features in cluster_to_features.items()
+            if len(features) >= 2
+        }
+
+        logger.info(
+            f"Available features span {len(cluster_to_features)} clusters "
+            f"({len(valid_clusters)} have 2+ features)"
+        )
+
+        return feature_to_cluster, valid_clusters, total_clusters
+
     async def get_cluster_candidates(
         self,
         feature_ids: List[int],
@@ -71,19 +146,14 @@ class HierarchicalClusterCandidateService:
         Get n clusters (each with 2+ features) and return all features grouped by cluster.
 
         Process:
-        1. Cut dendrogram at specified distance threshold
-        2. Assign all features to clusters
-        3. Filter to only features in feature_ids
-        4. Filter to only clusters with 2+ features
-        5. Randomly select n clusters
-        6. Return selected clusters with their feature members
+        1. Use shared clustering logic (_cluster_features_at_threshold)
+        2. Randomly select n clusters (with fixed seed for determinism)
+        3. Return selected clusters with their feature members
 
         Args:
             feature_ids: Available feature IDs to sample from
-            n: Number of clusters to select (default 10)
+            n: Number of clusters to select
             threshold: Distance threshold for cutting dendrogram (0-1)
-                      Higher threshold = fewer, larger clusters
-                      Lower threshold = more, smaller clusters
 
         Returns:
             Dictionary with:
@@ -106,52 +176,17 @@ class HierarchicalClusterCandidateService:
         if not (0.0 < threshold < 1.0):
             raise ValueError(f"threshold must be in (0, 1), got {threshold}")
 
-        # Validate feature IDs are in valid range
-        invalid_features = [fid for fid in feature_ids if fid < 0 or fid >= self.n_features]
-        if invalid_features:
-            raise ValueError(
-                f"Invalid feature IDs (must be 0-{self.n_features-1}): "
-                f"{invalid_features[:10]}{'...' if len(invalid_features) > 10 else ''}"
-            )
-
         logger.info(
             f"Getting cluster candidates: "
             f"n_input={len(feature_ids)}, n_clusters={n}, threshold={threshold}"
         )
 
-        # Step 1: Get cluster labels for ALL features by cutting dendrogram
-        all_labels = fcluster(self.linkage_matrix, t=threshold, criterion='distance')
-
-        total_clusters = len(np.unique(all_labels))
-        logger.info(f"Dendrogram cut at threshold={threshold} produced {total_clusters} clusters")
-
-        # Step 2: Build feature_to_cluster mapping for ALL features
-        feature_to_cluster = {
-            feature_id: int(all_labels[feature_id])
-            for feature_id in range(self.n_features)
-        }
-
-        # Step 3: Filter to available features and build cluster_to_features mapping
-        cluster_to_features = {}
-        for feature_id in feature_ids:
-            cluster_id = feature_to_cluster[feature_id]
-            if cluster_id not in cluster_to_features:
-                cluster_to_features[cluster_id] = []
-            cluster_to_features[cluster_id].append(feature_id)
-
-        # Step 4: Filter to only clusters with 2+ features
-        valid_clusters = {
-            cluster_id: features
-            for cluster_id, features in cluster_to_features.items()
-            if len(features) >= 2
-        }
-
-        logger.info(
-            f"Available features span {len(cluster_to_features)} clusters "
-            f"({len(valid_clusters)} have 2+ features)"
+        # Use shared clustering logic
+        feature_to_cluster, valid_clusters, total_clusters = self._cluster_features_at_threshold(
+            feature_ids, threshold
         )
 
-        # Step 5: Randomly select n clusters (or all if fewer available)
+        # Randomly select n clusters (or all if fewer available)
         cluster_groups = self._select_n_clusters(valid_clusters, n)
 
         clusters_selected = len(cluster_groups)
@@ -212,17 +247,15 @@ class HierarchicalClusterCandidateService:
         threshold: float = 0.5
     ) -> Dict:
         """
-        Get ALL cluster-based pair keys for a set of features.
+        Get ALL cluster-based pairs for a set of features.
 
-        Unlike get_cluster_candidates which returns n random clusters,
-        this returns ALL clusters and ALL pairs within those clusters.
-        Used for histogram computation where we need complete pair distribution.
+        This returns ALL clusters and ALL pairs within those clusters.
+        No sampling - complete pair distribution for both candidate display and histogram.
 
         Process:
-        1. Cut dendrogram at threshold
-        2. Assign features to clusters
-        3. Generate ALL pairwise combinations within each cluster
-        4. Return complete list of pair keys
+        1. Use shared clustering logic (_cluster_features_at_threshold)
+        2. Generate ALL pairwise combinations within each cluster
+        3. Return pair objects with metadata for frontend use
 
         Args:
             feature_ids: Feature IDs to process
@@ -230,64 +263,29 @@ class HierarchicalClusterCandidateService:
 
         Returns:
             Dictionary with:
-                - pair_keys: List of all pair keys (format: "id1-id2")
+                - pairs: List of pair objects with {main_id, similar_id, pair_key, cluster_id}
+                - pair_keys: List of all pair keys (format: "id1-id2") for backward compatibility
+                - clusters: List of cluster objects with feature_ids
+                - feature_to_cluster: Mapping of ALL feature IDs to cluster IDs
                 - total_clusters: Total number of clusters found
                 - total_pairs: Total number of pairs generated
-                - clusters: List of cluster objects with feature_ids
+                - threshold_used: The threshold value used
 
         Raises:
             ValueError: If inputs are invalid
         """
-        # Validate inputs
-        if not feature_ids:
-            raise ValueError("feature_ids cannot be empty")
-
-        if not (0.0 < threshold < 1.0):
-            raise ValueError(f"threshold must be in (0, 1), got {threshold}")
-
-        # Validate feature IDs are in valid range
-        invalid_features = [fid for fid in feature_ids if fid < 0 or fid >= self.n_features]
-        if invalid_features:
-            raise ValueError(
-                f"Invalid feature IDs (must be 0-{self.n_features-1}): "
-                f"{invalid_features[:10]}{'...' if len(invalid_features) > 10 else ''}"
-            )
-
         logger.info(
             f"Getting all cluster pairs: "
             f"n_features={len(feature_ids)}, threshold={threshold}"
         )
 
-        # Step 1: Get cluster labels for ALL features by cutting dendrogram
-        all_labels = fcluster(self.linkage_matrix, t=threshold, criterion='distance')
-
-        # Step 2: Build feature_to_cluster mapping for requested features only
-        feature_to_cluster = {
-            feature_id: int(all_labels[feature_id])
-            for feature_id in feature_ids
-        }
-
-        # Step 3: Build cluster_to_features mapping
-        cluster_to_features = {}
-        for feature_id in feature_ids:
-            cluster_id = feature_to_cluster[feature_id]
-            if cluster_id not in cluster_to_features:
-                cluster_to_features[cluster_id] = []
-            cluster_to_features[cluster_id].append(feature_id)
-
-        # Step 4: Filter to only clusters with 2+ features (can make pairs)
-        valid_clusters = {
-            cluster_id: features
-            for cluster_id, features in cluster_to_features.items()
-            if len(features) >= 2
-        }
-
-        logger.info(
-            f"Found {len(cluster_to_features)} clusters total, "
-            f"{len(valid_clusters)} have 2+ features"
+        # Use shared clustering logic
+        feature_to_cluster, valid_clusters, total_clusters = self._cluster_features_at_threshold(
+            feature_ids, threshold
         )
 
-        # Step 5: Generate ALL pairwise combinations within each cluster
+        # Generate ALL pairwise combinations within each cluster
+        pairs = []
         pair_keys = []
         cluster_details = []
 
@@ -295,12 +293,25 @@ class HierarchicalClusterCandidateService:
             sorted_features = sorted(cluster_features)
             cluster_pairs = []
 
-            # Generate all pairs within this cluster
+            # Generate all pairs within this cluster: C(n, 2)
             for i in range(len(sorted_features)):
                 for j in range(i + 1, len(sorted_features)):
                     id1, id2 = sorted_features[i], sorted_features[j]
+
                     # Canonical pair key: smaller ID first
-                    pair_key = f"{min(id1, id2)}-{max(id1, id2)}"
+                    main_id = min(id1, id2)
+                    similar_id = max(id1, id2)
+                    pair_key = f"{main_id}-{similar_id}"
+
+                    # Create pair object with metadata
+                    pair_obj = {
+                        "main_id": main_id,
+                        "similar_id": similar_id,
+                        "pair_key": pair_key,
+                        "cluster_id": cluster_id
+                    }
+
+                    pairs.append(pair_obj)
                     pair_keys.append(pair_key)
                     cluster_pairs.append(pair_key)
 
@@ -310,12 +321,18 @@ class HierarchicalClusterCandidateService:
                 "pair_count": len(cluster_pairs)
             })
 
-        total_pairs = len(pair_keys)
-        logger.info(f"Generated {total_pairs} pairs from {len(valid_clusters)} clusters")
+        total_pairs = len(pairs)
+        logger.info(
+            f"Generated {total_pairs} pairs from {len(valid_clusters)} clusters "
+            f"({total_clusters} total clusters at threshold)"
+        )
 
         return {
-            "pair_keys": pair_keys,
-            "total_clusters": len(valid_clusters),
+            "pairs": pairs,                          # NEW: Full pair objects for frontend
+            "pair_keys": pair_keys,                  # For backward compatibility (histogram)
+            "clusters": cluster_details,
+            "feature_to_cluster": feature_to_cluster,
+            "total_clusters": total_clusters,
             "total_pairs": total_pairs,
-            "clusters": cluster_details
+            "threshold_used": threshold
         }

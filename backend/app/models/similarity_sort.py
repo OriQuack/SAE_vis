@@ -3,7 +3,7 @@ Pydantic models for similarity-based sorting feature.
 """
 
 from pydantic import BaseModel, Field
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 
 class SimilaritySortRequest(BaseModel):
@@ -113,7 +113,15 @@ class SimilarityHistogramRequest(BaseModel):
 
 
 class PairSimilarityHistogramRequest(BaseModel):
-    """Request model for similarity score histogram (pairs)."""
+    """Request model for similarity score histogram (pairs).
+
+    Simplified Flow (recommended):
+        - Provide feature_ids + threshold to generate pairs via clustering
+        - Pairs are automatically generated using hierarchical clustering
+
+    Legacy Flow (backward compatibility):
+        - Provide pair_keys directly (explicit list of pairs to score)
+    """
 
     selected_pair_keys: List[str] = Field(
         ...,
@@ -125,9 +133,23 @@ class PairSimilarityHistogramRequest(BaseModel):
         description="Pair keys marked as rejected/negative (✗), format: 'main_id-similar_id'",
         min_items=1
     )
-    pair_keys: List[str] = Field(
-        ...,
-        description="All pair keys to compute scores for",
+
+    # Simplified flow: feature_ids + threshold (generate pairs via clustering)
+    feature_ids: Optional[List[int]] = Field(
+        default=None,
+        description="Feature IDs to cluster and generate pairs from (simplified flow)"
+    )
+    threshold: Optional[float] = Field(
+        default=None,
+        description="Clustering threshold (0-1) for pair generation (simplified flow)",
+        ge=0.0,
+        le=1.0
+    )
+
+    # Legacy flow: explicit pair_keys
+    pair_keys: Optional[List[str]] = Field(
+        default=None,
+        description="All pair keys to compute scores for (legacy flow, optional if feature_ids+threshold provided)",
         min_items=1
     )
 

@@ -129,71 +129,53 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
   // ============================================================================
 
   /**
-   * Fetch cluster groups for pair viewer
-   * Uses hierarchical clustering to select n clusters (each with 2+ features)
-   * @param n - Number of clusters to fetch (default 10)
-   * @param filterFeatureIds - Optional set of feature IDs to sample from (if not provided, uses all tableData features)
+   * Fetch ALL cluster-based pairs for selected features (Simplified Flow).
+   *
+   * No sampling - returns ALL pairs from ALL clusters.
+   * Frontend handles display sampling via random selection.
+   *
+   * @param featureIds - Feature IDs to cluster (from Sankey segment)
+   * @param threshold - Clustering threshold (from Sankey)
    */
-  fetchDistributedPairs: async (n: number = 10, filterFeatureIds?: Set<number>) => {
-    const { tableData, leftPanel } = get()
-
-    console.log('[Store.fetchDistributedPairs] Starting cluster fetch:', { n, hasFilter: !!filterFeatureIds, filterSize: filterFeatureIds?.size })
-
-    if (!tableData?.features) {
-      console.warn('[Store.fetchDistributedPairs] ⚠️  No table data available')
+  fetchAllClusterPairs: async (featureIds: number[], threshold: number) => {
+    if (featureIds.length === 0) {
+      console.warn('[Store.fetchAllClusterPairs] No features provided')
       return
     }
 
     try {
       set({ isLoadingDistributedPairs: true })
 
-      // Extract feature IDs - either from filter or all table data
-      let featureIds: number[]
-      if (filterFeatureIds && filterFeatureIds.size > 0) {
-        featureIds = Array.from(filterFeatureIds)
-      } else {
-        featureIds = tableData.features.map((row: any) => row.feature_id)
-      }
-
-      // Get stage 1 threshold from Sankey structure
-      // The threshold is already a similarity value (higher = more similar), use it directly
-      // Default to 0.5 if no Sankey structure exists yet
-      let threshold = 0.5
-      if (leftPanel?.sankeyStructure) {
-        const stage1Segment = leftPanel.sankeyStructure.nodes.find((n: any) => n.id === 'stage1_segment')
-        if (stage1Segment && 'threshold' in stage1Segment && stage1Segment.threshold !== null) {
-          threshold = stage1Segment.threshold
-        }
-      }
-
-      console.log('[Store.fetchDistributedPairs] Calling API:', {
-        totalFeatures: featureIds.length,
-        requestedClusters: n,
-        threshold: threshold,
-        source: leftPanel?.sankeyStructure ? 'stage1_segment' : 'default'
+      console.log('[Store.fetchAllClusterPairs] Fetching ALL pairs (simplified flow):', {
+        featureCount: featureIds.length,
+        threshold: threshold
       })
 
-      // Call API to get cluster groups using hierarchical clustering
-      const response = await api.getClusterCandidates(featureIds, n, threshold)
+      // Call simplified API - returns ALL pairs (no backend sampling)
+      const response = await api.getAllClusterPairs(featureIds, threshold)
 
-      console.log('[Store.fetchDistributedPairs] API response:', {
-        clusterCount: response.cluster_groups.length,
+      console.log('[Store.fetchAllClusterPairs] ✅ Received ALL pairs:', {
+        totalPairs: response.total_pairs,
         totalClusters: response.total_clusters,
         thresholdUsed: response.threshold_used
       })
 
+      // Store ALL pair data - frontend will sample for display
       set({
-        clusterGroups: response.cluster_groups,
+        allClusterPairs: response.pairs,              // NEW: All pair objects
+        clusterGroups: response.clusters.map(c => ({  // Convert to old format for compatibility
+          cluster_id: c.cluster_id,
+          feature_ids: c.feature_ids
+        })),
         featureToClusterMap: response.feature_to_cluster,
         totalClusters: response.total_clusters,
         isLoadingDistributedPairs: false
       })
 
-      console.log('[Store.fetchDistributedPairs] ✅ Cluster groups loaded successfully')
-
     } catch (error) {
-      console.error('[Store.fetchDistributedPairs] ❌ Failed to fetch cluster groups:', error)
+      console.error('[Store.fetchAllClusterPairs] ❌ Failed to fetch pairs:', error)
       set({
+        allClusterPairs: null,
         clusterGroups: null,
         isLoadingDistributedPairs: false
       })
@@ -237,97 +219,66 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
         else if (state === 'rejected') rejectedPairKeys.push(pairKey)
       })
 
-      // SEGMENT-SPECIFIC MODE: Fetch ALL cluster-based pairs for selected features
-      if (selectedFeatureIds && selectedFeatureIds.size > 0) {
-        const clusterThreshold = threshold ?? 0.5
-        console.log(`[Store.fetchSimilarityHistogram] Fetching ALL cluster pairs for ${selectedFeatureIds.size} features at threshold ${clusterThreshold}`)
-        const featureArray = Array.from(selectedFeatureIds)
-        allPairKeys = await api.getSegmentClusterPairs(featureArray, clusterThreshold)
-        console.log(`[Store.fetchSimilarityHistogram] Got ${allPairKeys.length} cluster-based pairs from segment`)
-      } else {
-        // GLOBAL MODE (FALLBACK): Get all pair keys from current table view
-        // This would need to be passed from the component or computed from tableData
-        // For now, use the pairs that have been displayed
-        pairSelectionStates.forEach((_: string | null, pairKey: string) => {
-          allPairKeys.push(pairKey)
+      // SIMPLIFIED FLOW: Use feature_ids + threshold (backend generates pairs via clustering)
+      if (selectedFeatureIds && selectedFeatureIds.size > 0 && threshold !== undefined) {
+        console.log(`[Store.fetchSimilarityHistogram] [SIMPLIFIED FLOW] Using feature_ids + threshold:`, {
+          featureCount: selectedFeatureIds.size,
+          threshold: threshold
         })
 
-        // Also add pairs that exist in table but not yet selected
-        if (tableData && tableData.features) {
-          tableData.features.forEach((feature: any) => {
-            if (feature.decoder_similarity && Array.isArray(feature.decoder_similarity)) {
-              feature.decoder_similarity.slice(0, 4).forEach((similarItem: any) => {
-                const pairKey = `${feature.feature_id}-${similarItem.feature_id}`
-                if (!allPairKeys.includes(pairKey)) {
-                  allPairKeys.push(pairKey)
-                }
-              })
+        // Need at least 1 selected and 1 rejected for meaningful histogram
+        if (selectedPairKeys.length === 0 || rejectedPairKeys.length === 0) {
+          console.warn('[Store.fetchSimilarityHistogram] Need at least 1 selected and 1 rejected pair')
+          return null
+        }
+
+        // Call simplified API - backend generates pairs via clustering
+        const histogramData = await api.getPairSimilarityScoreHistogram(
+          selectedPairKeys,
+          rejectedPairKeys,
+          { featureIds: Array.from(selectedFeatureIds), threshold: threshold }  // Simplified flow
+        )
+
+        // Calculate dynamic thresholds and update state
+        const { statistics } = histogramData
+        const maxAbsValue = Math.max(
+          Math.abs(statistics.min || 0),
+          Math.abs(statistics.max || 0)
+        )
+        const selectThreshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? maxAbsValue / 2 : 0.2
+        const rejectThreshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? -maxAbsValue / 2 : -0.2
+
+        // Always update/create tagAutomaticState
+        const currentState = get().tagAutomaticState
+        if (currentState) {
+          set({
+            tagAutomaticState: {
+              ...currentState,
+              histogramData
+            }
+          })
+        } else {
+          set({
+            tagAutomaticState: {
+              visible: false,
+              minimized: false,
+              mode: 'pair',
+              position: { x: 0, y: 0 },
+              histogramData,
+              selectThreshold,
+              rejectThreshold,
+              tagLabel: 'Fragmented',
+              isLoading: false
             }
           })
         }
-        console.log('[Store.fetchSimilarityHistogram] Using global pairs (fallback):', allPairKeys.length)
-      }
 
-      console.log('[Store.fetchSimilarityHistogram] Fetching pair histogram:', {
-        selected: selectedPairKeys.length,
-        rejected: rejectedPairKeys.length,
-        total: allPairKeys.length
-      })
+        return { histogramData, selectThreshold, rejectThreshold }
 
-      // Need at least 1 selected and 1 rejected for meaningful histogram
-      if (selectedPairKeys.length === 0 || rejectedPairKeys.length === 0) {
-        console.warn('[Store.fetchSimilarityHistogram] Need at least 1 selected and 1 rejected pair')
-        return null
-      }
-
-      // Fetch histogram data
-      const histogramData = await api.getPairSimilarityScoreHistogram(
-        selectedPairKeys,
-        rejectedPairKeys,
-        allPairKeys
-      )
-
-      // Calculate dynamic thresholds based on data range
-      const { statistics } = histogramData
-      const maxAbsValue = Math.max(
-        Math.abs(statistics.min || 0),
-        Math.abs(statistics.max || 0)
-      )
-      const selectThreshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? maxAbsValue / 2 : 0.2
-      const rejectThreshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? -maxAbsValue / 2 : -0.2
-
-      // Always update/create tagAutomaticState for real-time preview in SelectionPanel
-      const currentState = get().tagAutomaticState
-      if (currentState) {
-        // Update existing state - preserve thresholds if user has already modified them
-        set({
-          tagAutomaticState: {
-            ...currentState,
-            histogramData
-            // Don't overwrite selectThreshold/rejectThreshold - user may have dragged them
-          }
-        })
       } else {
-        // Create minimal state if doesn't exist (for TagAutomaticPanel → SelectionPanel communication)
-        set({
-          tagAutomaticState: {
-            visible: false,
-            minimized: false,
-            mode: 'pair',
-            position: { x: 0, y: 0 },
-            histogramData,
-            selectThreshold,
-            rejectThreshold,
-            tagLabel: 'Fragmented',
-            isLoading: false
-          }
-        })
-      }
-
-      return {
-        histogramData,
-        selectThreshold,
-        rejectThreshold
+        // LEGACY FALLBACK: Explicit pair keys (should not be used in simplified flow)
+        console.warn('[Store.fetchSimilarityHistogram] [LEGACY FALLBACK] No feature_ids/threshold provided, cannot generate histogram')
+        return null
       }
 
     } catch (error) {

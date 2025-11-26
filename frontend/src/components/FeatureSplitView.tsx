@@ -125,13 +125,14 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
   const pairSelectionSources = useVisualizationStore(state => state.pairSelectionSources)
   const clusterGroups = useVisualizationStore(state => state.clusterGroups)
+  const allClusterPairs = useVisualizationStore(state => state.allClusterPairs)
   const isLoadingDistributedPairs = useVisualizationStore(state => state.isLoadingDistributedPairs)
-  const fetchDistributedPairs = useVisualizationStore(state => (state as any).fetchDistributedPairs)
+  const fetchAllClusterPairs = useVisualizationStore(state => (state as any).fetchAllClusterPairs)
   const clearDistributedPairs = useVisualizationStore(state => (state as any).clearDistributedPairs)
   const getSelectedNodeFeatures = useVisualizationStore(state => state.getSelectedNodeFeatures)
   const leftPanel = useVisualizationStore(state => state.leftPanel)
   const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
-  const showTagAutomaticPopover = useVisualizationStore(state => state.showTagAutomaticPopover)
+  const applySimilarityTags = useVisualizationStore(state => state.applySimilarityTags)
   const pairSimilarityScores = useVisualizationStore(state => state.pairSimilarityScores)
   const lastPairSortedSelectionSignature = useVisualizationStore(state => state.lastPairSortedSelectionSignature)
   const sortPairsBySimilarity = useVisualizationStore(state => state.sortPairsBySimilarity)
@@ -159,6 +160,14 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     return 0.5
   }, [leftPanel?.sankeyStructure])
 
+  // Convert Sankey threshold to clustering distance threshold
+  // Sankey threshold is similarity-based (lower = less similar)
+  // Clustering threshold is distance-based (higher = more dissimilar allowed)
+  // Inversion: similarity 0.4 → distance 0.6 (looser clustering)
+  const clusteringThreshold = useMemo(() => {
+    return 1 - clusterThreshold
+  }, [clusterThreshold])
+
   // Filter tableData to only include selected features
   const filteredTableData = useMemo(() => {
     if (!tableData?.features || !selectedFeatureIds || selectedFeatureIds.size === 0) {
@@ -181,15 +190,21 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   }, [clusterThreshold, selectedFeatureIds])
   // NOTE: clearDistributedPairs NOT in dependencies to avoid triggering on clear
 
-  // Fetch cluster groups when features change or when groups are cleared
+  // Fetch ALL cluster pairs when features change or when groups are cleared (Simplified Flow)
   useEffect(() => {
     if (selectedFeatureIds && selectedFeatureIds.size > 0 && !clusterGroups && !isLoadingDistributedPairs) {
-      console.log('[FeatureSplitView] Fetching cluster groups for', selectedFeatureIds.size, 'features')
-      fetchDistributedPairs(15, selectedFeatureIds)
+      console.log('[FeatureSplitView] [SIMPLIFIED FLOW] Fetching ALL cluster pairs:', {
+        featureCount: selectedFeatureIds.size,
+        sankeyThreshold: clusterThreshold,
+        clusteringThreshold: clusteringThreshold
+      })
+      // Call simplified API - returns ALL pairs (no sampling)
+      fetchAllClusterPairs(Array.from(selectedFeatureIds), clusteringThreshold)
     }
-  }, [selectedFeatureIds, clusterGroups, fetchDistributedPairs])
+  }, [selectedFeatureIds, clusterGroups, clusterThreshold, clusteringThreshold, fetchAllClusterPairs])
   // NOTE: clusterGroups IS in dependencies to fetch after clearing
   // NOTE: isLoadingDistributedPairs NOT in dependencies to avoid infinite loop
+  // NOTE: clusterThreshold IS in dependencies to refetch when threshold changes
 
   // Clear cluster groups on unmount
   useEffect(() => {
@@ -198,15 +213,32 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
   }, [clearDistributedPairs])
 
-  // Build pair list from cluster groups
+  // Build and randomly sample pair list from ALL cluster pairs (Simplified Flow)
   const pairList = useMemo(() => {
     if (!filteredTableData || !selectedFeatureIds) {
       return []
     }
 
     if (clusterGroups && clusterGroups.length > 0) {
-      const pairs = buildClusterPairs(filteredTableData, clusterGroups, selectedFeatureIds)
-      console.log('[FeatureSplitView] Built cluster pairs:', pairs.length, 'from', clusterGroups.length, 'clusters')
+      // Select 10 random clusters (or all if fewer than 10)
+      const NUM_CLUSTERS_TO_DISPLAY = 10
+      const selectedClusters = clusterGroups.length <= NUM_CLUSTERS_TO_DISPLAY
+        ? clusterGroups  // Use all clusters if we have 10 or fewer
+        : (() => {
+            // Randomly sample 10 clusters using Fisher-Yates shuffle
+            const shuffled = [...clusterGroups]
+            for (let i = shuffled.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+            }
+            return shuffled.slice(0, NUM_CLUSTERS_TO_DISPLAY)
+          })()
+
+      // Build ALL pairs from the selected clusters
+      const pairs = buildClusterPairs(filteredTableData, selectedClusters, selectedFeatureIds)
+
+      console.log('[FeatureSplitView] [SIMPLIFIED FLOW] Selected', selectedClusters.length, 'clusters from', clusterGroups.length, 'total → built', pairs.length, 'pairs')
+
       return pairs
     }
 
@@ -246,37 +278,18 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   // PAIR LIST LOGIC (for top row list)
   // ============================================================================
 
-  // Calculate selection counts for Tag Automatically button
-  const selectionCounts = useMemo(() => {
-    let selectedCount = 0
-    let rejectedCount = 0
-    pairSelectionStates.forEach(state => {
-      if (state === 'selected') selectedCount++
-      else if (state === 'rejected') rejectedCount++
-    })
-    return { selectedCount, rejectedCount }
-  }, [pairSelectionStates])
-
-  const canTagAutomatically = selectionCounts.selectedCount >= 1 && selectionCounts.rejectedCount >= 1
-
-  // Handler for Tag Automatically button
-  const handleTagAutomatically = useCallback(() => {
-    // Use a default position since we don't have access to the event
-    // The popover will be positioned at a reasonable default location
-    // Pass selected feature IDs AND threshold to fetch ALL cluster-based pairs from segment
-    console.log('[FeatureSplitView] Tag Automatically clicked - passing features:', selectedFeatureIds?.size || 0, ', threshold:', clusterThreshold)
-    showTagAutomaticPopover('pair', {
-      x: 250,
-      y: 400
-    }, 'Fragmented', selectedFeatureIds, clusterThreshold)
-  }, [showTagAutomaticPopover, selectedFeatureIds, clusterThreshold])
-
   // Jump to specific pair handler
   const goToPair = useCallback((index: number) => {
     if (index >= 0 && index < pairList.length) {
       setCurrentPairIndex(index)
     }
   }, [pairList.length])
+
+  // Apply tags button handler
+  const handleApplyTags = useCallback(() => {
+    console.log('[FeatureSplitView] Applying tags')
+    applySimilarityTags()
+  }, [applySimilarityTags])
 
   // ============================================================================
   // BOUNDARY ITEMS LOGIC (for bottom row left/right lists)
@@ -287,10 +300,45 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     const selectThreshold = tagAutomaticState?.selectThreshold ?? 0.8
     const rejectThreshold = tagAutomaticState?.rejectThreshold ?? 0.3
 
-    console.log('[FeatureSplitView.boundaryItems] Recomputing with thresholds:', { selectThreshold, rejectThreshold, pairCount: pairList.length })
+    console.log('[FeatureSplitView.boundaryItems] Recomputing with thresholds:', {
+      selectThreshold,
+      rejectThreshold,
+      allPairsCount: allClusterPairs?.length || 0,
+      sampledPairsCount: pairList.length
+    })
 
-    // Use pairList with SVM similarity scores
-    if (!pairList || pairList.length === 0) {
+    // Build ALL pairs from allClusterPairs (not just sampled)
+    let allPairs: Array<{
+      mainFeatureId: number
+      similarFeatureId: number
+      pairKey: string
+      row: FeatureTableRow | null
+      similarRow: FeatureTableRow | null
+    }> = []
+
+    if (allClusterPairs && filteredTableData?.rows && selectedFeatureIds) {
+      // Build row map
+      const rowMap = new Map<number, FeatureTableRow>()
+      filteredTableData.rows.forEach((row: FeatureTableRow) => {
+        rowMap.set(row.feature_id, row)
+      })
+
+      // Convert all cluster pairs to pair objects
+      allPairs = allClusterPairs
+        .filter(p => selectedFeatureIds.has(p.main_id) && selectedFeatureIds.has(p.similar_id))
+        .map(p => ({
+          mainFeatureId: p.main_id,
+          similarFeatureId: p.similar_id,
+          pairKey: p.pair_key,
+          row: rowMap.get(p.main_id) || null,
+          similarRow: rowMap.get(p.similar_id) || null
+        }))
+    } else if (pairList.length > 0) {
+      // Fallback: use sampled pairs
+      allPairs = pairList
+    }
+
+    if (allPairs.length === 0) {
       return { rejectAbove: [], rejectBelow: [], selectAbove: [], selectBelow: [] }
     }
 
@@ -301,7 +349,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
 
     // Filter pairs that have SVM similarity scores (from pairSimilarityScores Map)
-    const pairsWithScores = pairList.filter(pair => pairSimilarityScores.has(pair.pairKey))
+    const pairsWithScores = allPairs.filter(pair => pairSimilarityScores.has(pair.pairKey))
 
     if (pairsWithScores.length === 0) {
       return { rejectAbove: [], rejectBelow: [], selectAbove: [], selectBelow: [] }
@@ -344,7 +392,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       selectAboveScores: selectAbove.map(p => pairSimilarityScores.get(p.pairKey))
     })
     return result
-  }, [pairList, tagAutomaticState, pairSimilarityScores])
+  }, [pairList, tagAutomaticState, pairSimilarityScores, allClusterPairs, filteredTableData, selectedFeatureIds])
 
   // Get tag color for header badge
   const fragmentedColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Fragmented') || '#F0E442'
@@ -429,13 +477,12 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               )
             }}
             footerButton={{
-              label: 'Tag Automatically',
-              onClick: handleTagAutomatically,
-              disabled: !canTagAutomatically,
-              title: canTagAutomatically
-                ? 'Tag remaining pairs automatically'
-                : `Need ≥1 Fragmented and ≥1 Monosemantic (${selectionCounts.selectedCount}/1 Fragmented, ${selectionCounts.rejectedCount}/1 Monosemantic)`,
-              className: canTagAutomatically ? 'scrollable-list__footer-button--available' : ''
+              label: 'Apply Tags',
+              onClick: handleApplyTags,
+              disabled: !tagAutomaticState?.histogramData,
+              title: tagAutomaticState?.histogramData
+                ? 'Apply auto-tagging based on current thresholds'
+                : 'Adjust thresholds in histogram first'
             }}
           />
           <FeatureSplitPairViewer
@@ -519,6 +566,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             mode="pair"
             availablePairs={pairList}
             filteredFeatureIds={selectedFeatureIds}
+            threshold={clusteringThreshold}
           />
 
           {/* Right boundary lists - items near select threshold */}

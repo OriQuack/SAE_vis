@@ -326,21 +326,43 @@ export async function getSimilarityScoreHistogram(
   return data
 }
 
+/**
+ * Get pair similarity score histogram (Simplified Flow).
+ *
+ * Simplified Flow (recommended):
+ *   - Pass feature_ids + threshold
+ *   - Backend generates pairs via clustering and trains SVM
+ *
+ * Legacy Flow (backward compatibility):
+ *   - Pass explicit pairKeys
+ *   - Backend scores provided pairs
+ *
+ * @param selectedPairKeys - Manually selected pairs (training data)
+ * @param rejectedPairKeys - Manually rejected pairs (training data)
+ * @param options - Either { featureIds, threshold } or { pairKeys }
+ */
 export async function getPairSimilarityScoreHistogram(
   selectedPairKeys: string[],
   rejectedPairKeys: string[],
-  pairKeys: string[]
+  options: { featureIds: number[], threshold: number } | { pairKeys: string[] }
 ): Promise<SimilarityScoreHistogramResponse> {
+  const isSimplifiedFlow = 'featureIds' in options
+
   console.log('[API] getPairSimilarityScoreHistogram called with:', {
     selectedCount: selectedPairKeys.length,
     rejectedCount: rejectedPairKeys.length,
-    totalPairs: pairKeys.length
+    flow: isSimplifiedFlow ? 'simplified (feature_ids + threshold)' : 'legacy (explicit pair_keys)',
+    ...(isSimplifiedFlow
+      ? { featureCount: options.featureIds.length, threshold: options.threshold }
+      : { totalPairs: options.pairKeys.length })
   })
 
   const requestBody: PairSimilarityHistogramRequest = {
     selected_pair_keys: selectedPairKeys,
     rejected_pair_keys: rejectedPairKeys,
-    pair_keys: pairKeys
+    ...(isSimplifiedFlow
+      ? { feature_ids: options.featureIds, threshold: options.threshold }
+      : { pair_keys: options.pairKeys })
   }
 
   const response = await fetch(`${API_BASE}${API_ENDPOINTS.PAIR_SIMILARITY_SCORE_HISTOGRAM}`, {
@@ -447,43 +469,50 @@ export async function getCauseSimilarityScoreHistogram(
   return data
 }
 
-export async function getClusterCandidates(
-  featureIds: number[],
-  n: number = 10,
-  threshold: number = 0.5
-): Promise<{
-  cluster_groups: Array<{cluster_id: number, feature_ids: number[]}>
-  feature_to_cluster: Record<number, number>
-  total_clusters: number
-  clusters_selected: number
-  threshold_used: number
-}> {
-  const response = await fetch(`${API_BASE}${API_ENDPOINTS.CLUSTER_CANDIDATES}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      feature_ids: featureIds,
-      n: n,
-      threshold: threshold
-    })
-  })
+// ============================================================================
+// CLUSTER-BASED PAIR GENERATION (Simplified Flow)
+// ============================================================================
 
-  if (!response.ok) {
-    const errorText = await response.text()
-    console.error('[API] Cluster candidates error:', response.status, errorText)
-    throw new Error(`Failed to fetch cluster candidates: ${response.status} - ${errorText}`)
-  }
-
-  return response.json()
+export interface ClusterPair {
+  main_id: number
+  similar_id: number
+  pair_key: string
+  cluster_id: number
 }
 
-export async function getSegmentClusterPairs(
+export interface ClusterInfo {
+  cluster_id: number
+  feature_ids: number[]
+  pair_count: number
+}
+
+export interface AllClusterPairsResponse {
+  pairs: ClusterPair[]                    // Full pair objects for frontend use
+  pair_keys: string[]                     // Backward compatibility
+  clusters: ClusterInfo[]
+  feature_to_cluster: Record<number, number>
+  total_clusters: number
+  total_pairs: number
+  threshold_used: number
+}
+
+/**
+ * Get ALL cluster-based pairs for a set of features (Simplified Flow).
+ *
+ * This is the SINGLE endpoint for pair generation:
+ * - No sampling (returns ALL pairs from ALL clusters)
+ * - Frontend controls display sampling
+ * - Used for both candidate display AND histogram
+ *
+ * @param featureIds - Feature IDs to cluster
+ * @param threshold - Clustering threshold (0-1)
+ * @returns Complete pair information with metadata
+ */
+export async function getAllClusterPairs(
   featureIds: number[],
   threshold: number = 0.5
-): Promise<string[]> {
-  console.log(`[API.getSegmentClusterPairs] Requesting pairs for ${featureIds.length} features at threshold ${threshold}`)
+): Promise<AllClusterPairsResponse> {
+  console.log(`[API.getAllClusterPairs] Requesting ALL pairs for ${featureIds.length} features at threshold ${threshold}`)
 
   const response = await fetch(`${API_BASE}${API_ENDPOINTS.SEGMENT_CLUSTER_PAIRS}`, {
     method: 'POST',
@@ -498,11 +527,11 @@ export async function getSegmentClusterPairs(
 
   if (!response.ok) {
     const errorText = await response.text()
-    console.error('[API] Segment cluster pairs error:', response.status, errorText)
-    throw new Error(`Failed to fetch segment cluster pairs: ${response.status} - ${errorText}`)
+    console.error('[API] Get all cluster pairs error:', response.status, errorText)
+    throw new Error(`Failed to fetch all cluster pairs: ${response.status} - ${errorText}`)
   }
 
   const data = await response.json()
-  console.log(`[API.getSegmentClusterPairs] Received ${data.total_pairs} pairs from ${data.total_clusters} clusters`)
-  return data.pair_keys
+  console.log(`[API.getAllClusterPairs] Received ${data.total_pairs} pairs from ${data.total_clusters} clusters`)
+  return data
 }

@@ -117,7 +117,7 @@ export const createTableActions = (set: any, get: any) => {
 
     // Feature Splitting actions (pairs)
     sortPairsBySimilarity: featureSplittingActions.sortPairsBySimilarity,
-    fetchDistributedPairs: featureSplittingActions.fetchDistributedPairs,
+    fetchAllClusterPairs: featureSplittingActions.fetchAllClusterPairs,  // UPDATED: Simplified flow
     clearDistributedPairs: featureSplittingActions.clearDistributedPairs,
     fetchSimilarityHistogram: featureSplittingActions.fetchSimilarityHistogram,
 

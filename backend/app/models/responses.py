@@ -620,11 +620,36 @@ class ClusterCandidatesResponse(BaseModel):
         description="Distance threshold used for cutting the dendrogram"
     )
 
+class ClusterPair(BaseModel):
+    """Single cluster-based feature pair"""
+    main_id: int = Field(..., description="First feature ID (smaller)")
+    similar_id: int = Field(..., description="Second feature ID (larger)")
+    pair_key: str = Field(..., description="Canonical pair key (format: 'main_id-similar_id')")
+    cluster_id: int = Field(..., description="Cluster ID this pair belongs to")
+
+class ClusterInfo(BaseModel):
+    """Cluster information"""
+    cluster_id: int = Field(..., description="Cluster ID")
+    feature_ids: List[int] = Field(..., description="Feature IDs in this cluster")
+    pair_count: int = Field(..., description="Number of pairs in this cluster")
+
 class SegmentClusterPairsResponse(BaseModel):
-    """Response model for segment cluster pairs"""
+    """Response model for segment cluster pairs (ALL pairs, no sampling)"""
+    pairs: List[ClusterPair] = Field(
+        ...,
+        description="Full pair objects with metadata for frontend use"
+    )
     pair_keys: List[str] = Field(
         ...,
-        description="List of all cluster-based pair keys (format: 'id1-id2')"
+        description="List of all cluster-based pair keys (format: 'id1-id2') for backward compatibility"
+    )
+    clusters: List[ClusterInfo] = Field(
+        ...,
+        description="Cluster information with feature members and pair counts"
+    )
+    feature_to_cluster: Dict[int, int] = Field(
+        ...,
+        description="Mapping of ALL feature IDs to their cluster IDs"
     )
     total_clusters: int = Field(
         ...,
@@ -633,4 +658,8 @@ class SegmentClusterPairsResponse(BaseModel):
     total_pairs: int = Field(
         ...,
         description="Total number of pairs generated from clusters"
+    )
+    threshold_used: float = Field(
+        ...,
+        description="Distance threshold used for clustering"
     )
