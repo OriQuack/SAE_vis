@@ -903,6 +903,16 @@ export interface SimilarityHistogramStatistics {
 }
 
 /**
+ * Bimodality Info - Results from bimodality detection (Dip Test + GMM BIC)
+ */
+export interface BimodalityInfo {
+  state: 'bimodal' | 'likely_bimodal' | 'uncertain' | 'likely_unimodal' | 'unimodal' | 'insufficient_data'
+  dip_pvalue: number
+  gmm_better_k: number  // 1 or 2 (which GMM fits better)
+  gmm_weights: [number, number]  // Component weights [larger, smaller], sum to 1.0
+}
+
+/**
  * Similarity Score Histogram Response - Distribution of similarity scores
  */
 export interface SimilarityScoreHistogramResponse {
@@ -910,6 +920,7 @@ export interface SimilarityScoreHistogramResponse {
   histogram: SimilarityHistogramData
   statistics: SimilarityHistogramStatistics
   total_items: number
+  bimodality?: BimodalityInfo  // Bimodality detection results
 }
 
 /**

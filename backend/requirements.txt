@@ -4,6 +4,7 @@ polars==0.19.19
 pydantic==2.5.0
 numpy>=1.25.2
 scikit-learn>=1.6.0
+diptest>=0.6.0
 python-multipart==0.0.6
 httpx==0.25.2
 pytest==7.4.3

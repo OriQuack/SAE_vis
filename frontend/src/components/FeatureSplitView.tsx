@@ -5,6 +5,7 @@ import SelectionPanel from './SelectionPanel'
 import FeatureSplitPairViewer from './FeatureSplitPairViewer'
 import TagAutomaticPanel from './TagAutomaticPanel'
 import ScrollableItemList from './ScrollableItemList'
+import BimodalityIndicator from './BimodalityIndicator'
 import { TagBadge } from './TableIndicators'
 import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
@@ -681,6 +682,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
           {/* Apply Tags button - between histogram and boundary lists */}
           <div className="feature-split-view__apply-button-container">
+            <BimodalityIndicator bimodality={tagAutomaticState?.histogramData?.bimodality} />
             <button
               className="feature-split-view__apply-button"
               onClick={handleApplyTags}

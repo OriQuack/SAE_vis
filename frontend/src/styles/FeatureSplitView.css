@@ -181,9 +181,10 @@
 .feature-split-view__apply-button-container {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
   padding: 8px 4px;
+  gap: 8px;
   flex-shrink: 0;
 }
 

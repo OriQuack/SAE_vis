@@ -14,6 +14,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  width: 100%;
 }
 
 .selection-state-bar__total {
@@ -21,10 +22,11 @@
   flex-direction: column;
   align-items: center;
   gap: 2px;
+  width: 100%;
 }
 
 .selection-state-bar__total-primary {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: #111827;
   text-align: center;
@@ -32,7 +34,7 @@
 }
 
 .selection-state-bar__total-secondary {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 500;
   color: #6b7280;
   text-align: center;
@@ -62,16 +64,17 @@
 /* Interactive segments (with click handler) */
 .selection-state-bar__segment--interactive {
   cursor: pointer;
+  transition: box-shadow 0.15s ease, filter 0.15s ease;
 }
 
 .selection-state-bar__segment--interactive:hover {
-  filter: brightness(1.1);
+  filter: brightness(0.92);
   z-index: 1;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .selection-state-bar__segment--interactive:active {
-  filter: brightness(0.95);
+  filter: brightness(0.88);
 }
 
 /* Segment Labels */

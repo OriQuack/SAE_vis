@@ -288,7 +288,9 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
         segments.push(
           <div
             key={`${category}-preview`}
-            className="selection-state-bar__segment selection-state-bar__segment--preview"
+            className={`selection-state-bar__segment selection-state-bar__segment--preview ${
+              onCategoryClick ? 'selection-state-bar__segment--interactive' : ''
+            }`}
             style={{
               ...(isVertical ? {
                 height: `${stripePercentage}%`,
@@ -302,12 +304,13 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
               backgroundColor: stripeColor,
               position: 'relative'
             }}
+            onClick={() => handleCategoryClick(category)}
             onMouseEnter={(e) => handleMouseEnter(category, e)}
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
           >
             {/* Stripe pattern overlay - alternating tag color and unsure color */}
-            <svg width="100%" height="100%" style={{ position: 'absolute', top: 0, left: 0 }} xmlns="http://www.w3.org/2000/svg">
+            <svg width="100%" height="100%" style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }} xmlns="http://www.w3.org/2000/svg">
               <defs>
                 <pattern
                   id={`stripe-preview-${category}`}
@@ -350,11 +353,11 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
         <div className="selection-state-bar__header">
           <div className="selection-state-bar__total">
             <div className="selection-state-bar__total-primary">
-              {counts.total} {mode === 'cause' ? 'items' : 'features'}
+              {counts.total} {mode === 'cause' ? 'items' : 'Features'}
             </div>
             {mode === 'pair' && pairCount !== undefined && (
               <div className="selection-state-bar__total-secondary">
-                ({pairCount} pairs)
+                ({pairCount} Pairs)
               </div>
             )}
           </div>

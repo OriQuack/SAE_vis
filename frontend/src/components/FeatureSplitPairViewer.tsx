@@ -254,10 +254,6 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
             <span className="legend-label">Activation Strength</span>
           </div>
           <div className="legend-item">
-            <span className="legend-sample legend-sample--max">token</span>:
-            <span className="legend-label">Max Activation</span>
-          </div>
-          <div className="legend-item">
             <span className="legend-sample legend-sample--intra">token</span>:
             <span className="legend-label">Within-Feature Pattern</span>
           </div>

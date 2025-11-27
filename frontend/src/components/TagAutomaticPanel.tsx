@@ -431,17 +431,20 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
   return (
     <div className="tag-automatic-panel">
       <div className="tag-panel__content">
-        {isLoading ? (
-          <div className="tag-panel__loading">
-            <div className="spinner" />
-            <span>Calculating similarity scores...</span>
-          </div>
-        ) : histogramChart ? (
-          <div className="tag-panel__histogram-container">
-            <svg
-              ref={svgRef}
-              className="tag-panel__svg"
-            >
+        {/* Histogram container - always rendered if we have data, dimmed when loading */}
+        {histogramChart ? (
+            <div className={`tag-panel__histogram-container ${isLoading ? 'tag-panel__histogram-container--loading' : ''}`}>
+              {/* Loading overlay - shown on top of dimmed histogram */}
+              {isLoading && (
+                <div className="tag-panel__loading-overlay">
+                  <div className="spinner" />
+                  <span>Updating...</span>
+                </div>
+              )}
+              <svg
+                ref={svgRef}
+                className="tag-panel__svg"
+              >
                 {/* Define stripe patterns for preview */}
                 <defs>
                   <pattern
@@ -719,11 +722,17 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
                 </g>
               </svg>
             </div>
-          ) : (
-            <div className="tag-panel__error">
-              Failed to load histogram data
-            </div>
-          )}
+        ) : isLoading ? (
+          /* Initial loading state - no previous data to show */
+          <div className="tag-panel__loading">
+            <div className="spinner" />
+            <span>Calculating similarity scores...</span>
+          </div>
+        ) : (
+          <div className="tag-panel__error">
+            Failed to load histogram data
+          </div>
+        )}
       </div>
     </div>
   )

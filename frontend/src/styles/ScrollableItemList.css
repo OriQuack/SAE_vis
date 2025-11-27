@@ -170,20 +170,17 @@
 
 /* Current/selected item */
 .scrollable-list-item--current {
-  padding: 2px;
-  border: 2px solid #3b82f6;
+  border: 1px solid #3b82f6;
   border-radius: 6px;
   background-color: white;
-  box-shadow: 0 0 0 1px #3b82f6;
   z-index: 1;
 }
 
 /* When current item is also highlighted */
 .scrollable-list-item--current.scrollable-list-item--highlighted {
   background-color: #bfdbfe;
+  border: 3px solid #3b82f6;
   padding: 2px;
-  border: 2px solid #3b82f6;
-  box-shadow: 0 0 0 2px #3b82f6;
 }
 
 /* Ensure children have no extra margins */

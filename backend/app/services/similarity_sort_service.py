@@ -19,8 +19,9 @@ from ..models.similarity_sort import (
     PairSimilaritySortRequest, PairSimilaritySortResponse, PairScore,
     SimilarityHistogramRequest, SimilarityHistogramResponse,
     PairSimilarityHistogramRequest,
-    HistogramData, HistogramStatistics
+    HistogramData, HistogramStatistics, BimodalityInfo
 )
+from .bimodality_service import BimodalityService
 
 if TYPE_CHECKING:
     from .data_service import DataService
@@ -52,6 +53,7 @@ class SimilaritySortService:
         """
         self.data_service = data_service
         self.cluster_service = cluster_service
+        self.bimodality_service = BimodalityService()
 
         # SVM model cache: (selected_ids, rejected_ids) hash -> (model, scaler)
         self._svm_cache: Dict[str, Tuple[SVC, StandardScaler]] = {}
@@ -861,6 +863,9 @@ class SimilaritySortService:
             median=float(np.median(score_values))
         )
 
+        # Detect bimodality
+        bimodality_result = self.bimodality_service.detect_bimodality(score_values)
+
         logger.info(f"Successfully generated histogram for {len(feature_scores)} features")
 
         return SimilarityHistogramResponse(
@@ -871,7 +876,13 @@ class SimilaritySortService:
                 bin_edges=bin_edges.tolist()
             ),
             statistics=statistics,
-            total_items=len(feature_scores)
+            total_items=len(feature_scores),
+            bimodality=BimodalityInfo(
+                state=bimodality_result.state,
+                dip_pvalue=bimodality_result.dip_pvalue,
+                gmm_better_k=bimodality_result.gmm_better_k,
+                gmm_weights=list(bimodality_result.gmm_weights)
+            )
         )
 
     def _calculate_similarity_scores_for_histogram(
@@ -1081,6 +1092,9 @@ class SimilaritySortService:
             median=float(np.median(score_values))
         )
 
+        # Detect bimodality
+        bimodality_result = self.bimodality_service.detect_bimodality(score_values)
+
         logger.info(f"Successfully generated histogram for {len(pair_scores)} pairs")
 
         return SimilarityHistogramResponse(
@@ -1091,7 +1105,13 @@ class SimilaritySortService:
                 bin_edges=bin_edges.tolist()
             ),
             statistics=statistics,
-            total_items=len(pair_scores)
+            total_items=len(pair_scores),
+            bimodality=BimodalityInfo(
+                state=bimodality_result.state,
+                dip_pvalue=bimodality_result.dip_pvalue,
+                gmm_better_k=bimodality_result.gmm_better_k,
+                gmm_weights=list(bimodality_result.gmm_weights)
+            )
         )
 
     def _calculate_pair_similarity_scores_for_histogram(
