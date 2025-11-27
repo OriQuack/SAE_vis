@@ -66,6 +66,7 @@ interface AppState {
   pairSelectionSources: Map<string, 'manual' | 'auto'>
   togglePairSelection: (mainFeatureId: number, similarFeatureId: number) => void
   clearPairSelection: () => void
+  restorePairSelectionStates: (states: Map<string, 'selected' | 'rejected'>, sources: Map<string, 'manual' | 'auto'>) => void
 
   // Cause category selection state (used by CauseTablePanel)
   // Three-state cycle: null -> noisy-activation -> missed-lexicon -> missed-context -> null
@@ -506,6 +507,14 @@ export const useStore = create<AppState>((set, get) => ({
     })
   },
 
+  restorePairSelectionStates: (states: Map<string, 'selected' | 'rejected'>, sources: Map<string, 'manual' | 'auto'>) => {
+    set({
+      pairSelectionStates: new Map(states),
+      pairSelectionSources: new Map(sources),
+      donePairSelectionStates: null
+    })
+  },
+
   // Cause category selection actions (used by CauseTablePanel)
   // Three-state cycle: null -> noisy-activation -> missed-lexicon -> missed-context -> null
   toggleCauseCategory: (featureId: number) => {
@@ -863,9 +872,7 @@ export const useStore = create<AppState>((set, get) => ({
     console.log('✅ Parallel initialization complete - Table data + Sankey ready')
 
     // Activate Feature Splitting view by default
-    console.log('🎯 Activating Feature Splitting stage by default')
     await get().activateCategoryTable(TAG_CATEGORY_FEATURE_SPLITTING)
-    console.log('✅ Feature Splitting stage activated - FeatureSplitView ready')
   }
 }))
 

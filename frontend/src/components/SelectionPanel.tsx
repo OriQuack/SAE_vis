@@ -205,14 +205,25 @@ const SimpleSelectionBar: React.FC<SimpleSelectionBarProps> = ({
   )
 }
 
+// Commit history type (mirrors FeatureSplitView's TagCommit)
+interface TagCommit {
+  id: number
+  pairSelectionStates: Map<string, 'selected' | 'rejected'>
+  pairSelectionSources: Map<string, 'manual' | 'auto'>
+}
+
 interface SelectionPanelProps {
   mode: 'feature' | 'pair' | 'cause'
   tagLabel: string
   onDone?: () => void
   doneButtonEnabled?: boolean
   onCategoryRefsReady?: (refs: Map<SelectionCategory, HTMLDivElement>) => void  // Callback for flow overlay
-  availablePairs?: Array<{pairKey: string, mainFeatureId: number, similarFeatureId: number}>  // Cluster-based pairs (single source of truth)
+  availablePairs?: Array<{pairKey: string, mainFeatureId: number, similarFeatureId: number}>  // Cluster-based pairs (single source of truth) - used for pair count
   filteredFeatureIds?: Set<number>  // Selected feature IDs from Sankey segment
+  // Commit history props (for pair mode)
+  commitHistory?: TagCommit[]
+  currentCommitIndex?: number
+  onCommitClick?: (commitIndex: number) => void
 }
 
 /**
@@ -228,8 +239,11 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
   onDone,
   doneButtonEnabled = false,
   onCategoryRefsReady,
-  availablePairs,
-  filteredFeatureIds: propFilteredFeatureIds
+  availablePairs: _availablePairs,
+  filteredFeatureIds: propFilteredFeatureIds,
+  commitHistory,
+  currentCommitIndex,
+  onCommitClick
 }) => {
   // State from store
   const tableData = useVisualizationStore(state => state.tableData)
@@ -252,6 +266,10 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
 
   // Get filtered feature IDs - prefer prop if provided, otherwise use store's method
   const filteredFeatureIds = useMemo(() => {
+    // These dependencies are necessary to trigger recalculation when Sankey selection changes
+    const _deps = { sankeyStructure, selectedSegment, tableSelectedNodeIds }
+    void _deps  // Consume the variable to avoid unused-vars warning
+
     // If prop is provided, use it (from FeatureSplitView)
     if (propFilteredFeatureIds) {
       console.log('[SelectionPanel] Using prop filteredFeatureIds:', propFilteredFeatureIds.size, 'features')
@@ -557,7 +575,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
           </div>
         )}
 
-        {/* Center: Selection State Bar */}
+        {/* Center: Selection State Bar + Commit History */}
         <div className="table-selection-panel__bar-container">
           <SelectionStateBar
             counts={counts}
@@ -572,6 +590,28 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
             onCategoryRefsReady={onCategoryRefsReady}
             pairCount={pairCount}
           />
+
+          {/* Commit History Circles - shown in pair mode when history exists */}
+          {mode === 'pair' && commitHistory && commitHistory.length > 0 && onCommitClick && (
+            <div className="commit-history">
+              <div className="commit-history__label">History</div>
+              <div className="commit-history__circles">
+                {commitHistory.map((commit, index) => (
+                  <button
+                    key={commit.id}
+                    className={`commit-history__circle ${
+                      index === currentCommitIndex ? 'commit-history__circle--active' : 'commit-history__circle--past'
+                    }`}
+                    onClick={() => onCommitClick(index)}
+                    title={`Commit ${index + 1}: ${commit.pairSelectionStates.size} tagged pairs`}
+                    aria-label={`Go to commit ${index + 1}`}
+                  >
+                    <span className="commit-history__circle-number">{index + 1}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right Actions: Done */}

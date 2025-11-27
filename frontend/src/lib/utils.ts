@@ -27,6 +27,7 @@ interface UseResizeObserverOptions {
 interface UseResizeObserverReturn<T extends HTMLElement = HTMLElement> {
   ref: (node: T | null) => void
   size: Size
+  hasMeasured: boolean  // True after at least one real measurement has been applied
 }
 
 // ============================================================================
@@ -43,6 +44,7 @@ export const useResizeObserver = <T extends HTMLElement = HTMLElement>({
   debugId = 'unknown'
 }: UseResizeObserverOptions = {}): UseResizeObserverReturn<T> => {
   const [size, setSize] = useState<Size>({ width: defaultWidth, height: defaultHeight })
+  const [hasMeasured, setHasMeasured] = useState(false)
   const timeoutRef = useRef<number | undefined>(undefined)
   const observerRef = useRef<ResizeObserver | null>(null)
   const debugIdRef = useRef(debugId)
@@ -58,16 +60,15 @@ export const useResizeObserver = <T extends HTMLElement = HTMLElement>({
     }
 
     if (node) {
-    //   console.log(`[useResizeObserver ${debugIdRef.current}] Element attached, measuring immediately`)
-
       // Immediate measurement
       const rect = node.getBoundingClientRect()
       const newSize = {
         width: rect.width || defaultWidth,
         height: rect.height || defaultHeight
       }
-    //   console.log(`[useResizeObserver ${debugIdRef.current}] Initial size:`, newSize)
+      // Batch both updates together so they trigger a single re-render
       setSize(newSize)
+      setHasMeasured(true)
 
       // Set up observer for future changes
       observerRef.current = new ResizeObserver(() => {
@@ -85,6 +86,9 @@ export const useResizeObserver = <T extends HTMLElement = HTMLElement>({
         }, debounceMs)
       })
       observerRef.current.observe(node)
+    } else {
+      // Node detached, reset hasMeasured
+      setHasMeasured(false)
     }
   }, [defaultWidth, defaultHeight, debounceMs])
 
@@ -100,7 +104,7 @@ export const useResizeObserver = <T extends HTMLElement = HTMLElement>({
     }
   }, [])
 
-  return { ref: callbackRef, size }
+  return { ref: callbackRef, size, hasMeasured }
 }
 
 // ============================================================================

@@ -19,7 +19,6 @@ import {
   getRowCategoryClass
 } from '../lib/color-utils'
 import {
-  TAG_CATEGORY_FEATURE_SPLITTING,
   TAG_CATEGORY_CAUSE,
   TAG_CATEGORY_QUALITY,
 } from '../lib/constants'
@@ -28,6 +27,8 @@ import ActivationExample from './ActivationExample'
 import QualityScoreBreakdown from './QualityScoreBreakdown'
 import CauseTablePanel from './CauseTable'
 import SimilarityTaggingPopover from './TagAutomaticPopover'
+import FeatureSplitPairViewer from './FeatureSplitPairViewer'
+import TagAutomaticPanel from './TagAutomaticPanel'
 import '../styles/QualityTable.css'
 
 // ============================================================================

@@ -347,7 +347,7 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
   const isDraggingPopoverRef = useRef(false) // Tracks if popover is being dragged
   const dragOffsetRef = useRef<{ x: number; y: number } | null>(null) // Mouse offset from popover origin
   const currentDragPositionRef = useRef<{ x: number; y: number } | null>(null) // Current drag position (updated via RAF)
-  const dragUpdateTimerRef = useRef<NodeJS.Timeout | null>(null) // Debounce timer for real-time store updates during drag
+  const dragUpdateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null) // Debounce timer for real-time store updates during drag
 
   // Local state for dragging
   const [draggedPosition, setDraggedPosition] = useState<{ x: number; y: number } | null>(null)

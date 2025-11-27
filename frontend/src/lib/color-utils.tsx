@@ -270,13 +270,14 @@ export function getRowCategoryClass(
  */
 export function createStripePattern(
   patternId: string,
-  stripeColor: string
+  stripeColor: string,
+  opacity: number = 0.3
 ): React.ReactElement {
   return (
     <svg
       width="100%"
       height="100%"
-      style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}
+      style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', opacity }}
       xmlns="http://www.w3.org/2000/svg"
     >
       <defs>

@@ -10,7 +10,8 @@ import {
   type TagCategoryConfig,
   type TagColorMode,
   OKABE_ITO_PALETTE,
-  UNSURE_GRAY
+  UNSURE_GRAY,
+  PAUL_TOL_BRIGHT
 } from './constants'
 import { HierarchicalColorAssigner } from './hierarchical-colors'
 import type { SankeyTreeNode } from '../types'
@@ -123,17 +124,17 @@ function assignConstantColors(): void {
         // Feature Splitting Category
         // ========================================
         case 'Monosemantic':
-          colors[tag] = OKABE_ITO_PALETTE.GRAY  // #009E73 - Green (good: single concept)
+          colors[tag] = PAUL_TOL_BRIGHT.CYAN  // #009E73 - Green (good: single concept)
           break
         case 'Fragmented':
-          colors[tag] = OKABE_ITO_PALETTE.YELLOW  // #EE6677 - Red (bad: split features)
+          colors[tag] = OKABE_ITO_PALETTE.ORANGE  // #EE6677 - Red (bad: split features)
           break
 
         // ========================================
         // Quality Category
         // ========================================
         case 'Need Revision':
-          colors[tag] = OKABE_ITO_PALETTE.GRAY  // #EE6677 - Red (bad: low quality)
+          colors[tag] = OKABE_ITO_PALETTE.REDDISH_PURPLE  // #EE6677 - Red (bad: low quality)
           break
         case 'Well-Explained':
           colors[tag] = OKABE_ITO_PALETTE.BLUISH_GREEN  // #009E73 - Green (good: high quality)
@@ -146,10 +147,10 @@ function assignConstantColors(): void {
           colors[tag] = OKABE_ITO_PALETTE.VERMILLION  // #0072B2 - Blue
           break
         case 'Missed Lexicon':
-          colors[tag] = OKABE_ITO_PALETTE.ORANGE  // #E69F00 - Orange
+          colors[tag] = OKABE_ITO_PALETTE.YELLOW  // #E69F00 - Orange
           break
         case 'Noisy Activation':
-          colors[tag] = OKABE_ITO_PALETTE.REDDISH_PURPLE  // #CC79A7 - Purple
+          colors[tag] = PAUL_TOL_BRIGHT.RED  // #CC79A7 - Purple
           break
         case 'Unsure':
           colors[tag] = UNSURE_GRAY  // Centralized unsure/untagged color

@@ -205,14 +205,13 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
    *                   If not provided, defaults to 0.5. Should match Sankey segment threshold.
    */
   fetchSimilarityHistogram: async (selectedFeatureIds?: Set<number>, threshold?: number) => {
-    const { pairSelectionStates, tableData } = get()
+    const { pairSelectionStates } = get()
     console.log('[fetchSimilarityHistogram] Called with features:', selectedFeatureIds?.size || 0, ', threshold:', threshold ?? 0.5)
 
     try {
       // Extract selected and rejected pair keys
       const selectedPairKeys: string[] = []
       const rejectedPairKeys: string[] = []
-      let allPairKeys: string[] = []
 
       pairSelectionStates.forEach((state: string | null, pairKey: string) => {
         if (state === 'selected') selectedPairKeys.push(pairKey)
@@ -239,22 +238,30 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
           { featureIds: Array.from(selectedFeatureIds), threshold: threshold }  // Simplified flow
         )
 
-        // Calculate dynamic thresholds and update state
+        // Get current state to preserve user-adjusted thresholds
+        const currentState = get().tagAutomaticState
+
+        // Calculate dynamic thresholds ONLY if no existing thresholds
+        // This preserves user-adjusted thresholds when refetching histogram
         const { statistics } = histogramData
         const maxAbsValue = Math.max(
           Math.abs(statistics.min || 0),
           Math.abs(statistics.max || 0)
         )
-        const selectThreshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? maxAbsValue / 2 : 0.2
-        const rejectThreshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? -maxAbsValue / 2 : -0.2
+        const defaultSelectThreshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? maxAbsValue / 2 : 0.2
+        const defaultRejectThreshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? -maxAbsValue / 2 : -0.2
 
-        // Always update/create tagAutomaticState
-        const currentState = get().tagAutomaticState
+        // Preserve existing thresholds if they exist, otherwise use calculated defaults
+        const selectThreshold = currentState?.selectThreshold ?? defaultSelectThreshold
+        const rejectThreshold = currentState?.rejectThreshold ?? defaultRejectThreshold
+
+        // Always update/create tagAutomaticState, preserving user thresholds
         if (currentState) {
           set({
             tagAutomaticState: {
               ...currentState,
               histogramData
+              // Note: NOT overwriting selectThreshold/rejectThreshold - they're preserved from currentState
             }
           })
         } else {
@@ -439,16 +446,17 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
       }
 
       // Apply dual threshold logic: auto-select above threshold, auto-reject below threshold
+      // Note: source is 'manual' because clicking "Apply Tags" means user has confirmed these tags
       if (typeof score === 'number') {
         if (score >= selectThreshold) {
-          // Blue zone: auto-select
+          // Blue zone: auto-select (confirmed by user clicking Apply Tags)
           newPairSelectionStates.set(pairKey, 'selected')
-          newPairSelectionSources.set(pairKey, 'auto')
+          newPairSelectionSources.set(pairKey, 'manual')
           selectedCount++
         } else if (score <= rejectThreshold) {
-          // Light red zone: auto-reject
+          // Light red zone: auto-reject (confirmed by user clicking Apply Tags)
           newPairSelectionStates.set(pairKey, 'rejected')
-          newPairSelectionSources.set(pairKey, 'auto')
+          newPairSelectionSources.set(pairKey, 'manual')
           rejectedCount++
         } else {
           // Middle zone: leave untagged
@@ -469,8 +477,15 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
       pairSelectionSources: newPairSelectionSources
     })
 
-    // Close popover after applying
-    set({ tagAutomaticState: null })
+    // Preserve thresholds but clear histogram data (will be refetched with updated selections)
+    // Don't set tagAutomaticState to null - we want to preserve the user-adjusted thresholds
+    // The histogram will be refetched automatically when selection counts change
+    set({
+      tagAutomaticState: {
+        ...tagAutomaticState,
+        histogramData: null  // Clear histogram to trigger refetch
+      }
+    })
   },
 
   minimizeSimilarityTaggingPopover: () => {

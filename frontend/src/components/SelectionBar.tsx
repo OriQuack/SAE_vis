@@ -26,7 +26,6 @@ interface SelectionStateBarProps {
   categoryColors?: Partial<Record<SelectionCategory, string>>  // Optional: override colors dynamically
   className?: string
   onCategoryRefsReady?: (refs: Map<SelectionCategory, HTMLDivElement>) => void  // Callback for exposing refs
-  featureCount?: number  // Optional: number of unique features (for pair mode)
   pairCount?: number  // Optional: number of pairs (for pair mode, shown as secondary info)
 }
 
@@ -55,7 +54,6 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   categoryColors,
   className = '',
   onCategoryRefsReady,
-  featureCount,
   pairCount
 }) => {
   // Set default dimensions based on orientation
@@ -73,10 +71,9 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   // Notify parent when refs are ready
   useEffect(() => {
     if (onCategoryRefsReady && categoryRefs.current.size > 0) {
-      // Create new Map instance to trigger React's change detection
       onCategoryRefsReady(new Map(categoryRefs.current))
     }
-  }, [onCategoryRefsReady, counts])  // Re-run when counts change (segments may re-render)
+  }, [onCategoryRefsReady, counts])
 
   // Get mode-specific colors from tag system
   const modeColors = useMemo(() => getSelectionColors(mode), [mode])
@@ -202,6 +199,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
 
     // Define rendering order: rejected → autoRejected → unsure → expanded → confirmed
     // This creates visual grouping: False Positive (left/top) | Neutral (center) | True Positive (right/bottom)
+    // For pair mode: Monosemantic → Monosemantic(auto) → Unsure → Fragmented(auto) → Fragmented
     const categoryOrder: SelectionCategory[] = ['rejected', 'autoRejected', 'unsure', 'expanded', 'confirmed']
 
     categoryOrder.forEach((category) => {
@@ -253,7 +251,17 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
               } : {
                 width: `${percentage}%`
               }),
-              backgroundColor: getColor(category)
+              backgroundColor: getColor(category),
+              // Add diagonal stripe pattern for auto-tagged segments (expanded, autoRejected)
+              ...((category === 'expanded' || category === 'autoRejected') ? {
+                backgroundImage: `repeating-linear-gradient(
+                  45deg,
+                  transparent,
+                  transparent 4px,
+                  rgba(255, 255, 255, 0.3) 4px,
+                  rgba(255, 255, 255, 0.3) 8px
+                )`
+              } : {})
             }}
             onClick={() => handleCategoryClick(category)}
             onMouseEnter={(e) => handleMouseEnter(category, e)}
@@ -370,7 +378,8 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
       {/* Legend - Only show for horizontal orientation */}
       {showLegend && !isVertical && (
         <div className="selection-state-bar__legend">
-          {(Object.keys(categoryConfig) as SelectionCategory[]).map((category) => {
+          {/* Use same order as bar segments: rejected → autoRejected → unsure → expanded → confirmed */}
+          {(['rejected', 'autoRejected', 'unsure', 'expanded', 'confirmed'] as SelectionCategory[]).map((category) => {
             const count = getCategoryValue(category, counts)
             const config = categoryConfig[category]
             const percentage = getCategoryValue(category, percentages)

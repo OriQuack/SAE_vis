@@ -467,17 +467,12 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const [optimisticThresholds, setOptimisticThresholds] = useState<Record<string, number>>({})
   // const [inlineSelector, setInlineSelector] = useState<...>(null) // REMOVED: No longer needed
 
-  // Notify parent when segment refs are ready
-  React.useEffect(() => {
-    if (onSegmentRefsReady && segmentRefs.current.size > 0) {
-      // Create new Map instance to trigger React's change detection
-      onSegmentRefsReady(new Map(segmentRefs.current))
-    }
-  }, [onSegmentRefsReady, displayData])  // Re-run when display data changes
+  // Note: onSegmentRefsReady notification is done after layout calculation below
 
   // Resize observer hook with minimal debounce for responsiveness
   const containerElementRef = React.useRef<HTMLDivElement | null>(null)
-  const { ref: containerRef, size: containerSize } = useResizeObserver<HTMLDivElement>({
+  // useResizeObserver now returns hasMeasured which is true only after the async state update completes
+  const { ref: containerRef, size: containerSize, hasMeasured } = useResizeObserver<HTMLDivElement>({
     defaultWidth: width,
     defaultHeight: height,
     debounceMs: 16,  // ~60fps for smooth resizing
@@ -529,6 +524,32 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       }
     }
   }, [displayData, containerSize.width, containerSize.height, flowDirection])
+
+  // Notify parent when segment refs are ready
+  // Must run AFTER:
+  // 1. Container has been measured (hasMeasured flag)
+  // 2. Layout has been calculated
+  // 3. CSS transitions complete (segments animate with 300ms transition)
+  React.useEffect(() => {
+    if (!hasMeasured) return
+
+    if (onSegmentRefsReady && segmentRefs.current.size > 0 && layout) {
+      // Wait for CSS transition to complete (300ms) plus a small buffer
+      // The segment rects have `transition: 'all 300ms ease-out'`
+      // If we read getBoundingClientRect() during animation, we get mid-transition positions
+      const TRANSITION_DURATION = 350
+
+      const timeoutId = setTimeout(() => {
+        requestAnimationFrame(() => {
+          if (segmentRefs.current.size > 0) {
+            onSegmentRefsReady(new Map(segmentRefs.current))
+          }
+        })
+      }, TRANSITION_DURATION)
+
+      return () => clearTimeout(timeoutId)
+    }
+  }, [onSegmentRefsReady, displayData, layout, containerSize.width, containerSize.height, panel, hasMeasured])
 
   // Scroll indicator is now shown only on selected nodes (removed winner-takes-all logic)
   // This prevents the indicator from jumping around when thresholds change

@@ -76,11 +76,10 @@
 }
 
 /* SelectionPanel in FeatureSplitView should have fixed width */
+/* Width: bar (42px) + gap (8px) + commit history (32px) + padding (16px) = ~100px */
 .feature-split-view .table-selection-panel {
-  flex: 0 0 80px;
-  width: 80px;
-  min-width: 80px;
-  max-width: 80px;
+  flex: 0 0 90px;
+  width: 90px;
 }
 
 /* ============================================================================
@@ -173,4 +172,44 @@
   flex-shrink: 0;
   min-width: 32px;
   text-align: right;
+}
+
+/* ============================================================================
+ * APPLY TAGS BUTTON - Between histogram and boundary lists
+ * ============================================================================ */
+
+.feature-split-view__apply-button-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 8px 4px;
+  flex-shrink: 0;
+}
+
+.feature-split-view__apply-button {
+  padding: 8px 12px;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s ease;
+}
+
+.feature-split-view__apply-button:disabled {
+  background-color: #d1d5db;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.feature-split-view__apply-button:hover:not(:disabled) {
+  background-color: #2563eb;
+}
+
+.feature-split-view__apply-button:active:not(:disabled) {
+  background-color: #1d4ed8;
 }

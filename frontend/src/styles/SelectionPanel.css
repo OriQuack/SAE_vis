@@ -398,12 +398,14 @@
 }
 
 /* ============================================================================
-   SELECTION STATE BAR CONTAINER - Vertical Layout
+   SELECTION STATE BAR CONTAINER - Horizontal Layout (bar + commit history)
    ============================================================================ */
 
 .table-selection-panel__bar-container {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 8px;
   width: 100%;
   flex: 1; /* Grow to fill available space */
   min-height: 200px; /* Minimum height for vertical bar */
@@ -427,6 +429,94 @@
     flex-wrap: wrap;
     gap: 8px;
   }
+}
+
+/* ============================================================================
+   COMMIT HISTORY CIRCLES - Navigate between tagging state snapshots
+   ============================================================================ */
+
+.commit-history {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 6px;
+  min-width: 36px;
+  background: #f8fafc;
+  border-radius: 6px;
+  height: 100%;
+}
+
+.commit-history__label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.commit-history__circles {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.commit-history__circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  padding: 0;
+  background: transparent;
+}
+
+/* Active/current commit - larger, filled */
+.commit-history__circle--active {
+  width: 20px;
+  height: 20px;
+  background: #3b82f6;
+  border: 2px solid #2563eb;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.commit-history__circle--active .commit-history__circle-number {
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+/* Past commits - smaller, dimmed */
+.commit-history__circle--past {
+  width: 16px;
+  height: 16px;
+  background: #e5e7eb;
+  border: 1px solid #d1d5db;
+}
+
+.commit-history__circle--past .commit-history__circle-number {
+  color: #6b7280;
+  font-size: 8px;
+  font-weight: 500;
+}
+
+.commit-history__circle--past:hover {
+  transform: scale(1.15);
+  background: #d1d5db;
+  border-color: #9ca3af;
+}
+
+.commit-history__circle--active:hover {
+  transform: scale(1.05);
+}
+
+/* Circle number text */
+.commit-history__circle-number {
+  line-height: 1;
+  pointer-events: none;
 }
 
 /* Bar animations moved to SelectionStateBar.css */

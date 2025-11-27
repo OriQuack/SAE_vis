@@ -15,6 +15,19 @@ import '../styles/FeatureSplitView.css'
 // ============================================================================
 // Layout: [SelectionPanel bar] | [Top: pair list + viewer] | [Bottom: left boundary + histogram + right boundary]
 
+// Commit history types
+type SelectionState = 'selected' | 'rejected'
+type SelectionSource = 'manual' | 'auto'
+
+export interface TagCommit {
+  id: number
+  pairSelectionStates: Map<string, SelectionState>
+  pairSelectionSources: Map<string, SelectionSource>
+}
+
+// Maximum number of commits to keep (oldest auto-removed)
+const MAX_COMMITS = 10
+
 interface FeatureSplitViewProps {
   className?: string
   onCategoryRefsReady?: (refs: Map<SelectionCategory, HTMLDivElement>) => void
@@ -36,15 +49,30 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   const getSelectedNodeFeatures = useVisualizationStore(state => state.getSelectedNodeFeatures)
   const leftPanel = useVisualizationStore(state => state.leftPanel)
   const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
+  const isDraggingThreshold = useVisualizationStore(state => state.isDraggingThreshold)
   const pairSimilarityScores = useVisualizationStore(state => state.pairSimilarityScores)
   const lastPairSortedSelectionSignature = useVisualizationStore(state => state.lastPairSortedSelectionSignature)
   const sortPairsBySimilarity = useVisualizationStore(state => state.sortPairsBySimilarity)
   const fetchActivationExamples = useVisualizationStore(state => state.fetchActivationExamples)
+  const applySimilarityTags = useVisualizationStore(state => state.applySimilarityTags)
+  const restorePairSelectionStates = useVisualizationStore(state => state.restorePairSelectionStates)
 
   // Local state for navigation
   const [currentPairIndex, setCurrentPairIndex] = useState(0)
   // Which list is currently controlling the viewer: 'all', 'reject' (Monosemantic), or 'select' (Fragmented)
   const [activeListSource, setActiveListSource] = useState<'all' | 'reject' | 'select'>('all')
+  // Captured sorted pair keys (one-time snapshot after Apply Tags)
+  // When set, pairList uses this order instead of default cluster order
+  const [uncertaintySortedPairKeys, setUncertaintySortedPairKeys] = useState<string[] | null>(null)
+
+  // ============================================================================
+  // COMMIT HISTORY STATE - Save and restore tagging state snapshots
+  // ============================================================================
+  // Initial commit represents the empty state
+  const [tagCommitHistory, setTagCommitHistory] = useState<TagCommit[]>([
+    { id: 0, pairSelectionStates: new Map(), pairSelectionSources: new Map() }
+  ])
+  const [currentCommitIndex, setCurrentCommitIndex] = useState(0)
 
   // Dependencies for selectedFeatureIds - ensure it updates when Sankey selection changes
   const sankeyStructure = leftPanel?.sankeyStructure
@@ -53,6 +81,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
   // Get selected feature IDs from the selected node/segment
   const selectedFeatureIds = useMemo(() => {
+    // These dependencies are necessary to trigger recalculation when Sankey selection changes
+    const _deps = { sankeyStructure, selectedSegment, tableSelectedNodeIds }
+    void _deps  // Consume the variable to avoid unused-vars warning
     const features = getSelectedNodeFeatures()
     console.log('[FeatureSplitView] Sankey segment features:', features?.size || 0)
     return features
@@ -97,8 +128,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       console.log('[FeatureSplitView] Threshold or features changed, clearing cluster groups')
       clearDistributedPairs()
     }
+    // NOTE: clearDistributedPairs and clusterGroups NOT in dependencies to avoid triggering on clear
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clusterThreshold, selectedFeatureIds])
-  // NOTE: clearDistributedPairs NOT in dependencies to avoid triggering on clear
 
   // Fetch ALL cluster pairs when features change or when groups are cleared (Simplified Flow)
   useEffect(() => {
@@ -111,10 +143,11 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       // Call simplified API - returns ALL pairs (no sampling)
       fetchAllClusterPairs(Array.from(selectedFeatureIds), clusteringThreshold)
     }
+    // NOTE: clusterGroups IS in dependencies to fetch after clearing
+    // NOTE: isLoadingDistributedPairs NOT in dependencies to avoid infinite loop
+    // NOTE: clusterThreshold IS in dependencies to refetch when threshold changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFeatureIds, clusterGroups, clusterThreshold, clusteringThreshold, fetchAllClusterPairs])
-  // NOTE: clusterGroups IS in dependencies to fetch after clearing
-  // NOTE: isLoadingDistributedPairs NOT in dependencies to avoid infinite loop
-  // NOTE: clusterThreshold IS in dependencies to refetch when threshold changes
 
   // Clear cluster groups on unmount
   useEffect(() => {
@@ -127,6 +160,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   const PAIRS_PER_PAGE = 10
 
   // Build pair list from ALL cluster pairs (no sampling)
+  // If uncertaintySortedPairKeys is set, use that order (one-time snapshot from Apply Tags)
   const pairList = useMemo(() => {
     if (!filteredTableData || !selectedFeatureIds || !allClusterPairs || allClusterPairs.length === 0) {
       return []
@@ -165,10 +199,23 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
         }
       })
 
-    console.log('[FeatureSplitView] All pairs built:', pairs.length, 'pairs from', allClusterPairs.length, 'cluster pairs')
+    // Use captured sorted order if available (from Apply Tags)
+    // Pairs not in the sorted list (tagged pairs) get MAX_SAFE_INTEGER and appear at the end
+    if (uncertaintySortedPairKeys && uncertaintySortedPairKeys.length > 0) {
+      // Create a map for O(1) lookup of sort index
+      const sortOrderMap = new Map<string, number>()
+      uncertaintySortedPairKeys.forEach((key, index) => sortOrderMap.set(key, index))
+
+      // Sort pairs by the captured order (untagged pairs sorted by confidence, tagged pairs at end)
+      pairs.sort((a, b) => {
+        const indexA = sortOrderMap.get(a.pairKey) ?? Number.MAX_SAFE_INTEGER
+        const indexB = sortOrderMap.get(b.pairKey) ?? Number.MAX_SAFE_INTEGER
+        return indexA - indexB
+      })
+    }
 
     return pairs
-  }, [filteredTableData, allClusterPairs, selectedFeatureIds])
+  }, [filteredTableData, allClusterPairs, selectedFeatureIds, uncertaintySortedPairKeys])
 
   // Pagination derived state
   const currentPage = Math.floor(currentPairIndex / PAIRS_PER_PAGE)
@@ -225,6 +272,17 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       sortPairsBySimilarity(allPairKeys)
     }
   }, [pairList, pairSelectionStates, pairSelectionSources, pairSimilarityScores.size, lastPairSortedSelectionSignature, sortPairsBySimilarity])
+
+  // When threshold dragging starts, switch to 'all' list if currently in boundary lists
+  // This prevents the selected pair from becoming invalid as boundary items change
+  useEffect(() => {
+    if (isDraggingThreshold && (activeListSource === 'reject' || activeListSource === 'select')) {
+      console.log('[FeatureSplitView] Threshold drag started, switching from', activeListSource, 'to all list')
+      setActiveListSource('all')
+      setCurrentPairIndex(0)
+    }
+  }, [isDraggingThreshold, activeListSource])
+
 
   // ============================================================================
   // PAGE NAVIGATION HANDLERS (for All Pairs list pagination)
@@ -420,6 +478,107 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   }, [activePairList.length])
 
   // ============================================================================
+  // APPLY TAGS HANDLER
+  // ============================================================================
+
+  // Button is enabled when there are pairs in the boundary lists (pairs to auto-tag)
+  const hasItemsToTag = boundaryItems.rejectBelow.length > 0 || boundaryItems.selectAbove.length > 0
+
+  // Handle Apply Tags button click
+  const handleApplyTags = useCallback(() => {
+    // 1. Capture sort order BEFORE applying tags (using current scores)
+    // Filter out already-tagged pairs - they don't have scores from the backend
+    // (backend excludes training pairs from SVM scoring)
+    if (pairSimilarityScores.size > 0 && pairList.length > 0) {
+      // Only sort untagged pairs - tagged pairs will appear at the end
+      const untaggedPairs = pairList.filter(p => !pairSelectionStates.has(p.pairKey))
+
+      const sortedKeys = untaggedPairs
+        .sort((a, b) => {
+          const scoreA = pairSimilarityScores.get(a.pairKey) ?? 0
+          const scoreB = pairSimilarityScores.get(b.pairKey) ?? 0
+          // Ascending by absolute value: lowest |score| first = lowest confidence first
+          return Math.abs(scoreA) - Math.abs(scoreB)
+        })
+        .map(p => p.pairKey)
+
+      setUncertaintySortedPairKeys(sortedKeys)
+      console.log('[FeatureSplitView] Captured sort order:', sortedKeys.length, 'untagged pairs (tagged pairs will appear at end)')
+    }
+
+    // 2. Save current state to current commit before applying new tags
+    setTagCommitHistory(prev => {
+      const updated = [...prev]
+      updated[currentCommitIndex] = {
+        ...updated[currentCommitIndex],
+        pairSelectionStates: new Map(pairSelectionStates),
+        pairSelectionSources: new Map(pairSelectionSources)
+      }
+      return updated
+    })
+
+    // 3. Apply auto-tags based on current thresholds
+    applySimilarityTags()
+
+    // 4. Create a new commit with the updated state (will be captured after state update)
+    // Use setTimeout to ensure the store has updated with the new tags
+    setTimeout(() => {
+      // Get the updated states from the store
+      const store = useVisualizationStore.getState()
+      const newCommit: TagCommit = {
+        id: tagCommitHistory.length,
+        pairSelectionStates: new Map(store.pairSelectionStates),
+        pairSelectionSources: new Map(store.pairSelectionSources)
+      }
+
+      setTagCommitHistory(prev => {
+        // Trim history to MAX_COMMITS if needed (remove oldest, keep initial)
+        let newHistory = [...prev, newCommit]
+        if (newHistory.length > MAX_COMMITS) {
+          // Keep the first commit (initial state) and trim from the second
+          newHistory = [newHistory[0], ...newHistory.slice(-(MAX_COMMITS - 1))]
+        }
+        return newHistory
+      })
+
+      // Move to the new commit
+      setCurrentCommitIndex(prev => Math.min(prev + 1, MAX_COMMITS - 1))
+
+      console.log('[FeatureSplitView] Created new commit, history length:', tagCommitHistory.length + 1)
+    }, 0)
+
+    // 5. Reset to first page/pair
+    setCurrentPairIndex(0)
+    setActiveListSource('all')
+  }, [applySimilarityTags, pairSimilarityScores, pairList, pairSelectionStates, pairSelectionSources, currentCommitIndex, tagCommitHistory.length])
+
+  // Handle commit circle click - restore state from that commit
+  const handleCommitClick = useCallback((commitIndex: number) => {
+    if (commitIndex < 0 || commitIndex >= tagCommitHistory.length) return
+    if (commitIndex === currentCommitIndex) return // Already on this commit
+
+    // Save current state to current commit before switching
+    setTagCommitHistory(prev => {
+      const updated = [...prev]
+      updated[currentCommitIndex] = {
+        ...updated[currentCommitIndex],
+        pairSelectionStates: new Map(pairSelectionStates),
+        pairSelectionSources: new Map(pairSelectionSources)
+      }
+      return updated
+    })
+
+    // Restore the clicked commit's state
+    const targetCommit = tagCommitHistory[commitIndex]
+    restorePairSelectionStates(targetCommit.pairSelectionStates, targetCommit.pairSelectionSources)
+
+    // Update current commit index
+    setCurrentCommitIndex(commitIndex)
+
+    console.log('[FeatureSplitView] Restored commit', commitIndex, 'with', targetCommit.pairSelectionStates.size, 'pairs')
+  }, [tagCommitHistory, currentCommitIndex, pairSelectionStates, pairSelectionSources, restorePairSelectionStates])
+
+  // ============================================================================
   // RENDER
   // ============================================================================
 
@@ -449,6 +608,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
           onCategoryRefsReady={onCategoryRefsReady}
           availablePairs={pairList}
           filteredFeatureIds={selectedFeatureIds || undefined}
+          commitHistory={tagCommitHistory}
+          currentCommitIndex={currentCommitIndex}
+          onCommitClick={handleCommitClick}
         />
 
         {/* Right column: 2 rows */}
@@ -458,8 +620,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
           <ScrollableItemList
             width={210}
             badges={[
-              { label: 'All Pairs', count: pairList.length }
+              { label: 'All Pairs', count: `${pairList.length} pairs` }
             ]}
+            columnHeader={uncertaintySortedPairKeys ? { label: 'Confidence', sortDirection: 'asc' } : undefined}
             items={currentPagePairs}
             currentIndex={activeListSource === 'all' ? currentPairIndex % PAIRS_PER_PAGE : -1}
             isActive={activeListSource === 'all'}
@@ -502,10 +665,11 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             pairList={activePairList}
             onNavigatePrevious={handleNavigatePrevious}
             onNavigateNext={handleNavigateNext}
+            autoAdvance={activeListSource === 'all'}
           />
         </div>
 
-        {/* Bottom row: Histogram + Monosemantic list + Fragmented list */}
+        {/* Bottom row: Histogram + Apply Tags button + Monosemantic list + Fragmented list */}
         <div className="feature-split-view__row-bottom">
           {/* Left: Histogram */}
           <TagAutomaticPanel
@@ -515,13 +679,25 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             threshold={clusteringThreshold}
           />
 
+          {/* Apply Tags button - between histogram and boundary lists */}
+          <div className="feature-split-view__apply-button-container">
+            <button
+              className="feature-split-view__apply-button"
+              onClick={handleApplyTags}
+              disabled={!hasItemsToTag}
+              title={hasItemsToTag ? 'Apply auto-tags and sort by uncertainty' : 'No pairs in threshold regions to tag'}
+            >
+              Apply Tags
+            </button>
+          </div>
+
           {/* Monosemantic list - below reject threshold */}
           <ScrollableItemList
             width={260}
             badges={[
-              { label: '← Monosemantic', count: boundaryItems.rejectBelow.length }
+              { label: 'Monosemantic', count: `${boundaryItems.rejectBelow.length} pairs` }
             ]}
-            columnHeader={{ label: 'Sim', sortDirection: 'desc' }}
+            columnHeader={{ label: 'Confidence', sortDirection: 'asc' }}
             headerStripe={{ type: 'autoReject', mode: 'pair' }}
             items={boundaryItems.rejectBelow}
             currentIndex={activeListSource === 'reject' ? currentPairIndex : -1}
@@ -561,9 +737,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
           <ScrollableItemList
             width={260}
             badges={[
-              { label: 'Fragmented →', count: boundaryItems.selectAbove.length }
+              { label: 'Fragmented', count: `${boundaryItems.selectAbove.length} pairs` }
             ]}
-            columnHeader={{ label: 'Sim', sortDirection: 'asc' }}
+            columnHeader={{ label: 'Confidence', sortDirection: 'asc' }}
             headerStripe={{ type: 'expand', mode: 'pair' }}
             items={boundaryItems.selectAbove}
             currentIndex={activeListSource === 'select' ? currentPairIndex : -1}

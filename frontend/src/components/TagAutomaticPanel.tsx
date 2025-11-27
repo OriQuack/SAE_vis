@@ -56,7 +56,11 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
   const svgRef = useRef<SVGSVGElement>(null)
 
   const [containerSize, setContainerSize] = useState({ width: 800, height: 300 })
-  const [thresholds, setThresholds] = useState({ select: 0.1, reject: -0.1 })
+  // Initialize thresholds from store if available, otherwise use defaults
+  const [thresholds, setThresholds] = useState(() => ({
+    select: tagAutomaticState?.selectThreshold ?? 0.1,
+    reject: tagAutomaticState?.rejectThreshold ?? -0.1
+  }))
   const [hoveredBinIndex, setHoveredBinIndex] = useState<number | null>(null)
   const [isLocalLoading, setIsLocalLoading] = useState(false)
   const [localHistogramData, setLocalHistogramData] = useState<any>(null)
@@ -78,6 +82,23 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
     }
     return { selectedCount: 0, rejectedCount: 0 }
   }, [mode, pairSelectionStates])
+
+  // Sync local thresholds with store state when store changes
+  // This ensures user-adjusted thresholds are preserved after histogram refetch
+  useEffect(() => {
+    if (tagAutomaticState?.selectThreshold !== undefined && tagAutomaticState?.rejectThreshold !== undefined) {
+      setThresholds(prev => {
+        // Only update if values are different to avoid unnecessary re-renders
+        if (prev.select !== tagAutomaticState.selectThreshold || prev.reject !== tagAutomaticState.rejectThreshold) {
+          return {
+            select: tagAutomaticState.selectThreshold,
+            reject: tagAutomaticState.rejectThreshold
+          }
+        }
+        return prev
+      })
+    }
+  }, [tagAutomaticState?.selectThreshold, tagAutomaticState?.rejectThreshold])
 
   // Measure SVG size directly (SVG fills container via CSS)
   useEffect(() => {
@@ -140,6 +161,8 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
     }, 0) // No debounce - fetch immediately
 
     return () => clearTimeout(timeoutId)
+    // NOTE: selectionCounts and threshold excluded from deps to avoid extra re-fetches when values change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, selectionCounts.selectedCount, selectionCounts.rejectedCount, fetchSimilarityHistogram, updateBothSimilarityThresholds, filteredFeatureIds])
 
   // Calculate histogram layout and bars with symmetric domain
@@ -322,7 +345,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
     return { selectX, rejectX, minDomain, maxDomain }
   }, [histogramChart, thresholds])
 
-  // Threshold update callback for dual thresholds
+  // Threshold update callback for dual thresholds (called on drag end)
   const handleThresholdUpdate = useCallback((newThresholds: number[]) => {
     if (newThresholds.length !== 2) return
 
@@ -338,6 +361,20 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
       }
       return prev
     })
+  }, [updateBothSimilarityThresholds])
+
+  // Live threshold update during drag (for real-time stripe pattern updates)
+  const handleThresholdDragUpdate = useCallback((newThresholds: number[]) => {
+    if (newThresholds.length !== 2) return
+
+    const newReject = newThresholds[0]
+    const newSelect = newThresholds[1]
+
+    // Update local state for immediate visual feedback
+    setThresholds({ reject: newReject, select: newSelect })
+
+    // Update store for real-time stripe pattern updates in SelectionPanel/FeatureSplitView
+    updateBothSimilarityThresholds(newSelect, newReject)
   }, [updateBothSimilarityThresholds])
 
   // Drag start/end callbacks to prevent rapid fetches
@@ -613,7 +650,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
                     fontSize={14}
                     fill="#666"
                   >
-                    Similarity Score
+                    Decision Margin
                   </text>
                   <text
                     x={-histogramChart.height / 2}
@@ -645,6 +682,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
                     }}
                     showThresholdLine={true}
                     onUpdate={handleThresholdUpdate}
+                    onDragUpdate={handleThresholdDragUpdate}
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
                   />
@@ -655,7 +693,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
                     <text
                       x={safeThresholdPositions.rejectX}
                       y={-8}
-                      textAnchor="middle"
+                      textAnchor="end"
                       fontSize={14}
                       fontWeight={600}
                       fill="#272121ff"
@@ -669,7 +707,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
                     <text
                       x={safeThresholdPositions.selectX}
                       y={-8}
-                      textAnchor="middle"
+                      textAnchor="start"
                       fontSize={14}
                       fontWeight={600}
                       fill="#000000"

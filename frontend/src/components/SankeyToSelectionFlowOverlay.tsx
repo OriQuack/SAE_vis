@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect, useCallback } from 'react'
 import { useStore as useVisualizationStore } from '../store'
 import {
   calculateSankeyToSelectionFlows
@@ -113,8 +113,11 @@ export const SankeyToSelectionFlowOverlay: React.FC<SankeyToSelectionFlowOverlay
     return state
   }, [tableMode, featureSelectionStates, pairSelectionStates, causeSelectionStates])
 
-  // Calculate flows from selected segment - memoized to update when sankeyStructure changes during drag
-  const flows = useMemo((): FlowPathData[] => {
+  // State to hold calculated flows - updated via useEffect after DOM paint
+  const [flows, setFlows] = useState<FlowPathData[]>([])
+
+  // Calculate flows callback - reads DOM positions
+  const calculateFlows = useCallback((): FlowPathData[] => {
     if (!selectedSankeySegment || !containerElement || segmentRefs.size === 0 || categoryRefs.size === 0) {
       return []
     }
@@ -126,11 +129,10 @@ export const SankeyToSelectionFlowOverlay: React.FC<SankeyToSelectionFlowOverlay
       return []
     }
 
-    // Read current DOM positions - updates when sankeyStructure changes
     const containerRect = containerElement.getBoundingClientRect()
     const nodes = sankeyStructure?.nodes || []
 
-    const calculatedFlows = calculateSankeyToSelectionFlows(
+    return calculateSankeyToSelectionFlows(
       selectedSankeySegment,
       segmentRef,
       categoryRefs,
@@ -138,9 +140,17 @@ export const SankeyToSelectionFlowOverlay: React.FC<SankeyToSelectionFlowOverlay
       selectionState,
       containerRect
     )
-
-    return calculatedFlows
   }, [selectedSankeySegment, containerElement, segmentRefs, categoryRefs, sankeyStructure, selectionState])
+
+  // Update flows after DOM has been painted with new positions
+  useEffect(() => {
+    const rafId = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setFlows(calculateFlows())
+      })
+    })
+    return () => cancelAnimationFrame(rafId)
+  }, [calculateFlows])
 
   // Always render the container div (needed for containerElement ref)
   // Only show flows when selection exists

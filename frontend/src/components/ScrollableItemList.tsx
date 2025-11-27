@@ -119,7 +119,7 @@ export function ScrollableItemList<T = any>({
           </div>
         ))}
         {/* Stripe pattern overlay for auto-tagging indication */}
-        {stripeColors && createStripePattern(`header-stripe-${headerStripe?.type}`, stripeColors.stripe)}
+        {stripeColors && createStripePattern(`header-stripe-${headerStripe?.type}`, stripeColors.stripe, 0.6)}
       </div>
 
       {/* Optional column header (sub-header with sort indicator) */}
@@ -133,38 +133,42 @@ export function ScrollableItemList<T = any>({
 
       {/* Scrollable list container */}
       <div className="scrollable-list__container">
-        {items.map((item, index) => {
-          const isCurrent = index === currentIndex
-          const isHighlighted = highlightPredicate && currentItem ? highlightPredicate(item, currentItem) : false
+        {items.length === 0 ? (
+          <div className="scrollable-list__empty">None</div>
+        ) : (
+          items.map((item, index) => {
+            const isCurrent = index === currentIndex
+            const isHighlighted = highlightPredicate && currentItem ? highlightPredicate(item, currentItem) : false
 
-          // Detect highlight group boundaries (for continuous background like clusters)
-          let isHighlightFirst = false
-          let isHighlightLast = false
+            // Detect highlight group boundaries (for continuous background like clusters)
+            let isHighlightFirst = false
+            let isHighlightLast = false
 
-          if (isHighlighted && highlightPredicate && currentItem) {
-            const prevItem = index > 0 ? items[index - 1] : null
-            const nextItem = index < items.length - 1 ? items[index + 1] : null
-            const prevHighlighted = prevItem && highlightPredicate(prevItem, currentItem)
-            const nextHighlighted = nextItem && highlightPredicate(nextItem, currentItem)
+            if (isHighlighted && highlightPredicate && currentItem) {
+              const prevItem = index > 0 ? items[index - 1] : null
+              const nextItem = index < items.length - 1 ? items[index + 1] : null
+              const prevHighlighted = prevItem && highlightPredicate(prevItem, currentItem)
+              const nextHighlighted = nextItem && highlightPredicate(nextItem, currentItem)
 
-            isHighlightFirst = !prevHighlighted
-            isHighlightLast = !nextHighlighted
-          }
+              isHighlightFirst = !prevHighlighted
+              isHighlightLast = !nextHighlighted
+            }
 
-          const itemClasses = [
-            'scrollable-list-item',
-            isCurrent && 'scrollable-list-item--current',
-            isHighlighted && 'scrollable-list-item--highlighted',
-            isHighlightFirst && 'scrollable-list-item--highlight-first',
-            isHighlightLast && 'scrollable-list-item--highlight-last'
-          ].filter(Boolean).join(' ')
+            const itemClasses = [
+              'scrollable-list-item',
+              isCurrent && 'scrollable-list-item--current',
+              isHighlighted && 'scrollable-list-item--highlighted',
+              isHighlightFirst && 'scrollable-list-item--highlight-first',
+              isHighlightLast && 'scrollable-list-item--highlight-last'
+            ].filter(Boolean).join(' ')
 
-          return (
-            <div key={index} className={itemClasses}>
-              {renderItem(item, index)}
-            </div>
-          )
-        })}
+            return (
+              <div key={index} className={itemClasses}>
+                {renderItem(item, index)}
+              </div>
+            )
+          })
+        )}
       </div>
 
       {/* Page navigation (takes priority over footerButton) */}

@@ -8,9 +8,8 @@ import TablePanel from './components/QualityTable'
 import FeatureSplitView from './components/FeatureSplitView'
 import SimilarityTaggingPopover from './components/TagAutomaticPopover'
 import TagCategoryPanel from './components/TagStagePanel'
-import TableSelectionPanel from './components/SelectionPanel'
 import SankeyToSelectionFlowOverlay from './components/SankeyToSelectionFlowOverlay'
-import { TAG_CATEGORY_QUALITY, TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_CAUSE, TAG_CATEGORY_TABLE_TITLES, TAG_CATEGORY_TABLE_INSTRUCTIONS } from './lib/constants'
+import { TAG_CATEGORY_FEATURE_SPLITTING } from './lib/constants'
 import type { SelectionCategory } from './types'
 import * as api from './api'
 import './styles/base.css'
@@ -96,7 +95,6 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
     toggleComparisonView,
     activeStageCategory,
     activateCategoryTable,
-    moveToNextStep,
     tableData
   } = useVisualizationStore()
 

@@ -850,7 +850,7 @@ class SimilaritySortService:
             )
 
         # Compute histogram (40 bins for good resolution)
-        counts, bin_edges = np.histogram(score_values, bins=40)
+        counts, bin_edges = np.histogram(score_values, bins=60)
         bins = (bin_edges[:-1] + bin_edges[1:]) / 2  # Bin centers
 
         # Compute statistics
@@ -1070,7 +1070,7 @@ class SimilaritySortService:
             )
 
         # Compute histogram (40 bins for good resolution)
-        counts, bin_edges = np.histogram(score_values, bins=40)
+        counts, bin_edges = np.histogram(score_values, bins=60)
         bins = (bin_edges[:-1] + bin_edges[1:]) / 2  # Bin centers
 
         # Compute statistics
@@ -1504,7 +1504,7 @@ class SimilaritySortService:
             score_values = np.array(category_scores)
 
             # Compute histogram (40 bins)
-            counts, bin_edges = np.histogram(score_values, bins=40)
+            counts, bin_edges = np.histogram(score_values, bins=60)
             bins = (bin_edges[:-1] + bin_edges[1:]) / 2  # Bin centers
 
             histograms[category] = HistogramData(

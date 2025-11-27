@@ -2,233 +2,114 @@
 
 Professional guidance for the FastAPI backend of the SAE Feature Visualization research prototype.
 
-## 🎯 Backend Architecture Overview
+## Backend Architecture Overview
 
-**Purpose**: Provide simple, stateless feature grouping API for frontend tree building
-**Status**: Conference-ready research prototype - 9 endpoints operational, all phases complete
-**Key Innovation**: Simplified grouping service enables instant frontend threshold updates
+**Purpose**: Provide stateless feature grouping, clustering, and similarity APIs for frontend visualization
+**Status**: Conference-ready research prototype
+**Dataset**: 16,000+ features
+**Key Innovation**: Simplified grouping service + hierarchical clustering for pair analysis
 
-## 🎯 Important Development Principles
+## Important Development Principles
 
 ### This is a Conference Prototype
-- **Keep it simple**: Straightforward data processing for research demonstrations, not production-scale systems
-- **Stateless design**: No complex session management or state tracking needed for demos
+- **Keep it simple**: Straightforward data processing for research demonstrations
+- **Stateless design**: No complex session management needed
 - **Avoid over-engineering**: Use Polars for data processing; don't add unnecessary layers
-- **Research-focused**: Easy data manipulation and filtering more important than optimization
+- **Research-focused**: Easy data manipulation more important than optimization
 
 ### Code Quality Guidelines
 
 **Before Making Changes:**
-1. **Search existing services**: Check services/ directory for similar functionality before creating new services
-2. **Review data processing patterns**: Look at existing Polars usage in feature_group_service.py
-3. **Check API patterns**: Review existing endpoints for consistent request/response patterns
-4. **Ask about data**: If you need new data columns or metrics, check if they already exist in parquet files
+1. **Search existing services**: Check services/ directory for similar functionality
+2. **Review data processing patterns**: Look at existing Polars usage
+3. **Check API patterns**: Review existing endpoints for consistent request/response
+4. **Ask about data**: Check if columns/metrics already exist in parquet files
 
 **After Making Changes:**
-1. **Remove dead code**: Delete unused service functions, API endpoints, and imports
-2. **Clean up models**: Remove unused Pydantic models from models/ directory
-3. **Update requirements.txt**: Only include actually used dependencies
-4. **Test with test_api.py**: Run basic tests to ensure demo functionality works
+1. **Remove dead code**: Delete unused service functions, endpoints, imports
+2. **Clean up models**: Remove unused Pydantic models
+3. **Test with basic curl**: Ensure demo functionality works
 
-**Code Reuse:**
-- **Service patterns**: Extend existing services rather than creating parallel implementations
-- **Filter logic**: Reuse filter building patterns from feature_group_service.py
-- **Data loading**: Use existing data service patterns; don't create new loading mechanisms
-- **Modularize when beneficial**: If you write the same Polars query twice, extract to a service method
+## Core Services
 
-## 🔄 Data Flow Through Backend
+### 1. Feature Grouping Service
+Groups features by metric thresholds (N thresholds → N+1 groups):
 
-### High-Level Request Flow
-```mermaid
-graph LR
-    A[API Request] --> B[Validation]
-    B --> C[Filter Application]
-    C --> D[Feature Grouping]
-    D --> E[Response]
-```
-
-### Detailed Processing Pipeline
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           API REQUEST RECEIVED                              │
-│  POST /api/feature-groups                                                  │
-│  {filters: {...}, metric: "semdist_mean", thresholds: [0.3, 0.7]}        │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      ↓
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          PYDANTIC VALIDATION                                │
-│  • Request model validation                                                │
-│  • Type checking and conversion                                            │
-│  • Error response if invalid                                               │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      ↓
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         POLARS DATA PROCESSING                              │
-│                                                                             │
-│  1. Load feature_analysis.parquet (lazy)                                  │
-│  2. Apply filters: df.filter(build_filter_expression(filters))            │
-│  3. Group by metric thresholds:                                          │
-│     - N thresholds → N+1 groups                                          │
-│     - Group 0: metric < 0.3                                              │
-│     - Group 1: 0.3 ≤ metric < 0.7                                        │
-│     - Group 2: metric ≥ 0.7                                              │
-│  4. Extract feature IDs per group                                        │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      ↓
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           RESPONSE FORMATTING                               │
-│  {                                                                         │
-│    "groups": [                                                            │
-│      {"group_index": 0, "range_label": "< 0.30",                         │
-│       "feature_ids": [1,5,12,...], "count": 245},                       │
-│      {"group_index": 1, "range_label": "0.30-0.70",                      │
-│       "feature_ids": [2,8,15,...], "count": 892},                       │
-│      {"group_index": 2, "range_label": ">= 0.70",                        │
-│       "feature_ids": [3,9,18,...], "count": 511}                        │
-│    ]                                                                       │
-│  }                                                                         │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-## 🏗️ Core Architecture Components
-
-### 1. Simplified Feature Grouping Service
-
-#### The Design Philosophy
-Backend focuses on **simple, stateless operations**:
-- No tree building
-- No state management
-- No complex classification
-- Just filter → group → return
-
-#### Why This Works
-```
-Traditional: Backend builds complete visualization structure
-            → Complex state management
-            → Slow threshold updates
-            → Hard to maintain
-
-Our Approach: Backend provides simple groups
-             → Frontend builds structure
-             → Instant threshold updates
-             → Easy to maintain
-```
-
-### 2. Service Layer Architecture
-
-#### FeatureGroupService (Primary Service)
 ```python
 # services/feature_group_service.py
-class FeatureGroupService:
-    """
-    Simple feature grouping by thresholds.
-    Stateless operations for maximum scalability.
-    """
+async def get_feature_groups(filters, metric, thresholds):
+    # 1. Apply filters
+    df = df.filter(build_filter_expression(filters))
 
-    async def get_feature_groups(
-        self,
-        filters: Filters,
-        metric: str,
-        thresholds: List[float]
-    ) -> FeatureGroupResponse:
-        # 1. Load data (lazy evaluation)
-        df = pl.scan_parquet("feature_analysis.parquet")
+    # 2. Group by thresholds
+    groups = []
+    for i, (min_val, max_val) in enumerate(get_ranges(thresholds)):
+        group_df = df.filter(
+            (pl.col(metric) >= min_val) & (pl.col(metric) < max_val)
+        )
+        groups.append({
+            "group_index": i,
+            "range_label": format_range(min_val, max_val),
+            "feature_ids": group_df["feature_id"].to_list(),
+            "count": len(group_df)
+        })
+    return groups
+```
 
-        # 2. Apply filters
-        df = df.filter(self._build_filter_expression(filters))
+### 2. Clustering Service
+Hierarchical clustering of features by decoder weight similarity:
 
-        # 3. Group by thresholds (N → N+1)
-        groups = []
-        ranges = self._get_threshold_ranges(thresholds)
+```python
+# services/clustering_service.py
+def get_all_cluster_pairs(feature_ids, threshold):
+    # 1. Get decoder weights for features
+    weights = decoder_weights[feature_ids]
 
-        for i, (min_val, max_val) in enumerate(ranges):
-            group_df = df.filter(
-                (pl.col(metric) >= min_val) &
-                (pl.col(metric) < max_val)
-            )
+    # 2. Compute cosine similarity
+    similarity_matrix = cosine_similarity(weights)
 
-            groups.append({
-                "group_index": i,
-                "range_label": self._format_range(min_val, max_val),
-                "feature_ids": group_df["feature_id"].to_list(),
-                "count": len(group_df)
+    # 3. Hierarchical clustering
+    clusters = fcluster(linkage(1 - similarity_matrix), threshold)
+
+    # 4. Generate all pairs within clusters
+    pairs = []
+    for cluster_id in unique_clusters:
+        cluster_features = features_in_cluster[cluster_id]
+        for i, j in combinations(cluster_features, 2):
+            pairs.append({
+                "pair_key": f"{min(i,j)}-{max(i,j)}",
+                "similarity": similarity_matrix[i, j]
             })
-
-        return FeatureGroupResponse(groups=groups)
+    return pairs
 ```
 
-#### ConsistencyService (Phase 8)
+### 3. Similarity Sort Service
+Score and sort pairs based on similarity to user selections:
+
 ```python
-# services/consistency_service.py
-class ConsistencyService:
-    """
-    Pre-computed consistency score provider.
-    Loads consistency_scores.parquet for instant access.
-    """
+# services/similarity_sort_service.py
+def get_pair_similarity_sort(selected_pairs, rejected_pairs, all_pairs):
+    # 1. Build feature vectors from selected/rejected pairs
+    selected_vectors = get_pair_vectors(selected_pairs)
+    rejected_vectors = get_pair_vectors(rejected_pairs)
 
-    @staticmethod
-    def get_consistency_scores(feature_ids: List[int]) -> Dict:
-        # Load pre-computed scores
-        df = pl.read_parquet("consistency_scores.parquet")
-
-        # Filter for requested features
-        df = df.filter(pl.col("feature_id").is_in(feature_ids))
-
-        # Return consistency metrics
-        return {
-            "llm_scorer_consistency": df["llm_scorer_cons"].to_list(),
-            "within_explanation": df["within_exp_cons"].to_list(),
-            "cross_explanation": df["cross_exp_cons"].to_list(),
-            "llm_explainer_consistency": df["llm_exp_cons"].to_list()
-        }
+    # 2. Train simple classifier or compute weighted score
+    # 3. Score all pairs
+    # 4. Return sorted by score (high = similar to selected)
+    return sorted_pairs
 ```
 
-### 3. FastAPI Application Structure
+## API Endpoints
 
-#### Main Application (app/main.py)
-```python
-from fastapi import FastAPI
-from contextlib import asynccontextmanager
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup
-    await data_service.initialize()
-    print("✅ Data service initialized")
-    yield
-    # Shutdown
-    await data_service.cleanup()
-    print("✅ Cleanup complete")
-
-app = FastAPI(
-    title="SAE Feature Visualization API",
-    lifespan=lifespan
-)
-
-# Mount routers
-app.include_router(filters_router)
-app.include_router(feature_groups_router)  # PRIMARY
-app.include_router(histogram_router)
-app.include_router(table_router)
-# ... other routers
-```
-
-## 📊 API Endpoints Documentation
-
-### Primary Endpoint: Feature Groups
+### Primary Endpoints
 
 #### POST /api/feature-groups
-**Purpose**: Group features by metric thresholds
-**The Core of the System** - Enables frontend tree building
+Group features by metric thresholds
 
 **Request**:
 ```json
 {
-  "filters": {
-    "sae_id": ["sae_1"],
-    "llm_explainer": ["gpt-4", "claude"],
-    "llm_scorer": ["scorer_1"]
-  },
+  "filters": {"sae_id": ["sae_1"]},
   "metric": "semdist_mean",
   "thresholds": [0.3, 0.7]
 }
@@ -238,420 +119,176 @@ app.include_router(table_router)
 ```json
 {
   "groups": [
-    {
-      "group_index": 0,
-      "range_label": "< 0.30",
-      "feature_ids": [1, 5, 12, 23, 45, ...],
-      "count": 245
-    },
-    {
-      "group_index": 1,
-      "range_label": "0.30 - 0.70",
-      "feature_ids": [2, 8, 15, 34, 67, ...],
-      "count": 892
-    },
-    {
-      "group_index": 2,
-      "range_label": ">= 0.70",
-      "feature_ids": [3, 9, 18, 56, 89, ...],
-      "count": 511
-    }
+    {"group_index": 0, "range_label": "< 0.30", "feature_ids": [1,5,12,...], "count": 245},
+    {"group_index": 1, "range_label": "0.30-0.70", "feature_ids": [2,8,...], "count": 892},
+    {"group_index": 2, "range_label": ">= 0.70", "feature_ids": [3,9,...], "count": 511}
   ]
-}
-```
-
-**Key Features**:
-- N thresholds always produce N+1 groups
-- Feature IDs enable frontend set intersection
-- Range labels for display
-- Count for quick statistics
-
-### Supporting Endpoints
-
-#### GET /api/filter-options
-**Purpose**: Available filter choices
-```json
-{
-  "sae_ids": ["sae_1", "sae_2"],
-  "explanation_methods": ["method_1", "method_2"],
-  "llm_explainers": ["gpt-4", "claude", "llama"],
-  "llm_scorers": ["scorer_1", "scorer_2", "scorer_3"]
-}
-```
-
-#### POST /api/histogram-data
-**Purpose**: Histogram bins for visualization
-```json
-{
-  "data": {
-    "bins": [0, 0.1, 0.2, ...],
-    "frequencies": [45, 67, 89, ...],
-    "total_count": 1648
-  }
-}
-```
-
-#### POST /api/table-data
-**Purpose**: Feature scoring table (Phase 7)
-```json
-{
-  "features": [
-    {
-      "feature_id": 0,
-      "scores": {...},
-      "consistency": {...}
-    }
-  ],
-  "explainer_ids": [...],
-  "scorer_ids": [...]
-}
-```
-
-#### POST /api/llm-comparison
-**Purpose**: LLM consistency statistics (Phase 5)
-```json
-{
-  "explainerConsistencies": {...},
-  "scorerConsistencies": {...}
-}
-```
-
-#### POST /api/activation-examples
-**Purpose**: Activation example data for feature visualization
-```json
-{
-  "feature_id": 123,
-  "examples": [
-    {
-      "tokens": ["the", "cat", "sat"],
-      "activations": [0.1, 0.9, 0.2],
-      "pattern_type": "semantic"
-    }
-  ]
-}
-```
-
-#### POST /api/similarity-sort
-**Purpose**: Sort features by similarity metrics
-```json
-{
-  "feature_ids": [1, 2, 3],
-  "metric": "decoder_similarity",
-  "sorted_ids": [2, 1, 3]
 }
 ```
 
 #### POST /api/cluster-candidates
-**Purpose**: Get clustering candidates for feature pairs
+Get all cluster-based pairs for features
+
+**Request**:
 ```json
 {
-  "feature_id": 123,
-  "candidates": [
-    {
-      "feature_id": 456,
-      "similarity": 0.85,
-      "cluster_id": 42
-    }
-  ]
+  "feature_ids": [1, 2, 3, 4, 5],
+  "threshold": 0.5
 }
 ```
 
-## 🛠️ Technology Stack
-
-### Core Framework
-```python
-FastAPI==0.104.1     # Async web framework
-Uvicorn==0.24.0      # ASGI server
-Pydantic==2.5.0      # Data validation
+**Response**:
+```json
+{
+  "pairs": [
+    {"pair_key": "1-2", "main_feature_id": 1, "similar_feature_id": 2, "similarity": 0.85}
+  ],
+  "clusters": [
+    {"cluster_id": 0, "feature_ids": [1, 2, 3]}
+  ],
+  "total_pairs": 10,
+  "total_clusters": 3
+}
 ```
 
-### Data Processing
-```python
-Polars==0.19.19      # High-performance DataFrames
-NumPy==1.25.2        # Numerical operations
+#### POST /api/similarity-sort
+Sort pairs by similarity to selections
+
+**Request**:
+```json
+{
+  "selected_pair_keys": ["1-2", "3-4"],
+  "rejected_pair_keys": ["5-6"],
+  "all_pair_keys": ["1-2", "3-4", "5-6", "7-8"]
+}
 ```
 
-### Development Tools
-```python
-pytest==7.4.3        # Testing framework
-httpx==0.25.2        # Test client
-python-multipart==0.0.6  # Form data support
+**Response**:
+```json
+{
+  "sorted_pairs": [
+    {"pair_key": "7-8", "score": 0.85},
+    {"pair_key": "1-2", "score": 0.75}
+  ],
+  "total_pairs": 4
+}
 ```
 
-## 📁 Backend Project Structure
+### Supporting Endpoints
+
+| Endpoint | Purpose |
+|----------|---------|
+| GET /api/filter-options | Available filter choices |
+| POST /api/histogram-data | Histogram bins for visualization |
+| POST /api/table-data | Feature scoring table |
+| POST /api/activation-examples | Activation data |
+| GET /health | Health check |
+
+## Project Structure
 
 ```
 backend/
 ├── app/
 │   ├── main.py                    # FastAPI application
 │   ├── api/                       # API endpoints
-│   │   ├── __init__.py           # Router aggregation
-│   │   ├── feature_groups.py     # PRIMARY endpoint
+│   │   ├── feature_groups.py     # Feature grouping
+│   │   ├── cluster_candidates.py # Clustering endpoint
+│   │   ├── similarity_sort.py    # Similarity sorting
 │   │   ├── filters.py            # Filter options
 │   │   ├── histogram.py          # Histogram data
 │   │   ├── table.py              # Table data
-│   │   ├── llm_comparison.py     # LLM stats
-│   │   ├── comparison.py         # Alluvial flows
-│   │   ├── umap.py               # UMAP projections (deprecated)
-│   │   ├── activation_examples.py # Activation data
-│   │   ├── similarity_sort.py    # Similarity sorting
-│   │   └── cluster_candidates.py # Clustering support
+│   │   └── activation_examples.py # Activation data
 │   ├── models/                    # Pydantic schemas
 │   │   ├── requests.py           # Request models
-│   │   ├── responses.py          # Response models
-│   │   └── common.py             # Shared models
+│   │   └── responses.py          # Response models
 │   └── services/                  # Business logic
 │       ├── feature_group_service.py  # Feature grouping
+│       ├── clustering_service.py     # Hierarchical clustering
+│       ├── similarity_sort_service.py # Similarity scoring
 │       ├── data_service.py           # Data loading
-│       ├── consistency_service.py    # Consistency scores
-│       ├── table_data_service.py     # Table processing
-│       └── data_constants.py         # Schema constants
+│       └── table_data_service.py     # Table processing
 ├── data/                          # Data files
 │   └── master/
-│       ├── feature_analysis.parquet      # Main dataset
-│       └── consistency_scores.parquet    # Pre-computed
+│       ├── feature_analysis.parquet  # Main dataset (16k+ features)
+│       └── decoder_weights.npy       # Decoder weights for clustering
 ├── start.py                       # Startup script
-├── test_api.py                    # API tests
 └── requirements.txt               # Dependencies
 ```
 
-## 🚀 Development Workflow
-
-### Starting Development
-```bash
-cd backend
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Start with hot reload (port 8003)
-python start.py --reload --log-level debug
-
-# Custom port
-python start.py --port 8001 --reload
-```
-
-### Testing
-```bash
-# Run comprehensive tests
-python test_api.py
-
-# Test specific endpoint
-curl -X POST http://localhost:8003/api/feature-groups \
-  -H "Content-Type: application/json" \
-  -d '{"filters": {}, "metric": "semdist_mean", "thresholds": [0.3, 0.7]}'
-
-# Health check
-curl http://localhost:8003/health
-```
-
-### Production
-```bash
-# Production deployment
-python start.py --host 0.0.0.0 --port 8000
-
-# Multi-worker
-uvicorn app.main:app --workers 4 --host 0.0.0.0 --port 8000
-```
-
-## 📊 Performance Characteristics
-
-### Response Time Metrics
-| Endpoint | Response Time | Complexity |
-|----------|---------------|------------|
-| /api/feature-groups | ~50ms | O(n) filtering |
-| /api/filter-options | ~50ms | Cached |
-| /api/histogram-data | ~200ms | O(n) binning |
-| /api/table-data | ~300ms | O(n×m) scores |
-| /api/llm-comparison | ~10ms | Static JSON |
-| /api/activation-examples | ~100ms | Parquet query |
-| /api/similarity-sort | ~50ms | Sort operation |
-| /api/cluster-candidates | ~80ms | Clustering lookup |
-| /health | ~5ms | Status check |
-
-### Optimization Strategies
-
-#### 1. Lazy Evaluation (Polars)
-```python
-# Don't load entire dataset
-df = pl.scan_parquet("data.parquet")  # Lazy
-df = df.filter(conditions)            # Still lazy
-df = df.select(columns)               # Still lazy
-result = df.collect()                 # Execute here
-```
-
-#### 2. String Cache
-```python
-# Enable for categorical data
-with pl.StringCache():
-    df = pl.read_parquet("data.parquet")
-    # Categorical operations are now faster
-```
-
-#### 3. Async Operations
-```python
-# Non-blocking I/O
-async def get_data():
-    # Async file operations
-    async with aiofiles.open("data.json") as f:
-        data = await f.read()
-    return json.loads(data)
-```
-
-## 🔧 Implementation Patterns
-
-### Error Handling Pattern
-```python
-from fastapi import HTTPException
-
-@router.post("/api/feature-groups")
-async def get_feature_groups(request: FeatureGroupRequest):
-    try:
-        # Validate filters
-        if not validate_filters(request.filters):
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "error": {
-                        "code": "INVALID_FILTERS",
-                        "message": "Invalid filter values"
-                    }
-                }
-            )
-
-        # Process request
-        result = await service.get_feature_groups(request)
-        return result
-
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Unexpected error: {e}")
-        raise HTTPException(status_code=500, detail="Internal error")
-```
-
-### Service Pattern
-```python
-class FeatureGroupService:
-    def __init__(self, data_path: str):
-        self.data_path = data_path
-        self._df = None
-
-    async def initialize(self):
-        """Async initialization"""
-        self._df = pl.scan_parquet(self.data_path)
-
-    async def get_feature_groups(
-        self,
-        filters: Filters,
-        metric: str,
-        thresholds: List[float]
-    ) -> FeatureGroupResponse:
-        """Main service method"""
-        # Implementation
-        pass
-```
-
-### Dependency Injection Pattern
-```python
-from fastapi import Depends
-
-# Create service instance
-feature_service = FeatureGroupService("data.parquet")
-
-# Inject into endpoint
-@router.post("/api/feature-groups")
-async def get_feature_groups(
-    request: FeatureGroupRequest,
-    service: FeatureGroupService = Depends(lambda: feature_service)
-):
-    return await service.get_feature_groups(request)
-```
-
-## 🎯 Key Design Decisions
-
-### Why Simplified Architecture?
-
-#### 1. **Stateless Operations**
-- No session management
-- No complex state tracking
-- Easy horizontal scaling
-- Perfect for serverless
-
-#### 2. **Frontend Intelligence**
-- Leverage client computing power
-- Instant threshold updates
-- Rich interactivity
-- Reduced server load
-
-#### 3. **Clear Separation**
-- Backend: Data filtering and grouping
-- Frontend: Tree building and visualization
-- Clean API boundaries
-- Easy to maintain
-
-### Architecture Benefits
-```
-Traditional Monolithic Backend:
-- Heavy server computation
-- Slow threshold updates
-- Complex state management
-- Hard to scale
-
-Our Approach:
-- Light server operations
-- Instant client updates
-- Stateless simplicity
-- Easy to scale
-```
-
-## 📈 Data Requirements
+## Data Requirements
 
 ### Primary Data Files
 
 #### feature_analysis.parquet
 - **Location**: `/data/master/feature_analysis.parquet`
-- **Size**: 1,648 unique features
-- **Columns**:
+- **Size**: 16,000+ features
+- **Key Columns**:
   - feature_id (int)
   - sae_id (str)
   - llm_explainer (str)
   - llm_scorer (str)
-  - semdist_mean (float)
-  - semdist_max (float)
-  - score_* (float) - various scores
-  - details_path (str)
+  - semdist_mean, semdist_max (float)
+  - Various score columns
 
-#### consistency_scores.parquet
-- **Location**: `/data/master/consistency_scores.parquet`
-- **Purpose**: Pre-computed consistency metrics
-- **Columns**:
-  - feature_id (int)
-  - llm_scorer_consistency (float)
-  - within_explanation_consistency (float)
-  - cross_explanation_consistency (float)
-  - llm_explainer_consistency (float)
+#### decoder_weights.npy
+- **Location**: `/data/master/decoder_weights.npy`
+- **Purpose**: Feature decoder weights for clustering
+- **Shape**: (num_features, embedding_dim)
 
-### Supporting Data Files
-- **LLM Stats**: `/data/llm_comparison/llm_comparison_stats.json`
-- **UMAP Data**: `/data/umap_*/` directories
-- **Detail JSONs**: `/data/detailed_json/` per-feature files
+## Development Workflow
 
-## 🐛 Common Issues & Solutions
+### Starting Development
+```bash
+cd backend
+pip install -r requirements.txt
+python start.py --reload --log-level debug
+```
 
-### Issue: Slow response times
-**Solution**: Check if Polars is using lazy evaluation properly
+### Testing
+```bash
+# Health check
+curl http://localhost:8003/health
 
-### Issue: CORS errors
-**Solution**: Ensure frontend port is in allowed origins list
+# Test feature groups
+curl -X POST http://localhost:8003/api/feature-groups \
+  -H "Content-Type: application/json" \
+  -d '{"filters": {}, "metric": "semdist_mean", "thresholds": [0.3, 0.7]}'
 
-### Issue: Memory issues with large datasets
-**Solution**: Use scan_parquet instead of read_parquet
+# Test clustering
+curl -X POST http://localhost:8003/api/cluster-candidates \
+  -H "Content-Type: application/json" \
+  -d '{"feature_ids": [1, 2, 3, 4, 5], "threshold": 0.5}'
+```
 
-### Issue: Async context errors
-**Solution**: Ensure proper lifespan management in FastAPI
+## Implementation Patterns
 
-## 🔒 Security & Production
+### Polars Best Practices
+```python
+# Lazy evaluation
+df = pl.scan_parquet("data.parquet")  # Lazy
+df = df.filter(conditions)            # Still lazy
+result = df.collect()                 # Execute here
+
+# String cache for categoricals
+with pl.StringCache():
+    df = pl.read_parquet("data.parquet")
+```
+
+### Error Handling
+```python
+from fastapi import HTTPException
+
+@router.post("/api/endpoint")
+async def endpoint(request: RequestModel):
+    try:
+        result = await service.process(request)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        raise HTTPException(status_code=500, detail="Internal error")
+```
 
 ### CORS Configuration
 ```python
@@ -660,77 +297,36 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://localhost:3003",
-        # Add production URLs
     ],
     allow_methods=["GET", "POST"],
     allow_headers=["*"]
 )
 ```
 
-### Environment Variables
-```python
-import os
-from dotenv import load_dotenv
+## Common Issues & Solutions
 
-load_dotenv()
+### Issue: Slow response times
+**Solution**: Use lazy evaluation with scan_parquet, not read_parquet
 
-# Configuration
-DATA_PATH = os.getenv("DATA_PATH", "../data/master")
-API_PORT = int(os.getenv("API_PORT", "8003"))
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
-```
+### Issue: CORS errors
+**Solution**: Ensure frontend port is in allowed origins
 
-### Health Endpoint (Basic)
-```python
-@app.get("/health")
-async def health_check():
-    return {
-        "status": "healthy",
-        "timestamp": datetime.utcnow(),
-        "data_service": data_service.is_initialized
-    }
-```
+### Issue: Memory issues
+**Solution**: Use scan_parquet instead of read_parquet for lazy evaluation
 
-### Logging (Keep it Simple)
-```python
-import logging
-
-logger = logging.getLogger(__name__)
-
-# Basic logging for demo debugging
-logger.info(f"Feature grouping: {metric}, {len(thresholds)} thresholds → {len(groups)} groups")
-```
-
-**Note**: For a conference prototype, basic logging and error handling is sufficient. Avoid adding complex monitoring, structured logging, or rate limiting unless specifically needed.
-
-## 🎓 Key Takeaways
-
-The backend implements a **simplified grouping service** where:
-1. **Stateless operations** keep the architecture simple
-2. **Simple grouping** reduces complexity
-3. **Fast responses** (~50ms) support interactivity
-4. **Clear API** makes frontend development easy
-5. **Polars optimization** handles datasets efficiently
-
-This architecture provides:
-- 🚀 **Fast API responses** for smooth UX
-- 📊 **Efficient data processing** with Polars
-- 🔄 **Stateless design** for easy maintenance
-- 🎯 **Clear responsibilities** between frontend/backend
-- 🏆 **Conference-ready reliability** for demonstrations
+### Issue: Clustering slow for large feature sets
+**Solution**: Consider pre-computing clusters or using approximate methods
 
 ---
 
-## 💡 Remember
+## Remember
 
 **This is a research prototype for conference demonstrations**
 
 When working on backend code:
-- **Keep it simple**: Use straightforward FastAPI + Polars patterns suitable for research demos
-- **Avoid over-engineering**: Don't add complex authentication, caching layers, or monitoring unless needed
-- **Clean up after changes**: Remove unused services, endpoints, models, and dependencies
-- **Reuse existing patterns**: Check services/ directory before implementing new data processing logic
-- **Modularize when needed**: Extract common Polars queries, but don't create unnecessary abstractions
-- **Focus on demos**: Ensure endpoints respond quickly and reliably for conference presentations
+- **Keep it simple**: Straightforward FastAPI + Polars patterns
+- **Avoid over-engineering**: Don't add complex auth, caching unless needed
+- **Clean up after changes**: Remove unused services, endpoints, models
+- **Test with curl**: Ensure endpoints respond correctly
 
 The goal is a simple, stateless API that enables frontend exploration, not a production system.

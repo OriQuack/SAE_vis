@@ -79,6 +79,7 @@ interface FeatureSplitPairViewerProps {
   currentPair?: PairData | null  // Optional: pass directly to avoid recomputation during drag
   onNavigatePrevious?: () => void
   onNavigateNext?: () => void
+  autoAdvance?: boolean  // Whether to auto-advance to next pair after tagging (default: true)
 }
 
 const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
@@ -87,7 +88,8 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   pairList,
   currentPair: currentPairProp,
   onNavigatePrevious,
-  onNavigateNext
+  onNavigateNext,
+  autoAdvance = true
 }) => {
   // Store state
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
@@ -126,8 +128,8 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
         togglePairSelection(currentPair.mainFeatureId, currentPair.similarFeatureId)
         togglePairSelection(currentPair.mainFeatureId, currentPair.similarFeatureId)
       }
-      // Auto-advance to next pair
-      if (onNavigateNext && currentPairIndex < pairList.length - 1) {
+      // Auto-advance to next pair (only if enabled)
+      if (autoAdvance && onNavigateNext && currentPairIndex < pairList.length - 1) {
         setTimeout(() => onNavigateNext(), 150)
       }
     }
@@ -149,8 +151,8 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
         // selected -> rejected
         togglePairSelection(currentPair.mainFeatureId, currentPair.similarFeatureId)
       }
-      // Auto-advance to next pair
-      if (onNavigateNext && currentPairIndex < pairList.length - 1) {
+      // Auto-advance to next pair (only if enabled)
+      if (autoAdvance && onNavigateNext && currentPairIndex < pairList.length - 1) {
         setTimeout(() => onNavigateNext(), 150)
       }
     }
@@ -168,8 +170,8 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
       // rejected -> null
       togglePairSelection(currentPair.mainFeatureId, currentPair.similarFeatureId)
     }
-    // Auto-advance to next pair
-    if (onNavigateNext && currentPairIndex < pairList.length - 1) {
+    // Auto-advance to next pair (only if enabled)
+    if (autoAdvance && onNavigateNext && currentPairIndex < pairList.length - 1) {
       setTimeout(() => onNavigateNext(), 150)
     }
   }
@@ -248,19 +250,19 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
         {/* Legend - aligned right */}
         <div className="pair-viewer__legend">
           <div className="legend-item">
-            <span className="legend-sample legend-sample--activation">token</span>
+            <span className="legend-sample legend-sample--activation">token</span>:
             <span className="legend-label">Activation Strength</span>
           </div>
           <div className="legend-item">
-            <span className="legend-sample legend-sample--max">token</span>
+            <span className="legend-sample legend-sample--max">token</span>:
             <span className="legend-label">Max Activation</span>
           </div>
           <div className="legend-item">
-            <span className="legend-sample legend-sample--intra">token</span>
+            <span className="legend-sample legend-sample--intra">token</span>:
             <span className="legend-label">Within-Feature Pattern</span>
           </div>
           <div className="legend-item">
-            <span className="legend-sample legend-sample--inter">token</span>
+            <span className="legend-sample legend-sample--inter">token</span>:
             <span className="legend-label">Cross-Feature Pattern</span>
           </div>
         </div>

@@ -300,7 +300,7 @@ export const NEUTRAL_ICON_COLORS = {
  * Centralized unsure/untagged color used across all components
  * Used for: badges, buttons, bars, tags, table states
  */
-export const UNSURE_GRAY = '#c0c0c0ff'
+export const UNSURE_GRAY = '#e0e0e0ff'
 
 // ============================================================================
 // THRESHOLD REGION COLORS - User-friendly colors for histogram threshold regions
