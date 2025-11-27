@@ -405,7 +405,7 @@
   display: flex;
   flex-direction: row;
   align-items: stretch;
-  gap: 8px;
+  gap: 4px;
   width: 100%;
   flex: 1; /* Grow to fill available space */
   min-height: 200px; /* Minimum height for vertical bar */
@@ -440,26 +440,28 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 8px 6px;
-  min-width: 36px;
-  background: #f8fafc;
-  border-radius: 6px;
-  height: 100%;
+  padding: 4px 3px;
+  margin-top: 65px;
+  min-width: 28px;
 }
 
 .commit-history__label {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   color: #64748b;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
+  writing-mode: vertical-lr;
+  text-orientation: mixed;
 }
 
 .commit-history__circles {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
+  flex: 1;
+  padding-top: 4px;
 }
 
 .commit-history__circle {
@@ -476,8 +478,8 @@
 
 /* Active/current commit - larger, filled */
 .commit-history__circle--active {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   background: #3b82f6;
   border: 2px solid #2563eb;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
@@ -485,21 +487,21 @@
 
 .commit-history__circle--active .commit-history__circle-number {
   color: #ffffff;
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 600;
 }
 
 /* Past commits - smaller, dimmed */
 .commit-history__circle--past {
-  width: 16px;
-  height: 16px;
+  width: 22px;
+  height: 22px;
   background: #e5e7eb;
   border: 1px solid #d1d5db;
 }
 
 .commit-history__circle--past .commit-history__circle-number {
   color: #6b7280;
-  font-size: 8px;
+  font-size: 12px;
   font-weight: 500;
 }
 
