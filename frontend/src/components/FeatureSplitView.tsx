@@ -589,14 +589,13 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       <div className="feature-split-view__header">
         <h3 className="feature-split-view__title">Candidate Validation</h3>
         <p className="feature-split-view__description">
-          Validate candidates for{' '}
+          Validate features for{' '}
           <span
             className="feature-split-view__tag-badge"
             style={{ backgroundColor: fragmentedColor }}
           >
             Fragmented
-          </span>{' '}
-          tag
+          </span>
         </p>
       </div>
 

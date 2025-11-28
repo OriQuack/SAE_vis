@@ -258,6 +258,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
   const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
   const restoreSimilarityTaggingPopover = useVisualizationStore(state => state.restoreSimilarityTaggingPopover)
   const getSelectedNodeFeatures = useVisualizationStore(state => state.getSelectedNodeFeatures)
+  const getFeatureSplittingCounts = useVisualizationStore(state => state.getFeatureSplittingCounts)
 
   // Dependencies that change when thresholds update
   const sankeyStructure = useVisualizationStore(state => state.leftPanel.sankeyStructure)
@@ -364,50 +365,23 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
       return { confirmed, expanded, rejected, autoRejected, unsure, total }
     } else if (mode === 'pair') {
       // In pair mode, we show FEATURE counts (derived from pair states)
-      // Priority: fragmented > monosemantic > unsure
-      console.log('[SelectionPanel] Pair mode - pairSelectionStates.size:', pairSelectionStates.size, ', filteredFeatureIds:', filteredFeatureIds?.size || 0)
+      // Use store getter for single source of truth (shared with TagStagePanel)
+      const fsCounts = getFeatureSplittingCounts()
+      confirmed = fsCounts.fragmentedManual
+      expanded = fsCounts.fragmentedAuto
+      rejected = fsCounts.monosematicManual
+      autoRejected = fsCounts.monosematicAuto
+      unsure = fsCounts.unsure
 
-      if (filteredFeatureIds && filteredFeatureIds.size > 0) {
-        // Use allClusterPairs as the primary source (from FeatureSplitView's cluster API)
-        const pairsToProcess: ClusterPair[] = allClusterPairs || []
-
-        // Derive feature states from pair states
-        const featureStates = deriveFeatureStatesFromPairs(
-          pairsToProcess,
-          pairSelectionStates,
-          pairSelectionSources,
-          filteredFeatureIds
-        )
-
-        console.log('[SelectionPanel] featureStates.size:', featureStates.size, ', expected:', filteredFeatureIds.size)
-
-        // Count by derived feature state
-        featureStates.forEach(({ state, source }) => {
-          if (state === 'fragmented') {
-            if (source === 'auto') {
-              expanded++
-            } else {
-              confirmed++
-            }
-          } else if (state === 'monosemantic') {
-            if (source === 'auto') {
-              autoRejected++
-            } else {
-              rejected++
-            }
-          } else {
-            unsure++
-          }
-        })
-
-        console.log('[SelectionPanel] Counts:', { confirmed, expanded, rejected, autoRejected, unsure })
-      }
+      console.log('[SelectionPanel] Pair mode counts from store:', fsCounts)
     }
 
     const total = confirmed + expanded + rejected + autoRejected + unsure
     console.log('[SelectionPanel] Final counts:', { confirmed, expanded, rejected, autoRejected, unsure, total })
     return { confirmed, expanded, rejected, autoRejected, unsure, total }
-  }, [mode, tableData, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources, causeSelectionStates, filteredFeatureIds, allClusterPairs])
+  // Note: allClusterPairs and pairSelectionSources are needed because getFeatureSplittingCounts depends on them internally
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, tableData, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources, causeSelectionStates, filteredFeatureIds, allClusterPairs, getFeatureSplittingCounts])
 
   // Calculate preview counts when thresholds are active (real-time preview during threshold drag)
   // This simulates what feature counts would look like after applying the thresholds

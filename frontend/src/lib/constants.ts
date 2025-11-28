@@ -46,7 +46,7 @@ export const PANEL_SIDES = {
 // ============================================================================
 
 /** Color assignment mode for tag categories */
-export type TagColorMode = 'hierarchical' | 'constant'
+export type TagColorMode = 'hierarchical' | 'constant' | 'treecolors'
 
 // Tag Category IDs
 export const TAG_CATEGORY_FEATURE_SPLITTING = "feature_splitting" as const

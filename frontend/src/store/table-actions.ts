@@ -116,6 +116,7 @@ export const createTableActions = (set: any, get: any) => {
     ...commonActions,
 
     // Feature Splitting actions (pairs)
+    getFeatureSplittingCounts: featureSplittingActions.getFeatureSplittingCounts,
     sortPairsBySimilarity: featureSplittingActions.sortPairsBySimilarity,
     fetchAllClusterPairs: featureSplittingActions.fetchAllClusterPairs,  // UPDATED: Simplified flow
     clearDistributedPairs: featureSplittingActions.clearDistributedPairs,

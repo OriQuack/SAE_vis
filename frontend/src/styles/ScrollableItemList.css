@@ -54,7 +54,7 @@
 
 .scrollable-list__badge-count {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   color: #000000;
   font-family: 'Consolas', 'Monaco', monospace;
 }
@@ -170,17 +170,16 @@
 
 /* Current/selected item */
 .scrollable-list-item--current {
-  border: 1px solid #3b82f6;
+  border: 3px solid #3b82f6;
   border-radius: 6px;
   background-color: white;
   z-index: 1;
+  padding: 1px;
 }
 
 /* When current item is also highlighted */
 .scrollable-list-item--current.scrollable-list-item--highlighted {
   background-color: #bfdbfe;
-  border: 3px solid #3b82f6;
-  padding: 2px;
 }
 
 /* Ensure children have no extra margins */

@@ -129,9 +129,10 @@ interface AppState {
   swapMetricDisplay: (newMetric: typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION) => void
   sortBySimilarity: () => Promise<void>
   sortPairsBySimilarity: (allPairKeys: string[]) => Promise<void>
+  getFeatureSplittingCounts: () => { fragmented: number; monosemantic: number; unsure: number; total: number; fragmentedManual: number; fragmentedAuto: number; monosematicManual: number; monosematicAuto: number }
   sortCauseBySimilarity: () => Promise<void>
   sortTableByCategory: (category: 'confirmed' | 'expanded' | 'rejected' | 'autoRejected' | 'unsure', mode: 'feature' | 'pair' | 'cause') => void
-  fetchSimilarityHistogram: () => Promise<any>
+  fetchSimilarityHistogram: (selectedFeatureIds?: Set<number>, threshold?: number) => Promise<any>
 
   // Similarity tagging actions (automatic tagging based on histogram)
   showTagAutomaticPopover: (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string, selectedFeatureIds?: Set<number>, threshold?: number) => Promise<void>

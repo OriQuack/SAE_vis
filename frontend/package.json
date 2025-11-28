@@ -23,6 +23,7 @@
     "d3-zoom": "^3.0.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "treecolors": "^0.1.2",
     "zustand": "^5.0.8"
   },
   "devDependencies": {

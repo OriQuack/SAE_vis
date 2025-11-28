@@ -18,8 +18,10 @@ import { useResizeObserver } from '../lib/utils'
 import type { D3SankeyNode, D3SankeyLink } from '../types'
 import {
   PANEL_LEFT,
-  PANEL_RIGHT
+  PANEL_RIGHT,
+  TAG_CATEGORY_FEATURE_SPLITTING
 } from '../lib/constants'
+import { getTagColor } from '../lib/tag-system'
 import { SankeyOverlay } from './SankeyOverlay'
 // SankeyInlineSelector removed - no longer needed with fixed 3-stage auto-expansion
 import '../styles/SankeyDiagram.css'
@@ -712,11 +714,22 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     return null
   }
 
+  // Get tag color for header badge
+  const monosematicColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Monosemantic') || '#56B4E9'
+
   return (
     <div className={`sankey-diagram ${className}`}>
       <div className="sankey-diagram__header">
-        <h3 className="sankey-diagram__title">Filter View</h3>
-        <p className="sankey-diagram__instruction">Move threshold to filter</p>
+        <h3 className="sankey-diagram__title">Filter</h3>
+        <p className="sankey-diagram__instruction">
+          Move threshold to filter out{' '}
+          <span
+            className="sankey-diagram__tag-badge"
+            style={{ backgroundColor: monosematicColor }}
+          >
+            Monosemantic
+          </span>
+        </p>
       </div>
       <div
         ref={setContainerRef}

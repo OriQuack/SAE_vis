@@ -57,6 +57,19 @@
   color: #383838;
   margin: 0;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sankey-diagram__tag-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0px 3px;
+  border-radius: 3px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #000000;
 }
 
 .sankey-diagram__container {

@@ -9,6 +9,81 @@ import * as api from '../api'
  */
 export const createFeatureSplittingActions = (set: any, get: any) => ({
   // ============================================================================
+  // FEATURE SPLITTING COUNTS GETTER
+  // ============================================================================
+
+  /**
+   * Get feature counts derived from pair selection states
+   * Returns: { fragmented, monosemantic, unsure, total }
+   * Used by TagStagePanel and SelectionPanel for consistent counts
+   */
+  getFeatureSplittingCounts: () => {
+    const state = get()
+    const { pairSelectionStates, pairSelectionSources, allClusterPairs } = state
+    const filteredFeatureIds = state.getSelectedNodeFeatures()
+
+    if (!filteredFeatureIds || filteredFeatureIds.size === 0 || !allClusterPairs) {
+      return { fragmented: 0, monosemantic: 0, unsure: 0, total: 0, fragmentedManual: 0, fragmentedAuto: 0, monosematicManual: 0, monosematicAuto: 0 }
+    }
+
+    // Track features by state (with source for manual/auto distinction)
+    const fragmentedFeatures = new Map<number, 'manual' | 'auto'>()
+    const monosematicFeatures = new Map<number, 'manual' | 'auto'>()
+
+    for (const pair of allClusterPairs) {
+      if (!filteredFeatureIds.has(pair.main_id) || !filteredFeatureIds.has(pair.similar_id)) continue
+
+      const pairState = pairSelectionStates.get(pair.pair_key)
+      const pairSource = pairSelectionSources.get(pair.pair_key) || 'manual'
+
+      if (pairState === 'selected') {
+        // Update with priority: manual > auto
+        for (const id of [pair.main_id, pair.similar_id]) {
+          const existing = fragmentedFeatures.get(id)
+          if (!existing || (existing === 'auto' && pairSource === 'manual')) {
+            fragmentedFeatures.set(id, pairSource)
+          }
+        }
+      } else if (pairState === 'rejected') {
+        for (const id of [pair.main_id, pair.similar_id]) {
+          const existing = monosematicFeatures.get(id)
+          if (!existing || (existing === 'auto' && pairSource === 'manual')) {
+            monosematicFeatures.set(id, pairSource)
+          }
+        }
+      }
+    }
+
+    // Count with priority: fragmented > monosemantic > unsure
+    let fragmented = 0, monosemantic = 0, unsure = 0
+    let fragmentedManual = 0, fragmentedAuto = 0, monosematicManual = 0, monosematicAuto = 0
+
+    for (const featureId of filteredFeatureIds) {
+      if (fragmentedFeatures.has(featureId)) {
+        fragmented++
+        if (fragmentedFeatures.get(featureId) === 'manual') fragmentedManual++
+        else fragmentedAuto++
+      } else if (monosematicFeatures.has(featureId)) {
+        monosemantic++
+        if (monosematicFeatures.get(featureId) === 'manual') monosematicManual++
+        else monosematicAuto++
+      } else {
+        unsure++
+      }
+    }
+
+    return {
+      fragmented,
+      monosemantic,
+      unsure,
+      total: filteredFeatureIds.size,
+      fragmentedManual,
+      fragmentedAuto,
+      monosematicManual,
+      monosematicAuto
+    }
+  },
+  // ============================================================================
   // PAIR SIMILARITY SORT ACTION
   // ============================================================================
 

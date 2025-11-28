@@ -22,12 +22,50 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
   // Get sankeyTree from left panel for color mapping
   const sankeyTree = useVisualizationStore(state => state.leftPanel.sankeyTree);
 
+  // Get sankeyStructure for stage-based counts (segments vs nodes)
+  const sankeyStructure = useVisualizationStore(state => state.leftPanel.sankeyStructure);
+
+  // Get feature splitting counts getter for live pair-derived counts
+  const getFeatureSplittingCounts = useVisualizationStore(state => state.getFeatureSplittingCounts);
+
   // Check if threshold preview is active
   const thresholdVisualization = useVisualizationStore(state => state.thresholdVisualization);
   const isPreviewActive = thresholdVisualization?.visible ?? false;
 
   // Calculate dynamic tag counts based on filtered features from Sankey tree
   const getTagCounts = (category: TagCategoryConfig): Record<string, number> => {
+    // Special case: Feature Splitting stage combines Sankey threshold + pair selection states
+    if (category.id === 'feature_splitting') {
+      const fsCounts = getFeatureSplittingCounts();
+
+      // Get count of features below threshold from Sankey (inherently monosemantic)
+      // Structure differs based on stage: segment (active) vs node (complete)
+      let belowThresholdCount = 0;
+      if (sankeyStructure && sankeyStructure.nodes) {
+        const currentStage = sankeyStructure.currentStage || 1;
+
+        if (currentStage === 1) {
+          // Stage 1 active: look for stage1_segment with segments array
+          const segmentNode = sankeyStructure.nodes.find((n: any) => n.id === 'stage1_segment');
+          if (segmentNode?.segments?.[0]) {
+            // segments[0] = Monosemantic (below threshold)
+            belowThresholdCount = segmentNode.segments[0].featureCount || 0;
+          }
+        } else {
+          // Stage 2+: look for separate monosemantic node
+          const monosematicNode = sankeyStructure.nodes.find((n: any) => n.id === 'monosemantic');
+          if (monosematicNode) {
+            belowThresholdCount = monosematicNode.featureCount || 0;
+          }
+        }
+      }
+
+      return {
+        'Fragmented': fsCounts.fragmented,
+        'Monosemantic': fsCounts.monosemantic + belowThresholdCount
+      };
+    }
+
     const counts: Record<string, number> = {};
 
     if (!sankeyTree || sankeyTree.size === 0) {
