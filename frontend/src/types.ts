@@ -903,13 +903,23 @@ export interface SimilarityHistogramStatistics {
 }
 
 /**
- * Bimodality Info - Results from bimodality detection (Dip Test + GMM BIC)
+ * GMM Component - Single Gaussian Mixture Model component parameters
+ */
+export interface GMMComponent {
+  mean: number
+  variance: number
+  weight: number
+}
+
+/**
+ * Bimodality Info - Raw data from bimodality detection (state determined by frontend)
  */
 export interface BimodalityInfo {
-  state: 'bimodal' | 'likely_bimodal' | 'uncertain' | 'likely_unimodal' | 'unimodal' | 'insufficient_data'
-  dip_pvalue: number
-  gmm_better_k: number  // 1 or 2 (which GMM fits better)
-  gmm_weights: [number, number]  // Component weights [larger, smaller], sum to 1.0
+  dip_pvalue: number           // P-value from Hartigan's Dip test
+  bic_k1: number               // BIC for 1-component GMM
+  bic_k2: number               // BIC for 2-component GMM
+  gmm_components: [GMMComponent, GMMComponent]  // 2 components sorted by mean (ascending)
+  sample_size: number          // Number of data points used in analysis
 }
 
 /**

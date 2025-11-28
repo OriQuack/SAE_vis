@@ -1,5 +1,6 @@
 import React, { useRef, useMemo, useCallback, useState, useEffect } from 'react'
 import { useVisualizationStore } from '../store/index'
+import { useResizeObserver } from '../lib/utils'
 import {
   calculateHistogramLayout,
   calculateCategoryStackedBars,
@@ -7,7 +8,7 @@ import {
   calculateYAxisTicks
 } from '../lib/histogram-utils'
 import type { CategoryCounts } from '../lib/histogram-utils'
-import { getSelectionColors } from '../lib/color-utils'
+import { getSelectionColors, STRIPE_PATTERN } from '../lib/color-utils'
 import { getTagColor } from '../lib/tag-system'
 import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
 import { isPairInSelection } from '../lib/pairUtils'
@@ -20,7 +21,7 @@ import '../styles/TagAutomaticPanel.css'
 const TAG_HISTOGRAM_SPACING = {
   svg: {
     // Fixed margins that always accommodate labels (no complex calculations needed)
-    margin: { top: 30, right: 30, bottom: -80, left: 30 },
+    margin: { top: 30, right: 10, bottom: 50, left: 30 },
     // Label offsets (relative to chart area)
     xLabelOffset: 40,   // Distance below chart for x-axis label
     yLabelOffset: -40,  // Distance left of chart for y-axis label
@@ -55,7 +56,13 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
 
   const svgRef = useRef<SVGSVGElement>(null)
 
-  const [containerSize, setContainerSize] = useState({ width: 800, height: 300 })
+  // Use resize observer for responsive sizing (same pattern as SankeyDiagram)
+  const { ref: containerRef, size: containerSize } = useResizeObserver<HTMLDivElement>({
+    defaultWidth: 800,
+    defaultHeight: 300,
+    debounceMs: 16,  // ~60fps for smooth resizing
+    debugId: 'tag-histogram'
+  })
   // Initialize thresholds from store if available, otherwise use defaults
   const [thresholds, setThresholds] = useState(() => ({
     select: tagAutomaticState?.selectThreshold ?? 0.1,
@@ -100,24 +107,6 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
     }
   }, [tagAutomaticState?.selectThreshold, tagAutomaticState?.rejectThreshold])
 
-  // Measure SVG size directly (SVG fills container via CSS)
-  useEffect(() => {
-    if (!svgRef.current) return
-
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const { width, height } = entry.contentRect
-        // SVG size = container size (100% width/height from CSS)
-        setContainerSize({
-          width: Math.max(400, width),
-          height: Math.max(200, height)
-        })
-      }
-    })
-
-    resizeObserver.observe(svgRef.current)
-    return () => resizeObserver.disconnect()
-  }, [])
 
   // Fetch histogram data when component mounts or selection changes
   useEffect(() => {
@@ -126,8 +115,8 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
 
     // Debounce the fetch to avoid excessive API calls
     const timeoutId = setTimeout(async () => {
-      // Need at least 1 selected and 1 rejected for meaningful histogram
-      if (selectionCounts.selectedCount < 1 || selectionCounts.rejectedCount < 1) {
+      // Need at least 3 selected and 3 rejected for meaningful histogram
+      if (selectionCounts.selectedCount < 3 || selectionCounts.rejectedCount < 3) {
         // Clear histogram if insufficient data
         setLocalHistogramData(null)
         return
@@ -195,20 +184,17 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
       similarity: symmetricHistogramData
     }
 
-    // Simple calculation: SVG size minus fixed margins = chart size
+    // Pass full container size and custom margin to calculateHistogramLayout
+    // Apply minimum sizes to ensure chart remains usable
     const margin = TAG_HISTOGRAM_SPACING.svg.margin
-    const chartWidth = containerSize.width - margin.left - margin.right
-    const chartHeight = containerSize.height - margin.top - margin.bottom
+    const width = Math.max(400, containerSize.width)
+    const height = Math.max(200, containerSize.height)
 
-    // Calculate histogram with chart dimensions
-    const layout = calculateHistogramLayout(histogramDataMap, chartWidth, chartHeight)
+    // Calculate histogram with container dimensions and custom margin
+    const layout = calculateHistogramLayout(histogramDataMap, width, height, margin)
     const chart = layout.charts[0]
 
-    // Return chart with our fixed margins
-    return {
-      ...chart,
-      margin
-    }
+    return chart
   }, [histogramData, containerSize])
 
   // Compute category breakdown per bin
@@ -395,32 +381,23 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
     return (
       <div className="tag-automatic-panel tag-automatic-panel--empty">
         <div className="tag-panel__empty-message">
-          <div className="tag-panel__main-instruction">
-            {mode === 'pair' ? (
-              <>
-                Select at least 1
-                <span className="tag-panel__tag-badge" style={{ backgroundColor: fragmentedColor }}>
-                  Fragmented
+          {mode === 'pair' ? (
+            <>
+              <div className="tag-panel__main-instruction">
+                Tag 3+ pairs in each category
+              </div>
+              <div className="tag-panel__progress-row">
+                <span className="tag-panel__progress-item" style={{ backgroundColor: fragmentedColor }}>
+                  Fragmented: {selectionCounts.selectedCount}/3
                 </span>
-                and 1
-                <span className="tag-panel__tag-badge" style={{ backgroundColor: monosemanticColor }}>
-                  Monosemantic
+                <span className="tag-panel__progress-item" style={{ backgroundColor: monosemanticColor }}>
+                  Monosemantic: {selectionCounts.rejectedCount}/3
                 </span>
-                pair to enable automatic tagging
-              </>
-            ) : (
-              'Select features to enable automatic tagging'
-            )}
-          </div>
-          {mode === 'pair' && (
-            <div className="tag-panel__sub-description">
-              Currently Selected:
-              <span className="tag-panel__count-badge" style={{ backgroundColor: fragmentedColor }}>
-                {selectionCounts.selectedCount} Fragmented
-              </span>
-              <span className="tag-panel__count-badge" style={{ backgroundColor: monosemanticColor }}>
-                {selectionCounts.rejectedCount} Monosemantic
-              </span>
+              </div>
+            </>
+          ) : (
+            <div className="tag-panel__main-instruction">
+              Select features to enable automatic tagging
             </div>
           )}
         </div>
@@ -433,7 +410,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
       <div className="tag-panel__content">
         {/* Histogram container - always rendered if we have data, dimmed when loading */}
         {histogramChart ? (
-            <div className={`tag-panel__histogram-container ${isLoading ? 'tag-panel__histogram-container--loading' : ''}`}>
+            <div ref={containerRef} className={`tag-panel__histogram-container ${isLoading ? 'tag-panel__histogram-container--loading' : ''}`}>
               {/* Loading overlay - shown on top of dimmed histogram */}
               {isLoading && (
                 <div className="tag-panel__loading-overlay">
@@ -450,20 +427,20 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
                   <pattern
                     id="expandedPreviewStripe"
                     patternUnits="userSpaceOnUse"
-                    width="8"
-                    height="8"
-                    patternTransform="rotate(45)"
+                    width={STRIPE_PATTERN.width}
+                    height={STRIPE_PATTERN.height}
+                    patternTransform={`rotate(${STRIPE_PATTERN.rotation})`}
                   >
-                    <rect width="4" height="8" fill={modeColors.expanded} opacity={0.3} />
+                    <rect width={STRIPE_PATTERN.stripeWidth} height={STRIPE_PATTERN.height} fill={modeColors.expanded} opacity={STRIPE_PATTERN.opacity} />
                   </pattern>
                   <pattern
                     id="autoRejectedPreviewStripe"
                     patternUnits="userSpaceOnUse"
-                    width="8"
-                    height="8"
-                    patternTransform="rotate(45)"
+                    width={STRIPE_PATTERN.width}
+                    height={STRIPE_PATTERN.height}
+                    patternTransform={`rotate(${STRIPE_PATTERN.rotation})`}
                   >
-                    <rect width="4" height="8" fill={modeColors.autoRejected} opacity={0.3} />
+                    <rect width={STRIPE_PATTERN.stripeWidth} height={STRIPE_PATTERN.height} fill={modeColors.autoRejected} opacity={STRIPE_PATTERN.opacity} />
                   </pattern>
                 </defs>
 

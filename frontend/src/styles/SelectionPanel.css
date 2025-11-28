@@ -521,4 +521,9 @@
   pointer-events: none;
 }
 
+/* Square shape for Tag All commits */
+.commit-history__circle--square {
+  border-radius: 4px;
+}
+
 /* Bar animations moved to SelectionStateBar.css */

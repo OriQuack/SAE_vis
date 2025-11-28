@@ -123,11 +123,13 @@ function createHistogramChart(
 
 /**
  * Calculate layout for single histogram chart
+ * @param customMargin - Optional custom margin to use instead of default
  */
 export function calculateHistogramLayout(
   histogramDataMap: Record<string, HistogramData>,
   containerWidth: number,
-  containerHeight: number
+  containerHeight: number,
+  customMargin?: { top: number; right: number; bottom: number; left: number }
 ): HistogramLayout {
   const metrics = Object.keys(histogramDataMap).sort()
   const metricsCount = metrics.length
@@ -142,7 +144,7 @@ export function calculateHistogramLayout(
   }
 
   const charts: HistogramChart[] = []
-  const margin = DEFAULT_HISTOGRAM_MARGIN
+  const margin = customMargin || DEFAULT_HISTOGRAM_MARGIN
 
   // Single histogram layout only (multi-chart deprecated)
   const dimensions: ChartDimensions = {

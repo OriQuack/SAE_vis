@@ -1,11 +1,12 @@
-import React, { useMemo, useCallback, useState, useEffect } from 'react'
+import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow, SelectionCategory } from '../types'
 import SelectionPanel from './SelectionPanel'
 import FeatureSplitPairViewer from './FeatureSplitPairViewer'
 import TagAutomaticPanel from './TagAutomaticPanel'
 import ScrollableItemList from './ScrollableItemList'
-import BimodalityIndicator from './BimodalityIndicator'
+import BimodalityIndicator, { isBimodalScore } from './BimodalityIndicator'
 import { TagBadge } from './TableIndicators'
 import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
@@ -22,6 +23,7 @@ type SelectionSource = 'manual' | 'auto'
 
 export interface TagCommit {
   id: number
+  type: 'initial' | 'apply' | 'tagAll'  // initial = starting state, apply = Apply Tags, tagAll = Tag All
   pairSelectionStates: Map<string, SelectionState>
   pairSelectionSources: Map<string, SelectionSource>
 }
@@ -57,9 +59,37 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   const fetchActivationExamples = useVisualizationStore(state => state.fetchActivationExamples)
   const applySimilarityTags = useVisualizationStore(state => state.applySimilarityTags)
   const restorePairSelectionStates = useVisualizationStore(state => state.restorePairSelectionStates)
+  const moveToNextStep = useVisualizationStore(state => state.moveToNextStep)
+
+  // Stage 1 revisiting state
+  const isRevisitingStage1 = useVisualizationStore(state => state.isRevisitingStage1)
+  const stage1FinalCommit = useVisualizationStore(state => state.stage1FinalCommit)
+  const setStage1FinalCommit = useVisualizationStore(state => state.setStage1FinalCommit)
 
   // Local state for navigation
   const [currentPairIndex, setCurrentPairIndex] = useState(0)
+  // Local state for Tag All popover
+  const [showTagAllPopover, setShowTagAllPopover] = useState(false)
+  const [popoverPosition, setPopoverPosition] = useState<{ top: number; left: number } | null>(null)
+  const tagAllButtonRef = useRef<HTMLButtonElement>(null)
+  const tagAllPopoverRef = useRef<HTMLDivElement>(null)
+
+  // Close popover when clicking outside
+  useEffect(() => {
+    if (!showTagAllPopover) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        tagAllPopoverRef.current &&
+        !tagAllPopoverRef.current.contains(e.target as Node) &&
+        tagAllButtonRef.current &&
+        !tagAllButtonRef.current.contains(e.target as Node)
+      ) {
+        setShowTagAllPopover(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showTagAllPopover])
   // Which list is currently controlling the viewer: 'all', 'reject' (Monosemantic), or 'select' (Fragmented)
   const [activeListSource, setActiveListSource] = useState<'all' | 'reject' | 'select'>('all')
   // Captured sorted pair keys (one-time snapshot after Apply Tags)
@@ -71,9 +101,35 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   // ============================================================================
   // Initial commit represents the empty state
   const [tagCommitHistory, setTagCommitHistory] = useState<TagCommit[]>([
-    { id: 0, pairSelectionStates: new Map(), pairSelectionSources: new Map() }
+    { id: 0, type: 'initial', pairSelectionStates: new Map(), pairSelectionSources: new Map() }
   ])
   const [currentCommitIndex, setCurrentCommitIndex] = useState(0)
+
+  // Restore from saved commit when revisiting Stage 1
+  // NOTE: We do NOT clear isRevisitingStage1 here - it's needed by selectedFeatureIds useMemo
+  // The flag is cleared when navigating away from Stage 1 (in activateCategoryTable)
+  useEffect(() => {
+    if (isRevisitingStage1 && stage1FinalCommit) {
+      console.log('[FeatureSplitView] Revisiting Stage 1, restoring from saved commit:', stage1FinalCommit.pairSelectionStates.size, 'pairs, features:', stage1FinalCommit.featureIds.size)
+
+      // Initialize history with the saved commit as a tagAll commit
+      const restoredCommit: TagCommit = {
+        id: 1,
+        type: 'tagAll',
+        pairSelectionStates: new Map(stage1FinalCommit.pairSelectionStates),
+        pairSelectionSources: new Map(stage1FinalCommit.pairSelectionSources)
+      }
+
+      setTagCommitHistory([
+        { id: 0, type: 'initial', pairSelectionStates: new Map(), pairSelectionSources: new Map() },
+        restoredCommit
+      ])
+      setCurrentCommitIndex(1)
+
+      // Restore pair selection states to store
+      restorePairSelectionStates(stage1FinalCommit.pairSelectionStates, stage1FinalCommit.pairSelectionSources)
+    }
+  }, [isRevisitingStage1, stage1FinalCommit, restorePairSelectionStates])
 
   // Dependencies for selectedFeatureIds - ensure it updates when Sankey selection changes
   const sankeyStructure = leftPanel?.sankeyStructure
@@ -81,14 +137,21 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   const tableSelectedNodeIds = useVisualizationStore(state => state.tableSelectedNodeIds)
 
   // Get selected feature IDs from the selected node/segment
+  // When revisiting Stage 1, use the stored feature IDs from the saved commit
   const selectedFeatureIds = useMemo(() => {
+    // If revisiting Stage 1 and we have stored feature IDs, use those
+    if (isRevisitingStage1 && stage1FinalCommit?.featureIds) {
+      console.log('[FeatureSplitView] Using stored Stage 1 feature IDs:', stage1FinalCommit.featureIds.size)
+      return stage1FinalCommit.featureIds
+    }
+
     // These dependencies are necessary to trigger recalculation when Sankey selection changes
     const _deps = { sankeyStructure, selectedSegment, tableSelectedNodeIds }
     void _deps  // Consume the variable to avoid unused-vars warning
     const features = getSelectedNodeFeatures()
     console.log('[FeatureSplitView] Sankey segment features:', features?.size || 0)
     return features
-  }, [getSelectedNodeFeatures, sankeyStructure, selectedSegment, tableSelectedNodeIds])
+  }, [getSelectedNodeFeatures, sankeyStructure, selectedSegment, tableSelectedNodeIds, isRevisitingStage1, stage1FinalCommit])
 
   // Extract clustering threshold from Sankey structure
   const clusterThreshold = useMemo(() => {
@@ -319,7 +382,21 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     decoderSimilarity: number | null
   }
 
+  // Keep previous boundary items during histogram reload to prevent double updates
+  const prevBoundaryItemsRef = useRef<{ rejectBelow: PairWithMetadata[], selectAbove: PairWithMetadata[] }>({ rejectBelow: [], selectAbove: [] })
+
   const boundaryItems = useMemo(() => {
+    // Don't show anything until histogram is actually fetched
+    // histogramData is null before first fetch and during reload
+    if (!tagAutomaticState?.histogramData) {
+      // During reload (after initial fetch), return previous values to prevent flicker
+      if (prevBoundaryItemsRef.current.rejectBelow.length > 0 || prevBoundaryItemsRef.current.selectAbove.length > 0) {
+        return prevBoundaryItemsRef.current
+      }
+      // Before first fetch, return empty lists
+      return { rejectBelow: [] as PairWithMetadata[], selectAbove: [] as PairWithMetadata[] }
+    }
+
     // Extract threshold values inside useMemo for proper React reactivity
     const selectThreshold = tagAutomaticState?.selectThreshold ?? 0.8
     const rejectThreshold = tagAutomaticState?.rejectThreshold ?? 0.3
@@ -392,7 +469,10 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       .filter(pair => pairSimilarityScores.get(pair.pairKey)! >= thresholds.select)
       .sort((a, b) => pairSimilarityScores.get(a.pairKey)! - pairSimilarityScores.get(b.pairKey)!) // Ascending: closest to threshold first
 
-    return { rejectBelow, selectAbove }
+    const result = { rejectBelow, selectAbove }
+    // Store in ref for use during histogram reload
+    prevBoundaryItemsRef.current = result
+    return result
   }, [pairList, tagAutomaticState, pairSimilarityScores, allClusterPairs, filteredTableData, selectedFeatureIds])
 
   // Get tag color for header badge
@@ -528,6 +608,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       const store = useVisualizationStore.getState()
       const newCommit: TagCommit = {
         id: tagCommitHistory.length,
+        type: 'apply',
         pairSelectionStates: new Map(store.pairSelectionStates),
         pairSelectionSources: new Map(store.pairSelectionSources)
       }
@@ -578,6 +659,167 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
     console.log('[FeatureSplitView] Restored commit', commitIndex, 'with', targetCommit.pairSelectionStates.size, 'pairs')
   }, [tagCommitHistory, currentCommitIndex, pairSelectionStates, pairSelectionSources, restorePairSelectionStates])
+
+  // ============================================================================
+  // TAG ALL HANDLERS
+  // ============================================================================
+
+  // Check if histogram is bimodal (enables Tag All button)
+  // Uses score >= 0.5 (Level 4: Likely Bimodal or higher)
+  const isBimodal = useMemo(() => {
+    return isBimodalScore(tagAutomaticState?.histogramData?.bimodality)
+  }, [tagAutomaticState?.histogramData?.bimodality])
+
+  // Check if all pairs are tagged (no unsure remaining) - enables Move to Next Stage button
+  const allPairsTagged = useMemo(() => {
+    if (pairList.length === 0) return false
+    return pairList.every(pair => pairSelectionStates.has(pair.pairKey))
+  }, [pairList, pairSelectionStates])
+
+  // Handle Tag All - Option 1: Tag all unsure as Monosemantic
+  const handleTagAllMonosemantic = useCallback(() => {
+    console.log('[TagAll] Monosemantic option clicked')
+    console.log('[TagAll] pairList length:', pairList.length)
+    console.log('[TagAll] current pairSelectionStates size:', pairSelectionStates.size)
+
+    // 1. Save current state to current commit before applying new tags
+    setTagCommitHistory(prev => {
+      const updated = [...prev]
+      updated[currentCommitIndex] = {
+        ...updated[currentCommitIndex],
+        pairSelectionStates: new Map(pairSelectionStates),
+        pairSelectionSources: new Map(pairSelectionSources)
+      }
+      return updated
+    })
+
+    const newStates = new Map(pairSelectionStates)
+    const newSources = new Map(pairSelectionSources)
+
+    let taggedCount = 0
+    // Tag all untagged pairs as rejected (Monosemantic)
+    pairList.forEach(pair => {
+      if (!newStates.has(pair.pairKey)) {
+        newStates.set(pair.pairKey, 'rejected')
+        newSources.set(pair.pairKey, 'manual')
+        taggedCount++
+      }
+    })
+
+    console.log('[TagAll] Tagged', taggedCount, 'pairs as Monosemantic')
+    console.log('[TagAll] New states size:', newStates.size)
+
+    restorePairSelectionStates(newStates, newSources)
+    setShowTagAllPopover(false)
+
+    // 2. Create a new commit with the updated state
+    const newCommit: TagCommit = {
+      id: tagCommitHistory.length,
+      type: 'tagAll',
+      pairSelectionStates: new Map(newStates),
+      pairSelectionSources: new Map(newSources)
+    }
+
+    setTagCommitHistory(prev => {
+      let newHistory = [...prev, newCommit]
+      if (newHistory.length > MAX_COMMITS) {
+        newHistory = [newHistory[0], ...newHistory.slice(-(MAX_COMMITS - 1))]
+      }
+      return newHistory
+    })
+    setCurrentCommitIndex(prev => Math.min(prev + 1, MAX_COMMITS - 1))
+
+    // Save to global store for potential Stage 1 revisit (include feature IDs for pair fetching)
+    setStage1FinalCommit({
+      pairSelectionStates: new Map(newStates),
+      pairSelectionSources: new Map(newSources),
+      featureIds: selectedFeatureIds ? new Set(selectedFeatureIds) : new Set()
+    })
+
+    console.log('[TagAll] Created tagAll commit and saved to store, history length:', tagCommitHistory.length + 1)
+  }, [pairList, pairSelectionStates, pairSelectionSources, restorePairSelectionStates, currentCommitIndex, tagCommitHistory.length, setStage1FinalCommit, selectedFeatureIds])
+
+  // Handle Tag All - Option 2: Use SVM decision boundary (score >= 0 → Fragmented, score < 0 → Monosemantic)
+  const handleTagAllByBoundary = useCallback(() => {
+    console.log('[TagAll] By Decision Boundary (score=0) option clicked')
+
+    // 1. Save current state to current commit before applying new tags
+    setTagCommitHistory(prev => {
+      const updated = [...prev]
+      updated[currentCommitIndex] = {
+        ...updated[currentCommitIndex],
+        pairSelectionStates: new Map(pairSelectionStates),
+        pairSelectionSources: new Map(pairSelectionSources)
+      }
+      return updated
+    })
+
+    const newStates = new Map(pairSelectionStates)
+    const newSources = new Map(pairSelectionSources)
+
+    let selectedCount = 0
+    let rejectedCount = 0
+
+    // Tag all pairs using SVM similarity scores with threshold 0
+    // score >= 0 → Fragmented (selected), score < 0 → Monosemantic (rejected)
+    pairList.forEach(pair => {
+      // Skip if already tagged
+      if (newStates.has(pair.pairKey)) return
+
+      const score = pairSimilarityScores.get(pair.pairKey)
+      if (score !== undefined) {
+        if (score >= 0) {
+          newStates.set(pair.pairKey, 'selected')
+          newSources.set(pair.pairKey, 'manual')
+          selectedCount++
+        } else {
+          newStates.set(pair.pairKey, 'rejected')
+          newSources.set(pair.pairKey, 'manual')
+          rejectedCount++
+        }
+      } else {
+        // No score available - default to Monosemantic (conservative)
+        newStates.set(pair.pairKey, 'rejected')
+        newSources.set(pair.pairKey, 'manual')
+        rejectedCount++
+      }
+    })
+
+    console.log('[TagAll] By Decision Boundary results:', {
+      fragmentedAboveZero: selectedCount,
+      monosemanticBelowZero: rejectedCount,
+      totalNewStates: newStates.size
+    })
+
+    restorePairSelectionStates(newStates, newSources)
+    setShowTagAllPopover(false)
+
+    // 2. Create a new commit with the updated state
+    const newCommit: TagCommit = {
+      id: tagCommitHistory.length,
+      type: 'tagAll',
+      pairSelectionStates: new Map(newStates),
+      pairSelectionSources: new Map(newSources)
+    }
+
+    setTagCommitHistory(prev => {
+      let newHistory = [...prev, newCommit]
+      if (newHistory.length > MAX_COMMITS) {
+        newHistory = [newHistory[0], ...newHistory.slice(-(MAX_COMMITS - 1))]
+      }
+      return newHistory
+    })
+    setCurrentCommitIndex(prev => Math.min(prev + 1, MAX_COMMITS - 1))
+
+    // Save to global store for potential Stage 1 revisit (include feature IDs for pair fetching)
+    setStage1FinalCommit({
+      pairSelectionStates: new Map(newStates),
+      pairSelectionSources: new Map(newSources),
+      featureIds: selectedFeatureIds ? new Set(selectedFeatureIds) : new Set()
+    })
+
+    console.log('[TagAll] Created tagAll commit and saved to store, history length:', tagCommitHistory.length + 1)
+  }, [pairList, pairSelectionStates, pairSelectionSources, pairSimilarityScores, restorePairSelectionStates, currentCommitIndex, tagCommitHistory.length, setStage1FinalCommit, selectedFeatureIds])
 
   // ============================================================================
   // RENDER
@@ -679,16 +921,78 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             threshold={clusteringThreshold}
           />
 
-          {/* Apply Tags button - between histogram and boundary lists */}
+          {/* Button container - between histogram and boundary lists */}
           <div className="feature-split-view__apply-button-container">
-            <BimodalityIndicator bimodality={tagAutomaticState?.histogramData?.bimodality} />
+            {/* Apply Threshold button */}
             <button
               className="feature-split-view__apply-button"
               onClick={handleApplyTags}
               disabled={!hasItemsToTag}
               title={hasItemsToTag ? 'Apply auto-tags and sort by uncertainty' : 'No pairs in threshold regions to tag'}
             >
-              Apply Tags
+              Apply Threshold
+            </button>
+
+            {/* Bimodality Indicator + Tag All (visually connected) */}
+            <div className={`feature-split-view__bimodal-group ${isBimodal ? 'feature-split-view__bimodal-group--active' : ''}`}>
+              <BimodalityIndicator bimodality={tagAutomaticState?.histogramData?.bimodality} />
+              <button
+                ref={tagAllButtonRef}
+                className={`feature-split-view__tag-all-button ${isBimodal ? 'feature-split-view__tag-all-button--active' : ''}`}
+                onClick={() => {
+                  if (tagAllButtonRef.current) {
+                    const rect = tagAllButtonRef.current.getBoundingClientRect()
+                    setPopoverPosition({
+                      top: rect.bottom + 6,
+                      left: rect.left + rect.width / 2
+                    })
+                  }
+                  setShowTagAllPopover(true)
+                }}
+                disabled={!isBimodal}
+                title={isBimodal ? 'Tag all remaining pairs and proceed to next stage' : 'Requires strongly bimodal distribution'}
+              >
+                Tag All
+              </button>
+              {/* Tag All popover - rendered via portal */}
+              {showTagAllPopover && popoverPosition && createPortal(
+                <div
+                  ref={tagAllPopoverRef}
+                  className="tag-all-popover"
+                  style={{ top: popoverPosition.top, left: popoverPosition.left }}
+                >
+                  <div className="tag-all-popover__title">Tag remaining pairs:</div>
+                  <button
+                    className="tag-all-popover__option tag-all-popover__option--default"
+                    onClick={handleTagAllMonosemantic}
+                  >
+                    As Monosemantic
+                  </button>
+                  <button
+                    className="tag-all-popover__option"
+                    onClick={handleTagAllByBoundary}
+                  >
+                    By Decision Boundary
+                  </button>
+                  <button
+                    className="tag-all-popover__cancel"
+                    onClick={() => setShowTagAllPopover(false)}
+                  >
+                    Cancel
+                  </button>
+                </div>,
+                document.body
+              )}
+            </div>
+
+            {/* Next Stage button */}
+            <button
+              className="feature-split-view__next-stage-button"
+              onClick={moveToNextStep}
+              disabled={!allPairsTagged}
+              title={allPairsTagged ? 'Proceed to Quality stage' : 'Tag all pairs first'}
+            >
+              Next Stage →
             </button>
           </div>
 

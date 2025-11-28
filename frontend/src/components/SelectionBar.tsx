@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react'
 import { type SelectionCategory } from '../lib/constants'
-import { getSelectionColors, type TableMode } from '../lib/color-utils'
+import { getSelectionColors, STRIPE_PATTERN, type TableMode } from '../lib/color-utils'
 import '../styles/SelectionBar.css'
 
 export interface CategoryCounts {
@@ -251,15 +251,18 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
               } : {
                 width: `${percentage}%`
               }),
-              backgroundColor: getColor(category),
-              // Add diagonal stripe pattern for auto-tagged segments (expanded, autoRejected)
+              // For auto-tagged segments: stripes of category color with unsure-colored gaps
+              // For manual segments: solid category color
+              backgroundColor: (category === 'expanded' || category === 'autoRejected')
+                ? modeColors.unsure
+                : getColor(category),
               ...((category === 'expanded' || category === 'autoRejected') ? {
                 backgroundImage: `repeating-linear-gradient(
-                  45deg,
-                  transparent,
-                  transparent 4px,
-                  rgba(255, 255, 255, 0.3) 4px,
-                  rgba(255, 255, 255, 0.3) 8px
+                  ${STRIPE_PATTERN.rotation}deg,
+                  ${modeColors.unsure},
+                  ${modeColors.unsure} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
+                  ${getColor(category)} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
+                  ${getColor(category)} ${STRIPE_PATTERN.width}px
                 )`
               } : {})
             }}
@@ -301,7 +304,14 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
               } : {
                 width: `${stripePercentage}%`
               }),
-              backgroundColor: stripeColor,
+              backgroundColor: modeColors.unsure,
+              backgroundImage: `repeating-linear-gradient(
+                ${STRIPE_PATTERN.rotation}deg,
+                ${modeColors.unsure},
+                ${modeColors.unsure} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
+                ${stripeColor} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
+                ${stripeColor} ${STRIPE_PATTERN.width}px
+              )`,
               position: 'relative'
             }}
             onClick={() => handleCategoryClick(category)}
@@ -309,21 +319,6 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
           >
-            {/* Stripe pattern overlay - alternating tag color and unsure color */}
-            <svg width="100%" height="100%" style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }} xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <pattern
-                  id={`stripe-preview-${category}`}
-                  patternUnits="userSpaceOnUse"
-                  width="8"
-                  height="8"
-                  patternTransform="rotate(45)"
-                >
-                  <rect width="4" height="8" fill={modeColors.unsure} />
-                </pattern>
-              </defs>
-              <rect width="100%" height="100%" fill={`url(#stripe-preview-${category})`} />
-            </svg>
             {/* Show label if segment is large enough */}
             {showLabels && stripePercentage > labelThreshold && (
               <span className="selection-state-bar__segment-label">

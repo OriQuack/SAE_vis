@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { createStripePattern, getSelectionColors, type TableMode } from '../lib/color-utils'
+import { getSelectionColors, STRIPE_PATTERN, type TableMode } from '../lib/color-utils'
 import '../styles/ScrollableItemList.css'
 
 // ============================================================================
@@ -90,14 +90,22 @@ export function ScrollableItemList<T = any>({
 }: ScrollableItemListProps<T>) {
   const currentItem = currentIndex >= 0 && currentIndex < items.length ? items[currentIndex] : null
 
-  // Get colors for stripe pattern based on mode
-  const stripeColors = useMemo(() => {
-    if (!headerStripe) return null
+  // Get stripe style for header based on mode (CSS gradient approach)
+  const headerStripeStyle = useMemo(() => {
+    if (!headerStripe) return undefined
     const mode = headerStripe.mode || 'pair'
     const colors = getSelectionColors(mode)
+    const tagColor = headerStripe.type === 'expand' ? colors.expanded : colors.autoRejected
+    const gapColor = colors.unsure
     return {
-      background: headerStripe.type === 'expand' ? colors.expanded : colors.autoRejected,
-      stripe: colors.unsure
+      backgroundColor: gapColor,
+      backgroundImage: `repeating-linear-gradient(
+        ${STRIPE_PATTERN.rotation}deg,
+        ${gapColor},
+        ${gapColor} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
+        ${tagColor} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
+        ${tagColor} ${STRIPE_PATTERN.width}px
+      )`
     }
   }, [headerStripe])
 
@@ -109,7 +117,7 @@ export function ScrollableItemList<T = any>({
       {/* Header with count inline: "Name (Count)" */}
       <div
         className={`scrollable-list__header ${headerStripe ? 'scrollable-list__header--striped' : ''}`}
-        style={stripeColors ? { backgroundColor: stripeColors.background } : undefined}
+        style={headerStripeStyle}
       >
         {badges.map((badge, i) => (
           <div key={i} className="scrollable-list__badge">
@@ -118,8 +126,6 @@ export function ScrollableItemList<T = any>({
             </span>
           </div>
         ))}
-        {/* Stripe pattern overlay for auto-tagging indication */}
-        {stripeColors && createStripePattern(`header-stripe-${headerStripe?.type}`, stripeColors.stripe, 0.6)}
       </div>
 
       {/* Optional column header (sub-header with sort indicator) */}

@@ -33,6 +33,13 @@ import { createActivationActions } from './activation-actions'
 
 type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
 
+// Stage 1 commit type for revisiting state restoration
+export interface Stage1FinalCommit {
+  pairSelectionStates: Map<string, 'selected' | 'rejected'>
+  pairSelectionSources: Map<string, 'manual' | 'auto'>
+  featureIds: Set<number>  // Original Stage 1 feature IDs for pair fetching
+}
+
 interface AppState {
   // Data state - now split for left and right panels
   leftPanel: PanelState
@@ -246,6 +253,12 @@ interface AppState {
   activeStageNodeId: string | null
   activeStageCategory: string | null
 
+  // Stage 1 revisiting state (for restoring state when returning from Stage 2+)
+  isRevisitingStage1: boolean
+  stage1FinalCommit: Stage1FinalCommit | null
+  setStage1FinalCommit: (commit: Stage1FinalCommit | null) => void
+  setIsRevisitingStage1: (value: boolean) => void
+
   // Stage table actions
   setActiveStageNode: (nodeId: string | null, category?: string | null) => void
   clearActiveStageNode: () => void
@@ -362,6 +375,10 @@ const initialState = {
   activeStageNodeId: null,
   activeStageCategory: null,
 
+  // Stage 1 revisiting state
+  isRevisitingStage1: false,
+  stage1FinalCommit: null,
+
   // Hover state
   hoveredAlluvialNodeId: null,
   hoveredAlluvialPanel: null,
@@ -407,6 +424,17 @@ export const useStore = create<AppState>((set, get) => ({
 
   // Threshold drag state action
   setDraggingThreshold: (isDragging: boolean) => set({ isDraggingThreshold: isDragging }),
+
+  // Stage 1 revisiting state actions
+  setStage1FinalCommit: (commit: Stage1FinalCommit | null) => {
+    set({ stage1FinalCommit: commit })
+    console.log('[Store.setStage1FinalCommit] Saved Stage 1 final commit:', commit ? commit.pairSelectionStates.size : 0, 'pairs')
+  },
+
+  setIsRevisitingStage1: (value: boolean) => {
+    set({ isRevisitingStage1: value })
+    console.log('[Store.setIsRevisitingStage1] Set revisiting flag:', value)
+  },
 
   // Feature selection actions (used by TablePanel checkboxes)
   // Three-state toggle: null -> 'selected' -> 'rejected' -> null

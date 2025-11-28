@@ -171,16 +171,25 @@ class HistogramStatistics(BaseModel):
     median: float = Field(..., description="Median score")
 
 
-class BimodalityInfo(BaseModel):
-    """Minimal bimodality detection results."""
+class GMMComponentInfo(BaseModel):
+    """GMM component parameters."""
 
-    state: str = Field(
-        ...,
-        description="'bimodal', 'unimodal', 'likely_bimodal', 'likely_unimodal', or 'insufficient_data'"
-    )
+    mean: float = Field(..., description="Component mean")
+    variance: float = Field(..., description="Component variance")
+    weight: float = Field(..., description="Component weight (0-1)")
+
+
+class BimodalityInfo(BaseModel):
+    """Raw bimodality detection data - state determined by frontend."""
+
     dip_pvalue: float = Field(..., description="P-value from Hartigan's Dip test")
-    gmm_better_k: int = Field(..., description="1 or 2 (which GMM fits better)")
-    gmm_weights: List[float] = Field(..., description="GMM component weights [larger, smaller], sum to 1.0")
+    bic_k1: float = Field(..., description="BIC for 1-component GMM")
+    bic_k2: float = Field(..., description="BIC for 2-component GMM")
+    gmm_components: List[GMMComponentInfo] = Field(
+        ...,
+        description="2 GMM components sorted by mean (ascending): [{mean, variance, weight}, ...]"
+    )
+    sample_size: int = Field(..., description="Number of data points used in analysis")
 
 
 class SimilarityHistogramResponse(BaseModel):

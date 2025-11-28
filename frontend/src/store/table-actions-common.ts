@@ -445,6 +445,8 @@ export const createCommonTableActions = (set: any, get: any) => ({
     // Special handling for Cause category (pre-defined groups)
     if (categoryId === TAG_CATEGORY_CAUSE) {
       console.log('[Store.activateCategoryTable] 📌 Cause category detected - selecting "unsure" node')
+      // Clear Stage 1 revisiting flag when moving to Cause
+      set({ isRevisitingStage1: false })
 
       // Find the "unsure" node in the tree at depth 3
       let unsureNodeId: string | null = null
@@ -479,14 +481,30 @@ export const createCommonTableActions = (set: any, get: any) => ({
 
     // Select terminal segments: Fragmented (Stage 1), Well-Explained (Stage 2)
     if (stageNumber === 1) {
-      selectedNodeId = 'stage1_segment'
-      segmentIndex = 1  // Fragmented (second segment, >= 0.4)
+      // Check if we're in a later stage (stage1_segment no longer exists)
+      if (currentStage >= 2) {
+        // Stage 1 segment was replaced - select root to show all features
+        selectedNodeId = 'root'
+        segmentIndex = 0  // No segment selection needed
+        // Set flag to indicate we're revisiting Stage 1
+        set({ isRevisitingStage1: true })
+        console.log('[Store.activateCategoryTable] Returning to Stage 1 from Stage 2+, selecting root, setting revisiting flag')
+      } else {
+        selectedNodeId = 'stage1_segment'
+        segmentIndex = 1  // Fragmented (second segment, >= 0.4)
+        // Clear flag when in normal Stage 1
+        set({ isRevisitingStage1: false })
+      }
     } else if (stageNumber === 2) {
       selectedNodeId = 'stage2_segment'
       segmentIndex = 1  // Well-Explained (second segment, >= 0.7)
+      // Clear Stage 1 revisiting flag when moving to Stage 2
+      set({ isRevisitingStage1: false })
     } else if (stageNumber === 3) {
       selectedNodeId = 'stage3_segment'
       segmentIndex = 3  // Unsure (fourth segment)
+      // Clear Stage 1 revisiting flag when moving to Stage 3
+      set({ isRevisitingStage1: false })
     } else {
       selectedNodeId = 'root'  // Fallback
       segmentIndex = 0

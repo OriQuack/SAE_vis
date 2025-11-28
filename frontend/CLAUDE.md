@@ -70,7 +70,6 @@ store/
 ├── table-actions-feature-splitting.ts # Pair mode (clustering, similarity)
 ├── table-actions-cause.ts            # Cause table mode
 ├── table-actions-common.ts           # Shared table operations
-├── tag-actions.ts                    # Tag management
 ├── activation-actions.ts             # Activation data
 └── utils.ts                          # Store helper functions
 ```
@@ -208,7 +207,6 @@ frontend/src/
 │   ├── index.ts                  # Main store
 │   ├── sankey-actions.ts         # Sankey operations
 │   ├── table-actions-*.ts        # Mode-specific actions
-│   ├── tag-actions.ts            # Tag management
 │   └── ...
 ├── styles/                       # CSS Files
 │   └── *.css                     # Component styles

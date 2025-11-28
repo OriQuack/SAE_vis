@@ -10,12 +10,21 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class GMMComponent:
+    """Single GMM component parameters."""
+    mean: float
+    variance: float
+    weight: float
+
+
+@dataclass
 class BimodalityResult:
-    """Minimal bimodality detection result."""
-    state: str          # "bimodal", "unimodal", "likely_bimodal", "likely_unimodal", "insufficient_data"
-    dip_pvalue: float   # p-value from Hartigan's Dip Test
-    gmm_better_k: int   # 1 or 2 (which GMM fits better)
-    gmm_weights: Tuple[float, float]  # Component weights from 2-component GMM (sorted descending)
+    """Raw bimodality detection data - state determined by frontend."""
+    dip_pvalue: float                    # p-value from Hartigan's Dip Test
+    bic_k1: float                        # BIC for 1-component GMM
+    bic_k2: float                        # BIC for 2-component GMM
+    gmm_components: Tuple[GMMComponent, GMMComponent]  # 2 components sorted by mean (ascending)
+    sample_size: int                     # Number of data points used
 
 
 class BimodalityService:
@@ -33,31 +42,36 @@ class BimodalityService:
         self.min_component_weight = min_component_weight
 
     def detect_bimodality(self, values: np.ndarray) -> BimodalityResult:
-        """Detect bimodality using Dip Test and GMM + BIC."""
+        """Detect bimodality using Dip Test and GMM + BIC. Returns raw data for frontend state determination."""
         values = np.asarray(values).flatten()
+        sample_size = len(values)
 
-        if len(values) < 10:
-            return BimodalityResult(state="insufficient_data", dip_pvalue=1.0, gmm_better_k=1, gmm_weights=(1.0, 0.0))
+        if sample_size < 10:
+            # Return default values for insufficient data
+            return BimodalityResult(
+                dip_pvalue=1.0,
+                bic_k1=0.0,
+                bic_k2=0.0,
+                gmm_components=(
+                    GMMComponent(mean=0.0, variance=1.0, weight=1.0),
+                    GMMComponent(mean=0.0, variance=1.0, weight=0.0)
+                ),
+                sample_size=sample_size
+            )
 
         # 1. Hartigan's Dip Test
         _, dip_pvalue = self._run_dip_test(values)
-        dip_bimodal = dip_pvalue < self.dip_alpha
 
-        # 2. GMM + BIC comparison (also returns weights)
-        gmm_better_k, gmm_weights = self._run_gmm_bic(values)
-        gmm_bimodal = gmm_better_k == 2
+        # 2. GMM + BIC comparison with full component data
+        bic_k1, bic_k2, gmm_components = self._run_gmm_bic(values)
 
-        # Determine state (5 detailed states)
-        if dip_bimodal and gmm_bimodal:
-            state = "bimodal"
-        elif not dip_bimodal and not gmm_bimodal:
-            state = "unimodal"
-        elif not dip_bimodal and gmm_bimodal:
-            state = "likely_bimodal"
-        else:  # dip_bimodal and not gmm_bimodal
-            state = "likely_unimodal"
-
-        return BimodalityResult(state=state, dip_pvalue=dip_pvalue, gmm_better_k=gmm_better_k, gmm_weights=gmm_weights)
+        return BimodalityResult(
+            dip_pvalue=dip_pvalue,
+            bic_k1=bic_k1,
+            bic_k2=bic_k2,
+            gmm_components=gmm_components,
+            sample_size=sample_size
+        )
 
     def _run_dip_test(self, values: np.ndarray) -> Tuple[float, float]:
         """Run Hartigan's Dip Test."""
@@ -69,17 +83,11 @@ class BimodalityService:
             logger.warning(f"Dip test failed: {e}")
             return 0.0, 1.0
 
-    def _run_gmm_bic(self, values: np.ndarray) -> Tuple[int, Tuple[float, float]]:
-        """Run GMM with 1 and 2 components, return which k fits better and weights.
-
-        k=2 is only preferred if:
-        1. BIC(k=2) < BIC(k=1)
-        2. Both components have weight >= min_component_weight (default 10%)
-
-        This prevents k=2 being chosen when there's one dominant mode with a small tail.
+    def _run_gmm_bic(self, values: np.ndarray) -> Tuple[float, float, Tuple[GMMComponent, GMMComponent]]:
+        """Run GMM with 1 and 2 components, return BIC values and component parameters.
 
         Returns:
-            Tuple of (k, weights) where weights are sorted descending (larger first)
+            Tuple of (bic_k1, bic_k2, components) where components are sorted by mean (ascending)
         """
         try:
             from sklearn.mixture import GaussianMixture
@@ -87,18 +95,30 @@ class BimodalityService:
             gmm1 = GaussianMixture(n_components=1, random_state=42).fit(X)
             gmm2 = GaussianMixture(n_components=2, random_state=42).fit(X)
 
-            # Get weights sorted descending (larger component first)
-            weights = tuple(sorted(gmm2.weights_, reverse=True))
+            bic_k1 = float(gmm1.bic(X))
+            bic_k2 = float(gmm2.bic(X))
 
-            # Check if k=2 has better BIC
-            if gmm2.bic(X) >= gmm1.bic(X):
-                return 1, weights
+            # Extract component parameters and sort by mean (ascending)
+            means = gmm2.means_.flatten()
+            variances = gmm2.covariances_.flatten()
+            weights = gmm2.weights_
 
-            # Check if both components are substantial (weight balance)
-            min_weight = min(gmm2.weights_)
-            if min_weight < self.min_component_weight:
-                return 1, weights
+            # Sort indices by mean
+            sort_idx = np.argsort(means)
 
-            return 2, weights
-        except Exception:
-            return 1, (1.0, 0.0)
+            components = tuple(
+                GMMComponent(
+                    mean=float(means[i]),
+                    variance=float(variances[i]),
+                    weight=float(weights[i])
+                )
+                for i in sort_idx
+            )
+
+            return bic_k1, bic_k2, components
+        except Exception as e:
+            logger.warning(f"GMM fitting failed: {e}")
+            return 0.0, 0.0, (
+                GMMComponent(mean=0.0, variance=1.0, weight=1.0),
+                GMMComponent(mean=0.0, variance=1.0, weight=0.0)
+            )

@@ -3,7 +3,6 @@
 // Merged from constants.ts and table-color-utils.ts for clear separation
 // ============================================================================
 
-import React from 'react'
 import {
   METRIC_DECODER_SIMILARITY,
   METRIC_QUALITY_SCORE,
@@ -261,37 +260,13 @@ export function getRowCategoryClass(
 // ============================================================================
 
 /**
- * Generate an SVG stripe pattern for auto-tagging preview indicators
- * Used in SelectionBar and ScrollableItemList headers
- *
- * @param patternId - Unique ID for the SVG pattern (must be unique per page)
- * @param stripeColor - Color of the stripes (typically UNSURE_GRAY)
- * @returns JSX element with SVG pattern overlay
+ * Stripe pattern configuration - single source of truth for all stripe patterns
+ * Used in SelectionBar and ScrollableItemList for CSS gradient stripes
  */
-export function createStripePattern(
-  patternId: string,
-  stripeColor: string,
-  opacity: number = 0.3
-): React.ReactElement {
-  return (
-    <svg
-      width="100%"
-      height="100%"
-      style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', opacity }}
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <defs>
-        <pattern
-          id={patternId}
-          patternUnits="userSpaceOnUse"
-          width="8"
-          height="8"
-          patternTransform="rotate(45)"
-        >
-          <rect width="4" height="8" fill={stripeColor} />
-        </pattern>
-      </defs>
-      <rect width="100%" height="100%" fill={`url(#${patternId})`} />
-    </svg>
-  )
+export const STRIPE_PATTERN = {
+  width: 12,
+  height: 12,
+  stripeWidth: 6,
+  rotation: 45,
+  opacity: 0.3
 }

@@ -1115,9 +1115,9 @@ width: 39%;
   background-image: repeating-linear-gradient(
     45deg,
     transparent,
-    transparent 4px,
-    rgba(0, 158, 115, 0.3) 4px,  /* Well-Explained green */
-    rgba(0, 158, 115, 0.3) 8px
+    transparent 6px,
+    rgba(0, 158, 115, 0.3) 6px,  /* Well-Explained green */
+    rgba(0, 158, 115, 0.3) 12px
   );
   background-blend-mode: normal;
 }
@@ -1126,9 +1126,9 @@ width: 39%;
   background-image: repeating-linear-gradient(
     45deg,
     transparent,
-    transparent 4px,
-    rgba(153, 153, 153, 0.3) 4px,  /* Need Revision gray */
-    rgba(153, 153, 153, 0.3) 8px
+    transparent 6px,
+    rgba(153, 153, 153, 0.3) 6px,  /* Need Revision gray */
+    rgba(153, 153, 153, 0.3) 12px
   );
   background-blend-mode: normal;
 }

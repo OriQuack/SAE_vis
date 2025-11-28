@@ -13,6 +13,7 @@ import type { SankeyStructure, ThresholdPathConstraint, SegmentSankeyNode } from
 import {
   buildStage1,
   buildStage2,
+  buildStage2FromTaggedStates,
   buildStage3,
   updateStageThreshold as updateThresholdInStructure
 } from '../lib/sankey-builder'
@@ -167,11 +168,15 @@ export const createSimplifiedSankeyActions = (set: any, get: any) => ({
    * Activate Stage 2: Quality Assessment
    * Expands the Stage 1 segment into Monosemantic + Fragmented nodes,
    * with a Quality segment on Monosemantic.
+   *
+   * Uses actual tagged feature states (from pairSelectionStates) to determine
+   * which features are Fragmented vs Monosemantic, NOT the threshold-based segments.
    */
   activateStage2: async (panel: PanelSide = PANEL_LEFT) => {
     const state = get()
     const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
     const { sankeyStructure, filters } = state[panelKey]
+    const { allClusterPairs, pairSelectionStates } = state
     const loadingKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
     const errorKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
 
@@ -192,8 +197,24 @@ export const createSimplifiedSankeyActions = (set: any, get: any) => ({
     state.clearError(errorKey)
 
     try {
-      // Build Stage 2 from current structure (NO tableData dependency!)
-      const stage2Structure = await buildStage2(filters, sankeyStructure)
+      // Build Stage 2 using tagged feature states from pair selections
+      // This ensures Fragmented/Monosemantic split is based on actual user tags, not threshold
+      let stage2Structure: SankeyStructure
+
+      if (allClusterPairs && allClusterPairs.length > 0 && pairSelectionStates.size > 0) {
+        // Use tagged states for the split
+        console.log('[activateStage2] Using tagged states for Fragmented/Monosemantic split')
+        stage2Structure = await buildStage2FromTaggedStates(
+          filters,
+          sankeyStructure,
+          allClusterPairs,
+          pairSelectionStates
+        )
+      } else {
+        // Fallback to threshold-based split (for initialization or when no tags exist)
+        console.log('[activateStage2] Fallback: Using threshold-based split (no pair selections)')
+        stage2Structure = await buildStage2(filters, sankeyStructure)
+      }
 
       console.log(`[activateStage2] ✅ Stage 2 built:`, {
         nodes: stage2Structure.nodes.length,

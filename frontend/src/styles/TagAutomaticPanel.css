@@ -24,6 +24,8 @@
 .tag-automatic-panel--empty {
   /* No max-height constraint - allow content to fill available space */
   overflow: hidden;
+  border: 2px dashed #d1d5db;
+  border-radius: 4px;
 }
 
 /* ============================================================================
@@ -233,6 +235,20 @@
   font-weight: 600;
   color: #000;
   white-space: nowrap;
+}
+
+.tag-panel__progress-row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.tag-panel__progress-item {
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #000;
 }
 
 /* ============================================================================

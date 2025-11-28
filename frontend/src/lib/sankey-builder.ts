@@ -101,6 +101,50 @@ function getTagColors(categoryId: string): Record<string, string> {
   return category.tagColors
 }
 
+/**
+ * Derive Fragmented and Monosemantic feature sets from pair selection states.
+ * - Fragmented: features with ANY pair tagged as "selected"
+ * - Monosemantic: ALL other features (including untagged/unsure)
+ *
+ * @param allClusterPairs - All pairs from clustering
+ * @param pairSelectionStates - Map of pair_key -> 'selected' | 'rejected'
+ * @param parentFeatureIds - Features to consider (from parent node)
+ * @returns { fragmentedIds, monosematicIds }
+ */
+export function deriveFeatureSetsFromPairSelections(
+  allClusterPairs: Array<{ main_id: number; similar_id: number; pair_key: string }>,
+  pairSelectionStates: Map<string, 'selected' | 'rejected'>,
+  parentFeatureIds: Set<number>
+): { fragmentedIds: Set<number>; monosematicIds: Set<number> } {
+  const fragmentedIds = new Set<number>()
+
+  // Find all features that have ANY pair tagged as "selected" (Fragmented)
+  for (const pair of allClusterPairs) {
+    // Only consider pairs within parent feature set
+    if (!parentFeatureIds.has(pair.main_id) || !parentFeatureIds.has(pair.similar_id)) {
+      continue
+    }
+
+    const pairState = pairSelectionStates.get(pair.pair_key)
+
+    if (pairState === 'selected') {
+      // Both features in a selected pair are Fragmented
+      fragmentedIds.add(pair.main_id)
+      fragmentedIds.add(pair.similar_id)
+    }
+  }
+
+  // Monosemantic = ALL features that are NOT Fragmented
+  const monosematicIds = new Set<number>()
+  for (const featureId of parentFeatureIds) {
+    if (!fragmentedIds.has(featureId)) {
+      monosematicIds.add(featureId)
+    }
+  }
+
+  return { fragmentedIds, monosematicIds }
+}
+
 // ============================================================================
 // STAGE BUILDERS
 // ============================================================================
@@ -265,6 +309,138 @@ export async function buildStage2(
     id: 'stage2_segment',
     type: 'segment',
     metric: config.metric,
+    threshold: actualThreshold,
+    parentId: 'monosemantic',
+    depth: 2,
+    featureIds: monosematicNode.featureIds,
+    featureCount: monosematicNode.featureCount,
+    segments
+  }
+  nodes.push(qualitySegmentNode)
+
+  // Link: monosemantic → quality segment
+  links.push({
+    source: 'monosemantic',
+    target: 'stage2_segment',
+    value: monosematicNode.featureCount
+  })
+
+  return {
+    nodes,
+    links,
+    currentStage: 2
+  }
+}
+
+/**
+ * Build Stage 2 using actual tagged feature states instead of threshold segments.
+ * This should be called when transitioning from Feature Splitting to Quality.
+ *
+ * Uses pair selection states to derive:
+ * - Fragmented: features with ANY pair tagged as "selected"
+ * - Monosemantic: ALL other features (including untagged/unsure)
+ *
+ * @param filters - Current filters
+ * @param stage1Structure - Previous stage structure
+ * @param allClusterPairs - All pairs from clustering
+ * @param pairSelectionStates - Map of pair_key -> 'selected' | 'rejected'
+ * @param threshold - Optional custom threshold for Quality stage (default: 0.7)
+ * @returns Sankey structure for Stage 2
+ */
+export async function buildStage2FromTaggedStates(
+  filters: Filters,
+  stage1Structure: SankeyStructure,
+  allClusterPairs: Array<{ main_id: number; similar_id: number; pair_key: string }>,
+  pairSelectionStates: Map<string, 'selected' | 'rejected'>,
+  threshold?: number
+): Promise<SankeyStructure> {
+  const stage1Config = getStageConfig(1)
+  const stage2Config = getStageConfig(2)
+  const actualThreshold = threshold ?? stage2Config.defaultThreshold ?? 0.7
+
+  // Get root features from Stage 1
+  const rootNode = stage1Structure.nodes.find(n => n.id === 'root')
+  if (!rootNode) {
+    throw new Error('Root node not found')
+  }
+  const allFeatures = rootNode.featureIds
+
+  // Derive feature sets from pair selections (NOT from threshold)
+  const { fragmentedIds, monosematicIds } = deriveFeatureSetsFromPairSelections(
+    allClusterPairs,
+    pairSelectionStates,
+    allFeatures
+  )
+
+  console.log('[buildStage2FromTaggedStates] Feature sets derived from pair selections:', {
+    fragmented: fragmentedIds.size,
+    monosemantic: monosematicIds.size,
+    total: allFeatures.size
+  })
+
+  // Get tag colors for Feature Splitting stage
+  const featureSplittingColors = getTagColors(stage1Config.categoryId)
+
+  const nodes: SimplifiedSankeyNode[] = [stage1Structure.nodes[0]]  // Keep root
+  const links: SankeyLink[] = []
+
+  // 1. Create Monosemantic node (regular)
+  const monosematicNode: RegularSankeyNode = {
+    id: 'monosemantic',
+    type: 'regular',
+    featureIds: monosematicIds,
+    featureCount: monosematicIds.size,
+    parentId: 'root',
+    depth: 1,
+    tagName: 'Monosemantic',
+    color: featureSplittingColors['Monosemantic'] || '#999999'
+  }
+  nodes.push(monosematicNode)
+
+  // Link: root → monosemantic
+  links.push({
+    source: 'root',
+    target: 'monosemantic',
+    value: monosematicIds.size
+  })
+
+  // 2. Create Fragmented terminal node
+  const fragmentedNode: TerminalSankeyNode = {
+    id: 'fragmented_terminal',
+    type: 'terminal',
+    position: 'rightmost',
+    featureIds: fragmentedIds,
+    featureCount: fragmentedIds.size,
+    parentId: 'root',
+    depth: 1,
+    tagName: 'Fragmented',
+    color: featureSplittingColors['Fragmented'] || '#F0E442'
+  }
+  nodes.push(fragmentedNode)
+
+  // Link: root → fragmented
+  links.push({
+    source: 'root',
+    target: 'fragmented_terminal',
+    value: fragmentedIds.size
+  })
+
+  // 3. Calculate Quality segments for Monosemantic features using API
+  const qualityColors = getTagColors(stage2Config.categoryId)
+  const segments = await calculateSegments(
+    filters,
+    monosematicNode.featureIds,
+    stage2Config.metric!,
+    actualThreshold,
+    stage2Config.tags,
+    qualityColors
+  )
+
+  // 4. Create Quality segment node
+  const qualitySegmentNode: SegmentSankeyNode = {
+    id: 'stage2_segment',
+    type: 'segment',
+    metric: stage2Config.metric,
     threshold: actualThreshold,
     parentId: 'monosemantic',
     depth: 2,

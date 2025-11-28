@@ -21,7 +21,7 @@
 
 .scrollable-list__header {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   background-color: white;
   flex-shrink: 0;
   position: relative;
@@ -31,6 +31,20 @@
 .scrollable-list__header--striped .scrollable-list__badge-label {
   position: relative;
   z-index: 1;
+  padding: 0px 6px;
+}
+
+.scrollable-list__header--striped .scrollable-list__badge-label::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 80%;
+  background-color: rgba(255, 255, 255, 0.85);
+  z-index: -1;
+  border-radius: 2px;
 }
 
 .scrollable-list__badge {

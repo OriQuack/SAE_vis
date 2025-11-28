@@ -19,7 +19,7 @@ from ..models.similarity_sort import (
     PairSimilaritySortRequest, PairSimilaritySortResponse, PairScore,
     SimilarityHistogramRequest, SimilarityHistogramResponse,
     PairSimilarityHistogramRequest,
-    HistogramData, HistogramStatistics, BimodalityInfo
+    HistogramData, HistogramStatistics, BimodalityInfo, GMMComponentInfo
 )
 from .bimodality_service import BimodalityService
 
@@ -878,10 +878,18 @@ class SimilaritySortService:
             statistics=statistics,
             total_items=len(feature_scores),
             bimodality=BimodalityInfo(
-                state=bimodality_result.state,
                 dip_pvalue=bimodality_result.dip_pvalue,
-                gmm_better_k=bimodality_result.gmm_better_k,
-                gmm_weights=list(bimodality_result.gmm_weights)
+                bic_k1=bimodality_result.bic_k1,
+                bic_k2=bimodality_result.bic_k2,
+                gmm_components=[
+                    GMMComponentInfo(
+                        mean=comp.mean,
+                        variance=comp.variance,
+                        weight=comp.weight
+                    )
+                    for comp in bimodality_result.gmm_components
+                ],
+                sample_size=bimodality_result.sample_size
             )
         )
 
@@ -1107,10 +1115,18 @@ class SimilaritySortService:
             statistics=statistics,
             total_items=len(pair_scores),
             bimodality=BimodalityInfo(
-                state=bimodality_result.state,
                 dip_pvalue=bimodality_result.dip_pvalue,
-                gmm_better_k=bimodality_result.gmm_better_k,
-                gmm_weights=list(bimodality_result.gmm_weights)
+                bic_k1=bimodality_result.bic_k1,
+                bic_k2=bimodality_result.bic_k2,
+                gmm_components=[
+                    GMMComponentInfo(
+                        mean=comp.mean,
+                        variance=comp.variance,
+                        weight=comp.weight
+                    )
+                    for comp in bimodality_result.gmm_components
+                ],
+                sample_size=bimodality_result.sample_size
             )
         )
 
