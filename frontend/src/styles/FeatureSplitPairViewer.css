@@ -15,6 +15,20 @@
   border-radius: 4px;
 }
 
+/* When list is included, use row layout */
+.feature-split-pair-viewer--with-list {
+  flex-direction: row;
+  border: none;
+  border-radius: 0;
+}
+
+.feature-split-pair-viewer--with-list .pair-viewer__main {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+}
+
 /* ============================================================================
  * HEADER TITLE - Top title bar
  * ============================================================================ */
@@ -126,43 +140,6 @@
 .pair-list-item .tag-badge {
   margin: 0;
   vertical-align: middle;
-}
-
-/* Tag Automatically Button */
-.sidebar__tag-button {
-  flex-shrink: 0;
-  width: 100%;
-  padding: 6px 12px;
-  margin-top: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #6b7280;
-  background-color: white;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.sidebar__tag-button:hover:not(:disabled) {
-  background-color: #f3f4f6;
-  border-color: #9ca3af;
-}
-
-.sidebar__tag-button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.sidebar__tag-button--available {
-  color: #8b5cf6;
-  border-color: #8b5cf6;
-  font-weight: 700;
-}
-
-.sidebar__tag-button--available:hover:not(:disabled) {
-  background-color: #f5f3ff;
-  border-color: #7c3aed;
 }
 
 /* ============================================================================
@@ -462,63 +439,6 @@
 .button__icon {
   font-size: 12px;
   font-weight: bold;
-}
-
-/* ============================================================================
- * ACTION BUTTONS SECTION
- * ============================================================================ */
-
-.pair-viewer__actions {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.action__button {
-  padding: 3px 8px;
-  font-size: 11px;
-  font-weight: 600;
-  border-radius: 3px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  border: 1px solid;
-  white-space: nowrap;
-}
-
-.action__button--sort {
-  color: #3b82f6;
-  background-color: white;
-  border-color: #3b82f6;
-}
-
-.action__button--sort:hover:not(:disabled) {
-  background-color: #eff6ff;
-}
-
-.action__button--tag {
-  color: #8b5cf6;
-  background-color: white;
-  border-color: #8b5cf6;
-}
-
-.action__button--tag:hover:not(:disabled) {
-  background-color: #f5f3ff;
-}
-
-.action__button--clear {
-  color: #6b7280;
-  background-color: white;
-  border-color: #d1d5db;
-}
-
-.action__button--clear:hover:not(:disabled) {
-  background-color: #f3f4f6;
-}
-
-.action__button:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
 }
 
 /* ============================================================================

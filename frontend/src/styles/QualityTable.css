@@ -375,23 +375,6 @@ width: 39%;
   /* filter: brightness(0.95); */  /* REMOVED: Creates stacking context that blocks popovers */
 }
 
-/* Legacy class support (for backward compatibility) */
-.table-panel__sub-row--checkbox-selected .table-panel__cell {
-  background: rgba(59, 130, 246, 0.08) !important; /* Blue - fallback to expanded color */
-}
-
-.table-panel__sub-row--checkbox-selected:hover .table-panel__cell {
-  background: rgba(59, 130, 246, 0.15) !important;
-}
-
-.table-panel__sub-row--checkbox-rejected .table-panel__cell {
-  background: rgba(239, 68, 68, 0.08) !important; /* Red */
-}
-
-.table-panel__sub-row--checkbox-rejected:hover .table-panel__cell {
-  background: rgba(239, 68, 68, 0.15) !important;
-}
-
 /* Auto-tagged indicator: Colored border on index column based on category */
 /* Apply thick left border to the first cell (index column) for auto-tagged items */
 /* Uses standard selection colors (full opacity for visibility) */
@@ -468,43 +451,8 @@ width: 39%;
   padding: 8px 4px;
 }
 
-/* Three-state custom checkbox */
-.table-panel__checkbox-custom {
-  width: 20px;
-  height: 20px;
-  margin: 0 auto;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1.5px solid #d1d5db;
-  border-radius: 3px;
-  background: var(--bg-primary);
-  transition: all 0.15s ease;
-  font-size: 14px;
-  font-weight: 700;
-  user-select: none;
-}
-
-.table-panel__checkbox-custom:hover {
-  border-color: #9ca3af;
-  background: var(--bg-secondary);
-}
-
-/* Checkmark state (green) */
-.table-panel__checkbox-checkmark {
-  color: #10b981;
-  line-height: 1;
-}
-
-/* Reject state (red X) */
-.table-panel__checkbox-reject {
-  color: #ef4444;
-  line-height: 1;
-}
-
 /* ============================================================================
- * CATEGORY BADGES (replaces checkboxes)
+ * CATEGORY BADGES
  * ============================================================================ */
 
 /* Base badge styles */
@@ -846,29 +794,7 @@ width: 39%;
   white-space: nowrap;
 }
 
-/* Base highlighted segment styling */
-.highlighted-segment--exact,
-.highlighted-segment--semantic,
-.highlighted-segment--both {
-  cursor: help;
-  transition: opacity 0.2s ease;
-}
-
-/* Hover effect for highlighted segments */
-.highlighted-segment--exact:hover,
-.highlighted-segment--semantic:hover,
-.highlighted-segment--both:hover {
-  opacity: 0.8;
-}
-
-/* Emphasized segment styling (cross-row hover) */
-.highlighted-segment--emphasized {
-  outline: 2px solid #3b82f6;
-  outline-offset: 1px;
-  border-radius: 3px;
-}
-
-/* Higher/lower match styling classes (for new 2-group system) */
+/* Higher/lower match styling classes (for 2-group highlighting system) */
 .highlighted-segment--higher,
 .highlighted-segment--lower {
   cursor: help;
@@ -879,13 +805,6 @@ width: 39%;
 .highlighted-segment--lower:hover {
   opacity: 0.9;
 }
-
-/* Truncated ellipsis styling */
-.highlighted-segment--truncated {
-  cursor: default;
-  margin: 0 1px;
-}
-
 
 /* ========================================================================== */
 /* HIGHLIGHT LEGEND (INLINE WITH EXPLANATION HEADER)                        */

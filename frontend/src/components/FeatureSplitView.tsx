@@ -1,13 +1,10 @@
 import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react'
-import { createPortal } from 'react-dom'
 import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow, SelectionCategory } from '../types'
 import SelectionPanel from './SelectionPanel'
 import FeatureSplitPairViewer from './FeatureSplitPairViewer'
-import TagAutomaticPanel from './TagAutomaticPanel'
-import ScrollableItemList from './ScrollableItemList'
-import BimodalityIndicator, { isBimodalScore } from './BimodalityIndicator'
-import { TagBadge } from './TableIndicators'
+import ThresholdTaggingPanel from './ThresholdTaggingPanel'
+import { isBimodalScore } from './BimodalityIndicator'
 import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import '../styles/FeatureSplitView.css'
@@ -68,28 +65,6 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
   // Local state for navigation
   const [currentPairIndex, setCurrentPairIndex] = useState(0)
-  // Local state for Tag All popover
-  const [showTagAllPopover, setShowTagAllPopover] = useState(false)
-  const [popoverPosition, setPopoverPosition] = useState<{ top: number; left: number } | null>(null)
-  const tagAllButtonRef = useRef<HTMLButtonElement>(null)
-  const tagAllPopoverRef = useRef<HTMLDivElement>(null)
-
-  // Close popover when clicking outside
-  useEffect(() => {
-    if (!showTagAllPopover) return
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        tagAllPopoverRef.current &&
-        !tagAllPopoverRef.current.contains(e.target as Node) &&
-        tagAllButtonRef.current &&
-        !tagAllButtonRef.current.contains(e.target as Node)
-      ) {
-        setShowTagAllPopover(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showTagAllPopover])
   // Which list is currently controlling the viewer: 'all', 'reject' (Monosemantic), or 'select' (Fragmented)
   const [activeListSource, setActiveListSource] = useState<'all' | 'reject' | 'select'>('all')
   // Captured sorted pair keys (one-time snapshot after Apply Tags)
@@ -520,31 +495,19 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
   }, [pairList, currentPage, fetchActivationExamples])
 
-  // Monosemantic (reject) list click handler
-  const handleRejectListClick = useCallback((index: number) => {
-    if (index >= 0 && index < boundaryItems.rejectBelow.length) {
-      setActiveListSource('reject')
+  // Unified boundary list click handler (for ThresholdTaggingPanel)
+  const handleBoundaryListClick = useCallback((listType: 'left' | 'right', index: number) => {
+    const items = listType === 'left' ? boundaryItems.rejectBelow : boundaryItems.selectAbove
+    if (index >= 0 && index < items.length) {
+      setActiveListSource(listType === 'left' ? 'reject' : 'select')
       setCurrentPairIndex(index)
       // Pre-fetch activation examples for clicked pair
-      const pair = boundaryItems.rejectBelow[index]
+      const pair = items[index]
       if (pair) {
         fetchActivationExamples([pair.mainFeatureId, pair.similarFeatureId])
       }
     }
-  }, [boundaryItems.rejectBelow, fetchActivationExamples])
-
-  // Fragmented (select) list click handler
-  const handleSelectListClick = useCallback((index: number) => {
-    if (index >= 0 && index < boundaryItems.selectAbove.length) {
-      setActiveListSource('select')
-      setCurrentPairIndex(index)
-      // Pre-fetch activation examples for clicked pair
-      const pair = boundaryItems.selectAbove[index]
-      if (pair) {
-        fetchActivationExamples([pair.mainFeatureId, pair.similarFeatureId])
-      }
-    }
-  }, [boundaryItems.selectAbove, fetchActivationExamples])
+  }, [boundaryItems.rejectBelow, boundaryItems.selectAbove, fetchActivationExamples])
 
   // ============================================================================
   // NAVIGATION HANDLERS - Work with active list
@@ -561,9 +524,6 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   // ============================================================================
   // APPLY TAGS HANDLER
   // ============================================================================
-
-  // Button is enabled when there are pairs in the boundary lists (pairs to auto-tag)
-  const hasItemsToTag = boundaryItems.rejectBelow.length > 0 || boundaryItems.selectAbove.length > 0
 
   // Handle Apply Tags button click
   const handleApplyTags = useCallback(() => {
@@ -710,7 +670,6 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     console.log('[TagAll] New states size:', newStates.size)
 
     restorePairSelectionStates(newStates, newSources)
-    setShowTagAllPopover(false)
 
     // 2. Create a new commit with the updated state
     const newCommit: TagCommit = {
@@ -792,7 +751,6 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     })
 
     restorePairSelectionStates(newStates, newSources)
-    setShowTagAllPopover(false)
 
     // 2. Create a new commit with the updated state
     const newCommit: TagCommit = {
@@ -820,6 +778,15 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
     console.log('[TagAll] Created tagAll commit and saved to store, history length:', tagCommitHistory.length + 1)
   }, [pairList, pairSelectionStates, pairSelectionSources, pairSimilarityScores, restorePairSelectionStates, currentCommitIndex, tagCommitHistory.length, setStage1FinalCommit, selectedFeatureIds])
+
+  // Unified Tag All handler for ThresholdTaggingPanel
+  const handleTagAll = useCallback((method: 'left' | 'byBoundary') => {
+    if (method === 'left') {
+      handleTagAllMonosemantic()
+    } else {
+      handleTagAllByBoundary()
+    }
+  }, [handleTagAllMonosemantic, handleTagAllByBoundary])
 
   // ============================================================================
   // RENDER
@@ -859,227 +826,48 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
         <div className="feature-split-view__content">
         {/* Top row: Pair list + FeatureSplitPairViewer */}
         <div className="feature-split-view__row-top">
-          <ScrollableItemList
-            width={210}
-            badges={[
-              { label: 'All Pairs', count: `${pairList.length} pairs` }
-            ]}
-            columnHeader={uncertaintySortedPairKeys ? { label: 'Confidence', sortDirection: 'asc' } : undefined}
-            items={currentPagePairs}
-            currentIndex={activeListSource === 'all' ? currentPairIndex % PAIRS_PER_PAGE : -1}
-            isActive={activeListSource === 'all'}
-            highlightPredicate={(pair, currentPair) =>
-              !!currentPair && pair.clusterId === currentPair.clusterId
-            }
-            renderItem={(pair, index) => {
-              const selectionState = pairSelectionStates.get(pair.pairKey) || null
-
-              // Map selection state to tag name
-              let tagName = 'Unsure'
-              if (selectionState === 'selected') {
-                tagName = 'Fragmented'
-              } else if (selectionState === 'rejected') {
-                tagName = 'Monosemantic'
-              }
-
-              // Format pair ID as string for TagBadge
-              const pairIdString = `${pair.mainFeatureId}-${pair.similarFeatureId}`
-
-              return (
-                <TagBadge
-                  featureId={pairIdString as any}
-                  tagName={tagName}
-                  tagCategoryId={TAG_CATEGORY_FEATURE_SPLITTING}
-                  onClick={() => handleAllPairsListClick(index)}
-                  fullWidth={true}
-                />
-              )
-            }}
-            pageNavigation={{
-              currentPage,
-              totalPages,
-              onPreviousPage: handlePreviousPage,
-              onNextPage: handleNextPage
-            }}
-          />
           <FeatureSplitPairViewer
             currentPairIndex={currentPairIndex}
             pairList={activePairList}
             onNavigatePrevious={handleNavigatePrevious}
             onNavigateNext={handleNavigateNext}
             autoAdvance={activeListSource === 'all'}
+            allPairsListProps={{
+              currentPagePairs,
+              totalPairCount: pairList.length,
+              isActive: activeListSource === 'all',
+              hasSortHeader: !!uncertaintySortedPairKeys,
+              currentPage,
+              totalPages,
+              onItemClick: handleAllPairsListClick,
+              onPreviousPage: handlePreviousPage,
+              onNextPage: handleNextPage
+            }}
           />
         </div>
 
         {/* Bottom row: Histogram + Apply Tags button + Monosemantic list + Fragmented list */}
-        <div className="feature-split-view__row-bottom">
-          {/* Left: Histogram */}
-          <TagAutomaticPanel
-            mode="pair"
-            availablePairs={pairList}
-            filteredFeatureIds={selectedFeatureIds || undefined}
-            threshold={clusteringThreshold}
-          />
-
-          {/* Button container - between histogram and boundary lists */}
-          <div className="feature-split-view__apply-button-container">
-            {/* Apply Threshold button */}
-            <button
-              className="feature-split-view__apply-button"
-              onClick={handleApplyTags}
-              disabled={!hasItemsToTag}
-              title={hasItemsToTag ? 'Apply auto-tags and sort by uncertainty' : 'No pairs in threshold regions to tag'}
-            >
-              Apply Threshold
-            </button>
-
-            {/* Bimodality Indicator + Tag All (visually connected) */}
-            <div className={`feature-split-view__bimodal-group ${isBimodal ? 'feature-split-view__bimodal-group--active' : ''}`}>
-              <BimodalityIndicator bimodality={tagAutomaticState?.histogramData?.bimodality} />
-              <button
-                ref={tagAllButtonRef}
-                className={`feature-split-view__tag-all-button ${isBimodal ? 'feature-split-view__tag-all-button--active' : ''}`}
-                onClick={() => {
-                  if (tagAllButtonRef.current) {
-                    const rect = tagAllButtonRef.current.getBoundingClientRect()
-                    setPopoverPosition({
-                      top: rect.bottom + 6,
-                      left: rect.left + rect.width / 2
-                    })
-                  }
-                  setShowTagAllPopover(true)
-                }}
-                disabled={!isBimodal}
-                title={isBimodal ? 'Tag all remaining pairs and proceed to next stage' : 'Requires strongly bimodal distribution'}
-              >
-                Tag All
-              </button>
-              {/* Tag All popover - rendered via portal */}
-              {showTagAllPopover && popoverPosition && createPortal(
-                <div
-                  ref={tagAllPopoverRef}
-                  className="tag-all-popover"
-                  style={{ top: popoverPosition.top, left: popoverPosition.left }}
-                >
-                  <div className="tag-all-popover__title">Tag remaining pairs:</div>
-                  <button
-                    className="tag-all-popover__option tag-all-popover__option--default"
-                    onClick={handleTagAllMonosemantic}
-                  >
-                    As Monosemantic
-                  </button>
-                  <button
-                    className="tag-all-popover__option"
-                    onClick={handleTagAllByBoundary}
-                  >
-                    By Decision Boundary
-                  </button>
-                  <button
-                    className="tag-all-popover__cancel"
-                    onClick={() => setShowTagAllPopover(false)}
-                  >
-                    Cancel
-                  </button>
-                </div>,
-                document.body
-              )}
-            </div>
-
-            {/* Next Stage button */}
-            <button
-              className="feature-split-view__next-stage-button"
-              onClick={moveToNextStep}
-              disabled={!allPairsTagged}
-              title={allPairsTagged ? 'Proceed to Quality stage' : 'Tag all pairs first'}
-            >
-              Next Stage →
-            </button>
-          </div>
-
-          {/* Monosemantic list - below reject threshold */}
-          <ScrollableItemList
-            width={260}
-            badges={[
-              { label: 'Monosemantic', count: `${boundaryItems.rejectBelow.length} pairs` }
-            ]}
-            columnHeader={{ label: 'Confidence', sortDirection: 'asc' }}
-            headerStripe={{ type: 'autoReject', mode: 'pair' }}
-            items={boundaryItems.rejectBelow}
-            currentIndex={activeListSource === 'reject' ? currentPairIndex : -1}
-            isActive={activeListSource === 'reject'}
-            renderItem={(item, index) => {
-              const selectionState = pairSelectionStates.get(item.pairKey)
-              const similarityScore = pairSimilarityScores.get(item.pairKey)
-
-              let tagName = 'Unsure'
-              if (selectionState === 'selected') {
-                tagName = 'Fragmented'
-              } else if (selectionState === 'rejected') {
-                tagName = 'Monosemantic'
-              }
-
-              // Format pair ID as string for TagBadge
-              const pairIdString = `${item.mainFeatureId}-${item.similarFeatureId}`
-
-              return (
-                <div className="pair-item-with-score">
-                  <TagBadge
-                    featureId={pairIdString as any}
-                    tagName={tagName}
-                    tagCategoryId={TAG_CATEGORY_FEATURE_SPLITTING}
-                    onClick={() => handleRejectListClick(index)}
-                    fullWidth={true}
-                  />
-                  {similarityScore !== undefined && (
-                    <span className="pair-similarity-score">{similarityScore.toFixed(2)}</span>
-                  )}
-                </div>
-              )
-            }}
-          />
-
-          {/* Fragmented list - above select threshold */}
-          <ScrollableItemList
-            width={260}
-            badges={[
-              { label: 'Fragmented', count: `${boundaryItems.selectAbove.length} pairs` }
-            ]}
-            columnHeader={{ label: 'Confidence', sortDirection: 'asc' }}
-            headerStripe={{ type: 'expand', mode: 'pair' }}
-            items={boundaryItems.selectAbove}
-            currentIndex={activeListSource === 'select' ? currentPairIndex : -1}
-            isActive={activeListSource === 'select'}
-            renderItem={(item, index) => {
-              const selectionState = pairSelectionStates.get(item.pairKey)
-              const similarityScore = pairSimilarityScores.get(item.pairKey)
-
-              let tagName = 'Unsure'
-              if (selectionState === 'selected') {
-                tagName = 'Fragmented'
-              } else if (selectionState === 'rejected') {
-                tagName = 'Monosemantic'
-              }
-
-              // Format pair ID as string for TagBadge
-              const pairIdString = `${item.mainFeatureId}-${item.similarFeatureId}`
-
-              return (
-                <div className="pair-item-with-score">
-                  <TagBadge
-                    featureId={pairIdString as any}
-                    tagName={tagName}
-                    tagCategoryId={TAG_CATEGORY_FEATURE_SPLITTING}
-                    onClick={() => handleSelectListClick(index)}
-                    fullWidth={true}
-                  />
-                  {similarityScore !== undefined && (
-                    <span className="pair-similarity-score">{similarityScore.toFixed(2)}</span>
-                  )}
-                </div>
-              )
-            }}
-          />
-        </div>
+        <ThresholdTaggingPanel
+          mode="pair"
+          tagCategoryId={TAG_CATEGORY_FEATURE_SPLITTING}
+          leftItems={boundaryItems.rejectBelow}
+          rightItems={boundaryItems.selectAbove}
+          leftListLabel="Monosemantic"
+          rightListLabel="Fragmented"
+          histogramProps={{
+            availablePairs: pairList,
+            filteredFeatureIds: selectedFeatureIds || undefined,
+            threshold: clusteringThreshold
+          }}
+          onApplyTags={handleApplyTags}
+          onTagAll={handleTagAll}
+          onNextStage={moveToNextStep}
+          onListItemClick={handleBoundaryListClick}
+          activeListSource={activeListSource}
+          currentIndex={currentPairIndex}
+          isBimodal={isBimodal}
+          allTagged={allPairsTagged}
+        />
       </div>
       </div>
     </div>

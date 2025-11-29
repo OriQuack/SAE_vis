@@ -2,6 +2,8 @@ import React, { useState, useRef, useCallback } from 'react'
 import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow } from '../types'
 import ActivationExample from './ActivationExample'
+import ScrollableItemList from './ScrollableItemList'
+import { TagBadge } from './TableIndicators'
 import { UNSURE_GRAY } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
@@ -80,6 +82,19 @@ interface FeatureSplitPairViewerProps {
   onNavigatePrevious?: () => void
   onNavigateNext?: () => void
   autoAdvance?: boolean  // Whether to auto-advance to next pair after tagging (default: true)
+
+  // ScrollableItemList props for "All Pairs" list
+  allPairsListProps?: {
+    currentPagePairs: Array<PairData>
+    totalPairCount: number
+    isActive: boolean
+    hasSortHeader: boolean  // Whether to show "Confidence" column header
+    currentPage: number
+    totalPages: number
+    onItemClick: (index: number) => void
+    onPreviousPage: () => void
+    onNextPage: () => void
+  }
 }
 
 const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
@@ -89,8 +104,11 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   currentPair: currentPairProp,
   onNavigatePrevious,
   onNavigateNext,
-  autoAdvance = true
+  autoAdvance = true,
+  allPairsListProps
 }) => {
+  // Constants
+  const PAIRS_PER_PAGE = 20
   // Store state
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
   const togglePairSelection = useVisualizationStore(state => state.togglePairSelection)
@@ -231,7 +249,54 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   const unsureColor = UNSURE_GRAY  // Gray for unsure state
 
   return (
-    <div className={`feature-split-pair-viewer ${className}`}>
+    <div className={`feature-split-pair-viewer ${className} ${allPairsListProps ? 'feature-split-pair-viewer--with-list' : ''}`}>
+      {/* All Pairs list (optional) */}
+      {allPairsListProps && (
+        <ScrollableItemList
+          width={210}
+          badges={[
+            { label: 'All Pairs', count: `${allPairsListProps.totalPairCount} pairs` }
+          ]}
+          columnHeader={allPairsListProps.hasSortHeader ? { label: 'Confidence', sortDirection: 'asc' } : undefined}
+          items={allPairsListProps.currentPagePairs}
+          currentIndex={allPairsListProps.isActive ? currentPairIndex % PAIRS_PER_PAGE : -1}
+          isActive={allPairsListProps.isActive}
+          highlightPredicate={(pair: PairData, currentPairItem: PairData | null) =>
+            !!currentPairItem && pair.clusterId === currentPairItem.clusterId
+          }
+          renderItem={(pair: PairData, index: number) => {
+            const selectionState = pairSelectionStates.get(pair.pairKey) || null
+
+            // Map selection state to tag name
+            let tagName = 'Unsure'
+            if (selectionState === 'selected') {
+              tagName = 'Fragmented'
+            } else if (selectionState === 'rejected') {
+              tagName = 'Monosemantic'
+            }
+
+            // Format pair ID as string for TagBadge
+            const pairIdString = `${pair.mainFeatureId}-${pair.similarFeatureId}`
+
+            return (
+              <TagBadge
+                featureId={pairIdString as any}
+                tagName={tagName}
+                tagCategoryId={TAG_CATEGORY_FEATURE_SPLITTING}
+                onClick={() => allPairsListProps.onItemClick(index)}
+                fullWidth={true}
+              />
+            )
+          }}
+          pageNavigation={{
+            currentPage: allPairsListProps.currentPage,
+            totalPages: allPairsListProps.totalPages,
+            onPreviousPage: allPairsListProps.onPreviousPage,
+            onNextPage: allPairsListProps.onNextPage
+          }}
+        />
+      )}
+
       {/* Main content area */}
       <div className="pair-viewer__main">
         {/* Compact header with pair info and legend */}
