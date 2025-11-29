@@ -201,6 +201,43 @@ export const createActivationActions = (set: any, get: any) => ({
   },
 
   /**
+   * Fetch ALL activation examples in parallel chunks for fast initialization.
+   *
+   * This enables loading all 16k+ activation examples during init by:
+   * - Splitting feature IDs into manageable chunks
+   * - Firing all chunk requests in parallel
+   * - Leveraging existing fetchActivationExamples for caching/deduplication
+   *
+   * @param featureIds - Array of ALL feature IDs to fetch
+   * @param chunkSize - Number of features per chunk (default 2000)
+   */
+  fetchAllActivationsChunked: async (featureIds: number[], chunkSize: number = 2000) => {
+    if (!featureIds || featureIds.length === 0) {
+      console.log('[Store.fetchAllActivationsChunked] No feature IDs provided, skipping')
+      return
+    }
+
+    // Split into chunks
+    const chunks: number[][] = []
+    for (let i = 0; i < featureIds.length; i += chunkSize) {
+      chunks.push(featureIds.slice(i, i + chunkSize))
+    }
+
+    console.log(`[Store.fetchAllActivationsChunked] Loading ${featureIds.length} features in ${chunks.length} parallel chunks (${chunkSize} per chunk)`)
+
+    const startTime = performance.now()
+
+    // Fire all chunks in parallel - fetchActivationExamples handles caching/deduplication
+    await Promise.all(chunks.map((chunk, index) => {
+      console.log(`[Store.fetchAllActivationsChunked] Starting chunk ${index + 1}/${chunks.length} (${chunk.length} features)`)
+      return get().fetchActivationExamples(chunk)
+    }))
+
+    const duration = performance.now() - startTime
+    console.log(`[Store.fetchAllActivationsChunked] ✅ All ${featureIds.length} activation examples loaded in ${duration.toFixed(0)}ms`)
+  },
+
+  /**
    * Clear activation cache (for memory management or testing)
    */
   clearActivationCache: () => {

@@ -74,6 +74,92 @@ function getThresholdPath(nodeId: string, structure: SankeyStructure): Threshold
  */
 export const createSimplifiedSankeyActions = (set: any, get: any) => ({
   /**
+   * Build Sankey from pre-fetched feature IDs (optimized for parallel init).
+   *
+   * This variant of initializeSankey uses feature IDs that were already fetched,
+   * avoiding a duplicate API call during parallel initialization.
+   *
+   * Used by initializeWithDefaultFilters() for parallel loading:
+   * - Feature IDs fetched once upfront
+   * - Passed to both buildSankeyFromFeatureIds() and fetchAllActivationsChunked()
+   *
+   * @param featureIds - Array of all feature IDs (pre-fetched)
+   * @param panel - Which panel to initialize
+   */
+  buildSankeyFromFeatureIds: async (featureIds: number[], panel: PanelSide = PANEL_LEFT) => {
+    const state = get()
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
+    const loadingKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
+    const errorKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
+
+    console.log(`[buildSankeyFromFeatureIds] 🚀 Building Sankey for ${panel} with ${featureIds.length} pre-fetched features`)
+
+    // Get panel filters
+    const { filters } = state[panelKey]
+
+    state.setLoading(loadingKey, true)
+    state.clearError(errorKey)
+
+    try {
+      // Convert array to Set (expected by buildStage1)
+      const allFeatures = new Set(featureIds)
+      console.log(`[buildSankeyFromFeatureIds] 📊 Building Stage 1 with ${allFeatures.size} features`)
+
+      // Build Stage 1 automatically (NO API call needed - using pre-fetched IDs!)
+      const stage1Structure = await buildStage1(filters, allFeatures)
+
+      console.log(`[buildSankeyFromFeatureIds] ✅ Stage 1 built:`, {
+        nodes: stage1Structure.nodes.length,
+        links: stage1Structure.links.length,
+        currentStage: stage1Structure.currentStage
+      })
+
+      // Store the structure
+      set((state: any) => ({
+        [panelKey]: {
+          ...state[panelKey],
+          sankeyStructure: stage1Structure,
+          rootFeatureIds: allFeatures
+        }
+      }))
+
+      // Recompute D3 layout
+      get().recomputeD3StructureV2(panel)
+
+      // Fetch histogram data for Stage 1 segment node
+      const stage1Config = getStageConfig(1)
+      if (stage1Config.metric) {
+        const nodeId = 'stage1_segment'
+        const thresholdPath = getThresholdPath(nodeId, stage1Structure)
+        console.log(`[buildSankeyFromFeatureIds] 📊 Fetching histogram for ${stage1Config.metric} on ${nodeId}`, { thresholdPath })
+
+        // Fetch histogram using API directly
+        try {
+          const histogramData = await api.getHistogramData({
+            filters,
+            metric: stage1Config.metric,
+            nodeId,
+            thresholdPath,
+            bins: 50
+          })
+          state.setHistogramData({ [stage1Config.metric]: histogramData }, panel, nodeId)
+        } catch (error) {
+          console.error(`[buildSankeyFromFeatureIds] Failed to fetch histogram:`, error)
+        }
+      }
+
+      state.setLoading(loadingKey, false)
+      console.log('[buildSankeyFromFeatureIds] ✅ Sankey built successfully from pre-fetched IDs')
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to build Sankey'
+      state.setError(errorKey, errorMessage)
+      state.setLoading(loadingKey, false)
+      console.error('[buildSankeyFromFeatureIds] ❌ Error:', error)
+    }
+  },
+
+  /**
    * Initialize Sankey with root node and auto-build Stage 1 (Feature Splitting).
    * This replaces initializeFixedSankeyTree and auto-activates Stage 1.
    */

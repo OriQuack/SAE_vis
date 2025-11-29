@@ -7,9 +7,15 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List
 import logging
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 from ..services.data_service import DataService
 from ..models.responses import ActivationExamplesResponse
+
+# Thread pool for running blocking I/O operations without blocking the event loop
+# This enables true parallel processing of multiple activation example requests
+_executor = ThreadPoolExecutor(max_workers=8)
 
 logger = logging.getLogger(__name__)
 
@@ -73,8 +79,14 @@ async def get_activation_examples(
 
         logger.info(f"Fetching activation examples for {len(request.feature_ids)} features")
 
-        # Fetch activation examples using batch method
-        examples = service.get_activation_examples(request.feature_ids)
+        # Run blocking I/O in thread pool to enable parallel request handling
+        # This allows multiple activation example requests to be processed concurrently
+        loop = asyncio.get_event_loop()
+        examples = await loop.run_in_executor(
+            _executor,
+            service.get_activation_examples,
+            request.feature_ids
+        )
 
         logger.info(f"Successfully fetched activation examples for {len(examples)} features")
 

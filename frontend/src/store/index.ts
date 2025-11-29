@@ -16,7 +16,7 @@ import type {
   SankeySegmentSelection,
   FlowPathData
 } from '../types'
-import { getNodeThresholdPath } from '../lib/threshold-utils'
+import { getNodeThresholdPath, processFeatureGroupResponse } from '../lib/threshold-utils'
 import {
   PANEL_LEFT,
   PANEL_RIGHT,
@@ -98,6 +98,7 @@ interface AppState {
 
   // Simplified 3-stage Sankey actions (from sankey-actions-v2.ts)
   initializeSankey: (panel?: PanelSide) => Promise<void>
+  buildSankeyFromFeatureIds: (featureIds: number[], panel?: PanelSide) => Promise<void>
   activateStage2: (panel?: PanelSide) => Promise<void>
   activateStage3: (panel?: PanelSide) => Promise<void>
   updateStageThreshold: (stageNumber: 1 | 2, newThreshold: number, panel?: PanelSide) => Promise<void>
@@ -275,6 +276,7 @@ interface AppState {
 
   // Activation examples actions (from activation-actions.ts)
   fetchActivationExamples: (featureIds: number[]) => Promise<void>
+  fetchAllActivationsChunked: (featureIds: number[], chunkSize?: number) => Promise<void>
   getActivationData: (featureId: number) => ActivationExamples | undefined
   isActivationDataCached: (featureId: number) => boolean
   isActivationDataLoading: (featureId: number) => boolean
@@ -376,7 +378,7 @@ const initialState = {
 
   // Stage table state
   activeStageNodeId: null,
-  activeStageCategory: null,
+  activeStageCategory: TAG_CATEGORY_FEATURE_SPLITTING,
 
   // Stage 1 revisiting state
   isRevisitingStage1: false,
@@ -998,14 +1000,39 @@ export const useStore = create<AppState>((set, get) => {
       }
     }))
 
-    // OPTIMIZATION: Parallelize table data and Sankey initialization
-    // This allows Sankey to render immediately while table loads in background
-    console.log('🚀 Starting parallel initialization: Table data + Sankey tree')
+    // OPTIMIZATION: Full parallel initialization with shared feature IDs
+    // Step 1: Fetch all feature IDs first (single API call)
+    const filters = {
+      sae_id: [],
+      explanation_method: [],
+      llm_explainer: llmExplainers,
+      llm_scorer: llmScorers
+    }
+
+    console.log('🔑 Step 1: Fetching all feature IDs...')
+    const startTime = performance.now()
+    const rootResponse = await api.getFeatureGroups({
+      filters,
+      metric: 'root',
+      thresholds: []
+    })
+    const groups = processFeatureGroupResponse(rootResponse)
+    if (groups.length === 0) {
+      console.error('No features returned from API')
+      return
+    }
+    const allFeatureIds = Array.from(groups[0].featureIds)
+    console.log(`🔑 Feature IDs fetched: ${allFeatureIds.length} features in ${(performance.now() - startTime).toFixed(0)}ms`)
+
+    // Step 2: Run ALL data loading in parallel (using shared feature IDs)
+    console.log('🚀 Step 2: Starting parallel initialization: Table + Sankey + Activations')
     await Promise.all([
       get().fetchTableData(),
-      get().initializeSankey(PANEL_LEFT)
+      get().buildSankeyFromFeatureIds(allFeatureIds, PANEL_LEFT),
+      get().fetchAllActivationsChunked(allFeatureIds, 4000)  // 4 chunks to fit browser connection limit
     ])
-    console.log('✅ Parallel initialization complete - Table data + Sankey ready')
+    const totalDuration = performance.now() - startTime
+    console.log(`✅ Full parallel initialization complete in ${totalDuration.toFixed(0)}ms - Table + Sankey + Activations ready`)
 
     // Activate Feature Splitting view by default
     await get().activateCategoryTable(TAG_CATEGORY_FEATURE_SPLITTING)

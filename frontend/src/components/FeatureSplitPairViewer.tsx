@@ -291,8 +291,16 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
           pageNavigation={{
             currentPage: allPairsListProps.currentPage,
             totalPages: allPairsListProps.totalPages,
-            onPreviousPage: allPairsListProps.onPreviousPage,
-            onNextPage: allPairsListProps.onNextPage
+            onPreviousPage: () => {
+              allPairsListProps.onPreviousPage()
+              // Select first item on the new page so selection indicator appears
+              allPairsListProps.onItemClick(0)
+            },
+            onNextPage: () => {
+              allPairsListProps.onNextPage()
+              // Select first item on the new page so selection indicator appears
+              allPairsListProps.onItemClick(0)
+            }
           }}
         />
       )}
