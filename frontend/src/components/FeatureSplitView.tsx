@@ -174,13 +174,15 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   // Fetch ALL cluster pairs when features change or when groups are cleared (Simplified Flow)
   useEffect(() => {
     if (selectedFeatureIds && selectedFeatureIds.size > 0 && !clusterGroups && !isLoadingDistributedPairs) {
+      const featureIdsArray = Array.from(selectedFeatureIds)
       console.log('[FeatureSplitView] [SIMPLIFIED FLOW] Fetching ALL cluster pairs:', {
         featureCount: selectedFeatureIds.size,
         sankeyThreshold: clusterThreshold,
         clusteringThreshold: clusteringThreshold
       })
+      console.log('[DEBUG] Sending to API - feature IDs sample:', featureIdsArray.slice(0, 10))
       // Call simplified API - returns ALL pairs (no sampling)
-      fetchAllClusterPairs(Array.from(selectedFeatureIds), clusteringThreshold)
+      fetchAllClusterPairs(featureIdsArray, clusteringThreshold)
     }
     // NOTE: clusterGroups IS in dependencies to fetch after clearing
     // NOTE: isLoadingDistributedPairs NOT in dependencies to avoid infinite loop

@@ -161,7 +161,8 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
   }
 
   // Show loading message during initialization stages
-  if (loadingStage !== 'ready' && tableData === null) {
+  // Use || to wait until BOTH: loadingStage is 'ready' AND tableData is loaded
+  if (loadingStage !== 'ready' || tableData === null) {
     const stageMessages: Record<string, string> = {
       'health': 'Connecting to server...',
       'filters': 'Loading filter options...',
