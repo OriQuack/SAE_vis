@@ -171,12 +171,13 @@
 
 .tag-all-popover {
   position: fixed;
-  transform: translateX(-50%);
-  background: #1f2937;
-  color: #f9fafb;
+  transform: translate(-50%, -100%);
+  background: #ffffff;
+  color: #1f2937;
   padding: 8px;
   border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   z-index: 9999;
   min-width: 140px;
   display: flex;
@@ -184,47 +185,51 @@
   gap: 4px;
 }
 
-.tag-all-popover::before {
+.tag-all-popover::after {
   content: '';
   position: absolute;
-  bottom: 100%;
+  top: 100%;
   left: 50%;
   transform: translateX(-50%);
   border: 6px solid transparent;
-  border-bottom-color: #1f2937;
+  border-top-color: #ffffff;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.1));
 }
 
 .tag-all-popover__title {
   font-size: 11px;
   font-weight: 600;
-  color: #9ca3af;
+  color: #6b7280;
   padding: 2px 4px;
 }
 
 .tag-all-popover__option {
   padding: 6px 8px;
-  border: none;
+  border: 1px solid #e5e7eb;
   border-radius: 4px;
-  background: #374151;
-  color: #f3f4f6;
+  background: #f9fafb;
+  color: #374151;
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   text-align: left;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .tag-all-popover__option:hover {
-  background: #4b5563;
+  background: #f3f4f6;
+  border-color: #d1d5db;
 }
 
 .tag-all-popover__option--default {
-  background: #6366f1;
+  background: #3b82f6;
   color: white;
+  border-color: #3b82f6;
 }
 
 .tag-all-popover__option--default:hover {
-  background: #4f46e5;
+  background: #2563eb;
+  border-color: #2563eb;
 }
 
 .tag-all-popover__cancel {
@@ -232,7 +237,7 @@
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: #9ca3af;
+  color: #6b7280;
   font-size: 11px;
   cursor: pointer;
   text-align: center;
@@ -240,5 +245,5 @@
 }
 
 .tag-all-popover__cancel:hover {
-  color: #f3f4f6;
+  color: #374151;
 }

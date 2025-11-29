@@ -125,7 +125,7 @@ export const createQualityActions = (set: any, get: any) => ({
   // SIMILARITY TAGGING ACTIONS (feature mode)
   // ============================================================================
 
-  showTagAutomaticPopover: async (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string) => {
+  showTagAutomaticPopover: async (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string, _selectedFeatureIds?: Set<number>, _threshold?: number) => {
     // Only handle feature mode in this file
     if (mode !== 'feature') {
       console.warn('[Quality.showTagAutomaticPopover] Wrong mode:', mode)

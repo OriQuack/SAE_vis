@@ -3,6 +3,9 @@ import type { SortBy, SortDirection, SankeySegmentSelection } from '../types'
 import {
   METRIC_DECODER_SIMILARITY,
   METRIC_QUALITY_SCORE,
+  METRIC_SCORE_EMBEDDING,
+  METRIC_SCORE_FUZZ,
+  METRIC_SCORE_DETECTION,
   PANEL_LEFT
 } from '../lib/constants'
 import {
@@ -13,13 +16,13 @@ import {
 } from '../lib/constants'
 
 // ============================================================================
-// COMMON TABLE ACTIONS (shared by all stages)
+// COMMON ACTIONS (shared by all stages)
 // ============================================================================
 
 /**
- * Factory function to create common table-related actions for the store
+ * Factory function to create common actions for the store
  */
-export const createCommonTableActions = (set: any, get: any) => ({
+export const createCommonActions = (set: any, get: any) => ({
   /**
    * Toggle node selection for table filtering
    */
@@ -334,7 +337,7 @@ export const createCommonTableActions = (set: any, get: any) => ({
   /**
    * Swap the metric display in the table column
    */
-  swapMetricDisplay: (newMetric: typeof METRIC_QUALITY_SCORE | typeof METRIC_QUALITY_SCORE | typeof METRIC_QUALITY_SCORE | typeof METRIC_QUALITY_SCORE) => {
+  swapMetricDisplay: (newMetric: typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION) => {
     const state = get()
 
     // Store the current display metric

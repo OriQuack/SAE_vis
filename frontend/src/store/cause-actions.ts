@@ -133,7 +133,7 @@ export const createCauseActions = (set: any, get: any) => ({
   // SIMILARITY TAGGING ACTIONS (cause mode)
   // ============================================================================
 
-  showTagAutomaticPopover: async (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string) => {
+  showTagAutomaticPopover: async (mode: 'feature' | 'pair' | 'cause', _position: { x: number; y: number }, tagLabel: string, _selectedFeatureIds?: Set<number>, _threshold?: number) => {
     // Only handle cause mode in this file
     if (mode !== 'cause') {
       console.warn('[Cause.showTagAutomaticPopover] Wrong mode:', mode)

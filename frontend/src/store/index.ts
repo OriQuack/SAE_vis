@@ -28,7 +28,10 @@ import {
 } from '../lib/constants'
 import { createInitialPanelState, type PanelState } from './utils'
 import { createSimplifiedSankeyActions } from './sankey-actions'
-import { createTableActions } from './table-actions'
+import { createCommonActions } from './common-actions'
+import { createFeatureSplitActions } from './feature-split-actions'
+import { createQualityActions } from './quality-actions'
+import { createCauseActions } from './cause-actions'
 import { createActivationActions } from './activation-actions'
 
 type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
@@ -129,7 +132,7 @@ interface AppState {
   // Alluvial flow actions
   updateAlluvialFlows: () => void
 
-  // Table data actions (from table-actions.ts)
+  // Table data actions (composed from modular action files)
   fetchTableData: () => Promise<void>
   setTableScrollState: (state: { scrollTop: number; scrollHeight: number; clientHeight: number } | null) => void
   setTableSort: (sortBy: SortBy | null, sortDirection: SortDirection | null) => void
@@ -406,14 +409,118 @@ const initialState = {
   activationLoadingState: false
 }
 
-export const useStore = create<AppState>((set, get) => ({
+export const useStore = create<AppState>((set, get) => {
+  // Create action groups
+  const commonActions = createCommonActions(set, get)
+  const featureSplitActions = createFeatureSplitActions(set, get)
+  const qualityActions = createQualityActions(set, get)
+  const causeActions = createCauseActions(set, get)
+
+  // Create unified routing actions for similarity tagging (routes based on mode)
+  const unifiedSimilarityActions = {
+    showTagAutomaticPopover: async (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string, selectedFeatureIds?: Set<number>, threshold?: number) => {
+      console.log('[store] Routing showTagAutomaticPopover - mode:', mode, ', features:', selectedFeatureIds?.size || 0, ', threshold:', threshold ?? 0.5)
+      if (mode === 'feature') {
+        return qualityActions.showTagAutomaticPopover(mode, position, tagLabel, selectedFeatureIds, threshold)
+      } else if (mode === 'pair') {
+        return featureSplitActions.showTagAutomaticPopover(mode, position, tagLabel, selectedFeatureIds, threshold)
+      } else if (mode === 'cause') {
+        return causeActions.showTagAutomaticPopover(mode, position, tagLabel, selectedFeatureIds, threshold)
+      }
+    },
+
+    applySimilarityTags: () => {
+      const { tagAutomaticState } = get()
+      if (!tagAutomaticState) return
+
+      const { mode } = tagAutomaticState
+      if (mode === 'feature') {
+        return qualityActions.applySimilarityTags()
+      } else if (mode === 'pair') {
+        return featureSplitActions.applySimilarityTags()
+      } else if (mode === 'cause') {
+        return causeActions.applySimilarityTags()
+      }
+    },
+
+    showThresholdsOnTable: async () => {
+      const { tagAutomaticState } = get()
+      if (!tagAutomaticState) return
+
+      const { mode } = tagAutomaticState
+      if (mode === 'feature') {
+        return qualityActions.showThresholdsOnTable()
+      } else if (mode === 'pair') {
+        return featureSplitActions.showThresholdsOnTable()
+      } else if (mode === 'cause') {
+        return causeActions.showThresholdsOnTable()
+      }
+    },
+
+    updateSimilarityThresholds: (selectThreshold: number) => {
+      const { tagAutomaticState } = get()
+      if (!tagAutomaticState) return
+
+      const { mode } = tagAutomaticState
+      if (mode === 'feature') {
+        return qualityActions.updateSimilarityThresholds(selectThreshold)
+      } else if (mode === 'pair') {
+        return featureSplitActions.updateSimilarityThresholds(selectThreshold)
+      } else if (mode === 'cause') {
+        return causeActions.updateSimilarityThresholds(selectThreshold)
+      }
+    },
+
+    updateBothSimilarityThresholds: (selectThreshold: number, rejectThreshold: number) => {
+      const { tagAutomaticState } = get()
+
+      // If no state exists yet, default to pair mode (Feature Split)
+      if (!tagAutomaticState) {
+        return featureSplitActions.updateBothSimilarityThresholds(selectThreshold, rejectThreshold)
+      }
+
+      const { mode } = tagAutomaticState
+      if (mode === 'feature') {
+        return qualityActions.updateBothSimilarityThresholds(selectThreshold, rejectThreshold)
+      } else if (mode === 'pair') {
+        return featureSplitActions.updateBothSimilarityThresholds(selectThreshold, rejectThreshold)
+      } else if (mode === 'cause') {
+        return causeActions.updateBothSimilarityThresholds(selectThreshold, rejectThreshold)
+      }
+    },
+
+    // Shared functions (use any implementation - they're identical)
+    hideTagAutomaticPopover: qualityActions.hideTagAutomaticPopover,
+    minimizeSimilarityTaggingPopover: qualityActions.minimizeSimilarityTaggingPopover,
+    restoreSimilarityTaggingPopover: qualityActions.restoreSimilarityTaggingPopover,
+    hideThresholdsOnTable: qualityActions.hideThresholdsOnTable
+  }
+
+  return {
   ...initialState,
 
-  // Compose simplified Sankey actions
+  // Compose Sankey actions
   ...createSimplifiedSankeyActions(set, get),
 
-  // Compose table actions
-  ...createTableActions(set, get),
+  // Compose common actions (shared by all stages)
+  ...commonActions,
+
+  // Compose Feature Split actions (Stage 1 - Pairs)
+  getFeatureSplittingCounts: featureSplitActions.getFeatureSplittingCounts,
+  sortPairsBySimilarity: featureSplitActions.sortPairsBySimilarity,
+  fetchAllClusterPairs: featureSplitActions.fetchAllClusterPairs,
+  clearDistributedPairs: featureSplitActions.clearDistributedPairs,
+  fetchSimilarityHistogram: featureSplitActions.fetchSimilarityHistogram,
+
+  // Compose Quality actions (Stage 2 - Features)
+  sortBySimilarity: qualityActions.sortBySimilarity,
+
+  // Compose Cause actions (Stage 3 - Multi-class)
+  sortCauseBySimilarity: causeActions.sortCauseBySimilarity,
+  setCauseSortCategory: causeActions.setCauseSortCategory,
+
+  // Unified similarity tagging actions (route based on mode)
+  ...unifiedSimilarityActions,
 
   // Compose activation actions
   ...createActivationActions(set, get),
@@ -903,7 +1010,7 @@ export const useStore = create<AppState>((set, get) => ({
     // Activate Feature Splitting view by default
     await get().activateCategoryTable(TAG_CATEGORY_FEATURE_SPLITTING)
   }
-}))
+}})
 
 // Export for backward compatibility
 export const useVisualizationStore = useStore

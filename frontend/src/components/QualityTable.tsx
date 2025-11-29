@@ -27,7 +27,6 @@ import ActivationExample from './ActivationExample'
 import QualityScoreBreakdown from './QualityScoreBreakdown'
 import CauseTablePanel from './CauseTable'
 import SimilarityTaggingPopover from './TagAutomaticPopover'
-import FeatureSplitPairViewer from './FeatureSplitPairViewer'
 import TagAutomaticPanel from './TagAutomaticPanel'
 import '../styles/QualityTable.css'
 
@@ -512,7 +511,6 @@ const TablePanel: React.FC<TablePanelProps> = ({ className = '' }) => {
   if (activeStageNodeId && activeStageCategory === CATEGORY_DECODER_SIMILARITY) {
     return (
       <div className="feature-splitting-stage-view">
-        <FeatureSplitPairViewer />
         <TagAutomaticPanel mode="pair" />
         <SimilarityTaggingPopover />
       </div>

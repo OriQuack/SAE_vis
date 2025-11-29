@@ -113,11 +113,12 @@
  * ============================================================================ */
 
 .bimodality-indicator__tooltip {
-  background: #1f2937;
-  color: #f9fafb;
+  background: #ffffff;
+  color: #1f2937;
   padding: 8px 12px;
   border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   z-index: 9999;
   min-width: 140px;
   font-size: 11px;
@@ -127,14 +128,14 @@
 .bimodality-indicator__tooltip-score {
   font-weight: 600;
   font-size: 13px;
-  color: #fff;
+  color: #1f2937;
   text-align: center;
   margin-bottom: 6px;
 }
 
 .bimodality-indicator__tooltip-divider {
   height: 1px;
-  background: #4b5563;
+  background: #e5e7eb;
   margin-bottom: 6px;
 }
 
@@ -143,7 +144,7 @@
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 2px;
-  color: #d1d5db;
+  color: #6b7280;
 }
 
 .bimodality-indicator__tooltip-row:last-child {
@@ -152,5 +153,5 @@
 
 .bimodality-indicator__tooltip-row span:last-child {
   font-weight: 500;
-  color: #f3f4f6;
+  color: #374151;
 }

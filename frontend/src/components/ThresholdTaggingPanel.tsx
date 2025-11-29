@@ -110,8 +110,9 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
   const handleTagAllClick = () => {
     if (tagAllButtonRef.current) {
       const rect = tagAllButtonRef.current.getBoundingClientRect()
+      // Position above the button since panel is at the bottom of the screen
       setPopoverPosition({
-        top: rect.bottom + 6,
+        top: rect.top - 6,
         left: rect.left + rect.width / 2
       })
     }

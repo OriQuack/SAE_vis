@@ -1,13 +1,14 @@
 import * as api from '../api'
 
 // ============================================================================
-// FEATURE SPLITTING STAGE ACTIONS (pairs)
+// FEATURE SPLIT ACTIONS (Stage 1 - Pairs)
 // ============================================================================
 
 /**
- * Factory function to create feature splitting (pair) actions for the store
+ * Factory function to create Feature Split actions for the store
+ * Stage 1: Pair-based selection and similarity sorting
  */
-export const createFeatureSplittingActions = (set: any, get: any) => ({
+export const createFeatureSplitActions = (set: any, get: any) => ({
   // ============================================================================
   // FEATURE SPLITTING COUNTS GETTER
   // ============================================================================
@@ -29,9 +30,15 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
     // Track features by state (with source for manual/auto distinction)
     const fragmentedFeatures = new Map<number, 'manual' | 'auto'>()
     const monosematicFeatures = new Map<number, 'manual' | 'auto'>()
+    // Track features that have at least one pair (both endpoints in filtered set)
+    const featuresWithPairs = new Set<number>()
 
     for (const pair of allClusterPairs) {
       if (!filteredFeatureIds.has(pair.main_id) || !filteredFeatureIds.has(pair.similar_id)) continue
+
+      // Mark both features as having pairs
+      featuresWithPairs.add(pair.main_id)
+      featuresWithPairs.add(pair.similar_id)
 
       const pairState = pairSelectionStates.get(pair.pair_key)
       const pairSource = pairSelectionSources.get(pair.pair_key) || 'manual'
@@ -55,6 +62,7 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
     }
 
     // Count with priority: fragmented > monosemantic > unsure
+    // Features with NO pairs are treated as monosemantic (no similar features = not fragmented)
     let fragmented = 0, monosemantic = 0, unsure = 0
     let fragmentedManual = 0, fragmentedAuto = 0, monosematicManual = 0, monosematicAuto = 0
 
@@ -67,6 +75,10 @@ export const createFeatureSplittingActions = (set: any, get: any) => ({
         monosemantic++
         if (monosematicFeatures.get(featureId) === 'manual') monosematicManual++
         else monosematicAuto++
+      } else if (!featuresWithPairs.has(featureId)) {
+        // Feature has no pairs in the filtered set - treat as monosemantic (auto)
+        monosemantic++
+        monosematicAuto++
       } else {
         unsure++
       }

@@ -38,7 +38,6 @@ interface AppProps {
 const LoadingSpinner: React.FC<{ message?: string }> = ({ message = 'Checking connection to the backend API...' }) => (
   <div className="health-check">
     <div className="health-check__content">
-      <div className="health-check__icon">🔄</div>
       <h2 className="health-check__title">SAEGE</h2>
       <p className="health-check__message">{message}</p>
       <div className="health-check__spinner">
