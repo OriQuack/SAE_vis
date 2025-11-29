@@ -53,6 +53,27 @@ class HierarchicalClusterCandidateService:
         # Linkage matrix has n-1 rows for n features
         self.n_features = self.linkage_matrix.shape[0] + 1
 
+        # Load feature_id to matrix_index mapping from first_merge_clustering.parquet
+        import polars as pl
+        first_merge_path = (
+            project_root /
+            "data/feature_similarity/google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120/first_merge_clustering.parquet"
+        )
+        if first_merge_path.exists():
+            df = pl.read_parquet(first_merge_path)
+            # feature_ids in parquet are the actual feature IDs, indices are the matrix positions
+            self.valid_feature_ids = df["feature_id"].to_list()
+            self.feature_id_to_index = {fid: idx for idx, fid in enumerate(self.valid_feature_ids)}
+            self.index_to_feature_id = {idx: fid for idx, fid in enumerate(self.valid_feature_ids)}
+            logger.info(f"Loaded feature_id mapping: {len(self.valid_feature_ids)} features")
+            logger.info(f"Feature ID range: {min(self.valid_feature_ids)} to {max(self.valid_feature_ids)}")
+        else:
+            # Fallback: assume feature_id == matrix_index
+            self.valid_feature_ids = list(range(self.n_features))
+            self.feature_id_to_index = {i: i for i in range(self.n_features)}
+            self.index_to_feature_id = {i: i for i in range(self.n_features)}
+            logger.warning(f"First merge parquet not found, using identity mapping")
+
         # Fixed random seed for deterministic cluster selection
         self.random_seed = 42
 
@@ -72,7 +93,7 @@ class HierarchicalClusterCandidateService:
         This is the shared foundation for all cluster-based operations.
 
         Args:
-            feature_ids: Feature IDs to cluster
+            feature_ids: Feature IDs to cluster (actual feature IDs, not matrix indices)
             threshold: Distance threshold for cutting dendrogram (0-1)
 
         Returns:
@@ -91,13 +112,19 @@ class HierarchicalClusterCandidateService:
         if not (0.0 < threshold < 1.0):
             raise ValueError(f"threshold must be in (0, 1), got {threshold}")
 
-        # Validate feature IDs are in valid range
-        invalid_features = [fid for fid in feature_ids if fid < 0 or fid >= self.n_features]
+        # Validate feature IDs are in valid set (features that have clustering data)
+        invalid_features = [fid for fid in feature_ids if fid not in self.feature_id_to_index]
         if invalid_features:
-            raise ValueError(
-                f"Invalid feature IDs (must be 0-{self.n_features-1}): "
-                f"{invalid_features[:10]}{'...' if len(invalid_features) > 10 else ''}"
+            logger.warning(
+                f"Found {len(invalid_features)} feature IDs not in clustering data: "
+                f"{invalid_features[:20]}{'...' if len(invalid_features) > 20 else ''}"
             )
+            # Filter to only valid features
+            feature_ids = [fid for fid in feature_ids if fid in self.feature_id_to_index]
+            logger.info(f"Continuing with {len(feature_ids)} valid features")
+
+        if not feature_ids:
+            raise ValueError("No valid feature IDs after filtering")
 
         # Step 1: Cut dendrogram at threshold
         all_labels = fcluster(self.linkage_matrix, t=threshold, criterion='distance')
@@ -108,11 +135,12 @@ class HierarchicalClusterCandidateService:
             f"for {len(feature_ids)} features"
         )
 
-        # Step 2: Build feature_to_cluster mapping for ALL features (used by frontend)
-        feature_to_cluster = {
-            feature_id: int(all_labels[feature_id])
-            for feature_id in range(self.n_features)
-        }
+        # Step 2: Build feature_to_cluster mapping for ALL valid features
+        # Use the mapping: feature_id -> matrix_index -> cluster_label
+        feature_to_cluster = {}
+        for feature_id in self.valid_feature_ids:
+            matrix_index = self.feature_id_to_index[feature_id]
+            feature_to_cluster[feature_id] = int(all_labels[matrix_index])
 
         # Step 3: Build cluster_to_features mapping for requested features only
         cluster_to_features = {}
@@ -129,9 +157,10 @@ class HierarchicalClusterCandidateService:
             if len(features) >= 2
         }
 
+        singleton_count = len(cluster_to_features) - len(valid_clusters)
         logger.info(
             f"Available features span {len(cluster_to_features)} clusters "
-            f"({len(valid_clusters)} have 2+ features)"
+            f"({len(valid_clusters)} have 2+ features, {singleton_count} singletons)"
         )
 
         return feature_to_cluster, valid_clusters, total_clusters

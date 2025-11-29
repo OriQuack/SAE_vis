@@ -180,7 +180,6 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
         sankeyThreshold: clusterThreshold,
         clusteringThreshold: clusteringThreshold
       })
-      console.log('[DEBUG] Sending to API - feature IDs sample:', featureIdsArray.slice(0, 10))
       // Call simplified API - returns ALL pairs (no sampling)
       fetchAllClusterPairs(featureIdsArray, clusteringThreshold)
     }

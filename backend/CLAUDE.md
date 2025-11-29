@@ -244,6 +244,10 @@ pip install -r requirements.txt
 python start.py --reload --log-level debug
 ```
 
+### Logs
+- **Backend Log**: `/home/dohyun/interface/backend.log` - All server output is logged here
+- View logs: `tail -f /home/dohyun/interface/backend.log`
+
 ### Testing
 ```bash
 # Health check

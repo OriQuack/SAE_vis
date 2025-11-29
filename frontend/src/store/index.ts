@@ -77,6 +77,7 @@ interface AppState {
   togglePairSelection: (mainFeatureId: number, similarFeatureId: number) => void
   clearPairSelection: () => void
   restorePairSelectionStates: (states: Map<string, 'selected' | 'rejected'>, sources: Map<string, 'manual' | 'auto'>) => void
+  restoreFeatureSelectionStates: (states: Map<number, 'selected' | 'rejected'>, sources: Map<number, 'manual' | 'auto'>) => void
 
   // Cause category selection state (used by CauseTablePanel)
   // Three-state cycle: null -> noisy-activation -> missed-lexicon -> missed-context -> null
@@ -650,6 +651,15 @@ export const useStore = create<AppState>((set, get) => {
       pairSelectionStates: new Map(states),
       pairSelectionSources: new Map(sources),
       donePairSelectionStates: null
+    })
+  },
+
+  restoreFeatureSelectionStates: (states: Map<number, 'selected' | 'rejected'>, sources: Map<number, 'manual' | 'auto'>) => {
+    set({
+      featureSelectionStates: new Map(states),
+      featureSelectionSources: new Map(sources),
+      doneFeatureSelectionStates: null,
+      lastSortedSelectionSignature: null
     })
   },
 

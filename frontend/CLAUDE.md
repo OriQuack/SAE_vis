@@ -66,13 +66,29 @@ function buildChildNodes(parent: SankeyTreeNode, groups: FeatureGroup[]) {
 store/
 ├── index.ts                          # Main store composition
 ├── sankey-actions.ts                 # Sankey tree operations
-├── table-actions-quality.ts          # Quality table mode
-├── table-actions-feature-splitting.ts # Pair mode (clustering, similarity)
-├── table-actions-cause.ts            # Cause table mode
-├── table-actions-common.ts           # Shared table operations
+├── feature-split-actions.ts          # Stage 1: Pair mode (clustering, similarity)
+├── quality-actions.ts                # Stage 2: Feature mode (quality assessment)
+├── cause-actions.ts                  # Stage 3: Cause mode
+├── common-actions.ts                 # Shared operations
 ├── activation-actions.ts             # Activation data
 └── utils.ts                          # Store helper functions
 ```
+
+## 3-Stage Tagging Workflow
+
+The application implements a 3-stage workflow for tagging features:
+
+| Stage | Component | Mode | Items | Tags |
+|-------|-----------|------|-------|------|
+| 1. Feature Splitting | `FeatureSplitView.tsx` | `pair` | Feature pairs | Fragmented / Monosemantic |
+| 2. Quality Assessment | `QualityView.tsx` | `feature` | Individual features | Well-Explained / Need Revision |
+| 3. Root Cause Analysis | (coming soon) | `cause` | Individual features | TBD |
+
+### Shared Components Across Stages
+Both Stage 1 and Stage 2 share the same layout pattern:
+- **SelectionPanel** (left): Selection state bar + commit history
+- **ThresholdTaggingPanel** (bottom): Histogram + boundary lists
+- **TagAutomaticPanel**: SVM-based similarity scoring histogram
 
 ## Key Components
 
@@ -80,8 +96,8 @@ store/
 
 **App.tsx** - Main Orchestrator
 - Health check on startup
-- View state management
-- Layout orchestration based on active stage
+- Stage-based view routing
+- Layout orchestration based on `activeStageCategory`
 
 **SankeyDiagram.tsx** - Tree Visualization
 - D3-Sankey integration
@@ -89,24 +105,28 @@ store/
 - Node click handling → SankeyOverlay
 - Threshold handle integration
 
-**FeatureSplitView.tsx** - Feature Splitting Workflow
-- Pair list with clustering
+**FeatureSplitView.tsx** - Stage 1: Feature Splitting
+- Mode: `pair`
+- Pair list with hierarchical clustering
 - FeatureSplitPairViewer for pair analysis
 - TagAutomaticPanel for histogram-based tagging
 - Commit history for state snapshots
-- Apply Tags workflow with sort capture
+- Tags: Fragmented (selected) / Monosemantic (rejected)
 
-**QualityTable.tsx** - Quality Assessment Table
-- Feature scores display
-- Explanation highlighting
-- Mode-specific rendering (quality/cause)
+**QualityView.tsx** - Stage 2: Quality Assessment
+- Mode: `feature`
+- Layout mirrors FeatureSplitView
+- SelectionPanel (left) + placeholder (top) + ThresholdTaggingPanel (bottom)
+- SVM-based similarity scoring for features
+- Commit history for state snapshots
+- Tags: Well-Explained (selected) / Need Revision (rejected)
 
 ### Selection & Tagging
 
 **SelectionPanel.tsx** - Unified Selection Interface
 - Handles 3 modes: feature, pair, cause
 - Selection state bar with 4 categories
-- Commit history circles for pair mode
+- Commit history circles
 - Auto-tagging preview integration
 
 **SelectionBar.tsx** - Selection State Visualization
@@ -116,13 +136,19 @@ store/
 - Interactive category filtering
 
 **TagStagePanel.tsx** - Tag Stage Management
-- 3-stage workflow: Quality → Feature Splitting → Cause
-- Stage activation and navigation
+- 3-stage workflow navigation
+- Stage activation and completion tracking
 
-**TagAutomaticPanel.tsx** - Automatic Tagging
-- Histogram-based threshold configuration
+**ThresholdTaggingPanel.tsx** - Bottom Panel for Tagging
+- Supports both `pair` and `feature` modes
+- Contains: TagAutomaticPanel + buttons + boundary lists
+- Mode-specific labels and item rendering
+
+**TagAutomaticPanel.tsx** - Histogram-Based Tagging
+- SVM similarity score histogram
 - Dual thresholds (select/reject)
 - Real-time preview
+- Supports both `pair` and `feature` modes
 
 ### Visualization Components
 
@@ -131,70 +157,53 @@ store/
 - Draggable threshold handles
 - Portal-based rendering
 
-**FeatureSplitPairViewer.tsx** - Pair Analysis
+**FeatureSplitPairViewer.tsx** - Pair Analysis (Stage 1)
 - Interactive pair exploration
 - Decoder similarity visualization
 - Selection/rejection interface
 
-**ScrollableItemList.tsx** - Pair Lists
+**ScrollableItemList.tsx** - Boundary Lists
 - Scrollable list with fixed height
 - Color-coded selection states
 - Click handlers for navigation
 
-## Feature Splitting Workflow
+## SVM-Based Similarity Scoring
 
-The Feature Splitting stage implements a sophisticated tagging workflow:
+Both Stage 1 (pairs) and Stage 2 (features) use the same SVM-based scoring mechanism:
 
-### 1. Clustering
-- Backend clusters features by decoder weight similarity
-- Frontend fetches all pairs for selected Sankey segment
-- Pairs organized by cluster
-
-### 2. Manual Tagging
-- User selects/rejects pairs manually
-- Selection states: selected, rejected, or null
-
-### 3. Similarity Scoring
-- After manual tagging, user can "Sort by Similarity"
-- Backend scores all pairs based on similarity to selected/rejected examples
-- Pairs sorted by score (most similar to selected at top)
-
-### 4. Auto-Tagging
-- Histogram shows distribution of similarity scores
-- User adjusts select/reject thresholds
-- "Apply Tags" applies thresholds to untagged pairs
-- Sort order captured at apply time for uncertainty-based ordering
-
-### 5. Commit History
-- Each "Apply Tags" creates a new commit
-- User can navigate back to previous states
-- Maximum 10 commits stored
+1. **Manual Tagging**: User tags 3+ items as selected and 3+ as rejected
+2. **SVM Training**: Backend trains SVM on manual selections
+3. **Scoring**: All items scored by distance from decision boundary
+4. **Histogram**: Scores displayed in histogram with dual thresholds
+5. **Auto-Tagging**: Items beyond thresholds auto-tagged on "Apply Threshold"
+6. **Commit History**: Each apply creates a restorable state snapshot
 
 ## Project Structure
 
 ```
 frontend/src/
 ├── components/                    # React Components
-│   ├── App.tsx                   # Main application
+│   ├── App.tsx                   # Main application + stage routing
 │   ├── SankeyDiagram.tsx         # Sankey visualization
 │   ├── SankeyOverlay.tsx         # Stage addition interface
 │   ├── SankeyHistogramPopover.tsx # Histogram popover
-│   ├── FeatureSplitView.tsx      # Feature splitting workflow
-│   ├── FeatureSplitPairViewer.tsx # Pair viewer
-│   ├── QualityTable.tsx          # Quality/Cause table
-│   ├── CauseTable.tsx            # Root cause table
+│   ├── FeatureSplitView.tsx      # Stage 1: Feature splitting
+│   ├── FeatureSplitPairViewer.tsx # Pair viewer for Stage 1
+│   ├── QualityView.tsx           # Stage 2: Quality assessment
 │   ├── SelectionPanel.tsx        # Unified selection panel
 │   ├── SelectionBar.tsx          # Selection state bar
 │   ├── TagStagePanel.tsx         # Stage navigation
-│   ├── TagAutomaticPanel.tsx     # Auto-tagging controls
-│   ├── TagAutomaticPopover.tsx   # Threshold tagging popover
-│   ├── ScrollableItemList.tsx    # Scrollable pair list
+│   ├── ThresholdTaggingPanel.tsx # Bottom tagging panel (pair/feature)
+│   ├── TagAutomaticPanel.tsx     # Histogram + auto-tagging
+│   ├── TagAutomaticPopover.tsx   # Legacy threshold tagging popover
+│   ├── ScrollableItemList.tsx    # Scrollable item list
 │   ├── ActivationExample.tsx     # Activation display
 │   ├── TableExplanation.tsx      # Explanation text
 │   ├── QualityScoreBreakdown.tsx # Score breakdown
-│   └── AppHeader.tsx             # Header
+│   ├── AppHeader.tsx             # Header
+│   └── _QualityTable.deprecated.tsx # (deprecated, not imported)
 ├── lib/                          # Utilities
-│   ├── constants.ts              # App constants
+│   ├── constants.ts              # App constants, tag categories
 │   ├── sankey-utils.ts           # Sankey calculations
 │   ├── sankey-histogram-utils.ts # Inline histograms
 │   ├── histogram-utils.ts        # Histogram processing
@@ -204,12 +213,18 @@ frontend/src/
 │   ├── utils.ts                  # General helpers
 │   └── ...                       # Other utilities
 ├── store/                        # Zustand State
-│   ├── index.ts                  # Main store
+│   ├── index.ts                  # Main store composition
 │   ├── sankey-actions.ts         # Sankey operations
-│   ├── table-actions-*.ts        # Mode-specific actions
+│   ├── feature-split-actions.ts  # Stage 1 actions
+│   ├── quality-actions.ts        # Stage 2 actions
+│   ├── cause-actions.ts          # Stage 3 actions
+│   ├── common-actions.ts         # Shared actions
 │   └── ...
 ├── styles/                       # CSS Files
-│   └── *.css                     # Component styles
+│   ├── FeatureSplitView.css      # Stage 1 styles
+│   ├── QualityView.css           # Stage 2 styles
+│   ├── ThresholdTaggingPanel.css # Bottom panel styles
+│   └── *.css                     # Other component styles
 ├── types.ts                      # TypeScript types
 ├── api.ts                        # API client
 └── main.tsx                      # Entry point
@@ -223,6 +238,9 @@ cd frontend
 npm install
 npm run dev -- --port 3003
 ```
+
+### Logs
+- **Backend Log**: `/home/dohyun/interface/backend.log` - Check this file for backend errors and API debugging
 
 ### Build & Lint
 ```bash
@@ -262,6 +280,18 @@ function SankeyDiagram() {
 3. **Use proper typing** - All state must be typed
 4. **Action naming** - Use verb prefixes (set, update, fetch, etc.)
 
+### Mode-Aware Components
+Components like `ThresholdTaggingPanel` and `TagAutomaticPanel` support multiple modes:
+```typescript
+// Mode determines: item type, labels, selection states, API calls
+interface Props {
+  mode: 'feature' | 'pair'  // Stage 2 vs Stage 1
+  // Mode-specific props
+  leftItems?: PairItemWithMetadata[]      // pair mode
+  leftFeatures?: FeatureItemWithMetadata[] // feature mode
+}
+```
+
 ### Performance Patterns
 ```typescript
 // Memoization for expensive calculations
@@ -293,6 +323,9 @@ const debouncedUpdate = useMemo(
 ### Issue: Hook dependency warnings
 **Solution**: Either add dependencies or use eslint-disable with explanation
 
+### Issue: Mode-specific rendering not working
+**Solution**: Check `mode` prop is correctly passed and used in conditionals
+
 ---
 
 ## Remember
@@ -304,5 +337,6 @@ When working on frontend code:
 - **Clean up after changes**: Remove unused components, functions, styles, imports
 - **Reuse existing code**: Check lib/, store/, components/ first
 - **Run linter**: Always check `npm run lint` before committing
+- **Mode awareness**: Components often support multiple modes (pair/feature) - check existing patterns
 
 The goal is a flexible, maintainable visualization tool, not a production application.

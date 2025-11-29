@@ -4,12 +4,12 @@ import Header from './components/AppHeader'
 import SankeyDiagram from './components/SankeyDiagram'
 import AlluvialDiagram from './components/AlluvialDiagram'
 import HistogramPopover from './components/SankeyHistogramPopover'
-import TablePanel from './components/QualityTable'
 import FeatureSplitView from './components/FeatureSplitView'
+import QualityView from './components/QualityView'
 import SimilarityTaggingPopover from './components/TagAutomaticPopover'
 import TagCategoryPanel from './components/TagStagePanel'
 import SankeyToSelectionFlowOverlay from './components/SankeyToSelectionFlowOverlay'
-import { TAG_CATEGORY_FEATURE_SPLITTING } from './lib/constants'
+import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY } from './lib/constants'
 import type { SelectionCategory } from './types'
 import * as api from './api'
 import './styles/base.css'
@@ -214,14 +214,21 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
           {/* Right Column - Table */}
           <div className="sankey-view__table-column">
             <div className="sankey-view__center-left">
-              {/* Conditional Rendering: Feature Split View or Table Panel */}
+              {/* Conditional Rendering: Feature Split View, Quality View, or Cause View */}
               {activeStageCategory === TAG_CATEGORY_FEATURE_SPLITTING ? (
                 <>
                   <FeatureSplitView onCategoryRefsReady={setSelectionCategoryRefs} />
                   <SimilarityTaggingPopover />
                 </>
+              ) : activeStageCategory === TAG_CATEGORY_QUALITY ? (
+                <>
+                  <QualityView onCategoryRefsReady={setSelectionCategoryRefs} />
+                  <SimilarityTaggingPopover />
+                </>
               ) : (
-                <TablePanel />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: '#9ca3af', fontSize: '14px' }}>
+                  Stage 3: Root Cause Analysis (coming soon)
+                </div>
               )}
 
               {/* Comparison Overlay - Alluvial + Right Sankey */}

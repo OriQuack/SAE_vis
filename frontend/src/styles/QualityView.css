@@ -1,0 +1,127 @@
+/* ============================================================================
+ * QUALITY VIEW - Organized layout for quality assessment workflow (Stage 2)
+ * ============================================================================
+ * Layout:
+ *   Header (full width at top)
+ *   Body: [SelectionPanel bar (85px)] | [2-row content area]
+ *     Content area has 2 rows:
+ *       Row 1 (top 50%): Placeholder panel
+ *       Row 2 (bottom 50%): ThresholdTaggingPanel
+ * ============================================================================ */
+
+.quality-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  background-color: #ffffff;
+  gap: 0;
+}
+
+/* ============================================================================
+ * HEADER - Full width title and description
+ * ============================================================================ */
+
+.quality-view__header {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 12px;
+  padding: 2px 8px;
+  background: white;
+}
+
+.quality-view__title {
+  font-size: 22px;
+  font-weight: 500;
+  color: #374151;
+  margin: 0;
+}
+
+.quality-view__description {
+  font-size: 14px;
+  font-weight: 400;
+  color: #383838;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.quality-view__tag-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0px 3px;
+  border-radius: 3px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #000000;
+  white-space: nowrap;
+}
+
+/* ============================================================================
+ * BODY - SelectionPanel + Content area
+ * ============================================================================ */
+
+.quality-view__body {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  min-height: 0;
+  gap: 0;
+}
+
+/* SelectionPanel in QualityView should have fixed width */
+.quality-view .table-selection-panel {
+  flex: 0 0 85px;
+  width: 85px;
+}
+
+/* ============================================================================
+ * CONTENT AREA - Right column with 2 rows
+ * ============================================================================ */
+
+.quality-view__content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  gap: 8px;
+  overflow: hidden;
+}
+
+/* ============================================================================
+ * TOP ROW - Placeholder panel
+ * ============================================================================ */
+
+.quality-view__row-top {
+  display: flex;
+  flex-direction: row;
+  max-height: 50%;
+  min-height: 0;
+  gap: 0;
+  overflow: hidden;
+  flex-shrink: 0;
+  flex: 1;
+}
+
+.quality-view__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  background-color: #f9fafb;
+  border: 1px dashed #d1d5db;
+  border-radius: 8px;
+  margin: 4px;
+}
+
+.quality-view__placeholder-text {
+  color: #9ca3af;
+  font-size: 14px;
+  font-weight: 500;
+}

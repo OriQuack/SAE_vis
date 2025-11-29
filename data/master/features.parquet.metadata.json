@@ -1,5 +1,5 @@
 {
-  "created_at": "2025-11-24T00:06:29.570697",
+  "created_at": "2025-11-30T01:12:50.419785",
   "script_version": "2.1",
   "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
   "total_rows": 41758,
@@ -23,7 +23,7 @@
   "processing_stats": {
     "unique_llm_explainers": 3,
     "features_with_decoder_similarity": 16384,
-    "features_with_merge_threshold": 16384,
+    "features_with_merge_threshold": 14316,
     "explanation_embeddings_loaded": 46327,
     "scores_sources_loaded": 3
   },

@@ -10,8 +10,9 @@ import {
 import type { CategoryCounts } from '../lib/histogram-utils'
 import { getSelectionColors, STRIPE_PATTERN } from '../lib/color-utils'
 import { getTagColor } from '../lib/tag-system'
-import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
+import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY } from '../lib/constants'
 import { isPairInSelection } from '../lib/pairUtils'
+import * as api from '../api'
 import ThresholdHandles from './ThresholdHandles'
 import '../styles/TagAutomaticPanel.css'
 
@@ -54,6 +55,15 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
   // Get mode-specific colors
   const modeColors = useMemo(() => getSelectionColors(mode), [mode])
 
+  // Get mode-specific labels for threshold display
+  const modeLabels = useMemo(() => {
+    if (mode === 'pair') {
+      return { selected: 'Fragmented', rejected: 'Monosemantic' }
+    } else {
+      return { selected: 'Well-Explained', rejected: 'Need Revision' }
+    }
+  }, [mode])
+
   const svgRef = useRef<SVGSVGElement>(null)
 
   // Use resize observer for responsive sizing (same pattern as SankeyDiagram)
@@ -86,9 +96,23 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
         else if (state === 'rejected') rejectedCount++
       })
       return { selectedCount, rejectedCount }
+    } else {
+      // Feature mode
+      let selectedCount = 0
+      let rejectedCount = 0
+      featureSelectionStates.forEach((state, featureId) => {
+        // Only count features in the filtered set
+        if (filteredFeatureIds && !filteredFeatureIds.has(featureId)) return
+        const source = featureSelectionSources.get(featureId)
+        // Only count manual selections for training
+        if (source === 'manual') {
+          if (state === 'selected') selectedCount++
+          else if (state === 'rejected') rejectedCount++
+        }
+      })
+      return { selectedCount, rejectedCount }
     }
-    return { selectedCount: 0, rejectedCount: 0 }
-  }, [mode, pairSelectionStates])
+  }, [mode, pairSelectionStates, featureSelectionStates, featureSelectionSources, filteredFeatureIds])
 
   // Sync local thresholds with store state when store changes
   // This ensures user-adjusted thresholds are preserved after histogram refetch
@@ -110,9 +134,6 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
 
   // Fetch histogram data when component mounts or selection changes
   useEffect(() => {
-    // Only fetch for pair mode (feature mode not yet implemented)
-    if (mode !== 'pair') return
-
     // Debounce the fetch to avoid excessive API calls
     const timeoutId = setTimeout(async () => {
       // Need at least 3 selected and 3 rejected for meaningful histogram
@@ -122,24 +143,70 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
         return
       }
 
-      console.log('[TagAutomaticPanel] Fetching histogram - features:', filteredFeatureIds?.size || 0, ', threshold:', threshold ?? 0.5, ', counts:', selectionCounts)
       setIsLocalLoading(true)
-      try {
-        // Pass selected feature IDs AND threshold to fetch ALL cluster-based pairs from segment
-        const result = await fetchSimilarityHistogram(filteredFeatureIds, threshold)
-        if (result) {
-          setLocalHistogramData(result.histogramData)
-          // Update thresholds based on fetched data
-          const newThresholds = {
-            select: result.selectThreshold,
-            reject: result.rejectThreshold
-          }
-          setThresholds(newThresholds)
 
-          // IMPORTANT: Also update store state so FeatureSplitView can react to threshold changes
-          updateBothSimilarityThresholds(newThresholds.select, newThresholds.reject)
+      try {
+        if (mode === 'pair') {
+          // Pair mode: Use existing fetchSimilarityHistogram from store
+          console.log('[TagAutomaticPanel] Fetching pair histogram - features:', filteredFeatureIds?.size || 0, ', threshold:', threshold ?? 0.5, ', counts:', selectionCounts)
+          const result = await fetchSimilarityHistogram(filteredFeatureIds, threshold)
+          if (result) {
+            setLocalHistogramData(result.histogramData)
+            const newThresholds = {
+              select: result.selectThreshold,
+              reject: result.rejectThreshold
+            }
+            setThresholds(newThresholds)
+            updateBothSimilarityThresholds(newThresholds.select, newThresholds.reject)
+          } else {
+            setLocalHistogramData(null)
+          }
         } else {
-          setLocalHistogramData(null)
+          // Feature mode: Call API directly for feature similarity histogram
+          console.log('[TagAutomaticPanel] Fetching feature histogram - filtered features:', filteredFeatureIds?.size || 0, ', counts:', selectionCounts)
+
+          // Extract selected and rejected feature IDs
+          const selectedIds: number[] = []
+          const rejectedIds: number[] = []
+          const allFeatureIds: number[] = []
+
+          featureSelectionStates.forEach((state, featureId) => {
+            if (filteredFeatureIds && !filteredFeatureIds.has(featureId)) return
+            const source = featureSelectionSources.get(featureId)
+            if (source === 'manual') {
+              if (state === 'selected') selectedIds.push(featureId)
+              else if (state === 'rejected') rejectedIds.push(featureId)
+            }
+          })
+
+          // Get all feature IDs to score
+          if (filteredFeatureIds) {
+            filteredFeatureIds.forEach(id => allFeatureIds.push(id))
+          }
+
+          // Call API
+          const histogramResponse = await api.getSimilarityScoreHistogram(
+            selectedIds,
+            rejectedIds,
+            allFeatureIds
+          )
+
+          if (histogramResponse) {
+            setLocalHistogramData(histogramResponse)
+            // Calculate dynamic thresholds based on data range
+            const { statistics } = histogramResponse
+            const maxAbsValue = Math.max(
+              Math.abs(statistics.min || 0),
+              Math.abs(statistics.max || 0)
+            )
+            const selectThreshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? maxAbsValue / 2 : 0.2
+            const rejectThreshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? -maxAbsValue / 2 : -0.2
+
+            setThresholds({ select: selectThreshold, reject: rejectThreshold })
+            updateBothSimilarityThresholds(selectThreshold, rejectThreshold)
+          } else {
+            setLocalHistogramData(null)
+          }
         }
       } catch (error) {
         console.error('[TagAutomaticPanel] Failed to fetch histogram:', error)
@@ -152,7 +219,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
     return () => clearTimeout(timeoutId)
     // NOTE: selectionCounts and threshold excluded from deps to avoid extra re-fetches when values change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, selectionCounts.selectedCount, selectionCounts.rejectedCount, fetchSimilarityHistogram, updateBothSimilarityThresholds, filteredFeatureIds])
+  }, [mode, selectionCounts.selectedCount, selectionCounts.rejectedCount, fetchSimilarityHistogram, updateBothSimilarityThresholds, filteredFeatureIds, featureSelectionStates, featureSelectionSources])
 
   // Calculate histogram layout and bars with symmetric domain
   const histogramChart = useMemo(() => {
@@ -374,32 +441,31 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
 
   // Show empty state with helpful message
   if (!histogramData && !isLoading) {
-    // Get tag colors for highlighting
-    const fragmentedColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Fragmented') || '#F0E442'
-    const monosemanticColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Monosemantic') || '#D3D3D3'
+    // Get tag colors for highlighting based on mode
+    const selectedColor = mode === 'pair'
+      ? (getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Fragmented') || '#F0E442')
+      : (getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#4CAF50')
+    const rejectedColor = mode === 'pair'
+      ? (getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Monosemantic') || '#D3D3D3')
+      : (getTagColor(TAG_CATEGORY_QUALITY, 'Need Revision') || '#FF9800')
+    const selectedLabel = mode === 'pair' ? 'Fragmented' : 'Well-Explained'
+    const rejectedLabel = mode === 'pair' ? 'Monosemantic' : 'Need Revision'
+    const itemType = mode === 'pair' ? 'pairs' : 'features'
 
     return (
       <div className="tag-automatic-panel tag-automatic-panel--empty">
         <div className="tag-panel__empty-message">
-          {mode === 'pair' ? (
-            <>
-              <div className="tag-panel__main-instruction">
-                Tag 3+ pairs in each category
-              </div>
-              <div className="tag-panel__progress-row">
-                <span className="tag-panel__progress-item" style={{ backgroundColor: fragmentedColor }}>
-                  Fragmented: {selectionCounts.selectedCount}/3
-                </span>
-                <span className="tag-panel__progress-item" style={{ backgroundColor: monosemanticColor }}>
-                  Monosemantic: {selectionCounts.rejectedCount}/3
-                </span>
-              </div>
-            </>
-          ) : (
-            <div className="tag-panel__main-instruction">
-              Select features to enable automatic tagging
-            </div>
-          )}
+          <div className="tag-panel__main-instruction">
+            Tag 3+ {itemType} in each category
+          </div>
+          <div className="tag-panel__progress-row">
+            <span className="tag-panel__progress-item" style={{ backgroundColor: selectedColor }}>
+              {selectedLabel}: {selectionCounts.selectedCount}/3
+            </span>
+            <span className="tag-panel__progress-item" style={{ backgroundColor: rejectedColor }}>
+              {rejectedLabel}: {selectionCounts.rejectedCount}/3
+            </span>
+          </div>
         </div>
       </div>
     )
@@ -669,7 +735,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
 
                   {/* Threshold labels with arrows */}
                   <g>
-                    {/* Left threshold: Monosemantic (rejected) - colored arrow + black text */}
+                    {/* Left threshold: Rejected label - colored arrow + black text */}
                     <text
                       x={safeThresholdPositions.rejectX}
                       y={-8}
@@ -679,11 +745,11 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
                       fill="#272121ff"
                     >
                       <tspan fill={modeColors.rejected} fontSize={16}>← </tspan>
-                      <tspan>Monosemantic</tspan>
+                      <tspan>{modeLabels.rejected}</tspan>
                     </text>
                   </g>
                   <g>
-                    {/* Right threshold: Fragmented (selected) - black text + colored arrow */}
+                    {/* Right threshold: Selected label - black text + colored arrow */}
                     <text
                       x={safeThresholdPositions.selectX}
                       y={-8}
@@ -692,7 +758,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
                       fontWeight={600}
                       fill="#000000"
                     >
-                      <tspan>Fragmented </tspan>
+                      <tspan>{modeLabels.selected} </tspan>
                       <tspan fill={modeColors.confirmed} fontSize={16}>→</tspan>
                     </text>
                   </g>

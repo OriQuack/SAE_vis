@@ -234,6 +234,9 @@ npm run dev -- --port 3003
 - **Master Data**: `/data/master/feature_analysis.parquet` (required)
 - **Decoder Weights**: `/data/master/decoder_weights.npy` (for clustering)
 
+### Logs
+- **Backend Log**: `/home/dohyun/interface/backend.log` - All backend server output is logged here
+
 ### Common Tasks
 ```bash
 # Check API health
@@ -241,6 +244,9 @@ curl http://localhost:8003/health
 
 # View API docs
 open http://localhost:8003/docs
+
+# View backend logs
+tail -f /home/dohyun/interface/backend.log
 
 # Run lint
 cd frontend && npm run lint

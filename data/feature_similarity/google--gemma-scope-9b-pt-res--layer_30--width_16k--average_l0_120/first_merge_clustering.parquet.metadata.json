@@ -1,8 +1,8 @@
 {
-  "created_at": "2025-11-24T00:05:37.495229",
+  "created_at": "2025-11-30T01:12:10.344055",
   "script_version": "1.0",
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
-  "n_features": 16384,
+  "n_features": 14316,
   "linkage_method": "average",
   "schema": {
     "first_merge_clustering.parquet": {
@@ -10,7 +10,7 @@
       "first_merge_distance": "float32 - Distance threshold when feature first merges from singleton"
     },
     "clustering_linkage.npy": {
-      "shape": "(16383, 4)",
+      "shape": "(14315, 4)",
       "format": "scipy linkage matrix",
       "columns": [
         "cluster1_id",
@@ -23,14 +23,17 @@
   },
   "processing_stats": {
     "n_features": 16384,
-    "n_neighbors_loaded": 163840,
-    "n_distances_filled": 244996,
-    "matrix_memory_mb": 1024.0,
+    "n_neighbors_loaded": 130269,
+    "n_distances_filled": 63683258,
+    "matrix_memory_mb": 781.8140258789062,
     "min_first_merge": 0.16301512718200684,
-    "max_first_merge": 0.99752201795578,
-    "mean_first_merge": 0.7780123204212895,
-    "clustering_time_seconds": 5.261319637298584,
-    "total_processing_time_seconds": 0.0
+    "max_first_merge": 0.9968072605133057,
+    "mean_first_merge": 0.7784967258349407,
+    "clustering_time_seconds": 3.848905563354492,
+    "total_processing_time_seconds": 0.0,
+    "valid_features_filtered": true,
+    "valid_features_source": "scores_dir",
+    "original_n_features": 16384
   },
   "config_used": {
     "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
@@ -52,6 +55,8 @@
         "description": "Threshold values for potential cluster membership queries (not saved, but documented)"
       }
     },
-    "description": "Configuration for agglomerative clustering of SAE features using decoder weight similarities"
+    "valid_features_parquet": null,
+    "description": "Configuration for agglomerative clustering of SAE features using decoder weight similarities",
+    "valid_features_scores_dir": "data/scores"
   }
 }

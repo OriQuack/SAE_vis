@@ -6,6 +6,8 @@
 
   "output_dir": "data/feature_similarity/google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
 
+  "valid_features_scores_dir": "data/scores",
+
   "output_files": {
     "first_merge_parquet": "first_merge_clustering.parquet",
     "linkage_matrix": "clustering_linkage.npy",

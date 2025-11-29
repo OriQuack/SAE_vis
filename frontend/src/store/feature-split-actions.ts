@@ -59,15 +59,6 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
     let fragmented = 0, monosemantic = 0, unsure = 0
     let fragmentedManual = 0, fragmentedAuto = 0, monosematicManual = 0, monosematicAuto = 0
 
-    // DEBUG: Track which features have pairs in allClusterPairs
-    const featuresWithPairsInData = new Set<number>()
-    for (const pair of allClusterPairs) {
-      if (filteredFeatureIds.has(pair.main_id) && filteredFeatureIds.has(pair.similar_id)) {
-        featuresWithPairsInData.add(pair.main_id)
-        featuresWithPairsInData.add(pair.similar_id)
-      }
-    }
-
     for (const featureId of filteredFeatureIds) {
       if (fragmentedFeatures.has(featureId)) {
         fragmented++
@@ -82,17 +73,6 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
         unsure++
       }
     }
-
-    // DEBUG: Log count breakdown
-    console.log('[DEBUG] getFeatureSplittingCounts:', {
-      filteredFeatureIds: filteredFeatureIds.size,
-      allClusterPairsCount: allClusterPairs.length,
-      featuresWithPairsInData: featuresWithPairsInData.size,
-      featuresWithoutPairs: filteredFeatureIds.size - featuresWithPairsInData.size,
-      fragmented,
-      monosemantic,
-      unsure
-    })
 
     return {
       fragmented,
@@ -256,18 +236,6 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
         totalClusters: response.total_clusters,
         thresholdUsed: response.threshold_used
       })
-
-      // DEBUG: Find orphaned features (features that ended up in singleton clusters)
-      const featuresInPairs = new Set(response.pairs.flatMap((p: any) => [p.main_id, p.similar_id]))
-      const orphanedFeatures = featureIds.filter(id => !featuresInPairs.has(id))
-      console.log('[DEBUG] API Response analysis:', {
-        requestedFeatures: featureIds.length,
-        featuresInPairs: featuresInPairs.size,
-        orphanedFeatures: orphanedFeatures.length
-      })
-      if (orphanedFeatures.length > 0) {
-        console.log('[DEBUG] Orphaned feature IDs (no pairs):', orphanedFeatures.slice(0, 20))
-      }
 
       // Store ALL pair data - frontend will sample for display
       set({
