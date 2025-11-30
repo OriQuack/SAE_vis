@@ -83,8 +83,10 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
   const [localHistogramData, setLocalHistogramData] = useState<any>(null)
 
   // Get histogram data from store (if available) or local state
-  const histogramData = tagAutomaticState?.histogramData || localHistogramData
-  const isLoading = tagAutomaticState?.isLoading || isLocalLoading
+  // IMPORTANT: Only use store histogram data if mode matches to avoid showing stale data from previous stage
+  const storeHistogramData = tagAutomaticState?.mode === mode ? tagAutomaticState?.histogramData : null
+  const histogramData = storeHistogramData || localHistogramData
+  const isLoading = (tagAutomaticState?.mode === mode && tagAutomaticState?.isLoading) || isLocalLoading
 
   // Calculate selection counts for current mode
   const selectionCounts = useMemo(() => {

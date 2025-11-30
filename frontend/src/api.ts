@@ -1,3 +1,5 @@
+import msgpack from 'msgpack-lite'
+import pako from 'pako'
 import type {
   FilterOptions,
   HistogramData,
@@ -52,6 +54,7 @@ const API_ENDPOINTS = {
   TABLE_DATA: "/table-data",
   FEATURE_GROUPS: "/feature-groups",
   ACTIVATION_EXAMPLES: "/activation-examples",
+  ACTIVATION_EXAMPLES_CACHED: "/activation-examples-cached",
   SIMILARITY_SORT: "/similarity-sort",
   PAIR_SIMILARITY_SORT: "/pair-similarity-sort",
   SIMILARITY_SCORE_HISTOGRAM: "/similarity-score-histogram",
@@ -195,6 +198,54 @@ export async function getActivationExamples(
     examplesCount: data.examples ? Object.keys(data.examples).length : 0,
     sampleKeys: data.examples ? Object.keys(data.examples).slice(0, 5) : []
   })
+  return data.examples || {}
+}
+
+/**
+ * Get ALL activation examples as pre-computed cached data (MessagePack + gzip).
+ *
+ * This is the optimized bulk loading endpoint that returns all ~16k features
+ * in a single request using binary serialization and compression.
+ *
+ * Performance: ~15-25s vs ~100s for chunked JSON loading
+ *
+ * @returns Record mapping feature_id to ActivationExamples
+ */
+export async function getAllActivationExamplesCached(): Promise<Record<number, ActivationExamples>> {
+  const startTime = performance.now()
+  console.log('[API] getAllActivationExamplesCached: Starting cached fetch...')
+
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.ACTIVATION_EXAMPLES_CACHED}`)
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('[API] Cached activation examples error:', response.status, errorText)
+    throw new Error(`Failed to fetch cached activation examples: ${response.status} - ${errorText}`)
+  }
+
+  const fetchTime = performance.now() - startTime
+  console.log(`[API] getAllActivationExamplesCached: Fetch completed in ${fetchTime.toFixed(0)}ms`)
+
+  // Get the compressed binary data
+  const compressedData = await response.arrayBuffer()
+  const compressedSize = compressedData.byteLength
+
+  // Decompress gzip
+  const decompressStart = performance.now()
+  const decompressed = pako.ungzip(new Uint8Array(compressedData))
+  const decompressTime = performance.now() - decompressStart
+  console.log(`[API] getAllActivationExamplesCached: Decompressed ${(compressedSize / 1024 / 1024).toFixed(2)}MB → ${(decompressed.byteLength / 1024 / 1024).toFixed(2)}MB in ${decompressTime.toFixed(0)}ms`)
+
+  // Decode MessagePack
+  const decodeStart = performance.now()
+  const data = msgpack.decode(decompressed) as { examples: Record<number, ActivationExamples> }
+  const decodeTime = performance.now() - decodeStart
+
+  const totalTime = performance.now() - startTime
+  const featureCount = Object.keys(data.examples || {}).length
+
+  console.log(`[API] getAllActivationExamplesCached: Decoded ${featureCount} features in ${decodeTime.toFixed(0)}ms (total: ${totalTime.toFixed(0)}ms)`)
+
   return data.examples || {}
 }
 

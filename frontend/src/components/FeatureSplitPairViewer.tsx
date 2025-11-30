@@ -309,6 +309,13 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
       <div className="pair-viewer__main">
         {/* Compact header with pair info and legend */}
         <div className="pair-viewer__header">
+        {/* Feature IDs */}
+        <div className="pair-info__ids">
+          <span className="panel-header__id">#{currentPair.mainFeatureId}</span>
+          <span className="pair-info__separator">–</span>
+          <span className="panel-header__id">#{currentPair.similarFeatureId}</span>
+        </div>
+
         {/* Decoder Similarity */}
         <div className="pair-info__similarity">
           <span className="similarity__label">Decoder Similarity:</span>

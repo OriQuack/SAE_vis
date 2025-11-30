@@ -205,12 +205,16 @@ const SimpleSelectionBar: React.FC<SimpleSelectionBarProps> = ({
   )
 }
 
-// Commit history type (mirrors FeatureSplitView's TagCommit)
+// Commit history type (supports both FeatureSplitView and QualityView)
 interface TagCommit {
   type: string
   id: number
-  pairSelectionStates: Map<string, 'selected' | 'rejected'>
-  pairSelectionSources: Map<string, 'manual' | 'auto'>
+  // For pair mode (FeatureSplitView)
+  pairSelectionStates?: Map<string, 'selected' | 'rejected'>
+  pairSelectionSources?: Map<string, 'manual' | 'auto'>
+  // For feature mode (QualityView)
+  featureSelectionStates?: Map<number, 'selected' | 'rejected'>
+  featureSelectionSources?: Map<number, 'manual' | 'auto'>
 }
 
 interface SelectionPanelProps {

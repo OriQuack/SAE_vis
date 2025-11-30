@@ -142,7 +142,8 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
       METRIC_SCORE_EMBEDDING,
       METRIC_SCORE_FUZZ,
       METRIC_SCORE_DETECTION,
-      METRIC_QUALITY_SCORE
+      METRIC_QUALITY_SCORE,
+      METRIC_SEMANTIC_SIMILARITY,
     ],
     description: "Assesses the overall quality of the feature explanation based on multiple scoring metrics",
     parentTagForNextStage: "Need Revision",

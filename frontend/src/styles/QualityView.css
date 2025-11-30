@@ -109,19 +109,203 @@
   flex: 1;
 }
 
-.quality-view__placeholder {
+/* Right panel - matches FeatureSplitPairViewer styling */
+.quality-view__right-panel {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
   flex: 1;
-  background-color: #f9fafb;
-  border: 1px dashed #d1d5db;
-  border-radius: 8px;
-  margin: 4px;
+  min-width: 0;
+  overflow: hidden;
+  gap: 4px;
+  padding: 4px;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
 }
 
 .quality-view__placeholder-text {
   color: #9ca3af;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 11px;
+  font-style: italic;
+  text-align: center;
+  margin: auto;
+}
+
+/* ============================================================================
+ * HEADER - Feature ID and Legend (matches .pair-viewer__header)
+ * ============================================================================ */
+
+.quality-view__header-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 4px 8px;
+  background-color: transparent;
+  border: none;
+}
+
+/* Note: Feature ID uses .panel-header__id from FeatureSplitPairViewer.css */
+
+.quality-view__legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  font-size: 11px;
+}
+
+.quality-view__legend-separator {
+  width: 1px;
+  height: 16px;
+  background-color: #d1d5db;
+  margin: 0 8px;
+}
+
+/* Swatch for explanation highlight legend */
+.legend-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 8px;
+  border-radius: 2px;
+  border: 0.5px solid #e5e7eb;
+}
+
+/* ============================================================================
+ * ACTIVATION SECTION - Matches .activation-panel styling
+ * ============================================================================ */
+
+.quality-view__activation-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  min-height: 0;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 6px;
+  overflow: hidden;
+  flex: 1;  /* Share space with explanation section */
+}
+
+.quality-view__activation-examples {
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Scrollbar for activation examples - matches FeatureSplitPairViewer */
+.quality-view__activation-examples::-webkit-scrollbar {
+  width: 8px;
+}
+
+.quality-view__activation-examples::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.quality-view__activation-examples::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.quality-view__activation-examples::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+.quality-view__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #9ca3af;
+  font-style: italic;
+  height: 72px;
+}
+
+/* ============================================================================
+ * EXPLANATION ROW - Left placeholder + Explanations
+ * ============================================================================ */
+
+.quality-view__explanation-row {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  min-height: 0;
+  flex: 1;  /* Share space with activation section */
+}
+
+/* Left panel for explainer comparison grid */
+.quality-view__explanation-left {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 120px;
+  flex-shrink: 0;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 8px;
+}
+
+/* ============================================================================
+ * EXPLANATION SECTION - All 3 LLM Explainers (matches .activation-panel)
+ * ============================================================================ */
+
+.quality-view__explanation-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  min-height: 0;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 6px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Scrollbar for explanation section */
+.quality-view__explanation-section::-webkit-scrollbar {
+  width: 8px;
+}
+
+.quality-view__explanation-section::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.quality-view__explanation-section::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.quality-view__explanation-section::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+.quality-view__explainer-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.quality-view__explainer-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.quality-view__explainer-text {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.quality-view__no-explanation {
+  color: #9ca3af;
+  font-size: 11px;
+  font-style: italic;
 }

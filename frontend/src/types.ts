@@ -20,12 +20,6 @@ import {
   PANEL_LEFT, PANEL_RIGHT
 } from './lib/constants'
 
-// Category Type Definition
-export type CategoryType =
-  | typeof CATEGORY_ROOT
-  | typeof CATEGORY_DECODER_SIMILARITY
-  | typeof CATEGORY_SEMANTIC_SIMILARITY
-
 // ============================================================================
 // NEW TREE-BASED THRESHOLD SYSTEM (Feature Group + Intersection)
 // ============================================================================
@@ -244,13 +238,6 @@ export interface SankeyData {
   }
 }
 
-export interface AlluvialFlowData {
-  source_node: string
-  target_node: string
-  feature_count: number
-  feature_ids: number[]
-}
-
 export interface AlluvialFlow {
   source: string
   target: string
@@ -258,19 +245,6 @@ export interface AlluvialFlow {
   feature_ids: number[]
   sourceCategory: string
   targetCategory: string
-}
-
-export interface AlluvialData {
-  flows: AlluvialFlowData[]
-  summary: {
-    total_overlapping_features: number
-    total_flows: number
-    consistency_metrics: {
-      same_final_category: number
-      different_final_category: number
-      consistency_rate: number
-    }
-  }
 }
 
 export interface FeatureDetail {
@@ -389,29 +363,6 @@ export interface PopoverPosition {
 export interface PopoverSize {
   width: number
   height: number
-}
-
-// ============================================================================
-// POPOVER TYPES
-// ============================================================================
-
-export interface HistogramPopoverData {
-  nodeId: string | undefined
-  nodeName: string
-  nodeCategory?: NodeCategory
-  parentNodeId?: string
-  parentNodeName?: string
-  metrics: MetricType[]
-  position: {
-    x: number
-    y: number
-  }
-  visible: boolean
-  panel?: typeof PANEL_LEFT | typeof PANEL_RIGHT
-}
-
-export interface PopoverState {
-  histogram: HistogramPopoverData | null
 }
 
 // ============================================================================
@@ -606,221 +557,6 @@ export type SortBy =
   | 'pair_similarity'  // Pair similarity-based sorting (for feature split table)
   | 'cause_similarity'  // Cause similarity-based sorting (for cause table)
   | null
-
-// ============================================================================
-// TABLE CELL SELECTION TYPES
-// ============================================================================
-
-/**
- * Cell Group - Represents a group of selected cells with same feature_id and explainer_id
- */
-export interface CellGroup {
-  id: string                  // Unique group ID: "{featureId}_{explainerId}"
-  featureId: number          // Feature ID (row identifier)
-  explainerId: string        // LLM Explainer ID (llama, qwen, openai)
-  cellIndices: number[]      // Array of column indices in this group
-  colorIndex: number         // Color index for visual distinction (0-2)
-}
-
-/**
- * Cell Selection State - Tracks selected cell groups and drag selection
- */
-export interface CellSelectionState {
-  groups: CellGroup[]        // Array of selected cell groups
-  startRow: number | null    // Starting row index of drag selection
-  startCol: number | null    // Starting column index of drag selection
-  endRow: number | null      // Ending row index of drag selection
-  endCol: number | null      // Ending column index of drag selection
-}
-
-/**
- * Saved Cell Group Selection - Named and saved cell group selections for future use
- */
-export interface SavedCellGroupSelection {
-  id: string                 // Unique ID (timestamp-based)
-  name: string               // User-provided name
-  groups: CellGroup[]        // Saved cell groups
-  colorIndex: number         // Color index for badge display (0-5)
-  timestamp: number          // Creation timestamp
-}
-
-// ============================================================================
-// STAGE TABLE TYPES (Dedicated tables for Sankey stages)
-// ============================================================================
-
-/**
- * Decoder Stage Row - Row data for decoder similarity stage table (DEPRECATED - use DecoderStagePairRow)
- */
-export interface DecoderStageRow {
-  feature_id: number
-  decoder_similarity: number  // The feature's own decoder similarity score
-  top_similar_features: Array<{
-    feature_id: number
-    cosine_similarity: number
-    is_main?: boolean  // True for main feature (first row), false for similar features
-    inter_feature_similarity?: any  // Inter-feature similarity data for pattern highlighting
-  }>  // Main feature + top 4 most similar features by decoder weights
-}
-
-/**
- * Decoder Stage Pair Row - Single pair of features for decoder similarity stage table (new horizontal layout)
- */
-export interface DecoderStagePairRow {
-  pairKey: string  // Unique pair identifier: "${mainFeatureId}-${similarFeatureId}"
-  mainFeature: {
-    feature_id: number
-    pattern_type: 'Lexical' | 'Semantic' | 'Both' | 'None'  // Individual feature's own pattern type
-  }
-  similarFeature: {
-    feature_id: number
-    cosine_similarity: number
-    pattern_type: 'Lexical' | 'Semantic' | 'Both' | 'None'  // Individual feature's own pattern type
-    inter_feature_similarity?: InterFeatureSimilarityInfo | null  // Relationship pattern type (on line)
-  }
-}
-
-/**
- * Feature Split Sub-Column - Single sub-column in the grouped row layout
- * Represents one feature (main or similar) with its decoder similarity and activation
- */
-export interface FeatureSplitSubColumn {
-  featureId: number  // Feature ID (main feature ID for first column, similar feature ID for others)
-  isMainFeature: boolean  // True for the first sub-column (main feature itself)
-  decoderSimilarity: number | null  // Decoder similarity score (null for main feature)
-  pairKey: string | null  // Pair identifier (null for main feature)
-  patternType: 'Lexical' | 'Semantic' | 'Both' | 'None'  // Feature's pattern type
-  interFeatureSimilarity?: InterFeatureSimilarityInfo | null  // Inter-feature pattern data
-}
-
-/**
- * Feature Split Grouped Row - Compact 1-row layout showing main feature + top 3 similar features
- * Each row contains 4 sub-columns with 3 sub-rows each (ID, Decoder Sim, Activation)
- */
-export interface FeatureSplitGroupedRow {
-  mainFeatureId: number  // Main feature ID for this row
-  subColumns: [FeatureSplitSubColumn, FeatureSplitSubColumn, FeatureSplitSubColumn, FeatureSplitSubColumn]  // Exactly 4 sub-columns
-}
-
-/**
- * Stage Table Context - Metadata for the currently selected stage
- */
-export interface StageTableContext {
-  nodeId: string       // Sankey tree node ID
-  metric: string       // Metric used for this stage (e.g., "decoder_similarity")
-  rangeLabel: string   // Display label (e.g., ">= 0.40")
-  featureCount: number // Number of features in this stage
-}
-
-// ============================================================================
-// TAG SYSTEM TYPES (Stage 1: Tag Definition & Seed Selection)
-// ============================================================================
-
-/**
- * Metric Range - Min/max range for a single metric
- */
-export interface MetricRange {
-  min: number  // Minimum value (0-1 scale)
-  max: number  // Maximum value (0-1 scale)
-}
-
-/**
- * Metric Signature - Pattern definition for a tag
- * Defines acceptable ranges for each metric
- */
-export interface MetricSignature {
-  decoder_similarity: MetricRange       // SAE decoder similarity (low=good, high=over-split)
-  embedding: MetricRange                // Explanation-activation alignment
-  fuzz: MetricRange                     // Robustness to perturbations
-  detection: MetricRange                // Predictive utility
-  semantic_similarity: MetricRange      // Inter-explainer agreement
-  quality_score: MetricRange            // Composite metric
-}
-
-/**
- * Metric Weights - Weights for each metric in distance calculation
- * Higher weight = metric is more important for similarity
- * Typically auto-inferred from signature ranges (tighter range = higher weight)
- */
-export interface MetricWeights {
-  decoder_similarity: number
-  embedding: number
-  fuzz: number
-  detection: number
-  semantic_similarity: number
-  quality_score: number
-}
-
-/**
- * Tag - User-defined semantic label with metric signature
- */
-export interface Tag {
-  id: string                            // Unique tag ID (UUID)
-  name: string                          // User-defined name (e.g., "Syntactic Feature")
-  createdAt: number                     // Creation timestamp
-  updatedAt: number                     // Last modification timestamp
-  metricSignature: MetricSignature      // Pattern definition
-  featureIds: Set<number>               // Tagged features (seed features)
-  rejectedFeatureIds?: Set<number>      // Features rejected for this tag (Stage 2)
-  metricWeights?: MetricWeights         // Custom weights (undefined = auto-inferred)
-  color: string                         // Display color (hex)
-  templateSource?: string               // Template name if created from template
-
-  // Working state fields (auto-saved when switching tags)
-  workingFeatureIds?: Set<number>       // Currently selected features for this tag
-  savedManualSignature?: MetricSignature // Manually adjusted signature (radar chart thresholds)
-  savedCandidateStates?: Map<number, CandidateVerificationState> // Candidate verification states
-}
-
-/**
- * Feature Match - Feature matching a tag signature with similarity score
- * Used for candidate discovery in Stage 2
- */
-export interface FeatureMatch {
-  featureId: number                     // Feature ID
-  distance: number                      // Weighted distance in metric space
-  score: number                         // Similarity score (0-1, higher=better)
-  metricValues: {                       // Actual metric values for this feature
-    decoder_similarity: number
-    embedding: number
-    fuzz: number
-    detection: number
-    semantic_similarity: number
-    quality_score: number
-  }
-}
-
-/**
- * Candidate Verification State - User's verification status for a candidate
- * Used in Stage 2 workflow
- */
-export type CandidateVerificationState = 'pending' | 'accepted' | 'rejected' | 'unsure'
-
-/**
- * Tag Creation Mode - Method for defining metric signature
- */
-export type TagCreationMode = 'template' | 'visual' | 'inference' | null
-
-/**
- * Tag Template - Pre-defined tag pattern from tag.md
- */
-export interface TagTemplate {
-  name: string                          // Template name
-  description: string                   // Description of pattern
-  signature: MetricSignature            // Pre-defined metric ranges
-  color: string                         // Display color
-}
-
-/**
- * Feature List Type - Used for tracking group expansion state
- */
-export type FeatureListType = 'selected' | 'candidates' | 'rejected'
-
-/**
- * Group Expansion State - Tracks which score range groups are expanded
- * Key: `${listType}:${rangeLabel}` (e.g., "candidates:1.00 - 0.95")
- * Value: boolean (true = expanded, false = collapsed)
- */
-export type GroupExpansionState = Map<string, boolean>
 
 // ============================================================================
 // SIMILARITY SORT TYPES

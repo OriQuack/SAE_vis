@@ -301,6 +301,19 @@
   font-family: 'Consolas', 'Monaco', monospace;
 }
 
+.pair-info__ids {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.pair-info__separator {
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+}
+
 .pair-info__similarity {
   display: flex;
   align-items: center;

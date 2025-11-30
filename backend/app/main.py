@@ -11,6 +11,7 @@ from .services.data_service import DataService
 from .services.alignment_service import AlignmentService
 from .services.similarity_sort_service import SimilaritySortService
 from .services.hierarchical_cluster_candidate_service import HierarchicalClusterCandidateService
+from .services.activation_cache_service import activation_cache_service
 from .api import feature_groups, similarity_sort, cluster_candidates
 
 # Configure logging for the application
@@ -75,6 +76,10 @@ async def lifespan(app: FastAPI):
         )
         similarity_sort.set_similarity_sort_service(similarity_sort_service)
         logger.info("Similarity sort service initialized successfully")
+
+        # Initialize activation cache service (pre-compute msgpack+gzip blob)
+        await activation_cache_service.initialize()
+        logger.info("Activation cache service initialized successfully")
 
         yield
     except Exception as e:

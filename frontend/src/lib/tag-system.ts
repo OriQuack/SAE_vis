@@ -261,8 +261,8 @@ function assignTreeColors(): void {
       const category = TAG_CATEGORIES[categoryId]
 
       if (category) {
-        // Apply 90% opacity to all tag colors for subtle transparency
-        const hex = chroma.hcl(node.color.h, node.color.c, node.color.l).alpha(1).hex('rgba')
+        // Use 6-character hex (no alpha) - opacity is applied later in rendering
+        const hex = chroma.hcl(node.color.h, node.color.c, node.color.l).hex()
         ;(category.tagColors as Record<string, string>)[tagName] = hex
       }
     }

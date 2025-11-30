@@ -210,6 +210,8 @@ export const createActivationActions = (set: any, get: any) => ({
    *
    * @param featureIds - Array of ALL feature IDs to fetch
    * @param chunkSize - Number of features per chunk (default 2000)
+   *
+   * @deprecated Use fetchAllActivationsCached() for better performance
    */
   fetchAllActivationsChunked: async (featureIds: number[], chunkSize: number = 2000) => {
     if (!featureIds || featureIds.length === 0) {
@@ -235,6 +237,46 @@ export const createActivationActions = (set: any, get: any) => ({
 
     const duration = performance.now() - startTime
     console.log(`[Store.fetchAllActivationsChunked] ✅ All ${featureIds.length} activation examples loaded in ${duration.toFixed(0)}ms`)
+  },
+
+  /**
+   * Fetch ALL activation examples using pre-computed cached endpoint.
+   *
+   * This is the OPTIMIZED method for loading all activation examples:
+   * - Single request for all ~16k features
+   * - Binary format (MessagePack + gzip) for fast transfer
+   * - Pre-computed on backend startup
+   *
+   * Performance: ~15-25s vs ~100s for chunked JSON loading
+   */
+  fetchAllActivationsCached: async () => {
+    console.log('[Store.fetchAllActivationsCached] Starting cached activation fetch...')
+
+    set({ activationLoadingState: true })
+
+    const startTime = performance.now()
+
+    try {
+      // Fetch all activation examples from cached endpoint
+      const examples = await api.getAllActivationExamplesCached()
+
+      const featureCount = Object.keys(examples).length
+      const duration = performance.now() - startTime
+
+      console.log(`[Store.fetchAllActivationsCached] ✅ Loaded ${featureCount} features in ${duration.toFixed(0)}ms`)
+
+      // Set all examples in cache at once
+      set({
+        activationExamples: examples,
+        activationLoading: new Set<number>(),
+        activationLoadingState: false
+      })
+
+    } catch (error) {
+      console.error('[Store.fetchAllActivationsCached] Failed:', error)
+      set({ activationLoadingState: false })
+      throw error
+    }
   },
 
   /**

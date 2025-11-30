@@ -1039,7 +1039,7 @@ export const useStore = create<AppState>((set, get) => {
     await Promise.all([
       get().fetchTableData(),
       get().buildSankeyFromFeatureIds(allFeatureIds, PANEL_LEFT),
-      get().fetchAllActivationsChunked(allFeatureIds, 4000)  // 4 chunks to fit browser connection limit
+      get().fetchAllActivationsCached()  // Optimized: single request with msgpack+gzip
     ])
     const totalDuration = performance.now() - startTime
     console.log(`✅ Full parallel initialization complete in ${totalDuration.toFixed(0)}ms - Table + Sankey + Activations ready`)

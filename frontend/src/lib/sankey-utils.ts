@@ -445,32 +445,11 @@ export function getNodeColor(node: D3SankeyNode): string {
 
 /**
  * Get the base color for a link (without opacity)
- * Links are colored based on their source node
+ * Returns a fixed neutral gray color for all links for visual consistency
  */
-export function getLinkColor(link: D3SankeyLink): string {
-  // Defensive checks for d3-sankey processed data
-  if (!link?.source) {
-    console.warn('getLinkColor: Link source is undefined, using default color')
-    return '#6b7280'  // Default gray
-  }
-
-  const sourceNode = link.source as D3SankeyNode
-
-  // Use hierarchical color from source node (preferred)
-  if (sourceNode?.colorHex) {
-    return sourceNode.colorHex
-  }
-
-  // Fallback: Get metric from source node (links are colored by the metric that created them)
-  const metric = sourceNode?.metric
-
-  if (!metric) {
-    // No metric: use default gray (root node or nodes without metrics)
-    return '#6b7280'
-  }
-
-  // Get base color from centralized source
-  return getMetricBaseColor(metric)
+export function getLinkColor(_link: D3SankeyLink): string {
+  // Fixed neutral gray for all links - matches root node color
+  return '#d1d5db'
 }
 
 // ============================================================================

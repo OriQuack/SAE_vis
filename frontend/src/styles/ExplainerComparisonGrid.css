@@ -1,0 +1,27 @@
+.explainer-comparison-grid {
+  display: block;
+}
+
+.grid-cell {
+  stroke: #e5e7eb;
+  stroke-width: 1;
+  cursor: pointer;
+  transition: fill 0.15s ease, stroke 0.15s ease;
+}
+
+.grid-cell--diamond {
+  fill: #f3f4f6;
+}
+
+.grid-cell--diamond:hover {
+  fill: #dbeafe;
+  stroke: #3b82f6;
+}
+
+.grid-cell--triangle {
+  fill: #e5e7eb;
+}
+
+.grid-cell--triangle:hover {
+  fill: #d1d5db;
+}

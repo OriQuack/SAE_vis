@@ -3,9 +3,15 @@ import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow, SelectionCategory } from '../types'
 import SelectionPanel from './SelectionPanel'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
+import { ScrollableItemList } from './ScrollableItemList'
+import { TagBadge } from './TableIndicators'
 import { isBimodalScore } from './BimodalityIndicator'
+import ActivationExample from './ActivationExample'
+import { HighlightedExplanation } from './TableExplanation'
 import { TAG_CATEGORY_QUALITY } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
+import { getExplainerDisplayName } from '../lib/table-utils'
+import ExplainerComparisonGrid from './ExplainerComparisonGrid'
 import '../styles/QualityView.css'
 
 // ============================================================================
@@ -50,10 +56,21 @@ const QualityView: React.FC<QualityViewProps> = ({
   const applySimilarityTags = useVisualizationStore(state => state.applySimilarityTags)
   const restoreFeatureSelectionStates = useVisualizationStore(state => state.restoreFeatureSelectionStates)
   const moveToNextStep = useVisualizationStore(state => state.moveToNextStep)
+  const activationExamples = useVisualizationStore(state => state.activationExamples)
 
   // Local state
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0)
   const [activeListSource, setActiveListSource] = useState<'all' | 'reject' | 'select'>('all')
+
+  // Top row feature list state
+  const [sortDirection, _setSortDirection] = useState<'asc' | 'desc'>('desc')
+  // TODO: Add sort toggle when column header is clickable
+  const [currentPage, setCurrentPage] = useState(0)
+  const ITEMS_PER_PAGE = 15
+
+  // Right panel container width state (for ActivationExample)
+  const [containerWidth, setContainerWidth] = useState(600)
+  const rightPanelRef = useRef<HTMLDivElement>(null)
 
   // ============================================================================
   // COMMIT HISTORY STATE - Save and restore tagging state snapshots
@@ -101,6 +118,37 @@ const QualityView: React.FC<QualityViewProps> = ({
     }))
   }, [filteredTableData])
 
+  // Sort features by similarity score for the top row list
+  const sortedFeatures = useMemo(() => {
+    // If no similarity scores yet, sort by feature ID
+    if (similarityScores.size === 0) {
+      return [...featureList].sort((a, b) =>
+        sortDirection === 'asc' ? a.featureId - b.featureId : b.featureId - a.featureId
+      )
+    }
+
+    // Sort by similarity score
+    return [...featureList].sort((a, b) => {
+      const scoreA = similarityScores.get(a.featureId) ?? 0
+      const scoreB = similarityScores.get(b.featureId) ?? 0
+      return sortDirection === 'asc' ? scoreA - scoreB : scoreB - scoreA
+    })
+  }, [featureList, similarityScores, sortDirection])
+
+  // Pagination for the top row list
+  const totalPages = Math.max(1, Math.ceil(sortedFeatures.length / ITEMS_PER_PAGE))
+  const currentPageFeatures = useMemo(() => {
+    const start = currentPage * ITEMS_PER_PAGE
+    return sortedFeatures.slice(start, start + ITEMS_PER_PAGE)
+  }, [sortedFeatures, currentPage, ITEMS_PER_PAGE])
+
+  // Reset page when features change
+  useEffect(() => {
+    if (currentPage >= totalPages) {
+      setCurrentPage(Math.max(0, totalPages - 1))
+    }
+  }, [totalPages, currentPage])
+
   // Auto-populate similarity scores when feature list is ready or selection states change
   useEffect(() => {
     // Extract manual selections to compute signature
@@ -138,6 +186,50 @@ const QualityView: React.FC<QualityViewProps> = ({
     }
   }, [isDraggingThreshold, activeListSource])
 
+  // Track right panel width for ActivationExample
+  useEffect(() => {
+    if (!rightPanelRef.current) return
+    const observer = new ResizeObserver(entries => {
+      const width = entries[0]?.contentRect.width || 600
+      setContainerWidth(width - 16) // Account for padding
+    })
+    observer.observe(rightPanelRef.current)
+    return () => observer.disconnect()
+  }, [])
+
+  // ============================================================================
+  // SELECTED FEATURE DATA (for right panel)
+  // ============================================================================
+
+  // Get the currently selected feature's data
+  const selectedFeatureData = useMemo(() => {
+    const feature = sortedFeatures[currentFeatureIndex]
+    if (!feature) return null
+
+    return {
+      featureId: feature.featureId,
+      row: feature.row,
+      activation: activationExamples[feature.featureId] || null
+    }
+  }, [sortedFeatures, currentFeatureIndex, activationExamples])
+
+  // Get all explainer explanations with highlighted segments
+  const allExplainerExplanations = useMemo(() => {
+    if (!selectedFeatureData?.row || !tableData?.explainer_ids) return []
+
+    return tableData.explainer_ids
+      .map((explainerId: string) => {
+        const explainerData = selectedFeatureData.row?.explainers?.[explainerId]
+        if (!explainerData) return null
+        return {
+          explainerId,
+          highlightedExplanation: explainerData.highlighted_explanation,
+          explanationText: explainerData.explanation_text
+        }
+      })
+      .filter((item: { explainerId: string; highlightedExplanation: any; explanationText: string | null | undefined } | null): item is NonNullable<typeof item> => item !== null)
+  }, [selectedFeatureData, tableData?.explainer_ids])
+
   // ============================================================================
   // BOUNDARY ITEMS LOGIC (for bottom row left/right lists)
   // ============================================================================
@@ -167,7 +259,7 @@ const QualityView: React.FC<QualityViewProps> = ({
     }
 
     // Filter features that have SVM similarity scores
-    const featuresWithScores = featureList.filter(f => similarityScores.has(f.featureId))
+    const featuresWithScores = featureList.filter((f: FeatureWithMetadata) => similarityScores.has(f.featureId))
 
     if (featuresWithScores.length === 0) {
       return { rejectBelow: [] as FeatureWithMetadata[], selectAbove: [] as FeatureWithMetadata[] }
@@ -175,13 +267,13 @@ const QualityView: React.FC<QualityViewProps> = ({
 
     // REJECT THRESHOLD - Below reject: features < rejectThreshold, sorted descending (closest to threshold first)
     const rejectBelow = featuresWithScores
-      .filter(f => similarityScores.get(f.featureId)! < rejectThreshold)
-      .sort((a, b) => similarityScores.get(b.featureId)! - similarityScores.get(a.featureId)!)
+      .filter((f: FeatureWithMetadata) => similarityScores.get(f.featureId)! < rejectThreshold)
+      .sort((a: FeatureWithMetadata, b: FeatureWithMetadata) => similarityScores.get(b.featureId)! - similarityScores.get(a.featureId)!)
 
     // SELECT THRESHOLD - Above select: features >= selectThreshold, sorted ascending (closest to threshold first)
     const selectAbove = featuresWithScores
-      .filter(f => similarityScores.get(f.featureId)! >= selectThreshold)
-      .sort((a, b) => similarityScores.get(a.featureId)! - similarityScores.get(b.featureId)!)
+      .filter((f: FeatureWithMetadata) => similarityScores.get(f.featureId)! >= selectThreshold)
+      .sort((a: FeatureWithMetadata, b: FeatureWithMetadata) => similarityScores.get(a.featureId)! - similarityScores.get(b.featureId)!)
 
     const result = { rejectBelow, selectAbove }
     prevBoundaryItemsRef.current = result
@@ -194,6 +286,54 @@ const QualityView: React.FC<QualityViewProps> = ({
   // ============================================================================
   // CLICK HANDLERS
   // ============================================================================
+
+  // Handle click on feature in top row list
+  const handleFeatureListClick = useCallback((index: number) => {
+    const globalIndex = currentPage * ITEMS_PER_PAGE + index
+    setCurrentFeatureIndex(globalIndex)
+    setActiveListSource('all')
+  }, [currentPage, ITEMS_PER_PAGE])
+
+  // Render feature item for the ScrollableItemList
+  const renderFeatureItem = useCallback((feature: typeof featureList[0], index: number) => {
+    const score = similarityScores.get(feature.featureId)
+    const selectionState = featureSelectionStates.get(feature.featureId)
+
+    // Determine tag name based on selection state
+    let tagName = 'Unsure'
+    if (selectionState === 'selected') {
+      tagName = 'Well-Explained'
+    } else if (selectionState === 'rejected') {
+      tagName = 'Need Revision'
+    }
+
+    return (
+      <div
+        onClick={() => handleFeatureListClick(index)}
+        style={{ cursor: 'pointer', width: '100%' }}
+      >
+        <TagBadge
+          featureId={feature.featureId}
+          tagName={tagName}
+          tagCategoryId={TAG_CATEGORY_QUALITY}
+          onClick={() => handleFeatureListClick(index)}
+          fullWidth={true}
+        />
+        {score !== undefined && (
+          <div style={{
+            fontSize: '10px',
+            color: '#6b7280',
+            fontFamily: 'monospace',
+            textAlign: 'right',
+            paddingRight: '4px',
+            marginTop: '2px'
+          }}>
+            {score.toFixed(2)}
+          </div>
+        )}
+      </div>
+    )
+  }, [similarityScores, featureSelectionStates, handleFeatureListClick])
 
   const handleBoundaryListClick = useCallback((listType: 'left' | 'right', index: number) => {
     const items = listType === 'left' ? boundaryItems.rejectBelow : boundaryItems.selectAbove
@@ -286,7 +426,7 @@ const QualityView: React.FC<QualityViewProps> = ({
   // Check if all features are tagged
   const allFeaturesTagged = useMemo(() => {
     if (featureList.length === 0) return false
-    return featureList.every(f => featureSelectionStates.has(f.featureId))
+    return featureList.every((f: { featureId: number }) => featureSelectionStates.has(f.featureId))
   }, [featureList, featureSelectionStates])
 
   // Handle Tag All - Tag all unsure as Need Revision (rejected)
@@ -307,7 +447,7 @@ const QualityView: React.FC<QualityViewProps> = ({
     const newSources = new Map(featureSelectionSources)
 
     let taggedCount = 0
-    featureList.forEach(f => {
+    featureList.forEach((f: { featureId: number }) => {
       if (!newStates.has(f.featureId)) {
         newStates.set(f.featureId, 'rejected')
         newSources.set(f.featureId, 'manual')
@@ -356,7 +496,7 @@ const QualityView: React.FC<QualityViewProps> = ({
     let selectedCount = 0
     let rejectedCount = 0
 
-    featureList.forEach(f => {
+    featureList.forEach((f: { featureId: number }) => {
       if (newStates.has(f.featureId)) return
 
       const score = similarityScores.get(f.featureId)
@@ -445,10 +585,122 @@ const QualityView: React.FC<QualityViewProps> = ({
 
         {/* Right column: 2 rows */}
         <div className="quality-view__content">
-          {/* Top row: Placeholder */}
+          {/* Top row: Feature list + empty right panel */}
           <div className="quality-view__row-top">
-            <div className="quality-view__placeholder">
-              <span className="quality-view__placeholder-text">Feature details coming soon</span>
+            <ScrollableItemList
+              width={210}
+              badges={[{ label: 'Features', count: sortedFeatures.length }]}
+              columnHeader={{
+                label: 'Score',
+                sortDirection: sortDirection
+              }}
+              items={currentPageFeatures}
+              renderItem={renderFeatureItem}
+              currentIndex={activeListSource === 'all' ? currentFeatureIndex % ITEMS_PER_PAGE : -1}
+              isActive={activeListSource === 'all'}
+              pageNavigation={{
+                currentPage,
+                totalPages,
+                onPreviousPage: () => setCurrentPage(p => Math.max(0, p - 1)),
+                onNextPage: () => setCurrentPage(p => Math.min(totalPages - 1, p + 1))
+              }}
+            />
+            {/* Right panel - activation examples and explanations */}
+            <div className="quality-view__right-panel" ref={rightPanelRef}>
+              {selectedFeatureData ? (
+                <>
+                  {/* Header row - Feature ID and Legends */}
+                  <div className="quality-view__header-row">
+                    <span className="panel-header__id">#{selectedFeatureData.featureId}</span>
+                    {/* Spacer to push legends to the right */}
+                    <div style={{ flex: 1 }} />
+                    {/* Activation legend */}
+                    <div className="quality-view__legend">
+                      <div className="legend-item">
+                        <span className="legend-sample legend-sample--activation">token</span>:
+                        <span className="legend-label">Activation Strength</span>
+                      </div>
+                      <div className="legend-item">
+                        <span className="legend-sample legend-sample--intra">token</span>:
+                        <span className="legend-label">Within-Feature Pattern</span>
+                      </div>
+                    </div>
+                    {/* Separator */}
+                    <div className="quality-view__legend-separator" />
+                    {/* Explanation highlight legend */}
+                    <div className="quality-view__legend">
+                      <span className="legend-label">Segment similarity:</span>
+                      <div className="legend-item">
+                        <span className="legend-swatch" style={{ backgroundColor: 'rgba(102, 204, 170, 1.0)' }} />
+                        <span className="legend-label">0.85-1.0</span>
+                      </div>
+                      <div className="legend-item">
+                        <span className="legend-swatch" style={{ backgroundColor: 'rgba(153, 230, 204, 0.7)' }} />
+                        <span className="legend-label">0.7-0.85</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Activation Examples Section */}
+                  <div className="quality-view__activation-section">
+                    <div className="quality-view__activation-examples">
+                      {selectedFeatureData.activation ? (
+                        <ActivationExample
+                          examples={selectedFeatureData.activation}
+                          containerWidth={containerWidth}
+                          numQuantiles={4}
+                          examplesPerQuantile={[2, 2, 2, 2]}
+                          disableHover={true}
+                        />
+                      ) : (
+                        <div className="quality-view__loading">Loading activation examples...</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Explanation Row - Left grid + Explanations */}
+                  <div className="quality-view__explanation-row">
+                    {/* Left: Explainer comparison grid */}
+                    <div className="quality-view__explanation-left">
+                      <ExplainerComparisonGrid
+                        size={100}
+                        cellGap={3}
+                        explainerIds={tableData?.explainer_ids || []}
+                        onPairClick={(exp1, exp2) => {
+                          console.log('Clicked pair:', exp1, exp2)
+                        }}
+                      />
+                    </div>
+
+                    {/* Explanation Section - All 3 Explainers */}
+                    <div className="quality-view__explanation-section">
+                      {allExplainerExplanations.length > 0 ? (
+                        allExplainerExplanations.map(({ explainerId, highlightedExplanation, explanationText }: { explainerId: string; highlightedExplanation: { segments: Array<{ text: string; highlight: boolean }> } | null | undefined; explanationText: string | null | undefined }) => (
+                          <div key={explainerId} className="quality-view__explainer-block">
+                            <span className="quality-view__explainer-name">
+                              {getExplainerDisplayName(explainerId)}:
+                            </span>
+                            <div className="quality-view__explainer-text">
+                              {highlightedExplanation?.segments ? (
+                                <HighlightedExplanation
+                                  segments={highlightedExplanation.segments}
+                                  truncated={false}
+                                />
+                              ) : (
+                                <span>{explanationText || 'No explanation'}</span>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <span className="quality-view__no-explanation">No explanations available</span>
+                      )}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <span className="quality-view__placeholder-text">Select a feature to view details</span>
+              )}
             </div>
           </div>
 

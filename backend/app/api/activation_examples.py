@@ -4,6 +4,7 @@ Updated for dual n-gram architecture (character + word patterns).
 """
 
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import Response
 from pydantic import BaseModel
 from typing import List
 import logging
@@ -11,6 +12,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 from ..services.data_service import DataService
+from ..services.activation_cache_service import activation_cache_service
 from ..models.responses import ActivationExamplesResponse
 
 # Thread pool for running blocking I/O operations without blocking the event loop
@@ -100,3 +102,53 @@ async def get_activation_examples(
             status_code=500,
             detail=f"Internal server error: {str(e)}"
         )
+
+
+@router.get("/activation-examples-cached")
+async def get_all_activation_examples_cached():
+    """
+    Return ALL activation examples as pre-computed MessagePack + gzip blob.
+
+    This endpoint returns pre-serialized binary data for maximum performance:
+    - Pre-computed at startup (no serialization delay)
+    - MessagePack format (smaller than JSON)
+    - Gzip compressed (70-80% size reduction)
+
+    Frontend should:
+    1. Fetch as arraybuffer
+    2. Decompress with pako (gzip)
+    3. Decode with msgpack-lite
+
+    Returns:
+        Binary response (application/x-msgpack with Content-Encoding: gzip)
+
+    Raises:
+        HTTPException 503: If cache not ready
+    """
+    if not activation_cache_service.is_ready():
+        raise HTTPException(
+            status_code=503,
+            detail="Activation cache not ready"
+        )
+
+    blob = activation_cache_service.get_cached_blob()
+    if blob is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Activation cache is empty"
+        )
+
+    stats = activation_cache_service.get_stats()
+    logger.info(f"Serving cached activation examples: {stats['feature_count']} features, {stats['cache_size_mb']:.2f} MB")
+
+    # Note: Do NOT set Content-Encoding: gzip - that would cause browser to auto-decompress
+    # Frontend will manually decompress with pako
+    return Response(
+        content=blob,
+        media_type="application/octet-stream",
+        headers={
+            "X-Feature-Count": str(stats['feature_count']),
+            "X-Cache-Size-MB": f"{stats['cache_size_mb']:.2f}",
+            "X-Content-Encoding": "gzip+msgpack"  # Custom header for documentation
+        }
+    )
