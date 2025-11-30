@@ -8,9 +8,10 @@ import { TagBadge } from './TableIndicators'
 import { isBimodalScore } from './BimodalityIndicator'
 import ActivationExample from './ActivationExample'
 import { HighlightedExplanation } from './TableExplanation'
-import { TAG_CATEGORY_QUALITY } from '../lib/constants'
+import { TAG_CATEGORY_QUALITY, UNSURE_GRAY } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import { getExplainerDisplayName } from '../lib/table-utils'
+import { SEMANTIC_SIMILARITY_COLORS } from '../lib/color-utils'
 import ExplainerComparisonGrid from './ExplainerComparisonGrid'
 import '../styles/QualityView.css'
 
@@ -57,10 +58,12 @@ const QualityView: React.FC<QualityViewProps> = ({
   const restoreFeatureSelectionStates = useVisualizationStore(state => state.restoreFeatureSelectionStates)
   const moveToNextStep = useVisualizationStore(state => state.moveToNextStep)
   const activationExamples = useVisualizationStore(state => state.activationExamples)
+  const toggleFeatureSelection = useVisualizationStore(state => state.toggleFeatureSelection)
 
   // Local state
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0)
   const [activeListSource, setActiveListSource] = useState<'all' | 'reject' | 'select'>('all')
+  const [autoAdvance] = useState(true)  // Auto-advance to next feature after tagging
 
   // Top row feature list state
   const [sortDirection, _setSortDirection] = useState<'asc' | 'desc'>('desc')
@@ -230,6 +233,45 @@ const QualityView: React.FC<QualityViewProps> = ({
       .filter((item: { explainerId: string; highlightedExplanation: any; explanationText: string | null | undefined } | null): item is NonNullable<typeof item> => item !== null)
   }, [selectedFeatureData, tableData?.explainer_ids])
 
+  // Compute pairwise similarities for ExplainerComparisonGrid
+  const pairwiseSimilarities = useMemo(() => {
+    if (!selectedFeatureData?.row || !tableData?.explainer_ids) return undefined
+
+    const similarities = new Map<string, number>()
+    const explainerIds = tableData.explainer_ids
+
+    for (const explainerId of explainerIds) {
+      const explainerData = selectedFeatureData.row.explainers?.[explainerId]
+      const semSim = explainerData?.semantic_similarity
+
+      if (semSim) {
+        for (const [otherExplainerId, similarity] of Object.entries(semSim)) {
+          const key = `${explainerId}:${otherExplainerId}`
+          similarities.set(key, similarity)
+        }
+      }
+    }
+
+    return similarities
+  }, [selectedFeatureData, tableData?.explainer_ids])
+
+  // Compute quality scores for ExplainerComparisonGrid bar graphs
+  const qualityScores = useMemo(() => {
+    if (!selectedFeatureData?.row || !tableData?.explainer_ids) return undefined
+
+    const scores = new Map<string, number>()
+
+    for (const explainerId of tableData.explainer_ids) {
+      const explainerData = selectedFeatureData.row.explainers?.[explainerId]
+      const score = explainerData?.quality_score
+      if (score !== null && score !== undefined) {
+        scores.set(explainerId, score)
+      }
+    }
+
+    return scores
+  }, [selectedFeatureData, tableData?.explainer_ids])
+
   // ============================================================================
   // BOUNDARY ITEMS LOGIC (for bottom row left/right lists)
   // ============================================================================
@@ -280,8 +322,103 @@ const QualityView: React.FC<QualityViewProps> = ({
     return result
   }, [featureList, tagAutomaticState, similarityScores])
 
-  // Get tag color for header badge
+  // Get tag colors for header badge and buttons
   const wellExplainedColor = getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#4CAF50'
+  const needRevisionColor = getTagColor(TAG_CATEGORY_QUALITY, 'Need Revision') || UNSURE_GRAY
+  const unsureColor = UNSURE_GRAY
+
+  // ============================================================================
+  // NAVIGATION HANDLERS
+  // ============================================================================
+
+  const handleNavigatePrevious = useCallback(() => {
+    setCurrentFeatureIndex(i => Math.max(0, i - 1))
+    setActiveListSource('all')
+  }, [])
+
+  const handleNavigateNext = useCallback(() => {
+    setCurrentFeatureIndex(i => Math.min(sortedFeatures.length - 1, i + 1))
+    setActiveListSource('all')
+  }, [sortedFeatures.length])
+
+  // ============================================================================
+  // TAG BUTTON HANDLERS
+  // ============================================================================
+
+  // Get current feature's selection state
+  const currentSelectionState = useMemo(() => {
+    if (!selectedFeatureData) return null
+    return featureSelectionStates.get(selectedFeatureData.featureId) || null
+  }, [selectedFeatureData, featureSelectionStates])
+
+  // Handle Well-Explained click (selected)
+  const handleWellExplainedClick = useCallback(() => {
+    if (!selectedFeatureData) return
+    const featureId = selectedFeatureData.featureId
+
+    if (currentSelectionState === 'selected') {
+      // Toggle off: selected → rejected → null
+      toggleFeatureSelection(featureId)
+      toggleFeatureSelection(featureId)
+    } else {
+      // Set to selected
+      if (currentSelectionState === null) {
+        toggleFeatureSelection(featureId)
+      } else if (currentSelectionState === 'rejected') {
+        // rejected → null → selected
+        toggleFeatureSelection(featureId)
+        toggleFeatureSelection(featureId)
+      }
+      // Auto-advance to next feature
+      if (autoAdvance && currentFeatureIndex < sortedFeatures.length - 1) {
+        setTimeout(() => handleNavigateNext(), 150)
+      }
+    }
+  }, [selectedFeatureData, currentSelectionState, toggleFeatureSelection, autoAdvance, currentFeatureIndex, sortedFeatures.length, handleNavigateNext])
+
+  // Handle Need Revision click (rejected)
+  const handleNeedRevisionClick = useCallback(() => {
+    if (!selectedFeatureData) return
+    const featureId = selectedFeatureData.featureId
+
+    if (currentSelectionState === 'rejected') {
+      // Toggle off: rejected → null
+      toggleFeatureSelection(featureId)
+    } else {
+      // Set to rejected
+      if (currentSelectionState === null) {
+        // null → selected → rejected
+        toggleFeatureSelection(featureId)
+        toggleFeatureSelection(featureId)
+      } else if (currentSelectionState === 'selected') {
+        // selected → rejected
+        toggleFeatureSelection(featureId)
+      }
+      // Auto-advance to next feature
+      if (autoAdvance && currentFeatureIndex < sortedFeatures.length - 1) {
+        setTimeout(() => handleNavigateNext(), 150)
+      }
+    }
+  }, [selectedFeatureData, currentSelectionState, toggleFeatureSelection, autoAdvance, currentFeatureIndex, sortedFeatures.length, handleNavigateNext])
+
+  // Handle Unsure click (clear selection)
+  const handleUnsureClick = useCallback(() => {
+    if (!selectedFeatureData) return
+    const featureId = selectedFeatureData.featureId
+
+    if (currentSelectionState === 'selected') {
+      // selected → rejected → null
+      toggleFeatureSelection(featureId)
+      toggleFeatureSelection(featureId)
+    } else if (currentSelectionState === 'rejected') {
+      // rejected → null
+      toggleFeatureSelection(featureId)
+    }
+    // Auto-advance to next feature
+    if (autoAdvance && currentFeatureIndex < sortedFeatures.length - 1) {
+      setTimeout(() => handleNavigateNext(), 150)
+    }
+  }, [selectedFeatureData, currentSelectionState, toggleFeatureSelection, autoAdvance, currentFeatureIndex, sortedFeatures.length, handleNavigateNext])
 
   // ============================================================================
   // CLICK HANDLERS
@@ -631,12 +768,16 @@ const QualityView: React.FC<QualityViewProps> = ({
                     <div className="quality-view__legend">
                       <span className="legend-label">Segment similarity:</span>
                       <div className="legend-item">
-                        <span className="legend-swatch" style={{ backgroundColor: 'rgba(102, 204, 170, 1.0)' }} />
-                        <span className="legend-label">0.85-1.0</span>
+                        <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.HIGH }} />
+                        <span className="legend-label">≥0.85</span>
                       </div>
                       <div className="legend-item">
-                        <span className="legend-swatch" style={{ backgroundColor: 'rgba(153, 230, 204, 0.7)' }} />
-                        <span className="legend-label">0.7-0.85</span>
+                        <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.MEDIUM }} />
+                        <span className="legend-label">≥0.70</span>
+                      </div>
+                      <div className="legend-item">
+                        <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.LOW }} />
+                        <span className="legend-label">≥0.50</span>
                       </div>
                     </div>
                   </div>
@@ -663,9 +804,10 @@ const QualityView: React.FC<QualityViewProps> = ({
                     {/* Left: Explainer comparison grid */}
                     <div className="quality-view__explanation-left">
                       <ExplainerComparisonGrid
-                        size={100}
-                        cellGap={3}
+                        cellGap={1.5}
                         explainerIds={tableData?.explainer_ids || []}
+                        pairwiseSimilarities={pairwiseSimilarities}
+                        qualityScores={qualityScores}
                         onPairClick={(exp1, exp2) => {
                           console.log('Clicked pair:', exp1, exp2)
                         }}
@@ -696,6 +838,53 @@ const QualityView: React.FC<QualityViewProps> = ({
                         <span className="quality-view__no-explanation">No explanations available</span>
                       )}
                     </div>
+                  </div>
+
+                  {/* Floating control panel at bottom */}
+                  <div className="quality-view__floating-controls">
+                    {/* Previous button */}
+                    <button
+                      className="nav__button"
+                      onClick={handleNavigatePrevious}
+                      disabled={currentFeatureIndex === 0}
+                    >
+                      ← Prev
+                    </button>
+
+                    {/* Selection buttons */}
+                    <button
+                      className={`selection__button selection__button--unsure ${currentSelectionState === null ? 'selected' : ''}`}
+                      onClick={handleUnsureClick}
+                      style={{ '--tag-color': unsureColor } as React.CSSProperties}
+                    >
+                      {currentSelectionState === null && <span className="button__icon">○</span>}
+                      Unsure
+                    </button>
+                    <button
+                      className={`selection__button selection__button--need-revision ${currentSelectionState === 'rejected' ? 'selected' : ''}`}
+                      onClick={handleNeedRevisionClick}
+                      style={{ '--tag-color': needRevisionColor } as React.CSSProperties}
+                    >
+                      {currentSelectionState === 'rejected' && <span className="button__icon">✓</span>}
+                      Need Revision
+                    </button>
+                    <button
+                      className={`selection__button selection__button--well-explained ${currentSelectionState === 'selected' ? 'selected' : ''}`}
+                      onClick={handleWellExplainedClick}
+                      style={{ '--tag-color': wellExplainedColor } as React.CSSProperties}
+                    >
+                      {currentSelectionState === 'selected' && <span className="button__icon">✓</span>}
+                      Well-Explained
+                    </button>
+
+                    {/* Next button */}
+                    <button
+                      className="nav__button"
+                      onClick={handleNavigateNext}
+                      disabled={currentFeatureIndex >= sortedFeatures.length - 1}
+                    >
+                      Next →
+                    </button>
                   </div>
                 </>
               ) : (

@@ -240,14 +240,14 @@
 /* Left panel for explainer comparison grid */
 .quality-view__explanation-left {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 120px;
-  flex-shrink: 0;
+  align-items: stretch;
+  justify-content: flex-start;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
   background-color: white;
   border: 1px solid #e5e7eb;
   border-radius: 4px;
-  padding: 8px;
 }
 
 /* ============================================================================
@@ -265,7 +265,7 @@
   border-radius: 4px;
   padding: 6px;
   overflow-y: auto;
-  flex: 1;
+  flex: 7;
 }
 
 /* Scrollbar for explanation section */
@@ -308,4 +308,67 @@
   color: #9ca3af;
   font-size: 11px;
   font-style: italic;
+}
+
+/* ============================================================================
+ * FLOATING CONTROLS - Navigation and tag buttons at bottom
+ * ============================================================================ */
+
+.quality-view__floating-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 12px;
+  margin: 0px auto;
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+  width: fit-content;
+}
+
+/* Selection button variant for Need Revision */
+.selection__button--need-revision {
+  color: #000;
+  border-color: var(--tag-color, var(--unsure-gray));
+  background-color: transparent;
+}
+
+.selection__button--need-revision.selected {
+  border-color: var(--tag-color, var(--unsure-gray));
+  color: #000;
+  font-weight: 600;
+  --bg-opacity: 1.0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+  border-width: 2px;
+}
+
+.selection__button--need-revision:hover:not(.selected) {
+  color: #000;
+  --bg-opacity: 0.8;
+}
+
+/* Selection button variant for Well-Explained */
+.selection__button--well-explained {
+  color: #000;
+  border-color: var(--tag-color, #4CAF50);
+  background-color: transparent;
+}
+
+.selection__button--well-explained.selected {
+  border-color: var(--tag-color, #4CAF50);
+  color: #000;
+  font-weight: 600;
+  --bg-opacity: 1.0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+  border-width: 2px;
+}
+
+.selection__button--well-explained:hover:not(.selected) {
+  color: #000;
+  --bg-opacity: 0.8;
 }

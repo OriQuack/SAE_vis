@@ -461,11 +461,11 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
             Tag 3+ {itemType} in each category
           </div>
           <div className="tag-panel__progress-row">
-            <span className="tag-panel__progress-item" style={{ backgroundColor: selectedColor }}>
-              {selectedLabel}: {selectionCounts.selectedCount}/3
-            </span>
             <span className="tag-panel__progress-item" style={{ backgroundColor: rejectedColor }}>
               {rejectedLabel}: {selectionCounts.rejectedCount}/3
+            </span>
+            <span className="tag-panel__progress-item" style={{ backgroundColor: selectedColor }}>
+              {selectedLabel}: {selectionCounts.selectedCount}/3
             </span>
           </div>
         </div>

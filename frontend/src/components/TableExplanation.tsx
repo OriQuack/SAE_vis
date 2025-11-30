@@ -1,5 +1,6 @@
 import React from 'react'
 import type { HighlightSegment } from '../types'
+import { getSemanticSimilarityColor } from '../lib/color-utils'
 
 interface HighlightedExplanationProps {
   segments: HighlightSegment[]
@@ -11,10 +12,11 @@ interface HighlightedExplanationProps {
 /**
  * Renders explanation text with background highlighting showing alignment across LLM explainers.
  *
- * Highlighting styles (semantic similarity based):
- * - similarity >= 0.85: Dark green background (full opacity) + white text (Higher Match)
- * - similarity >= 0.7: Dark green background (0.7 opacity) + white text (Lower Match)
- * - similarity < 0.7: Plain text (no highlight)
+ * Highlighting styles (semantic similarity based - colors from color-utils.tsx):
+ * - similarity >= 0.85: Dark teal green background (Higher Match)
+ * - similarity >= 0.70: Medium green background (Medium Match)
+ * - similarity >= 0.50: Light mint green background (Lower Match)
+ * - similarity < 0.50: Plain text (no highlight)
  *
  * Truncation mode (truncated=true):
  * - Shows all highlighted segments ordered by similarity (highest to lowest)
@@ -51,6 +53,8 @@ export const HighlightedExplanation: React.FC<HighlightedExplanationProps> = Rea
       let strength = 'Lower Match'
       if (similarity >= 0.85) {
         strength = 'Higher Match'
+      } else if (similarity >= 0.7) {
+        strength = 'Medium Match'
       }
       lines.push(strength)
 
@@ -79,22 +83,12 @@ export const HighlightedExplanation: React.FC<HighlightedExplanationProps> = Rea
 
     const style: React.CSSProperties = {}
 
-    // Calculate dark green background with opacity based on similarity
+    // Get background color from centralized color utility
     const similarity = segment.metadata?.similarity
-    if (similarity !== undefined) {
-      let opacity = 0.7  // Default for similarity >= 0.7 (Lower match)
-      if (similarity >= 0.85) {
-        opacity = 1.0  // Higher match - full opacity
-      }
+    if (similarity !== undefined && similarity >= 0.5) {
+      style.backgroundColor = getSemanticSimilarityColor(similarity)
 
-      // Apply VIS-standard color (Okabe-Ito BLUISH_GREEN #009E73)
-      // Lightened for background use with black text
-      const baseColor = similarity >= 0.85
-        ? '102, 204, 170'  // Lighter shade for higher match
-        : '153, 230, 204'  // Even lighter for lower match
-      style.backgroundColor = `rgba(${baseColor}, ${opacity})`
-
-      // Black text to match activation example styling
+      // Black text for readability on green backgrounds
       style.color = 'black'
 
       // Padding to match activation token style (horizontal only)
@@ -131,6 +125,8 @@ export const HighlightedExplanation: React.FC<HighlightedExplanationProps> = Rea
       if (similarity >= 0.85) {
         classes.push('highlighted-segment--higher')
       } else if (similarity >= 0.7) {
+        classes.push('highlighted-segment--medium')
+      } else if (similarity >= 0.5) {
         classes.push('highlighted-segment--lower')
       }
     }

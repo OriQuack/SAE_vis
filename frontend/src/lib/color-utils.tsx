@@ -256,6 +256,42 @@ export function getRowCategoryClass(
 }
 
 // ============================================================================
+// SEMANTIC SIMILARITY COLORS
+// ============================================================================
+
+/**
+ * Color scale for semantic similarity scores (0-1)
+ * Used in ExplainerComparisonGrid and TableExplanation for highlighting
+ *
+ * Design: Teal tones (blue-shifted green) - softer than cyan, distinct from tag green
+ */
+export const SEMANTIC_SIMILARITY_COLORS = {
+  HIGH: '#1a8a8a',      // ≥ 0.85 - Deep blue-teal (high match)
+  MEDIUM: '#5ab5a8',    // ≥ 0.70 - Medium teal-green
+  LOW: '#c2e4dc',       // ≥ 0.50 - Pale seafoam
+  NONE: '#f3f4f6'       // < 0.50 - Default gray
+}
+
+/**
+ * Get color for semantic similarity score
+ * Used for explainer comparison grid diamonds and explanation segment highlights
+ *
+ * @param similarity - Similarity score (0-1)
+ * @returns CSS color string
+ */
+export function getSemanticSimilarityColor(similarity: number): string {
+  if (similarity >= 0.85) {
+    return SEMANTIC_SIMILARITY_COLORS.HIGH
+  } else if (similarity >= 0.7) {
+    return SEMANTIC_SIMILARITY_COLORS.MEDIUM
+  } else if (similarity >= 0.5) {
+    return SEMANTIC_SIMILARITY_COLORS.LOW
+  } else {
+    return SEMANTIC_SIMILARITY_COLORS.NONE
+  }
+}
+
+// ============================================================================
 // STRIPE PATTERN UTILITIES
 // ============================================================================
 
