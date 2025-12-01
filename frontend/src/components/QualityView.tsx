@@ -6,7 +6,7 @@ import ThresholdTaggingPanel from './ThresholdTaggingPanel'
 import { ScrollableItemList } from './ScrollableItemList'
 import { TagBadge } from './TableIndicators'
 import { isBimodalScore } from '../lib/bimodality-utils'
-import { useSortableList } from '../lib/useSortableList'
+import { useSortableList } from '../lib/tagging-hooks/useSortableList'
 import ActivationExample from './ActivationExample'
 import { HighlightedExplanation } from './TableExplanation'
 import { TAG_CATEGORY_QUALITY, UNSURE_GRAY } from '../lib/constants'
@@ -69,9 +69,9 @@ const QualityView: React.FC<QualityViewProps> = ({
   const [activeListSource, setActiveListSource] = useState<'all' | 'reject' | 'select'>('all')
   const [autoAdvance] = useState(true)  // Auto-advance to next feature after tagging
 
-  // Top row feature list state
-  const [currentPage, setCurrentPage] = useState(0)
+  // Top row feature list state - currentPage derived from currentFeatureIndex
   const ITEMS_PER_PAGE = 10
+  const currentPage = Math.floor(currentFeatureIndex / ITEMS_PER_PAGE)
 
   // Right panel container width state (for ActivationExample)
   const [containerWidth, setContainerWidth] = useState(600)
@@ -161,12 +161,12 @@ const QualityView: React.FC<QualityViewProps> = ({
     return sortedFeatures.slice(start, start + ITEMS_PER_PAGE)
   }, [sortedFeatures, currentPage, ITEMS_PER_PAGE])
 
-  // Reset page when features change
+  // Reset to valid index when features change
   useEffect(() => {
-    if (currentPage >= totalPages) {
-      setCurrentPage(Math.max(0, totalPages - 1))
+    if (currentFeatureIndex >= sortedFeatures.length && sortedFeatures.length > 0) {
+      setCurrentFeatureIndex(sortedFeatures.length - 1)
     }
-  }, [totalPages, currentPage])
+  }, [sortedFeatures.length, currentFeatureIndex])
 
   // Auto-populate similarity scores when feature list is ready or selection states change
   useEffect(() => {
@@ -800,14 +800,14 @@ const QualityView: React.FC<QualityViewProps> = ({
                 currentPage,
                 totalPages,
                 onPreviousPage: () => {
-                  const newPage = Math.max(0, currentPage - 1)
-                  setCurrentPage(newPage)
-                  setCurrentFeatureIndex(newPage * ITEMS_PER_PAGE)
+                  if (currentPage > 0) {
+                    setCurrentFeatureIndex((currentPage - 1) * ITEMS_PER_PAGE)
+                  }
                 },
                 onNextPage: () => {
-                  const newPage = Math.min(totalPages - 1, currentPage + 1)
-                  setCurrentPage(newPage)
-                  setCurrentFeatureIndex(newPage * ITEMS_PER_PAGE)
+                  if (currentPage < totalPages - 1) {
+                    setCurrentFeatureIndex((currentPage + 1) * ITEMS_PER_PAGE)
+                  }
                 }
               }}
             />

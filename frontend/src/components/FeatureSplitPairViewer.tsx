@@ -112,8 +112,8 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   autoAdvance = true,
   allPairsListProps
 }) => {
-  // Constants
-  const PAIRS_PER_PAGE = 20
+  // Constants - must match FeatureSplitView.tsx
+  const PAIRS_PER_PAGE = 10
   // Store state
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
   const togglePairSelection = useVisualizationStore(state => state.togglePairSelection)
