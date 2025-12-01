@@ -22,6 +22,12 @@ interface ExplainerComparisonGridProps {
   qualityScores?: Map<string, number>
   /** Optional click handler for pair cells */
   onPairClick?: (explainer1: string, explainer2: string) => void
+  /** Which explainer indices have valid explanations (e.g., [true, false, true] means explainer 1 is missing) */
+  hasExplanation?: boolean[]
+  /** Currently selected explainer index (for blue highlight) */
+  selectedExplainerIndex?: number
+  /** Click handler for triangle cells */
+  onTriangleClick?: (explainerIndex: number) => void
 }
 
 const ExplainerComparisonGrid: React.FC<ExplainerComparisonGridProps> = ({
@@ -29,7 +35,10 @@ const ExplainerComparisonGrid: React.FC<ExplainerComparisonGridProps> = ({
   explainerIds = [],
   pairwiseSimilarities,
   qualityScores,
-  onPairClick
+  onPairClick,
+  hasExplanation,
+  selectedExplainerIndex,
+  onTriangleClick
 }) => {
   // Calculate triangle size to fit within viewBox
   const triangleSize = VIEWBOX_HEIGHT * 0.32
@@ -50,10 +59,49 @@ const ExplainerComparisonGrid: React.FC<ExplainerComparisonGridProps> = ({
   // Parameters: cells, barGap, barWidth, barHeight, axisPadding, barAxisGap
   const barLayout = useMemo(() => {
     return calculateBarGraphLayout(cells, 3, 40, cellSize * Math.sqrt(2), 2)
-  }, [cells, cellSpan])
+  }, [cells, cellSize])
 
-  // Fixed viewBox width - decoupled from bar dimensions to prevent scaling issues
-  const viewBoxWidth = 100
+  // Check if a cell should be visible based on hasExplanation
+  // - Triangle cells: visible if corresponding explainer has explanation
+  // - Diamond cells: visible if BOTH explainers in the pair have explanations
+  const isCellVisible = (cellIndex: number, cellType: 'diamond' | 'triangle'): boolean => {
+    if (!hasExplanation) return true  // Show all if not specified
+
+    if (cellType === 'triangle') {
+      const explainerIndex = EXPLAINER_INDEX_MAP[cellIndex]
+      return explainerIndex !== undefined && hasExplanation[explainerIndex] === true
+    } else {
+      // Diamond cell - both explainers must have explanations
+      const pairIndices = EXPLAINER_PAIR_MAP[cellIndex]
+      if (!pairIndices) return true
+      const [i, j] = pairIndices
+      return hasExplanation[i] === true && hasExplanation[j] === true
+    }
+  }
+
+  // Find the explainer index with the max quality score
+  const maxQualityExplainerIndex = useMemo(() => {
+    if (!qualityScores || qualityScores.size === 0 || explainerIds.length === 0) return -1
+
+    let maxScore = -1
+    let maxIndex = -1
+
+    explainerIds.forEach((explainerId, index) => {
+      // Skip if explainer has no explanation
+      if (hasExplanation && !hasExplanation[index]) return
+
+      const score = qualityScores.get(explainerId)
+      if (score !== undefined && score > maxScore) {
+        maxScore = score
+        maxIndex = index
+      }
+    })
+
+    return maxIndex
+  }, [qualityScores, explainerIds, hasExplanation])
+
+  // ViewBox width sized to match actual content (triangles + bar graph)
+  const viewBoxWidth = 92
 
   return (
     <svg
@@ -64,6 +112,11 @@ const ExplainerComparisonGrid: React.FC<ExplainerComparisonGridProps> = ({
       {cells.map((cell) => {
         const isDiamond = cell.type === 'diamond'
         const pairIndices = EXPLAINER_PAIR_MAP[cell.cellIndex]
+
+        // Skip cells for missing explainers
+        if (!isCellVisible(cell.cellIndex, cell.type)) {
+          return null
+        }
 
         // Get similarity color for diamond cells
         let fillColor: string | undefined
@@ -76,15 +129,29 @@ const ExplainerComparisonGrid: React.FC<ExplainerComparisonGridProps> = ({
           }
         }
 
+        // Check if this triangle is the selected explainer (or max quality as fallback)
+        const effectiveSelectedIndex = selectedExplainerIndex ?? maxQualityExplainerIndex
+        const isSelected = !isDiamond &&
+          EXPLAINER_INDEX_MAP[cell.cellIndex] === effectiveSelectedIndex
+
         return (
           <polygon
             key={cell.cellIndex}
-            className={`grid-cell grid-cell--${cell.type}`}
+            className={`grid-cell grid-cell--${cell.type}${isSelected ? ' grid-cell--selected' : ''}`}
             points={cell.points}
-            style={fillColor ? { fill: fillColor } : undefined}
+            style={{
+              ...(fillColor ? { fill: fillColor } : {}),
+              ...(isSelected ? { fill: '#3b82f6', stroke: '#3b82f6', strokeWidth: 1 } : {}),
+              ...(!isDiamond ? { cursor: 'pointer' } : {})
+            }}
             onClick={() => {
               if (isDiamond && pairIndices && onPairClick && explainerIds.length >= 3) {
                 onPairClick(explainerIds[pairIndices[0]], explainerIds[pairIndices[1]])
+              } else if (!isDiamond && onTriangleClick) {
+                const explainerIndex = EXPLAINER_INDEX_MAP[cell.cellIndex]
+                if (explainerIndex !== undefined) {
+                  onTriangleClick(explainerIndex)
+                }
               }
             }}
           />
@@ -132,7 +199,7 @@ const ExplainerComparisonGrid: React.FC<ExplainerComparisonGridProps> = ({
         {/* Label: 0 */}
         <text
           x={barLayout.axis.x}
-          y={barLayout.axis.xAxisY + 11}
+          y={barLayout.axis.xAxisY + 10}
           fontSize={7}
           fill="#6b7280"
           textAnchor="middle"
@@ -142,7 +209,7 @@ const ExplainerComparisonGrid: React.FC<ExplainerComparisonGridProps> = ({
         {/* Label: 1 */}
         <text
           x={barLayout.axis.xAxisEndX}
-          y={barLayout.axis.xAxisY + 11}
+          y={barLayout.axis.xAxisY + 10}
           fontSize={7}
           fill="#6b7280"
           textAnchor="middle"
@@ -151,8 +218,8 @@ const ExplainerComparisonGrid: React.FC<ExplainerComparisonGridProps> = ({
         </text>
         {/* Label: Quality Score */}
         <text
-          x={(barLayout.axis.x + barLayout.axis.xAxisEndX) / 2}
-          y={barLayout.axis.xAxisY + 20}
+          x={(barLayout.axis.x + barLayout.axis.xAxisEndX) / 2 - 4}
+          y={barLayout.axis.xAxisY + 18}
           fontSize={8}
           fill="#6b7280"
           textAnchor="middle"
@@ -164,6 +231,9 @@ const ExplainerComparisonGrid: React.FC<ExplainerComparisonGridProps> = ({
         {cells.filter(cell => cell.type === 'triangle').map((cell) => {
           const explainerIndex = EXPLAINER_INDEX_MAP[cell.cellIndex]
           if (explainerIndex === undefined) return null
+
+          // Skip bars for missing explainers
+          if (!isCellVisible(cell.cellIndex, 'triangle')) return null
 
           const explainerId = explainerIds[explainerIndex]
           const score = qualityScores?.get(explainerId) ?? 0

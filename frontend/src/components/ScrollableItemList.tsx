@@ -31,11 +31,17 @@ interface PageNavigation {
 interface ColumnHeader {
   label: string
   sortDirection?: 'asc' | 'desc'
+  onClick?: () => void
 }
 
 interface HeaderStripe {
   type: 'expand' | 'autoReject'
   mode?: TableMode
+}
+
+// Optional sort config for automatic inline score display
+interface SortConfig<T> {
+  getDisplayScore: (item: T) => number | undefined
 }
 
 export interface ScrollableItemListProps<T = any> {
@@ -69,6 +75,10 @@ export interface ScrollableItemListProps<T = any> {
   // Optional page navigation (replaces footerButton if provided)
   pageNavigation?: PageNavigation
 
+  // Optional sort config for automatic inline score display
+  // When provided, wraps renderItem output with score display
+  sortConfig?: SortConfig<T>
+
   // Styling
   width?: number | string
   className?: string
@@ -85,6 +95,7 @@ export function ScrollableItemList<T = any>({
   isActive = false,
   footerButton,
   pageNavigation,
+  sortConfig,
   width = 200,
   className = ''
 }: ScrollableItemListProps<T>) {
@@ -130,10 +141,17 @@ export function ScrollableItemList<T = any>({
 
       {/* Optional column header (sub-header with sort indicator) */}
       {columnHeader && (
-        <div className="scrollable-list__column-header">
+        <div
+          className={`scrollable-list__column-header ${columnHeader.onClick ? 'scrollable-list__column-header--clickable' : ''}`}
+          onClick={columnHeader.onClick}
+          title={columnHeader.onClick ? 'Click to switch sort mode' : undefined}
+        >
           <span className="column-header__label">
             {columnHeader.sortDirection === 'asc' ? '▲' : '▼'} {columnHeader.label}
           </span>
+          {columnHeader.onClick && (
+            <span className="column-header__switch-badge">⇅</span>
+          )}
         </div>
       )}
 
@@ -168,9 +186,21 @@ export function ScrollableItemList<T = any>({
               isHighlightLast && 'scrollable-list-item--highlight-last'
             ].filter(Boolean).join(' ')
 
+            // Render item content, optionally wrapped with score display
+            const itemContent = renderItem(item, index)
+
             return (
               <div key={index} className={itemClasses}>
-                {renderItem(item, index)}
+                {sortConfig ? (
+                  <div className="pair-item-with-score">
+                    {itemContent}
+                    <span className="pair-similarity-score">
+                      {sortConfig.getDisplayScore(item)?.toFixed(2) ?? '—'}
+                    </span>
+                  </div>
+                ) : (
+                  itemContent
+                )}
               </div>
             )
           })

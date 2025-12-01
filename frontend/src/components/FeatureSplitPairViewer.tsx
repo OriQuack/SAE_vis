@@ -88,7 +88,12 @@ interface FeatureSplitPairViewerProps {
     currentPagePairs: Array<PairData>
     totalPairCount: number
     isActive: boolean
-    hasSortHeader: boolean  // Whether to show "Confidence" column header
+    columnHeaderProps: {
+      label: string
+      sortDirection: 'asc' | 'desc'
+      onClick: () => void
+    }
+    getDisplayScore: (item: PairData) => number | undefined
     currentPage: number
     totalPages: number
     onItemClick: (index: number) => void
@@ -253,17 +258,18 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
       {/* All Pairs list (optional) */}
       {allPairsListProps && (
         <ScrollableItemList
-          width={210}
+          width={240}
           badges={[
             { label: 'All Pairs', count: `${allPairsListProps.totalPairCount} pairs` }
           ]}
-          columnHeader={allPairsListProps.hasSortHeader ? { label: 'Confidence', sortDirection: 'asc' } : undefined}
+          columnHeader={allPairsListProps.columnHeaderProps}
           items={allPairsListProps.currentPagePairs}
           currentIndex={allPairsListProps.isActive ? currentPairIndex % PAIRS_PER_PAGE : -1}
           isActive={allPairsListProps.isActive}
           highlightPredicate={(pair: PairData, currentPairItem: PairData | null) =>
             !!currentPairItem && pair.clusterId === currentPairItem.clusterId
           }
+          sortConfig={{ getDisplayScore: allPairsListProps.getDisplayScore }}
           renderItem={(pair: PairData, index: number) => {
             const selectionState = pairSelectionStates.get(pair.pairKey) || null
 
@@ -291,16 +297,8 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
           pageNavigation={{
             currentPage: allPairsListProps.currentPage,
             totalPages: allPairsListProps.totalPages,
-            onPreviousPage: () => {
-              allPairsListProps.onPreviousPage()
-              // Select first item on the new page so selection indicator appears
-              allPairsListProps.onItemClick(0)
-            },
-            onNextPage: () => {
-              allPairsListProps.onNextPage()
-              // Select first item on the new page so selection indicator appears
-              allPairsListProps.onItemClick(0)
-            }
+            onPreviousPage: allPairsListProps.onPreviousPage,
+            onNextPage: allPairsListProps.onNextPage
           }}
         />
       )}

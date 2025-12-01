@@ -90,6 +90,11 @@ interface AppState {
   activeCauseStageNode: string | null
   activateCauseTable: (nodeId: string) => void
 
+  // Selected explanations per feature (featureId → explainerIndex)
+  // Used in Quality stage to track which explainer's explanation user selected
+  selectedExplanations: Map<number, number>
+  setSelectedExplanation: (featureId: number, explainerIndex: number) => void
+
   // Comparison view state
   showComparisonView: boolean
   toggleComparisonView: () => void
@@ -403,6 +408,9 @@ const initialState = {
   causeSelectionSources: new Map<number, 'manual' | 'auto'>(),
   activeCauseStageNode: null,
 
+  // Selected explanations per feature (featureId → explainerIndex)
+  selectedExplanations: new Map<number, number>(),
+
   // Comparison view state
   showComparisonView: false,
 
@@ -707,6 +715,16 @@ export const useStore = create<AppState>((set, get) => {
   activateCauseTable: (nodeId: string) => {
     set({ activeCauseStageNode: nodeId })
     console.log('[Store.activateCauseTable] Activated cause table for node:', nodeId)
+  },
+
+  // Selected explanation action (Quality stage)
+  setSelectedExplanation: (featureId: number, explainerIndex: number) => {
+    set((state) => {
+      const newMap = new Map(state.selectedExplanations)
+      newMap.set(featureId, explainerIndex)
+      return { selectedExplanations: newMap }
+    })
+    console.log('[Store.setSelectedExplanation] Set explainer', explainerIndex, 'for feature', featureId)
   },
 
   // Comparison view actions

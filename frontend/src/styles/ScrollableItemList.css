@@ -94,6 +94,28 @@
   letter-spacing: 0.5px;
 }
 
+.scrollable-list__column-header--clickable {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.scrollable-list__column-header--clickable:hover {
+  background-color: #f3f4f6;
+}
+
+.column-header__switch-badge {
+  font-size: 10px;
+  color: #6b7280;
+  margin-left: 4px;
+  opacity: 0.7;
+  transition: opacity 0.15s ease;
+}
+
+.scrollable-list__column-header--clickable:hover .column-header__switch-badge {
+  opacity: 1;
+  color: #3b82f6;
+}
+
 /* ============================================================================
  * SCROLLABLE CONTAINER
  * ============================================================================ */
@@ -286,3 +308,29 @@
   font-family: 'Consolas', 'Monaco', monospace;
 }
 
+/* ============================================================================
+ * ITEM WITH INLINE SCORE - For sortConfig feature
+ * ============================================================================ */
+
+.pair-item-with-score {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.pair-item-with-score .tag-badge {
+  flex: 1;
+  min-width: 0;
+}
+
+.pair-similarity-score {
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'Consolas', 'Monaco', monospace;
+  color: #6b7280;
+  flex-shrink: 0;
+  min-width: 32px;
+  text-align: right;
+}

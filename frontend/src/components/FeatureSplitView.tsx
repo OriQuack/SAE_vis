@@ -4,7 +4,8 @@ import type { FeatureTableRow, SelectionCategory } from '../types'
 import SelectionPanel from './SelectionPanel'
 import FeatureSplitPairViewer from './FeatureSplitPairViewer'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
-import { isBimodalScore } from './BimodalityIndicator'
+import { isBimodalScore } from '../lib/bimodality-utils'
+import { useSortableList } from '../lib/useSortableList'
 import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import '../styles/FeatureSplitView.css'
@@ -67,9 +68,6 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   const [currentPairIndex, setCurrentPairIndex] = useState(0)
   // Which list is currently controlling the viewer: 'all', 'reject' (Monosemantic), or 'select' (Fragmented)
   const [activeListSource, setActiveListSource] = useState<'all' | 'reject' | 'select'>('all')
-  // Captured sorted pair keys (one-time snapshot after Apply Tags)
-  // When set, pairList uses this order instead of default cluster order
-  const [uncertaintySortedPairKeys, setUncertaintySortedPairKeys] = useState<string[] | null>(null)
 
   // ============================================================================
   // COMMIT HISTORY STATE - Save and restore tagging state snapshots
@@ -199,9 +197,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   // Pagination constant
   const PAIRS_PER_PAGE = 10
 
-  // Build pair list from ALL cluster pairs (no sampling)
-  // If uncertaintySortedPairKeys is set, use that order (one-time snapshot from Apply Tags)
-  const pairList = useMemo(() => {
+  // Build raw pair list from ALL cluster pairs (no sorting - sorting handled by hook)
+  const rawPairList = useMemo(() => {
     if (!filteredTableData || !selectedFeatureIds || !allClusterPairs || allClusterPairs.length === 0) {
       return []
     }
@@ -213,7 +210,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     })
 
     // Convert ALL cluster pairs to pair objects with full metadata
-    const pairs = allClusterPairs
+    return allClusterPairs
       .filter(p => selectedFeatureIds.has(p.main_id) && selectedFeatureIds.has(p.similar_id))
       .map(p => {
         const mainRow = rowMap.get(p.main_id) || null
@@ -238,24 +235,22 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
           decoderSimilarity
         }
       })
+  }, [filteredTableData, allClusterPairs, selectedFeatureIds])
 
-    // Use captured sorted order if available (from Apply Tags)
-    // Pairs not in the sorted list (tagged pairs) get MAX_SAFE_INTEGER and appear at the end
-    if (uncertaintySortedPairKeys && uncertaintySortedPairKeys.length > 0) {
-      // Create a map for O(1) lookup of sort index
-      const sortOrderMap = new Map<string, number>()
-      uncertaintySortedPairKeys.forEach((key, index) => sortOrderMap.set(key, index))
-
-      // Sort pairs by the captured order (untagged pairs sorted by confidence, tagged pairs at end)
-      pairs.sort((a, b) => {
-        const indexA = sortOrderMap.get(a.pairKey) ?? Number.MAX_SAFE_INTEGER
-        const indexB = sortOrderMap.get(b.pairKey) ?? Number.MAX_SAFE_INTEGER
-        return indexA - indexB
-      })
-    }
-
-    return pairs
-  }, [filteredTableData, allClusterPairs, selectedFeatureIds, uncertaintySortedPairKeys])
+  // Use sortable list hook for sorting logic
+  const {
+    setSortMode,
+    sortedItems: pairList,
+    columnHeaderProps,
+    getDisplayScore
+  } = useSortableList({
+    items: rawPairList,
+    getItemKey: (p: typeof rawPairList[0]) => p.pairKey,
+    getDefaultScore: (p: typeof rawPairList[0]) => p.decoderSimilarity,
+    confidenceScores: pairSimilarityScores,
+    defaultLabel: 'Decoder sim',
+    defaultDirection: 'desc'
+  })
 
   // Pagination derived state
   const currentPage = Math.floor(currentPairIndex / PAIRS_PER_PAGE)
@@ -528,25 +523,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
   // Handle Apply Tags button click
   const handleApplyTags = useCallback(() => {
-    // 1. Capture sort order BEFORE applying tags (using current scores)
-    // Filter out already-tagged pairs - they don't have scores from the backend
-    // (backend excludes training pairs from SVM scoring)
-    if (pairSimilarityScores.size > 0 && pairList.length > 0) {
-      // Only sort untagged pairs - tagged pairs will appear at the end
-      const untaggedPairs = pairList.filter(p => !pairSelectionStates.has(p.pairKey))
-
-      const sortedKeys = untaggedPairs
-        .sort((a, b) => {
-          const scoreA = pairSimilarityScores.get(a.pairKey) ?? 0
-          const scoreB = pairSimilarityScores.get(b.pairKey) ?? 0
-          // Ascending by absolute value: lowest |score| first = lowest confidence first
-          return Math.abs(scoreA) - Math.abs(scoreB)
-        })
-        .map(p => p.pairKey)
-
-      setUncertaintySortedPairKeys(sortedKeys)
-      console.log('[FeatureSplitView] Captured sort order:', sortedKeys.length, 'untagged pairs (tagged pairs will appear at end)')
-    }
+    // 1. Switch to confidence sort mode after applying tags
+    setSortMode('confidence')
+    console.log('[FeatureSplitView] Switching to confidence sort mode')
 
     // 2. Save current state to current commit before applying new tags
     setTagCommitHistory(prev => {
@@ -593,7 +572,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     // 5. Reset to first page/pair
     setCurrentPairIndex(0)
     setActiveListSource('all')
-  }, [applySimilarityTags, pairSimilarityScores, pairList, pairSelectionStates, pairSelectionSources, currentCommitIndex, tagCommitHistory.length])
+  }, [applySimilarityTags, pairSelectionStates, pairSelectionSources, currentCommitIndex, tagCommitHistory.length, setSortMode])
 
   // Handle commit circle click - restore state from that commit
   const handleCommitClick = useCallback((commitIndex: number) => {
@@ -837,7 +816,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               currentPagePairs,
               totalPairCount: pairList.length,
               isActive: activeListSource === 'all',
-              hasSortHeader: !!uncertaintySortedPairKeys,
+              columnHeaderProps,
+              getDisplayScore,
               currentPage,
               totalPages,
               onItemClick: handleAllPairsListClick,

@@ -5,7 +5,8 @@ import SelectionPanel from './SelectionPanel'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
 import { ScrollableItemList } from './ScrollableItemList'
 import { TagBadge } from './TableIndicators'
-import { isBimodalScore } from './BimodalityIndicator'
+import { isBimodalScore } from '../lib/bimodality-utils'
+import { useSortableList } from '../lib/useSortableList'
 import ActivationExample from './ActivationExample'
 import { HighlightedExplanation } from './TableExplanation'
 import { TAG_CATEGORY_QUALITY, UNSURE_GRAY } from '../lib/constants'
@@ -14,6 +15,7 @@ import { getExplainerDisplayName } from '../lib/table-utils'
 import { SEMANTIC_SIMILARITY_COLORS } from '../lib/color-utils'
 import ExplainerComparisonGrid from './ExplainerComparisonGrid'
 import '../styles/QualityView.css'
+import '../styles/ThresholdTaggingPanel.css'
 
 // ============================================================================
 // QUALITY VIEW - Organized layout for quality assessment workflow (Stage 2)
@@ -59,6 +61,8 @@ const QualityView: React.FC<QualityViewProps> = ({
   const moveToNextStep = useVisualizationStore(state => state.moveToNextStep)
   const activationExamples = useVisualizationStore(state => state.activationExamples)
   const toggleFeatureSelection = useVisualizationStore(state => state.toggleFeatureSelection)
+  const selectedExplanations = useVisualizationStore(state => state.selectedExplanations)
+  const setSelectedExplanation = useVisualizationStore(state => state.setSelectedExplanation)
 
   // Local state
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0)
@@ -66,10 +70,8 @@ const QualityView: React.FC<QualityViewProps> = ({
   const [autoAdvance] = useState(true)  // Auto-advance to next feature after tagging
 
   // Top row feature list state
-  const [sortDirection, _setSortDirection] = useState<'asc' | 'desc'>('desc')
-  // TODO: Add sort toggle when column header is clickable
   const [currentPage, setCurrentPage] = useState(0)
-  const ITEMS_PER_PAGE = 15
+  const ITEMS_PER_PAGE = 10
 
   // Right panel container width state (for ActivationExample)
   const [containerWidth, setContainerWidth] = useState(600)
@@ -114,29 +116,43 @@ const QualityView: React.FC<QualityViewProps> = ({
   const featureList = useMemo(() => {
     if (!filteredTableData?.rows) return []
 
-    return filteredTableData.rows.map((row: FeatureTableRow) => ({
-      featureId: row.feature_id,
-      qualityScore: (row as any).quality_score || 0,
-      row
-    }))
-  }, [filteredTableData])
+    const explainerIds = tableData?.explainer_ids || []
 
-  // Sort features by similarity score for the top row list
-  const sortedFeatures = useMemo(() => {
-    // If no similarity scores yet, sort by feature ID
-    if (similarityScores.size === 0) {
-      return [...featureList].sort((a, b) =>
-        sortDirection === 'asc' ? a.featureId - b.featureId : b.featureId - a.featureId
-      )
-    }
+    return filteredTableData.rows.map((row: FeatureTableRow) => {
+      // Compute average quality score across all explainers
+      let totalScore = 0
+      let count = 0
+      for (const explainerId of explainerIds) {
+        const score = row.explainers?.[explainerId]?.quality_score
+        if (score !== null && score !== undefined) {
+          totalScore += score
+          count++
+        }
+      }
+      const avgQualityScore = count > 0 ? totalScore / count : 0
 
-    // Sort by similarity score
-    return [...featureList].sort((a, b) => {
-      const scoreA = similarityScores.get(a.featureId) ?? 0
-      const scoreB = similarityScores.get(b.featureId) ?? 0
-      return sortDirection === 'asc' ? scoreA - scoreB : scoreB - scoreA
+      return {
+        featureId: row.feature_id,
+        qualityScore: avgQualityScore,
+        row
+      }
     })
-  }, [featureList, similarityScores, sortDirection])
+  }, [filteredTableData, tableData?.explainer_ids])
+
+  // Use sortable list hook for sorting logic
+  const {
+    setSortMode,
+    sortedItems: sortedFeatures,
+    columnHeaderProps,
+    getDisplayScore
+  } = useSortableList({
+    items: featureList,
+    getItemKey: (f: typeof featureList[0]) => f.featureId,
+    getDefaultScore: (f: typeof featureList[0]) => f.qualityScore,
+    confidenceScores: similarityScores,
+    defaultLabel: 'Quality score',
+    defaultDirection: 'desc'
+  })
 
   // Pagination for the top row list
   const totalPages = Math.max(1, Math.ceil(sortedFeatures.length / ITEMS_PER_PAGE))
@@ -217,20 +233,19 @@ const QualityView: React.FC<QualityViewProps> = ({
   }, [sortedFeatures, currentFeatureIndex, activationExamples])
 
   // Get all explainer explanations with highlighted segments
+  // Keep all explainers (even if missing data) to maintain index alignment with triangleYPositions
   const allExplainerExplanations = useMemo(() => {
     if (!selectedFeatureData?.row || !tableData?.explainer_ids) return []
 
-    return tableData.explainer_ids
-      .map((explainerId: string) => {
-        const explainerData = selectedFeatureData.row?.explainers?.[explainerId]
-        if (!explainerData) return null
-        return {
-          explainerId,
-          highlightedExplanation: explainerData.highlighted_explanation,
-          explanationText: explainerData.explanation_text
-        }
-      })
-      .filter((item: { explainerId: string; highlightedExplanation: any; explanationText: string | null | undefined } | null): item is NonNullable<typeof item> => item !== null)
+    return tableData.explainer_ids.map((explainerId: string, index: number) => {
+      const explainerData = selectedFeatureData.row?.explainers?.[explainerId]
+      return {
+        explainerId,
+        index,  // Keep original index for triangle alignment
+        highlightedExplanation: explainerData?.highlighted_explanation ?? null,
+        explanationText: explainerData?.explanation_text ?? null
+      }
+    })
   }, [selectedFeatureData, tableData?.explainer_ids])
 
   // Compute pairwise similarities for ExplainerComparisonGrid
@@ -246,8 +261,10 @@ const QualityView: React.FC<QualityViewProps> = ({
 
       if (semSim) {
         for (const [otherExplainerId, similarity] of Object.entries(semSim)) {
-          const key = `${explainerId}:${otherExplainerId}`
-          similarities.set(key, similarity)
+          if (typeof similarity === 'number') {
+            const key = `${explainerId}:${otherExplainerId}`
+            similarities.set(key, similarity)
+          }
         }
       }
     }
@@ -271,6 +288,68 @@ const QualityView: React.FC<QualityViewProps> = ({
 
     return scores
   }, [selectedFeatureData, tableData?.explainer_ids])
+
+  // Calculate triangle Y positions as percentages (matching ExplainerComparisonGrid layout)
+  // These values are derived from the grid's viewBox (100) and cell positioning
+  const triangleYPositions = useMemo(() => {
+    // From ExplainerComparisonGrid: viewBox height = 100, triangleSize = 32, cellGap = 1.5
+    const VIEWBOX_HEIGHT = 100
+    const triangleSize = VIEWBOX_HEIGHT * 0.32
+    const cellSize = triangleSize / 2
+    const cellSpan = cellSize / Math.sqrt(2)
+    const cellGap = 1.5
+    const triangleVerticalOffset = cellSpan * 2 + cellGap * 2
+    const topMargin = 5
+    const vy = topMargin + triangleVerticalOffset + cellSpan
+
+    // Triangle center Y positions (as percentages of viewBox height)
+    return [
+      (vy - triangleVerticalOffset) / VIEWBOX_HEIGHT * 100,  // Triangle 0 (top)
+      vy / VIEWBOX_HEIGHT * 100,                              // Triangle 2 (middle)
+      (vy + triangleVerticalOffset) / VIEWBOX_HEIGHT * 100,  // Triangle 5 (bottom)
+    ]
+  }, [])
+
+  // Compute which explainers have valid explanations (for grid cell visibility)
+  const hasExplanation = useMemo(() => {
+    return allExplainerExplanations.map((item: { highlightedExplanation: { segments: unknown[] } | null; explanationText: string | null }) =>
+      !!(item.highlightedExplanation?.segments || item.explanationText)
+    )
+  }, [allExplainerExplanations])
+
+  // Find the explainer index with the max quality score (for highlighting)
+  const maxQualityExplainerIndex = useMemo(() => {
+    if (!qualityScores || qualityScores.size === 0 || !tableData?.explainer_ids) return -1
+
+    let maxScore = -1
+    let maxIndex = -1
+
+    tableData.explainer_ids.forEach((explainerId: string, index: number) => {
+      // Skip if explainer has no explanation
+      if (hasExplanation && !hasExplanation[index]) return
+
+      const score = qualityScores.get(explainerId)
+      if (score !== undefined && score > maxScore) {
+        maxScore = score
+        maxIndex = index
+      }
+    })
+
+    return maxIndex
+  }, [qualityScores, tableData?.explainer_ids, hasExplanation])
+
+  // Compute effective selected explainer index for current feature
+  const effectiveSelectedIndex = useMemo(() => {
+    if (!selectedFeatureData) return maxQualityExplainerIndex
+    const stored = selectedExplanations.get(selectedFeatureData.featureId)
+    return stored ?? maxQualityExplainerIndex
+  }, [selectedFeatureData, selectedExplanations, maxQualityExplainerIndex])
+
+  // Handle click on triangle or explanation to change selected explainer
+  const handleExplainerSelect = useCallback((explainerIndex: number) => {
+    if (!selectedFeatureData) return
+    setSelectedExplanation(selectedFeatureData.featureId, explainerIndex)
+  }, [selectedFeatureData, setSelectedExplanation])
 
   // ============================================================================
   // BOUNDARY ITEMS LOGIC (for bottom row left/right lists)
@@ -432,8 +511,8 @@ const QualityView: React.FC<QualityViewProps> = ({
   }, [currentPage, ITEMS_PER_PAGE])
 
   // Render feature item for the ScrollableItemList
+  // Score display is handled by ScrollableItemList's sortConfig
   const renderFeatureItem = useCallback((feature: typeof featureList[0], index: number) => {
-    const score = similarityScores.get(feature.featureId)
     const selectionState = featureSelectionStates.get(feature.featureId)
 
     // Determine tag name based on selection state
@@ -445,32 +524,15 @@ const QualityView: React.FC<QualityViewProps> = ({
     }
 
     return (
-      <div
+      <TagBadge
+        featureId={feature.featureId}
+        tagName={tagName}
+        tagCategoryId={TAG_CATEGORY_QUALITY}
         onClick={() => handleFeatureListClick(index)}
-        style={{ cursor: 'pointer', width: '100%' }}
-      >
-        <TagBadge
-          featureId={feature.featureId}
-          tagName={tagName}
-          tagCategoryId={TAG_CATEGORY_QUALITY}
-          onClick={() => handleFeatureListClick(index)}
-          fullWidth={true}
-        />
-        {score !== undefined && (
-          <div style={{
-            fontSize: '10px',
-            color: '#6b7280',
-            fontFamily: 'monospace',
-            textAlign: 'right',
-            paddingRight: '4px',
-            marginTop: '2px'
-          }}>
-            {score.toFixed(2)}
-          </div>
-        )}
-      </div>
+        fullWidth={true}
+      />
     )
-  }, [similarityScores, featureSelectionStates, handleFeatureListClick])
+  }, [featureSelectionStates, handleFeatureListClick])
 
   const handleBoundaryListClick = useCallback((listType: 'left' | 'right', index: number) => {
     const items = listType === 'left' ? boundaryItems.rejectBelow : boundaryItems.selectAbove
@@ -522,10 +584,11 @@ const QualityView: React.FC<QualityViewProps> = ({
       console.log('[QualityView] Created new commit, history length:', tagCommitHistory.length + 1)
     }, 0)
 
-    // 4. Reset
+    // 4. Switch to confidence sort and reset
+    setSortMode('confidence')
     setCurrentFeatureIndex(0)
     setActiveListSource('all')
-  }, [applySimilarityTags, featureSelectionStates, featureSelectionSources, currentCommitIndex, tagCommitHistory.length])
+  }, [applySimilarityTags, featureSelectionStates, featureSelectionSources, currentCommitIndex, tagCommitHistory.length, setSortMode])
 
   // Handle commit circle click - restore state from that commit
   const handleCommitClick = useCallback((commitIndex: number) => {
@@ -725,21 +788,27 @@ const QualityView: React.FC<QualityViewProps> = ({
           {/* Top row: Feature list + empty right panel */}
           <div className="quality-view__row-top">
             <ScrollableItemList
-              width={210}
+              width={240}
               badges={[{ label: 'Features', count: sortedFeatures.length }]}
-              columnHeader={{
-                label: 'Score',
-                sortDirection: sortDirection
-              }}
+              columnHeader={columnHeaderProps}
               items={currentPageFeatures}
               renderItem={renderFeatureItem}
+              sortConfig={{ getDisplayScore }}
               currentIndex={activeListSource === 'all' ? currentFeatureIndex % ITEMS_PER_PAGE : -1}
               isActive={activeListSource === 'all'}
               pageNavigation={{
                 currentPage,
                 totalPages,
-                onPreviousPage: () => setCurrentPage(p => Math.max(0, p - 1)),
-                onNextPage: () => setCurrentPage(p => Math.min(totalPages - 1, p + 1))
+                onPreviousPage: () => {
+                  const newPage = Math.max(0, currentPage - 1)
+                  setCurrentPage(newPage)
+                  setCurrentFeatureIndex(newPage * ITEMS_PER_PAGE)
+                },
+                onNextPage: () => {
+                  const newPage = Math.min(totalPages - 1, currentPage + 1)
+                  setCurrentPage(newPage)
+                  setCurrentFeatureIndex(newPage * ITEMS_PER_PAGE)
+                }
               }}
             />
             {/* Right panel - activation examples and explanations */}
@@ -766,7 +835,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                     <div className="quality-view__legend-separator" />
                     {/* Explanation highlight legend */}
                     <div className="quality-view__legend">
-                      <span className="legend-label">Segment similarity:</span>
+                      <span className="legend-label">Semantic similarity:</span>
                       <div className="legend-item">
                         <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.HIGH }} />
                         <span className="legend-label">≥0.85</span>
@@ -804,34 +873,52 @@ const QualityView: React.FC<QualityViewProps> = ({
                     {/* Left: Explainer comparison grid */}
                     <div className="quality-view__explanation-left">
                       <ExplainerComparisonGrid
-                        cellGap={1.5}
+                        cellGap={2}
                         explainerIds={tableData?.explainer_ids || []}
                         pairwiseSimilarities={pairwiseSimilarities}
                         qualityScores={qualityScores}
+                        hasExplanation={hasExplanation}
+                        selectedExplainerIndex={effectiveSelectedIndex}
+                        onTriangleClick={handleExplainerSelect}
                         onPairClick={(exp1, exp2) => {
                           console.log('Clicked pair:', exp1, exp2)
                         }}
                       />
                     </div>
 
-                    {/* Explanation Section - All 3 Explainers */}
+                    {/* Explanation Section - All 3 Explainers (aligned with grid triangles) */}
                     <div className="quality-view__explanation-section">
                       {allExplainerExplanations.length > 0 ? (
-                        allExplainerExplanations.map(({ explainerId, highlightedExplanation, explanationText }: { explainerId: string; highlightedExplanation: { segments: Array<{ text: string; highlight: boolean }> } | null | undefined; explanationText: string | null | undefined }) => (
-                          <div key={explainerId} className="quality-view__explainer-block">
-                            <span className="quality-view__explainer-name">
-                              {getExplainerDisplayName(explainerId)}:
+                        allExplainerExplanations.map(({ explainerId, index, highlightedExplanation, explanationText }: {
+                          explainerId: string
+                          index: number
+                          highlightedExplanation: { segments: Array<{ text: string; highlight: boolean }> } | null
+                          explanationText: string | null
+                        }) => (
+                          <div
+                            key={explainerId}
+                            className="quality-view__explainer-block"
+                            style={{ top: `${triangleYPositions[index]}%`, cursor: 'pointer' }}
+                            onClick={() => handleExplainerSelect(index)}
+                          >
+                            <span
+                              className={`quality-view__explainer-name quality-view__explainer-name--${explainerId}`}
+                              style={index === effectiveSelectedIndex ? { backgroundColor: '#3b82f6', color: 'white' } : undefined}
+                            >
+                              {getExplainerDisplayName(explainerId)}
                             </span>
-                            <div className="quality-view__explainer-text">
+                            <span className="quality-view__explainer-text">
                               {highlightedExplanation?.segments ? (
                                 <HighlightedExplanation
                                   segments={highlightedExplanation.segments}
                                   truncated={false}
                                 />
                               ) : (
-                                <span>{explanationText || 'No explanation'}</span>
+                                <span className="quality-view__no-explanation">
+                                  {explanationText || 'No explanation available'}
+                                </span>
                               )}
-                            </div>
+                            </span>
                           </div>
                         ))
                       ) : (

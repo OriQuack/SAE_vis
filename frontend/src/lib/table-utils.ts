@@ -47,7 +47,8 @@ export interface TableLayout {
 const MODEL_NAME_MAP: Record<string, string> = {
   'llama': 'Llama',
   'qwen': 'Qwen',
-  'openai': 'OpenAI'
+  'openai': 'OpenAI',
+  'gemini': 'Gemini'
 }
 
 export function getExplainerDisplayName(explainerId: string): string {

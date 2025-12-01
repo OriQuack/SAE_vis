@@ -232,9 +232,13 @@
 .quality-view__explanation-row {
   display: flex;
   flex-direction: row;
-  gap: 4px;
+  gap: 0;
   min-height: 0;
   flex: 1;  /* Share space with activation section */
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 6px;
 }
 
 /* Left panel for explainer comparison grid */
@@ -242,12 +246,9 @@
   display: flex;
   align-items: stretch;
   justify-content: flex-start;
-  flex: 1;
+  flex-shrink: 0;
   min-width: 0;
   min-height: 0;
-  background-color: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
 }
 
 /* ============================================================================
@@ -255,17 +256,11 @@
  * ============================================================================ */
 
 .quality-view__explanation-section {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  position: relative;
   min-width: 0;
   min-height: 0;
-  background-color: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
-  padding: 6px;
   overflow-y: auto;
-  flex: 7;
+  flex: 1;
 }
 
 /* Scrollbar for explanation section */
@@ -288,25 +283,37 @@
 }
 
 .quality-view__explainer-block {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  transform: translateY(-50%);
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 6px;
 }
 
 .quality-view__explainer-name {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  color: #6b7280;
+  white-space: nowrap;
+  flex-shrink: 0;
+  background-color: #e5e7eb;
+  color: #374151;
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 .quality-view__explainer-text {
   font-size: 12px;
-  line-height: 1.4;
+  line-height: 1;
+  flex: 1;
+  min-width: 0;
 }
 
 .quality-view__no-explanation {
   color: #9ca3af;
-  font-size: 11px;
+  font-size: 12px;
   font-style: italic;
 }
 

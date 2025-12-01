@@ -92,7 +92,6 @@ export const HighlightedExplanation: React.FC<HighlightedExplanationProps> = Rea
       style.color = 'black'
 
       // Padding to match activation token style (horizontal only)
-      style.padding = '1px 2px'
       style.borderRadius = '2px'
 
       // Reserve space for border to match activation token height
@@ -102,7 +101,7 @@ export const HighlightedExplanation: React.FC<HighlightedExplanationProps> = Rea
       style.display = 'inline'
 
       // Match activation example font-size and line-height exactly
-      style.fontSize = '11px'
+      style.fontSize = '12px'
       style.lineHeight = '1.4'
     }
 
