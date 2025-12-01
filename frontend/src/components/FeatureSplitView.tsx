@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react'
-import { useVisualizationStore } from '../store/index'
+import { useVisualizationStore, type CommitCounts } from '../store/index'
 import type { FeatureTableRow, SelectionCategory } from '../types'
 import SelectionPanel from './SelectionPanel'
 import FeatureSplitPairViewer from './FeatureSplitPairViewer'
@@ -24,6 +24,7 @@ export interface TagCommit {
   type: 'initial' | 'apply' | 'tagAll'  // initial = starting state, apply = Apply Tags, tagAll = Tag All
   pairSelectionStates: Map<string, SelectionState>
   pairSelectionSources: Map<string, SelectionSource>
+  counts: CommitCounts  // Counts at commit time for hover preview
 }
 
 // Maximum number of commits to keep (oldest auto-removed)
@@ -75,7 +76,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   // ============================================================================
   // Initial commit represents the empty state
   const [tagCommitHistory, setTagCommitHistory] = useState<TagCommit[]>([
-    { id: 0, type: 'initial', pairSelectionStates: new Map(), pairSelectionSources: new Map() }
+    { id: 0, type: 'initial', pairSelectionStates: new Map(), pairSelectionSources: new Map(), counts: { fragmented: 0, monosemantic: 0, unsure: 0, total: 0 } }
   ])
   const [currentCommitIndex, setCurrentCommitIndex] = useState(0)
 
@@ -87,15 +88,17 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       console.log('[FeatureSplitView] Revisiting Stage 1, restoring from saved commit:', stage1FinalCommit.pairSelectionStates.size, 'pairs, features:', stage1FinalCommit.featureIds.size)
 
       // Initialize history with the saved commit as a tagAll commit
+      // Use stored counts if available, otherwise use zeros
       const restoredCommit: TagCommit = {
         id: 1,
         type: 'tagAll',
         pairSelectionStates: new Map(stage1FinalCommit.pairSelectionStates),
-        pairSelectionSources: new Map(stage1FinalCommit.pairSelectionSources)
+        pairSelectionSources: new Map(stage1FinalCommit.pairSelectionSources),
+        counts: stage1FinalCommit.counts || { fragmented: 0, monosemantic: 0, unsure: 0, total: 0 }
       }
 
       setTagCommitHistory([
-        { id: 0, type: 'initial', pairSelectionStates: new Map(), pairSelectionSources: new Map() },
+        { id: 0, type: 'initial', pairSelectionStates: new Map(), pairSelectionSources: new Map(), counts: { fragmented: 0, monosemantic: 0, unsure: 0, total: 0 } },
         restoredCommit
       ])
       setCurrentCommitIndex(1)
@@ -240,6 +243,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
   // Use sortable list hook for sorting logic
   const {
+    sortMode,
     setSortMode,
     sortedItems: pairList,
     columnHeaderProps,
@@ -248,7 +252,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     items: rawPairList,
     getItemKey: (p: typeof rawPairList[0]) => p.pairKey,
     getDefaultScore: (p: typeof rawPairList[0]) => p.decoderSimilarity,
-    confidenceScores: pairSimilarityScores,
+    decisionMarginScores: pairSimilarityScores,
     defaultLabel: 'Decoder sim',
     defaultDirection: 'asc'
   })
@@ -529,9 +533,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
   // Handle Apply Tags button click
   const handleApplyTags = useCallback(() => {
-    // 1. Switch to confidence sort mode after applying tags
-    setSortMode('confidence')
-    console.log('[FeatureSplitView] Switching to confidence sort mode')
+    // 1. Switch to decision margin sort mode after applying tags
+    setSortMode('decisionMargin')
+    console.log('[FeatureSplitView] Switching to decision margin sort mode')
 
     // 2. Save current state to current commit before applying new tags
     setTagCommitHistory(prev => {
@@ -552,11 +556,19 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     setTimeout(() => {
       // Get the updated states from the store
       const store = useVisualizationStore.getState()
+      // Get counts at commit time
+      const currentCounts = store.getFeatureSplittingCounts()
       const newCommit: TagCommit = {
         id: tagCommitHistory.length,
         type: 'apply',
         pairSelectionStates: new Map(store.pairSelectionStates),
-        pairSelectionSources: new Map(store.pairSelectionSources)
+        pairSelectionSources: new Map(store.pairSelectionSources),
+        counts: {
+          fragmented: currentCounts.fragmentedManual + currentCounts.fragmentedAuto,
+          monosemantic: currentCounts.monosematicManual + currentCounts.monosematicAuto,
+          unsure: currentCounts.unsure,
+          total: currentCounts.total
+        }
       }
 
       setTagCommitHistory(prev => {
@@ -657,12 +669,22 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
     restorePairSelectionStates(newStates, newSources)
 
-    // 2. Create a new commit with the updated state
+    // 2. Create a new commit with the updated state and counts
+    const store = useVisualizationStore.getState()
+    const currentCounts = store.getFeatureSplittingCounts()
+    const commitCounts = {
+      fragmented: currentCounts.fragmentedManual + currentCounts.fragmentedAuto,
+      monosemantic: currentCounts.monosematicManual + currentCounts.monosematicAuto,
+      unsure: currentCounts.unsure,
+      total: currentCounts.total
+    }
+
     const newCommit: TagCommit = {
       id: tagCommitHistory.length,
       type: 'tagAll',
       pairSelectionStates: new Map(newStates),
-      pairSelectionSources: new Map(newSources)
+      pairSelectionSources: new Map(newSources),
+      counts: commitCounts
     }
 
     setTagCommitHistory(prev => {
@@ -678,7 +700,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     setStage1FinalCommit({
       pairSelectionStates: new Map(newStates),
       pairSelectionSources: new Map(newSources),
-      featureIds: selectedFeatureIds ? new Set(selectedFeatureIds) : new Set()
+      featureIds: selectedFeatureIds ? new Set(selectedFeatureIds) : new Set(),
+      counts: commitCounts
     })
 
     console.log('[TagAll] Created tagAll commit and saved to store, history length:', tagCommitHistory.length + 1)
@@ -738,12 +761,22 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
     restorePairSelectionStates(newStates, newSources)
 
-    // 2. Create a new commit with the updated state
+    // 2. Create a new commit with the updated state and counts
+    const store = useVisualizationStore.getState()
+    const currentCounts = store.getFeatureSplittingCounts()
+    const commitCounts = {
+      fragmented: currentCounts.fragmentedManual + currentCounts.fragmentedAuto,
+      monosemantic: currentCounts.monosematicManual + currentCounts.monosematicAuto,
+      unsure: currentCounts.unsure,
+      total: currentCounts.total
+    }
+
     const newCommit: TagCommit = {
       id: tagCommitHistory.length,
       type: 'tagAll',
       pairSelectionStates: new Map(newStates),
-      pairSelectionSources: new Map(newSources)
+      pairSelectionSources: new Map(newSources),
+      counts: commitCounts
     }
 
     setTagCommitHistory(prev => {
@@ -759,7 +792,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     setStage1FinalCommit({
       pairSelectionStates: new Map(newStates),
       pairSelectionSources: new Map(newSources),
-      featureIds: selectedFeatureIds ? new Set(selectedFeatureIds) : new Set()
+      featureIds: selectedFeatureIds ? new Set(selectedFeatureIds) : new Set(),
+      counts: commitCounts
     })
 
     console.log('[TagAll] Created tagAll commit and saved to store, history length:', tagCommitHistory.length + 1)
@@ -817,7 +851,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             pairList={activePairList}
             onNavigatePrevious={handleNavigatePrevious}
             onNavigateNext={handleNavigateNext}
-            autoAdvance={activeListSource === 'all'}
+            autoAdvance={activeListSource === 'all' && sortMode !== 'decisionMargin'}
             allPairsListProps={{
               currentPagePairs,
               totalPairCount: pairList.length,
@@ -854,6 +888,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
           currentIndex={currentPairIndex}
           isBimodal={isBimodal}
           allTagged={allPairsTagged}
+          nextStageName="Quality"
+          nextStageNumber={2}
         />
       </div>
       </div>

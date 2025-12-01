@@ -1,111 +1,60 @@
 /* ============================================================================
- * BIMODALITY INDICATOR - Vertical score bar with 6 levels
- * Order: Unimodal (top) → Strongly Bimodal (bottom)
+ * BIMODALITY INDICATOR - Vertical score bar
+ * Order: Unimodal (top) → Bimodal (bottom)
  * ============================================================================ */
 
 .bimodality-indicator {
   position: relative;
   display: flex;
   flex-direction: column;
-  padding: 2px 2px;
-  min-width: 130px;
-  background: #fafafa;
-  border-radius: 6px;
-  border: 1px solid #e5e7eb;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
-  flex: 1;  /* Stretch to fill available height */
+  padding: 8px 4px;
+}
+
+/* Content container - holds labels and bar */
+.bimodality-indicator__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
   min-height: 0;
+  gap: 6px;
 }
 
-/* Active state when strongly bimodal */
-.bimodality-indicator--active {
-  border-color: #1e40af;
-  background: linear-gradient(to bottom, #fafafa 0%, #eff6ff 100%);
-}
-
-/* Title */
-.bimodality-indicator__title {
+/* Endpoint labels (Unimodal/Bimodal) */
+.bimodality-indicator__endpoint {
   font-size: 11px;
   font-weight: 600;
   color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 8px;
   text-align: center;
   flex-shrink: 0;
 }
 
 /* Vertical bar container */
 .bimodality-indicator__bar {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  flex: 1;  /* Stretch to fill available height */
-  justify-content: space-between;  /* Distribute levels evenly */
-  overflow: visible;  /* Allow connector line to extend beyond */
-}
-
-/* Each level row */
-.bimodality-indicator__level {
-  display: flex;
-  align-items: flex-start;
   position: relative;
-  flex: 1;  /* Equal height for each level */
-  min-height: 0;
+  flex: 1;
+  min-height: 40px;
+  width: 16px;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
-/* Last level (Strongly Bimodal) shouldn't stretch - no empty space below */
-.bimodality-indicator__level:last-child {
-  flex: none;
-  overflow: visible;  /* Allow connector line to extend beyond */
-}
-
-/* Connector line from last circle - hidden by default */
-.bimodality-indicator__line--connector {
-  bottom: auto;
-  height: 0;
-  transition: height 0.2s ease, background-color 0.2s ease;
-}
-
-/* Circle indicator */
-.bimodality-indicator__circle {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  transition: background-color 0.2s ease, transform 0.2s ease;
-  z-index: 1;
-}
-
-.bimodality-indicator__circle--current {
-  transform: scale(1.4);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
-}
-
-/* Vertical line connecting circles */
-.bimodality-indicator__line {
+/* Background track (gray) */
+.bimodality-indicator__track {
   position: absolute;
-  left: 4px;  /* Center under circle (12px circle / 2 - 4px line width / 2) */
-  top: 12px;  /* Start after circle */
-  bottom: 0;  /* Stretch to bottom of level row */
-  width: 4px;
-  border-radius: 2px;
-  transition: background-color 0.2s ease;
+  inset: 0;
+  background: #e5e7eb;
+  border-radius: 8px;
 }
 
-/* Label text */
-.bimodality-indicator__label {
-  font-size: 12px;
-  color: #9ca3af;
-  margin-left: 8px;
-  line-height: 12px;
-  white-space: nowrap;
-  transition: color 0.2s ease, font-weight 0.2s ease;
-}
-
-.bimodality-indicator__label--current {
-  color: #374151;
-  font-weight: 600;
+/* Filled portion - color set via inline style based on score */
+.bimodality-indicator__fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  border-radius: 8px 8px 0 0;
+  transition: height 0.2s ease, background-color 0.2s ease;
 }
 
 /* ============================================================================

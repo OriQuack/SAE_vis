@@ -149,7 +149,7 @@ const QualityView: React.FC<QualityViewProps> = ({
     items: featureList,
     getItemKey: (f: typeof featureList[0]) => f.featureId,
     getDefaultScore: (f: typeof featureList[0]) => f.qualityScore,
-    confidenceScores: similarityScores,
+    decisionMarginScores: similarityScores,
     defaultLabel: 'Quality score',
     defaultDirection: 'asc'
   })
@@ -584,8 +584,8 @@ const QualityView: React.FC<QualityViewProps> = ({
       console.log('[QualityView] Created new commit, history length:', tagCommitHistory.length + 1)
     }, 0)
 
-    // 4. Switch to confidence sort and reset
-    setSortMode('confidence')
+    // 4. Switch to decision margin sort and reset
+    setSortMode('decisionMargin')
     setCurrentFeatureIndex(0)
     setActiveListSource('all')
   }, [applySimilarityTags, featureSelectionStates, featureSelectionSources, currentCommitIndex, tagCommitHistory.length, setSortMode])
@@ -997,6 +997,8 @@ const QualityView: React.FC<QualityViewProps> = ({
             currentIndex={currentFeatureIndex}
             isBimodal={isBimodal}
             allTagged={allFeaturesTagged}
+            nextStageName="Root Cause"
+            nextStageNumber={3}
           />
         </div>
       </div>

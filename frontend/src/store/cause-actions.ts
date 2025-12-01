@@ -95,22 +95,22 @@ export const createCauseActions = (set: any, get: any) => ({
         totalFeatures: response.total_features
       })
 
-      // Store per-category confidences in a nested map
-      const categoryConfidences = new Map<number, Record<string, number>>()
+      // Store per-category decision margins in a nested map
+      const categoryDecisionMargins = new Map<number, Record<string, number>>()
       response.sorted_features.forEach((fs) => {
-        categoryConfidences.set(fs.feature_id, fs.category_confidences)
+        categoryDecisionMargins.set(fs.feature_id, fs.category_decision_margins)
       })
 
       // Store in state
       set({
-        causeCategoryConfidences: categoryConfidences,
+        causeCategoryDecisionMargins: categoryDecisionMargins,
         tableSortBy: 'cause_similarity',
         tableSortDirection: 'desc',
         isCauseSimilaritySortLoading: false
       })
 
       console.log('[Store.sortCauseBySimilarity] ✅ Cause similarity sort complete:', {
-        confidencesMapSize: categoryConfidences.size,
+        decisionMarginsMapSize: categoryDecisionMargins.size,
         sortBy: 'cause_similarity'
       })
 
@@ -122,7 +122,7 @@ export const createCauseActions = (set: any, get: any) => ({
 
   /**
    * Set which category to use for cause similarity sorting
-   * @param category - 'noisy-activation', 'missed-lexicon', 'missed-context', or null for max confidence
+   * @param category - 'noisy-activation', 'missed-lexicon', 'missed-context', or null for max decision margin
    */
   setCauseSortCategory: (category: string | null) => {
     set({ causeSortCategory: category })
@@ -257,19 +257,19 @@ export const createCauseActions = (set: any, get: any) => ({
       await get().sortCauseBySimilarity()
 
       // Step 2: Calculate preview sets (which items would be auto-tagged)
-      const { causeSelectionStates, causeCategoryConfidences, causeSortCategory } = get()
+      const { causeSelectionStates, causeCategoryDecisionMargins, causeSortCategory } = get()
       const previewAutoSelected = new Set<number | string>()
       const previewAutoRejected = new Set<number | string>()
 
-      // Check each feature with confidence scores
-      causeCategoryConfidences.forEach((confidences: any, featureId: any) => {
+      // Check each feature with decision margin scores
+      causeCategoryDecisionMargins.forEach((decisionMargins: any, featureId: any) => {
         const isAlreadyTagged = causeSelectionStates.has(featureId)
         if (!isAlreadyTagged) {
           let score = -Infinity
-          if (causeSortCategory && confidences[causeSortCategory] !== undefined) {
-            score = confidences[causeSortCategory] as number
+          if (causeSortCategory && decisionMargins[causeSortCategory] !== undefined) {
+            score = decisionMargins[causeSortCategory] as number
           } else {
-            score = Math.max(...Object.values(confidences) as number[])
+            score = Math.max(...Object.values(decisionMargins) as number[])
           }
           if (score >= selectThreshold) {
             previewAutoSelected.add(featureId)

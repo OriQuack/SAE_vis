@@ -36,11 +36,20 @@ import { createActivationActions } from './activation-actions'
 
 type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
 
+// Counts stored at commit time for hover preview
+export interface CommitCounts {
+  fragmented: number
+  monosemantic: number
+  unsure: number
+  total: number
+}
+
 // Stage 1 commit type for revisiting state restoration
 export interface Stage1FinalCommit {
   pairSelectionStates: Map<string, 'selected' | 'rejected'>
   pairSelectionSources: Map<string, 'manual' | 'auto'>
   featureIds: Set<number>  // Original Stage 1 feature IDs for pair fetching
+  counts?: CommitCounts    // Optional: Counts at commit time for hover preview
 }
 
 interface AppState {
@@ -157,6 +166,7 @@ interface AppState {
   updateSimilarityThresholds: (selectThreshold: number) => void
   updateBothSimilarityThresholds: (selectThreshold: number, rejectThreshold: number) => void
   setTagAutomaticHistogramData: (histogramData: any, selectThreshold: number, rejectThreshold: number) => void
+  clearTagAutomaticHistogram: () => void
   applySimilarityTags: () => void
   minimizeSimilarityTaggingPopover: () => void
   restoreSimilarityTaggingPopover: () => void
@@ -221,7 +231,7 @@ interface AppState {
 
   // Cause similarity sort state (for cause table - multi-class OvR)
   causeSimilarityScores: Map<number, number>  // Legacy: single score per feature
-  causeCategoryConfidences: Map<number, Record<string, number>>  // New: per-category confidences
+  causeCategoryDecisionMargins: Map<number, Record<string, number>>  // New: per-category decision margins
   causeSortCategory: string | null  // Which category to sort by ('noisy-activation', 'missed-lexicon', 'missed-context', or null for max)
   isCauseSimilaritySortLoading: boolean
 
@@ -359,8 +369,8 @@ const initialState = {
 
   // Cause similarity sort state (for cause table - multi-class OvR)
   causeSimilarityScores: new Map<number, number>(),  // Legacy
-  causeCategoryConfidences: new Map<number, Record<string, number>>(),  // New: per-category confidences
-  causeSortCategory: null,  // Sort by max confidence by default
+  causeCategoryDecisionMargins: new Map<number, Record<string, number>>(),  // New: per-category decision margins
+  causeSortCategory: null,  // Sort by max decision margin by default
   isCauseSimilaritySortLoading: false,
 
   // Similarity tagging popover state (for automatic tagging feature)
@@ -523,6 +533,7 @@ export const useStore = create<AppState>((set, get) => {
   fetchAllClusterPairs: featureSplitActions.fetchAllClusterPairs,
   clearDistributedPairs: featureSplitActions.clearDistributedPairs,
   fetchSimilarityHistogram: featureSplitActions.fetchSimilarityHistogram,
+  clearTagAutomaticHistogram: featureSplitActions.clearTagAutomaticHistogram,
 
   // Compose Quality actions (Stage 2 - Features)
   sortBySimilarity: qualityActions.sortBySimilarity,

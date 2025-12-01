@@ -205,6 +205,14 @@ const SimpleSelectionBar: React.FC<SimpleSelectionBarProps> = ({
   )
 }
 
+// Counts stored at commit time for hover preview
+interface CommitCounts {
+  fragmented: number
+  monosemantic: number
+  unsure: number
+  total: number
+}
+
 // Commit history type (supports both FeatureSplitView and QualityView)
 interface TagCommit {
   type: string
@@ -215,6 +223,8 @@ interface TagCommit {
   // For feature mode (QualityView)
   featureSelectionStates?: Map<number, 'selected' | 'rejected'>
   featureSelectionSources?: Map<number, 'manual' | 'auto'>
+  // Counts at commit time for hover preview
+  counts?: CommitCounts
 }
 
 interface SelectionPanelProps {
@@ -297,6 +307,10 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
 
   // Track if threshold button should highlight (first time showing preview)
   const [shouldHighlightThresholdButton, setShouldHighlightThresholdButton] = useState(false)
+
+  // Hover state for commit history tooltip
+  const [hoveredCommitIndex, setHoveredCommitIndex] = useState<number | null>(null)
+  const [commitTooltipPosition, setCommitTooltipPosition] = useState<{ x: number; y: number } | null>(null)
 
   // Get selection states based on mode
   const selectionStates = mode === 'feature' ? featureSelectionStates
@@ -642,13 +656,83 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
                       commit.type === 'tagAll' ? 'commit-history__circle--square' : ''
                     }`}
                     onClick={() => onCommitClick(index)}
-                    title={`${commit.type === 'tagAll' ? 'Tag All' : commit.type === 'apply' ? 'Apply Tags' : 'Initial'}: ${commit.pairSelectionStates.size} tagged pairs`}
+                    onMouseEnter={(e) => {
+                      setHoveredCommitIndex(index)
+                      setCommitTooltipPosition({ x: e.clientX, y: e.clientY })
+                    }}
+                    onMouseLeave={() => {
+                      setHoveredCommitIndex(null)
+                      setCommitTooltipPosition(null)
+                    }}
                     aria-label={`Go to commit ${index + 1}`}
                   >
                     <span className="commit-history__circle-number">{index + 1}</span>
                   </button>
                 ))}
               </div>
+
+              {/* Commit Hover Tooltip - shows mini vertical bar and counts */}
+              {hoveredCommitIndex !== null && commitTooltipPosition && commitHistory[hoveredCommitIndex]?.counts && (
+                <div
+                  className="commit-hover-tooltip"
+                  style={{
+                    position: 'fixed',
+                    left: commitTooltipPosition.x + 16,
+                    top: commitTooltipPosition.y - 60,
+                    zIndex: 10000
+                  }}
+                >
+                  {(() => {
+                    const counts = commitHistory[hoveredCommitIndex].counts!
+                    const total = counts.total || 1
+                    const modeColors = getSelectionColors('pair')
+                    // Order: monosemantic (top) → unsure (middle) → fragmented (bottom)
+                    const monosematicPct = (counts.monosemantic / total) * 100
+                    const unsurePct = (counts.unsure / total) * 100
+                    const fragmentedPct = (counts.fragmented / total) * 100
+                    return (
+                      <div className="commit-hover-tooltip__content">
+                        {/* Mini vertical bar */}
+                        <div className="commit-hover-tooltip__bar">
+                          {counts.monosemantic > 0 && (
+                            <div
+                              className="commit-hover-tooltip__bar-segment"
+                              style={{ height: `${monosematicPct}%`, backgroundColor: modeColors.rejected }}
+                            />
+                          )}
+                          {counts.unsure > 0 && (
+                            <div
+                              className="commit-hover-tooltip__bar-segment"
+                              style={{ height: `${unsurePct}%`, backgroundColor: modeColors.unsure }}
+                            />
+                          )}
+                          {counts.fragmented > 0 && (
+                            <div
+                              className="commit-hover-tooltip__bar-segment"
+                              style={{ height: `${fragmentedPct}%`, backgroundColor: modeColors.confirmed }}
+                            />
+                          )}
+                        </div>
+                        {/* Text counts - order matches bar: monosemantic (top) → unsure → fragmented (bottom) */}
+                        <div className="commit-hover-tooltip__counts">
+                          <span className="commit-hover-tooltip__count">
+                            <span className="commit-hover-tooltip__dot" style={{ backgroundColor: modeColors.rejected }} />
+                            Monosemantic: {counts.monosemantic}
+                          </span>
+                          <span className="commit-hover-tooltip__count">
+                            <span className="commit-hover-tooltip__dot" style={{ backgroundColor: modeColors.unsure }} />
+                            Unsure: {counts.unsure}
+                          </span>
+                          <span className="commit-hover-tooltip__count">
+                            <span className="commit-hover-tooltip__dot" style={{ backgroundColor: modeColors.confirmed }} />
+                            Fragmented: {counts.fragmented}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
             </div>
           )}
         </div>

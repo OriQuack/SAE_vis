@@ -690,5 +690,22 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
   hideThresholdsOnTable: () => {
     set({ thresholdVisualization: null })
     console.log('[Store.hideThresholdsOnTable] Thresholds hidden')
+  },
+
+  /**
+   * Clear histogram data from tagAutomaticState while preserving thresholds
+   * Used when selection count drops below minimum required for histogram
+   */
+  clearTagAutomaticHistogram: () => {
+    const { tagAutomaticState } = get()
+    if (tagAutomaticState) {
+      set({
+        tagAutomaticState: {
+          ...tagAutomaticState,
+          histogramData: null
+        }
+      })
+      console.log('[Store.clearTagAutomaticHistogram] Histogram data cleared')
+    }
   }
 })

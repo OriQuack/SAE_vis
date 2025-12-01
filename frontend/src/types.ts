@@ -700,15 +700,15 @@ export interface CauseSimilaritySortRequest {
 }
 
 /**
- * Cause Feature Score - Feature ID with per-category confidence scores
+ * Cause Feature Score - Feature ID with per-category decision margin scores
  */
 export interface CauseFeatureScore {
   feature_id: number
-  category_confidences: Record<string, number>  // Map of category to confidence score
+  category_decision_margins: Record<string, number>  // Map of category to decision margin score
 }
 
 /**
- * Cause Similarity Sort Response - Per-category confidence scores
+ * Cause Similarity Sort Response - Per-category decision margin scores
  */
 export interface CauseSimilaritySortResponse {
   sorted_features: CauseFeatureScore[]
@@ -727,7 +727,7 @@ export interface CauseSimilarityHistogramRequest {
  * Cause Similarity Histogram Response - Per-category histograms
  */
 export interface CauseSimilarityHistogramResponse {
-  scores: Record<string, Record<string, number>>  // Map of feature_id to {category: confidence}
+  scores: Record<string, Record<string, number>>  // Map of feature_id to {category: decision_margin}
   histograms: Record<string, SimilarityHistogramData>  // Histogram per category
   statistics: Record<string, SimilarityHistogramStatistics>  // Statistics per category
   total_items: number

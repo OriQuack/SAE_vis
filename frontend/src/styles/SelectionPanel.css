@@ -526,4 +526,65 @@
   border-radius: 4px;
 }
 
+/* ============================================================================
+   COMMIT HOVER TOOLTIP - Shows mini vertical bar and counts on commit circle hover
+   ============================================================================ */
+
+.commit-hover-tooltip {
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 10px 14px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+}
+
+.commit-hover-tooltip__content {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  align-items: stretch;
+}
+
+/* Vertical bar */
+.commit-hover-tooltip__bar {
+  display: flex;
+  flex-direction: column;
+  width: 16px;
+  height: 80px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.commit-hover-tooltip__bar-segment {
+  width: 100%;
+  transition: height 0.2s ease;
+}
+
+/* Text counts */
+.commit-hover-tooltip__counts {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+}
+
+.commit-hover-tooltip__count {
+  font-size: 11px;
+  font-weight: 500;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.commit-hover-tooltip__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
 /* Bar animations moved to SelectionStateBar.css */

@@ -22,7 +22,7 @@ import '../styles/TagAutomaticPanel.css'
 const TAG_HISTOGRAM_SPACING = {
   svg: {
     // Fixed margins that always accommodate labels (no complex calculations needed)
-    margin: { top: 30, right: 10, bottom: 50, left: 40 },
+    margin: { top: 30, right: 0, bottom: 50, left: 40 },
     // Label offsets (relative to chart area)
     xLabelOffset: 40,   // Distance below chart for x-axis label
     yLabelOffset: -40,  // Distance left of chart for y-axis label
@@ -47,6 +47,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
   const updateBothSimilarityThresholds = useVisualizationStore(state => state.updateBothSimilarityThresholds)
   const setTagAutomaticHistogramData = useVisualizationStore(state => state.setTagAutomaticHistogramData)
   const fetchSimilarityHistogram = useVisualizationStore(state => state.fetchSimilarityHistogram)
+  const clearTagAutomaticHistogram = useVisualizationStore(state => state.clearTagAutomaticHistogram)
   const setDraggingThreshold = useVisualizationStore(state => state.setDraggingThreshold)
   const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
   const featureSelectionSources = useVisualizationStore(state => state.featureSelectionSources)
@@ -89,14 +90,18 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
   const histogramData = storeHistogramData || localHistogramData
   const isLoading = (tagAutomaticState?.mode === mode && tagAutomaticState?.isLoading) || isLocalLoading
 
-  // Calculate selection counts for current mode
+  // Calculate selection counts for current mode (manual selections only for SVM training)
   const selectionCounts = useMemo(() => {
     if (mode === 'pair') {
       let selectedCount = 0
       let rejectedCount = 0
-      pairSelectionStates.forEach((state, _) => {
-        if (state === 'selected') selectedCount++
-        else if (state === 'rejected') rejectedCount++
+      pairSelectionStates.forEach((state, pairKey) => {
+        const source = pairSelectionSources.get(pairKey)
+        // Only count manual selections for training (matches feature mode behavior)
+        if (source === 'manual') {
+          if (state === 'selected') selectedCount++
+          else if (state === 'rejected') rejectedCount++
+        }
       })
       return { selectedCount, rejectedCount }
     } else {
@@ -115,7 +120,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
       })
       return { selectedCount, rejectedCount }
     }
-  }, [mode, pairSelectionStates, featureSelectionStates, featureSelectionSources, filteredFeatureIds])
+  }, [mode, pairSelectionStates, pairSelectionSources, featureSelectionStates, featureSelectionSources, filteredFeatureIds])
 
   // Sync local thresholds with store state when store changes
   // This ensures user-adjusted thresholds are preserved after histogram refetch
@@ -141,8 +146,9 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
     const timeoutId = setTimeout(async () => {
       // Need at least 3 selected and 3 rejected for meaningful histogram
       if (selectionCounts.selectedCount < 3 || selectionCounts.rejectedCount < 3) {
-        // Clear histogram if insufficient data
+        // Clear histogram from both local state and store
         setLocalHistogramData(null)
+        clearTagAutomaticHistogram()
         return
       }
 
@@ -221,9 +227,9 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
     }, 0) // No debounce - fetch immediately
 
     return () => clearTimeout(timeoutId)
-    // NOTE: selectionCounts and threshold excluded from deps to avoid extra re-fetches when values change
+    // Note: selectionCounts object excluded - we use the specific count values to avoid unnecessary refetches
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, selectionCounts.selectedCount, selectionCounts.rejectedCount, fetchSimilarityHistogram, updateBothSimilarityThresholds, setTagAutomaticHistogramData, filteredFeatureIds, featureSelectionStates, featureSelectionSources])
+  }, [mode, selectionCounts.selectedCount, selectionCounts.rejectedCount, threshold, fetchSimilarityHistogram, updateBothSimilarityThresholds, setTagAutomaticHistogramData, clearTagAutomaticHistogram, filteredFeatureIds, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources])
 
   // Calculate histogram layout and bars with symmetric domain
   const histogramChart = useMemo(() => {

@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { createPortal } from 'react-dom'
+import React from 'react'
 import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow } from '../types'
 import TagAutomaticPanel from './TagAutomaticPanel'
@@ -11,7 +10,7 @@ import '../styles/ThresholdTaggingPanel.css'
 // ============================================================================
 // THRESHOLD TAGGING PANEL - Reusable bottom row for tagging workflows
 // ============================================================================
-// Layout: [Histogram] | [Buttons] | [Left boundary list] | [Right boundary list]
+// Layout: [Histogram + Indicator] | [Buttons] | [Left list] | [Right list]
 // Used by: FeatureSplitView (and future stages)
 
 // Shared type for pair items with metadata
@@ -67,6 +66,10 @@ export interface ThresholdTaggingPanelProps {
   currentIndex: number
   isBimodal: boolean
   allTagged: boolean
+
+  // Next stage info for button label
+  nextStageName: string
+  nextStageNumber: number
 }
 
 const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
@@ -86,7 +89,9 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
   activeListSource,
   currentIndex,
   isBimodal,
-  allTagged
+  allTagged,
+  nextStageName,
+  nextStageNumber
 }) => {
   // Store state for scores and selections
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
@@ -95,46 +100,11 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
   const similarityScores = useVisualizationStore(state => state.similarityScores)
   const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
 
-  // Tag All popover state
-  const [showTagAllPopover, setShowTagAllPopover] = useState(false)
-  const [popoverPosition, setPopoverPosition] = useState<{ top: number; left: number } | null>(null)
-  const tagAllButtonRef = useRef<HTMLButtonElement>(null)
-  const tagAllPopoverRef = useRef<HTMLDivElement>(null)
-
-  // Close popover when clicking outside
-  useEffect(() => {
-    if (!showTagAllPopover) return
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        tagAllPopoverRef.current &&
-        !tagAllPopoverRef.current.contains(e.target as Node) &&
-        tagAllButtonRef.current &&
-        !tagAllButtonRef.current.contains(e.target as Node)
-      ) {
-        setShowTagAllPopover(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showTagAllPopover])
 
   // Button is enabled when there are items in the boundary lists
   const hasItemsToTag = mode === 'pair'
     ? (leftItems.length > 0 || rightItems.length > 0)
     : (leftFeatures.length > 0 || rightFeatures.length > 0)
-
-  // Handle Tag All button click
-  const handleTagAllClick = () => {
-    if (tagAllButtonRef.current) {
-      const rect = tagAllButtonRef.current.getBoundingClientRect()
-      // Position above the button since panel is at the bottom of the screen
-      setPopoverPosition({
-        top: rect.top - 6,
-        left: rect.left + rect.width / 2
-      })
-    }
-    setShowTagAllPopover(true)
-  }
 
   // Render item for pair boundary lists
   const renderBoundaryItem = (item: PairItemWithMetadata, index: number, listType: 'left' | 'right') => {
@@ -196,83 +166,53 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
 
   return (
     <div className="threshold-tagging-panel">
-      {/* Left: Histogram */}
-      <TagAutomaticPanel
-        mode={mode}
-        availablePairs={histogramProps.availablePairs}
-        filteredFeatureIds={histogramProps.filteredFeatureIds}
-        threshold={histogramProps.threshold}
-      />
+      {/* Histogram + Bimodality Indicator */}
+      <div className="threshold-tagging-panel__histogram-section">
+        <TagAutomaticPanel
+          mode={mode}
+          availablePairs={histogramProps.availablePairs}
+          filteredFeatureIds={histogramProps.filteredFeatureIds}
+          threshold={histogramProps.threshold}
+        />
+        <BimodalityIndicator bimodality={tagAutomaticState?.histogramData?.bimodality} />
+      </div>
 
-      {/* Button container - between histogram and boundary lists */}
+      {/* Buttons */}
       <div className="threshold-tagging-panel__buttons">
-        {/* Apply Threshold button */}
         <button
           className="threshold-tagging-panel__apply-button"
           onClick={onApplyTags}
           disabled={!hasItemsToTag}
           title={hasItemsToTag ? 'Apply auto-tags and sort by uncertainty' : `No ${mode === 'pair' ? 'pairs' : 'features'} in threshold regions to tag`}
         >
-          Apply Threshold
+          Tag by Threshold
         </button>
 
-        {/* Bimodality Indicator + Tag All (visually connected) */}
-        <div className={`threshold-tagging-panel__bimodal-group ${isBimodal ? 'threshold-tagging-panel__bimodal-group--active' : ''}`}>
-          <BimodalityIndicator bimodality={tagAutomaticState?.histogramData?.bimodality} />
-          <button
-            ref={tagAllButtonRef}
-            className={`threshold-tagging-panel__tag-all-button ${isBimodal ? 'threshold-tagging-panel__tag-all-button--active' : ''}`}
-            onClick={handleTagAllClick}
-            disabled={!isBimodal}
-            title={isBimodal ? 'Tag all remaining pairs and proceed to next stage' : 'Requires strongly bimodal distribution'}
-          >
-            Tag All
-          </button>
-          {/* Tag All popover - rendered via portal */}
-          {showTagAllPopover && popoverPosition && createPortal(
-            <div
-              ref={tagAllPopoverRef}
-              className="tag-all-popover"
-              style={{ top: popoverPosition.top, left: popoverPosition.left }}
-            >
-              <div className="tag-all-popover__title">Tag remaining {mode === 'pair' ? 'pairs' : 'features'}:</div>
-              <button
-                className="tag-all-popover__option tag-all-popover__option--default"
-                onClick={() => {
-                  onTagAll('left')
-                  setShowTagAllPopover(false)
-                }}
-              >
-                As {leftListLabel}
-              </button>
-              <button
-                className="tag-all-popover__option"
-                onClick={() => {
-                  onTagAll('byBoundary')
-                  setShowTagAllPopover(false)
-                }}
-              >
-                By Decision Boundary
-              </button>
-              <button
-                className="tag-all-popover__cancel"
-                onClick={() => setShowTagAllPopover(false)}
-              >
-                Cancel
-              </button>
-            </div>,
-            document.body
-          )}
-        </div>
+        <button
+          className={`threshold-tagging-panel__tag-all-button ${isBimodal ? 'threshold-tagging-panel__tag-all-button--active' : ''}`}
+          onClick={() => onTagAll('left')}
+          disabled={!isBimodal}
+          title={isBimodal ? `Tag all remaining as ${leftListLabel}` : 'Requires strongly bimodal distribution'}
+        >
+          Tag Remaining as {leftListLabel}
+        </button>
 
-        {/* Next Stage button */}
+        <button
+          className={`threshold-tagging-panel__tag-all-button ${isBimodal ? 'threshold-tagging-panel__tag-all-button--active' : ''}`}
+          onClick={() => onTagAll('byBoundary')}
+          disabled={!isBimodal}
+          title={isBimodal ? 'Tag all remaining by decision boundary' : 'Requires strongly bimodal distribution'}
+        >
+          Tag Remaining by Decision Boundary
+        </button>
+
         <button
           className="threshold-tagging-panel__next-stage-button"
           onClick={onNextStage}
           disabled={!allTagged}
-          title={allTagged ? 'Proceed to next stage' : `Tag all ${mode === 'pair' ? 'pairs' : 'features'} first`}
+          title={allTagged ? `Proceed to Stage ${nextStageNumber}: ${nextStageName}` : `Tag all ${mode === 'pair' ? 'pairs' : 'features'} first`}
         >
-          Next Stage →
+          Stage {nextStageNumber}: {nextStageName} →
         </button>
       </div>
 
@@ -283,14 +223,14 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
         badges={[
           { label: leftListLabel, count: mode === 'pair' ? `${leftItems.length} pairs` : `${leftFeatures.length} features` }
         ]}
-        columnHeader={{ label: 'Confidence', sortDirection: 'asc' }}
+        columnHeader={{ label: 'Decision Margin', sortDirection: 'asc' }}
         headerStripe={{ type: 'autoReject', mode: mode }}
-        items={mode === 'pair' ? leftItems : leftFeatures}
+        items={(mode === 'pair' ? leftItems : leftFeatures) as PairItemWithMetadata[]}
         currentIndex={activeListSource === 'reject' ? currentIndex : -1}
         isActive={activeListSource === 'reject'}
         renderItem={(item, index) => mode === 'pair'
-          ? renderBoundaryItem(item as PairItemWithMetadata, index, 'left')
-          : renderFeatureItem(item as FeatureItemWithMetadata, index, 'left')
+          ? renderBoundaryItem(item, index, 'left')
+          : renderFeatureItem(item as unknown as FeatureItemWithMetadata, index, 'left')
         }
       />
 
@@ -301,14 +241,14 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
         badges={[
           { label: rightListLabel, count: mode === 'pair' ? `${rightItems.length} pairs` : `${rightFeatures.length} features` }
         ]}
-        columnHeader={{ label: 'Confidence', sortDirection: 'asc' }}
+        columnHeader={{ label: 'Decision Margin', sortDirection: 'asc' }}
         headerStripe={{ type: 'expand', mode: mode }}
-        items={mode === 'pair' ? rightItems : rightFeatures}
+        items={(mode === 'pair' ? rightItems : rightFeatures) as PairItemWithMetadata[]}
         currentIndex={activeListSource === 'select' ? currentIndex : -1}
         isActive={activeListSource === 'select'}
         renderItem={(item, index) => mode === 'pair'
-          ? renderBoundaryItem(item as PairItemWithMetadata, index, 'right')
-          : renderFeatureItem(item as FeatureItemWithMetadata, index, 'right')
+          ? renderBoundaryItem(item, index, 'right')
+          : renderFeatureItem(item as unknown as FeatureItemWithMetadata, index, 'right')
         }
       />
     </div>

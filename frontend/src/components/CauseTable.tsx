@@ -70,7 +70,7 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
   const sortBy = useVisualizationStore(state => state.tableSortBy)
   const sortDirection = useVisualizationStore(state => state.tableSortDirection)
   const setTableSort = useVisualizationStore(state => state.setTableSort)
-  const causeCategoryConfidences = useVisualizationStore(state => state.causeCategoryConfidences)
+  const causeCategoryDecisionMargins = useVisualizationStore(state => state.causeCategoryDecisionMargins)
   const causeSortCategory = useVisualizationStore(state => state.causeSortCategory)
 
   // Node selection for table filtering
@@ -159,33 +159,33 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
     // Apply sorting
     if (!tableData) return features
 
-    // Handle cause_similarity sorting separately (uses causeCategoryConfidences from store)
+    // Handle cause_similarity sorting separately (uses causeCategoryDecisionMargins from store)
     if (sortBy === 'cause_similarity' && sortDirection) {
       const sorted = [...features].sort((a, b) => {
-        const confidencesA = causeCategoryConfidences.get(a.feature_id)
-        const confidencesB = causeCategoryConfidences.get(b.feature_id)
+        const decisionMarginsA = causeCategoryDecisionMargins.get(a.feature_id)
+        const decisionMarginsB = causeCategoryDecisionMargins.get(b.feature_id)
 
-        // Calculate score based on selected category or max confidence
+        // Calculate score based on selected category or max decision margin
         let scoreA = -Infinity
         let scoreB = -Infinity
 
-        if (confidencesA) {
-          if (causeSortCategory && confidencesA[causeSortCategory] !== undefined) {
+        if (decisionMarginsA) {
+          if (causeSortCategory && decisionMarginsA[causeSortCategory] !== undefined) {
             // Sort by selected category
-            scoreA = confidencesA[causeSortCategory]
+            scoreA = decisionMarginsA[causeSortCategory]
           } else {
-            // Sort by maximum confidence across all categories
-            scoreA = Math.max(...Object.values(confidencesA))
+            // Sort by maximum decision margin across all categories
+            scoreA = Math.max(...Object.values(decisionMarginsA))
           }
         }
 
-        if (confidencesB) {
-          if (causeSortCategory && confidencesB[causeSortCategory] !== undefined) {
+        if (decisionMarginsB) {
+          if (causeSortCategory && decisionMarginsB[causeSortCategory] !== undefined) {
             // Sort by selected category
-            scoreB = confidencesB[causeSortCategory]
+            scoreB = decisionMarginsB[causeSortCategory]
           } else {
-            // Sort by maximum confidence across all categories
-            scoreB = Math.max(...Object.values(confidencesB))
+            // Sort by maximum decision margin across all categories
+            scoreB = Math.max(...Object.values(decisionMarginsB))
           }
         }
 
@@ -195,7 +195,7 @@ const CauseTablePanel: React.FC<CauseTablePanelProps> = ({ className = '' }) => 
     }
 
     return sortFeatures(features, sortBy, sortDirection, tableData)
-  }, [tableData, selectedFeatures, tableSelectedNodeIds.length, sortBy, sortDirection, causeCategoryConfidences, causeSortCategory])
+  }, [tableData, selectedFeatures, tableSelectedNodeIds.length, sortBy, sortDirection, causeCategoryDecisionMargins, causeSortCategory])
 
   const totalRowCount = sortedFeatures.length
 
