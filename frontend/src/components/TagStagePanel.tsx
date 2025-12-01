@@ -201,10 +201,10 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
                       key={tag}
                       className={`stage-tag-badge ${isActive ? 'stage-tag-badge--active' : ''} ${isCompleted ? 'stage-tag-badge--completed' : ''}`}
                       style={badgeStyle}
-                      title={`${tag}: ${tagCounts[tag]} features`}
+                      title={`${tag}: ${(tagCounts[tag] || 0).toLocaleString()} features`}
                     >
                       <span className="stage-tag-badge__label">{tag}</span>
-                      <span className="stage-tag-badge__count">{tagCounts[tag] || 0}</span>
+                      <span className="stage-tag-badge__count">{(tagCounts[tag] || 0).toLocaleString()}</span>
                     </div>
                   );
                 })}

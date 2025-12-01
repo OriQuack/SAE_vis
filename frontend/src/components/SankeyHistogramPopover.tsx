@@ -814,7 +814,7 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
                       y={tooltipY + 14}
                       className="histogram-popover__tooltip-feature-count"
                     >
-                      {bar.binData.count} features
+                      {bar.binData.count.toLocaleString()} features
                     </text>
                     <text
                       x={tooltipX}

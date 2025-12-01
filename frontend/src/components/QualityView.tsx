@@ -61,8 +61,6 @@ const QualityView: React.FC<QualityViewProps> = ({
   const moveToNextStep = useVisualizationStore(state => state.moveToNextStep)
   const activationExamples = useVisualizationStore(state => state.activationExamples)
   const toggleFeatureSelection = useVisualizationStore(state => state.toggleFeatureSelection)
-  const selectedExplanations = useVisualizationStore(state => state.selectedExplanations)
-  const setSelectedExplanation = useVisualizationStore(state => state.setSelectedExplanation)
 
   // Local state
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0)
@@ -316,40 +314,6 @@ const QualityView: React.FC<QualityViewProps> = ({
       !!(item.highlightedExplanation?.segments || item.explanationText)
     )
   }, [allExplainerExplanations])
-
-  // Find the explainer index with the max quality score (for highlighting)
-  const maxQualityExplainerIndex = useMemo(() => {
-    if (!qualityScores || qualityScores.size === 0 || !tableData?.explainer_ids) return -1
-
-    let maxScore = -1
-    let maxIndex = -1
-
-    tableData.explainer_ids.forEach((explainerId: string, index: number) => {
-      // Skip if explainer has no explanation
-      if (hasExplanation && !hasExplanation[index]) return
-
-      const score = qualityScores.get(explainerId)
-      if (score !== undefined && score > maxScore) {
-        maxScore = score
-        maxIndex = index
-      }
-    })
-
-    return maxIndex
-  }, [qualityScores, tableData?.explainer_ids, hasExplanation])
-
-  // Compute effective selected explainer index for current feature
-  const effectiveSelectedIndex = useMemo(() => {
-    if (!selectedFeatureData) return maxQualityExplainerIndex
-    const stored = selectedExplanations.get(selectedFeatureData.featureId)
-    return stored ?? maxQualityExplainerIndex
-  }, [selectedFeatureData, selectedExplanations, maxQualityExplainerIndex])
-
-  // Handle click on triangle or explanation to change selected explainer
-  const handleExplainerSelect = useCallback((explainerIndex: number) => {
-    if (!selectedFeatureData) return
-    setSelectedExplanation(selectedFeatureData.featureId, explainerIndex)
-  }, [selectedFeatureData, setSelectedExplanation])
 
   // ============================================================================
   // BOUNDARY ITEMS LOGIC (for bottom row left/right lists)
@@ -879,8 +843,6 @@ const QualityView: React.FC<QualityViewProps> = ({
                         pairwiseSimilarities={pairwiseSimilarities}
                         qualityScores={qualityScores}
                         hasExplanation={hasExplanation}
-                        selectedExplainerIndex={effectiveSelectedIndex}
-                        onTriangleClick={handleExplainerSelect}
                         onPairClick={(exp1, exp2) => {
                           console.log('Clicked pair:', exp1, exp2)
                         }}
@@ -899,12 +861,10 @@ const QualityView: React.FC<QualityViewProps> = ({
                           <div
                             key={explainerId}
                             className="quality-view__explainer-block"
-                            style={{ top: `${triangleYPositions[index]}%`, cursor: 'pointer' }}
-                            onClick={() => handleExplainerSelect(index)}
+                            style={{ top: `${triangleYPositions[index]}%` }}
                           >
                             <span
                               className={`quality-view__explainer-name quality-view__explainer-name--${explainerId}`}
-                              style={index === effectiveSelectedIndex ? { backgroundColor: '#3b82f6', color: 'white' } : undefined}
                             >
                               {getExplainerDisplayName(explainerId)}
                             </span>

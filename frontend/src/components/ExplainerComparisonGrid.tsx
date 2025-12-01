@@ -24,10 +24,6 @@ interface ExplainerComparisonGridProps {
   onPairClick?: (explainer1: string, explainer2: string) => void
   /** Which explainer indices have valid explanations (e.g., [true, false, true] means explainer 1 is missing) */
   hasExplanation?: boolean[]
-  /** Currently selected explainer index (for blue highlight) */
-  selectedExplainerIndex?: number
-  /** Click handler for triangle cells */
-  onTriangleClick?: (explainerIndex: number) => void
 }
 
 const ExplainerComparisonGrid: React.FC<ExplainerComparisonGridProps> = ({
@@ -36,9 +32,7 @@ const ExplainerComparisonGrid: React.FC<ExplainerComparisonGridProps> = ({
   pairwiseSimilarities,
   qualityScores,
   onPairClick,
-  hasExplanation,
-  selectedExplainerIndex,
-  onTriangleClick
+  hasExplanation
 }) => {
   // Calculate triangle size to fit within viewBox
   const triangleSize = VIEWBOX_HEIGHT * 0.32
@@ -79,27 +73,6 @@ const ExplainerComparisonGrid: React.FC<ExplainerComparisonGridProps> = ({
     }
   }
 
-  // Find the explainer index with the max quality score
-  const maxQualityExplainerIndex = useMemo(() => {
-    if (!qualityScores || qualityScores.size === 0 || explainerIds.length === 0) return -1
-
-    let maxScore = -1
-    let maxIndex = -1
-
-    explainerIds.forEach((explainerId, index) => {
-      // Skip if explainer has no explanation
-      if (hasExplanation && !hasExplanation[index]) return
-
-      const score = qualityScores.get(explainerId)
-      if (score !== undefined && score > maxScore) {
-        maxScore = score
-        maxIndex = index
-      }
-    })
-
-    return maxIndex
-  }, [qualityScores, explainerIds, hasExplanation])
-
   // ViewBox width sized to match actual content (triangles + bar graph)
   const viewBoxWidth = 92
 
@@ -129,29 +102,17 @@ const ExplainerComparisonGrid: React.FC<ExplainerComparisonGridProps> = ({
           }
         }
 
-        // Check if this triangle is the selected explainer (or max quality as fallback)
-        const effectiveSelectedIndex = selectedExplainerIndex ?? maxQualityExplainerIndex
-        const isSelected = !isDiamond &&
-          EXPLAINER_INDEX_MAP[cell.cellIndex] === effectiveSelectedIndex
-
         return (
           <polygon
             key={cell.cellIndex}
-            className={`grid-cell grid-cell--${cell.type}${isSelected ? ' grid-cell--selected' : ''}`}
+            className={`grid-cell grid-cell--${cell.type}`}
             points={cell.points}
             style={{
-              ...(fillColor ? { fill: fillColor } : {}),
-              ...(isSelected ? { fill: '#3b82f6', stroke: '#3b82f6', strokeWidth: 1 } : {}),
-              ...(!isDiamond ? { cursor: 'pointer' } : {})
+              ...(fillColor ? { fill: fillColor } : {})
             }}
             onClick={() => {
               if (isDiamond && pairIndices && onPairClick && explainerIds.length >= 3) {
                 onPairClick(explainerIds[pairIndices[0]], explainerIds[pairIndices[1]])
-              } else if (!isDiamond && onTriangleClick) {
-                const explainerIndex = EXPLAINER_INDEX_MAP[cell.cellIndex]
-                if (explainerIndex !== undefined) {
-                  onTriangleClick(explainerIndex)
-                }
               }
             }}
           />

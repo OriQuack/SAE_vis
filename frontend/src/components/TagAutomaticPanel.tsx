@@ -599,22 +599,22 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
                           Bin [{bin.x0.toFixed(2)} - {bin.x1.toFixed(2)}]
                         </text>
                         <text x={0} y={-46} textAnchor="middle" fontSize={9} fill={modeColors.confirmed}>
-                          Confirmed: {counts.confirmed}
+                          Confirmed: {counts.confirmed.toLocaleString()}
                         </text>
                         <text x={0} y={-36} textAnchor="middle" fontSize={9} fill={modeColors.expanded}>
-                          Expanded: {counts.expanded}
+                          Expanded: {counts.expanded.toLocaleString()}
                         </text>
                         <text x={0} y={-26} textAnchor="middle" fontSize={9} fill={modeColors.rejected}>
-                          Rejected: {counts.rejected}
+                          Rejected: {counts.rejected.toLocaleString()}
                         </text>
                         <text x={0} y={-16} textAnchor="middle" fontSize={9} fill={modeColors.autoRejected}>
-                          Auto-Rejected: {counts.autoRejected}
+                          Auto-Rejected: {counts.autoRejected.toLocaleString()}
                         </text>
                         <text x={0} y={-6} textAnchor="middle" fontSize={9} fill={modeColors.unsure}>
-                          Unsure: {counts.unsure}
+                          Unsure: {counts.unsure.toLocaleString()}
                         </text>
                         <text x={0} y={-58 + 70} textAnchor="middle" fontSize={9} fill="#aaa">
-                          Total: {total}
+                          Total: {total.toLocaleString()}
                         </text>
                       </g>
                     )

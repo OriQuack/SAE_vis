@@ -221,7 +221,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
         width={260}
         height={390}
         badges={[
-          { label: leftListLabel, count: mode === 'pair' ? `${leftItems.length} pairs` : `${leftFeatures.length} features` }
+          { label: leftListLabel, count: mode === 'pair' ? `${leftItems.length.toLocaleString()} pairs` : `${leftFeatures.length.toLocaleString()} features` }
         ]}
         columnHeader={{ label: 'Decision Margin', sortDirection: 'asc' }}
         headerStripe={{ type: 'autoReject', mode: mode }}
@@ -239,7 +239,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
         width={260}
         height={390}
         badges={[
-          { label: rightListLabel, count: mode === 'pair' ? `${rightItems.length} pairs` : `${rightFeatures.length} features` }
+          { label: rightListLabel, count: mode === 'pair' ? `${rightItems.length.toLocaleString()} pairs` : `${rightFeatures.length.toLocaleString()} features` }
         ]}
         columnHeader={{ label: 'Decision Margin', sortDirection: 'asc' }}
         headerStripe={{ type: 'expand', mode: mode }}

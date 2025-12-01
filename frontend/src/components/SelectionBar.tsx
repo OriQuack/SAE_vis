@@ -274,7 +274,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
             {/* Show label if segment is large enough */}
             {showLabels && percentage > labelThreshold && (
               <span className="selection-state-bar__segment-label">
-                {isVertical ? displayCount : `${config.label} (${displayCount})`}
+                {isVertical ? displayCount.toLocaleString() : `${config.label} (${displayCount.toLocaleString()})`}
               </span>
             )}
           </div>
@@ -322,7 +322,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
             {/* Show label if segment is large enough */}
             {showLabels && stripePercentage > labelThreshold && (
               <span className="selection-state-bar__segment-label">
-                {isVertical ? `+${previewChangeValue}` : `${config.label} (+${previewChangeValue})`}
+                {isVertical ? `+${previewChangeValue.toLocaleString()}` : `${config.label} (+${previewChangeValue.toLocaleString()})`}
               </span>
             )}
           </div>
@@ -348,11 +348,11 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
         <div className="selection-state-bar__header">
           <div className="selection-state-bar__total">
             <div className="selection-state-bar__total-primary">
-              {counts.total} {mode === 'cause' ? 'items' : 'Features'}
+              {counts.total.toLocaleString()} {mode === 'cause' ? 'items' : 'Features'}
             </div>
             {mode === 'pair' && pairCount !== undefined && (
               <div className="selection-state-bar__total-secondary">
-                ({pairCount} Pairs)
+                ({pairCount.toLocaleString()} Pairs)
               </div>
             )}
           </div>
@@ -393,10 +393,10 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
                   {config.label}
                 </span>
                 <span className="selection-state-bar__legend-count">
-                  {count} ({percentage.toFixed(1)}%)
+                  {count.toLocaleString()} ({percentage.toFixed(1)}%)
                   {previewChange !== 0 && (
                     <span className="selection-state-bar__legend-preview">
-                      {' '}→ {count + previewChange}
+                      {' '}→ {(count + previewChange).toLocaleString()}
                     </span>
                   )}
                 </span>
@@ -428,10 +428,10 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
                 {categoryConfig[hoveredCategory].label}
               </div>
               <div className="selection-state-bar__tooltip-count">
-                {count} features
+                {count.toLocaleString()} features
                 {previewChange !== 0 && (
                   <span className="selection-state-bar__tooltip-preview">
-                    {' '}→ {count + previewChange}
+                    {' '}→ {(count + previewChange).toLocaleString()}
                   </span>
                 )}
               </div>
