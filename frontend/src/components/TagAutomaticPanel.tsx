@@ -45,6 +45,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
 }) => {
   const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
   const updateBothSimilarityThresholds = useVisualizationStore(state => state.updateBothSimilarityThresholds)
+  const setTagAutomaticHistogramData = useVisualizationStore(state => state.setTagAutomaticHistogramData)
   const fetchSimilarityHistogram = useVisualizationStore(state => state.fetchSimilarityHistogram)
   const setDraggingThreshold = useVisualizationStore(state => state.setDraggingThreshold)
   const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
@@ -205,7 +206,8 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
             const rejectThreshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? -maxAbsValue / 2 : -0.2
 
             setThresholds({ select: selectThreshold, reject: rejectThreshold })
-            updateBothSimilarityThresholds(selectThreshold, rejectThreshold)
+            // Update store's tagAutomaticState so SelectionPanel can show preview
+            setTagAutomaticHistogramData(histogramResponse, selectThreshold, rejectThreshold)
           } else {
             setLocalHistogramData(null)
           }
@@ -221,7 +223,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
     return () => clearTimeout(timeoutId)
     // NOTE: selectionCounts and threshold excluded from deps to avoid extra re-fetches when values change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, selectionCounts.selectedCount, selectionCounts.rejectedCount, fetchSimilarityHistogram, updateBothSimilarityThresholds, filteredFeatureIds, featureSelectionStates, featureSelectionSources])
+  }, [mode, selectionCounts.selectedCount, selectionCounts.rejectedCount, fetchSimilarityHistogram, updateBothSimilarityThresholds, setTagAutomaticHistogramData, filteredFeatureIds, featureSelectionStates, featureSelectionSources])
 
   // Calculate histogram layout and bars with symmetric domain
   const histogramChart = useMemo(() => {

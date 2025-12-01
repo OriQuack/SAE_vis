@@ -259,6 +259,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
       {allPairsListProps && (
         <ScrollableItemList
           width={240}
+          height={390}
           badges={[
             { label: 'All Pairs', count: `${allPairsListProps.totalPairCount} pairs` }
           ]}
@@ -418,7 +419,6 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
             '--tag-color': unsureColor
           } as React.CSSProperties}
         >
-          {pairSelectionState === null && <span className="button__icon">○</span>}
           Unsure
         </button>
         <button
@@ -428,7 +428,6 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
             '--tag-color': monosemanticColor
           } as React.CSSProperties}
         >
-          {pairSelectionState === 'rejected' && <span className="button__icon">✓</span>}
           Monosemantic
         </button>
         <button
@@ -438,7 +437,6 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
             '--tag-color': fragmentedColor
           } as React.CSSProperties}
         >
-          {pairSelectionState === 'selected' && <span className="button__icon">✓</span>}
           Fragmented
         </button>
 

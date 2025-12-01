@@ -151,7 +151,7 @@ const QualityView: React.FC<QualityViewProps> = ({
     getDefaultScore: (f: typeof featureList[0]) => f.qualityScore,
     confidenceScores: similarityScores,
     defaultLabel: 'Quality score',
-    defaultDirection: 'desc'
+    defaultDirection: 'asc'
   })
 
   // Pagination for the top row list
@@ -789,6 +789,7 @@ const QualityView: React.FC<QualityViewProps> = ({
           <div className="quality-view__row-top">
             <ScrollableItemList
               width={240}
+              height={390}
               badges={[{ label: 'Features', count: sortedFeatures.length }]}
               columnHeader={columnHeaderProps}
               items={currentPageFeatures}
@@ -944,7 +945,6 @@ const QualityView: React.FC<QualityViewProps> = ({
                       onClick={handleUnsureClick}
                       style={{ '--tag-color': unsureColor } as React.CSSProperties}
                     >
-                      {currentSelectionState === null && <span className="button__icon">○</span>}
                       Unsure
                     </button>
                     <button
@@ -952,7 +952,6 @@ const QualityView: React.FC<QualityViewProps> = ({
                       onClick={handleNeedRevisionClick}
                       style={{ '--tag-color': needRevisionColor } as React.CSSProperties}
                     >
-                      {currentSelectionState === 'rejected' && <span className="button__icon">✓</span>}
                       Need Revision
                     </button>
                     <button
@@ -960,7 +959,6 @@ const QualityView: React.FC<QualityViewProps> = ({
                       onClick={handleWellExplainedClick}
                       style={{ '--tag-color': wellExplainedColor } as React.CSSProperties}
                     >
-                      {currentSelectionState === 'selected' && <span className="button__icon">✓</span>}
                       Well-Explained
                     </button>
 

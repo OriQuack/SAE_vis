@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, type Dispatch, type SetStateAction } from 'react'
 
 // ============================================================================
 // usePaginatedList - Index-based pagination with derived page state
@@ -25,7 +25,7 @@ interface UsePaginatedListReturn<T> {
   /** Current selected item index (global, not page-relative) */
   currentIndex: number
   /** Set current index */
-  setCurrentIndex: React.Dispatch<React.SetStateAction<number>>
+  setCurrentIndex: Dispatch<SetStateAction<number>>
   /** Current page number (0-indexed) */
   currentPage: number
   /** Total number of pages */

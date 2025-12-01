@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, type Dispatch, type SetStateAction } from 'react'
 
 // ============================================================================
 // useListNavigation - Active list source management with threshold drag reset
@@ -18,7 +18,7 @@ interface UseListNavigationReturn {
   /** Current active list source */
   activeListSource: ListSource
   /** Set active list source */
-  setActiveListSource: React.Dispatch<React.SetStateAction<ListSource>>
+  setActiveListSource: Dispatch<SetStateAction<ListSource>>
   /** Convenience: is 'all' list active */
   isAllActive: boolean
   /** Convenience: is 'reject' list active */

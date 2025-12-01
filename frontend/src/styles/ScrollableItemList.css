@@ -129,6 +129,8 @@
   align-items: stretch;
   scrollbar-width: thin;
   scrollbar-color: #6b7280 #e5e7eb;
+  /* Padding to prevent outline clipping on first/last items */
+  padding: 3px;
 }
 
 /* Scrollbar styles - only visible when needed */
@@ -174,7 +176,7 @@
 
 .scrollable-list-item {
   position: relative;
-  padding: 3px;
+  padding: 2px;
   border-radius: 6px;
   transition: background-color 0.2s ease;
   border: 1px solid transparent;
@@ -185,32 +187,15 @@
 /* Highlighted items (e.g., same cluster) */
 .scrollable-list-item--highlighted {
   background-color: #bfdbfe;
-  border: 1px solid #93c5fd;
-  border-radius: 0;
-  margin-top: -1px;
-  margin-bottom: 0;
 }
 
-/* First item in highlighted group - top rounded corners */
-.scrollable-list-item--highlight-first {
-  border-top-left-radius: 6px;
-  border-top-right-radius: 6px;
-  margin-top: 0;
-}
-
-/* Last item in highlighted group - bottom rounded corners */
-.scrollable-list-item--highlight-last {
-  border-bottom-left-radius: 6px;
-  border-bottom-right-radius: 6px;
-}
-
-/* Current/selected item */
+/* Current/selected item - use outline to avoid layout shifts */
 .scrollable-list-item--current {
-  border: 3px solid #3b82f6;
+  outline: 3px solid #3b82f6;
+  outline-offset: -1px;
   border-radius: 6px;
   background-color: white;
   z-index: 1;
-  padding: 1px;
 }
 
 /* When current item is also highlighted */

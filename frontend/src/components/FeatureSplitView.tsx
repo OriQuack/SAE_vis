@@ -53,6 +53,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   const isDraggingThreshold = useVisualizationStore(state => state.isDraggingThreshold)
   const pairSimilarityScores = useVisualizationStore(state => state.pairSimilarityScores)
   const lastPairSortedSelectionSignature = useVisualizationStore(state => state.lastPairSortedSelectionSignature)
+  const isPairSimilaritySortLoading = useVisualizationStore(state => state.isPairSimilaritySortLoading)
   const sortPairsBySimilarity = useVisualizationStore(state => state.sortPairsBySimilarity)
   const fetchActivationExamples = useVisualizationStore(state => state.fetchActivationExamples)
   const applySimilarityTags = useVisualizationStore(state => state.applySimilarityTags)
@@ -249,7 +250,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     getDefaultScore: (p: typeof rawPairList[0]) => p.decoderSimilarity,
     confidenceScores: pairSimilarityScores,
     defaultLabel: 'Decoder sim',
-    defaultDirection: 'desc'
+    defaultDirection: 'asc'
   })
 
   // Pagination derived state
@@ -281,6 +282,11 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
   // Auto-populate similarity scores when pair list is ready or selection states change
   useEffect(() => {
+    // Skip if already loading to prevent duplicate API calls
+    if (isPairSimilaritySortLoading) {
+      return
+    }
+
     // Extract manual selections to compute signature
     const currentSelectedKeys: string[] = []
     const currentRejectedKeys: string[] = []
@@ -306,7 +312,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       console.log('[FeatureSplitView] Computing similarity scores for', allPairKeys.length, 'pairs (stale:', scoresAreStale, ')')
       sortPairsBySimilarity(allPairKeys)
     }
-  }, [pairList, pairSelectionStates, pairSelectionSources, pairSimilarityScores.size, lastPairSortedSelectionSignature, sortPairsBySimilarity])
+  }, [pairList, pairSelectionStates, pairSelectionSources, pairSimilarityScores.size, lastPairSortedSelectionSignature, isPairSimilaritySortLoading, sortPairsBySimilarity])
 
   // When threshold dragging starts, switch to 'all' list if currently in boundary lists
   // This prevents the selected pair from becoming invalid as boundary items change
@@ -776,7 +782,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     <div className={`feature-split-view ${className}`}>
       {/* Header - Full width */}
       <div className="feature-split-view__header">
-        <h3 className="feature-split-view__title">Candidate Validation</h3>
+        <h3 className="feature-split-view__title">Feature Splitting Detection</h3>
         <p className="feature-split-view__description">
           Validate features for{' '}
           <span

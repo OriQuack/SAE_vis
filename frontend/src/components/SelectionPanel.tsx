@@ -391,8 +391,66 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
   // Calculate preview counts when thresholds are active (real-time preview during threshold drag)
   // This simulates what feature counts would look like after applying the thresholds
   const previewCounts = useMemo((): CategoryCounts | undefined => {
-    // Only show preview for pair mode when histogram data is available
-    if (mode !== 'pair' || !tagAutomaticState?.histogramData?.scores || !filteredFeatureIds) {
+    // Need histogram scores and thresholds
+    if (!tagAutomaticState?.histogramData?.scores || !filteredFeatureIds) {
+      return undefined
+    }
+
+    // Handle feature mode preview
+    if (mode === 'feature') {
+      const thresholds = {
+        select: tagAutomaticState.selectThreshold,
+        reject: tagAutomaticState.rejectThreshold
+      }
+
+      let confirmed = 0
+      let expanded = 0
+      let rejected = 0
+      let autoRejected = 0
+      let unsure = 0
+
+      // Count current states and simulate what would be auto-tagged
+      filteredFeatureIds.forEach(featureId => {
+        const currentState = featureSelectionStates.get(featureId)
+        const currentSource = featureSelectionSources.get(featureId)
+        const score = tagAutomaticState.histogramData?.scores?.[featureId.toString()]
+
+        if (currentState === 'selected') {
+          // Already selected
+          if (currentSource === 'auto') {
+            expanded++
+          } else {
+            confirmed++
+          }
+        } else if (currentState === 'rejected') {
+          // Already rejected
+          if (currentSource === 'auto') {
+            autoRejected++
+          } else {
+            rejected++
+          }
+        } else {
+          // Currently unsure - check if would be auto-tagged
+          if (typeof score === 'number') {
+            if (score >= thresholds.select) {
+              expanded++ // Would become auto-selected
+            } else if (score < thresholds.reject) {
+              autoRejected++ // Would become auto-rejected
+            } else {
+              unsure++ // Stays unsure
+            }
+          } else {
+            unsure++ // No score, stays unsure
+          }
+        }
+      })
+
+      const total = confirmed + expanded + rejected + autoRejected + unsure
+      return { confirmed, expanded, rejected, autoRejected, unsure, total }
+    }
+
+    // Handle pair mode preview (existing logic)
+    if (mode !== 'pair') {
       return undefined
     }
 
@@ -472,10 +530,10 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
 
     const total = confirmed + expanded + rejected + autoRejected + unsure
     return { confirmed, expanded, rejected, autoRejected, unsure, total }
-  }, [mode, tagAutomaticState, pairSelectionStates, pairSelectionSources, filteredFeatureIds, allClusterPairs])
+  }, [mode, tagAutomaticState, pairSelectionStates, pairSelectionSources, featureSelectionStates, featureSelectionSources, filteredFeatureIds, allClusterPairs])
 
   // Preview is active when TagAutomaticPanel has histogram data (user can drag thresholds)
-  const isPreviewActive = mode === 'pair' && !!tagAutomaticState?.histogramData
+  const isPreviewActive = (mode === 'pair' || mode === 'feature') && !!tagAutomaticState?.histogramData
   // Show threshold controls only when thresholdVisualization is visible (after "Show on Table")
   const showThresholdControls = thresholdVisualization?.visible ?? false
 

@@ -246,6 +246,28 @@ export const createQualityActions = (set: any, get: any) => ({
     })
   },
 
+  /**
+   * Set histogram data for feature mode (called by TagAutomaticPanel)
+   * Creates tagAutomaticState if it doesn't exist
+   */
+  setTagAutomaticHistogramData: (histogramData: any, selectThreshold: number, rejectThreshold: number) => {
+    const { tagAutomaticState } = get()
+
+    set({
+      tagAutomaticState: {
+        visible: tagAutomaticState?.visible ?? false,
+        minimized: tagAutomaticState?.minimized ?? false,
+        mode: 'feature' as const,
+        position: tagAutomaticState?.position ?? { x: 0, y: 0 },
+        histogramData,
+        selectThreshold,
+        rejectThreshold,
+        tagLabel: tagAutomaticState?.tagLabel ?? 'Well-Explained',
+        isLoading: false
+      }
+    })
+  },
+
   applySimilarityTags: () => {
     const { tagAutomaticState, featureSelectionStates, featureSelectionSources } = get()
 

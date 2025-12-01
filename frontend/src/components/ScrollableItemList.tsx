@@ -81,6 +81,7 @@ export interface ScrollableItemListProps<T = any> {
 
   // Styling
   width?: number | string
+  height?: number | string
   className?: string
 }
 
@@ -97,6 +98,7 @@ export function ScrollableItemList<T = any>({
   pageNavigation,
   sortConfig,
   width = 200,
+  height,
   className = ''
 }: ScrollableItemListProps<T>) {
   const currentItem = currentIndex >= 0 && currentIndex < items.length ? items[currentIndex] : null
@@ -123,7 +125,10 @@ export function ScrollableItemList<T = any>({
   return (
     <div
       className={`scrollable-list ${isActive ? 'scrollable-list--active' : ''} ${className}`}
-      style={{ width: typeof width === 'number' ? `${width}px` : width }}
+      style={{
+        width: typeof width === 'number' ? `${width}px` : width,
+        height: height ? (typeof height === 'number' ? `${height}px` : height) : undefined
+      }}
     >
       {/* Header with count inline: "Name (Count)" */}
       <div
@@ -164,26 +169,10 @@ export function ScrollableItemList<T = any>({
             const isCurrent = index === currentIndex
             const isHighlighted = highlightPredicate && currentItem ? highlightPredicate(item, currentItem) : false
 
-            // Detect highlight group boundaries (for continuous background like clusters)
-            let isHighlightFirst = false
-            let isHighlightLast = false
-
-            if (isHighlighted && highlightPredicate && currentItem) {
-              const prevItem = index > 0 ? items[index - 1] : null
-              const nextItem = index < items.length - 1 ? items[index + 1] : null
-              const prevHighlighted = prevItem && highlightPredicate(prevItem, currentItem)
-              const nextHighlighted = nextItem && highlightPredicate(nextItem, currentItem)
-
-              isHighlightFirst = !prevHighlighted
-              isHighlightLast = !nextHighlighted
-            }
-
             const itemClasses = [
               'scrollable-list-item',
               isCurrent && 'scrollable-list-item--current',
-              isHighlighted && 'scrollable-list-item--highlighted',
-              isHighlightFirst && 'scrollable-list-item--highlight-first',
-              isHighlightLast && 'scrollable-list-item--highlight-last'
+              isHighlighted && 'scrollable-list-item--highlighted'
             ].filter(Boolean).join(' ')
 
             // Render item content, optionally wrapped with score display

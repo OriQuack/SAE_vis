@@ -24,3 +24,9 @@ export type {
   CommitType,
   Commit
 } from './useCommitHistory'
+
+export { useBimodalStatus } from './useBimodalStatus'
+
+export { useTaggingStatus } from './useTaggingStatus'
+
+export { useThresholdPreview } from './useThresholdPreview'

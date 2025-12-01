@@ -156,6 +156,7 @@ interface AppState {
   hideTagAutomaticPopover: () => void
   updateSimilarityThresholds: (selectThreshold: number) => void
   updateBothSimilarityThresholds: (selectThreshold: number, rejectThreshold: number) => void
+  setTagAutomaticHistogramData: (histogramData: any, selectThreshold: number, rejectThreshold: number) => void
   applySimilarityTags: () => void
   minimizeSimilarityTaggingPopover: () => void
   restoreSimilarityTaggingPopover: () => void
@@ -525,6 +526,7 @@ export const useStore = create<AppState>((set, get) => {
 
   // Compose Quality actions (Stage 2 - Features)
   sortBySimilarity: qualityActions.sortBySimilarity,
+  setTagAutomaticHistogramData: qualityActions.setTagAutomaticHistogramData,
 
   // Compose Cause actions (Stage 3 - Multi-class)
   sortCauseBySimilarity: causeActions.sortCauseBySimilarity,
