@@ -218,9 +218,9 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
 
       {/* Boundary lists wrapper with subtitle */}
       <div className="threshold-tagging-panel__lists-section">
-        <div className="threshold-tagging-panel__lists-subtitle">
+        <h4 className="subheader">
           {mode === 'pair' ? 'Boundary Feature Pairs' : 'Boundary Features'}
-        </div>
+        </h4>
         <div className="threshold-tagging-panel__lists-container">
           {/* Left boundary list (Monosemantic/Need Revision - below reject threshold) */}
           <ScrollableItemList

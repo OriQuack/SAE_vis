@@ -650,7 +650,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
 
           {/* Commit History Circles - shown in pair mode or feature mode when history exists */}
           {(mode === 'pair' || mode === 'feature') && commitHistory && commitHistory.length > 0 && onCommitClick && (
-            <div className="commit-history">
+            <div className={`commit-history commit-history--${mode}`}>
               <div className="commit-history__label">History</div>
               <div className="commit-history__circles">
                 {commitHistory.map((commit, index) => (

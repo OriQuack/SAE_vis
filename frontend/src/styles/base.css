@@ -101,3 +101,60 @@ body {
     transform: translateY(0) scale(1);
   }
 }
+
+/* ============================================================================
+   SHARED COMPONENT STYLES
+   ============================================================================ */
+
+/* View Header - Container for view title and description */
+.view-header {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 12px;
+  padding: 2px 0px;
+  background: white;
+}
+
+/* View Title - Main heading for stage views */
+.view-title {
+  font-size: 22px;
+  font-weight: 500;
+  color: #374151;
+  margin: 0;
+}
+
+/* View Description - Instruction text below title */
+.view-description {
+  font-size: 14px;
+  font-weight: 400;
+  color: #383838;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* View Tag Badge - Inline tag in view description */
+.view-tag-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0px 3px;
+  border-radius: 3px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #000000;
+  white-space: nowrap;
+}
+
+/* Subheader - Small uppercase label for sections */
+.subheader {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0;
+  padding: 0;
+}

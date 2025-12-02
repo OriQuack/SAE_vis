@@ -441,8 +441,17 @@
   align-items: center;
   gap: 8px;
   padding: 4px 3px;
-  margin-top: 75px;
   min-width: 28px;
+}
+
+/* Stage 1 (pair mode) - larger top margin */
+.commit-history--pair {
+  margin-top: 75px;
+}
+
+/* Stage 2 (feature mode) - smaller top margin */
+.commit-history--feature {
+  margin-top: 40px;
 }
 
 .commit-history__label {

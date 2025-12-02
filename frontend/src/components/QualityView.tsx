@@ -860,12 +860,12 @@ const QualityView: React.FC<QualityViewProps> = ({
   return (
     <div className={`quality-view ${className}`}>
       {/* Header - Full width */}
-      <div className="quality-view__header">
-        <h3 className="quality-view__title">Quality Assessment</h3>
-        <p className="quality-view__description">
+      <div className="view-header">
+        <h3 className="view-title">Quality Assessment</h3>
+        <p className="view-description">
           Validate features for{' '}
           <span
-            className="quality-view__tag-badge"
+            className="view-tag-badge"
             style={{ backgroundColor: wellExplainedColor }}
           >
             Well-Explained
@@ -954,11 +954,11 @@ const QualityView: React.FC<QualityViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Explanation Row - Left grid + Explanations */}
-                  <div className="quality-view__explanation-row">
-                    {/* Semantic similarity legend - top right */}
+                  {/* Explanation Header - Subheader and legend outside container */}
+                  <div className="quality-view__explanation-header">
+                    <h4 className="subheader">Explainers / Phrases Semantic Similarity</h4>
+                    {/* Semantic similarity legend */}
                     <div className="quality-view__explanation-legend">
-                      <span className="legend-label">Semantic similarity:</span>
                       <div className="legend-item">
                         <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.HIGH }} />
                         <span className="legend-label">≥0.85</span>
@@ -972,9 +972,12 @@ const QualityView: React.FC<QualityViewProps> = ({
                         <span className="legend-label">≥0.50</span>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Explanation Row - Left grid + Explanations */}
+                  <div className="quality-view__explanation-row">
                     {/* Left: Explainer comparison grid */}
                     <div className="quality-view__explanation-left">
-                      <h4 className="quality-view__subheader">Explanation-wise</h4>
                       <ExplainerComparisonGrid
                         cellGap={2}
                         explainerIds={tableData?.explainer_ids || []}
@@ -989,7 +992,6 @@ const QualityView: React.FC<QualityViewProps> = ({
 
                     {/* Explanation Section - All 3 Explainers (aligned with grid triangles) */}
                     <div className="quality-view__explanation-section">
-                      <h4 className="quality-view__subheader">Segment-wise</h4>
                       <div className="quality-view__explanation-content">
                         {allExplainerExplanations.length > 0 ? (
                           allExplainerExplanations.map(({ explainerId, index, highlightedExplanation, explanationText }: {

@@ -819,12 +819,12 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   return (
     <div className={`feature-split-view ${className}`}>
       {/* Header - Full width */}
-      <div className="feature-split-view__header">
-        <h3 className="feature-split-view__title">Feature Splitting Detection</h3>
-        <p className="feature-split-view__description">
+      <div className="view-header">
+        <h3 className="view-title">Feature Splitting Detection</h3>
+        <p className="view-description">
           Validate features for{' '}
           <span
-            className="feature-split-view__tag-badge"
+            className="view-tag-badge"
             style={{ backgroundColor: fragmentedColor }}
           >
             Fragmented

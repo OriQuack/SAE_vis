@@ -149,12 +149,8 @@
   gap: 4px;
 }
 
-.threshold-tagging-panel__lists-subtitle {
-  font-size: 12px;
-  font-weight: 600;
-  color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+/* Subheader uses shared .subheader class from base.css */
+.threshold-tagging-panel__lists-section .subheader {
   padding: 0 4px;
 }
 
