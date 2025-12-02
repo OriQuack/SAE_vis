@@ -307,16 +307,17 @@ export const createQualityActions = (set: any, get: any) => ({
       }
 
       // Apply dual threshold logic: auto-select above threshold, auto-reject below threshold
+      // Note: source is 'manual' because clicking "Apply Tags" means user has confirmed these tags
       if (typeof score === 'number') {
         if (score >= selectThreshold) {
-          // Blue zone: auto-select
+          // Blue zone: auto-select (confirmed by user clicking Apply Tags)
           newSelectionStates.set(featureId, 'selected')
-          newSelectionSources.set(featureId, 'auto')
+          newSelectionSources.set(featureId, 'manual')
           selectedCount++
         } else if (score <= rejectThreshold) {
-          // Light red zone: auto-reject
+          // Light red zone: auto-reject (confirmed by user clicking Apply Tags)
           newSelectionStates.set(featureId, 'rejected')
-          newSelectionSources.set(featureId, 'auto')
+          newSelectionSources.set(featureId, 'manual')
           rejectedCount++
         } else {
           // Middle zone: leave untagged
@@ -337,8 +338,15 @@ export const createQualityActions = (set: any, get: any) => ({
       featureSelectionSources: newSelectionSources
     })
 
-    // Close popover after applying
-    set({ tagAutomaticState: null })
+    // Preserve thresholds but clear histogram data (will be refetched with updated selections)
+    // Don't set tagAutomaticState to null - we want to preserve the user-adjusted thresholds
+    // The histogram will be refetched automatically when selection counts change
+    set({
+      tagAutomaticState: {
+        ...tagAutomaticState,
+        histogramData: null  // Clear histogram to trigger refetch
+      }
+    })
   },
 
   minimizeSimilarityTaggingPopover: () => {

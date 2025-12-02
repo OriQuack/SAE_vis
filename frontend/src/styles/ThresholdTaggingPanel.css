@@ -139,3 +139,28 @@
   border-color: #1e3a8a;
 }
 
+/* ============================================================================
+ * LISTS SECTION - Wrapper for boundary lists with subtitle
+ * ============================================================================ */
+
+.threshold-tagging-panel__lists-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.threshold-tagging-panel__lists-subtitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0 4px;
+}
+
+.threshold-tagging-panel__lists-container {
+  display: flex;
+  flex-direction: row;
+  gap: 0;
+}
+

@@ -132,11 +132,11 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     label: "Assess Quality",
     stageOrder: 2,
     metric: METRIC_QUALITY_SCORE,
-    defaultThresholds: [0.7],
+    defaultThresholds: [0.6],
     showHistogram: true,
     tags: [
-      "Need Revision",       // Group 0 (< 0.5, LOW quality score)
-      "Well-Explained"       // Group 1 (≥ 0.5, HIGH quality score)
+      "Need Revision",       // Group 0 (< threshold, LOW quality score)
+      "Well-Explained"       // Group 1 (≥ threshold, HIGH quality score)
     ],
     relatedMetrics: [
       METRIC_SCORE_EMBEDDING,
@@ -161,7 +161,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     showHistogram: false,
     tags: [
       "Missed Context",
-      "Missed Lexicon",
+      "Missed N-gram",
       "Noisy Activation",
       "Unsure"
     ],
@@ -169,7 +169,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
       // Missed Context indicators
       METRIC_SCORE_DETECTION,
       METRIC_SCORE_EMBEDDING,
-      // Missed Lexicon indicators
+      // Missed N-gram indicators
       METRIC_SCORE_FUZZ,
       // Noisy Activation indicators
       "intra_feature_similarity",  // Note: Not yet in backend data

@@ -74,7 +74,7 @@ const ExplainerComparisonGrid: React.FC<ExplainerComparisonGridProps> = ({
   }
 
   // ViewBox width sized to match actual content (triangles + bar graph)
-  const viewBoxWidth = 92
+  const viewBoxWidth = 90
 
   return (
     <svg

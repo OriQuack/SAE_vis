@@ -228,7 +228,7 @@ export async function buildStage1(
  *
  * @param filters - Current filters
  * @param stage1Structure - Previous stage structure
- * @param threshold - Optional custom threshold (default: 0.7)
+ * @param threshold - Optional custom threshold (default from TAG_CATEGORIES)
  * @returns Sankey structure for Stage 2
  */
 export async function buildStage2(
@@ -237,7 +237,7 @@ export async function buildStage2(
   threshold?: number
 ): Promise<SankeyStructure> {
   const config = getStageConfig(2)
-  const actualThreshold = threshold ?? config.defaultThreshold ?? 0.7
+  const actualThreshold = threshold ?? config.defaultThreshold ?? 0.6
 
   // Get the segment node from Stage 1
   const stage1Segment = stage1Structure.nodes.find(n => n.id === 'stage1_segment') as SegmentSankeyNode
@@ -344,7 +344,7 @@ export async function buildStage2(
  * @param stage1Structure - Previous stage structure
  * @param allClusterPairs - All pairs from clustering
  * @param pairSelectionStates - Map of pair_key -> 'selected' | 'rejected'
- * @param threshold - Optional custom threshold for Quality stage (default: 0.7)
+ * @param threshold - Optional custom threshold for Quality stage (default from TAG_CATEGORIES)
  * @returns Sankey structure for Stage 2
  */
 export async function buildStage2FromTaggedStates(
@@ -356,7 +356,7 @@ export async function buildStage2FromTaggedStates(
 ): Promise<SankeyStructure> {
   const stage1Config = getStageConfig(1)
   const stage2Config = getStageConfig(2)
-  const actualThreshold = threshold ?? stage2Config.defaultThreshold ?? 0.7
+  const actualThreshold = threshold ?? stage2Config.defaultThreshold ?? 0.6
 
   // Get root features from Stage 1
   const rootNode = stage1Structure.nodes.find(n => n.id === 'root')
@@ -486,8 +486,8 @@ export function buildStage3(
   }
 
   // Get feature sets from Stage 2 segments
-  const needRevisionSegment = stage2Segment.segments[0]  // < 0.7 (low quality)
-  const wellExplainedSegment = stage2Segment.segments[1]  // >= 0.7 (high quality)
+  const needRevisionSegment = stage2Segment.segments[0]  // < threshold (low quality)
+  const wellExplainedSegment = stage2Segment.segments[1]  // >= threshold (high quality)
 
   // Copy existing nodes except the stage2 segment
   const nodes: SimplifiedSankeyNode[] = stage2Structure.nodes.filter(n => n.id !== 'stage2_segment')

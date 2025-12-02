@@ -421,7 +421,7 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     const errors: string[] = []
     if (histogramData && popoverData?.metrics) {
       const nodeId = popoverData?.nodeId || ''
-      popoverData.metrics.forEach(metric => {
+      popoverData.metrics.forEach((metric: string) => {
         const compositeKey = nodeId ? `${metric}:${nodeId}` : metric
         const metricData = histogramData[compositeKey]
         if (metricData) {
@@ -444,7 +444,7 @@ export const HistogramPopover: React.FC<HistogramPopoverProps> = ({
     // Filter histogram data to only include the metrics that should be displayed
     const filteredHistogramData: Record<string, HistogramData> = {}
     const nodeId = popoverData?.nodeId || ''
-    popoverData.metrics.forEach(metric => {
+    popoverData.metrics.forEach((metric: string) => {
       const compositeKey = nodeId ? `${metric}:${nodeId}` : metric
       if (histogramData[compositeKey]) {
         filteredHistogramData[metric] = histogramData[compositeKey]

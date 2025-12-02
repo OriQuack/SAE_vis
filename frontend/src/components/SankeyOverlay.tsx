@@ -8,7 +8,7 @@ import {
 // Removed: getNodeThresholds, getExactMetricFromPercentile - using v2 simplified system
 import { calculateHorizontalBarSegments } from '../lib/histogram-utils'
 import { groupFeaturesByThresholds, calculateSegmentProportions } from '../lib/threshold-utils'
-import { TAG_CATEGORIES } from '../lib/constants'
+import { TAG_CATEGORIES, METRIC_QUALITY_SCORE } from '../lib/constants'
 import { scaleLinear } from 'd3-scale'
 import { ThresholdHandles } from './ThresholdHandles'
 // Removed: TAG_CATEGORIES import - not needed in v2 (RE-ADDED for optimistic segments)
@@ -209,6 +209,39 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
       })}
 
       {/* Threshold lines and labels removed */}
+
+      {/* Random baseline line for quality score stage */}
+      {metric === METRIC_QUALITY_SCORE && yScale && layout && (() => {
+        const baselineValue = 0.5
+        const baselineY = yScale(baselineValue)
+
+        return (
+          <g className="random-baseline">
+            <line
+              x1={0}
+              x2={layout.width}
+              y1={baselineY - layout.y}
+              y2={baselineY - layout.y}
+              stroke="#B22222"
+              strokeWidth={1}
+              strokeDasharray="6,4"
+              style={{ pointerEvents: 'none' }}
+            />
+            {/* "Random" label above the line */}
+            <text
+              x={layout.width / 2}
+              y={baselineY - layout.y - 6}
+              fontSize={14}
+              fontWeight={500}
+              fill="#B22222"
+              textAnchor="middle"
+              style={{ pointerEvents: 'none' }}
+            >
+              Random
+            </text>
+          </g>
+        )
+      })()}
 
       {/* Y-axis: metric value labels and ticks */}
       {yAxisTicks.length > 0 && (
@@ -443,7 +476,7 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
                   clearTimeout(segmentUpdateTimerRef.current)
                 }
 
-                segmentUpdateTimerRef.current = setTimeout(() => {
+                segmentUpdateTimerRef.current = window.setTimeout(() => {
                   // Calculate segment proportions if table data is available
                   if (tableData && targetStructureNode) {
                     try {

@@ -572,8 +572,12 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       }
 
       setTagCommitHistory(prev => {
+        // Truncate history after current commit (remove "future" commits)
+        // Then add the new commit - this implements branching behavior
+        const truncated = prev.slice(0, currentCommitIndex + 1)
+        let newHistory = [...truncated, newCommit]
+
         // Trim history to MAX_COMMITS if needed (remove oldest, keep initial)
-        let newHistory = [...prev, newCommit]
         if (newHistory.length > MAX_COMMITS) {
           // Keep the first commit (initial state) and trim from the second
           newHistory = [newHistory[0], ...newHistory.slice(-(MAX_COMMITS - 1))]
@@ -581,8 +585,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
         return newHistory
       })
 
-      // Move to the new commit
-      setCurrentCommitIndex(prev => Math.min(prev + 1, MAX_COMMITS - 1))
+      // Move to the new commit (which is now at currentCommitIndex + 1)
+      setCurrentCommitIndex(currentCommitIndex + 1)
 
       console.log('[FeatureSplitView] Created new commit, history length:', tagCommitHistory.length + 1)
     }, 0)

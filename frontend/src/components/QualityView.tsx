@@ -26,11 +26,20 @@ import '../styles/ThresholdTaggingPanel.css'
 type SelectionState = 'selected' | 'rejected'
 type SelectionSource = 'manual' | 'auto'
 
+// Counts stored at commit time for hover preview
+export interface QualityCommitCounts {
+  wellExplained: number
+  needRevision: number
+  unsure: number
+  total: number
+}
+
 export interface QualityTagCommit {
   id: number
   type: 'initial' | 'apply' | 'tagAll'
   featureSelectionStates: Map<number, SelectionState>
   featureSelectionSources: Map<number, SelectionSource>
+  counts: QualityCommitCounts
 }
 
 // Maximum number of commits to keep (oldest auto-removed)
@@ -62,6 +71,11 @@ const QualityView: React.FC<QualityViewProps> = ({
   const activationExamples = useVisualizationStore(state => state.activationExamples)
   const toggleFeatureSelection = useVisualizationStore(state => state.toggleFeatureSelection)
 
+  // Stage 2 revisiting state
+  const isRevisitingStage2 = useVisualizationStore(state => state.isRevisitingStage2)
+  const stage2FinalCommit = useVisualizationStore(state => state.stage2FinalCommit)
+  const setStage2FinalCommit = useVisualizationStore(state => state.setStage2FinalCommit)
+
   // Local state
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0)
   const [activeListSource, setActiveListSource] = useState<'all' | 'reject' | 'select'>('all')
@@ -79,9 +93,35 @@ const QualityView: React.FC<QualityViewProps> = ({
   // COMMIT HISTORY STATE - Save and restore tagging state snapshots
   // ============================================================================
   const [tagCommitHistory, setTagCommitHistory] = useState<QualityTagCommit[]>([
-    { id: 0, type: 'initial', featureSelectionStates: new Map(), featureSelectionSources: new Map() }
+    { id: 0, type: 'initial', featureSelectionStates: new Map(), featureSelectionSources: new Map(), counts: { wellExplained: 0, needRevision: 0, unsure: 0, total: 0 } }
   ])
   const [currentCommitIndex, setCurrentCommitIndex] = useState(0)
+
+  // ============================================================================
+  // STAGE 2 REVISITING - Restore state when returning from Stage 3+
+  // ============================================================================
+  useEffect(() => {
+    if (isRevisitingStage2 && stage2FinalCommit) {
+      console.log('[QualityView] Revisiting Stage 2, restoring from saved commit')
+
+      const restoredCommit: QualityTagCommit = {
+        id: 1,
+        type: 'tagAll',
+        featureSelectionStates: new Map(stage2FinalCommit.featureSelectionStates),
+        featureSelectionSources: new Map(stage2FinalCommit.featureSelectionSources),
+        counts: stage2FinalCommit.counts || { wellExplained: 0, needRevision: 0, unsure: 0, total: 0 }
+      }
+
+      setTagCommitHistory([
+        { id: 0, type: 'initial', featureSelectionStates: new Map(), featureSelectionSources: new Map(), counts: { wellExplained: 0, needRevision: 0, unsure: 0, total: 0 } },
+        restoredCommit
+      ])
+      setCurrentCommitIndex(1)
+
+      // Restore feature selection states to store
+      restoreFeatureSelectionStates(stage2FinalCommit.featureSelectionStates, stage2FinalCommit.featureSelectionSources)
+    }
+  }, [isRevisitingStage2, stage2FinalCommit, restoreFeatureSelectionStates])
 
   // Dependencies for selectedFeatureIds
   const sankeyStructure = leftPanel?.sankeyStructure
@@ -90,12 +130,18 @@ const QualityView: React.FC<QualityViewProps> = ({
 
   // Get selected feature IDs from the selected node/segment
   const selectedFeatureIds = useMemo(() => {
+    // If revisiting Stage 2 and we have stored feature IDs, use those
+    if (isRevisitingStage2 && stage2FinalCommit?.featureIds) {
+      console.log('[QualityView] Using stored Stage 2 feature IDs:', stage2FinalCommit.featureIds.size)
+      return stage2FinalCommit.featureIds
+    }
+
     const _deps = { sankeyStructure, selectedSegment, tableSelectedNodeIds }
     void _deps
     const features = getSelectedNodeFeatures()
     console.log('[QualityView] Sankey segment features:', features?.size || 0)
     return features
-  }, [getSelectedNodeFeatures, sankeyStructure, selectedSegment, tableSelectedNodeIds])
+  }, [getSelectedNodeFeatures, sankeyStructure, selectedSegment, tableSelectedNodeIds, isRevisitingStage2, stage2FinalCommit])
 
   // Filter tableData to only include selected features
   const filteredTableData = useMemo(() => {
@@ -151,6 +197,25 @@ const QualityView: React.FC<QualityViewProps> = ({
     defaultLabel: 'Quality score',
     defaultDirection: 'asc'
   })
+
+  // Helper function to compute quality counts from featureSelectionStates
+  const getQualityCounts = useCallback((): QualityCommitCounts => {
+    let wellExplained = 0, needRevision = 0, unsure = 0
+
+    featureList.forEach((f: typeof featureList[0]) => {
+      const state = featureSelectionStates.get(f.featureId)
+      if (state === 'selected') wellExplained++
+      else if (state === 'rejected') needRevision++
+      else unsure++
+    })
+
+    return {
+      wellExplained,
+      needRevision,
+      unsure,
+      total: featureList.length
+    }
+  }, [featureList, featureSelectionStates])
 
   // Pagination for the top row list
   const totalPages = Math.max(1, Math.ceil(sortedFeatures.length / ITEMS_PER_PAGE))
@@ -512,12 +577,14 @@ const QualityView: React.FC<QualityViewProps> = ({
 
   const handleApplyTags = useCallback(() => {
     // 1. Save current state to current commit before applying new tags
+    const currentCounts = getQualityCounts()
     setTagCommitHistory(prev => {
       const updated = [...prev]
       updated[currentCommitIndex] = {
         ...updated[currentCommitIndex],
         featureSelectionStates: new Map(featureSelectionStates),
-        featureSelectionSources: new Map(featureSelectionSources)
+        featureSelectionSources: new Map(featureSelectionSources),
+        counts: currentCounts
       }
       return updated
     })
@@ -528,22 +595,44 @@ const QualityView: React.FC<QualityViewProps> = ({
     // 3. Create a new commit with the updated state
     setTimeout(() => {
       const store = useVisualizationStore.getState()
+      // Recompute counts after apply
+      let wellExplained = 0, needRevision = 0, unsure = 0
+      featureList.forEach((f: typeof featureList[0]) => {
+        const state = store.featureSelectionStates.get(f.featureId)
+        if (state === 'selected') wellExplained++
+        else if (state === 'rejected') needRevision++
+        else unsure++
+      })
+      const newCounts: QualityCommitCounts = {
+        wellExplained,
+        needRevision,
+        unsure,
+        total: featureList.length
+      }
+
       const newCommit: QualityTagCommit = {
         id: tagCommitHistory.length,
         type: 'apply',
         featureSelectionStates: new Map(store.featureSelectionStates),
-        featureSelectionSources: new Map(store.featureSelectionSources)
+        featureSelectionSources: new Map(store.featureSelectionSources),
+        counts: newCounts
       }
 
       setTagCommitHistory(prev => {
-        let newHistory = [...prev, newCommit]
+        // Truncate history after current commit (remove "future" commits)
+        // Then add the new commit - this implements branching behavior
+        const truncated = prev.slice(0, currentCommitIndex + 1)
+        let newHistory = [...truncated, newCommit]
+
+        // Trim history to MAX_COMMITS if needed (remove oldest, keep initial)
         if (newHistory.length > MAX_COMMITS) {
           newHistory = [newHistory[0], ...newHistory.slice(-(MAX_COMMITS - 1))]
         }
         return newHistory
       })
 
-      setCurrentCommitIndex(prev => Math.min(prev + 1, MAX_COMMITS - 1))
+      // Move to the new commit (which is now at currentCommitIndex + 1)
+      setCurrentCommitIndex(currentCommitIndex + 1)
 
       console.log('[QualityView] Created new commit, history length:', tagCommitHistory.length + 1)
     }, 0)
@@ -552,7 +641,7 @@ const QualityView: React.FC<QualityViewProps> = ({
     setSortMode('decisionMargin')
     setCurrentFeatureIndex(0)
     setActiveListSource('all')
-  }, [applySimilarityTags, featureSelectionStates, featureSelectionSources, currentCommitIndex, tagCommitHistory.length, setSortMode])
+  }, [applySimilarityTags, featureSelectionStates, featureSelectionSources, currentCommitIndex, tagCommitHistory.length, setSortMode, getQualityCounts, featureList])
 
   // Handle commit circle click - restore state from that commit
   const handleCommitClick = useCallback((commitIndex: number) => {
@@ -597,12 +686,15 @@ const QualityView: React.FC<QualityViewProps> = ({
   const handleTagAllNeedRevision = useCallback(() => {
     console.log('[TagAll] Need Revision option clicked')
 
+    // Save current commit with counts
+    const currentCounts = getQualityCounts()
     setTagCommitHistory(prev => {
       const updated = [...prev]
       updated[currentCommitIndex] = {
         ...updated[currentCommitIndex],
         featureSelectionStates: new Map(featureSelectionStates),
-        featureSelectionSources: new Map(featureSelectionSources)
+        featureSelectionSources: new Map(featureSelectionSources),
+        counts: currentCounts
       }
       return updated
     })
@@ -623,11 +715,25 @@ const QualityView: React.FC<QualityViewProps> = ({
 
     restoreFeatureSelectionStates(newStates, newSources)
 
+    // Compute counts for new commit (all untagged -> needRevision)
+    let wellExplained = 0, needRevision = 0
+    newStates.forEach((state) => {
+      if (state === 'selected') wellExplained++
+      else if (state === 'rejected') needRevision++
+    })
+    const commitCounts: QualityCommitCounts = {
+      wellExplained,
+      needRevision,
+      unsure: 0,  // All are now tagged
+      total: featureList.length
+    }
+
     const newCommit: QualityTagCommit = {
       id: tagCommitHistory.length,
       type: 'tagAll',
       featureSelectionStates: new Map(newStates),
-      featureSelectionSources: new Map(newSources)
+      featureSelectionSources: new Map(newSources),
+      counts: commitCounts
     }
 
     setTagCommitHistory(prev => {
@@ -638,18 +744,29 @@ const QualityView: React.FC<QualityViewProps> = ({
       return newHistory
     })
     setCurrentCommitIndex(prev => Math.min(prev + 1, MAX_COMMITS - 1))
-  }, [featureList, featureSelectionStates, featureSelectionSources, restoreFeatureSelectionStates, currentCommitIndex, tagCommitHistory.length])
+
+    // Save to global store for potential Stage 2 revisit from Stage 3+
+    setStage2FinalCommit({
+      featureSelectionStates: new Map(newStates),
+      featureSelectionSources: new Map(newSources),
+      featureIds: selectedFeatureIds ? new Set(selectedFeatureIds) : new Set(),
+      counts: commitCounts
+    })
+  }, [featureList, featureSelectionStates, featureSelectionSources, restoreFeatureSelectionStates, currentCommitIndex, tagCommitHistory.length, getQualityCounts, setStage2FinalCommit, selectedFeatureIds])
 
   // Handle Tag All - By Decision Boundary
   const handleTagAllByBoundary = useCallback(() => {
     console.log('[TagAll] By Decision Boundary (score=0) option clicked')
 
+    // Save current commit with counts
+    const currentCounts = getQualityCounts()
     setTagCommitHistory(prev => {
       const updated = [...prev]
       updated[currentCommitIndex] = {
         ...updated[currentCommitIndex],
         featureSelectionStates: new Map(featureSelectionStates),
-        featureSelectionSources: new Map(featureSelectionSources)
+        featureSelectionSources: new Map(featureSelectionSources),
+        counts: currentCounts
       }
       return updated
     })
@@ -688,11 +805,25 @@ const QualityView: React.FC<QualityViewProps> = ({
 
     restoreFeatureSelectionStates(newStates, newSources)
 
+    // Compute counts for new commit
+    let wellExplained = 0, needRevision = 0
+    newStates.forEach((state) => {
+      if (state === 'selected') wellExplained++
+      else if (state === 'rejected') needRevision++
+    })
+    const commitCounts: QualityCommitCounts = {
+      wellExplained,
+      needRevision,
+      unsure: 0,  // All are now tagged
+      total: featureList.length
+    }
+
     const newCommit: QualityTagCommit = {
       id: tagCommitHistory.length,
       type: 'tagAll',
       featureSelectionStates: new Map(newStates),
-      featureSelectionSources: new Map(newSources)
+      featureSelectionSources: new Map(newSources),
+      counts: commitCounts
     }
 
     setTagCommitHistory(prev => {
@@ -703,7 +834,15 @@ const QualityView: React.FC<QualityViewProps> = ({
       return newHistory
     })
     setCurrentCommitIndex(prev => Math.min(prev + 1, MAX_COMMITS - 1))
-  }, [featureList, featureSelectionStates, featureSelectionSources, similarityScores, restoreFeatureSelectionStates, currentCommitIndex, tagCommitHistory.length])
+
+    // Save to global store for potential Stage 2 revisit from Stage 3+
+    setStage2FinalCommit({
+      featureSelectionStates: new Map(newStates),
+      featureSelectionSources: new Map(newSources),
+      featureIds: selectedFeatureIds ? new Set(selectedFeatureIds) : new Set(),
+      counts: commitCounts
+    })
+  }, [featureList, featureSelectionStates, featureSelectionSources, similarityScores, restoreFeatureSelectionStates, currentCommitIndex, tagCommitHistory.length, getQualityCounts, setStage2FinalCommit, selectedFeatureIds])
 
   // Unified Tag All handler
   const handleTagAll = useCallback((method: 'left' | 'byBoundary') => {
@@ -793,25 +932,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                       </div>
                       <div className="legend-item">
                         <span className="legend-sample legend-sample--intra">token</span>:
-                        <span className="legend-label">Within-Feature Pattern</span>
-                      </div>
-                    </div>
-                    {/* Separator */}
-                    <div className="quality-view__legend-separator" />
-                    {/* Explanation highlight legend */}
-                    <div className="quality-view__legend">
-                      <span className="legend-label">Semantic similarity:</span>
-                      <div className="legend-item">
-                        <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.HIGH }} />
-                        <span className="legend-label">≥0.85</span>
-                      </div>
-                      <div className="legend-item">
-                        <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.MEDIUM }} />
-                        <span className="legend-label">≥0.70</span>
-                      </div>
-                      <div className="legend-item">
-                        <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.LOW }} />
-                        <span className="legend-label">≥0.50</span>
+                        <span className="legend-label">Feature-Specific N-gram</span>
                       </div>
                     </div>
                   </div>
@@ -835,8 +956,25 @@ const QualityView: React.FC<QualityViewProps> = ({
 
                   {/* Explanation Row - Left grid + Explanations */}
                   <div className="quality-view__explanation-row">
+                    {/* Semantic similarity legend - top right */}
+                    <div className="quality-view__explanation-legend">
+                      <span className="legend-label">Semantic similarity:</span>
+                      <div className="legend-item">
+                        <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.HIGH }} />
+                        <span className="legend-label">≥0.85</span>
+                      </div>
+                      <div className="legend-item">
+                        <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.MEDIUM }} />
+                        <span className="legend-label">≥0.70</span>
+                      </div>
+                      <div className="legend-item">
+                        <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.LOW }} />
+                        <span className="legend-label">≥0.50</span>
+                      </div>
+                    </div>
                     {/* Left: Explainer comparison grid */}
                     <div className="quality-view__explanation-left">
+                      <h4 className="quality-view__subheader">Explanation-wise</h4>
                       <ExplainerComparisonGrid
                         cellGap={2}
                         explainerIds={tableData?.explainer_ids || []}
@@ -851,40 +989,43 @@ const QualityView: React.FC<QualityViewProps> = ({
 
                     {/* Explanation Section - All 3 Explainers (aligned with grid triangles) */}
                     <div className="quality-view__explanation-section">
-                      {allExplainerExplanations.length > 0 ? (
-                        allExplainerExplanations.map(({ explainerId, index, highlightedExplanation, explanationText }: {
-                          explainerId: string
-                          index: number
-                          highlightedExplanation: { segments: Array<{ text: string; highlight: boolean }> } | null
-                          explanationText: string | null
-                        }) => (
-                          <div
-                            key={explainerId}
-                            className="quality-view__explainer-block"
-                            style={{ top: `${triangleYPositions[index]}%` }}
-                          >
-                            <span
-                              className={`quality-view__explainer-name quality-view__explainer-name--${explainerId}`}
+                      <h4 className="quality-view__subheader">Segment-wise</h4>
+                      <div className="quality-view__explanation-content">
+                        {allExplainerExplanations.length > 0 ? (
+                          allExplainerExplanations.map(({ explainerId, index, highlightedExplanation, explanationText }: {
+                            explainerId: string
+                            index: number
+                            highlightedExplanation: { segments: Array<{ text: string; highlight: boolean }> } | null
+                            explanationText: string | null
+                          }) => (
+                            <div
+                              key={explainerId}
+                              className="quality-view__explainer-block"
+                              style={{ top: `${triangleYPositions[index]}%` }}
                             >
-                              {getExplainerDisplayName(explainerId)}
-                            </span>
-                            <span className="quality-view__explainer-text">
-                              {highlightedExplanation?.segments ? (
-                                <HighlightedExplanation
-                                  segments={highlightedExplanation.segments}
-                                  truncated={false}
-                                />
-                              ) : (
-                                <span className="quality-view__no-explanation">
-                                  {explanationText || 'No explanation available'}
-                                </span>
-                              )}
-                            </span>
-                          </div>
-                        ))
-                      ) : (
-                        <span className="quality-view__no-explanation">No explanations available</span>
-                      )}
+                              <span
+                                className={`quality-view__explainer-name quality-view__explainer-name--${explainerId}`}
+                              >
+                                {getExplainerDisplayName(explainerId)}
+                              </span>
+                              <span className="quality-view__explainer-text">
+                                {highlightedExplanation?.segments ? (
+                                  <HighlightedExplanation
+                                    segments={highlightedExplanation.segments}
+                                    truncated={false}
+                                  />
+                                ) : (
+                                  <span className="quality-view__no-explanation">
+                                    {explanationText || 'No explanation available'}
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <span className="quality-view__no-explanation">No explanations available</span>
+                        )}
+                      </div>
                     </div>
                   </div>
 

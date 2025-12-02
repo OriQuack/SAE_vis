@@ -5,9 +5,17 @@
  * Stage 1: Feature Splitting (decoder_similarity)
  * Stage 2: Quality Assessment (quality_score)
  * Stage 3: Cause Determination (pre-defined groups)
+ *
+ * NOTE: This file derives values from TAG_CATEGORIES in constants.ts
+ * to maintain a single source of truth for metrics, thresholds, and tags.
  */
 
-import { TAG_CATEGORIES } from './constants'
+import {
+  TAG_CATEGORIES,
+  TAG_CATEGORY_FEATURE_SPLITTING,
+  TAG_CATEGORY_QUALITY,
+  TAG_CATEGORY_CAUSE
+} from './constants'
 
 export interface StageConfig {
   stageNumber: 1 | 2 | 3
@@ -20,38 +28,48 @@ export interface StageConfig {
   terminalTags: string[]     // Which tags terminate (don't continue to next stage)
 }
 
+// Helper to get default threshold from TAG_CATEGORIES
+const getDefaultThreshold = (categoryId: string): number | null => {
+  const category = TAG_CATEGORIES[categoryId]
+  if (!category || !category.defaultThresholds || category.defaultThresholds.length === 0) {
+    return null
+  }
+  return category.defaultThresholds[0]
+}
+
 /**
  * Fixed stage configurations for the 3-stage Sankey progression
+ * Values derived from TAG_CATEGORIES in constants.ts
  */
 export const STAGE_CONFIGS: StageConfig[] = [
   {
     stageNumber: 1,
-    categoryId: 'feature_splitting',
-    label: 'Detect Feature Splitting',
-    metric: 'decoder_similarity',
-    defaultThreshold: 0.4,
-    tags: ['Monosemantic', 'Fragmented'],
-    parentTag: null,  // Stage 1 starts from root
+    categoryId: TAG_CATEGORY_FEATURE_SPLITTING,
+    label: TAG_CATEGORIES[TAG_CATEGORY_FEATURE_SPLITTING].label,
+    metric: TAG_CATEGORIES[TAG_CATEGORY_FEATURE_SPLITTING].metric,
+    defaultThreshold: getDefaultThreshold(TAG_CATEGORY_FEATURE_SPLITTING),
+    tags: TAG_CATEGORIES[TAG_CATEGORY_FEATURE_SPLITTING].tags as unknown as string[],
+    parentTag: TAG_CATEGORIES[TAG_CATEGORY_FEATURE_SPLITTING].parentTag,
     terminalTags: ['Fragmented']  // Fragmented doesn't continue
   },
   {
     stageNumber: 2,
-    categoryId: 'quality',
-    label: 'Assess Quality',
-    metric: 'quality_score',
-    defaultThreshold: 0.7,
-    tags: ['Need Revision', 'Well-Explained'],
-    parentTag: 'Monosemantic',  // Only Monosemantic continues from stage 1
+    categoryId: TAG_CATEGORY_QUALITY,
+    label: TAG_CATEGORIES[TAG_CATEGORY_QUALITY].label,
+    metric: TAG_CATEGORIES[TAG_CATEGORY_QUALITY].metric,
+    defaultThreshold: getDefaultThreshold(TAG_CATEGORY_QUALITY),
+    tags: TAG_CATEGORIES[TAG_CATEGORY_QUALITY].tags as unknown as string[],
+    parentTag: TAG_CATEGORIES[TAG_CATEGORY_QUALITY].parentTag,
     terminalTags: ['Well-Explained']  // Well-Explained doesn't continue
   },
   {
     stageNumber: 3,
-    categoryId: 'cause',
-    label: 'Determine Cause',
-    metric: null,  // No metric (pre-defined groups)
-    defaultThreshold: null,
-    tags: ['Missed Context', 'Missed Lexicon', 'Noisy Activation', 'Unsure'],
-    parentTag: 'Need Revision',  // Only Need Revision continues from stage 2
+    categoryId: TAG_CATEGORY_CAUSE,
+    label: TAG_CATEGORIES[TAG_CATEGORY_CAUSE].label,
+    metric: TAG_CATEGORIES[TAG_CATEGORY_CAUSE].metric,
+    defaultThreshold: getDefaultThreshold(TAG_CATEGORY_CAUSE),
+    tags: TAG_CATEGORIES[TAG_CATEGORY_CAUSE].tags as unknown as string[],
+    parentTag: TAG_CATEGORIES[TAG_CATEGORY_CAUSE].parentTag,
     terminalTags: []  // All cause tags are terminal (no stage 4)
   }
 ]

@@ -148,7 +148,7 @@ function assignConstantColors(): void {
         case 'Missed Context':
           colors[tag] = OKABE_ITO_PALETTE.VERMILLION  // #0072B2 - Blue
           break
-        case 'Missed Lexicon':
+        case 'Missed N-gram':
           colors[tag] = OKABE_ITO_PALETTE.YELLOW  // #E69F00 - Orange
           break
         case 'Noisy Activation':
@@ -251,7 +251,8 @@ function assignTreeColors(): void {
   const colorize = TreeColors('sub')
     .rootColor({ h: 0, c: 0, l: 70 })
     .range([205, 565])
-  colorize(root)
+  // Cast to any since TreeColors expects its own internal TreeNode type
+  colorize(root as unknown as Parameters<typeof colorize>[0])
 
   // Extract colors and populate TAG_CATEGORIES
   function extractColors(node: TreeColorsNode) {

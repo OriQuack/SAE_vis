@@ -19,7 +19,8 @@ import type { D3SankeyNode, D3SankeyLink } from '../types'
 import {
   PANEL_LEFT,
   PANEL_RIGHT,
-  TAG_CATEGORY_FEATURE_SPLITTING
+  TAG_CATEGORY_FEATURE_SPLITTING,
+  UNSURE_GRAY
 } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import { SankeyOverlay } from './SankeyOverlay'
@@ -135,6 +136,18 @@ const SankeyNode: React.FC<{
 
   const width = node.x1 - node.x0
   const height = node.y1 - node.y0
+  const isRoot = node.id === 'root'
+  const isMonosemantic = node.id === 'monosemantic'
+
+  // Get fill color based on node type
+  const getFillColor = () => {
+    if (isRoot) return UNSURE_GRAY
+    if (isMonosemantic) {
+      const monosematicColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Monosemantic')
+      return monosematicColor || 'none'
+    }
+    return 'none'
+  }
 
   return (
     <g className="sankey-node">
@@ -143,7 +156,9 @@ const SankeyNode: React.FC<{
         y={node.y0}
         width={width}
         height={height}
-        fill="none"
+        rx={2}
+        fill={getFillColor()}
+        fillOpacity={isMonosemantic ? 0.3 : 1}
         stroke={isSelected ? '#2563eb' : '#000000'}
         strokeWidth={isSelected ? 3 : 1}
         style={{
@@ -272,6 +287,7 @@ const VerticalBarSankeyNode: React.FC<{
                 y={segment.y}
                 width={(node.x1 || 0) - (node.x0 || 0)}
                 height={segment.height}
+                rx={2}
                 fill={segment.color}
                 opacity={0.85}
                 stroke="#ffffff"
@@ -297,6 +313,7 @@ const VerticalBarSankeyNode: React.FC<{
                   y={segment.y}
                   width={(node.x1 || 0) - (node.x0 || 0)}
                   height={segment.height}
+                  rx={2}
                   fill="url(#terminal-stripes)"
                   stroke="none"
                   pointerEvents="none"
@@ -317,6 +334,7 @@ const VerticalBarSankeyNode: React.FC<{
             y={Math.min(...layout.subNodes.map(sn => sn.y))}
             width={layout.totalWidth}
             height={Math.max(...layout.subNodes.map(sn => sn.y + sn.height)) - Math.min(...layout.subNodes.map(sn => sn.y))}
+            rx={2}
             fill={node.colorHex || layout.subNodes[0].color}
             opacity={0.85}
             stroke="none"
@@ -337,6 +355,7 @@ const VerticalBarSankeyNode: React.FC<{
                 y={segment.y - 2}
                 width={((node.x1 || 0) - (node.x0 || 0)) + 4}
                 height={segment.height + 4}
+                rx={2}
                 fill="none"
                 stroke="#2563eb"
                 strokeWidth={3}
@@ -376,6 +395,7 @@ const VerticalBarSankeyNode: React.FC<{
           y={layout.scrollIndicator.y}
           width={layout.totalWidth}
           height={layout.scrollIndicator.height}
+          rx={2}
           fill="rgba(30, 41, 59, 0.25)"
           stroke="#4b5563"
           strokeWidth={1}

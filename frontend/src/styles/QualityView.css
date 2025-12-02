@@ -239,16 +239,52 @@
   border: 1px solid #e5e7eb;
   border-radius: 4px;
   padding: 6px;
+  position: relative;
+}
+
+/* Semantic similarity legend - positioned top right */
+.quality-view__explanation-legend {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #6b7280;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 2px 6px;
+  border-radius: 4px;
+  z-index: 10;
+}
+
+/* Subheader for explanation sections */
+.quality-view__subheader {
+  margin: 0 0 4px 0;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
 }
 
 /* Left panel for explainer comparison grid */
 .quality-view__explanation-left {
   display: flex;
-  align-items: stretch;
+  flex-direction: column;
+  align-items: center;
   justify-content: flex-start;
   flex-shrink: 0;
   min-width: 0;
   min-height: 0;
+}
+
+/* Center header above grid */
+.quality-view__explanation-left .quality-view__subheader {
+  align-self: center;
+  text-align: center;
 }
 
 /* ============================================================================
@@ -256,11 +292,28 @@
  * ============================================================================ */
 
 .quality-view__explanation-section {
+  display: flex;
+  flex-direction: column;
   position: relative;
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
   flex: 1;
+}
+
+/* Position header at start of explanation section */
+.quality-view__explanation-section .quality-view__subheader {
+  position: relative;
+  z-index: 5;
+  align-self: flex-start;
+  margin-left: 6px;
+}
+
+/* Content wrapper for absolute-positioned explainer blocks */
+.quality-view__explanation-content {
+  position: relative;
+  flex: 1;
+  min-height: 0;
 }
 
 /* Scrollbar for explanation section */
@@ -298,8 +351,8 @@
   font-weight: 600;
   white-space: nowrap;
   flex-shrink: 0;
-  background-color: #e5e7eb;
-  color: #374151;
+  background-color: var(--badge-background);
+  color: var(--badge-text);
   padding: 2px 6px;
   border-radius: 4px;
 }

@@ -20,9 +20,9 @@
 }
 
 .grid-cell--triangle {
-  fill: #e5e7eb;
+  fill: var(--badge-background);
 }
 
 .grid-cell--triangle:hover {
-  fill: #d1d5db;
+  fill: var(--text-secondary);
 }

@@ -52,6 +52,22 @@ export interface Stage1FinalCommit {
   counts?: CommitCounts    // Optional: Counts at commit time for hover preview
 }
 
+// Stage 2 commit counts for hover preview
+export interface QualityCommitCounts {
+  wellExplained: number
+  needRevision: number
+  unsure: number
+  total: number
+}
+
+// Stage 2 commit type for revisiting state restoration
+export interface Stage2FinalCommit {
+  featureSelectionStates: Map<number, 'selected' | 'rejected'>
+  featureSelectionSources: Map<number, 'manual' | 'auto'>
+  featureIds: Set<number>  // Original Stage 2 feature IDs
+  counts?: QualityCommitCounts
+}
+
 interface AppState {
   // Data state - now split for left and right panels
   leftPanel: PanelState
@@ -275,6 +291,12 @@ interface AppState {
   setStage1FinalCommit: (commit: Stage1FinalCommit | null) => void
   setIsRevisitingStage1: (value: boolean) => void
 
+  // Stage 2 revisiting state (for restoring state when returning from Stage 3+)
+  isRevisitingStage2: boolean
+  stage2FinalCommit: Stage2FinalCommit | null
+  setStage2FinalCommit: (commit: Stage2FinalCommit | null) => void
+  setIsRevisitingStage2: (value: boolean) => void
+
   // Stage table actions
   setActiveStageNode: (nodeId: string | null, category?: string | null) => void
   clearActiveStageNode: () => void
@@ -395,6 +417,10 @@ const initialState = {
   // Stage 1 revisiting state
   isRevisitingStage1: false,
   stage1FinalCommit: null,
+
+  // Stage 2 revisiting state
+  isRevisitingStage2: false,
+  stage2FinalCommit: null,
 
   // Hover state
   hoveredAlluvialNodeId: null,
@@ -557,6 +583,17 @@ export const useStore = create<AppState>((set, get) => {
   setIsRevisitingStage1: (value: boolean) => {
     set({ isRevisitingStage1: value })
     console.log('[Store.setIsRevisitingStage1] Set revisiting flag:', value)
+  },
+
+  // Stage 2 revisiting state actions
+  setStage2FinalCommit: (commit: Stage2FinalCommit | null) => {
+    set({ stage2FinalCommit: commit })
+    console.log('[Store.setStage2FinalCommit] Saved Stage 2 final commit:', commit ? commit.featureSelectionStates.size : 0, 'features')
+  },
+
+  setIsRevisitingStage2: (value: boolean) => {
+    set({ isRevisitingStage2: value })
+    console.log('[Store.setIsRevisitingStage2] Set revisiting flag:', value)
   },
 
   // Feature selection actions (used by TablePanel checkboxes)

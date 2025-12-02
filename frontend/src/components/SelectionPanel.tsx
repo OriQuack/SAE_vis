@@ -206,9 +206,15 @@ const SimpleSelectionBar: React.FC<SimpleSelectionBarProps> = ({
 }
 
 // Counts stored at commit time for hover preview
+// Supports both pair mode (fragmented/monosemantic) and feature mode (wellExplained/needRevision)
 interface CommitCounts {
-  fragmented: number
-  monosemantic: number
+  // Stage 1 (pair mode) terminology
+  fragmented?: number
+  monosemantic?: number
+  // Stage 2 (feature mode) terminology
+  wellExplained?: number
+  needRevision?: number
+  // Common
   unsure: number
   total: number
 }
@@ -642,8 +648,8 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
             pairCount={pairCount}
           />
 
-          {/* Commit History Circles - shown in pair mode when history exists */}
-          {mode === 'pair' && commitHistory && commitHistory.length > 0 && onCommitClick && (
+          {/* Commit History Circles - shown in pair mode or feature mode when history exists */}
+          {(mode === 'pair' || mode === 'feature') && commitHistory && commitHistory.length > 0 && onCommitClick && (
             <div className="commit-history">
               <div className="commit-history__label">History</div>
               <div className="commit-history__circles">
@@ -685,51 +691,106 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
                   {(() => {
                     const counts = commitHistory[hoveredCommitIndex].counts!
                     const total = counts.total || 1
-                    const modeColors = getSelectionColors('pair')
-                    // Order: monosemantic (top) → unsure (middle) → fragmented (bottom)
-                    const monosematicPct = (counts.monosemantic / total) * 100
-                    const unsurePct = (counts.unsure / total) * 100
-                    const fragmentedPct = (counts.fragmented / total) * 100
-                    return (
-                      <div className="commit-hover-tooltip__content">
-                        {/* Mini vertical bar */}
-                        <div className="commit-hover-tooltip__bar">
-                          {counts.monosemantic > 0 && (
-                            <div
-                              className="commit-hover-tooltip__bar-segment"
-                              style={{ height: `${monosematicPct}%`, backgroundColor: modeColors.rejected }}
-                            />
-                          )}
-                          {counts.unsure > 0 && (
-                            <div
-                              className="commit-hover-tooltip__bar-segment"
-                              style={{ height: `${unsurePct}%`, backgroundColor: modeColors.unsure }}
-                            />
-                          )}
-                          {counts.fragmented > 0 && (
-                            <div
-                              className="commit-hover-tooltip__bar-segment"
-                              style={{ height: `${fragmentedPct}%`, backgroundColor: modeColors.confirmed }}
-                            />
-                          )}
+                    const modeColors = getSelectionColors(mode)
+
+                    // Mode-specific counts and labels
+                    if (mode === 'pair') {
+                      // Stage 1: fragmented/monosemantic terminology
+                      const monosematicCount = counts.monosemantic ?? 0
+                      const fragmentedCount = counts.fragmented ?? 0
+                      const monosematicPct = (monosematicCount / total) * 100
+                      const unsurePct = (counts.unsure / total) * 100
+                      const fragmentedPct = (fragmentedCount / total) * 100
+
+                      return (
+                        <div className="commit-hover-tooltip__content">
+                          {/* Mini vertical bar - order: rejected (top) → unsure (middle) → confirmed (bottom) */}
+                          <div className="commit-hover-tooltip__bar">
+                            {monosematicCount > 0 && (
+                              <div
+                                className="commit-hover-tooltip__bar-segment"
+                                style={{ height: `${monosematicPct}%`, backgroundColor: modeColors.rejected }}
+                              />
+                            )}
+                            {counts.unsure > 0 && (
+                              <div
+                                className="commit-hover-tooltip__bar-segment"
+                                style={{ height: `${unsurePct}%`, backgroundColor: modeColors.unsure }}
+                              />
+                            )}
+                            {fragmentedCount > 0 && (
+                              <div
+                                className="commit-hover-tooltip__bar-segment"
+                                style={{ height: `${fragmentedPct}%`, backgroundColor: modeColors.confirmed }}
+                              />
+                            )}
+                          </div>
+                          {/* Text counts - order matches bar */}
+                          <div className="commit-hover-tooltip__counts">
+                            <span className="commit-hover-tooltip__count">
+                              <span className="commit-hover-tooltip__dot" style={{ backgroundColor: modeColors.rejected }} />
+                              Monosemantic: {monosematicCount}
+                            </span>
+                            <span className="commit-hover-tooltip__count">
+                              <span className="commit-hover-tooltip__dot" style={{ backgroundColor: modeColors.unsure }} />
+                              Unsure: {counts.unsure}
+                            </span>
+                            <span className="commit-hover-tooltip__count">
+                              <span className="commit-hover-tooltip__dot" style={{ backgroundColor: modeColors.confirmed }} />
+                              Fragmented: {fragmentedCount}
+                            </span>
+                          </div>
                         </div>
-                        {/* Text counts - order matches bar: monosemantic (top) → unsure → fragmented (bottom) */}
-                        <div className="commit-hover-tooltip__counts">
-                          <span className="commit-hover-tooltip__count">
-                            <span className="commit-hover-tooltip__dot" style={{ backgroundColor: modeColors.rejected }} />
-                            Monosemantic: {counts.monosemantic}
-                          </span>
-                          <span className="commit-hover-tooltip__count">
-                            <span className="commit-hover-tooltip__dot" style={{ backgroundColor: modeColors.unsure }} />
-                            Unsure: {counts.unsure}
-                          </span>
-                          <span className="commit-hover-tooltip__count">
-                            <span className="commit-hover-tooltip__dot" style={{ backgroundColor: modeColors.confirmed }} />
-                            Fragmented: {counts.fragmented}
-                          </span>
+                      )
+                    } else {
+                      // Stage 2 (feature mode): wellExplained/needRevision terminology
+                      const needRevisionCount = counts.needRevision ?? 0
+                      const wellExplainedCount = counts.wellExplained ?? 0
+                      const needRevisionPct = (needRevisionCount / total) * 100
+                      const unsurePct = (counts.unsure / total) * 100
+                      const wellExplainedPct = (wellExplainedCount / total) * 100
+
+                      return (
+                        <div className="commit-hover-tooltip__content">
+                          {/* Mini vertical bar - order: rejected (top) → unsure (middle) → confirmed (bottom) */}
+                          <div className="commit-hover-tooltip__bar">
+                            {needRevisionCount > 0 && (
+                              <div
+                                className="commit-hover-tooltip__bar-segment"
+                                style={{ height: `${needRevisionPct}%`, backgroundColor: modeColors.rejected }}
+                              />
+                            )}
+                            {counts.unsure > 0 && (
+                              <div
+                                className="commit-hover-tooltip__bar-segment"
+                                style={{ height: `${unsurePct}%`, backgroundColor: modeColors.unsure }}
+                              />
+                            )}
+                            {wellExplainedCount > 0 && (
+                              <div
+                                className="commit-hover-tooltip__bar-segment"
+                                style={{ height: `${wellExplainedPct}%`, backgroundColor: modeColors.confirmed }}
+                              />
+                            )}
+                          </div>
+                          {/* Text counts - order matches bar */}
+                          <div className="commit-hover-tooltip__counts">
+                            <span className="commit-hover-tooltip__count">
+                              <span className="commit-hover-tooltip__dot" style={{ backgroundColor: modeColors.rejected }} />
+                              Need Revision: {needRevisionCount}
+                            </span>
+                            <span className="commit-hover-tooltip__count">
+                              <span className="commit-hover-tooltip__dot" style={{ backgroundColor: modeColors.unsure }} />
+                              Unsure: {counts.unsure}
+                            </span>
+                            <span className="commit-hover-tooltip__count">
+                              <span className="commit-hover-tooltip__dot" style={{ backgroundColor: modeColors.confirmed }} />
+                              Well-Explained: {wellExplainedCount}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    )
+                      )
+                    }
                   })()}
                 </div>
               )}

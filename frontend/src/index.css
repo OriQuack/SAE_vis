@@ -7,6 +7,24 @@
   color: rgba(255, 255, 255, 0.87);
   background-color: #242424;
 
+  /* ============================================================================
+   * NEUTRAL ICON COLORS - Matches constants.ts NEUTRAL_ICON_COLORS
+   * ============================================================================ */
+  --icon-fill: #6b7280;
+  --icon-stroke: #475569;
+  --icon-light: #94a3b8;
+  --background-light: #f8fafc;
+  --background-medium: #f1f5f9;
+  --border-light: #e2e8f0;
+  --border-medium: #cbd5e1;
+  --badge-background: #475569;
+  --badge-text: #ffffff;
+  --text-primary: #1f2937;
+  --text-secondary: #64748b;
+
+  /* Unsure/untagged color - matches constants.ts UNSURE_GRAY */
+  --unsure-gray: #e0e0e0;
+
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;

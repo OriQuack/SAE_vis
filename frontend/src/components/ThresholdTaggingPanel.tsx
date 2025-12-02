@@ -216,41 +216,49 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
         </button>
       </div>
 
-      {/* Left boundary list (Monosemantic/Need Revision - below reject threshold) */}
-      <ScrollableItemList
-        width={260}
-        height={390}
-        badges={[
-          { label: leftListLabel, count: mode === 'pair' ? `${leftItems.length.toLocaleString()} pairs` : `${leftFeatures.length.toLocaleString()} features` }
-        ]}
-        columnHeader={{ label: 'Decision Margin', sortDirection: 'asc' }}
-        headerStripe={{ type: 'autoReject', mode: mode }}
-        items={(mode === 'pair' ? leftItems : leftFeatures) as PairItemWithMetadata[]}
-        currentIndex={activeListSource === 'reject' ? currentIndex : -1}
-        isActive={activeListSource === 'reject'}
-        renderItem={(item, index) => mode === 'pair'
-          ? renderBoundaryItem(item, index, 'left')
-          : renderFeatureItem(item as unknown as FeatureItemWithMetadata, index, 'left')
-        }
-      />
+      {/* Boundary lists wrapper with subtitle */}
+      <div className="threshold-tagging-panel__lists-section">
+        <div className="threshold-tagging-panel__lists-subtitle">
+          {mode === 'pair' ? 'Boundary Feature Pairs' : 'Boundary Features'}
+        </div>
+        <div className="threshold-tagging-panel__lists-container">
+          {/* Left boundary list (Monosemantic/Need Revision - below reject threshold) */}
+          <ScrollableItemList
+            width={260}
+            height={370}
+            badges={[
+              { label: leftListLabel, count: mode === 'pair' ? `${leftItems.length.toLocaleString()} pairs` : `${leftFeatures.length.toLocaleString()} features` }
+            ]}
+            columnHeader={{ label: 'Decision Margin', sortDirection: 'asc' }}
+            headerStripe={{ type: 'autoReject', mode: mode }}
+            items={(mode === 'pair' ? leftItems : leftFeatures) as PairItemWithMetadata[]}
+            currentIndex={activeListSource === 'reject' ? currentIndex : -1}
+            isActive={activeListSource === 'reject'}
+            renderItem={(item, index) => mode === 'pair'
+              ? renderBoundaryItem(item, index, 'left')
+              : renderFeatureItem(item as unknown as FeatureItemWithMetadata, index, 'left')
+            }
+          />
 
-      {/* Right boundary list (Fragmented/Well-Explained - above select threshold) */}
-      <ScrollableItemList
-        width={260}
-        height={390}
-        badges={[
-          { label: rightListLabel, count: mode === 'pair' ? `${rightItems.length.toLocaleString()} pairs` : `${rightFeatures.length.toLocaleString()} features` }
-        ]}
-        columnHeader={{ label: 'Decision Margin', sortDirection: 'asc' }}
-        headerStripe={{ type: 'expand', mode: mode }}
-        items={(mode === 'pair' ? rightItems : rightFeatures) as PairItemWithMetadata[]}
-        currentIndex={activeListSource === 'select' ? currentIndex : -1}
-        isActive={activeListSource === 'select'}
-        renderItem={(item, index) => mode === 'pair'
-          ? renderBoundaryItem(item, index, 'right')
-          : renderFeatureItem(item as unknown as FeatureItemWithMetadata, index, 'right')
-        }
-      />
+          {/* Right boundary list (Fragmented/Well-Explained - above select threshold) */}
+          <ScrollableItemList
+            width={260}
+            height={370}
+            badges={[
+              { label: rightListLabel, count: mode === 'pair' ? `${rightItems.length.toLocaleString()} pairs` : `${rightFeatures.length.toLocaleString()} features` }
+            ]}
+            columnHeader={{ label: 'Decision Margin', sortDirection: 'asc' }}
+            headerStripe={{ type: 'expand', mode: mode }}
+            items={(mode === 'pair' ? rightItems : rightFeatures) as PairItemWithMetadata[]}
+            currentIndex={activeListSource === 'select' ? currentIndex : -1}
+            isActive={activeListSource === 'select'}
+            renderItem={(item, index) => mode === 'pair'
+              ? renderBoundaryItem(item, index, 'right')
+              : renderFeatureItem(item as unknown as FeatureItemWithMetadata, index, 'right')
+            }
+          />
+        </div>
+      </div>
     </div>
   )
 }
