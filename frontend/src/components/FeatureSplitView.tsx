@@ -856,6 +856,12 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             onNavigatePrevious={handleNavigatePrevious}
             onNavigateNext={handleNavigateNext}
             autoAdvance={activeListSource === 'all' && sortMode !== 'decisionMargin'}
+            sortMode={sortMode}
+            isLoading={isPairSimilaritySortLoading}
+            onResetToFirstPair={() => {
+              setCurrentPairIndex(0)
+              setActiveListSource('all')
+            }}
             allPairsListProps={{
               currentPagePairs,
               totalPairCount: pairList.length,

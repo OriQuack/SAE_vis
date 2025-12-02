@@ -87,6 +87,7 @@ function getLLMDisplayName(fullName: string): string {
   if (fullName.includes('Llama')) return 'Llama'
   if (fullName.includes('Qwen')) return 'Qwen'
   if (fullName.includes('openai') || fullName.includes('gpt')) return 'OpenAI'
+  if (fullName.toLowerCase().includes('gemini')) return 'Gemini'
   return fullName.split('/').pop() || fullName
 }
 
@@ -204,7 +205,7 @@ export function calculateFlowLayout(
 
     // Top path: Decoder (text node now) - reduced from 80x30 to 68x24
     { id: 'decoder', label: 'Decoder', x: 150, y: 10, width: 68, height: 24, nodeType: 'text' },
-    { id: 'decoder-similarity', label: 'Decoder Similarity', x: 380, y: 10, width: 110, height: 18, nodeType: 'text' },
+    { id: 'decoder-similarity', label: 'Decoder Similarity', x: 385, y: 10, width: 114, height: 18, nodeType: 'text' },
 
     // Embedder branch (text node now) - reduced from 90x30 to 76x24
     { id: 'embedder', label: 'Embedder', x: 240, y: 45, width: 76, height: 24, nodeType: 'text' },
@@ -212,20 +213,20 @@ export function calculateFlowLayout(
     // Embedding label (rotated, between embedder and embedding outputs) - reduced from 70x15 to 60x13
     { id: 'embedding-label', label: 'Embedding', x: 310, y: 60, width: 60, height: 13, nodeType: 'text' },
 
-    { id: 'semantic-similarity', label: 'Semantic Similarity', x: 380, y: 45, width: 110, height: 18, nodeType: 'text' },
-    { id: 'embedding-score', label: 'Embedding Score', x: 380, y: 80, width: 110, height: 18, nodeType: 'text' },
+    { id: 'semantic-similarity', label: 'Semantic Similarity', x: 385, y: 45, width: 114, height: 18, nodeType: 'text' },
+    { id: 'embedding-score', label: 'Embedding Score', x: 385, y: 80, width: 114, height: 18, nodeType: 'text' },
 
     // Score label (rotated, between scorer and score outputs) - reduced from 50x15 to 42x13
-    { id: 'score-label', label: 'Score', x: 290, y: 130, width: 42, height: 13, nodeType: 'text' },
+    { id: 'score-label', label: 'Score', x: 300, y: 135, width: 42, height: 13, nodeType: 'text' },
 
-    { id: 'fuzz-score', label: 'Fuzz Score', x: 380, y: 105, width: 110, height: 18, nodeType: 'text' },
-    { id: 'detection-score', label: 'Detection Score', x: 380, y: 130, width: 110, height: 18, nodeType: 'text' },
+    { id: 'fuzz-score', label: 'Fuzz Score', x: 385, y: 105, width: 114, height: 18, nodeType: 'text' },
+    { id: 'detection-score', label: 'Detection Score', x: 385, y: 130, width: 114, height: 18, nodeType: 'text' },
 
     // Average operation node (intermediate step showing mean calculation)
-    { id: 'average-op', label: 'μ', x: 510, y: 102, width: 24, height: 24, nodeType: 'text' },
+    { id: 'average-op', label: 'μ', x: 515, y: 102, width: 28, height: 24, nodeType: 'text' },
 
     // Quality Score (final output from average)
-    { id: 'quality-score', label: 'Quality Score', x: 380, y: 155, width: 110, height: 18, nodeType: 'text' }
+    { id: 'quality-score', label: 'Quality Score', x: 385, y: 155, width: 114, height: 18, nodeType: 'text' }
   ]
 
   // Calculate badges for nodes and create final node list
@@ -281,8 +282,8 @@ export function calculateFlowLayout(
   })
 
   // LLM Scorer container positioning
-  const scorerContainerX = 200
-  const scorerStartY = 95
+  const scorerContainerX = 210
+  const scorerStartY = 120
   const scorerItemsHeight = scorerOptions.length * (itemHeight + itemSpacing) - itemSpacing
   const scorerContainerHeight = headerHeight + scorerItemsHeight + containerPadding * 2
 

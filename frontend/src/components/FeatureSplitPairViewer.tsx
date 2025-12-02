@@ -82,6 +82,9 @@ interface FeatureSplitPairViewerProps {
   onNavigatePrevious?: () => void
   onNavigateNext?: () => void
   autoAdvance?: boolean  // Whether to auto-advance to next pair after tagging (default: true)
+  sortMode?: 'default' | 'decisionMargin'  // Current sort mode
+  isLoading?: boolean  // Whether similarity scores are being calculated
+  onResetToFirstPair?: () => void  // Callback to reset to page 1, first pair
 
   // ScrollableItemList props for "All Pairs" list
   allPairsListProps?: {
@@ -110,6 +113,9 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   onNavigatePrevious,
   onNavigateNext,
   autoAdvance = true,
+  sortMode = 'default',
+  isLoading = false,
+  onResetToFirstPair,
   allPairsListProps
 }) => {
   // Constants - must match FeatureSplitView.tsx
@@ -151,8 +157,11 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
         togglePairSelection(currentPair.mainFeatureId, currentPair.similarFeatureId)
         togglePairSelection(currentPair.mainFeatureId, currentPair.similarFeatureId)
       }
-      // Auto-advance to next pair (only if enabled)
-      if (autoAdvance && onNavigateNext && currentPairIndex < pairList.length - 1) {
+      // In decision margin mode, reset to first pair (list will re-sort)
+      if (sortMode === 'decisionMargin' && onResetToFirstPair) {
+        setTimeout(() => onResetToFirstPair(), 150)
+      } else if (autoAdvance && onNavigateNext && currentPairIndex < pairList.length - 1) {
+        // Auto-advance to next pair (only if enabled and not in decision margin mode)
         setTimeout(() => onNavigateNext(), 150)
       }
     }
@@ -174,8 +183,11 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
         // selected -> rejected
         togglePairSelection(currentPair.mainFeatureId, currentPair.similarFeatureId)
       }
-      // Auto-advance to next pair (only if enabled)
-      if (autoAdvance && onNavigateNext && currentPairIndex < pairList.length - 1) {
+      // In decision margin mode, reset to first pair (list will re-sort)
+      if (sortMode === 'decisionMargin' && onResetToFirstPair) {
+        setTimeout(() => onResetToFirstPair(), 150)
+      } else if (autoAdvance && onNavigateNext && currentPairIndex < pairList.length - 1) {
+        // Auto-advance to next pair (only if enabled and not in decision margin mode)
         setTimeout(() => onNavigateNext(), 150)
       }
     }
@@ -193,8 +205,8 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
       // rejected -> null
       togglePairSelection(currentPair.mainFeatureId, currentPair.similarFeatureId)
     }
-    // Auto-advance to next pair (only if enabled)
-    if (autoAdvance && onNavigateNext && currentPairIndex < pairList.length - 1) {
+    // Always advance to next pair when clicking Unsure (since it doesn't change the list order)
+    if (onNavigateNext && currentPairIndex < pairList.length - 1) {
       setTimeout(() => onNavigateNext(), 150)
     }
   }
@@ -344,7 +356,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
       </div>
 
       {/* Activation examples side-by-side */}
-      <div className="pair-viewer__content">
+      <div className={`pair-viewer__content ${isLoading ? 'pair-viewer__content--loading' : ''}`}>
         {/* Main feature activation */}
         <div className="activation-panel activation-panel--main">
           <div className="activation-panel__header">

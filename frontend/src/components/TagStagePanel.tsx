@@ -1,10 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   getTagCategoriesInOrder,
   getTagColor
 } from '../lib/tag-system';
 import { type TagCategoryConfig } from '../lib/constants';
 import { useVisualizationStore } from '../store/index';
+import FlowPanel from './FlowPanel';
 import '../styles/TagStagePanel.css';
 
 interface TagCategoryPanelProps {
@@ -16,6 +17,9 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
   selectedCategory,
   onCategoryClick
 }) => {
+  // Help popup state
+  const [showHelp, setShowHelp] = useState(false);
+
   // Get all stages in order
   const stages = useMemo(() => getTagCategoriesInOrder(), []);
 
@@ -150,6 +154,30 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
 
   return (
     <div className="tag-category-panel">
+      {/* Help button */}
+      <button
+        className="tag-category-panel__help-button"
+        onClick={() => setShowHelp(true)}
+        title="Show data flow diagram"
+      >
+        ?
+      </button>
+
+      {/* Help popup */}
+      {showHelp && (
+        <div className="tag-category-panel__help-overlay" onClick={() => setShowHelp(false)}>
+          <div className="tag-category-panel__help-popup" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="tag-category-panel__help-close"
+              onClick={() => setShowHelp(false)}
+            >
+              ×
+            </button>
+            <FlowPanel />
+          </div>
+        </div>
+      )}
+
       {/* Main content: Stage tabs interspersed with their tags */}
       <div className="tag-category-panel__main-content">
         {stages.map((stage) => {

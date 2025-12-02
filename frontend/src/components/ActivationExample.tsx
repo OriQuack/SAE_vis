@@ -246,9 +246,10 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
         return examples_to_show.map((example, exampleIdx) => {
           if (!example) return null
 
-          // Use a reasonable window size centered on max activation
-          // Window size is at least 8 tokens or based on available character width
-          const windowSize = Math.max(8, maxLength)
+          // Use fixed 32-token window centered on max activation (matches popover behavior)
+          // extractTokenWindow will center on max_activation_position
+          // formatTokensWithEllipsis handles character-based trimming if needed
+          const windowSize = 64
           const tokens = buildActivationTokens(example, windowSize)
 
           // Truncate based on available width (symmetric around max token with full tokens)

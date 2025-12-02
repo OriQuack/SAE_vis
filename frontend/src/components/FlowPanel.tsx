@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { NEUTRAL_ICON_COLORS, COMPONENT_COLORS } from '../lib/constants'
+import { NEUTRAL_ICON_COLORS } from '../lib/constants'
 import { calculateFlowLayout, splitLabel } from '../lib/flow-utils'
 import { useVisualizationStore } from '../store/index'
 import '../styles/FlowPanel.css'
@@ -9,30 +9,6 @@ import '../styles/FlowPanel.css'
 // ============================================================================
 
 const getTextNodeBackgroundColor = (nodeId: string) => {
-  // Decoder similarity
-  if (nodeId === 'decoder-similarity') {
-    return COMPONENT_COLORS.DECODER_SIMILARITY
-  }
-  // Semantic similarity
-  if (nodeId === 'semantic-similarity') {
-    return COMPONENT_COLORS.SEMANTIC_SIMILARITY
-  }
-  // Embedding score - full blue
-  if (nodeId === 'embedding-score') {
-    return COMPONENT_COLORS.SCORE_EMBEDDING
-  }
-  // Fuzz score - full orange-red
-  if (nodeId === 'fuzz-score') {
-    return COMPONENT_COLORS.SCORE_FUZZ
-  }
-  // Detection score - full green
-  if (nodeId === 'detection-score') {
-    return COMPONENT_COLORS.SCORE_DETECTION
-  }
-  // Quality score - full dark gray
-  if (nodeId === 'quality-score') {
-    return COMPONENT_COLORS.QUALITY_SCORE
-  }
   // Average operation node - white background
   if (nodeId === 'average-op') {
     return '#ffffff'
@@ -42,7 +18,7 @@ const getTextNodeBackgroundColor = (nodeId: string) => {
       nodeId === 'llm-explainer-container' || nodeId === 'llm-scorer-container') {
     return '#e2e8f0'
   }
-  // Default (ordinary nodes)
+  // Default (ordinary nodes including all score nodes)
   return '#f8fafc'
 }
 

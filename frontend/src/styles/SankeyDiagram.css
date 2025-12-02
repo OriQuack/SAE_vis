@@ -56,10 +56,8 @@
   font-weight: 400;
   color: #383838;
   margin: 0;
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  flex: 1;
+  min-width: 0;
 }
 
 .sankey-diagram__tag-badge {

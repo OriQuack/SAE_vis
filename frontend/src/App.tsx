@@ -38,7 +38,7 @@ interface AppProps {
 const LoadingSpinner: React.FC<{ message?: string }> = ({ message = 'Checking connection to the backend API...' }) => (
   <div className="health-check">
     <div className="health-check__content">
-      <h2 className="health-check__title">SAEGE</h2>
+      <h2 className="health-check__title">InSAEght</h2>
       <p className="health-check__message">{message}</p>
       <div className="health-check__spinner">
         <div className="spinner"></div>
@@ -51,7 +51,7 @@ const ErrorDisplay: React.FC<{ error: string; onRetry: () => void }> = ({ error,
   <div className="health-check">
     <div className="health-check__content">
       <div className="health-check__icon">⚠️</div>
-      <h2 className="health-check__title">SAEGE - Connection Failed</h2>
+      <h2 className="health-check__title">InSAEght - Connection Failed</h2>
       <p className="health-check__message">{error}</p>
       <div className="health-check__actions">
         <button className="health-check__retry" onClick={onRetry}>

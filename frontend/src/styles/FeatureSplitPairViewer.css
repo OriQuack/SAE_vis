@@ -465,6 +465,13 @@
   gap: 6px;
   min-height: 0;
   overflow: hidden;
+  transition: opacity 0.2s ease;
+}
+
+/* Loading state - dim the content while sorting */
+.pair-viewer__content--loading {
+  opacity: 0.4;
+  pointer-events: none;
 }
 
 /* ============================================================================

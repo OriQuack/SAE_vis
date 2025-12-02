@@ -7,7 +7,7 @@ Professional guidance for the React frontend of the SAE Feature Visualization re
 **Purpose**: Interactive visualization interface for exploring SAE feature explanation reliability
 **Status**: Conference-ready research prototype
 **Dataset**: 16,000+ features
-**Key Innovation**: Smart tree-based Sankey building with frontend-side set intersection
+**Key Innovation**: Smart tree-based Sankey building with frontend-side set intersection + SVM-based similarity scoring
 
 ## Important Development Principles
 
@@ -68,9 +68,9 @@ store/
 ├── sankey-actions.ts                 # Sankey tree operations
 ├── feature-split-actions.ts          # Stage 1: Pair mode (clustering, similarity)
 ├── quality-actions.ts                # Stage 2: Feature mode (quality assessment)
-├── cause-actions.ts                  # Stage 3: Cause mode
+├── cause-actions.ts                  # Stage 3: Cause mode (multi-class classification)
 ├── common-actions.ts                 # Shared operations
-├── activation-actions.ts             # Activation data
+├── activation-actions.ts             # Activation data loading
 └── utils.ts                          # Store helper functions
 ```
 
@@ -82,7 +82,7 @@ The application implements a 3-stage workflow for tagging features:
 |-------|-----------|------|-------|------|
 | 1. Feature Splitting | `FeatureSplitView.tsx` | `pair` | Feature pairs | Fragmented / Monosemantic |
 | 2. Quality Assessment | `QualityView.tsx` | `feature` | Individual features | Well-Explained / Need Revision |
-| 3. Root Cause Analysis | (coming soon) | `cause` | Individual features | TBD |
+| 3. Root Cause Analysis | `CauseTable.tsx` | `cause` | Individual features | Multiple categories |
 
 ### Shared Components Across Stages
 Both Stage 1 and Stage 2 share the same layout pattern:
@@ -90,19 +90,111 @@ Both Stage 1 and Stage 2 share the same layout pattern:
 - **ThresholdTaggingPanel** (bottom): Histogram + boundary lists
 - **TagAutomaticPanel**: SVM-based similarity scoring histogram
 
+## Project Structure
+
+```
+frontend/src/
+├── components/                    # React Components (26 files)
+│   ├── App.tsx                   # Main application + stage routing (NOT in components/)
+│   ├── AppHeader.tsx             # Header with logo
+│   ├── SankeyDiagram.tsx         # Sankey visualization with inline histograms
+│   ├── SankeyOverlay.tsx         # Stage addition interface
+│   ├── SankeyHistogramPopover.tsx # Histogram popover for threshold editing
+│   ├── SankeyToSelectionFlowOverlay.tsx # Flow visualization overlay
+│   ├── AlluvialDiagram.tsx       # Cross-explainer flow comparison
+│   ├── FeatureSplitView.tsx      # Stage 1: Feature splitting
+│   ├── FeatureSplitPairViewer.tsx # Pair viewer for Stage 1
+│   ├── QualityView.tsx           # Stage 2: Quality assessment
+│   ├── CauseTable.tsx            # Stage 3: Cause analysis table
+│   ├── SelectionPanel.tsx        # Unified selection panel
+│   ├── SelectionBar.tsx          # Selection state bar
+│   ├── TagStagePanel.tsx         # Stage navigation
+│   ├── ThresholdTaggingPanel.tsx # Bottom tagging panel (pair/feature)
+│   ├── TagAutomaticPanel.tsx     # Histogram + auto-tagging
+│   ├── TagAutomaticPopover.tsx   # Legacy threshold tagging popover
+│   ├── ThresholdHandles.tsx      # Draggable threshold handles
+│   ├── ScrollableItemList.tsx    # Scrollable item list
+│   ├── ActivationExample.tsx     # Activation display
+│   ├── TableExplanation.tsx      # Explanation text with highlights
+│   ├── TableIndicators.tsx       # Score indicators
+│   ├── QualityScoreBreakdown.tsx # Score breakdown
+│   ├── BimodalityIndicator.tsx   # Bimodality detection display
+│   ├── ExplainerComparisonGrid.tsx # Cross-explainer comparison
+│   ├── FlowPanel.tsx             # Flow panel for stage transitions
+│   └── _QualityTable.deprecated.tsx # (deprecated, not imported)
+├── lib/                          # Utilities (19 files)
+│   ├── constants.ts              # App constants, tag categories, metrics
+│   ├── sankey-utils.ts           # Sankey layout calculations
+│   ├── sankey-builder.ts         # Tree building logic
+│   ├── sankey-stages.ts          # Stage configuration
+│   ├── sankey-histogram-utils.ts # Inline histograms
+│   ├── sankey-selection-flow-utils.ts # Flow overlay calculations
+│   ├── histogram-utils.ts        # Histogram processing
+│   ├── threshold-utils.ts        # Threshold path handling
+│   ├── alluvial-utils.ts         # Alluvial diagram layout
+│   ├── flow-utils.ts             # Flow panel utilities
+│   ├── table-utils.ts            # Table layout
+│   ├── tag-system.ts             # Tag colors/labels
+│   ├── hierarchical-colors.ts    # CIELAB color assignment
+│   ├── circle-encoding-utils.ts  # Circle encoding for scores
+│   ├── bimodality-utils.ts       # Bimodality detection helpers
+│   ├── explainer-grid-utils.ts   # Explainer comparison grid
+│   ├── activation-utils.ts       # Activation processing
+│   ├── pairUtils.ts              # Pair key utilities
+│   └── utils.ts                  # General helpers
+├── store/                        # Zustand State (8 files)
+│   ├── index.ts                  # Main store composition
+│   ├── sankey-actions.ts         # Sankey operations
+│   ├── feature-split-actions.ts  # Stage 1 actions
+│   ├── quality-actions.ts        # Stage 2 actions
+│   ├── cause-actions.ts          # Stage 3 actions
+│   ├── common-actions.ts         # Shared actions
+│   ├── activation-actions.ts     # Activation loading
+│   └── utils.ts                  # Store utilities
+├── styles/                       # CSS Files (23 files)
+│   ├── base.css                  # Base styles, CSS variables
+│   ├── App.css                   # Main app layout
+│   ├── SankeyDiagram.css         # Sankey styles
+│   ├── SankeyHistogramPopover.css # Popover styles
+│   ├── SankeyToSelectionFlowOverlay.css # Flow overlay styles
+│   ├── AlluvialDiagram.css       # Alluvial styles
+│   ├── FeatureSplitView.css      # Stage 1 styles
+│   ├── FeatureSplitPairViewer.css # Pair viewer styles
+│   ├── QualityView.css           # Stage 2 styles
+│   ├── QualityTable.css          # Quality table styles
+│   ├── CauseTable.css            # Stage 3 table styles
+│   ├── SelectionPanel.css        # Selection panel styles
+│   ├── SelectionBar.css          # Selection bar styles
+│   ├── TagStagePanel.css         # Stage panel styles
+│   ├── ThresholdTaggingPanel.css # Bottom panel styles
+│   ├── TagAutomaticPanel.css     # Auto-tagging panel styles
+│   ├── TagAutomaticPopover.css   # Popover styles
+│   ├── ScrollableItemList.css    # Scrollable list styles
+│   ├── ActivationExample.css     # Activation styles
+│   ├── BimodalityIndicator.css   # Bimodality indicator styles
+│   ├── ExplainerComparisonGrid.css # Comparison grid styles
+│   ├── FlowPanel.css             # Flow panel styles
+│   └── AppHeader.css             # Header styles
+├── types.ts                      # TypeScript types
+├── api.ts                        # API client
+└── main.tsx                      # Entry point
+```
+
 ## Key Components
 
 ### Main Views
 
-**App.tsx** - Main Orchestrator
+**App.tsx** (in src/, not components/) - Main Orchestrator
 - Health check on startup
 - Stage-based view routing
 - Layout orchestration based on `activeStageCategory`
+- Comparison overlay management
 
 **SankeyDiagram.tsx** - Tree Visualization
-- D3-Sankey integration
+- D3-Sankey integration with hierarchical coloring
 - Inline histogram rendering
 - Node click handling → SankeyOverlay
+- Segment-based selection with flow overlay
 - Threshold handle integration
 
 **FeatureSplitView.tsx** - Stage 1: Feature Splitting
@@ -120,6 +212,11 @@ Both Stage 1 and Stage 2 share the same layout pattern:
 - SVM-based similarity scoring for features
 - Commit history for state snapshots
 - Tags: Well-Explained (selected) / Need Revision (rejected)
+
+**AlluvialDiagram.tsx** - Comparison View
+- Cross-explainer flow visualization
+- Appears in comparison overlay
+- Hover interaction with Sankey diagrams
 
 ### Selection & Tagging
 
@@ -148,6 +245,7 @@ Both Stage 1 and Stage 2 share the same layout pattern:
 - SVM similarity score histogram
 - Dual thresholds (select/reject)
 - Real-time preview
+- Bimodality detection integration
 - Supports both `pair` and `feature` modes
 
 ### Visualization Components
@@ -157,10 +255,19 @@ Both Stage 1 and Stage 2 share the same layout pattern:
 - Draggable threshold handles
 - Portal-based rendering
 
+**SankeyToSelectionFlowOverlay.tsx** - Flow Visualization
+- Renders flows from Sankey segments to SelectionBar
+- SVG path calculations
+- Cross-component positioning
+
 **FeatureSplitPairViewer.tsx** - Pair Analysis (Stage 1)
 - Interactive pair exploration
 - Decoder similarity visualization
 - Selection/rejection interface
+
+**BimodalityIndicator.tsx** - Bimodality Detection
+- Visual indicator for bimodal distributions
+- Shows GMM components, Dip test results
 
 **ScrollableItemList.tsx** - Boundary Lists
 - Scrollable list with fixed height
@@ -175,60 +282,9 @@ Both Stage 1 (pairs) and Stage 2 (features) use the same SVM-based scoring mecha
 2. **SVM Training**: Backend trains SVM on manual selections
 3. **Scoring**: All items scored by distance from decision boundary
 4. **Histogram**: Scores displayed in histogram with dual thresholds
-5. **Auto-Tagging**: Items beyond thresholds auto-tagged on "Apply Threshold"
-6. **Commit History**: Each apply creates a restorable state snapshot
-
-## Project Structure
-
-```
-frontend/src/
-├── components/                    # React Components
-│   ├── App.tsx                   # Main application + stage routing
-│   ├── SankeyDiagram.tsx         # Sankey visualization
-│   ├── SankeyOverlay.tsx         # Stage addition interface
-│   ├── SankeyHistogramPopover.tsx # Histogram popover
-│   ├── FeatureSplitView.tsx      # Stage 1: Feature splitting
-│   ├── FeatureSplitPairViewer.tsx # Pair viewer for Stage 1
-│   ├── QualityView.tsx           # Stage 2: Quality assessment
-│   ├── SelectionPanel.tsx        # Unified selection panel
-│   ├── SelectionBar.tsx          # Selection state bar
-│   ├── TagStagePanel.tsx         # Stage navigation
-│   ├── ThresholdTaggingPanel.tsx # Bottom tagging panel (pair/feature)
-│   ├── TagAutomaticPanel.tsx     # Histogram + auto-tagging
-│   ├── TagAutomaticPopover.tsx   # Legacy threshold tagging popover
-│   ├── ScrollableItemList.tsx    # Scrollable item list
-│   ├── ActivationExample.tsx     # Activation display
-│   ├── TableExplanation.tsx      # Explanation text
-│   ├── QualityScoreBreakdown.tsx # Score breakdown
-│   ├── AppHeader.tsx             # Header
-│   └── _QualityTable.deprecated.tsx # (deprecated, not imported)
-├── lib/                          # Utilities
-│   ├── constants.ts              # App constants, tag categories
-│   ├── sankey-utils.ts           # Sankey calculations
-│   ├── sankey-histogram-utils.ts # Inline histograms
-│   ├── histogram-utils.ts        # Histogram processing
-│   ├── table-utils.ts            # Table layout
-│   ├── color-utils.tsx           # Color encoding
-│   ├── tag-system.ts             # Tag colors/labels
-│   ├── utils.ts                  # General helpers
-│   └── ...                       # Other utilities
-├── store/                        # Zustand State
-│   ├── index.ts                  # Main store composition
-│   ├── sankey-actions.ts         # Sankey operations
-│   ├── feature-split-actions.ts  # Stage 1 actions
-│   ├── quality-actions.ts        # Stage 2 actions
-│   ├── cause-actions.ts          # Stage 3 actions
-│   ├── common-actions.ts         # Shared actions
-│   └── ...
-├── styles/                       # CSS Files
-│   ├── FeatureSplitView.css      # Stage 1 styles
-│   ├── QualityView.css           # Stage 2 styles
-│   ├── ThresholdTaggingPanel.css # Bottom panel styles
-│   └── *.css                     # Other component styles
-├── types.ts                      # TypeScript types
-├── api.ts                        # API client
-└── main.tsx                      # Entry point
-```
+5. **Bimodality Detection**: Hartigan's Dip test + GMM analysis
+6. **Auto-Tagging**: Items beyond thresholds auto-tagged on "Apply Threshold"
+7. **Commit History**: Each apply creates a restorable state snapshot
 
 ## Development Workflow
 
@@ -309,6 +365,23 @@ const debouncedUpdate = useMemo(
 )
 ```
 
+## API Endpoints Used
+
+| Endpoint | Usage |
+|----------|-------|
+| GET /health | Health check on startup |
+| GET /api/filter-options | Load filter choices |
+| POST /api/feature-groups | Feature grouping for Sankey |
+| POST /api/histogram-data | Histograms for popovers |
+| POST /api/table-data | Feature table data |
+| POST /api/segment-cluster-pairs | Get all cluster pairs |
+| POST /api/similarity-sort | Sort features by SVM |
+| POST /api/pair-similarity-sort | Sort pairs by SVM |
+| POST /api/similarity-score-histogram | Feature histogram + bimodality |
+| POST /api/pair-similarity-score-histogram | Pair histogram + bimodality |
+| POST /api/activation-examples | On-demand activation data |
+| GET /api/activation-examples-cached | Pre-computed activation blob |
+
 ## Common Issues & Solutions
 
 ### Issue: Sankey not updating after threshold change
@@ -325,6 +398,9 @@ const debouncedUpdate = useMemo(
 
 ### Issue: Mode-specific rendering not working
 **Solution**: Check `mode` prop is correctly passed and used in conditionals
+
+### Issue: Flow overlay positioning incorrect
+**Solution**: Ensure ref callbacks are properly updating segment/category refs
 
 ---
 

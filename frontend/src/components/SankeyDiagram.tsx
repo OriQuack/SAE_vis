@@ -735,19 +735,19 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   }
 
   // Get tag color for header badge
-  const monosematicColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Monosemantic') || '#56B4E9'
+  const fragmentedColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Fragmented') || '#56B4E9'
 
   return (
     <div className={`sankey-diagram ${className}`}>
       <div className="sankey-diagram__header">
         <h3 className="sankey-diagram__title">Filter</h3>
         <p className="sankey-diagram__instruction">
-          Move threshold to filter out{' '}
+          Select a rough threshold for potential{' '}
           <span
             className="sankey-diagram__tag-badge"
-            style={{ backgroundColor: monosematicColor }}
+            style={{ backgroundColor: fragmentedColor }}
           >
-            Monosemantic
+            Fragmented
           </span>
         </p>
       </div>

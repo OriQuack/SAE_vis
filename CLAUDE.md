@@ -8,7 +8,7 @@ Professional guidance for working with the SAE Feature Visualization research pr
 
 **Status**: Conference-ready research prototype
 **Dataset**: 16,000+ features with multiple LLM explainers and scorers
-**Architecture**: Simplified backend (feature grouping + clustering) + smart frontend (tree building)
+**Architecture**: Simplified backend (feature grouping + clustering + similarity scoring) + smart frontend (tree building + interactive tagging)
 
 ## Important Development Principles
 
@@ -35,7 +35,8 @@ User Interaction → Frontend State Update → API Request → Backend Processin
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
 │                              USER INTERFACE                                │
-│  Sankey Diagram │ Feature Split View │ Selection Panel │ Tag Workflow     │
+│  Sankey Diagram │ Feature Split View │ Quality View │ Tag Stage Panel     │
+│  Alluvial Diagram │ Selection Panel │ Flow Overlay │ Comparison View      │
 └────────────────────────────────────────────────────────────────────────────┘
                                       ↕
 ┌────────────────────────────────────────────────────────────────────────────┐
@@ -44,28 +45,38 @@ User Interaction → Frontend State Update → API Request → Backend Processin
 │  • Tree-Based Sankey Builder with Feature Group Cache                     │
 │  • Set Intersection Algorithm for instant threshold updates               │
 │  • Zustand State Management (modularized by feature)                      │
-│  • D3.js Visualizations (Sankey, Histograms, Pair Viewer)                │
-│  • 3-Stage Tag Workflow: Quality → Feature Splitting → Cause              │
+│  • D3.js Visualizations (Sankey, Histograms, Alluvial, Flow Overlay)     │
+│  • 3-Stage Tag Workflow: Feature Splitting → Quality → Cause              │
+│  • SVM-Based Similarity Scoring with Bimodality Detection                 │
 │  • Commit History for tagging state snapshots                             │
 └────────────────────────────────────────────────────────────────────────────┘
                                       ↕
                         POST /api/feature-groups
                         POST /api/cluster-candidates
                         POST /api/similarity-sort
+                        POST /api/pair-similarity-sort
+                        POST /api/similarity-score-histogram
+                        POST /api/pair-similarity-score-histogram
+                        POST /api/cause-similarity-sort
                                       ↕
 ┌────────────────────────────────────────────────────────────────────────────┐
 │                         BACKEND (FastAPI + Polars)                        │
 │                                                                            │
 │  • Feature Grouping Service (filter → group by thresholds)                │
 │  • Hierarchical Clustering Service (decoder similarity)                   │
-│  • Similarity Sort Service (pair scoring based on selections)             │
+│  • Similarity Sort Service (SVM-based scoring for features and pairs)     │
+│  • Bimodality Service (Hartigan's Dip + GMM analysis)                     │
+│  • Alignment Service (semantic phrase matching)                           │
+│  • Activation Cache Service (pre-computed msgpack+gzip)                   │
 │  • Table Data Service (feature scores and metadata)                       │
 └────────────────────────────────────────────────────────────────────────────┘
                                       ↕
 ┌────────────────────────────────────────────────────────────────────────────┐
 │                              DATA STORAGE                                 │
-│  • feature_analysis.parquet (16k+ features)                               │
-│  • decoder_weights.npy (for clustering)                                   │
+│  • features.parquet (16k+ features with nested structure)                 │
+│  • activation_display.parquet (frontend-optimized)                        │
+│  • activation_embeddings.parquet (pre-computed embeddings)                │
+│  • explanation_alignment.parquet (cross-explainer phrase matching)        │
 │  • Pre-computed statistics (JSON)                                         │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -120,17 +131,20 @@ function buildChildNodes(parent: SankeyTreeNode, groups: FeatureGroup[]) {
 - **D3.js** (visualization suite)
 - **Vite** (dev server)
 - **Axios** (API client)
+- **msgpack-lite** + **pako** (binary data handling)
 
 ### Backend
 - **FastAPI** (async web framework)
 - **Polars** (data processing)
-- **NumPy/SciPy** (clustering)
+- **NumPy/SciPy** (clustering, SVM)
+- **scikit-learn** (SVM for similarity scoring)
 - **Uvicorn** (ASGI server)
 
 ### Data
 - **Parquet** (columnar storage)
 - **NPY** (decoder weights for clustering)
 - **JSON** (statistics, metadata)
+- **MessagePack + gzip** (cached activation data)
 - **16k+ features** analyzed
 
 ## Project Structure
@@ -139,21 +153,23 @@ function buildChildNodes(parent: SankeyTreeNode, groups: FeatureGroup[]) {
 /home/dohyun/interface/
 ├── frontend/           # React application
 │   ├── src/
-│   │   ├── components/    # UI components
-│   │   ├── lib/          # D3 utilities, helpers
-│   │   ├── store/        # Zustand state (modularized)
-│   │   ├── styles/       # CSS files
+│   │   ├── components/    # UI components (26 files)
+│   │   ├── lib/          # D3 utilities, helpers (19 files)
+│   │   ├── store/        # Zustand state (8 files)
+│   │   ├── styles/       # CSS files (23 files)
 │   │   ├── types.ts      # TypeScript types
 │   │   └── api.ts        # API client
 │   └── CLAUDE.md         # Frontend docs
 ├── backend/            # FastAPI server
 │   ├── app/
-│   │   ├── api/          # Endpoints
+│   │   ├── api/          # Endpoints (11 files)
 │   │   ├── models/       # Pydantic schemas
-│   │   └── services/     # Business logic
+│   │   └── services/     # Business logic (11 files)
 │   └── CLAUDE.md         # Backend docs
 ├── data/              # Data files
-│   └── master/           # Parquet files, weights
+│   ├── master/           # Primary parquet files
+│   ├── preprocessing/    # Processing scripts
+│   └── CLAUDE.md         # Data docs
 └── CLAUDE.md          # This file
 ```
 
@@ -179,21 +195,36 @@ npm run dev -- --port 3003
 ## Key Features
 
 ### Visualization
-- **Sankey Diagram**: Tree-based feature grouping with inline histograms
-- **Feature Split View**: Pair similarity analysis with clustering
+- **Sankey Diagram**: Tree-based feature grouping with inline histograms and hierarchical coloring
+- **Alluvial Diagram**: Cross-explainer flow comparison (comparison overlay)
+- **Feature Split View**: Stage 1 - Pair similarity analysis with clustering
+- **Quality View**: Stage 2 - Feature quality assessment
+- **Flow Overlay**: Visualizes flows from Sankey segments to SelectionBar
 - **Selection Panel**: 4-category tagging (confirmed, expanded, rejected, unsure)
-- **Tag Workflow**: 3-stage navigation (Quality → Feature Splitting → Cause)
+- **Tag Stage Panel**: 3-stage navigation (Feature Splitting → Quality → Cause)
 - **Commit History**: Save and restore tagging state snapshots
 
-### Feature Splitting Workflow
-- **Hierarchical Clustering**: Backend clusters features by decoder weight similarity
-- **Pair Generation**: All pairs within clusters available for analysis
-- **Similarity Scoring**: Score pairs based on selected/rejected examples
-- **Auto-Tagging**: Histogram-based threshold tagging with preview
+### 3-Stage Tagging Workflow
+
+| Stage | View | Mode | Items | Tags |
+|-------|------|------|-------|------|
+| 1. Feature Splitting | `FeatureSplitView` | `pair` | Feature pairs | Fragmented / Monosemantic |
+| 2. Quality Assessment | `QualityView` | `feature` | Individual features | Well-Explained / Need Revision |
+| 3. Root Cause Analysis | (coming soon) | `cause` | Individual features | TBD |
+
+### SVM-Based Similarity Scoring
+Both Stage 1 (pairs) and Stage 2 (features) use the same SVM-based scoring mechanism:
+1. **Manual Tagging**: User tags 3+ items as selected and 3+ as rejected
+2. **SVM Training**: Backend trains SVM on manual selections
+3. **Scoring**: All items scored by distance from decision boundary
+4. **Histogram**: Scores displayed with bimodality detection
+5. **Auto-Tagging**: Items beyond thresholds auto-tagged on "Apply Threshold"
+6. **Commit History**: Each apply creates a restorable state snapshot
 
 ### Performance
 - **Feature Group Caching**: Instant threshold updates
 - **Set Intersection**: Efficient tree building O(min(|A|,|B|))
+- **Activation Cache**: Pre-computed msgpack+gzip (~15-25s vs ~100s)
 - **Lazy Evaluation**: Polars query optimization
 - **Memoization**: React.memo, useMemo, useCallback
 
@@ -203,11 +234,19 @@ npm run dev -- --port 3003
 |----------|---------|
 | GET /api/filter-options | Filter choices |
 | POST /api/feature-groups | Feature grouping by thresholds |
-| POST /api/histogram-data | Histogram bins |
+| POST /api/histogram-data | Histogram bins with threshold path filtering |
 | POST /api/table-data | Feature scoring table |
-| POST /api/cluster-candidates | Get all cluster pairs for features |
-| POST /api/similarity-sort | Sort pairs by similarity to selections |
-| POST /api/activation-examples | Activation data |
+| POST /api/cluster-candidates | Get cluster-based pairs for features |
+| POST /api/segment-cluster-pairs | Get ALL cluster pairs (simplified flow) |
+| POST /api/similarity-sort | Sort features by SVM similarity |
+| POST /api/pair-similarity-sort | Sort pairs by SVM similarity |
+| POST /api/similarity-score-histogram | Feature similarity histogram with bimodality |
+| POST /api/pair-similarity-score-histogram | Pair similarity histogram with bimodality |
+| POST /api/cause-similarity-sort | Multi-class cause sorting |
+| POST /api/cause-similarity-score-histogram | Cause category histograms |
+| POST /api/activation-examples | Activation data (on-demand) |
+| GET /api/activation-examples-cached | Pre-computed activation blob |
+| GET /health | Health check |
 
 ## Development Workflow
 
@@ -231,8 +270,9 @@ npm run dev -- --port 3003
 ## Important Notes
 
 ### Data Dependencies
-- **Master Data**: `/data/master/feature_analysis.parquet` (required)
-- **Decoder Weights**: `/data/master/decoder_weights.npy` (for clustering)
+- **Master Data**: `/data/master/features.parquet` (required)
+- **Activation Display**: `/data/master/activation_display.parquet` (frontend-optimized)
+- **Activation Embeddings**: `/data/master/activation_embeddings.parquet` (similarity calculations)
 
 ### Logs
 - **Backend Log**: `/home/dohyun/interface/backend.log` - All backend server output is logged here

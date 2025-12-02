@@ -2,14 +2,14 @@
 
 Professional guidance for the data layer of the SAE Feature Visualization research prototype.
 
-## 🎯 Data Layer Overview
+## Data Layer Overview
 
 **Purpose**: Transform raw SAE experiments into analysis-ready parquet files
-**Status**: Conference-ready research prototype - 9 core processing scripts complete
+**Status**: Conference-ready research prototype
 **Architecture**: Dual n-gram pattern matching (character + word level) with pre-computed embeddings
-**Storage**: ~1.2GB compressed parquet files
+**Storage**: ~1.3GB compressed parquet files in master directory
 
-## 🎯 Important Development Principles
+## Important Development Principles
 
 ### This is a Conference Prototype
 - **Keep data processing simple**: Straightforward parquet generation suitable for research demonstrations
@@ -37,67 +37,68 @@ Professional guidance for the data layer of the SAE Feature Visualization resear
 - **Quantile sampling**: Consistent across scripts - use existing patterns
 - **Modularize when needed**: If you write the same Polars transformation twice, extract to a function
 
-## 📁 Directory Structure
+## Directory Structure
 
 ```
 data/
 ├── raw/                          # Raw SAE experimental data (read-only)
-│   ├── llama_e-llama_s/         # Llama explainer + scorer (824 features)
-│   ├── gwen_e-llama_s/          # Qwen explainer + scorer (824 features)
-│   └── openai_e-llama_s/        # OpenAI explainer + scorer (824 features)
+│   ├── llama_e-llama_s/         # Llama explainer + scorer
+│   ├── gwen_e-llama_s/          # Qwen explainer + scorer
+│   └── openai_e-llama_s/        # OpenAI explainer + scorer
 │
 ├── preprocessing/                # Processing scripts & configs
-│   ├── scripts/                 # 10 Python processing scripts (0a, 0b, 1-9)
+│   ├── scripts/                 # Python processing scripts (0a, 0b, 1-9)
 │   └── config/                  # JSON configuration files
 │
-├── master/                       # 🎯 PRIMARY DATA FILES (used by backend)
-│   ├── features.parquet         # Main dataset (1.5MB, 2,472 rows)
-│   ├── explanation_embeddings.parquet # Pre-computed (140MB)
-│   ├── activation_examples.parquet # Activation data (246MB)
-│   ├── activation_embeddings.parquet # Pre-computed (810MB)
-│   ├── activation_example_similarity.parquet # Metrics (5.7MB)
-│   ├── activation_display.parquet # Frontend-optimized (64MB)
-│   ├── interfeature_activation_similarity.parquet # Cross-feature analysis (211KB)
-│   ├── explanation_alignment.parquet # Phrase alignments (382KB)
-│   └── ex_act_pattern_matching.parquet # Pattern validation (80KB)
+├── master/                       # PRIMARY DATA FILES (used by backend)
+│   ├── features.parquet         # Main dataset (~3.8MB)
+│   ├── explanation_embeddings.parquet # Pre-computed (~146MB)
+│   ├── activation_examples.parquet # Activation data (~258MB)
+│   ├── activation_embeddings.parquet # Pre-computed (~848MB)
+│   ├── activation_example_similarity.parquet # Metrics (~5.9MB)
+│   ├── activation_display.parquet # Frontend-optimized (~67MB)
+│   ├── interfeature_activation_similarity.parquet # Cross-feature (~3MB)
+│   ├── explanation_alignment.parquet # Phrase alignments (~406KB)
+│   └── ex_act_pattern_matching.parquet # Pattern validation (~81KB)
 │
 ├── scores/                       # Processed scoring data
 ├── feature_similarity/           # Decoder weight similarities
 ├── llm_comparison/              # LLM consistency stats
-└── umap_*/                      # UMAP projections (various)
+└── CLAUDE.md                    # This file
 ```
 
-## 🏗️ Core Data Files (Master Directory)
+## Core Data Files (Master Directory)
 
-### 1. features.parquet (PRIMARY - 1.5MB)
+### 1. features.parquet (PRIMARY - ~3.8MB)
 **The main dataset powering all visualizations**
 
 **Key Fields**:
 - `feature_id`, `sae_id`, `llm_explainer`, `explanation_text`
-- `decoder_similarity`: List of top 10 similar features by decoder weights
+- `decoder_similarity`: List of top similar features by decoder weights
 - `semantic_similarity`: List of pairwise similarities with other explainers
-- `scores`: Nested structure with all scorer evaluations
+- `quality_score`: Computed quality metric
+- `scores`: Nested structure with all scorer evaluations (embedding, fuzz, detection)
 
-**Stats**: 2,472 rows (824 features × 3 explainers), nested structure
+**Usage**: Feature grouping, table display, similarity calculations
 
-### 2. explanation_embeddings.parquet (140MB)
+### 2. explanation_embeddings.parquet (~146MB)
 **Pre-computed 768-dim embeddings for all explanations**
 
-**Purpose**: Used for on-the-fly similarity calculations in Script 3
-**Model**: `google/embeddinggemma-300m`
+**Purpose**: Used for on-the-fly similarity calculations
+**Model**: Embedding model for semantic comparisons
 
-### 3. activation_examples.parquet (246MB)
+### 3. activation_examples.parquet (~258MB)
 **Raw activation data with token windows**
 
-**Stats**: 1M+ activation examples across 16,384 features
+**Stats**: Activation examples across features with 127-token context windows
 
-### 4. activation_embeddings.parquet (810MB)
+### 4. activation_embeddings.parquet (~848MB - largest file)
 **Pre-computed embeddings for quantile-sampled activations**
 
-**Purpose**: Semantic similarity calculations
+**Purpose**: Semantic similarity calculations between activation contexts
 **Optimization**: Natural text reconstruction (strips '▁' prefix, joins subwords)
 
-### 5. activation_example_similarity.parquet (5.7MB)
+### 5. activation_example_similarity.parquet (~5.9MB)
 **Dual n-gram analysis with pattern metrics**
 
 **Key Innovation**:
@@ -105,18 +106,28 @@ data/
 - **Word n-grams**: Semantics (reconstructed words) with `start_position`
 - **Dual Jaccard**: Separate scores for char and word pattern consistency
 
-### 6. activation_display.parquet (⭐ 64MB)
+### 6. activation_display.parquet (~67MB)
 **Frontend-optimized display data**
 
-**Purpose**: Reduce frontend load time from ~5s to ~20ms (250x faster)
-**Structure**: 824 rows (feature-level) with pre-processed tokens, pattern classification, n-gram positions
+**Purpose**: Reduce frontend load time (~250x faster than raw data)
+**Structure**: Feature-level rows with pre-processed tokens, pattern classification, n-gram positions
 
-### 7-9. Pattern Validation Files
-- `interfeature_activation_similarity.parquet` (211KB): Cross-feature activation comparisons
-- `explanation_alignment.parquet` (382KB): Semantically aligned phrases across LLMs
-- `ex_act_pattern_matching.parquet` (80KB): Dual lexical+semantic validation
+### 7. interfeature_activation_similarity.parquet (~3MB)
+**Cross-feature activation pattern comparison**
 
-## 🔧 Processing Pipeline (Scripts 0-9)
+**Purpose**: Analyze pattern similarities between decoder-similar features
+
+### 8. explanation_alignment.parquet (~406KB)
+**Semantically aligned phrases across LLM explanations**
+
+**Purpose**: Highlight shared concepts between different explainers
+
+### 9. ex_act_pattern_matching.parquet (~81KB)
+**Dual lexical + semantic pattern validation**
+
+**Purpose**: Validate explanation-activation pattern consistency
+
+## Processing Pipeline (Scripts 0-9)
 
 ### Quick Reference
 ```bash
@@ -140,17 +151,19 @@ python 9_ex_act_pattern_matching.py --config ../config/9_ex_act_pattern_matching
 
 ### Script Descriptions
 
-**Script 0a**: Create activation examples parquet (246MB)
-**Script 0b**: Compute decoder weight similarities (top 10 neighbors)
-**Script 1**: Aggregate scoring metrics from LLM scorers
-**Script 2**: Generate explanation embeddings (multi-source consolidation)
-**Script 3**: Create main features parquet with nested structure
-**Script 4**: Pre-compute activation embeddings with natural text reconstruction
-**Script 5**: Calculate dual n-gram similarity (char + word patterns)
-**Script 6**: ⭐ Create frontend-optimized display data (250x faster load)
-**Script 7**: Cross-feature activation pattern comparison
-**Script 8**: Find aligned phrases across LLM explanations
-**Script 9**: Dual lexical + semantic pattern validation
+| Script | Purpose | Output |
+|--------|---------|--------|
+| 0a | Create activation examples parquet | activation_examples.parquet |
+| 0b | Compute decoder weight similarities | feature_similarity/ |
+| 1 | Aggregate scoring metrics from LLM scorers | scores/ |
+| 2 | Generate explanation embeddings | explanation_embeddings.parquet |
+| 3 | Create main features parquet with nested structure | features.parquet |
+| 4 | Pre-compute activation embeddings | activation_embeddings.parquet |
+| 5 | Calculate dual n-gram similarity | activation_example_similarity.parquet |
+| 6 | Create frontend-optimized display data | activation_display.parquet |
+| 7 | Cross-feature activation pattern comparison | interfeature_activation_similarity.parquet |
+| 8 | Find aligned phrases across LLM explanations | explanation_alignment.parquet |
+| 9 | Dual lexical + semantic pattern validation | ex_act_pattern_matching.parquet |
 
 ### Key Processing Patterns
 
@@ -174,13 +187,13 @@ word_ngrams = reconstruct_and_extract(['machine', 'learning'])
 
 **Feature-Level Aggregation** (Script 6):
 ```python
-# Transform: 1M+ activation examples → 824 feature rows
+# Transform: activation examples → feature-level rows
 # Pre-process: Remove '▁' prefix from tokens
 # Pre-classify: Pattern type (semantic/lexical/both/none)
 # Pre-structure: N-gram positions for direct highlighting
 ```
 
-## 🔗 Backend Integration
+## Backend Integration
 
 ### Basic Data Loading
 ```python
@@ -207,29 +220,31 @@ scores = row["scores"]  # Nested scoring data
 - Feature grouping: ~50ms
 - Table load: ~100ms
 - Activation display: ~20ms (thanks to Script 6 optimization)
+- Cached activation blob: ~15-25s (vs ~100s for chunked JSON)
 
-## 📊 Dataset Statistics
+## Dataset Statistics
 
-- **Unique Features**: 824
-- **Total Explanations**: 2,472 (824 × 3 LLM explainers)
-- **Activation Examples**: 1M+
+- **Unique Features**: ~16,000+
+- **Explainers**: 3 (Llama, Qwen, OpenAI)
 - **Embedding Dimensions**: 768
-- **Total Storage**: ~1.3GB compressed (master directory)
+- **Total Master Storage**: ~1.3GB compressed
 - **Master Files**: 9 parquet files
 - **Processing Scripts**: 10 (0a, 0b, 1-9)
 
 ### File Size Breakdown:
-- activation_embeddings.parquet: 810MB (largest)
-- activation_examples.parquet: 246MB
-- explanation_embeddings.parquet: 140MB
-- activation_display.parquet: 64MB
-- activation_example_similarity.parquet: 5.7MB
-- features.parquet: 1.5MB
-- explanation_alignment.parquet: 382KB
-- interfeature_activation_similarity.parquet: 211KB
-- ex_act_pattern_matching.parquet: 80KB
+| File | Size | Purpose |
+|------|------|---------|
+| activation_embeddings.parquet | ~848MB | Largest - pre-computed embeddings |
+| activation_examples.parquet | ~258MB | Raw activation data |
+| explanation_embeddings.parquet | ~146MB | Explanation embeddings |
+| activation_display.parquet | ~67MB | Frontend-optimized |
+| activation_example_similarity.parquet | ~5.9MB | N-gram metrics |
+| features.parquet | ~3.8MB | Main dataset |
+| interfeature_activation_similarity.parquet | ~3MB | Cross-feature analysis |
+| explanation_alignment.parquet | ~406KB | Phrase alignments |
+| ex_act_pattern_matching.parquet | ~81KB | Pattern validation |
 
-## 🔍 Key Design Decisions
+## Key Design Decisions
 
 ### Why Nested Parquet Structure?
 - Single file instead of multiple joins
@@ -250,12 +265,12 @@ scores = row["scores"]  # Nested scoring data
 - **Precise positioning**: `char_offset` enables character-accurate highlighting
 
 ### Why activation_display.parquet?
-- **Problem**: Loading 1M+ rows takes ~5 seconds on frontend
-- **Solution**: Pre-aggregate to 824 feature-level rows
-- **Result**: ~20ms load time (250x faster)
+- **Problem**: Loading raw activation data takes several seconds on frontend
+- **Solution**: Pre-aggregate to feature-level rows
+- **Result**: ~20ms load time (~250x faster)
 - **Trade-off**: Increased preprocessing time, but worth it for demo responsiveness
 
-## 💡 Remember
+## Remember
 
 **This is a research prototype for conference demonstrations**
 
@@ -272,5 +287,5 @@ The goal is efficient, reproducible data processing for a research visualization
 ---
 
 **Pipeline Version**: 3.0 (Dual N-gram Architecture)
-**Last Updated**: November 2025
+**Last Updated**: December 2025
 **Status**: Conference-ready research prototype
