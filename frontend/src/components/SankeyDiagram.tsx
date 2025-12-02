@@ -874,7 +874,11 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
             {/* Node Labels - rendered after histograms to appear in front */}
             <g className="sankey-diagram__node-labels">
-              {layout.nodes.map((node) => {
+              {(() => {
+                // Calculate maxStage once for label font sizing
+                const maxStage = Math.max(...layout.nodes.map((n: any) => n.stage))
+
+                return layout.nodes.map((node) => {
                 const isRightToLeft = flowDirection === 'right-to-left'
 
                 // Check if this is a vertical bar node
@@ -882,7 +886,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                   // Skip placeholder nodes
                   if (node.id === 'placeholder_vertical_bar') return null
 
-                  const labelX = isRightToLeft && node.x1 !== undefined ? node.x1 + 6 : (node.x0 !== undefined ? node.x0 - 6 : 0)
+                  const labelX = isRightToLeft && node.x1 !== undefined ? node.x1 + 4 : (node.x0 !== undefined ? node.x0 - 4 : 0)
                   const textAnchor = isRightToLeft ? 'start' : 'end'
                   const isHovered = hoveredNodeId === node.id
 
@@ -917,6 +921,15 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                             ? `${segment.tagName}?`
                             : segment.tagName
 
+                          // Terminal segments from previous stages get smaller fonts
+                          // Stage 1 terminals (Fragmented, Monosemantic) → smaller at Stage 2+
+                          // Stage 2 terminals (Well-Explained, Need Revision) → smaller at Stage 3+
+                          const isStage1Terminal = segment.tagName === 'Fragmented' || segment.tagName === 'Monosemantic'
+                          const isStage2Terminal = segment.tagName === 'Well-Explained' || segment.tagName === 'Need Revision'
+                          const isPreviousStageTerminal =
+                            (isStage1Terminal && maxStage >= 2) ||
+                            (isStage2Terminal && maxStage >= 3)
+
                           const labelLines = [
                             displayTagName,
                             metricDisplay && threshold !== null ? `${metricDisplay} ${comparison} ${threshold.toFixed(2)}` : '',
@@ -936,7 +949,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                                     x={labelX}
                                     y={segmentCenterY + verticalOffset + (lineIndex * lineHeight)}
                                     text={line}
-                                    fontSize={lineIndex === 0 ? 16 : 12}
+                                    fontSize={isPreviousStageTerminal ? (lineIndex === 0 ? 13 : 10) : (lineIndex === 0 ? 16 : 12)}
                                     textAnchor={textAnchor}
                                     isHovered={isHovered}
                                   />
@@ -950,7 +963,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                   }
 
                   // Fallback: if no segments, render simple label for terminal/regular vertical bar nodes
-                  const fallbackLabelX = isRightToLeft ? node.x1! + 6 : node.x0! - 6
+                  const fallbackLabelX = isRightToLeft ? node.x1! + 4 : node.x0! - 4
                   const fallbackTextAnchor = isRightToLeft ? 'start' : 'end'
                   const fallbackIsHovered = hoveredNodeId === node.id
                   const fallbackNodeCenterY = ((node.y0 ?? 0) + (node.y1 ?? 0)) / 2
@@ -958,6 +971,15 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                   // Split name into lines and add feature count
                   const fallbackNameLines = node.name.split('\n')
                   const fallbackAllLines = [...fallbackNameLines, `(${node.feature_count.toLocaleString()})`]
+
+                  // Check if this is a previous stage terminal node
+                  // Stage 1 terminals (Fragmented, Monosemantic) → smaller at Stage 2+
+                  // Stage 2 terminals (Well-Explained, Need Revision) → smaller at Stage 3+
+                  const fallbackIsStage1Terminal = node.name.includes('Fragmented') || node.name.includes('Monosemantic')
+                  const fallbackIsStage2Terminal = node.name.includes('Well-Explained') || node.name.includes('Need Revision')
+                  const fallbackIsPreviousStageTerminal =
+                    (fallbackIsStage1Terminal && maxStage >= 2) ||
+                    (fallbackIsStage2Terminal && maxStage >= 3)
 
                   const fallbackLineHeight = 16
                   const fallbackTotalHeight = fallbackAllLines.length * fallbackLineHeight
@@ -971,7 +993,9 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                             x={fallbackLabelX}
                             y={fallbackNodeCenterY + fallbackVerticalOffset + (lineIndex * fallbackLineHeight)}
                             text={line}
-                            fontSize={lineIndex === fallbackAllLines.length - 1 ? 12 : 16}
+                            fontSize={fallbackIsPreviousStageTerminal
+                              ? (lineIndex === fallbackAllLines.length - 1 ? 10 : 13)
+                              : (lineIndex === fallbackAllLines.length - 1 ? 12 : 16)}
                             textAnchor={fallbackTextAnchor}
                             isHovered={fallbackIsHovered}
                           />
@@ -991,15 +1015,15 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                 if (node.id === 'root' && sankeyStructure) {
                   const hasChildren = sankeyStructure.links.some((l: any) => l.source === 'root')
                   if (!hasChildren) {
-                    labelX = node.x1! + 6
+                    labelX = node.x1! + 4
                     textAnchor = 'start'
                   } else {
                     showLabel = false
-                    labelX = node.x0! - 6
+                    labelX = node.x0! - 4
                     textAnchor = 'end'
                   }
                 } else {
-                  labelX = isRightToLeft ? node.x1! + 6 : node.x0! - 6
+                  labelX = isRightToLeft ? node.x1! + 4 : node.x0! - 4
                   textAnchor = isRightToLeft ? 'start' : 'end'
                 }
 
@@ -1010,6 +1034,15 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                 // Split name into lines and add feature count on separate line
                 const nameLines = node.name.split('\n')
                 const allLines = [...nameLines, `(${node.feature_count.toLocaleString()})`]
+
+                // Check if this is a previous stage terminal node
+                // Stage 1 terminals (Fragmented, Monosemantic) → smaller at Stage 2+
+                // Stage 2 terminals (Well-Explained, Need Revision) → smaller at Stage 3+
+                const regularIsStage1Terminal = node.name.includes('Fragmented') || node.name.includes('Monosemantic')
+                const regularIsStage2Terminal = node.name.includes('Well-Explained') || node.name.includes('Need Revision')
+                const regularIsPreviousStageTerminal =
+                  (regularIsStage1Terminal && maxStage >= 2) ||
+                  (regularIsStage2Terminal && maxStage >= 3)
 
                 // Calculate vertical offset to center entire label group
                 const lineHeight = 16
@@ -1023,7 +1056,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                           x={labelX}
                           y={nodeCenterY + lineHeight / 2 + (index * lineHeight)}
                           text={line}
-                          fontSize={index === 0 ? 16 : 12}
+                          fontSize={regularIsPreviousStageTerminal ? (index === 0 ? 13 : 10) : (index === 0 ? 16 : 12)}
                           textAnchor={textAnchor}
                           isHovered={isHovered}
                           transition="all 500ms cubic-bezier(0.4, 0.0, 0.2, 1)"
@@ -1032,7 +1065,8 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                     ))}
                   </g>
                 )
-              })}
+              })
+              })()}
             </g>
           </g>
         </svg>
