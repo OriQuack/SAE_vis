@@ -92,7 +92,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
       },
       cause: {
         // TODO: Implement cause mode tag mapping
-        // Available tags: "Missed Context", "Missed Lexicon", "Noisy Activation", "Unsure"
+        // Available tags: "Missed Context", "Missed N-gram", "Noisy Activation"
         confirmed: 'TBD',
         rejected: 'TBD'
       }

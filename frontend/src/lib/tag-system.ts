@@ -109,7 +109,6 @@ function buildVirtualTagTree(): Map<string, SankeyTreeNode> {
  * - GREEN: Positive quality (Monosemantic, Well-Explained)
  * - RED: Needs attention (Fragmented, Need Revision)
  * - BLUE/ORANGE/PURPLE: Categorical distinctions (Cause tags)
- * - GRAY: Uncertain/Unclassified (Unsure)
  *
  * All colors are colorblind-friendly (Okabe-Ito and Paul Tol palettes)
  */
@@ -153,9 +152,6 @@ function assignConstantColors(): void {
           break
         case 'Noisy Activation':
           colors[tag] = PAUL_TOL_BRIGHT.RED  // #CC79A7 - Purple
-          break
-        case 'Unsure':
-          colors[tag] = UNSURE_GRAY  // Centralized unsure/untagged color
           break
 
         default:
@@ -228,9 +224,7 @@ function assignTreeColors(): void {
         )
 
         if (stage3Category) {
-          // Exclude Unsure from tree - it gets UNSURE_GRAY constant, doesn't need hue range
-          const stage3TagsFiltered = stage3Category.tags.filter(t => t !== 'Unsure')
-          for (const stage3Tag of stage3TagsFiltered) {
+          for (const stage3Tag of stage3Category.tags) {
             stage2Node.children.push({
               name: `${stage3Category.id}:${stage3Tag}`,
               children: []
@@ -275,12 +269,6 @@ function assignTreeColors(): void {
   }
 
   extractColors(root)
-
-  // Manually assign Unsure (excluded from tree to save hue range)
-  const causeCategory = TAG_CATEGORIES['cause']
-  if (causeCategory) {
-    ;(causeCategory.tagColors as Record<string, string>)['Unsure'] = UNSURE_GRAY
-  }
 }
 
 /**

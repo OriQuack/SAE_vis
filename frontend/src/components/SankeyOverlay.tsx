@@ -28,7 +28,7 @@ import { ThresholdHandles } from './ThresholdHandles'
  * Terminal segments get striped pattern overlay
  */
 const isTerminalSegment = (tagName: string): boolean => {
-  const terminalTags = ['Fragmented', 'Well-Explained', 'Unsure']
+  const terminalTags = ['Fragmented', 'Well-Explained']
   return terminalTags.includes(tagName)
 }
 

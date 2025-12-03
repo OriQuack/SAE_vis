@@ -16,11 +16,11 @@ import {
   getSelectionColors
 } from '../lib/color-utils'
 import type { ScoreStats } from '../lib/circle-encoding-utils'
-import ScoreCircle, { TagBadge } from './TableIndicators'
+import ScoreCircle, { TagBadge } from './Indicators'
 import { HighlightedExplanation } from './TableExplanation'
 import { TAG_CATEGORY_CAUSE } from '../lib/constants'
 import ActivationExample from './ActivationExample'
-import SimilarityTaggingPopover from './TagAutomaticPopover'
+import SimilarityTaggingPopover from './_TagAutomaticPopover.deprecated'
 import '../styles/QualityTable.css'
 import '../styles/CauseTable.css'
 
@@ -35,7 +35,7 @@ function getCauseTagName(cause: 'noisy-activation' | 'missed-lexicon' | 'missed-
   if (cause === 'noisy-activation') return 'Noisy Activation'
   if (cause === 'missed-lexicon') return 'Missed Lexicon'
   if (cause === 'missed-context') return 'Missed Context'
-  return 'Unsure'
+  return ''  // Features should always be tagged
 }
 
 /**

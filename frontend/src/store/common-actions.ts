@@ -505,7 +505,7 @@ export const createCommonActions = (set: any, get: any) => ({
       set({ isRevisitingStage1: false })
     } else if (stageNumber === 3) {
       selectedNodeId = 'stage3_segment'
-      segmentIndex = 3  // Unsure (fourth segment)
+      segmentIndex = 0  // Missed Context (first segment)
       // Clear Stage 1 revisiting flag when moving to Stage 3
       set({ isRevisitingStage1: false })
     } else {
@@ -556,7 +556,7 @@ export const createCommonActions = (set: any, get: any) => ({
 
   /**
    * Sort table by selection category
-   * Order: Confirmed -> Expanded -> Unsure -> Rejected (or clicked category first)
+   * Order: Confirmed -> Expanded -> Rejected (or clicked category first)
    * If similarity sort is active, use it as secondary sort within each category
    */
   sortTableByCategory: (category: 'confirmed' | 'expanded' | 'rejected' | 'autoRejected' | 'unsure', mode: 'feature' | 'pair' | 'cause') => {

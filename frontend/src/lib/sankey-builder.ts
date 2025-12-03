@@ -534,13 +534,14 @@ export function buildStage3(
     value: wellExplainedSegment.featureCount
   })
 
-  // 3. Create Cause segments (pre-defined groups, initially all in "Unsure")
+  // 3. Create Cause segments (pre-defined groups, initially all in first segment)
   const tagColors = getTagColors(config.categoryId)
   const segments: NodeSegment[] = config.tags.map((tagName, index) => {
-    const isUnsure = tagName === 'Unsure'
-    const featureIds = isUnsure ? needRevisionNode.featureIds : new Set<number>()
-    const featureCount = isUnsure ? needRevisionNode.featureCount : 0
-    const height = isUnsure ? 1.0 : 0
+    // Initially assign all features to the first segment; features get redistributed via tagging
+    const isFirst = index === 0
+    const featureIds = isFirst ? needRevisionNode.featureIds : new Set<number>()
+    const featureCount = isFirst ? needRevisionNode.featureCount : 0
+    const height = isFirst ? 1.0 : 0
     const color = tagColors[tagName] || '#999999'
 
     return {
@@ -549,7 +550,7 @@ export function buildStage3(
       featureCount,
       color,
       height,
-      yPosition: index === config.tags.length - 1 ? 0 : 0  // All at top for now
+      yPosition: 0
     }
   })
 

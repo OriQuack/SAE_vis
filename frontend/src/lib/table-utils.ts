@@ -63,10 +63,10 @@ export type CauseCategoryState = 'noisy-activation' | 'missed-lexicon' | 'missed
 
 /**
  * Get display name for cause category
- * Returns 'Unsure' for null/undefined (untagged features)
+ * Returns empty string for null/undefined (features should always be tagged)
  */
 export function getCauseDisplayName(category: CauseCategoryState | null): string {
-  if (!category) return 'Unsure'
+  if (!category) return ''
 
   const CAUSE_NAME_MAP: Record<CauseCategoryState, string> = {
     'noisy-activation': 'Noisy Activation Example',

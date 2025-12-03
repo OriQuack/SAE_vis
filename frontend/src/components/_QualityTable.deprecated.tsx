@@ -8,7 +8,7 @@ import {
   getExplainerDisplayName,
   findMaxQualityScoreExplainer
 } from '../lib/table-utils'
-import ScoreCircle, { TagBadge } from './TableIndicators'
+import ScoreCircle, { TagBadge } from './Indicators'
 import {
   METRIC_QUALITY_SCORE,
   CATEGORY_DECODER_SIMILARITY
@@ -25,8 +25,8 @@ import {
 import { HighlightedExplanation } from './TableExplanation'
 import ActivationExample from './ActivationExample'
 import QualityScoreBreakdown from './QualityScoreBreakdown'
-import CauseTablePanel from './CauseTable'
-import SimilarityTaggingPopover from './TagAutomaticPopover'
+import CauseTablePanel from './_CauseTable.deprecated'
+import SimilarityTaggingPopover from './_TagAutomaticPopover.deprecated'
 import TagAutomaticPanel from './TagAutomaticPanel'
 import '../styles/QualityTable.css'
 

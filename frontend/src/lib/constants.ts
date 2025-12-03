@@ -162,8 +162,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     tags: [
       "Missed Context",
       "Missed N-gram",
-      "Noisy Activation",
-      "Unsure"
+      "Noisy Activation"
     ],
     relatedMetrics: [
       // Missed Context indicators

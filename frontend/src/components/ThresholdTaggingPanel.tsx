@@ -4,7 +4,7 @@ import type { FeatureTableRow } from '../types'
 import TagAutomaticPanel from './TagAutomaticPanel'
 import ScrollableItemList from './ScrollableItemList'
 import BimodalityIndicator from './BimodalityIndicator'
-import { TagBadge } from './TableIndicators'
+import { TagBadge } from './Indicators'
 import '../styles/ThresholdTaggingPanel.css'
 
 // ============================================================================

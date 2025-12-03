@@ -112,7 +112,7 @@ const ScoreCircle: React.FC<ScoreCircleProps> = ({
 
 interface TagBadgeProps {
   featureId: number          // Feature ID to display on left
-  tagName: string            // Tag name to display on right (or "Unsure" if unselected)
+  tagName: string            // Tag name to display on right
   tagCategoryId: string      // Category ID for color lookup
   className?: string         // Additional CSS classes
 
