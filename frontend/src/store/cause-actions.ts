@@ -104,8 +104,6 @@ export const createCauseActions = (set: any, get: any) => ({
       // Store in state
       set({
         causeCategoryDecisionMargins: categoryDecisionMargins,
-        tableSortBy: 'cause_similarity',
-        tableSortDirection: 'desc',
         isCauseSimilaritySortLoading: false
       })
 
@@ -118,15 +116,6 @@ export const createCauseActions = (set: any, get: any) => ({
       console.error('[Store.sortCauseBySimilarity] ❌ Failed to calculate cause similarity sort:', error)
       set({ isCauseSimilaritySortLoading: false })
     }
-  },
-
-  /**
-   * Set which category to use for cause similarity sorting
-   * @param category - 'noisy-activation', 'missed-lexicon', 'missed-context', or null for max decision margin
-   */
-  setCauseSortCategory: (category: string | null) => {
-    set({ causeSortCategory: category })
-    console.log('[Store.setCauseSortCategory] Cause sort category updated:', category)
   },
 
   // ============================================================================
@@ -227,93 +216,4 @@ export const createCauseActions = (set: any, get: any) => ({
     })
     console.log('[Store.restoreSimilarityTaggingPopover] Popover restored')
   },
-
-  /**
-   * Show thresholds on table - sorts by similarity and shows threshold lines
-   */
-  showThresholdsOnTable: async () => {
-    const { tagAutomaticState } = get()
-    if (!tagAutomaticState) {
-      console.warn('[Store.showThresholdsOnTable] No popover state available')
-      return
-    }
-
-    const { mode, selectThreshold, rejectThreshold } = tagAutomaticState
-
-    // Only handle cause mode in this file
-    if (mode !== 'cause') {
-      console.warn('[Cause.showThresholdsOnTable] Wrong mode:', mode)
-      return
-    }
-
-    console.log('[Store.showThresholdsOnTable] Showing thresholds on table:', {
-      mode,
-      selectThreshold,
-      rejectThreshold
-    })
-
-    try {
-      // Step 1: Trigger cause similarity sort
-      await get().sortCauseBySimilarity()
-
-      // Step 2: Calculate preview sets (which items would be auto-tagged)
-      const { causeSelectionStates, causeCategoryDecisionMargins, causeSortCategory } = get()
-      const previewAutoSelected = new Set<number | string>()
-      const previewAutoRejected = new Set<number | string>()
-
-      // Check each feature with decision margin scores
-      causeCategoryDecisionMargins.forEach((decisionMargins: any, featureId: any) => {
-        const isAlreadyTagged = causeSelectionStates.has(featureId)
-        if (!isAlreadyTagged) {
-          let score = -Infinity
-          if (causeSortCategory && decisionMargins[causeSortCategory] !== undefined) {
-            score = decisionMargins[causeSortCategory] as number
-          } else {
-            score = Math.max(...Object.values(decisionMargins) as number[])
-          }
-          if (score >= selectThreshold) {
-            previewAutoSelected.add(featureId)
-          } else if (score <= rejectThreshold) {
-            previewAutoRejected.add(featureId)
-          }
-        }
-      })
-
-      console.log('[Store.showThresholdsOnTable] Preview sets calculated:', {
-        autoSelected: previewAutoSelected.size,
-        autoRejected: previewAutoRejected.size
-      })
-
-      // Step 3: Store visualization state
-      // Note: Setting positions to null - stripe patterns are sufficient for preview
-      set({
-        thresholdVisualization: {
-          visible: true,
-          mode,
-          selectThreshold,
-          rejectThreshold,
-          selectPosition: null,
-          rejectPosition: null,
-          previewAutoSelected,
-          previewAutoRejected
-        }
-      })
-
-      // Step 4: Minimize popover
-      get().minimizeSimilarityTaggingPopover()
-
-      console.log('[Store.showThresholdsOnTable] Thresholds displayed for cause')
-
-    } catch (error) {
-      console.error('[Store.showThresholdsOnTable] Failed to show thresholds:', error)
-    }
-  },
-
-  /**
-   * Hide thresholds from table
-   */
-  hideThresholdsOnTable: () => {
-    set({ thresholdVisualization: null })
-    console.log('[Store.hideThresholdsOnTable] Thresholds hidden')
-  }
 })

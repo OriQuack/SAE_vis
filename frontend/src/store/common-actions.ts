@@ -1,11 +1,8 @@
 import * as api from '../api'
-import type { SortBy, SortDirection, SankeySegmentSelection } from '../types'
+import type { SankeySegmentSelection } from '../types'
 import {
   METRIC_DECODER_SIMILARITY,
   METRIC_QUALITY_SCORE,
-  METRIC_SCORE_EMBEDDING,
-  METRIC_SCORE_FUZZ,
-  METRIC_SCORE_DETECTION,
   PANEL_LEFT
 } from '../lib/constants'
 import {
@@ -310,50 +307,6 @@ export const createCommonActions = (set: any, get: any) => ({
     }
   },
 
-  /**
-   * Set table scroll state
-   */
-  setTableScrollState: (state: { scrollTop: number; scrollHeight: number; clientHeight: number } | null) => {
-    set({ tableScrollState: state })
-  },
-
-  /**
-   * Set table sort state - reorders table display only (does NOT modify Sankey)
-   */
-  setTableSort: (sortBy: SortBy | null, sortDirection: SortDirection | null) => {
-    // Clear frozen selection states when switching away from similarity sort
-    const shouldClearFrozenStates = sortBy !== 'similarity'
-
-    // Update table sort state
-    set({
-      tableSortBy: sortBy,
-      tableSortDirection: sortDirection,
-      ...(shouldClearFrozenStates && { sortedBySelectionStates: null })
-    })
-
-    console.log('[Store.setTableSort] Table sort updated (display only):', { sortBy, sortDirection })
-  },
-
-  /**
-   * Swap the metric display in the table column
-   */
-  swapMetricDisplay: (newMetric: typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION) => {
-    const state = get()
-
-    // Store the current display metric
-    const currentDisplay = state.scoreColumnDisplay
-
-    // Set the new display metric
-    set({
-      scoreColumnDisplay: newMetric as typeof state.scoreColumnDisplay
-    })
-
-    console.log('[Store.swapMetricDisplay] Swapped score column:', {
-      from: currentDisplay,
-      to: newMetric
-    })
-  },
-
   // ============================================================================
   // STAGE TABLE ACTIONS (Dedicated stage-specific table views)
   // ============================================================================
@@ -553,135 +506,4 @@ export const createCommonActions = (set: any, get: any) => ({
       console.log('[Store.moveToNextStep] No next step defined for category:', activeStageCategory)
     }
   },
-
-  /**
-   * Sort table by selection category
-   * Order: Confirmed -> Expanded -> Rejected (or clicked category first)
-   * If similarity sort is active, use it as secondary sort within each category
-   */
-  sortTableByCategory: (category: 'confirmed' | 'expanded' | 'rejected' | 'autoRejected' | 'unsure', mode: 'feature' | 'pair' | 'cause') => {
-    const {
-      tableData,
-      featureSelectionStates,
-      featureSelectionSources,
-      pairSelectionStates,
-      pairSelectionSources,
-      similarityScores,
-      pairSimilarityScores
-    } = get()
-
-    if (!tableData) {
-      console.warn('[Store.sortTableByCategory] No table data available')
-      return
-    }
-
-    console.log(`[Store.sortTableByCategory] Sorting by category: ${category}, mode: ${mode}`)
-
-    // Define category order with clicked category first
-    const categoryOrder: Array<'confirmed' | 'expanded' | 'rejected' | 'autoRejected' | 'unsure'> = (() => {
-      const baseOrder: Array<'confirmed' | 'expanded' | 'rejected' | 'autoRejected' | 'unsure'> = ['confirmed', 'expanded', 'unsure', 'rejected', 'autoRejected']
-      // Move clicked category to front
-      return [category, ...baseOrder.filter(c => c !== category)]
-    })()
-
-    // Helper function to get category for a feature/pair
-    const getCategory = (id: number | string, isFeature: boolean): 'confirmed' | 'expanded' | 'rejected' | 'autoRejected' | 'unsure' => {
-      if (isFeature) {
-        const featureId = id as number
-        const selectionState = featureSelectionStates.get(featureId)
-        const source = featureSelectionSources.get(featureId)
-
-        if (selectionState === 'selected') {
-          return source === 'auto' ? 'expanded' : 'confirmed'
-        } else if (selectionState === 'rejected') {
-          return source === 'auto' ? 'autoRejected' : 'rejected'
-        } else {
-          return 'unsure'
-        }
-      } else {
-        const pairKey = id as string
-        const selectionState = pairSelectionStates.get(pairKey)
-        const source = pairSelectionSources.get(pairKey)
-
-        if (selectionState === 'selected') {
-          return source === 'auto' ? 'expanded' : 'confirmed'
-        } else if (selectionState === 'rejected') {
-          return source === 'auto' ? 'autoRejected' : 'rejected'
-        } else {
-          return 'unsure'
-        }
-      }
-    }
-
-    if (mode === 'feature' && tableData.features) {
-      // Sort features by category
-      const sortedFeatures = [...tableData.features].sort((a, b) => {
-        const categoryA = getCategory(a.feature_id, true)
-        const categoryB = getCategory(b.feature_id, true)
-
-        const categoryIndexA = categoryOrder.indexOf(categoryA)
-        const categoryIndexB = categoryOrder.indexOf(categoryB)
-
-        // Primary sort: by category order
-        if (categoryIndexA !== categoryIndexB) {
-          return categoryIndexA - categoryIndexB
-        }
-
-        // Secondary sort: by similarity score if available (descending)
-        const scoreA = similarityScores.get(a.feature_id) ?? -1
-        const scoreB = similarityScores.get(b.feature_id) ?? -1
-
-        if (scoreA !== scoreB && (scoreA >= 0 || scoreB >= 0)) {
-          return scoreB - scoreA // descending
-        }
-
-        // Tertiary sort: by feature_id (ascending)
-        return a.feature_id - b.feature_id
-      })
-
-      set({
-        tableData: {
-          ...tableData,
-          features: sortedFeatures
-        }
-      })
-
-      console.log('[Store.sortTableByCategory] Features sorted by category')
-
-    } else if (mode === 'pair' && tableData.pairs) {
-      // Sort pairs by category
-      const sortedPairs = [...tableData.pairs].sort((a, b) => {
-        const categoryA = getCategory(a.pairKey, false)
-        const categoryB = getCategory(b.pairKey, false)
-
-        const categoryIndexA = categoryOrder.indexOf(categoryA)
-        const categoryIndexB = categoryOrder.indexOf(categoryB)
-
-        // Primary sort: by category order
-        if (categoryIndexA !== categoryIndexB) {
-          return categoryIndexA - categoryIndexB
-        }
-
-        // Secondary sort: by similarity score if available (descending)
-        const scoreA = pairSimilarityScores.get(a.pairKey) ?? -1
-        const scoreB = pairSimilarityScores.get(b.pairKey) ?? -1
-
-        if (scoreA !== scoreB && (scoreA >= 0 || scoreB >= 0)) {
-          return scoreB - scoreA // descending
-        }
-
-        // Tertiary sort: by pairKey (ascending)
-        return a.pairKey.localeCompare(b.pairKey)
-      })
-
-      set({
-        tableData: {
-          ...tableData,
-          pairs: sortedPairs
-        }
-      })
-
-      console.log('[Store.sortTableByCategory] Pairs sorted by category')
-    }
-  }
 })

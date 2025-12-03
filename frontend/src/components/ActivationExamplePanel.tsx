@@ -5,7 +5,7 @@ import {
   getActivationColor,
   formatTokensWithEllipsis
 } from '../lib/activation-utils'
-import '../styles/ActivationExample.css'
+import '../styles/ActivationExamplePanel.css'
 
 interface ActivationExampleProps {
   examples: ActivationExamples

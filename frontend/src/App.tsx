@@ -6,7 +6,6 @@ import AlluvialDiagram from './components/AlluvialDiagram'
 import HistogramPopover from './components/SankeyHistogramPopover'
 import FeatureSplitView from './components/FeatureSplitView'
 import QualityView from './components/QualityView'
-import SimilarityTaggingPopover from './components/_TagAutomaticPopover.deprecated'
 import TagCategoryPanel from './components/TagStagePanel'
 import SankeyToSelectionFlowOverlay from './components/SankeyToSelectionFlowOverlay'
 import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY } from './lib/constants'
@@ -210,12 +209,10 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
               {activeStageCategory === TAG_CATEGORY_FEATURE_SPLITTING ? (
                 <>
                   <FeatureSplitView onCategoryRefsReady={setSelectionCategoryRefs} />
-                  <SimilarityTaggingPopover />
                 </>
               ) : activeStageCategory === TAG_CATEGORY_QUALITY ? (
                 <>
                   <QualityView onCategoryRefsReady={setSelectionCategoryRefs} />
-                  <SimilarityTaggingPopover />
                 </>
               ) : (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: '#9ca3af', fontSize: '14px' }}>

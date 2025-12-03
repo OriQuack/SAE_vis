@@ -15,7 +15,7 @@ export interface Filters {
 
 import {
   CATEGORY_ROOT, CATEGORY_DECODER_SIMILARITY, CATEGORY_SEMANTIC_SIMILARITY,
-  METRIC_DECODER_SIMILARITY, METRIC_SEMANTIC_SIMILARITY, METRIC_QUALITY_SCORE,
+  METRIC_DECODER_SIMILARITY, METRIC_SEMANTIC_SIMILARITY,
   METRIC_SCORE_FUZZ, METRIC_SCORE_DETECTION, METRIC_SCORE_EMBEDDING,
   PANEL_LEFT, PANEL_RIGHT
 } from './lib/constants'
@@ -229,15 +229,6 @@ export interface D3SankeyLink {
   y1?: number
 }
 
-export interface SankeyData {
-  nodes: SankeyNode[]
-  links: SankeyLink[]
-  metadata: {
-    total_features: number
-    applied_filters: Filters
-  }
-}
-
 export interface AlluvialFlow {
   source: string
   target: string
@@ -265,7 +256,6 @@ export interface FeatureDetail {
   details_path: string
 }
 
-
 // ============================================================================
 // UI AND STATE TYPES
 // ============================================================================
@@ -288,6 +278,24 @@ export interface ErrorStates {
   sankeyRight: string | null
   comparison: string | null
   table: string | null
+}
+
+export type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
+
+export interface HistogramPopoverData {
+  nodeId: string | undefined
+  nodeName: string
+  nodeCategory: NodeCategory | undefined
+  parentNodeId: string | undefined
+  parentNodeName: string | undefined
+  metrics: MetricType[]
+  position: { x: number; y: number }
+  visible: boolean
+  panel: PanelSide
+}
+
+export interface PopoverState {
+  histogram: HistogramPopoverData | null
 }
 
 export type MetricType =
@@ -339,30 +347,12 @@ export interface LayoutMargin {
   left: number
 }
 
-export interface ThresholdLineData {
-  x: number
-  y1: number
-  y2: number
-  value: number
-}
-
 export interface SankeyLayout {
   nodes: D3SankeyNode[]
   links: D3SankeyLink[]
   width: number
   height: number
   margin: LayoutMargin
-}
-
-export interface PopoverPosition {
-  x: number
-  y: number
-  transform: string
-}
-
-export interface PopoverSize {
-  width: number
-  height: number
 }
 
 // ============================================================================
@@ -513,17 +503,6 @@ export interface QuantileExample {
   word_ngram_positions: number[]       // Token positions where word n-grams start
 }
 
-/**
- * Token with activation highlighting metadata
- */
-export interface ActivationToken {
-  text: string
-  position: number
-  activation_value?: number            // If activated
-  is_max?: boolean                    // Is this the max activation token?
-  is_newline?: boolean                // Is this a newline character?
-}
-
 export interface TableDataRequest {
   filters: Filters
 }
@@ -540,23 +519,6 @@ export interface FeatureTableDataResponse {
   scorer_ids: string[]
   global_stats: Record<string, MetricNormalizationStats>
 }
-
-// Table Sorting Types (simplified for new table structure)
-export type SortDirection = 'asc' | 'desc' | null
-
-export type SortBy =
-  | 'featureId'
-  | typeof METRIC_QUALITY_SCORE
-  | typeof METRIC_SCORE_DETECTION
-  | typeof METRIC_SCORE_FUZZ
-  | typeof METRIC_SCORE_EMBEDDING
-  | typeof METRIC_DECODER_SIMILARITY
-  | typeof METRIC_SEMANTIC_SIMILARITY
-  | 'emb_det_average'  // Average of embedding + detection scores (for cause table)
-  | 'similarity'  // Similarity-based sorting (for quality table)
-  | 'pair_similarity'  // Pair similarity-based sorting (for feature split table)
-  | 'cause_similarity'  // Cause similarity-based sorting (for cause table)
-  | null
 
 // ============================================================================
 // SIMILARITY SORT TYPES

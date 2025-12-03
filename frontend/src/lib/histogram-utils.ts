@@ -2,7 +2,25 @@ import React from 'react'
 import { scaleLinear } from 'd3-scale'
 import type { ScaleLinear } from 'd3-scale'
 import { max } from 'd3-array'
-import type { HistogramData, HistogramChart, HistogramLayout, ThresholdLineData, PopoverPosition, PopoverSize, HistogramBin } from '../types'
+import type { HistogramData, HistogramChart, HistogramLayout, HistogramBin } from '../types'
+
+export interface ThresholdLineData {
+  x: number
+  y1: number
+  y2: number
+  value: number
+}
+
+export interface PopoverPosition {
+  x: number
+  y: number
+  transform: string
+}
+
+export interface PopoverSize {
+  width: number
+  height: number
+}
 
 // ============================================================================
 // CONSTANTS

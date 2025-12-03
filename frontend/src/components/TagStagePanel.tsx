@@ -50,7 +50,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
 
         if (currentStage === 1) {
           // Stage 1 active: look for stage1_segment with segments array
-          const segmentNode = sankeyStructure.nodes.find((n: any) => n.id === 'stage1_segment');
+          const segmentNode = sankeyStructure.nodes.find((n: any) => n.id === 'stage1_segment') as any;
           if (segmentNode?.segments?.[0]) {
             // segments[0] = Monosemantic (below threshold)
             belowThresholdCount = segmentNode.segments[0].featureCount || 0;

@@ -1,14 +1,14 @@
 import React, { useState, useRef, useCallback } from 'react'
 import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow } from '../types'
-import ActivationExample from './ActivationExample'
+import ActivationExample from './ActivationExamplePanel'
 import ScrollableItemList from './ScrollableItemList'
 import { TagBadge } from './Indicators'
 import { UNSURE_GRAY } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
 import { extractInterFeaturePositions } from '../lib/activation-utils'
-import { getBestExplanation } from '../lib/table-utils'
+import { getBestExplanation } from '../lib/table-data-utils'
 import '../styles/FeatureSplitPairViewer.css'
 
 // ============================================================================

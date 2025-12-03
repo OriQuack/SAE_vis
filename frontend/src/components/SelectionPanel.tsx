@@ -274,7 +274,6 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
   const pairSelectionSources = useVisualizationStore(state => state.pairSelectionSources)
   const causeSelectionStates = useVisualizationStore(state => state.causeSelectionStates)
   const allClusterPairs = useVisualizationStore(state => state.allClusterPairs)
-  const sortTableByCategory = useVisualizationStore(state => state.sortTableByCategory)
   const thresholdVisualization = useVisualizationStore(state => state.thresholdVisualization)
   const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
   const restoreSimilarityTaggingPopover = useVisualizationStore(state => state.restoreSimilarityTaggingPopover)
@@ -571,7 +570,6 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
   // Handlers
   const handleCategoryClick = (category: SelectionCategory) => {
     console.log(`[TableSelectionPanel] Clicked category: ${category}`)
-    sortTableByCategory(category, mode)
   }
 
   const handleGoBackToHistogram = () => {

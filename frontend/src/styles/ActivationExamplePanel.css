@@ -112,11 +112,6 @@
   vertical-align: middle;
 }
 
-/* Max activation token - no longer using red underline */
-.activation-token--max {
-  /* Red underline removed per user request */
-}
-
 /* N-gram pattern indicator (lexical patterns: char or word n-grams) */
 /* Three confidence levels based on Jaccard similarity score */
 

@@ -6,7 +6,18 @@
  */
 
 import { scaleLinear } from 'd3-scale'
-import type { QuantileExample, ActivationToken } from '../types'
+import type { QuantileExample } from '../types'
+
+/**
+ * Token with activation highlighting metadata
+ */
+export interface ActivationToken {
+  text: string
+  position: number
+  activation_value?: number            // If activated
+  is_max?: boolean                    // Is this the max activation token?
+  is_newline?: boolean                // Is this a newline character?
+}
 
 /**
  * Extract N-token window around max activation position

@@ -10,8 +10,6 @@ import type {
   AlluvialFlow,
   SankeyNode,
   NodeCategory,
-  SortBy,
-  SortDirection,
   ActivationExamples,
   SankeySegmentSelection,
   FlowPathData
@@ -20,10 +18,6 @@ import { getNodeThresholdPath, processFeatureGroupResponse } from '../lib/thresh
 import {
   PANEL_LEFT,
   PANEL_RIGHT,
-  METRIC_QUALITY_SCORE,
-  METRIC_SCORE_EMBEDDING,
-  METRIC_SCORE_FUZZ,
-  METRIC_SCORE_DETECTION,
   TAG_CATEGORY_FEATURE_SPLITTING
 } from '../lib/constants'
 import { createInitialPanelState, type PanelState } from './utils'
@@ -84,16 +78,14 @@ interface AppState {
   hoveredAlluvialPanel: 'left' | 'right' | null
   setHoveredAlluvialNode: (nodeId: string | null, panel: 'left' | 'right' | null) => void
 
-  // Feature selection state (used by TablePanel checkboxes)
+  // Feature selection state (used by QualityView)
   // Three-state system: null (empty) -> 'selected' (checkmark) -> 'rejected' (red X) -> null
   featureSelectionStates: Map<number, 'selected' | 'rejected'>
   // Track how features were selected: 'manual' (user click) or 'auto' (histogram tagging)
   featureSelectionSources: Map<number, 'manual' | 'auto'>
   toggleFeatureSelection: (featureId: number) => void
-  selectAllFeatures: () => void
-  clearFeatureSelection: () => void
 
-  // Pair selection state (used by FeatureSplitTable checkboxes)
+  // Pair selection state (used by FeatureSplitView)
   // Three-state system: null (empty) -> 'selected' (checkmark) -> 'rejected' (red X) -> null
   // Key format: "${mainFeatureId}-${similarFeatureId}"
   pairSelectionStates: Map<string, 'selected' | 'rejected'>
@@ -104,7 +96,7 @@ interface AppState {
   restorePairSelectionStates: (states: Map<string, 'selected' | 'rejected'>, sources: Map<string, 'manual' | 'auto'>) => void
   restoreFeatureSelectionStates: (states: Map<number, 'selected' | 'rejected'>, sources: Map<number, 'manual' | 'auto'>) => void
 
-  // Cause category selection state (used by CauseTablePanel)
+  // Cause category selection state (used by SelectionPanel for Stage 3)
   // Three-state cycle: null -> noisy-activation -> missed-lexicon -> missed-context -> null
   causeSelectionStates: Map<number, 'noisy-activation' | 'missed-lexicon' | 'missed-context'>
   // Track how features were selected: 'manual' (user click) or 'auto' (automatic tagging)
@@ -161,14 +153,10 @@ interface AppState {
 
   // Table data actions (composed from modular action files)
   fetchTableData: () => Promise<void>
-  setTableScrollState: (state: { scrollTop: number; scrollHeight: number; clientHeight: number } | null) => void
-  setTableSort: (sortBy: SortBy | null, sortDirection: SortDirection | null) => void
-  swapMetricDisplay: (newMetric: typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION) => void
   sortBySimilarity: () => Promise<void>
   sortPairsBySimilarity: (allPairKeys: string[]) => Promise<void>
   getFeatureSplittingCounts: () => { fragmented: number; monosemantic: number; unsure: number; total: number; fragmentedManual: number; fragmentedAuto: number; monosematicManual: number; monosematicAuto: number }
   sortCauseBySimilarity: () => Promise<void>
-  sortTableByCategory: (category: 'confirmed' | 'expanded' | 'rejected' | 'autoRejected' | 'unsure', mode: 'feature' | 'pair' | 'cause') => void
   fetchSimilarityHistogram: (selectedFeatureIds?: Set<number>, threshold?: number) => Promise<any>
 
   // Similarity tagging actions (automatic tagging based on histogram)
@@ -181,10 +169,6 @@ interface AppState {
   applySimilarityTags: () => void
   minimizeSimilarityTaggingPopover: () => void
   restoreSimilarityTaggingPopover: () => void
-
-  // Threshold visualization actions
-  showThresholdsOnTable: () => Promise<void>
-  hideThresholdsOnTable: () => void
 
   // Node selection actions
   toggleNodeSelection: (nodeId: string) => void
@@ -214,10 +198,6 @@ interface AppState {
     clientHeight: number           // Viewport height in pixels
     visibleFeatureIds: Set<number> // Feature IDs currently visible in viewport
   } | null
-
-  // Table sort state
-  tableSortBy: SortBy | null
-  tableSortDirection: SortDirection | null
 
   // Similarity sort state
   similarityScores: Map<number, number>
@@ -278,9 +258,6 @@ interface AppState {
   // Node selection for table filtering
   tableSelectedNodeIds: string[]
 
-  // Table column display state
-  scoreColumnDisplay: typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION
-
   // Stage table state (decoder similarity stage table)
   activeStageNodeId: string | null
   activeStageCategory: string | null
@@ -311,6 +288,7 @@ interface AppState {
   // Activation examples actions (from activation-actions.ts)
   fetchActivationExamples: (featureIds: number[]) => Promise<void>
   fetchAllActivationsChunked: (featureIds: number[], chunkSize?: number) => Promise<void>
+  fetchAllActivationsCached: () => Promise<void>
   getActivationData: (featureId: number) => ActivationExamples | undefined
   isActivationDataCached: (featureId: number) => boolean
   isActivationDataLoading: (featureId: number) => boolean
@@ -359,10 +337,6 @@ const initialState = {
   // Table scroll state
   tableScrollState: null,
 
-  // Table sort state
-  tableSortBy: null,
-  tableSortDirection: null,
-
   // Similarity sort state
   similarityScores: new Map<number, number>(),
   isSimilaritySortLoading: false,
@@ -407,9 +381,6 @@ const initialState = {
   selectedSankeySegment: null,
   sankeyToSelectionFlows: null,
 
-  // Table column display state
-  scoreColumnDisplay: METRIC_QUALITY_SCORE as typeof METRIC_QUALITY_SCORE | typeof METRIC_SCORE_EMBEDDING | typeof METRIC_SCORE_FUZZ | typeof METRIC_SCORE_DETECTION,
-
   // Stage table state
   activeStageNodeId: null,
   activeStageCategory: TAG_CATEGORY_FEATURE_SPLITTING,
@@ -426,16 +397,15 @@ const initialState = {
   hoveredAlluvialNodeId: null,
   hoveredAlluvialPanel: null,
 
-  // Feature selection state (used by TablePanel checkboxes)
-  // Three-state system: null (empty) -> 'selected' (checkmark) -> 'rejected' (red X) -> null
+  // Feature selection state (used by QualityView)
   featureSelectionStates: new Map<number, 'selected' | 'rejected'>(),
   featureSelectionSources: new Map<number, 'manual' | 'auto'>(),
 
-  // Pair selection state (used by FeatureSplitTable checkboxes)
+  // Pair selection state (used by FeatureSplitView)
   pairSelectionStates: new Map<string, 'selected' | 'rejected'>(),
   pairSelectionSources: new Map<string, 'manual' | 'auto'>(),
 
-  // Cause category selection state (used by CauseTablePanel)
+  // Cause category selection state (used by SelectionPanel for Stage 3)
   causeSelectionStates: new Map<number, 'noisy-activation' | 'missed-lexicon' | 'missed-context'>(),
   causeSelectionSources: new Map<number, 'manual' | 'auto'>(),
   activeCauseStageNode: null,
@@ -483,20 +453,6 @@ export const useStore = create<AppState>((set, get) => {
       }
     },
 
-    showThresholdsOnTable: async () => {
-      const { tagAutomaticState } = get()
-      if (!tagAutomaticState) return
-
-      const { mode } = tagAutomaticState
-      if (mode === 'feature') {
-        return qualityActions.showThresholdsOnTable()
-      } else if (mode === 'pair') {
-        return featureSplitActions.showThresholdsOnTable()
-      } else if (mode === 'cause') {
-        return causeActions.showThresholdsOnTable()
-      }
-    },
-
     updateSimilarityThresholds: (selectThreshold: number) => {
       const { tagAutomaticState } = get()
       if (!tagAutomaticState) return
@@ -532,8 +488,7 @@ export const useStore = create<AppState>((set, get) => {
     // Shared functions (use any implementation - they're identical)
     hideTagAutomaticPopover: qualityActions.hideTagAutomaticPopover,
     minimizeSimilarityTaggingPopover: qualityActions.minimizeSimilarityTaggingPopover,
-    restoreSimilarityTaggingPopover: qualityActions.restoreSimilarityTaggingPopover,
-    hideThresholdsOnTable: qualityActions.hideThresholdsOnTable
+    restoreSimilarityTaggingPopover: qualityActions.restoreSimilarityTaggingPopover
   }
 
   return {
@@ -559,7 +514,6 @@ export const useStore = create<AppState>((set, get) => {
 
   // Compose Cause actions (Stage 3 - Multi-class)
   sortCauseBySimilarity: causeActions.sortCauseBySimilarity,
-  setCauseSortCategory: causeActions.setCauseSortCategory,
 
   // Unified similarity tagging actions (route based on mode)
   ...unifiedSimilarityActions,
@@ -629,32 +583,7 @@ export const useStore = create<AppState>((set, get) => {
     })
   },
 
-  selectAllFeatures: () => {
-    const tableData = get().tableData
-    if (tableData && tableData.features) {
-      const newStates = new Map<number, 'selected' | 'rejected'>()
-      const newSources = new Map<number, 'manual' | 'auto'>()
-      tableData.features.forEach((f: any) => {
-        newStates.set(f.feature_id, 'selected')
-        newSources.set(f.feature_id, 'manual')
-      })
-      set({
-        featureSelectionStates: newStates,
-        featureSelectionSources: newSources,
-        lastSortedSelectionSignature: null
-      })
-    }
-  },
-
-  clearFeatureSelection: () => {
-    set({
-      featureSelectionStates: new Map<number, 'selected' | 'rejected'>(),
-      featureSelectionSources: new Map<number, 'manual' | 'auto'>(),
-      lastSortedSelectionSignature: null
-    })
-  },
-
-  // Pair selection actions (used by FeatureSplitTable checkboxes)
+  // Pair selection actions (used by FeatureSplitView)
   // Three-state toggle: null -> 'selected' -> 'rejected' -> null
   togglePairSelection: (mainFeatureId: number, similarFeatureId: number) => {
     set((state) => {
@@ -713,7 +642,7 @@ export const useStore = create<AppState>((set, get) => {
     })
   },
 
-  // Cause category selection actions (used by CauseTablePanel)
+  // Cause category selection actions (used by SelectionPanel for Stage 3)
   // Three-state cycle: null -> noisy-activation -> missed-lexicon -> missed-context -> null
   toggleCauseCategory: (featureId: number) => {
     set((state) => {

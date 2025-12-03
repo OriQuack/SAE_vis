@@ -1,6 +1,6 @@
 import React from 'react'
 import type { FeatureTableRow, MetricNormalizationStats } from '../types'
-import { getExplainerDisplayName, calculateQualityScore } from '../lib/table-utils'
+import { getExplainerDisplayName, calculateQualityScore } from '../lib/table-data-utils'
 import { getMetricColor } from '../lib/utils'
 
 interface QualityScoreBreakdownProps {

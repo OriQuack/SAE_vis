@@ -182,8 +182,6 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
       // Store scores and set sort mode
       set({
         pairSimilarityScores: scoresMap,
-        tableSortBy: 'pair_similarity',
-        tableSortDirection: 'desc',
         isPairSimilaritySortLoading: false,
         lastPairSortedSelectionSignature: selectionSignature,
         pairSortedBySelectionStates: frozenSelectionStates
@@ -590,108 +588,7 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
     })
     console.log('[Store.restoreSimilarityTaggingPopover] Popover restored')
   },
-
-  /**
-   * Show thresholds on table - sorts by similarity and shows threshold lines
-   */
-  showThresholdsOnTable: async () => {
-    const { tagAutomaticState, tableData } = get()
-    if (!tagAutomaticState) {
-      console.warn('[Store.showThresholdsOnTable] No popover state available')
-      return
-    }
-
-    const { mode, selectThreshold, rejectThreshold } = tagAutomaticState
-
-    // Only handle pair mode in this file
-    if (mode !== 'pair') {
-      console.warn('[FeatureSplitting.showThresholdsOnTable] Wrong mode:', mode)
-      return
-    }
-
-    console.log('[Store.showThresholdsOnTable] Showing thresholds on table:', {
-      mode,
-      selectThreshold,
-      rejectThreshold
-    })
-
-    try {
-      // Extract all pair keys from table data
-      const allPairKeys: string[] = []
-      if (tableData && tableData.features) {
-        tableData.features.forEach((feature: any) => {
-          if (feature.decoder_similarity && Array.isArray(feature.decoder_similarity)) {
-            feature.decoder_similarity.slice(0, 4).forEach((similarItem: any) => {
-              const mainId = feature.feature_id
-              const similarId = similarItem.feature_id
-              // Use canonical format (smaller ID first)
-              const pairKey = mainId < similarId
-                ? `${mainId}-${similarId}`
-                : `${similarId}-${mainId}`
-              if (!allPairKeys.includes(pairKey)) {
-                allPairKeys.push(pairKey)
-              }
-            })
-          }
-        })
-      }
-      await get().sortPairsBySimilarity(allPairKeys)
-
-      // Step 2: Calculate preview sets (which items would be auto-tagged)
-      const { pairSelectionStates, pairSimilarityScores } = get()
-      const previewAutoSelected = new Set<number | string>()
-      const previewAutoRejected = new Set<number | string>()
-
-      // Check each pair with a similarity score
-      pairSimilarityScores.forEach((score: any, pairKey: any) => {
-        const isAlreadyTagged = pairSelectionStates.has(pairKey)
-        if (!isAlreadyTagged) {
-          if (score >= selectThreshold) {
-            previewAutoSelected.add(pairKey)
-          } else if (score <= rejectThreshold) {
-            previewAutoRejected.add(pairKey)
-          }
-        }
-      })
-
-      console.log('[Store.showThresholdsOnTable] Preview sets calculated:', {
-        autoSelected: previewAutoSelected.size,
-        autoRejected: previewAutoRejected.size
-      })
-
-      // Step 3: Store visualization state
-      // Note: Setting positions to null - stripe patterns are sufficient for preview
-      set({
-        thresholdVisualization: {
-          visible: true,
-          mode,
-          selectThreshold,
-          rejectThreshold,
-          selectPosition: null,
-          rejectPosition: null,
-          previewAutoSelected,
-          previewAutoRejected
-        }
-      })
-
-      // Step 4: Minimize popover
-      get().minimizeSimilarityTaggingPopover()
-
-      console.log('[Store.showThresholdsOnTable] Thresholds displayed for pairs')
-
-    } catch (error) {
-      console.error('[Store.showThresholdsOnTable] Failed to show thresholds:', error)
-    }
-  },
-
-  /**
-   * Hide thresholds from table
-   */
-  hideThresholdsOnTable: () => {
-    set({ thresholdVisualization: null })
-    console.log('[Store.hideThresholdsOnTable] Thresholds hidden')
-  },
-
+  
   /**
    * Clear histogram data from tagAutomaticState while preserving thresholds
    * Used when selection count drops below minimum required for histogram
