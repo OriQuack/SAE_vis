@@ -200,14 +200,6 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
                 panel="left"
                 onSegmentRefsReady={setSankeySegmentRefs}
               />
-              {/* Floating Comparison Toggle Button */}
-              <button
-                className={`comparison-toggle comparison-toggle--floating comparison-toggle--icon-only ${showComparisonView ? 'comparison-toggle--active' : ''}`}
-                onClick={toggleComparisonView}
-                title={showComparisonView ? 'Hide comparison view' : 'Show comparison view'}
-              >
-                {showComparisonView ? '◀' : '▶'}
-              </button>
             </div>
           </div>
 

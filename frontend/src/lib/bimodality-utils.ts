@@ -41,7 +41,7 @@ export function calculateBimodalityScore(bimodality: BimodalityInfo): {
   ) / 2
   const avgStd = Math.sqrt(Math.max(avgVariance, 0.0001))  // Prevent division by zero
   const meanSeparation = meanDiff / avgStd  // Cohen's d-like measure
-  const meanScore = Math.min(meanSeparation / 3, 1)  // separation ≥ 3 stddev → 1.0 (stricter)
+  const meanScore = Math.min(meanSeparation / 2, 1)  // separation ≥ 3 stddev → 1.0 (stricter)
 
   // Final score: geometric mean (penalizes any low component heavily)
   const score = Math.pow(dipScore * bicScore * meanScore, 1/3)
@@ -53,11 +53,11 @@ export function calculateBimodalityScore(bimodality: BimodalityInfo): {
  * Get the level (1-6) based on score
  */
 export function getScoreLevel(score: number): number {
-  if (score >= 0.83) return 6
-  if (score >= 0.67) return 5
+  if (score >= 0.80) return 6
+  if (score >= 0.65) return 5
   if (score >= 0.5) return 4
-  if (score >= 0.33) return 3
-  if (score >= 0.17) return 2
+  if (score >= 0.30) return 3
+  if (score >= 0.15) return 2
   return 1
 }
 

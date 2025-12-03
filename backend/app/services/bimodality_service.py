@@ -30,7 +30,7 @@ class BimodalityResult:
 class BimodalityService:
     """Service for detecting bimodality in distributions."""
 
-    def __init__(self, dip_alpha: float = 0.05, min_component_weight: float = 0.1):
+    def __init__(self, dip_alpha: float = 0.05, min_component_weight: float = 0.05):
         """
         Initialize bimodality service.
 
