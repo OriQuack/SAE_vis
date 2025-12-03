@@ -820,8 +820,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     <div className={`feature-split-view ${className}`}>
       {/* Header - Full width */}
       <div className="view-header">
-        <h3 className="view-title">Feature Splitting Detection</h3>
-        <p className="view-description">
+        <span className="view-title">Feature Splitting Detection</span>
+        <span className="view-description">
           Validate features for{' '}
           <span
             className="view-tag-badge"
@@ -829,7 +829,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
           >
             Fragmented
           </span>
-        </p>
+        </span>
       </div>
 
       {/* Body: SelectionPanel + Content area */}

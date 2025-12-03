@@ -124,13 +124,21 @@
   margin: 0 8px;
 }
 
-/* Swatch for explanation highlight legend */
+/* Square swatch for color scale legend */
 .legend-swatch {
   display: inline-block;
   width: 14px;
-  height: 8px;
+  height: 14px;
   border-radius: 2px;
   border: 0.5px solid #e5e7eb;
+}
+
+/* Rectangle swatch for phrase-wise legend (shape indicator) */
+.legend-swatch-rect {
+  display: inline-block;
+  width: 20px;
+  height: 12px;
+  border-radius: 2px;
 }
 
 /* ============================================================================
@@ -200,15 +208,34 @@
   padding: 0 6px;
 }
 
-/* Semantic similarity legend - in header row */
+/* Semantic similarity legend - in header row, right-aligned */
 .quality-view__explanation-legend {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 11px;
+  gap: 10px;
+  font-size: 12px;
   color: #6b7280;
   padding: 0px 12px;
   flex-shrink: 0;
+  margin-left: auto;
+}
+
+.legend-group-label {
+  font-weight: 500;
+  color: #374151;
+  margin-right: 2px;
+}
+
+.legend-separator {
+  color: #d1d5db;
+  margin: 0 4px;
+}
+
+/* Remove default border-right separators from explanation legend items */
+.quality-view__explanation-legend .legend-item {
+  border-right: none;
+  margin-right: 0;
+  padding-right: 0;
 }
 
 /* ============================================================================
@@ -303,8 +330,8 @@
 }
 
 .quality-view__explainer-text {
-  font-size: 12px;
-  line-height: 1;
+  font-size: 14px;
+  line-height: 1.4;
   flex: 1;
   min-width: 0;
 }

@@ -340,15 +340,15 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
         const isDragging = draggingHandle === index
         const isHovered = hoveredHandle === index && !isDragging
 
-        // Professional color states - always blue
+        // Professional color states - always blue, more visible
         const lineColor = OKABE_ITO_PALETTE.BLUE
-        const lineOpacity = isDragging ? 1.0 : isHovered ? 0.8 : 0.6
+        const lineOpacity = isDragging ? 1.0 : isHovered ? 0.9 : 0.8
         const handleFillColor = OKABE_ITO_PALETTE.BLUE
-        const handleFillOpacity = isDragging ? 1.0 : isHovered ? 0.9 : 0.7
-        const handleStrokeColor = OKABE_ITO_PALETTE.BLUE
-        const handleStrokeOpacity = isDragging ? 1.0 : isHovered ? 0.9 : 0.7
+        const handleFillOpacity = isDragging ? 1.0 : isHovered ? 1.0 : 0.9
+        const handleStrokeColor = '#ffffff'
+        const handleStrokeWidth = isDragging ? 2.5 : isHovered ? 2 : 1.5
         const gripColor = '#ffffff'
-        const gripOpacity = isDragging || isHovered ? 1.0 : 0.8
+        const gripOpacity = 1.0
 
         // Calculate handle position based on orientation
         const handleX = orientation === 'horizontal'
@@ -393,27 +393,27 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
               onMouseLeave={() => setHoveredHandle(null)}
               style={{ cursor: orientation === 'horizontal' ? 'ew-resize' : 'ns-resize' }}
             >
-              {/* Handle background (rounded rectangle) */}
+              {/* Handle background (rounded rectangle) with white border for visibility */}
               <rect
                 x={handleX}
                 y={handleY}
                 width={handleDimensions.width}
                 height={handleDimensions.height}
-                rx={3}
+                rx={4}
                 fill={handleFillColor}
                 fillOpacity={handleFillOpacity}
                 stroke={handleStrokeColor}
-                strokeWidth={1}
-                strokeOpacity={handleStrokeOpacity}
+                strokeWidth={handleStrokeWidth}
+                filter={isDragging || isHovered ? 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' : 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))'}
                 style={{
-                  transition: 'fill 150ms ease-out, fill-opacity 150ms ease-out, stroke 150ms ease-out, stroke-opacity 150ms ease-out'
+                  transition: 'fill 150ms ease-out, fill-opacity 150ms ease-out, stroke-width 150ms ease-out, filter 150ms ease-out'
                 }}
               />
 
               {/* Grip lines (3 lines) */}
               {orientation === 'horizontal'
                 ? // Vertical grip lines for horizontal handles
-                  [-4, 0, 4].map((offset, i) => (
+                  [-5, 0, 5].map((offset, i) => (
                     <line
                       key={i}
                       x1={pos + offset}
@@ -421,7 +421,7 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
                       x2={pos + offset}
                       y2={handleDimensions.height - 5}
                       stroke={gripColor}
-                      strokeWidth={1.5}
+                      strokeWidth={2}
                       strokeOpacity={gripOpacity}
                       strokeLinecap="round"
                       style={{
@@ -431,15 +431,15 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
                     />
                   ))
                 : // Horizontal grip lines for vertical handles
-                  [-4, 0, 4].map((offset, i) => (
+                  [-5, 0, 5].map((offset, i) => (
                     <line
                       key={i}
-                      x1={handleX + 5}
+                      x1={handleX + 6}
                       y1={pos + offset}
-                      x2={handleX + handleDimensions.width - 5}
+                      x2={handleX + handleDimensions.width - 6}
                       y2={pos + offset}
                       stroke={gripColor}
-                      strokeWidth={1.5}
+                      strokeWidth={2}
                       strokeOpacity={gripOpacity}
                       strokeLinecap="round"
                       style={{

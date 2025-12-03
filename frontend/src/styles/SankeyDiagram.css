@@ -33,41 +33,9 @@
   overflow: hidden;
 }
 
-.sankey-diagram__header {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: row;
-  align-items: baseline;
-  gap: 12px;
-  padding: 2px 8px;
-  background: white;
-}
-
-.sankey-diagram__title {
-  font-size: 22px;
-  font-weight: 500;
-  color: #374151;
-  margin: 0;
-  white-space: nowrap;
-}
-
-.sankey-diagram__instruction {
-  font-size: 14px;
-  font-weight: 400;
-  color: #383838;
-  margin: 0;
-  flex: 1;
-  min-width: 0;
-}
-
-.sankey-diagram__tag-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0px 3px;
-  border-radius: 3px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #000000;
+/* Sankey-specific: left padding for header to align with histogram */
+.sankey-diagram .view-header {
+  padding-left: 10px;
 }
 
 .sankey-diagram__container {

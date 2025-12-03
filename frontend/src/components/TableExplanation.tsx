@@ -101,7 +101,7 @@ export const HighlightedExplanation: React.FC<HighlightedExplanationProps> = Rea
       style.display = 'inline'
 
       // Match activation example font-size and line-height exactly
-      style.fontSize = '12px'
+      style.fontSize = '14px'
       style.lineHeight = '1.4'
     }
 

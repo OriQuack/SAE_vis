@@ -352,6 +352,16 @@ const QualityView: React.FC<QualityViewProps> = ({
     return scores
   }, [selectedFeatureData, tableData?.explainer_ids])
 
+  // Compute average quality score for header display
+  const averageQualityScore = useMemo(() => {
+    if (!qualityScores || qualityScores.size === 0) return null
+    let total = 0
+    for (const score of qualityScores.values()) {
+      total += score
+    }
+    return total / qualityScores.size
+  }, [qualityScores])
+
   // Calculate triangle Y positions as percentages (matching ExplainerComparisonGrid layout)
   // These values are derived from the grid's viewBox (100) and cell positioning
   const triangleYPositions = useMemo(() => {
@@ -861,8 +871,8 @@ const QualityView: React.FC<QualityViewProps> = ({
     <div className={`quality-view ${className}`}>
       {/* Header - Full width */}
       <div className="view-header">
-        <h3 className="view-title">Quality Assessment</h3>
-        <p className="view-description">
+        <span className="view-title">Quality Assessment</span>
+        <span className="view-description">
           Validate features for{' '}
           <span
             className="view-tag-badge"
@@ -870,7 +880,7 @@ const QualityView: React.FC<QualityViewProps> = ({
           >
             Well-Explained
           </span>
-        </p>
+        </span>
       </div>
 
       {/* Body: SelectionPanel + Content area */}
@@ -921,7 +931,15 @@ const QualityView: React.FC<QualityViewProps> = ({
                 <>
                   {/* Header row - Feature ID and Legends */}
                   <div className="quality-view__header-row">
+                    <h4 className="subheader">Activation Examples</h4>
                     <span className="panel-header__id">#{selectedFeatureData.featureId}</span>
+                    {/* Quality Score */}
+                    <div className="pair-info__similarity">
+                      <span className="similarity__label">Quality Score:</span>
+                      <span className="similarity__value">
+                        {averageQualityScore !== null ? averageQualityScore.toFixed(3) : 'N/A'}
+                      </span>
+                    </div>
                     {/* Spacer to push legends to the right */}
                     <div style={{ flex: 1 }} />
                     {/* Activation legend */}
@@ -956,9 +974,26 @@ const QualityView: React.FC<QualityViewProps> = ({
 
                   {/* Explanation Header - Subheader and legend outside container */}
                   <div className="quality-view__explanation-header">
-                    <h4 className="subheader">Explainers / Phrases Semantic Similarity</h4>
-                    {/* Semantic similarity legend */}
+                    <h4 className="subheader">Explanations</h4>
+                    {/* Semantic similarity legend - shapes and colors */}
                     <div className="quality-view__explanation-legend">
+                      <span className="legend-group-label">Semantic Similarity:</span>
+                      {/* Shape legend - granularity */}
+                      <div className="legend-item">
+                        <svg width="18" height="18" viewBox="0 0 18 18" style={{ verticalAlign: 'middle' }}>
+                          <polygon points="9,1 17,9 9,17 1,9" fill="#e5e7eb" stroke="#d1d5db" strokeWidth="1" />
+                        </svg>
+                        <span className="legend-label">Explanation-wise</span>
+                      </div>
+                      <div className="legend-item">
+                        <span
+                          className="legend-swatch-rect"
+                          style={{ backgroundColor: '#e5e7eb', border: '1px solid #d1d5db' }}
+                        />
+                        <span className="legend-label">Phrase-wise</span>
+                      </div>
+                      <span className="legend-separator">|</span>
+                      {/* Color scale legend */}
                       <div className="legend-item">
                         <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.HIGH }} />
                         <span className="legend-label">≥0.85</span>

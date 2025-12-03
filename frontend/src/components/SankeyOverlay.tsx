@@ -452,6 +452,7 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
               showThresholdLine={false}
               showDragTooltip={true}
               usePercentiles={false}
+              handleDimensions={{ width: 28, height: 20 }}
               onUpdate={(values) => {
                 // V2: Call onThresholdUpdate with target segment node ID
                 onThresholdUpdate(targetNode.id || '', values[0])

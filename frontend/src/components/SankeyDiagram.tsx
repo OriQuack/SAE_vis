@@ -20,6 +20,7 @@ import {
   PANEL_LEFT,
   PANEL_RIGHT,
   TAG_CATEGORY_FEATURE_SPLITTING,
+  TAG_CATEGORY_QUALITY,
   UNSURE_GRAY
 } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
@@ -734,22 +735,49 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     return null
   }
 
-  // Get tag color for header badge
-  const fragmentedColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Fragmented') || '#56B4E9'
+  // Get tag color and name for header badge based on current stage
+  const currentStage = sankeyStructure?.currentStage || 1
+  const isStage2 = currentStage >= 2
+  const tagCategory = isStage2 ? TAG_CATEGORY_QUALITY : TAG_CATEGORY_FEATURE_SPLITTING
+  const tagName = isStage2 ? 'Well-Explained' : 'Fragmented'
+  const tagColor = getTagColor(tagCategory, tagName) || (isStage2 ? '#009E73' : '#56B4E9')
 
   return (
     <div className={`sankey-diagram ${className}`}>
-      <div className="sankey-diagram__header">
-        <h3 className="sankey-diagram__title">Filter</h3>
-        <p className="sankey-diagram__instruction">
-          Select a rough threshold for potential{' '}
-          <span
-            className="sankey-diagram__tag-badge"
-            style={{ backgroundColor: fragmentedColor }}
+      <div className="view-header">
+        <span className="view-title">Filter</span>
+        <span className="view-description">
+          Drag the{' '}
+          <svg
+            className="view-threshold-icon"
+            width="24"
+            height="16"
+            viewBox="0 0 24 16"
+            style={{ verticalAlign: 'middle', marginRight: '0px' }}
           >
-            Fragmented
+            <rect
+              x="1"
+              y="1"
+              width="22"
+              height="14"
+              rx="3"
+              fill="#0072B2"
+              stroke="#ffffff"
+              strokeWidth="1.5"
+            />
+            <line x1="6" y1="5" x2="18" y2="5" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+            <line x1="6" y1="8" x2="18" y2="8" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+            <line x1="6" y1="11" x2="18" y2="11" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+          {' '}to set a threshold for potential{' '}
+          <span
+            className="view-tag-badge"
+            style={{ backgroundColor: tagColor }}
+          >
+            {tagName}
           </span>
-        </p>
+          {' '}features
+        </span>
       </div>
       <div
         ref={setContainerRef}

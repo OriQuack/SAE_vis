@@ -5,7 +5,8 @@
 }
 
 .grid-cell {
-  stroke: none;
+  stroke: #d1d5db;
+  stroke-width: 1;
   cursor: pointer;
   transition: fill 0.15s ease;
 }
