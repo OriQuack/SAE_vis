@@ -118,7 +118,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     ],
     relatedMetrics: [
       METRIC_DECODER_SIMILARITY,
-      "inter_feature_similarity"  // Note: Not yet in backend data
+      "inter_feature_similarity"
     ],
     description: "Identifies whether a feature represents a single semantic concept or multiple overlapping concepts",
     parentTagForNextStage: "Monosemantic",
@@ -166,7 +166,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     ],
     relatedMetrics: [
       // Noisy Activation indicators
-      "intra_feature_similarity",  // Note: Not yet in backend data
+      "intra_feature_similarity",
       METRIC_SEMANTIC_SIMILARITY,
       // Missed Context indicators
       METRIC_SCORE_DETECTION,
@@ -197,6 +197,55 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     parentTag: null  // Placeholder, no parent relationship
   }
 } as const
+
+// ============================================================================
+// CAUSE TAG METRICS - Configuration for auto-tagging in Stage 3
+// Maps each cause category to its metrics, thresholds, and aggregation rules
+// ============================================================================
+
+export interface CauseTagMetricConfig {
+  /** Metric field names used for this cause category */
+  metrics: string[]
+  /** How to aggregate multiple metrics: 'average', 'max', or 'single' */
+  aggregation: 'average' | 'max' | 'single'
+  /** Threshold value for assignment (only for threshold-based tags) */
+  threshold?: number
+  /** If true, tag is assigned when score < threshold (lower is worse) */
+  belowThreshold?: boolean
+  /** If true, this is the default/fallback category */
+  isDefault?: boolean
+}
+
+export const CAUSE_TAG_METRICS: Record<string, CauseTagMetricConfig> = {
+  'noisy-activation': {
+    // Noisy Activation: High intra-feature similarity + high explanation semantic similarity
+    // Metrics: Max(char_ngram_max_jaccard, word_ngram_max_jaccard, semantic_similarity) from ActivationExamples
+    //          + Avg(pairwise semantic_similarity) from ExplainerScoreData
+    // Final score = average of the two components
+    metrics: ['intra_feature_similarity', 'explanation_semantic_similarity'],
+    aggregation: 'average',
+    isDefault: true  // Fallback category when others don't match
+  },
+  'missed-context': {
+    // Missed Context: Low embedding and detection scores
+    // Score = Avg(embedding, detection) from ExplainerScoreData
+    metrics: [METRIC_SCORE_EMBEDDING, METRIC_SCORE_DETECTION],
+    aggregation: 'average',
+    threshold: 0.5,
+    belowThreshold: true  // Tag assigned when score < 0.5
+  },
+  'missed-N-gram': {
+    // Missed N-gram (internal name: missed-lexicon): Low fuzz score
+    // Score = fuzz from ExplainerScoreData
+    metrics: [METRIC_SCORE_FUZZ],
+    aggregation: 'single',
+    threshold: 0.5,
+    belowThreshold: true  // Tag assigned when score < 0.5
+  }
+} as const
+
+/** Default threshold for cause tag assignment */
+export const CAUSE_TAG_THRESHOLD = 0.5
 
 // ============================================================================
 // CUSTOM THRESHOLDS - Per-metric custom threshold configurations

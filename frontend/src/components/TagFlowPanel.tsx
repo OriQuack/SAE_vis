@@ -64,6 +64,22 @@ const TagFlowPanel: React.FC<TagFlowPanelProps> = ({ tagCounts, activeStage }) =
     return grouped
   }, [nodes])
 
+  // Map category ID to stage order for determining completed/active/future
+  const stageIdToOrder: Record<string, number> = {
+    feature_splitting: 1,
+    quality: 2,
+    cause: 3,
+  }
+  const activeStageOrder = activeStage ? stageIdToOrder[activeStage] ?? 0 : 0
+
+  // Get stage status class
+  const getStageStatus = (stageOrder: number): string => {
+    if (activeStageOrder === 0) return 'future'
+    if (stageOrder < activeStageOrder) return 'completed'
+    if (stageOrder === activeStageOrder) return 'active'
+    return 'future'
+  }
+
   // Measure badge positions after render (left edge, right edge, vertical center)
   useLayoutEffect(() => {
     if (!containerRef.current) return
@@ -189,7 +205,8 @@ const TagFlowPanel: React.FC<TagFlowPanelProps> = ({ tagCounts, activeStage }) =
 
       {/* Badge columns */}
       <div className="tag-flow-panel__content">
-        <div className="tag-flow-panel__column">
+        <div className={`tag-flow-panel__column tag-flow-panel__column--${getStageStatus(1)}`}>
+          <span className={`tag-flow-panel__stage-number tag-flow-panel__stage-number--${getStageStatus(1)}`}>1</span>
           {nodesByStage[1]?.map(node => (
             <Badge key={node.id} node={node} isActive={activeStage === node.categoryId} />
           ))}
@@ -197,7 +214,8 @@ const TagFlowPanel: React.FC<TagFlowPanelProps> = ({ tagCounts, activeStage }) =
 
         <div className="tag-flow-panel__spacer" />
 
-        <div className="tag-flow-panel__column">
+        <div className={`tag-flow-panel__column tag-flow-panel__column--${getStageStatus(2)}`}>
+          <span className={`tag-flow-panel__stage-number tag-flow-panel__stage-number--${getStageStatus(2)}`}>2</span>
           {nodesByStage[2]?.map(node => (
             <Badge key={node.id} node={node} isActive={activeStage === node.categoryId} />
           ))}
@@ -205,7 +223,8 @@ const TagFlowPanel: React.FC<TagFlowPanelProps> = ({ tagCounts, activeStage }) =
 
         <div className="tag-flow-panel__spacer" />
 
-        <div className="tag-flow-panel__column">
+        <div className={`tag-flow-panel__column tag-flow-panel__column--${getStageStatus(3)}`}>
+          <span className={`tag-flow-panel__stage-number tag-flow-panel__stage-number--${getStageStatus(3)}`}>3</span>
           {nodesByStage[3]?.map(node => (
             <Badge key={node.id} node={node} isActive={activeStage === node.categoryId} />
           ))}

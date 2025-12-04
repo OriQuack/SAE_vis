@@ -38,6 +38,13 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
   const thresholdVisualization = useVisualizationStore(state => state.thresholdVisualization);
   const isPreviewActive = thresholdVisualization?.visible ?? false;
 
+  // Helper: Get node feature count from sankeyStructure
+  const getNodeFeatureCount = (nodeId: string): number => {
+    if (!sankeyStructure?.nodes) return 0;
+    const node = sankeyStructure.nodes.find((n: any) => n.id === nodeId);
+    return node?.featureCount || 0;
+  };
+
   // Helper: Get segment counts from sankeyStructure for a stage
   const getSegmentCounts = (stageNodeId: string): Record<string, number> => {
     if (!sankeyStructure?.nodes) return {};
@@ -55,29 +62,47 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
   // Calculate tag counts: selection states + non-selected threshold-filtered features
   const getTagCounts = (category: TagCategoryConfig): Record<string, number> => {
     if (category.id === 'feature_splitting') {
-      // Stage 1: Selection counts + Sankey segment counts for non-selected portion
       const fsCounts = getFeatureSplittingCounts();
-      const segmentCounts = getSegmentCounts('stage1_segment');
 
-      return {
-        // Fragmented: only selection count (sankey count would duplicate)
-        'Fragmented': fsCounts.fragmented,
-        // Monosemantic: selection count + sankey threshold-filtered count
-        'Monosemantic': fsCounts.monosemantic + (segmentCounts['Monosemantic'] || 0)
-      };
+      // Try segment counts first (stage 1 active), then fixed node counts (stage 2+)
+      const segmentCounts = getSegmentCounts('stage1_segment');
+      const hasSegments = Object.keys(segmentCounts).length > 0;
+
+      if (hasSegments) {
+        // Stage 1 active: use segment counts
+        return {
+          'Fragmented': fsCounts.fragmented,
+          'Monosemantic': fsCounts.monosemantic + (segmentCounts['Monosemantic'] || 0)
+        };
+      } else {
+        // Stage 2+: stage 1 completed, use fixed node counts
+        return {
+          'Fragmented': fsCounts.fragmented + getNodeFeatureCount('fragmented'),
+          'Monosemantic': fsCounts.monosemantic + getNodeFeatureCount('monosemantic')
+        };
+      }
     }
 
     if (category.id === 'quality') {
-      // Stage 2: Selection counts + Sankey segment counts for non-selected portion
       const qCounts = getQualityCounts();
-      const segmentCounts = getSegmentCounts('stage2_segment');
 
-      return {
-        // Well-Explained: only selection count (sankey count would duplicate)
-        'Well-Explained': qCounts.wellExplained,
-        // Need Revision: selection count + sankey threshold-filtered count
-        'Need Revision': qCounts.needRevision + (segmentCounts['Need Revision'] || 0)
-      };
+      // Try segment counts first (stage 2 active), then fixed node counts (stage 3+)
+      const segmentCounts = getSegmentCounts('stage2_segment');
+      const hasSegments = Object.keys(segmentCounts).length > 0;
+
+      if (hasSegments) {
+        // Stage 2 active: use segment counts
+        return {
+          'Well-Explained': qCounts.wellExplained,
+          'Need Revision': qCounts.needRevision + (segmentCounts['Need Revision'] || 0)
+        };
+      } else {
+        // Stage 3+: stage 2 completed, use fixed node counts
+        return {
+          'Well-Explained': qCounts.wellExplained + getNodeFeatureCount('well_explained'),
+          'Need Revision': qCounts.needRevision + getNodeFeatureCount('need_revision')
+        };
+      }
     }
 
     // Stage 3 (cause): TODO - use causeSelectionStates when implemented

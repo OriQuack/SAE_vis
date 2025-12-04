@@ -16,7 +16,7 @@ const UMAP_UNTAGGED_COLOR = '#6b7280'
 // TYPES
 // ============================================================================
 
-export type CauseCategory = 'noisy-activation' | 'missed-lexicon' | 'missed-context'
+export type CauseCategory = 'noisy-activation' | 'missed-N-gram' | 'missed-context'
 
 export interface UmapScales {
   xScale: ScaleLinear<number, number>
@@ -39,7 +39,7 @@ export function getCauseColor(
   featureId: number,
   causeStates: Map<number, CauseCategory>
 ): string {
-  const colors = getSelectionColors('cause')
+  const colors = getSelectionColors('stage3')
   const category = causeStates.get(featureId)
 
   if (!category) {
@@ -49,7 +49,7 @@ export function getCauseColor(
   switch (category) {
     case 'noisy-activation':
       return colors.confirmed  // Purple: #CC79A7
-    case 'missed-lexicon':
+    case 'missed-N-gram':
       return colors.expanded   // Orange: #E69F00
     case 'missed-context':
       return colors.rejected   // Vermillion: #D55E00
@@ -68,11 +68,11 @@ export function getCauseCategoryLegend(): Array<{
   color: string
   label: string
 }> {
-  const colors = getSelectionColors('cause')
+  const colors = getSelectionColors('stage3')
 
   return [
     { category: 'noisy-activation', color: colors.confirmed, label: 'Noisy Activation' },
-    { category: 'missed-lexicon', color: colors.expanded, label: 'Missed Lexicon' },
+    { category: 'missed-N-gram', color: colors.expanded, label: 'Missed N-gram' },
     { category: 'missed-context', color: colors.rejected, label: 'Missed Context' },
     { category: 'unsure', color: UMAP_UNTAGGED_COLOR, label: 'Untagged' }
   ]
@@ -232,13 +232,13 @@ export function computeCategoryContours(
   bandwidth: number = 20,
   thresholds: number = 4
 ): CategoryContour[] {
-  const colors = getSelectionColors('cause')
+  const colors = getSelectionColors('stage3')
   const pathGenerator = geoPath()
 
   // Group points by category
   const categories: Array<{ category: CauseCategory | 'unsure', color: string }> = [
     { category: 'noisy-activation', color: colors.confirmed },
-    { category: 'missed-lexicon', color: colors.expanded },
+    { category: 'missed-N-gram', color: colors.expanded },
     { category: 'missed-context', color: colors.rejected },
     { category: 'unsure', color: UMAP_UNTAGGED_COLOR }
   ]

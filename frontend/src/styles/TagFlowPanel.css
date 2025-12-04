@@ -4,12 +4,12 @@
 
 .tag-flow-panel {
   position: relative;
-  flex: 0 0 auto;
+  flex: 1;
   background: white;
-  padding: 0 8px;
-  height: 90px;
+  height: 100px;
   display: flex;
   align-items: center;
+  justify-content: center;
 }
 
 /* SVG overlay for flow lines */
@@ -21,6 +21,7 @@
   height: 100%;
   pointer-events: none;
   overflow: visible;
+  z-index: 2;
 }
 
 /* Flow path styling */
@@ -41,14 +42,80 @@
 }
 
 .tag-flow-panel__column {
+  position: relative;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: 4px;
+}
+
+/* ============================================================================
+   STAGE NUMBERS - Professional indicator on left of each column
+   ============================================================================ */
+
+.tag-flow-panel__stage-number {
+  position: absolute;
+  left: -8px;
+  top: -4px;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 600;
+  background: #e2e8f0;
+  color: #64748b;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  z-index: 3;
+}
+
+.tag-flow-panel__stage-number--active {
+  background: #3b82f6;
+  color: white;
+  box-shadow: 0 1px 3px rgba(59, 130, 246, 0.4);
+}
+
+.tag-flow-panel__stage-number--completed {
+  background: #10b981;
+  color: white;
+  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.4);
+}
+
+.tag-flow-panel__stage-number--future {
+  background: #cbd5e1;
+  color: #64748b;
 }
 
 /* Spacer between columns for flow lines */
 .tag-flow-panel__spacer {
-  width: 40px;
+  width: 10px;
   flex-shrink: 0;
 }
+
+/* ============================================================================
+   STAGE COLUMN BORDERS - Colors matching TagStagePanel
+   ============================================================================ */
+
+/* Active stage - blue border */
+.tag-flow-panel__column--active {
+  border: 2px solid #3b82f6;
+  border-radius: 8px;
+  padding: 6px;
+}
+
+/* Completed stage - green border */
+.tag-flow-panel__column--completed {
+  border: 2px solid #10b981;
+  border-radius: 8px;
+  padding: 6px;
+}
+
+/* Future stage - gray border */
+.tag-flow-panel__column--future {
+  border: 2px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 6px;
+}
+

@@ -74,7 +74,7 @@ const ExplainerComparisonGrid: React.FC<ExplainerComparisonGridProps> = ({
   }
 
   // ViewBox width sized to match actual content (triangles + bar graph)
-  const viewBoxWidth = 95
+  const viewBoxWidth = 90
 
   return (
     <svg
@@ -179,7 +179,7 @@ const ExplainerComparisonGrid: React.FC<ExplainerComparisonGridProps> = ({
         </text>
         {/* Label: Quality Score */}
         <text
-          x={(barLayout.axis.x + barLayout.axis.xAxisEndX) / 2 - 4}
+          x={(barLayout.axis.x + barLayout.axis.xAxisEndX) / 2 - 5}
           y={barLayout.axis.xAxisY + 18}
           fontSize={8}
           fill="#6b7280"

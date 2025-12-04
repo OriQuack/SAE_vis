@@ -40,7 +40,7 @@
 }
 
 /* ============================================================================
- * CONTENT AREA - Right column with UMAP scatter plot
+ * CONTENT AREA - Right column with top placeholder + bottom UMAP
  * ============================================================================ */
 
 .cause-view__content {
@@ -50,13 +50,353 @@
   min-height: 0;
   min-width: 0;
   padding: 8px;
-  overflow: auto;
+  gap: 8px;
+  overflow: hidden;
 }
 
-/* UMAP section - UMAP + selected features list side by side */
-.cause-view__umap-section {
+/* ============================================================================
+ * TOP ROW - Placeholder for future content
+ * ============================================================================ */
+
+.cause-view__row-top {
   display: flex;
   flex-direction: row;
+  flex: 1;
+  min-height: 0;
+  gap: 8px;
+}
+
+/* Right panel - matches QualityView styling */
+.cause-view__right-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  gap: 4px;
+  padding: 4px;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+}
+
+.cause-view__placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--background-secondary, #f9fafb);
+  border: 1px dashed var(--border-color, #e5e7eb);
+  border-radius: 4px;
+}
+
+.cause-view__placeholder-text {
+  color: var(--text-tertiary, #9ca3af);
+  font-size: 13px;
+}
+
+/* Header row */
+.cause-view__header-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 4px 8px;
+  background-color: transparent;
+  border: none;
+}
+
+.cause-view__legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  font-size: 11px;
+}
+
+/* Activation section */
+.cause-view__activation-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  min-height: 0;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 6px;
+  overflow: hidden;
+  flex: 1;
+}
+
+.cause-view__activation-examples {
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  min-height: 0;
+}
+
+.cause-view__activation-examples::-webkit-scrollbar {
+  width: 8px;
+}
+
+.cause-view__activation-examples::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.cause-view__activation-examples::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.cause-view__activation-examples::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+.cause-view__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #9ca3af;
+  font-style: italic;
+  height: 72px;
+}
+
+/* Explanation section */
+.cause-view__explanation-section {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 6px;
+}
+
+.cause-view__explanation-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 4px 6px;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 8px;
+}
+
+.cause-view__explanation-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.cause-view__explanation-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.cause-view__explanation-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.cause-view__explanation-content::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.cause-view__explanation-content::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+.cause-view__explainer-block {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.cause-view__explainer-name {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+  background-color: var(--badge-background);
+  color: var(--badge-text);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.cause-view__explainer-text {
+  font-size: 14px;
+  line-height: 1.4;
+  flex: 1;
+  min-width: 0;
+}
+
+.cause-view__no-explanation {
+  color: #9ca3af;
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* ============================================================================
+ * BOTTOM ROW - UMAP + Selected features list
+ * ============================================================================ */
+
+.cause-view__row-bottom {
+  display: flex;
+  flex-direction: row;
+  flex: 1.5;
+  min-height: 0;
   gap: 16px;
   align-items: flex-start;
+}
+
+/* ============================================================================
+ * FLOATING CONTROLS - Navigation and tag buttons at bottom
+ * ============================================================================ */
+
+/* Base nav button styles */
+.cause-view__floating-controls .nav__button {
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #374151;
+  background-color: white;
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  min-width: 50px;
+}
+
+.cause-view__floating-controls .nav__button:hover:not(:disabled) {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.cause-view__floating-controls .nav__button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Base selection button styles */
+.cause-view__floating-controls .selection__button {
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  white-space: nowrap;
+  position: relative;
+  isolation: isolate;
+  outline: none;
+}
+
+.cause-view__floating-controls .selection__button:focus {
+  outline: none;
+}
+
+.cause-view__floating-controls .selection__button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 2px;
+  background-color: var(--tag-color, #9ca3af);
+  opacity: var(--bg-opacity, 0.6);
+  z-index: -1;
+  transition: opacity 0.15s ease;
+}
+
+.cause-view__floating-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 12px;
+  margin: 0px auto;
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+  width: fit-content;
+}
+
+/* Selection button variant for Noisy Activation */
+.selection__button--noisy-activation {
+  color: #000;
+  border-color: var(--tag-color, #9ca3af);
+  background-color: transparent;
+}
+
+.selection__button--noisy-activation.selected {
+  border-color: var(--tag-color, #9ca3af);
+  color: #000;
+  font-weight: 600;
+  --bg-opacity: 1.0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+  border-width: 2px;
+}
+
+.selection__button--noisy-activation:hover:not(.selected) {
+  color: #000;
+  --bg-opacity: 0.8;
+}
+
+/* Selection button variant for Missed N-gram */
+.selection__button--missed-lexicon {
+  color: #000;
+  border-color: var(--tag-color, #9ca3af);
+  background-color: transparent;
+}
+
+.selection__button--missed-lexicon.selected {
+  border-color: var(--tag-color, #9ca3af);
+  color: #000;
+  font-weight: 600;
+  --bg-opacity: 1.0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+  border-width: 2px;
+}
+
+.selection__button--missed-lexicon:hover:not(.selected) {
+  color: #000;
+  --bg-opacity: 0.8;
+}
+
+/* Selection button variant for Missed Context */
+.selection__button--missed-context {
+  color: #000;
+  border-color: var(--tag-color, #9ca3af);
+  background-color: transparent;
+}
+
+.selection__button--missed-context.selected {
+  border-color: var(--tag-color, #9ca3af);
+  color: #000;
+  font-weight: 600;
+  --bg-opacity: 1.0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+  border-width: 2px;
+}
+
+.selection__button--missed-context:hover:not(.selected) {
+  color: #000;
+  --bg-opacity: 0.8;
 }

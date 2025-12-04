@@ -21,6 +21,7 @@ import {
   PANEL_RIGHT,
   TAG_CATEGORY_FEATURE_SPLITTING
 } from '../lib/constants'
+import { autoTagFeatures, type CauseMetricScores } from '../lib/cause-tagging-utils'
 import { createInitialPanelState, type PanelState } from './utils'
 import { createSimplifiedSankeyActions } from './sankey-actions'
 import { createCommonActions } from './common-actions'
@@ -73,7 +74,7 @@ export interface CauseCommitCounts {
 }
 
 // Cause selection type
-export type CauseCategory = 'noisy-activation' | 'missed-lexicon' | 'missed-context'
+export type CauseCategory = 'noisy-activation' | 'missed-N-gram' | 'missed-context'
 
 // Stage 3 commit type for revisiting state restoration
 export interface Stage3FinalCommit {
@@ -118,12 +119,17 @@ interface AppState {
   restoreFeatureSelectionStates: (states: Map<number, 'selected' | 'rejected'>, sources: Map<number, 'manual' | 'auto'>) => void
 
   // Cause category selection state (used by SelectionPanel for Stage 3)
-  // Three-state cycle: null -> noisy-activation -> missed-lexicon -> missed-context -> null
-  causeSelectionStates: Map<number, 'noisy-activation' | 'missed-lexicon' | 'missed-context'>
+  // Three-state cycle: null -> noisy-activation -> missed-N-gram -> missed-context -> null
+  causeSelectionStates: Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context'>
   // Track how features were selected: 'manual' (user click) or 'auto' (automatic tagging)
   causeSelectionSources: Map<number, 'manual' | 'auto'>
+  // Metric scores for each feature (for sorting/visualization)
+  causeMetricScores: Map<number, CauseMetricScores>
   toggleCauseCategory: (featureId: number) => void
+  setCauseCategory: (featureId: number, category: 'noisy-activation' | 'missed-N-gram' | 'missed-context' | null) => void
   clearCauseSelection: () => void
+  // Initialize auto-tags for all features entering Stage 3
+  initializeCauseAutoTags: (featureIds: Set<number>) => void
   // Cause table activation (similar to activeStageNodeId for other tables)
   activeCauseStageNode: string | null
   activateCauseTable: (nodeId: string) => void
@@ -245,7 +251,7 @@ interface AppState {
   // Cause similarity sort state (for cause table - multi-class OvR)
   causeSimilarityScores: Map<number, number>  // Legacy: single score per feature
   causeCategoryDecisionMargins: Map<number, Record<string, number>>  // New: per-category decision margins
-  causeSortCategory: string | null  // Which category to sort by ('noisy-activation', 'missed-lexicon', 'missed-context', or null for max)
+  causeSortCategory: string | null  // Which category to sort by ('noisy-activation', 'missed-N-gram', 'missed-context', or null for max)
   isCauseSimilaritySortLoading: boolean
 
   // Tag automatic state (for automatic tagging feature with threshold controls)
@@ -454,8 +460,9 @@ const initialState = {
   pairSelectionSources: new Map<string, 'manual' | 'auto'>(),
 
   // Cause category selection state (used by SelectionPanel for Stage 3)
-  causeSelectionStates: new Map<number, 'noisy-activation' | 'missed-lexicon' | 'missed-context'>(),
+  causeSelectionStates: new Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context'>(),
   causeSelectionSources: new Map<number, 'manual' | 'auto'>(),
+  causeMetricScores: new Map<number, CauseMetricScores>(),
   activeCauseStageNode: null,
 
   // Comparison view state
@@ -751,8 +758,52 @@ export const useStore = create<AppState>((set, get) => {
 
   clearCauseSelection: () => {
     set({
-      causeSelectionStates: new Map<number, 'noisy-activation' | 'missed-lexicon' | 'missed-context'>(),
-      causeSelectionSources: new Map<number, 'manual' | 'auto'>()
+      causeSelectionStates: new Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context'>(),
+      causeSelectionSources: new Map<number, 'manual' | 'auto'>(),
+      causeMetricScores: new Map<number, CauseMetricScores>()
+    })
+  },
+
+  initializeCauseAutoTags: (featureIds: Set<number>) => {
+    const state = get()
+    const { tableData, activationExamples } = state
+
+    console.log('[Store.initializeCauseAutoTags] Starting auto-tagging for', featureIds.size, 'features')
+
+    // Use the autoTagFeatures utility to calculate scores and assign tags
+    const result = autoTagFeatures(featureIds, tableData, activationExamples)
+
+    set({
+      causeSelectionStates: result.causeStates,
+      causeSelectionSources: result.causeSources,
+      causeMetricScores: result.causeScores
+    })
+
+    console.log('[Store.initializeCauseAutoTags] Auto-tagging complete:', {
+      totalFeatures: featureIds.size,
+      taggedFeatures: result.causeStates.size
+    })
+  },
+
+  setCauseCategory: (featureId: number, category: 'noisy-activation' | 'missed-lexicon' | 'missed-context' | null) => {
+    set((state) => {
+      const newStates = new Map(state.causeSelectionStates)
+      const newSources = new Map(state.causeSelectionSources)
+
+      if (category === null) {
+        // Clear the selection
+        newStates.delete(featureId)
+        newSources.delete(featureId)
+      } else {
+        // Set the specific category
+        newStates.set(featureId, category)
+        newSources.set(featureId, 'manual')
+      }
+
+      return {
+        causeSelectionStates: newStates,
+        causeSelectionSources: newSources
+      }
     })
   },
 

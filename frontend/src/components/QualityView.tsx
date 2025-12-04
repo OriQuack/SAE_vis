@@ -955,13 +955,6 @@ const QualityView: React.FC<QualityViewProps> = ({
                   <div className="quality-view__header-row">
                     <h4 className="subheader">Activation Examples</h4>
                     <span className="panel-header__id">#{selectedFeatureData.featureId}</span>
-                    {/* Quality Score */}
-                    <div className="pair-info__similarity">
-                      <span className="similarity__label">Avg. Quality Score:</span>
-                      <span className="similarity__value">
-                        {averageQualityScore !== null ? averageQualityScore.toFixed(3) : 'N/A'}
-                      </span>
-                    </div>
                     {/* Spacer to push legends to the right */}
                     <div style={{ flex: 1 }} />
                     {/* Activation legend */}
@@ -997,6 +990,13 @@ const QualityView: React.FC<QualityViewProps> = ({
                   {/* Explanation Header - Subheader and legend outside container */}
                   <div className="quality-view__explanation-header">
                     <h4 className="subheader">Explanations</h4>
+                    {/* Avg. Quality Score */}
+                    <div className="pair-info__similarity">
+                      <span className="similarity__label">Avg. Quality Score:</span>
+                      <span className="similarity__value">
+                        {averageQualityScore !== null ? averageQualityScore.toFixed(3) : 'N/A'}
+                      </span>
+                    </div>
                     {/* Semantic similarity legend - shapes and colors */}
                     <div className="quality-view__explanation-legend">
                       <span className="legend-group-label">Semantic Similarity:</span>

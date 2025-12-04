@@ -1,12 +1,15 @@
-import React, { useMemo, useEffect, useCallback } from 'react'
+import React, { useMemo, useEffect, useCallback, useState, useRef } from 'react'
 import { useVisualizationStore } from '../store/index'
-import type { SelectionCategory } from '../types'
+import type { SelectionCategory, FeatureTableRow } from '../types'
 import SelectionPanel from './SelectionPanel'
 import UMAPScatter from './UMAPScatter'
 import { ScrollableItemList } from './ScrollableItemList'
 import { TagBadge } from './Indicators'
+import ActivationExample from './ActivationExamplePanel'
+import { HighlightedExplanation } from './ExplanationPanel'
 import { TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
+import { getExplainerDisplayName } from '../lib/table-data-utils'
 import type { CauseCategory } from '../lib/umap-utils'
 import '../styles/CauseView.css'
 
@@ -18,7 +21,7 @@ import '../styles/CauseView.css'
 // Map CauseCategory to display tag names
 const CAUSE_TAG_NAMES: Record<CauseCategory, string> = {
   'noisy-activation': 'Noisy Activation',
-  'missed-lexicon': 'Missed Lexicon',
+  'missed-N-gram': 'Missed N-gram',
   'missed-context': 'Missed Context'
 }
 
@@ -50,6 +53,20 @@ const CauseView: React.FC<CauseViewProps> = ({
   // UMAP brushed features
   const umapBrushedFeatureIds = useVisualizationStore(state => state.umapBrushedFeatureIds)
 
+  // Table data and activation examples for feature detail view
+  const tableData = useVisualizationStore(state => state.tableData)
+  const activationExamples = useVisualizationStore(state => state.activationExamples)
+
+  // Cause category selection action
+  const setCauseCategory = useVisualizationStore(state => state.setCauseCategory)
+  const initializeCauseAutoTags = useVisualizationStore(state => state.initializeCauseAutoTags)
+
+  // Local state for feature detail view
+  const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0)
+  const [containerWidth, setContainerWidth] = useState(600)
+  const rightPanelRef = useRef<HTMLDivElement>(null)
+  const hasAutoTaggedRef = useRef(false)
+
   // ============================================================================
   // STAGE 3 REVISITING - Restore state when returning from Stage 4+
   // ============================================================================
@@ -59,6 +76,8 @@ const CauseView: React.FC<CauseViewProps> = ({
 
       // Restore cause selection states to store
       restoreCauseSelectionStates(stage3FinalCommit.causeSelectionStates, stage3FinalCommit.causeSelectionSources)
+      // Mark as already auto-tagged since we're restoring
+      hasAutoTaggedRef.current = true
     }
   }, [isRevisitingStage3, stage3FinalCommit, restoreCauseSelectionStates])
 
@@ -77,21 +96,61 @@ const CauseView: React.FC<CauseViewProps> = ({
     return features
   }, [getSelectedNodeFeatures, sankeyStructure, selectedSegment, tableSelectedNodeIds, isRevisitingStage3, stage3FinalCommit])
 
+  // ============================================================================
+  // AUTO-TAGGING - Initialize cause tags when entering Stage 3
+  // ============================================================================
+  useEffect(() => {
+    // Skip if revisiting (will restore from commit) or already auto-tagged
+    if (isRevisitingStage3 || hasAutoTaggedRef.current) return
+
+    // Wait for all required data
+    if (!selectedFeatureIds || selectedFeatureIds.size === 0) return
+    if (!tableData?.features) return
+
+    console.log('[CauseView] Auto-tagging features on Stage 3 entry:', selectedFeatureIds.size, 'features')
+
+    // Run auto-tagging
+    initializeCauseAutoTags(selectedFeatureIds)
+    hasAutoTaggedRef.current = true
+  }, [isRevisitingStage3, selectedFeatureIds, tableData, activationExamples, initializeCauseAutoTags])
+
   // Initialize stage3FinalCommit with initial state when first entering Stage 3
   // This ensures we can restore even if user does nothing and moves to Stage 4
+  // Wait for auto-tagging to complete before creating the commit
   useEffect(() => {
-    // Only initialize when: not revisiting, no saved commit yet, and we have features
-    if (!isRevisitingStage3 && !stage3FinalCommit && selectedFeatureIds && selectedFeatureIds.size > 0) {
-      console.log('[CauseView] Initializing Stage 3 commit with initial state:', selectedFeatureIds.size, 'features')
+    // Only initialize when: not revisiting, no saved commit yet, features exist, and auto-tagging is done
+    if (!isRevisitingStage3 && !stage3FinalCommit && selectedFeatureIds && selectedFeatureIds.size > 0 && hasAutoTaggedRef.current) {
+      // Calculate counts from auto-tagged states
+      let noisyActivation = 0
+      let missedContext = 0
+      let missedNgram = 0
+      let unsure = 0
+
+      for (const featureId of selectedFeatureIds) {
+        const category = causeSelectionStates.get(featureId)
+        if (category === 'noisy-activation') noisyActivation++
+        else if (category === 'missed-context') missedContext++
+        else if (category === 'missed-N-gram') missedNgram++
+        else unsure++
+      }
+
+      console.log('[CauseView] Initializing Stage 3 commit with auto-tagged state:', {
+        total: selectedFeatureIds.size,
+        noisyActivation,
+        missedContext,
+        missedNgram,
+        unsure
+      })
+
       setStage3FinalCommit({
         causeSelectionStates: new Map(causeSelectionStates),
         causeSelectionSources: new Map(causeSelectionSources),
         featureIds: new Set(selectedFeatureIds),
         counts: {
-          noisyActivation: 0,
-          missedContext: 0,
-          missedNgram: 0,
-          unsure: selectedFeatureIds.size,
+          noisyActivation,
+          missedContext,
+          missedNgram,
+          unsure,
           total: selectedFeatureIds.size
         }
       })
@@ -106,11 +165,164 @@ const CauseView: React.FC<CauseViewProps> = ({
     return Array.from(umapBrushedFeatureIds)
   }, [umapBrushedFeatureIds])
 
-  // Render feature item for ScrollableItemList (same style as QualityView)
-  const renderFeatureItem = useCallback((featureId: number) => {
+  // Build feature list with metadata for the top row detail view (ALL features from segment)
+  const featureListWithMetadata = useMemo(() => {
+    if (!tableData?.features || !selectedFeatureIds || selectedFeatureIds.size === 0) return []
+
+    const featureMap = new Map<number, FeatureTableRow>()
+    tableData.features.forEach((row: FeatureTableRow) => {
+      featureMap.set(row.feature_id, row)
+    })
+
+    return Array.from(selectedFeatureIds)
+      .map(featureId => ({
+        featureId,
+        row: featureMap.get(featureId) || null
+      }))
+      .filter(item => item.row !== null)
+  }, [tableData, selectedFeatureIds])
+
+  // Reset feature index when brushed list changes
+  useEffect(() => {
+    if (currentFeatureIndex >= featureListWithMetadata.length && featureListWithMetadata.length > 0) {
+      setCurrentFeatureIndex(featureListWithMetadata.length - 1)
+    } else if (featureListWithMetadata.length === 0) {
+      setCurrentFeatureIndex(0)
+    }
+  }, [featureListWithMetadata.length, currentFeatureIndex])
+
+  // Track right panel width for ActivationExample
+  useEffect(() => {
+    if (!rightPanelRef.current) return
+    const observer = new ResizeObserver(entries => {
+      const width = entries[0]?.contentRect.width || 600
+      setContainerWidth(width - 16)
+    })
+    observer.observe(rightPanelRef.current)
+    return () => observer.disconnect()
+  }, [])
+
+  // Get selected feature data for right panel
+  const selectedFeatureData = useMemo(() => {
+    const feature = featureListWithMetadata[currentFeatureIndex]
+    if (!feature) return null
+
+    return {
+      featureId: feature.featureId,
+      row: feature.row,
+      activation: activationExamples[feature.featureId] || null
+    }
+  }, [featureListWithMetadata, currentFeatureIndex, activationExamples])
+
+  // Find the best explanation (max quality score)
+  const bestExplanation = useMemo(() => {
+    if (!selectedFeatureData?.row || !tableData?.explainer_ids) return null
+
+    let bestExplainerId: string | null = null
+    let bestScore = -Infinity
+    let bestData: {
+      highlightedExplanation: { segments: Array<{ text: string; highlight: boolean }> } | null
+      explanationText: string | null
+      qualityScore: number
+    } | null = null
+
+    for (const explainerId of tableData.explainer_ids) {
+      const explainerData = selectedFeatureData.row?.explainers?.[explainerId]
+      const score = explainerData?.quality_score
+      if (score !== null && score !== undefined && score > bestScore) {
+        bestScore = score
+        bestExplainerId = explainerId
+        bestData = {
+          highlightedExplanation: explainerData?.highlighted_explanation ?? null,
+          explanationText: explainerData?.explanation_text ?? null,
+          qualityScore: score
+        }
+      }
+    }
+
+    if (!bestExplainerId || !bestData) return null
+
+    return {
+      explainerId: bestExplainerId,
+      ...bestData
+    }
+  }, [selectedFeatureData, tableData?.explainer_ids])
+
+  // Handle click on feature in top row list
+  const handleFeatureListClick = useCallback((index: number) => {
+    setCurrentFeatureIndex(index)
+  }, [])
+
+  // ============================================================================
+  // NAVIGATION HANDLERS
+  // ============================================================================
+
+  const handleNavigatePrevious = useCallback(() => {
+    setCurrentFeatureIndex(i => Math.max(0, i - 1))
+  }, [])
+
+  const handleNavigateNext = useCallback(() => {
+    setCurrentFeatureIndex(i => Math.min(featureListWithMetadata.length - 1, i + 1))
+  }, [featureListWithMetadata.length])
+
+  // ============================================================================
+  // TAG BUTTON HANDLERS
+  // ============================================================================
+
+  // Get current feature's cause selection state
+  const currentCauseCategory = useMemo(() => {
+    if (!selectedFeatureData) return null
+    return causeSelectionStates.get(selectedFeatureData.featureId) || null
+  }, [selectedFeatureData, causeSelectionStates])
+
+  // Handle tag button click - set to specific category or clear if already selected
+  const handleTagClick = useCallback((category: CauseCategory | null) => {
+    if (!selectedFeatureData) return
+    const featureId = selectedFeatureData.featureId
+
+    if (currentCauseCategory === category) {
+      // Toggle off if clicking same category
+      setCauseCategory(featureId, null)
+    } else {
+      // Set to new category
+      setCauseCategory(featureId, category)
+      // Auto-advance to next feature
+      if (currentFeatureIndex < featureListWithMetadata.length - 1) {
+        setTimeout(() => handleNavigateNext(), 150)
+      }
+    }
+  }, [selectedFeatureData, currentCauseCategory, setCauseCategory, currentFeatureIndex, featureListWithMetadata.length, handleNavigateNext])
+
+  // Get colors for each cause category
+  const noisyActivationColor = getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#9ca3af'
+  const missedLexiconColor = getTagColor(TAG_CATEGORY_CAUSE, 'Missed N-gram') || '#9ca3af'
+  const missedContextColor = getTagColor(TAG_CATEGORY_CAUSE, 'Missed Context') || '#9ca3af'
+  const unsureColor = '#9ca3af'
+
+  // Render feature item for top row ScrollableItemList (with click handler)
+  const renderTopRowFeatureItem = useCallback((feature: typeof featureListWithMetadata[0], index: number) => {
+    const causeCategory = causeSelectionStates.get(feature.featureId)
+
+    let tagName = 'Unsure'
+    if (causeCategory) {
+      tagName = CAUSE_TAG_NAMES[causeCategory] || 'Unsure'
+    }
+
+    return (
+      <TagBadge
+        featureId={feature.featureId}
+        tagName={tagName}
+        tagCategoryId={TAG_CATEGORY_CAUSE}
+        onClick={() => handleFeatureListClick(index)}
+        fullWidth={true}
+      />
+    )
+  }, [causeSelectionStates, handleFeatureListClick])
+
+  // Render feature item for bottom row ScrollableItemList (no click handler)
+  const renderBottomRowFeatureItem = useCallback((featureId: number) => {
     const causeCategory = causeSelectionStates.get(featureId)
 
-    // Map cause category to tag name
     let tagName = 'Unsure'
     if (causeCategory) {
       tagName = CAUSE_TAG_NAMES[causeCategory] || 'Unsure'
@@ -156,20 +368,174 @@ const CauseView: React.FC<CauseViewProps> = ({
           filteredFeatureIds={selectedFeatureIds || undefined}
         />
 
-        {/* Right column: UMAP + Selected features list */}
+        {/* Right column: Top placeholder + Bottom UMAP section */}
         <div className="cause-view__content">
-          <div className="cause-view__umap-section">
+          {/* Top row: Feature list + Activation/Explanation panel */}
+          <div className="cause-view__row-top">
+            {/* Left: All features from segment */}
+            <ScrollableItemList
+              width={240}
+              height={300}
+              badges={[{ label: 'Features', count: featureListWithMetadata.length }]}
+              items={featureListWithMetadata}
+              renderItem={renderTopRowFeatureItem}
+              currentIndex={currentFeatureIndex}
+              isActive={true}
+            />
+
+            {/* Right panel: Activation examples and explanations */}
+            <div className="cause-view__right-panel" ref={rightPanelRef}>
+              {selectedFeatureData ? (
+                <>
+                  {/* Header row */}
+                  <div className="cause-view__header-row">
+                    <h4 className="subheader">Activation Examples</h4>
+                    <span className="panel-header__id">#{selectedFeatureData.featureId}</span>
+                    <div style={{ flex: 1 }} />
+                    {/* Activation legend */}
+                    <div className="cause-view__legend">
+                      <div className="legend-item">
+                        <span className="legend-sample legend-sample--activation">token</span>:
+                        <span className="legend-label">Activation Strength</span>
+                      </div>
+                      <div className="legend-item">
+                        <span className="legend-sample legend-sample--intra">token</span>:
+                        <span className="legend-label">Feature-Specific N-gram</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Activation Examples Section */}
+                  <div className="cause-view__activation-section">
+                    <div className="cause-view__activation-examples">
+                      {selectedFeatureData.activation ? (
+                        <ActivationExample
+                          examples={selectedFeatureData.activation}
+                          containerWidth={containerWidth}
+                          numQuantiles={4}
+                          examplesPerQuantile={[2, 2, 2, 2]}
+                          disableHover={true}
+                        />
+                      ) : (
+                        <div className="cause-view__loading">Loading activation examples...</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Best Explanation Section */}
+                  <div className="cause-view__explanation-section">
+                    <div className="cause-view__explanation-header">
+                      <h4 className="subheader">Best Explanation</h4>
+                      {bestExplanation && (
+                        <div className="pair-info__similarity">
+                          <span className="similarity__label">Quality Score:</span>
+                          <span className="similarity__value">
+                            {bestExplanation.qualityScore.toFixed(3)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="cause-view__explanation-content">
+                      {bestExplanation ? (
+                        <div className="cause-view__explainer-block">
+                          <span
+                            className={`cause-view__explainer-name cause-view__explainer-name--${bestExplanation.explainerId}`}
+                          >
+                            {getExplainerDisplayName(bestExplanation.explainerId)}
+                          </span>
+                          <span className="cause-view__explainer-text">
+                            {bestExplanation.highlightedExplanation?.segments ? (
+                              <HighlightedExplanation
+                                segments={bestExplanation.highlightedExplanation.segments}
+                                truncated={false}
+                              />
+                            ) : (
+                              <span className="cause-view__no-explanation">
+                                {bestExplanation.explanationText || 'No explanation available'}
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="cause-view__no-explanation">No explanations available</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Floating control panel at bottom */}
+                  <div className="cause-view__floating-controls">
+                    {/* Previous button */}
+                    <button
+                      className="nav__button"
+                      onClick={handleNavigatePrevious}
+                      disabled={currentFeatureIndex === 0}
+                    >
+                      ← Prev
+                    </button>
+
+                    {/* Selection buttons */}
+                    <button
+                      className={`selection__button selection__button--unsure ${currentCauseCategory === null ? 'selected' : ''}`}
+                      onClick={() => handleTagClick(null)}
+                      style={{ '--tag-color': unsureColor } as React.CSSProperties}
+                    >
+                      Unsure
+                    </button>
+                    <button
+                      className={`selection__button selection__button--noisy-activation ${currentCauseCategory === 'noisy-activation' ? 'selected' : ''}`}
+                      onClick={() => handleTagClick('noisy-activation')}
+                      style={{ '--tag-color': noisyActivationColor } as React.CSSProperties}
+                    >
+                      Noisy Activation
+                    </button>
+                    <button
+                      className={`selection__button selection__button--missed-lexicon ${currentCauseCategory === 'missed-N-gram' ? 'selected' : ''}`}
+                      onClick={() => handleTagClick('missed-N-gram')}
+                      style={{ '--tag-color': missedLexiconColor } as React.CSSProperties}
+                    >
+                      Missed N-gram
+                    </button>
+                    <button
+                      className={`selection__button selection__button--missed-context ${currentCauseCategory === 'missed-context' ? 'selected' : ''}`}
+                      onClick={() => handleTagClick('missed-context')}
+                      style={{ '--tag-color': missedContextColor } as React.CSSProperties}
+                    >
+                      Missed Context
+                    </button>
+
+                    {/* Next button */}
+                    <button
+                      className="nav__button"
+                      onClick={handleNavigateNext}
+                      disabled={currentFeatureIndex >= featureListWithMetadata.length - 1}
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="cause-view__placeholder">
+                  <span className="cause-view__placeholder-text">
+                    Select a feature from the list to view details
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Bottom row: UMAP + Selected features list */}
+          <div className="cause-view__row-bottom">
             <UMAPScatter
               featureIds={selectedFeatureIds ? Array.from(selectedFeatureIds) : []}
               width={500}
-              height={500}
+              height={350}
             />
             <ScrollableItemList
               badges={[{ label: 'Selected', count: brushedFeatureList.length }]}
               items={brushedFeatureList}
-              renderItem={renderFeatureItem}
+              renderItem={renderBottomRowFeatureItem}
               width={200}
-              height={500}
+              height={350}
             />
           </div>
         </div>

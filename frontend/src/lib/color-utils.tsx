@@ -119,7 +119,7 @@ export function getSelectionColors(stage: TableStage): {
     const colors = getBadgeColors(TAG_CATEGORY_CAUSE)
     return {
       confirmed: colors['Noisy Activation'] || '#CC79A7',    // Purple
-      expanded: colors['Missed Lexicon'] || '#E69F00',       // Orange
+      expanded: colors['Missed N-gram'] || '#E69F00',       // Orange
       rejected: colors['Missed Context'] || '#D55E00',       // Vermillion
       autoRejected: colors['Missed Context'] || '#D55E00',   // Vermillion
       unsure: UNSURE_GRAY

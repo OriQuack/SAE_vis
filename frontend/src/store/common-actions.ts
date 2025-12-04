@@ -524,10 +524,20 @@ export const createCommonActions = (set: any, get: any) => ({
         set({ isRevisitingStage1: false })
       }
     } else if (stageNumber === 2) {
-      selectedNodeId = 'stage2_segment'
-      segmentIndex = 1  // Well-Explained (second segment, >= 0.7)
-      // Clear Stage 1 revisiting flag when moving to Stage 2
-      set({ isRevisitingStage1: false })
+      // Check if we're in a later stage (stage2_segment no longer exists)
+      if (currentStage >= 3) {
+        // Stage 2 segment was replaced - select root to show all features
+        selectedNodeId = 'root'
+        segmentIndex = 0  // No segment selection needed
+        // Set flag to indicate we're revisiting Stage 2
+        set({ isRevisitingStage1: false, isRevisitingStage2: true })
+        console.log('[Store.activateCategoryTable] Returning to Stage 2 from Stage 3+, selecting root, setting revisiting flag')
+      } else {
+        selectedNodeId = 'stage2_segment'
+        segmentIndex = 1  // Well-Explained (second segment, >= 0.7)
+        // Clear Stage 1 revisiting flag when moving to Stage 2
+        set({ isRevisitingStage1: false, isRevisitingStage2: false })
+      }
     } else if (stageNumber === 3) {
       selectedNodeId = 'stage3_segment'
       segmentIndex = 0  // First cause segment (Missed Context)
