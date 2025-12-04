@@ -19,7 +19,7 @@ import type {
 } from '../types'
 import { getStageConfig } from './sankey-stages'
 import { processFeatureGroupResponse } from './threshold-utils'
-import { TAG_CATEGORIES } from './constants'
+import { TAG_CATEGORIES, UNSURE_GRAY } from './constants'
 import * as api from '../api'
 
 // ============================================================================
@@ -491,8 +491,6 @@ export async function buildStage2FromTaggedStates(
 export function buildStage3(
   stage2Structure: SankeyStructure
 ): SankeyStructure {
-  const config = getStageConfig(3)
-
   // Get the segment node from Stage 2
   const stage2Segment = stage2Structure.nodes.find(n => n.id === 'stage2_segment') as SegmentSankeyNode
   if (!stage2Segment) {
@@ -548,29 +546,17 @@ export function buildStage3(
     value: wellExplainedSegment.featureCount
   })
 
-  // 3. Create Cause segments (pre-defined groups, initially all in first segment)
-  // Only include segments with features (hide empty segments)
-  const tagColors = getTagColors(config.categoryId)
-  const allSegments: NodeSegment[] = config.tags.map((tagName, index) => {
-    // Initially assign all features to the first segment; features get redistributed via tagging
-    const isFirst = index === 0
-    const featureIds = isFirst ? needRevisionNode.featureIds : new Set<number>()
-    const featureCount = isFirst ? needRevisionNode.featureCount : 0
-    const height = isFirst ? 1.0 : 0
-    const color = tagColors[tagName] || '#999999'
-
-    return {
-      tagName,
-      featureIds,
-      featureCount,
-      color,
-      height,
-      yPosition: 0
-    }
-  })
-
-  // Filter out segments with 0 features
-  const segments = allSegments.filter(seg => seg.featureCount > 0)
+  // 3. Create single "Unsure" segment for Stage 3
+  // Unlike Stages 1 & 2, Stage 3 has no threshold to pre-filter features
+  // All features start as "Unsure" and get tagged by user
+  const segments: NodeSegment[] = [{
+    tagName: 'Unsure',
+    featureIds: needRevisionNode.featureIds,
+    featureCount: needRevisionNode.featureCount,
+    color: UNSURE_GRAY,
+    height: 1.0,
+    yPosition: 0
+  }]
 
   // 4. Create Cause segment node (only if need_revision has features)
   if (needRevisionNode.featureCount > 0) {

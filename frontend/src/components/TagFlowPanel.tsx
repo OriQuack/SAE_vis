@@ -1,6 +1,5 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useRef, useLayoutEffect, useState } from 'react'
 import { getTagCategoriesInOrder, getTagColor } from '../lib/tag-system'
-import { NEUTRAL_ICON_COLORS } from '../lib/constants'
 import '../styles/TagFlowPanel.css'
 
 // ============================================================================
@@ -8,161 +7,44 @@ import '../styles/TagFlowPanel.css'
 // ============================================================================
 
 interface TagFlowPanelProps {
-  /** Tag counts organized by stage: { categoryId: { tagName: count } } */
   tagCounts: Record<string, Record<string, number>>
-  /** Currently active stage for highlighting */
   activeStage?: string | null
 }
 
-interface TagFlowNode {
-  id: string           // e.g., "feature_splitting:Monosemantic"
-  categoryId: string   // e.g., "feature_splitting"
-  tag: string          // e.g., "Monosemantic"
-  x: number
-  y: number
-  width: number
-  height: number
-  color: string        // Hex color from tag-system
-  count: number
-  stageOrder: number   // 1, 2, or 3
-}
-
-interface TagFlowEdge {
+interface TagNode {
   id: string
-  source: string       // Source node id
-  target: string       // Target node id
-  path: string         // SVG bezier path d attribute
+  categoryId: string
+  tag: string
+  color: string
+  count: number
+  stageOrder: number
 }
 
 // ============================================================================
-// LAYOUT CONSTANTS
+// DATA
 // ============================================================================
 
-const LAYOUT = {
-  PANEL_WIDTH: 340,
-  PANEL_HEIGHT: 70,
-  BADGE_WIDTH: 90,
-  BADGE_HEIGHT: 20,
-  BADGE_RX: 3,
-  BADGE_GAP_Y: 4,
-  STAGE_1_X: 5,
-  STAGE_2_X: 120,
-  STAGE_3_X: 235,
-  TOP_PADDING: 5,
-  COUNT_BOX_WIDTH: 28,
-  COUNT_BOX_MARGIN: 2,
-}
-
-// ============================================================================
-// LAYOUT CALCULATION
-// ============================================================================
-
-/**
- * Create smooth bezier curve between two points
- */
-function curve(x1: number, y1: number, x2: number, y2: number): string {
-  const midX = (x1 + x2) / 2
-  return `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`
-}
-
-/**
- * Calculate node positions and edge paths for the tag flow diagram
- */
-function calculateTagFlowLayout(
-  tagCounts: Record<string, Record<string, number>>
-): { nodes: TagFlowNode[], edges: TagFlowEdge[] } {
+function getTagNodes(tagCounts: Record<string, Record<string, number>>): TagNode[] {
   const categories = getTagCategoriesInOrder()
-  const nodes: TagFlowNode[] = []
-  const edges: TagFlowEdge[] = []
+  const nodes: TagNode[] = []
 
-  // Column X positions by stage order
-  const columnX: Record<number, number> = {
-    1: LAYOUT.STAGE_1_X,
-    2: LAYOUT.STAGE_2_X,
-    3: LAYOUT.STAGE_3_X
-  }
-
-  // Build nodes for each category (only stages 1-3, skip stage 4 "temp")
   for (const category of categories) {
-    if (category.stageOrder > 3) continue  // Skip temp stage
-
-    const stageX = columnX[category.stageOrder]
+    if (category.stageOrder > 3) continue
     const counts = tagCounts[category.id] || {}
 
-    category.tags.forEach((tag, index) => {
-      const y = LAYOUT.TOP_PADDING + index * (LAYOUT.BADGE_HEIGHT + LAYOUT.BADGE_GAP_Y)
-
+    category.tags.forEach((tag) => {
       nodes.push({
         id: `${category.id}:${tag}`,
         categoryId: category.id,
         tag,
-        x: stageX,
-        y,
-        width: LAYOUT.BADGE_WIDTH,
-        height: LAYOUT.BADGE_HEIGHT,
         color: getTagColor(category.id, tag) || '#94a3b8',
         count: counts[tag] || 0,
-        stageOrder: category.stageOrder
+        stageOrder: category.stageOrder,
       })
     })
   }
 
-  // Build edges based on parentTagForNextStage relationships
-  // Monosemantic -> Both Quality tags
-  edges.push({
-    id: 'mono-to-need-revision',
-    source: 'feature_splitting:Monosemantic',
-    target: 'quality:Need Revision',
-    path: ''
-  })
-  edges.push({
-    id: 'mono-to-well-explained',
-    source: 'feature_splitting:Monosemantic',
-    target: 'quality:Well-Explained',
-    path: ''
-  })
-
-  // Need Revision -> All Cause tags
-  edges.push({
-    id: 'revision-to-noisy',
-    source: 'quality:Need Revision',
-    target: 'cause:Noisy Activation',
-    path: ''
-  })
-  edges.push({
-    id: 'revision-to-context',
-    source: 'quality:Need Revision',
-    target: 'cause:Missed Context',
-    path: ''
-  })
-  edges.push({
-    id: 'revision-to-ngram',
-    source: 'quality:Need Revision',
-    target: 'cause:Missed N-gram',
-    path: ''
-  })
-
-  // Compute bezier paths for each edge
-  const nodeMap = new Map(nodes.map(n => [n.id, n]))
-  for (const edge of edges) {
-    const src = nodeMap.get(edge.source)
-    const tgt = nodeMap.get(edge.target)
-
-    if (!src || !tgt) continue
-
-    // Source: right edge center
-    const x1 = src.x + src.width
-    const y1 = src.y + src.height / 2
-
-    // Target: left edge center
-    const x2 = tgt.x
-    const y2 = tgt.y + tgt.height / 2
-
-    // Bezier curve with horizontal control points
-    edge.path = curve(x1, y1, x2, y2)
-  }
-
-  return { nodes, edges }
+  return nodes
 }
 
 // ============================================================================
@@ -170,97 +52,180 @@ function calculateTagFlowLayout(
 // ============================================================================
 
 const TagFlowPanel: React.FC<TagFlowPanelProps> = ({ tagCounts, activeStage }) => {
-  // Memoize layout calculation
-  const { nodes, edges } = useMemo(() => {
-    return calculateTagFlowLayout(tagCounts)
-  }, [tagCounts])
+  const nodes = useMemo(() => getTagNodes(tagCounts), [tagCounts])
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [badgePositions, setBadgePositions] = useState<Record<string, { left: number; right: number; y: number }>>({})
+
+  const nodesByStage = useMemo(() => {
+    const grouped: Record<number, TagNode[]> = { 1: [], 2: [], 3: [] }
+    for (const node of nodes) {
+      grouped[node.stageOrder]?.push(node)
+    }
+    return grouped
+  }, [nodes])
+
+  // Measure badge positions after render (left edge, right edge, vertical center)
+  useLayoutEffect(() => {
+    if (!containerRef.current) return
+
+    const positions: Record<string, { left: number; right: number; y: number }> = {}
+    const container = containerRef.current
+    const containerRect = container.getBoundingClientRect()
+
+    container.querySelectorAll('[data-node-id]').forEach((el) => {
+      const nodeId = el.getAttribute('data-node-id')
+      if (!nodeId) return
+      const rect = el.getBoundingClientRect()
+      positions[nodeId] = {
+        left: rect.left - containerRect.left,
+        right: rect.right - containerRect.left,
+        y: rect.top - containerRect.top + rect.height / 2,
+      }
+    })
+
+    setBadgePositions(positions)
+  }, [nodes, tagCounts])
+
+  // Generate SVG paths with gradients (right edge → left edge)
+  const svgPaths = useMemo(() => {
+    const paths: Array<{
+      d: string
+      key: string
+      gradientId: string
+      sourceColor: string
+      targetColor: string
+      x1: number
+      x2: number
+    }> = []
+
+    const stage1 = nodesByStage[1] || []
+    const stage2 = nodesByStage[2] || []
+    const stage3 = nodesByStage[3] || []
+
+    // Connector 1→2: Monosemantic → Well-Explained + Need Revision
+    if (stage1[0] && stage2.length > 0) {
+      const sourceNode = stage1[0]
+      const source = badgePositions[sourceNode.id]
+
+      if (source) {
+        stage2.forEach((target, idx) => {
+          const targetPos = badgePositions[target.id]
+          if (targetPos) {
+            const x1 = source.right
+            const x2 = targetPos.left
+            const midX = (x1 + x2) / 2
+            paths.push({
+              key: `c1-${idx}`,
+              gradientId: `grad-c1-${idx}`,
+              d: `M ${x1} ${source.y} C ${midX} ${source.y}, ${midX} ${targetPos.y}, ${x2} ${targetPos.y}`,
+              sourceColor: sourceNode.color,
+              targetColor: target.color,
+              x1,
+              x2,
+            })
+          }
+        })
+      }
+    }
+
+    // Connector 2→3: Need Revision → All Stage 3 badges
+    if (stage2[1] && stage3.length > 0) {
+      const sourceNode = stage2[1] // Need Revision is second
+      const source = badgePositions[sourceNode.id]
+
+      if (source) {
+        stage3.forEach((target, idx) => {
+          const targetPos = badgePositions[target.id]
+          if (targetPos) {
+            const x1 = source.right
+            const x2 = targetPos.left
+            const midX = (x1 + x2) / 2
+            paths.push({
+              key: `c2-${idx}`,
+              gradientId: `grad-c2-${idx}`,
+              d: `M ${x1} ${source.y} C ${midX} ${source.y}, ${midX} ${targetPos.y}, ${x2} ${targetPos.y}`,
+              sourceColor: sourceNode.color,
+              targetColor: target.color,
+              x1,
+              x2,
+            })
+          }
+        })
+      }
+    }
+
+    return paths
+  }, [badgePositions, nodesByStage])
 
   return (
-    <div className="tag-flow-panel">
-      <svg
-        viewBox={`0 0 ${LAYOUT.PANEL_WIDTH} ${LAYOUT.PANEL_HEIGHT}`}
-        preserveAspectRatio="xMidYMid meet"
-        className="tag-flow-panel__svg"
-        role="img"
-        aria-label="Tag flow diagram showing relationships between stages"
-      >
-        {/* Arrow marker definition */}
+    <div className="tag-flow-panel" ref={containerRef}>
+      {/* SVG layer for flow lines */}
+      <svg className="tag-flow-panel__svg">
         <defs>
-          <marker
-            id="tag-flow-arrow"
-            viewBox="0 0 10 10"
-            refX="9"
-            refY="5"
-            markerWidth="4"
-            markerHeight="4"
-            orient="auto"
-          >
-            <path d="M 0 0 L 10 5 L 0 10 z" fill={NEUTRAL_ICON_COLORS.ICON_LIGHT} />
-          </marker>
+          {svgPaths.map(({ gradientId, sourceColor, targetColor, x1, x2 }) => (
+            <linearGradient
+              key={gradientId}
+              id={gradientId}
+              x1={x1}
+              x2={x2}
+              y1="0"
+              y2="0"
+              gradientUnits="userSpaceOnUse"
+            >
+              <stop offset="0%" stopColor={sourceColor} />
+              <stop offset="100%" stopColor={targetColor} />
+            </linearGradient>
+          ))}
         </defs>
-
-        {/* Render edges first (behind nodes) */}
-        {edges.map(edge => (
+        {svgPaths.map(({ key, d, gradientId }) => (
           <path
-            key={edge.id}
-            d={edge.path}
-            className="tag-flow-panel__edge"
-            markerEnd="url(#tag-flow-arrow)"
+            key={key}
+            d={d}
+            className="tag-flow-panel__path"
+            stroke={`url(#${gradientId})`}
           />
         ))}
-
-        {/* Render nodes (tag badges) */}
-        {nodes.map(node => (
-          <g
-            key={node.id}
-            className={`tag-flow-panel__node ${
-              activeStage === node.categoryId ? 'tag-flow-panel__node--active' : ''
-            }`}
-          >
-            {/* Badge background */}
-            <rect
-              x={node.x}
-              y={node.y}
-              width={node.width}
-              height={node.height}
-              rx={LAYOUT.BADGE_RX}
-              fill={node.color}
-              className="tag-flow-panel__badge"
-            />
-            {/* Tag label (left side) */}
-            <text
-              x={node.x + 4}
-              y={node.y + node.height / 2}
-              dominantBaseline="central"
-              className="tag-flow-panel__label"
-            >
-              {node.tag}
-            </text>
-            {/* Count background (right side, white) */}
-            <rect
-              x={node.x + node.width - LAYOUT.COUNT_BOX_WIDTH - LAYOUT.COUNT_BOX_MARGIN}
-              y={node.y + LAYOUT.COUNT_BOX_MARGIN}
-              width={LAYOUT.COUNT_BOX_WIDTH}
-              height={node.height - LAYOUT.COUNT_BOX_MARGIN * 2}
-              rx={2}
-              fill="#ffffff"
-              className="tag-flow-panel__count-bg"
-            />
-            {/* Count text */}
-            <text
-              x={node.x + node.width - LAYOUT.COUNT_BOX_WIDTH / 2 - LAYOUT.COUNT_BOX_MARGIN}
-              y={node.y + node.height / 2}
-              textAnchor="middle"
-              dominantBaseline="central"
-              className="tag-flow-panel__count"
-            >
-              {node.count.toLocaleString()}
-            </text>
-          </g>
-        ))}
       </svg>
+
+      {/* Badge columns */}
+      <div className="tag-flow-panel__content">
+        <div className="tag-flow-panel__column">
+          {nodesByStage[1]?.map(node => (
+            <Badge key={node.id} node={node} isActive={activeStage === node.categoryId} />
+          ))}
+        </div>
+
+        <div className="tag-flow-panel__spacer" />
+
+        <div className="tag-flow-panel__column">
+          {nodesByStage[2]?.map(node => (
+            <Badge key={node.id} node={node} isActive={activeStage === node.categoryId} />
+          ))}
+        </div>
+
+        <div className="tag-flow-panel__spacer" />
+
+        <div className="tag-flow-panel__column">
+          {nodesByStage[3]?.map(node => (
+            <Badge key={node.id} node={node} isActive={activeStage === node.categoryId} />
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
+
+// Badge sub-component
+const Badge: React.FC<{ node: TagNode; isActive: boolean }> = ({ node, isActive }) => (
+  <div
+    data-node-id={node.id}
+    className={`stage-tag-badge ${isActive ? 'stage-tag-badge--active' : ''}`}
+    style={{ backgroundColor: node.color, borderColor: node.color }}
+    title={`${node.tag}: ${node.count.toLocaleString()} features`}
+  >
+    <span className="stage-tag-badge__label">{node.tag}</span>
+    <span className="stage-tag-badge__count">{node.count.toLocaleString()}</span>
+  </div>
+)
 
 export default TagFlowPanel

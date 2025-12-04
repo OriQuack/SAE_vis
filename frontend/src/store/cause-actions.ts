@@ -216,4 +216,77 @@ export const createCauseActions = (set: any, get: any) => ({
     })
     console.log('[Store.restoreSimilarityTaggingPopover] Popover restored')
   },
+
+  // ============================================================================
+  // UMAP PROJECTION ACTIONS (for Stage 3 CauseView scatter plot)
+  // ============================================================================
+
+  /**
+   * Fetch UMAP 2D projection for the given features.
+   * Uses cause-related metrics: semantic_similarity, score_detection, score_embedding, score_fuzz
+   */
+  fetchUmapProjection: async (
+    featureIds: number[],
+    options?: { nNeighbors?: number; minDist?: number }
+  ) => {
+    console.log('[Store.fetchUmapProjection] Starting UMAP projection:', {
+      featureCount: featureIds.length,
+      options
+    })
+
+    // Validate minimum features (UMAP requires at least 3)
+    if (featureIds.length < 3) {
+      console.warn('[Store.fetchUmapProjection] ⚠️ UMAP requires at least 3 features')
+      set({
+        umapError: 'UMAP requires at least 3 features',
+        umapLoading: false
+      })
+      return
+    }
+
+    try {
+      set({ umapLoading: true, umapError: null })
+
+      const response = await api.getUmapProjection(featureIds, options)
+
+      console.log('[Store.fetchUmapProjection] ✅ UMAP projection complete:', {
+        pointCount: response.points.length,
+        totalFeatures: response.total_features,
+        paramsUsed: response.params_used
+      })
+
+      set({
+        umapProjection: response.points,
+        umapLoading: false,
+        umapError: null
+      })
+    } catch (error) {
+      console.error('[Store.fetchUmapProjection] ❌ Failed to fetch UMAP projection:', error)
+      set({
+        umapError: error instanceof Error ? error.message : 'Failed to fetch UMAP projection',
+        umapLoading: false
+      })
+    }
+  },
+
+  /**
+   * Update the set of feature IDs selected via brush in the UMAP scatter plot
+   */
+  setUmapBrushedFeatureIds: (featureIds: Set<number>) => {
+    console.log('[Store.setUmapBrushedFeatureIds] Brush selection updated:', featureIds.size, 'features')
+    set({ umapBrushedFeatureIds: featureIds })
+  },
+
+  /**
+   * Clear UMAP projection state
+   */
+  clearUmapProjection: () => {
+    console.log('[Store.clearUmapProjection] Clearing UMAP projection state')
+    set({
+      umapProjection: null,
+      umapLoading: false,
+      umapError: null,
+      umapBrushedFeatureIds: new Set<number>()
+    })
+  },
 })

@@ -19,7 +19,8 @@ import type {
   CauseSimilaritySortRequest,
   CauseSimilaritySortResponse,
   CauseSimilarityHistogramRequest,
-  CauseSimilarityHistogramResponse
+  CauseSimilarityHistogramResponse,
+  UmapProjectionResponse
 } from './types'
 
 // ============================================================================
@@ -62,7 +63,8 @@ const API_ENDPOINTS = {
   CAUSE_SIMILARITY_SORT: "/cause-similarity-sort",
   CAUSE_SIMILARITY_SCORE_HISTOGRAM: "/cause-similarity-score-histogram",
   CLUSTER_CANDIDATES: "/cluster-candidates",
-  SEGMENT_CLUSTER_PAIRS: "/segment-cluster-pairs"
+  SEGMENT_CLUSTER_PAIRS: "/segment-cluster-pairs",
+  UMAP_PROJECTION: "/umap-projection"
 } as const
 
 const API_BASE = API_BASE_URL
@@ -584,5 +586,65 @@ export async function getAllClusterPairs(
 
   const data = await response.json()
   console.log(`[API.getAllClusterPairs] Received ${data.total_pairs} pairs from ${data.total_clusters} clusters`)
+  return data
+}
+
+// ============================================================================
+// UMAP PROJECTION API (for Stage 3 Cause View)
+// ============================================================================
+
+/**
+ * Get UMAP 2D projection for features.
+ *
+ * Projects features into 2D space using cause-related metrics:
+ * - semantic_similarity (semsim_mean)
+ * - score_detection
+ * - score_embedding
+ * - score_fuzz
+ *
+ * Used in Stage 3 (CauseView) to visualize "Need Revision" features
+ * in a scatter plot for cause analysis.
+ *
+ * @param featureIds - Feature IDs to project (minimum 3)
+ * @param options - Optional UMAP parameters
+ * @returns 2D coordinates for each feature
+ */
+export async function getUmapProjection(
+  featureIds: number[],
+  options?: { nNeighbors?: number; minDist?: number; randomState?: number }
+): Promise<UmapProjectionResponse> {
+  console.log('[API] getUmapProjection called with:', {
+    featureCount: featureIds.length,
+    options
+  })
+
+  const requestBody = {
+    feature_ids: featureIds,
+    n_neighbors: options?.nNeighbors,
+    min_dist: options?.minDist,
+    random_state: options?.randomState
+  }
+
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.UMAP_PROJECTION}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody)
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('[API] UMAP projection error:', response.status, errorText)
+    throw new Error(`Failed to fetch UMAP projection: ${response.status} - ${errorText}`)
+  }
+
+  const data = await response.json()
+  console.log('[API] getUmapProjection response:', {
+    pointCount: data.points?.length || 0,
+    totalFeatures: data.total_features,
+    paramsUsed: data.params_used
+  })
+
   return data
 }

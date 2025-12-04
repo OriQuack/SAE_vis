@@ -12,7 +12,8 @@ import type {
   NodeCategory,
   ActivationExamples,
   SankeySegmentSelection,
-  FlowPathData
+  FlowPathData,
+  UmapPoint
 } from '../types'
 import { getNodeThresholdPath, processFeatureGroupResponse } from '../lib/threshold-utils'
 import {
@@ -301,6 +302,15 @@ interface AppState {
   setIsRevisitingStage3: (value: boolean) => void
   restoreCauseSelectionStates: (states: Map<number, CauseCategory>, sources: Map<number, 'manual' | 'auto'>) => void
 
+  // UMAP projection state (for Stage 3 CauseView scatter plot)
+  umapProjection: UmapPoint[] | null
+  umapLoading: boolean
+  umapError: string | null
+  umapBrushedFeatureIds: Set<number>
+  fetchUmapProjection: (featureIds: number[], options?: { nNeighbors?: number; minDist?: number }) => Promise<void>
+  setUmapBrushedFeatureIds: (featureIds: Set<number>) => void
+  clearUmapProjection: () => void
+
   // Stage table actions
   setActiveStageNode: (nodeId: string | null, category?: string | null) => void
   clearActiveStageNode: () => void
@@ -424,6 +434,12 @@ const initialState = {
   isRevisitingStage3: false,
   stage3FinalCommit: null,
 
+  // UMAP projection state
+  umapProjection: null,
+  umapLoading: false,
+  umapError: null,
+  umapBrushedFeatureIds: new Set<number>(),
+
   // Hover state
   hoveredAlluvialNodeId: null,
   hoveredAlluvialPanel: null,
@@ -545,6 +561,11 @@ export const useStore = create<AppState>((set, get) => {
 
   // Compose Cause actions (Stage 3 - Multi-class)
   sortCauseBySimilarity: causeActions.sortCauseBySimilarity,
+
+  // Compose UMAP actions (Stage 3 - Scatter plot)
+  fetchUmapProjection: causeActions.fetchUmapProjection,
+  setUmapBrushedFeatureIds: causeActions.setUmapBrushedFeatureIds,
+  clearUmapProjection: causeActions.clearUmapProjection,
 
   // Unified similarity tagging actions (route based on mode)
   ...unifiedSimilarityActions,

@@ -1,0 +1,132 @@
+/* ============================================================================
+   UMAP SCATTER PLOT STYLES
+   ============================================================================ */
+
+.umap-scatter {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  background: var(--background-secondary, #fafafa);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* Loading, error, and empty states */
+.umap-scatter--loading,
+.umap-scatter--error,
+.umap-scatter--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.umap-scatter__message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary, #6b7280);
+  font-size: 13px;
+}
+
+.umap-scatter__message--error {
+  color: var(--color-error, #dc2626);
+}
+
+/* Loading spinner */
+.umap-scatter__spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-color, #e5e7eb);
+  border-top-color: var(--color-primary, #3b82f6);
+  border-radius: 50%;
+  animation: umap-spin 0.8s linear infinite;
+}
+
+@keyframes umap-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Legend */
+.umap-scatter__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--background-primary, #fff);
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+
+.umap-scatter__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-secondary, #6b7280);
+}
+
+.umap-scatter__legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.umap-scatter__legend-label {
+  white-space: nowrap;
+}
+
+/* Chart container - holds canvas and SVG overlay */
+.umap-scatter__chart {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  margin: 0 20px 20px 40px;  /* Match MARGIN config */
+}
+
+/* Canvas for points */
+.umap-scatter__canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* SVG overlay for brush */
+.umap-scatter__svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* Brush styling (D3 default overrides) */
+.umap-scatter__brush .selection {
+  fill: rgba(100, 100, 100, 0.15);
+  stroke: #666;
+  stroke-width: 1;
+  stroke-dasharray: 4, 2;
+}
+
+.umap-scatter__brush .handle {
+  fill: #666;
+}
+
+.umap-scatter__brush .overlay {
+  cursor: crosshair;
+}
+
+/* Selection count badge */
+.umap-scatter__selection-count {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font-size: 11px;
+  border-radius: 4px;
+  pointer-events: none;
+}

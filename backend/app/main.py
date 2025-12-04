@@ -12,7 +12,8 @@ from .services.alignment_service import AlignmentService
 from .services.similarity_sort_service import SimilaritySortService
 from .services.hierarchical_cluster_candidate_service import HierarchicalClusterCandidateService
 from .services.activation_cache_service import activation_cache_service
-from .api import feature_groups, similarity_sort, cluster_candidates
+from .services.umap_service import UMAPService
+from .api import feature_groups, similarity_sort, cluster_candidates, umap
 
 # Configure logging for the application
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -41,10 +42,11 @@ data_service = None
 alignment_service = None
 similarity_sort_service = None
 cluster_candidate_service = None
+umap_service = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global data_service, alignment_service, similarity_sort_service, cluster_candidate_service
+    global data_service, alignment_service, similarity_sort_service, cluster_candidate_service, umap_service
     try:
         data_service = DataService()
         await data_service.initialize()
@@ -76,6 +78,11 @@ async def lifespan(app: FastAPI):
         )
         similarity_sort.set_similarity_sort_service(similarity_sort_service)
         logger.info("Similarity sort service initialized successfully")
+
+        # Initialize UMAP service for cause view projections
+        umap_service = UMAPService(data_service=data_service)
+        umap.set_umap_service(umap_service)
+        logger.info("UMAP service initialized successfully")
 
         # Initialize activation cache service (pre-compute msgpack+gzip blob)
         await activation_cache_service.initialize()

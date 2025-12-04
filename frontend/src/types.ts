@@ -739,3 +739,35 @@ export interface FlowPathData extends SankeyToSelectionFlow {
   targetY: number                  // Target position Y (in overlay coordinates)
 }
 
+// ============================================================================
+// UMAP PROJECTION TYPES
+// ============================================================================
+
+/**
+ * UMAP Projection Request - Request for 2D UMAP projection
+ */
+export interface UmapProjectionRequest {
+  feature_ids: number[]
+  n_neighbors?: number    // UMAP n_neighbors parameter (default: 15)
+  min_dist?: number       // UMAP min_dist parameter (default: 0.1)
+  random_state?: number   // Random seed for reproducibility
+}
+
+/**
+ * UMAP Point - Single point in UMAP 2D projection
+ */
+export interface UmapPoint {
+  feature_id: number
+  x: number
+  y: number
+}
+
+/**
+ * UMAP Projection Response - 2D coordinates for features
+ */
+export interface UmapProjectionResponse {
+  points: UmapPoint[]
+  total_features: number
+  params_used: Record<string, number>
+}
+

@@ -40,7 +40,7 @@
 }
 
 /* ============================================================================
- * CONTENT AREA - Right column (placeholder for now)
+ * CONTENT AREA - Right column with UMAP scatter plot
  * ============================================================================ */
 
 .cause-view__content {
@@ -49,27 +49,15 @@
   flex: 1;
   min-height: 0;
   min-width: 0;
-  gap: 8px;
-  overflow: hidden;
+  padding: 8px;
+  overflow: auto;
 }
 
-/* Placeholder container */
-.cause-view__placeholder {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  align-items: center;
-  justify-content: center;
-  background-color: #f9fafb;
-  border: 1px dashed #d1d5db;
+/* UMAP scatter plot container - fixed size */
+.cause-view__umap {
+  width: 400px;
+  height: 350px;
+  flex-shrink: 0;
+  border: 1px solid #e5e7eb;
   border-radius: 4px;
-  margin: 8px;
-}
-
-.cause-view__placeholder-text {
-  color: #9ca3af;
-  font-size: 14px;
-  font-style: italic;
-  text-align: center;
 }

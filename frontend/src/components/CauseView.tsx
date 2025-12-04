@@ -2,6 +2,7 @@ import React, { useMemo, useEffect } from 'react'
 import { useVisualizationStore } from '../store/index'
 import type { SelectionCategory } from '../types'
 import SelectionPanel from './SelectionPanel'
+import UMAPScatter from './UMAPScatter'
 import { TAG_CATEGORY_QUALITY } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import '../styles/CauseView.css'
@@ -117,13 +118,12 @@ const CauseView: React.FC<CauseViewProps> = ({
           filteredFeatureIds={selectedFeatureIds || undefined}
         />
 
-        {/* Right column: Placeholder content */}
+        {/* Right column: UMAP Scatter content */}
         <div className="cause-view__content">
-          <div className="cause-view__placeholder">
-            <span className="cause-view__placeholder-text">
-              Cause analysis content coming soon
-            </span>
-          </div>
+          <UMAPScatter
+            featureIds={selectedFeatureIds ? Array.from(selectedFeatureIds) : []}
+            className="cause-view__umap"
+          />
         </div>
       </div>
     </div>

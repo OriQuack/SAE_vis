@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from . import filters, histogram, table, feature_groups, activation_examples, similarity_sort, cluster_candidates
+from . import filters, histogram, table, feature_groups, activation_examples, similarity_sort, cluster_candidates, umap
 
 router = APIRouter()
 
@@ -10,3 +10,4 @@ router.include_router(feature_groups.router, tags=["feature-groups"])
 router.include_router(activation_examples.router, tags=["activation-examples"])
 router.include_router(similarity_sort.router, tags=["similarity-sort"])
 router.include_router(cluster_candidates.router, tags=["cluster-candidates"])
+router.include_router(umap.router, tags=["umap"])
