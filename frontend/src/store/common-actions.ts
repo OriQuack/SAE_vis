@@ -216,7 +216,8 @@ export const createCommonActions = (set: any, get: any) => ({
     const state = get()
     const { tableSelectedNodeIds, leftPanel, selectedSegment,
             isRevisitingStage1, stage1FinalCommit,
-            isRevisitingStage2, stage2FinalCommit } = state
+            isRevisitingStage2, stage2FinalCommit,
+            isRevisitingStage3, stage3FinalCommit } = state
 
     // When revisiting Stage 1, use stored feature IDs
     if (isRevisitingStage1 && stage1FinalCommit?.featureIds) {
@@ -228,6 +229,12 @@ export const createCommonActions = (set: any, get: any) => ({
     if (isRevisitingStage2 && stage2FinalCommit?.featureIds) {
       console.log('[Store.getSelectedNodeFeatures] Using Stage 2 revisit feature IDs:', stage2FinalCommit.featureIds.size)
       return stage2FinalCommit.featureIds
+    }
+
+    // When revisiting Stage 3, use stored feature IDs
+    if (isRevisitingStage3 && stage3FinalCommit?.featureIds) {
+      console.log('[Store.getSelectedNodeFeatures] Using Stage 3 revisit feature IDs:', stage3FinalCommit.featureIds.size)
+      return stage3FinalCommit.featureIds
     }
 
     if (tableSelectedNodeIds.length === 0) {
@@ -470,8 +477,6 @@ export const createCommonActions = (set: any, get: any) => ({
       metric: category.metric
     })
 
-    const tree = get().leftPanel.sankeyTree
-
     // V2: Check if stage is already active in v2 system, activate if needed
     const sankeyStructure = get().leftPanel.sankeyStructure
     const currentStage = sankeyStructure?.currentStage || 1
@@ -496,39 +501,6 @@ export const createCommonActions = (set: any, get: any) => ({
       }
 
       console.log(`[Store.activateCategoryTable] ✅ Stage ${stageNumber} activated, now activating table`)
-    }
-
-    // Special handling for Cause category (pre-defined groups)
-    if (categoryId === TAG_CATEGORY_CAUSE) {
-      console.log('[Store.activateCategoryTable] 📌 Cause category detected - selecting "unsure" node')
-      // Clear Stage 1 revisiting flag when moving to Cause
-      set({ isRevisitingStage1: false })
-
-      // Find the "unsure" node in the tree at depth 3
-      let unsureNodeId: string | null = null
-
-      if (tree) {
-        for (const [nodeId, node] of tree.entries()) {
-          // Check if node is at depth 3 (cause stage) and ends with "_unsure"
-          if (node.depth === 3 && nodeId.endsWith('_unsure')) {
-            unsureNodeId = nodeId
-            console.log('[Store.activateCategoryTable] ✅ Found unsure node:', nodeId)
-            break
-          }
-        }
-      }
-
-      if (!unsureNodeId) {
-        console.warn('[Store.activateCategoryTable] ⚠️  No "unsure" node found, using root as fallback')
-        unsureNodeId = 'root'
-      }
-
-      // Select the unsure node
-      get().selectSingleNode(unsureNodeId)
-      get().setActiveStageNode(unsureNodeId, categoryId)
-
-      console.log('[Store.activateCategoryTable] ✅ Cause table activated with unsure node:', unsureNodeId)
-      return
     }
 
     // V2: Find the segment node and specific segment index for this stage
@@ -558,9 +530,9 @@ export const createCommonActions = (set: any, get: any) => ({
       set({ isRevisitingStage1: false })
     } else if (stageNumber === 3) {
       selectedNodeId = 'stage3_segment'
-      segmentIndex = 0  // Missed Context (first segment)
-      // Clear Stage 1 revisiting flag when moving to Stage 3
-      set({ isRevisitingStage1: false })
+      segmentIndex = 0  // First cause segment (Missed Context)
+      // Clear revisiting flags when moving to Stage 3
+      set({ isRevisitingStage1: false, isRevisitingStage2: false })
     } else {
       selectedNodeId = 'root'  // Fallback
       segmentIndex = 0

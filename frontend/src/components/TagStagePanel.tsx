@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import {
   getTagCategoriesInOrder,
-  getTagColor
 } from '../lib/tag-system';
 import { type TagCategoryConfig } from '../lib/constants';
 import { useVisualizationStore } from '../store/index';
 import FlowPanel from './FlowPanel';
+import TagFlowPanel from './TagFlowPanel';
 import '../styles/TagStagePanel.css';
 
 interface TagCategoryPanelProps {
@@ -135,6 +135,18 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
     return selectedStage ? stageOrder > selectedStage.stageOrder : true;
   };
 
+  // Compute tag counts for ALL stages (for TagFlowPanel)
+  // Note: getTagCounts is intentionally excluded from deps - it's defined inline
+  // but only depends on sankeyTree, sankeyStructure, and getFeatureSplittingCounts
+  const allTagCounts = useMemo(() => {
+    const counts: Record<string, Record<string, number>> = {};
+    for (const stage of stages) {
+      counts[stage.id] = getTagCounts(stage);
+    }
+    return counts;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stages, sankeyTree, sankeyStructure, getFeatureSplittingCounts]);
+
   // Get activateCategoryTable action from store
   const activateCategoryTable = useVisualizationStore(state => state.activateCategoryTable);
 
@@ -184,7 +196,6 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
           const isActive = selectedCategory === stage.id;
           const isCompleted = isStageCompleted(stage.stageOrder);
           const isFuture = isStageFuture(stage.stageOrder);
-          const tagCounts = getTagCounts(stage);
 
           return (
             <button
@@ -209,38 +220,16 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
                 <div className="stage-tab__label">{stage.label}</div>
               </div>
               <div className="stage-tab__instruction">{stage.instruction}</div>
-
-              {/* Tag badges displayed inline below instruction */}
-              <div className="stage-tab__badges">
-                {stage.tags.map((tag) => {
-                  // Get color from tag-constants (pre-computed at module load)
-                  const color = getTagColor(stage.id, tag);
-                  const fallbackColor = '#94a3b8'; // Neutral grey
-                  const tagColor = color || fallbackColor;
-
-                  // Create style object for badge background (full opacity)
-                  const badgeStyle = {
-                    backgroundColor: tagColor,
-                    borderColor: tagColor,
-                  };
-
-                  return (
-                    <div
-                      key={tag}
-                      className={`stage-tag-badge ${isActive ? 'stage-tag-badge--active' : ''} ${isCompleted ? 'stage-tag-badge--completed' : ''}`}
-                      style={badgeStyle}
-                      title={`${tag}: ${(tagCounts[tag] || 0).toLocaleString()} features`}
-                    >
-                      <span className="stage-tag-badge__label">{tag}</span>
-                      <span className="stage-tag-badge__count">{(tagCounts[tag] || 0).toLocaleString()}</span>
-                    </div>
-                  );
-                })}
-              </div>
             </button>
           );
         })}
       </div>
+
+      {/* Tag Flow Panel - displays all tags with flow connections */}
+      <TagFlowPanel
+        tagCounts={allTagCounts}
+        activeStage={selectedCategory}
+      />
     </div>
   );
 };

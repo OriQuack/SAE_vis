@@ -6,9 +6,10 @@ import AlluvialDiagram from './components/AlluvialDiagram'
 import HistogramPopover from './components/SankeyHistogramPopover'
 import FeatureSplitView from './components/FeatureSplitView'
 import QualityView from './components/QualityView'
+import CauseView from './components/CauseView'
 import TagCategoryPanel from './components/TagStagePanel'
 import SankeyToSelectionFlowOverlay from './components/SankeyToSelectionFlowOverlay'
-import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY } from './lib/constants'
+import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE } from './lib/constants'
 import type { SelectionCategory } from './types'
 import * as api from './api'
 import './styles/base.css'
@@ -214,9 +215,13 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
                 <>
                   <QualityView onCategoryRefsReady={setSelectionCategoryRefs} />
                 </>
+              ) : activeStageCategory === TAG_CATEGORY_CAUSE ? (
+                <>
+                  <CauseView onCategoryRefsReady={setSelectionCategoryRefs} />
+                </>
               ) : (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: '#9ca3af', fontSize: '14px' }}>
-                  Stage 3: Root Cause Analysis (coming soon)
+                  Select a stage to begin
                 </div>
               )}
 

@@ -1,0 +1,75 @@
+/* ============================================================================
+ * CAUSE VIEW - Root cause analysis workflow (Stage 3)
+ * ============================================================================
+ * Layout:
+ *   Header (full width at top)
+ *   Body: [SelectionPanel bar (85px)] | [Content area (placeholder)]
+ * ============================================================================ */
+
+.cause-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  background-color: #ffffff;
+  gap: 0;
+}
+
+/* ============================================================================
+ * HEADER - Uses shared .view-header, .view-title, .view-description from base.css
+ * ============================================================================ */
+
+/* ============================================================================
+ * BODY - SelectionPanel + Content area
+ * ============================================================================ */
+
+.cause-view__body {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  min-height: 0;
+  gap: 0;
+}
+
+/* SelectionPanel in CauseView should have fixed width */
+.cause-view .table-selection-panel {
+  flex: 0 0 85px;
+  width: 85px;
+}
+
+/* ============================================================================
+ * CONTENT AREA - Right column (placeholder for now)
+ * ============================================================================ */
+
+.cause-view__content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  gap: 8px;
+  overflow: hidden;
+}
+
+/* Placeholder container */
+.cause-view__placeholder {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  background-color: #f9fafb;
+  border: 1px dashed #d1d5db;
+  border-radius: 4px;
+  margin: 8px;
+}
+
+.cause-view__placeholder-text {
+  color: #9ca3af;
+  font-size: 14px;
+  font-style: italic;
+  text-align: center;
+}

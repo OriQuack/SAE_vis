@@ -1,0 +1,65 @@
+/* ============================================================================
+   TAG FLOW PANEL - SVG flow diagram showing tag relationships across stages
+   ============================================================================ */
+
+/* Container */
+.tag-flow-panel {
+  flex: 0 0 auto;
+  width: 340px;
+  height: 75px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  background: white;
+}
+
+.tag-flow-panel__svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Edges (flow lines) */
+.tag-flow-panel__edge {
+  fill: none;
+  stroke: #94a3b8;
+  stroke-width: 1.5;
+  opacity: 0.5;
+}
+
+/* Node container */
+.tag-flow-panel__node {
+  transition: opacity 0.2s ease;
+}
+
+.tag-flow-panel__node--active .tag-flow-panel__badge {
+  stroke: #3b82f6;
+  stroke-width: 2;
+}
+
+/* Badge background (colored) */
+.tag-flow-panel__badge {
+  stroke: rgba(0, 0, 0, 0.1);
+  stroke-width: 1;
+}
+
+/* Tag label text */
+.tag-flow-panel__label {
+  fill: #000000;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* Count background */
+.tag-flow-panel__count-bg {
+  fill: #ffffff;
+  opacity: 0.9;
+}
+
+/* Count text */
+.tag-flow-panel__count {
+  fill: #0f172a;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: 'SF Mono', Monaco, Consolas, monospace;
+}

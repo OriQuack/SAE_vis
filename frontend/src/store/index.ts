@@ -62,6 +62,26 @@ export interface Stage2FinalCommit {
   counts?: QualityCommitCounts
 }
 
+// Stage 3 commit counts for hover preview
+export interface CauseCommitCounts {
+  noisyActivation: number
+  missedContext: number
+  missedNgram: number
+  unsure: number
+  total: number
+}
+
+// Cause selection type
+export type CauseCategory = 'noisy-activation' | 'missed-lexicon' | 'missed-context'
+
+// Stage 3 commit type for revisiting state restoration
+export interface Stage3FinalCommit {
+  causeSelectionStates: Map<number, CauseCategory>
+  causeSelectionSources: Map<number, 'manual' | 'auto'>
+  featureIds: Set<number>  // Original Stage 3 feature IDs
+  counts?: CauseCommitCounts
+}
+
 interface AppState {
   // Data state - now split for left and right panels
   leftPanel: PanelState
@@ -274,6 +294,13 @@ interface AppState {
   setStage2FinalCommit: (commit: Stage2FinalCommit | null) => void
   setIsRevisitingStage2: (value: boolean) => void
 
+  // Stage 3 revisiting state (for restoring state when returning from Stage 4+)
+  isRevisitingStage3: boolean
+  stage3FinalCommit: Stage3FinalCommit | null
+  setStage3FinalCommit: (commit: Stage3FinalCommit | null) => void
+  setIsRevisitingStage3: (value: boolean) => void
+  restoreCauseSelectionStates: (states: Map<number, CauseCategory>, sources: Map<number, 'manual' | 'auto'>) => void
+
   // Stage table actions
   setActiveStageNode: (nodeId: string | null, category?: string | null) => void
   clearActiveStageNode: () => void
@@ -392,6 +419,10 @@ const initialState = {
   // Stage 2 revisiting state
   isRevisitingStage2: false,
   stage2FinalCommit: null,
+
+  // Stage 3 revisiting state
+  isRevisitingStage3: false,
+  stage3FinalCommit: null,
 
   // Hover state
   hoveredAlluvialNodeId: null,
@@ -548,6 +579,25 @@ export const useStore = create<AppState>((set, get) => {
   setIsRevisitingStage2: (value: boolean) => {
     set({ isRevisitingStage2: value })
     console.log('[Store.setIsRevisitingStage2] Set revisiting flag:', value)
+  },
+
+  // Stage 3 revisiting state actions
+  setStage3FinalCommit: (commit: Stage3FinalCommit | null) => {
+    set({ stage3FinalCommit: commit })
+    console.log('[Store.setStage3FinalCommit] Saved Stage 3 final commit:', commit ? commit.causeSelectionStates.size : 0, 'features')
+  },
+
+  setIsRevisitingStage3: (value: boolean) => {
+    set({ isRevisitingStage3: value })
+    console.log('[Store.setIsRevisitingStage3] Set revisiting flag:', value)
+  },
+
+  restoreCauseSelectionStates: (states: Map<number, CauseCategory>, sources: Map<number, 'manual' | 'auto'>) => {
+    set({
+      causeSelectionStates: new Map(states),
+      causeSelectionSources: new Map(sources)
+    })
+    console.log('[Store.restoreCauseSelectionStates] Restored cause selection states:', states.size, 'features')
   },
 
   // Feature selection actions (used by TablePanel checkboxes)
