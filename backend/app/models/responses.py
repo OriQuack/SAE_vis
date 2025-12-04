@@ -86,18 +86,6 @@ class HistogramResponse(BaseModel):
         description="Grouped histogram data when groupBy is specified"
     )
 
-class FilteredHistogramPanelResponse(BaseModel):
-    """Response model for filtered histogram panel data endpoint"""
-    histograms: Dict[str, HistogramResponse] = Field(
-        ...,
-        description="Dictionary mapping metric names to histogram data"
-    )
-    filtered_feature_count: int = Field(
-        ...,
-        ge=0,
-        description="Total number of features after filtering"
-    )
-
 class SankeyNode(BaseModel):
     """Individual node in Sankey diagram"""
     id: str = Field(
@@ -178,69 +166,6 @@ class SankeyResponse(BaseModel):
         description="Metadata about the diagram"
     )
 
-class AlluvialFlow(BaseModel):
-    """Individual flow in alluvial diagram"""
-    source_node: str = Field(
-        ...,
-        description="Source node ID from left Sankey"
-    )
-    target_node: str = Field(
-        ...,
-        description="Target node ID from right Sankey"
-    )
-    feature_count: int = Field(
-        ...,
-        ge=0,
-        description="Number of features flowing between nodes"
-    )
-    feature_ids: List[int] = Field(
-        ...,
-        description="List of feature IDs in this flow (truncated for large flows)"
-    )
-
-class ConsistencyMetrics(BaseModel):
-    """Consistency analysis metrics"""
-    same_final_category: int = Field(
-        ...,
-        description="Number of features ending in same category"
-    )
-    different_final_category: int = Field(
-        ...,
-        description="Number of features ending in different categories"
-    )
-    consistency_rate: float = Field(
-        ...,
-        ge=0.0,
-        le=1.0,
-        description="Rate of consistency (same / total)"
-    )
-
-class ComparisonSummary(BaseModel):
-    """Summary statistics for comparison"""
-    total_overlapping_features: int = Field(
-        ...,
-        description="Total number of features present in both configurations"
-    )
-    total_flows: int = Field(
-        ...,
-        description="Total number of alluvial flows"
-    )
-    consistency_metrics: ConsistencyMetrics = Field(
-        ...,
-        description="Consistency analysis"
-    )
-
-class ComparisonResponse(BaseModel):
-    """Response model for comparison/alluvial diagram data endpoint"""
-    flows: List[AlluvialFlow] = Field(
-        ...,
-        description="Array of flows in the alluvial diagram"
-    )
-    summary: ComparisonSummary = Field(
-        ...,
-        description="Summary statistics"
-    )
-
 class InterFeatureSimilarityInfo(BaseModel):
     """Model for inter-feature activation similarity information"""
     pattern_type: str = Field(
@@ -307,99 +232,6 @@ class DecoderSimilarFeature(BaseModel):
     inter_feature_similarity: Optional[InterFeatureSimilarityInfo] = Field(
         None,
         description="Inter-feature activation similarity pattern information"
-    )
-
-class ThresholdFeatureResponse(BaseModel):
-    """Response model for threshold feature IDs endpoint"""
-    feature_ids: List[int] = Field(
-        ...,
-        description="List of unique feature IDs within the threshold range"
-    )
-    total_count: int = Field(
-        ...,
-        description="Total number of features in the threshold range"
-    )
-    metric: str = Field(
-        ...,
-        description="The metric used for filtering"
-    )
-    threshold_range: Dict[str, float] = Field(
-        ...,
-        description="The threshold range used (min and max values)"
-    )
-
-class LLMModel(BaseModel):
-    """LLM model information"""
-    id: str = Field(
-        ...,
-        description="Model identifier"
-    )
-    name: str = Field(
-        ...,
-        description="Display name for the model"
-    )
-
-class LLMScorerModel(BaseModel):
-    """LLM scorer model information"""
-    id: str = Field(
-        ...,
-        description="Model identifier"
-    )
-    name: str = Field(
-        ...,
-        description="Display name for the model"
-    )
-    explainerSource: str = Field(
-        ...,
-        description="Associated explainer source ID"
-    )
-
-class ConsistencyScore(BaseModel):
-    """Consistency score data"""
-    value: float = Field(
-        ...,
-        ge=0.0,
-        le=1.0,
-        description="Consistency score value (0-1)"
-    )
-    method: str = Field(
-        ...,
-        description="Method used for calculation (e.g., 'cosine_similarity', 'rv_coefficient')"
-    )
-
-class LLMComparisonResponse(BaseModel):
-    """Response model for LLM comparison endpoint"""
-    explainers: List[LLMModel] = Field(
-        ...,
-        min_items=3,
-        max_items=3,
-        description="Three LLM explainer models"
-    )
-    scorersForExplainer1: List[LLMScorerModel] = Field(
-        ...,
-        min_items=3,
-        max_items=3,
-        description="Three scorer models for first explainer"
-    )
-    scorersForExplainer2: List[LLMScorerModel] = Field(
-        ...,
-        min_items=3,
-        max_items=3,
-        description="Three scorer models for second explainer"
-    )
-    scorersForExplainer3: List[LLMScorerModel] = Field(
-        ...,
-        min_items=3,
-        max_items=3,
-        description="Three scorer models for third explainer"
-    )
-    explainerConsistencies: Dict[str, ConsistencyScore] = Field(
-        ...,
-        description="Consistency scores between explainer pairs (left-1, left-3, left-4)"
-    )
-    scorerConsistencies: Dict[str, ConsistencyScore] = Field(
-        ...,
-        description="Consistency scores between scorer pairs for each explainer"
     )
 
 class ScorerScoreSet(BaseModel):
@@ -568,22 +400,6 @@ class ActivationExamplesResponse(BaseModel):
         ...,
         description="Dictionary mapping feature_id to activation example data"
     )
-
-class DistributedFeaturesResponse(BaseModel):
-    """Response model for distributed features endpoint"""
-    selected_features: List[int] = Field(
-        ...,
-        description="List of evenly distributed feature IDs"
-    )
-    total_available: int = Field(
-        ...,
-        description="Total number of features available to select from"
-    )
-    method_used: str = Field(
-        ...,
-        description="Distribution method used ('kmeans')"
-    )
-
 
 class ClusterGroup(BaseModel):
     """Single cluster with its member features"""

@@ -2,8 +2,8 @@ from fastapi import APIRouter, HTTPException, Depends
 import logging
 from ..services.data_service import DataService
 from ..services.histogram_service import HistogramService
-from ..models.requests import HistogramRequest, FilteredHistogramPanelRequest
-from ..models.responses import HistogramResponse, FilteredHistogramPanelResponse
+from ..models.requests import HistogramRequest
+from ..models.responses import HistogramResponse
 from ..models.common import ErrorResponse
 
 logger = logging.getLogger(__name__)

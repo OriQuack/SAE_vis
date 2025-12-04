@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, Union, Dict, Any, List
+from typing import Optional, List
 from .common import Filters, MetricType, ThresholdPathConstraint
 
 class  HistogramRequest(BaseModel):
@@ -31,72 +31,6 @@ class  HistogramRequest(BaseModel):
         description="Optional threshold path constraints from root to node for filtering features by parent ranges"
     )
 
-class ThresholdFeatureRequest(BaseModel):
-    """Request model for retrieving feature IDs within a threshold range"""
-    filters: Filters = Field(
-        ...,
-        description="Filter criteria for data subset"
-    )
-    metric: MetricType = Field(
-        ...,
-        description="Metric to check against threshold range"
-    )
-    min_value: float = Field(
-        ...,
-        description="Minimum threshold value (inclusive)"
-    )
-    max_value: float = Field(
-        ...,
-        description="Maximum threshold value (inclusive)"
-    )
-    selectedLLMExplainers: Optional[List[str]] = Field(
-        default=None,
-        description="Optional list of selected LLM explainers (1 or 2) for filtered feature ID retrieval"
-    )
-
-class FilteredHistogramPanelRequest(BaseModel):
-    """Request model for filtered histogram panel data endpoint"""
-    featureIds: list[int] = Field(
-        ...,
-        description="List of feature IDs to filter histograms by"
-    )
-    bins: Optional[int] = Field(
-        default=20,
-        ge=5,
-        le=100,
-        description="Number of histogram bins"
-    )
-    selectedLLMExplainers: Optional[List[str]] = Field(
-        default=None,
-        description="Optional list of selected LLM explainers (1 or 2) for filtered histogram computation"
-    )
-
-class LLMComparisonRequest(BaseModel):
-    """Request model for LLM comparison endpoint"""
-    filters: Filters = Field(
-        default_factory=lambda: Filters(),
-        description="Optional filter criteria for data subset"
-    )
-
-class UMAPDataRequest(BaseModel):
-    """Request model for UMAP visualization data endpoint"""
-    filters: Filters = Field(
-        default_factory=lambda: Filters(),
-        description="Optional filter criteria for data subset"
-    )
-    umap_type: Optional[str] = Field(
-        default="both",
-        description="Type of UMAP data to return: 'feature', 'explanation', or 'both'"
-    )
-    feature_ids: Optional[List[int]] = Field(
-        default=None,
-        description="Optional list of specific feature IDs to include (for Sankey linking)"
-    )
-    include_noise: bool = Field(
-        default=True,
-        description="Whether to include noise points in the response"
-    )
-
 class TableDataRequest(BaseModel):
     """Request model for table visualization data endpoint"""
     filters: Filters = Field(
@@ -119,31 +53,6 @@ class FeatureGroupRequest(BaseModel):
         min_items=0,
         description="List of threshold values (N thresholds create N+1 groups). Empty list returns all features as single group (root node)."
     )
-
-class ComparisonRequest(BaseModel):
-    """Request model for comparison endpoint (Phase 2 - not yet implemented)"""
-    filters: Filters = Field(
-        default_factory=lambda: Filters(),
-        description="Filter criteria for data subset"
-    )
-    # Minimal model for API compatibility - actual implementation pending
-
-class DistributedFeaturesRequest(BaseModel):
-    """Request model for distributed features endpoint"""
-    feature_ids: List[int] = Field(
-        ...,
-        description="List of feature IDs to sample from"
-    )
-    n: int = Field(
-        ...,
-        gt=0,
-        description="Number of evenly distributed features to select"
-    )
-    method: Optional[str] = Field(
-        default='kmeans',
-        description="Distribution method ('kmeans' only for now)"
-    )
-
 
 class ClusterCandidatesRequest(BaseModel):
     """Request model for hierarchical clustering-based cluster selection"""

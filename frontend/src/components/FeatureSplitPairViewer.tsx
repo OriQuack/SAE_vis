@@ -271,7 +271,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
       {allPairsListProps && (
         <ScrollableItemList
           width={240}
-          height={390}
+          minHeight={390}
           badges={[
             { label: 'All Pairs', count: `${allPairsListProps.totalPairCount} pairs` }
           ]}

@@ -82,6 +82,7 @@ export interface ScrollableItemListProps<T = any> {
   // Styling
   width?: number | string
   height?: number | string
+  minHeight?: number | string
   className?: string
 }
 
@@ -99,6 +100,7 @@ export function ScrollableItemList<T = any>({
   sortConfig,
   width = 200,
   height,
+  minHeight,
   className = ''
 }: ScrollableItemListProps<T>) {
   const currentItem = currentIndex >= 0 && currentIndex < items.length ? items[currentIndex] : null
@@ -127,7 +129,8 @@ export function ScrollableItemList<T = any>({
       className={`scrollable-list ${isActive ? 'scrollable-list--active' : ''} ${className}`}
       style={{
         width: typeof width === 'number' ? `${width}px` : width,
-        height: height ? (typeof height === 'number' ? `${height}px` : height) : undefined
+        height: height ? (typeof height === 'number' ? `${height}px` : height) : undefined,
+        minHeight: minHeight ? (typeof minHeight === 'number' ? `${minHeight}px` : minHeight) : undefined
       }}
     >
       {/* Header with count inline: "Name (Count)" */}

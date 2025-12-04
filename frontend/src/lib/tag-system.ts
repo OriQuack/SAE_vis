@@ -124,7 +124,7 @@ function assignConstantColors(): void {
         // Feature Splitting Category
         // ========================================
         case 'Monosemantic':
-          colors[tag] = D3_SCHEME_TABLEAU10.TEAL  // #009E73 - Green (good: single concept)
+          colors[tag] = D3_SCHEME_TABLEAU10.BLUE  // #009E73 - Green (good: single concept)
           break
         case 'Fragmented':
           colors[tag] = D3_SCHEME_TABLEAU10.PURPLE  // #EE6677 - Red (bad: split features)
@@ -137,7 +137,7 @@ function assignConstantColors(): void {
           colors[tag] = D3_SCHEME_TABLEAU10.BROWN  // #EE6677 - Red (bad: low quality)
           break
         case 'Well-Explained':
-          colors[tag] = D3_SCHEME_TABLEAU10.BLUE  // #009E73 - Green (good: high quality)
+          colors[tag] = D3_SCHEME_TABLEAU10.GREEN  // #009E73 - Green (good: high quality)
           break
 
         // ========================================

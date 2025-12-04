@@ -225,7 +225,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
           {/* Left boundary list (Monosemantic/Need Revision - below reject threshold) */}
           <ScrollableItemList
             width={260}
-            height={370}
+            minHeight={370}
             badges={[
               { label: leftListLabel, count: mode === 'pair' ? `${leftItems.length.toLocaleString()} pairs` : `${leftFeatures.length.toLocaleString()} features` }
             ]}
@@ -243,7 +243,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
           {/* Right boundary list (Fragmented/Well-Explained - above select threshold) */}
           <ScrollableItemList
             width={260}
-            height={370}
+            minHeight={370}
             badges={[
               { label: rightListLabel, count: mode === 'pair' ? `${rightItems.length.toLocaleString()} pairs` : `${rightFeatures.length.toLocaleString()} features` }
             ]}
