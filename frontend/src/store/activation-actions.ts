@@ -2,6 +2,24 @@ import * as api from '../api'
 import type { ActivationExamples } from '../types'
 
 // ============================================================================
+// MODULE-LEVEL CACHE
+// ============================================================================
+
+/**
+ * Module-level cache for activation examples.
+ *
+ * This cache persists outside the React/Zustand lifecycle, surviving:
+ * - React StrictMode double-renders
+ * - Zustand store recreations
+ * - Component remounts
+ *
+ * Only cleared on actual page reload or explicit clearActivationCache() call.
+ * This is critical because activation data never changes during a session.
+ */
+let activationExamplesCache: Record<number, ActivationExamples> | null = null
+let activationFetchInProgress = false
+
+// ============================================================================
 // ACTIVATION DATA ACTIONS
 // ============================================================================
 
@@ -250,8 +268,40 @@ export const createActivationActions = (set: any, get: any) => ({
    * Performance: ~15-25s vs ~100s for chunked JSON loading
    */
   fetchAllActivationsCached: async () => {
+    // Check module-level cache first (survives store recreation)
+    if (activationExamplesCache && Object.keys(activationExamplesCache).length > 0) {
+      console.log('[Store.fetchAllActivationsCached] Using module-level cache:', {
+        cacheSize: Object.keys(activationExamplesCache).length
+      })
+      set({
+        activationExamples: activationExamplesCache,
+        activationLoading: new Set<number>(),
+        activationLoadingState: false
+      })
+      return
+    }
+
+    // Check module-level loading flag (prevents race condition across store recreations)
+    if (activationFetchInProgress) {
+      console.log('[Store.fetchAllActivationsCached] Fetch already in progress (module-level), skipping')
+      return
+    }
+
+    const state = get()
+
+    // Check store-level cache (fallback)
+    const cacheSize = Object.keys(state.activationExamples).length
+    if (cacheSize > 0) {
+      console.log('[Store.fetchAllActivationsCached] Store cache already populated:', { cacheSize })
+      // Also update module-level cache for future store recreations
+      activationExamplesCache = state.activationExamples
+      return
+    }
+
     console.log('[Store.fetchAllActivationsCached] Starting cached activation fetch...')
 
+    // Set both module-level and store-level loading flags
+    activationFetchInProgress = true
     set({ activationLoadingState: true })
 
     const startTime = performance.now()
@@ -265,7 +315,10 @@ export const createActivationActions = (set: any, get: any) => ({
 
       console.log(`[Store.fetchAllActivationsCached] ✅ Loaded ${featureCount} features in ${duration.toFixed(0)}ms`)
 
-      // Set all examples in cache at once
+      // Store in both module-level and store-level cache
+      activationExamplesCache = examples
+      activationFetchInProgress = false
+
       set({
         activationExamples: examples,
         activationLoading: new Set<number>(),
@@ -274,6 +327,7 @@ export const createActivationActions = (set: any, get: any) => ({
 
     } catch (error) {
       console.error('[Store.fetchAllActivationsCached] Failed:', error)
+      activationFetchInProgress = false
       set({ activationLoadingState: false })
       throw error
     }
@@ -281,9 +335,14 @@ export const createActivationActions = (set: any, get: any) => ({
 
   /**
    * Clear activation cache (for memory management or testing)
+   * Clears both module-level and store-level caches.
    */
   clearActivationCache: () => {
-    console.log('[Store.clearActivationCache] Clearing activation examples cache')
+    console.log('[Store.clearActivationCache] Clearing activation examples cache (both module and store level)')
+    // Clear module-level cache
+    activationExamplesCache = null
+    activationFetchInProgress = false
+    // Clear store-level cache
     set({
       activationExamples: {},
       activationLoading: new Set<number>(),

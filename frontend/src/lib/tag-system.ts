@@ -9,9 +9,8 @@ import {
   TAG_CATEGORY_FEATURE_SPLITTING,
   type TagCategoryConfig,
   type TagColorMode,
-  OKABE_ITO_PALETTE,
   UNSURE_GRAY,
-  PAUL_TOL_BRIGHT
+  D3_SCHEME_TABLEAU10,
 } from './constants'
 import { HierarchicalColorAssigner } from './hierarchical-colors'
 import type { SankeyTreeNode } from '../types'
@@ -125,33 +124,33 @@ function assignConstantColors(): void {
         // Feature Splitting Category
         // ========================================
         case 'Monosemantic':
-          colors[tag] = PAUL_TOL_BRIGHT.CYAN  // #009E73 - Green (good: single concept)
+          colors[tag] = D3_SCHEME_TABLEAU10.TEAL  // #009E73 - Green (good: single concept)
           break
         case 'Fragmented':
-          colors[tag] = OKABE_ITO_PALETTE.ORANGE  // #EE6677 - Red (bad: split features)
+          colors[tag] = D3_SCHEME_TABLEAU10.PURPLE  // #EE6677 - Red (bad: split features)
           break
 
         // ========================================
         // Quality Category
         // ========================================
         case 'Need Revision':
-          colors[tag] = OKABE_ITO_PALETTE.REDDISH_PURPLE  // #EE6677 - Red (bad: low quality)
+          colors[tag] = D3_SCHEME_TABLEAU10.BROWN  // #EE6677 - Red (bad: low quality)
           break
         case 'Well-Explained':
-          colors[tag] = OKABE_ITO_PALETTE.BLUISH_GREEN  // #009E73 - Green (good: high quality)
+          colors[tag] = D3_SCHEME_TABLEAU10.BLUE  // #009E73 - Green (good: high quality)
           break
 
         // ========================================
         // Cause Category (Categorical colors)
         // ========================================
         case 'Missed Context':
-          colors[tag] = OKABE_ITO_PALETTE.VERMILLION  // #0072B2 - Blue
+          colors[tag] = D3_SCHEME_TABLEAU10.PINK  // #0072B2 - Blue
           break
         case 'Missed N-gram':
-          colors[tag] = OKABE_ITO_PALETTE.YELLOW  // #E69F00 - Orange
+          colors[tag] = D3_SCHEME_TABLEAU10.YELLOW  // #E69F00 - Orange
           break
         case 'Noisy Activation':
-          colors[tag] = PAUL_TOL_BRIGHT.RED  // #CC79A7 - Purple
+          colors[tag] = D3_SCHEME_TABLEAU10.ORANGE  // #CC79A7 - Purple
           break
 
         default:
@@ -279,7 +278,7 @@ function assignTreeColors(): void {
  *   - 'hierarchical': Use HierarchicalColorAssigner for perceptually-optimized colors
  *   - 'constant': Use predefined colors from Okabe-Ito and Paul Tol palettes
  */
-function initializeTagColors(mode: TagColorMode = 'treecolors'): void {
+function initializeTagColors(mode: TagColorMode = 'constant'): void {
   if (mode === 'constant') {
     // Use predefined constant colors
     assignConstantColors()
@@ -325,7 +324,7 @@ function initializeTagColors(mode: TagColorMode = 'treecolors'): void {
 
 // Initialize colors at module load
 // Modes: 'treecolors' (TreeColors.js library), 'constant' (Okabe-Ito/Paul Tol), 'hierarchical' (custom CIELAB)
-initializeTagColors('treecolors')
+initializeTagColors('constant')
 
 // ============================================================================
 // TAG CATEGORY HELPERS

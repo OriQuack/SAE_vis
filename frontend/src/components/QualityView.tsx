@@ -143,6 +143,21 @@ const QualityView: React.FC<QualityViewProps> = ({
     return features
   }, [getSelectedNodeFeatures, sankeyStructure, selectedSegment, tableSelectedNodeIds, isRevisitingStage2, stage2FinalCommit])
 
+  // Initialize stage2FinalCommit with initial state when first entering Stage 2
+  // This ensures we can restore even if user does nothing and moves to Stage 3
+  useEffect(() => {
+    // Only initialize when: not revisiting, no saved commit yet, and we have features
+    if (!isRevisitingStage2 && !stage2FinalCommit && selectedFeatureIds && selectedFeatureIds.size > 0) {
+      console.log('[QualityView] Initializing Stage 2 commit with initial state:', selectedFeatureIds.size, 'features')
+      setStage2FinalCommit({
+        featureSelectionStates: new Map(),
+        featureSelectionSources: new Map(),
+        featureIds: new Set(selectedFeatureIds),
+        counts: { wellExplained: 0, needRevision: 0, unsure: selectedFeatureIds.size, total: selectedFeatureIds.size }
+      })
+    }
+  }, [isRevisitingStage2, stage2FinalCommit, selectedFeatureIds, setStage2FinalCommit])
+
   // Filter tableData to only include selected features
   const filteredTableData = useMemo(() => {
     if (!tableData?.features || !selectedFeatureIds || selectedFeatureIds.size === 0) {
@@ -645,13 +660,21 @@ const QualityView: React.FC<QualityViewProps> = ({
       setCurrentCommitIndex(currentCommitIndex + 1)
 
       console.log('[QualityView] Created new commit, history length:', tagCommitHistory.length + 1)
+
+      // Save to global store for Stage 2 revisit
+      setStage2FinalCommit({
+        featureSelectionStates: new Map(store.featureSelectionStates),
+        featureSelectionSources: new Map(store.featureSelectionSources),
+        featureIds: selectedFeatureIds ? new Set(selectedFeatureIds) : new Set(),
+        counts: newCounts
+      })
     }, 0)
 
     // 4. Switch to decision margin sort and reset
     setSortMode('decisionMargin')
     setCurrentFeatureIndex(0)
     setActiveListSource('all')
-  }, [applySimilarityTags, featureSelectionStates, featureSelectionSources, currentCommitIndex, tagCommitHistory.length, setSortMode, getQualityCounts, featureList])
+  }, [applySimilarityTags, featureSelectionStates, featureSelectionSources, currentCommitIndex, tagCommitHistory.length, setSortMode, getQualityCounts, featureList, setStage2FinalCommit, selectedFeatureIds])
 
   // Handle commit circle click - restore state from that commit
   const handleCommitClick = useCallback((commitIndex: number) => {
@@ -935,7 +958,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                     <span className="panel-header__id">#{selectedFeatureData.featureId}</span>
                     {/* Quality Score */}
                     <div className="pair-info__similarity">
-                      <span className="similarity__label">Quality Score:</span>
+                      <span className="similarity__label">Avg. Quality Score:</span>
                       <span className="similarity__value">
                         {averageQualityScore !== null ? averageQualityScore.toFixed(3) : 'N/A'}
                       </span>
@@ -1004,7 +1027,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                       </div>
                       <div className="legend-item">
                         <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.LOW }} />
-                        <span className="legend-label">≥0.50</span>
+                        <span className="legend-label">≥0.60</span>
                       </div>
                     </div>
                   </div>

@@ -160,19 +160,19 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     defaultThresholds: [],
     showHistogram: false,
     tags: [
+      "Noisy Activation",
       "Missed Context",
-      "Missed N-gram",
-      "Noisy Activation"
+      "Missed N-gram"
     ],
     relatedMetrics: [
+      // Noisy Activation indicators
+      "intra_feature_similarity",  // Note: Not yet in backend data
+      METRIC_SEMANTIC_SIMILARITY,
       // Missed Context indicators
       METRIC_SCORE_DETECTION,
       METRIC_SCORE_EMBEDDING,
       // Missed N-gram indicators
-      METRIC_SCORE_FUZZ,
-      // Noisy Activation indicators
-      "intra_feature_similarity",  // Note: Not yet in backend data
-      METRIC_SEMANTIC_SIMILARITY
+      METRIC_SCORE_FUZZ
     ],
     description: "Categorizes the root cause of explanation issues for features that need revision",
     parentTagForNextStage: null,
@@ -223,6 +223,28 @@ export const METRIC_DISPLAY_NAMES = {
   [METRIC_SCORE_DETECTION]: "Detection Score",
   [METRIC_SCORE_EMBEDDING]: "Embedding Score",
   [METRIC_QUALITY_SCORE]: "Quality Score"
+} as const
+
+// ============================================================================
+// D3 COLOR SCHEMES
+// Standard D3.js categorical color schemes for data visualization
+// ============================================================================
+
+/**
+ * D3 Tableau10 color scheme - 10 categorical colors
+ * Matches d3.schemeTableau10 from d3-scale-chromatic
+ */
+export const D3_SCHEME_TABLEAU10 = {
+  BLUE: '#4e79a7',
+  ORANGE: '#f28e2c',
+  RED: '#e15759',
+  TEAL: '#76b7b2',
+  GREEN: '#59a14f',
+  YELLOW: '#edc949',
+  PURPLE: '#af7aa1',
+  PINK: '#ff9da7',
+  BROWN: '#9c755f',
+  GRAY: '#bab0ab'
 } as const
 
 // ============================================================================

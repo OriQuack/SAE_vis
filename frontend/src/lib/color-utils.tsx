@@ -268,8 +268,8 @@ export function getRowCategoryClass(
 export const SEMANTIC_SIMILARITY_COLORS = {
   HIGH: '#1a8a8a',      // ≥ 0.85 - Deep blue-teal (high match)
   MEDIUM: '#5ab5a8',    // ≥ 0.70 - Medium teal-green
-  LOW: '#c2e4dc',       // ≥ 0.50 - Pale seafoam
-  NONE: '#f3f4f6'       // < 0.50 - Default gray
+  LOW: '#c2e4dc',       // ≥ 0.60 - Pale seafoam
+  NONE: '#f3f4f6'       // < 0.60 - Default gray
 }
 
 /**
@@ -284,7 +284,7 @@ export function getSemanticSimilarityColor(similarity: number): string {
     return SEMANTIC_SIMILARITY_COLORS.HIGH
   } else if (similarity >= 0.7) {
     return SEMANTIC_SIMILARITY_COLORS.MEDIUM
-  } else if (similarity >= 0.5) {
+  } else if (similarity >= 0.6) {
     return SEMANTIC_SIMILARITY_COLORS.LOW
   } else {
     return SEMANTIC_SIMILARITY_COLORS.NONE

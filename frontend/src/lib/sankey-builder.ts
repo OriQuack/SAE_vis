@@ -304,30 +304,37 @@ export async function buildStage2(
     tagColors
   )
 
-  // 4. Create Quality segment node
-  const qualitySegmentNode: SegmentSankeyNode = {
-    id: 'stage2_segment',
-    type: 'segment',
-    metric: config.metric,
-    threshold: actualThreshold,
-    parentId: 'monosemantic',
-    depth: 2,
-    featureIds: monosematicNode.featureIds,
-    featureCount: monosematicNode.featureCount,
-    segments
-  }
-  nodes.push(qualitySegmentNode)
+  // 4. Create Quality segment node (only if monosemantic has features)
+  if (monosematicNode.featureCount > 0) {
+    const qualitySegmentNode: SegmentSankeyNode = {
+      id: 'stage2_segment',
+      type: 'segment',
+      metric: config.metric,
+      threshold: actualThreshold,
+      parentId: 'monosemantic',
+      depth: 2,
+      featureIds: monosematicNode.featureIds,
+      featureCount: monosematicNode.featureCount,
+      segments
+    }
+    nodes.push(qualitySegmentNode)
 
-  // Link: monosemantic → quality segment
-  links.push({
-    source: 'monosemantic',
-    target: 'stage2_segment',
-    value: monosematicNode.featureCount
-  })
+    // Link: monosemantic → quality segment
+    links.push({
+      source: 'monosemantic',
+      target: 'stage2_segment',
+      value: monosematicNode.featureCount
+    })
+  }
+
+  // Filter out nodes with 0 features and their associated links
+  const filteredNodes = nodes.filter(n => n.featureCount > 0)
+  const filteredNodeIds = new Set(filteredNodes.map(n => n.id))
+  const filteredLinks = links.filter(l => filteredNodeIds.has(l.source) && filteredNodeIds.has(l.target))
 
   return {
-    nodes,
-    links,
+    nodes: filteredNodes,
+    links: filteredLinks,
     currentStage: 2
   }
 }
@@ -425,41 +432,48 @@ export async function buildStage2FromTaggedStates(
     value: fragmentedIds.size
   })
 
-  // 3. Calculate Quality segments for Monosemantic features using API
-  const qualityColors = getTagColors(stage2Config.categoryId)
-  const segments = await calculateSegments(
-    filters,
-    monosematicNode.featureIds,
-    stage2Config.metric!,
-    actualThreshold,
-    stage2Config.tags,
-    qualityColors
-  )
+  // 3. Calculate Quality segments for Monosemantic features using API (only if monosemantic has features)
+  if (monosematicNode.featureCount > 0) {
+    const qualityColors = getTagColors(stage2Config.categoryId)
+    const segments = await calculateSegments(
+      filters,
+      monosematicNode.featureIds,
+      stage2Config.metric!,
+      actualThreshold,
+      stage2Config.tags,
+      qualityColors
+    )
 
-  // 4. Create Quality segment node
-  const qualitySegmentNode: SegmentSankeyNode = {
-    id: 'stage2_segment',
-    type: 'segment',
-    metric: stage2Config.metric,
-    threshold: actualThreshold,
-    parentId: 'monosemantic',
-    depth: 2,
-    featureIds: monosematicNode.featureIds,
-    featureCount: monosematicNode.featureCount,
-    segments
+    // 4. Create Quality segment node
+    const qualitySegmentNode: SegmentSankeyNode = {
+      id: 'stage2_segment',
+      type: 'segment',
+      metric: stage2Config.metric,
+      threshold: actualThreshold,
+      parentId: 'monosemantic',
+      depth: 2,
+      featureIds: monosematicNode.featureIds,
+      featureCount: monosematicNode.featureCount,
+      segments
+    }
+    nodes.push(qualitySegmentNode)
+
+    // Link: monosemantic → quality segment
+    links.push({
+      source: 'monosemantic',
+      target: 'stage2_segment',
+      value: monosematicNode.featureCount
+    })
   }
-  nodes.push(qualitySegmentNode)
 
-  // Link: monosemantic → quality segment
-  links.push({
-    source: 'monosemantic',
-    target: 'stage2_segment',
-    value: monosematicNode.featureCount
-  })
+  // Filter out nodes with 0 features and their associated links
+  const filteredNodes = nodes.filter(n => n.featureCount > 0)
+  const filteredNodeIds = new Set(filteredNodes.map(n => n.id))
+  const filteredLinks = links.filter(l => filteredNodeIds.has(l.source) && filteredNodeIds.has(l.target))
 
   return {
-    nodes,
-    links,
+    nodes: filteredNodes,
+    links: filteredLinks,
     currentStage: 2
   }
 }
@@ -535,8 +549,9 @@ export function buildStage3(
   })
 
   // 3. Create Cause segments (pre-defined groups, initially all in first segment)
+  // Only include segments with features (hide empty segments)
   const tagColors = getTagColors(config.categoryId)
-  const segments: NodeSegment[] = config.tags.map((tagName, index) => {
+  const allSegments: NodeSegment[] = config.tags.map((tagName, index) => {
     // Initially assign all features to the first segment; features get redistributed via tagging
     const isFirst = index === 0
     const featureIds = isFirst ? needRevisionNode.featureIds : new Set<number>()
@@ -554,30 +569,40 @@ export function buildStage3(
     }
   })
 
-  // 4. Create Cause segment node
-  const causeSegmentNode: SegmentSankeyNode = {
-    id: 'stage3_segment',
-    type: 'segment',
-    metric: null,  // No metric for Cause stage
-    threshold: null,
-    parentId: 'need_revision',
-    depth: 3,
-    featureIds: needRevisionNode.featureIds,
-    featureCount: needRevisionNode.featureCount,
-    segments
-  }
-  nodes.push(causeSegmentNode)
+  // Filter out segments with 0 features
+  const segments = allSegments.filter(seg => seg.featureCount > 0)
 
-  // Link: need_revision → cause segment
-  links.push({
-    source: 'need_revision',
-    target: 'stage3_segment',
-    value: needRevisionNode.featureCount
-  })
+  // 4. Create Cause segment node (only if need_revision has features)
+  if (needRevisionNode.featureCount > 0) {
+    const causeSegmentNode: SegmentSankeyNode = {
+      id: 'stage3_segment',
+      type: 'segment',
+      metric: null,  // No metric for Cause stage
+      threshold: null,
+      parentId: 'need_revision',
+      depth: 3,
+      featureIds: needRevisionNode.featureIds,
+      featureCount: needRevisionNode.featureCount,
+      segments
+    }
+    nodes.push(causeSegmentNode)
+
+    // Link: need_revision → cause segment
+    links.push({
+      source: 'need_revision',
+      target: 'stage3_segment',
+      value: needRevisionNode.featureCount
+    })
+  }
+
+  // Filter out nodes with 0 features and their associated links
+  const filteredNodes = nodes.filter(n => n.featureCount > 0)
+  const filteredNodeIds = new Set(filteredNodes.map(n => n.id))
+  const filteredLinks = links.filter(l => filteredNodeIds.has(l.source) && filteredNodeIds.has(l.target))
 
   return {
-    nodes,
-    links,
+    nodes: filteredNodes,
+    links: filteredLinks,
     currentStage: 3
   }
 }

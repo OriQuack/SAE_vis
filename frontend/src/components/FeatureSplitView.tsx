@@ -173,6 +173,21 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clusterThreshold, selectedFeatureIds])
 
+  // Initialize stage1FinalCommit with initial state when first entering Stage 1
+  // This ensures we can restore even if user does nothing and moves to Stage 2
+  useEffect(() => {
+    // Only initialize when: not revisiting, no saved commit yet, and we have features
+    if (!isRevisitingStage1 && !stage1FinalCommit && selectedFeatureIds && selectedFeatureIds.size > 0) {
+      console.log('[FeatureSplitView] Initializing Stage 1 commit with initial state:', selectedFeatureIds.size, 'features')
+      setStage1FinalCommit({
+        pairSelectionStates: new Map(),
+        pairSelectionSources: new Map(),
+        featureIds: new Set(selectedFeatureIds),
+        counts: { fragmented: 0, monosemantic: 0, unsure: selectedFeatureIds.size, total: selectedFeatureIds.size }
+      })
+    }
+  }, [isRevisitingStage1, stage1FinalCommit, selectedFeatureIds, setStage1FinalCommit])
+
   // Fetch ALL cluster pairs when features change or when groups are cleared (Simplified Flow)
   useEffect(() => {
     if (selectedFeatureIds && selectedFeatureIds.size > 0 && !clusterGroups && !isLoadingDistributedPairs) {
@@ -589,12 +604,20 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       setCurrentCommitIndex(currentCommitIndex + 1)
 
       console.log('[FeatureSplitView] Created new commit, history length:', tagCommitHistory.length + 1)
+
+      // Save to global store for Stage 1 revisit
+      setStage1FinalCommit({
+        pairSelectionStates: new Map(store.pairSelectionStates),
+        pairSelectionSources: new Map(store.pairSelectionSources),
+        featureIds: selectedFeatureIds ? new Set(selectedFeatureIds) : new Set(),
+        counts: newCommit.counts
+      })
     }, 0)
 
     // 5. Reset to first page/pair
     setCurrentPairIndex(0)
     setActiveListSource('all')
-  }, [applySimilarityTags, pairSelectionStates, pairSelectionSources, currentCommitIndex, tagCommitHistory.length, setSortMode])
+  }, [applySimilarityTags, pairSelectionStates, pairSelectionSources, currentCommitIndex, tagCommitHistory.length, setSortMode, setStage1FinalCommit, selectedFeatureIds])
 
   // Handle commit circle click - restore state from that commit
   const handleCommitClick = useCallback((commitIndex: number) => {

@@ -455,8 +455,6 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
   updateBothSimilarityThresholds: (selectThreshold: number, rejectThreshold: number) => {
     const { tagAutomaticState } = get()
 
-    console.log('[FeatureSplitting.updateBothSimilarityThresholds] Updating thresholds:', { selectThreshold, rejectThreshold, hadState: !!tagAutomaticState })
-
     // If tagAutomaticState doesn't exist, create a minimal one
     if (!tagAutomaticState) {
       set({

@@ -120,6 +120,7 @@ const SankeyNode: React.FC<{
   isSelected?: boolean
   flowDirection: 'left-to-right' | 'right-to-left'
   animationDuration: number
+  currentStage?: number
 }> = ({
   node,
   onMouseEnter,
@@ -129,7 +130,8 @@ const SankeyNode: React.FC<{
   isHighlighted,
   isSelected = false,
   flowDirection: _flowDirection,
-  animationDuration: _animationDuration
+  animationDuration: _animationDuration,
+  currentStage = 1
 }) => {
   if (node.x0 === undefined || node.x1 === undefined || node.y0 === undefined || node.y1 === undefined) {
     return null
@@ -141,9 +143,10 @@ const SankeyNode: React.FC<{
   const isMonosemantic = node.id === 'monosemantic'
 
   // Get fill color based on node type
+  // In stage 2+, monosemantic parent node should not have color (only stage 1 shows it)
   const getFillColor = () => {
     if (isRoot) return UNSURE_GRAY
-    if (isMonosemantic) {
+    if (isMonosemantic && currentStage < 2) {
       const monosematicColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Monosemantic')
       return monosematicColor || 'none'
     }
@@ -882,6 +885,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                       onClick={(e) => handleNodeSelectionClick(e, node)}
                       flowDirection={flowDirection}
                       animationDuration={animationDuration}
+                      currentStage={currentStage}
                     />
                   )
                 })

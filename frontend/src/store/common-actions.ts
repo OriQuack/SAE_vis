@@ -13,6 +13,27 @@ import {
 } from '../lib/constants'
 
 // ============================================================================
+// MODULE-LEVEL CACHE
+// ============================================================================
+
+/**
+ * Module-level cache for table data.
+ *
+ * This cache persists outside the React/Zustand lifecycle, surviving:
+ * - React StrictMode double-renders
+ * - Zustand store recreations
+ * - Component remounts
+ *
+ * Only cleared on actual page reload or explicit clearTableDataCache() call.
+ * This is critical because table data never changes during a session.
+ */
+let tableDataCache: any | null = null
+let tableDataFetchInProgress = false
+
+// Debug: Log when module is loaded (helps detect HMR reloads)
+console.log('[common-actions] Module loaded/reloaded - cache initialized to null')
+
+// ============================================================================
 // COMMON ACTIONS (shared by all stages)
 // ============================================================================
 
@@ -193,7 +214,21 @@ export const createCommonActions = (set: any, get: any) => ({
    */
   getSelectedNodeFeatures: () => {
     const state = get()
-    const { tableSelectedNodeIds, leftPanel, selectedSegment } = state
+    const { tableSelectedNodeIds, leftPanel, selectedSegment,
+            isRevisitingStage1, stage1FinalCommit,
+            isRevisitingStage2, stage2FinalCommit } = state
+
+    // When revisiting Stage 1, use stored feature IDs
+    if (isRevisitingStage1 && stage1FinalCommit?.featureIds) {
+      console.log('[Store.getSelectedNodeFeatures] Using Stage 1 revisit feature IDs:', stage1FinalCommit.featureIds.size)
+      return stage1FinalCommit.featureIds
+    }
+
+    // When revisiting Stage 2, use stored feature IDs
+    if (isRevisitingStage2 && stage2FinalCommit?.featureIds) {
+      console.log('[Store.getSelectedNodeFeatures] Using Stage 2 revisit feature IDs:', stage2FinalCommit.featureIds.size)
+      return stage2FinalCommit.featureIds
+    }
 
     if (tableSelectedNodeIds.length === 0) {
       return null // No selection - show all features
@@ -236,15 +271,51 @@ export const createCommonActions = (set: any, get: any) => ({
   },
 
   /**
-   * Fetch table data
+   * Fetch table data with module-level caching.
+   *
+   * Uses a module-level cache to persist data across React StrictMode
+   * double-renders and Zustand store recreations.
    */
   fetchTableData: async () => {
+    // Debug: Log cache state
+    console.log('[Store.fetchTableData] Cache check:', {
+      hasCache: tableDataCache !== null,
+      cacheFeatureCount: tableDataCache?.features?.length || 0,
+      fetchInProgress: tableDataFetchInProgress
+    })
+
+    // Check module-level cache first (survives store recreation)
+    if (tableDataCache !== null) {
+      console.log('[Store.fetchTableData] Using module-level cache:', {
+        featureCount: tableDataCache.features?.length || 0
+      })
+      set((state: any) => ({
+        tableData: tableDataCache,
+        loading: { ...state.loading, table: false }
+      }))
+      return
+    }
+
+    // Check module-level loading flag (prevents race condition across store recreations)
+    if (tableDataFetchInProgress) {
+      console.log('[Store.fetchTableData] Fetch already in progress (module-level), skipping')
+      return
+    }
+
     const state = get()
     const { leftPanel, rightPanel, loading } = state
 
+    // Check store-level cache (fallback)
+    if (state.tableData) {
+      console.log('[Store.fetchTableData] Store cache already populated')
+      // Also update module-level cache for future store recreations
+      tableDataCache = state.tableData
+      return
+    }
+
     // 🚫 DEDUPLICATION: Skip if already loading to prevent redundant API calls
     if (loading.table) {
-      console.log('[Store.fetchTableData] Already loading, skipping duplicate request')
+      console.log('[Store.fetchTableData] Already loading (store-level), skipping duplicate request')
       return
     }
 
@@ -272,11 +343,16 @@ export const createCommonActions = (set: any, get: any) => ({
       return
     }
 
-    // Set loading state
+    console.log('[Store.fetchTableData] Starting table data fetch...')
+
+    // Set both module-level and store-level loading flags
+    tableDataFetchInProgress = true
     set((state: any) => ({
       loading: { ...state.loading, table: true },
       errors: { ...state.errors, table: null }
     }))
+
+    const startTime = performance.now()
 
     try {
       // Create filter with all selected explainers and scorers
@@ -289,22 +365,46 @@ export const createCommonActions = (set: any, get: any) => ({
 
       const tableData = await api.getTableData({ filters })
 
-      // Store all data - filtering by selection happens in TablePanel component
+      const duration = performance.now() - startTime
+      console.log(`[Store.fetchTableData] ✅ Loaded ${tableData.features?.length || 0} features in ${duration.toFixed(0)}ms`)
+
+      // Store in both module-level and store-level cache
+      tableDataCache = tableData
+      tableDataFetchInProgress = false
+
+      // Debug: Confirm cache was set
+      console.log('[Store.fetchTableData] Cache populated:', {
+        hasCache: tableDataCache !== null,
+        featureCount: tableDataCache?.features?.length || 0,
+        cacheRef: tableDataCache === tableData ? 'same-ref' : 'different-ref'
+      })
+
       set((state: any) => ({
         tableData,
         loading: { ...state.loading, table: false }
       }))
-
-      // ✅ Table data loaded - activation examples fetched on-demand
-      console.log('[Store.fetchTableData] Table data loaded successfully')
     } catch (error) {
-      console.error('Failed to fetch table data:', error)
+      console.error('[Store.fetchTableData] Failed:', error)
+      tableDataFetchInProgress = false
       set((state: any) => ({
         tableData: null,
         loading: { ...state.loading, table: false },
         errors: { ...state.errors, table: error instanceof Error ? error.message : 'Failed to fetch table data' }
       }))
     }
+  },
+
+  /**
+   * Clear table data cache (for memory management or testing).
+   * Clears both module-level and store-level caches.
+   */
+  clearTableDataCache: () => {
+    console.log('[Store.clearTableDataCache] Clearing table data cache (both module and store level)')
+    // Clear module-level cache
+    tableDataCache = null
+    tableDataFetchInProgress = false
+    // Clear store-level cache
+    set({ tableData: null })
   },
 
   // ============================================================================
