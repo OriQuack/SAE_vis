@@ -16,7 +16,7 @@ const UMAP_UNTAGGED_COLOR = '#6b7280'
 // TYPES
 // ============================================================================
 
-export type CauseCategory = 'noisy-activation' | 'missed-N-gram' | 'missed-context'
+export type CauseCategory = 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'
 
 export interface UmapScales {
   xScale: ScaleLinear<number, number>

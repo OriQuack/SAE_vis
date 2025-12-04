@@ -2,6 +2,8 @@ import React from 'react'
 import { getCircleRadius, getCircleOpacity } from '../lib/circle-encoding-utils'
 import { getMetricColor } from '../lib/utils'
 import { getTagColor } from '../lib/tag-system'
+import { STRIPE_PATTERN } from '../lib/color-utils'
+import { UNSURE_GRAY } from '../lib/constants'
 import type { ScoreStats } from '../lib/circle-encoding-utils'
 
 // ============================================================================
@@ -122,6 +124,9 @@ interface TagBadgeProps {
 
   // Layout props
   fullWidth?: boolean        // If true, use flex: 1 to fill container width (default: false)
+
+  // Auto-tag indicator - shows stripe pattern when true
+  isAuto?: boolean           // If true, show stripe pattern to indicate auto-tagged
 }
 
 export const TagBadge: React.FC<TagBadgeProps> = ({
@@ -130,7 +135,8 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
   tagCategoryId,
   className = '',
   onClick,
-  fullWidth = false
+  fullWidth = false,
+  isAuto = false
 }) => {
   // Get tag color from pre-computed colors (or gray for unselected)
   const baseTagColor = getTagColor(tagCategoryId, tagName) || '#9ca3af'
@@ -147,6 +153,51 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
   // Tag background color (gray for unselected, actual color otherwise)
   const tagBgColor = tagName === 'Unsure' ? '#e5e7eb' : baseTagColor
   const tagTextColor = tagName === 'Unsure' ? '#6b7280' : '#000'
+
+  // Check if stripe pattern should be applied
+  const showStripe = isAuto && tagName !== 'Unsure'
+
+  // Generate stripe pattern style for auto-tagged items
+  const getTagSectionStyle = (): React.CSSProperties => {
+    const baseStyle: React.CSSProperties = {
+      padding: '2px 4px',
+      color: tagTextColor,
+      whiteSpace: 'nowrap',
+      flex: fullWidth ? 1 : 'none',
+      textAlign: fullWidth ? 'center' : 'left',
+      position: 'relative'
+    }
+
+    if (showStripe) {
+      // Apply stripe pattern for auto-tagged items
+      const gapColor = UNSURE_GRAY
+      return {
+        ...baseStyle,
+        backgroundColor: gapColor,
+        backgroundImage: `repeating-linear-gradient(
+          ${STRIPE_PATTERN.rotation}deg,
+          ${gapColor},
+          ${gapColor} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
+          ${tagBgColor} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
+          ${tagBgColor} ${STRIPE_PATTERN.width}px
+        )`
+      }
+    }
+
+    return {
+      ...baseStyle,
+      backgroundColor: tagBgColor
+    }
+  }
+
+  // Style for the text wrapper (white background for readability with stripes)
+  const textWrapperStyle: React.CSSProperties = showStripe ? {
+    position: 'relative',
+    zIndex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    padding: '0 4px',
+    borderRadius: '2px'
+  } : {}
 
   return (
     <div
@@ -196,17 +247,8 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
       </div>
 
       {/* Tag name section (right) */}
-      <div
-        style={{
-          padding: '2px 4px',
-          backgroundColor: tagBgColor,
-          color: tagTextColor,
-          whiteSpace: 'nowrap',
-          flex: fullWidth ? 1 : 'none',
-          textAlign: fullWidth ? 'center' : 'left'
-        }}
-      >
-        {tagName}
+      <div style={getTagSectionStyle()}>
+        <span style={textWrapperStyle}>{tagName}</span>
       </div>
     </div>
   )

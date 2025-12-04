@@ -744,16 +744,6 @@ export interface FlowPathData extends SankeyToSelectionFlow {
 // ============================================================================
 
 /**
- * UMAP Projection Request - Request for 2D UMAP projection
- */
-export interface UmapProjectionRequest {
-  feature_ids: number[]
-  n_neighbors?: number    // UMAP n_neighbors parameter (default: 15)
-  min_dist?: number       // UMAP min_dist parameter (default: 0.1)
-  random_state?: number   // Random seed for reproducibility
-}
-
-/**
  * UMAP Point - Single point in UMAP 2D projection
  */
 export interface UmapPoint {
@@ -769,5 +759,16 @@ export interface UmapProjectionResponse {
   points: UmapPoint[]
   total_features: number
   params_used: Record<string, number>
+}
+
+/**
+ * Decision Function UMAP Request - Project features using SVM decision function space
+ */
+export interface DecisionFunctionUmapRequest {
+  feature_ids: number[]
+  cause_selections: Record<number, string>  // Map of feature_id to cause category (manual tags only)
+  n_neighbors?: number
+  min_dist?: number
+  random_state?: number
 }
 

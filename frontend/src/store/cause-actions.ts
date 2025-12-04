@@ -38,11 +38,12 @@ export const createCauseActions = (set: any, get: any) => ({
     // Count features per cause category (ONLY manually labeled)
     const categoryCounts: Record<string, number> = {
       'noisy-activation': 0,
-      'missed-lexicon': 0,
-      'missed-context': 0
+      'missed-N-gram': 0,
+      'missed-context': 0,
+      'well-explained': 0
     }
 
-    causeSelectionStates.forEach((category: 'noisy-activation' | 'missed-lexicon' | 'missed-context', featureId: number) => {
+    causeSelectionStates.forEach((category: 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained', featureId: number) => {
       const source = causeSelectionSources.get(featureId)
       // Only count manually labeled features
       if (source === 'manual') {
@@ -264,6 +265,71 @@ export const createCauseActions = (set: any, get: any) => ({
       console.error('[Store.fetchUmapProjection] ❌ Failed to fetch UMAP projection:', error)
       set({
         umapError: error instanceof Error ? error.message : 'Failed to fetch UMAP projection',
+        umapLoading: false
+      })
+    }
+  },
+
+  /**
+   * Fetch UMAP 2D projection from SVM decision function space.
+   * Uses One-vs-Rest SVM decision functions as the embedding space.
+   * Requires at least one manually tagged feature per category.
+   */
+  fetchDecisionFunctionUmap: async (
+    featureIds: number[],
+    causeSelections: Record<number, string>,
+    options?: { nNeighbors?: number; minDist?: number }
+  ) => {
+    console.log('[Store.fetchDecisionFunctionUmap] Starting decision function UMAP:', {
+      featureCount: featureIds.length,
+      manualTagCount: Object.keys(causeSelections).length,
+      options
+    })
+
+    // Validate minimum features (UMAP requires at least 3)
+    if (featureIds.length < 3) {
+      console.warn('[Store.fetchDecisionFunctionUmap] ⚠️ UMAP requires at least 3 features')
+      set({
+        umapError: 'UMAP requires at least 3 features',
+        umapLoading: false
+      })
+      return
+    }
+
+    // Validate that we have tags for all 3 categories
+    const categories = ['noisy-activation', 'missed-N-gram', 'missed-context']
+    const taggedCategories = new Set(Object.values(causeSelections))
+    const missingCategories = categories.filter(c => !taggedCategories.has(c))
+
+    if (missingCategories.length > 0) {
+      console.warn('[Store.fetchDecisionFunctionUmap] ⚠️ Missing tags for categories:', missingCategories)
+      set({
+        umapError: `Tag at least one feature per category. Missing: ${missingCategories.join(', ')}`,
+        umapLoading: false
+      })
+      return
+    }
+
+    try {
+      set({ umapLoading: true, umapError: null })
+
+      const response = await api.getDecisionFunctionUmap(featureIds, causeSelections, options)
+
+      console.log('[Store.fetchDecisionFunctionUmap] ✅ Decision function UMAP complete:', {
+        pointCount: response.points.length,
+        totalFeatures: response.total_features,
+        paramsUsed: response.params_used
+      })
+
+      set({
+        umapProjection: response.points,
+        umapLoading: false,
+        umapError: null
+      })
+    } catch (error) {
+      console.error('[Store.fetchDecisionFunctionUmap] ❌ Failed to fetch decision function UMAP:', error)
+      set({
+        umapError: error instanceof Error ? error.message : 'Failed to fetch decision function UMAP',
         umapLoading: false
       })
     }

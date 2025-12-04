@@ -160,6 +160,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     defaultThresholds: [],
     showHistogram: false,
     tags: [
+      "Well-Explained",
       "Noisy Activation",
       "Missed Context",
       "Missed N-gram"
@@ -235,7 +236,7 @@ export const CAUSE_TAG_METRICS: Record<string, CauseTagMetricConfig> = {
     belowThreshold: true  // Tag assigned when score < 0.5
   },
   'missed-N-gram': {
-    // Missed N-gram (internal name: missed-lexicon): Low fuzz score
+    // Missed N-gram: Low fuzz score
     // Score = fuzz from ExplainerScoreData
     metrics: [METRIC_SCORE_FUZZ],
     aggregation: 'single',

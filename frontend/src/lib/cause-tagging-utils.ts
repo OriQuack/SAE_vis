@@ -10,7 +10,7 @@ import { CAUSE_TAG_THRESHOLD } from './constants'
 // TYPES
 // ============================================================================
 
-export type CauseCategory = 'noisy-activation' | 'missed-N-gram' | 'missed-context'
+export type CauseCategory = 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'
 
 export interface CauseMetricScores {
   /** Noisy Activation score: Avg(intraFeatureSim, explainerSemanticSim) */

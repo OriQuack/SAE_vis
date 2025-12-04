@@ -19,14 +19,24 @@ from typing import List, Dict, Tuple, Optional, TYPE_CHECKING
 from umap import UMAP
 from sklearn.preprocessing import StandardScaler
 
+from sklearn.svm import SVC
+
 from ..models.umap import (
     UmapProjectionRequest,
     UmapProjectionResponse,
     UmapPoint
 )
+from ..models.similarity_sort import DecisionFunctionUmapRequest
 from .data_constants import (
     COL_FEATURE_ID
 )
+
+# Categories for decision function space (3 categories)
+CAUSE_CATEGORIES = [
+    'noisy-activation',
+    'missed-N-gram',
+    'missed-context'
+]
 
 if TYPE_CHECKING:
     from .data_service import DataService
@@ -140,6 +150,186 @@ class UMAPService:
         logger.info(f"Successfully computed UMAP projection for {len(feature_ids_ordered)} features")
 
         return self._build_response(feature_ids_ordered.tolist(), coordinates, request)
+
+    async def get_decision_function_umap_projection(
+        self,
+        request: DecisionFunctionUmapRequest
+    ) -> UmapProjectionResponse:
+        """
+        Compute UMAP projection from SVM decision function space.
+
+        Trains One-vs-Rest SVMs for each category and uses the decision function
+        values as a 4D feature vector for each feature.
+
+        Args:
+            request: Request containing feature_ids, cause_selections, and UMAP parameters
+
+        Returns:
+            Response with 2D coordinates for each feature
+        """
+        if not self.data_service.is_ready():
+            raise RuntimeError("DataService not ready")
+
+        feature_ids = request.feature_ids
+        cause_selections = request.cause_selections
+
+        # Validate minimum features
+        if len(feature_ids) < 3:
+            raise ValueError("UMAP requires at least 3 features")
+
+        # Validate that all categories have at least 1 manual tag
+        category_counts = {cat: 0 for cat in CAUSE_CATEGORIES}
+        for fid, cat in cause_selections.items():
+            if cat in category_counts:
+                category_counts[cat] += 1
+
+        missing_categories = [cat for cat, count in category_counts.items() if count == 0]
+        if missing_categories:
+            raise ValueError(
+                f"Missing manual tags for categories: {missing_categories}. "
+                "Tag at least one feature per category to enable SVM Space."
+            )
+
+        logger.info(f"Computing decision function UMAP for {len(feature_ids)} features")
+        logger.info(f"Category counts: {category_counts}")
+
+        # Extract metrics for all features (using same 7 metrics as regular UMAP)
+        metrics_df = await self._extract_metrics(feature_ids)
+
+        if metrics_df is None or len(metrics_df) == 0:
+            logger.warning("No metrics extracted, returning empty result")
+            return UmapProjectionResponse(
+                points=[],
+                total_features=0,
+                params_used={}
+            )
+
+        # Build feature matrix
+        feature_ids_ordered = metrics_df[COL_FEATURE_ID].to_numpy()
+        metrics_matrix = np.column_stack([
+            metrics_df[metric].to_numpy() for metric in self.METRICS
+        ])
+
+        # Map feature_ids to indices for cause_selections lookup
+        feature_id_to_idx = {int(fid): idx for idx, fid in enumerate(feature_ids_ordered)}
+
+        # Train One-vs-Rest SVMs and compute decision function vectors
+        decision_vectors = self._compute_decision_function_vectors(
+            metrics_matrix,
+            feature_ids_ordered,
+            cause_selections,
+            feature_id_to_idx
+        )
+
+        # Standardize decision vectors before UMAP
+        scaler = StandardScaler()
+        decision_scaled = scaler.fit_transform(decision_vectors)
+
+        # Compute effective n_neighbors
+        effective_n_neighbors = min(request.n_neighbors, len(feature_ids_ordered) - 1)
+        if effective_n_neighbors < 2:
+            effective_n_neighbors = 2
+
+        # Compute UMAP on decision function space
+        logger.info(f"Computing UMAP on decision function space with n_neighbors={effective_n_neighbors}")
+        umap = UMAP(
+            n_components=2,
+            n_neighbors=effective_n_neighbors,
+            min_dist=request.min_dist,
+            random_state=request.random_state,
+            metric='euclidean'
+        )
+        coordinates = umap.fit_transform(decision_scaled)
+
+        logger.info(f"Successfully computed decision function UMAP for {len(feature_ids_ordered)} features")
+
+        # Build response (reuse same format as regular UMAP)
+        points = [
+            UmapPoint(
+                feature_id=int(fid),
+                x=float(coordinates[i, 0]),
+                y=float(coordinates[i, 1])
+            )
+            for i, fid in enumerate(feature_ids_ordered)
+        ]
+
+        return UmapProjectionResponse(
+            points=points,
+            total_features=len(points),
+            params_used={
+                "n_neighbors": request.n_neighbors,
+                "min_dist": request.min_dist,
+                "random_state": request.random_state if request.random_state else 42
+            }
+        )
+
+    def _compute_decision_function_vectors(
+        self,
+        metrics_matrix: np.ndarray,
+        feature_ids: np.ndarray,
+        cause_selections: Dict[int, str],
+        feature_id_to_idx: Dict[int, int]
+    ) -> np.ndarray:
+        """
+        Train One-vs-Rest SVMs and compute decision function vectors.
+
+        Args:
+            metrics_matrix: (N, 7) feature metric matrix
+            feature_ids: Array of feature IDs
+            cause_selections: Dict mapping feature_id to category
+            feature_id_to_idx: Dict mapping feature_id to matrix index
+
+        Returns:
+            (N, 4) matrix of decision function values
+        """
+        n_features = len(feature_ids)
+        n_categories = len(CAUSE_CATEGORIES)
+        decision_vectors = np.zeros((n_features, n_categories))
+
+        # Standardize metrics for SVM training
+        scaler = StandardScaler()
+        metrics_scaled = scaler.fit_transform(metrics_matrix)
+
+        # Train OvR SVM for each category
+        for cat_idx, category in enumerate(CAUSE_CATEGORIES):
+            # Build labels: 1 for this category, 0 for all others
+            positive_indices = []
+            negative_indices = []
+
+            for fid, cat in cause_selections.items():
+                if fid in feature_id_to_idx:
+                    idx = feature_id_to_idx[fid]
+                    if cat == category:
+                        positive_indices.append(idx)
+                    else:
+                        negative_indices.append(idx)
+
+            if len(positive_indices) == 0 or len(negative_indices) == 0:
+                # Cannot train SVM without both classes
+                logger.warning(f"Skipping SVM for {category}: missing positive or negative samples")
+                continue
+
+            # Build training data
+            train_indices = positive_indices + negative_indices
+            X_train = metrics_scaled[train_indices]
+            y_train = np.array([1] * len(positive_indices) + [0] * len(negative_indices))
+
+            # Train SVM
+            svm = SVC(
+                kernel='rbf',
+                C=1.0,
+                gamma='scale',
+                class_weight='balanced'
+            )
+            svm.fit(X_train, y_train)
+
+            # Compute decision function for ALL features
+            decision_values = svm.decision_function(metrics_scaled)
+            decision_vectors[:, cat_idx] = decision_values
+
+            logger.info(f"Trained SVM for {category}: {len(positive_indices)} positive, {len(negative_indices)} negative")
+
+        return decision_vectors
 
     async def _extract_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
         """

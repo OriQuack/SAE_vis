@@ -33,6 +33,10 @@ function getTagNodes(tagCounts: Record<string, Record<string, number>>): TagNode
     const counts = tagCounts[category.id] || {}
 
     category.tags.forEach((tag) => {
+      // Skip "Well-Explained" in cause category (stage 3) - it's a special case
+      // shown as a flow from Need Revision instead
+      if (category.id === 'cause' && tag === 'Well-Explained') return
+
       nodes.push({
         id: `${category.id}:${tag}`,
         categoryId: category.id,
@@ -112,6 +116,8 @@ const TagFlowPanel: React.FC<TagFlowPanelProps> = ({ tagCounts, activeStage }) =
       targetColor: string
       x1: number
       x2: number
+      y1: number
+      y2: number
     }> = []
 
     const stage1 = nodesByStage[1] || []
@@ -138,6 +144,8 @@ const TagFlowPanel: React.FC<TagFlowPanelProps> = ({ tagCounts, activeStage }) =
               targetColor: target.color,
               x1,
               x2,
+              y1: 0,
+              y2: 0,
             })
           }
         })
@@ -145,9 +153,10 @@ const TagFlowPanel: React.FC<TagFlowPanelProps> = ({ tagCounts, activeStage }) =
     }
 
     // Connector 2→3: Need Revision → All Stage 3 badges
-    if (stage2[0] && stage3.length > 0) {
-      const sourceNode = stage2[0] // Need Revision is first
-      const source = badgePositions[sourceNode.id]
+    // Find Need Revision node (first in stage2, tag = "Need Revision")
+    const needRevisionNode = stage2.find(n => n.tag === 'Need Revision')
+    if (needRevisionNode && stage3.length > 0) {
+      const source = badgePositions[needRevisionNode.id]
 
       if (source) {
         stage3.forEach((target, idx) => {
@@ -160,12 +169,42 @@ const TagFlowPanel: React.FC<TagFlowPanelProps> = ({ tagCounts, activeStage }) =
               key: `c2-${idx}`,
               gradientId: `grad-c2-${idx}`,
               d: `M ${x1} ${source.y} C ${midX} ${source.y}, ${midX} ${targetPos.y}, ${x2} ${targetPos.y}`,
-              sourceColor: sourceNode.color,
+              sourceColor: needRevisionNode.color,
               targetColor: target.color,
               x1,
               x2,
+              y1: 0,
+              y2: 0,
             })
           }
+        })
+      }
+    }
+
+    // Special connector: Need Revision → Well-Explained (within Stage 2)
+    // This shows that some features initially tagged as "Need Revision" can be
+    // reclassified as "Well-Explained" after cause analysis
+    const wellExplainedNode = stage2.find(n => n.tag === 'Well-Explained')
+    if (needRevisionNode && wellExplainedNode) {
+      const sourcePos = badgePositions[needRevisionNode.id]
+      const targetPos = badgePositions[wellExplainedNode.id]
+
+      if (sourcePos && targetPos) {
+        // Curved path from right of Need Revision, looping to right of Well-Explained
+        const x1 = sourcePos.right
+        const x2 = targetPos.right
+        const controlOffset = 40 // How far the curve extends to the right
+        paths.push({
+          key: 'c-need-to-well',
+          gradientId: 'grad-need-to-well',
+          d: `M ${x1} ${sourcePos.y} C ${x1 + controlOffset} ${sourcePos.y}, ${x2 + controlOffset} ${targetPos.y}, ${x2} ${targetPos.y}`,
+          sourceColor: needRevisionNode.color,
+          targetColor: wellExplainedNode.color,
+          // Use vertical gradient for same-column flow
+          x1: 0,
+          x2: 0,
+          y1: sourcePos.y,
+          y2: targetPos.y,
         })
       }
     }
@@ -178,14 +217,14 @@ const TagFlowPanel: React.FC<TagFlowPanelProps> = ({ tagCounts, activeStage }) =
       {/* SVG layer for flow lines */}
       <svg className="tag-flow-panel__svg">
         <defs>
-          {svgPaths.map(({ gradientId, sourceColor, targetColor, x1, x2 }) => (
+          {svgPaths.map(({ gradientId, sourceColor, targetColor, x1, x2, y1, y2 }) => (
             <linearGradient
               key={gradientId}
               id={gradientId}
               x1={x1}
               x2={x2}
-              y1="0"
-              y2="0"
+              y1={y1}
+              y2={y2}
               gradientUnits="userSpaceOnUse"
             >
               <stop offset="0%" stopColor={sourceColor} />

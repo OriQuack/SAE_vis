@@ -22,8 +22,12 @@ import '../styles/CauseView.css'
 const CAUSE_TAG_NAMES: Record<CauseCategory, string> = {
   'noisy-activation': 'Noisy Activation',
   'missed-N-gram': 'Missed N-gram',
-  'missed-context': 'Missed Context'
+  'missed-context': 'Missed Context',
+  'well-explained': 'Well-Explained'
 }
+
+// Pagination constant
+const ITEMS_PER_PAGE = 8
 
 interface CauseViewProps {
   className?: string
@@ -66,6 +70,9 @@ const CauseView: React.FC<CauseViewProps> = ({
   const [containerWidth, setContainerWidth] = useState(600)
   const rightPanelRef = useRef<HTMLDivElement>(null)
   const hasAutoTaggedRef = useRef(false)
+
+  // Top row feature list pagination - currentPage derived from currentFeatureIndex
+  const currentPage = Math.floor(currentFeatureIndex / ITEMS_PER_PAGE)
 
   // ============================================================================
   // STAGE 3 REVISITING - Restore state when returning from Stage 4+
@@ -182,6 +189,13 @@ const CauseView: React.FC<CauseViewProps> = ({
       .filter(item => item.row !== null)
   }, [tableData, selectedFeatureIds])
 
+  // Pagination for the top row list
+  const totalPages = Math.max(1, Math.ceil(featureListWithMetadata.length / ITEMS_PER_PAGE))
+  const currentPageFeatures = useMemo(() => {
+    const start = currentPage * ITEMS_PER_PAGE
+    return featureListWithMetadata.slice(start, start + ITEMS_PER_PAGE)
+  }, [featureListWithMetadata, currentPage])
+
   // Reset feature index when brushed list changes
   useEffect(() => {
     if (currentFeatureIndex >= featureListWithMetadata.length && featureListWithMetadata.length > 0) {
@@ -250,8 +264,9 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Handle click on feature in top row list
   const handleFeatureListClick = useCallback((index: number) => {
-    setCurrentFeatureIndex(index)
-  }, [])
+    const globalIndex = currentPage * ITEMS_PER_PAGE + index
+    setCurrentFeatureIndex(globalIndex)
+  }, [currentPage])
 
   // ============================================================================
   // NAVIGATION HANDLERS
@@ -269,44 +284,55 @@ const CauseView: React.FC<CauseViewProps> = ({
   // TAG BUTTON HANDLERS
   // ============================================================================
 
-  // Get current feature's cause selection state
+  // Get current feature's cause selection state and source
   const currentCauseCategory = useMemo(() => {
     if (!selectedFeatureData) return null
     return causeSelectionStates.get(selectedFeatureData.featureId) || null
   }, [selectedFeatureData, causeSelectionStates])
 
-  // Handle tag button click - set to specific category or clear if already selected
-  const handleTagClick = useCallback((category: CauseCategory | null) => {
+  const currentCauseSource = useMemo(() => {
+    if (!selectedFeatureData) return null
+    return causeSelectionSources.get(selectedFeatureData.featureId) || null
+  }, [selectedFeatureData, causeSelectionSources])
+
+  // Handle tag button click - set to specific category (no toggle off - must always have a tag)
+  // Auto-tagged features can be confirmed by clicking the same category
+  const handleTagClick = useCallback((category: CauseCategory) => {
     if (!selectedFeatureData) return
     const featureId = selectedFeatureData.featureId
 
-    if (currentCauseCategory === category) {
-      // Toggle off if clicking same category
-      setCauseCategory(featureId, null)
-    } else {
-      // Set to new category
-      setCauseCategory(featureId, category)
-      // Auto-advance to next feature
-      if (currentFeatureIndex < featureListWithMetadata.length - 1) {
-        setTimeout(() => handleNavigateNext(), 150)
-      }
+    // If clicking same category and it's auto-tagged, confirm it (change to manual)
+    // If clicking different category, set new category (will be manual)
+    const isSameCategory = currentCauseCategory === category
+    const isAutoTagged = currentCauseSource === 'auto'
+
+    if (isSameCategory && !isAutoTagged) {
+      // Already manually selected same category - do nothing
+      return
     }
-  }, [selectedFeatureData, currentCauseCategory, setCauseCategory, currentFeatureIndex, featureListWithMetadata.length, handleNavigateNext])
+
+    // Either confirming auto tag or changing category - update with manual source
+    setCauseCategory(featureId, category)
+
+    // Auto-advance to next feature
+    if (currentFeatureIndex < featureListWithMetadata.length - 1) {
+      setTimeout(() => handleNavigateNext(), 150)
+    }
+  }, [selectedFeatureData, currentCauseCategory, currentCauseSource, setCauseCategory, currentFeatureIndex, featureListWithMetadata.length, handleNavigateNext])
 
   // Get colors for each cause category
   const noisyActivationColor = getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#9ca3af'
-  const missedLexiconColor = getTagColor(TAG_CATEGORY_CAUSE, 'Missed N-gram') || '#9ca3af'
+  const missedNgramColor = getTagColor(TAG_CATEGORY_CAUSE, 'Missed N-gram') || '#9ca3af'
   const missedContextColor = getTagColor(TAG_CATEGORY_CAUSE, 'Missed Context') || '#9ca3af'
-  const unsureColor = '#9ca3af'
+  const wellExplainedColor = getTagColor(TAG_CATEGORY_CAUSE, 'Well-Explained') || '#9ca3af'
 
   // Render feature item for top row ScrollableItemList (with click handler)
   const renderTopRowFeatureItem = useCallback((feature: typeof featureListWithMetadata[0], index: number) => {
     const causeCategory = causeSelectionStates.get(feature.featureId)
+    const causeSource = causeSelectionSources.get(feature.featureId)
 
-    let tagName = 'Unsure'
-    if (causeCategory) {
-      tagName = CAUSE_TAG_NAMES[causeCategory] || 'Unsure'
-    }
+    // All features must have a tag - use category name or default to Noisy Activation
+    const tagName = causeCategory ? CAUSE_TAG_NAMES[causeCategory] : 'Noisy Activation'
 
     return (
       <TagBadge
@@ -315,18 +341,18 @@ const CauseView: React.FC<CauseViewProps> = ({
         tagCategoryId={TAG_CATEGORY_CAUSE}
         onClick={() => handleFeatureListClick(index)}
         fullWidth={true}
+        isAuto={causeSource === 'auto'}
       />
     )
-  }, [causeSelectionStates, handleFeatureListClick])
+  }, [causeSelectionStates, causeSelectionSources, handleFeatureListClick])
 
   // Render feature item for bottom row ScrollableItemList (no click handler)
   const renderBottomRowFeatureItem = useCallback((featureId: number) => {
     const causeCategory = causeSelectionStates.get(featureId)
+    const causeSource = causeSelectionSources.get(featureId)
 
-    let tagName = 'Unsure'
-    if (causeCategory) {
-      tagName = CAUSE_TAG_NAMES[causeCategory] || 'Unsure'
-    }
+    // All features must have a tag - use category name or default to Noisy Activation
+    const tagName = causeCategory ? CAUSE_TAG_NAMES[causeCategory] : 'Noisy Activation'
 
     return (
       <TagBadge
@@ -334,9 +360,10 @@ const CauseView: React.FC<CauseViewProps> = ({
         tagName={tagName}
         tagCategoryId={TAG_CATEGORY_CAUSE}
         fullWidth={true}
+        isAuto={causeSource === 'auto'}
       />
     )
-  }, [causeSelectionStates])
+  }, [causeSelectionStates, causeSelectionSources])
 
   // ============================================================================
   // RENDER
@@ -375,12 +402,27 @@ const CauseView: React.FC<CauseViewProps> = ({
             {/* Left: All features from segment */}
             <ScrollableItemList
               width={240}
-              height={300}
+              minHeight={300}
+              height="100%"
               badges={[{ label: 'Features', count: featureListWithMetadata.length }]}
-              items={featureListWithMetadata}
+              items={currentPageFeatures}
               renderItem={renderTopRowFeatureItem}
-              currentIndex={currentFeatureIndex}
+              currentIndex={currentFeatureIndex % ITEMS_PER_PAGE}
               isActive={true}
+              pageNavigation={{
+                currentPage,
+                totalPages,
+                onPreviousPage: () => {
+                  if (currentPage > 0) {
+                    setCurrentFeatureIndex((currentPage - 1) * ITEMS_PER_PAGE)
+                  }
+                },
+                onNextPage: () => {
+                  if (currentPage < totalPages - 1) {
+                    setCurrentFeatureIndex((currentPage + 1) * ITEMS_PER_PAGE)
+                  }
+                }
+              }}
             />
 
             {/* Right panel: Activation examples and explanations */}
@@ -473,14 +515,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                       ← Prev
                     </button>
 
-                    {/* Selection buttons */}
-                    <button
-                      className={`selection__button selection__button--unsure ${currentCauseCategory === null ? 'selected' : ''}`}
-                      onClick={() => handleTagClick(null)}
-                      style={{ '--tag-color': unsureColor } as React.CSSProperties}
-                    >
-                      Unsure
-                    </button>
+                    {/* Selection buttons - all features must have a tag */}
                     <button
                       className={`selection__button selection__button--noisy-activation ${currentCauseCategory === 'noisy-activation' ? 'selected' : ''}`}
                       onClick={() => handleTagClick('noisy-activation')}
@@ -489,9 +524,9 @@ const CauseView: React.FC<CauseViewProps> = ({
                       Noisy Activation
                     </button>
                     <button
-                      className={`selection__button selection__button--missed-lexicon ${currentCauseCategory === 'missed-N-gram' ? 'selected' : ''}`}
+                      className={`selection__button selection__button--missed-N-gram ${currentCauseCategory === 'missed-N-gram' ? 'selected' : ''}`}
                       onClick={() => handleTagClick('missed-N-gram')}
-                      style={{ '--tag-color': missedLexiconColor } as React.CSSProperties}
+                      style={{ '--tag-color': missedNgramColor } as React.CSSProperties}
                     >
                       Missed N-gram
                     </button>
@@ -501,6 +536,13 @@ const CauseView: React.FC<CauseViewProps> = ({
                       style={{ '--tag-color': missedContextColor } as React.CSSProperties}
                     >
                       Missed Context
+                    </button>
+                    <button
+                      className={`selection__button selection__button--well-explained ${currentCauseCategory === 'well-explained' ? 'selected' : ''}`}
+                      onClick={() => handleTagClick('well-explained')}
+                      style={{ '--tag-color': wellExplainedColor } as React.CSSProperties}
+                    >
+                      Well-Explained
                     </button>
 
                     {/* Next button */}
@@ -528,14 +570,14 @@ const CauseView: React.FC<CauseViewProps> = ({
             <UMAPScatter
               featureIds={selectedFeatureIds ? Array.from(selectedFeatureIds) : []}
               width={500}
-              height={350}
+              className="cause-view__umap"
             />
             <ScrollableItemList
               badges={[{ label: 'Selected', count: brushedFeatureList.length }]}
               items={brushedFeatureList}
               renderItem={renderBottomRowFeatureItem}
               width={200}
-              height={350}
+              height="100%"
             />
           </div>
         </div>

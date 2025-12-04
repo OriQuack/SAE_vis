@@ -74,7 +74,7 @@ export interface CauseCommitCounts {
 }
 
 // Cause selection type
-export type CauseCategory = 'noisy-activation' | 'missed-N-gram' | 'missed-context'
+export type CauseCategory = 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'
 
 // Stage 3 commit type for revisiting state restoration
 export interface Stage3FinalCommit {
@@ -120,13 +120,13 @@ interface AppState {
 
   // Cause category selection state (used by SelectionPanel for Stage 3)
   // Three-state cycle: null -> noisy-activation -> missed-N-gram -> missed-context -> null
-  causeSelectionStates: Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context'>
+  causeSelectionStates: Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'>
   // Track how features were selected: 'manual' (user click) or 'auto' (automatic tagging)
   causeSelectionSources: Map<number, 'manual' | 'auto'>
   // Metric scores for each feature (for sorting/visualization)
   causeMetricScores: Map<number, CauseMetricScores>
   toggleCauseCategory: (featureId: number) => void
-  setCauseCategory: (featureId: number, category: 'noisy-activation' | 'missed-N-gram' | 'missed-context' | null) => void
+  setCauseCategory: (featureId: number, category: 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained' | null) => void
   clearCauseSelection: () => void
   // Initialize auto-tags for all features entering Stage 3
   initializeCauseAutoTags: (featureIds: Set<number>) => void
@@ -315,6 +315,7 @@ interface AppState {
   umapError: string | null
   umapBrushedFeatureIds: Set<number>
   fetchUmapProjection: (featureIds: number[], options?: { nNeighbors?: number; minDist?: number }) => Promise<void>
+  fetchDecisionFunctionUmap: (featureIds: number[], causeSelections: Record<number, string>, options?: { nNeighbors?: number; minDist?: number }) => Promise<void>
   setUmapBrushedFeatureIds: (featureIds: Set<number>) => void
   clearUmapProjection: () => void
 
@@ -460,7 +461,7 @@ const initialState = {
   pairSelectionSources: new Map<string, 'manual' | 'auto'>(),
 
   // Cause category selection state (used by SelectionPanel for Stage 3)
-  causeSelectionStates: new Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context'>(),
+  causeSelectionStates: new Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'>(),
   causeSelectionSources: new Map<number, 'manual' | 'auto'>(),
   causeMetricScores: new Map<number, CauseMetricScores>(),
   activeCauseStageNode: null,
@@ -573,6 +574,7 @@ export const useStore = create<AppState>((set, get) => {
 
   // Compose UMAP actions (Stage 3 - Scatter plot)
   fetchUmapProjection: causeActions.fetchUmapProjection,
+  fetchDecisionFunctionUmap: causeActions.fetchDecisionFunctionUmap,
   setUmapBrushedFeatureIds: causeActions.setUmapBrushedFeatureIds,
   clearUmapProjection: causeActions.clearUmapProjection,
 
@@ -723,7 +725,7 @@ export const useStore = create<AppState>((set, get) => {
   },
 
   // Cause category selection actions (used by SelectionPanel for Stage 3)
-  // Three-state cycle: null -> noisy-activation -> missed-lexicon -> missed-context -> null
+  // Three-state cycle: null -> noisy-activation -> missed-N-gram -> missed-context -> null
   toggleCauseCategory: (featureId: number) => {
     set((state) => {
       const newStates = new Map(state.causeSelectionStates)
@@ -736,11 +738,11 @@ export const useStore = create<AppState>((set, get) => {
         newStates.set(featureId, 'noisy-activation')
         newSources.set(featureId, 'manual')
       } else if (currentState === 'noisy-activation') {
-        // noisy-activation -> missed-lexicon
-        newStates.set(featureId, 'missed-lexicon')
+        // noisy-activation -> missed-N-gram
+        newStates.set(featureId, 'missed-N-gram')
         newSources.set(featureId, 'manual')
-      } else if (currentState === 'missed-lexicon') {
-        // missed-lexicon -> missed-context
+      } else if (currentState === 'missed-N-gram') {
+        // missed-N-gram -> missed-context
         newStates.set(featureId, 'missed-context')
         newSources.set(featureId, 'manual')
       } else if (currentState === 'missed-context') {
@@ -758,7 +760,7 @@ export const useStore = create<AppState>((set, get) => {
 
   clearCauseSelection: () => {
     set({
-      causeSelectionStates: new Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context'>(),
+      causeSelectionStates: new Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'>(),
       causeSelectionSources: new Map<number, 'manual' | 'auto'>(),
       causeMetricScores: new Map<number, CauseMetricScores>()
     })
@@ -785,7 +787,7 @@ export const useStore = create<AppState>((set, get) => {
     })
   },
 
-  setCauseCategory: (featureId: number, category: 'noisy-activation' | 'missed-lexicon' | 'missed-context' | null) => {
+  setCauseCategory: (featureId: number, category: 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained' | null) => {
     set((state) => {
       const newStates = new Map(state.causeSelectionStates)
       const newSources = new Map(state.causeSelectionSources)

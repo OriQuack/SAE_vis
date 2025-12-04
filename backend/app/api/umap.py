@@ -10,6 +10,7 @@ from ..models.umap import (
     UmapProjectionRequest,
     UmapProjectionResponse
 )
+from ..models.similarity_sort import DecisionFunctionUmapRequest
 
 if TYPE_CHECKING:
     from ..services.umap_service import UMAPService
@@ -91,4 +92,57 @@ async def umap_projection(
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error during UMAP projection: {str(e)}"
+        )
+
+
+@router.post("/decision-function-umap", response_model=UmapProjectionResponse)
+async def decision_function_umap(
+    request: DecisionFunctionUmapRequest,
+    service: "UMAPService" = Depends(get_umap_service)
+) -> UmapProjectionResponse:
+    """
+    Compute UMAP 2D projection from SVM decision function space.
+
+    Projects features into 2D space using One-vs-Rest SVM decision functions.
+    Trains 4 binary SVMs (one per cause category) and uses the 4D decision
+    function vector for each feature to compute UMAP.
+
+    Requires at least one manually tagged feature per category.
+
+    Args:
+        request: Request with feature_ids, cause_selections, and UMAP params
+        service: Injected UMAP service
+
+    Returns:
+        Response with 2D coordinates for each feature
+    """
+    try:
+        logger.info(
+            f"Decision function UMAP request: {len(request.feature_ids)} features, "
+            f"{len(request.cause_selections)} manual tags"
+        )
+
+        # Validate minimum features (UMAP requirement)
+        if len(request.feature_ids) < 3:
+            raise HTTPException(
+                status_code=400,
+                detail="UMAP requires at least 3 features"
+            )
+
+        # Call service to compute projection
+        response = await service.get_decision_function_umap_projection(request)
+
+        logger.info(f"Decision function UMAP completed: {response.total_features} features projected")
+        return response
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        logger.error(f"Validation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error in decision function UMAP: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error during decision function UMAP: {str(e)}"
         )

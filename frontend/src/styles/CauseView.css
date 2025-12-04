@@ -61,7 +61,7 @@
 .cause-view__row-top {
   display: flex;
   flex-direction: row;
-  flex: 1;
+  flex: 2;
   min-height: 0;
   gap: 8px;
 }
@@ -251,10 +251,22 @@
 .cause-view__row-bottom {
   display: flex;
   flex-direction: row;
-  flex: 1.5;
+  flex: 3;
   min-height: 0;
   gap: 16px;
-  align-items: flex-start;
+  align-items: stretch;
+}
+
+/* UMAP container - fixed width, flex height */
+.cause-view__umap {
+  flex: 0 0 auto;
+  height: 100%;
+}
+
+/* Selected list container */
+.cause-view__row-bottom .scrollable-item-list {
+  flex: 0 0 200px;
+  height: 100%;
 }
 
 /* ============================================================================
@@ -358,13 +370,13 @@
 }
 
 /* Selection button variant for Missed N-gram */
-.selection__button--missed-lexicon {
+.selection__button--missed-N-gram {
   color: #000;
   border-color: var(--tag-color, #9ca3af);
   background-color: transparent;
 }
 
-.selection__button--missed-lexicon.selected {
+.selection__button--missed-N-gram.selected {
   border-color: var(--tag-color, #9ca3af);
   color: #000;
   font-weight: 600;
@@ -374,7 +386,7 @@
   border-width: 2px;
 }
 
-.selection__button--missed-lexicon:hover:not(.selected) {
+.selection__button--missed-N-gram:hover:not(.selected) {
   color: #000;
   --bg-opacity: 0.8;
 }
@@ -397,6 +409,28 @@
 }
 
 .selection__button--missed-context:hover:not(.selected) {
+  color: #000;
+  --bg-opacity: 0.8;
+}
+
+/* Selection button variant for Well-Explained */
+.selection__button--well-explained {
+  color: #000;
+  border-color: var(--tag-color, #9ca3af);
+  background-color: transparent;
+}
+
+.selection__button--well-explained.selected {
+  border-color: var(--tag-color, #9ca3af);
+  color: #000;
+  font-weight: 600;
+  --bg-opacity: 1.0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+  border-width: 2px;
+}
+
+.selection__button--well-explained:hover:not(.selected) {
   color: #000;
   --bg-opacity: 0.8;
 }

@@ -81,6 +81,81 @@
   white-space: nowrap;
 }
 
+/* Header with toggle */
+.umap-scatter__header {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  background: var(--background-secondary, #f9fafb);
+}
+
+/* Toggle switch styling */
+.umap-scatter__toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 11px;
+  user-select: none;
+}
+
+.umap-scatter__toggle input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.umap-scatter__toggle-slider {
+  position: relative;
+  width: 28px;
+  height: 16px;
+  background: #d1d5db;
+  border-radius: 8px;
+  transition: background 0.2s ease;
+}
+
+.umap-scatter__toggle-slider::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.umap-scatter__toggle input:checked + .umap-scatter__toggle-slider {
+  background: var(--color-primary, #3b82f6);
+}
+
+.umap-scatter__toggle input:checked + .umap-scatter__toggle-slider::after {
+  transform: translateX(12px);
+}
+
+.umap-scatter__toggle-label {
+  color: var(--text-secondary, #6b7280);
+  font-weight: 500;
+}
+
+.umap-scatter__toggle input:checked ~ .umap-scatter__toggle-label {
+  color: var(--color-primary, #3b82f6);
+}
+
+/* Warning message */
+.umap-scatter__warning {
+  padding: 6px 10px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 11px;
+  line-height: 1.4;
+  border-bottom: 1px solid #fcd34d;
+}
+
 /* Chart container - holds SVG contours and canvas overlay */
 .umap-scatter__chart {
   position: relative;

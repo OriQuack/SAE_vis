@@ -285,3 +285,37 @@ class CauseSimilarityHistogramResponse(BaseModel):
         description="Statistics per category. Keys: 'noisy-activation', 'missed-lexicon', 'missed-context'"
     )
     total_items: int = Field(..., description="Total number of features")
+
+
+# ============================================================================
+# DECISION FUNCTION UMAP MODELS
+# ============================================================================
+
+class DecisionFunctionUmapRequest(BaseModel):
+    """Request model for UMAP projection in SVM decision function space."""
+
+    feature_ids: List[int] = Field(
+        ...,
+        description="Feature IDs to project",
+        min_length=3
+    )
+    cause_selections: Dict[int, str] = Field(
+        ...,
+        description="Map of feature_id to cause category (manual tags only)"
+    )
+    n_neighbors: int = Field(
+        default=15,
+        description="UMAP n_neighbors parameter",
+        ge=2,
+        le=200
+    )
+    min_dist: float = Field(
+        default=0.1,
+        description="UMAP min_dist parameter",
+        ge=0.0,
+        le=1.0
+    )
+    random_state: Optional[int] = Field(
+        default=42,
+        description="Random seed for reproducibility"
+    )

@@ -3,7 +3,6 @@ import { polygonContains } from 'd3-polygon'
 import { useVisualizationStore } from '../store/index'
 import {
   getCauseColor,
-  getCauseCategoryLegend,
   computeUmapScales,
   computeCategoryContours,
   CONTOUR_CONFIG,
@@ -28,14 +27,47 @@ interface UMAPScatterProps {
 // Margin configuration
 const MARGIN = { top: 10, right: 10, bottom: 10, left: 10 }
 
+// Cause categories for decision space validation (3 categories)
+const CAUSE_CATEGORIES = ['noisy-activation', 'missed-N-gram', 'missed-context']
+
 const UMAPScatter: React.FC<UMAPScatterProps> = ({
   featureIds,
-  width: propWidth = 400,
-  height: propHeight = 350,
+  width: propWidth,
+  height: propHeight,
   className = ''
 }) => {
+  const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
+
+  // Fixed width, flexible height
+  const fixedWidth = propWidth || 400
+  const [containerHeight, setContainerHeight] = useState(propHeight || 350)
+
+  // ResizeObserver for flexible height
+  useEffect(() => {
+    // If fixed height provided, use that
+    if (propHeight) {
+      setContainerHeight(propHeight)
+      return
+    }
+
+    const container = containerRef.current
+    if (!container) return
+
+    const observer = new ResizeObserver(entries => {
+      const entry = entries[0]
+      if (entry) {
+        const { height } = entry.contentRect
+        if (height > 0) {
+          setContainerHeight(height)
+        }
+      }
+    })
+
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [propHeight])
 
   // Lasso state
   const [isDrawing, setIsDrawing] = useState(false)
@@ -52,33 +84,84 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   const umapError = useVisualizationStore(state => state.umapError)
   const umapBrushedFeatureIds = useVisualizationStore(state => state.umapBrushedFeatureIds)
   const fetchUmapProjection = useVisualizationStore(state => state.fetchUmapProjection)
+  const fetchDecisionFunctionUmap = useVisualizationStore(state => state.fetchDecisionFunctionUmap)
   const setUmapBrushedFeatureIds = useVisualizationStore(state => state.setUmapBrushedFeatureIds)
   const clearUmapProjection = useVisualizationStore(state => state.clearUmapProjection)
   const causeSelectionStates = useVisualizationStore(state => state.causeSelectionStates)
+  const causeSelectionSources = useVisualizationStore(state => state.causeSelectionSources)
 
-  // Chart dimensions from props
-  const chartWidth = propWidth - MARGIN.left - MARGIN.right
-  const chartHeight = propHeight - MARGIN.top - MARGIN.bottom
+  // Toggle for Decision Function Space mode
+  const [useDecisionSpace, setUseDecisionSpace] = useState(false)
 
-  // Fetch UMAP projection when feature IDs actually change (by content, not reference)
+  // Check if all 4 categories have at least one manual tag
+  const { canUseDecisionSpace, missingCategories, manualCauseSelections } = useMemo(() => {
+    const manualTags = new Map<string, number>()
+    const selections: Record<number, string> = {}
+
+    causeSelectionStates.forEach((category: string, featureId: number) => {
+      const source = causeSelectionSources.get(featureId)
+      if (source === 'manual') {
+        manualTags.set(category, (manualTags.get(category) || 0) + 1)
+        selections[featureId] = category
+      }
+    })
+
+    const missing = CAUSE_CATEGORIES.filter(cat => (manualTags.get(cat) || 0) < 1)
+
+    return {
+      canUseDecisionSpace: missing.length === 0,
+      missingCategories: missing,
+      manualCauseSelections: selections
+    }
+  }, [causeSelectionStates, causeSelectionSources])
+
+  // Chart dimensions
+  const chartWidth = fixedWidth - MARGIN.left - MARGIN.right
+  const chartHeight = containerHeight - MARGIN.top - MARGIN.bottom
+
+  // Track mode and manual tags for refetch
+  const prevModeRef = useRef<boolean>(false)
+  const prevManualTagsRef = useRef<string>('')
+
+  // Fetch UMAP projection when feature IDs, mode, or manual tags change
   useEffect(() => {
-    // Create a stable signature to compare feature IDs by content
-    const signature = featureIds.length >= 3
+    // Create signatures to compare changes
+    const featureSignature = featureIds.length >= 3
       ? `${featureIds.length}:${featureIds.slice(0, 5).join(',')}`
       : ''
+    const manualTagsSignature = Object.keys(manualCauseSelections).sort().join(',')
 
-    // Skip if signature hasn't changed
-    if (signature === prevFeatureIdsRef.current) {
+    // Check what changed
+    const featureIdsChanged = featureSignature !== prevFeatureIdsRef.current
+    const modeChanged = useDecisionSpace !== prevModeRef.current
+    const manualTagsChanged = manualTagsSignature !== prevManualTagsRef.current
+
+    // Update refs
+    prevFeatureIdsRef.current = featureSignature
+    prevModeRef.current = useDecisionSpace
+    prevManualTagsRef.current = manualTagsSignature
+
+    // Skip if nothing changed
+    if (!featureIdsChanged && !modeChanged && !manualTagsChanged) {
       return
     }
-    prevFeatureIdsRef.current = signature
 
-    if (featureIds.length >= 3) {
-      fetchUmapProjection(featureIds, { nNeighbors: 50, minDist: 0.3 })
-    } else {
+    // Clear if not enough features
+    if (featureIds.length < 3) {
       clearUmapProjection()
+      return
     }
-  }, [featureIds, fetchUmapProjection, clearUmapProjection])
+
+    // Fetch based on mode
+    if (useDecisionSpace) {
+      if (canUseDecisionSpace) {
+        fetchDecisionFunctionUmap(featureIds, manualCauseSelections, { nNeighbors: 15, minDist: 0.1 })
+      }
+      // If can't use decision space, don't clear - let the warning show
+    } else {
+      fetchUmapProjection(featureIds, { nNeighbors: 50, minDist: 0.3 })
+    }
+  }, [featureIds, useDecisionSpace, canUseDecisionSpace, manualCauseSelections, fetchUmapProjection, fetchDecisionFunctionUmap, clearUmapProjection])
 
   // Compute D3 scales
   const scales = useMemo(() => {
@@ -233,20 +316,20 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     ctx.globalAlpha = 1
   }, [umapProjection, scales, causeSelectionStates, umapBrushedFeatureIds, chartWidth, chartHeight])
 
-  // Get legend items
-  const legendItems = useMemo(() => getCauseCategoryLegend(), [])
 
   // ============================================================================
   // RENDER
   // ============================================================================
 
-  // Container style with size from props
-  const containerStyle = { width: propWidth, height: propHeight }
+  // Container style - fixed width, flexible height via CSS
+  const containerStyle = propHeight
+    ? { width: fixedWidth, height: propHeight }
+    : { width: fixedWidth }
 
   // Loading state
   if (umapLoading) {
     return (
-      <div className={`umap-scatter umap-scatter--loading ${className}`} style={containerStyle}>
+      <div ref={containerRef} className={`umap-scatter umap-scatter--loading ${className}`} style={containerStyle}>
         <div className="umap-scatter__message">
           <span className="umap-scatter__spinner" />
           <span>Computing UMAP projection...</span>
@@ -258,7 +341,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   // Error state
   if (umapError) {
     return (
-      <div className={`umap-scatter umap-scatter--error ${className}`} style={containerStyle}>
+      <div ref={containerRef} className={`umap-scatter umap-scatter--error ${className}`} style={containerStyle}>
         <div className="umap-scatter__message umap-scatter__message--error">
           <span>{umapError}</span>
         </div>
@@ -269,7 +352,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   // Empty state
   if (!umapProjection || umapProjection.length === 0 || !scales) {
     return (
-      <div className={`umap-scatter umap-scatter--empty ${className}`} style={containerStyle}>
+      <div ref={containerRef} className={`umap-scatter umap-scatter--empty ${className}`} style={containerStyle}>
         <div className="umap-scatter__message">
           <span>No features to project</span>
         </div>
@@ -278,19 +361,26 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   }
 
   return (
-    <div className={`umap-scatter ${className}`} style={containerStyle}>
-      {/* Legend */}
-      <div className="umap-scatter__legend">
-        {legendItems.map(item => (
-          <div key={item.category} className="umap-scatter__legend-item">
-            <span
-              className="umap-scatter__legend-dot"
-              style={{ backgroundColor: item.color }}
-            />
-            <span className="umap-scatter__legend-label">{item.label}</span>
-          </div>
-        ))}
+    <div ref={containerRef} className={`umap-scatter ${className}`} style={containerStyle}>
+      {/* Header with toggle */}
+      <div className="umap-scatter__header">
+        <label className="umap-scatter__toggle">
+          <input
+            type="checkbox"
+            checked={useDecisionSpace}
+            onChange={(e) => setUseDecisionSpace(e.target.checked)}
+          />
+          <span className="umap-scatter__toggle-slider" />
+          <span className="umap-scatter__toggle-label">SVM Space</span>
+        </label>
       </div>
+
+      {/* Warning when decision space can't be used */}
+      {useDecisionSpace && !canUseDecisionSpace && (
+        <div className="umap-scatter__warning">
+          Tag at least one feature per category: {missingCategories.join(', ')}
+        </div>
+      )}
 
       {/* Chart area */}
       <div className="umap-scatter__chart">

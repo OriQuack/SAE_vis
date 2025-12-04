@@ -64,7 +64,8 @@ const API_ENDPOINTS = {
   CAUSE_SIMILARITY_SCORE_HISTOGRAM: "/cause-similarity-score-histogram",
   CLUSTER_CANDIDATES: "/cluster-candidates",
   SEGMENT_CLUSTER_PAIRS: "/segment-cluster-pairs",
-  UMAP_PROJECTION: "/umap-projection"
+  UMAP_PROJECTION: "/umap-projection",
+  DECISION_FUNCTION_UMAP: "/decision-function-umap"
 } as const
 
 const API_BASE = API_BASE_URL
@@ -641,6 +642,63 @@ export async function getUmapProjection(
 
   const data = await response.json()
   console.log('[API] getUmapProjection response:', {
+    pointCount: data.points?.length || 0,
+    totalFeatures: data.total_features,
+    paramsUsed: data.params_used
+  })
+
+  return data
+}
+
+/**
+ * Get UMAP 2D projection from SVM decision function space.
+ *
+ * Projects features into 2D space using One-vs-Rest SVM decision functions.
+ * Trains 4 binary SVMs (one per cause category) and uses the 4D decision
+ * function vector for each feature to compute UMAP.
+ *
+ * Requires at least one manually tagged feature per category.
+ *
+ * @param featureIds - Feature IDs to project (minimum 3)
+ * @param causeSelections - Map of feature_id to cause category (manual tags only)
+ * @param options - Optional UMAP parameters
+ * @returns 2D coordinates for each feature
+ */
+export async function getDecisionFunctionUmap(
+  featureIds: number[],
+  causeSelections: Record<number, string>,
+  options?: { nNeighbors?: number; minDist?: number; randomState?: number }
+): Promise<UmapProjectionResponse> {
+  console.log('[API] getDecisionFunctionUmap called with:', {
+    featureCount: featureIds.length,
+    manualTagCount: Object.keys(causeSelections).length,
+    options
+  })
+
+  const requestBody = {
+    feature_ids: featureIds,
+    cause_selections: causeSelections,
+    n_neighbors: options?.nNeighbors,
+    min_dist: options?.minDist,
+    random_state: options?.randomState
+  }
+
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.DECISION_FUNCTION_UMAP}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody)
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('[API] Decision function UMAP error:', response.status, errorText)
+    throw new Error(`Failed to fetch decision function UMAP: ${response.status} - ${errorText}`)
+  }
+
+  const data = await response.json()
+  console.log('[API] getDecisionFunctionUmap response:', {
     pointCount: data.points?.length || 0,
     totalFeatures: data.total_features,
     paramsUsed: data.params_used
