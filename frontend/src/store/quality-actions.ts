@@ -9,6 +9,56 @@ import * as api from '../api'
  */
 export const createQualityActions = (set: any, get: any) => ({
   // ============================================================================
+  // QUALITY COUNTS GETTER
+  // ============================================================================
+
+  /**
+   * Get feature counts from feature selection states
+   * Returns: { wellExplained, needRevision, unsure, total, wellExplainedManual, wellExplainedAuto, needRevisionManual, needRevisionAuto }
+   * Used by TagStagePanel and SelectionPanel for consistent counts
+   */
+  getQualityCounts: () => {
+    const state = get()
+    const { featureSelectionStates, featureSelectionSources } = state
+    const filteredFeatureIds = state.getSelectedNodeFeatures()
+
+    if (!filteredFeatureIds || filteredFeatureIds.size === 0) {
+      return { wellExplained: 0, needRevision: 0, unsure: 0, total: 0, wellExplainedManual: 0, wellExplainedAuto: 0, needRevisionManual: 0, needRevisionAuto: 0 }
+    }
+
+    let wellExplained = 0, needRevision = 0, unsure = 0
+    let wellExplainedManual = 0, wellExplainedAuto = 0, needRevisionManual = 0, needRevisionAuto = 0
+
+    for (const featureId of filteredFeatureIds) {
+      const selectionState = featureSelectionStates.get(featureId)
+      const source = featureSelectionSources.get(featureId) || 'manual'
+
+      if (selectionState === 'selected') {
+        wellExplained++
+        if (source === 'manual') wellExplainedManual++
+        else wellExplainedAuto++
+      } else if (selectionState === 'rejected') {
+        needRevision++
+        if (source === 'manual') needRevisionManual++
+        else needRevisionAuto++
+      } else {
+        unsure++
+      }
+    }
+
+    return {
+      wellExplained,
+      needRevision,
+      unsure,
+      total: filteredFeatureIds.size,
+      wellExplainedManual,
+      wellExplainedAuto,
+      needRevisionManual,
+      needRevisionAuto
+    }
+  },
+
+  // ============================================================================
   // FEATURE SIMILARITY SORT ACTION
   // ============================================================================
 

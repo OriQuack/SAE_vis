@@ -177,6 +177,7 @@ interface AppState {
   sortBySimilarity: () => Promise<void>
   sortPairsBySimilarity: (allPairKeys: string[]) => Promise<void>
   getFeatureSplittingCounts: () => { fragmented: number; monosemantic: number; unsure: number; total: number; fragmentedManual: number; fragmentedAuto: number; monosematicManual: number; monosematicAuto: number }
+  getQualityCounts: () => { wellExplained: number; needRevision: number; unsure: number; total: number; wellExplainedManual: number; wellExplainedAuto: number; needRevisionManual: number; needRevisionAuto: number }
   sortCauseBySimilarity: () => Promise<void>
   fetchSimilarityHistogram: (selectedFeatureIds?: Set<number>, threshold?: number) => Promise<any>
 
@@ -557,6 +558,7 @@ export const useStore = create<AppState>((set, get) => {
 
   // Compose Quality actions (Stage 2 - Features)
   sortBySimilarity: qualityActions.sortBySimilarity,
+  getQualityCounts: qualityActions.getQualityCounts,
   setTagAutomaticHistogramData: qualityActions.setTagAutomaticHistogramData,
 
   // Compose Cause actions (Stage 3 - Multi-class)

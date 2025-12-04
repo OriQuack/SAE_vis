@@ -53,11 +53,10 @@
   overflow: auto;
 }
 
-/* UMAP scatter plot container - fixed size */
-.cause-view__umap {
-  width: 400px;
-  height: 350px;
-  flex-shrink: 0;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
+/* UMAP section - UMAP + selected features list side by side */
+.cause-view__umap-section {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  align-items: flex-start;
 }

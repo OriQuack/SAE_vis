@@ -4,9 +4,13 @@
 
 import { scaleLinear, type ScaleLinear } from 'd3-scale'
 import { extent } from 'd3-array'
+import { contourDensity, type ContourMultiPolygon } from 'd3-contour'
+import { geoPath } from 'd3-geo'
 import type { UmapPoint } from '../types'
 import { getSelectionColors } from './color-utils'
-import { UNSURE_GRAY } from './constants'
+
+// Darker gray for untagged points in UMAP (more visible than UNSURE_GRAY)
+const UMAP_UNTAGGED_COLOR = '#6b7280'
 
 // ============================================================================
 // TYPES
@@ -39,7 +43,7 @@ export function getCauseColor(
   const category = causeStates.get(featureId)
 
   if (!category) {
-    return UNSURE_GRAY
+    return UMAP_UNTAGGED_COLOR
   }
 
   switch (category) {
@@ -50,7 +54,7 @@ export function getCauseColor(
     case 'missed-context':
       return colors.rejected   // Vermillion: #D55E00
     default:
-      return UNSURE_GRAY
+      return UMAP_UNTAGGED_COLOR
   }
 }
 
@@ -70,7 +74,7 @@ export function getCauseCategoryLegend(): Array<{
     { category: 'noisy-activation', color: colors.confirmed, label: 'Noisy Activation' },
     { category: 'missed-lexicon', color: colors.expanded, label: 'Missed Lexicon' },
     { category: 'missed-context', color: colors.rejected, label: 'Missed Context' },
-    { category: 'unsure', color: UNSURE_GRAY, label: 'Untagged' }
+    { category: 'unsure', color: UMAP_UNTAGGED_COLOR, label: 'Untagged' }
   ]
 }
 
@@ -193,4 +197,103 @@ export function isPointDimmed(
 
   // Point is dimmed if it's NOT in the brush selection
   return !brushedIds.has(featureId)
+}
+
+// ============================================================================
+// DENSITY CONTOUR UTILITIES
+// ============================================================================
+
+export interface CategoryContour {
+  category: CauseCategory | 'unsure'
+  color: string
+  contours: ContourMultiPolygon[]
+  paths: string[]
+}
+
+/**
+ * Compute density contours for each cause category.
+ * Uses KDE (Kernel Density Estimation) via d3-contour.
+ *
+ * @param points - Array of UMAP points
+ * @param causeStates - Map of feature IDs to cause categories
+ * @param width - Chart width in pixels
+ * @param height - Chart height in pixels
+ * @param scales - UMAP scales for coordinate conversion
+ * @param bandwidth - KDE bandwidth (default 20)
+ * @param thresholds - Number of contour levels (default 4)
+ * @returns Array of CategoryContour objects
+ */
+export function computeCategoryContours(
+  points: UmapPoint[],
+  causeStates: Map<number, CauseCategory>,
+  width: number,
+  height: number,
+  scales: UmapScales,
+  bandwidth: number = 20,
+  thresholds: number = 4
+): CategoryContour[] {
+  const colors = getSelectionColors('cause')
+  const pathGenerator = geoPath()
+
+  // Group points by category
+  const categories: Array<{ category: CauseCategory | 'unsure', color: string }> = [
+    { category: 'noisy-activation', color: colors.confirmed },
+    { category: 'missed-lexicon', color: colors.expanded },
+    { category: 'missed-context', color: colors.rejected },
+    { category: 'unsure', color: UMAP_UNTAGGED_COLOR }
+  ]
+
+  const result: CategoryContour[] = []
+
+  for (const { category, color } of categories) {
+    // Filter points for this category
+    const categoryPoints = points.filter(p => {
+      const state = causeStates.get(p.feature_id)
+      if (category === 'unsure') {
+        return !state
+      }
+      return state === category
+    })
+
+    // Need at least 3 points for meaningful contours
+    if (categoryPoints.length < 3) {
+      result.push({ category, color, contours: [], paths: [] })
+      continue
+    }
+
+    // Convert to pixel coordinates
+    const pixelPoints = categoryPoints.map(p => [
+      scales.xScale(p.x),
+      scales.yScale(p.y)
+    ] as [number, number])
+
+    // Compute density contours
+    const density = contourDensity<[number, number]>()
+      .x(d => d[0])
+      .y(d => d[1])
+      .size([width, height])
+      .bandwidth(bandwidth)
+      .thresholds(thresholds)
+
+    const contours = density(pixelPoints)
+
+    // Convert contours to SVG paths
+    const paths = contours.map(c => pathGenerator(c) || '')
+
+    result.push({ category, color, contours, paths })
+  }
+
+  return result
+}
+
+/**
+ * Contour rendering configuration
+ */
+export const CONTOUR_CONFIG = {
+  fillOpacity: 0.12,
+  strokeOpacity: 0.5,
+  strokeWidth: 1,
+  // Opacity multipliers for each contour level (outer to inner)
+  // More levels for detailed contours
+  levelOpacities: [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 1.0]
 }

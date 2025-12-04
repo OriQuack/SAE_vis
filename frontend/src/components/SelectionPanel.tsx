@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { useVisualizationStore } from '../store/index'
 import { type SelectionCategory } from '../lib/constants'
-import { getSelectionColors } from '../lib/color-utils'
+import { getSelectionColors, type TableStage } from '../lib/color-utils'
 import SelectionStateBar, { type CategoryCounts } from './SelectionBar'
 import '../styles/SelectionPanel.css'
 
@@ -88,130 +88,13 @@ function deriveFeatureStatesFromPairs(
   return featureStates
 }
 
-// ============================================================================
-// SIMPLE SELECTION BAR - For Tag Automatic Popover
-// ============================================================================
-
-interface SimpleSelectionBarProps {
-  selectedCount: number
-  rejectedCount: number
-  unsureCount: number
-  total: number
-  mode?: 'feature' | 'pair' | 'cause'
-}
-
-/**
- * SimpleSelectionBar - Compact horizontal bar showing selection distribution
- * Used in Tag Automatic Popover to show current selection state
- */
-const SimpleSelectionBar: React.FC<SimpleSelectionBarProps> = ({
-  selectedCount,
-  rejectedCount,
-  unsureCount,
-  total,
-  mode = 'feature'
-}) => {
-  const modeColors = useMemo(() => getSelectionColors(mode), [mode])
-
-  if (total === 0) {
-    return (
-      <div className="simple-selection-bar">
-        <div className="simple-selection-bar__empty">No selections</div>
-      </div>
-    )
-  }
-
-  const selectedPercent = (selectedCount / total) * 100
-  const rejectedPercent = (rejectedCount / total) * 100
-  const unsurePercent = (unsureCount / total) * 100
-
-  return (
-    <div className="simple-selection-bar">
-      <div className="simple-selection-bar__bar">
-        {/* Selected (True Positive) */}
-        {selectedCount > 0 && (
-          <div
-            className="simple-selection-bar__segment simple-selection-bar__segment--selected"
-            style={{
-              width: `${selectedPercent}%`,
-              backgroundColor: modeColors.confirmed
-            }}
-            title={`Selected: ${selectedCount} (${selectedPercent.toFixed(1)}%)`}
-          >
-            {selectedPercent > 10 && (
-              <span className="simple-selection-bar__label">{selectedCount}</span>
-            )}
-          </div>
-        )}
-
-        {/* Rejected (False Positive) */}
-        {rejectedCount > 0 && (
-          <div
-            className="simple-selection-bar__segment simple-selection-bar__segment--rejected"
-            style={{
-              width: `${rejectedPercent}%`,
-              backgroundColor: modeColors.rejected
-            }}
-            title={`Rejected: ${rejectedCount} (${rejectedPercent.toFixed(1)}%)`}
-          >
-            {rejectedPercent > 10 && (
-              <span className="simple-selection-bar__label">{rejectedCount}</span>
-            )}
-          </div>
-        )}
-
-        {/* Unsure */}
-        {unsureCount > 0 && (
-          <div
-            className="simple-selection-bar__segment simple-selection-bar__segment--unsure"
-            style={{
-              width: `${unsurePercent}%`,
-              backgroundColor: modeColors.unsure
-            }}
-            title={`Unsure: ${unsureCount} (${unsurePercent.toFixed(1)}%)`}
-          >
-            {unsurePercent > 10 && (
-              <span className="simple-selection-bar__label">{unsureCount}</span>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Compact legend */}
-      <div className="simple-selection-bar__legend">
-        <div className="simple-selection-bar__legend-item">
-          <div
-            className="simple-selection-bar__legend-dot"
-            style={{ backgroundColor: modeColors.confirmed }}
-          />
-          <span>Selected: {selectedCount}</span>
-        </div>
-        <div className="simple-selection-bar__legend-item">
-          <div
-            className="simple-selection-bar__legend-dot"
-            style={{ backgroundColor: modeColors.rejected }}
-          />
-          <span>Rejected: {rejectedCount}</span>
-        </div>
-        <div className="simple-selection-bar__legend-item">
-          <div
-            className="simple-selection-bar__legend-dot"
-            style={{ backgroundColor: modeColors.unsure }}
-          />
-          <span>Unsure: {unsureCount}</span>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // Counts stored at commit time for hover preview
-// Supports both pair mode (fragmented/monosemantic) and feature mode (wellExplained/needRevision)
+// Supports both stage1 (fragmented/monosemantic) and stage2 (wellExplained/needRevision)
 interface CommitCounts {
-  // Stage 1 (pair mode) terminology
+  // Stage 1: Feature Splitting terminology
   fragmented?: number
   monosemantic?: number
-  // Stage 2 (feature mode) terminology
+  // Stage 2: Quality Assessment terminology
   wellExplained?: number
   needRevision?: number
   // Common
@@ -223,10 +106,10 @@ interface CommitCounts {
 interface TagCommit {
   type: string
   id: number
-  // For pair mode (FeatureSplitView)
+  // For Stage 1 (FeatureSplitView - pairs)
   pairSelectionStates?: Map<string, 'selected' | 'rejected'>
   pairSelectionSources?: Map<string, 'manual' | 'auto'>
-  // For feature mode (QualityView)
+  // For Stage 2 (QualityView - features)
   featureSelectionStates?: Map<number, 'selected' | 'rejected'>
   featureSelectionSources?: Map<number, 'manual' | 'auto'>
   // Counts at commit time for hover preview
@@ -234,14 +117,12 @@ interface TagCommit {
 }
 
 interface SelectionPanelProps {
-  mode: 'feature' | 'pair' | 'cause'
-  tagLabel: string
+  stage: TableStage
   onDone?: () => void
   doneButtonEnabled?: boolean
   onCategoryRefsReady?: (refs: Map<SelectionCategory, HTMLDivElement>) => void  // Callback for flow overlay
-  availablePairs?: Array<{pairKey: string, mainFeatureId: number, similarFeatureId: number}>  // Cluster-based pairs (single source of truth) - used for pair count
   filteredFeatureIds?: Set<number>  // Selected feature IDs from Sankey segment
-  // Commit history props (for pair mode)
+  // Commit history props
   commitHistory?: TagCommit[]
   currentCommitIndex?: number
   onCommitClick?: (commitIndex: number) => void
@@ -256,11 +137,10 @@ interface SelectionPanelProps {
  * - Selection state bar (4-category visualization)
  */
 const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
-  mode,
+  stage,
   onDone,
   doneButtonEnabled = false,
   onCategoryRefsReady,
-  availablePairs: _availablePairs,
   filteredFeatureIds: propFilteredFeatureIds,
   commitHistory,
   currentCommitIndex,
@@ -272,7 +152,6 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
   const featureSelectionSources = useVisualizationStore(state => state.featureSelectionSources)
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
   const pairSelectionSources = useVisualizationStore(state => state.pairSelectionSources)
-  const causeSelectionStates = useVisualizationStore(state => state.causeSelectionStates)
   const allClusterPairs = useVisualizationStore(state => state.allClusterPairs)
   const thresholdVisualization = useVisualizationStore(state => state.thresholdVisualization)
   const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
@@ -317,14 +196,13 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
   const [hoveredCommitIndex, setHoveredCommitIndex] = useState<number | null>(null)
   const [commitTooltipPosition, setCommitTooltipPosition] = useState<{ x: number; y: number } | null>(null)
 
-  // Get selection states based on mode
-  const selectionStates = mode === 'feature' ? featureSelectionStates
-                        : mode === 'pair' ? pairSelectionStates
-                        : causeSelectionStates
+  // Get selection states based on stage
+  // Stage 1 uses pair selection states, Stage 2/3 use feature selection states
+  const selectionStates = stage === 'stage1' ? pairSelectionStates : featureSelectionStates
 
   // Calculate category counts
   const counts = useMemo((): CategoryCounts => {
-    console.log('[SelectionPanel.counts] useMemo triggered - mode:', mode, ', pairSelectionStates.size:', pairSelectionStates.size)
+    console.log('[SelectionPanel.counts] useMemo triggered - stage:', stage, ', pairSelectionStates.size:', pairSelectionStates.size)
 
     let confirmed = 0
     let expanded = 0
@@ -332,13 +210,24 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
     let autoRejected = 0
     let unsure = 0
 
-    if (mode === 'feature' && tableData?.features) {
-      // Filter features to only those in the selected node
+    if (stage === 'stage1') {
+      // Stage 1: Feature Splitting - show FEATURE counts (derived from pair states)
+      // Use store getter for single source of truth (shared with TagStagePanel)
+      const fsCounts = getFeatureSplittingCounts()
+      confirmed = fsCounts.fragmentedManual
+      expanded = fsCounts.fragmentedAuto
+      rejected = fsCounts.monosematicManual
+      autoRejected = fsCounts.monosematicAuto
+      unsure = fsCounts.unsure
+
+      console.log('[SelectionPanel] Stage 1 counts from store:', fsCounts)
+    } else if (stage === 'stage2' && tableData?.features) {
+      // Stage 2: Quality Assessment - show feature counts directly
       const features = filteredFeatureIds
         ? tableData.features.filter((f: any) => filteredFeatureIds!.has(f.feature_id))
         : tableData.features
 
-      console.log('[SelectionPanel] Feature mode - Total features:', tableData.features.length, ', Filtered features:', features.length, ', filteredFeatureIds:', filteredFeatureIds ? `${filteredFeatureIds.size} IDs` : 'null')
+      console.log('[SelectionPanel] Stage 2 - Total features:', tableData.features.length, ', Filtered features:', features.length, ', filteredFeatureIds:', filteredFeatureIds ? `${filteredFeatureIds.size} IDs` : 'null')
 
       features.forEach((feature: any) => {
         const featureId = feature.feature_id
@@ -361,43 +250,15 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
           unsure++
         }
       })
-    } else if (mode === 'cause' && tableData?.features) {
-      // Cause mode: 3 categories (noisy-activation, missed-lexicon, missed-context) + null (untagged = unsure)
-      // Map to CategoryCounts: confirmed=noisy-activation, expanded=missed-lexicon, rejected=missed-context, unsure=null/untagged
-      const features = filteredFeatureIds
-        ? tableData.features.filter((f: any) => filteredFeatureIds!.has(f.feature_id))
-        : tableData.features
-
-      features.forEach((feature: any) => {
-        const featureId = feature.feature_id
-        const causeState = causeSelectionStates.get(featureId)
-
-        if (causeState === 'noisy-activation') {
-          confirmed++ // Orange
-        } else if (causeState === 'missed-lexicon') {
-          expanded++ // Purple
-        } else if (causeState === 'missed-context') {
-          rejected++ // Blue
-        } else {
-          // null/undefined - treat as unsure
-          unsure++ // Gray
-        }
-      })
-
-      // Note: unsure now represents untagged/null features
-      const total = confirmed + expanded + rejected + autoRejected + unsure
-      return { confirmed, expanded, rejected, autoRejected, unsure, total }
-    } else if (mode === 'pair') {
-      // In pair mode, we show FEATURE counts (derived from pair states)
-      // Use store getter for single source of truth (shared with TagStagePanel)
-      const fsCounts = getFeatureSplittingCounts()
-      confirmed = fsCounts.fragmentedManual
-      expanded = fsCounts.fragmentedAuto
-      rejected = fsCounts.monosematicManual
-      autoRejected = fsCounts.monosematicAuto
-      unsure = fsCounts.unsure
-
-      console.log('[SelectionPanel] Pair mode counts from store:', fsCounts)
+    } else if (stage === 'stage3') {
+      // TODO: Stage 3 - Cause Analysis counts
+      // For now, just count all features as unsure
+      if (tableData?.features) {
+        const features = filteredFeatureIds
+          ? tableData.features.filter((f: any) => filteredFeatureIds!.has(f.feature_id))
+          : tableData.features
+        unsure = features.length
+      }
     }
 
     const total = confirmed + expanded + rejected + autoRejected + unsure
@@ -405,7 +266,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
     return { confirmed, expanded, rejected, autoRejected, unsure, total }
   // Note: allClusterPairs and pairSelectionSources are needed because getFeatureSplittingCounts depends on them internally
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, tableData, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources, causeSelectionStates, filteredFeatureIds, allClusterPairs, getFeatureSplittingCounts])
+  }, [stage, tableData, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources, filteredFeatureIds, allClusterPairs, getFeatureSplittingCounts])
 
   // Calculate preview counts when thresholds are active (real-time preview during threshold drag)
   // This simulates what feature counts would look like after applying the thresholds
@@ -415,8 +276,13 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
       return undefined
     }
 
-    // Handle feature mode preview
-    if (mode === 'feature') {
+    // Stage 3: TODO - no preview counts yet
+    if (stage === 'stage3') {
+      return undefined
+    }
+
+    // Handle Stage 2 (feature) preview
+    if (stage === 'stage2') {
       const thresholds = {
         select: tagAutomaticState.selectThreshold,
         reject: tagAutomaticState.rejectThreshold
@@ -468,11 +334,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
       return { confirmed, expanded, rejected, autoRejected, unsure, total }
     }
 
-    // Handle pair mode preview (existing logic)
-    if (mode !== 'pair') {
-      return undefined
-    }
-
+    // Handle Stage 1 (pair) preview
     const thresholds = {
       select: tagAutomaticState.selectThreshold,
       reject: tagAutomaticState.rejectThreshold
@@ -549,14 +411,12 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
 
     const total = confirmed + expanded + rejected + autoRejected + unsure
     return { confirmed, expanded, rejected, autoRejected, unsure, total }
-  }, [mode, tagAutomaticState, pairSelectionStates, pairSelectionSources, featureSelectionStates, featureSelectionSources, filteredFeatureIds, allClusterPairs])
+  }, [stage, tagAutomaticState, pairSelectionStates, pairSelectionSources, featureSelectionStates, featureSelectionSources, filteredFeatureIds, allClusterPairs])
 
   // Preview is active when TagAutomaticPanel has histogram data (user can drag thresholds)
-  const isPreviewActive = (mode === 'pair' || mode === 'feature') && !!tagAutomaticState?.histogramData
+  const isPreviewActive = !!tagAutomaticState?.histogramData
   // Show threshold controls only when thresholdVisualization is visible (after "Show on Table")
   const showThresholdControls = thresholdVisualization?.visible ?? false
-
-  // Note: Tooltip width measurement removed for vertical layout (tooltips now positioned to the right)
 
   // Highlight threshold button when preview first becomes active
   useEffect(() => {
@@ -579,9 +439,9 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
 
   const hasAnySelection = selectionStates.size > 0
 
-  // Calculate pair count for pair mode (to show as secondary info in header)
+  // Calculate pair count for Stage 1 (to show as secondary info in header)
   const pairCount = useMemo(() => {
-    if (mode !== 'pair' || !filteredFeatureIds) return undefined
+    if (stage !== 'stage1' || !filteredFeatureIds) return undefined
 
     let count = 0
 
@@ -605,7 +465,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
     }
 
     return count
-  }, [mode, filteredFeatureIds, allClusterPairs, tagAutomaticState?.histogramData?.scores])
+  }, [stage, filteredFeatureIds, allClusterPairs, tagAutomaticState?.histogramData?.scores])
 
   // Don't render if no table data loaded yet
   if (!tableData) {
@@ -641,14 +501,14 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
             orientation="vertical"
             width="42px"
             height="100%"
-            mode={mode}
+            stage={stage}
             onCategoryRefsReady={onCategoryRefsReady}
             pairCount={pairCount}
           />
 
-          {/* Commit History Circles - shown in pair mode or feature mode when history exists */}
-          {(mode === 'pair' || mode === 'feature') && commitHistory && commitHistory.length > 0 && onCommitClick && (
-            <div className={`commit-history commit-history--${mode}`}>
+          {/* Commit History Circles */}
+          {commitHistory && commitHistory.length > 0 && onCommitClick && (
+            <div className={`commit-history commit-history--${stage}`}>
               <div className="commit-history__label">History</div>
               <div className="commit-history__circles">
                 {commitHistory.map((commit, index) => (
@@ -689,11 +549,11 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
                   {(() => {
                     const counts = commitHistory[hoveredCommitIndex].counts!
                     const total = counts.total || 1
-                    const modeColors = getSelectionColors(mode)
+                    const stageColors = getSelectionColors(stage)
 
-                    // Mode-specific counts and labels
-                    if (mode === 'pair') {
-                      // Stage 1: fragmented/monosemantic terminology
+                    // Stage-specific counts and labels
+                    if (stage === 'stage1') {
+                      // Stage 1: Feature Splitting - fragmented/monosemantic terminology
                       const monosematicCount = counts.monosemantic ?? 0
                       const fragmentedCount = counts.fragmented ?? 0
                       const monosematicPct = (monosematicCount / total) * 100
@@ -707,41 +567,41 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
                             {monosematicCount > 0 && (
                               <div
                                 className="commit-hover-tooltip__bar-segment"
-                                style={{ height: `${monosematicPct}%`, backgroundColor: modeColors.rejected }}
+                                style={{ height: `${monosematicPct}%`, backgroundColor: stageColors.rejected }}
                               />
                             )}
                             {counts.unsure > 0 && (
                               <div
                                 className="commit-hover-tooltip__bar-segment"
-                                style={{ height: `${unsurePct}%`, backgroundColor: modeColors.unsure }}
+                                style={{ height: `${unsurePct}%`, backgroundColor: stageColors.unsure }}
                               />
                             )}
                             {fragmentedCount > 0 && (
                               <div
                                 className="commit-hover-tooltip__bar-segment"
-                                style={{ height: `${fragmentedPct}%`, backgroundColor: modeColors.confirmed }}
+                                style={{ height: `${fragmentedPct}%`, backgroundColor: stageColors.confirmed }}
                               />
                             )}
                           </div>
                           {/* Text counts - order matches bar */}
                           <div className="commit-hover-tooltip__counts">
                             <span className="commit-hover-tooltip__count">
-                              <span className="commit-hover-tooltip__dot" style={{ backgroundColor: modeColors.rejected }} />
+                              <span className="commit-hover-tooltip__dot" style={{ backgroundColor: stageColors.rejected }} />
                               Monosemantic: {monosematicCount}
                             </span>
                             <span className="commit-hover-tooltip__count">
-                              <span className="commit-hover-tooltip__dot" style={{ backgroundColor: modeColors.unsure }} />
+                              <span className="commit-hover-tooltip__dot" style={{ backgroundColor: stageColors.unsure }} />
                               Unsure: {counts.unsure}
                             </span>
                             <span className="commit-hover-tooltip__count">
-                              <span className="commit-hover-tooltip__dot" style={{ backgroundColor: modeColors.confirmed }} />
+                              <span className="commit-hover-tooltip__dot" style={{ backgroundColor: stageColors.confirmed }} />
                               Fragmented: {fragmentedCount}
                             </span>
                           </div>
                         </div>
                       )
-                    } else {
-                      // Stage 2 (feature mode): wellExplained/needRevision terminology
+                    } else if (stage === 'stage2') {
+                      // Stage 2: Quality Assessment - wellExplained/needRevision terminology
                       const needRevisionCount = counts.needRevision ?? 0
                       const wellExplainedCount = counts.wellExplained ?? 0
                       const needRevisionPct = (needRevisionCount / total) * 100
@@ -755,39 +615,42 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
                             {needRevisionCount > 0 && (
                               <div
                                 className="commit-hover-tooltip__bar-segment"
-                                style={{ height: `${needRevisionPct}%`, backgroundColor: modeColors.rejected }}
+                                style={{ height: `${needRevisionPct}%`, backgroundColor: stageColors.rejected }}
                               />
                             )}
                             {counts.unsure > 0 && (
                               <div
                                 className="commit-hover-tooltip__bar-segment"
-                                style={{ height: `${unsurePct}%`, backgroundColor: modeColors.unsure }}
+                                style={{ height: `${unsurePct}%`, backgroundColor: stageColors.unsure }}
                               />
                             )}
                             {wellExplainedCount > 0 && (
                               <div
                                 className="commit-hover-tooltip__bar-segment"
-                                style={{ height: `${wellExplainedPct}%`, backgroundColor: modeColors.confirmed }}
+                                style={{ height: `${wellExplainedPct}%`, backgroundColor: stageColors.confirmed }}
                               />
                             )}
                           </div>
                           {/* Text counts - order matches bar */}
                           <div className="commit-hover-tooltip__counts">
                             <span className="commit-hover-tooltip__count">
-                              <span className="commit-hover-tooltip__dot" style={{ backgroundColor: modeColors.rejected }} />
+                              <span className="commit-hover-tooltip__dot" style={{ backgroundColor: stageColors.rejected }} />
                               Need Revision: {needRevisionCount}
                             </span>
                             <span className="commit-hover-tooltip__count">
-                              <span className="commit-hover-tooltip__dot" style={{ backgroundColor: modeColors.unsure }} />
+                              <span className="commit-hover-tooltip__dot" style={{ backgroundColor: stageColors.unsure }} />
                               Unsure: {counts.unsure}
                             </span>
                             <span className="commit-hover-tooltip__count">
-                              <span className="commit-hover-tooltip__dot" style={{ backgroundColor: modeColors.confirmed }} />
+                              <span className="commit-hover-tooltip__dot" style={{ backgroundColor: stageColors.confirmed }} />
                               Well-Explained: {wellExplainedCount}
                             </span>
                           </div>
                         </div>
                       )
+                    } else {
+                      // TODO: Stage 3 - Cause Analysis tooltip
+                      return null
                     }
                   })()}
                 </div>
@@ -816,5 +679,3 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
 }
 
 export default TableSelectionPanel
-export { SimpleSelectionBar }
-export type { SimpleSelectionBarProps }

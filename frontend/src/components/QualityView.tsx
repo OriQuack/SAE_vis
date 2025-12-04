@@ -910,8 +910,7 @@ const QualityView: React.FC<QualityViewProps> = ({
       <div className="quality-view__body">
         {/* Left column: SelectionPanel vertical bar */}
         <SelectionPanel
-          mode="feature"
-          tagLabel="Quality"
+          stage="stage2"
           onCategoryRefsReady={onCategoryRefsReady}
           filteredFeatureIds={selectedFeatureIds || undefined}
           commitHistory={tagCommitHistory}

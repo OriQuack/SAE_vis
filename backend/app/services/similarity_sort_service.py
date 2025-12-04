@@ -33,10 +33,22 @@ logger = logging.getLogger(__name__)
 class SimilaritySortService:
     """Service for calculating feature similarity scores."""
 
-    # 4 feature-level metrics used for pair similarity calculation
-    # Only intrinsic feature properties, excluding explanation-related metrics
-    # Note: Pair-specific decoder similarity is handled separately in _extract_pair_metrics()
+    # 7 metrics used for SINGLE FEATURE SVM similarity calculation
+    # Combines activation-level metrics, decoder similarity, scores, and explanation similarity
     METRICS = [
+        'intra_ngram_jaccard',       # Activation-level: lexical consistency within activations (max of char/word)
+        'intra_semantic_sim',        # Activation-level: semantic consistency within activations
+        'decoder_sim',               # Feature-level: max decoder weight cosine similarity to other features
+        'score_embedding',           # Score: embedding-based scoring
+        'score_fuzz',                # Score: fuzzy matching score
+        'score_detection',           # Score: detection score
+        'explanation_semantic_sim',  # Explanation-level: semantic similarity between LLM explanations (semsim_mean)
+    ]
+
+    # 4 metrics used for PAIR SVM similarity calculation
+    # Only intrinsic feature properties from activation and inter-feature data
+    # Note: Pair-specific decoder similarity is handled separately in _extract_pair_metrics()
+    PAIR_METRICS = [
         'intra_ngram_jaccard',       # Feature-level: lexical consistency within activations (max of char/word)
         'intra_semantic_sim',        # Feature-level: semantic consistency within activations
         'inter_ngram_jaccard',       # Feature-level: lexical similarity between features (max of char/word)
@@ -116,13 +128,17 @@ class SimilaritySortService:
 
     async def _extract_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
         """
-        Extract all 9 metrics for the specified features.
+        Extract all 7 metrics for the specified features.
+
+        Metrics extracted:
+        - From activation_display: intra_ngram_jaccard, intra_semantic_sim
+        - From main dataframe: decoder_sim, score_embedding, score_fuzz, score_detection, explanation_semantic_sim
 
         Args:
             feature_ids: List of feature IDs to extract metrics for
 
         Returns:
-            DataFrame with feature_id and all 9 metrics
+            DataFrame with feature_id and all 7 metrics
         """
         try:
             logger.info(f"[_extract_metrics] Starting extraction for {len(feature_ids)} features")
@@ -140,30 +156,39 @@ class SimilaritySortService:
             lf = lf.filter(pl.col("feature_id").is_in(feature_ids))
             logger.info("[_extract_metrics] Filtered to requested features")
 
-            # No need to extract from main dataframe - all metrics come from activation and inter-feature data
-            # Pair-specific decoder similarity is handled separately in _extract_pair_metrics()
-            logger.info("[_extract_metrics] Creating base feature ID dataframe")
+            # Extract metrics from main dataframe
+            logger.info("[_extract_metrics] Extracting main dataframe metrics")
 
             try:
-                # Just get unique feature IDs - actual metrics come from activation and inter-feature joins
-                base_df = lf.select("feature_id").unique().collect()
-                logger.info(f"[_extract_metrics] Base dataframe created: {len(base_df)} features")
+                # Extract decoder_sim (max from nested decoder_similarity), scores, and semsim_mean
+                base_df = lf.select([
+                    "feature_id",
+                    # decoder_sim: max cosine_similarity from decoder_similarity list
+                    pl.col("decoder_similarity")
+                      .list.eval(pl.element().struct.field("cosine_similarity"))
+                      .list.max()
+                      .fill_null(0.0)
+                      .alias("decoder_sim"),
+                    # Score metrics
+                    pl.col("score_embedding").fill_null(0.0).alias("score_embedding"),
+                    pl.col("score_fuzz").fill_null(0.0).alias("score_fuzz"),
+                    pl.col("score_detection").fill_null(0.0).alias("score_detection"),
+                    # Explanation semantic similarity (semsim_mean)
+                    pl.col("semsim_mean").fill_null(0.0).alias("explanation_semantic_sim"),
+                ]).unique(subset=["feature_id"]).collect()
+
+                logger.info(f"[_extract_metrics] Main dataframe metrics extracted: {len(base_df)} features")
             except Exception as agg_error:
-                logger.error(f"[_extract_metrics] Base dataframe creation failed: {agg_error}", exc_info=True)
+                logger.error(f"[_extract_metrics] Main dataframe extraction failed: {agg_error}", exc_info=True)
                 raise
 
-            # Cast feature_id to UInt32 to match activation and inter-feature dataframes
+            # Cast feature_id to UInt32 to match activation dataframe
             base_df = base_df.with_columns(pl.col("feature_id").cast(pl.UInt32))
 
             # Extract activation-level metrics (intra-feature)
             logger.info("[_extract_metrics] Extracting activation metrics")
             activation_df = await self._extract_activation_metrics(feature_ids)
             logger.info(f"[_extract_metrics] Activation metrics: {len(activation_df) if activation_df is not None else 0} rows")
-
-            # Extract inter-feature metrics
-            logger.info("[_extract_metrics] Extracting inter-feature metrics")
-            interfeature_df = await self._extract_interfeature_metrics(feature_ids)
-            logger.info(f"[_extract_metrics] Inter-feature metrics: {len(interfeature_df) if interfeature_df is not None else 0} rows")
 
             # Join all metrics together
             logger.info("[_extract_metrics] Joining all metrics")
@@ -172,10 +197,6 @@ class SimilaritySortService:
             if activation_df is not None:
                 result_df = result_df.join(activation_df, on="feature_id", how="left")
                 logger.info("[_extract_metrics] Joined activation metrics")
-
-            if interfeature_df is not None:
-                result_df = result_df.join(interfeature_df, on="feature_id", how="left")
-                logger.info("[_extract_metrics] Joined inter-feature metrics")
 
             # Fill nulls with 0 for missing metrics
             for metric in self.METRICS:
@@ -310,6 +331,70 @@ class SimilaritySortService:
 
         except Exception as e:
             logger.warning(f"Failed to extract inter-feature metrics: {e}")
+            return None
+
+    async def _extract_pair_feature_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
+        """
+        Extract the 4 PAIR_METRICS for pair SVM calculations.
+
+        Metrics extracted:
+        - From activation_display: intra_ngram_jaccard, intra_semantic_sim
+        - From inter-feature data: inter_ngram_jaccard, inter_semantic_sim
+
+        Args:
+            feature_ids: List of feature IDs to extract metrics for
+
+        Returns:
+            DataFrame with feature_id and all 4 pair metrics
+        """
+        try:
+            logger.info(f"[_extract_pair_feature_metrics] Starting extraction for {len(feature_ids)} features")
+
+            # Get the main dataframe for base feature IDs
+            lf = self.data_service._df_lazy
+
+            if lf is None:
+                logger.error("Main dataframe not initialized")
+                return None
+
+            # Filter to requested features and get unique feature IDs
+            lf = lf.filter(pl.col("feature_id").is_in(feature_ids))
+            base_df = lf.select("feature_id").unique().collect()
+            base_df = base_df.with_columns(pl.col("feature_id").cast(pl.UInt32))
+
+            logger.info(f"[_extract_pair_feature_metrics] Base features: {len(base_df)}")
+
+            # Extract activation-level metrics (intra-feature)
+            activation_df = await self._extract_activation_metrics(feature_ids)
+            logger.info(f"[_extract_pair_feature_metrics] Activation metrics: {len(activation_df) if activation_df is not None else 0} rows")
+
+            # Extract inter-feature metrics
+            interfeature_df = await self._extract_interfeature_metrics(feature_ids)
+            logger.info(f"[_extract_pair_feature_metrics] Inter-feature metrics: {len(interfeature_df) if interfeature_df is not None else 0} rows")
+
+            # Join all metrics together
+            result_df = base_df
+
+            if activation_df is not None:
+                result_df = result_df.join(activation_df, on="feature_id", how="left")
+
+            if interfeature_df is not None:
+                result_df = result_df.join(interfeature_df, on="feature_id", how="left")
+
+            # Fill nulls with 0 for missing metrics
+            for metric in self.PAIR_METRICS:
+                if metric not in result_df.columns:
+                    result_df = result_df.with_columns(pl.lit(0.0).alias(metric))
+                else:
+                    result_df = result_df.with_columns(
+                        pl.col(metric).fill_null(0.0)
+                    )
+
+            logger.info(f"[_extract_pair_feature_metrics] Extracted {len(result_df)} features with pair metrics")
+            return result_df
+
+        except Exception as e:
+            logger.error(f"Failed to extract pair feature metrics: {e}", exc_info=True)
             return None
 
     def _calculate_similarity_scores(
@@ -545,8 +630,8 @@ class SimilaritySortService:
         # 1. Load feature metrics from unfiltered dataset (all features globally)
         # 2. Or: Expand current dataset to include all referenced features
         # 3. Or: Pre-compute pair metrics for all possible pairs
-        logger.info(f"Extracting metrics for {len(all_feature_ids)} unique features from {len(pair_ids)} pairs")
-        metrics_df = await self._extract_metrics(list(all_feature_ids))
+        logger.info(f"Extracting pair feature metrics for {len(all_feature_ids)} unique features from {len(pair_ids)} pairs")
+        metrics_df = await self._extract_pair_feature_metrics(list(all_feature_ids))
 
         if metrics_df is None or len(metrics_df) == 0:
             logger.warning("No metrics extracted, returning empty result")
@@ -693,13 +778,13 @@ class SimilaritySortService:
         Returns:
             List of PairScore objects
         """
-        # Convert to numpy for SVM
+        # Convert to numpy for SVM - use PAIR_METRICS (4 metrics) for pairs
         feature_ids = metrics_df["feature_id"].to_numpy()
         metrics_matrix = np.column_stack([
-            metrics_df[metric].to_numpy() for metric in self.METRICS
+            metrics_df[metric].to_numpy() for metric in self.PAIR_METRICS
         ])
 
-        # Build pair vectors (19-dimensional)
+        # Build pair vectors (13-dimensional: 4*3 + 1)
         pair_vectors = {}
         pair_key_list = []
 
@@ -719,8 +804,8 @@ class SimilaritySortService:
 
             # Build symmetric 13-dim vector: concat(A+B, |A-B|, A*B, decoder_sim)
             # This ensures pair(A,B) = pair(B,A) regardless of feature order
-            main_metrics = metrics_matrix[main_idx[0]]  # 4 dims
-            similar_metrics = metrics_matrix[similar_idx[0]]  # 4 dims
+            main_metrics = metrics_matrix[main_idx[0]]  # 4 dims (PAIR_METRICS)
+            similar_metrics = metrics_matrix[similar_idx[0]]  # 4 dims (PAIR_METRICS)
             pair_metric = pair_metrics.get(pair_key, 0.0)  # 1 dim (specific similarity between these two features)
 
             # Symmetric operations
@@ -1049,8 +1134,8 @@ class SimilaritySortService:
             fid for main_id, similar_id in pair_ids for fid in (main_id, similar_id)
         ))
 
-        logger.info(f"Extracting metrics for {len(all_feature_ids)} unique features in {len(pair_ids)} pairs for histogram")
-        metrics_df = await self._extract_metrics(all_feature_ids)
+        logger.info(f"Extracting pair feature metrics for {len(all_feature_ids)} unique features in {len(pair_ids)} pairs for histogram")
+        metrics_df = await self._extract_pair_feature_metrics(all_feature_ids)
 
         if metrics_df is None or len(metrics_df) == 0:
             logger.warning("No metrics extracted, returning empty histogram")
@@ -1156,13 +1241,13 @@ class SimilaritySortService:
         Returns:
             List of PairScore objects for ALL pairs
         """
-        # Convert to numpy for SVM
+        # Convert to numpy for SVM - use PAIR_METRICS (4 metrics) for pairs
         feature_ids = metrics_df["feature_id"].to_numpy()
         metrics_matrix = np.column_stack([
-            metrics_df[metric].to_numpy() for metric in self.METRICS
+            metrics_df[metric].to_numpy() for metric in self.PAIR_METRICS
         ])
 
-        # Build pair vectors (19-dimensional)
+        # Build pair vectors (13-dimensional: 4*3 + 1)
         pair_vectors = {}
         pair_key_list = []
 
@@ -1182,8 +1267,8 @@ class SimilaritySortService:
 
             # Build symmetric 13-dim vector: concat(A+B, |A-B|, A*B, decoder_sim)
             # This ensures pair(A,B) = pair(B,A) regardless of feature order
-            main_metrics = metrics_matrix[main_idx[0]]  # 4 dims
-            similar_metrics = metrics_matrix[similar_idx[0]]  # 4 dims
+            main_metrics = metrics_matrix[main_idx[0]]  # 4 dims (PAIR_METRICS)
+            similar_metrics = metrics_matrix[similar_idx[0]]  # 4 dims (PAIR_METRICS)
             pair_metric = pair_metrics.get(pair_key, 0.0)  # 1 dim (specific similarity between these two features)
 
             # Symmetric operations

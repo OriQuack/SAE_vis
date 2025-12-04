@@ -1,11 +1,14 @@
 """
 UMAP projection service for feature visualization.
 
-Projects features into 2D space using cause-related metrics:
-- semantic_similarity (semsim_mean)
-- score_detection
-- score_embedding
-- score_fuzz
+Projects features into 2D space using 7 metrics (same as single feature SVM):
+- intra_ngram_jaccard: lexical consistency within activations
+- intra_semantic_sim: semantic consistency within activations
+- decoder_sim: max decoder weight cosine similarity
+- score_embedding: embedding-based score
+- score_fuzz: fuzzy matching score
+- score_detection: detection score
+- explanation_semantic_sim: semantic similarity between LLM explanations
 """
 
 import polars as pl
@@ -22,11 +25,7 @@ from ..models.umap import (
     UmapPoint
 )
 from .data_constants import (
-    COL_FEATURE_ID,
-    COL_SEMSIM_MEAN,
-    COL_SCORE_DETECTION,
-    COL_SCORE_EMBEDDING,
-    COL_SCORE_FUZZ
+    COL_FEATURE_ID
 )
 
 if TYPE_CHECKING:
@@ -38,12 +37,15 @@ logger = logging.getLogger(__name__)
 class UMAPService:
     """Service for computing UMAP projections of features."""
 
-    # Metrics used for UMAP embedding (cause-related)
+    # 7 metrics used for UMAP embedding (same as single feature SVM)
     METRICS = [
-        COL_SEMSIM_MEAN,      # semantic_similarity
-        COL_SCORE_DETECTION,
-        COL_SCORE_EMBEDDING,
-        COL_SCORE_FUZZ
+        'intra_ngram_jaccard',       # Activation-level: lexical consistency within activations
+        'intra_semantic_sim',        # Activation-level: semantic consistency within activations
+        'decoder_sim',               # Feature-level: max decoder weight cosine similarity
+        'score_embedding',           # Score: embedding-based scoring
+        'score_fuzz',                # Score: fuzzy matching score
+        'score_detection',           # Score: detection score
+        'explanation_semantic_sim',  # Explanation-level: semantic similarity (semsim_mean)
     ]
 
     def __init__(self, data_service: "DataService"):
@@ -141,13 +143,17 @@ class UMAPService:
 
     async def _extract_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
         """
-        Extract cause-related metrics for the specified features.
+        Extract all 7 metrics for the specified features.
+
+        Metrics extracted:
+        - From activation_display: intra_ngram_jaccard, intra_semantic_sim
+        - From main dataframe: decoder_sim, score_embedding, score_fuzz, score_detection, explanation_semantic_sim
 
         Args:
             feature_ids: List of feature IDs to extract metrics for
 
         Returns:
-            DataFrame with feature_id and all cause metrics
+            DataFrame with feature_id and all 7 metrics
         """
         try:
             lf = self.data_service._df_lazy
@@ -156,29 +162,111 @@ class UMAPService:
                 logger.error("Main dataframe not initialized")
                 return None
 
-            # Filter to requested features and select required columns
-            df = lf.filter(
-                pl.col(COL_FEATURE_ID).is_in(feature_ids)
-            ).select([
+            # Filter to requested features
+            lf = lf.filter(pl.col(COL_FEATURE_ID).is_in(feature_ids))
+
+            # Extract metrics from main dataframe
+            base_df = lf.select([
                 COL_FEATURE_ID,
-                COL_SEMSIM_MEAN,
-                COL_SCORE_DETECTION,
-                COL_SCORE_EMBEDDING,
-                COL_SCORE_FUZZ
+                # decoder_sim: max cosine_similarity from decoder_similarity list
+                pl.col("decoder_similarity")
+                  .list.eval(pl.element().struct.field("cosine_similarity"))
+                  .list.max()
+                  .fill_null(0.0)
+                  .alias("decoder_sim"),
+                # Score metrics
+                pl.col("score_embedding").fill_null(0.0).alias("score_embedding"),
+                pl.col("score_fuzz").fill_null(0.0).alias("score_fuzz"),
+                pl.col("score_detection").fill_null(0.0).alias("score_detection"),
+                # Explanation semantic similarity (semsim_mean)
+                pl.col("semsim_mean").fill_null(0.0).alias("explanation_semantic_sim"),
             ]).unique(subset=[COL_FEATURE_ID]).collect()
+
+            # Cast feature_id to UInt32 to match activation dataframe
+            base_df = base_df.with_columns(pl.col(COL_FEATURE_ID).cast(pl.UInt32))
+
+            # Extract activation-level metrics (intra-feature)
+            activation_df = await self._extract_activation_metrics(feature_ids)
+
+            # Join activation metrics
+            result_df = base_df
+            if activation_df is not None:
+                result_df = result_df.join(activation_df, on=COL_FEATURE_ID, how="left")
 
             # Fill null values with 0
             for metric in self.METRICS:
-                if metric in df.columns:
-                    df = df.with_columns(
+                if metric not in result_df.columns:
+                    result_df = result_df.with_columns(pl.lit(0.0).alias(metric))
+                else:
+                    result_df = result_df.with_columns(
                         pl.col(metric).fill_null(0.0)
                     )
 
-            logger.info(f"Extracted metrics for {len(df)} features")
-            return df
+            logger.info(f"Extracted {len(self.METRICS)} metrics for {len(result_df)} features")
+            return result_df
 
         except Exception as e:
             logger.error(f"Failed to extract metrics: {e}", exc_info=True)
+            return None
+
+    async def _extract_activation_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
+        """
+        Extract intra-feature activation metrics.
+
+        Args:
+            feature_ids: List of feature IDs
+
+        Returns:
+            DataFrame with feature_id, intra_ngram_jaccard, intra_semantic_sim
+        """
+        try:
+            # Try optimized activation_display file first
+            if self.data_service._activation_display_lazy is not None:
+                df = self.data_service._activation_display_lazy.filter(
+                    pl.col(COL_FEATURE_ID).is_in(feature_ids)
+                ).collect()
+
+                # Extract metrics
+                df = df.select([
+                    COL_FEATURE_ID,
+                    # Max of char and word ngram jaccard
+                    pl.max_horizontal("char_ngram_max_jaccard", "word_ngram_max_jaccard")
+                      .fill_null(0.0)
+                      .alias("intra_ngram_jaccard"),
+                    # Semantic similarity
+                    pl.col("semantic_similarity")
+                      .fill_null(0.0)
+                      .alias("intra_semantic_sim")
+                ]).unique(subset=[COL_FEATURE_ID])
+
+                logger.info(f"Extracted activation metrics for {len(df)} features")
+                return df
+
+            # Fallback to legacy files
+            elif self.data_service._activation_similarity_lazy is not None:
+                df = self.data_service._activation_similarity_lazy.filter(
+                    pl.col(COL_FEATURE_ID).is_in(feature_ids)
+                ).collect()
+
+                df = df.select([
+                    COL_FEATURE_ID,
+                    pl.max_horizontal("char_ngram_max_jaccard", "word_ngram_max_jaccard")
+                      .fill_null(0.0)
+                      .alias("intra_ngram_jaccard"),
+                    pl.col("semantic_similarity")
+                      .fill_null(0.0)
+                      .alias("intra_semantic_sim")
+                ]).unique(subset=[COL_FEATURE_ID])
+
+                logger.info(f"Extracted activation metrics from legacy file for {len(df)} features")
+                return df
+
+            else:
+                logger.warning("No activation data available")
+                return None
+
+        except Exception as e:
+            logger.warning(f"Failed to extract activation metrics: {e}")
             return None
 
     def _get_cache_key(

@@ -9,7 +9,8 @@
   min-height: 200px;
   display: flex;
   flex-direction: column;
-  background: var(--background-secondary, #fafafa);
+  background: #ffffff;
+  border: 1px solid #d1d5db;
   border-radius: 4px;
   overflow: hidden;
 }
@@ -80,42 +81,41 @@
   white-space: nowrap;
 }
 
-/* Chart container - holds canvas and SVG overlay */
+/* Chart container - holds SVG contours and canvas overlay */
 .umap-scatter__chart {
   position: relative;
   flex: 1;
   min-height: 0;
-  margin: 0 20px 20px 40px;  /* Match MARGIN config */
+  margin: 0 10px 10px 10px;  /* Match MARGIN config */
 }
 
-/* Canvas for points */
-.umap-scatter__canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-}
-
-/* SVG overlay for brush */
+/* SVG for contours and lasso (base layer) */
 .umap-scatter__svg {
   position: absolute;
   top: 0;
   left: 0;
-}
-
-/* Brush styling (D3 default overrides) */
-.umap-scatter__brush .selection {
-  fill: rgba(100, 100, 100, 0.15);
-  stroke: #666;
-  stroke-width: 1;
-  stroke-dasharray: 4, 2;
-}
-
-.umap-scatter__brush .handle {
-  fill: #666;
-}
-
-.umap-scatter__brush .overlay {
   cursor: crosshair;
+}
+
+/* Contour styling */
+.umap-scatter__contours path {
+  pointer-events: none;
+}
+
+/* Lasso selection paths */
+.umap-scatter__lasso,
+.umap-scatter__lasso-shadow,
+.umap-scatter__lasso-inner {
+  pointer-events: none;
+  transition: fill 0.15s ease;
+}
+
+/* Canvas for brushed points (top layer) */
+.umap-scatter__canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;  /* Allow lasso events to pass through */
 }
 
 /* Selection count badge */

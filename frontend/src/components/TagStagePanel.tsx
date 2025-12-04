@@ -23,101 +23,68 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
   // Get all stages in order
   const stages = useMemo(() => getTagCategoriesInOrder(), []);
 
-  // Get sankeyTree from left panel for color mapping
-  const sankeyTree = useVisualizationStore(state => state.leftPanel.sankeyTree);
-
-  // Get sankeyStructure for stage-based counts (segments vs nodes)
-  const sankeyStructure = useVisualizationStore(state => state.leftPanel.sankeyStructure);
-
-  // Get feature splitting counts getter for live pair-derived counts
+  // Get store getters for consistent counts with SelectionBar
   const getFeatureSplittingCounts = useVisualizationStore(state => state.getFeatureSplittingCounts);
+  const getQualityCounts = useVisualizationStore(state => state.getQualityCounts);
+
+  // Subscribe to selection states to trigger re-render when tagging changes
+  const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates);
+  const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates);
+
+  // Get sankeyStructure for threshold-filtered counts (non-selected portion)
+  const sankeyStructure = useVisualizationStore(state => state.leftPanel.sankeyStructure);
 
   // Check if threshold preview is active
   const thresholdVisualization = useVisualizationStore(state => state.thresholdVisualization);
   const isPreviewActive = thresholdVisualization?.visible ?? false;
 
-  // Calculate dynamic tag counts based on filtered features from Sankey tree
+  // Helper: Get segment counts from sankeyStructure for a stage
+  const getSegmentCounts = (stageNodeId: string): Record<string, number> => {
+    if (!sankeyStructure?.nodes) return {};
+
+    const segmentNode = sankeyStructure.nodes.find((n: any) => n.id === stageNodeId);
+    if (!segmentNode?.segments) return {};
+
+    const counts: Record<string, number> = {};
+    for (const seg of segmentNode.segments) {
+      counts[seg.tagName] = seg.featureCount || 0;
+    }
+    return counts;
+  };
+
+  // Calculate tag counts: selection states + non-selected threshold-filtered features
   const getTagCounts = (category: TagCategoryConfig): Record<string, number> => {
-    // Special case: Feature Splitting stage combines Sankey threshold + pair selection states
     if (category.id === 'feature_splitting') {
+      // Stage 1: Selection counts + Sankey segment counts for non-selected portion
       const fsCounts = getFeatureSplittingCounts();
-
-      // Get count of features below threshold from Sankey (inherently monosemantic)
-      // Structure differs based on stage: segment (active) vs node (complete)
-      let belowThresholdCount = 0;
-      if (sankeyStructure && sankeyStructure.nodes) {
-        const currentStage = sankeyStructure.currentStage || 1;
-
-        if (currentStage === 1) {
-          // Stage 1 active: look for stage1_segment with segments array
-          const segmentNode = sankeyStructure.nodes.find((n: any) => n.id === 'stage1_segment') as any;
-          if (segmentNode?.segments?.[0]) {
-            // segments[0] = Monosemantic (below threshold)
-            belowThresholdCount = segmentNode.segments[0].featureCount || 0;
-          }
-        } else {
-          // Stage 2+: look for separate monosemantic node
-          const monosematicNode = sankeyStructure.nodes.find((n: any) => n.id === 'monosemantic');
-          if (monosematicNode) {
-            belowThresholdCount = monosematicNode.featureCount || 0;
-          }
-        }
-      }
+      const segmentCounts = getSegmentCounts('stage1_segment');
 
       return {
+        // Fragmented: only selection count (sankey count would duplicate)
         'Fragmented': fsCounts.fragmented,
-        'Monosemantic': fsCounts.monosemantic + belowThresholdCount
+        // Monosemantic: selection count + sankey threshold-filtered count
+        'Monosemantic': fsCounts.monosemantic + (segmentCounts['Monosemantic'] || 0)
       };
     }
 
-    const counts: Record<string, number> = {};
+    if (category.id === 'quality') {
+      // Stage 2: Selection counts + Sankey segment counts for non-selected portion
+      const qCounts = getQualityCounts();
+      const segmentCounts = getSegmentCounts('stage2_segment');
 
-    if (!sankeyTree || sankeyTree.size === 0) {
-      // No tree available, return zeros
-      category.tags.forEach((tag) => {
-        counts[tag] = 0;
-      });
-      return counts;
+      return {
+        // Well-Explained: only selection count (sankey count would duplicate)
+        'Well-Explained': qCounts.wellExplained,
+        // Need Revision: selection count + sankey threshold-filtered count
+        'Need Revision': qCounts.needRevision + (segmentCounts['Need Revision'] || 0)
+      };
     }
 
-    const targetDepth = category.stageOrder;
-
-    category.tags.forEach((tag, tagIndex) => {
-      // Determine node suffix based on stage type
-      let nodeSuffix: string;
-      if (category.id === 'cause') {
-        // Convert tag name to snake_case
-        nodeSuffix = `_${tag.toLowerCase().replace(/\s+/g, '_')}`;
-      } else {
-        nodeSuffix = `_group${tagIndex}`;
-      }
-
-      // Find matching node in tree
-      let matchedCount = 0;
-      for (const [nodeId, node] of sankeyTree.entries()) {
-        // Check if node is at the right depth
-        if (node.depth !== targetDepth) continue;
-
-        // Check if node ID ends with the expected suffix
-        if (nodeId.endsWith(nodeSuffix)) {
-          // For stages with metrics, verify the parent's metric
-          if (category.metric && node.parentId) {
-            const parentNode = sankeyTree.get(node.parentId);
-            if (parentNode && parentNode.metric === category.metric) {
-              matchedCount = node.featureCount;
-              break;
-            }
-          } else {
-            // For pre-defined categories (like Cause)
-            matchedCount = node.featureCount;
-            break;
-          }
-        }
-      }
-
-      counts[tag] = matchedCount;
+    // Stage 3 (cause): TODO - use causeSelectionStates when implemented
+    const counts: Record<string, number> = {};
+    category.tags.forEach((tag) => {
+      counts[tag] = 0;
     });
-
     return counts;
   };
 
@@ -136,8 +103,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
   };
 
   // Compute tag counts for ALL stages (for TagFlowPanel)
-  // Note: getTagCounts is intentionally excluded from deps - it's defined inline
-  // but only depends on sankeyTree, sankeyStructure, and getFeatureSplittingCounts
+  // Combines selection states + threshold-filtered counts from Sankey
   const allTagCounts = useMemo(() => {
     const counts: Record<string, Record<string, number>> = {};
     for (const stage of stages) {
@@ -145,7 +111,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
     }
     return counts;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stages, sankeyTree, sankeyStructure, getFeatureSplittingCounts]);
+  }, [stages, getFeatureSplittingCounts, getQualityCounts, pairSelectionStates, featureSelectionStates, sankeyStructure]);
 
   // Get activateCategoryTable action from store
   const activateCategoryTable = useVisualizationStore(state => state.activateCategoryTable);

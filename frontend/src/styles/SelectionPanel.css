@@ -444,13 +444,18 @@
   min-width: 28px;
 }
 
-/* Stage 1 (pair mode) - larger top margin */
-.commit-history--pair {
+/* Stage 1 - larger top margin */
+.commit-history--stage1 {
   margin-top: 75px;
 }
 
-/* Stage 2 (feature mode) - smaller top margin */
-.commit-history--feature {
+/* Stage 2 - smaller top margin */
+.commit-history--stage2 {
+  margin-top: 40px;
+}
+
+/* Stage 3 - TODO: adjust margin as needed */
+.commit-history--stage3 {
   margin-top: 40px;
 }
 

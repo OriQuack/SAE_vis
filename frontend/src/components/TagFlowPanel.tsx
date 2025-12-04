@@ -129,8 +129,8 @@ const TagFlowPanel: React.FC<TagFlowPanelProps> = ({ tagCounts, activeStage }) =
     }
 
     // Connector 2→3: Need Revision → All Stage 3 badges
-    if (stage2[1] && stage3.length > 0) {
-      const sourceNode = stage2[1] // Need Revision is second
+    if (stage2[0] && stage3.length > 0) {
+      const sourceNode = stage2[0] // Need Revision is first
       const source = badgePositions[sourceNode.id]
 
       if (source) {

@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react'
 import { type SelectionCategory } from '../lib/constants'
-import { getSelectionColors, STRIPE_PATTERN, type TableMode } from '../lib/color-utils'
+import { getSelectionColors, STRIPE_PATTERN, type TableStage } from '../lib/color-utils'
 import '../styles/SelectionBar.css'
 
 export interface CategoryCounts {
@@ -22,11 +22,11 @@ interface SelectionStateBarProps {
   showLabels?: boolean  // Default: true
   showLegend?: boolean  // Default: true
   labelThreshold?: number  // Default: 10% - minimum percentage to show label
-  mode?: TableMode  // Mode determines labels/colors (default: 'feature')
+  stage?: TableStage  // Stage determines labels/colors (default: 'stage2')
   categoryColors?: Partial<Record<SelectionCategory, string>>  // Optional: override colors dynamically
   className?: string
   onCategoryRefsReady?: (refs: Map<SelectionCategory, HTMLDivElement>) => void  // Callback for exposing refs
-  pairCount?: number  // Optional: number of pairs (for pair mode, shown as secondary info)
+  pairCount?: number  // Optional: number of pairs (for stage1, shown as secondary info)
 }
 
 /**
@@ -50,7 +50,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   showLabels = true,
   showLegend = true,
   labelThreshold = 2,
-  mode = 'feature',
+  stage = 'stage2',
   categoryColors,
   className = '',
   onCategoryRefsReady,
@@ -75,61 +75,61 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
     }
   }, [onCategoryRefsReady, counts])
 
-  // Get mode-specific colors from tag system
-  const modeColors = useMemo(() => getSelectionColors(mode), [mode])
+  // Get stage-specific colors from tag system
+  const stageColors = useMemo(() => getSelectionColors(stage), [stage])
 
-  // Generate category config dynamically based on mode
+  // Generate category config dynamically based on stage
   const categoryConfig = useMemo((): Record<SelectionCategory, { label: string; color: string; description: string }> => {
-    // Mode-specific tag names
+    // Stage-specific tag names
     const tagNames = {
-      feature: {
-        confirmed: 'Well-Explained',
-        rejected: 'Need Revision'
-      },
-      pair: {
+      stage1: {
         confirmed: 'Fragmented',
         rejected: 'Monosemantic'
       },
-      cause: {
-        // TODO: Implement cause mode tag mapping
+      stage2: {
+        confirmed: 'Well-Explained',
+        rejected: 'Need Revision'
+      },
+      stage3: {
+        // TODO: Implement stage 3 tag mapping
         // Available tags: "Missed Context", "Missed N-gram", "Noisy Activation"
         confirmed: 'TBD',
         rejected: 'TBD'
       }
     }
 
-    const currentTags = tagNames[mode]
+    const currentTags = tagNames[stage]
 
     return {
       confirmed: {
         label: currentTags.confirmed,
-        color: modeColors.confirmed,
+        color: stageColors.confirmed,
         description: 'Manually selected by user'
       },
       expanded: {
         label: `${currentTags.confirmed} (auto)`,
-        color: modeColors.expanded,
+        color: stageColors.expanded,
         description: 'Auto-tagged by histogram thresholds'
       },
       rejected: {
         label: currentTags.rejected,
-        color: modeColors.rejected,
+        color: stageColors.rejected,
         description: 'Manually selected by user'
       },
       autoRejected: {
         label: `${currentTags.rejected} (auto)`,
-        color: modeColors.autoRejected,
+        color: stageColors.autoRejected,
         description: 'Auto-tagged by histogram thresholds'
       },
       unsure: {
         label: 'Unsure',
-        color: modeColors.unsure,
+        color: stageColors.unsure,
         description: 'Not selected or investigated'
       }
     }
-  }, [mode, modeColors])
+  }, [stage, stageColors])
 
-  // Get final color for a category (use provided override or mode-specific color)
+  // Get final color for a category (use provided override or stage-specific color)
   const getColor = (category: SelectionCategory): string => {
     return categoryColors?.[category] || categoryConfig[category].color
   }
@@ -254,13 +254,13 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
               // For auto-tagged segments: stripes of category color with unsure-colored gaps
               // For manual segments: solid category color
               backgroundColor: (category === 'expanded' || category === 'autoRejected')
-                ? modeColors.unsure
+                ? stageColors.unsure
                 : getColor(category),
               ...((category === 'expanded' || category === 'autoRejected') ? {
                 backgroundImage: `repeating-linear-gradient(
                   ${STRIPE_PATTERN.rotation}deg,
-                  ${modeColors.unsure},
-                  ${modeColors.unsure} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
+                  ${stageColors.unsure},
+                  ${stageColors.unsure} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
                   ${getColor(category)} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
                   ${getColor(category)} ${STRIPE_PATTERN.width}px
                 )`
@@ -285,8 +285,8 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
       if ((category === 'expanded' || category === 'autoRejected') && previewChangeValue > 0 && previewChanges) {
         const stripePercentage = (previewChangeValue / counts.total) * 100
         const stripeColor = category === 'expanded'
-          ? modeColors.expanded
-          : modeColors.autoRejected
+          ? stageColors.expanded
+          : stageColors.autoRejected
 
         segments.push(
           <div
@@ -304,11 +304,11 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
               } : {
                 width: `${stripePercentage}%`
               }),
-              backgroundColor: modeColors.unsure,
+              backgroundColor: stageColors.unsure,
               backgroundImage: `repeating-linear-gradient(
                 ${STRIPE_PATTERN.rotation}deg,
-                ${modeColors.unsure},
-                ${modeColors.unsure} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
+                ${stageColors.unsure},
+                ${stageColors.unsure} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
                 ${stripeColor} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
                 ${stripeColor} ${STRIPE_PATTERN.width}px
               )`,
@@ -348,9 +348,9 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
         <div className="selection-state-bar__header">
           <div className="selection-state-bar__total">
             <div className="selection-state-bar__total-primary">
-              {counts.total.toLocaleString()} {mode === 'cause' ? 'items' : 'Features'}
+              {counts.total.toLocaleString()} Features
             </div>
-            {mode === 'pair' && pairCount !== undefined && (
+            {stage === 'stage1' && pairCount !== undefined && (
               <div className="selection-state-bar__total-secondary">
                 ({pairCount.toLocaleString()} Pairs)
               </div>

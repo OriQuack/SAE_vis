@@ -1,16 +1,26 @@
-import React, { useMemo, useEffect } from 'react'
+import React, { useMemo, useEffect, useCallback } from 'react'
 import { useVisualizationStore } from '../store/index'
 import type { SelectionCategory } from '../types'
 import SelectionPanel from './SelectionPanel'
 import UMAPScatter from './UMAPScatter'
-import { TAG_CATEGORY_QUALITY } from '../lib/constants'
+import { ScrollableItemList } from './ScrollableItemList'
+import { TagBadge } from './Indicators'
+import { TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
+import type { CauseCategory } from '../lib/umap-utils'
 import '../styles/CauseView.css'
 
 // ============================================================================
 // CAUSE VIEW - Root cause analysis workflow (Stage 3)
 // ============================================================================
-// Layout: [SelectionPanel bar] | [Content: placeholder]
+// Layout: [SelectionPanel bar] | [Content: UMAP + Selected Features List]
+
+// Map CauseCategory to display tag names
+const CAUSE_TAG_NAMES: Record<CauseCategory, string> = {
+  'noisy-activation': 'Noisy Activation',
+  'missed-lexicon': 'Missed Lexicon',
+  'missed-context': 'Missed Context'
+}
 
 interface CauseViewProps {
   className?: string
@@ -36,6 +46,9 @@ const CauseView: React.FC<CauseViewProps> = ({
   const restoreCauseSelectionStates = useVisualizationStore(state => state.restoreCauseSelectionStates)
   const causeSelectionStates = useVisualizationStore(state => state.causeSelectionStates)
   const causeSelectionSources = useVisualizationStore(state => state.causeSelectionSources)
+
+  // UMAP brushed features
+  const umapBrushedFeatureIds = useVisualizationStore(state => state.umapBrushedFeatureIds)
 
   // ============================================================================
   // STAGE 3 REVISITING - Restore state when returning from Stage 4+
@@ -88,6 +101,31 @@ const CauseView: React.FC<CauseViewProps> = ({
   // Get tag color for header badge (Need Revision - parent tag from Stage 2)
   const needRevisionColor = getTagColor(TAG_CATEGORY_QUALITY, 'Need Revision') || '#9ca3af'
 
+  // Convert brushed feature IDs to array for ScrollableItemList
+  const brushedFeatureList = useMemo(() => {
+    return Array.from(umapBrushedFeatureIds)
+  }, [umapBrushedFeatureIds])
+
+  // Render feature item for ScrollableItemList (same style as QualityView)
+  const renderFeatureItem = useCallback((featureId: number) => {
+    const causeCategory = causeSelectionStates.get(featureId)
+
+    // Map cause category to tag name
+    let tagName = 'Unsure'
+    if (causeCategory) {
+      tagName = CAUSE_TAG_NAMES[causeCategory] || 'Unsure'
+    }
+
+    return (
+      <TagBadge
+        featureId={featureId}
+        tagName={tagName}
+        tagCategoryId={TAG_CATEGORY_CAUSE}
+        fullWidth={true}
+      />
+    )
+  }, [causeSelectionStates])
+
   // ============================================================================
   // RENDER
   // ============================================================================
@@ -111,19 +149,29 @@ const CauseView: React.FC<CauseViewProps> = ({
       {/* Body: SelectionPanel + Content area */}
       <div className="cause-view__body">
         {/* Left column: SelectionPanel vertical bar */}
+        {/* TODO: Stage 3 selection panel implementation */}
         <SelectionPanel
-          mode="feature"
-          tagLabel="Cause"
+          stage="stage3"
           onCategoryRefsReady={onCategoryRefsReady}
           filteredFeatureIds={selectedFeatureIds || undefined}
         />
 
-        {/* Right column: UMAP Scatter content */}
+        {/* Right column: UMAP + Selected features list */}
         <div className="cause-view__content">
-          <UMAPScatter
-            featureIds={selectedFeatureIds ? Array.from(selectedFeatureIds) : []}
-            className="cause-view__umap"
-          />
+          <div className="cause-view__umap-section">
+            <UMAPScatter
+              featureIds={selectedFeatureIds ? Array.from(selectedFeatureIds) : []}
+              width={500}
+              height={500}
+            />
+            <ScrollableItemList
+              badges={[{ label: 'Selected', count: brushedFeatureList.length }]}
+              items={brushedFeatureList}
+              renderItem={renderFeatureItem}
+              width={200}
+              height={500}
+            />
+          </div>
         </div>
       </div>
     </div>

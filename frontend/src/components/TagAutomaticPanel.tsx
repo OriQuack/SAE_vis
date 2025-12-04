@@ -54,8 +54,11 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
   const pairSelectionSources = useVisualizationStore(state => state.pairSelectionSources)
 
-  // Get mode-specific colors
-  const modeColors = useMemo(() => getSelectionColors(mode), [mode])
+  // Get mode-specific colors (map mode to stage: 'pair' -> 'stage1', 'feature' -> 'stage2')
+  const modeColors = useMemo(() => {
+    const stage = mode === 'pair' ? 'stage1' : 'stage2'
+    return getSelectionColors(stage)
+  }, [mode])
 
   // Get mode-specific labels for threshold display
   const modeLabels = useMemo(() => {

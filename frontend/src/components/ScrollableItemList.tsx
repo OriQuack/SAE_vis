@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { getSelectionColors, STRIPE_PATTERN, type TableMode } from '../lib/color-utils'
+import { getSelectionColors, STRIPE_PATTERN, type TableStage } from '../lib/color-utils'
 import '../styles/ScrollableItemList.css'
 
 // ============================================================================
@@ -36,7 +36,7 @@ interface ColumnHeader {
 
 interface HeaderStripe {
   type: 'expand' | 'autoReject'
-  mode?: TableMode
+  mode?: 'pair' | 'feature'  // Maps to stage1 (pair) or stage2 (feature)
 }
 
 // Optional sort config for automatic inline score display
@@ -108,8 +108,10 @@ export function ScrollableItemList<T = any>({
   // Get stripe style for header based on mode (CSS gradient approach)
   const headerStripeStyle = useMemo(() => {
     if (!headerStripe) return undefined
+    // Map mode to stage: 'pair' -> 'stage1', 'feature' -> 'stage2'
     const mode = headerStripe.mode || 'pair'
-    const colors = getSelectionColors(mode)
+    const stage: TableStage = mode === 'pair' ? 'stage1' : 'stage2'
+    const colors = getSelectionColors(stage)
     const tagColor = headerStripe.type === 'expand' ? colors.expanded : colors.autoRejected
     const gapColor = colors.unsure
     return {

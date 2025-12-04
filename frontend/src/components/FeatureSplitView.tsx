@@ -859,10 +859,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       <div className="feature-split-view__body">
         {/* Left column: SelectionPanel vertical bar (full height) */}
         <SelectionPanel
-          mode="pair"
-          tagLabel="Feature Splitting"
+          stage="stage1"
           onCategoryRefsReady={onCategoryRefsReady}
-          availablePairs={pairList}
           filteredFeatureIds={selectedFeatureIds || undefined}
           commitHistory={tagCommitHistory}
           currentCommitIndex={currentCommitIndex}

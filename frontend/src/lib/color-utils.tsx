@@ -81,12 +81,12 @@ export function getMetricBaseColor(metric: string): string {
 // ============================================================================
 
 /**
- * Get mode-specific selection colors based on tag colors
+ * Get stage-specific selection colors based on tag colors
  *
- * @param mode - The table mode (feature/pair/cause)
+ * @param stage - The stage ('stage1' | 'stage2' | 'stage3')
  * @returns Object mapping selection categories to hex colors
  */
-export function getSelectionColors(mode: TableMode): {
+export function getSelectionColors(stage: TableStage): {
   confirmed: string
   expanded: string
   rejected: string
@@ -94,18 +94,8 @@ export function getSelectionColors(mode: TableMode): {
   unsure: string
 } {
 
-  if (mode === 'feature') {
-    // Quality Assessment stage
-    const colors = getBadgeColors(TAG_CATEGORY_QUALITY)
-    return {
-      confirmed: colors['Well-Explained'] || '#009E73',      // Green
-      expanded: colors['Well-Explained'] || '#009E73',       // Green (stripe added in render)
-      rejected: colors['Need Revision'] || '#999999',        // Gray
-      autoRejected: colors['Need Revision'] || '#999999',    // Gray (stripe added in render)
-      unsure: UNSURE_GRAY
-    }
-  } else if (mode === 'pair') {
-    // Feature Splitting stage
+  if (stage === 'stage1') {
+    // Stage 1: Feature Splitting (pairs)
     const colors = getBadgeColors(TAG_CATEGORY_FEATURE_SPLITTING)
     return {
       confirmed: colors['Fragmented'] || '#F0E442',          // Yellow
@@ -114,8 +104,18 @@ export function getSelectionColors(mode: TableMode): {
       autoRejected: colors['Monosemantic'] || '#999999',     // Gray (stripe added in render)
       unsure: UNSURE_GRAY
     }
+  } else if (stage === 'stage2') {
+    // Stage 2: Quality Assessment (features)
+    const colors = getBadgeColors(TAG_CATEGORY_QUALITY)
+    return {
+      confirmed: colors['Well-Explained'] || '#009E73',      // Green
+      expanded: colors['Well-Explained'] || '#009E73',       // Green (stripe added in render)
+      rejected: colors['Need Revision'] || '#999999',        // Gray
+      autoRejected: colors['Need Revision'] || '#999999',    // Gray (stripe added in render)
+      unsure: UNSURE_GRAY
+    }
   } else {
-    // Cause Analysis stage - 3 cause categories
+    // Stage 3: Cause Analysis - TODO: implement stage 3 colors
     const colors = getBadgeColors(TAG_CATEGORY_CAUSE)
     return {
       confirmed: colors['Noisy Activation'] || '#CC79A7',    // Purple
@@ -132,9 +132,17 @@ export function getSelectionColors(mode: TableMode): {
 // ============================================================================
 
 /**
- * Table mode types
+ * Table stage types
+ * - stage1: Feature Splitting (pairs)
+ * - stage2: Quality Assessment (features)
+ * - stage3: Cause Analysis (features) - TODO
  */
-export type TableMode = 'feature' | 'pair' | 'cause'
+export type TableStage = 'stage1' | 'stage2' | 'stage3'
+
+/**
+ * @deprecated Use TableStage instead
+ */
+export type TableMode = TableStage
 
 /**
  * Selection state types
@@ -147,26 +155,26 @@ export type SelectionState = 'selected' | 'rejected' | null | undefined
 export type SelectionSource = 'manual' | 'auto' | null | undefined
 
 /**
- * Get row background color based on selection state and source using mode-specific tag colors
+ * Get row background color based on selection state and source using stage-specific tag colors
  *
  * Color Rules:
- * - Confirmed (manual selected): Mode-specific confirmed color (tag color)
- * - Expanded (auto selected): Mode-specific expanded color (same as confirmed, stripe added via CSS)
- * - Rejected (manual rejected): Mode-specific rejected color (tag color)
- * - Auto-Rejected: Mode-specific auto-rejected color (same as rejected, stripe added via CSS)
+ * - Confirmed (manual selected): Stage-specific confirmed color (tag color)
+ * - Expanded (auto selected): Stage-specific expanded color (same as confirmed, stripe added via CSS)
+ * - Rejected (manual rejected): Stage-specific rejected color (tag color)
+ * - Auto-Rejected: Stage-specific auto-rejected color (same as rejected, stripe added via CSS)
  * - Unsure: null (no background color)
  *
  * @param selectionState - The selection state ('selected', 'rejected', or null)
  * @param selectionSource - The source ('manual', 'auto', or null)
- * @param mode - The table mode ('feature', 'pair', or 'cause')
+ * @param stage - The table stage ('stage1', 'stage2', or 'stage3')
  * @returns The hex color string or null if unsure
  */
 export function getRowBackgroundColor(
   selectionState: SelectionState,
   selectionSource: SelectionSource,
-  mode: TableMode
+  stage: TableStage
 ): string | null {
-  const colors = getSelectionColors(mode)
+  const colors = getSelectionColors(stage)
 
   if (selectionState === 'selected') {
     // Manual or auto selected
