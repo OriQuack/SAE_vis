@@ -471,6 +471,20 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     return result
   }, [pairList, tagAutomaticState, pairSimilarityScores, allClusterPairs, filteredTableData, selectedFeatureIds])
 
+  // Create Sets of preview pair keys (items in threshold regions that will be auto-tagged)
+  // Separate sets to know which direction they'll be tagged
+  const previewRejectKeys = useMemo(() => {
+    const keys = new Set<string>()
+    boundaryItems.rejectBelow.forEach(p => keys.add(p.pairKey))
+    return keys
+  }, [boundaryItems.rejectBelow])
+
+  const previewSelectKeys = useMemo(() => {
+    const keys = new Set<string>()
+    boundaryItems.selectAbove.forEach(p => keys.add(p.pairKey))
+    return keys
+  }, [boundaryItems.selectAbove])
+
   // Get tag color for header badge
   const fragmentedColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Fragmented') || '#F0E442'
 
@@ -883,6 +897,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               setCurrentPairIndex(0)
               setActiveListSource('all')
             }}
+            previewRejectKeys={previewRejectKeys}
+            previewSelectKeys={previewSelectKeys}
             allPairsListProps={{
               currentPagePairs,
               totalPairCount: pairList.length,

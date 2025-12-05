@@ -455,6 +455,20 @@ const QualityView: React.FC<QualityViewProps> = ({
     return result
   }, [featureList, tagAutomaticState, similarityScores])
 
+  // Create Sets of preview feature IDs (items in threshold regions that will be auto-tagged)
+  // Separate sets to know which direction they'll be tagged
+  const previewRejectIds = useMemo(() => {
+    const ids = new Set<number>()
+    boundaryItems.rejectBelow.forEach(f => ids.add(f.featureId))
+    return ids
+  }, [boundaryItems.rejectBelow])
+
+  const previewSelectIds = useMemo(() => {
+    const ids = new Set<number>()
+    boundaryItems.selectAbove.forEach(f => ids.add(f.featureId))
+    return ids
+  }, [boundaryItems.selectAbove])
+
   // Get tag colors for header badge and buttons
   const wellExplainedColor = getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#4CAF50'
   const needRevisionColor = getTagColor(TAG_CATEGORY_QUALITY, 'Need Revision') || UNSURE_GRAY
@@ -568,14 +582,26 @@ const QualityView: React.FC<QualityViewProps> = ({
   // Score display is handled by ScrollableItemList's sortConfig
   const renderFeatureItem = useCallback((feature: typeof featureList[0], index: number) => {
     const selectionState = featureSelectionStates.get(feature.featureId)
+    const isAutoSource = featureSelectionSources.get(feature.featureId) === 'auto'
+    const inPreviewReject = previewRejectIds.has(feature.featureId)
+    const inPreviewSelect = previewSelectIds.has(feature.featureId)
 
-    // Determine tag name based on selection state
+    // Determine tag name based on selection state OR preview state
     let tagName = 'Unsure'
     if (selectionState === 'selected') {
       tagName = 'Well-Explained'
     } else if (selectionState === 'rejected') {
       tagName = 'Need Revision'
+    } else if (inPreviewSelect) {
+      // Preview: will be selected → Well-Explained
+      tagName = 'Well-Explained'
+    } else if (inPreviewReject) {
+      // Preview: will be rejected → Need Revision
+      tagName = 'Need Revision'
     }
+
+    // Show stripe for: already auto-tagged OR in preview threshold regions
+    const isAutoOrPreview = isAutoSource || inPreviewReject || inPreviewSelect
 
     return (
       <TagBadge
@@ -584,9 +610,10 @@ const QualityView: React.FC<QualityViewProps> = ({
         tagCategoryId={TAG_CATEGORY_QUALITY}
         onClick={() => handleFeatureListClick(index)}
         fullWidth={true}
+        isAuto={isAutoOrPreview}
       />
     )
-  }, [featureSelectionStates, handleFeatureListClick])
+  }, [featureSelectionStates, featureSelectionSources, previewRejectIds, previewSelectIds, handleFeatureListClick])
 
   const handleBoundaryListClick = useCallback((listType: 'left' | 'right', index: number) => {
     const items = listType === 'left' ? boundaryItems.rejectBelow : boundaryItems.selectAbove

@@ -155,7 +155,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     // Fetch based on mode
     if (useDecisionSpace) {
       if (canUseDecisionSpace) {
-        fetchDecisionFunctionUmap(featureIds, manualCauseSelections, { nNeighbors: 15, minDist: 0.1 })
+        fetchDecisionFunctionUmap(featureIds, manualCauseSelections, { nNeighbors: 50, minDist: 0.3 })
       }
       // If can't use decision space, don't clear - let the warning show
     } else {

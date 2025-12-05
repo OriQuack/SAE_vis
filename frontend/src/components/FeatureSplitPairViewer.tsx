@@ -86,6 +86,10 @@ interface FeatureSplitPairViewerProps {
   isLoading?: boolean  // Whether similarity scores are being calculated
   onResetToFirstPair?: () => void  // Callback to reset to page 1, first pair
 
+  // Preview pair keys (items in threshold regions that will be auto-tagged)
+  previewRejectKeys?: Set<string>  // Will be rejected → Monosemantic
+  previewSelectKeys?: Set<string>  // Will be selected → Fragmented
+
   // ScrollableItemList props for "All Pairs" list
   allPairsListProps?: {
     currentPagePairs: Array<PairData>
@@ -116,12 +120,15 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   sortMode = 'default',
   isLoading = false,
   onResetToFirstPair,
+  previewRejectKeys,
+  previewSelectKeys,
   allPairsListProps
 }) => {
   // Constants - must match FeatureSplitView.tsx
   const PAIRS_PER_PAGE = 10
   // Store state
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
+  const pairSelectionSources = useVisualizationStore(state => state.pairSelectionSources)
   const togglePairSelection = useVisualizationStore(state => state.togglePairSelection)
   const activationExamples = useVisualizationStore(state => state.activationExamples)
   const tableData = useVisualizationStore(state => state.tableData)
@@ -285,17 +292,29 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
           sortConfig={{ getDisplayScore: allPairsListProps.getDisplayScore }}
           renderItem={(pair: PairData, index: number) => {
             const selectionState = pairSelectionStates.get(pair.pairKey) || null
+            const isAutoSource = pairSelectionSources.get(pair.pairKey) === 'auto'
+            const inPreviewReject = previewRejectKeys?.has(pair.pairKey)
+            const inPreviewSelect = previewSelectKeys?.has(pair.pairKey)
 
-            // Map selection state to tag name
+            // Determine tag name based on selection state OR preview state
             let tagName = 'Unsure'
             if (selectionState === 'selected') {
               tagName = 'Fragmented'
             } else if (selectionState === 'rejected') {
               tagName = 'Monosemantic'
+            } else if (inPreviewSelect) {
+              // Preview: will be selected → Fragmented
+              tagName = 'Fragmented'
+            } else if (inPreviewReject) {
+              // Preview: will be rejected → Monosemantic
+              tagName = 'Monosemantic'
             }
 
             // Format pair ID as string for TagBadge
             const pairIdString = `${pair.mainFeatureId}-${pair.similarFeatureId}`
+
+            // Show stripe for: already auto-tagged OR in preview threshold regions
+            const isAutoOrPreview = isAutoSource || inPreviewReject || inPreviewSelect
 
             return (
               <TagBadge
@@ -304,6 +323,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
                 tagCategoryId={TAG_CATEGORY_FEATURE_SPLITTING}
                 onClick={() => allPairsListProps.onItemClick(index)}
                 fullWidth={true}
+                isAuto={isAutoOrPreview}
               />
             )
           }}

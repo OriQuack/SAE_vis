@@ -88,7 +88,7 @@ export function getMetricBaseColor(metric: string): string {
  */
 export function getSelectionColors(stage: TableStage): {
   confirmed: string
-  expanded: string
+  autoSelected: string
   rejected: string
   autoRejected: string
   unsure: string
@@ -99,7 +99,7 @@ export function getSelectionColors(stage: TableStage): {
     const colors = getBadgeColors(TAG_CATEGORY_FEATURE_SPLITTING)
     return {
       confirmed: colors['Fragmented'] || '#F0E442',          // Yellow
-      expanded: colors['Fragmented'] || '#F0E442',           // Yellow (stripe added in render)
+      autoSelected: colors['Fragmented'] || '#F0E442',       // Yellow (stripe added in render)
       rejected: colors['Monosemantic'] || '#999999',         // Gray
       autoRejected: colors['Monosemantic'] || '#999999',     // Gray (stripe added in render)
       unsure: UNSURE_GRAY
@@ -109,7 +109,7 @@ export function getSelectionColors(stage: TableStage): {
     const colors = getBadgeColors(TAG_CATEGORY_QUALITY)
     return {
       confirmed: colors['Well-Explained'] || '#009E73',      // Green
-      expanded: colors['Well-Explained'] || '#009E73',       // Green (stripe added in render)
+      autoSelected: colors['Well-Explained'] || '#009E73',   // Green (stripe added in render)
       rejected: colors['Need Revision'] || '#999999',        // Gray
       autoRejected: colors['Need Revision'] || '#999999',    // Gray (stripe added in render)
       unsure: UNSURE_GRAY
@@ -119,7 +119,7 @@ export function getSelectionColors(stage: TableStage): {
     const colors = getBadgeColors(TAG_CATEGORY_CAUSE)
     return {
       confirmed: colors['Noisy Activation'] || '#CC79A7',    // Purple
-      expanded: colors['Missed N-gram'] || '#E69F00',       // Orange
+      autoSelected: colors['Missed N-gram'] || '#E69F00',    // Orange (stripe added in render)
       rejected: colors['Missed Context'] || '#D55E00',       // Vermillion
       autoRejected: colors['Missed Context'] || '#D55E00',   // Vermillion
       unsure: UNSURE_GRAY
@@ -159,7 +159,7 @@ export type SelectionSource = 'manual' | 'auto' | null | undefined
  *
  * Color Rules:
  * - Confirmed (manual selected): Stage-specific confirmed color (tag color)
- * - Expanded (auto selected): Stage-specific expanded color (same as confirmed, stripe added via CSS)
+ * - AutoSelected (auto selected): Stage-specific autoSelected color (same as confirmed, stripe added via CSS)
  * - Rejected (manual rejected): Stage-specific rejected color (tag color)
  * - Auto-Rejected: Stage-specific auto-rejected color (same as rejected, stripe added via CSS)
  * - Unsure: null (no background color)
@@ -179,7 +179,7 @@ export function getRowBackgroundColor(
   if (selectionState === 'selected') {
     // Manual or auto selected
     if (selectionSource === 'auto') {
-      return colors.expanded
+      return colors.autoSelected
     } else {
       return colors.confirmed
     }
@@ -253,7 +253,7 @@ export function getRowCategoryClass(
 ): string {
   if (selectionState === 'selected') {
     return selectionSource === 'auto'
-      ? 'table-panel__sub-row--expanded'
+      ? 'table-panel__sub-row--autoSelected'
       : 'table-panel__sub-row--confirmed'
   } else if (selectionState === 'rejected') {
     return selectionSource === 'auto'

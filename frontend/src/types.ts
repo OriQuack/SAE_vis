@@ -710,8 +710,13 @@ export interface SankeySegmentSelection {
 
 /**
  * Selection Category Type - Categories in the SelectionBar
+ * - confirmed: manually selected
+ * - autoSelected: auto-selected via threshold (preview only, becomes manual after Apply)
+ * - rejected: manually rejected
+ * - autoRejected: auto-rejected via threshold (preview only, becomes manual after Apply)
+ * - unsure: not tagged
  */
-export type SelectionCategory = 'confirmed' | 'expanded' | 'rejected' | 'autoRejected' | 'unsure'
+export type SelectionCategory = 'confirmed' | 'autoSelected' | 'rejected' | 'autoRejected' | 'unsure'
 
 /**
  * Sankey To Selection Flow - Represents a flow from a Sankey segment to a SelectionBar category

@@ -1,13 +1,28 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react'
-import { type SelectionCategory } from '../lib/constants'
+import { type SelectionCategory, TAG_CATEGORY_CAUSE } from '../lib/constants'
 import { getSelectionColors, STRIPE_PATTERN, type TableStage } from '../lib/color-utils'
+import { getTagColor } from '../lib/tag-system'
 import '../styles/SelectionBar.css'
 
 export interface CategoryCounts {
   confirmed: number
-  expanded: number
+  autoSelected: number
   rejected: number
   autoRejected: number
+  unsure: number
+  total: number
+}
+
+// Stage 3 (Cause) has 4 distinct categories + unsure
+export interface CauseCategoryCounts {
+  noisyActivation: number
+  noisyActivationAuto: number
+  missedNgram: number
+  missedNgramAuto: number
+  missedContext: number
+  missedContextAuto: number
+  wellExplained: number
+  wellExplainedAuto: number
   unsure: number
   total: number
 }
@@ -15,6 +30,7 @@ export interface CategoryCounts {
 interface SelectionStateBarProps {
   counts: CategoryCounts
   previewCounts?: CategoryCounts  // Optional: preview state after changes
+  causeCounts?: CauseCategoryCounts  // Optional: Stage 3 cause-specific counts
   onCategoryClick?: (category: SelectionCategory) => void
   orientation?: 'horizontal' | 'vertical'  // Default: 'horizontal'
   height?: number | string  // For horizontal: height in px (default: 24). For vertical: height in px (default: 200)
@@ -33,7 +49,7 @@ interface SelectionStateBarProps {
  * SelectionStateBar - Stacked bar showing distribution of selection categories
  *
  * Features:
- * - Displays 4 categories (confirmed, expanded, rejected, unsure) with proportional widths/heights
+ * - Displays 5 categories (confirmed, autoSelected, rejected, autoRejected, unsure) with proportional widths/heights
  * - Supports both horizontal and vertical orientations
  * - Optional preview state with stripe pattern overlay
  * - Interactive click handling (optional)
@@ -43,6 +59,7 @@ interface SelectionStateBarProps {
 const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   counts,
   previewCounts,
+  causeCounts,
   onCategoryClick,
   orientation = 'horizontal',
   height,
@@ -67,6 +84,17 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   // Tooltip state
   const [hoveredCategory, setHoveredCategory] = useState<SelectionCategory | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
+
+  // Cause tooltip state (for stage 3)
+  const [hoveredCauseSegment, setHoveredCauseSegment] = useState<{
+    key: string
+    label: string
+    count: number
+    percentage: number
+    isAuto: boolean
+    color: string
+  } | null>(null)
+  const [causeTooltipPosition, setCauseTooltipPosition] = useState<{ x: number; y: number } | null>(null)
 
   // Notify parent when refs are ready
   useEffect(() => {
@@ -106,9 +134,9 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
         color: stageColors.confirmed,
         description: 'Manually selected by user'
       },
-      expanded: {
+      autoSelected: {
         label: `${currentTags.confirmed} (auto)`,
-        color: stageColors.expanded,
+        color: stageColors.autoSelected,
         description: 'Auto-tagged by histogram thresholds'
       },
       rejected: {
@@ -136,11 +164,11 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   // Calculate percentages for current state
   const percentages = useMemo(() => {
     if (counts.total === 0) {
-      return { confirmed: 0, expanded: 0, rejected: 0, autoRejected: 0, unsure: 100 }
+      return { confirmed: 0, autoSelected: 0, rejected: 0, autoRejected: 0, unsure: 100 }
     }
     return {
       confirmed: (counts.confirmed / counts.total) * 100,
-      expanded: (counts.expanded / counts.total) * 100,
+      autoSelected: (counts.autoSelected / counts.total) * 100,
       rejected: (counts.rejected / counts.total) * 100,
       autoRejected: (counts.autoRejected / counts.total) * 100,
       unsure: (counts.unsure / counts.total) * 100
@@ -153,7 +181,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
 
     return {
       confirmed: previewCounts.confirmed - counts.confirmed,
-      expanded: previewCounts.expanded - counts.expanded,
+      autoSelected: previewCounts.autoSelected - counts.autoSelected,
       rejected: previewCounts.rejected - counts.rejected,
       autoRejected: previewCounts.autoRejected - counts.autoRejected,
       unsure: previewCounts.unsure - counts.unsure
@@ -193,21 +221,41 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
     setTooltipPosition(null)
   }
 
+  // Cause segment hover handlers
+  const handleCauseMouseEnter = (
+    segmentInfo: { key: string; label: string; count: number; percentage: number; isAuto: boolean; color: string },
+    event: React.MouseEvent<HTMLDivElement>
+  ) => {
+    setHoveredCauseSegment(segmentInfo)
+    setCauseTooltipPosition({ x: event.clientX, y: event.clientY })
+  }
+
+  const handleCauseMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (hoveredCauseSegment) {
+      setCauseTooltipPosition({ x: event.clientX, y: event.clientY })
+    }
+  }
+
+  const handleCauseMouseLeave = () => {
+    setHoveredCauseSegment(null)
+    setCauseTooltipPosition(null)
+  }
+
   // Render segments with specific order (uses preview counts when available)
   const renderSegments = () => {
     const segments: React.ReactNode[] = []
 
-    // Define rendering order: rejected → autoRejected → unsure → expanded → confirmed
+    // Define rendering order: rejected → autoRejected → unsure → autoSelected → confirmed
     // This creates visual grouping: False Positive (left/top) | Neutral (center) | True Positive (right/bottom)
     // For pair mode: Monosemantic → Monosemantic(auto) → Unsure → Fragmented(auto) → Fragmented
-    const categoryOrder: SelectionCategory[] = ['rejected', 'autoRejected', 'unsure', 'expanded', 'confirmed']
+    const categoryOrder: SelectionCategory[] = ['rejected', 'autoRejected', 'unsure', 'autoSelected', 'confirmed']
 
     categoryOrder.forEach((category) => {
       const count = getCategoryValue(category, counts)
       const config = categoryConfig[category]
 
-      // Skip if count is 0 (but still may render preview stripe for expanded/autoRejected)
-      if (count === 0 && category !== 'expanded' && category !== 'autoRejected') {
+      // Skip if count is 0 (but still may render preview stripe for autoSelected/autoRejected)
+      if (count === 0 && category !== 'autoSelected' && category !== 'autoRejected') {
         return
       }
 
@@ -215,7 +263,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
       let percentage = getCategoryValue(category, percentages)
       const previewChangeValue = previewChanges ? getCategoryValue(category, previewChanges) : 0
 
-      // For unsure, reduce width by items leaving (moving to expanded/autoRejected)
+      // For unsure, reduce width by items leaving (moving to autoSelected/autoRejected)
       if (category === 'unsure' && previewChanges) {
         const unsurePreviewCount = previewCounts ? getCategoryValue('unsure', previewCounts) : count
         percentage = counts.total > 0 ? (unsurePreviewCount / counts.total) * 100 : 0
@@ -253,10 +301,10 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
               }),
               // For auto-tagged segments: stripes of category color with unsure-colored gaps
               // For manual segments: solid category color
-              backgroundColor: (category === 'expanded' || category === 'autoRejected')
+              backgroundColor: (category === 'autoSelected' || category === 'autoRejected')
                 ? stageColors.unsure
                 : getColor(category),
-              ...((category === 'expanded' || category === 'autoRejected') ? {
+              ...((category === 'autoSelected' || category === 'autoRejected') ? {
                 backgroundImage: `repeating-linear-gradient(
                   ${STRIPE_PATTERN.rotation}deg,
                   ${stageColors.unsure},
@@ -281,11 +329,11 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
         )
       }
 
-      // Render adjacent stripe preview for expanded and autoRejected if items are entering
-      if ((category === 'expanded' || category === 'autoRejected') && previewChangeValue > 0 && previewChanges) {
+      // Render adjacent stripe preview for autoSelected and autoRejected if items are entering
+      if ((category === 'autoSelected' || category === 'autoRejected') && previewChangeValue > 0 && previewChanges) {
         const stripePercentage = (previewChangeValue / counts.total) * 100
-        const stripeColor = category === 'expanded'
-          ? stageColors.expanded
+        const stripeColor = category === 'autoSelected'
+          ? stageColors.autoSelected
           : stageColors.autoRejected
 
         segments.push(
@@ -333,6 +381,141 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
     return segments
   }
 
+  // Render segments for Stage 3 (Cause) - 4 distinct categories + unsure
+  const renderCauseSegments = () => {
+    if (!causeCounts) return null
+
+    const segments: React.ReactNode[] = []
+    const total = causeCounts.total
+
+    // Get colors for each cause category from tag-system
+    const causeColors = {
+      noisyActivation: getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#CC79A7',
+      missedNgram: getTagColor(TAG_CATEGORY_CAUSE, 'Missed N-gram') || '#E69F00',
+      missedContext: getTagColor(TAG_CATEGORY_CAUSE, 'Missed Context') || '#D55E00',
+      wellExplained: getTagColor(TAG_CATEGORY_CAUSE, 'Well-Explained') || '#009E73',
+      unsure: stageColors.unsure
+    }
+
+    // Define cause categories in render order
+    const causeCategories = [
+      { key: 'noisyActivation', label: 'Noisy Activation', manual: causeCounts.noisyActivation, auto: causeCounts.noisyActivationAuto },
+      { key: 'missedNgram', label: 'Missed N-gram', manual: causeCounts.missedNgram, auto: causeCounts.missedNgramAuto },
+      { key: 'missedContext', label: 'Missed Context', manual: causeCounts.missedContext, auto: causeCounts.missedContextAuto },
+      { key: 'wellExplained', label: 'Well-Explained', manual: causeCounts.wellExplained, auto: causeCounts.wellExplainedAuto },
+    ]
+
+    // Render each cause category (manual segment then auto segment)
+    causeCategories.forEach(({ key, label, manual, auto }) => {
+      const color = causeColors[key as keyof typeof causeColors]
+
+      // Render manual segment (solid)
+      if (manual > 0) {
+        const percentage = total > 0 ? (manual / total) * 100 : 0
+        segments.push(
+          <div
+            key={`${key}-manual`}
+            className="selection-state-bar__segment selection-state-bar__segment--interactive"
+            style={{
+              ...(isVertical ? {
+                height: `${percentage}%`,
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              } : {
+                width: `${percentage}%`
+              }),
+              backgroundColor: color
+            }}
+            onMouseEnter={(e) => handleCauseMouseEnter({ key, label, count: manual, percentage, isAuto: false, color }, e)}
+            onMouseMove={handleCauseMouseMove}
+            onMouseLeave={handleCauseMouseLeave}
+          >
+            {showLabels && percentage > labelThreshold && (
+              <span className="selection-state-bar__segment-label">
+                {isVertical ? manual.toLocaleString() : `${label} (${manual.toLocaleString()})`}
+              </span>
+            )}
+          </div>
+        )
+      }
+
+      // Render auto segment (stripe)
+      if (auto > 0) {
+        const percentage = total > 0 ? (auto / total) * 100 : 0
+        segments.push(
+          <div
+            key={`${key}-auto`}
+            className="selection-state-bar__segment selection-state-bar__segment--interactive"
+            style={{
+              ...(isVertical ? {
+                height: `${percentage}%`,
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              } : {
+                width: `${percentage}%`
+              }),
+              backgroundColor: stageColors.unsure,
+              backgroundImage: `repeating-linear-gradient(
+                ${STRIPE_PATTERN.rotation}deg,
+                ${stageColors.unsure},
+                ${stageColors.unsure} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
+                ${color} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
+                ${color} ${STRIPE_PATTERN.width}px
+              )`
+            }}
+            onMouseEnter={(e) => handleCauseMouseEnter({ key, label, count: auto, percentage, isAuto: true, color }, e)}
+            onMouseMove={handleCauseMouseMove}
+            onMouseLeave={handleCauseMouseLeave}
+          >
+            {showLabels && percentage > labelThreshold && (
+              <span className="selection-state-bar__segment-label">
+                {isVertical ? auto.toLocaleString() : `${label} (+${auto.toLocaleString()})`}
+              </span>
+            )}
+          </div>
+        )
+      }
+    })
+
+    // Render unsure segment
+    if (causeCounts.unsure > 0) {
+      const percentage = total > 0 ? (causeCounts.unsure / total) * 100 : 0
+      segments.push(
+        <div
+          key="unsure"
+          className="selection-state-bar__segment selection-state-bar__segment--interactive"
+          style={{
+            ...(isVertical ? {
+              height: `${percentage}%`,
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            } : {
+              width: `${percentage}%`
+            }),
+            backgroundColor: causeColors.unsure
+          }}
+          onMouseEnter={(e) => handleCauseMouseEnter({ key: 'unsure', label: 'Unsure', count: causeCounts.unsure, percentage, isAuto: false, color: causeColors.unsure }, e)}
+          onMouseMove={handleCauseMouseMove}
+          onMouseLeave={handleCauseMouseLeave}
+        >
+          {showLabels && percentage > labelThreshold && (
+            <span className="selection-state-bar__segment-label">
+              {isVertical ? causeCounts.unsure.toLocaleString() : `Unsure (${causeCounts.unsure.toLocaleString()})`}
+            </span>
+          )}
+        </div>
+      )
+    }
+
+    return segments
+  }
+
   return (
     <div
       className={`selection-state-bar ${className}`}
@@ -370,14 +553,14 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
           position: 'relative'
         }}
       >
-        {renderSegments()}
+        {stage === 'stage3' && causeCounts ? renderCauseSegments() : renderSegments()}
       </div>
 
       {/* Legend - Only show for horizontal orientation */}
       {showLegend && !isVertical && (
         <div className="selection-state-bar__legend">
-          {/* Use same order as bar segments: rejected → autoRejected → unsure → expanded → confirmed */}
-          {(['rejected', 'autoRejected', 'unsure', 'expanded', 'confirmed'] as SelectionCategory[]).map((category) => {
+          {/* Use same order as bar segments: rejected → autoRejected → unsure → autoSelected → confirmed */}
+          {(['rejected', 'autoRejected', 'unsure', 'autoSelected', 'confirmed'] as SelectionCategory[]).map((category) => {
             const count = getCategoryValue(category, counts)
             const config = categoryConfig[category]
             const percentage = getCategoryValue(category, percentages)
@@ -442,6 +625,43 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
           </div>
         )
       })()}
+
+      {/* Cause Segment Tooltip (Stage 3) */}
+      {hoveredCauseSegment && causeTooltipPosition && (
+        <div
+          className="selection-state-bar__tooltip"
+          style={{
+            position: 'fixed',
+            left: `${causeTooltipPosition.x + 12}px`,
+            top: `${causeTooltipPosition.y - 8}px`,
+            pointerEvents: 'none',
+            zIndex: 10000
+          }}
+        >
+          <div className="selection-state-bar__tooltip-content">
+            <div className="selection-state-bar__tooltip-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span
+                className="selection-state-bar__tooltip-color"
+                style={{
+                  width: '10px',
+                  height: '10px',
+                  borderRadius: '2px',
+                  backgroundColor: hoveredCauseSegment.color,
+                  flexShrink: 0
+                }}
+              />
+              {hoveredCauseSegment.label}
+              {hoveredCauseSegment.isAuto && <span style={{ opacity: 0.7 }}>(auto)</span>}
+            </div>
+            <div className="selection-state-bar__tooltip-count">
+              {hoveredCauseSegment.count.toLocaleString()} features
+            </div>
+            <div className="selection-state-bar__tooltip-percentage">
+              {hoveredCauseSegment.percentage.toFixed(1)}%
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

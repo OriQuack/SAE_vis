@@ -290,7 +290,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
     // Initialize category counts for each bin
     bins.forEach((_, binIndex) => {
       return categoryMap.set(binIndex, {
-        confirmed: 0, expanded: 0, rejected: 0, autoRejected: 0, unsure: 0
+        confirmed: 0, autoSelected: 0, rejected: 0, autoRejected: 0, unsure: 0
       })
     })
 
@@ -316,7 +316,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
 
         if (selectionState === 'selected') {
           if (source === 'auto') {
-            counts.expanded++
+            counts.autoSelected++
           } else {
             counts.confirmed++
           }
@@ -346,7 +346,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
 
         if (selectionState === 'selected') {
           if (source === 'auto') {
-            counts.expanded++
+            counts.autoSelected++
           } else {
             counts.confirmed++
           }
@@ -504,13 +504,13 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
                 {/* Define stripe patterns for preview */}
                 <defs>
                   <pattern
-                    id="expandedPreviewStripe"
+                    id="autoSelectedPreviewStripe"
                     patternUnits="userSpaceOnUse"
                     width={STRIPE_PATTERN.width}
                     height={STRIPE_PATTERN.height}
                     patternTransform={`rotate(${STRIPE_PATTERN.rotation})`}
                   >
-                    <rect width={STRIPE_PATTERN.stripeWidth} height={STRIPE_PATTERN.height} fill={modeColors.expanded} opacity={STRIPE_PATTERN.opacity} />
+                    <rect width={STRIPE_PATTERN.stripeWidth} height={STRIPE_PATTERN.height} fill={modeColors.autoSelected} opacity={STRIPE_PATTERN.opacity} />
                   </pattern>
                   <pattern
                     id="autoRejectedPreviewStripe"
@@ -557,7 +557,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
                     y={0}
                     width={Math.max(0, histogramChart.width - safeThresholdPositions.selectX)}
                     height={histogramChart.height}
-                    fill="url(#expandedPreviewStripe)"
+                    fill="url(#autoSelectedPreviewStripe)"
                   />
 
                   {/* Stacked category bars */}
@@ -583,7 +583,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
                     const counts = categoryData.get(hoveredBinIndex)
                     if (!bin || !counts) return null
 
-                    const total = counts.confirmed + counts.expanded + counts.rejected + counts.autoRejected + counts.unsure
+                    const total = counts.confirmed + counts.autoSelected + counts.rejected + counts.autoRejected + counts.unsure
                     const binX = histogramChart.xScale(bin.x0) as number
                     const binWidth = (histogramChart.xScale(bin.x1) as number) - binX
 
@@ -604,8 +604,8 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
                         <text x={0} y={-46} textAnchor="middle" fontSize={9} fill={modeColors.confirmed}>
                           Confirmed: {counts.confirmed.toLocaleString()}
                         </text>
-                        <text x={0} y={-36} textAnchor="middle" fontSize={9} fill={modeColors.expanded}>
-                          Expanded: {counts.expanded.toLocaleString()}
+                        <text x={0} y={-36} textAnchor="middle" fontSize={9} fill={modeColors.autoSelected}>
+                          Auto-Selected: {counts.autoSelected.toLocaleString()}
                         </text>
                         <text x={0} y={-26} textAnchor="middle" fontSize={9} fill={modeColors.rejected}>
                           Rejected: {counts.rejected.toLocaleString()}

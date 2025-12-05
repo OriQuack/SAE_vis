@@ -56,7 +56,7 @@ interface HistogramBarData {
 // Exported for use in components (TagAutomaticPanel, etc.)
 export interface CategoryCounts {
   confirmed: number
-  expanded: number
+  autoSelected: number
   rejected: number
   autoRejected: number
   unsure: number
@@ -68,7 +68,7 @@ interface CategoryBarSegment {
   width: number
   height: number
   color: string
-  category: 'confirmed' | 'expanded' | 'rejected' | 'autoRejected' | 'unsure'
+  category: 'confirmed' | 'autoSelected' | 'rejected' | 'autoRejected' | 'unsure'
   count: number
   binIndex: number
 }
@@ -297,7 +297,7 @@ export function calculateDivergingBars(
 
 /**
  * Calculate stacked category bars for histogram
- * Used to show distribution of selection categories (confirmed, expanded, rejected, autoRejected, unsure)
+ * Used to show distribution of selection categories (confirmed, autoSelected, rejected, autoRejected, unsure)
  * within each histogram bin with exact-height fills
  *
  * @param chart - The histogram chart with bins and scales
@@ -310,7 +310,7 @@ export function calculateCategoryStackedBars(
   categoryData: Map<number, CategoryCounts>,
   categoryColors: {
     confirmed: string
-    expanded: string
+    autoSelected: string
     rejected: string
     autoRejected: string
     unsure: string
@@ -318,10 +318,10 @@ export function calculateCategoryStackedBars(
 ): CategoryBarSegment[] {
   const segments: CategoryBarSegment[] = []
 
-  // Category stack order (bottom to top): confirmed → expanded → rejected → autoRejected → unsure
-  const categoryOrder: Array<'confirmed' | 'expanded' | 'rejected' | 'autoRejected' | 'unsure'> = [
+  // Category stack order (bottom to top): confirmed → autoSelected → rejected → autoRejected → unsure
+  const categoryOrder: Array<'confirmed' | 'autoSelected' | 'rejected' | 'autoRejected' | 'unsure'> = [
     'confirmed',
-    'expanded',
+    'autoSelected',
     'rejected',
     'autoRejected',
     'unsure'
@@ -332,7 +332,7 @@ export function calculateCategoryStackedBars(
     if (!categories) return
 
     // Calculate total count for this bin
-    const totalCount = categories.confirmed + categories.expanded + categories.rejected + categories.autoRejected + categories.unsure
+    const totalCount = categories.confirmed + categories.autoSelected + categories.rejected + categories.autoRejected + categories.unsure
     if (totalCount === 0) return
 
     // Calculate bar dimensions

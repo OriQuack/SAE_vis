@@ -50,13 +50,13 @@ export function useThresholdPreview<K>(
   return useMemo(() => {
     // Current counts
     let confirmed = 0
-    let expanded = 0
+    let autoSelected = 0
     let rejected = 0
     let autoRejected = 0
     let unsure = 0
 
     // Preview additions
-    let willBeExpanded = 0
+    let willBeAutoSelected = 0
     let willBeAutoRejected = 0
 
     for (const key of itemKeys) {
@@ -67,7 +67,7 @@ export function useThresholdPreview<K>(
       // Count current state
       if (state === 'selected') {
         if (source === 'auto') {
-          expanded++
+          autoSelected++
         } else {
           confirmed++
         }
@@ -83,7 +83,7 @@ export function useThresholdPreview<K>(
 
         if (score !== undefined) {
           if (score >= selectThreshold) {
-            willBeExpanded++
+            willBeAutoSelected++
           } else if (score < rejectThreshold) {
             willBeAutoRejected++
           }
@@ -95,7 +95,7 @@ export function useThresholdPreview<K>(
 
     const currentCounts: CategoryCounts = {
       confirmed,
-      expanded,
+      autoSelected,
       rejected,
       autoRejected,
       unsure,
@@ -105,17 +105,17 @@ export function useThresholdPreview<K>(
     // Preview counts after threshold would be applied
     const previewCounts: CategoryCounts = {
       confirmed,
-      expanded: expanded + willBeExpanded,
+      autoSelected: autoSelected + willBeAutoSelected,
       rejected,
       autoRejected: autoRejected + willBeAutoRejected,
-      unsure: unsure - willBeExpanded - willBeAutoRejected,
+      unsure: unsure - willBeAutoSelected - willBeAutoRejected,
       total
     }
 
     return {
       previewCounts,
       currentCounts,
-      willBeExpanded,
+      willBeAutoSelected,
       willBeAutoRejected
     }
   }, [itemKeys, scores, selectionStates, selectionSources, selectThreshold, rejectThreshold])

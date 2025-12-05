@@ -144,7 +144,7 @@ export function calculateSankeyToSelectionFlows(
   sankeyNodes: SimplifiedSankeyNode[],
   _selectionState: {
     confirmed: Set<number>
-    expanded: Set<number>
+    autoSelected: Set<number>
     rejected: Set<number>
     autoRejected: Set<number>
     unsure: Set<number>

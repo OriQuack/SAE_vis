@@ -50,7 +50,7 @@ export const SankeyToSelectionFlowOverlay: React.FC<SankeyToSelectionFlowOverlay
   const selectionState = useMemo(() => {
     const state = {
       confirmed: new Set<number>(),
-      expanded: new Set<number>(),
+      autoSelected: new Set<number>(),
       rejected: new Set<number>(),
       autoRejected: new Set<number>(),
       unsure: new Set<number>()
@@ -62,7 +62,7 @@ export const SankeyToSelectionFlowOverlay: React.FC<SankeyToSelectionFlowOverlay
         if (selectionType === 'selected') {
           const source = useVisualizationStore.getState().featureSelectionSources.get(featureId)
           if (source === 'auto') {
-            state.expanded.add(featureId)
+            state.autoSelected.add(featureId)
           } else {
             state.confirmed.add(featureId)
           }
@@ -82,8 +82,8 @@ export const SankeyToSelectionFlowOverlay: React.FC<SankeyToSelectionFlowOverlay
         if (selectionType === 'selected') {
           const source = useVisualizationStore.getState().pairSelectionSources.get(pairKey)
           if (source === 'auto') {
-            state.expanded.add(mainId)
-            state.expanded.add(similarId)
+            state.autoSelected.add(mainId)
+            state.autoSelected.add(similarId)
           } else {
             state.confirmed.add(mainId)
             state.confirmed.add(similarId)

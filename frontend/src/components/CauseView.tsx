@@ -10,6 +10,7 @@ import { HighlightedExplanation } from './ExplanationPanel'
 import { TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import { getExplainerDisplayName } from '../lib/table-data-utils'
+import { SEMANTIC_SIMILARITY_COLORS } from '../lib/color-utils'
 import type { CauseCategory } from '../lib/umap-utils'
 import '../styles/CauseView.css'
 
@@ -464,19 +465,37 @@ const CauseView: React.FC<CauseViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Best Explanation Section */}
-                  <div className="cause-view__explanation-section">
-                    <div className="cause-view__explanation-header">
-                      <h4 className="subheader">Best Explanation</h4>
-                      {bestExplanation && (
-                        <div className="pair-info__similarity">
-                          <span className="similarity__label">Quality Score:</span>
-                          <span className="similarity__value">
-                            {bestExplanation.qualityScore.toFixed(3)}
-                          </span>
-                        </div>
-                      )}
+                  {/* Best Explanation Header - Outside bordered container */}
+                  <div className="cause-view__explanation-header">
+                    <h4 className="subheader">Best Explanation</h4>
+                    {bestExplanation && (
+                      <div className="pair-info__similarity">
+                        <span className="similarity__label">Quality Score:</span>
+                        <span className="similarity__value">
+                          {bestExplanation.qualityScore.toFixed(3)}
+                        </span>
+                      </div>
+                    )}
+                    {/* Semantic similarity legend */}
+                    <div className="cause-view__explanation-legend">
+                      <span className="legend-group-label">Common Phrase Semantic Similarity:</span>
+                      <div className="legend-item">
+                        <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.HIGH }} />
+                        <span className="legend-label">≥0.85</span>
+                      </div>
+                      <div className="legend-item">
+                        <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.MEDIUM }} />
+                        <span className="legend-label">≥0.70</span>
+                      </div>
+                      <div className="legend-item">
+                        <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.LOW }} />
+                        <span className="legend-label">≥0.60</span>
+                      </div>
                     </div>
+                  </div>
+
+                  {/* Best Explanation Content - Bordered container */}
+                  <div className="cause-view__explanation-section">
                     <div className="cause-view__explanation-content">
                       {bestExplanation ? (
                         <div className="cause-view__explainer-block">

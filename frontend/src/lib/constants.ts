@@ -448,8 +448,13 @@ export const COMPONENT_COLORS = {
 
 /**
  * Selection category type definition
+ * - confirmed: manually selected
+ * - autoSelected: auto-selected via threshold (preview only, becomes manual after Apply)
+ * - rejected: manually rejected
+ * - autoRejected: auto-rejected via threshold (preview only, becomes manual after Apply)
+ * - unsure: not tagged
  */
-export type SelectionCategory = 'confirmed' | 'expanded' | 'rejected' | 'autoRejected' | 'unsure'
+export type SelectionCategory = 'confirmed' | 'autoSelected' | 'rejected' | 'autoRejected' | 'unsure'
 
 // ============================================================================
 // LLM ICON SVG PATHS - Reusable icon definitions for LLM components

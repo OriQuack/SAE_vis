@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react'
 import { useVisualizationStore } from '../store/index'
 import { type SelectionCategory } from '../lib/constants'
 import { getSelectionColors, type TableStage } from '../lib/color-utils'
-import SelectionStateBar, { type CategoryCounts } from './SelectionBar'
+import SelectionStateBar, { type CategoryCounts, type CauseCategoryCounts } from './SelectionBar'
 import '../styles/SelectionPanel.css'
 
 // ============================================================================
@@ -152,6 +152,8 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
   const featureSelectionSources = useVisualizationStore(state => state.featureSelectionSources)
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
   const pairSelectionSources = useVisualizationStore(state => state.pairSelectionSources)
+  const causeSelectionStates = useVisualizationStore(state => state.causeSelectionStates)
+  const causeSelectionSources = useVisualizationStore(state => state.causeSelectionSources)
   const allClusterPairs = useVisualizationStore(state => state.allClusterPairs)
   const thresholdVisualization = useVisualizationStore(state => state.thresholdVisualization)
   const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
@@ -205,7 +207,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
     console.log('[SelectionPanel.counts] useMemo triggered - stage:', stage, ', pairSelectionStates.size:', pairSelectionStates.size)
 
     let confirmed = 0
-    let expanded = 0
+    let autoSelected = 0
     let rejected = 0
     let autoRejected = 0
     let unsure = 0
@@ -215,7 +217,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
       // Use store getter for single source of truth (shared with TagStagePanel)
       const fsCounts = getFeatureSplittingCounts()
       confirmed = fsCounts.fragmentedManual
-      expanded = fsCounts.fragmentedAuto
+      autoSelected = fsCounts.fragmentedAuto
       rejected = fsCounts.monosematicManual
       autoRejected = fsCounts.monosematicAuto
       unsure = fsCounts.unsure
@@ -236,7 +238,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
 
         if (selectionState === 'selected') {
           if (source === 'auto') {
-            expanded++
+            autoSelected++
           } else {
             confirmed++
           }
@@ -261,12 +263,63 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
       }
     }
 
-    const total = confirmed + expanded + rejected + autoRejected + unsure
-    console.log('[SelectionPanel] Final counts:', { confirmed, expanded, rejected, autoRejected, unsure, total })
-    return { confirmed, expanded, rejected, autoRejected, unsure, total }
+    const total = confirmed + autoSelected + rejected + autoRejected + unsure
+    console.log('[SelectionPanel] Final counts:', { confirmed, autoSelected, rejected, autoRejected, unsure, total })
+    return { confirmed, autoSelected, rejected, autoRejected, unsure, total }
   // Note: allClusterPairs and pairSelectionSources are needed because getFeatureSplittingCounts depends on them internally
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage, tableData, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources, filteredFeatureIds, allClusterPairs, getFeatureSplittingCounts])
+
+  // Calculate cause-specific counts for Stage 3
+  const causeCounts = useMemo((): CauseCategoryCounts | undefined => {
+    if (stage !== 'stage3') return undefined
+
+    // Get feature set to count
+    const featureSet = filteredFeatureIds || (tableData?.features
+      ? new Set(tableData.features.map((f: any) => f.feature_id as number))
+      : new Set<number>())
+
+    let noisyActivation = 0, noisyActivationAuto = 0
+    let missedNgram = 0, missedNgramAuto = 0
+    let missedContext = 0, missedContextAuto = 0
+    let wellExplained = 0, wellExplainedAuto = 0
+    let unsure = 0
+
+    for (const featureId of featureSet) {
+      const category = causeSelectionStates.get(featureId)
+      const source = causeSelectionSources.get(featureId)
+
+      if (!category) {
+        unsure++
+        continue
+      }
+
+      const isAuto = source === 'auto'
+      switch (category) {
+        case 'noisy-activation':
+          isAuto ? noisyActivationAuto++ : noisyActivation++
+          break
+        case 'missed-N-gram':
+          isAuto ? missedNgramAuto++ : missedNgram++
+          break
+        case 'missed-context':
+          isAuto ? missedContextAuto++ : missedContext++
+          break
+        case 'well-explained':
+          isAuto ? wellExplainedAuto++ : wellExplained++
+          break
+      }
+    }
+
+    return {
+      noisyActivation, noisyActivationAuto,
+      missedNgram, missedNgramAuto,
+      missedContext, missedContextAuto,
+      wellExplained, wellExplainedAuto,
+      unsure,
+      total: featureSet.size
+    }
+  }, [stage, filteredFeatureIds, tableData, causeSelectionStates, causeSelectionSources])
 
   // Calculate preview counts when thresholds are active (real-time preview during threshold drag)
   // This simulates what feature counts would look like after applying the thresholds
@@ -289,7 +342,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
       }
 
       let confirmed = 0
-      let expanded = 0
+      let autoSelected = 0
       let rejected = 0
       let autoRejected = 0
       let unsure = 0
@@ -303,7 +356,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
         if (currentState === 'selected') {
           // Already selected
           if (currentSource === 'auto') {
-            expanded++
+            autoSelected++
           } else {
             confirmed++
           }
@@ -318,7 +371,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
           // Currently unsure - check if would be auto-tagged
           if (typeof score === 'number') {
             if (score >= thresholds.select) {
-              expanded++ // Would become auto-selected
+              autoSelected++ // Would become auto-selected
             } else if (score < thresholds.reject) {
               autoRejected++ // Would become auto-rejected
             } else {
@@ -330,8 +383,8 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
         }
       })
 
-      const total = confirmed + expanded + rejected + autoRejected + unsure
-      return { confirmed, expanded, rejected, autoRejected, unsure, total }
+      const total = confirmed + autoSelected + rejected + autoRejected + unsure
+      return { confirmed, autoSelected, rejected, autoRejected, unsure, total }
     }
 
     // Handle Stage 1 (pair) preview
@@ -386,7 +439,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
 
     // Count by derived feature state
     let confirmed = 0
-    let expanded = 0
+    let autoSelected = 0
     let rejected = 0
     let autoRejected = 0
     let unsure = 0
@@ -394,7 +447,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
     featureStates.forEach(({ state, source }) => {
       if (state === 'fragmented') {
         if (source === 'auto') {
-          expanded++
+          autoSelected++
         } else {
           confirmed++
         }
@@ -409,8 +462,8 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
       }
     })
 
-    const total = confirmed + expanded + rejected + autoRejected + unsure
-    return { confirmed, expanded, rejected, autoRejected, unsure, total }
+    const total = confirmed + autoSelected + rejected + autoRejected + unsure
+    return { confirmed, autoSelected, rejected, autoRejected, unsure, total }
   }, [stage, tagAutomaticState, pairSelectionStates, pairSelectionSources, featureSelectionStates, featureSelectionSources, filteredFeatureIds, allClusterPairs])
 
   // Preview is active when TagAutomaticPanel has histogram data (user can drag thresholds)
@@ -495,6 +548,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
           <SelectionStateBar
             counts={counts}
             previewCounts={isPreviewActive ? previewCounts : undefined}
+            causeCounts={causeCounts}
             onCategoryClick={handleCategoryClick}
             showLabels={true}
             showLegend={true}

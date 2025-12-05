@@ -107,15 +107,21 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
     : (leftFeatures.length > 0 || rightFeatures.length > 0)
 
   // Render item for pair boundary lists
+  // Shows PREVIEW tag (what it will be after apply) with stripe pattern
   const renderBoundaryItem = (item: PairItemWithMetadata, index: number, listType: 'left' | 'right') => {
     const selectionState = pairSelectionStates.get(item.pairKey)
     const score = pairSimilarityScores.get(item.pairKey)
 
-    let tagName = 'Unsure'
+    // For untagged items, show preview tag based on which list they're in
+    // Left list = will be rejected, Right list = will be selected
+    let tagName: string
     if (selectionState === 'selected') {
-      tagName = rightListLabel  // Fragmented
+      tagName = rightListLabel  // Already Fragmented
     } else if (selectionState === 'rejected') {
-      tagName = leftListLabel   // Monosemantic
+      tagName = leftListLabel   // Already Monosemantic
+    } else {
+      // Preview: show what it WILL be tagged as
+      tagName = listType === 'left' ? leftListLabel : rightListLabel
     }
 
     const pairIdString = `${item.mainFeatureId}-${item.similarFeatureId}`
@@ -128,6 +134,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
           tagCategoryId={tagCategoryId}
           onClick={() => onListItemClick(listType, index)}
           fullWidth={true}
+          isAuto={true}
         />
         {score !== undefined && (
           <span className="pair-similarity-score">{score.toFixed(2)}</span>
@@ -137,15 +144,21 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
   }
 
   // Render item for feature boundary lists
+  // Shows PREVIEW tag (what it will be after apply) with stripe pattern
   const renderFeatureItem = (item: FeatureItemWithMetadata, index: number, listType: 'left' | 'right') => {
     const selectionState = featureSelectionStates.get(item.featureId)
     const score = similarityScores.get(item.featureId)
 
-    let tagName = 'Unsure'
+    // For untagged items, show preview tag based on which list they're in
+    // Left list = will be rejected, Right list = will be selected
+    let tagName: string
     if (selectionState === 'selected') {
-      tagName = rightListLabel  // Well-Explained
+      tagName = rightListLabel  // Already Well-Explained
     } else if (selectionState === 'rejected') {
-      tagName = leftListLabel   // Need Revision
+      tagName = leftListLabel   // Already Need Revision
+    } else {
+      // Preview: show what it WILL be tagged as
+      tagName = listType === 'left' ? leftListLabel : rightListLabel
     }
 
     return (
@@ -156,6 +169,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
           tagCategoryId={tagCategoryId}
           onClick={() => onListItemClick(listType, index)}
           fullWidth={true}
+          isAuto={true}
         />
         {score !== undefined && (
           <span className="pair-similarity-score">{score.toFixed(2)}</span>

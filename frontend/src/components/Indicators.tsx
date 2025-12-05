@@ -3,8 +3,9 @@ import { getCircleRadius, getCircleOpacity } from '../lib/circle-encoding-utils'
 import { getMetricColor } from '../lib/utils'
 import { getTagColor } from '../lib/tag-system'
 import { STRIPE_PATTERN } from '../lib/color-utils'
-import { UNSURE_GRAY } from '../lib/constants'
+import { UNSURE_GRAY, TAG_CATEGORY_CAUSE } from '../lib/constants'
 import type { ScoreStats } from '../lib/circle-encoding-utils'
+import type { CauseMetricScores } from '../lib/cause-tagging-utils'
 
 // ============================================================================
 // SCORE CIRCLE COMPONENT
@@ -169,8 +170,16 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
     }
 
     if (showStripe) {
-      // Apply stripe pattern for auto-tagged items
+      // Apply stripe pattern for auto-tagged items with lower opacity
       const gapColor = UNSURE_GRAY
+      // Convert hex to rgba with 50% opacity for softer stripes
+      const hexToRgba = (hex: string, alpha: number) => {
+        const r = parseInt(hex.slice(1, 3), 16)
+        const g = parseInt(hex.slice(3, 5), 16)
+        const b = parseInt(hex.slice(5, 7), 16)
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`
+      }
+      const stripeColor = hexToRgba(tagBgColor, 0.75)
       return {
         ...baseStyle,
         backgroundColor: gapColor,
@@ -178,8 +187,8 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
           ${STRIPE_PATTERN.rotation}deg,
           ${gapColor},
           ${gapColor} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
-          ${tagBgColor} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
-          ${tagBgColor} ${STRIPE_PATTERN.width}px
+          ${stripeColor} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
+          ${stripeColor} ${STRIPE_PATTERN.width}px
         )`
       }
     }
@@ -250,6 +259,79 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
       <div style={getTagSectionStyle()}>
         <span style={textWrapperStyle}>{tagName}</span>
       </div>
+    </div>
+  )
+}
+
+// ============================================================================
+// CAUSE METRIC BARS COMPONENT
+// ============================================================================
+// Displays three horizontal bars representing cause metric scores
+// - Bar width encodes score value (0-1 → 0-width pixels)
+// - Three stacked bars: noisy-activation, missed-context, missed-N-gram
+// - Colors from tag system
+
+interface CauseMetricBarsProps {
+  scores: CauseMetricScores | null  // Cause metric scores for a feature
+  width?: number                     // Fixed total width (default: 20)
+}
+
+export const CauseMetricBars: React.FC<CauseMetricBarsProps> = ({
+  scores,
+  width = 20
+}) => {
+  // Get colors from tag system
+  const noisyActivationColor = getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#9ca3af'
+  const missedContextColor = getTagColor(TAG_CATEGORY_CAUSE, 'Missed Context') || '#9ca3af'
+  const missedNgramColor = getTagColor(TAG_CATEGORY_CAUSE, 'Missed N-gram') || '#9ca3af'
+
+  // Handle null scores - render placeholder
+  if (!scores) {
+    return (
+      <div
+        style={{
+          width,
+          height: 18,
+          backgroundColor: '#f3f4f6',
+          borderRadius: '2px'
+        }}
+      />
+    )
+  }
+
+  const barHeight = 6  // ~18px total for 3 bars
+  const totalHeight = barHeight * 3
+
+  // Configure bars: order, score, and color
+  const bars = [
+    { score: scores.noisyActivation, color: noisyActivationColor },
+    { score: scores.missedContext, color: missedContextColor },
+    { score: scores.missedNgram, color: missedNgramColor }
+  ]
+
+  return (
+    <div
+      style={{
+        width,
+        height: totalHeight,
+        display: 'flex',
+        flexDirection: 'column',
+        backgroundColor: '#f3f4f6',
+        borderRadius: '2px',
+        overflow: 'hidden'
+      }}
+    >
+      {bars.map((bar, i) => (
+        <div
+          key={i}
+          style={{
+            height: barHeight,
+            width: bar.score !== null ? bar.score * width : 0,
+            backgroundColor: bar.color,
+            flexShrink: 0
+          }}
+        />
+      ))}
     </div>
   )
 }

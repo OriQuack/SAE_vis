@@ -19,7 +19,7 @@ import type {
 } from '../types'
 import { getStageConfig } from './sankey-stages'
 import { processFeatureGroupResponse } from './threshold-utils'
-import { TAG_CATEGORIES, UNSURE_GRAY } from './constants'
+import { TAG_CATEGORIES } from './constants'
 import * as api from '../api'
 
 // ============================================================================
@@ -549,11 +549,12 @@ export function buildStage3(
   // 3. Create single "Unsure" segment for Stage 3
   // Unlike Stages 1 & 2, Stage 3 has no threshold to pre-filter features
   // All features start as "Unsure" and get tagged by user
+  // Use Need Revision color for visual continuity (these features came from Need Revision)
   const segments: NodeSegment[] = [{
     tagName: 'Unsure',
     featureIds: needRevisionNode.featureIds,
     featureCount: needRevisionNode.featureCount,
-    color: UNSURE_GRAY,
+    color: needRevisionSegment.color,
     height: 1.0,
     yPosition: 0
   }]

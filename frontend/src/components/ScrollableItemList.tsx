@@ -112,7 +112,7 @@ export function ScrollableItemList<T = any>({
     const mode = headerStripe.mode || 'pair'
     const stage: TableStage = mode === 'pair' ? 'stage1' : 'stage2'
     const colors = getSelectionColors(stage)
-    const tagColor = headerStripe.type === 'expand' ? colors.expanded : colors.autoRejected
+    const tagColor = headerStripe.type === 'expand' ? colors.autoSelected : colors.autoRejected
     const gapColor = colors.unsure
     return {
       backgroundColor: gapColor,
