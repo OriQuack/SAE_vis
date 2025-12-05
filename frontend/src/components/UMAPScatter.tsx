@@ -349,6 +349,54 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     )
   }
 
+  // Decision space placeholder - need manual tags before projection
+  // Check this BEFORE empty state since we intentionally don't fetch when waiting for tags
+  if (useDecisionSpace && !canUseDecisionSpace && featureIds.length >= 3) {
+    const colors = getSelectionColors('stage3')
+    const categoryConfig = [
+      { key: 'noisy-activation', label: 'Noisy Activation', color: colors.confirmed },
+      { key: 'missed-N-gram', label: 'Missed N-gram', color: colors.autoSelected },
+      { key: 'missed-context', label: 'Missed Context', color: colors.rejected }
+    ]
+    return (
+      <div ref={containerRef} className={`umap-scatter umap-scatter--placeholder ${className}`} style={containerStyle}>
+        {/* Header with toggle */}
+        <div className="umap-scatter__header">
+          <label className="umap-scatter__toggle">
+            <input
+              type="checkbox"
+              checked={useDecisionSpace}
+              onChange={(e) => setUseDecisionSpace(e.target.checked)}
+            />
+            <span className="umap-scatter__toggle-slider" />
+            <span className="umap-scatter__toggle-label">SVM Space</span>
+          </label>
+        </div>
+        <div className="umap-scatter__placeholder">
+          <div className="umap-scatter__main-instruction">
+            Tag 1+ feature in each category
+          </div>
+          <div className="umap-scatter__progress-row">
+            {categoryConfig.map(({ key, label, color }) => {
+              const count = Array.from(causeSelectionStates.entries())
+                .filter(([id, cat]) => cat === key && causeSelectionSources.get(id) === 'manual')
+                .length
+              return (
+                <span
+                  key={key}
+                  className="umap-scatter__progress-item"
+                  style={{ backgroundColor: color }}
+                >
+                  {label}: {count}/1
+                </span>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // Empty state
   if (!umapProjection || umapProjection.length === 0 || !scales) {
     return (
@@ -375,41 +423,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
         </label>
       </div>
 
-      {/* Placeholder when decision space can't be used */}
-      {useDecisionSpace && !canUseDecisionSpace && (() => {
-        const colors = getSelectionColors('stage3')
-        const categoryConfig = [
-          { key: 'noisy-activation', label: 'Noisy Activation', color: colors.confirmed },
-          { key: 'missed-N-gram', label: 'Missed N-gram', color: colors.autoSelected },
-          { key: 'missed-context', label: 'Missed Context', color: colors.rejected }
-        ]
-        return (
-          <div className="umap-scatter__placeholder">
-            <div className="umap-scatter__main-instruction">
-              Tag 1+ feature in each category
-            </div>
-            <div className="umap-scatter__progress-row">
-              {categoryConfig.map(({ key, label, color }) => {
-                const count = Array.from(causeSelectionStates.entries())
-                  .filter(([id, cat]) => cat === key && causeSelectionSources.get(id) === 'manual')
-                  .length
-                return (
-                  <span
-                    key={key}
-                    className="umap-scatter__progress-item"
-                    style={{ backgroundColor: color }}
-                  >
-                    {label}: {count}/1
-                  </span>
-                )
-              })}
-            </div>
-          </div>
-        )
-      })()}
-
-      {/* Chart area - only show when not showing placeholder */}
-      {!(useDecisionSpace && !canUseDecisionSpace) && (
+      {/* Chart area */}
       <div className="umap-scatter__chart">
         {/* SVG for contours + lasso */}
         <svg
@@ -496,7 +510,6 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
           className="umap-scatter__canvas"
         />
       </div>
-      )}
 
       {/* Selection count */}
       {umapBrushedFeatureIds.size > 0 && (

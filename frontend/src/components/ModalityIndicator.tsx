@@ -148,6 +148,18 @@ const ModalityIndicator: React.FC<ModalityIndicatorProps> = ({ bimodality, multi
                     <span>Score:</span>
                     <span>{details.score.toFixed(2)}</span>
                   </div>
+                  <div className="bimodality-indicator__tooltip-row">
+                    <span>Dip p-value:</span>
+                    <span>{details.dipPvalue?.toFixed(3) ?? 'N/A'}</span>
+                  </div>
+                  <div className="bimodality-indicator__tooltip-row">
+                    <span>BIC diff:</span>
+                    <span>{details.bicDiff !== undefined ? `${details.bicDiff >= 0 ? '+' : ''}${details.bicDiff.toFixed(1)}` : 'N/A'}</span>
+                  </div>
+                  <div className="bimodality-indicator__tooltip-row">
+                    <span>Mean sep:</span>
+                    <span>{details.meanSeparation?.toFixed(1) ?? 'N/A'}σ</span>
+                  </div>
                 </div>
               ))}
             </>

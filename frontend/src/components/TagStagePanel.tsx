@@ -62,8 +62,8 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
   const getSegmentCounts = (stageNodeId: string): Record<string, number> => {
     if (!sankeyStructure?.nodes) return {};
 
-    const segmentNode = sankeyStructure.nodes.find((n: any) => n.id === stageNodeId);
-    if (!segmentNode?.segments) return {};
+    const segmentNode = sankeyStructure.nodes.find(n => n.id === stageNodeId);
+    if (!segmentNode || segmentNode.type !== 'segment') return {};
 
     const counts: Record<string, number> = {};
     for (const seg of segmentNode.segments) {
@@ -198,8 +198,8 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
     setBadgePositions(positions);
   }, [nodesByStage, allTagCounts]);
 
-  // Generate SVG paths for flow connections
-  const svgPaths = useMemo(() => {
+  // Generate SVG paths for flow connections (currently unused - for future flow visualization)
+  const _svgPaths = useMemo(() => {
     const paths: Array<{
       d: string;
       key: string;
@@ -347,7 +347,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
       {/* TODO: Flow lines between tags - trying different visualization methods
       <svg className="tag-category-panel__flow-svg">
         <defs>
-          {svgPaths.map(({ gradientId, sourceColor, targetColor, x1, x2, y1, y2 }) => (
+          {_svgPaths.map(({ gradientId, sourceColor, targetColor, x1, x2, y1, y2 }) => (
             <linearGradient
               key={gradientId}
               id={gradientId}
@@ -362,7 +362,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
             </linearGradient>
           ))}
         </defs>
-        {svgPaths.map(({ key, d, gradientId }) => (
+        {_svgPaths.map(({ key, d, gradientId }) => (
           <path
             key={key}
             d={d}
