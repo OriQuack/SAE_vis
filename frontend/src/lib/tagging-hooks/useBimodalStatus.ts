@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { calculateBimodalityScore, getScoreLevel, isBimodalScore } from '../bimodality-utils'
+import { calculateBimodalityScore, getScoreLevel, isBimodalScore } from '../modality-utils'
 import type { BimodalityInfo } from '../../types'
 
 // ============================================================================

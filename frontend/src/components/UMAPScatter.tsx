@@ -8,6 +8,7 @@ import {
   CONTOUR_CONFIG,
   type CauseCategory
 } from '../lib/umap-utils'
+import { getSelectionColors } from '../lib/color-utils'
 import '../styles/UMAPScatter.css'
 
 // ============================================================================
@@ -91,10 +92,10 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   const causeSelectionSources = useVisualizationStore(state => state.causeSelectionSources)
 
   // Toggle for Decision Function Space mode
-  const [useDecisionSpace, setUseDecisionSpace] = useState(false)
+  const [useDecisionSpace, setUseDecisionSpace] = useState(true)
 
   // Check if all 4 categories have at least one manual tag
-  const { canUseDecisionSpace, missingCategories, manualCauseSelections } = useMemo(() => {
+  const { canUseDecisionSpace, manualCauseSelections } = useMemo(() => {
     const manualTags = new Map<string, number>()
     const selections: Record<number, string> = {}
 
@@ -106,11 +107,10 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       }
     })
 
-    const missing = CAUSE_CATEGORIES.filter(cat => (manualTags.get(cat) || 0) < 1)
+    const missingCount = CAUSE_CATEGORIES.filter(cat => (manualTags.get(cat) || 0) < 1).length
 
     return {
-      canUseDecisionSpace: missing.length === 0,
-      missingCategories: missing,
+      canUseDecisionSpace: missingCount === 0,
       manualCauseSelections: selections
     }
   }, [causeSelectionStates, causeSelectionSources])
@@ -375,14 +375,41 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
         </label>
       </div>
 
-      {/* Warning when decision space can't be used */}
-      {useDecisionSpace && !canUseDecisionSpace && (
-        <div className="umap-scatter__warning">
-          Tag at least one feature per category: {missingCategories.join(', ')}
-        </div>
-      )}
+      {/* Placeholder when decision space can't be used */}
+      {useDecisionSpace && !canUseDecisionSpace && (() => {
+        const colors = getSelectionColors('stage3')
+        const categoryConfig = [
+          { key: 'noisy-activation', label: 'Noisy Activation', color: colors.confirmed },
+          { key: 'missed-N-gram', label: 'Missed N-gram', color: colors.autoSelected },
+          { key: 'missed-context', label: 'Missed Context', color: colors.rejected }
+        ]
+        return (
+          <div className="umap-scatter__placeholder">
+            <div className="umap-scatter__main-instruction">
+              Tag 1+ feature in each category
+            </div>
+            <div className="umap-scatter__progress-row">
+              {categoryConfig.map(({ key, label, color }) => {
+                const count = Array.from(causeSelectionStates.entries())
+                  .filter(([id, cat]) => cat === key && causeSelectionSources.get(id) === 'manual')
+                  .length
+                return (
+                  <span
+                    key={key}
+                    className="umap-scatter__progress-item"
+                    style={{ backgroundColor: color }}
+                  >
+                    {label}: {count}/1
+                  </span>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
 
-      {/* Chart area */}
+      {/* Chart area - only show when not showing placeholder */}
+      {!(useDecisionSpace && !canUseDecisionSpace) && (
       <div className="umap-scatter__chart">
         {/* SVG for contours + lasso */}
         <svg
@@ -469,6 +496,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
           className="umap-scatter__canvas"
         />
       </div>
+      )}
 
       {/* Selection count */}
       {umapBrushedFeatureIds.size > 0 && (

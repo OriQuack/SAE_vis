@@ -1,16 +1,25 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useLayoutEffect } from 'react';
 import {
   getTagCategoriesInOrder,
+  getTagColor,
 } from '../lib/tag-system';
 import { type TagCategoryConfig } from '../lib/constants';
 import { useVisualizationStore } from '../store/index';
 import FlowPanel from './FlowPanel';
-import TagFlowPanel from './TagFlowPanel';
 import '../styles/TagStagePanel.css';
 
 interface TagCategoryPanelProps {
   selectedCategory?: string | null;
   onCategoryClick?: (categoryId: string) => void;
+}
+
+interface TagNode {
+  id: string;
+  categoryId: string;
+  tag: string;
+  color: string;
+  count: number;
+  stageOrder: number;
 }
 
 const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
@@ -19,6 +28,10 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
 }) => {
   // Help popup state
   const [showHelp, setShowHelp] = useState(false);
+
+  // Refs for SVG flow paths
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [badgePositions, setBadgePositions] = useState<Record<string, { left: number; right: number; y: number }>>({});
 
   // Get all stages in order
   const stages = useMemo(() => getTagCategoriesInOrder(), []);
@@ -127,7 +140,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
     return selectedStage ? stageOrder > selectedStage.stageOrder : true;
   };
 
-  // Compute tag counts for ALL stages (for TagFlowPanel)
+  // Compute tag counts for ALL stages
   // Combines selection states + threshold-filtered counts from Sankey
   const allTagCounts = useMemo(() => {
     const counts: Record<string, Record<string, number>> = {};
@@ -137,6 +150,156 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
     return counts;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stages, getFeatureSplittingCounts, getQualityCounts, pairSelectionStates, featureSelectionStates, sankeyStructure]);
+
+  // Compute tag nodes for each stage
+  const nodesByStage = useMemo(() => {
+    const grouped: Record<number, TagNode[]> = { 1: [], 2: [], 3: [] };
+
+    for (const stage of stages) {
+      if (stage.stageOrder > 3) continue;
+      const counts = allTagCounts[stage.id] || {};
+
+      stage.tags.forEach((tag) => {
+        // Skip "Well-Explained" in cause category (stage 3)
+        if (stage.id === 'cause' && tag === 'Well-Explained') return;
+
+        grouped[stage.stageOrder]?.push({
+          id: `${stage.id}:${tag}`,
+          categoryId: stage.id,
+          tag,
+          color: getTagColor(stage.id, tag) || '#94a3b8',
+          count: counts[tag] || 0,
+          stageOrder: stage.stageOrder,
+        });
+      });
+    }
+    return grouped;
+  }, [stages, allTagCounts]);
+
+  // Measure badge positions after render
+  useLayoutEffect(() => {
+    if (!containerRef.current) return;
+
+    const positions: Record<string, { left: number; right: number; y: number }> = {};
+    const container = containerRef.current;
+    const containerRect = container.getBoundingClientRect();
+
+    container.querySelectorAll('[data-node-id]').forEach((el) => {
+      const nodeId = el.getAttribute('data-node-id');
+      if (!nodeId) return;
+      const rect = el.getBoundingClientRect();
+      positions[nodeId] = {
+        left: rect.left - containerRect.left,
+        right: rect.right - containerRect.left,
+        y: rect.top - containerRect.top + rect.height / 2,
+      };
+    });
+
+    setBadgePositions(positions);
+  }, [nodesByStage, allTagCounts]);
+
+  // Generate SVG paths for flow connections
+  const svgPaths = useMemo(() => {
+    const paths: Array<{
+      d: string;
+      key: string;
+      gradientId: string;
+      sourceColor: string;
+      targetColor: string;
+      x1: number;
+      x2: number;
+      y1: number;
+      y2: number;
+    }> = [];
+
+    const stage1 = nodesByStage[1] || [];
+    const stage2 = nodesByStage[2] || [];
+    const stage3 = nodesByStage[3] || [];
+
+    // Find the Monosemantic node (first node in stage 1)
+    const monosematicNode = stage1.find(n => n.tag === 'Monosemantic');
+
+    // Connector 1→2: Monosemantic → Stage 2 tags
+    if (monosematicNode && stage2.length > 0) {
+      const source = badgePositions[monosematicNode.id];
+
+      if (source) {
+        stage2.forEach((target, idx) => {
+          const targetPos = badgePositions[target.id];
+          if (targetPos) {
+            const x1 = source.right;
+            const x2 = targetPos.left;
+            const midX = (x1 + x2) / 2;
+            paths.push({
+              key: `c1-${idx}`,
+              gradientId: `grad-c1-${idx}`,
+              d: `M ${x1} ${source.y} C ${midX} ${source.y}, ${midX} ${targetPos.y}, ${x2} ${targetPos.y}`,
+              sourceColor: monosematicNode.color,
+              targetColor: target.color,
+              x1,
+              x2,
+              y1: 0,
+              y2: 0,
+            });
+          }
+        });
+      }
+    }
+
+    // Connector 2→3: Need Revision → Stage 3 tags
+    const needRevisionNode = stage2.find(n => n.tag === 'Need Revision');
+    if (needRevisionNode && stage3.length > 0) {
+      const source = badgePositions[needRevisionNode.id];
+
+      if (source) {
+        stage3.forEach((target, idx) => {
+          const targetPos = badgePositions[target.id];
+          if (targetPos) {
+            const x1 = source.right;
+            const x2 = targetPos.left;
+            const midX = (x1 + x2) / 2;
+            paths.push({
+              key: `c2-${idx}`,
+              gradientId: `grad-c2-${idx}`,
+              d: `M ${x1} ${source.y} C ${midX} ${source.y}, ${midX} ${targetPos.y}, ${x2} ${targetPos.y}`,
+              sourceColor: needRevisionNode.color,
+              targetColor: target.color,
+              x1,
+              x2,
+              y1: 0,
+              y2: 0,
+            });
+          }
+        });
+      }
+    }
+
+    // Special connector: Need Revision → Well-Explained (within Stage 2)
+    const wellExplainedNode = stage2.find(n => n.tag === 'Well-Explained');
+    if (needRevisionNode && wellExplainedNode) {
+      const sourcePos = badgePositions[needRevisionNode.id];
+      const targetPos = badgePositions[wellExplainedNode.id];
+
+      if (sourcePos && targetPos) {
+        const x1 = sourcePos.right;
+        const x2 = targetPos.right;
+        const controlOffset = 40;
+        paths.push({
+          key: 'c-need-to-well',
+          gradientId: 'grad-need-to-well',
+          d: `M ${x1} ${sourcePos.y} C ${x1 + controlOffset} ${sourcePos.y}, ${x2 + controlOffset} ${targetPos.y}, ${x2} ${targetPos.y}`,
+          sourceColor: needRevisionNode.color,
+          targetColor: wellExplainedNode.color,
+          x1: 0,
+          x2: 0,
+          y1: sourcePos.y,
+          y2: targetPos.y,
+        });
+      }
+    }
+
+    return paths;
+  }, [badgePositions, nodesByStage]);
 
   // Get activateCategoryTable action from store
   const activateCategoryTable = useVisualizationStore(state => state.activateCategoryTable);
@@ -156,7 +319,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
   };
 
   return (
-    <div className="tag-category-panel">
+    <div className="tag-category-panel" ref={containerRef}>
       {/* Help button */}
       <button
         className="tag-category-panel__help-button"
@@ -181,46 +344,88 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
         </div>
       )}
 
-      {/* Main content: Stage tabs interspersed with their tags */}
+      {/* TODO: Flow lines between tags - trying different visualization methods
+      <svg className="tag-category-panel__flow-svg">
+        <defs>
+          {svgPaths.map(({ gradientId, sourceColor, targetColor, x1, x2, y1, y2 }) => (
+            <linearGradient
+              key={gradientId}
+              id={gradientId}
+              x1={x1}
+              x2={x2}
+              y1={y1}
+              y2={y2}
+              gradientUnits="userSpaceOnUse"
+            >
+              <stop offset="0%" stopColor={sourceColor} />
+              <stop offset="100%" stopColor={targetColor} />
+            </linearGradient>
+          ))}
+        </defs>
+        {svgPaths.map(({ key, d, gradientId }) => (
+          <path
+            key={key}
+            d={d}
+            className="tag-category-panel__flow-path"
+            stroke={`url(#${gradientId})`}
+          />
+        ))}
+      </svg>
+      */}
+
+      {/* Main content: Stage tabs with inline tags */}
       <div className="tag-category-panel__main-content">
         {stages.map((stage) => {
           const isActive = selectedCategory === stage.id;
           const isCompleted = isStageCompleted(stage.stageOrder);
           const isFuture = isStageFuture(stage.stageOrder);
+          const stageTags = nodesByStage[stage.stageOrder] || [];
 
           return (
-            <button
-              key={stage.id}
-              className={`stage-tab ${
-                isActive ? 'stage-tab--active' : ''
-              } ${
-                isCompleted ? 'stage-tab--completed' : ''
-              } ${
-                isFuture ? 'stage-tab--future' : ''
-              } ${
-                isPreviewActive ? 'stage-tab--disabled' : ''
-              }`}
-              onClick={() => handleStageClick(stage.id)}
-              disabled={isPreviewActive}
-              title={isPreviewActive ? "Close threshold preview to switch stages" : stage.description}
-            >
-              <div className="stage-tab__header">
-                <div className="stage-tab__number">
-                  {isCompleted ? '✓' : stage.stageOrder}
+            <React.Fragment key={stage.id}>
+              {/* Stage Tab */}
+              <button
+                className={`stage-tab ${
+                  isActive ? 'stage-tab--active' : ''
+                } ${
+                  isCompleted ? 'stage-tab--completed' : ''
+                } ${
+                  isFuture ? 'stage-tab--future' : ''
+                } ${
+                  isPreviewActive ? 'stage-tab--disabled' : ''
+                }`}
+                onClick={() => handleStageClick(stage.id)}
+                disabled={isPreviewActive}
+                title={isPreviewActive ? "Close threshold preview to switch stages" : stage.description}
+              >
+                <div className="stage-tab__header">
+                  <div className="stage-tab__number">
+                    {isCompleted ? '✓' : stage.stageOrder}
+                  </div>
+                  <div className="stage-tab__label">{stage.label}</div>
                 </div>
-                <div className="stage-tab__label">{stage.label}</div>
+                <div className="stage-tab__instruction">{stage.instruction}</div>
+              </button>
+
+              {/* Inline Tags for this stage */}
+              <div className={`stage-tags ${isActive ? 'stage-tags--active' : ''} ${isCompleted ? 'stage-tags--completed' : ''} ${isFuture ? 'stage-tags--future' : ''}`}>
+                {stageTags.map((node) => (
+                  <div
+                    key={node.id}
+                    data-node-id={node.id}
+                    className={`stage-tag-badge ${isActive ? 'stage-tag-badge--active' : ''}`}
+                    style={{ backgroundColor: node.color, borderColor: node.color }}
+                    title={`${node.tag}: ${node.count.toLocaleString()} features`}
+                  >
+                    <span className="stage-tag-badge__label">{node.tag}</span>
+                    <span className="stage-tag-badge__count">{node.count.toLocaleString()}</span>
+                  </div>
+                ))}
               </div>
-              <div className="stage-tab__instruction">{stage.instruction}</div>
-            </button>
+            </React.Fragment>
           );
         })}
       </div>
-
-      {/* Tag Flow Panel - displays all tags with flow connections */}
-      <TagFlowPanel
-        tagCounts={allTagCounts}
-        activeStage={selectedCategory}
-      />
     </div>
   );
 };

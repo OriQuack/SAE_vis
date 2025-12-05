@@ -156,6 +156,48 @@
   border-bottom: 1px solid #fcd34d;
 }
 
+/* Empty placeholder - matches TagAutomaticPanel style */
+.umap-scatter__placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 40px 20px;
+  color: #000;
+  text-align: center;
+  gap: 24px;
+  border: 2px dashed #d1d5db;
+  border-radius: 4px;
+  margin: 10px;
+}
+
+.umap-scatter__main-instruction {
+  font-size: 16px;
+  line-height: 1.6;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  color: #000;
+}
+
+.umap-scatter__progress-row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.umap-scatter__progress-item {
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #000;
+}
+
 /* Chart container - holds SVG contours and canvas overlay */
 .umap-scatter__chart {
   position: relative;

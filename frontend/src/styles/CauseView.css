@@ -125,7 +125,7 @@
   border-radius: 4px;
   padding: 6px;
   overflow: hidden;
-  flex: 1;
+  flex: 2;
 }
 
 .cause-view__activation-examples {
@@ -163,12 +163,11 @@
   height: 72px;
 }
 
-/* Explanation section */
+/* Explanation section - compact since only one explanation is shown */
 .cause-view__explanation-section {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  min-height: 0;
   flex: 1;
   background-color: white;
   border: 1px solid #e5e7eb;
@@ -230,6 +229,8 @@
   min-height: 0;
   overflow-y: auto;
   padding: 4px;
+  display: flex;
+  align-items: center;
 }
 
 .cause-view__explanation-content::-webkit-scrollbar {

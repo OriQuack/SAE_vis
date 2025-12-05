@@ -4,7 +4,7 @@ import type { SelectionCategory, FeatureTableRow } from '../types'
 import SelectionPanel from './SelectionPanel'
 import UMAPScatter from './UMAPScatter'
 import { ScrollableItemList } from './ScrollableItemList'
-import { TagBadge } from './Indicators'
+import { TagBadge, CauseMetricBars } from './Indicators'
 import ActivationExample from './ActivationExamplePanel'
 import { HighlightedExplanation } from './ExplanationPanel'
 import { TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE } from '../lib/constants'
@@ -54,6 +54,7 @@ const CauseView: React.FC<CauseViewProps> = ({
   const restoreCauseSelectionStates = useVisualizationStore(state => state.restoreCauseSelectionStates)
   const causeSelectionStates = useVisualizationStore(state => state.causeSelectionStates)
   const causeSelectionSources = useVisualizationStore(state => state.causeSelectionSources)
+  const causeMetricScores = useVisualizationStore(state => state.causeMetricScores)
 
   // UMAP brushed features
   const umapBrushedFeatureIds = useVisualizationStore(state => state.umapBrushedFeatureIds)
@@ -331,40 +332,48 @@ const CauseView: React.FC<CauseViewProps> = ({
   const renderTopRowFeatureItem = useCallback((feature: typeof featureListWithMetadata[0], index: number) => {
     const causeCategory = causeSelectionStates.get(feature.featureId)
     const causeSource = causeSelectionSources.get(feature.featureId)
+    const scores = causeMetricScores.get(feature.featureId)
 
     // All features must have a tag - use category name or default to Noisy Activation
     const tagName = causeCategory ? CAUSE_TAG_NAMES[causeCategory] : 'Noisy Activation'
 
     return (
-      <TagBadge
-        featureId={feature.featureId}
-        tagName={tagName}
-        tagCategoryId={TAG_CATEGORY_CAUSE}
-        onClick={() => handleFeatureListClick(index)}
-        fullWidth={true}
-        isAuto={causeSource === 'auto'}
-      />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
+        <TagBadge
+          featureId={feature.featureId}
+          tagName={tagName}
+          tagCategoryId={TAG_CATEGORY_CAUSE}
+          onClick={() => handleFeatureListClick(index)}
+          fullWidth={true}
+          isAuto={causeSource === 'auto'}
+        />
+        <CauseMetricBars scores={scores ?? null} selectedCategory={causeCategory} />
+      </div>
     )
-  }, [causeSelectionStates, causeSelectionSources, handleFeatureListClick])
+  }, [causeSelectionStates, causeSelectionSources, causeMetricScores, handleFeatureListClick])
 
   // Render feature item for bottom row ScrollableItemList (no click handler)
   const renderBottomRowFeatureItem = useCallback((featureId: number) => {
     const causeCategory = causeSelectionStates.get(featureId)
     const causeSource = causeSelectionSources.get(featureId)
+    const scores = causeMetricScores.get(featureId)
 
     // All features must have a tag - use category name or default to Noisy Activation
     const tagName = causeCategory ? CAUSE_TAG_NAMES[causeCategory] : 'Noisy Activation'
 
     return (
-      <TagBadge
-        featureId={featureId}
-        tagName={tagName}
-        tagCategoryId={TAG_CATEGORY_CAUSE}
-        fullWidth={true}
-        isAuto={causeSource === 'auto'}
-      />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
+        <TagBadge
+          featureId={featureId}
+          tagName={tagName}
+          tagCategoryId={TAG_CATEGORY_CAUSE}
+          fullWidth={true}
+          isAuto={causeSource === 'auto'}
+        />
+        <CauseMetricBars scores={scores ?? null} selectedCategory={causeCategory} />
+      </div>
     )
-  }, [causeSelectionStates, causeSelectionSources])
+  }, [causeSelectionStates, causeSelectionSources, causeMetricScores])
 
   // ============================================================================
   // RENDER

@@ -4,7 +4,6 @@
 // ============================================================================
 
 import type { FeatureTableRow, ExplainerScoreData, ActivationExamples, ScorerScoreSet } from '../types'
-import { CAUSE_TAG_THRESHOLD } from './constants'
 
 // ============================================================================
 // TYPES
@@ -208,38 +207,34 @@ export function calculateCauseMetricScores(
 }
 
 /**
- * Determine cause tag based on scores and thresholds
+ * Determine cause tag based on scores
  *
- * Logic:
- * 1. If missedContext < 0.5 AND missedNgram < 0.5 → assign tag with MIN score
- * 2. Else if missedContext < 0.5 → Missed Context
- * 3. Else if missedNgram < 0.5 → Missed N-gram
- * 4. Else → Noisy Activation (default)
+ * Logic: Choose the tag with the minimum score (lowest = worst = root cause)
  */
 export function determineCauseTag(scores: CauseMetricScores): CauseCategory {
-  const threshold = CAUSE_TAG_THRESHOLD
-  const { missedContext, missedNgram } = scores
+  const { noisyActivation, missedContext, missedNgram } = scores
 
-  // Check if both are below threshold
-  const missedContextBelowThreshold = missedContext !== null && missedContext < threshold
-  const missedNgramBelowThreshold = missedNgram !== null && missedNgram < threshold
+  // Build list of valid scores with their categories
+  const candidates: Array<{ score: number; category: CauseCategory }> = []
 
-  if (missedContextBelowThreshold && missedNgramBelowThreshold) {
-    // Both below threshold - assign tag with MIN score (worst case)
-    // Lower score = worse = more likely to be the root cause
-    if (missedContext! <= missedNgram!) {
-      return 'missed-context'
-    } else {
-      return 'missed-N-gram'
-    }
-  } else if (missedContextBelowThreshold) {
-    return 'missed-context'
-  } else if (missedNgramBelowThreshold) {
-    return 'missed-N-gram'
-  } else {
-    // Default: Noisy Activation
+  if (noisyActivation !== null) {
+    candidates.push({ score: noisyActivation, category: 'noisy-activation' })
+  }
+  if (missedContext !== null) {
+    candidates.push({ score: missedContext, category: 'missed-context' })
+  }
+  if (missedNgram !== null) {
+    candidates.push({ score: missedNgram, category: 'missed-N-gram' })
+  }
+
+  // If no valid scores, default to noisy-activation
+  if (candidates.length === 0) {
     return 'noisy-activation'
   }
+
+  // Find minimum score and return its category
+  const min = candidates.reduce((a, b) => a.score < b.score ? a : b)
+  return min.category
 }
 
 /**

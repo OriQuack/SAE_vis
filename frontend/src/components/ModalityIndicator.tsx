@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react'
 import type { BimodalityInfo } from '../types'
-import { calculateBimodalityScore } from '../lib/bimodality-utils'
-import '../styles/BimodalityIndicator.css'
+import { calculateBimodalityScore } from '../lib/modality-utils'
+import '../styles/ModalityIndicator.css'
 
 interface BimodalityIndicatorProps {
   bimodality: BimodalityInfo | null | undefined

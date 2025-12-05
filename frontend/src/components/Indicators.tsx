@@ -248,8 +248,9 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
           fontSize: '11px',
           fontWeight: 600,
           borderRight: '1px solid rgba(0, 0, 0, 0.1)',
-          flex: fullWidth ? 1 : 'none',
-          textAlign: fullWidth ? 'center' : 'left'
+          width: '45px',
+          flexShrink: 0,
+          textAlign: 'center'
         }}
       >
         {featureId}
@@ -271,14 +272,18 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
 // - Three stacked bars: noisy-activation, missed-context, missed-N-gram
 // - Colors from tag system
 
+type CauseCategory = 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'
+
 interface CauseMetricBarsProps {
   scores: CauseMetricScores | null  // Cause metric scores for a feature
-  width?: number                     // Fixed total width (default: 20)
+  selectedCategory?: CauseCategory | null  // Currently selected cause category
+  width?: number                     // Fixed total width (default: 40)
 }
 
 export const CauseMetricBars: React.FC<CauseMetricBarsProps> = ({
   scores,
-  width = 20
+  selectedCategory = null,
+  width = 40
 }) => {
   // Get colors from tag system
   const noisyActivationColor = getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#9ca3af'
@@ -302,11 +307,11 @@ export const CauseMetricBars: React.FC<CauseMetricBarsProps> = ({
   const barHeight = 6  // ~18px total for 3 bars
   const totalHeight = barHeight * 3
 
-  // Configure bars: order, score, and color
-  const bars = [
-    { score: scores.noisyActivation, color: noisyActivationColor },
-    { score: scores.missedContext, color: missedContextColor },
-    { score: scores.missedNgram, color: missedNgramColor }
+  // Configure bars: order, score, color, and category key
+  const bars: Array<{ score: number | null; color: string; category: CauseCategory }> = [
+    { score: scores.noisyActivation, color: noisyActivationColor, category: 'noisy-activation' },
+    { score: scores.missedContext, color: missedContextColor, category: 'missed-context' },
+    { score: scores.missedNgram, color: missedNgramColor, category: 'missed-N-gram' }
   ]
 
   return (
@@ -321,17 +326,24 @@ export const CauseMetricBars: React.FC<CauseMetricBarsProps> = ({
         overflow: 'hidden'
       }}
     >
-      {bars.map((bar, i) => (
-        <div
-          key={i}
-          style={{
-            height: barHeight,
-            width: bar.score !== null ? bar.score * width : 0,
-            backgroundColor: bar.color,
-            flexShrink: 0
-          }}
-        />
-      ))}
+      {bars.map((bar, i) => {
+        // Dim non-selected bars when a category is selected
+        const isSelected = selectedCategory === bar.category
+        const opacity = selectedCategory ? (isSelected ? 1 : 0.3) : 1
+
+        return (
+          <div
+            key={i}
+            style={{
+              height: barHeight,
+              width: bar.score !== null ? bar.score * width : 0,
+              backgroundColor: bar.color,
+              opacity,
+              flexShrink: 0
+            }}
+          />
+        )
+      })}
     </div>
   )
 }
