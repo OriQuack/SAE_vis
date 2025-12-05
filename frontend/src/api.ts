@@ -20,7 +20,8 @@ import type {
   CauseSimilaritySortResponse,
   CauseSimilarityHistogramRequest,
   CauseSimilarityHistogramResponse,
-  UmapProjectionResponse
+  UmapProjectionResponse,
+  MultiModalityResponse
 } from './types'
 
 // ============================================================================
@@ -65,7 +66,8 @@ const API_ENDPOINTS = {
   CLUSTER_CANDIDATES: "/cluster-candidates",
   SEGMENT_CLUSTER_PAIRS: "/segment-cluster-pairs",
   UMAP_PROJECTION: "/umap-projection",
-  DECISION_FUNCTION_UMAP: "/decision-function-umap"
+  DECISION_FUNCTION_UMAP: "/decision-function-umap",
+  MULTI_MODALITY_TEST: "/multi-modality-test"
 } as const
 
 const API_BASE = API_BASE_URL
@@ -518,6 +520,47 @@ export async function getCauseSimilarityScoreHistogram(
     totalItems: data.total_items,
     scoresCount: data.scores ? Object.keys(data.scores).length : 0,
     histogramsCount: data.histograms ? Object.keys(data.histograms).length : 0
+  })
+
+  return data
+}
+
+// ============================================================================
+// MULTI-MODALITY TEST
+// ============================================================================
+
+export async function getMultiModalityTest(
+  featureIds: number[],
+  causeSelections: Record<number, string>
+): Promise<MultiModalityResponse> {
+  console.log('[API] getMultiModalityTest called with:', {
+    totalFeatures: featureIds.length,
+    taggedCount: Object.keys(causeSelections).length
+  })
+
+  const requestBody = {
+    feature_ids: featureIds,
+    cause_selections: causeSelections
+  }
+
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.MULTI_MODALITY_TEST}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody)
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('[API] Multi-modality test error:', response.status, errorText)
+    throw new Error(`Failed to fetch multi-modality test: ${response.status} - ${errorText}`)
+  }
+
+  const data = await response.json()
+  console.log('[API] getMultiModalityTest response:', {
+    aggregateScore: data.multimodality?.aggregate_score,
+    categoryCount: data.multimodality?.category_results?.length
   })
 
   return data

@@ -129,11 +129,12 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
     return (
       <div className="pair-item-with-score">
         <TagBadge
-          featureId={pairIdString as any}
+          featureId={pairIdString}
           tagName={tagName}
           tagCategoryId={tagCategoryId}
           onClick={() => onListItemClick(listType, index)}
           fullWidth={true}
+          isPair={true}
           isAuto={true}
         />
         {score !== undefined && (
@@ -238,8 +239,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
         <div className="threshold-tagging-panel__lists-container">
           {/* Left boundary list (Monosemantic/Need Revision - below reject threshold) */}
           <ScrollableItemList
-            width={260}
-            minHeight={370}
+            variant="boundary"
             badges={[
               { label: leftListLabel, count: mode === 'pair' ? `${leftItems.length.toLocaleString()} pairs` : `${leftFeatures.length.toLocaleString()} features` }
             ]}
@@ -256,8 +256,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
 
           {/* Right boundary list (Fragmented/Well-Explained - above select threshold) */}
           <ScrollableItemList
-            width={260}
-            minHeight={370}
+            variant="boundary"
             badges={[
               { label: rightListLabel, count: mode === 'pair' ? `${rightItems.length.toLocaleString()} pairs` : `${rightFeatures.length.toLocaleString()} features` }
             ]}

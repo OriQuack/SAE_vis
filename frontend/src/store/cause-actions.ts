@@ -355,4 +355,61 @@ export const createCauseActions = (set: any, get: any) => ({
       umapBrushedFeatureIds: new Set<number>()
     })
   },
+
+  // ============================================================================
+  // MULTI-MODALITY TEST ACTION
+  // ============================================================================
+
+  /**
+   * Fetch multi-modality test results for the current cause selections.
+   * Tests bimodality of SVM decision margins for each category and aggregates scores.
+   * Requires at least 2 different categories with manual tags.
+   */
+  fetchMultiModality: async (
+    featureIds: number[],
+    causeSelections: Record<number, string>
+  ) => {
+    console.log('[Store.fetchMultiModality] Starting multi-modality test:', {
+      featureCount: featureIds.length,
+      manualTagCount: Object.keys(causeSelections).length
+    })
+
+    // Validate minimum features
+    if (featureIds.length < 3) {
+      console.warn('[Store.fetchMultiModality] ⚠️ Multi-modality test requires at least 3 features')
+      set({ causeMultiModalityLoading: false })
+      return
+    }
+
+    // Validate that we have at least 2 different categories tagged
+    const taggedCategories = new Set(Object.values(causeSelections))
+    if (taggedCategories.size < 2) {
+      console.warn('[Store.fetchMultiModality] ⚠️ Need at least 2 different categories tagged')
+      set({ causeMultiModalityLoading: false })
+      return
+    }
+
+    try {
+      set({ causeMultiModalityLoading: true })
+
+      const response = await api.getMultiModalityTest(featureIds, causeSelections)
+
+      console.log('[Store.fetchMultiModality] ✅ Multi-modality test complete:', {
+        aggregateScore: response.multimodality.aggregate_score,
+        categoryCount: response.multimodality.category_results.length,
+        sampleSize: response.multimodality.sample_size
+      })
+
+      set({
+        causeMultiModality: response.multimodality,
+        causeMultiModalityLoading: false
+      })
+    } catch (error) {
+      console.error('[Store.fetchMultiModality] ❌ Failed to fetch multi-modality test:', error)
+      set({
+        causeMultiModality: null,
+        causeMultiModalityLoading: false
+      })
+    }
+  },
 })

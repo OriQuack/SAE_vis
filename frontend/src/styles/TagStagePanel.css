@@ -263,10 +263,6 @@
   min-height: 0;
 }
 
-.stage-tags--active {
-  /* Active stage tags - slightly more prominent */
-}
-
 .stage-tags--completed {
   /* Completed stage tags */
   opacity: 0.9;

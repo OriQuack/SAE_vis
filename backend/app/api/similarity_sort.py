@@ -12,7 +12,8 @@ from ..models.similarity_sort import (
     SimilarityHistogramRequest, SimilarityHistogramResponse,
     PairSimilarityHistogramRequest,
     CauseSimilaritySortRequest, CauseSimilaritySortResponse,
-    CauseSimilarityHistogramRequest, CauseSimilarityHistogramResponse
+    CauseSimilarityHistogramRequest, CauseSimilarityHistogramResponse,
+    MultiModalityRequest, MultiModalityResponse
 )
 
 if TYPE_CHECKING:
@@ -457,4 +458,77 @@ async def cause_similarity_score_histogram(
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error during cause histogram calculation: {str(e)}"
+        )
+
+
+@router.post("/multi-modality-test", response_model=MultiModalityResponse)
+async def multi_modality_test(
+    request: MultiModalityRequest,
+    service: "SimilaritySortService" = Depends(get_similarity_sort_service)
+) -> MultiModalityResponse:
+    """
+    Test multi-modality of SVM decision margins across cause categories.
+
+    This endpoint trains One-vs-Rest SVMs for each cause category and tests
+    the bimodality of each category's decision margins. The aggregate score
+    indicates how well-separated the features are across categories.
+
+    For each category:
+    1. Train binary SVM (this category vs all others)
+    2. Compute decision_function values for all features
+    3. Run bimodality detection (Dip Test + GMM) on the decision margins
+
+    The aggregate score is the average of per-category bimodality scores,
+    normalized to 0-1 range.
+
+    Args:
+        request: Request with feature_ids and cause_selections (manual tags)
+        service: Injected similarity sort service
+
+    Returns:
+        Response with per-category bimodality info and aggregate score
+    """
+    try:
+        logger.info(
+            f"Multi-modality test request: {len(request.cause_selections)} tagged features, "
+            f"{len(request.feature_ids)} total features"
+        )
+
+        # Validate request
+        if not request.feature_ids:
+            raise HTTPException(
+                status_code=400,
+                detail="feature_ids cannot be empty"
+            )
+
+        if not request.cause_selections:
+            raise HTTPException(
+                status_code=400,
+                detail="cause_selections cannot be empty (need tagged examples)"
+            )
+
+        # Validate: need at least 2 different categories
+        categories = set(request.cause_selections.values())
+        if len(categories) < 2:
+            raise HTTPException(
+                status_code=400,
+                detail="Need at least 2 different cause categories for multi-modality test"
+            )
+
+        # Call service to compute multi-modality
+        response = await service.get_multi_modality_test(request)
+
+        logger.info(f"Multi-modality test completed: aggregate_score={response.multimodality.aggregate_score:.3f}")
+        return response
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        logger.error(f"Validation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error in multi-modality test: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error during multi-modality test: {str(e)}"
         )

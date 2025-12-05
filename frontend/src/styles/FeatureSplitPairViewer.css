@@ -86,62 +86,6 @@
   background: #374151;
 }
 
-/* Pair list item - wrapper for TagBadge component */
-.pair-list-item {
-  position: relative;
-  padding: 3px;
-  border-radius: 6px;
-  transition: background-color 0.2s ease;
-  border: 1px solid transparent;
-  display: flex;
-  align-items: stretch;
-}
-
-/* Highlight all pairs in the same cluster as the currently selected pair */
-.pair-list-item--same-cluster {
-  background-color: #bfdbfe;  /* More visible blue background for same cluster */
-  border: 1px solid #93c5fd;  /* Add subtle border for extra visibility */
-  border-radius: 0;
-  margin-top: -1px;  /* Collapse borders between items */
-  margin-bottom: 0;
-}
-
-/* First item in cluster group - top rounded corners */
-.pair-list-item--cluster-first {
-  border-top-left-radius: 6px;
-  border-top-right-radius: 6px;
-  margin-top: 0;
-}
-
-/* Last item in cluster group - bottom rounded corners */
-.pair-list-item--cluster-last {
-  border-bottom-left-radius: 6px;
-  border-bottom-right-radius: 6px;
-}
-
-.pair-list-item--current {
-  padding: 2px;  /* Reduce padding to compensate for thicker border */
-  border: 2px solid #3b82f6;  /* Use 2px border, adjust padding to maintain size */
-  border-radius: 6px;
-  background-color: white;
-  box-shadow: 0 0 0 1px #3b82f6;
-  z-index: 1;  /* Ensure current item appears above cluster background */
-}
-
-/* When current item is also in same cluster, keep cluster background */
-.pair-list-item--current.pair-list-item--same-cluster {
-  background-color: #bfdbfe;  /* Keep cluster background */
-  padding: 2px;  /* Same padding adjustment */
-  border: 2px solid #3b82f6;  /* Stronger blue border for current */
-  box-shadow: 0 0 0 2px #3b82f6;  /* Stronger shadow for current */
-}
-
-/* Ensure TagBadge inside has no extra margins */
-.pair-list-item .tag-badge {
-  margin: 0;
-  vertical-align: middle;
-}
-
 /* ============================================================================
  * MAIN CONTENT AREA - Right side with header and activations
  * ============================================================================ */

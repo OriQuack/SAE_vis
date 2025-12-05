@@ -1,4 +1,4 @@
-import type { BimodalityInfo } from '../types'
+import type { BimodalityInfo, MultiModalityInfo } from '../types'
 
 /**
  * Calculate unified bimodality score (0-1) from raw data
@@ -43,7 +43,7 @@ export function calculateBimodalityScore(bimodality: BimodalityInfo): {
   const meanSeparation = meanDiff / avgStd  // Cohen's d-like measure
   const meanScore = Math.min(meanSeparation / 2, 1)  // separation ≥ 3 stddev → 1.0 (stricter)
 
-  // Final score: geometric mean (penalizes any low component heavily)
+  // Final score: geometric mean (all components must contribute)
   const score = Math.pow(dipScore * bicScore * meanScore, 1/3)
 
   return { score, dipScore, bicScore, meanScore, meanSeparation, bicDiff }
@@ -69,4 +69,70 @@ export function isBimodalScore(bimodality: BimodalityInfo | null | undefined): b
   if (!bimodality) return false
   const { score } = calculateBimodalityScore(bimodality)
   return score >= 0.83  // Level 6 (Strongly Bimodal) only
+}
+
+// ============================================================================
+// MULTI-MODALITY UTILITIES
+// ============================================================================
+
+/**
+ * Result of multi-modality score calculation
+ */
+export interface MultiModalityScoreResult {
+  aggregateScore: number  // Combined score (0-1 normalized)
+  categoryScores: Record<string, number>  // Per-category bimodality scores
+  categoryDetails: Record<string, {
+    score: number
+    bicDiff: number
+    meanSeparation: number
+    dipPvalue: number
+  }>
+}
+
+/**
+ * Calculate multi-modality score from per-category bimodality results
+ * Returns aggregate score and per-category breakdown
+ */
+export function calculateMultiModalityScore(
+  multimodality: MultiModalityInfo
+): MultiModalityScoreResult {
+  const categoryScores: Record<string, number> = {}
+  const categoryDetails: Record<string, {
+    score: number
+    bicDiff: number
+    meanSeparation: number
+    dipPvalue: number
+  }> = {}
+
+  for (const categoryResult of multimodality.category_results) {
+    const result = calculateBimodalityScore(categoryResult.bimodality)
+    categoryScores[categoryResult.category] = result.score
+    categoryDetails[categoryResult.category] = {
+      score: result.score,
+      bicDiff: result.bicDiff,
+      meanSeparation: result.meanSeparation,
+      dipPvalue: categoryResult.bimodality.dip_pvalue
+    }
+  }
+
+  // Calculate aggregate score from per-category scores (average)
+  const scores = Object.values(categoryScores)
+  const aggregateScore = scores.length > 0
+    ? scores.reduce((sum, s) => sum + s, 0) / scores.length
+    : 0
+
+  return {
+    aggregateScore,
+    categoryScores,
+    categoryDetails
+  }
+}
+
+/**
+ * Check if multi-modality score indicates strong separation
+ * Used to enable/disable auto-tagging features
+ */
+export function isMultiModal(multimodality: MultiModalityInfo | null | undefined): boolean {
+  if (!multimodality) return false
+  return multimodality.aggregate_score >= 0.83  // Same threshold as bimodality
 }

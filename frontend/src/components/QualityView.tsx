@@ -950,8 +950,7 @@ const QualityView: React.FC<QualityViewProps> = ({
           {/* Top row: Feature list + empty right panel */}
           <div className="quality-view__row-top">
             <ScrollableItemList
-              width={240}
-              height={390}
+              variant="features"
               badges={[{ label: 'Features', count: sortedFeatures.length }]}
               columnHeader={columnHeaderProps}
               items={currentPageFeatures}

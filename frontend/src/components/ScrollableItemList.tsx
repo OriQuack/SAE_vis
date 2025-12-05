@@ -8,6 +8,14 @@ import '../styles/ScrollableItemList.css'
 // Extracted from FeatureSplitPairViewer sidebar for reusability
 // Simple, focused component without over-engineering
 
+// Size variants for different use cases (styles defined in ScrollableItemList.css)
+export type ListVariant =
+  | 'allPairs'        // 240px wide, 390px min-height (FeatureSplitView, FeatureSplitPairViewer)
+  | 'features'        // 240px wide, 390px height (QualityView top row)
+  | 'boundary'        // 260px wide, 370px min-height (ThresholdTaggingPanel left/right)
+  | 'cause'           // 240px wide, 300px min-height, 100% height (CauseView top row)
+  | 'causeBrushed'    // 240px wide, 100% height (CauseView bottom row)
+
 interface Badge {
   label: string
   count: number | string
@@ -79,7 +87,10 @@ export interface ScrollableItemListProps<T = any> {
   // When provided, wraps renderItem output with score display
   sortConfig?: SortConfig<T>
 
-  // Styling
+  // Size variant - when set, uses predefined CSS classes (overrides width/height/minHeight)
+  variant?: ListVariant
+
+  // Styling (ignored when variant is set)
   width?: number | string
   height?: number | string
   minHeight?: number | string
@@ -98,6 +109,7 @@ export function ScrollableItemList<T = any>({
   footerButton,
   pageNavigation,
   sortConfig,
+  variant,
   width = 200,
   height,
   minHeight,
@@ -126,10 +138,13 @@ export function ScrollableItemList<T = any>({
     }
   }, [headerStripe])
 
+  // Build class names including variant class when set
+  const variantClass = variant ? `scrollable-list--variant-${variant}` : ''
+
   return (
     <div
-      className={`scrollable-list ${isActive ? 'scrollable-list--active' : ''} ${className}`}
-      style={{
+      className={`scrollable-list ${variantClass} ${isActive ? 'scrollable-list--active' : ''} ${className}`}
+      style={variant ? undefined : {
         width: typeof width === 'number' ? `${width}px` : width,
         height: height ? (typeof height === 'number' ? `${height}px` : height) : undefined,
         minHeight: minHeight ? (typeof minHeight === 'number' ? `${minHeight}px` : minHeight) : undefined

@@ -319,3 +319,35 @@
   min-width: 32px;
   text-align: right;
 }
+
+/* ============================================================================
+ * SIZE VARIANTS - Predefined sizes for different use cases
+ * ============================================================================ */
+
+.scrollable-list--variant-allPairs {
+  width: 240px;
+  min-height: 390px;
+}
+
+.scrollable-list--variant-features {
+  width: 240px;
+  height: 390px;
+}
+
+.scrollable-list--variant-boundary {
+  width: 260px;
+  height: 100%;
+  min-height: 370px;
+}
+
+.scrollable-list--variant-cause {
+  width: 240px;
+  min-height: 300px;
+  height: 100%;
+}
+
+.scrollable-list--variant-causeBrushed {
+  width: 240px;
+  height: 100%;
+  flex-shrink: 0;
+}

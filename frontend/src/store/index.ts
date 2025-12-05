@@ -13,7 +13,8 @@ import type {
   ActivationExamples,
   SankeySegmentSelection,
   FlowPathData,
-  UmapPoint
+  UmapPoint,
+  MultiModalityInfo
 } from '../types'
 import { getNodeThresholdPath, processFeatureGroupResponse } from '../lib/threshold-utils'
 import {
@@ -319,6 +320,11 @@ interface AppState {
   setUmapBrushedFeatureIds: (featureIds: Set<number>) => void
   clearUmapProjection: () => void
 
+  // Multi-modality state (for Stage 3 CauseView modality indicator)
+  causeMultiModality: MultiModalityInfo | null
+  causeMultiModalityLoading: boolean
+  fetchMultiModality: (featureIds: number[], causeSelections: Record<number, string>) => Promise<void>
+
   // Stage table actions
   setActiveStageNode: (nodeId: string | null, category?: string | null) => void
   clearActiveStageNode: () => void
@@ -447,6 +453,10 @@ const initialState = {
   umapLoading: false,
   umapError: null,
   umapBrushedFeatureIds: new Set<number>(),
+
+  // Multi-modality state
+  causeMultiModality: null,
+  causeMultiModalityLoading: false,
 
   // Hover state
   hoveredAlluvialNodeId: null,
@@ -577,6 +587,9 @@ export const useStore = create<AppState>((set, get) => {
   fetchDecisionFunctionUmap: causeActions.fetchDecisionFunctionUmap,
   setUmapBrushedFeatureIds: causeActions.setUmapBrushedFeatureIds,
   clearUmapProjection: causeActions.clearUmapProjection,
+
+  // Compose Multi-modality action (Stage 3)
+  fetchMultiModality: causeActions.fetchMultiModality,
 
   // Unified similarity tagging actions (route based on mode)
   ...unifiedSimilarityActions,

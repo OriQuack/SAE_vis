@@ -621,6 +621,30 @@ export interface BimodalityInfo {
 }
 
 /**
+ * Category Bimodality Info - Bimodality info for a single category's SVM decision margins
+ */
+export interface CategoryBimodalityInfo {
+  category: string
+  bimodality: BimodalityInfo
+}
+
+/**
+ * Multi-Modality Info - Aggregate multi-modality across all categories
+ */
+export interface MultiModalityInfo {
+  category_results: CategoryBimodalityInfo[]
+  aggregate_score: number  // Combined score (0-1 normalized)
+  sample_size: number
+}
+
+/**
+ * Multi-Modality Response - Response from multi-modality test API
+ */
+export interface MultiModalityResponse {
+  multimodality: MultiModalityInfo
+}
+
+/**
  * Similarity Score Histogram Response - Distribution of similarity scores
  */
 export interface SimilarityScoreHistogramResponse {

@@ -104,3 +104,51 @@
   font-weight: 500;
   color: #374151;
 }
+
+/* ============================================================================
+ * MULTI-MODALITY TOOLTIP EXTENSIONS
+ * ============================================================================ */
+
+.bimodality-indicator__tooltip-category {
+  padding: 4px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.bimodality-indicator__tooltip-category:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.bimodality-indicator__tooltip-category-name {
+  font-weight: 600;
+  font-size: 10px;
+  color: #4b5563;
+  margin-bottom: 2px;
+  text-transform: capitalize;
+}
+
+/* ============================================================================
+ * PLACEHOLDER STATE - When no data available
+ * ============================================================================ */
+
+.bimodality-indicator--placeholder {
+  justify-content: center;
+  align-items: center;
+  min-height: 100px;
+}
+
+.bimodality-indicator__placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 8px;
+  text-align: center;
+}
+
+.bimodality-indicator__placeholder-text {
+  font-size: 11px;
+  color: #9ca3af;
+  line-height: 1.4;
+  max-width: 80px;
+}

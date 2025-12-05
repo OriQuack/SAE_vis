@@ -7,6 +7,7 @@ import { ScrollableItemList } from './ScrollableItemList'
 import { TagBadge, CauseMetricBars } from './Indicators'
 import ActivationExample from './ActivationExamplePanel'
 import { HighlightedExplanation } from './ExplanationPanel'
+import ModalityIndicator from './ModalityIndicator'
 import { TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import { getExplainerDisplayName } from '../lib/table-data-utils'
@@ -55,6 +56,10 @@ const CauseView: React.FC<CauseViewProps> = ({
   const causeSelectionStates = useVisualizationStore(state => state.causeSelectionStates)
   const causeSelectionSources = useVisualizationStore(state => state.causeSelectionSources)
   const causeMetricScores = useVisualizationStore(state => state.causeMetricScores)
+
+  // Multi-modality state
+  const causeMultiModality = useVisualizationStore(state => state.causeMultiModality)
+  const fetchMultiModality = useVisualizationStore(state => state.fetchMultiModality)
 
   // UMAP brushed features
   const umapBrushedFeatureIds = useVisualizationStore(state => state.umapBrushedFeatureIds)
@@ -165,6 +170,39 @@ const CauseView: React.FC<CauseViewProps> = ({
       })
     }
   }, [isRevisitingStage3, stage3FinalCommit, selectedFeatureIds, setStage3FinalCommit, causeSelectionStates, causeSelectionSources])
+
+  // ============================================================================
+  // MULTI-MODALITY - Fetch when there are enough manual tags
+  // ============================================================================
+  useEffect(() => {
+    if (!selectedFeatureIds || selectedFeatureIds.size < 3) return
+
+    // Count manually tagged features per category
+    const manualTagsByCategory: Record<string, number> = {}
+    causeSelectionStates.forEach((category, featureId) => {
+      const source = causeSelectionSources.get(featureId)
+      if (source === 'manual') {
+        manualTagsByCategory[category] = (manualTagsByCategory[category] || 0) + 1
+      }
+    })
+
+    // Need at least 2 different categories with manual tags
+    const categoriesWithManualTags = Object.keys(manualTagsByCategory).length
+    if (categoriesWithManualTags < 2) return
+
+    // Build cause selections (manual only) for API call
+    const causeSelections: Record<number, string> = {}
+    causeSelectionStates.forEach((category, featureId) => {
+      const source = causeSelectionSources.get(featureId)
+      if (source === 'manual') {
+        causeSelections[featureId] = category
+      }
+    })
+
+    // Fetch multi-modality test
+    const featureIds = Array.from(selectedFeatureIds)
+    fetchMultiModality(featureIds, causeSelections)
+  }, [selectedFeatureIds, causeSelectionStates, causeSelectionSources, fetchMultiModality])
 
   // Get tag color for header badge (Need Revision - parent tag from Stage 2)
   const needRevisionColor = getTagColor(TAG_CATEGORY_QUALITY, 'Need Revision') || '#9ca3af'
@@ -411,9 +449,7 @@ const CauseView: React.FC<CauseViewProps> = ({
           <div className="cause-view__row-top">
             {/* Left: All features from segment */}
             <ScrollableItemList
-              width={240}
-              minHeight={300}
-              height="100%"
+              variant="cause"
               badges={[{ label: 'Features', count: featureListWithMetadata.length }]}
               items={currentPageFeatures}
               renderItem={renderTopRowFeatureItem}
@@ -593,19 +629,19 @@ const CauseView: React.FC<CauseViewProps> = ({
             </div>
           </div>
 
-          {/* Bottom row: UMAP + Selected features list */}
+          {/* Bottom row: UMAP + Modality Indicator + Selected features list */}
           <div className="cause-view__row-bottom">
             <UMAPScatter
               featureIds={selectedFeatureIds ? Array.from(selectedFeatureIds) : []}
               width={500}
               className="cause-view__umap"
             />
+            <ModalityIndicator multimodality={causeMultiModality} />
             <ScrollableItemList
+              variant="causeBrushed"
               badges={[{ label: 'Selected', count: brushedFeatureList.length }]}
               items={brushedFeatureList}
               renderItem={renderBottomRowFeatureItem}
-              width={200}
-              height="100%"
             />
           </div>
         </div>

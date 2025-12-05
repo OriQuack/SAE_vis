@@ -319,3 +319,55 @@ class DecisionFunctionUmapRequest(BaseModel):
         default=42,
         description="Random seed for reproducibility"
     )
+
+
+# ============================================================================
+# MULTI-MODALITY MODELS (Per-category bimodality aggregation)
+# ============================================================================
+
+class CategoryBimodalityInfo(BaseModel):
+    """Bimodality info for a single category's SVM decision margins."""
+
+    category: str = Field(..., description="Cause category name")
+    bimodality: BimodalityInfo = Field(
+        ...,
+        description="Bimodality detection results for this category's decision margins"
+    )
+
+
+class MultiModalityInfo(BaseModel):
+    """Aggregate multi-modality info across all categories."""
+
+    category_results: List[CategoryBimodalityInfo] = Field(
+        ...,
+        description="Per-category bimodality results"
+    )
+    aggregate_score: float = Field(
+        ...,
+        description="Combined score (average of category bimodality scores, 0-1)"
+    )
+    sample_size: int = Field(..., description="Number of features analyzed")
+
+
+class MultiModalityRequest(BaseModel):
+    """Request model for multi-modality test."""
+
+    feature_ids: List[int] = Field(
+        ...,
+        description="All feature IDs to analyze",
+        min_length=3
+    )
+    cause_selections: Dict[int, str] = Field(
+        ...,
+        description="Map of feature_id to cause category (manual tags)",
+        min_length=1
+    )
+
+
+class MultiModalityResponse(BaseModel):
+    """Response model for multi-modality test."""
+
+    multimodality: MultiModalityInfo = Field(
+        ...,
+        description="Multi-modality analysis results"
+    )

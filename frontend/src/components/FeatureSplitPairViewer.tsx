@@ -277,8 +277,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
       {/* All Pairs list (optional) */}
       {allPairsListProps && (
         <ScrollableItemList
-          width={240}
-          minHeight={390}
+          variant="allPairs"
           badges={[
             { label: 'All Pairs', count: `${allPairsListProps.totalPairCount} pairs` }
           ]}
@@ -318,11 +317,12 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
 
             return (
               <TagBadge
-                featureId={pairIdString as any}
+                featureId={pairIdString}
                 tagName={tagName}
                 tagCategoryId={TAG_CATEGORY_FEATURE_SPLITTING}
                 onClick={() => allPairsListProps.onItemClick(index)}
                 fullWidth={true}
+                isPair={true}
                 isAuto={isAutoOrPreview}
               />
             )

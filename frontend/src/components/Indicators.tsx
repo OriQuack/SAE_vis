@@ -114,7 +114,7 @@ const ScoreCircle: React.FC<ScoreCircleProps> = ({
 // - Right section: Tag name with tag-specific color
 
 interface TagBadgeProps {
-  featureId: number          // Feature ID to display on left
+  featureId: number | string // Feature ID to display on left (string for pair IDs like "123-456")
   tagName: string            // Tag name to display on right
   tagCategoryId: string      // Category ID for color lookup
   className?: string         // Additional CSS classes
@@ -125,6 +125,7 @@ interface TagBadgeProps {
 
   // Layout props
   fullWidth?: boolean        // If true, use flex: 1 to fill container width (default: false)
+  isPair?: boolean           // If true, use 2.2x width for pair IDs (default: false)
 
   // Auto-tag indicator - shows stripe pattern when true
   isAuto?: boolean           // If true, show stripe pattern to indicate auto-tagged
@@ -137,6 +138,7 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
   className = '',
   onClick,
   fullWidth = false,
+  isPair = false,
   isAuto = false
 }) => {
   // Get tag color from pre-computed colors (or gray for unselected)
@@ -248,7 +250,7 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
           fontSize: '11px',
           fontWeight: 600,
           borderRight: '1px solid rgba(0, 0, 0, 0.1)',
-          width: '45px',
+          width: isPair ? '90px' : '45px',  // 2.2x width for pair IDs
           flexShrink: 0,
           textAlign: 'center'
         }}

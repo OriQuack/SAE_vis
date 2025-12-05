@@ -301,12 +301,6 @@
   height: 100%;
 }
 
-/* Selected list container */
-.cause-view__row-bottom .scrollable-item-list {
-  flex: 0 0 200px;
-  height: 100%;
-}
-
 /* ============================================================================
  * FLOATING CONTROLS - Navigation and tag buttons at bottom
  * ============================================================================ */
