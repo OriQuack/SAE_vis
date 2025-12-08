@@ -91,8 +91,8 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   const causeSelectionStates = useVisualizationStore(state => state.causeSelectionStates)
   const causeSelectionSources = useVisualizationStore(state => state.causeSelectionSources)
 
-  // Toggle for Decision Function Space mode
-  const [useDecisionSpace, setUseDecisionSpace] = useState(true)
+  // Always use Decision Function Space mode
+  const useDecisionSpace = true
 
   // Check if all 4 categories have at least one manual tag
   const { canUseDecisionSpace, manualCauseSelections } = useMemo(() => {
@@ -393,18 +393,6 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     ]
     return (
       <div ref={containerRef} className={`umap-scatter umap-scatter--placeholder ${className}`} style={containerStyle}>
-        {/* Header with toggle */}
-        <div className="umap-scatter__header">
-          <label className="umap-scatter__toggle">
-            <input
-              type="checkbox"
-              checked={useDecisionSpace}
-              onChange={(e) => setUseDecisionSpace(e.target.checked)}
-            />
-            <span className="umap-scatter__toggle-slider" />
-            <span className="umap-scatter__toggle-label">SVM Space</span>
-          </label>
-        </div>
         <div className="umap-scatter__placeholder">
           <div className="umap-scatter__main-instruction">
             Tag 1+ feature in each category
@@ -443,19 +431,6 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
 
   return (
     <div ref={containerRef} className={`umap-scatter ${className}`} style={containerStyle}>
-      {/* Header with toggle */}
-      <div className="umap-scatter__header">
-        <label className="umap-scatter__toggle">
-          <input
-            type="checkbox"
-            checked={useDecisionSpace}
-            onChange={(e) => setUseDecisionSpace(e.target.checked)}
-          />
-          <span className="umap-scatter__toggle-slider" />
-          <span className="umap-scatter__toggle-label">SVM Space</span>
-        </label>
-      </div>
-
       {/* Chart area */}
       <div className="umap-scatter__chart">
         {/* SVG for contours + lasso */}

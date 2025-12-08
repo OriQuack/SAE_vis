@@ -21,6 +21,27 @@ import '../styles/CauseView.css'
 // ============================================================================
 // Layout: [SelectionPanel bar] | [Content: UMAP + Selected Features List]
 
+// Commit history types
+export interface CauseCommitCounts {
+  noisyActivation: number
+  missedNgram: number
+  missedContext: number
+  wellExplained: number
+  unsure: number
+  total: number
+}
+
+export interface CauseTagCommit {
+  id: number
+  type: 'initial' | 'apply' | 'tagAll'
+  causeSelectionStates: Map<number, CauseCategory>
+  causeSelectionSources: Map<number, 'manual' | 'auto'>
+  counts: CauseCommitCounts
+}
+
+// Maximum number of commits to keep (oldest auto-removed)
+const MAX_COMMITS = 10
+
 // Map CauseCategory to display tag names
 const CAUSE_TAG_NAMES: Record<CauseCategory, string> = {
   'noisy-activation': 'Noisy Activation',
@@ -85,6 +106,14 @@ const CauseView: React.FC<CauseViewProps> = ({
   const [containerWidth, setContainerWidth] = useState(600)
   const rightPanelRef = useRef<HTMLDivElement>(null)
   const hasAutoTaggedRef = useRef(false)
+
+  // ============================================================================
+  // COMMIT HISTORY STATE - Save and restore tagging state snapshots
+  // ============================================================================
+  const [tagCommitHistory, setTagCommitHistory] = useState<CauseTagCommit[]>([
+    { id: 0, type: 'initial', causeSelectionStates: new Map(), causeSelectionSources: new Map(), counts: { noisyActivation: 0, missedNgram: 0, missedContext: 0, wellExplained: 0, unsure: 0, total: 0 } }
+  ])
+  const [currentCommitIndex, setCurrentCommitIndex] = useState(0)
 
   // Top row feature list pagination - currentPage derived from currentFeatureIndex
   const currentPage = Math.floor(currentFeatureIndex / ITEMS_PER_PAGE)
@@ -265,6 +294,15 @@ const CauseView: React.FC<CauseViewProps> = ({
       .filter(item => item.row !== null)
   }, [tableData, selectedFeatureIds])
 
+  // Check if all features are manually tagged (for enabling next stage button)
+  const allTagged = useMemo(() => {
+    if (!selectedFeatureIds || selectedFeatureIds.size === 0) return false
+    for (const featureId of selectedFeatureIds) {
+      if (causeSelectionSources.get(featureId) !== 'manual') return false
+    }
+    return true
+  }, [selectedFeatureIds, causeSelectionSources])
+
   // Pagination for the top row list
   const totalPages = Math.max(1, Math.ceil(featureListWithMetadata.length / ITEMS_PER_PAGE))
   const currentPageFeatures = useMemo(() => {
@@ -369,6 +407,58 @@ const CauseView: React.FC<CauseViewProps> = ({
   }, [])
 
   // ============================================================================
+  // COMMIT HISTORY HELPERS
+  // ============================================================================
+
+  // Helper function to compute cause counts from causeSelectionStates
+  const getCauseCounts = useCallback((): CauseCommitCounts => {
+    let noisyActivation = 0, missedNgram = 0, missedContext = 0, wellExplained = 0, unsure = 0
+
+    featureListWithMetadata.forEach((f: typeof featureListWithMetadata[0]) => {
+      const category = causeSelectionStates.get(f.featureId)
+      if (category === 'noisy-activation') noisyActivation++
+      else if (category === 'missed-N-gram') missedNgram++
+      else if (category === 'missed-context') missedContext++
+      else if (category === 'well-explained') wellExplained++
+      else unsure++
+    })
+
+    return {
+      noisyActivation,
+      missedNgram,
+      missedContext,
+      wellExplained,
+      unsure,
+      total: featureListWithMetadata.length
+    }
+  }, [featureListWithMetadata, causeSelectionStates])
+
+  // Handle commit circle click - restore state from that commit
+  const handleCommitClick = useCallback((commitIndex: number) => {
+    if (commitIndex < 0 || commitIndex >= tagCommitHistory.length) return
+    if (commitIndex === currentCommitIndex) return
+
+    // Save current state to current commit before switching
+    setTagCommitHistory(prev => {
+      const updated = [...prev]
+      updated[currentCommitIndex] = {
+        ...updated[currentCommitIndex],
+        causeSelectionStates: new Map(causeSelectionStates),
+        causeSelectionSources: new Map(causeSelectionSources)
+      }
+      return updated
+    })
+
+    // Restore the clicked commit's state
+    const targetCommit = tagCommitHistory[commitIndex]
+    restoreCauseSelectionStates(targetCommit.causeSelectionStates, targetCommit.causeSelectionSources)
+
+    setCurrentCommitIndex(commitIndex)
+
+    console.log('[CauseView] Restored commit', commitIndex, 'with', targetCommit.causeSelectionStates.size, 'features')
+  }, [tagCommitHistory, currentCommitIndex, causeSelectionStates, causeSelectionSources, restoreCauseSelectionStates])
+
+  // ============================================================================
   // NAVIGATION HANDLERS
   // ============================================================================
 
@@ -426,17 +516,78 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Tag all brushed features with a specific cause category
   const handleTagBrushedAs = useCallback((category: 'noisy-activation' | 'missed-context' | 'missed-N-gram') => {
+    // 1. Save current state to current commit before applying new tags
+    const currentCounts = getCauseCounts()
+    setTagCommitHistory(prev => {
+      const updated = [...prev]
+      updated[currentCommitIndex] = {
+        ...updated[currentCommitIndex],
+        causeSelectionStates: new Map(causeSelectionStates) as Map<number, CauseCategory>,
+        causeSelectionSources: new Map(causeSelectionSources),
+        counts: currentCounts
+      }
+      return updated
+    })
+
+    // 2. Apply tags to all brushed features
     umapBrushedFeatureIds.forEach(featureId => {
       setCauseCategory(featureId, category)
     })
-  }, [umapBrushedFeatureIds, setCauseCategory])
+
+    // 3. Create new commit after tags are applied
+    setTimeout(() => {
+      const store = useVisualizationStore.getState()
+      const newCounts = getCauseCounts()
+
+      const newCommit: CauseTagCommit = {
+        id: tagCommitHistory.length,
+        type: 'tagAll',
+        causeSelectionStates: new Map(store.causeSelectionStates) as Map<number, CauseCategory>,
+        causeSelectionSources: new Map(store.causeSelectionSources),
+        counts: newCounts
+      }
+
+      setTagCommitHistory(prev => {
+        const truncated = prev.slice(0, currentCommitIndex + 1)
+        let newHistory = [...truncated, newCommit]
+        if (newHistory.length > MAX_COMMITS) {
+          newHistory = [newHistory[0], ...newHistory.slice(-(MAX_COMMITS - 1))]
+        }
+        return newHistory
+      })
+
+      setCurrentCommitIndex(currentCommitIndex + 1)
+      console.log('[CauseView] Created new commit after tagging brushed as', category)
+
+      // Save to global store for Stage 3 revisit
+      setStage3FinalCommit({
+        causeSelectionStates: new Map(store.causeSelectionStates),
+        causeSelectionSources: new Map(store.causeSelectionSources),
+        featureIds: selectedFeatureIds ? new Set(selectedFeatureIds) : new Set(),
+        counts: newCounts
+      })
+    }, 0)
+  }, [umapBrushedFeatureIds, setCauseCategory, getCauseCounts, currentCommitIndex, tagCommitHistory.length, causeSelectionStates, causeSelectionSources, setStage3FinalCommit, selectedFeatureIds])
 
   // Tag remaining untagged features by decision boundary (highest margin category)
   const handleTagRemainingByBoundary = useCallback(() => {
     if (!causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0) return
     if (!selectedFeatureIds) return
 
-    // For each feature in selectedFeatureIds, if not manually tagged, assign highest margin category
+    // 1. Save current state to current commit before applying new tags
+    const currentCounts = getCauseCounts()
+    setTagCommitHistory(prev => {
+      const updated = [...prev]
+      updated[currentCommitIndex] = {
+        ...updated[currentCommitIndex],
+        causeSelectionStates: new Map(causeSelectionStates) as Map<number, CauseCategory>,
+        causeSelectionSources: new Map(causeSelectionSources),
+        counts: currentCounts
+      }
+      return updated
+    })
+
+    // 2. For each feature in selectedFeatureIds, if not manually tagged, assign highest margin category
     selectedFeatureIds.forEach(featureId => {
       const source = causeSelectionSources.get(featureId)
       // Skip manually tagged features
@@ -454,7 +605,41 @@ const CauseView: React.FC<CauseViewProps> = ({
       )
       setCauseCategory(featureId, bestCategory as CauseCategory)
     })
-  }, [causeCategoryDecisionMargins, selectedFeatureIds, causeSelectionSources, setCauseCategory])
+
+    // 3. Create new commit after tags are applied
+    setTimeout(() => {
+      const store = useVisualizationStore.getState()
+      const newCounts = getCauseCounts()
+
+      const newCommit: CauseTagCommit = {
+        id: tagCommitHistory.length,
+        type: 'apply',
+        causeSelectionStates: new Map(store.causeSelectionStates) as Map<number, CauseCategory>,
+        causeSelectionSources: new Map(store.causeSelectionSources),
+        counts: newCounts
+      }
+
+      setTagCommitHistory(prev => {
+        const truncated = prev.slice(0, currentCommitIndex + 1)
+        let newHistory = [...truncated, newCommit]
+        if (newHistory.length > MAX_COMMITS) {
+          newHistory = [newHistory[0], ...newHistory.slice(-(MAX_COMMITS - 1))]
+        }
+        return newHistory
+      })
+
+      setCurrentCommitIndex(currentCommitIndex + 1)
+      console.log('[CauseView] Created new commit after tagging by decision boundary')
+
+      // Save to global store for Stage 3 revisit
+      setStage3FinalCommit({
+        causeSelectionStates: new Map(store.causeSelectionStates),
+        causeSelectionSources: new Map(store.causeSelectionSources),
+        featureIds: new Set(selectedFeatureIds),
+        counts: newCounts
+      })
+    }, 0)
+  }, [causeCategoryDecisionMargins, selectedFeatureIds, causeSelectionSources, setCauseCategory, getCauseCounts, currentCommitIndex, tagCommitHistory.length, causeSelectionStates, setStage3FinalCommit])
 
   // Handle next stage navigation (placeholder for Stage 4)
   const handleNextStage = useCallback(() => {
@@ -541,11 +726,13 @@ const CauseView: React.FC<CauseViewProps> = ({
       {/* Body: SelectionPanel + Content area */}
       <div className="cause-view__body">
         {/* Left column: SelectionPanel vertical bar */}
-        {/* TODO: Stage 3 selection panel implementation */}
         <SelectionPanel
           stage="stage3"
           onCategoryRefsReady={onCategoryRefsReady}
           filteredFeatureIds={selectedFeatureIds || undefined}
+          commitHistory={tagCommitHistory}
+          currentCommitIndex={currentCommitIndex}
+          onCommitClick={handleCommitClick}
         />
 
         {/* Right column: Top placeholder + Bottom UMAP section */}
@@ -758,7 +945,7 @@ const CauseView: React.FC<CauseViewProps> = ({
               {/* Top group: Tag brushed buttons */}
               <div className="cause-view__action-buttons-group">
                 <button
-                  className="cause-view__action-button cause-view__action-button--tag"
+                  className="action-button action-button--tag"
                   style={{ '--tag-color': noisyActivationColor } as React.CSSProperties}
                   onClick={() => handleTagBrushedAs('noisy-activation')}
                   disabled={umapBrushedFeatureIds.size === 0}
@@ -767,7 +954,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                   Tag brushed as Noisy Activation
                 </button>
                 <button
-                  className="cause-view__action-button cause-view__action-button--tag"
+                  className="action-button action-button--tag"
                   style={{ '--tag-color': missedContextColor } as React.CSSProperties}
                   onClick={() => handleTagBrushedAs('missed-context')}
                   disabled={umapBrushedFeatureIds.size === 0}
@@ -776,7 +963,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                   Tag brushed as Missed Context
                 </button>
                 <button
-                  className="cause-view__action-button cause-view__action-button--tag"
+                  className="action-button action-button--tag"
                   style={{ '--tag-color': missedNgramColor } as React.CSSProperties}
                   onClick={() => handleTagBrushedAs('missed-N-gram')}
                   disabled={umapBrushedFeatureIds.size === 0}
@@ -789,7 +976,7 @@ const CauseView: React.FC<CauseViewProps> = ({
               {/* Bottom group: Action buttons */}
               <div className="cause-view__action-buttons-group">
                 <button
-                  className="cause-view__action-button cause-view__action-button--primary"
+                  className="action-button action-button--primary"
                   onClick={handleTagRemainingByBoundary}
                   disabled={!causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0}
                   title="Auto-tag remaining features using SVM decision boundary"
@@ -797,9 +984,10 @@ const CauseView: React.FC<CauseViewProps> = ({
                   Tag Remaining by Decision Boundary
                 </button>
                 <button
-                  className="cause-view__action-button cause-view__action-button--next"
+                  className="action-button action-button--next"
                   onClick={handleNextStage}
-                  title="Proceed to Stage 4"
+                  disabled={!allTagged}
+                  title={allTagged ? 'Proceed to Stage 4' : 'Tag all features first'}
                 >
                   Stage 4: Temp →
                 </button>

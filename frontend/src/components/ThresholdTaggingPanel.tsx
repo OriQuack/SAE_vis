@@ -5,6 +5,7 @@ import TagAutomaticPanel from './TagAutomaticPanel'
 import ScrollableItemList from './ScrollableItemList'
 import BimodalityIndicator from './ModalityIndicator'
 import { TagBadge } from './Indicators'
+import { getTagColor } from '../lib/tag-system'
 import '../styles/ThresholdTaggingPanel.css'
 
 // ============================================================================
@@ -194,41 +195,48 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
 
       {/* Buttons */}
       <div className="threshold-tagging-panel__buttons">
-        <button
-          className="threshold-tagging-panel__apply-button"
-          onClick={onApplyTags}
-          disabled={!hasItemsToTag}
-          title={hasItemsToTag ? 'Apply auto-tags and sort by uncertainty' : `No ${mode === 'pair' ? 'pairs' : 'features'} in threshold regions to tag`}
-        >
-          Tag by Threshold
-        </button>
+        {/* Top group: Primary action */}
+        <div className="threshold-tagging-panel__buttons-group">
+          <button
+            className="action-button action-button--primary"
+            onClick={onApplyTags}
+            disabled={!hasItemsToTag}
+            title={hasItemsToTag ? 'Apply auto-tags and sort by uncertainty' : `No ${mode === 'pair' ? 'pairs' : 'features'} in threshold regions to tag`}
+          >
+            Tag by Threshold
+          </button>
+        </div>
 
-        <button
-          className={`threshold-tagging-panel__tag-all-button ${isBimodal ? 'threshold-tagging-panel__tag-all-button--active' : ''}`}
-          onClick={() => onTagAll('left')}
-          disabled={!isBimodal}
-          title={isBimodal ? `Tag all remaining as ${leftListLabel}` : 'Requires strongly bimodal distribution'}
-        >
-          Tag Remaining as {leftListLabel}
-        </button>
+        {/* Bottom group: Tag all + Next stage */}
+        <div className="threshold-tagging-panel__buttons-group">
+          <button
+            className={`action-button action-button--tag ${isBimodal ? 'action-button--active' : ''}`}
+            style={{ '--tag-color': getTagColor(tagCategoryId, leftListLabel) || '#9ca3af' } as React.CSSProperties}
+            onClick={() => onTagAll('left')}
+            disabled={!isBimodal}
+            title={isBimodal ? `Tag all remaining as ${leftListLabel}` : 'Requires strongly bimodal distribution'}
+          >
+            Tag Remaining as {leftListLabel}
+          </button>
 
-        <button
-          className={`threshold-tagging-panel__tag-all-button ${isBimodal ? 'threshold-tagging-panel__tag-all-button--active' : ''}`}
-          onClick={() => onTagAll('byBoundary')}
-          disabled={!isBimodal}
-          title={isBimodal ? 'Tag all remaining by decision boundary' : 'Requires strongly bimodal distribution'}
-        >
-          Tag Remaining by Decision Boundary
-        </button>
+          <button
+            className={`action-button ${isBimodal ? 'action-button--active' : ''}`}
+            onClick={() => onTagAll('byBoundary')}
+            disabled={!isBimodal}
+            title={isBimodal ? 'Tag all remaining by decision boundary' : 'Requires strongly bimodal distribution'}
+          >
+            Tag Remaining by Decision Boundary
+          </button>
 
-        <button
-          className="threshold-tagging-panel__next-stage-button"
-          onClick={onNextStage}
-          disabled={!allTagged}
-          title={allTagged ? `Proceed to Stage ${nextStageNumber}: ${nextStageName}` : `Tag all ${mode === 'pair' ? 'pairs' : 'features'} first`}
-        >
-          Stage {nextStageNumber}: {nextStageName} →
-        </button>
+          <button
+            className="action-button action-button--next"
+            onClick={onNextStage}
+            disabled={!allTagged}
+            title={allTagged ? `Proceed to Stage ${nextStageNumber}: ${nextStageName}` : `Tag all ${mode === 'pair' ? 'pairs' : 'features'} first`}
+          >
+            Stage {nextStageNumber}: {nextStageName} →
+          </button>
+        </div>
       </div>
 
       {/* Boundary lists wrapper with subtitle */}

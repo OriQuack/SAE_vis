@@ -89,7 +89,7 @@ function deriveFeatureStatesFromPairs(
 }
 
 // Counts stored at commit time for hover preview
-// Supports both stage1 (fragmented/monosemantic) and stage2 (wellExplained/needRevision)
+// Supports stage1 (fragmented/monosemantic), stage2 (wellExplained/needRevision), and stage3 (cause categories)
 interface CommitCounts {
   // Stage 1: Feature Splitting terminology
   fragmented?: number
@@ -97,6 +97,10 @@ interface CommitCounts {
   // Stage 2: Quality Assessment terminology
   wellExplained?: number
   needRevision?: number
+  // Stage 3: Cause Analysis terminology
+  noisyActivation?: number
+  missedNgram?: number
+  missedContext?: number
   // Common
   unsure: number
   total: number
@@ -703,8 +707,70 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
                         </div>
                       )
                     } else {
-                      // TODO: Stage 3 - Cause Analysis tooltip
-                      return null
+                      // Stage 3: Cause Analysis - 4 cause categories + unsure
+                      const noisyActivationCount = counts.noisyActivation ?? 0
+                      const missedNgramCount = counts.missedNgram ?? 0
+                      const missedContextCount = counts.missedContext ?? 0
+                      const wellExplainedCount = counts.wellExplained ?? 0
+
+                      const noisyActivationPct = (noisyActivationCount / total) * 100
+                      const missedNgramPct = (missedNgramCount / total) * 100
+                      const missedContextPct = (missedContextCount / total) * 100
+                      const wellExplainedPct = (wellExplainedCount / total) * 100
+
+                      // Get stage2 colors for well-explained (green)
+                      const stage2Colors = getSelectionColors('stage2')
+
+                      return (
+                        <div className="commit-hover-tooltip__content">
+                          {/* Mini vertical bar for cause categories */}
+                          <div className="commit-hover-tooltip__bar">
+                            {noisyActivationCount > 0 && (
+                              <div
+                                className="commit-hover-tooltip__bar-segment"
+                                style={{ height: `${noisyActivationPct}%`, backgroundColor: stageColors.confirmed }}
+                              />
+                            )}
+                            {missedNgramCount > 0 && (
+                              <div
+                                className="commit-hover-tooltip__bar-segment"
+                                style={{ height: `${missedNgramPct}%`, backgroundColor: stageColors.autoSelected }}
+                              />
+                            )}
+                            {missedContextCount > 0 && (
+                              <div
+                                className="commit-hover-tooltip__bar-segment"
+                                style={{ height: `${missedContextPct}%`, backgroundColor: stageColors.rejected }}
+                              />
+                            )}
+                            {wellExplainedCount > 0 && (
+                              <div
+                                className="commit-hover-tooltip__bar-segment"
+                                style={{ height: `${wellExplainedPct}%`, backgroundColor: stage2Colors.confirmed }}
+                              />
+                            )}
+                          </div>
+                          {/* Text counts - order matches bar */}
+                          <div className="commit-hover-tooltip__counts">
+                            <span className="commit-hover-tooltip__count">
+                              <span className="commit-hover-tooltip__dot" style={{ backgroundColor: stageColors.confirmed }} />
+                              Noisy Activation: {noisyActivationCount}
+                            </span>
+                            <span className="commit-hover-tooltip__count">
+                              <span className="commit-hover-tooltip__dot" style={{ backgroundColor: stageColors.autoSelected }} />
+                              Missed N-gram: {missedNgramCount}
+                            </span>
+                            <span className="commit-hover-tooltip__count">
+                              <span className="commit-hover-tooltip__dot" style={{ backgroundColor: stageColors.rejected }} />
+                              Missed Context: {missedContextCount}
+                            </span>
+                            <span className="commit-hover-tooltip__count">
+                              <span className="commit-hover-tooltip__dot" style={{ backgroundColor: stage2Colors.confirmed }} />
+                              Well-Explained: {wellExplainedCount}
+                            </span>
+                          </div>
+                        </div>
+                      )
                     }
                   })()}
                 </div>
