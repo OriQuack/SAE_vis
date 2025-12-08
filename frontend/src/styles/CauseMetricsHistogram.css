@@ -1,0 +1,99 @@
+/* ============================================================================
+ * CAUSE METRICS HISTOGRAM
+ * Histogram-style visualization with component bars for root cause analysis
+ * ============================================================================ */
+
+.cause-metrics-histogram {
+  width: 100%;
+}
+
+/* Metric group container (label + bars + score) */
+.cause-metrics-histogram__group {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+  padding: 2px 0;
+}
+
+.cause-metrics-histogram__group:last-of-type {
+  margin-bottom: 0;
+}
+
+/* Highlighted group (root cause - minimum score) */
+.cause-metrics-histogram__group--highlighted {
+  background-color: rgba(0, 0, 0, 0.04);
+  border-radius: 3px;
+  margin-left: -4px;
+  margin-right: -4px;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+/* Metric label */
+.cause-metrics-histogram__label {
+  font-size: 9px;
+  width: 80px;
+  text-align: right;
+  padding-right: 6px;
+  color: #4b5563;
+  flex-shrink: 0;
+}
+
+/* Container for stacked component bars */
+.cause-metrics-histogram__bars {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Single bar row */
+.cause-metrics-histogram__bar-row {
+  display: flex;
+  align-items: center;
+}
+
+/* Bar background container */
+.cause-metrics-histogram__bar-container {
+  flex: 1;
+  height: 8px;
+  background-color: #f3f4f6;
+  border-radius: 1px;
+  overflow: hidden;
+  position: relative;
+  cursor: help;
+}
+
+/* Score bar fill */
+.cause-metrics-histogram__bar {
+  height: 100%;
+  border-radius: 1px;
+  transition: width 0.2s ease;
+}
+
+/* Aggregate score display */
+.cause-metrics-histogram__score {
+  font-size: 9px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  color: #6b7280;
+  width: 28px;
+  text-align: right;
+  padding-left: 4px;
+  flex-shrink: 0;
+}
+
+/* Root cause indicator */
+.cause-metrics-histogram__indicator {
+  font-size: 8px;
+  color: #9ca3af;
+  margin-top: 4px;
+  text-align: center;
+}
+
+/* Placeholder when no scores available */
+.cause-metrics-histogram__placeholder {
+  font-size: 10px;
+  color: #9ca3af;
+  font-style: italic;
+  text-align: center;
+}

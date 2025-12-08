@@ -90,6 +90,9 @@ export interface ScrollableItemListProps<T = any> {
   // Size variant - when set, uses predefined CSS classes (overrides width/height/minHeight)
   variant?: ListVariant
 
+  // Custom message when list is empty (default: "None")
+  emptyMessage?: string
+
   // Styling (ignored when variant is set)
   width?: number | string
   height?: number | string
@@ -110,6 +113,7 @@ export function ScrollableItemList<T = any>({
   pageNavigation,
   sortConfig,
   variant,
+  emptyMessage = 'None',
   width = 200,
   height,
   minHeight,
@@ -183,7 +187,7 @@ export function ScrollableItemList<T = any>({
       {/* Scrollable list container */}
       <div className="scrollable-list__container">
         {items.length === 0 ? (
-          <div className="scrollable-list__empty">None</div>
+          <div className="scrollable-list__empty">{emptyMessage}</div>
         ) : (
           items.map((item, index) => {
             const isCurrent = index === currentIndex

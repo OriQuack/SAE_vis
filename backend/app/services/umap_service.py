@@ -243,12 +243,17 @@ class UMAPService:
 
         logger.info(f"Successfully computed decision function UMAP for {len(feature_ids_ordered)} features")
 
-        # Build response (reuse same format as regular UMAP)
+        # Compute decision margin for each feature (min abs value across categories)
+        # This represents the distance to the closest decision boundary
+        decision_margins = np.min(np.abs(decision_vectors), axis=1)
+
+        # Build response with decision margins
         points = [
             UmapPoint(
                 feature_id=int(fid),
                 x=float(coordinates[i, 0]),
-                y=float(coordinates[i, 1])
+                y=float(coordinates[i, 1]),
+                decision_margin=float(decision_margins[i])
             )
             for i, fid in enumerate(feature_ids_ordered)
         ]

@@ -779,6 +779,7 @@ export interface UmapPoint {
   feature_id: number
   x: number
   y: number
+  decision_margin?: number  // Min distance to decision boundary (only for SVM Space UMAP)
 }
 
 /**

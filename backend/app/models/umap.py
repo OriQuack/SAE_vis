@@ -38,6 +38,10 @@ class UmapPoint(BaseModel):
     feature_id: int = Field(..., description="Feature ID")
     x: float = Field(..., description="X coordinate in UMAP space")
     y: float = Field(..., description="Y coordinate in UMAP space")
+    decision_margin: Optional[float] = Field(
+        default=None,
+        description="Min distance to decision boundary (only for SVM Space UMAP)"
+    )
 
 
 class UmapProjectionResponse(BaseModel):

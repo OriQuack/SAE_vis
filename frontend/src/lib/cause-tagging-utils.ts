@@ -12,12 +12,25 @@ import type { FeatureTableRow, ExplainerScoreData, ActivationExamples, ScorerSco
 export type CauseCategory = 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'
 
 export interface CauseMetricScores {
+  // Aggregated scores
   /** Noisy Activation score: Avg(intraFeatureSim, explainerSemanticSim) */
   noisyActivation: number | null
   /** Missed Context score: Avg(embedding, detection) */
   missedContext: number | null
   /** Missed N-gram score: fuzz */
   missedNgram: number | null
+
+  // Component scores for detailed visualization
+  /** Intra-feature similarity (component of noisyActivation) */
+  intraFeatureSim: number | null
+  /** Explainer semantic similarity (component of noisyActivation) */
+  explainerSemanticSim: number | null
+  /** Embedding score (component of missedContext) */
+  embedding: number | null
+  /** Detection score (component of missedContext) */
+  detection: number | null
+  /** Fuzz score (same as missedNgram) */
+  fuzz: number | null
 }
 
 export interface CauseTagResult {
@@ -176,6 +189,65 @@ export function calculateMissedNgramScore(
 // ============================================================================
 
 /**
+ * Calculate embedding score component for Missed Context
+ */
+function calculateEmbeddingScore(
+  explainers: Record<string, ExplainerScoreData> | null | undefined
+): number | null {
+  if (!explainers) return null
+
+  const embeddingScores: number[] = []
+  for (const explainerData of Object.values(explainers)) {
+    if (explainerData.embedding !== null && explainerData.embedding !== undefined) {
+      embeddingScores.push(explainerData.embedding)
+    }
+  }
+
+  if (embeddingScores.length === 0) return null
+  return embeddingScores.reduce((sum, v) => sum + v, 0) / embeddingScores.length
+}
+
+/**
+ * Calculate detection score component for Missed Context
+ */
+function calculateDetectionScore(
+  explainers: Record<string, ExplainerScoreData> | null | undefined
+): number | null {
+  if (!explainers) return null
+
+  const detectionScores: number[] = []
+  for (const explainerData of Object.values(explainers)) {
+    const detectionAvg = averageScorerScores(explainerData.detection)
+    if (detectionAvg !== null) {
+      detectionScores.push(detectionAvg)
+    }
+  }
+
+  if (detectionScores.length === 0) return null
+  return detectionScores.reduce((sum, v) => sum + v, 0) / detectionScores.length
+}
+
+/**
+ * Calculate fuzz score component for Missed N-gram
+ */
+function calculateFuzzScore(
+  explainers: Record<string, ExplainerScoreData> | null | undefined
+): number | null {
+  if (!explainers) return null
+
+  const fuzzScores: number[] = []
+  for (const explainerData of Object.values(explainers)) {
+    const fuzzAvg = averageScorerScores(explainerData.fuzz)
+    if (fuzzAvg !== null) {
+      fuzzScores.push(fuzzAvg)
+    }
+  }
+
+  if (fuzzScores.length === 0) return null
+  return fuzzScores.reduce((sum, v) => sum + v, 0) / fuzzScores.length
+}
+
+/**
  * Calculate all cause metric scores for a single feature
  */
 export function calculateCauseMetricScores(
@@ -183,7 +255,16 @@ export function calculateCauseMetricScores(
   activation: ActivationExamples | null | undefined
 ): CauseMetricScores {
   if (!row) {
-    return { noisyActivation: null, missedContext: null, missedNgram: null }
+    return {
+      noisyActivation: null,
+      missedContext: null,
+      missedNgram: null,
+      intraFeatureSim: null,
+      explainerSemanticSim: null,
+      embedding: null,
+      detection: null,
+      fuzz: null
+    }
   }
 
   const explainers = row.explainers
@@ -193,16 +274,26 @@ export function calculateCauseMetricScores(
   const explainerSemanticSim = calculateExplainerSemanticSimilarity(explainers)
   const noisyActivation = averageValues([intraFeatureSim, explainerSemanticSim])
 
-  // Calculate Missed Context score
-  const missedContext = calculateMissedContextScore(explainers)
+  // Calculate Missed Context score components
+  const embedding = calculateEmbeddingScore(explainers)
+  const detection = calculateDetectionScore(explainers)
+  const missedContext = averageValues([embedding, detection])
 
-  // Calculate Missed N-gram score
-  const missedNgram = calculateMissedNgramScore(explainers)
+  // Calculate Missed N-gram score component
+  const fuzz = calculateFuzzScore(explainers)
+  const missedNgram = fuzz
 
   return {
+    // Aggregated scores
     noisyActivation,
     missedContext,
-    missedNgram
+    missedNgram,
+    // Component scores
+    intraFeatureSim,
+    explainerSemanticSim,
+    embedding,
+    detection,
+    fuzz
   }
 }
 

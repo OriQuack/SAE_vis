@@ -13,6 +13,7 @@ import { getTagColor } from '../lib/tag-system'
 import { getExplainerDisplayName } from '../lib/table-data-utils'
 import { SEMANTIC_SIMILARITY_COLORS } from '../lib/color-utils'
 import type { CauseCategory } from '../lib/umap-utils'
+import { CauseMetricsHistogram } from './CauseMetricsHistogram'
 import '../styles/CauseView.css'
 
 // ============================================================================
@@ -61,8 +62,9 @@ const CauseView: React.FC<CauseViewProps> = ({
   const causeMultiModality = useVisualizationStore(state => state.causeMultiModality)
   const fetchMultiModality = useVisualizationStore(state => state.fetchMultiModality)
 
-  // UMAP brushed features
+  // UMAP brushed features and projection data
   const umapBrushedFeatureIds = useVisualizationStore(state => state.umapBrushedFeatureIds)
+  const umapProjection = useVisualizationStore(state => state.umapProjection)
 
   // Table data and activation examples for feature detail view
   const tableData = useVisualizationStore(state => state.tableData)
@@ -74,6 +76,9 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Local state for feature detail view
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0)
+  const [currentBrushedIndex, setCurrentBrushedIndex] = useState(0)
+  const [activeListSource, setActiveListSource] = useState<'all' | 'brushed'>('all')
+  const [brushedSortDirection, setBrushedSortDirection] = useState<'asc' | 'desc'>('asc')
   const [containerWidth, setContainerWidth] = useState(600)
   const rightPanelRef = useRef<HTMLDivElement>(null)
   const hasAutoTaggedRef = useRef(false)
@@ -212,6 +217,34 @@ const CauseView: React.FC<CauseViewProps> = ({
     return Array.from(umapBrushedFeatureIds)
   }, [umapBrushedFeatureIds])
 
+  // Create decision margin lookup map from UMAP projection data
+  const decisionMarginMap = useMemo(() => {
+    if (!umapProjection) return new Map<number, number>()
+    const map = new Map<number, number>()
+    for (const point of umapProjection) {
+      if (point.decision_margin !== undefined) {
+        map.set(point.feature_id, point.decision_margin)
+      }
+    }
+    return map
+  }, [umapProjection])
+
+  // Sort brushed features by decision margin, excluding manually tagged features
+  const sortedBrushedFeatureList = useMemo(() => {
+    // Filter out manually tagged features (only show untagged/auto-tagged)
+    const untaggedFeatures = brushedFeatureList.filter(featureId => {
+      const source = causeSelectionSources.get(featureId)
+      return source !== 'manual'
+    })
+
+    if (decisionMarginMap.size === 0) return untaggedFeatures
+    return [...untaggedFeatures].sort((a, b) => {
+      const marginA = decisionMarginMap.get(a) ?? 0
+      const marginB = decisionMarginMap.get(b) ?? 0
+      return brushedSortDirection === 'asc' ? marginA - marginB : marginB - marginA
+    })
+  }, [brushedFeatureList, decisionMarginMap, brushedSortDirection, causeSelectionSources])
+
   // Build feature list with metadata for the top row detail view (ALL features from segment)
   const featureListWithMetadata = useMemo(() => {
     if (!tableData?.features || !selectedFeatureIds || selectedFeatureIds.size === 0) return []
@@ -256,17 +289,29 @@ const CauseView: React.FC<CauseViewProps> = ({
     return () => observer.disconnect()
   }, [])
 
-  // Get selected feature data for right panel
+  // Get selected feature data for right panel (based on which list is active)
   const selectedFeatureData = useMemo(() => {
-    const feature = featureListWithMetadata[currentFeatureIndex]
-    if (!feature) return null
-
-    return {
-      featureId: feature.featureId,
-      row: feature.row,
-      activation: activationExamples[feature.featureId] || null
+    if (activeListSource === 'all') {
+      const feature = featureListWithMetadata[currentFeatureIndex]
+      if (!feature) return null
+      return {
+        featureId: feature.featureId,
+        row: feature.row,
+        activation: activationExamples[feature.featureId] || null
+      }
+    } else {
+      // activeListSource === 'brushed'
+      const featureId = sortedBrushedFeatureList[currentBrushedIndex]
+      if (featureId === undefined) return null
+      const feature = featureListWithMetadata.find(f => f.featureId === featureId)
+      if (!feature) return null
+      return {
+        featureId: feature.featureId,
+        row: feature.row,
+        activation: activationExamples[feature.featureId] || null
+      }
     }
-  }, [featureListWithMetadata, currentFeatureIndex, activationExamples])
+  }, [activeListSource, featureListWithMetadata, currentFeatureIndex, sortedBrushedFeatureList, currentBrushedIndex, activationExamples])
 
   // Find the best explanation (max quality score)
   const bestExplanation = useMemo(() => {
@@ -306,7 +351,19 @@ const CauseView: React.FC<CauseViewProps> = ({
   const handleFeatureListClick = useCallback((index: number) => {
     const globalIndex = currentPage * ITEMS_PER_PAGE + index
     setCurrentFeatureIndex(globalIndex)
+    setActiveListSource('all')
   }, [currentPage])
+
+  // Handle click on feature in bottom row brushed list (UMAP selection)
+  const handleBrushedListClick = useCallback((index: number) => {
+    setCurrentBrushedIndex(index)
+    setActiveListSource('brushed')
+  }, [])
+
+  // Toggle sort direction for brushed features list
+  const toggleBrushedSortDirection = useCallback(() => {
+    setBrushedSortDirection(dir => dir === 'asc' ? 'desc' : 'asc')
+  }, [])
 
   // ============================================================================
   // NAVIGATION HANDLERS
@@ -390,28 +447,31 @@ const CauseView: React.FC<CauseViewProps> = ({
     )
   }, [causeSelectionStates, causeSelectionSources, causeMetricScores, handleFeatureListClick])
 
-  // Render feature item for bottom row ScrollableItemList (no click handler)
-  const renderBottomRowFeatureItem = useCallback((featureId: number) => {
+  // Render feature item for bottom row ScrollableItemList (with click handler)
+  const renderBottomRowFeatureItem = useCallback((featureId: number, index: number) => {
     const causeCategory = causeSelectionStates.get(featureId)
     const causeSource = causeSelectionSources.get(featureId)
-    const scores = causeMetricScores.get(featureId)
+    const decisionMargin = decisionMarginMap.get(featureId)
 
     // All features must have a tag - use category name or default to Noisy Activation
     const tagName = causeCategory ? CAUSE_TAG_NAMES[causeCategory] : 'Noisy Activation'
 
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
+      <div className="pair-item-with-score">
         <TagBadge
           featureId={featureId}
           tagName={tagName}
           tagCategoryId={TAG_CATEGORY_CAUSE}
+          onClick={() => handleBrushedListClick(index)}
           fullWidth={true}
           isAuto={causeSource === 'auto'}
         />
-        <CauseMetricBars scores={scores ?? null} selectedCategory={causeCategory} />
+        {decisionMargin !== undefined && (
+          <span className="pair-similarity-score">{decisionMargin.toFixed(2)}</span>
+        )}
       </div>
     )
-  }, [causeSelectionStates, causeSelectionSources, causeMetricScores])
+  }, [causeSelectionStates, causeSelectionSources, handleBrushedListClick, decisionMarginMap])
 
   // ============================================================================
   // RENDER
@@ -453,8 +513,8 @@ const CauseView: React.FC<CauseViewProps> = ({
               badges={[{ label: 'Features', count: featureListWithMetadata.length }]}
               items={currentPageFeatures}
               renderItem={renderTopRowFeatureItem}
-              currentIndex={currentFeatureIndex % ITEMS_PER_PAGE}
-              isActive={true}
+              currentIndex={activeListSource === 'all' ? currentFeatureIndex % ITEMS_PER_PAGE : -1}
+              isActive={activeListSource === 'all'}
               pageNavigation={{
                 currentPage,
                 totalPages,
@@ -539,32 +599,42 @@ const CauseView: React.FC<CauseViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Best Explanation Content - Bordered container */}
-                  <div className="cause-view__explanation-section">
-                    <div className="cause-view__explanation-content">
-                      {bestExplanation ? (
-                        <div className="cause-view__explainer-block">
-                          <span
-                            className={`cause-view__explainer-name cause-view__explainer-name--${bestExplanation.explainerId}`}
-                          >
-                            {getExplainerDisplayName(bestExplanation.explainerId)}
-                          </span>
-                          <span className="cause-view__explainer-text">
-                            {bestExplanation.highlightedExplanation?.segments ? (
-                              <HighlightedExplanation
-                                segments={bestExplanation.highlightedExplanation.segments}
-                                truncated={false}
-                              />
-                            ) : (
-                              <span className="cause-view__no-explanation">
-                                {bestExplanation.explanationText || 'No explanation available'}
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="cause-view__no-explanation">No explanations available</span>
-                      )}
+                  {/* Explanation Row - Left metrics + Right explanation */}
+                  <div className="cause-view__explanation-row">
+                    {/* Left: Cause Metrics visualization */}
+                    <div className="cause-view__explanation-left">
+                      <CauseMetricsHistogram
+                        scores={causeMetricScores.get(selectedFeatureData.featureId) ?? null}
+                      />
+                    </div>
+
+                    {/* Right: Best Explanation Content */}
+                    <div className="cause-view__explanation-section">
+                      <div className="cause-view__explanation-content">
+                        {bestExplanation ? (
+                          <div className="cause-view__explainer-block">
+                            <span
+                              className={`cause-view__explainer-name cause-view__explainer-name--${bestExplanation.explainerId}`}
+                            >
+                              {getExplainerDisplayName(bestExplanation.explainerId)}
+                            </span>
+                            <span className="cause-view__explainer-text">
+                              {bestExplanation.highlightedExplanation?.segments ? (
+                                <HighlightedExplanation
+                                  segments={bestExplanation.highlightedExplanation.segments}
+                                  truncated={false}
+                                />
+                              ) : (
+                                <span className="cause-view__no-explanation">
+                                  {bestExplanation.explanationText || 'No explanation available'}
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="cause-view__no-explanation">No explanations available</span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -637,12 +707,23 @@ const CauseView: React.FC<CauseViewProps> = ({
               className="cause-view__umap"
             />
             <ModalityIndicator multimodality={causeMultiModality} />
-            <ScrollableItemList
-              variant="causeBrushed"
-              badges={[{ label: 'Selected', count: brushedFeatureList.length }]}
-              items={brushedFeatureList}
-              renderItem={renderBottomRowFeatureItem}
-            />
+            <div className="cause-view__brushed-section">
+              <h4 className="subheader">Brushed Features</h4>
+              <ScrollableItemList
+                variant="causeBrushed"
+                badges={[{ label: 'Selected', count: sortedBrushedFeatureList.length }]}
+                columnHeader={{
+                  label: 'Decision Margin',
+                  sortDirection: brushedSortDirection,
+                  onClick: toggleBrushedSortDirection
+                }}
+                items={sortedBrushedFeatureList}
+                renderItem={renderBottomRowFeatureItem}
+                currentIndex={activeListSource === 'brushed' ? currentBrushedIndex : -1}
+                isActive={activeListSource === 'brushed'}
+                emptyMessage="Brush on UMAP to select features"
+              />
+            </div>
           </div>
         </div>
       </div>

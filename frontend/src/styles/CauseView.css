@@ -163,16 +163,43 @@
   height: 72px;
 }
 
-/* Explanation section - compact since only one explanation is shown */
-.cause-view__explanation-section {
+/* ============================================================================
+ * EXPLANATION ROW - Left metrics + Right explanation (mirrors QualityView)
+ * ============================================================================ */
+
+.cause-view__explanation-row {
   display: flex;
-  flex-direction: column;
-  min-width: 0;
+  flex-direction: row;
+  gap: 0;
+  min-height: 0;
   flex: 1;
   background-color: white;
   border: 1px solid #e5e7eb;
   border-radius: 4px;
   padding: 6px;
+}
+
+/* Left panel for cause metrics bars */
+.cause-view__explanation-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 180px;
+  padding: 8px;
+  border-right: 1px solid #e5e7eb;
+}
+
+/* Explanation section - now right side of explanation row */
+.cause-view__explanation-section {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  background-color: transparent;
+  border: none;
+  padding: 0 0 0 8px;
 }
 
 .cause-view__explanation-header {
@@ -299,6 +326,19 @@
 .cause-view__umap {
   flex: 0 0 auto;
   height: 100%;
+}
+
+/* Brushed features section - subheader + list */
+.cause-view__brushed-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  height: 100%;
+}
+
+.cause-view__brushed-section .subheader {
+  margin: 0;
+  flex-shrink: 0;
 }
 
 /* ============================================================================
