@@ -670,7 +670,11 @@ export interface SimilarityHistogramRequest {
 export interface PairSimilarityHistogramRequest {
   selected_pair_keys: string[]  // Pair keys marked as selected (✓)
   rejected_pair_keys: string[]  // Pair keys marked as rejected (✗)
-  pair_keys: string[]           // All pair keys to compute scores for
+  // Legacy flow: explicit pair keys
+  pair_keys?: string[]          // All pair keys to compute scores for
+  // Simplified flow: feature IDs + threshold to generate pairs server-side
+  feature_ids?: number[]        // Feature IDs (backend generates pairs)
+  threshold?: number            // Clustering threshold for pair generation
 }
 
 // ============================================================================

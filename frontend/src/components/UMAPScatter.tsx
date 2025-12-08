@@ -280,7 +280,12 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     return pathParts.join(' ')
   }, [lassoPath, isDrawing])
 
-  // Draw brushed points on canvas (only when brush is active)
+  // Get set of manually tagged feature IDs for rendering
+  const manuallyTaggedIds = useMemo(() => {
+    return new Set(Object.keys(manualCauseSelections).map(Number))
+  }, [manualCauseSelections])
+
+  // Draw points on canvas: manually tagged (always) + brushed (when brush active)
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas || !umapProjection || !scales || chartWidth <= 0 || chartHeight <= 0) return
@@ -291,30 +296,58 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     // Clear canvas
     ctx.clearRect(0, 0, chartWidth, chartHeight)
 
-    // Only draw points that are brushed
-    if (umapBrushedFeatureIds.size === 0) return
+    // Collect points to draw: manually tagged + brushed
+    const hasBrush = umapBrushedFeatureIds.size > 0
 
-    // Small radius and low alpha for better density visualization
-    const pointRadius = 2.5
-    const pointAlpha = 0.4
+    // Skip if nothing to draw
+    if (manuallyTaggedIds.size === 0 && !hasBrush) return
+
+    // Point styling
+    const manualPointRadius = 4
+    const brushedPointRadius = 2.5
+    const manualPointAlpha = 0.85
+    const brushedPointAlpha = 0.4
 
     for (const point of umapProjection) {
-      if (!umapBrushedFeatureIds.has(point.feature_id)) continue
+      const isManual = manuallyTaggedIds.has(point.feature_id)
+      const isBrushed = umapBrushedFeatureIds.has(point.feature_id)
+
+      // Skip if not in either set
+      if (!isManual && !isBrushed) continue
 
       const cx = scales.xScale(point.x)
       const cy = scales.yScale(point.y)
       const color = getCauseColor(point.feature_id, causeSelectionStates as Map<number, CauseCategory>)
 
-      ctx.beginPath()
-      ctx.arc(cx, cy, pointRadius, 0, Math.PI * 2)
-      ctx.fillStyle = color
-      ctx.globalAlpha = pointAlpha
-      ctx.fill()
+      // Manual points are larger and more opaque with a ring
+      if (isManual) {
+        // Draw outer ring for manual points
+        ctx.beginPath()
+        ctx.arc(cx, cy, manualPointRadius + 1.5, 0, Math.PI * 2)
+        ctx.strokeStyle = '#fff'
+        ctx.lineWidth = 1.5
+        ctx.globalAlpha = 0.9
+        ctx.stroke()
+
+        // Draw filled point
+        ctx.beginPath()
+        ctx.arc(cx, cy, manualPointRadius, 0, Math.PI * 2)
+        ctx.fillStyle = color
+        ctx.globalAlpha = manualPointAlpha
+        ctx.fill()
+      } else if (isBrushed) {
+        // Brushed (non-manual) points are smaller
+        ctx.beginPath()
+        ctx.arc(cx, cy, brushedPointRadius, 0, Math.PI * 2)
+        ctx.fillStyle = color
+        ctx.globalAlpha = brushedPointAlpha
+        ctx.fill()
+      }
     }
 
     // Reset alpha
     ctx.globalAlpha = 1
-  }, [umapProjection, scales, causeSelectionStates, umapBrushedFeatureIds, chartWidth, chartHeight])
+  }, [umapProjection, scales, causeSelectionStates, umapBrushedFeatureIds, manuallyTaggedIds, chartWidth, chartHeight])
 
 
   // ============================================================================

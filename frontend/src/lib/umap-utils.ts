@@ -40,6 +40,7 @@ export function getCauseColor(
   causeStates: Map<number, CauseCategory>
 ): string {
   const colors = getSelectionColors('stage3')
+  const stage2Colors = getSelectionColors('stage2')
   const category = causeStates.get(featureId)
 
   if (!category) {
@@ -53,6 +54,8 @@ export function getCauseColor(
       return colors.autoSelected   // Orange: #E69F00
     case 'missed-context':
       return colors.rejected   // Vermillion: #D55E00
+    case 'well-explained':
+      return stage2Colors.confirmed  // Green: #009E73
     default:
       return UMAP_UNTAGGED_COLOR
   }
@@ -69,8 +72,10 @@ export function getCauseCategoryLegend(): Array<{
   label: string
 }> {
   const colors = getSelectionColors('stage3')
+  const stage2Colors = getSelectionColors('stage2')
 
   return [
+    { category: 'well-explained', color: stage2Colors.confirmed, label: 'Well-Explained' },
     { category: 'noisy-activation', color: colors.confirmed, label: 'Noisy Activation' },
     { category: 'missed-N-gram', color: colors.autoSelected, label: 'Missed N-gram' },
     { category: 'missed-context', color: colors.rejected, label: 'Missed Context' },

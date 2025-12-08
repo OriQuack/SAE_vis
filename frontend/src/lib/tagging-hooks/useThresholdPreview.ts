@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import type { CategoryCounts } from '../histogram-utils'
+import type { CategoryCounts } from '../../components/SelectionBar'
 
 // ============================================================================
 // useThresholdPreview - Calculate preview counts for SelectionBar
@@ -30,7 +30,7 @@ interface UseThresholdPreviewReturn {
   /** Current counts (for comparison) */
   currentCounts: CategoryCounts
   /** Number of unsure items that would be auto-selected */
-  willBeExpanded: number
+  willBeAutoSelected: number
   /** Number of unsure items that would be auto-rejected */
   willBeAutoRejected: number
 }

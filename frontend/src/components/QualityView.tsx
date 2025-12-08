@@ -459,13 +459,13 @@ const QualityView: React.FC<QualityViewProps> = ({
   // Separate sets to know which direction they'll be tagged
   const previewRejectIds = useMemo(() => {
     const ids = new Set<number>()
-    boundaryItems.rejectBelow.forEach(f => ids.add(f.featureId))
+    boundaryItems.rejectBelow.forEach((f: FeatureWithMetadata) => ids.add(f.featureId))
     return ids
   }, [boundaryItems.rejectBelow])
 
   const previewSelectIds = useMemo(() => {
     const ids = new Set<number>()
-    boundaryItems.selectAbove.forEach(f => ids.add(f.featureId))
+    boundaryItems.selectAbove.forEach((f: FeatureWithMetadata) => ids.add(f.featureId))
     return ids
   }, [boundaryItems.selectAbove])
 

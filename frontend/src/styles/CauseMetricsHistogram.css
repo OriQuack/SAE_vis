@@ -12,7 +12,6 @@
   display: flex;
   align-items: center;
   margin-bottom: 4px;
-  padding: 2px 0;
 }
 
 .cause-metrics-histogram__group:last-of-type {
@@ -20,22 +19,21 @@
 }
 
 /* Highlighted group (root cause - minimum score) */
+/* Background color is set inline using the metric's color */
 .cause-metrics-histogram__group--highlighted {
-  background-color: rgba(0, 0, 0, 0.04);
   border-radius: 3px;
+  padding: 2px 4px;
   margin-left: -4px;
   margin-right: -4px;
-  padding-left: 4px;
-  padding-right: 4px;
 }
 
 /* Metric label */
 .cause-metrics-histogram__label {
-  font-size: 9px;
-  width: 80px;
+  font-size: 11px;
+  width: 95px;
   text-align: right;
-  padding-right: 6px;
-  color: #4b5563;
+  padding-right: 4px;
+  color: #000;
   flex-shrink: 0;
 }
 
@@ -59,9 +57,35 @@
   height: 8px;
   background-color: #f3f4f6;
   border-radius: 1px;
-  overflow: hidden;
+  overflow: visible;
   position: relative;
   cursor: help;
+}
+
+/* CSS Tooltip */
+.cause-metrics-histogram__bar-container::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  background-color: #374151;
+  color: white;
+  font-size: 13px;
+  white-space: nowrap;
+  border-radius: 4px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+  z-index: 1000;
+  margin-bottom: 4px;
+  pointer-events: none;
+}
+
+.cause-metrics-histogram__bar-container:hover::after {
+  opacity: 1;
+  visibility: visible;
 }
 
 /* Score bar fill */
@@ -69,23 +93,23 @@
   height: 100%;
   border-radius: 1px;
   transition: width 0.2s ease;
+  pointer-events: none;
 }
 
 /* Aggregate score display */
 .cause-metrics-histogram__score {
-  font-size: 9px;
+  font-size: 11px;
   font-family: 'Consolas', 'Monaco', monospace;
-  color: #6b7280;
-  width: 28px;
+  color: #000;
+  width: 36px;
   text-align: right;
-  padding-left: 4px;
   flex-shrink: 0;
 }
 
 /* Root cause indicator */
 .cause-metrics-histogram__indicator {
-  font-size: 8px;
-  color: #9ca3af;
+  font-size: 11px;
+  color: #000;
   margin-top: 4px;
   text-align: center;
 }

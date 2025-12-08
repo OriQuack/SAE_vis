@@ -140,7 +140,7 @@ export function calculateStrokeWidth(
 export function calculateSankeyToSelectionFlows(
   selection: SankeySegmentSelection | null,
   segmentRef: SVGRectElement | null,
-  categoryRefs: Map<SelectionCategory, HTMLDivElement>,
+  _categoryRefs: Map<SelectionCategory, HTMLDivElement>,
   sankeyNodes: SimplifiedSankeyNode[],
   _selectionState: {
     confirmed: Set<number>

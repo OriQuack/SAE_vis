@@ -74,6 +74,9 @@ const CauseView: React.FC<CauseViewProps> = ({
   const setCauseCategory = useVisualizationStore(state => state.setCauseCategory)
   const initializeCauseAutoTags = useVisualizationStore(state => state.initializeCauseAutoTags)
 
+  // SVM decision margins for auto-tagging by decision boundary
+  const causeCategoryDecisionMargins = useVisualizationStore(state => state.causeCategoryDecisionMargins)
+
   // Local state for feature detail view
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0)
   const [currentBrushedIndex, setCurrentBrushedIndex] = useState(0)
@@ -417,6 +420,48 @@ const CauseView: React.FC<CauseViewProps> = ({
     }
   }, [selectedFeatureData, currentCauseCategory, currentCauseSource, setCauseCategory, currentFeatureIndex, featureListWithMetadata.length, handleNavigateNext])
 
+  // ============================================================================
+  // BRUSHED TAGGING HANDLERS
+  // ============================================================================
+
+  // Tag all brushed features with a specific cause category
+  const handleTagBrushedAs = useCallback((category: 'noisy-activation' | 'missed-context' | 'missed-N-gram') => {
+    umapBrushedFeatureIds.forEach(featureId => {
+      setCauseCategory(featureId, category)
+    })
+  }, [umapBrushedFeatureIds, setCauseCategory])
+
+  // Tag remaining untagged features by decision boundary (highest margin category)
+  const handleTagRemainingByBoundary = useCallback(() => {
+    if (!causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0) return
+    if (!selectedFeatureIds) return
+
+    // For each feature in selectedFeatureIds, if not manually tagged, assign highest margin category
+    selectedFeatureIds.forEach(featureId => {
+      const source = causeSelectionSources.get(featureId)
+      // Skip manually tagged features
+      if (source === 'manual') return
+
+      const categoryMargins = causeCategoryDecisionMargins.get(featureId)
+      if (!categoryMargins) return
+
+      // Find category with highest margin
+      const entries = Object.entries(categoryMargins)
+      if (entries.length === 0) return
+
+      const [bestCategory] = entries.reduce((best, curr) =>
+        curr[1] > best[1] ? curr : best
+      )
+      setCauseCategory(featureId, bestCategory as CauseCategory)
+    })
+  }, [causeCategoryDecisionMargins, selectedFeatureIds, causeSelectionSources, setCauseCategory])
+
+  // Handle next stage navigation (placeholder for Stage 4)
+  const handleNextStage = useCallback(() => {
+    console.log('[CauseView] Next stage clicked - Stage 4 not yet implemented')
+    // TODO: Implement Stage 4 navigation
+  }, [])
+
   // Get colors for each cause category
   const noisyActivationColor = getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#9ca3af'
   const missedNgramColor = getTagColor(TAG_CATEGORY_CAUSE, 'Missed N-gram') || '#9ca3af'
@@ -599,16 +644,16 @@ const CauseView: React.FC<CauseViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Explanation Row - Left metrics + Right explanation */}
+                  {/* Explanation Row - Left metrics (no border) + Right explanation (bordered) */}
                   <div className="cause-view__explanation-row">
-                    {/* Left: Cause Metrics visualization */}
-                    <div className="cause-view__explanation-left">
+                    {/* Left: Cause Metrics Histogram (no border) */}
+                    <div className="cause-view__metrics-container">
                       <CauseMetricsHistogram
                         scores={causeMetricScores.get(selectedFeatureData.featureId) ?? null}
                       />
                     </div>
 
-                    {/* Right: Best Explanation Content */}
+                    {/* Right: Best Explanation Content (bordered) */}
                     <div className="cause-view__explanation-section">
                       <div className="cause-view__explanation-content">
                         {bestExplanation ? (
@@ -699,7 +744,7 @@ const CauseView: React.FC<CauseViewProps> = ({
             </div>
           </div>
 
-          {/* Bottom row: UMAP + Modality Indicator + Selected features list */}
+          {/* Bottom row: UMAP + Modality Indicator + Action Buttons + Selected features list */}
           <div className="cause-view__row-bottom">
             <UMAPScatter
               featureIds={selectedFeatureIds ? Array.from(selectedFeatureIds) : []}
@@ -707,6 +752,60 @@ const CauseView: React.FC<CauseViewProps> = ({
               className="cause-view__umap"
             />
             <ModalityIndicator multimodality={causeMultiModality} />
+
+            {/* Action buttons for tagging */}
+            <div className="cause-view__action-buttons">
+              {/* Top group: Tag brushed buttons */}
+              <div className="cause-view__action-buttons-group">
+                <button
+                  className="cause-view__action-button cause-view__action-button--tag"
+                  style={{ '--tag-color': noisyActivationColor } as React.CSSProperties}
+                  onClick={() => handleTagBrushedAs('noisy-activation')}
+                  disabled={umapBrushedFeatureIds.size === 0}
+                  title="Tag all brushed features as Noisy Activation"
+                >
+                  Tag brushed as Noisy Activation
+                </button>
+                <button
+                  className="cause-view__action-button cause-view__action-button--tag"
+                  style={{ '--tag-color': missedContextColor } as React.CSSProperties}
+                  onClick={() => handleTagBrushedAs('missed-context')}
+                  disabled={umapBrushedFeatureIds.size === 0}
+                  title="Tag all brushed features as Missed Context"
+                >
+                  Tag brushed as Missed Context
+                </button>
+                <button
+                  className="cause-view__action-button cause-view__action-button--tag"
+                  style={{ '--tag-color': missedNgramColor } as React.CSSProperties}
+                  onClick={() => handleTagBrushedAs('missed-N-gram')}
+                  disabled={umapBrushedFeatureIds.size === 0}
+                  title="Tag all brushed features as Missed N-gram"
+                >
+                  Tag brushed as Missed N-Gram
+                </button>
+              </div>
+
+              {/* Bottom group: Action buttons */}
+              <div className="cause-view__action-buttons-group">
+                <button
+                  className="cause-view__action-button cause-view__action-button--primary"
+                  onClick={handleTagRemainingByBoundary}
+                  disabled={!causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0}
+                  title="Auto-tag remaining features using SVM decision boundary"
+                >
+                  Tag Remaining by Decision Boundary
+                </button>
+                <button
+                  className="cause-view__action-button cause-view__action-button--next"
+                  onClick={handleNextStage}
+                  title="Proceed to Stage 4"
+                >
+                  Stage 4: Temp →
+                </button>
+              </div>
+            </div>
+
             <div className="cause-view__brushed-section">
               <h4 className="subheader">Brushed Features</h4>
               <ScrollableItemList

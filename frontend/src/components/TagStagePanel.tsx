@@ -199,6 +199,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
   }, [nodesByStage, allTagCounts]);
 
   // Generate SVG paths for flow connections (currently unused - for future flow visualization)
+  // @ts-expect-error Unused variable kept for future flow visualization feature
   const _svgPaths = useMemo(() => {
     const paths: Array<{
       d: string;

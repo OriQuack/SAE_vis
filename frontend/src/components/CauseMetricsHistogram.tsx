@@ -77,8 +77,8 @@ export const CauseMetricsHistogram: React.FC<CauseMetricsHistogramProps> = ({
       aggregateScore: scores.noisyActivation,
       color: noisyColor,
       components: [
-        { key: 'intraFeatureSim', name: 'Intra-feature Similarity', score: scores.intraFeatureSim },
-        { key: 'explainerSemanticSim', name: 'Explainer Semantic Similarity', score: scores.explainerSemanticSim }
+        { key: 'intraFeatureSim', name: 'Activation Eample Similarity', score: scores.intraFeatureSim },
+        { key: 'explainerSemanticSim', name: 'LLM Explainer Semantic Similarity', score: scores.explainerSemanticSim }
       ]
     },
     {
@@ -116,6 +116,7 @@ export const CauseMetricsHistogram: React.FC<CauseMetricsHistogramProps> = ({
           <div
             key={key}
             className={`cause-metrics-histogram__group ${isMin ? 'cause-metrics-histogram__group--highlighted' : ''}`}
+            style={isMin ? { backgroundColor: `${color}40` } : undefined}
           >
             <span className="cause-metrics-histogram__label">{label}</span>
             <div className="cause-metrics-histogram__bars">
@@ -123,7 +124,7 @@ export const CauseMetricsHistogram: React.FC<CauseMetricsHistogramProps> = ({
                 <div key={compKey} className="cause-metrics-histogram__bar-row">
                   <div
                     className="cause-metrics-histogram__bar-container"
-                    title={`${name}: ${score !== null ? score.toFixed(3) : 'N/A'}`}
+                    data-tooltip={`${name}: ${score !== null ? score.toFixed(3) : 'N/A'}`}
                   >
                     <div
                       className="cause-metrics-histogram__bar"
