@@ -415,13 +415,13 @@
   justify-content: center;
   gap: 8px;
   padding: 6px 12px;
-  margin: 0px auto;
   background-color: #ffffff;
   border: 1px solid #d1d5db;
   border-radius: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
   width: fit-content;
+  align-self: center;
 }
 
 /* Selection button variant for Noisy Activation */
@@ -519,7 +519,7 @@
 .cause-view__action-section {
   display: flex;
   flex-direction: column;
-  flex: 0 0 180px;
+  flex: 0 0 140px;
   gap: 4px;
 }
 

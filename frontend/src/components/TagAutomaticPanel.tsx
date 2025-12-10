@@ -22,7 +22,7 @@ import '../styles/TagAutomaticPanel.css'
 const TAG_HISTOGRAM_SPACING = {
   svg: {
     // Fixed margins that always accommodate labels (no complex calculations needed)
-    margin: { top: 30, right: 0, bottom: 50, left: 40 },
+    margin: { top: 30, right: 12, bottom: 50, left: 30 },
     // Label offsets (relative to chart area)
     xLabelOffset: 40,   // Distance below chart for x-axis label
     yLabelOffset: -40,  // Distance left of chart for y-axis label

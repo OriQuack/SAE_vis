@@ -281,8 +281,8 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             <button
               className={`action-button ${isBimodal ? 'action-button--active' : ''}`}
               onClick={() => onTagAll('left')}
-              disabled={!isBimodal}
-              title={isBimodal ? `Tag all remaining as ${leftListLabel}` : 'Requires strongly bimodal distribution'}
+              disabled={!tagAutomaticState?.histogramData}
+              title={tagAutomaticState?.histogramData ? `Tag all remaining as ${leftListLabel}` : 'Requires histogram data'}
             >
               Tag Remaining as {leftListLabel}
             </button>
@@ -307,8 +307,8 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             <button
               className={`action-button ${isBimodal ? 'action-button--active' : ''}`}
               onClick={() => onTagAll('byBoundary')}
-              disabled={!isBimodal}
-              title={isBimodal ? 'Tag all remaining by decision boundary' : 'Requires strongly bimodal distribution'}
+              disabled={!tagAutomaticState?.histogramData}
+              title={tagAutomaticState?.histogramData ? 'Tag all remaining by decision boundary' : 'Requires histogram data'}
             >
               Tag Remaining by Boundary
             </button>
