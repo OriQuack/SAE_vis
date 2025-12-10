@@ -127,7 +127,7 @@ function assignConstantColors(): void {
           colors[tag] = D3_SCHEME_TABLEAU10.BLUE  // #009E73 - Green (good: single concept)
           break
         case 'Fragmented':
-          colors[tag] = D3_SCHEME_TABLEAU10.PURPLE  // #EE6677 - Red (bad: split features)
+          colors[tag] = D3_SCHEME_TABLEAU10.PINK  // #EE6677 - Red (bad: split features)
           break
 
         // ========================================
@@ -145,7 +145,7 @@ function assignConstantColors(): void {
         // Note: 'Well-Explained' in Quality uses GREEN, so Cause uses TEAL for distinction
         // ========================================
         case 'Missed Context':
-          colors[tag] = D3_SCHEME_TABLEAU10.PINK  // #ff9da7 - Pink
+          colors[tag] = D3_SCHEME_TABLEAU10.PURPLE  // #ff9da7 - Pink
           break
         case 'Missed N-gram':
           colors[tag] = D3_SCHEME_TABLEAU10.YELLOW  // #edc949 - Yellow

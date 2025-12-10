@@ -8,7 +8,7 @@ import {
 // Removed: getNodeThresholds, getExactMetricFromPercentile - using v2 simplified system
 import { calculateHorizontalBarSegments } from '../lib/histogram-utils'
 import { groupFeaturesByThresholds, calculateSegmentProportions } from '../lib/threshold-utils'
-import { TAG_CATEGORIES, METRIC_QUALITY_SCORE } from '../lib/constants'
+import { TAG_CATEGORIES, METRIC_QUALITY_SCORE, SANKEY_COLORS } from '../lib/constants'
 import { scaleLinear } from 'd3-scale'
 import { ThresholdHandles } from './ThresholdHandles'
 // Removed: TAG_CATEGORIES import - not needed in v2 (RE-ADDED for optimistic segments)
@@ -46,6 +46,24 @@ interface SankeyNodeHistogramProps {
   animationDuration: number
   dragThreshold?: number | null  // V2: single threshold for segment nodes
   metric: string  // V2: metric passed explicitly from parent
+}
+
+/**
+ * Determine if a hex color is dark (needs light text) or light (needs dark text)
+ * Uses relative luminance calculation
+ */
+const isColorDark = (hexColor: string | undefined): boolean => {
+  if (!hexColor) return false  // Default to light background (root node)
+
+  // Remove # if present
+  const hex = hexColor.replace('#', '')
+  const r = parseInt(hex.substr(0, 2), 16) / 255
+  const g = parseInt(hex.substr(2, 2), 16) / 255
+  const b = parseInt(hex.substr(4, 2), 16) / 255
+
+  // Calculate relative luminance
+  const luminance = 0.299 * r + 0.587 * g + 0.114 * b
+  return luminance < 0.5
 }
 
 const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
@@ -133,6 +151,9 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
     return calculateHistogramYAxisTicks(histogramData, node, 10)
   }, [histogramData, node, layout])
 
+  // Determine axis color based on node background (dark bg needs light axis, light bg needs dark axis)
+  const axisColor = isColorDark(node.colorHex) ? SANKEY_COLORS.AXIS_COLOR_LIGHT : SANKEY_COLORS.AXIS_COLOR_DARK
+
   if (!layout) return null
 
   return (
@@ -156,7 +177,7 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
               const segmentCenterY = segment.y + segment.height / 2
 
               // Determine color based on segment position relative to threshold
-              let fillColor = bar.color || '#94a3b8'  // Fallback to bar's base color
+              let fillColor = bar.color || SANKEY_COLORS.FALLBACK_BAR  // Fallback to bar's base color
               let segmentTagName: string | null = null
 
               if (threshold !== null && segmentColors && yScale) {
@@ -222,7 +243,7 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
               x2={layout.width}
               y1={baselineY - layout.y}
               y2={baselineY - layout.y}
-              stroke="#B22222"
+              stroke={SANKEY_COLORS.RANDOM_BASELINE}
               strokeWidth={1}
               strokeDasharray="6,4"
               style={{ pointerEvents: 'none' }}
@@ -233,7 +254,7 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
               y={baselineY - layout.y - 6}
               fontSize={14}
               fontWeight={500}
-              fill="#B22222"
+              fill={SANKEY_COLORS.RANDOM_BASELINE}
               textAnchor="middle"
               style={{ pointerEvents: 'none' }}
             >
@@ -252,7 +273,7 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
             x2={0}
             y1={0}
             y2={layout.height}
-            stroke={'#000000'}
+            stroke={axisColor}
             strokeWidth={1}
             style={{ pointerEvents: 'none' }}
           />
@@ -270,7 +291,7 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
                 x2={0}
                 y1={0}
                 y2={0}
-                stroke={'#000000'}
+                stroke={axisColor}
                 strokeWidth={1}
               />
 
@@ -281,7 +302,7 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
                 textAnchor="middle"
                 dominantBaseline="middle"
                 fontSize={12}
-                fill={'#000000ff'}
+                fill={axisColor}
                 transform="rotate(90)"
               >
                 {tick.label}

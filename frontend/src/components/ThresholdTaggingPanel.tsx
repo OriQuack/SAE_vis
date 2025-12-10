@@ -59,18 +59,12 @@ export interface ThresholdTaggingPanelProps {
   // Callbacks
   onApplyTags: () => void
   onTagAll: (method: 'left' | 'byBoundary') => void
-  onNextStage: () => void
   onListItemClick: (listType: 'left' | 'right', index: number) => void
 
   // State from parent
   activeListSource: 'all' | 'reject' | 'select'
   currentIndex: number
   isBimodal: boolean
-  allTagged: boolean
-
-  // Next stage info for button label
-  nextStageName: string
-  nextStageNumber: number
 }
 
 const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
@@ -85,14 +79,10 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
   histogramProps,
   onApplyTags,
   onTagAll,
-  onNextStage,
   onListItemClick,
   activeListSource,
   currentIndex,
-  isBimodal,
-  allTagged,
-  nextStageName,
-  nextStageNumber
+  isBimodal
 }) => {
   // Store state for scores and selections
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
@@ -101,6 +91,60 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
   const similarityScores = useVisualizationStore(state => state.similarityScores)
   const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
 
+  // Get tag colors
+  const leftTagColor = getTagColor(tagCategoryId, leftListLabel) || '#9ca3af'
+  const rightTagColor = getTagColor(tagCategoryId, rightListLabel) || '#9ca3af'
+
+  // Compute counts for instructions
+  const leftCount = mode === 'pair' ? leftItems.length : leftFeatures.length
+  const rightCount = mode === 'pair' ? rightItems.length : rightFeatures.length
+  const totalItems = mode === 'pair'
+    ? (histogramProps.availablePairs?.length || 0)
+    : (histogramProps.filteredFeatureIds?.size || 0)
+
+  // Count already tagged items for remaining count calculation
+  const taggedCount = mode === 'pair'
+    ? pairSelectionStates.size
+    : featureSelectionStates.size
+  const remainingCount = Math.max(0, totalItems - taggedCount)
+
+  // Count how many remaining items will be tagged left vs right by 0.0 decision boundary
+  const boundaryTagCounts = React.useMemo(() => {
+    let leftByBoundary = 0
+    let rightByBoundary = 0
+
+    if (mode === 'pair') {
+      // For pair mode, iterate through available pairs
+      histogramProps.availablePairs?.forEach(pair => {
+        if (!pairSelectionStates.has(pair.pairKey)) {
+          const score = pairSimilarityScores.get(pair.pairKey)
+          if (score !== undefined) {
+            if (score < 0) {
+              leftByBoundary++
+            } else {
+              rightByBoundary++
+            }
+          }
+        }
+      })
+    } else {
+      // For feature mode, iterate through filtered feature IDs
+      histogramProps.filteredFeatureIds?.forEach(featureId => {
+        if (!featureSelectionStates.has(featureId)) {
+          const score = similarityScores.get(featureId)
+          if (score !== undefined) {
+            if (score < 0) {
+              leftByBoundary++
+            } else {
+              rightByBoundary++
+            }
+          }
+        }
+      })
+    }
+
+    return { left: leftByBoundary, right: rightByBoundary }
+  }, [mode, histogramProps.availablePairs, histogramProps.filteredFeatureIds, pairSelectionStates, featureSelectionStates, pairSimilarityScores, similarityScores])
 
   // Button is enabled when there are items in the boundary lists
   const hasItemsToTag = mode === 'pair'
@@ -182,7 +226,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
 
   return (
     <div className="threshold-tagging-panel">
-      {/* Histogram + Bimodality Indicator */}
+      {/* Histogram */}
       <div className="threshold-tagging-panel__histogram-section">
         <TagAutomaticPanel
           mode={mode}
@@ -190,52 +234,103 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
           filteredFeatureIds={histogramProps.filteredFeatureIds}
           threshold={histogramProps.threshold}
         />
-        <BimodalityIndicator bimodality={tagAutomaticState?.histogramData?.bimodality} />
       </div>
 
-      {/* Buttons */}
-      <div className="threshold-tagging-panel__buttons">
-        {/* Top group: Primary action */}
-        <div className="threshold-tagging-panel__buttons-group">
-          <button
-            className="action-button action-button--primary"
-            onClick={onApplyTags}
-            disabled={!hasItemsToTag}
-            title={hasItemsToTag ? 'Apply auto-tags and sort by uncertainty' : `No ${mode === 'pair' ? 'pairs' : 'features'} in threshold regions to tag`}
-          >
-            Tag by Threshold
-          </button>
-        </div>
+      {/* Buttons section with modality indicator above */}
+      <div className="threshold-tagging-panel__buttons-section">
+        <BimodalityIndicator bimodality={tagAutomaticState?.histogramData?.bimodality} />
+        <div className="threshold-tagging-panel__buttons">
+          {/* Button 1: Tag by Threshold */}
+          <div className="action-button-item">
+            <button
+              className="action-button action-button--primary"
+              onClick={onApplyTags}
+              disabled={!hasItemsToTag}
+              title={hasItemsToTag ? 'Apply auto-tags and sort by uncertainty' : `No ${mode === 'pair' ? 'pairs' : 'features'} in threshold regions to tag`}
+            >
+              Tag by Threshold
+            </button>
+            <div className="action-button__desc">
+              Tag {mode === 'pair' ? 'pairs' : 'features'} in stripe regions using threshold values
+            </div>
+            <div className="action-button__legend">
+              <span className="action-button__legend-item">
+                <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': leftTagColor } as React.CSSProperties} />
+                <span className="action-button__legend-count">{leftCount}</span>
+              </span>
+              <span className="action-button__legend-arrow">→</span>
+              <span className="action-button__legend-item">
+                <span className="action-button__legend-swatch" style={{ backgroundColor: leftTagColor }} />
+                <span className="action-button__legend-count">{leftCount}</span>
+              </span>
+              <span style={{ margin: '0 4px', color: '#d1d5db' }}>|</span>
+              <span className="action-button__legend-item">
+                <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': rightTagColor } as React.CSSProperties} />
+                <span className="action-button__legend-count">{rightCount}</span>
+              </span>
+              <span className="action-button__legend-arrow">→</span>
+              <span className="action-button__legend-item">
+                <span className="action-button__legend-swatch" style={{ backgroundColor: rightTagColor }} />
+                <span className="action-button__legend-count">{rightCount}</span>
+              </span>
+            </div>
+          </div>
 
-        {/* Bottom group: Tag all + Next stage */}
-        <div className="threshold-tagging-panel__buttons-group">
-          <button
-            className={`action-button action-button--tag ${isBimodal ? 'action-button--active' : ''}`}
-            style={{ '--tag-color': getTagColor(tagCategoryId, leftListLabel) || '#9ca3af' } as React.CSSProperties}
-            onClick={() => onTagAll('left')}
-            disabled={!isBimodal}
-            title={isBimodal ? `Tag all remaining as ${leftListLabel}` : 'Requires strongly bimodal distribution'}
-          >
-            Tag Remaining as {leftListLabel}
-          </button>
+          {/* Button 2: Tag Remaining as Left */}
+          <div className="action-button-item">
+            <button
+              className={`action-button ${isBimodal ? 'action-button--active' : ''}`}
+              onClick={() => onTagAll('left')}
+              disabled={!isBimodal}
+              title={isBimodal ? `Tag all remaining as ${leftListLabel}` : 'Requires strongly bimodal distribution'}
+            >
+              Tag Remaining as {leftListLabel}
+            </button>
+            <div className="action-button__desc">
+              Assign all untagged to {leftListLabel}
+            </div>
+            <div className="action-button__legend">
+              <span className="action-button__legend-item">
+                <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
+                <span className="action-button__legend-count">{remainingCount}</span>
+              </span>
+              <span className="action-button__legend-arrow">→</span>
+              <span className="action-button__legend-item">
+                <span className="action-button__legend-swatch" style={{ backgroundColor: leftTagColor }} />
+                <span className="action-button__legend-count">{remainingCount}</span>
+              </span>
+            </div>
+          </div>
 
-          <button
-            className={`action-button ${isBimodal ? 'action-button--active' : ''}`}
-            onClick={() => onTagAll('byBoundary')}
-            disabled={!isBimodal}
-            title={isBimodal ? 'Tag all remaining by decision boundary' : 'Requires strongly bimodal distribution'}
-          >
-            Tag Remaining by Decision Boundary
-          </button>
-
-          <button
-            className="action-button action-button--next"
-            onClick={onNextStage}
-            disabled={!allTagged}
-            title={allTagged ? `Proceed to Stage ${nextStageNumber}: ${nextStageName}` : `Tag all ${mode === 'pair' ? 'pairs' : 'features'} first`}
-          >
-            Stage {nextStageNumber}: {nextStageName} →
-          </button>
+          {/* Button 3: Tag Remaining by Boundary */}
+          <div className="action-button-item">
+            <button
+              className={`action-button ${isBimodal ? 'action-button--active' : ''}`}
+              onClick={() => onTagAll('byBoundary')}
+              disabled={!isBimodal}
+              title={isBimodal ? 'Tag all remaining by decision boundary' : 'Requires strongly bimodal distribution'}
+            >
+              Tag Remaining by Boundary
+            </button>
+            <div className="action-button__desc">
+              Split remaining {mode === 'pair' ? 'pairs' : 'features'} by SVM decision boundary at 0.0
+            </div>
+            <div className="action-button__legend">
+              <span className="action-button__legend-item">
+                <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
+                <span className="action-button__legend-count">{remainingCount}</span>
+              </span>
+              <span className="action-button__legend-arrow">→</span>
+              <span className="action-button__legend-item">
+                <span className="action-button__legend-swatch" style={{ backgroundColor: leftTagColor }} />
+                <span className="action-button__legend-count">{boundaryTagCounts.left}</span>
+              </span>
+              <span className="action-button__legend-item">
+                <span className="action-button__legend-swatch" style={{ backgroundColor: rightTagColor }} />
+                <span className="action-button__legend-count">{boundaryTagCounts.right}</span>
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 

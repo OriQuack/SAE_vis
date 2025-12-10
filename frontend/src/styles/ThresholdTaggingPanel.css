@@ -1,8 +1,8 @@
 /* ============================================================================
  * THRESHOLD TAGGING PANEL - Reusable bottom row for tagging workflows
  * ============================================================================
- * Layout: [Histogram + Indicator] | [Buttons] | [Left list] | [Right list]
- * Used by: FeatureSplitView (and future stages)
+ * Layout: [Histogram] | [Indicator + Buttons] | [Left list] | [Right list]
+ * Used by: FeatureSplitView and QualityView
  * ============================================================================ */
 
 .threshold-tagging-panel {
@@ -42,7 +42,7 @@
 }
 
 /* ============================================================================
- * HISTOGRAM SECTION - TagAutomaticPanel + BimodalityIndicator
+ * HISTOGRAM SECTION - TagAutomaticPanel only
  * ============================================================================ */
 
 .threshold-tagging-panel__histogram-section {
@@ -54,10 +54,17 @@
   min-width: 0;
 }
 
-/* Bimodality indicator fills full height */
-.threshold-tagging-panel__histogram-section .bimodality-indicator {
-  align-self: stretch;
-  flex-shrink: 0;
+/* ============================================================================
+ * BUTTONS SECTION - Modality indicator + action buttons container
+ * ============================================================================ */
+
+.threshold-tagging-panel__buttons-section {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 180px;
+  margin-left: 12px;
+  margin-right: 12px;
+  gap: 4px;
 }
 
 /* ============================================================================
@@ -68,18 +75,8 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 4px;
-  flex: 0 0 150px;  /* Fixed width */
-  margin-top: 26px;
-  margin-bottom: 12px;
-  margin-left: 12px;
-  margin-right: 12px;
-}
-
-.threshold-tagging-panel__buttons-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex: 1;
+  min-height: 0;
 }
 
 /* ============================================================================

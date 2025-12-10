@@ -375,6 +375,51 @@ export const NEUTRAL_ICON_COLORS = {
 export const UNSURE_GRAY = '#e0e0e0ff'
 
 // ============================================================================
+// SANKEY DIAGRAM COLORS - Centralized color definitions for Sankey visualization
+// Easy to modify in one place for consistent styling across the diagram
+// ============================================================================
+export const SANKEY_COLORS = {
+  // Background
+  BACKGROUND: '#ffffff',              // White background
+
+  // Node colors
+  NODE_BORDER: '#d1d5db',             // Gray border for nodes (--border-thick)
+  NODE_BORDER_SELECTED: '#2563eb',    // Blue border for selected nodes
+  ROOT_FILL: '#e0e0e0',               // Root node fill (same as UNSURE_GRAY without alpha)
+  NODE_OPACITY: 0.85,                 // Slightly transparent for softer appearance
+
+  // Segment colors
+  SEGMENT_STROKE: '#ffffff',          // White stroke between segments
+
+  // Selection indicator
+  SELECTION_BORDER: '#2563eb',        // Blue selection highlight
+
+  // Scroll indicator
+  SCROLL_INDICATOR_FILL: 'rgba(30, 41, 59, 0.25)',
+  SCROLL_INDICATOR_STROKE: '#4b5563',
+
+  // Labels
+  LABEL_TEXT: '#000000',              // Black text for labels
+  LABEL_OUTLINE: '#ffffff',           // White outline for label readability
+
+  // Y-axis (histogram) - adaptive colors based on node background
+  AXIS_COLOR_DARK: '#4b5563',         // Dark gray for light backgrounds (e.g., root)
+  AXIS_COLOR_LIGHT: '#f3f4f6',        // Light gray for dark backgrounds (e.g., monosemantic)
+
+  // Random baseline (quality score stage)
+  RANDOM_BASELINE: '#B22222',         // Firebrick red for random baseline
+
+  // Fallback colors
+  FALLBACK_BAR: '#94a3b8',            // Fallback histogram bar color
+  FALLBACK_TAG_STAGE1: '#56B4E9',     // Fallback for stage 1 tag (sky blue)
+  FALLBACK_TAG_STAGE2: '#009E73',     // Fallback for stage 2 tag (green)
+
+  // Header icon
+  THRESHOLD_ICON_FILL: '#0072B2',     // Blue for threshold drag icon
+  THRESHOLD_ICON_STROKE: '#ffffff',   // White stroke for icon
+} as const
+
+// ============================================================================
 // THRESHOLD REGION COLORS - User-friendly colors for histogram threshold regions
 // Used to indicate good/bad feature quality based on metric type
 // Uses lower opacity (60%) for subtle visual distinction

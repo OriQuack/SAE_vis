@@ -1177,15 +1177,23 @@ const QualityView: React.FC<QualityViewProps> = ({
             }}
             onApplyTags={handleApplyTags}
             onTagAll={handleTagAll}
-            onNextStage={moveToNextStep}
             onListItemClick={handleBoundaryListClick}
             activeListSource={activeListSource}
             currentIndex={currentFeatureIndex}
             isBimodal={isBimodal}
-            allTagged={allFeaturesTagged}
-            nextStageName="Root Cause"
-            nextStageNumber={3}
           />
+        </div>
+
+        {/* Right column: Next Stage */}
+        <div className="next-stage-column">
+          <button
+            className="action-button action-button--next"
+            onClick={moveToNextStep}
+            disabled={!allFeaturesTagged}
+            title={allFeaturesTagged ? 'Proceed to Stage 3: Root Cause' : `Tag all features first (${featureSelectionStates.size}/${featureList.length})`}
+          >
+            Move to Stage 3 Root Cause ↑
+          </button>
         </div>
       </div>
     </div>

@@ -10,6 +10,39 @@ interface ModalityIndicatorProps {
   multimodality?: MultiModalityInfo | null | undefined
 }
 
+// Step thresholds for the 5-stage indicator
+const STEP_THRESHOLDS = [0.2, 0.4, 0.6, 0.8, 1.0]
+
+// Calculate which step is active based on score (1-5)
+const getActiveStep = (score: number): number => {
+  if (score < 0.2) return 1
+  if (score < 0.4) return 2
+  if (score < 0.6) return 3
+  if (score < 0.8) return 4
+  return 5
+}
+
+// Get color for a specific step (1-5)
+// Red (#ef4444) at step 1, Yellow (#eab308) at step 3, Green (#22c55e) at step 5
+const getStepColor = (step: number): string => {
+  const t = (step - 1) / 4 // Normalize to 0-1
+  if (t <= 0.5) {
+    // Red to Yellow (step 1-3)
+    const localT = t * 2
+    const r = Math.round(239 + (234 - 239) * localT) // 239 -> 234
+    const g = Math.round(68 + (179 - 68) * localT)   // 68 -> 179
+    const b = Math.round(68 + (8 - 68) * localT)     // 68 -> 8
+    return `rgb(${r}, ${g}, ${b})`
+  } else {
+    // Yellow to Green (step 3-5)
+    const localT = (t - 0.5) * 2
+    const r = Math.round(234 + (34 - 234) * localT)  // 234 -> 34
+    const g = Math.round(179 + (197 - 179) * localT) // 179 -> 197
+    const b = Math.round(8 + (94 - 8) * localT)      // 8 -> 94
+    return `rgb(${r}, ${g}, ${b})`
+  }
+}
+
 const ModalityIndicator: React.FC<ModalityIndicatorProps> = ({ bimodality, multimodality }) => {
   const [showTooltip, setShowTooltip] = useState(false)
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
@@ -68,28 +101,21 @@ const ModalityIndicator: React.FC<ModalityIndicatorProps> = ({ bimodality, multi
     return { score: 0, sampleSize: 0 }
   }, [isMultiMode, displayBimodality, displayMultimodality])
 
-  // Calculate fill color based on score position in full-height gradient
-  // Red (#ef4444) at score 0 (top/unimodal), Green (#22c55e) at score 1 (bottom/multimodal)
-  const fillColor = useMemo(() => {
-    const score = scoreData.score
-    const r = Math.round(239 + (34 - 239) * score)   // 239 -> 34
-    const g = Math.round(68 + (197 - 68) * score)    // 68 -> 197
-    const b = Math.round(68 + (94 - 68) * score)     // 68 -> 94
-    return `rgb(${r}, ${g}, ${b})`
-  }, [scoreData.score])
+  // Calculate active step based on score
+  const activeStep = useMemo(() => getActiveStep(scoreData.score), [scoreData.score])
 
   // Check if we have data for tooltip
   const hasData = isMultiMode ? !!displayMultimodality : !!displayBimodality
 
   // Labels based on mode
-  const bottomLabel = isMultiMode ? 'Multimodal' : 'Bimodal'
+  const rightLabel = isMultiMode ? 'Multimodal' : 'Bimodal'
 
   // Show placeholder for multi-mode when no data
   if (isMultiMode && !displayMultimodality) {
     return (
-      <div className="bimodality-indicator bimodality-indicator--placeholder">
-        <div className="bimodality-indicator__placeholder">
-          <div className="bimodality-indicator__placeholder-text">
+      <div className="modality-indicator modality-indicator--placeholder">
+        <div className="modality-indicator__placeholder">
+          <div className="modality-indicator__placeholder-text">
             Tag 1+ features in 2+ categories
           </div>
         </div>
@@ -99,64 +125,78 @@ const ModalityIndicator: React.FC<ModalityIndicatorProps> = ({ bimodality, multi
 
   return (
     <div
-      className="bimodality-indicator"
+      className="modality-indicator"
       onMouseEnter={() => hasData && setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
       onMouseMove={handleMouseMove}
     >
-      <div className="bimodality-indicator__content">
-        {/* Top label */}
-        <div className="bimodality-indicator__endpoint">Unimodal</div>
+      {/* Labels row */}
+      <div className="modality-indicator__labels">
+        <span className="modality-indicator__label">Unimodal</span>
+        <span className="modality-indicator__label">{rightLabel}</span>
+      </div>
 
-        {/* Bar with fill */}
-        <div className="bimodality-indicator__bar">
-          <div className="bimodality-indicator__track" />
-          <div
-            className="bimodality-indicator__fill"
-            style={{ height: `${scoreData.score * 100}%`, backgroundColor: fillColor }}
-          />
-        </div>
+      {/* Dots and lines row - all direct siblings for proper connection */}
+      <div className="modality-indicator__track">
+        {STEP_THRESHOLDS.map((_, index) => {
+          const stepNum = index + 1
+          const isFilled = hasData && stepNum <= activeStep
+          const isActive = hasData && stepNum === activeStep
+          const stepColor = getStepColor(stepNum)
 
-        {/* Bottom label */}
-        <div className="bimodality-indicator__endpoint">{bottomLabel}</div>
+          return (
+            <React.Fragment key={stepNum}>
+              {index > 0 && (
+                <div
+                  className={`modality-indicator__line ${hasData && stepNum <= activeStep ? 'modality-indicator__line--filled' : ''}`}
+                  style={hasData && stepNum <= activeStep ? { backgroundColor: getStepColor(stepNum - 1) } : undefined}
+                />
+              )}
+              <div
+                className={`modality-indicator__dot ${isFilled ? 'modality-indicator__dot--filled' : ''} ${isActive ? 'modality-indicator__dot--active' : ''}`}
+                style={isFilled ? { backgroundColor: stepColor, borderColor: stepColor } : undefined}
+              />
+            </React.Fragment>
+          )
+        })}
       </div>
 
       {/* Tooltip - follows mouse, only show when we have data */}
       {showTooltip && hasData && (
         <div
-          className="bimodality-indicator__tooltip"
+          className="modality-indicator__tooltip"
           style={{
             position: 'fixed',
             left: mousePos.x + 12,
             top: mousePos.y + 12,
           }}
         >
-          <div className="bimodality-indicator__tooltip-score">
+          <div className="modality-indicator__tooltip-score">
             Score: {scoreData.score.toFixed(2)}
           </div>
-          <div className="bimodality-indicator__tooltip-divider" />
+          <div className="modality-indicator__tooltip-divider" />
 
           {/* Multi-modality mode: show per-category breakdown */}
           {isMultiMode && scoreData.categoryDetails && (
             <>
               {Object.entries(scoreData.categoryDetails).map(([category, details]) => (
-                <div key={category} className="bimodality-indicator__tooltip-category">
-                  <div className="bimodality-indicator__tooltip-category-name">
+                <div key={category} className="modality-indicator__tooltip-category">
+                  <div className="modality-indicator__tooltip-category-name">
                     {category}
                   </div>
-                  <div className="bimodality-indicator__tooltip-row">
+                  <div className="modality-indicator__tooltip-row">
                     <span>Score:</span>
                     <span>{details.score.toFixed(2)}</span>
                   </div>
-                  <div className="bimodality-indicator__tooltip-row">
+                  <div className="modality-indicator__tooltip-row">
                     <span>Dip p-value:</span>
                     <span>{details.dipPvalue?.toFixed(3) ?? 'N/A'}</span>
                   </div>
-                  <div className="bimodality-indicator__tooltip-row">
+                  <div className="modality-indicator__tooltip-row">
                     <span>BIC diff:</span>
                     <span>{details.bicDiff !== undefined ? `${details.bicDiff >= 0 ? '+' : ''}${details.bicDiff.toFixed(1)}` : 'N/A'}</span>
                   </div>
-                  <div className="bimodality-indicator__tooltip-row">
+                  <div className="modality-indicator__tooltip-row">
                     <span>Mean sep:</span>
                     <span>{details.meanSeparation?.toFixed(1) ?? 'N/A'}σ</span>
                   </div>
@@ -168,15 +208,15 @@ const ModalityIndicator: React.FC<ModalityIndicatorProps> = ({ bimodality, multi
           {/* Bimodality mode: show standard breakdown */}
           {!isMultiMode && displayBimodality && (
             <>
-              <div className="bimodality-indicator__tooltip-row">
+              <div className="modality-indicator__tooltip-row">
                 <span>Dip p-value:</span>
                 <span>{scoreData.dipPvalue?.toFixed(3) ?? 'N/A'}</span>
               </div>
-              <div className="bimodality-indicator__tooltip-row">
+              <div className="modality-indicator__tooltip-row">
                 <span>BIC diff:</span>
                 <span>{scoreData.bicDiff !== undefined ? `${scoreData.bicDiff >= 0 ? '+' : ''}${scoreData.bicDiff.toFixed(1)}` : 'N/A'}</span>
               </div>
-              <div className="bimodality-indicator__tooltip-row">
+              <div className="modality-indicator__tooltip-row">
                 <span>Mean sep:</span>
                 <span>{scoreData.meanSeparation?.toFixed(1) ?? 'N/A'}σ</span>
               </div>

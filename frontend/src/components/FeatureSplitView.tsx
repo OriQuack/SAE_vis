@@ -929,16 +929,24 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
           }}
           onApplyTags={handleApplyTags}
           onTagAll={handleTagAll}
-          onNextStage={moveToNextStep}
           onListItemClick={handleBoundaryListClick}
           activeListSource={activeListSource}
           currentIndex={currentPairIndex}
           isBimodal={isBimodal}
-          allTagged={allPairsTagged}
-          nextStageName="Quality"
-          nextStageNumber={2}
         />
       </div>
+
+        {/* Right column: Next Stage */}
+        <div className="next-stage-column">
+          <button
+            className="action-button action-button--next"
+            onClick={moveToNextStep}
+            disabled={!allPairsTagged}
+            title={allPairsTagged ? 'Proceed to Stage 2: Quality' : `Tag all pairs first (${pairSelectionStates.size}/${pairList.length})`}
+          >
+            Move to Stage 2 Quality ↑
+          </button>
+        </div>
       </div>
     </div>
   )

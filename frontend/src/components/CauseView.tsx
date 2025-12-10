@@ -647,6 +647,41 @@ const CauseView: React.FC<CauseViewProps> = ({
     // TODO: Implement Stage 4 navigation
   }, [])
 
+  // Count how many remaining features will be tagged to each category by decision boundary
+  const boundaryTagCounts = useMemo(() => {
+    const counts = {
+      'noisy-activation': 0,
+      'missed-context': 0,
+      'missed-N-gram': 0,
+      'well-explained': 0
+    }
+
+    if (!causeCategoryDecisionMargins || !selectedFeatureIds) return counts
+
+    selectedFeatureIds.forEach(featureId => {
+      const source = causeSelectionSources.get(featureId)
+      // Skip manually tagged features
+      if (source === 'manual') return
+
+      const categoryMargins = causeCategoryDecisionMargins.get(featureId)
+      if (!categoryMargins) return
+
+      // Find category with highest margin
+      const entries = Object.entries(categoryMargins)
+      if (entries.length === 0) return
+
+      const [bestCategory] = entries.reduce((best, curr) =>
+        curr[1] > best[1] ? curr : best
+      )
+
+      if (bestCategory in counts) {
+        counts[bestCategory as keyof typeof counts]++
+      }
+    })
+
+    return counts
+  }, [causeCategoryDecisionMargins, selectedFeatureIds, causeSelectionSources])
+
   // Get colors for each cause category
   const noisyActivationColor = getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#9ca3af'
   const missedNgramColor = getTagColor(TAG_CATEGORY_CAUSE, 'Missed N-gram') || '#9ca3af'
@@ -931,66 +966,133 @@ const CauseView: React.FC<CauseViewProps> = ({
             </div>
           </div>
 
-          {/* Bottom row: UMAP + Modality Indicator + Action Buttons + Selected features list */}
+          {/* Bottom row: UMAP + Action Buttons + Selected features list */}
           <div className="cause-view__row-bottom">
             <UMAPScatter
               featureIds={selectedFeatureIds ? Array.from(selectedFeatureIds) : []}
               width={500}
               className="cause-view__umap"
             />
-            <ModalityIndicator multimodality={causeMultiModality} />
 
-            {/* Action buttons for tagging */}
-            <div className="cause-view__action-buttons">
-              {/* Top group: Tag brushed buttons */}
-              <div className="cause-view__action-buttons-group">
-                <button
-                  className="action-button action-button--tag"
-                  style={{ '--tag-color': noisyActivationColor } as React.CSSProperties}
-                  onClick={() => handleTagBrushedAs('noisy-activation')}
-                  disabled={umapBrushedFeatureIds.size === 0}
-                  title="Tag all brushed features as Noisy Activation"
-                >
-                  Tag brushed as Noisy Activation
-                </button>
-                <button
-                  className="action-button action-button--tag"
-                  style={{ '--tag-color': missedContextColor } as React.CSSProperties}
-                  onClick={() => handleTagBrushedAs('missed-context')}
-                  disabled={umapBrushedFeatureIds.size === 0}
-                  title="Tag all brushed features as Missed Context"
-                >
-                  Tag brushed as Missed Context
-                </button>
-                <button
-                  className="action-button action-button--tag"
-                  style={{ '--tag-color': missedNgramColor } as React.CSSProperties}
-                  onClick={() => handleTagBrushedAs('missed-N-gram')}
-                  disabled={umapBrushedFeatureIds.size === 0}
-                  title="Tag all brushed features as Missed N-gram"
-                >
-                  Tag brushed as Missed N-Gram
-                </button>
-              </div>
+            {/* Action buttons section with modality indicator above */}
+            <div className="cause-view__action-section">
+              <ModalityIndicator multimodality={causeMultiModality} />
+              <div className="cause-view__action-buttons">
+                {/* Button 1: Tag brushed as Noisy Activation */}
+                <div className="action-button-item">
+                  <button
+                    className="action-button"
+                    onClick={() => handleTagBrushedAs('noisy-activation')}
+                    disabled={umapBrushedFeatureIds.size === 0}
+                    title="Tag all brushed features as Noisy Activation"
+                  >
+                    Tag Brushed as Noisy Activation
+                  </button>
+                  <div className="action-button__desc">
+                    Assign brushed features to Noisy Activation
+                  </div>
+                  <div className="action-button__legend">
+                    <span className="action-button__legend-item">
+                      <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
+                      <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
+                    </span>
+                    <span className="action-button__legend-arrow">→</span>
+                    <span className="action-button__legend-item">
+                      <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
+                      <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
+                    </span>
+                  </div>
+                </div>
 
-              {/* Bottom group: Action buttons */}
-              <div className="cause-view__action-buttons-group">
-                <button
-                  className="action-button action-button--primary"
-                  onClick={handleTagRemainingByBoundary}
-                  disabled={!causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0}
-                  title="Auto-tag remaining features using SVM decision boundary"
-                >
-                  Tag Remaining by Decision Boundary
-                </button>
-                <button
-                  className="action-button action-button--next"
-                  onClick={handleNextStage}
-                  disabled={!allTagged}
-                  title={allTagged ? 'Proceed to Stage 4' : 'Tag all features first'}
-                >
-                  Stage 4: Temp →
-                </button>
+                {/* Button 2: Tag brushed as Missed Context */}
+                <div className="action-button-item">
+                  <button
+                    className="action-button"
+                    onClick={() => handleTagBrushedAs('missed-context')}
+                    disabled={umapBrushedFeatureIds.size === 0}
+                    title="Tag all brushed features as Missed Context"
+                  >
+                    Tag Brushed as Missed Context
+                  </button>
+                  <div className="action-button__desc">
+                    Assign brushed features to Missed Context
+                  </div>
+                  <div className="action-button__legend">
+                    <span className="action-button__legend-item">
+                      <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
+                      <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
+                    </span>
+                    <span className="action-button__legend-arrow">→</span>
+                    <span className="action-button__legend-item">
+                      <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
+                      <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Button 3: Tag brushed as Missed N-gram */}
+                <div className="action-button-item">
+                  <button
+                    className="action-button"
+                    onClick={() => handleTagBrushedAs('missed-N-gram')}
+                    disabled={umapBrushedFeatureIds.size === 0}
+                    title="Tag all brushed features as Missed N-gram"
+                  >
+                    Tag Brushed as Missed N-Gram
+                  </button>
+                  <div className="action-button__desc">
+                    Assign brushed features to Missed N-Gram
+                  </div>
+                  <div className="action-button__legend">
+                    <span className="action-button__legend-item">
+                      <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
+                      <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
+                    </span>
+                    <span className="action-button__legend-arrow">→</span>
+                    <span className="action-button__legend-item">
+                      <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
+                      <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Button 4: Tag Remaining by Boundary */}
+                <div className="action-button-item">
+                  <button
+                    className="action-button action-button--primary"
+                    onClick={handleTagRemainingByBoundary}
+                    disabled={!causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0}
+                    title="Auto-tag remaining features using SVM decision boundary"
+                  >
+                    Tag Remaining by Boundary
+                  </button>
+                  <div className="action-button__desc">
+                    Split remaining features by SVM decision boundary
+                  </div>
+                  <div className="action-button__legend">
+                    <span className="action-button__legend-item">
+                      <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
+                      <span className="action-button__legend-count">{(selectedFeatureIds?.size || 0) - causeSelectionStates.size}</span>
+                    </span>
+                    <span className="action-button__legend-arrow">→</span>
+                    <span className="action-button__legend-item">
+                      <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
+                      <span className="action-button__legend-count">{boundaryTagCounts['noisy-activation']}</span>
+                    </span>
+                    <span className="action-button__legend-item">
+                      <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
+                      <span className="action-button__legend-count">{boundaryTagCounts['missed-context']}</span>
+                    </span>
+                    <span className="action-button__legend-item">
+                      <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
+                      <span className="action-button__legend-count">{boundaryTagCounts['missed-N-gram']}</span>
+                    </span>
+                    <span className="action-button__legend-item">
+                      <span className="action-button__legend-swatch" style={{ backgroundColor: wellExplainedColor }} />
+                      <span className="action-button__legend-count">{boundaryTagCounts['well-explained']}</span>
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1012,6 +1114,18 @@ const CauseView: React.FC<CauseViewProps> = ({
               />
             </div>
           </div>
+        </div>
+
+        {/* Right column: Next Stage */}
+        <div className="next-stage-column">
+          <button
+            className="action-button action-button--next"
+            onClick={handleNextStage}
+            disabled={!allTagged}
+            title={allTagged ? 'Proceed to Stage 4' : `Tag all features first (${causeSelectionStates.size}/${selectedFeatureIds?.size || 0})`}
+          >
+            Move to Stage 4 Summary ↑
+          </button>
         </div>
       </div>
     </div>

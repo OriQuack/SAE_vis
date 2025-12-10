@@ -513,6 +513,17 @@
 }
 
 /* ============================================================================
+ * ACTION SECTION - Modality indicator + action buttons container
+ * ============================================================================ */
+
+.cause-view__action-section {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 180px;
+  gap: 4px;
+}
+
+/* ============================================================================
  * ACTION BUTTONS - Container and layout (uses shared .action-button from base.css)
  * ============================================================================ */
 
@@ -520,19 +531,6 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  flex-shrink: 0;
-  margin-top: 26px;
-  margin-bottom: 12px;
-}
-
-.cause-view__action-buttons-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-/* CauseView-specific action button overrides */
-.cause-view__action-buttons .action-button {
-  max-width: 140px;
-  font-size: 12px;
+  flex: 1;
+  min-height: 0;
 }

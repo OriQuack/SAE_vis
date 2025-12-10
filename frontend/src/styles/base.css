@@ -157,17 +157,18 @@ body {
 
 /* ============================================================================
    COMMON ACTION BUTTONS - Shared button styles across tagging panels
+   Matches .nav__button style: white background, 11px font
    ============================================================================ */
 
-/* Base action button - default gray style */
+/* Base action button - white background (matches nav__button) */
 .action-button {
-  padding: 8px 4px;
+  padding: 3px 8px;
   font-size: 13px;
   font-weight: 500;
   color: #374151;
-  background-color: #f3f4f6;
+  background-color: white;
   border: 1px solid #d1d5db;
-  border-radius: 4px;
+  border-radius: 3px;
   cursor: pointer;
   white-space: normal;
   word-wrap: break-word;
@@ -178,69 +179,155 @@ body {
 }
 
 .action-button:hover:not(:disabled) {
-  background-color: #e5e7eb;
+  background-color: #f3f4f6;
   border-color: #9ca3af;
 }
 
 .action-button:disabled {
-  background-color: #f9fafb;
-  color: #d1d5db;
-  border-color: #e5e7eb;
+  opacity: 0.3;
   cursor: not-allowed;
 }
 
-/* Primary variant - Blue (Apply/Tag by Threshold) */
+/* Primary variant - Gray border, black text */
 .action-button--primary {
-  background-color: #3b82f6;
-  color: white;
-  border-color: #3b82f6;
+  background-color: white;
+  color: #000000;
+  border-color: #9ca3af;
 }
 
 .action-button--primary:hover:not(:disabled) {
-  background-color: #2563eb;
-  border-color: #2563eb;
+  background-color: #f3f4f6;
+  border-color: #6b7280;
 }
 
-/* Active variant - Dark blue (when bimodal is detected) */
+/* Active variant - Gray border, black text (when bimodal is detected) */
 .action-button--active {
-  background-color: #1e40af;
-  color: white;
-  border-color: #1e40af;
+  background-color: white;
+  color: #000000;
+  border-color: #9ca3af;
   font-weight: 600;
 }
 
 .action-button--active:hover:not(:disabled) {
-  background-color: #1e3a8a;
-  border-color: #1e3a8a;
+  background-color: #f3f4f6;
+  border-color: #6b7280;
 }
 
-/* Next stage variant - Green */
+/* Next stage variant - Gray border, black text */
 .action-button--next {
-  background-color: #10b981;
-  color: white;
-  border-color: #10b981;
+  background-color: white;
+  color: #000000;
+  border-color: #9ca3af;
 }
 
 .action-button--next:hover:not(:disabled) {
-  background-color: #059669;
-  border-color: #059669;
+  background-color: #f3f4f6;
+  border-color: #6b7280;
 }
 
-/* Tag variant - With color indicator dot */
-.action-button--tag {
-  padding-left: 24px;
+/* ============================================================================
+   ACTION BUTTON ITEM - Wrapper for button + description + legend
+   ============================================================================ */
+
+.action-button-item {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  justify-content: center;
+  gap: 2px;
+}
+
+.action-button-item .action-button {
+  flex-shrink: 0;
+}
+
+.action-button__desc {
+  font-size: 11px;
+  color: #6b7280;
+  line-height: 1.2;
   text-align: left;
-  position: relative;
 }
 
-.action-button--tag::before {
-  content: '';
-  position: absolute;
-  left: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  background-color: var(--tag-color, #9ca3af);
+/* ============================================================================
+   ACTION BUTTON LEGEND - Count indicators with swatches below buttons
+   ============================================================================ */
+
+.action-button__legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
+  min-height: 16px;
+}
+
+.action-button__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Filled swatch - solid color (result state) */
+.action-button__legend-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+/* Striped swatch - diagonal stripes (preview/current state) */
+.action-button__legend-swatch--striped {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--swatch-color),
+    var(--swatch-color) 2px,
+    #e0e0e0 2px,
+    #e0e0e0 4px
+  );
+  border: 1px solid var(--swatch-color);
+}
+
+.action-button__legend-arrow {
+  color: #9ca3af;
+  font-size: 11px;
+  margin: 0 1px;
+}
+
+.action-button__legend-count {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  min-width: 16px;
+  text-align: center;
+}
+
+.action-button__legend-status {
+  font-weight: 500;
+  color: #374151;
+}
+
+/* ============================================================================
+   NEXT STAGE COLUMN - Right-side column for stage navigation
+   ============================================================================ */
+
+.next-stage-column {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 20px;
+  min-height: 0;
+  margin-left: 8px;
+}
+
+/* Next stage button - rotated 90 degrees clockwise, full height */
+.next-stage-column .action-button--next {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  padding: 16px 6px;
+  font-size: 14px;
+  font-weight: 500;
+  height: 100%;
+  white-space: nowrap;
 }

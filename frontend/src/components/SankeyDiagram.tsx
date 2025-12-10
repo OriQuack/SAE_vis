@@ -21,7 +21,7 @@ import {
   PANEL_RIGHT,
   TAG_CATEGORY_FEATURE_SPLITTING,
   TAG_CATEGORY_QUALITY,
-  UNSURE_GRAY
+  SANKEY_COLORS
 } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import { SankeyOverlay } from './SankeyOverlay'
@@ -77,8 +77,8 @@ const OutlinedLabel: React.FC<{
       y={y}
       dy="0.35em"
       fontSize={fontSize}
-      fill="white"
-      stroke="white"
+      fill={SANKEY_COLORS.LABEL_OUTLINE}
+      stroke={SANKEY_COLORS.LABEL_OUTLINE}
       strokeWidth={3}
       opacity={1}
       fontWeight={isHovered ? 700 : 600}
@@ -96,7 +96,7 @@ const OutlinedLabel: React.FC<{
       y={y}
       dy="0.35em"
       fontSize={fontSize}
-      fill="#000000"
+      fill={SANKEY_COLORS.LABEL_TEXT}
       opacity={1}
       fontWeight={isHovered ? 700 : 600}
       textAnchor={textAnchor}
@@ -131,7 +131,7 @@ const SankeyNode: React.FC<{
   isSelected = false,
   flowDirection: _flowDirection,
   animationDuration: _animationDuration,
-  currentStage = 1
+  currentStage: _currentStage = 1
 }) => {
   if (node.x0 === undefined || node.x1 === undefined || node.y0 === undefined || node.y1 === undefined) {
     return null
@@ -139,18 +139,14 @@ const SankeyNode: React.FC<{
 
   const width = node.x1 - node.x0
   const height = node.y1 - node.y0
-  const isRoot = node.id === 'root'
-  const isMonosemantic = node.id === 'monosemantic'
 
   // Get fill color based on node type
-  // In stage 2+, monosemantic parent node should not have color (only stage 1 shows it)
+  // Use node's colorHex if available (set from tag colors), otherwise fall back to ROOT_FILL
   const getFillColor = () => {
-    if (isRoot) return UNSURE_GRAY
-    if (isMonosemantic && currentStage < 2) {
-      const monosematicColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Monosemantic')
-      return monosematicColor || 'none'
+    if (node.colorHex) {
+      return node.colorHex
     }
-    return 'none'
+    return SANKEY_COLORS.ROOT_FILL
   }
 
   return (
@@ -162,8 +158,8 @@ const SankeyNode: React.FC<{
         height={height}
         rx={2}
         fill={getFillColor()}
-        fillOpacity={isMonosemantic ? 0.3 : 1}
-        stroke={isSelected ? '#2563eb' : '#000000'}
+        fillOpacity={SANKEY_COLORS.NODE_OPACITY}
+        stroke={isSelected ? SANKEY_COLORS.NODE_BORDER_SELECTED : SANKEY_COLORS.NODE_BORDER}
         strokeWidth={isSelected ? 3 : 1}
         style={{
           cursor: onClick ? 'pointer' : 'default',
@@ -293,8 +289,8 @@ const VerticalBarSankeyNode: React.FC<{
                 height={segment.height}
                 rx={2}
                 fill={segment.color}
-                opacity={0.85}
-                stroke="#ffffff"
+                opacity={SANKEY_COLORS.NODE_OPACITY}
+                stroke={SANKEY_COLORS.SEGMENT_STROKE}
                 strokeWidth={1}
                 onClick={(e) => {
                   e.stopPropagation()
@@ -331,6 +327,7 @@ const VerticalBarSankeyNode: React.FC<{
         })
       ) : (
         // Render solid bar (terminal node or LLM explainer bars)
+        // Use node's colorHex if available, otherwise fall back to ROOT_FILL
         layout.subNodes.length > 0 && (
           <rect
             className="sankey-vertical-bar-rect"
@@ -339,8 +336,8 @@ const VerticalBarSankeyNode: React.FC<{
             width={layout.totalWidth}
             height={Math.max(...layout.subNodes.map(sn => sn.y + sn.height)) - Math.min(...layout.subNodes.map(sn => sn.y))}
             rx={2}
-            fill={node.colorHex || layout.subNodes[0].color}
-            opacity={0.85}
+            fill={node.colorHex || SANKEY_COLORS.ROOT_FILL}
+            opacity={SANKEY_COLORS.NODE_OPACITY}
             stroke="none"
             strokeDasharray={isPlaceholder ? "3,3" : undefined}
           />
@@ -361,7 +358,7 @@ const VerticalBarSankeyNode: React.FC<{
                 height={segment.height + 4}
                 rx={2}
                 fill="none"
-                stroke="#2563eb"
+                stroke={SANKEY_COLORS.SELECTION_BORDER}
                 strokeWidth={3}
                 pointerEvents="none"
                 style={{
@@ -381,7 +378,7 @@ const VerticalBarSankeyNode: React.FC<{
             width={boundingBox.width + 4}
             height={boundingBox.height + 4}
             fill="none"
-            stroke="#2563eb"
+            stroke={SANKEY_COLORS.SELECTION_BORDER}
             strokeWidth={4}
             rx={2}
             style={{
@@ -400,8 +397,8 @@ const VerticalBarSankeyNode: React.FC<{
           width={layout.totalWidth}
           height={layout.scrollIndicator.height}
           rx={2}
-          fill="rgba(30, 41, 59, 0.25)"
-          stroke="#4b5563"
+          fill={SANKEY_COLORS.SCROLL_INDICATOR_FILL}
+          stroke={SANKEY_COLORS.SCROLL_INDICATOR_STROKE}
           strokeWidth={1}
           style={{
             pointerEvents: 'none',
@@ -743,7 +740,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const isStage2 = currentStage >= 2
   const tagCategory = isStage2 ? TAG_CATEGORY_QUALITY : TAG_CATEGORY_FEATURE_SPLITTING
   const tagName = isStage2 ? 'Well-Explained' : 'Fragmented'
-  const tagColor = getTagColor(tagCategory, tagName) || (isStage2 ? '#009E73' : '#56B4E9')
+  const tagColor = getTagColor(tagCategory, tagName) || (isStage2 ? SANKEY_COLORS.FALLBACK_TAG_STAGE2 : SANKEY_COLORS.FALLBACK_TAG_STAGE1)
 
   return (
     <div className={`sankey-diagram ${className}`}>
@@ -764,8 +761,8 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
               width="22"
               height="14"
               rx="3"
-              fill="#0072B2"
-              stroke="#ffffff"
+              fill={SANKEY_COLORS.THRESHOLD_ICON_FILL}
+              stroke={SANKEY_COLORS.THRESHOLD_ICON_STROKE}
               strokeWidth="1.5"
             />
             <line x1="6" y1="5" x2="18" y2="5" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
@@ -794,7 +791,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
               <line x1="0" y1="0" x2="0" y2="12" stroke="white" strokeWidth="5" opacity="0.4" />
             </pattern>
           </defs>
-          <rect width={containerSize.width} height={containerSize.height} fill="#ffffff" />
+          <rect width={containerSize.width} height={containerSize.height} fill={SANKEY_COLORS.BACKGROUND} />
 
           <g transform={`translate(${layout.margin.left},${layout.margin.top})`}>
             {/* Links */}
