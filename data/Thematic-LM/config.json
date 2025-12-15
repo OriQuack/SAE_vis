@@ -1,0 +1,54 @@
+{
+  "description": "Configuration for Thematic-LM coding stage (SAE feature explanations)",
+
+  "input_paths": {
+    "explanation_embeddings_path": "data/master/explanation_embeddings.parquet"
+  },
+
+  "output_paths": {
+    "thematic_codes_parquet": "data/master/thematic_codes.parquet",
+    "codebook_json": "data/master/codebook.json"
+  },
+
+  "llm_config": {
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "temperature": 1.0,
+    "max_tokens": 512,
+    "rate_limit_rpm": 500
+  },
+
+  "embedding_config": {
+    "model": "google/embeddinggemma-300m",
+    "device": "cuda"
+  },
+
+  "coder_config": {
+    "description": "Multiple coders with different identity perspectives (following Thematic-LM paper)",
+    "coders": [
+      {
+        "id": "coder_linguist",
+        "identity": "linguist"
+      },
+      {
+        "id": "coder_semanticist",
+        "identity": "semanticist"
+      }
+    ]
+  },
+
+  "codebook_config": {
+    "description": "Following Thematic-LM paper: top 10 similar codes for reviewer",
+    "similarity_threshold": 0.85,
+    "auto_merge_threshold": 0.90,
+    "top_k_retrieval": 10
+  },
+
+  "processing_config": {
+    "description": "Following Thematic-LM paper: up to 20 most relevant quotes per code",
+    "batch_size": 100,
+    "checkpoint_every": 500,
+    "max_codes_per_explanation": 3,
+    "max_quotes_per_code": 20
+  }
+}
