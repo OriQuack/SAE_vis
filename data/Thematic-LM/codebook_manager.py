@@ -1,4 +1,9 @@
-"""Codebook Manager for adaptive code storage and retrieval."""
+"""Codebook Manager for adaptive code storage and retrieval.
+
+Following Thematic-LM paper: Codebook stores codes with embeddings for
+similarity-based retrieval. The reviewer agent makes all merge/new decisions -
+no threshold-based auto-merging here.
+"""
 
 import json
 import logging
@@ -16,14 +21,21 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class CodebookEntry:
-    """An entry in the adaptive codebook."""
+    """An entry in the adaptive codebook.
+
+    Per paper (Section 3.1): "This codebook stores previous codes, their
+    corresponding quotes, and quote IDs in JSON format. Each entry in the
+    codebook is a code, and its associated quotes are nested below each
+    code along with their quote IDs."
+    """
 
     code_id: int
     code_text: str
     embedding: np.ndarray
     frequency: int = 1
     variants: List[str] = field(default_factory=list)
-    example_quotes: List[str] = field(default_factory=list)
+    # Per paper: quotes stored WITH quote_ids for traceability
+    example_quotes: List[Dict[str, str]] = field(default_factory=list)  # [{"quote": "...", "quote_id": "..."}]
     merged_from: List[int] = field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -33,7 +45,7 @@ class CodebookEntry:
             "code_text": self.code_text,
             "frequency": self.frequency,
             "variants": self.variants,
-            "example_quotes": self.example_quotes[:5],  # Limit quotes for storage
+            "example_quotes": self.example_quotes[:20],  # Paper: max 20 quotes with quote_ids
             "merged_from": self.merged_from
         }
 
@@ -41,31 +53,30 @@ class CodebookEntry:
 class CodebookManager:
     """Manages the adaptive codebook with embedding-based similarity retrieval.
 
-    The codebook stores codes generated during thematic analysis and supports:
-    - Embedding-based similarity search for finding related codes
-    - Automatic merging of highly similar codes
-    - Tracking of code variants and usage frequency
+    Following paper Section 3.1: The codebook stores codes and their embeddings.
+    Similarity search (top-k) is used to find related codes for the reviewer.
+    The reviewer agent makes ALL merge/new decisions - this class does not
+    auto-merge based on thresholds.
+
+    Key methods:
+    - add_code(): Add a new code entry
+    - merge_code(): Merge new code into existing entry
+    - find_similar(): Find top-k similar codes for reviewer
     """
 
     def __init__(
         self,
         embedding_model: str = "google/embeddinggemma-300m",
         device: str = "cuda",
-        similarity_threshold: float = 0.85,
-        auto_merge_threshold: float = 0.90,
-        max_example_quotes: int = 5
+        max_example_quotes: int = 20
     ):
         """Initialize the CodebookManager.
 
         Args:
             embedding_model: Sentence transformer model for embeddings
             device: Device for embedding model ('cuda' or 'cpu')
-            similarity_threshold: Minimum similarity to consider codes related
-            auto_merge_threshold: Similarity threshold for automatic merging
-            max_example_quotes: Maximum number of example quotes to store per code
+            max_example_quotes: Maximum number of example quotes per code (paper: 20)
         """
-        self.similarity_threshold = similarity_threshold
-        self.auto_merge_threshold = auto_merge_threshold
         self.max_example_quotes = max_example_quotes
 
         logger.info(f"Loading embedding model: {embedding_model}")
@@ -104,13 +115,16 @@ class CodebookManager:
     def find_similar(
         self,
         code_text: str,
-        top_k: int = 5
+        top_k: int = 10
     ) -> List[Tuple[CodebookEntry, float]]:
         """Find top-k most similar existing codes.
 
+        Following paper Section 3.1: Retrieve top-k similar codes (default k=10)
+        for the reviewer to compare against.
+
         Args:
             code_text: Code text to search for
-            top_k: Number of similar codes to return
+            top_k: Number of similar codes to return (paper: 10)
 
         Returns:
             List of (CodebookEntry, similarity_score) tuples, sorted by similarity
@@ -139,17 +153,30 @@ class CodebookManager:
 
         return results
 
-    def add_code(self, code_text: str, quote: str) -> Tuple[int, bool]:
+    def add_code(self, code_text: str, quotes: List[Dict[str, str]]) -> Tuple[int, bool]:
         """Add a new code to the codebook.
+
+        Called when reviewer decides to create a new code (merge_codes empty).
+
+        Per paper Section 3.1: Store quotes WITH quote_ids for traceability.
+        Per paper Section 4: Store up to 20 most relevant quotes per code.
 
         Args:
             code_text: The code label
-            quote: Supporting quote from the data
+            quotes: List of quote dicts with 'quote' and 'quote_id' keys
 
         Returns:
-            Tuple of (code_id, is_new) indicating the code ID and whether it's new
+            Tuple of (code_id, is_new) - is_new is always True for add_code
         """
         embedding = self.get_embedding(code_text)
+
+        # Store quotes WITH quote_ids per paper (respecting max limit)
+        # Format: [{"quote": "...", "quote_id": "..."}]
+        valid_quotes = [
+            {"quote": q.get("quote", ""), "quote_id": q.get("quote_id", "")}
+            for q in quotes
+            if q.get("quote")
+        ][:self.max_example_quotes]
 
         new_entry = CodebookEntry(
             code_id=self._next_id,
@@ -157,73 +184,137 @@ class CodebookManager:
             embedding=embedding,
             frequency=1,
             variants=[code_text],
-            example_quotes=[quote] if quote else []
+            example_quotes=valid_quotes
         )
 
         self.entries[self._next_id] = new_entry
         code_id = self._next_id
         self._next_id += 1
         self._update_embeddings_matrix()
+        self.version += 1
 
+        logger.debug(f"Added new code {code_id}: '{code_text}'")
         return code_id, True
 
     def merge_code(
         self,
         code_text: str,
-        quote: str,
-        existing_code_id: int
+        quotes: List[Dict[str, str]],
+        existing_code_id: int,
+        update_code_text: bool = False
     ) -> int:
         """Merge a new code into an existing code entry.
 
+        Called when reviewer decides to merge (merge_codes non-empty).
+
+        Per paper Section 4 and plan: When merging, add all new quotes (up to max 20)
+        and optionally update the code_text to the refined name.
+
         Args:
-            code_text: The new code text (may become a variant)
-            quote: Supporting quote
+            code_text: The new code text (may be a refined name)
+            quotes: List of quote dicts with 'quote' and 'quote_id' keys
             existing_code_id: ID of existing code to merge into
+            update_code_text: If True, update the entry's code_text to the new refined name
 
         Returns:
             The existing code ID
         """
+        if existing_code_id not in self.entries:
+            logger.warning(f"Cannot merge: code {existing_code_id} not found")
+            # Fallback: add as new
+            code_id, _ = self.add_code(code_text, quotes)
+            return code_id
+
         entry = self.entries[existing_code_id]
         entry.frequency += 1
 
-        # Add variant if different
-        if code_text.lower() != entry.code_text.lower() and code_text not in entry.variants:
+        # Per plan lines 729-732: Update code name to the (possibly refined) name
+        if update_code_text and code_text.lower() != entry.code_text.lower():
+            # Store old name as variant before updating
+            if entry.code_text not in entry.variants:
+                entry.variants.append(entry.code_text)
+            # Update to refined name
+            old_name = entry.code_text
+            entry.code_text = code_text
+            # Update embedding for new code text
+            entry.embedding = self.get_embedding(code_text)
+            logger.debug(f"Updated code name from '{old_name}' to '{code_text}'")
+        elif code_text.lower() != entry.code_text.lower() and code_text not in entry.variants:
+            # Add as variant if different (original behavior when not updating)
             entry.variants.append(code_text)
 
-        # Add quote
-        if quote and len(entry.example_quotes) < self.max_example_quotes:
-            entry.example_quotes.append(quote)
+        # Add ALL new quotes WITH quote_ids (avoiding duplicates, respecting max limit)
+        # Per paper Section 3.1: quotes stored with quote_ids for traceability
+        existing_quote_ids = {q.get("quote_id") for q in entry.example_quotes if q.get("quote_id")}
+        for q in quotes:
+            quote_text = q.get("quote", "")
+            quote_id = q.get("quote_id", "")
+            # Avoid duplicates by quote_id (or quote text if no id)
+            if quote_text and quote_id not in existing_quote_ids:
+                if len(entry.example_quotes) < self.max_example_quotes:
+                    entry.example_quotes.append({"quote": quote_text, "quote_id": quote_id})
+                    existing_quote_ids.add(quote_id)
 
+        self._update_embeddings_matrix()
+        self.version += 1
+        logger.debug(f"Merged into code {existing_code_id}: '{entry.code_text}'")
         return existing_code_id
 
-    def add_or_merge(self, code_text: str, quote: str) -> Tuple[int, bool, float]:
-        """Add a new code or merge with existing similar code.
+    def consolidate_codes(self, source_code_id: int, target_code_id: int) -> bool:
+        """Consolidate one code entry into another.
 
-        Automatically merges if similarity >= auto_merge_threshold.
-        Returns the code_id to use and whether it's a new code.
+        Used when reviewer suggests merging with multiple existing codes.
+        The source code is merged into the target, and the source is removed.
 
         Args:
-            code_text: The code label
-            quote: Supporting quote
+            source_code_id: ID of code to consolidate (will be removed)
+            target_code_id: ID of code to consolidate into
 
         Returns:
-            Tuple of (code_id, is_new, similarity_score)
-            - code_id: The ID to use
-            - is_new: True if a new code was created
-            - similarity_score: Highest similarity to existing codes (0 if new)
+            True if successful, False if either code not found
         """
-        similar = self.find_similar(code_text, top_k=1)
+        if source_code_id not in self.entries or target_code_id not in self.entries:
+            logger.warning(f"Cannot consolidate: code {source_code_id} or {target_code_id} not found")
+            return False
 
-        if similar and similar[0][1] >= self.auto_merge_threshold:
-            # Auto-merge with existing code
-            existing_entry, sim_score = similar[0]
-            code_id = self.merge_code(code_text, quote, existing_entry.code_id)
-            return code_id, False, sim_score
-        else:
-            # Create new code
-            code_id, is_new = self.add_code(code_text, quote)
-            sim_score = similar[0][1] if similar else 0.0
-            return code_id, is_new, sim_score
+        if source_code_id == target_code_id:
+            return True  # No-op
+
+        source = self.entries[source_code_id]
+        target = self.entries[target_code_id]
+
+        # Transfer frequency
+        target.frequency += source.frequency
+
+        # Transfer variants
+        if source.code_text not in target.variants:
+            target.variants.append(source.code_text)
+        for variant in source.variants:
+            if variant not in target.variants:
+                target.variants.append(variant)
+
+        # Transfer quotes WITH quote_ids (respecting max limit, dedup by quote_id)
+        existing_quote_ids = {q.get("quote_id") for q in target.example_quotes if isinstance(q, dict) and q.get("quote_id")}
+        for quote in source.example_quotes:
+            if len(target.example_quotes) < self.max_example_quotes:
+                quote_id = quote.get("quote_id") if isinstance(quote, dict) else None
+                if quote_id and quote_id not in existing_quote_ids:
+                    target.example_quotes.append(quote)
+                    existing_quote_ids.add(quote_id)
+                elif not quote_id and quote not in target.example_quotes:
+                    # Fallback for old format without quote_id
+                    target.example_quotes.append(quote)
+
+        # Track merge
+        target.merged_from.append(source_code_id)
+
+        # Remove source entry
+        del self.entries[source_code_id]
+        self._update_embeddings_matrix()
+        self.version += 1
+
+        logger.debug(f"Consolidated code {source_code_id} into {target_code_id}")
+        return True
 
     def get_top_codes(self, k: int = 20) -> List[str]:
         """Get top-k most frequent codes for context.
@@ -252,11 +343,13 @@ class CodebookManager:
                 "created_at": datetime.now().isoformat(),
                 "total_codes": len(self.entries),
                 "version": self.version,
-                "similarity_threshold": self.similarity_threshold,
-                "auto_merge_threshold": self.auto_merge_threshold
+                "paper": "Qiao et al. Thematic-LM (WWW '25)"
             },
             "entries": [entry.to_dict() for entry in self.entries.values()]
         }
+
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
 
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(codebook_data, f, indent=2, ensure_ascii=False)

@@ -1,27 +1,26 @@
-### Agent Explanation
+## Agent Explanation
 
+In the coding stage, multiple coder agents independently analyse text data and output codes and quotes to
+the code aggregator. The code aggregator refines and organizes the codes before sending them to the reviewer. The reviewer
+maintains an adaptive codebook, ensuring codes are consistent with prior coded data. 
+
+### Coder Agents
 Coder Agents are responsible for coding in the first stage and
 identifying themes in the second stage. In the coding stage, the
 coders are instructed to write one to three codes for each piece of
 data to capture concepts or ideas with the most analytical interest.
 For each code, the coder extracts a representative quote from the
 data as evidence. The resulting codes, quotes and corresponding
-quote IDs are passed to the code aggregator agent. During the theme
-development stage, the theme coders are given a complete version
-of the codebook from the coding stage. The codebook is compressed
-with LLMLingua [22, 23] to reduce token costs. The coder agents
-then analyse the codes and associated quotes holistically to identify
-overarching themes that reflect deeper insights into the data. These
-themes, along with theme descriptions and the most relevant quotes,
-are then passed to the theme aggregator.
+quote IDs are passed to the code aggregator agent.
+
+### Aggregator Agents
 Aggregator Agents refine and organize the outputs from the coder
 agents into structured formats suitable for the next stage. During
 the coding stage, the code aggregator merges codes with similar
 meanings, retaining differences where necessary, and organizes
-the codes, quotes, and quote IDs into JSON format, which the reviewer agent uses to update the codebook. Similarly, in the theme
-development stage, the theme aggregator refines and organizes the
-identified themes and associated quotes, merging similar themes
-and outputting the final themes in JSON format.
+the codes, quotes, and quote IDs into JSON format, which the reviewer agent uses to update the codebook.
+
+### Reviewr Agent
 Reviewer Agent operates exclusively during the coding stage,
 maintaining and updating the codebook. This codebook stores previous codes, their corresponding quotes, and quote IDs in JSON
 format. Each entry in the codebook is a code, and its associated
@@ -40,7 +39,7 @@ crucial in TA, as it plays a central role in ensuring the codes remain
 dynamic, interpretative, and responsive to the data. Once finalized,
 the codebook is passed to the theme development stage.
 
-### Coder Identities
+## Coder Identities
 TA inherently embraces subjectivity, recognizing that researchers
 bring their own perspectives, assumptions, and interpretations
 to the data [6, 18]. The identification of themes is guided by the
@@ -69,7 +68,24 @@ explore the diversity of perspectives that may emerge from the
 data and offers a way to measure the divergence between coders’
 interpretations due to different backgrounds.
 
-### Main Prompt
+## Experiment Setup
+Experimental Setup. We use GPT-4o to serve as the LLM agents.
+The temperature and top_p are set at the default value of one. JSON
+mode needs to be enabled for the agents to ensure the consistency
+of the output format. For each code and theme, the agents save up
+to 20 of the most relevant quotes associated with the concept. The
+reviewer retrieves the top 10 most similar codes for each new code.
+To measure the dependability, we conducted the TA three times
+and calculated the average pairwise ROGUE scores between the
+resulting sets of themes. To measure transferability, we split the
+dataset into a 50% training set and a 50% validation set. We employ
+Thematic-LM to analyse the Dreaddit [47] and the Reddit climate
+change dataset. Dreaddit contains over 190k posts from subreddits
+related to abuse, anxiety, financial issues, PTSD and relationship
+problems. The Reddit climate change dataset consists of 4.6 million
+Reddit posts and comments related to climate change.
+
+## Main Prompt
 The prompt for the coder with no identity given is shown below:
 “You are a coder in thematic analysis of social media data. When
 given a social media post, write 1-3 codes for the post. The code should
