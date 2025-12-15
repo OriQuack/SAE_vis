@@ -82,7 +82,6 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
   onListItemClick,
   activeListSource,
   currentIndex,
-  isBimodal
 }) => {
   // Store state for scores and selections
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
@@ -243,7 +242,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
           {/* Button 1: Tag by Threshold */}
           <div className="action-button-item">
             <button
-              className="action-button action-button--primary"
+              className="action-button"
               onClick={onApplyTags}
               disabled={!hasItemsToTag}
               title={hasItemsToTag ? 'Apply auto-tags and sort by uncertainty' : `No ${mode === 'pair' ? 'pairs' : 'features'} in threshold regions to tag`}
@@ -279,7 +278,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
           {/* Button 2: Tag Remaining as Left */}
           <div className="action-button-item">
             <button
-              className={`action-button ${isBimodal ? 'action-button--active' : ''}`}
+              className="action-button"
               onClick={() => onTagAll('left')}
               disabled={!tagAutomaticState?.histogramData}
               title={tagAutomaticState?.histogramData ? `Tag all remaining as ${leftListLabel}` : 'Requires histogram data'}
@@ -305,7 +304,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
           {/* Button 3: Tag Remaining by Boundary */}
           <div className="action-button-item">
             <button
-              className={`action-button ${isBimodal ? 'action-button--active' : ''}`}
+              className="action-button"
               onClick={() => onTagAll('byBoundary')}
               disabled={!tagAutomaticState?.histogramData}
               title={tagAutomaticState?.histogramData ? 'Tag all remaining by decision boundary' : 'Requires histogram data'}
