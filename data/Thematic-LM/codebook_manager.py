@@ -97,7 +97,7 @@ class CodebookManager:
         Returns:
             Embedding vector as numpy array
         """
-        embedding = self.model.encode(text, convert_to_numpy=True)
+        embedding = self.model.encode(text, convert_to_numpy=True, show_progress_bar=False)
         return embedding.astype(np.float32)
 
     def _update_embeddings_matrix(self):

@@ -9,17 +9,18 @@ Implementation of the Thematic-LM paper (WWW '25) for SAE feature explanation an
 
 This implementation adapts Thematic-LM for analyzing SAE (Sparse Autoencoder) feature explanations. We implement only the **Coding Stage** (no Theme Development stage) using the **AutoGen framework** as specified in the paper.
 
-## Architecture (Paper Section 3.1, Figure 2)
+## Architecture (Paper Section 3.1)
 
 ```
-Batch of N items → [Coder₁ + Coder₂ + ...] → Aggregator → Reviewer → Codebook
-                   (process ALL items)        (merge ALL)   (review ALL)
+For each explanation:
+    Text → [Coder₁ + Coder₂ + ...] → Aggregator → Reviewer → Codebook
+           (analyze same item)       (merge codes)  (update codebook)
 ```
 
 ### Data Flow Per Paper
 
-1. **Coders** independently analyze ALL text items in batch, outputting codes + quotes
-2. **Aggregator** merges similar codes from ALL coders, retains differences
+1. **Coders** independently analyze the SAME text item, outputting 1-3 codes + quotes each
+2. **Aggregator** merges similar codes from ALL coders for that item, retains differences
 3. **Reviewer** retrieves top-k similar codes from codebook, decides merge/new
 4. **Codebook** stores codes with embeddings AND quotes WITH quote_ids
 
@@ -36,7 +37,8 @@ Batch of N items → [Coder₁ + Coder₂ + ...] → Aggregator → Reviewer →
 | Top-k=10 similar codes | `top_k_retrieval: 10` | Section 4 |
 | Max 20 quotes per code | `max_quotes_per_code: 20` | Section 4 |
 | Quotes stored WITH quote_ids | `[{"quote": "...", "quote_id": "..."}]` | Section 3.1 |
-| Batch processing | `process_batch()` method | Figure 2 |
+| Per-item processing | `process_explanation()` method | Section 3.1 |
+| Aggregator always called | Even with single coder | Section 3.1 |
 
 ## File Structure
 
@@ -44,7 +46,7 @@ Batch of N items → [Coder₁ + Coder₂ + ...] → Aggregator → Reviewer →
 data/Thematic-LM/
 ├── CLAUDE.md                 # This file
 ├── config.json               # Configuration (paper parameters)
-├── thematic_coding.py        # Main script (batch processing)
+├── thematic_coding.py        # Main script (per-item processing)
 ├── autogen_pipeline.py       # AutoGen orchestration class
 ├── codebook_manager.py       # Embedding-based codebook with quote_ids
 └── autogen_agents/           # AutoGen agent factories
@@ -64,8 +66,12 @@ data/Thematic-LM/
 
 ### Coder Identities (Paper Section 3.2)
 
-Adapted for SAE analysis (paper used climate change perspectives):
+**Default: SAE-specific coder** (`identity: "sae"`)
+- Domain-guided prompt for identifying specific pattern types
+- Focuses on: lexical, morphological, syntactic, semantic, contextual, domain-specific patterns
+- Emphasizes specificity over generic codes
 
+**Optional identities** (adapted from paper's climate change perspectives):
 - `linguist` - Grammatical structures, syntax, morphology
 - `semanticist` - Meaning, conceptual relationships
 - `pragmatist` - Language use in context, discourse functions
@@ -108,7 +114,6 @@ CodebookEntry:
 | Top-k similar codes | 10 | `codebook_config.top_k_retrieval` |
 | Max quotes per code | 20 | `processing_config.max_quotes_per_code` |
 | Max codes per explanation | 3 | `processing_config.max_codes_per_explanation` |
-| Batch size | 10 | `processing_config.batch_size` |
 
 ## Usage
 
@@ -121,24 +126,24 @@ pip install pyautogen sentence-transformers polars tqdm
 # Quick test (5 features)
 OPENAI_API_KEY=<key> python thematic_coding.py --limit 5
 
-# Full processing (batch processing per paper Figure 2)
+# Full processing
 OPENAI_API_KEY=<key> python thematic_coding.py
 
 # Resume from checkpoint
 OPENAI_API_KEY=<key> python thematic_coding.py --resume
 ```
 
-## Batch Processing (Paper Section 3.1, Figure 2)
+## Per-Item Processing (Paper Section 3.1)
 
-The implementation follows the paper's batch processing architecture:
+The implementation follows the paper's per-item processing architecture:
 
 ```
-For each batch of N items:
-  1. ALL coders process ALL N items independently
-     → Each coder generates 1-3 codes per item with quotes
+For each explanation:
+  1. ALL coders process the SAME item independently
+     → Each coder generates 1-3 codes with quotes
 
-  2. Aggregator receives ALL codes from ALL coders
-     → Merges similar codes across entire batch
+  2. Aggregator receives ALL codes from ALL coders for this item
+     → Merges similar codes from different coders
      → Retains different codes
      → Organizes into JSON with quote_ids
 
@@ -151,7 +156,7 @@ For each batch of N items:
      → Quotes stored WITH quote_ids for traceability
 ```
 
-This differs from item-by-item processing by allowing the aggregator to identify and merge similar codes across the entire batch before review.
+This per-item approach ensures the aggregator merges codes from multiple coders analyzing the same text, maintaining consistency with the paper's methodology.
 
 ## Outputs
 
@@ -173,7 +178,8 @@ This differs from item-by-item processing by allowing the aggregator to identify
 ### Implemented from Paper
 - [x] Multi-agent architecture: Coder → Aggregator → Reviewer → Codebook
 - [x] AutoGen framework (paper requirement, Section 3.1)
-- [x] Batch processing per Figure 2
+- [x] Per-item processing (each item through full pipeline)
+- [x] Aggregator ALWAYS called (even with single coder)
 - [x] ALL codes go through reviewer (no threshold-based skipping)
 - [x] Reviewer logic: `merge_codes empty = new code` (Appendix B)
 - [x] Reviewer uses code NAMES for merge_codes (not IDs)
@@ -187,6 +193,7 @@ This differs from item-by-item processing by allowing the aggregator to identify
 - [x] Quotes stored WITH quote_ids for traceability (Section 3.1)
 - [x] "Quote_id is the same as data_id" in aggregator prompt (Appendix B)
 - [x] "analytical interests" (plural) in coder prompt (Appendix B)
+- [x] Single-shot agent calls via generate_reply() (proper AutoGen usage)
 
 ### Intentionally Omitted
 - **Theme Development Stage**: Not needed for our use case

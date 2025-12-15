@@ -2,21 +2,21 @@
   "description": "Configuration for Thematic-LM coding stage (SAE feature explanations). Following paper: Qiao et al. WWW '25",
 
   "input_paths": {
-    "explanation_embeddings_path": "data/master/explanation_embeddings.parquet"
+    "explanation_embeddings_path": "../master/explanation_embeddings.parquet"
   },
 
   "output_paths": {
-    "thematic_codes_parquet": "data/master/thematic_codes.parquet",
-    "codebook_json": "data/master/codebook.json"
+    "thematic_codes_parquet": "../master/thematic_codes.parquet",
+    "codebook_json": "../master/codebook.json"
   },
 
   "llm_config": {
     "description": "Following paper Section 4: GPT model with temperature=1.0, top_p=1.0, JSON mode",
     "provider": "openai",
-    "model": "gpt-4o-mini",
+    "model": "gpt-5-mini",
     "temperature": 1.0,
     "top_p": 1.0,
-    "max_tokens": 512,
+    "max_tokens": 2048,
     "rate_limit_rpm": 500
   },
 
@@ -26,10 +26,11 @@
   },
 
   "coder_config": {
-    "description": "Single coder with no identity by default (following paper's default prompt, Appendix B)",
+    "description": "SAE-specific coder with domain guidance for pattern identification",
     "coders": [
       {
-        "id": "coder_default"
+        "id": "sae",
+        "identity": "sae"
       }
     ]
   },
@@ -40,8 +41,7 @@
   },
 
   "processing_config": {
-    "description": "Following Thematic-LM paper: batch processing per Figure 2, up to 20 quotes per code, 1-3 codes per explanation",
-    "batch_size": 10,
+    "description": "Following Thematic-LM paper: per-item processing, up to 20 quotes per code, 1-3 codes per explanation",
     "checkpoint_every": 500,
     "max_codes_per_explanation": 3,
     "max_quotes_per_code": 20

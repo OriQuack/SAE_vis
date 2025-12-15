@@ -7,9 +7,24 @@ from typing import Dict, Optional
 from autogen import ConversableAgent
 
 
-# Paper prompt (Appendix B), adapted for SAE domain
+# Paper prompt (Appendix B), generic version
 # Note: "analytical interests" (plural) per paper exact wording
 CODER_SYSTEM_PROMPT = """You are a coder in thematic analysis of SAE (Sparse Autoencoder) feature explanations. When given a feature explanation, write 1-3 codes for the explanation. The code should capture concepts or ideas with the most analytical interests. For each code, extract a quote from the explanation corresponding to the code. The quote needs to be an extract from a sentence. Output the codes and quotes in the following format:
+
+{
+  "data_id": "<data_id>",
+  "codes": [
+    {
+      "code": "<short phrase code>",
+      "quote": "<exact extract from the text>",
+      "quote_id": "<data_id>"
+    }
+  ]
+}"""
+
+
+# SAE-specific coder prompt - matches paper style with domain context
+SAE_CODER_SYSTEM_PROMPT = """You are a coder in thematic analysis of neuron explanations. Each explanation describes what pattern or concept a neuron in a language model detects. When given a neuron explanation, write 1-3 codes for the explanation. The code should capture the specific pattern or concept the neuron detects (e.g., "plural noun suffixes", "financial terminology") rather than vague descriptions (e.g., "various tokens"). For each code, extract a quote from the explanation corresponding to the code. The quote needs to be an extract from a sentence. Output the codes and quotes in the following format:
 
 {
   "data_id": "<data_id>",
@@ -94,6 +109,9 @@ def create_coder_agent(
         system_message = IDENTITY_PROMPT_TEMPLATE.format(
             identity_description=custom_identity.get("description", "an analyst")
         )
+    elif identity == "sae":
+        # SAE-specific coder with domain guidance
+        system_message = SAE_CODER_SYSTEM_PROMPT
     elif identity and identity in CODER_IDENTITIES:
         system_message = IDENTITY_PROMPT_TEMPLATE.format(
             identity_description=CODER_IDENTITIES[identity]["description"]
@@ -109,6 +127,7 @@ def create_coder_agent(
             "api_key": llm_config.get("api_key"),
             "temperature": llm_config.get("temperature", 1.0),
             "top_p": llm_config.get("top_p", 1.0),
+            "max_completion_tokens": 1024,
             "response_format": {"type": "json_object"},  # JSON mode per paper
         }],
         "cache_seed": None,  # Disable caching for diverse outputs

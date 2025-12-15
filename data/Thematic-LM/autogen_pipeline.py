@@ -21,8 +21,6 @@ import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple, Any
 
-from autogen import UserProxyAgent
-
 from autogen_agents import (
     create_coder_agent,
     create_aggregator_agent,
@@ -134,14 +132,6 @@ class ThematicLMPipeline:
         self.reviewer = create_reviewer_agent(llm_config=self.llm_config)
         logger.info("Created reviewer agent")
 
-        # Create orchestrator (UserProxyAgent that doesn't need human input)
-        self.orchestrator = UserProxyAgent(
-            name="orchestrator",
-            human_input_mode="NEVER",
-            code_execution_config=False,
-            max_consecutive_auto_reply=0,
-        )
-
     def _extract_json_from_response(self, response: str) -> Optional[Dict]:
         """Extract JSON from agent response.
 
@@ -178,6 +168,10 @@ class ThematicLMPipeline:
     def _call_agent(self, agent, message: str) -> Optional[Dict]:
         """Call an agent and extract JSON response.
 
+        Uses generate_reply() for single-shot prompt-response pattern,
+        which is the proper approach for the paper's sequential pipeline
+        (Coders → Aggregator → Reviewer → Codebook).
+
         Args:
             agent: AutoGen ConversableAgent to call
             message: Message to send to the agent
@@ -186,19 +180,15 @@ class ThematicLMPipeline:
             Parsed JSON response or None if failed
         """
         try:
-            # Use initiate_chat to get response
-            chat_result = self.orchestrator.initiate_chat(
-                agent,
-                message=message,
-                max_turns=1,
-                silent=True,  # Don't print to console
-            )
+            # Use generate_reply for single-shot response (per paper's pipeline design)
+            # This avoids the "TERMINATING RUN" messages from initiate_chat
+            messages = [{"role": "user", "content": message}]
+            response = agent.generate_reply(messages=messages)
 
-            # Get the last message from the agent
-            if chat_result.chat_history:
-                for msg in reversed(chat_result.chat_history):
-                    if msg.get("role") == "assistant" or msg.get("name") == agent.name:
-                        return self._extract_json_from_response(msg.get("content", ""))
+            if response:
+                # Response can be a string or dict
+                content = response if isinstance(response, str) else response.get("content", "")
+                return self._extract_json_from_response(content)
 
             return None
 
@@ -282,17 +272,20 @@ Generate 1-3 codes for this SAE feature explanation. Output in JSON format."""
                 coder_ids=[c.name for c in self.coders],
             )
 
-        # Step 2: Aggregator merges codes (only needed if multiple coders)
+        # Step 2: Aggregator merges codes from multiple coders
+        # Skip aggregator if only 1 coder (no cross-coder merging needed)
         if len(self.coders) > 1:
-            agg_message = f"""Aggregate these codes from multiple coders:
+            agg_message = f"""Aggregate these codes from coders:
 
-{json.dumps(coder_outputs, indent=2)}"""
+{json.dumps(coder_outputs, indent=2)}
+
+Merge similar codes, retain different ones. Output in JSON format."""
 
             agg_response = self._call_agent(self.aggregator, agg_message)
             if agg_response and "codes" in agg_response:
                 aggregated_codes = agg_response["codes"]
             else:
-                # Fallback: flatten all codes
+                logger.warning("Aggregator failed, using fallback")
                 aggregated_codes = []
                 for co in coder_outputs:
                     for code in co.get("codes", []):
@@ -304,7 +297,7 @@ Generate 1-3 codes for this SAE feature explanation. Output in JSON format."""
                             }]
                         })
         else:
-            # Single coder - pass through directly
+            # Single coder: skip aggregator, format directly for reviewer
             aggregated_codes = [
                 {
                     "code": c["code"],
@@ -325,6 +318,28 @@ Generate 1-3 codes for this SAE feature explanation. Output in JSON format."""
             if not code_text:
                 continue
 
+            # Pre-check: exact code name match should auto-merge (timing fix)
+            # This handles cases where identical code names aren't merged due to
+            # LLM reviewer judgment based on quote content differences
+            exact_match_id = self._find_code_id_by_name(code_text)
+            if exact_match_id is not None:
+                # Auto-merge with exact name match - no reviewer needed
+                code_id = self.codebook.merge_code(
+                    code_text,
+                    quotes,
+                    exact_match_id,
+                    update_code_text=False  # Keep existing name
+                )
+                self.stats["merged_codes"] += 1
+                final_codes.append(CodeResult(
+                    code_id=code_id,
+                    code_text=self.codebook.entries[code_id].code_text,
+                    quotes=quotes,
+                    is_new=False,
+                    merged_with=[self.codebook.entries[code_id].code_text],
+                ))
+                logger.debug(f"Auto-merged exact match: '{code_text}' → code_id {code_id}")
+                continue
             # Find top-k similar codes in codebook
             similar = self.codebook.find_similar(code_text, top_k=top_k)
 
@@ -342,6 +357,25 @@ Generate 1-3 codes for this SAE feature explanation. Output in JSON format."""
                     updated_code = code_item.get("code", code_text)
                     merge_code_names = code_item.get("merge_codes", [])
                     item_quotes = code_item.get("quotes", quotes)
+
+                    # Inner loop pre-check: exact match should auto-merge
+                    # This catches duplicates from reviewer returning a code name that exists
+                    inner_match_id = self._find_code_id_by_name(updated_code)
+                    if inner_match_id is not None and not merge_code_names:
+                        # Auto-merge - exact name match
+                        code_id = self.codebook.merge_code(
+                            updated_code, item_quotes, inner_match_id, update_code_text=False
+                        )
+                        self.stats["merged_codes"] += 1
+                        final_codes.append(CodeResult(
+                            code_id=code_id,
+                            code_text=self.codebook.entries[code_id].code_text,
+                            quotes=item_quotes,
+                            is_new=False,
+                            merged_with=[self.codebook.entries[code_id].code_text],
+                        ))
+                        logger.debug(f"Inner auto-merged: '{updated_code}' → code_id {code_id}")
+                        continue
 
                     # Paper: merge_codes empty = new code, non-empty = merge
                     if merge_code_names:
@@ -428,221 +462,6 @@ Generate 1-3 codes for this SAE feature explanation. Output in JSON format."""
             codes=final_codes,
             coder_ids=[c.name for c in self.coders],
         )
-
-    def process_batch(
-        self,
-        batch: List[Dict[str, Any]]
-    ) -> List[ExplanationResult]:
-        """Process a batch of explanations through the pipeline.
-
-        Following paper Section 3.1 and Figure 2:
-        Batch of Text Data → [Coder₁ + ... + CoderN] → Aggregator → Reviewer → Codebook
-
-        The key difference from process_explanation is that ALL items in the batch
-        are processed together through the aggregator before going to the reviewer.
-
-        Args:
-            batch: List of dicts with keys:
-                - explanation_text: The text to code
-                - quote_id: Identifier for the explanation
-                - feature_id: Feature ID for tracking
-                - llm_explainer: LLM explainer name
-
-        Returns:
-            List of ExplanationResult for each item in the batch
-        """
-        top_k = self.codebook_config.get("top_k_retrieval", 10)
-
-        # Step 1: All coders process ALL items in the batch independently
-        # Per paper: "multiple coder agents independently analyse text data"
-        all_coder_outputs = []  # List of (item_info, coder_id, codes)
-
-        for item in batch:
-            explanation_text = item["explanation_text"]
-            quote_id = item["quote_id"]
-
-            for coder in self.coders:
-                message = f"""Data ID: {quote_id}
-Text: {explanation_text}
-
-Generate 1-3 codes for this SAE feature explanation. Output in JSON format."""
-
-                response = self._call_agent(coder, message)
-                if response and "codes" in response:
-                    all_coder_outputs.append({
-                        "item": item,
-                        "coder_id": coder.name,
-                        "codes": [
-                            {
-                                "code": c.get("code", ""),
-                                "quote": c.get("quote", ""),
-                                "quote_id": c.get("quote_id", quote_id),
-                            }
-                            for c in response.get("codes", [])
-                        ]
-                    })
-
-        if not all_coder_outputs:
-            logger.error("No codes generated for batch")
-            return [
-                ExplanationResult(
-                    feature_id=item["feature_id"],
-                    llm_explainer=item["llm_explainer"],
-                    explanation_text=item["explanation_text"],
-                    codes=[],
-                    coder_ids=[c.name for c in self.coders],
-                )
-                for item in batch
-            ]
-
-        # Step 2: Aggregator merges ALL codes from the batch
-        # Per paper: "The code aggregator refines and organizes the codes"
-        agg_input = [
-            {
-                "coder_id": co["coder_id"],
-                "data_id": co["item"]["quote_id"],
-                "codes": co["codes"]
-            }
-            for co in all_coder_outputs
-        ]
-
-        agg_message = f"""Aggregate these codes from multiple coders across the batch:
-
-{json.dumps(agg_input, indent=2)}
-
-Merge similar codes across all items, retain different ones. Output in JSON format."""
-
-        agg_response = self._call_agent(self.aggregator, agg_message)
-
-        if agg_response and "codes" in agg_response:
-            aggregated_codes = agg_response["codes"]
-        else:
-            # Fallback: flatten all codes
-            aggregated_codes = []
-            for co in all_coder_outputs:
-                for code in co.get("codes", []):
-                    aggregated_codes.append({
-                        "code": code["code"],
-                        "quotes": [{
-                            "quote": code["quote"],
-                            "quote_id": code["quote_id"],
-                        }]
-                    })
-
-        # Step 3: Reviewer processes ALL aggregated codes against codebook
-        # Per paper: "The reviewer maintains an adaptive codebook"
-        # Build mapping from quote_id to results
-        results_by_quote_id: Dict[str, List[CodeResult]] = {
-            item["quote_id"]: [] for item in batch
-        }
-
-        for agg_code in aggregated_codes:
-            code_text = agg_code.get("code", "")
-            quotes = agg_code.get("quotes", [])
-
-            if not code_text:
-                continue
-
-            # Find top-k similar codes
-            similar = self.codebook.find_similar(code_text, top_k=top_k)
-
-            # Build reviewer prompt
-            reviewer_message = self._build_reviewer_prompt(code_text, quotes, similar)
-
-            # Get reviewer decision
-            decision = self._call_agent(self.reviewer, reviewer_message)
-            self.stats["reviewed_codes"] += 1
-
-            # Process reviewer decision and update codebook
-            if decision and "codes" in decision:
-                for code_item in decision.get("codes", []):
-                    updated_code = code_item.get("code", code_text)
-                    merge_code_names = code_item.get("merge_codes", [])
-                    item_quotes = code_item.get("quotes", quotes)
-
-                    # Determine which quote_ids this code applies to
-                    affected_quote_ids = list({q.get("quote_id") for q in item_quotes if q.get("quote_id")})
-
-                    if merge_code_names:
-                        # Merge with existing code(s)
-                        merged_ids = []
-                        for code_name in merge_code_names:
-                            code_id = self._find_code_id_by_name(code_name)
-                            if code_id is not None:
-                                merged_ids.append(code_id)
-
-                        if merged_ids:
-                            primary_target_id = merged_ids[0]
-                            code_id = self.codebook.merge_code(
-                                updated_code,
-                                item_quotes,
-                                primary_target_id,
-                                update_code_text=True
-                            )
-                            for other_id in merged_ids[1:]:
-                                self.codebook.consolidate_codes(other_id, primary_target_id)
-
-                            self.stats["merged_codes"] += 1
-                            code_result = CodeResult(
-                                code_id=code_id,
-                                code_text=self.codebook.entries[code_id].code_text,
-                                quotes=item_quotes,
-                                is_new=False,
-                                merged_with=merge_code_names,
-                            )
-                        else:
-                            code_id, _ = self.codebook.add_code(updated_code, item_quotes)
-                            self.stats["new_codes"] += 1
-                            code_result = CodeResult(
-                                code_id=code_id,
-                                code_text=updated_code,
-                                quotes=item_quotes,
-                                is_new=True,
-                            )
-                    else:
-                        # Add as new code
-                        code_id, _ = self.codebook.add_code(updated_code, item_quotes)
-                        self.stats["new_codes"] += 1
-                        code_result = CodeResult(
-                            code_id=code_id,
-                            code_text=updated_code,
-                            quotes=item_quotes,
-                            is_new=True,
-                        )
-
-                    # Assign result to all affected quote_ids
-                    for qid in affected_quote_ids:
-                        if qid in results_by_quote_id:
-                            results_by_quote_id[qid].append(code_result)
-            else:
-                # Reviewer failed - add as new
-                code_id, _ = self.codebook.add_code(code_text, quotes)
-                self.stats["new_codes"] += 1
-                code_result = CodeResult(
-                    code_id=code_id,
-                    code_text=code_text,
-                    quotes=quotes,
-                    is_new=True,
-                )
-                for q in quotes:
-                    qid = q.get("quote_id")
-                    if qid and qid in results_by_quote_id:
-                        results_by_quote_id[qid].append(code_result)
-
-        # Build final results
-        results = []
-        for item in batch:
-            quote_id = item["quote_id"]
-            self.stats["total_processed"] += 1
-            results.append(ExplanationResult(
-                feature_id=item["feature_id"],
-                llm_explainer=item["llm_explainer"],
-                explanation_text=item["explanation_text"],
-                codes=results_by_quote_id.get(quote_id, []),
-                coder_ids=[c.name for c in self.coders],
-            ))
-
-        return results
 
     def _build_reviewer_prompt(
         self,

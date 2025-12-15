@@ -236,75 +236,66 @@ def main():
         logger.info(f"Resuming: {len(df)} explanations remaining")
 
     # Processing configuration
-    batch_size = config["processing_config"].get("batch_size", 10)
     checkpoint_every = config["processing_config"].get("checkpoint_every", 500)
+    output_codebook = project_root / config["output_paths"]["codebook_json"]
+    output_codebook.parent.mkdir(parents=True, exist_ok=True)
 
     # Print banner
     print("=" * 80)
-    print(f"Thematic-LM Coding Stage (AutoGen) - Batch Processing")
+    print(f"Thematic-LM Coding Stage (AutoGen) - Per-Item Processing")
     print(f"  Paper: Qiao et al. WWW '25")
     print(f"  Model: {config['llm_config'].get('model', 'gpt-4o-mini')}")
     print(f"  Coders: {len(pipeline.coders)} ({', '.join(c.name for c in pipeline.coders)})")
     print(f"  Total explanations: {len(df)}")
-    print(f"  Batch size: {batch_size}")
     print("=" * 80)
 
-    # Process explanations in batches (per paper Section 3.1 and Figure 2)
-    logger.info(f"Processing {len(df)} explanations in batches of {batch_size}...")
+    # Process explanations one by one (per paper: each item → Coders → Aggregator → Reviewer → Codebook)
+    logger.info(f"Processing {len(df)} explanations...")
 
     failed = 0
     rows = list(df.iter_rows(named=True))
-    num_batches = (len(rows) + batch_size - 1) // batch_size
 
-    for batch_idx in tqdm(range(num_batches), desc="Batches"):
-        batch_start = batch_idx * batch_size
-        batch_end = min(batch_start + batch_size, len(rows))
-        batch_rows = rows[batch_start:batch_end]
-
-        # Prepare batch for pipeline
-        batch = [
-            {
-                "explanation_text": row["explanation_text"],
-                "quote_id": f"f{row['feature_id']}_{row['llm_explainer']}",
-                "feature_id": row["feature_id"],
-                "llm_explainer": row["llm_explainer"],
-            }
-            for row in batch_rows
-        ]
+    for row in tqdm(rows, desc="Processing"):
+        quote_id = f"f{row['feature_id']}_{row['llm_explainer']}"
 
         try:
-            # Process batch through AutoGen pipeline
-            # Per paper: Batch → Coders → Aggregator → Reviewer → Codebook
-            batch_results = pipeline.process_batch(batch)
+            # Process single explanation through AutoGen pipeline
+            # Per paper: Text → Coders → Aggregator → Reviewer → Codebook
+            result = pipeline.process_explanation(
+                explanation_text=row["explanation_text"],
+                quote_id=quote_id,
+                feature_id=row["feature_id"],
+                llm_explainer=row["llm_explainer"],
+            )
 
-            # Add results
-            for result, row in zip(batch_results, batch_rows):
-                results.append({
-                    "feature_id": result.feature_id,
-                    "llm_explainer": result.llm_explainer,
-                    "explanation_text": result.explanation_text,
-                    "codes": result.codes,
-                    "coding_metadata": {
-                        "coder_model": config["llm_config"]["model"],
-                        "num_coders": len(pipeline.coders),
-                        "coder_ids": result.coder_ids,
-                        "timestamp": datetime.now().isoformat(),
-                        "codebook_version": codebook.version,
-                        "framework": "autogen",
-                        "batch_processing": True,
-                        "batch_size": batch_size
-                    }
-                })
+            results.append({
+                "feature_id": result.feature_id,
+                "llm_explainer": result.llm_explainer,
+                "explanation_text": result.explanation_text,
+                "codes": result.codes,
+                "coding_metadata": {
+                    "coder_model": config["llm_config"]["model"],
+                    "num_coders": len(pipeline.coders),
+                    "coder_ids": result.coder_ids,
+                    "timestamp": datetime.now().isoformat(),
+                    "codebook_version": codebook.version,
+                    "framework": "autogen",
+                }
+            })
+
+            # Save codebook every 10 explanations
+            stats = pipeline.get_stats()
+            if stats["total_processed"] > 0 and stats["total_processed"] % 10 == 0:
+                codebook.save(output_codebook)
 
             # Checkpoint periodically
-            stats = pipeline.get_stats()
-            if stats["total_processed"] >= checkpoint_every and stats["total_processed"] % checkpoint_every < batch_size:
+            if stats["total_processed"] > 0 and stats["total_processed"] % checkpoint_every == 0:
                 checkpoint_num = stats["total_processed"] // checkpoint_every
                 save_checkpoint(results, codebook, checkpoint_dir, checkpoint_num)
 
         except Exception as e:
-            logger.error(f"Failed to process batch {batch_idx}: {e}")
-            failed += len(batch_rows)
+            logger.error(f"Failed to process {quote_id}: {e}")
+            failed += 1
 
     # Save final outputs
     print("=" * 80)
@@ -312,9 +303,6 @@ def main():
 
     output_parquet = project_root / config["output_paths"]["thematic_codes_parquet"]
     save_parquet(results, output_parquet, config)
-
-    output_codebook = project_root / config["output_paths"]["codebook_json"]
-    output_codebook.parent.mkdir(parents=True, exist_ok=True)
     codebook.save(output_codebook)
 
     # Print statistics
