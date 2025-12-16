@@ -15,27 +15,42 @@ from typing import Dict
 from autogen import ConversableAgent
 
 
-# Paper prompt (Appendix B), structured for clarity with one-shot example
+# Paper prompt (Appendix B), structured for clarity with examples
 REVIEWER_SYSTEM_PROMPT = """You are a reviewer in thematic analysis of neuron explanations.
 
 TASK: Compare new codes against existing codebook codes and decide to merge or add as new.
 
-RULES:
-- If new code overlaps with existing code → merge (include existing code name in merge_codes)
-- If new code is a specific instance of broader existing code → merge
-- If no similar codes exist → leave merge_codes empty
-- When merging, use a code name that accurately covers merged concepts
+WHEN TO MERGE (set merge_codes to existing code name):
+- New code describes the same underlying concept as an existing code
+  Example: "define token" and "definition verbs" → same concept (definitions)
+- New code uses different wording but captures the same pattern type
+  Example: "Hor-initial tokens" and "'Hor' prefix" → same pattern
+- When merging, use a code name that accurately covers the merged concepts
+
+WHEN TO ADD AS NEW (leave merge_codes empty):
+- New code describes a genuinely different concept not covered by existing codes
+- No existing code captures the same underlying pattern or topic
 
 EXAMPLE:
-New code: "playoff terminology"
-Existing codes: ["sports terminology", "time expressions"]
-Decision: merge_codes: ["sports terminology"]
+Input:
+  New code: "playoff terminology"
+  Existing codes: ["game outcome terms", "mathematical symbols"]
+Output:
+{
+  "codes": [
+    {
+      "code": "sports competition terminology",
+      "merge_codes": ["game outcome terms"],
+      "quotes": [{"quote": "playoffs and finals", "quote_id": "f3_gpt"}]
+    }
+  ]
+}
 
 OUTPUT FORMAT:
 {
   "codes": [
     {
-      "code": "<code name>",
+      "code": "<representative code name>",
       "merge_codes": ["<existing code name>"] or [],
       "quotes": [{"quote": "<text>", "quote_id": "<id>"}]
     }

@@ -29,8 +29,12 @@ SAE_CODER_SYSTEM_PROMPT = """You are a coder in thematic analysis of neuron expl
 TASK: Generate 1-3 codes for each neuron explanation. Each code should:
 - Capture the pattern category (e.g., "sports terminology", "mathematical operators")
 - OR capture specific lexical patterns when described (e.g., "tokens starting with 'Hor'")
-- Avoid: single-word instances (e.g., "tie"), vague codes (e.g., "various tokens")
-- Include a supporting quote extracted from the explanation
+- Avoid: vague codes (e.g., "various tokens")
+- Include a meaningful supporting quote extracted from the explanation
+
+CODE FORMAT RESTRICTION:
+- Code must be 1-6 words, noun phrase style
+- Avoid verbose descriptions or full sentences
 
 EXAMPLE:
 Input: "This neuron activates on words like overtime, playoffs, and championship in sports contexts."
@@ -46,7 +50,7 @@ OUTPUT FORMAT:
 {
   "data_id": "<data_id>",
   "codes": [
-    {"code": "<descriptive code>", "quote": "<extract from text>", "quote_id": "<data_id>"}
+    {"code": "<1-6 word noun phrase>", "quote": "<extract from text>", "quote_id": "<data_id>"}
   ]
 }"""
 

@@ -17,7 +17,9 @@ Key paper-compliant behaviors:
 import json
 import logging
 import os
+import random
 import re
+import time
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple, Any
 
@@ -30,13 +32,20 @@ from codebook_manager import CodebookManager, CodebookEntry
 
 logger = logging.getLogger(__name__)
 
+# Shorten model names for LLM prompts (saves tokens)
+MODEL_SHORT_NAMES = {
+    "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4": "llama",
+    "google/gemini-flash-2.5": "gemini",
+    "openai/gpt-4o-mini": "gpt",
+}
 
-def sample_evenly(items: list, n: int) -> list:
-    """Sample n items evenly spread across the list."""
-    if len(items) <= n:
-        return items
-    step = len(items) / n
-    return [items[int(i * step)] for i in range(n)]
+
+def shorten_quote_id(quote_id: str) -> str:
+    """Shorten quote_id for LLM display (e.g., f0_llama instead of full model name)."""
+    for full_name, short_name in MODEL_SHORT_NAMES.items():
+        if full_name in quote_id:
+            return quote_id.replace(full_name, short_name)
+    return quote_id
 
 
 @dataclass
@@ -173,8 +182,8 @@ class ThematicLMPipeline:
         logger.warning(f"Could not extract JSON from response: {response[:200]}...")
         return None
 
-    def _call_agent(self, agent, message: str) -> Optional[Dict]:
-        """Call an agent and extract JSON response.
+    def _call_agent(self, agent, message: str, max_retries: int = 3) -> Optional[Dict]:
+        """Call an agent and extract JSON response with retry logic.
 
         Uses generate_reply() for single-shot prompt-response pattern,
         which is the proper approach for the paper's sequential pipeline
@@ -183,26 +192,36 @@ class ThematicLMPipeline:
         Args:
             agent: AutoGen ConversableAgent to call
             message: Message to send to the agent
+            max_retries: Number of retry attempts (default: 3)
 
         Returns:
             Parsed JSON response or None if failed
         """
-        try:
-            # Use generate_reply for single-shot response (per paper's pipeline design)
-            # This avoids the "TERMINATING RUN" messages from initiate_chat
-            messages = [{"role": "user", "content": message}]
-            response = agent.generate_reply(messages=messages)
+        messages = [{"role": "user", "content": message}]
 
-            if response:
-                # Response can be a string or dict
-                content = response if isinstance(response, str) else response.get("content", "")
-                return self._extract_json_from_response(content)
+        for attempt in range(max_retries):
+            try:
+                response = agent.generate_reply(messages=messages)
 
-            return None
+                if response:
+                    content = response if isinstance(response, str) else response.get("content", "")
+                    result = self._extract_json_from_response(content)
+                    if result:
+                        return result
 
-        except Exception as e:
-            logger.error(f"Agent call failed: {e}")
-            return None
+                # Response was empty or invalid JSON, retry
+                if attempt < max_retries - 1:
+                    time.sleep(1)
+                    continue
+
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    logger.warning(f"Agent call failed (attempt {attempt + 1}/{max_retries}): {e}")
+                    time.sleep(1)
+                else:
+                    logger.error(f"Agent call failed after {max_retries} attempts: {e}")
+
+        return None
 
     def _find_code_id_by_name(self, code_name: str) -> Optional[int]:
         """Find a code ID by its name (case-insensitive).
@@ -247,10 +266,10 @@ class ThematicLMPipeline:
         min_similarity = self.codebook_config.get("min_similarity", 0.0)
 
         # Step 1: Coders generate codes independently
-        # Include data_id in message per paper output format
         coder_outputs = []
+        short_id = shorten_quote_id(quote_id)
         for coder in self.coders:
-            message = f"""Data ID: {quote_id}
+            message = f"""Data ID: {short_id}
 Text: {explanation_text}
 
 Generate 1-3 codes for this SAE feature explanation. Output in JSON format."""
@@ -482,10 +501,10 @@ Merge similar codes, retain different ones. Output in JSON format."""
 
         Following paper: Shows code NAMES (not IDs) for merge_codes output.
         """
-        # Format quotes (evenly spread sample)
-        sampled_quotes = sample_evenly(quotes, 5)
+        # Format quotes (random sample for representative view)
+        sampled_quotes = random.sample(quotes, min(5, len(quotes)))
         quotes_str = "\n".join([
-            f"  - \"{q.get('quote', '')}\" (ID: {q.get('quote_id', 'N/A')})"
+            f"  - \"{q.get('quote', '')}\" (ID: {shorten_quote_id(q.get('quote_id', 'N/A'))})"
             for q in sampled_quotes
         ])
 
@@ -494,20 +513,20 @@ Code: "{new_code}"
 Quotes:
 {quotes_str}"""
 
-        # Format similar codes from codebook - show NAMES for merge_codes
-        # Per paper Section 3.1: show quotes WITH quote_ids
+        # Format similar codes from codebook - show NAMES and SIMILARITY SCORES
         if similar_codes:
             similar_section = "Item 2 - SIMILAR EXISTING CODES FROM CODEBOOK:\n"
-            for entry, _ in similar_codes:  # Show all retrieved (up to top_k=10)
-                # Per paper: quotes have quote_id for traceability (evenly spread sample)
-                sampled_entry_quotes = sample_evenly(entry.example_quotes, 5)
+            similar_section += "(Similarity scores: >80% = very similar, >60% = related)\n"
+            for entry, sim_score in similar_codes:
+                # Random sample for representative view
+                sampled_entry_quotes = random.sample(entry.example_quotes, min(5, len(entry.example_quotes)))
                 entry_quotes = "\n".join([
-                    f"    - \"{q.get('quote', q) if isinstance(q, dict) else q}\" (ID: {q.get('quote_id', 'N/A') if isinstance(q, dict) else 'N/A'})"
+                    f"    - \"{q.get('quote', q) if isinstance(q, dict) else q}\" (ID: {shorten_quote_id(q.get('quote_id', 'N/A')) if isinstance(q, dict) else 'N/A'})"
                     for q in sampled_entry_quotes
                 ])
-                # Show code NAME prominently for merge_codes output
+                # Show code NAME and SIMILARITY SCORE prominently
                 similar_section += f"""
-Code: "{entry.code_text}"
+Code: "{entry.code_text}" [SIMILARITY: {sim_score:.0%}]
   Frequency: {entry.frequency}
   Example quotes:
 {entry_quotes}

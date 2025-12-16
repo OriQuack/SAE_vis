@@ -1,0 +1,377 @@
+{
+  "metadata": {
+    "created_at": "2025-12-16T12:07:01.091417",
+    "total_codes": 23,
+    "version": 36,
+    "paper": "Qiao et al. Thematic-LM (WWW '25)"
+  },
+  "entries": [
+    {
+      "code_id": 0,
+      "code_text": "how-question starters",
+      "frequency": 1,
+      "variants": [
+        "how-question starters"
+      ],
+      "example_quotes": [
+        {
+          "quote": "often beginning with \"how\"",
+          "quote_id": "f0_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 1,
+      "code_text": "process-explanation phrases",
+      "frequency": 1,
+      "variants": [
+        "process-explanation phrases"
+      ],
+      "example_quotes": [
+        {
+          "quote": "introduce a question or explanation about a process, situation, or method",
+          "quote_id": "f0_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 2,
+      "code_text": "define token",
+      "frequency": 2,
+      "variants": [
+        "define token"
+      ],
+      "example_quotes": [
+        {
+          "quote": "\"define\" or its variants",
+          "quote_id": "f1_llama"
+        },
+        {
+          "quote": "the word \"define\" and its variations",
+          "quote_id": "f1_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 3,
+      "code_text": "programming terminology",
+      "frequency": 3,
+      "variants": [
+        "formal or technical contexts",
+        "technical terms"
+      ],
+      "example_quotes": [
+        {
+          "quote": "formal or technical contexts, such as mathematics, programming, or legal documents",
+          "quote_id": "f1_llama"
+        },
+        {
+          "quote": "technical terms and entities",
+          "quote_id": "f4_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 4,
+      "code_text": "concept specification",
+      "frequency": 4,
+      "variants": [
+        "concept specification"
+      ],
+      "example_quotes": [
+        {
+          "quote": "to introduce or specify a concept, term, or entity",
+          "quote_id": "f1_llama"
+        },
+        {
+          "quote": "defining something",
+          "quote_id": "f1_gemini"
+        },
+        {
+          "quote": "focus on definitions or explanations",
+          "quote_id": "f1_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 5,
+      "code_text": "proper nouns",
+      "frequency": 1,
+      "variants": [
+        "proper nouns"
+      ],
+      "example_quotes": [
+        {
+          "quote": "proper nouns, names of places, people, or organizations",
+          "quote_id": "f2_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 6,
+      "code_text": "time-related words",
+      "frequency": 1,
+      "variants": [
+        "time-related words"
+      ],
+      "example_quotes": [
+        {
+          "quote": "words that have a specific time-related meaning, such as \"hour\" or \"hours\"",
+          "quote_id": "f2_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 7,
+      "code_text": "numerical tokens",
+      "frequency": 1,
+      "variants": [
+        "numerical tokens"
+      ],
+      "example_quotes": [
+        {
+          "quote": "numbers",
+          "quote_id": "f3_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 8,
+      "code_text": "mathematical symbols",
+      "frequency": 1,
+      "variants": [
+        "mathematical symbols"
+      ],
+      "example_quotes": [
+        {
+          "quote": "mathematical symbols",
+          "quote_id": "f3_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 9,
+      "code_text": "function words",
+      "frequency": 1,
+      "variants": [
+        "function words"
+      ],
+      "example_quotes": [
+        {
+          "quote": "common function words",
+          "quote_id": "f3_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 10,
+      "code_text": "punctuation and special characters",
+      "frequency": 1,
+      "variants": [
+        "punctuation and special characters"
+      ],
+      "example_quotes": [
+        {
+          "quote": "Punctuation marks and special characters",
+          "quote_id": "f4_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 11,
+      "code_text": "mathematical and programming notation",
+      "frequency": 1,
+      "variants": [
+        "mathematical and programming notation"
+      ],
+      "example_quotes": [
+        {
+          "quote": "mathematical and programming notation",
+          "quote_id": "f4_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 12,
+      "code_text": "citation and abbreviation markers",
+      "frequency": 1,
+      "variants": [
+        "citation and abbreviation markers"
+      ],
+      "example_quotes": [
+        {
+          "quote": "citations, and abbreviations",
+          "quote_id": "f4_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 13,
+      "code_text": "informal status inquiry",
+      "frequency": 2,
+      "variants": [
+        "informal status inquiry"
+      ],
+      "example_quotes": [
+        {
+          "quote": "how things are doing",
+          "quote_id": "f0_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 14,
+      "code_text": "tokens starting with 'Hor'",
+      "frequency": 1,
+      "variants": [
+        "tokens starting with 'Hor'"
+      ],
+      "example_quotes": [
+        {
+          "quote": "starts with Hor",
+          "quote_id": "f2_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 15,
+      "code_text": "playoffs and finals",
+      "frequency": 4,
+      "variants": [
+        "sports terminology",
+        "competitive sports events"
+      ],
+      "example_quotes": [
+        {
+          "quote": "overtime tie shootout",
+          "quote_id": "f3_gemini"
+        },
+        {
+          "quote": "competitive sports events",
+          "quote_id": "f3_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 16,
+      "code_text": "spatial data structure",
+      "frequency": 2,
+      "variants": [
+        "bounding volume hierarchy term"
+      ],
+      "example_quotes": [
+        {
+          "quote": "bounding volume hierarchy",
+          "quote_id": "f4_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 17,
+      "code_text": "questions and phrases",
+      "frequency": 1,
+      "variants": [
+        "questions and phrases"
+      ],
+      "example_quotes": [
+        {
+          "quote": "questions and phrases",
+          "quote_id": "f0_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 18,
+      "code_text": "comparison language",
+      "frequency": 1,
+      "variants": [
+        "comparison language"
+      ],
+      "example_quotes": [
+        {
+          "quote": "comparisons",
+          "quote_id": "f0_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 19,
+      "code_text": "assessment language",
+      "frequency": 1,
+      "variants": [
+        "assessment language"
+      ],
+      "example_quotes": [
+        {
+          "quote": "assessments",
+          "quote_id": "f0_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 20,
+      "code_text": "classical literary names",
+      "frequency": 2,
+      "variants": [
+        "Horace references"
+      ],
+      "example_quotes": [
+        {
+          "quote": "references to \"Horace\" or related names and terms",
+          "quote_id": "f2_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 21,
+      "code_text": "related name mentions",
+      "frequency": 1,
+      "variants": [
+        "related name mentions"
+      ],
+      "example_quotes": [
+        {
+          "quote": "related names and terms",
+          "quote_id": "f2_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 22,
+      "code_text": "data structure entities",
+      "frequency": 1,
+      "variants": [
+        "data structure entities"
+      ],
+      "example_quotes": [
+        {
+          "quote": "data structures",
+          "quote_id": "f4_gpt"
+        }
+      ],
+      "merged_from": []
+    }
+  ]
+}
