@@ -21,7 +21,7 @@
   },
 
   "embedding_config": {
-    "model": "google/embeddinggemma-300m",
+    "model": "all-MiniLM-L6-v2",
     "device": "cuda"
   },
 
@@ -37,13 +37,14 @@
 
   "codebook_config": {
     "description": "Following Thematic-LM paper: reviewer decides ALL merge/new decisions. Top-k=10 similar codes retrieved (Section 4).",
-    "top_k_retrieval": 10
+    "top_k_retrieval": 10,
+    "min_similarity": 0.85
   },
 
   "processing_config": {
-    "description": "Following Thematic-LM paper: per-item processing, up to 20 quotes per code, 1-3 codes per explanation",
+    "description": "Per-item processing, up to 100 quotes per code (paper: 20), 1-3 codes per explanation",
     "checkpoint_every": 500,
     "max_codes_per_explanation": 3,
-    "max_quotes_per_code": 20
+    "max_quotes_per_code": 100
   }
 }

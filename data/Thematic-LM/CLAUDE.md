@@ -34,8 +34,8 @@ For each explanation:
 | `merge_codes: [names]` = merge | Merge by code NAME | Appendix B |
 | temperature=1.0, top_p=1.0 | LLM config | Section 4 |
 | JSON mode enabled | `response_format: json_object` | Section 4 |
-| Top-k=10 similar codes | `top_k_retrieval: 10` | Section 4 |
-| Max 20 quotes per code | `max_quotes_per_code: 20` | Section 4 |
+| Top-k similar codes retrieval | `top_k_retrieval: 10` (filtered by min_similarity) | Section 4 |
+| Quote storage with limit | 100 quotes (paper: 20), random replacement | Section 4 |
 | Quotes stored WITH quote_ids | `[{"quote": "...", "quote_id": "..."}]` | Section 3.1 |
 | Per-item processing | `process_explanation()` method | Section 3.1 |
 | Aggregator always called | Even with single coder | Section 3.1 |
@@ -104,16 +104,18 @@ CodebookEntry:
     merged_from: List[int]
 ```
 
-## Configuration Parameters (Paper Section 4)
+## Configuration Parameters
 
-| Parameter | Paper Value | Config Key |
-|-----------|-------------|------------|
-| LLM Model | GPT-4o | `llm_config.model` (default: gpt-4o-mini) |
-| Temperature | 1.0 | `llm_config.temperature` |
-| Top-p | 1.0 | `llm_config.top_p` |
-| Top-k similar codes | 10 | `codebook_config.top_k_retrieval` |
-| Max quotes per code | 20 | `processing_config.max_quotes_per_code` |
-| Max codes per explanation | 3 | `processing_config.max_codes_per_explanation` |
+| Parameter | Paper Value | Our Value | Config Key |
+|-----------|-------------|-----------|------------|
+| LLM Model | GPT-4o | gpt-4o-mini | `llm_config.model` |
+| Temperature | 1.0 | 1.0 | `llm_config.temperature` |
+| Top-p | 1.0 | 1.0 | `llm_config.top_p` |
+| Top-k similar codes | 10 | 10 | `codebook_config.top_k_retrieval` |
+| Min similarity threshold | N/A | 0.85 | `codebook_config.min_similarity` |
+| Max quotes per code | 20 | 100 | `processing_config.max_quotes_per_code` |
+| Max codes per explanation | 3 | 3 | `processing_config.max_codes_per_explanation` |
+| Embedding model | N/A | all-MiniLM-L6-v2 | `embedding_config.model` |
 
 ## Usage
 
@@ -165,13 +167,28 @@ This per-item approach ensures the aggregator merges codes from multiple coders 
 
 ## Key Differences from Paper
 
+### Domain Adaptations
 | Aspect | Paper | Our Implementation |
 |--------|-------|-------------------|
 | Domain | Social media posts | SAE feature explanations |
 | Stage | Coding + Theme Development | Coding only |
 | Identities | Climate change perspectives | SAE analysis perspectives |
-| Embedding model | Sentence Transformer | google/embeddinggemma-300m |
 | Default model | GPT-4o | gpt-4o-mini (configurable) |
+
+### Technical Modifications
+| Aspect | Paper | Our Implementation | Rationale |
+|--------|-------|-------------------|-----------|
+| Embedding model | Sentence Transformer | all-MiniLM-L6-v2 (22M params) | Faster, sufficient for code similarity |
+| Max quotes per code | 20 | 100 | Better representation without token cost (only 5 shown) |
+| Quote storage | First N | Random replacement when full | Representative sampling over time |
+| Quote display to reviewer | First 5 | Even spread sample of 5 | Show diversity across all stored quotes |
+| Similar codes filter | All top-k shown | Only similarity ≥ 0.85 | Reduce noise, save tokens |
+| Prompts | Paper Appendix B | Restructured with one-shot examples | Improved code quality and consistency |
+
+### Prompt Improvements
+**Coder**: Added structured format with TASK/EXAMPLE/OUTPUT sections. Clarified: capture pattern categories OR specific lexical patterns, avoid single-word instances and vague codes.
+
+**Reviewer**: Added structured RULES section. Clarified: choose code names that accurately cover merged concepts (not too narrow, not too broad).
 
 ## Paper Alignment Checklist
 
@@ -186,10 +203,10 @@ This per-item approach ensures the aggregator merges codes from multiple coders 
 - [x] Top-k=10 similar codes for reviewer (Section 4)
 - [x] Configuration: temperature=1.0, top_p=1.0 (Section 4)
 - [x] JSON mode enabled for consistent output (Section 4)
-- [x] Max 20 quotes per code (Section 4)
+- [x] Quote storage with max limit (Section 4) - increased to 100 for better sampling
 - [x] Max 1-3 codes per explanation (Appendix B)
 - [x] Multiple coder identities for diverse perspectives (Section 3.2)
-- [x] Prompts follow paper Appendix B exact wording
+- [x] Prompts based on paper Appendix B - restructured for clarity
 - [x] Quotes stored WITH quote_ids for traceability (Section 3.1)
 - [x] "Quote_id is the same as data_id" in aggregator prompt (Appendix B)
 - [x] "analytical interests" (plural) in coder prompt (Appendix B)

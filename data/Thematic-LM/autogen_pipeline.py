@@ -31,6 +31,14 @@ from codebook_manager import CodebookManager, CodebookEntry
 logger = logging.getLogger(__name__)
 
 
+def sample_evenly(items: list, n: int) -> list:
+    """Sample n items evenly spread across the list."""
+    if len(items) <= n:
+        return items
+    step = len(items) / n
+    return [items[int(i * step)] for i in range(n)]
+
+
 @dataclass
 class CodeResult:
     """Result of coding a single code entry."""
@@ -236,6 +244,7 @@ class ThematicLMPipeline:
             ExplanationResult with all coded information
         """
         top_k = self.codebook_config.get("top_k_retrieval", 10)
+        min_similarity = self.codebook_config.get("min_similarity", 0.0)
 
         # Step 1: Coders generate codes independently
         # Include data_id in message per paper output format
@@ -341,7 +350,7 @@ Merge similar codes, retain different ones. Output in JSON format."""
                 logger.debug(f"Auto-merged exact match: '{code_text}' → code_id {code_id}")
                 continue
             # Find top-k similar codes in codebook
-            similar = self.codebook.find_similar(code_text, top_k=top_k)
+            similar = self.codebook.find_similar(code_text, top_k=top_k, min_similarity=min_similarity)
 
             # Build reviewer prompt (shows code NAMES, not IDs)
             reviewer_message = self._build_reviewer_prompt(code_text, quotes, similar)
@@ -473,10 +482,11 @@ Merge similar codes, retain different ones. Output in JSON format."""
 
         Following paper: Shows code NAMES (not IDs) for merge_codes output.
         """
-        # Format quotes
+        # Format quotes (evenly spread sample)
+        sampled_quotes = sample_evenly(quotes, 5)
         quotes_str = "\n".join([
             f"  - \"{q.get('quote', '')}\" (ID: {q.get('quote_id', 'N/A')})"
-            for q in quotes[:5]
+            for q in sampled_quotes
         ])
 
         new_code_section = f"""Item 1 - NEW CODE AND QUOTES:
@@ -489,10 +499,11 @@ Quotes:
         if similar_codes:
             similar_section = "Item 2 - SIMILAR EXISTING CODES FROM CODEBOOK:\n"
             for entry, _ in similar_codes:  # Show all retrieved (up to top_k=10)
-                # Per paper: quotes have quote_id for traceability
+                # Per paper: quotes have quote_id for traceability (evenly spread sample)
+                sampled_entry_quotes = sample_evenly(entry.example_quotes, 5)
                 entry_quotes = "\n".join([
                     f"    - \"{q.get('quote', q) if isinstance(q, dict) else q}\" (ID: {q.get('quote_id', 'N/A') if isinstance(q, dict) else 'N/A'})"
-                    for q in entry.example_quotes[:5]
+                    for q in sampled_entry_quotes
                 ])
                 # Show code NAME prominently for merge_codes output
                 similar_section += f"""

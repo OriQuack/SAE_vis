@@ -45,6 +45,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Suppress verbose HTTP request logs
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 
 def load_config(config_path: Path) -> Dict:
     """Load configuration from JSON file."""
@@ -240,6 +243,12 @@ def main():
     output_codebook = project_root / config["output_paths"]["codebook_json"]
     output_codebook.parent.mkdir(parents=True, exist_ok=True)
 
+    # Create timestamped history directory
+    run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    codebook_history_dir = script_dir / "codebook_history" / run_timestamp
+    codebook_history_dir.mkdir(parents=True, exist_ok=True)
+    history_codebook = codebook_history_dir / "codebook.json"
+
     # Print banner
     print("=" * 80)
     print(f"Thematic-LM Coding Stage (AutoGen) - Per-Item Processing")
@@ -304,6 +313,8 @@ def main():
     output_parquet = project_root / config["output_paths"]["thematic_codes_parquet"]
     save_parquet(results, output_parquet, config)
     codebook.save(output_codebook)
+    codebook.save(history_codebook)
+    logger.info(f"Codebook history saved to: {history_codebook}")
 
     # Print statistics
     stats = pipeline.get_stats()
@@ -319,6 +330,7 @@ def main():
     print(f"\nOutputs:")
     print(f"  Parquet: {output_parquet}")
     print(f"  Codebook: {output_codebook}")
+    print(f"  History: {history_codebook}")
 
 
 if __name__ == "__main__":

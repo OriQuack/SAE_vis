@@ -23,17 +23,30 @@ CODER_SYSTEM_PROMPT = """You are a coder in thematic analysis of SAE (Sparse Aut
 }"""
 
 
-# SAE-specific coder prompt - matches paper style with domain context
-SAE_CODER_SYSTEM_PROMPT = """You are a coder in thematic analysis of neuron explanations. Each explanation describes what pattern or concept a neuron in a language model detects. When given a neuron explanation, write 1-3 codes for the explanation. The code should capture the specific pattern or concept the neuron detects (e.g., "plural noun suffixes", "financial terminology") rather than vague descriptions (e.g., "various tokens"). For each code, extract a quote from the explanation corresponding to the code. The quote needs to be an extract from a sentence. Output the codes and quotes in the following format:
+# SAE-specific coder prompt - structured for clarity with one-shot example
+SAE_CODER_SYSTEM_PROMPT = """You are a coder in thematic analysis of neuron explanations.
 
+TASK: Generate 1-3 codes for each neuron explanation. Each code should:
+- Capture the pattern category (e.g., "sports terminology", "mathematical operators")
+- OR capture specific lexical patterns when described (e.g., "tokens starting with 'Hor'")
+- Avoid: single-word instances (e.g., "tie"), vague codes (e.g., "various tokens")
+- Include a supporting quote extracted from the explanation
+
+EXAMPLE:
+Input: "This neuron activates on words like overtime, playoffs, and championship in sports contexts."
+Output:
+{
+  "data_id": "f0_model",
+  "codes": [
+    {"code": "sports terminology", "quote": "overtime, playoffs, and championship", "quote_id": "f0_model"}
+  ]
+}
+
+OUTPUT FORMAT:
 {
   "data_id": "<data_id>",
   "codes": [
-    {
-      "code": "<short phrase code>",
-      "quote": "<exact extract from the text>",
-      "quote_id": "<data_id>"
-    }
+    {"code": "<descriptive code>", "quote": "<extract from text>", "quote_id": "<data_id>"}
   ]
 }"""
 

@@ -7,6 +7,7 @@ no threshold-based auto-merging here.
 
 import json
 import logging
+import random
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -66,7 +67,7 @@ class CodebookManager:
 
     def __init__(
         self,
-        embedding_model: str = "google/embeddinggemma-300m",
+        embedding_model: str = "all-MiniLM-L6-v2",
         device: str = "cuda",
         max_example_quotes: int = 20
     ):
@@ -115,16 +116,18 @@ class CodebookManager:
     def find_similar(
         self,
         code_text: str,
-        top_k: int = 10
+        top_k: int = 10,
+        min_similarity: float = 0.0
     ) -> List[Tuple[CodebookEntry, float]]:
-        """Find top-k most similar existing codes.
+        """Find top-k most similar existing codes above threshold.
 
         Following paper Section 3.1: Retrieve top-k similar codes (default k=10)
         for the reviewer to compare against.
 
         Args:
             code_text: Code text to search for
-            top_k: Number of similar codes to return (paper: 10)
+            top_k: Maximum number of similar codes to return (paper: 10)
+            min_similarity: Minimum similarity threshold (default: 0.0)
 
         Returns:
             List of (CodebookEntry, similarity_score) tuples, sorted by similarity
@@ -146,9 +149,11 @@ class CodebookManager:
 
         results = []
         for idx in top_indices:
+            sim_score = float(similarities[idx])
+            if sim_score < min_similarity:
+                break  # Sorted descending, no more above threshold
             code_id = index_to_id[idx]
             entry = self.entries[code_id]
-            sim_score = float(similarities[idx])
             results.append((entry, sim_score))
 
         return results
@@ -243,17 +248,21 @@ class CodebookManager:
             # Add as variant if different (original behavior when not updating)
             entry.variants.append(code_text)
 
-        # Add ALL new quotes WITH quote_ids (avoiding duplicates, respecting max limit)
-        # Per paper Section 3.1: quotes stored with quote_ids for traceability
+        # Add new quotes WITH quote_ids (avoiding duplicates)
+        # Random replacement when at max capacity for representative sampling
         existing_quote_ids = {q.get("quote_id") for q in entry.example_quotes if q.get("quote_id")}
         for q in quotes:
             quote_text = q.get("quote", "")
             quote_id = q.get("quote_id", "")
-            # Avoid duplicates by quote_id (or quote text if no id)
             if quote_text and quote_id not in existing_quote_ids:
+                new_quote = {"quote": quote_text, "quote_id": quote_id}
                 if len(entry.example_quotes) < self.max_example_quotes:
-                    entry.example_quotes.append({"quote": quote_text, "quote_id": quote_id})
-                    existing_quote_ids.add(quote_id)
+                    entry.example_quotes.append(new_quote)
+                else:
+                    # Random replacement for representative sampling
+                    idx = random.randint(0, self.max_example_quotes - 1)
+                    entry.example_quotes[idx] = new_quote
+                existing_quote_ids.add(quote_id)
 
         self._update_embeddings_matrix()
         self.version += 1
@@ -293,17 +302,24 @@ class CodebookManager:
             if variant not in target.variants:
                 target.variants.append(variant)
 
-        # Transfer quotes WITH quote_ids (respecting max limit, dedup by quote_id)
+        # Transfer quotes WITH quote_ids (random replacement when at max)
         existing_quote_ids = {q.get("quote_id") for q in target.example_quotes if isinstance(q, dict) and q.get("quote_id")}
         for quote in source.example_quotes:
-            if len(target.example_quotes) < self.max_example_quotes:
-                quote_id = quote.get("quote_id") if isinstance(quote, dict) else None
-                if quote_id and quote_id not in existing_quote_ids:
+            quote_id = quote.get("quote_id") if isinstance(quote, dict) else None
+            if quote_id and quote_id not in existing_quote_ids:
+                if len(target.example_quotes) < self.max_example_quotes:
                     target.example_quotes.append(quote)
-                    existing_quote_ids.add(quote_id)
-                elif not quote_id and quote not in target.example_quotes:
-                    # Fallback for old format without quote_id
+                else:
+                    idx = random.randint(0, self.max_example_quotes - 1)
+                    target.example_quotes[idx] = quote
+                existing_quote_ids.add(quote_id)
+            elif not quote_id and quote not in target.example_quotes:
+                # Fallback for old format without quote_id
+                if len(target.example_quotes) < self.max_example_quotes:
                     target.example_quotes.append(quote)
+                else:
+                    idx = random.randint(0, self.max_example_quotes - 1)
+                    target.example_quotes[idx] = quote
 
         # Track merge
         target.merged_from.append(source_code_id)

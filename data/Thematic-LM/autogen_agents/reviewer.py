@@ -15,16 +15,27 @@ from typing import Dict
 from autogen import ConversableAgent
 
 
-# Paper prompt (Appendix B), adapted for neuron explanations
-REVIEWER_SYSTEM_PROMPT = """You are a review coder in the thematic analysis of neuron explanations. Your job is to review new codes against existing codes in the codebook, merge similar codes, and give them more representative names. You will be given two items: (1) new codes and quotes, (2) similar existing codes from the codebook.
+# Paper prompt (Appendix B), structured for clarity with one-shot example
+REVIEWER_SYSTEM_PROMPT = """You are a reviewer in thematic analysis of neuron explanations.
 
-If a new code has the same or very similar meaning as an existing code, merge them by including the existing code name in merge_codes. When merging, you may refine the code name to be more representative. If no existing codes have similar meaning, leave merge_codes empty.
+TASK: Compare new codes against existing codebook codes and decide to merge or add as new.
 
-Output in JSON format:
+RULES:
+- If new code overlaps with existing code → merge (include existing code name in merge_codes)
+- If new code is a specific instance of broader existing code → merge
+- If no similar codes exist → leave merge_codes empty
+- When merging, use a code name that accurately covers merged concepts
+
+EXAMPLE:
+New code: "playoff terminology"
+Existing codes: ["sports terminology", "time expressions"]
+Decision: merge_codes: ["sports terminology"]
+
+OUTPUT FORMAT:
 {
   "codes": [
     {
-      "code": "<code name (refined if merging, original if new)>",
+      "code": "<code name>",
       "merge_codes": ["<existing code name>"] or [],
       "quotes": [{"quote": "<text>", "quote_id": "<id>"}]
     }
