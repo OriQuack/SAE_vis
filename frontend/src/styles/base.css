@@ -308,6 +308,40 @@ body {
   color: #374151;
 }
 
+/* Two-line legend variant for Tag by Threshold */
+.action-button__legend.action-button__legend--two-lines {
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+}
+
+.action-button__legend-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 0;
+}
+
+.action-button__legend-row > .action-button__legend-item {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.action-button__legend-row > .action-button__legend-item:first-child {
+  justify-content: flex-end;
+}
+
+.action-button__legend-row > .action-button__legend-item:last-child {
+  justify-content: flex-start;
+}
+
+.action-button__legend-row > .action-button__legend-arrow {
+  flex: 0 0 auto;
+  margin: 0 8px;
+  text-align: center;
+}
+
 /* ============================================================================
    NEXT STAGE COLUMN - Right-side column for stage navigation
    ============================================================================ */

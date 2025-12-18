@@ -115,6 +115,7 @@
 }
 
 /* Table Column - Right side */
+/* NOTE: No z-index here to avoid creating stacking context - labels need to be above flow overlay */
 .sankey-view__table-column {
   flex: 4;
   display: flex;
@@ -123,8 +124,6 @@
   min-width: 0;
   min-height: 0;
   overflow: visible;
-  position: relative;
-  z-index: 10;
 }
 
 /* New Panel Above Table */

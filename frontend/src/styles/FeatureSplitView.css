@@ -54,7 +54,7 @@
   min-height: 0;
   min-width: 0;
   gap: 8px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* ============================================================================

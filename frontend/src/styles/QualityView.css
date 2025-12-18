@@ -53,7 +53,7 @@
   min-height: 0;
   min-width: 0;
   gap: 8px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* ============================================================================
@@ -372,15 +372,14 @@
   border-color: var(--tag-color, var(--unsure-gray));
   color: #000;
   font-weight: 600;
-  --bg-opacity: 1.0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
-  transform: translateY(-1px);
+  transform: translateY(-1px) scale(1.12);
   border-width: 2px;
 }
 
 .selection__button--need-revision:hover:not(.selected) {
   color: #000;
-  --bg-opacity: 0.8;
+  transform: scale(1.08);
 }
 
 /* Selection button variant for Well-Explained */
@@ -394,13 +393,12 @@
   border-color: var(--tag-color, #4CAF50);
   color: #000;
   font-weight: 600;
-  --bg-opacity: 1.0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
-  transform: translateY(-1px);
+  transform: translateY(-1px) scale(1.12);
   border-width: 2px;
 }
 
 .selection__button--well-explained:hover:not(.selected) {
   color: #000;
-  --bg-opacity: 0.8;
+  transform: scale(1.08);
 }

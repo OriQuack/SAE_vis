@@ -11,7 +11,7 @@
   flex: 1;
   min-height: 0;
   gap: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* ============================================================================
@@ -61,10 +61,10 @@
 .threshold-tagging-panel__buttons-section {
   display: flex;
   flex-direction: column;
-  flex: 0 0 140px;
-  margin-left: 8px;
-  margin-right: 8px;
-  gap: 4px;
+  width: 180px;
+  margin-left: 4px;
+  margin-right: 4px;
+  margin-top: 26px;
 }
 
 /* ============================================================================

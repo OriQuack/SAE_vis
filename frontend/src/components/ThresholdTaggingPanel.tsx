@@ -249,29 +249,32 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             >
               Tag by Threshold
             </button>
-            <div className="action-button__desc">
+            {/* <div className="action-button__desc">
               Tag {mode === 'pair' ? 'pairs' : 'features'} in stripe regions using threshold values
-            </div>
-            <div className="action-button__legend">
-              <span className="action-button__legend-item">
-                <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': leftTagColor } as React.CSSProperties} />
-                <span className="action-button__legend-count">{leftCount}</span>
-              </span>
-              <span className="action-button__legend-arrow">→</span>
-              <span className="action-button__legend-item">
-                <span className="action-button__legend-swatch" style={{ backgroundColor: leftTagColor }} />
-                <span className="action-button__legend-count">{leftCount}</span>
-              </span>
-              <span style={{ margin: '0 4px', color: '#d1d5db' }}>|</span>
-              <span className="action-button__legend-item">
-                <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': rightTagColor } as React.CSSProperties} />
-                <span className="action-button__legend-count">{rightCount}</span>
-              </span>
-              <span className="action-button__legend-arrow">→</span>
-              <span className="action-button__legend-item">
-                <span className="action-button__legend-swatch" style={{ backgroundColor: rightTagColor }} />
-                <span className="action-button__legend-count">{rightCount}</span>
-              </span>
+            </div> */}
+            <div className="action-button__legend action-button__legend--two-lines">
+              <div className="action-button__legend-row">
+                <span className="action-button__legend-item">
+                  <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': leftTagColor } as React.CSSProperties} />
+                  <span className="action-button__legend-count">{leftCount}</span>
+                </span>
+                <span className="action-button__legend-arrow">→</span>
+                <span className="action-button__legend-item">
+                  <span className="action-button__legend-swatch" style={{ backgroundColor: leftTagColor }} />
+                  <span className="action-button__legend-count">{leftCount}</span>
+                </span>
+              </div>
+              <div className="action-button__legend-row">
+                <span className="action-button__legend-item">
+                  <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': rightTagColor } as React.CSSProperties} />
+                  <span className="action-button__legend-count">{rightCount}</span>
+                </span>
+                <span className="action-button__legend-arrow">→</span>
+                <span className="action-button__legend-item">
+                  <span className="action-button__legend-swatch" style={{ backgroundColor: rightTagColor }} />
+                  <span className="action-button__legend-count">{rightCount}</span>
+                </span>
+              </div>
             </div>
           </div>
 
@@ -285,9 +288,9 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             >
               Tag Remaining as {leftListLabel}
             </button>
-            <div className="action-button__desc">
+            {/* <div className="action-button__desc">
               Assign all untagged to {leftListLabel}
-            </div>
+            </div> */}
             <div className="action-button__legend">
               <span className="action-button__legend-item">
                 <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
@@ -311,9 +314,9 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             >
               Tag Remaining by Boundary
             </button>
-            <div className="action-button__desc">
+            {/* <div className="action-button__desc">
               Split remaining {mode === 'pair' ? 'pairs' : 'features'} by SVM decision boundary at 0.0
-            </div>
+            </div> */}
             <div className="action-button__legend">
               <span className="action-button__legend-item">
                 <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />

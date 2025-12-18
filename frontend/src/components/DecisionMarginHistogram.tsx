@@ -22,7 +22,8 @@ import '../styles/DecisionMarginHistogram.css'
 const TAG_HISTOGRAM_SPACING = {
   svg: {
     // Fixed margins that always accommodate labels (no complex calculations needed)
-    margin: { top: 30, right: 12, bottom: 50, left: 30 },
+    // Label overflows into left panel space (SelectionPanel has unused area)
+    margin: { top: 30, right: 4, bottom: 50, left: 25 },
     // Label offsets (relative to chart area)
     xLabelOffset: 40,   // Distance below chart for x-axis label
     yLabelOffset: -40,  // Distance left of chart for y-axis label
@@ -500,6 +501,7 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
               <svg
                 ref={svgRef}
                 className="tag-panel__svg"
+                style={{ overflow: 'visible' }}
               >
                 {/* Define stripe patterns for preview */}
                 {/* Note: SVG patternTransform uses opposite sign from CSS linear-gradient for same visual result */}
@@ -713,12 +715,10 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
                     Decision Margin
                   </text>
                   <text
-                    x={-histogramChart.height / 2}
-                    y={TAG_HISTOGRAM_SPACING.svg.yLabelOffset}
                     textAnchor="middle"
                     fontSize={14}
                     fill="#666"
-                    transform={`rotate(-90, ${-histogramChart.height / 2}, ${TAG_HISTOGRAM_SPACING.svg.yLabelOffset})`}
+                    transform={`translate(${TAG_HISTOGRAM_SPACING.svg.yLabelOffset}, ${histogramChart.height / 2}) rotate(-90)`}
                   >
                     Count
                   </text>
