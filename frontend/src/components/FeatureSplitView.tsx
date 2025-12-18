@@ -6,6 +6,7 @@ import FeatureSplitPairViewer from './FeatureSplitPairViewer'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
 import { isBimodalScore } from '../lib/modality-utils'
 import { useSortableList } from '../lib/tagging-hooks/useSortableList'
+import { useCommitHistory, createPairCommitHistoryOptions, type Commit } from '../lib/tagging-hooks'
 import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import '../styles/FeatureSplitView.css'
@@ -15,20 +16,8 @@ import '../styles/FeatureSplitView.css'
 // ============================================================================
 // Layout: [SelectionPanel bar] | [Top: pair list + viewer] | [Bottom: left boundary + histogram + right boundary]
 
-// Commit history types
-type SelectionState = 'selected' | 'rejected'
-type SelectionSource = 'manual' | 'auto'
-
-export interface TagCommit {
-  id: number
-  type: 'initial' | 'apply' | 'tagAll'  // initial = starting state, apply = Apply Tags, tagAll = Tag All
-  pairSelectionStates: Map<string, SelectionState>
-  pairSelectionSources: Map<string, SelectionSource>
-  counts: CommitCounts  // Counts at commit time for hover preview
-}
-
-// Maximum number of commits to keep (oldest auto-removed)
-const MAX_COMMITS = 10
+// Local type alias for pair commit with CommitCounts
+type PairCommit = Commit<Map<string, 'selected' | 'rejected'>, Map<string, 'manual' | 'auto'>, CommitCounts>
 
 interface FeatureSplitViewProps {
   className?: string
@@ -71,42 +60,66 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   // Which list is currently controlling the viewer: 'all', 'reject' (Monosemantic), or 'select' (Fragmented)
   const [activeListSource, setActiveListSource] = useState<'all' | 'reject' | 'select'>('all')
 
-  // ============================================================================
-  // COMMIT HISTORY STATE - Save and restore tagging state snapshots
-  // ============================================================================
-  // Initial commit represents the empty state
-  const [tagCommitHistory, setTagCommitHistory] = useState<TagCommit[]>([
-    { id: 0, type: 'initial', pairSelectionStates: new Map(), pairSelectionSources: new Map(), counts: { fragmented: 0, monosemantic: 0, unsure: 0, total: 0 } }
-  ])
-  const [currentCommitIndex, setCurrentCommitIndex] = useState(0)
+  // Store getter for counts calculation
+  const getFeatureSplittingCounts = useVisualizationStore(state => state.getFeatureSplittingCounts)
 
-  // Restore from saved commit when revisiting Stage 1
-  // NOTE: We do NOT clear isRevisitingStage1 here - it's needed by selectedFeatureIds useMemo
-  // The flag is cleared when navigating away from Stage 1 (in activateCategoryTable)
-  useEffect(() => {
+  // ============================================================================
+  // COMMIT HISTORY - Using centralized hook
+  // ============================================================================
+  // Build initial commit for revisiting (if applicable)
+  const initialCommitForRevisit = useMemo((): PairCommit | null => {
     if (isRevisitingStage1 && stage1FinalCommit) {
-      console.log('[FeatureSplitView] Revisiting Stage 1, restoring from saved commit:', stage1FinalCommit.pairSelectionStates.size, 'pairs, features:', stage1FinalCommit.featureIds.size)
-
-      // Initialize history with the saved commit as a tagAll commit
-      // Use stored counts if available, otherwise use zeros
-      const restoredCommit: TagCommit = {
+      console.log('[FeatureSplitView] Building initial commit for revisit:', stage1FinalCommit.pairSelectionStates.size, 'pairs')
+      return {
         id: 1,
         type: 'tagAll',
-        pairSelectionStates: new Map(stage1FinalCommit.pairSelectionStates),
-        pairSelectionSources: new Map(stage1FinalCommit.pairSelectionSources),
-        counts: stage1FinalCommit.counts || { fragmented: 0, monosemantic: 0, unsure: 0, total: 0 }
+        states: new Map(stage1FinalCommit.pairSelectionStates),
+        sources: new Map(stage1FinalCommit.pairSelectionSources),
+        counts: stage1FinalCommit.counts || { fragmented: 0, monosemantic: 0, unsure: 0, total: 0 },
+        featureIds: stage1FinalCommit.featureIds ? new Set(stage1FinalCommit.featureIds) : undefined
       }
-
-      setTagCommitHistory([
-        { id: 0, type: 'initial', pairSelectionStates: new Map(), pairSelectionSources: new Map(), counts: { fragmented: 0, monosemantic: 0, unsure: 0, total: 0 } },
-        restoredCommit
-      ])
-      setCurrentCommitIndex(1)
-
-      // Restore pair selection states to store
-      restorePairSelectionStates(stage1FinalCommit.pairSelectionStates, stage1FinalCommit.pairSelectionSources)
     }
-  }, [isRevisitingStage1, stage1FinalCommit, restorePairSelectionStates])
+    return null
+  }, [isRevisitingStage1, stage1FinalCommit])
+
+  // Calculate counts for commit storage
+  const calculateCommitCounts = useCallback((): CommitCounts => {
+    const c = getFeatureSplittingCounts()
+    return {
+      fragmented: c.fragmentedManual + c.fragmentedAuto,
+      monosemantic: c.monosematicManual + c.monosematicAuto,
+      unsure: c.unsure,
+      total: c.total
+    }
+  }, [getFeatureSplittingCounts])
+
+  // Use the commit history hook
+  const {
+    commits: tagCommitHistory,
+    currentCommitIndex,
+    saveCurrentState,
+    createCommit,
+    createCommitAsync,
+    handleCommitClick
+  } = useCommitHistory<Map<string, 'selected' | 'rejected'>, Map<string, 'manual' | 'auto'>, CommitCounts>({
+    ...createPairCommitHistoryOptions(
+      () => pairSelectionStates,
+      () => pairSelectionSources,
+      restorePairSelectionStates
+    ),
+    calculateCounts: calculateCommitCounts,
+    getFeatureIds: () => selectedFeatureIds,
+    onCommitCreated: (commit) => {
+      // Save to global store for Stage 1 revisit
+      setStage1FinalCommit({
+        pairSelectionStates: new Map(commit.states),
+        pairSelectionSources: new Map(commit.sources),
+        featureIds: commit.featureIds || new Set(),
+        counts: commit.counts || { fragmented: 0, monosemantic: 0, unsure: 0, total: 0 }
+      })
+    },
+    initialCommit: initialCommitForRevisit
+  })
 
   // Dependencies for selectedFeatureIds - ensure it updates when Sankey selection changes
   const sankeyStructure = leftPanel?.sankeyStructure
@@ -567,97 +580,20 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     console.log('[FeatureSplitView] Switching to decision margin sort mode')
 
     // 2. Save current state to current commit before applying new tags
-    setTagCommitHistory(prev => {
-      const updated = [...prev]
-      updated[currentCommitIndex] = {
-        ...updated[currentCommitIndex],
-        pairSelectionStates: new Map(pairSelectionStates),
-        pairSelectionSources: new Map(pairSelectionSources)
-      }
-      return updated
-    })
+    saveCurrentState()
 
     // 3. Apply auto-tags based on current thresholds
     applySimilarityTags()
 
-    // 4. Create a new commit with the updated state (will be captured after state update)
-    // Use setTimeout to ensure the store has updated with the new tags
-    setTimeout(() => {
-      // Get the updated states from the store
-      const store = useVisualizationStore.getState()
-      // Get counts at commit time
-      const currentCounts = store.getFeatureSplittingCounts()
-      const newCommit: TagCommit = {
-        id: tagCommitHistory.length,
-        type: 'apply',
-        pairSelectionStates: new Map(store.pairSelectionStates),
-        pairSelectionSources: new Map(store.pairSelectionSources),
-        counts: {
-          fragmented: currentCounts.fragmentedManual + currentCounts.fragmentedAuto,
-          monosemantic: currentCounts.monosematicManual + currentCounts.monosematicAuto,
-          unsure: currentCounts.unsure,
-          total: currentCounts.total
-        }
-      }
-
-      setTagCommitHistory(prev => {
-        // Truncate history after current commit (remove "future" commits)
-        // Then add the new commit - this implements branching behavior
-        const truncated = prev.slice(0, currentCommitIndex + 1)
-        let newHistory = [...truncated, newCommit]
-
-        // Trim history to MAX_COMMITS if needed (remove oldest, keep initial)
-        if (newHistory.length > MAX_COMMITS) {
-          // Keep the first commit (initial state) and trim from the second
-          newHistory = [newHistory[0], ...newHistory.slice(-(MAX_COMMITS - 1))]
-        }
-        return newHistory
-      })
-
-      // Move to the new commit (which is now at currentCommitIndex + 1)
-      setCurrentCommitIndex(currentCommitIndex + 1)
-
-      console.log('[FeatureSplitView] Created new commit, history length:', tagCommitHistory.length + 1)
-
-      // Save to global store for Stage 1 revisit
-      setStage1FinalCommit({
-        pairSelectionStates: new Map(store.pairSelectionStates),
-        pairSelectionSources: new Map(store.pairSelectionSources),
-        featureIds: selectedFeatureIds ? new Set(selectedFeatureIds) : new Set(),
-        counts: newCommit.counts
-      })
-    }, 0)
+    // 4. Create a new commit after store update (hook handles onCommitCreated callback)
+    setTimeout(() => createCommitAsync('apply'), 0)
 
     // 5. Reset to first page/pair
     setCurrentPairIndex(0)
     setActiveListSource('all')
-  }, [applySimilarityTags, pairSelectionStates, pairSelectionSources, currentCommitIndex, tagCommitHistory.length, setSortMode, setStage1FinalCommit, selectedFeatureIds])
+  }, [applySimilarityTags, saveCurrentState, createCommitAsync, setSortMode])
 
-  // Handle commit circle click - restore state from that commit
-  const handleCommitClick = useCallback((commitIndex: number) => {
-    if (commitIndex < 0 || commitIndex >= tagCommitHistory.length) return
-    if (commitIndex === currentCommitIndex) return // Already on this commit
-
-    // Save current state to current commit before switching
-    setTagCommitHistory(prev => {
-      const updated = [...prev]
-      updated[currentCommitIndex] = {
-        ...updated[currentCommitIndex],
-        pairSelectionStates: new Map(pairSelectionStates),
-        pairSelectionSources: new Map(pairSelectionSources)
-      }
-      return updated
-    })
-
-    // Restore the clicked commit's state
-    const targetCommit = tagCommitHistory[commitIndex]
-    restorePairSelectionStates(targetCommit.pairSelectionStates, targetCommit.pairSelectionSources)
-
-    // Update current commit index
-    setCurrentCommitIndex(commitIndex)
-
-    console.log('[FeatureSplitView] Restored commit', commitIndex, 'with', targetCommit.pairSelectionStates.size, 'pairs')
-  }, [tagCommitHistory, currentCommitIndex, pairSelectionStates, pairSelectionSources, restorePairSelectionStates])
+  // handleCommitClick is provided by the hook
 
   // ============================================================================
   // TAG ALL HANDLERS
@@ -682,15 +618,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     console.log('[TagAll] current pairSelectionStates size:', pairSelectionStates.size)
 
     // 1. Save current state to current commit before applying new tags
-    setTagCommitHistory(prev => {
-      const updated = [...prev]
-      updated[currentCommitIndex] = {
-        ...updated[currentCommitIndex],
-        pairSelectionStates: new Map(pairSelectionStates),
-        pairSelectionSources: new Map(pairSelectionSources)
-      }
-      return updated
-    })
+    saveCurrentState()
 
     const newStates = new Map(pairSelectionStates)
     const newSources = new Map(pairSelectionSources)
@@ -706,62 +634,22 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     })
 
     console.log('[TagAll] Tagged', taggedCount, 'pairs as Monosemantic')
-    console.log('[TagAll] New states size:', newStates.size)
 
+    // 2. Apply the new states to store
     restorePairSelectionStates(newStates, newSources)
 
-    // 2. Create a new commit with the updated state and counts
-    const store = useVisualizationStore.getState()
-    const currentCounts = store.getFeatureSplittingCounts()
-    const commitCounts = {
-      fragmented: currentCounts.fragmentedManual + currentCounts.fragmentedAuto,
-      monosemantic: currentCounts.monosematicManual + currentCounts.monosematicAuto,
-      unsure: currentCounts.unsure,
-      total: currentCounts.total
-    }
+    // 3. Create commit (hook handles onCommitCreated callback for saving to global store)
+    createCommit('tagAll')
 
-    const newCommit: TagCommit = {
-      id: tagCommitHistory.length,
-      type: 'tagAll',
-      pairSelectionStates: new Map(newStates),
-      pairSelectionSources: new Map(newSources),
-      counts: commitCounts
-    }
-
-    setTagCommitHistory(prev => {
-      let newHistory = [...prev, newCommit]
-      if (newHistory.length > MAX_COMMITS) {
-        newHistory = [newHistory[0], ...newHistory.slice(-(MAX_COMMITS - 1))]
-      }
-      return newHistory
-    })
-    setCurrentCommitIndex(prev => Math.min(prev + 1, MAX_COMMITS - 1))
-
-    // Save to global store for potential Stage 1 revisit (include feature IDs for pair fetching)
-    setStage1FinalCommit({
-      pairSelectionStates: new Map(newStates),
-      pairSelectionSources: new Map(newSources),
-      featureIds: selectedFeatureIds ? new Set(selectedFeatureIds) : new Set(),
-      counts: commitCounts
-    })
-
-    console.log('[TagAll] Created tagAll commit and saved to store, history length:', tagCommitHistory.length + 1)
-  }, [pairList, pairSelectionStates, pairSelectionSources, restorePairSelectionStates, currentCommitIndex, tagCommitHistory.length, setStage1FinalCommit, selectedFeatureIds])
+    console.log('[TagAll] Created tagAll commit')
+  }, [pairList, pairSelectionStates, pairSelectionSources, restorePairSelectionStates, saveCurrentState, createCommit])
 
   // Handle Tag All - Option 2: Use SVM decision boundary (score >= 0 → Fragmented, score < 0 → Monosemantic)
   const handleTagAllByBoundary = useCallback(() => {
     console.log('[TagAll] By Decision Boundary (score=0) option clicked')
 
     // 1. Save current state to current commit before applying new tags
-    setTagCommitHistory(prev => {
-      const updated = [...prev]
-      updated[currentCommitIndex] = {
-        ...updated[currentCommitIndex],
-        pairSelectionStates: new Map(pairSelectionStates),
-        pairSelectionSources: new Map(pairSelectionSources)
-      }
-      return updated
-    })
+    saveCurrentState()
 
     const newStates = new Map(pairSelectionStates)
     const newSources = new Map(pairSelectionSources)
@@ -800,45 +688,14 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       totalNewStates: newStates.size
     })
 
+    // 2. Apply the new states to store
     restorePairSelectionStates(newStates, newSources)
 
-    // 2. Create a new commit with the updated state and counts
-    const store = useVisualizationStore.getState()
-    const currentCounts = store.getFeatureSplittingCounts()
-    const commitCounts = {
-      fragmented: currentCounts.fragmentedManual + currentCounts.fragmentedAuto,
-      monosemantic: currentCounts.monosematicManual + currentCounts.monosematicAuto,
-      unsure: currentCounts.unsure,
-      total: currentCounts.total
-    }
+    // 3. Create commit (hook handles onCommitCreated callback for saving to global store)
+    createCommit('tagAll')
 
-    const newCommit: TagCommit = {
-      id: tagCommitHistory.length,
-      type: 'tagAll',
-      pairSelectionStates: new Map(newStates),
-      pairSelectionSources: new Map(newSources),
-      counts: commitCounts
-    }
-
-    setTagCommitHistory(prev => {
-      let newHistory = [...prev, newCommit]
-      if (newHistory.length > MAX_COMMITS) {
-        newHistory = [newHistory[0], ...newHistory.slice(-(MAX_COMMITS - 1))]
-      }
-      return newHistory
-    })
-    setCurrentCommitIndex(prev => Math.min(prev + 1, MAX_COMMITS - 1))
-
-    // Save to global store for potential Stage 1 revisit (include feature IDs for pair fetching)
-    setStage1FinalCommit({
-      pairSelectionStates: new Map(newStates),
-      pairSelectionSources: new Map(newSources),
-      featureIds: selectedFeatureIds ? new Set(selectedFeatureIds) : new Set(),
-      counts: commitCounts
-    })
-
-    console.log('[TagAll] Created tagAll commit and saved to store, history length:', tagCommitHistory.length + 1)
-  }, [pairList, pairSelectionStates, pairSelectionSources, pairSimilarityScores, restorePairSelectionStates, currentCommitIndex, tagCommitHistory.length, setStage1FinalCommit, selectedFeatureIds])
+    console.log('[TagAll] Created tagAll commit')
+  }, [pairList, pairSelectionStates, pairSelectionSources, pairSimilarityScores, restorePairSelectionStates, saveCurrentState, createCommit])
 
   // Unified Tag All handler for ThresholdTaggingPanel
   const handleTagAll = useCallback((method: 'left' | 'byBoundary') => {

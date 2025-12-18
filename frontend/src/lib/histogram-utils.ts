@@ -53,7 +53,7 @@ interface HistogramBarData {
   }
 }
 
-// Exported for use in components (TagAutomaticPanel, etc.)
+// Exported for use in components (DecisionMarginHistogram, etc.)
 export interface CategoryCounts {
   confirmed: number
   autoSelected: number

@@ -14,7 +14,7 @@ import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY } from '../lib/con
 import { isPairInSelection } from '../lib/pairUtils'
 import * as api from '../api'
 import ThresholdHandles from './ThresholdHandles'
-import '../styles/TagAutomaticPanel.css'
+import '../styles/DecisionMarginHistogram.css'
 
 // ============================================================================
 // SPACING CONSTANTS - Single source of truth for all margins/paddings
@@ -30,14 +30,14 @@ const TAG_HISTOGRAM_SPACING = {
   }
 }
 
-interface TagAutomaticPanelProps {
+interface DecisionMarginHistogramProps {
   mode: 'feature' | 'pair'
   availablePairs?: Array<{pairKey: string, mainFeatureId: number, similarFeatureId: number}>  // Cluster-based pairs (single source of truth)
   filteredFeatureIds?: Set<number>  // Selected feature IDs from Sankey segment
   threshold?: number  // Clustering threshold from Sankey (required for simplified flow)
 }
 
-const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
+const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
   mode,
   availablePairs,
   filteredFeatureIds,
@@ -160,7 +160,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
       try {
         if (mode === 'pair') {
           // Pair mode: Use existing fetchSimilarityHistogram from store
-          console.log('[TagAutomaticPanel] Fetching pair histogram - features:', filteredFeatureIds?.size || 0, ', threshold:', threshold ?? 0.5, ', counts:', selectionCounts)
+          console.log('[DecisionMarginHistogram] Fetching pair histogram - features:', filteredFeatureIds?.size || 0, ', threshold:', threshold ?? 0.5, ', counts:', selectionCounts)
           const result = await fetchSimilarityHistogram(filteredFeatureIds, threshold)
           if (result) {
             setLocalHistogramData(result.histogramData)
@@ -175,7 +175,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
           }
         } else {
           // Feature mode: Call API directly for feature similarity histogram
-          console.log('[TagAutomaticPanel] Fetching feature histogram - filtered features:', filteredFeatureIds?.size || 0, ', counts:', selectionCounts)
+          console.log('[DecisionMarginHistogram] Fetching feature histogram - filtered features:', filteredFeatureIds?.size || 0, ', counts:', selectionCounts)
 
           // Extract selected and rejected feature IDs
           const selectedIds: number[] = []
@@ -222,7 +222,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
           }
         }
       } catch (error) {
-        console.error('[TagAutomaticPanel] Failed to fetch histogram:', error)
+        console.error('[DecisionMarginHistogram] Failed to fetch histogram:', error)
         setLocalHistogramData(null)
       } finally {
         setIsLocalLoading(false)
@@ -502,13 +502,14 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
                 className="tag-panel__svg"
               >
                 {/* Define stripe patterns for preview */}
+                {/* Note: SVG patternTransform uses opposite sign from CSS linear-gradient for same visual result */}
                 <defs>
                   <pattern
                     id="autoSelectedPreviewStripe"
                     patternUnits="userSpaceOnUse"
                     width={STRIPE_PATTERN.width}
                     height={STRIPE_PATTERN.height}
-                    patternTransform={`rotate(${STRIPE_PATTERN.rotation})`}
+                    patternTransform={`rotate(${-STRIPE_PATTERN.rotation})`}
                   >
                     <rect width={STRIPE_PATTERN.stripeWidth} height={STRIPE_PATTERN.height} fill={modeColors.autoSelected} opacity={STRIPE_PATTERN.opacity} />
                   </pattern>
@@ -517,7 +518,7 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
                     patternUnits="userSpaceOnUse"
                     width={STRIPE_PATTERN.width}
                     height={STRIPE_PATTERN.height}
-                    patternTransform={`rotate(${STRIPE_PATTERN.rotation})`}
+                    patternTransform={`rotate(${-STRIPE_PATTERN.rotation})`}
                   >
                     <rect width={STRIPE_PATTERN.stripeWidth} height={STRIPE_PATTERN.height} fill={modeColors.autoRejected} opacity={STRIPE_PATTERN.opacity} />
                   </pattern>
@@ -794,4 +795,4 @@ const TagAutomaticPanel: React.FC<TagAutomaticPanelProps> = ({
   )
 }
 
-export default React.memo(TagAutomaticPanel)
+export default React.memo(DecisionMarginHistogram)

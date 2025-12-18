@@ -6,9 +6,8 @@
     "start_feature": null,
     "end_feature": null,
     "limit": 10,
-    "mode": "overwrite", 
-    "load_codebook": "../master/codebook.json",
-    "resume": false
+    "mode": "continue",
+    "load_codebook": "../master/codebook.json"
   },
 
   "input_paths": {
@@ -53,7 +52,7 @@
 
   "processing_config": {
     "description": "Per-item processing, up to 100 quotes per code (paper: 20), 1-3 codes per explanation",
-    "checkpoint_every": 30,
+    "save_every": 10,
     "max_codes_per_explanation": 3,
     "max_quotes_per_code": 100
   }

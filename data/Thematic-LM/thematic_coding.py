@@ -96,68 +96,47 @@ def load_explanations(
     return df
 
 
-def save_checkpoint(
-    results: List[Dict],
-    codebook: CodebookManager,
-    checkpoint_dir: Path,
-    checkpoint_num: int,
-    output_parquet: Path,
-    config: Dict
-):
-    """Save checkpoint for resumability (includes parquet)."""
-    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+def get_processed_ids(parquet_path: Path) -> set:
+    """Get already processed (feature_id, llm_explainer) pairs from existing parquet."""
+    if not parquet_path.exists():
+        return set()
 
-    results_path = checkpoint_dir / f"checkpoint_{checkpoint_num}_results.json"
-    with open(results_path, 'w', encoding='utf-8') as f:
-        json.dump(results, f, ensure_ascii=False)
-
-    codebook_path = checkpoint_dir / f"checkpoint_{checkpoint_num}_codebook.json"
-    codebook.save(codebook_path)
-
-    # Save parquet at checkpoint too
-    save_parquet(results, output_parquet, config)
-
-    logger.info(f"Saved checkpoint {checkpoint_num}: {len(results)} results, {len(codebook)} codes, parquet updated")
+    df = pl.read_parquet(parquet_path)
+    processed_ids = set(zip(df["feature_id"].to_list(), df["llm_explainer"].to_list()))
+    logger.info(f"Found {len(processed_ids)} already processed explanations in parquet")
+    return processed_ids
 
 
-def load_checkpoint(checkpoint_path: Path, codebook: CodebookManager) -> tuple[List[Dict], set]:
-    """Load checkpoint to resume processing."""
-    checkpoints = sorted(checkpoint_path.glob("checkpoint_*_results.json"))
-    if not checkpoints:
-        return [], set()
+def save_parquet(results: List[Dict], output_path: Path, config: Dict, codebook: CodebookManager):
+    """Save results to parquet file (cumulative - appends to existing).
 
-    latest = checkpoints[-1]
-    checkpoint_num = int(latest.stem.split("_")[1])
+    Looks up current code_text from codebook to reflect any merges.
+    """
+    # Skip if no new results
+    if not results:
+        logger.info("No new results to save")
+        return
 
-    with open(latest, 'r', encoding='utf-8') as f:
-        results = json.load(f)
-
-    codebook_path = checkpoint_path / f"checkpoint_{checkpoint_num}_codebook.json"
-    if codebook_path.exists():
-        codebook.load(codebook_path)
-
-    processed_ids = {(r["feature_id"], r["llm_explainer"]) for r in results}
-    logger.info(f"Loaded checkpoint {checkpoint_num}: {len(results)} results, {len(codebook)} codes")
-
-    return results, processed_ids
-
-
-def save_parquet(results: List[Dict], output_path: Path, config: Dict):
-    """Save results to parquet file (cumulative - appends to existing)."""
     # Convert codes to serializable format
     serializable_results = []
     for r in results:
+        # Look up current code names from codebook (may have changed due to merges)
+        codes_with_current_names = []
+        for c in r["codes"]:
+            current_code_text = codebook.entries[c.code_id].code_text if c.code_id in codebook.entries else c.code_text
+            codes_with_current_names.append({
+                "code_id": c.code_id,
+                "code_text": current_code_text,
+                "quotes": c.quotes,
+                "is_new": c.is_new,
+                "merged_with": c.merged_with,
+            })
+
         result = {
             "feature_id": r["feature_id"],
             "llm_explainer": r["llm_explainer"],
             "explanation_text": r["explanation_text"],
-            "codes": json.dumps([{
-                "code_id": c.code_id,
-                "code_text": c.code_text,
-                "quotes": c.quotes,
-                "is_new": c.is_new,
-                "merged_with": c.merged_with,
-            } for c in r["codes"]]),
+            "codes": json.dumps(codes_with_current_names),
             "coding_metadata": json.dumps(r["coding_metadata"]),
         }
         serializable_results.append(result)
@@ -240,11 +219,6 @@ def main():
         default=None,
         help="Path to existing codebook.json to continue from"
     )
-    parser.add_argument(
-        "--resume",
-        action="store_true",
-        help="Resume from checkpoint"
-    )
     args = parser.parse_args()
 
     # Setup paths
@@ -266,7 +240,6 @@ def main():
     start = args.start if args.start is not None else run_cfg.get("start_feature")
     end = args.end if args.end is not None else run_cfg.get("end_feature")
     limit = args.limit if args.limit is not None else run_cfg.get("limit")
-    resume = args.resume or run_cfg.get("resume", False)
     mode = run_cfg.get("mode", "continue")
     load_codebook_path = args.load_codebook if args.load_codebook is not None else run_cfg.get("load_codebook")
 
@@ -275,7 +248,7 @@ def main():
     output_codebook = project_root / config["output_paths"]["codebook_json"]
 
     # Handle overwrite mode
-    if mode == "overwrite" and not resume:
+    if mode == "overwrite":
         if output_parquet.exists():
             output_parquet.unlink()
             logger.info(f"Overwrite mode: deleted {output_parquet}")
@@ -293,7 +266,7 @@ def main():
     )
 
     # Load existing codebook if specified (only in continue mode)
-    if mode == "continue" and load_codebook_path and not resume:
+    if mode == "continue" and load_codebook_path:
         codebook_path = Path(load_codebook_path)
         if not codebook_path.is_absolute():
             codebook_path = script_dir / codebook_path
@@ -310,27 +283,20 @@ def main():
     # Load data
     df = load_explanations(config, project_root, limit, start, end)
 
-    # Resume from checkpoint if requested
-    checkpoint_dir = script_dir / "checkpoints"
+    # In continue mode, skip already processed features (from existing parquet)
     results = []
-    processed_ids = set()
-
-    if resume:
-        if load_codebook_path:
-            logger.warning("Resume mode: ignoring LOAD_CODEBOOK, using checkpoint codebook.")
-        results, processed_ids = load_checkpoint(checkpoint_dir, codebook)
-
-    # Filter out already processed
-    if processed_ids:
-        df = df.filter(
-            ~pl.struct(["feature_id", "llm_explainer"]).is_in(
-                [{"feature_id": fid, "llm_explainer": exp} for fid, exp in processed_ids]
+    if mode == "continue":
+        processed_ids = get_processed_ids(output_parquet)
+        if processed_ids:
+            df = df.filter(
+                ~pl.struct(["feature_id", "llm_explainer"]).is_in(
+                    [{"feature_id": fid, "llm_explainer": exp} for fid, exp in processed_ids]
+                )
             )
-        )
-        logger.info(f"Resuming: {len(df)} explanations remaining")
+            logger.info(f"Continue mode: {len(df)} explanations remaining")
 
     # Processing configuration
-    checkpoint_every = config["processing_config"].get("checkpoint_every", 500)
+    save_every = config["processing_config"].get("save_every", 30)
     output_codebook.parent.mkdir(parents=True, exist_ok=True)
 
     # Create timestamped history directory
@@ -344,7 +310,7 @@ def main():
     print(f"Thematic-LM Coding Stage (AutoGen) - Per-Item Processing")
     print(f"  Paper: Qiao et al. WWW '25")
     print(f"  Model: {config['llm_config'].get('model', 'gpt-4o-mini')}")
-    print(f"  Mode: {mode.upper()}" + (" (resume)" if resume else ""))
+    print(f"  Mode: {mode.upper()}")
     print(f"  Coders: {len(pipeline.coders)} ({', '.join(c.name for c in pipeline.coders)})")
     if start is not None or end is not None:
         range_str = f"{start or 'start'} to {end or 'end'}"
@@ -388,15 +354,12 @@ def main():
                 }
             })
 
-            # Save codebook every 10 explanations
+            # Save periodically (codebook + parquet)
             stats = pipeline.get_stats()
-            if stats["total_processed"] > 0 and stats["total_processed"] % 10 == 0:
+            if stats["total_processed"] > 0 and stats["total_processed"] % save_every == 0:
                 codebook.save(output_codebook)
-
-            # Checkpoint periodically
-            if stats["total_processed"] > 0 and stats["total_processed"] % checkpoint_every == 0:
-                checkpoint_num = stats["total_processed"] // checkpoint_every
-                save_checkpoint(results, codebook, checkpoint_dir, checkpoint_num, output_parquet, config)
+                save_parquet(results, output_parquet, config, codebook)
+                logger.info(f"Saved progress: {stats['total_processed']} processed, {len(codebook)} codes")
 
         except Exception as e:
             logger.error(f"Failed to process {quote_id}: {e}")
@@ -406,7 +369,7 @@ def main():
     print("=" * 80)
     logger.info("Saving final outputs...")
 
-    save_parquet(results, output_parquet, config)
+    save_parquet(results, output_parquet, config, codebook)
     codebook.save(output_codebook)
     codebook.save(history_codebook)
     logger.info(f"Codebook history saved to: {history_codebook}")

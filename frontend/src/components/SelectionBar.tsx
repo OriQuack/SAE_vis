@@ -71,12 +71,12 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   categoryColors,
   className = '',
   onCategoryRefsReady,
-  pairCount
+  pairCount: _pairCount
 }) => {
   // Set default dimensions based on orientation
   const isVertical = orientation === 'vertical'
   const containerHeight = height ?? (isVertical ? '100%' : 24)
-  const containerWidth = width ?? (isVertical ? 24 : '100%')
+  const containerWidth = width ?? (isVertical ? 'auto' : '100%')
 
   // Store refs to category segments for external access (e.g., flow overlays)
   const categoryRefs = useRef<Map<SelectionCategory, HTMLDivElement>>(new Map())
@@ -319,10 +319,17 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
           >
-            {/* Show label if segment is large enough */}
-            {showLabels && percentage > labelThreshold && (
+            {/* Left-side label for vertical orientation */}
+            {isVertical && showLabels && (
+              <div className="selection-state-bar__left-label">
+                <span className="selection-state-bar__label-name">{config.label}</span>
+                <span className="selection-state-bar__label-count">({displayCount.toLocaleString()})</span>
+              </div>
+            )}
+            {/* Inline label for horizontal orientation */}
+            {!isVertical && showLabels && percentage > labelThreshold && (
               <span className="selection-state-bar__segment-label">
-                {isVertical ? displayCount.toLocaleString() : `${config.label} (${displayCount.toLocaleString()})`}
+                {`${config.label} (${displayCount.toLocaleString()})`}
               </span>
             )}
           </div>
@@ -526,27 +533,11 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
         flexDirection: isVertical ? 'column' : 'row'
       }}
     >
-      {/* Total Count Header (vertical orientation only) */}
-      {isVertical && (
-        <div className="selection-state-bar__header">
-          <div className="selection-state-bar__total">
-            <div className="selection-state-bar__total-primary">
-              {counts.total.toLocaleString()} Features
-            </div>
-            {stage === 'stage1' && pairCount !== undefined && (
-              <div className="selection-state-bar__total-secondary">
-                ({pairCount.toLocaleString()} Pairs)
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Bar with segments */}
       <div
         className="selection-state-bar__bar"
         style={{
-          width: isVertical ? '100%' : undefined,
+          width: isVertical ? 42 : undefined,
           height: isVertical ? '100%' : (typeof containerHeight === 'number' ? `${containerHeight}px` : containerHeight),
           display: 'flex',
           flexDirection: isVertical ? 'column' : 'row',

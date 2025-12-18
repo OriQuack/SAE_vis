@@ -16,13 +16,15 @@ export { useSortableList } from './useSortableList'
 export {
   useCommitHistory,
   createPairCommitHistoryOptions,
-  createFeatureCommitHistoryOptions
+  createFeatureCommitHistoryOptions,
+  createCauseCommitHistoryOptions
 } from './useCommitHistory'
 export type {
   SelectionState,
   SelectionSource,
   CommitType,
-  Commit
+  Commit,
+  CauseCategory
 } from './useCommitHistory'
 
 export { useBimodalStatus } from './useBimodalStatus'

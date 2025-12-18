@@ -1,0 +1,1434 @@
+[
+  {
+    "feature_id": 0,
+    "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+    "explanation_text": "Phrases or words that introduce a question or explanation about a process, situation, or method, often beginning with \\\"how\\\".",
+    "codes": [
+      {
+        "code_id": 0,
+        "code_text": "progress query",
+        "quotes": [
+          {
+            "quote": "Phrases or words that introduce a question or explanation",
+            "quote_id": "f0_llama"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      },
+      {
+        "code_id": 1,
+        "code_text": "how-beginning prompts",
+        "quotes": [
+          {
+            "quote": "often beginning with \"how\"",
+            "quote_id": "f0_llama"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      },
+      {
+        "code_id": 2,
+        "code_text": "process-or-method markers",
+        "quotes": [
+          {
+            "quote": "about a process, situation, or method",
+            "quote_id": "f0_llama"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:00:30.774083",
+      "codebook_version": 4,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 1,
+    "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+    "explanation_text": "The token \\\"define\\\" or its variants, often used in formal or technical contexts, such as mathematics, programming, or legal documents, to introduce or specify a concept, term, or entity.",
+    "codes": [
+      {
+        "code_id": 3,
+        "code_text": "definition-focused tokens",
+        "quotes": [
+          {
+            "quote": "\"define\" or its variants",
+            "quote_id": "f1_llama"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      },
+      {
+        "code_id": 4,
+        "code_text": "formal or technical contexts",
+        "quotes": [
+          {
+            "quote": "formal or technical contexts",
+            "quote_id": "f1_llama"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      },
+      {
+        "code_id": 4,
+        "code_text": "formal or technical contexts",
+        "quotes": [
+          {
+            "quote": "mathematics, programming, or legal documents",
+            "quote_id": "f1_llama"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "formal or technical contexts"
+        ]
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:01:10.100799",
+      "codebook_version": 7,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 2,
+    "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+    "explanation_text": "Tokens that are part of proper nouns, names of places, people, or organizations, or words that have a specific time-related meaning, such as \\\"hour\\\" or \\\"hours\\\".",
+    "codes": [
+      {
+        "code_id": 5,
+        "code_text": "place and organization names",
+        "quotes": [
+          {
+            "quote": "proper nouns, names of places, people, or organizations",
+            "quote_id": "f2_llama"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      },
+      {
+        "code_id": 5,
+        "code_text": "place and organization names",
+        "quotes": [
+          {
+            "quote": "names of places, people, or organizations",
+            "quote_id": "f2_llama"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "proper nouns"
+        ]
+      },
+      {
+        "code_id": 6,
+        "code_text": "time-related words",
+        "quotes": [
+          {
+            "quote": "words that have a specific time-related meaning, such as \"hour\" or \"hours\"",
+            "quote_id": "f2_llama"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:01:39.399948",
+      "codebook_version": 10,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 3,
+    "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+    "explanation_text": "Various tokens including numbers, mathematical symbols, and common function words, often used in formal or technical writing, such as academic or scientific texts, and sometimes in news articles or other informative content.",
+    "codes": [
+      {
+        "code_id": 7,
+        "code_text": "numerical tokens",
+        "quotes": [
+          {
+            "quote": "numbers",
+            "quote_id": "f3_llama"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      },
+      {
+        "code_id": 8,
+        "code_text": "mathematical symbols",
+        "quotes": [
+          {
+            "quote": "mathematical symbols",
+            "quote_id": "f3_llama"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      },
+      {
+        "code_id": 9,
+        "code_text": "function words",
+        "quotes": [
+          {
+            "quote": "common function words",
+            "quote_id": "f3_llama"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:02:07.322160",
+      "codebook_version": 13,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 4,
+    "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+    "explanation_text": "Punctuation marks and special characters used in various contexts, including mathematical and programming notation, citations, and abbreviations.",
+    "codes": [
+      {
+        "code_id": 10,
+        "code_text": "punctuation and special characters",
+        "quotes": [
+          {
+            "quote": "Punctuation marks and special characters",
+            "quote_id": "f4_llama"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      },
+      {
+        "code_id": 11,
+        "code_text": "mathematical and programming notation",
+        "quotes": [
+          {
+            "quote": "mathematical and programming notation",
+            "quote_id": "f4_llama"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      },
+      {
+        "code_id": 12,
+        "code_text": "citations and abbreviations",
+        "quotes": [
+          {
+            "quote": "citations, and abbreviations",
+            "quote_id": "f4_llama"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:02:31.610235",
+      "codebook_version": 16,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 0,
+    "llm_explainer": "google/gemini-flash-2.5",
+    "explanation_text": "how things are doing",
+    "codes": [
+      {
+        "code_id": 0,
+        "code_text": "progress query",
+        "quotes": [
+          {
+            "quote": "how things are doing",
+            "quote_id": "f0_gemini"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "question-introducing phrases"
+        ]
+      },
+      {
+        "code_id": 0,
+        "code_text": "progress query",
+        "quotes": [
+          {
+            "quote": "how things are doing",
+            "quote_id": "f0_gemini"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "status inquiry phrase"
+        ]
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:03:17.621803",
+      "codebook_version": 18,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 1,
+    "llm_explainer": "google/gemini-flash-2.5",
+    "explanation_text": "defining something",
+    "codes": [
+      {
+        "code_id": 13,
+        "code_text": "definitional phrase",
+        "quotes": [
+          {
+            "quote": "defining something",
+            "quote_id": "f1_gemini"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      },
+      {
+        "code_id": 13,
+        "code_text": "definitional phrase",
+        "quotes": [
+          {
+            "quote": "defining something",
+            "quote_id": "f1_gemini"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "definitional phrase"
+        ]
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:03:33.901037",
+      "codebook_version": 20,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 2,
+    "llm_explainer": "google/gemini-flash-2.5",
+    "explanation_text": "starts with Hor",
+    "codes": [
+      {
+        "code_id": 14,
+        "code_text": "tokens starting with 'Hor'",
+        "quotes": [
+          {
+            "quote": "starts with Hor",
+            "quote_id": "f2_gemini"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      },
+      {
+        "code_id": 14,
+        "code_text": "tokens starting with 'Hor'",
+        "quotes": [
+          {
+            "quote": "starts with Hor",
+            "quote_id": "f2_gemini"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "tokens starting with 'Hor'"
+        ]
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:03:56.656089",
+      "codebook_version": 22,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 3,
+    "llm_explainer": "google/gemini-flash-2.5",
+    "explanation_text": "overtime tie shootout",
+    "codes": [
+      {
+        "code_id": 15,
+        "code_text": "game resolution terms",
+        "quotes": [
+          {
+            "quote": "overtime tie shootout",
+            "quote_id": "f3_gemini"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      },
+      {
+        "code_id": 15,
+        "code_text": "game resolution terms",
+        "quotes": [
+          {
+            "quote": "overtime tie shootout",
+            "quote_id": "f3_gemini"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "sports terminology"
+        ]
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:04:37.537770",
+      "codebook_version": 24,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 4,
+    "llm_explainer": "google/gemini-flash-2.5",
+    "explanation_text": "bounding volume hierarchy",
+    "codes": [
+      {
+        "code_id": 16,
+        "code_text": "spatial acceleration structure",
+        "quotes": [
+          {
+            "quote": "bounding volume hierarchy",
+            "quote_id": "f4_gemini"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      },
+      {
+        "code_id": 17,
+        "code_text": "BVH terminology",
+        "quotes": [
+          {
+            "quote": "bounding volume hierarchy",
+            "quote_id": "f4_gemini"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:04:55.411369",
+      "codebook_version": 26,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 0,
+    "llm_explainer": "openai/gpt-4o-mini",
+    "explanation_text": "questions and phrases about comparisons and assessments",
+    "codes": [
+      {
+        "code_id": 18,
+        "code_text": "assessment phrases",
+        "quotes": [
+          {
+            "quote": "questions and phrases about comparisons",
+            "quote_id": "f0_gpt"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      },
+      {
+        "code_id": 18,
+        "code_text": "assessment phrases",
+        "quotes": [
+          {
+            "quote": "phrases about comparisons and assessments",
+            "quote_id": "f0_gpt"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "comparative questions"
+        ]
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:05:17.378514",
+      "codebook_version": 28,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 1,
+    "llm_explainer": "openai/gpt-4o-mini",
+    "explanation_text": " occurrences of the word \\\"define\\\" and its variations, indicating a focus on definitions or explanations",
+    "codes": [
+      {
+        "code_id": 3,
+        "code_text": "definition-focused tokens",
+        "quotes": [
+          {
+            "quote": "the word \"define\" and its variations",
+            "quote_id": "f1_gpt"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "define token"
+        ]
+      },
+      {
+        "code_id": 3,
+        "code_text": "definition-focused tokens",
+        "quotes": [
+          {
+            "quote": "focus on definitions or explanations",
+            "quote_id": "f1_gpt"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "define token"
+        ]
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:05:47.054653",
+      "codebook_version": 30,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 2,
+    "llm_explainer": "openai/gpt-4o-mini",
+    "explanation_text": " references to \\\"Horace\\\" or related names and terms within various contexts",
+    "codes": [
+      {
+        "code_id": 5,
+        "code_text": "place and organization names",
+        "quotes": [
+          {
+            "quote": "references to \"Horace\"",
+            "quote_id": "f2_gpt"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "place and organization names"
+        ]
+      },
+      {
+        "code_id": 19,
+        "code_text": "related names and terms",
+        "quotes": [
+          {
+            "quote": "related names and terms",
+            "quote_id": "f2_gpt"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:06:09.862144",
+      "codebook_version": 32,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 3,
+    "llm_explainer": "openai/gpt-4o-mini",
+    "explanation_text": " references to competitive sports events, particularly playoffs and finals",
+    "codes": [
+      {
+        "code_id": 20,
+        "code_text": "competitive sports events",
+        "quotes": [
+          {
+            "quote": "competitive sports events",
+            "quote_id": "f3_gpt"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      },
+      {
+        "code_id": 20,
+        "code_text": "competitive sports events",
+        "quotes": [
+          {
+            "quote": "playoffs",
+            "quote_id": "f3_gpt"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "competitive sports events"
+        ]
+      },
+      {
+        "code_id": 20,
+        "code_text": "competitive sports events",
+        "quotes": [
+          {
+            "quote": "finals",
+            "quote_id": "f3_gpt"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "competitive sports events"
+        ]
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:06:44.186969",
+      "codebook_version": 35,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 4,
+    "llm_explainer": "openai/gpt-4o-mini",
+    "explanation_text": " technical terms and entities related to programming and data structures",
+    "codes": [
+      {
+        "code_id": 21,
+        "code_text": "programming terminology",
+        "quotes": [
+          {
+            "quote": "technical terms and entities related to programming",
+            "quote_id": "f4_gpt"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      },
+      {
+        "code_id": 21,
+        "code_text": "programming terminology",
+        "quotes": [
+          {
+            "quote": "data structures",
+            "quote_id": "f4_gpt"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "programming terminology"
+        ]
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:07:00.261646",
+      "codebook_version": 37,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 5,
+    "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+    "explanation_text": "Punctuation marks, particularly commas, periods, and occasionally other symbols, often used to separate items in lists, set off clauses, or indicate the end of a sentence, and sometimes linking clauses or phrases.",
+    "codes": [
+      {
+        "code_id": 10,
+        "code_text": "clause-linking punctuation",
+        "quotes": [
+          {
+            "quote": "commas, periods, and occasionally other symbols",
+            "quote_id": "f5_llama"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "punctuation and special characters"
+        ]
+      },
+      {
+        "code_id": 10,
+        "code_text": "clause-linking punctuation",
+        "quotes": [
+          {
+            "quote": "often used to separate items in lists",
+            "quote_id": "f5_llama"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "commas and periods"
+        ]
+      },
+      {
+        "code_id": 10,
+        "code_text": "clause-linking punctuation",
+        "quotes": [
+          {
+            "quote": "linking clauses or phrases",
+            "quote_id": "f5_llama"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "commas and periods"
+        ]
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:15:05.946707",
+      "codebook_version": 40,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 6,
+    "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+    "explanation_text": "Special characters and symbols used in programming languages, such as operators, brackets, and semicolons, as well as keywords and identifiers in various programming contexts.",
+    "codes": [
+      {
+        "code_id": 11,
+        "code_text": "operators and brackets",
+        "quotes": [
+          {
+            "quote": "Special characters and symbols used in programming languages",
+            "quote_id": "f6_llama"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "mathematical and programming notation"
+        ]
+      },
+      {
+        "code_id": 11,
+        "code_text": "operators and brackets",
+        "quotes": [
+          {
+            "quote": "operators, brackets, and semicolons",
+            "quote_id": "f6_llama"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "programming symbols"
+        ]
+      },
+      {
+        "code_id": 21,
+        "code_text": "keywords and identifiers",
+        "quotes": [
+          {
+            "quote": "keywords and identifiers in various programming contexts",
+            "quote_id": "f6_llama"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "programming terminology"
+        ]
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:16:01.571178",
+      "codebook_version": 43,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 7,
+    "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+    "explanation_text": "Prepositions and conjunctions, often used to introduce or connect phrases, clauses, or ideas, and sometimes comparative or transitional words or phrases.",
+    "codes": [
+      {
+        "code_id": 22,
+        "code_text": "prepositions",
+        "quotes": [
+          {
+            "quote": "Prepositions and conjunctions",
+            "quote_id": "f7_llama"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      },
+      {
+        "code_id": 23,
+        "code_text": "conjunctions",
+        "quotes": [
+          {
+            "quote": "Prepositions and conjunctions",
+            "quote_id": "f7_llama"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      },
+      {
+        "code_id": 24,
+        "code_text": "comparative expressions",
+        "quotes": [
+          {
+            "quote": "comparative or transitional words or phrases",
+            "quote_id": "f7_llama"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:17:02.616502",
+      "codebook_version": 46,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 8,
+    "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+    "explanation_text": "Nouns representing buildings, structures, and monuments, often including specific names or descriptive words.",
+    "codes": [
+      {
+        "code_id": 25,
+        "code_text": "architecture vocabulary",
+        "quotes": [
+          {
+            "quote": "Nouns representing buildings, structures, and monuments",
+            "quote_id": "f8_llama"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      },
+      {
+        "code_id": 19,
+        "code_text": "specific or descriptive names",
+        "quotes": [
+          {
+            "quote": "specific names or descriptive words",
+            "quote_id": "f8_llama"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "related names and terms"
+        ]
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:17:28.588158",
+      "codebook_version": 48,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 9,
+    "llm_explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+    "explanation_text": "Various nouns and adjectives representing concepts, objects, or ideas, often related to science, nature, or abstract notions, and sometimes used in formal or technical contexts.",
+    "codes": [
+      {
+        "code_id": 26,
+        "code_text": "nouns and adjectives",
+        "quotes": [
+          {
+            "quote": "Various nouns and adjectives representing concepts, objects, or ideas",
+            "quote_id": "f9_llama"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      },
+      {
+        "code_id": 27,
+        "code_text": "nature vocabulary",
+        "quotes": [
+          {
+            "quote": "related to science, nature, or abstract notions",
+            "quote_id": "f9_llama"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      },
+      {
+        "code_id": 4,
+        "code_text": "technical definitions",
+        "quotes": [
+          {
+            "quote": "formal or technical contexts",
+            "quote_id": "f9_llama"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "formal or technical contexts"
+        ]
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:18:08.459176",
+      "codebook_version": 51,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 5,
+    "llm_explainer": "google/gemini-flash-2.5",
+    "explanation_text": "linking verb plus adjective",
+    "codes": [
+      {
+        "code_id": 28,
+        "code_text": "adjective complements",
+        "quotes": [
+          {
+            "quote": "linking verb plus adjective",
+            "quote_id": "f5_gemini"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      },
+      {
+        "code_id": 28,
+        "code_text": "adjective complements",
+        "quotes": [
+          {
+            "quote": "linking verb plus adjective",
+            "quote_id": "f5_gemini"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "linking verb constructions"
+        ]
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:18:32.493317",
+      "codebook_version": 53,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 6,
+    "llm_explainer": "google/gemini-flash-2.5",
+    "explanation_text": "function/macro definitions",
+    "codes": [
+      {
+        "code_id": 29,
+        "code_text": "function definitions",
+        "quotes": [
+          {
+            "quote": "function",
+            "quote_id": "f6_gemini"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      },
+      {
+        "code_id": 30,
+        "code_text": "macro definitions",
+        "quotes": [
+          {
+            "quote": "macro definitions",
+            "quote_id": "f6_gemini"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      },
+      {
+        "code_id": 31,
+        "code_text": "programming constructs",
+        "quotes": [
+          {
+            "quote": "function/macro definitions",
+            "quote_id": "f6_gemini"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:19:03.342339",
+      "codebook_version": 56,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 7,
+    "llm_explainer": "google/gemini-flash-2.5",
+    "explanation_text": "do this/that",
+    "codes": [
+      {
+        "code_id": 32,
+        "code_text": "slash alternation",
+        "quotes": [
+          {
+            "quote": "this/that",
+            "quote_id": "f7_gemini"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      },
+      {
+        "code_id": 33,
+        "code_text": "imperative verb phrase",
+        "quotes": [
+          {
+            "quote": "do this/that",
+            "quote_id": "f7_gemini"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:19:20.692367",
+      "codebook_version": 58,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 8,
+    "llm_explainer": "google/gemini-flash-2.5",
+    "explanation_text": "buildings, architecture, built",
+    "codes": [
+      {
+        "code_id": 25,
+        "code_text": "architecture vocabulary",
+        "quotes": [
+          {
+            "quote": "buildings, architecture, built",
+            "quote_id": "f8_gemini"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "building and structure nouns"
+        ]
+      },
+      {
+        "code_id": 25,
+        "code_text": "architecture vocabulary",
+        "quotes": [
+          {
+            "quote": "buildings, architecture, built",
+            "quote_id": "f8_gemini"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "architecture vocabulary"
+        ]
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:19:42.192646",
+      "codebook_version": 60,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 9,
+    "llm_explainer": "google/gemini-flash-2.5",
+    "explanation_text": "nature in scientific contexts",
+    "codes": [
+      {
+        "code_id": 27,
+        "code_text": "nature vocabulary",
+        "quotes": [
+          {
+            "quote": "nature",
+            "quote_id": "f9_gemini"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "science and nature terms"
+        ]
+      },
+      {
+        "code_id": 4,
+        "code_text": "technical definitions",
+        "quotes": [
+          {
+            "quote": "scientific contexts",
+            "quote_id": "f9_gemini"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "formal or technical contexts"
+        ]
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:20:32.990910",
+      "codebook_version": 62,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 5,
+    "llm_explainer": "openai/gpt-4o-mini",
+    "explanation_text": "expressions related to quality and experience in various contexts",
+    "codes": [
+      {
+        "code_id": 34,
+        "code_text": "quality expressions",
+        "quotes": [
+          {
+            "quote": "expressions related to quality",
+            "quote_id": "f5_gpt"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      },
+      {
+        "code_id": 35,
+        "code_text": "experience expressions",
+        "quotes": [
+          {
+            "quote": "experience in various contexts",
+            "quote_id": "f5_gpt"
+          }
+        ],
+        "is_new": true,
+        "merged_with": []
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:20:55.068780",
+      "codebook_version": 64,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 6,
+    "llm_explainer": "openai/gpt-4o-mini",
+    "explanation_text": " phrases related to technical definitions and programming constructs",
+    "codes": [
+      {
+        "code_id": 4,
+        "code_text": "technical definitions",
+        "quotes": [
+          {
+            "quote": "technical definitions",
+            "quote_id": "f6_gpt"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "scientific and technical contexts"
+        ]
+      },
+      {
+        "code_id": 31,
+        "code_text": "programming constructs",
+        "quotes": [
+          {
+            "quote": "programming constructs",
+            "quote_id": "f6_gpt"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "programming constructs"
+        ]
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:21:14.246283",
+      "codebook_version": 66,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 7,
+    "llm_explainer": "openai/gpt-4o-mini",
+    "explanation_text": " expressions indicating comparison or similarity",
+    "codes": [
+      {
+        "code_id": 24,
+        "code_text": "comparative expressions",
+        "quotes": [
+          {
+            "quote": "comparison or similarity",
+            "quote_id": "f7_gpt"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "comparative or transitional words"
+        ]
+      },
+      {
+        "code_id": 24,
+        "code_text": "comparative expressions",
+        "quotes": [
+          {
+            "quote": "expressions indicating comparison or similarity",
+            "quote_id": "f7_gpt"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "comparative expressions"
+        ]
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:21:39.937459",
+      "codebook_version": 68,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 8,
+    "llm_explainer": "openai/gpt-4o-mini",
+    "explanation_text": "references to architectural structures and educational institutions",
+    "codes": [
+      {
+        "code_id": 25,
+        "code_text": "architecture vocabulary",
+        "quotes": [
+          {
+            "quote": "architectural structures",
+            "quote_id": "f8_gpt"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "architecture vocabulary"
+        ]
+      },
+      {
+        "code_id": 5,
+        "code_text": "place and organization names",
+        "quotes": [
+          {
+            "quote": "educational institutions",
+            "quote_id": "f8_gpt"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "place and organization names"
+        ]
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:22:19.893448",
+      "codebook_version": 70,
+      "framework": "autogen"
+    }
+  },
+  {
+    "feature_id": 9,
+    "llm_explainer": "openai/gpt-4o-mini",
+    "explanation_text": "terms related to the concept of 'nature'",
+    "codes": [
+      {
+        "code_id": 27,
+        "code_text": "nature vocabulary",
+        "quotes": [
+          {
+            "quote": "terms related to the concept of 'nature'",
+            "quote_id": "f9_gpt"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "science and nature terms"
+        ]
+      },
+      {
+        "code_id": 27,
+        "code_text": "nature vocabulary",
+        "quotes": [
+          {
+            "quote": "terms related to the concept of 'nature'",
+            "quote_id": "f9_gpt"
+          }
+        ],
+        "is_new": false,
+        "merged_with": [
+          "science and nature terms"
+        ]
+      }
+    ],
+    "coding_metadata": {
+      "coder_model": "gpt-5-mini",
+      "num_coders": 1,
+      "coder_ids": [
+        "coder_sae"
+      ],
+      "timestamp": "2025-12-16T13:22:53.641561",
+      "codebook_version": 72,
+      "framework": "autogen"
+    }
+  }
+]

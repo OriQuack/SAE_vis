@@ -311,6 +311,6 @@ export const STRIPE_PATTERN = {
   width: 12,
   height: 12,
   stripeWidth: 6,
-  rotation: 45,
+  rotation: -45,
   opacity: 0.3
 }

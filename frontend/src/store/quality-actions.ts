@@ -295,7 +295,7 @@ export const createQualityActions = (set: any, get: any) => ({
   },
 
   /**
-   * Set histogram data for feature mode (called by TagAutomaticPanel)
+   * Set histogram data for feature mode (called by DecisionMarginHistogram)
    * Creates tagAutomaticState if it doesn't exist
    */
   setTagAutomaticHistogramData: (histogramData: any, selectThreshold: number, rejectThreshold: number) => {

@@ -1,7 +1,7 @@
 {
-  "created_at": "2025-12-16T12:07:01.090675",
-  "total_rows": 15,
-  "unique_features": 5,
+  "created_at": "2025-12-16T13:22:53.654718",
+  "total_rows": 30,
+  "unique_features": 10,
   "unique_explainers": 3,
   "schema": {
     "feature_id": "UInt32",
@@ -12,6 +12,14 @@
   },
   "config_used": {
     "description": "Configuration for Thematic-LM coding stage (SAE feature explanations). Following paper: Qiao et al. WWW '25",
+    "run_config": {
+      "description": "Run-specific settings. Edit these before each run.",
+      "start_feature": null,
+      "end_feature": null,
+      "limit": 10,
+      "mode": "continue",
+      "load_codebook": "../master/codebook.json"
+    },
     "input_paths": {
       "explanation_embeddings_path": "../master/explanation_embeddings.parquet"
     },
@@ -48,7 +56,7 @@
     },
     "processing_config": {
       "description": "Per-item processing, up to 100 quotes per code (paper: 20), 1-3 codes per explanation",
-      "checkpoint_every": 500,
+      "save_every": 30,
       "max_codes_per_explanation": 3,
       "max_quotes_per_code": 100
     }

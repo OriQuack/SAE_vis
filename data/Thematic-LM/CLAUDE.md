@@ -49,6 +49,8 @@ data/Thematic-LM/
 ├── thematic_coding.py        # Main script (per-item processing)
 ├── autogen_pipeline.py       # AutoGen orchestration class
 ├── codebook_manager.py       # Embedding-based codebook with quote_ids
+├── parquet_to_json.py        # Convert parquet output to JSON
+├── codebook_history/         # Processing checkpoints (auto-saved)
 └── autogen_agents/           # AutoGen agent factories
     ├── __init__.py
     ├── coder.py              # CoderAgent with identity support
@@ -133,7 +135,15 @@ OPENAI_API_KEY=<key> python thematic_coding.py
 
 # Resume from checkpoint
 OPENAI_API_KEY=<key> python thematic_coding.py --resume
+
+# Convert parquet output to JSON
+python parquet_to_json.py
 ```
+
+### Checkpointing
+- Progress is auto-saved to `codebook_history/` after each item
+- Use `--resume` to continue from the last checkpoint
+- Each checkpoint contains: codebook state, processed items, timestamp
 
 ## Per-Item Processing (Paper Section 3.1)
 

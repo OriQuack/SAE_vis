@@ -1,22 +1,27 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 
 // ============================================================================
 // useCommitHistory - Generic commit history for tagging state snapshots
 // ============================================================================
-// Extracts common commit history logic from FeatureSplitView and QualityView
+// Extracts common commit history logic from FeatureSplitView, QualityView, and CauseView
 
 export type SelectionState = 'selected' | 'rejected'
 export type SelectionSource = 'manual' | 'auto'
 export type CommitType = 'initial' | 'apply' | 'tagAll'
 
-export interface Commit<TStates, TSources> {
+// CauseCategory for Stage 3 (multi-class instead of binary)
+export type CauseCategory = 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'
+
+export interface Commit<TStates, TSources, TCounts = void> {
   id: number
   type: CommitType
   states: TStates
   sources: TSources
+  counts?: TCounts  // Optional counts for tooltip preview
+  featureIds?: Set<number>  // Feature IDs for stage revisiting
 }
 
-interface UseCommitHistoryOptions<TStates, TSources> {
+interface UseCommitHistoryOptions<TStates, TSources, TCounts = void> {
   /** Function to get current states from store */
   getStatesFromStore: () => TStates
   /** Function to get current sources from store */
@@ -33,11 +38,22 @@ interface UseCommitHistoryOptions<TStates, TSources> {
   createEmptySources: () => TSources
   /** Maximum number of commits to keep (default: 10) */
   maxCommits?: number
+
+  // === New options for extended functionality ===
+
+  /** Calculate counts from current state (for commit storage and tooltip preview) */
+  calculateCounts?: () => TCounts
+  /** Get current feature IDs (for stage revisiting) */
+  getFeatureIds?: () => Set<number> | null
+  /** Called after creating a commit (for stage-final saving) */
+  onCommitCreated?: (commit: Commit<TStates, TSources, TCounts>) => void
+  /** Initial commit to restore from (for revisiting a stage) */
+  initialCommit?: Commit<TStates, TSources, TCounts> | null
 }
 
-interface UseCommitHistoryReturn<TStates, TSources> {
+interface UseCommitHistoryReturn<TStates, TSources, TCounts = void> {
   /** All commits in history */
-  commits: Commit<TStates, TSources>[]
+  commits: Commit<TStates, TSources, TCounts>[]
   /** Current commit index */
   currentCommitIndex: number
   /** Save current state to current commit (before switching) */
@@ -54,9 +70,9 @@ interface UseCommitHistoryReturn<TStates, TSources> {
 
 const DEFAULT_MAX_COMMITS = 10
 
-export function useCommitHistory<TStates, TSources>(
-  options: UseCommitHistoryOptions<TStates, TSources>
-): UseCommitHistoryReturn<TStates, TSources> {
+export function useCommitHistory<TStates, TSources, TCounts = void>(
+  options: UseCommitHistoryOptions<TStates, TSources, TCounts>
+): UseCommitHistoryReturn<TStates, TSources, TCounts> {
   const {
     getStatesFromStore,
     getSourcesFromStore,
@@ -65,19 +81,80 @@ export function useCommitHistory<TStates, TSources>(
     cloneSources,
     createEmptyStates,
     createEmptySources,
-    maxCommits = DEFAULT_MAX_COMMITS
+    maxCommits = DEFAULT_MAX_COMMITS,
+    // New options
+    calculateCounts,
+    getFeatureIds,
+    onCommitCreated,
+    initialCommit
   } = options
 
-  // Initial commit with empty state
-  const [commits, setCommits] = useState<Commit<TStates, TSources>[]>([
-    {
-      id: 0,
-      type: 'initial',
-      states: createEmptyStates(),
-      sources: createEmptySources()
+  // Initial commit with empty state (or restored from initialCommit)
+  const [commits, setCommits] = useState<Commit<TStates, TSources, TCounts>[]>(() => {
+    if (initialCommit) {
+      // If we have an initial commit (revisiting), start with initial + that commit
+      return [
+        {
+          id: 0,
+          type: 'initial',
+          states: createEmptyStates(),
+          sources: createEmptySources(),
+          counts: undefined,
+          featureIds: undefined
+        },
+        initialCommit
+      ]
     }
-  ])
-  const [currentCommitIndex, setCurrentCommitIndex] = useState(0)
+    return [
+      {
+        id: 0,
+        type: 'initial',
+        states: createEmptyStates(),
+        sources: createEmptySources(),
+        counts: undefined,
+        featureIds: undefined
+      }
+    ]
+  })
+
+  const [currentCommitIndex, setCurrentCommitIndex] = useState(() => initialCommit ? 1 : 0)
+
+  // Restore state from initialCommit on mount (for revisiting)
+  useEffect(() => {
+    if (initialCommit) {
+      restoreToStore(initialCommit.states, initialCommit.sources)
+    }
+    // Only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Helper to build commit data
+  const buildCommitData = useCallback(
+    (type: CommitType, states: TStates, sources: TSources): Commit<TStates, TSources, TCounts> => {
+      const commit: Commit<TStates, TSources, TCounts> = {
+        id: 0, // Will be set by caller
+        type,
+        states: cloneStates(states),
+        sources: cloneSources(sources)
+      }
+
+      // Add counts if calculator provided
+      if (calculateCounts) {
+        commit.counts = calculateCounts()
+      }
+
+      // Add featureIds if getter provided
+      if (getFeatureIds) {
+        const ids = getFeatureIds()
+        if (ids) {
+          commit.featureIds = new Set(ids)
+        }
+      }
+
+      return commit
+    },
+    [cloneStates, cloneSources, calculateCounts, getFeatureIds]
+  )
 
   // Save current store state to current commit
   const saveCurrentState = useCallback(() => {
@@ -86,14 +163,17 @@ export function useCommitHistory<TStates, TSources>(
 
     setCommits(prev => {
       const updated = [...prev]
+      const existingCommit = updated[currentCommitIndex]
       updated[currentCommitIndex] = {
-        ...updated[currentCommitIndex],
+        ...existingCommit,
         states: cloneStates(currentStates),
-        sources: cloneSources(currentSources)
+        sources: cloneSources(currentSources),
+        counts: calculateCounts ? calculateCounts() : existingCommit.counts,
+        featureIds: getFeatureIds ? (getFeatureIds() ? new Set(getFeatureIds()!) : existingCommit.featureIds) : existingCommit.featureIds
       }
       return updated
     })
-  }, [getStatesFromStore, getSourcesFromStore, cloneStates, cloneSources, currentCommitIndex])
+  }, [getStatesFromStore, getSourcesFromStore, cloneStates, cloneSources, calculateCounts, getFeatureIds, currentCommitIndex])
 
   // Create a new commit (synchronous version)
   const createCommit = useCallback(
@@ -101,14 +181,10 @@ export function useCommitHistory<TStates, TSources>(
       const currentStates = getStatesFromStore()
       const currentSources = getSourcesFromStore()
 
-      const newCommit: Commit<TStates, TSources> = {
-        id: commits.length,
-        type,
-        states: cloneStates(currentStates),
-        sources: cloneSources(currentSources)
-      }
+      const newCommit = buildCommitData(type, currentStates, currentSources)
 
       setCommits(prev => {
+        newCommit.id = prev.length
         let newHistory = [...prev, newCommit]
         // Trim to maxCommits, keeping initial commit
         if (newHistory.length > maxCommits) {
@@ -118,8 +194,13 @@ export function useCommitHistory<TStates, TSources>(
       })
 
       setCurrentCommitIndex(prev => Math.min(prev + 1, maxCommits - 1))
+
+      // Notify callback
+      if (onCommitCreated) {
+        onCommitCreated(newCommit)
+      }
     },
-    [getStatesFromStore, getSourcesFromStore, cloneStates, cloneSources, commits.length, maxCommits]
+    [getStatesFromStore, getSourcesFromStore, buildCommitData, maxCommits, onCommitCreated]
   )
 
   // Create commit after async operation (for use in setTimeout after store updates)
@@ -129,24 +210,32 @@ export function useCommitHistory<TStates, TSources>(
       const currentStates = getStatesFromStore()
       const currentSources = getSourcesFromStore()
 
+      let createdCommit: Commit<TStates, TSources, TCounts> | null = null
+
       setCommits(prev => {
-        const newCommit: Commit<TStates, TSources> = {
-          id: prev.length,
-          type,
-          states: cloneStates(currentStates),
-          sources: cloneSources(currentSources)
-        }
+        const newCommit = buildCommitData(type, currentStates, currentSources)
+        newCommit.id = prev.length
 
         let newHistory = [...prev, newCommit]
         if (newHistory.length > maxCommits) {
           newHistory = [newHistory[0], ...newHistory.slice(-(maxCommits - 1))]
         }
+
+        createdCommit = newCommit
         return newHistory
       })
 
       setCurrentCommitIndex(prev => Math.min(prev + 1, maxCommits - 1))
+
+      // Notify callback (deferred to ensure state is updated)
+      if (onCommitCreated && createdCommit) {
+        // Use setTimeout to ensure the state update has propagated
+        setTimeout(() => {
+          if (createdCommit) onCommitCreated(createdCommit)
+        }, 0)
+      }
     },
-    [getStatesFromStore, getSourcesFromStore, cloneStates, cloneSources, maxCommits]
+    [getStatesFromStore, getSourcesFromStore, buildCommitData, maxCommits, onCommitCreated]
   )
 
   // Restore state from a specific commit
@@ -190,15 +279,15 @@ export function useCommitHistory<TStates, TSources>(
 }
 
 // ============================================================================
-// Convenience factory for Map-based selection states
+// Convenience factories for Map-based selection states
 // ============================================================================
 
-/** Create options for pair selection (string keys) */
+/** Create options for pair selection (string keys) - Stage 1 */
 export function createPairCommitHistoryOptions(
   getStatesFromStore: () => Map<string, SelectionState>,
   getSourcesFromStore: () => Map<string, SelectionSource>,
   restoreToStore: (states: Map<string, SelectionState>, sources: Map<string, SelectionSource>) => void
-): UseCommitHistoryOptions<Map<string, SelectionState>, Map<string, SelectionSource>> {
+): Omit<UseCommitHistoryOptions<Map<string, SelectionState>, Map<string, SelectionSource>>, 'calculateCounts' | 'getFeatureIds' | 'onCommitCreated' | 'initialCommit'> {
   return {
     getStatesFromStore,
     getSourcesFromStore,
@@ -210,12 +299,29 @@ export function createPairCommitHistoryOptions(
   }
 }
 
-/** Create options for feature selection (number keys) */
+/** Create options for feature selection (number keys) - Stage 2 */
 export function createFeatureCommitHistoryOptions(
   getStatesFromStore: () => Map<number, SelectionState>,
   getSourcesFromStore: () => Map<number, SelectionSource>,
   restoreToStore: (states: Map<number, SelectionState>, sources: Map<number, SelectionSource>) => void
-): UseCommitHistoryOptions<Map<number, SelectionState>, Map<number, SelectionSource>> {
+): Omit<UseCommitHistoryOptions<Map<number, SelectionState>, Map<number, SelectionSource>>, 'calculateCounts' | 'getFeatureIds' | 'onCommitCreated' | 'initialCommit'> {
+  return {
+    getStatesFromStore,
+    getSourcesFromStore,
+    restoreToStore,
+    cloneStates: (states) => new Map(states),
+    cloneSources: (sources) => new Map(sources),
+    createEmptyStates: () => new Map(),
+    createEmptySources: () => new Map()
+  }
+}
+
+/** Create options for cause selection (number keys, CauseCategory values) - Stage 3 */
+export function createCauseCommitHistoryOptions(
+  getStatesFromStore: () => Map<number, CauseCategory>,
+  getSourcesFromStore: () => Map<number, SelectionSource>,
+  restoreToStore: (states: Map<number, CauseCategory>, sources: Map<number, SelectionSource>) => void
+): Omit<UseCommitHistoryOptions<Map<number, CauseCategory>, Map<number, SelectionSource>>, 'calculateCounts' | 'getFeatureIds' | 'onCommitCreated' | 'initialCommit'> {
   return {
     getStatesFromStore,
     getSourcesFromStore,

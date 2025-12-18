@@ -12,7 +12,7 @@
   flex: 1;
   min-height: 0;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
   background-color: #ffffff;
   gap: 0;
 }
@@ -35,8 +35,8 @@
 
 /* SelectionPanel in CauseView should have fixed width */
 .cause-view .table-selection-panel {
-  flex: 0 0 85px;
-  width: 85px;
+  flex: 0 0 180px;
+  width: 180px;
 }
 
 /* ============================================================================

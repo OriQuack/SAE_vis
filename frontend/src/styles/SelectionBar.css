@@ -41,11 +41,47 @@
   line-height: 1.2;
 }
 
+/* ============================================================================
+   LEFT-SIDE LABELS - Sankey-style labels positioned to left of segments
+   ============================================================================ */
+
+/* Label positioned absolutely to the left of segment */
+.selection-state-bar__left-label {
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding-right: 6px;
+  pointer-events: none;
+  z-index: 150; /* Above SankeyToSelectionFlowOverlay (z-index: 100) */
+}
+
+/* Sankey-style label text - black with white stroke border */
+.selection-state-bar__label-name,
+.selection-state-bar__label-count {
+  font-weight: 600;
+  color: #000000;
+  -webkit-text-stroke: 3px #ffffff;
+  paint-order: stroke fill;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.selection-state-bar__label-name {
+  font-size: 14px;
+}
+
+.selection-state-bar__label-count {
+  font-size: 12px;
+}
+
 /* Main Bar */
 .selection-state-bar__bar {
   display: flex;
-  height: 24px;
-  overflow: hidden;
+  overflow: visible;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
@@ -77,13 +113,13 @@
   filter: brightness(0.88);
 }
 
-/* Segment Labels */
+/* Segment Labels - same white stroke border as left-side labels */
 .selection-state-bar__segment-label {
   font-size: 13px;
   font-weight: 700;
   color: #000000;
-  text-shadow: 0 0 3px rgba(255, 255, 255, 0.8),
-               0 0 5px rgba(255, 255, 255, 0.6);
+  -webkit-text-stroke: 3px #ffffff;
+  paint-order: stroke fill;
   white-space: nowrap;
   user-select: none;
   position: relative;

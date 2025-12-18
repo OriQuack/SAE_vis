@@ -106,16 +106,11 @@ interface CommitCounts {
   total: number
 }
 
-// Commit history type (supports both FeatureSplitView and QualityView)
+// Commit history type - minimal interface for SelectionPanel
+// (states/sources are managed by views, SelectionPanel only needs counts for preview)
 interface TagCommit {
   type: string
   id: number
-  // For Stage 1 (FeatureSplitView - pairs)
-  pairSelectionStates?: Map<string, 'selected' | 'rejected'>
-  pairSelectionSources?: Map<string, 'manual' | 'auto'>
-  // For Stage 2 (QualityView - features)
-  featureSelectionStates?: Map<number, 'selected' | 'rejected'>
-  featureSelectionSources?: Map<number, 'manual' | 'auto'>
   // Counts at commit time for hover preview
   counts?: CommitCounts
 }
@@ -470,7 +465,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
     return { confirmed, autoSelected, rejected, autoRejected, unsure, total }
   }, [stage, tagAutomaticState, pairSelectionStates, pairSelectionSources, featureSelectionStates, featureSelectionSources, filteredFeatureIds, allClusterPairs])
 
-  // Preview is active when TagAutomaticPanel has histogram data (user can drag thresholds)
+  // Preview is active when DecisionMarginHistogram has histogram data (user can drag thresholds)
   const isPreviewActive = !!tagAutomaticState?.histogramData
   // Show threshold controls only when thresholdVisualization is visible (after "Show on Table")
   const showThresholdControls = thresholdVisualization?.visible ?? false
@@ -557,7 +552,6 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
             showLabels={true}
             showLegend={true}
             orientation="vertical"
-            width="42px"
             height="100%"
             stage={stage}
             onCategoryRefsReady={onCategoryRefsReady}

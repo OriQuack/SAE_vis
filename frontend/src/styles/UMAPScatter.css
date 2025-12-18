@@ -91,7 +91,7 @@
   border-bottom: 1px solid #fcd34d;
 }
 
-/* Empty placeholder - matches TagAutomaticPanel style */
+/* Empty placeholder - matches DecisionMarginHistogram style */
 .umap-scatter__placeholder {
   display: flex;
   flex-direction: column;

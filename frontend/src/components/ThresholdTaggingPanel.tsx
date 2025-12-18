@@ -1,7 +1,7 @@
 import React from 'react'
 import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow } from '../types'
-import TagAutomaticPanel from './TagAutomaticPanel'
+import DecisionMarginHistogram from './DecisionMarginHistogram'
 import ScrollableItemList from './ScrollableItemList'
 import BimodalityIndicator from './ModalityIndicator'
 import { TagBadge } from './Indicators'
@@ -33,7 +33,7 @@ export type FeatureItemWithMetadata = {
 }
 
 export interface ThresholdTaggingPanelProps {
-  // Mode for TagAutomaticPanel
+  // Mode for DecisionMarginHistogram
   mode: 'feature' | 'pair'
   tagCategoryId: string
 
@@ -227,7 +227,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
     <div className="threshold-tagging-panel">
       {/* Histogram */}
       <div className="threshold-tagging-panel__histogram-section">
-        <TagAutomaticPanel
+        <DecisionMarginHistogram
           mode={mode}
           availablePairs={histogramProps.availablePairs}
           filteredFeatureIds={histogramProps.filteredFeatureIds}
@@ -346,7 +346,6 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
               { label: leftListLabel, count: mode === 'pair' ? `${leftItems.length.toLocaleString()} pairs` : `${leftFeatures.length.toLocaleString()} features` }
             ]}
             columnHeader={{ label: 'Decision Margin', sortDirection: 'asc' }}
-            headerStripe={{ type: 'autoReject', mode: mode }}
             items={(mode === 'pair' ? leftItems : leftFeatures) as PairItemWithMetadata[]}
             currentIndex={activeListSource === 'reject' ? currentIndex : -1}
             isActive={activeListSource === 'reject'}
@@ -363,7 +362,6 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
               { label: rightListLabel, count: mode === 'pair' ? `${rightItems.length.toLocaleString()} pairs` : `${rightFeatures.length.toLocaleString()} features` }
             ]}
             columnHeader={{ label: 'Decision Margin', sortDirection: 'asc' }}
-            headerStripe={{ type: 'expand', mode: mode }}
             items={(mode === 'pair' ? rightItems : rightFeatures) as PairItemWithMetadata[]}
             currentIndex={activeListSource === 'select' ? currentIndex : -1}
             isActive={activeListSource === 'select'}

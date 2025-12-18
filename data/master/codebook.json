@@ -1,0 +1,622 @@
+{
+  "metadata": {
+    "created_at": "2025-12-16T13:22:53.655066",
+    "total_codes": 36,
+    "version": 72,
+    "paper": "Qiao et al. Thematic-LM (WWW '25)"
+  },
+  "entries": [
+    {
+      "code_id": 0,
+      "code_text": "progress query",
+      "frequency": 3,
+      "variants": [
+        "question-introducing phrases",
+        "status inquiry phrase"
+      ],
+      "example_quotes": [
+        {
+          "quote": "Phrases or words that introduce a question or explanation",
+          "quote_id": "f0_llama"
+        },
+        {
+          "quote": "how things are doing",
+          "quote_id": "f0_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 1,
+      "code_text": "how-beginning prompts",
+      "frequency": 1,
+      "variants": [
+        "how-beginning prompts"
+      ],
+      "example_quotes": [
+        {
+          "quote": "often beginning with \"how\"",
+          "quote_id": "f0_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 2,
+      "code_text": "process-or-method markers",
+      "frequency": 1,
+      "variants": [
+        "process-or-method markers"
+      ],
+      "example_quotes": [
+        {
+          "quote": "about a process, situation, or method",
+          "quote_id": "f0_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 3,
+      "code_text": "definition-focused tokens",
+      "frequency": 3,
+      "variants": [
+        "define token"
+      ],
+      "example_quotes": [
+        {
+          "quote": "\"define\" or its variants",
+          "quote_id": "f1_llama"
+        },
+        {
+          "quote": "the word \"define\" and its variations",
+          "quote_id": "f1_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 4,
+      "code_text": "technical definitions",
+      "frequency": 5,
+      "variants": [
+        "formal or technical contexts",
+        "scientific and technical contexts"
+      ],
+      "example_quotes": [
+        {
+          "quote": "formal or technical contexts",
+          "quote_id": "f1_llama"
+        },
+        {
+          "quote": "formal or technical contexts",
+          "quote_id": "f9_llama"
+        },
+        {
+          "quote": "scientific contexts",
+          "quote_id": "f9_gemini"
+        },
+        {
+          "quote": "technical definitions",
+          "quote_id": "f6_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 5,
+      "code_text": "place and organization names",
+      "frequency": 4,
+      "variants": [
+        "proper nouns"
+      ],
+      "example_quotes": [
+        {
+          "quote": "proper nouns, names of places, people, or organizations",
+          "quote_id": "f2_llama"
+        },
+        {
+          "quote": "references to \"Horace\"",
+          "quote_id": "f2_gpt"
+        },
+        {
+          "quote": "educational institutions",
+          "quote_id": "f8_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 6,
+      "code_text": "time-related words",
+      "frequency": 1,
+      "variants": [
+        "time-related words"
+      ],
+      "example_quotes": [
+        {
+          "quote": "words that have a specific time-related meaning, such as \"hour\" or \"hours\"",
+          "quote_id": "f2_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 7,
+      "code_text": "numerical tokens",
+      "frequency": 1,
+      "variants": [
+        "numerical tokens"
+      ],
+      "example_quotes": [
+        {
+          "quote": "numbers",
+          "quote_id": "f3_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 8,
+      "code_text": "mathematical symbols",
+      "frequency": 1,
+      "variants": [
+        "mathematical symbols"
+      ],
+      "example_quotes": [
+        {
+          "quote": "mathematical symbols",
+          "quote_id": "f3_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 9,
+      "code_text": "function words",
+      "frequency": 1,
+      "variants": [
+        "function words"
+      ],
+      "example_quotes": [
+        {
+          "quote": "common function words",
+          "quote_id": "f3_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 10,
+      "code_text": "clause-linking punctuation",
+      "frequency": 4,
+      "variants": [
+        "punctuation and special characters",
+        "commas and periods"
+      ],
+      "example_quotes": [
+        {
+          "quote": "Punctuation marks and special characters",
+          "quote_id": "f4_llama"
+        },
+        {
+          "quote": "commas, periods, and occasionally other symbols",
+          "quote_id": "f5_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 11,
+      "code_text": "operators and brackets",
+      "frequency": 3,
+      "variants": [
+        "mathematical and programming notation",
+        "programming symbols"
+      ],
+      "example_quotes": [
+        {
+          "quote": "mathematical and programming notation",
+          "quote_id": "f4_llama"
+        },
+        {
+          "quote": "Special characters and symbols used in programming languages",
+          "quote_id": "f6_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 12,
+      "code_text": "citations and abbreviations",
+      "frequency": 1,
+      "variants": [
+        "citations and abbreviations"
+      ],
+      "example_quotes": [
+        {
+          "quote": "citations, and abbreviations",
+          "quote_id": "f4_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 13,
+      "code_text": "definitional phrase",
+      "frequency": 2,
+      "variants": [
+        "definitional phrase"
+      ],
+      "example_quotes": [
+        {
+          "quote": "defining something",
+          "quote_id": "f1_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 14,
+      "code_text": "tokens starting with 'Hor'",
+      "frequency": 2,
+      "variants": [
+        "tokens starting with 'Hor'"
+      ],
+      "example_quotes": [
+        {
+          "quote": "starts with Hor",
+          "quote_id": "f2_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 15,
+      "code_text": "game resolution terms",
+      "frequency": 2,
+      "variants": [
+        "sports terminology"
+      ],
+      "example_quotes": [
+        {
+          "quote": "overtime tie shootout",
+          "quote_id": "f3_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 16,
+      "code_text": "spatial acceleration structure",
+      "frequency": 1,
+      "variants": [
+        "spatial acceleration structure"
+      ],
+      "example_quotes": [
+        {
+          "quote": "bounding volume hierarchy",
+          "quote_id": "f4_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 17,
+      "code_text": "BVH terminology",
+      "frequency": 1,
+      "variants": [
+        "BVH terminology"
+      ],
+      "example_quotes": [
+        {
+          "quote": "bounding volume hierarchy",
+          "quote_id": "f4_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 18,
+      "code_text": "assessment phrases",
+      "frequency": 2,
+      "variants": [
+        "comparative questions"
+      ],
+      "example_quotes": [
+        {
+          "quote": "questions and phrases about comparisons",
+          "quote_id": "f0_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 19,
+      "code_text": "specific or descriptive names",
+      "frequency": 2,
+      "variants": [
+        "related names and terms"
+      ],
+      "example_quotes": [
+        {
+          "quote": "related names and terms",
+          "quote_id": "f2_gpt"
+        },
+        {
+          "quote": "specific names or descriptive words",
+          "quote_id": "f8_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 20,
+      "code_text": "competitive sports events",
+      "frequency": 3,
+      "variants": [
+        "competitive sports events"
+      ],
+      "example_quotes": [
+        {
+          "quote": "competitive sports events",
+          "quote_id": "f3_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 21,
+      "code_text": "keywords and identifiers",
+      "frequency": 3,
+      "variants": [
+        "programming terminology"
+      ],
+      "example_quotes": [
+        {
+          "quote": "technical terms and entities related to programming",
+          "quote_id": "f4_gpt"
+        },
+        {
+          "quote": "keywords and identifiers in various programming contexts",
+          "quote_id": "f6_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 22,
+      "code_text": "prepositions",
+      "frequency": 1,
+      "variants": [
+        "prepositions"
+      ],
+      "example_quotes": [
+        {
+          "quote": "Prepositions and conjunctions",
+          "quote_id": "f7_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 23,
+      "code_text": "conjunctions",
+      "frequency": 1,
+      "variants": [
+        "conjunctions"
+      ],
+      "example_quotes": [
+        {
+          "quote": "Prepositions and conjunctions",
+          "quote_id": "f7_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 24,
+      "code_text": "comparative expressions",
+      "frequency": 3,
+      "variants": [
+        "comparative or transitional words"
+      ],
+      "example_quotes": [
+        {
+          "quote": "comparative or transitional words or phrases",
+          "quote_id": "f7_llama"
+        },
+        {
+          "quote": "comparison or similarity",
+          "quote_id": "f7_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 25,
+      "code_text": "architecture vocabulary",
+      "frequency": 4,
+      "variants": [
+        "building and structure nouns"
+      ],
+      "example_quotes": [
+        {
+          "quote": "Nouns representing buildings, structures, and monuments",
+          "quote_id": "f8_llama"
+        },
+        {
+          "quote": "buildings, architecture, built",
+          "quote_id": "f8_gemini"
+        },
+        {
+          "quote": "architectural structures",
+          "quote_id": "f8_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 26,
+      "code_text": "nouns and adjectives",
+      "frequency": 1,
+      "variants": [
+        "nouns and adjectives"
+      ],
+      "example_quotes": [
+        {
+          "quote": "Various nouns and adjectives representing concepts, objects, or ideas",
+          "quote_id": "f9_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 27,
+      "code_text": "nature vocabulary",
+      "frequency": 4,
+      "variants": [
+        "science and nature terms"
+      ],
+      "example_quotes": [
+        {
+          "quote": "related to science, nature, or abstract notions",
+          "quote_id": "f9_llama"
+        },
+        {
+          "quote": "nature",
+          "quote_id": "f9_gemini"
+        },
+        {
+          "quote": "terms related to the concept of 'nature'",
+          "quote_id": "f9_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 28,
+      "code_text": "adjective complements",
+      "frequency": 2,
+      "variants": [
+        "linking verb constructions"
+      ],
+      "example_quotes": [
+        {
+          "quote": "linking verb plus adjective",
+          "quote_id": "f5_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 29,
+      "code_text": "function definitions",
+      "frequency": 1,
+      "variants": [
+        "function definitions"
+      ],
+      "example_quotes": [
+        {
+          "quote": "function",
+          "quote_id": "f6_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 30,
+      "code_text": "macro definitions",
+      "frequency": 1,
+      "variants": [
+        "macro definitions"
+      ],
+      "example_quotes": [
+        {
+          "quote": "macro definitions",
+          "quote_id": "f6_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 31,
+      "code_text": "programming constructs",
+      "frequency": 2,
+      "variants": [
+        "programming constructs"
+      ],
+      "example_quotes": [
+        {
+          "quote": "function/macro definitions",
+          "quote_id": "f6_gemini"
+        },
+        {
+          "quote": "programming constructs",
+          "quote_id": "f6_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 32,
+      "code_text": "slash alternation",
+      "frequency": 1,
+      "variants": [
+        "slash alternation"
+      ],
+      "example_quotes": [
+        {
+          "quote": "this/that",
+          "quote_id": "f7_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 33,
+      "code_text": "imperative verb phrase",
+      "frequency": 1,
+      "variants": [
+        "imperative verb phrase"
+      ],
+      "example_quotes": [
+        {
+          "quote": "do this/that",
+          "quote_id": "f7_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 34,
+      "code_text": "quality expressions",
+      "frequency": 1,
+      "variants": [
+        "quality expressions"
+      ],
+      "example_quotes": [
+        {
+          "quote": "expressions related to quality",
+          "quote_id": "f5_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 35,
+      "code_text": "experience expressions",
+      "frequency": 1,
+      "variants": [
+        "experience expressions"
+      ],
+      "example_quotes": [
+        {
+          "quote": "experience in various contexts",
+          "quote_id": "f5_gpt"
+        }
+      ],
+      "merged_from": []
+    }
+  ]
+}

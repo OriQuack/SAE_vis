@@ -77,6 +77,7 @@ User Interaction → Frontend State Update → API Request → Backend Processin
 │  • activation_display.parquet (frontend-optimized)                        │
 │  • activation_embeddings.parquet (pre-computed embeddings)                │
 │  • explanation_alignment.parquet (cross-explainer phrase matching)        │
+│  • thematic_codes.parquet (Thematic-LM analysis output)                   │
 │  • Pre-computed statistics (JSON)                                         │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -169,6 +170,7 @@ function buildChildNodes(parent: SankeyTreeNode, groups: FeatureGroup[]) {
 ├── data/              # Data files
 │   ├── master/           # Primary parquet files
 │   ├── preprocessing/    # Processing scripts
+│   ├── Thematic-LM/      # Thematic analysis (WWW '25 paper impl.)
 │   └── CLAUDE.md         # Data docs
 └── CLAUDE.md          # This file
 ```
@@ -273,6 +275,14 @@ Both Stage 1 (pairs) and Stage 2 (features) use the same SVM-based scoring mecha
 - **Master Data**: `/data/master/features.parquet` (required)
 - **Activation Display**: `/data/master/activation_display.parquet` (frontend-optimized)
 - **Activation Embeddings**: `/data/master/activation_embeddings.parquet` (similarity calculations)
+- **Thematic Codes**: `/data/master/thematic_codes.parquet` (Thematic-LM output)
+
+### Thematic-LM (Separate Tool)
+Implementation of the WWW '25 paper "Thematic-LM: A LLM-based Multi-agent System for Large-scale Thematic Analysis" for analyzing SAE feature explanations.
+- **Location**: `/data/Thematic-LM/`
+- **Usage**: `python thematic_coding.py --limit 5` (requires OPENAI_API_KEY)
+- **Output**: `thematic_codes.parquet`, `codebook.json`
+- See `data/Thematic-LM/CLAUDE.md` for full documentation
 
 ### Logs
 - **Backend Log**: `/home/dohyun/interface/backend.log` - All backend server output is logged here
