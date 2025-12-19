@@ -329,6 +329,46 @@ export function determineCauseTag(scores: CauseMetricScores): CauseCategory {
 }
 
 /**
+ * Calculate metric scores for all features WITHOUT assigning tags.
+ * Features remain untagged (unsure) until manually tagged or SVM-assigned.
+ *
+ * @param featureIds - Set of feature IDs to calculate scores for
+ * @param tableData - Table data containing feature rows
+ * @param activationExamples - Map of feature ID to activation examples
+ * @returns Map of feature_id to CauseMetricScores
+ */
+export function calculateMetricScoresOnly(
+  featureIds: Set<number>,
+  tableData: { features: FeatureTableRow[] } | null,
+  activationExamples: Record<number, ActivationExamples> | null
+): Map<number, CauseMetricScores> {
+  const causeScores = new Map<number, CauseMetricScores>()
+
+  if (!tableData?.features) {
+    console.warn('[cause-tagging-utils] No table data available for metric score calculation')
+    return causeScores
+  }
+
+  // Build feature lookup map
+  const featureMap = new Map<number, FeatureTableRow>()
+  for (const row of tableData.features) {
+    featureMap.set(row.feature_id, row)
+  }
+
+  // Calculate scores for each feature (NO tag assignment)
+  for (const featureId of featureIds) {
+    const row = featureMap.get(featureId)
+    const activation = activationExamples?.[featureId] ?? null
+    const scores = calculateCauseMetricScores(row, activation)
+    causeScores.set(featureId, scores)
+  }
+
+  console.log('[cause-tagging-utils] Calculated metric scores for', featureIds.size, 'features (no tags assigned)')
+
+  return causeScores
+}
+
+/**
  * Auto-tag all features based on their metric scores
  *
  * @param featureIds - Set of feature IDs to tag

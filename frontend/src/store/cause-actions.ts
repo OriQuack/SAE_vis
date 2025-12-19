@@ -315,8 +315,33 @@ export const createCauseActions = (set: any, get: any) => ({
         categoryDecisionMargins.set(result.feature_id, result.decision_scores)
       })
 
+      // Update causeSelectionStates with predicted categories for non-manual features
+      // This enables contour visualization of the SVM classification results
+      const state = get()
+      const newStates = new Map(state.causeSelectionStates)
+      const newSources = new Map(state.causeSelectionSources)
+
+      // Set of manually tagged feature IDs (from the request)
+      const manualFeatureIds = new Set(Object.keys(causeSelections).map(Number))
+
+      response.results.forEach((result) => {
+        // Only update non-manually-tagged features
+        if (!manualFeatureIds.has(result.feature_id)) {
+          newStates.set(result.feature_id, result.predicted_category as 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained')
+          newSources.set(result.feature_id, 'auto')
+        }
+      })
+
+      console.log('[Store.fetchCauseClassification] Updated selection states:', {
+        manualCount: manualFeatureIds.size,
+        autoCount: newStates.size - manualFeatureIds.size,
+        totalStates: newStates.size
+      })
+
       set({
         causeCategoryDecisionMargins: categoryDecisionMargins,
+        causeSelectionStates: newStates,
+        causeSelectionSources: newSources,
         causeClassificationLoading: false,
         causeClassificationError: null
       })

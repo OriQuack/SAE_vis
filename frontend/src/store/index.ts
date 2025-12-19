@@ -22,7 +22,7 @@ import {
   PANEL_RIGHT,
   TAG_CATEGORY_FEATURE_SPLITTING
 } from '../lib/constants'
-import { autoTagFeatures, type CauseMetricScores } from '../lib/cause-tagging-utils'
+import { calculateMetricScoresOnly, type CauseMetricScores } from '../lib/cause-tagging-utils'
 import { createInitialPanelState, type PanelState } from './utils'
 import { createSimplifiedSankeyActions } from './sankey-actions'
 import { createCommonActions } from './common-actions'
@@ -130,8 +130,8 @@ interface AppState {
   toggleCauseCategory: (featureId: number) => void
   setCauseCategory: (featureId: number, category: 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained' | null) => void
   clearCauseSelection: () => void
-  // Initialize auto-tags for all features entering Stage 3
-  initializeCauseAutoTags: (featureIds: Set<number>) => void
+  // Initialize metric scores for all features entering Stage 3 (no auto-tagging)
+  initializeCauseMetricScores: (featureIds: Set<number>) => void
   // Cause table activation (similar to activeStageNodeId for other tables)
   activeCauseStageNode: string | null
   activateCauseTable: (nodeId: string) => void
@@ -786,25 +786,23 @@ export const useStore = create<AppState>((set, get) => {
     })
   },
 
-  initializeCauseAutoTags: (featureIds: Set<number>) => {
+  initializeCauseMetricScores: (featureIds: Set<number>) => {
     const state = get()
     const { tableData, activationExamples } = state
 
-    console.log('[Store.initializeCauseAutoTags] Starting auto-tagging for', featureIds.size, 'features')
+    console.log('[Store.initializeCauseMetricScores] Calculating metric scores for', featureIds.size, 'features')
 
-    // Use the autoTagFeatures utility to calculate scores and assign tags
-    const result = autoTagFeatures(featureIds, tableData, activationExamples)
+    // Calculate metric scores only (no tag assignment - features start as unsure)
+    const causeScores = calculateMetricScoresOnly(featureIds, tableData, activationExamples)
 
+    // Clear existing selections and set only the scores
     set({
-      causeSelectionStates: result.causeStates,
-      causeSelectionSources: result.causeSources,
-      causeMetricScores: result.causeScores
+      causeSelectionStates: new Map(),  // Start with no tags (all unsure)
+      causeSelectionSources: new Map(),
+      causeMetricScores: causeScores
     })
 
-    console.log('[Store.initializeCauseAutoTags] Auto-tagging complete:', {
-      totalFeatures: featureIds.size,
-      taggedFeatures: result.causeStates.size
-    })
+    console.log('[Store.initializeCauseMetricScores] Metric scores calculated, all features start as unsure')
   },
 
   setCauseCategory: (featureId: number, category: 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained' | null) => {

@@ -8,7 +8,6 @@ import {
   CONTOUR_CONFIG,
   type CauseCategory
 } from '../lib/umap-utils'
-import { getSelectionColors } from '../lib/color-utils'
 import '../styles/UMAPScatter.css'
 
 // ============================================================================
@@ -94,10 +93,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   const causeSelectionStates = useVisualizationStore(state => state.causeSelectionStates)
   const causeSelectionSources = useVisualizationStore(state => state.causeSelectionSources)
 
-  // Always use Decision Function Space mode
-  const useDecisionSpace = true
-
-  // Check if all 4 categories have at least one manual tag
+  // Check if all 3 categories have at least one manual tag (for SVM classification)
   const { canUseDecisionSpace, manualCauseSelections } = useMemo(() => {
     const manualTags = new Map<string, number>()
     const selections: Record<number, string> = {}
@@ -438,42 +434,6 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       <div ref={containerRef} className={`umap-scatter umap-scatter--error ${className}`} style={containerStyle}>
         <div className="umap-scatter__message umap-scatter__message--error">
           <span>{umapError}</span>
-        </div>
-      </div>
-    )
-  }
-
-  // Decision space placeholder - need manual tags before projection
-  // Check this BEFORE empty state since we intentionally don't fetch when waiting for tags
-  if (useDecisionSpace && !canUseDecisionSpace && featureIds.length >= 3) {
-    const colors = getSelectionColors('stage3')
-    const categoryConfig = [
-      { key: 'noisy-activation', label: 'Noisy Activation', color: colors.confirmed },
-      { key: 'missed-N-gram', label: 'Missed N-gram', color: colors.autoSelected },
-      { key: 'missed-context', label: 'Missed Context', color: colors.rejected }
-    ]
-    return (
-      <div ref={containerRef} className={`umap-scatter umap-scatter--placeholder ${className}`} style={containerStyle}>
-        <div className="umap-scatter__placeholder">
-          <div className="umap-scatter__main-instruction">
-            Tag 1+ feature in each category
-          </div>
-          <div className="umap-scatter__progress-row">
-            {categoryConfig.map(({ key, label, color }) => {
-              const count = Array.from(causeSelectionStates.entries())
-                .filter(([id, cat]) => cat === key && causeSelectionSources.get(id) === 'manual')
-                .length
-              return (
-                <span
-                  key={key}
-                  className="umap-scatter__progress-item"
-                  style={{ backgroundColor: color }}
-                >
-                  {label}: {count}/1
-                </span>
-              )
-            })}
-          </div>
         </div>
       </div>
     )

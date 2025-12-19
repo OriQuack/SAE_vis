@@ -60,9 +60,10 @@
 .cause-view__row-top {
   display: flex;
   flex-direction: row;
-  flex: 2;
+  flex: 3;
   min-height: 0;
-  gap: 0;
+  gap: 16px;
+  align-items: stretch;
 }
 
 /* Right panel - matches QualityView styling */
@@ -311,10 +312,9 @@
 .cause-view__row-bottom {
   display: flex;
   flex-direction: row;
-  flex: 3;
+  flex: 2;
   min-height: 0;
-  gap: 16px;
-  align-items: stretch;
+  gap: 0;
 }
 
 /* UMAP container - fixed width, flex height */
