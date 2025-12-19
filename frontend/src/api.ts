@@ -21,7 +21,8 @@ import type {
   CauseSimilarityHistogramRequest,
   CauseSimilarityHistogramResponse,
   UmapProjectionResponse,
-  MultiModalityResponse
+  MultiModalityResponse,
+  CauseClassificationResponse
 } from './types'
 
 // ============================================================================
@@ -66,7 +67,7 @@ const API_ENDPOINTS = {
   CLUSTER_CANDIDATES: "/cluster-candidates",
   SEGMENT_CLUSTER_PAIRS: "/segment-cluster-pairs",
   UMAP_PROJECTION: "/umap-projection",
-  DECISION_FUNCTION_UMAP: "/decision-function-umap",
+  CAUSE_CLASSIFICATION: "/cause-classification",
   MULTI_MODALITY_TEST: "/multi-modality-test"
 } as const
 
@@ -694,39 +695,32 @@ export async function getUmapProjection(
 }
 
 /**
- * Get UMAP 2D projection from SVM decision function space.
+ * Get SVM cause classification for features.
  *
- * Projects features into 2D space using One-vs-Rest SVM decision functions.
- * Trains 4 binary SVMs (one per cause category) and uses the 4D decision
- * function vector for each feature to compute UMAP.
+ * Classifies features into cause categories using One-vs-Rest SVMs.
+ * Uses mean metric vectors per feature (averaged across 3 explainers).
  *
  * Requires at least one manually tagged feature per category.
  *
- * @param featureIds - Feature IDs to project (minimum 3)
+ * @param featureIds - Feature IDs to classify
  * @param causeSelections - Map of feature_id to cause category (manual tags only)
- * @param options - Optional UMAP parameters
- * @returns 2D coordinates for each feature
+ * @returns Classification results with predicted category and decision scores
  */
-export async function getDecisionFunctionUmap(
+export async function getCauseClassification(
   featureIds: number[],
-  causeSelections: Record<number, string>,
-  options?: { nNeighbors?: number; minDist?: number; randomState?: number }
-): Promise<UmapProjectionResponse> {
-  console.log('[API] getDecisionFunctionUmap called with:', {
+  causeSelections: Record<number, string>
+): Promise<CauseClassificationResponse> {
+  console.log('[API] getCauseClassification called with:', {
     featureCount: featureIds.length,
-    manualTagCount: Object.keys(causeSelections).length,
-    options
+    manualTagCount: Object.keys(causeSelections).length
   })
 
   const requestBody = {
     feature_ids: featureIds,
-    cause_selections: causeSelections,
-    n_neighbors: options?.nNeighbors,
-    min_dist: options?.minDist,
-    random_state: options?.randomState
+    cause_selections: causeSelections
   }
 
-  const response = await fetch(`${API_BASE}${API_ENDPOINTS.DECISION_FUNCTION_UMAP}`, {
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.CAUSE_CLASSIFICATION}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -736,15 +730,15 @@ export async function getDecisionFunctionUmap(
 
   if (!response.ok) {
     const errorText = await response.text()
-    console.error('[API] Decision function UMAP error:', response.status, errorText)
-    throw new Error(`Failed to fetch decision function UMAP: ${response.status} - ${errorText}`)
+    console.error('[API] Cause classification error:', response.status, errorText)
+    throw new Error(`Failed to fetch cause classification: ${response.status} - ${errorText}`)
   }
 
   const data = await response.json()
-  console.log('[API] getDecisionFunctionUmap response:', {
-    pointCount: data.points?.length || 0,
+  console.log('[API] getCauseClassification response:', {
+    resultCount: data.results?.length || 0,
     totalFeatures: data.total_features,
-    paramsUsed: data.params_used
+    categoryCounts: data.category_counts
   })
 
   return data

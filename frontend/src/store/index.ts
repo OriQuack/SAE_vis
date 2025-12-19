@@ -68,8 +68,9 @@ export interface Stage2FinalCommit {
 // Stage 3 commit counts for hover preview
 export interface CauseCommitCounts {
   noisyActivation: number
-  missedContext: number
   missedNgram: number
+  missedContext: number
+  wellExplained: number
   unsure: number
   total: number
 }
@@ -316,7 +317,9 @@ interface AppState {
   umapError: string | null
   umapBrushedFeatureIds: Set<number>
   fetchUmapProjection: (featureIds: number[], options?: { nNeighbors?: number; minDist?: number }) => Promise<void>
-  fetchDecisionFunctionUmap: (featureIds: number[], causeSelections: Record<number, string>, options?: { nNeighbors?: number; minDist?: number }) => Promise<void>
+  fetchCauseClassification: (featureIds: number[], causeSelections: Record<number, string>) => Promise<void>
+  causeClassificationLoading: boolean
+  causeClassificationError: string | null
   setUmapBrushedFeatureIds: (featureIds: Set<number>) => void
   clearUmapProjection: () => void
 
@@ -454,6 +457,10 @@ const initialState = {
   umapError: null,
   umapBrushedFeatureIds: new Set<number>(),
 
+  // Cause classification state
+  causeClassificationLoading: false,
+  causeClassificationError: null,
+
   // Multi-modality state
   causeMultiModality: null,
   causeMultiModalityLoading: false,
@@ -584,7 +591,7 @@ export const useStore = create<AppState>((set, get) => {
 
   // Compose UMAP actions (Stage 3 - Scatter plot)
   fetchUmapProjection: causeActions.fetchUmapProjection,
-  fetchDecisionFunctionUmap: causeActions.fetchDecisionFunctionUmap,
+  fetchCauseClassification: causeActions.fetchCauseClassification,
   setUmapBrushedFeatureIds: causeActions.setUmapBrushedFeatureIds,
   clearUmapProjection: causeActions.clearUmapProjection,
 

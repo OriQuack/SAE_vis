@@ -271,30 +271,18 @@ export const createCauseActions = (set: any, get: any) => ({
   },
 
   /**
-   * Fetch UMAP 2D projection from SVM decision function space.
-   * Uses One-vs-Rest SVM decision functions as the embedding space.
+   * Fetch SVM cause classification for features.
+   * Uses mean metric vectors per feature for OvR SVM classification.
    * Requires at least one manually tagged feature per category.
    */
-  fetchDecisionFunctionUmap: async (
+  fetchCauseClassification: async (
     featureIds: number[],
-    causeSelections: Record<number, string>,
-    options?: { nNeighbors?: number; minDist?: number }
+    causeSelections: Record<number, string>
   ) => {
-    console.log('[Store.fetchDecisionFunctionUmap] Starting decision function UMAP:', {
+    console.log('[Store.fetchCauseClassification] Starting classification:', {
       featureCount: featureIds.length,
-      manualTagCount: Object.keys(causeSelections).length,
-      options
+      manualTagCount: Object.keys(causeSelections).length
     })
-
-    // Validate minimum features (UMAP requires at least 3)
-    if (featureIds.length < 3) {
-      console.warn('[Store.fetchDecisionFunctionUmap] ⚠️ UMAP requires at least 3 features')
-      set({
-        umapError: 'UMAP requires at least 3 features',
-        umapLoading: false
-      })
-      return
-    }
 
     // Validate that we have tags for all 3 categories
     const categories = ['noisy-activation', 'missed-N-gram', 'missed-context']
@@ -302,35 +290,41 @@ export const createCauseActions = (set: any, get: any) => ({
     const missingCategories = categories.filter(c => !taggedCategories.has(c))
 
     if (missingCategories.length > 0) {
-      console.warn('[Store.fetchDecisionFunctionUmap] ⚠️ Missing tags for categories:', missingCategories)
+      console.warn('[Store.fetchCauseClassification] ⚠️ Missing tags for categories:', missingCategories)
       set({
-        umapError: `Tag at least one feature per category. Missing: ${missingCategories.join(', ')}`,
-        umapLoading: false
+        causeClassificationError: `Tag at least one feature per category. Missing: ${missingCategories.join(', ')}`,
+        causeClassificationLoading: false
       })
       return
     }
 
     try {
-      set({ umapLoading: true, umapError: null })
+      set({ causeClassificationLoading: true, causeClassificationError: null })
 
-      const response = await api.getDecisionFunctionUmap(featureIds, causeSelections, options)
+      const response = await api.getCauseClassification(featureIds, causeSelections)
 
-      console.log('[Store.fetchDecisionFunctionUmap] ✅ Decision function UMAP complete:', {
-        pointCount: response.points.length,
+      console.log('[Store.fetchCauseClassification] ✅ Classification complete:', {
+        resultCount: response.results.length,
         totalFeatures: response.total_features,
-        paramsUsed: response.params_used
+        categoryCounts: response.category_counts
+      })
+
+      // Build decision margins map (feature_id -> { category -> score })
+      const categoryDecisionMargins = new Map<number, Record<string, number>>()
+      response.results.forEach((result) => {
+        categoryDecisionMargins.set(result.feature_id, result.decision_scores)
       })
 
       set({
-        umapProjection: response.points,
-        umapLoading: false,
-        umapError: null
+        causeCategoryDecisionMargins: categoryDecisionMargins,
+        causeClassificationLoading: false,
+        causeClassificationError: null
       })
     } catch (error) {
-      console.error('[Store.fetchDecisionFunctionUmap] ❌ Failed to fetch decision function UMAP:', error)
+      console.error('[Store.fetchCauseClassification] ❌ Failed:', error)
       set({
-        umapError: error instanceof Error ? error.message : 'Failed to fetch decision function UMAP',
-        umapLoading: false
+        causeClassificationError: error instanceof Error ? error.message : 'Failed to fetch cause classification',
+        causeClassificationLoading: false
       })
     }
   },

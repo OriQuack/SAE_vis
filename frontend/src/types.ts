@@ -796,13 +796,29 @@ export interface UmapProjectionResponse {
 }
 
 /**
- * Decision Function UMAP Request - Project features using SVM decision function space
+ * Cause Classification Request - Classify features using OvR SVM
  */
-export interface DecisionFunctionUmapRequest {
+export interface CauseClassificationRequest {
   feature_ids: number[]
   cause_selections: Record<number, string>  // Map of feature_id to cause category (manual tags only)
-  n_neighbors?: number
-  min_dist?: number
-  random_state?: number
+}
+
+/**
+ * Cause Classification Result - SVM classification for a single feature
+ */
+export interface CauseClassificationResult {
+  feature_id: number
+  predicted_category: string
+  decision_margin: number
+  decision_scores: Record<string, number>  // per-category SVM decision function values
+}
+
+/**
+ * Cause Classification Response - Classification results for features
+ */
+export interface CauseClassificationResponse {
+  results: CauseClassificationResult[]
+  total_features: number
+  category_counts: Record<string, number>
 }
 

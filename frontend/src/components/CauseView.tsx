@@ -167,6 +167,7 @@ const CauseView: React.FC<CauseViewProps> = ({
       let noisyActivation = 0
       let missedContext = 0
       let missedNgram = 0
+      let wellExplained = 0
       let unsure = 0
 
       for (const featureId of selectedFeatureIds) {
@@ -174,6 +175,7 @@ const CauseView: React.FC<CauseViewProps> = ({
         if (category === 'noisy-activation') noisyActivation++
         else if (category === 'missed-context') missedContext++
         else if (category === 'missed-N-gram') missedNgram++
+        else if (category === 'well-explained') wellExplained++
         else unsure++
       }
 
@@ -182,6 +184,7 @@ const CauseView: React.FC<CauseViewProps> = ({
         noisyActivation,
         missedContext,
         missedNgram,
+        wellExplained,
         unsure
       })
 
@@ -191,8 +194,9 @@ const CauseView: React.FC<CauseViewProps> = ({
         featureIds: new Set(selectedFeatureIds),
         counts: {
           noisyActivation,
-          missedContext,
           missedNgram,
+          missedContext,
+          wellExplained,
           unsure,
           total: selectedFeatureIds.size
         }

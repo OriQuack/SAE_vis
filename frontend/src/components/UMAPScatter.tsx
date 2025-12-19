@@ -85,7 +85,8 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   const umapError = useVisualizationStore(state => state.umapError)
   const umapBrushedFeatureIds = useVisualizationStore(state => state.umapBrushedFeatureIds)
   const fetchUmapProjection = useVisualizationStore(state => state.fetchUmapProjection)
-  const fetchDecisionFunctionUmap = useVisualizationStore(state => state.fetchDecisionFunctionUmap)
+  const fetchCauseClassification = useVisualizationStore(state => state.fetchCauseClassification)
+  const causeClassificationLoading = useVisualizationStore(state => state.causeClassificationLoading)
   const setUmapBrushedFeatureIds = useVisualizationStore(state => state.setUmapBrushedFeatureIds)
   const clearUmapProjection = useVisualizationStore(state => state.clearUmapProjection)
   const causeSelectionStates = useVisualizationStore(state => state.causeSelectionStates)
@@ -119,49 +120,42 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   const chartWidth = fixedWidth - MARGIN.left - MARGIN.right
   const chartHeight = containerHeight - MARGIN.top - MARGIN.bottom
 
-  // Track mode and manual tags for refetch
-  const prevModeRef = useRef<boolean>(false)
+  // Track manual tags for refetch
   const prevManualTagsRef = useRef<string>('')
 
-  // Fetch UMAP projection when feature IDs, mode, or manual tags change
+  // Fetch barycentric positions when feature IDs change
   useEffect(() => {
-    // Create signatures to compare changes
     const featureSignature = featureIds.length >= 3
       ? `${featureIds.length}:${featureIds.slice(0, 5).join(',')}`
       : ''
-    const manualTagsSignature = Object.keys(manualCauseSelections).sort().join(',')
 
-    // Check what changed
     const featureIdsChanged = featureSignature !== prevFeatureIdsRef.current
-    const modeChanged = useDecisionSpace !== prevModeRef.current
-    const manualTagsChanged = manualTagsSignature !== prevManualTagsRef.current
-
-    // Update refs
     prevFeatureIdsRef.current = featureSignature
-    prevModeRef.current = useDecisionSpace
-    prevManualTagsRef.current = manualTagsSignature
 
-    // Skip if nothing changed
-    if (!featureIdsChanged && !modeChanged && !manualTagsChanged) {
-      return
-    }
+    if (!featureIdsChanged) return
 
-    // Clear if not enough features
     if (featureIds.length < 3) {
       clearUmapProjection()
       return
     }
 
-    // Fetch based on mode
-    if (useDecisionSpace) {
-      if (canUseDecisionSpace) {
-        fetchDecisionFunctionUmap(featureIds, manualCauseSelections, { nNeighbors: 50, minDist: 0.3 })
-      }
-      // If can't use decision space, don't clear - let the warning show
-    } else {
-      fetchUmapProjection(featureIds, { nNeighbors: 50, minDist: 0.3 })
+    // Always fetch barycentric positions (precomputed, no options needed)
+    fetchUmapProjection(featureIds)
+  }, [featureIds, fetchUmapProjection, clearUmapProjection])
+
+  // Fetch SVM classification when manual tags change (separate from positions)
+  useEffect(() => {
+    const manualTagsSignature = Object.keys(manualCauseSelections).sort().join(',')
+    const manualTagsChanged = manualTagsSignature !== prevManualTagsRef.current
+    prevManualTagsRef.current = manualTagsSignature
+
+    if (!manualTagsChanged) return
+
+    // Only fetch classification when we have enough manual tags
+    if (featureIds.length >= 3 && canUseDecisionSpace) {
+      fetchCauseClassification(featureIds, manualCauseSelections)
     }
-  }, [featureIds, useDecisionSpace, canUseDecisionSpace, manualCauseSelections, fetchUmapProjection, fetchDecisionFunctionUmap, clearUmapProjection])
+  }, [featureIds, canUseDecisionSpace, manualCauseSelections, fetchCauseClassification])
 
   // Compute D3 scales
   const scales = useMemo(() => {
@@ -359,13 +353,14 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     ? { width: fixedWidth, height: propHeight }
     : { width: fixedWidth }
 
-  // Loading state
-  if (umapLoading) {
+  // Loading state (positions or classification)
+  if (umapLoading || causeClassificationLoading) {
+    const loadingMessage = umapLoading ? 'Loading positions...' : 'Computing classification...'
     return (
       <div ref={containerRef} className={`umap-scatter umap-scatter--loading ${className}`} style={containerStyle}>
         <div className="umap-scatter__message">
           <span className="umap-scatter__spinner" />
-          <span>Computing UMAP projection...</span>
+          <span>{loadingMessage}</span>
         </div>
       </div>
     )
