@@ -1,0 +1,209 @@
+{
+  "created_at": "2025-12-19T15:36:48.149930",
+  "script_version": "1.0",
+  "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
+  "total_rows": 41758,
+  "schema": {
+    "feature_id": "Int64",
+    "llm_explainer": "Utf8",
+    "score_fuzz": "Float32",
+    "score_detection": "Float32",
+    "score_embedding": "Float32",
+    "explanation_semantic_sim": "Float32",
+    "intra_feature_sim": "Float32",
+    "intra_feature_sim_std": "Float32",
+    "score_embedding_std": "Float32",
+    "score_fuzz_std": "Float32",
+    "score_detection_std": "Float32",
+    "explanation_semantic_sim_std": "Float32",
+    "dist_missed_ngram": "Float32",
+    "dist_missed_context": "Float32",
+    "dist_noisy_activation": "Float32",
+    "bary_missed_ngram": "Float32",
+    "bary_missed_context": "Float32",
+    "bary_noisy_activation": "Float32",
+    "position_x": "Float32",
+    "position_y": "Float32",
+    "nearest_anchor": "Utf8"
+  },
+  "metrics_order": [
+    "intra_feature_sim",
+    "score_embedding",
+    "score_fuzz",
+    "score_detection",
+    "explanation_semantic_sim"
+  ],
+  "anchor_coordinates": {
+    "missed_ngram": {
+      "raw": [
+        0.6499999761581421,
+        0.6125,
+        0.0,
+        0.675,
+        0.5371575355529785
+      ],
+      "standardized": [
+        0.6771988165110414,
+        0.6985910213971726,
+        -3.6603733344408598,
+        0.7193589772524875,
+        0.7137914042488896
+      ]
+    },
+    "missed_context": {
+      "raw": [
+        0.6499999761581421,
+        0.0,
+        0.75,
+        0.0,
+        0.5371575355529785
+      ],
+      "standardized": [
+        0.6771988165110414,
+        -3.2443080207041217,
+        0.7281661894024711,
+        -3.184501185494266,
+        0.7137914042488896
+      ]
+    },
+    "noisy_activation": {
+      "raw": [
+        0.0,
+        0.6125,
+        0.75,
+        0.675,
+        0.11423604190349579
+      ],
+      "standardized": [
+        -1.6606663751083148,
+        0.6985910213971726,
+        0.7281661894024711,
+        0.7193589772524875,
+        -2.7931500198497328
+      ]
+    }
+  },
+  "normalization_stats": {
+    "intra_feature_sim": {
+      "mean": 0.46171742840285324,
+      "std": 0.2780314087867737,
+      "min": 0.0,
+      "max": 1.0,
+      "p25": 0.2510455846786499,
+      "p50": 0.34727174043655396,
+      "p75": 0.6499999761581421,
+      "p90": 1.0
+    },
+    "score_embedding": {
+      "mean": 0.5039790878394559,
+      "std": 0.15534254213229595,
+      "min": 0.0,
+      "max": 1.0,
+      "p25": 0.39749999999999996,
+      "p50": 0.505,
+      "p75": 0.6125,
+      "p90": 0.7075
+    },
+    "score_fuzz": {
+      "mean": 0.6255566312927777,
+      "std": 0.1708996699334226,
+      "min": 0.0,
+      "max": 1.0,
+      "p25": 0.5,
+      "p50": 0.625,
+      "p75": 0.75,
+      "p90": 0.85
+    },
+    "score_detection": {
+      "mean": 0.550618672441437,
+      "std": 0.1729057734707559,
+      "min": 0.0,
+      "max": 1.0,
+      "p25": 0.45,
+      "p50": 0.55,
+      "p75": 0.675,
+      "p90": 0.775
+    },
+    "explanation_semantic_sim": {
+      "mean": 0.4510774759418623,
+      "std": 0.1205955296754837,
+      "min": 0.11423604190349579,
+      "max": 0.9377766251564026,
+      "p25": 0.3603770434856415,
+      "p50": 0.4474368095397949,
+      "p75": 0.5371575355529785,
+      "p90": 0.612064003944397
+    }
+  },
+  "processing_stats": {
+    "features_processed": 14316,
+    "explanations_processed": 41758,
+    "missing_values_filled": 39,
+    "anchor_distribution": {
+      "missed_ngram": 11828,
+      "missed_context": 5413,
+      "noisy_activation": 24517
+    }
+  },
+  "config_used": {
+    "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
+    "input": {
+      "features_parquet": "data/master/features.parquet",
+      "activation_display_parquet": "data/master/activation_display.parquet"
+    },
+    "output": {
+      "output_path": "data/master/explanation_barycentric.parquet",
+      "metadata_path": "data/master/explanation_barycentric_metadata.json"
+    },
+    "metrics": {
+      "order": [
+        "intra_feature_sim",
+        "score_embedding",
+        "score_fuzz",
+        "score_detection",
+        "explanation_semantic_sim"
+      ]
+    },
+    "anchors": {
+      "missed_ngram": {
+        "intra_feature_sim": "p75",
+        "score_embedding": "p75",
+        "score_fuzz": "min",
+        "score_detection": "p75",
+        "explanation_semantic_sim": "p75"
+      },
+      "missed_context": {
+        "intra_feature_sim": "p75",
+        "score_embedding": "min",
+        "score_fuzz": "p75",
+        "score_detection": "min",
+        "explanation_semantic_sim": "p75"
+      },
+      "noisy_activation": {
+        "intra_feature_sim": "min",
+        "score_embedding": "p75",
+        "score_fuzz": "p75",
+        "score_detection": "p75",
+        "explanation_semantic_sim": "min"
+      }
+    },
+    "processing": {
+      "normalization": "zscore",
+      "distance_metric": "euclidean"
+    },
+    "triangle_vertices": {
+      "missed_ngram": [
+        0.0,
+        0.0
+      ],
+      "missed_context": [
+        1.0,
+        0.0
+      ],
+      "noisy_activation": [
+        0.5,
+        0.866
+      ]
+    }
+  }
+}

@@ -30,12 +30,11 @@ logger = logging.getLogger(__name__)
 class SimilaritySortService:
     """Service for calculating feature similarity scores."""
 
-    # 7 metrics used for SINGLE FEATURE SVM similarity calculation
-    # Combines activation-level metrics, decoder similarity, scores, and explanation similarity
+    # 6 metrics used for SINGLE FEATURE SVM similarity calculation
+    # Combines activation-level metrics, scores, and explanation similarity
     METRICS = [
         'intra_ngram_jaccard',       # Activation-level: lexical consistency within activations (max of char/word)
         'intra_semantic_sim',        # Activation-level: semantic consistency within activations
-        'decoder_sim',               # Feature-level: max decoder weight cosine similarity to other features
         'score_embedding',           # Score: embedding-based scoring
         'score_fuzz',                # Score: fuzzy matching score
         'score_detection',           # Score: detection score
@@ -365,17 +364,17 @@ class SimilaritySortService:
 
     async def _extract_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
         """
-        Extract all 7 metrics for the specified features.
+        Extract all 6 metrics for the specified features.
 
         Metrics extracted:
         - From activation_display: intra_ngram_jaccard, intra_semantic_sim
-        - From main dataframe: decoder_sim, score_embedding, score_fuzz, score_detection, explanation_semantic_sim
+        - From main dataframe: score_embedding, score_fuzz, score_detection, explanation_semantic_sim
 
         Args:
             feature_ids: List of feature IDs to extract metrics for
 
         Returns:
-            DataFrame with feature_id and all 7 metrics
+            DataFrame with feature_id and all 6 metrics
         """
         try:
             logger.info(f"[_extract_metrics] Starting extraction for {len(feature_ids)} features")
@@ -397,15 +396,9 @@ class SimilaritySortService:
             logger.info("[_extract_metrics] Extracting main dataframe metrics")
 
             try:
-                # Extract decoder_sim (max from nested decoder_similarity), scores, and semsim_mean
+                # Extract scores and semsim_mean
                 base_df = lf.select([
                     "feature_id",
-                    # decoder_sim: max cosine_similarity from decoder_similarity list
-                    pl.col("decoder_similarity")
-                      .list.eval(pl.element().struct.field("cosine_similarity"))
-                      .list.max()
-                      .fill_null(0.0)
-                      .alias("decoder_sim"),
                     # Score metrics
                     pl.col("score_embedding").fill_null(0.0).alias("score_embedding"),
                     pl.col("score_fuzz").fill_null(0.0).alias("score_fuzz"),

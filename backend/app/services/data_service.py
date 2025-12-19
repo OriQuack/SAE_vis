@@ -35,6 +35,7 @@ class DataService:
         self.activation_similarity_file = self.data_path / "master" / "activation_example_similarity.parquet"
         self.activation_display_file = self.data_path / "master" / "activation_display.parquet"
         self.interfeature_similarity_file = self.data_path / "master" / "interfeature_activation_similarity.parquet"
+        self.barycentric_file = self.data_path / "master" / "explanation_barycentric.parquet"
 
         # Cache for frequently accessed data
         self._filter_options_cache: Optional[Dict[str, List[str]]] = None
@@ -43,6 +44,7 @@ class DataService:
         self._activation_similarity_lazy: Optional[pl.LazyFrame] = None
         self._activation_display_lazy: Optional[pl.LazyFrame] = None
         self._interfeature_similarity_lazy: Optional[pl.LazyFrame] = None
+        self._barycentric_lazy: Optional[pl.LazyFrame] = None
         self._ready = False
 
     async def initialize(self):
@@ -84,6 +86,13 @@ class DataService:
                 logger.info(f"Inter-feature similarity loaded: {self.interfeature_similarity_file}")
             else:
                 logger.warning(f"Inter-feature similarity file not found: {self.interfeature_similarity_file}")
+
+            # Load barycentric positions (pre-computed 2D projections)
+            if self.barycentric_file.exists():
+                self._barycentric_lazy = pl.scan_parquet(self.barycentric_file)
+                logger.info(f"Barycentric positions loaded: {self.barycentric_file}")
+            else:
+                logger.warning(f"Barycentric positions file not found: {self.barycentric_file}")
 
             await self._cache_filter_options()
             self._ready = True

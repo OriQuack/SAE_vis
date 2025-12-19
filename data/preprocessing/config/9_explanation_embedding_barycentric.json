@@ -1,0 +1,46 @@
+{
+  "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
+  "input": {
+    "features_parquet": "data/master/features.parquet",
+    "activation_display_parquet": "data/master/activation_display.parquet"
+  },
+  "output": {
+    "output_path": "data/master/explanation_barycentric.parquet",
+    "metadata_path": "data/master/explanation_barycentric_metadata.json"
+  },
+  "metrics": {
+    "order": ["intra_feature_sim", "score_embedding", "score_fuzz", "score_detection", "explanation_semantic_sim"]
+  },
+  "anchors": {
+    "missed_ngram": {
+      "intra_feature_sim": "p75",
+      "score_embedding": "p75",
+      "score_fuzz": "min",
+      "score_detection": "p75",
+      "explanation_semantic_sim": "p75"
+    },
+    "missed_context": {
+      "intra_feature_sim": "p75",
+      "score_embedding": "min",
+      "score_fuzz": "p75",
+      "score_detection": "min",
+      "explanation_semantic_sim": "p75"
+    },
+    "noisy_activation": {
+      "intra_feature_sim": "min",
+      "score_embedding": "p75",
+      "score_fuzz": "p75",
+      "score_detection": "p75",
+      "explanation_semantic_sim": "min"
+    }
+  },
+  "processing": {
+    "normalization": "zscore",
+    "distance_metric": "euclidean"
+  },
+  "triangle_vertices": {
+    "missed_ngram": [0.0, 0.0],
+    "missed_context": [1.0, 0.0],
+    "noisy_activation": [0.5, 0.866]
+  }
+}

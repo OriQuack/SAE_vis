@@ -322,6 +322,56 @@ class DecisionFunctionUmapRequest(BaseModel):
 
 
 # ============================================================================
+# CAUSE CLASSIFICATION MODELS (SVM-based category prediction)
+# ============================================================================
+
+class CauseClassificationRequest(BaseModel):
+    """Request model for SVM-based cause classification."""
+
+    feature_ids: List[int] = Field(
+        ...,
+        description="Feature IDs to classify",
+        min_length=1
+    )
+    cause_selections: Dict[int, str] = Field(
+        ...,
+        description="Map of feature_id to cause category (manual tags for training)"
+    )
+
+
+class CauseClassificationResult(BaseModel):
+    """Classification result for a single feature."""
+
+    feature_id: int = Field(..., description="Feature ID")
+    predicted_category: str = Field(
+        ...,
+        description="Predicted cause category based on SVM argmax"
+    )
+    decision_margin: float = Field(
+        ...,
+        description="Min absolute distance to any decision boundary (lower = less confident)"
+    )
+    decision_scores: Dict[str, float] = Field(
+        ...,
+        description="SVM decision function values per category"
+    )
+
+
+class CauseClassificationResponse(BaseModel):
+    """Response model for cause classification."""
+
+    results: List[CauseClassificationResult] = Field(
+        ...,
+        description="Classification results for each feature"
+    )
+    total_features: int = Field(..., description="Total number of features classified")
+    category_counts: Dict[str, int] = Field(
+        default_factory=dict,
+        description="Count of features predicted in each category"
+    )
+
+
+# ============================================================================
 # MULTI-MODALITY MODELS (Per-category bimodality aggregation)
 # ============================================================================
 

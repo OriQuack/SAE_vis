@@ -1,24 +1,15 @@
 """
-UMAP projection service for feature visualization.
+Barycentric projection service for feature visualization.
 
-Projects features into 2D space using 7 metrics (same as single feature SVM):
-- intra_ngram_jaccard: lexical consistency within activations
-- intra_semantic_sim: semantic consistency within activations
-- decoder_sim: max decoder weight cosine similarity
-- score_embedding: embedding-based score
-- score_fuzz: fuzzy matching score
-- score_detection: detection score
-- explanation_semantic_sim: semantic similarity between LLM explanations
+Returns pre-computed 2D positions from explanation_barycentric.parquet.
+Also provides SVM decision function UMAP for custom training.
 """
 
 import polars as pl
 import numpy as np
 import logging
-import hashlib
-from typing import List, Dict, Tuple, Optional, TYPE_CHECKING
-from umap import UMAP
+from typing import List, Dict, Optional, TYPE_CHECKING
 from sklearn.preprocessing import StandardScaler
-
 from sklearn.svm import SVC
 
 from ..models.umap import (
@@ -26,16 +17,27 @@ from ..models.umap import (
     UmapProjectionResponse,
     UmapPoint
 )
-from ..models.similarity_sort import DecisionFunctionUmapRequest
-from .data_constants import (
-    COL_FEATURE_ID
+from ..models.similarity_sort import (
+    CauseClassificationRequest,
+    CauseClassificationResponse,
+    CauseClassificationResult
 )
+from .data_constants import COL_FEATURE_ID
 
 # Categories for decision function space (3 categories)
 CAUSE_CATEGORIES = [
     'noisy-activation',
     'missed-N-gram',
     'missed-context'
+]
+
+# Metrics used for SVM decision function UMAP (kept for decision function endpoint)
+METRICS_FOR_SVM = [
+    'intra_feature_sim',
+    'score_embedding',
+    'score_fuzz',
+    'score_detection',
+    'explanation_semantic_sim',
 ]
 
 if TYPE_CHECKING:
@@ -45,41 +47,24 @@ logger = logging.getLogger(__name__)
 
 
 class UMAPService:
-    """Service for computing UMAP projections of features."""
-
-    # 7 metrics used for UMAP embedding (same as single feature SVM)
-    METRICS = [
-        'intra_ngram_jaccard',       # Activation-level: lexical consistency within activations
-        'intra_semantic_sim',        # Activation-level: semantic consistency within activations
-        'decoder_sim',               # Feature-level: max decoder weight cosine similarity
-        'score_embedding',           # Score: embedding-based scoring
-        'score_fuzz',                # Score: fuzzy matching score
-        'score_detection',           # Score: detection score
-        'explanation_semantic_sim',  # Explanation-level: semantic similarity (semsim_mean)
-    ]
+    """Service for barycentric projections and SVM-based UMAP."""
 
     def __init__(self, data_service: "DataService"):
-        """
-        Initialize UMAPService.
+        """Initialize UMAPService.
 
         Args:
             data_service: Instance of DataService for data access
         """
         self.data_service = data_service
 
-        # UMAP projection cache: hash -> (feature_ids, coordinates)
-        self._umap_cache: Dict[str, Tuple[List[int], np.ndarray]] = {}
-        self._max_cache_size = 10
-
     async def get_umap_projection(
         self,
         request: UmapProjectionRequest
     ) -> UmapProjectionResponse:
-        """
-        Compute UMAP projection for given features.
+        """Return pre-computed barycentric positions for features.
 
         Args:
-            request: Request containing feature IDs and UMAP parameters
+            request: Request containing feature IDs
 
         Returns:
             Response with 2D coordinates for each feature
@@ -87,95 +72,57 @@ class UMAPService:
         if not self.data_service.is_ready():
             raise RuntimeError("DataService not ready")
 
+        if self.data_service._barycentric_lazy is None:
+            raise RuntimeError("Barycentric data not loaded")
+
         feature_ids = request.feature_ids
 
-        # Validate minimum features
-        if len(feature_ids) < 3:
-            raise ValueError("UMAP requires at least 3 features")
+        # Load pre-computed positions
+        df = self.data_service._barycentric_lazy.filter(
+            pl.col("feature_id").is_in(feature_ids)
+        ).select([
+            "feature_id", "position_x", "position_y", "nearest_anchor"
+        ]).unique(subset=["feature_id"]).collect()
 
-        # Check cache
-        cache_key = self._get_cache_key(
-            feature_ids,
-            request.n_neighbors,
-            request.min_dist,
-            request.random_state
-        )
+        logger.info(f"Loaded pre-computed positions for {len(df)} features")
 
-        if cache_key in self._umap_cache:
-            cached_ids, cached_coords = self._umap_cache[cache_key]
-            logger.info(f"Using cached UMAP projection (key: {cache_key[:8]}...)")
-            return self._build_response(cached_ids, cached_coords, request)
-
-        # Extract metrics for features
-        logger.info(f"Extracting metrics for {len(feature_ids)} features")
-        metrics_df = await self._extract_metrics(feature_ids)
-
-        if metrics_df is None or len(metrics_df) == 0:
-            logger.warning("No metrics extracted, returning empty result")
-            return UmapProjectionResponse(
-                points=[],
-                total_features=0,
-                params_used={}
+        # Build response
+        points = [
+            UmapPoint(
+                feature_id=int(row["feature_id"]),
+                x=float(row["position_x"]),
+                y=float(row["position_y"]),
+                nearest_anchor=row["nearest_anchor"]
             )
+            for row in df.iter_rows(named=True)
+        ]
 
-        # Build feature matrix
-        feature_ids_ordered = metrics_df[COL_FEATURE_ID].to_numpy()
-        metrics_matrix = np.column_stack([
-            metrics_df[metric].to_numpy() for metric in self.METRICS
-        ])
-
-        # Standardize features before UMAP
-        scaler = StandardScaler()
-        metrics_scaled = scaler.fit_transform(metrics_matrix)
-
-        # Compute effective n_neighbors (can't exceed n_samples - 1)
-        effective_n_neighbors = min(request.n_neighbors, len(feature_ids_ordered) - 1)
-        if effective_n_neighbors < 2:
-            effective_n_neighbors = 2
-
-        # Compute UMAP
-        logger.info(f"Computing UMAP with n_neighbors={effective_n_neighbors}, min_dist={request.min_dist}")
-        umap = UMAP(
-            n_components=2,
-            n_neighbors=effective_n_neighbors,
-            min_dist=request.min_dist,
-            random_state=request.random_state,
-            metric='euclidean'
+        return UmapProjectionResponse(
+            points=points,
+            total_features=len(points),
+            params_used={"source": "barycentric_precomputed"}
         )
-        coordinates = umap.fit_transform(metrics_scaled)
 
-        # Cache result
-        self._cache_result(cache_key, feature_ids_ordered.tolist(), coordinates)
-
-        logger.info(f"Successfully computed UMAP projection for {len(feature_ids_ordered)} features")
-
-        return self._build_response(feature_ids_ordered.tolist(), coordinates, request)
-
-    async def get_decision_function_umap_projection(
+    async def get_cause_classification(
         self,
-        request: DecisionFunctionUmapRequest
-    ) -> UmapProjectionResponse:
-        """
-        Compute UMAP projection from SVM decision function space.
+        request: CauseClassificationRequest
+    ) -> CauseClassificationResponse:
+        """Classify features into cause categories using OvR SVMs.
 
-        Trains One-vs-Rest SVMs for each category and uses the decision function
-        values as a 4D feature vector for each feature.
+        Trains One-vs-Rest SVMs for each category using mean metric vectors
+        per feature (averaged across 3 explainers).
 
         Args:
-            request: Request containing feature_ids, cause_selections, and UMAP parameters
+            request: Request containing feature_ids and cause_selections
 
         Returns:
-            Response with 2D coordinates for each feature
+            Response with predicted category and decision scores for each feature
         """
         if not self.data_service.is_ready():
             raise RuntimeError("DataService not ready")
 
         feature_ids = request.feature_ids
         cause_selections = request.cause_selections
-
-        # Validate minimum features
-        if len(feature_ids) < 3:
-            raise ValueError("UMAP requires at least 3 features")
 
         # Validate that all categories have at least 1 manual tag
         category_counts = {cat: 0 for cat in CAUSE_CATEGORIES}
@@ -187,27 +134,27 @@ class UMAPService:
         if missing_categories:
             raise ValueError(
                 f"Missing manual tags for categories: {missing_categories}. "
-                "Tag at least one feature per category to enable SVM Space."
+                "Tag at least one feature per category."
             )
 
-        logger.info(f"Computing decision function UMAP for {len(feature_ids)} features")
-        logger.info(f"Category counts: {category_counts}")
+        logger.info(f"Classifying {len(feature_ids)} features into cause categories")
+        logger.info(f"Training data counts: {category_counts}")
 
-        # Extract metrics for all features (using same 7 metrics as regular UMAP)
-        metrics_df = await self._extract_metrics(feature_ids)
+        # Extract mean metrics per feature from barycentric data
+        metrics_df = await self._extract_metrics_from_barycentric(feature_ids)
 
         if metrics_df is None or len(metrics_df) == 0:
             logger.warning("No metrics extracted, returning empty result")
-            return UmapProjectionResponse(
-                points=[],
+            return CauseClassificationResponse(
+                results=[],
                 total_features=0,
-                params_used={}
+                category_counts={}
             )
 
         # Build feature matrix
         feature_ids_ordered = metrics_df[COL_FEATURE_ID].to_numpy()
         metrics_matrix = np.column_stack([
-            metrics_df[metric].to_numpy() for metric in self.METRICS
+            metrics_df[metric].to_numpy() for metric in METRICS_FOR_SVM
         ])
 
         # Map feature_ids to indices for cause_selections lookup
@@ -221,51 +168,37 @@ class UMAPService:
             feature_id_to_idx
         )
 
-        # Standardize decision vectors before UMAP
-        scaler = StandardScaler()
-        decision_scaled = scaler.fit_transform(decision_vectors)
+        # Build classification results
+        results = []
+        predicted_counts = {cat: 0 for cat in CAUSE_CATEGORIES}
 
-        # Compute effective n_neighbors
-        effective_n_neighbors = min(request.n_neighbors, len(feature_ids_ordered) - 1)
-        if effective_n_neighbors < 2:
-            effective_n_neighbors = 2
-
-        # Compute UMAP on decision function space
-        logger.info(f"Computing UMAP on decision function space with n_neighbors={effective_n_neighbors}")
-        umap = UMAP(
-            n_components=2,
-            n_neighbors=effective_n_neighbors,
-            min_dist=request.min_dist,
-            random_state=request.random_state,
-            metric='euclidean'
-        )
-        coordinates = umap.fit_transform(decision_scaled)
-
-        logger.info(f"Successfully computed decision function UMAP for {len(feature_ids_ordered)} features")
-
-        # Compute decision margin for each feature (min abs value across categories)
-        # This represents the distance to the closest decision boundary
-        decision_margins = np.min(np.abs(decision_vectors), axis=1)
-
-        # Build response with decision margins
-        points = [
-            UmapPoint(
-                feature_id=int(fid),
-                x=float(coordinates[i, 0]),
-                y=float(coordinates[i, 1]),
-                decision_margin=float(decision_margins[i])
-            )
-            for i, fid in enumerate(feature_ids_ordered)
-        ]
-
-        return UmapProjectionResponse(
-            points=points,
-            total_features=len(points),
-            params_used={
-                "n_neighbors": request.n_neighbors,
-                "min_dist": request.min_dist,
-                "random_state": request.random_state if request.random_state else 42
+        for i, fid in enumerate(feature_ids_ordered):
+            # Decision scores per category
+            scores = {
+                cat: float(decision_vectors[i, j])
+                for j, cat in enumerate(CAUSE_CATEGORIES)
             }
+
+            # Predicted category = argmax of decision scores
+            predicted = max(scores, key=scores.get)
+            predicted_counts[predicted] += 1
+
+            # Decision margin = min absolute distance to any boundary
+            margin = float(np.min(np.abs(decision_vectors[i])))
+
+            results.append(CauseClassificationResult(
+                feature_id=int(fid),
+                predicted_category=predicted,
+                decision_margin=margin,
+                decision_scores=scores
+            ))
+
+        logger.info(f"Classification complete. Predicted counts: {predicted_counts}")
+
+        return CauseClassificationResponse(
+            results=results,
+            total_features=len(results),
+            category_counts=predicted_counts
         )
 
     def _compute_decision_function_vectors(
@@ -275,17 +208,16 @@ class UMAPService:
         cause_selections: Dict[int, str],
         feature_id_to_idx: Dict[int, int]
     ) -> np.ndarray:
-        """
-        Train One-vs-Rest SVMs and compute decision function vectors.
+        """Train One-vs-Rest SVMs and compute decision function vectors.
 
         Args:
-            metrics_matrix: (N, 7) feature metric matrix
+            metrics_matrix: (N, 5) feature metric matrix
             feature_ids: Array of feature IDs
             cause_selections: Dict mapping feature_id to category
             feature_id_to_idx: Dict mapping feature_id to matrix index
 
         Returns:
-            (N, 4) matrix of decision function values
+            (N, 3) matrix of decision function values
         """
         n_features = len(feature_ids)
         n_categories = len(CAUSE_CATEGORIES)
@@ -310,7 +242,6 @@ class UMAPService:
                         negative_indices.append(idx)
 
             if len(positive_indices) == 0 or len(negative_indices) == 0:
-                # Cannot train SVM without both classes
                 logger.warning(f"Skipping SVM for {category}: missing positive or negative samples")
                 continue
 
@@ -336,188 +267,44 @@ class UMAPService:
 
         return decision_vectors
 
-    async def _extract_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
-        """
-        Extract all 7 metrics for the specified features.
+    async def _extract_metrics_from_barycentric(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
+        """Extract MEAN metrics per feature from barycentric parquet for SVM training.
 
-        Metrics extracted:
-        - From activation_display: intra_ngram_jaccard, intra_semantic_sim
-        - From main dataframe: decoder_sim, score_embedding, score_fuzz, score_detection, explanation_semantic_sim
-
-        Args:
-            feature_ids: List of feature IDs to extract metrics for
-
-        Returns:
-            DataFrame with feature_id and all 7 metrics
-        """
-        try:
-            lf = self.data_service._df_lazy
-
-            if lf is None:
-                logger.error("Main dataframe not initialized")
-                return None
-
-            # Filter to requested features
-            lf = lf.filter(pl.col(COL_FEATURE_ID).is_in(feature_ids))
-
-            # Extract metrics from main dataframe
-            base_df = lf.select([
-                COL_FEATURE_ID,
-                # decoder_sim: max cosine_similarity from decoder_similarity list
-                pl.col("decoder_similarity")
-                  .list.eval(pl.element().struct.field("cosine_similarity"))
-                  .list.max()
-                  .fill_null(0.0)
-                  .alias("decoder_sim"),
-                # Score metrics
-                pl.col("score_embedding").fill_null(0.0).alias("score_embedding"),
-                pl.col("score_fuzz").fill_null(0.0).alias("score_fuzz"),
-                pl.col("score_detection").fill_null(0.0).alias("score_detection"),
-                # Explanation semantic similarity (semsim_mean)
-                pl.col("semsim_mean").fill_null(0.0).alias("explanation_semantic_sim"),
-            ]).unique(subset=[COL_FEATURE_ID]).collect()
-
-            # Cast feature_id to UInt32 to match activation dataframe
-            base_df = base_df.with_columns(pl.col(COL_FEATURE_ID).cast(pl.UInt32))
-
-            # Extract activation-level metrics (intra-feature)
-            activation_df = await self._extract_activation_metrics(feature_ids)
-
-            # Join activation metrics
-            result_df = base_df
-            if activation_df is not None:
-                result_df = result_df.join(activation_df, on=COL_FEATURE_ID, how="left")
-
-            # Fill null values with 0
-            for metric in self.METRICS:
-                if metric not in result_df.columns:
-                    result_df = result_df.with_columns(pl.lit(0.0).alias(metric))
-                else:
-                    result_df = result_df.with_columns(
-                        pl.col(metric).fill_null(0.0)
-                    )
-
-            logger.info(f"Extracted {len(self.METRICS)} metrics for {len(result_df)} features")
-            return result_df
-
-        except Exception as e:
-            logger.error(f"Failed to extract metrics: {e}", exc_info=True)
-            return None
-
-    async def _extract_activation_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
-        """
-        Extract intra-feature activation metrics.
+        Computes mean across 3 explainers for each feature.
 
         Args:
             feature_ids: List of feature IDs
 
         Returns:
-            DataFrame with feature_id, intra_ngram_jaccard, intra_semantic_sim
+            DataFrame with feature_id and mean metrics
         """
         try:
-            # Try optimized activation_display file first
-            if self.data_service._activation_display_lazy is not None:
-                df = self.data_service._activation_display_lazy.filter(
-                    pl.col(COL_FEATURE_ID).is_in(feature_ids)
-                ).collect()
-
-                # Extract metrics
-                df = df.select([
-                    COL_FEATURE_ID,
-                    # Max of char and word ngram jaccard
-                    pl.max_horizontal("char_ngram_max_jaccard", "word_ngram_max_jaccard")
-                      .fill_null(0.0)
-                      .alias("intra_ngram_jaccard"),
-                    # Semantic similarity
-                    pl.col("semantic_similarity")
-                      .fill_null(0.0)
-                      .alias("intra_semantic_sim")
-                ]).unique(subset=[COL_FEATURE_ID])
-
-                logger.info(f"Extracted activation metrics for {len(df)} features")
-                return df
-
-            # Fallback to legacy files
-            elif self.data_service._activation_similarity_lazy is not None:
-                df = self.data_service._activation_similarity_lazy.filter(
-                    pl.col(COL_FEATURE_ID).is_in(feature_ids)
-                ).collect()
-
-                df = df.select([
-                    COL_FEATURE_ID,
-                    pl.max_horizontal("char_ngram_max_jaccard", "word_ngram_max_jaccard")
-                      .fill_null(0.0)
-                      .alias("intra_ngram_jaccard"),
-                    pl.col("semantic_similarity")
-                      .fill_null(0.0)
-                      .alias("intra_semantic_sim")
-                ]).unique(subset=[COL_FEATURE_ID])
-
-                logger.info(f"Extracted activation metrics from legacy file for {len(df)} features")
-                return df
-
-            else:
-                logger.warning("No activation data available")
+            if self.data_service._barycentric_lazy is None:
+                logger.error("Barycentric data not loaded")
                 return None
 
+            # Compute mean across 3 explainers for each feature
+            df = self.data_service._barycentric_lazy.filter(
+                pl.col("feature_id").is_in(feature_ids)
+            ).group_by("feature_id").agg([
+                pl.col("intra_feature_sim").mean().alias("intra_feature_sim"),
+                pl.col("score_embedding").mean().alias("score_embedding"),
+                pl.col("score_fuzz").mean().alias("score_fuzz"),
+                pl.col("score_detection").mean().alias("score_detection"),
+                pl.col("explanation_semantic_sim").mean().alias("explanation_semantic_sim")
+            ]).collect()
+
+            # Fill null values
+            for metric in METRICS_FOR_SVM:
+                df = df.with_columns(pl.col(metric).fill_null(0.0))
+
+            logger.info(f"Extracted mean of {len(METRICS_FOR_SVM)} metrics for {len(df)} features from barycentric data")
+            return df
+
         except Exception as e:
-            logger.warning(f"Failed to extract activation metrics: {e}")
+            logger.error(f"Failed to extract metrics from barycentric: {e}", exc_info=True)
             return None
 
-    def _get_cache_key(
-        self,
-        feature_ids: List[int],
-        n_neighbors: int,
-        min_dist: float,
-        random_state: Optional[int]
-    ) -> str:
-        """Generate unique cache key from parameters."""
-        key_str = f"{sorted(feature_ids)}_{n_neighbors}_{min_dist}_{random_state}"
-        return hashlib.md5(key_str.encode()).hexdigest()
-
-    def _cache_result(
-        self,
-        cache_key: str,
-        feature_ids: List[int],
-        coordinates: np.ndarray
-    ):
-        """Cache UMAP result with size limit."""
-        # Evict oldest if cache full
-        if len(self._umap_cache) >= self._max_cache_size:
-            oldest_key = next(iter(self._umap_cache))
-            self._umap_cache.pop(oldest_key)
-            logger.info(f"UMAP cache full, evicted oldest entry")
-
-        self._umap_cache[cache_key] = (feature_ids, coordinates)
-        logger.info(f"UMAP projection cached (key: {cache_key[:8]}..., cache size: {len(self._umap_cache)})")
-
-    def _build_response(
-        self,
-        feature_ids: List[int],
-        coordinates: np.ndarray,
-        request: UmapProjectionRequest
-    ) -> UmapProjectionResponse:
-        """Build response from feature IDs and coordinates."""
-        points = [
-            UmapPoint(
-                feature_id=int(fid),
-                x=float(coordinates[i, 0]),
-                y=float(coordinates[i, 1])
-            )
-            for i, fid in enumerate(feature_ids)
-        ]
-
-        return UmapProjectionResponse(
-            points=points,
-            total_features=len(points),
-            params_used={
-                "n_neighbors": request.n_neighbors,
-                "min_dist": request.min_dist,
-                "random_state": request.random_state if request.random_state else 42
-            }
-        )
-
     def clear_cache(self):
-        """Clear UMAP projection cache."""
-        self._umap_cache.clear()
-        logger.info("UMAP projection cache cleared")
+        """Clear any cached data (no-op since we use pre-computed data)."""
+        logger.info("Cache clear requested (no-op for pre-computed data)")

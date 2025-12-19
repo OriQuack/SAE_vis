@@ -3,7 +3,7 @@ Pydantic models for UMAP projection API.
 """
 
 from pydantic import BaseModel, Field
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 
 
 class UmapProjectionRequest(BaseModel):
@@ -42,6 +42,10 @@ class UmapPoint(BaseModel):
         default=None,
         description="Min distance to decision boundary (only for SVM Space UMAP)"
     )
+    nearest_anchor: Optional[str] = Field(
+        default=None,
+        description="Nearest anchor point: missed_ngram, missed_context, or noisy_activation"
+    )
 
 
 class UmapProjectionResponse(BaseModel):
@@ -55,7 +59,7 @@ class UmapProjectionResponse(BaseModel):
         ...,
         description="Total number of features projected"
     )
-    params_used: Dict[str, float] = Field(
+    params_used: Dict[str, Any] = Field(
         default_factory=dict,
         description="UMAP parameters used for this projection"
     )
