@@ -474,7 +474,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s ease;
   padding: 0;
@@ -523,11 +523,6 @@
 .commit-history__circle-number {
   line-height: 1;
   pointer-events: none;
-}
-
-/* Square shape for normal commits (Tag All uses default circle) */
-.commit-history__circle--square {
-  border-radius: 4px;
 }
 
 /* ============================================================================

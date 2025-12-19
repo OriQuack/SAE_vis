@@ -273,3 +273,40 @@
 .tag-panel__content::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
+
+/* ============================================================================
+ * HISTOGRAM BIN TOOLTIP - Legend-style tooltip at mouse position
+ * ============================================================================ */
+
+.histogram-bin-tooltip {
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  padding: 4px 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.histogram-bin-tooltip__legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.histogram-bin-tooltip__item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.histogram-bin-tooltip__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.histogram-bin-tooltip__count {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+}

@@ -10,6 +10,7 @@ from .api import router as api_router
 from .services.data_service import DataService
 from .services.alignment_service import AlignmentService
 from .services.similarity_sort_service import SimilaritySortService
+from .services.pair_similarity_service import PairSimilarityService
 from .services.hierarchical_cluster_candidate_service import HierarchicalClusterCandidateService
 from .services.activation_cache_service import activation_cache_service
 from .services.umap_service import UMAPService
@@ -41,12 +42,13 @@ logger = logging.getLogger(__name__)
 data_service = None
 alignment_service = None
 similarity_sort_service = None
+pair_similarity_service = None
 cluster_candidate_service = None
 umap_service = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global data_service, alignment_service, similarity_sort_service, cluster_candidate_service, umap_service
+    global data_service, alignment_service, similarity_sort_service, pair_similarity_service, cluster_candidate_service, umap_service
     try:
         data_service = DataService()
         await data_service.initialize()
@@ -71,13 +73,20 @@ async def lifespan(app: FastAPI):
         cluster_candidates.set_cluster_candidate_service(cluster_candidate_service)
         logger.info("Hierarchical cluster candidate service initialized successfully")
 
-        # Initialize similarity sort service with cluster service for pair generation
-        similarity_sort_service = SimilaritySortService(
-            data_service=data_service,
-            cluster_service=cluster_candidate_service  # NEW: Pass cluster service
-        )
-        similarity_sort.set_similarity_sort_service(similarity_sort_service)
+        # Initialize similarity sort service (feature-level sorting)
+        similarity_sort_service = SimilaritySortService(data_service=data_service)
         logger.info("Similarity sort service initialized successfully")
+
+        # Initialize pair similarity service (pair-level sorting)
+        pair_similarity_service = PairSimilarityService(
+            data_service=data_service,
+            cluster_service=cluster_candidate_service
+        )
+        logger.info("Pair similarity service initialized successfully")
+
+        # Pass both services to API layer
+        similarity_sort.set_similarity_sort_service(similarity_sort_service)
+        similarity_sort.set_pair_similarity_service(pair_similarity_service)
 
         # Initialize UMAP service for cause view projections
         umap_service = UMAPService(data_service=data_service)

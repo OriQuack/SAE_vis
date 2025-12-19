@@ -568,8 +568,6 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
                     key={commit.id}
                     className={`commit-history__circle ${
                       index === currentCommitIndex ? 'commit-history__circle--active' : 'commit-history__circle--past'
-                    } ${
-                      commit.type !== 'tagAll' ? 'commit-history__circle--square' : ''
                     }`}
                     onClick={() => onCommitClick(index)}
                     onMouseEnter={(e) => {

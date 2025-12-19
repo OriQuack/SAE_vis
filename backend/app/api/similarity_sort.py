@@ -18,19 +18,27 @@ from ..models.similarity_sort import (
 
 if TYPE_CHECKING:
     from ..services.similarity_sort_service import SimilaritySortService
+    from ..services.pair_similarity_service import PairSimilarityService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Service instance will be injected
+# Service instances will be injected
 _similarity_sort_service: "SimilaritySortService" = None
+_pair_similarity_service: "PairSimilarityService" = None
 
 
 def set_similarity_sort_service(service: "SimilaritySortService"):
     """Set the similarity sort service instance."""
     global _similarity_sort_service
     _similarity_sort_service = service
+
+
+def set_pair_similarity_service(service: "PairSimilarityService"):
+    """Set the pair similarity service instance."""
+    global _pair_similarity_service
+    _pair_similarity_service = service
 
 
 def get_similarity_sort_service() -> "SimilaritySortService":
@@ -41,6 +49,16 @@ def get_similarity_sort_service() -> "SimilaritySortService":
             detail="Similarity sort service not initialized"
         )
     return _similarity_sort_service
+
+
+def get_pair_similarity_service() -> "PairSimilarityService":
+    """Dependency to get pair similarity service."""
+    if _pair_similarity_service is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Pair similarity service not initialized"
+        )
+    return _pair_similarity_service
 
 
 @router.post("/similarity-sort", response_model=SimilaritySortResponse)
@@ -116,7 +134,7 @@ async def similarity_sort(
 @router.post("/pair-similarity-sort", response_model=PairSimilaritySortResponse)
 async def pair_similarity_sort(
     request: PairSimilaritySortRequest,
-    service: "SimilaritySortService" = Depends(get_similarity_sort_service)
+    service: "PairSimilarityService" = Depends(get_pair_similarity_service)
 ) -> PairSimilaritySortResponse:
     """
     Sort feature pairs by similarity to selected pairs and dissimilarity to rejected pairs.
@@ -246,7 +264,7 @@ async def similarity_score_histogram(
 @router.post("/pair-similarity-score-histogram", response_model=SimilarityHistogramResponse)
 async def pair_similarity_score_histogram(
     request: PairSimilarityHistogramRequest,
-    service: "SimilaritySortService" = Depends(get_similarity_sort_service)
+    service: "PairSimilarityService" = Depends(get_pair_similarity_service)
 ) -> SimilarityHistogramResponse:
     """
     Calculate similarity score distribution for automatic tagging (pairs).

@@ -85,6 +85,7 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
     reject: tagAutomaticState?.rejectThreshold ?? -0.1
   }))
   const [hoveredBinIndex, setHoveredBinIndex] = useState<number | null>(null)
+  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
   const [isLocalLoading, setIsLocalLoading] = useState(false)
   const [localHistogramData, setLocalHistogramData] = useState<any>(null)
 
@@ -575,56 +576,20 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
                       stroke="none"
                       opacity={hoveredBinIndex === segment.binIndex ? 1 : 0.85}
                       style={{ cursor: 'pointer' }}
-                      onMouseEnter={() => setHoveredBinIndex(segment.binIndex)}
-                      onMouseLeave={() => setHoveredBinIndex(null)}
+                      onMouseEnter={(e) => {
+                        setHoveredBinIndex(segment.binIndex)
+                        setTooltipPosition({ x: e.clientX, y: e.clientY })
+                      }}
+                      onMouseMove={(e) => {
+                        setTooltipPosition({ x: e.clientX, y: e.clientY })
+                      }}
+                      onMouseLeave={() => {
+                        setHoveredBinIndex(null)
+                        setTooltipPosition(null)
+                      }}
                     />
                   ))}
 
-                  {/* Tooltip for hovered bin */}
-                  {hoveredBinIndex !== null && histogramChart && (() => {
-                    const bin = histogramChart.bins[hoveredBinIndex]
-                    const counts = categoryData.get(hoveredBinIndex)
-                    if (!bin || !counts) return null
-
-                    const total = counts.confirmed + counts.autoSelected + counts.rejected + counts.autoRejected + counts.unsure
-                    const binX = histogramChart.xScale(bin.x0) as number
-                    const binWidth = (histogramChart.xScale(bin.x1) as number) - binX
-
-                    return (
-                      <g transform={`translate(${binX + binWidth / 2}, ${-5})`}>
-                        <rect
-                          x={-90}
-                          y={-75}
-                          width={180}
-                          height={70}
-                          fill="#333"
-                          opacity={0.95}
-                          rx={4}
-                        />
-                        <text x={0} y={-58} textAnchor="middle" fontSize={10} fill="#fff" fontWeight="bold">
-                          Bin [{bin.x0.toFixed(2)} - {bin.x1.toFixed(2)}]
-                        </text>
-                        <text x={0} y={-46} textAnchor="middle" fontSize={9} fill={modeColors.confirmed}>
-                          Confirmed: {counts.confirmed.toLocaleString()}
-                        </text>
-                        <text x={0} y={-36} textAnchor="middle" fontSize={9} fill={modeColors.autoSelected}>
-                          Auto-Selected: {counts.autoSelected.toLocaleString()}
-                        </text>
-                        <text x={0} y={-26} textAnchor="middle" fontSize={9} fill={modeColors.rejected}>
-                          Rejected: {counts.rejected.toLocaleString()}
-                        </text>
-                        <text x={0} y={-16} textAnchor="middle" fontSize={9} fill={modeColors.autoRejected}>
-                          Auto-Rejected: {counts.autoRejected.toLocaleString()}
-                        </text>
-                        <text x={0} y={-6} textAnchor="middle" fontSize={9} fill={modeColors.unsure}>
-                          Unsure: {counts.unsure.toLocaleString()}
-                        </text>
-                        <text x={0} y={-58 + 70} textAnchor="middle" fontSize={9} fill="#aaa">
-                          Total: {total.toLocaleString()}
-                        </text>
-                      </g>
-                    )
-                  })()}
 
                   {/* Center line at 0 */}
                   <line
@@ -778,6 +743,46 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
                   </g>
                 </g>
               </svg>
+
+              {/* HTML Tooltip at mouse position */}
+              {hoveredBinIndex !== null && tooltipPosition && (() => {
+                const bin = histogramChart.bins[hoveredBinIndex]
+                const counts = categoryData.get(hoveredBinIndex)
+                if (!bin || !counts) return null
+
+                // Build legend items for non-zero counts
+                const legendItems: Array<{ color: string; count: number }> = []
+                if (counts.confirmed > 0) legendItems.push({ color: modeColors.confirmed, count: counts.confirmed })
+                if (counts.autoSelected > 0) legendItems.push({ color: modeColors.autoSelected, count: counts.autoSelected })
+                if (counts.rejected > 0) legendItems.push({ color: modeColors.rejected, count: counts.rejected })
+                if (counts.autoRejected > 0) legendItems.push({ color: modeColors.autoRejected, count: counts.autoRejected })
+                if (counts.unsure > 0) legendItems.push({ color: modeColors.unsure, count: counts.unsure })
+
+                return (
+                  <div
+                    className="histogram-bin-tooltip"
+                    style={{
+                      position: 'fixed',
+                      left: tooltipPosition.x + 12,
+                      top: tooltipPosition.y - 20,
+                      zIndex: 10000,
+                      pointerEvents: 'none'
+                    }}
+                  >
+                    <div className="histogram-bin-tooltip__legend">
+                      {legendItems.map((item, idx) => (
+                        <span key={idx} className="histogram-bin-tooltip__item">
+                          <span
+                            className="histogram-bin-tooltip__swatch"
+                            style={{ backgroundColor: item.color }}
+                          />
+                          <span className="histogram-bin-tooltip__count">{item.count}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
         ) : isLoading ? (
           /* Initial loading state - no previous data to show */
