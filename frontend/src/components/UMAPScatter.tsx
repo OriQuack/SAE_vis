@@ -8,8 +8,17 @@ import {
   getTrianglePathString,
   spreadBarycentricPoints,
   CONTOUR_CONFIG,
+  BARYCENTRIC_TRIANGLE,
   type CauseCategory
 } from '../lib/umap-utils'
+import { getTagColor } from '../lib/tag-system'
+import { TAG_CATEGORY_CAUSE } from '../lib/constants'
+import {
+  computeTriangleGrid,
+  cellToSvgPoints,
+  THRESHOLD_DIVISOR,
+  type TriangleCell
+} from '../lib/triangle-grid'
 import '../styles/UMAPScatter.css'
 
 // ============================================================================
@@ -28,10 +37,120 @@ interface UMAPScatterProps {
 }
 
 // Margin configuration
-const MARGIN = { top: 10, right: 10, bottom: 10, left: 10 }
+const MARGIN = { top: 0, right: 0, bottom: 0, left: 0 }
 
 // Cause categories for decision space validation (3 categories)
 const CAUSE_CATEGORIES = ['noisy-activation', 'missed-N-gram', 'missed-context']
+
+// Selection mode type
+type SelectionMode = 'cells' | 'lasso'
+
+// Cell category info for SVM visualization
+interface CellCategoryInfo {
+  majorityCategory: CauseCategory | null
+  purity: number  // 0-1, percentage of features with majority category
+  totalFeatures: number
+}
+
+// Map category to display name for getTagColor lookup
+const CATEGORY_TO_TAG_NAME: Record<CauseCategory, string> = {
+  'noisy-activation': 'Noisy Activation',
+  'missed-N-gram': 'Missed N-gram',
+  'missed-context': 'Missed Context',
+  'well-explained': 'Well-Explained'
+}
+
+// Get color for a cause category
+function getCauseCategoryColor(category: CauseCategory): string {
+  const tagName = CATEGORY_TO_TAG_NAME[category]
+  return getTagColor(TAG_CATEGORY_CAUSE, tagName) || '#9ca3af'
+}
+
+// Convert hex to HSL
+function hexToHsl(hex: string): [number, number, number] {
+  const r = parseInt(hex.slice(1, 3), 16) / 255
+  const g = parseInt(hex.slice(3, 5), 16) / 255
+  const b = parseInt(hex.slice(5, 7), 16) / 255
+
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const l = (max + min) / 2
+
+  let h = 0
+  let s = 0
+
+  if (max !== min) {
+    const d = max - min
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break
+      case g: h = ((b - r) / d + 2) / 6; break
+      case b: h = ((r - g) / d + 4) / 6; break
+    }
+  }
+
+  return [h * 360, s * 100, l * 100]
+}
+
+// Adjust color brightness based on purity (0-1)
+// High purity = full color, low purity = lighter/washed out
+function adjustColorByPurity(hexColor: string, purity: number): string {
+  const [h, s, l] = hexToHsl(hexColor)
+  // Map purity to lightness: low purity = light (85%), high purity = normal lightness
+  // Also reduce saturation for low purity
+  const targetL = 85 - purity * (85 - l)  // Interpolate from 85% (light) to original
+  const targetS = 30 + purity * (s - 30)   // Interpolate from 30% to original saturation
+  return `hsl(${h}, ${targetS}%, ${targetL}%)`
+}
+
+// Shape type for explainer positions
+type ExplainerShape = 'square' | 'diamond' | 'triangle'
+
+// Shape mapping for each LLM explainer (using full model names from backend)
+const EXPLAINER_SHAPES: Record<string, ExplainerShape> = {
+  'hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4': 'square',  // llama
+  'google/gemini-flash-2.5': 'diamond',                             // gemini
+  'openai/gpt-4o-mini': 'triangle'                                  // openai
+}
+
+// Draw a shape on canvas at (x, y) with given size
+// Sizes are adjusted for equal visual weight (same area)
+function drawShape(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  shape: ExplainerShape
+) {
+  ctx.beginPath()
+  switch (shape) {
+    case 'square':
+      // Area = 4 * size²
+      ctx.rect(x - size, y - size, size * 2, size * 2)
+      break
+    case 'diamond': {
+      // Base diamond area = 2 * size², scale by √2 ≈ 1.41 for equal area
+      const d = size * 1.41
+      ctx.moveTo(x, y - d)
+      ctx.lineTo(x + d, y)
+      ctx.lineTo(x, y + d)
+      ctx.lineTo(x - d, y)
+      ctx.closePath()
+      break
+    }
+    case 'triangle': {
+      // Match legend proportions: base=12, height=11 in 14x14 viewBox
+      // Scale for equal visual weight with square
+      const halfBase = size * 1.5
+      const height = size * 2.75
+      ctx.moveTo(x, y - height / 2)              // Top vertex
+      ctx.lineTo(x + halfBase, y + height / 2)   // Bottom right
+      ctx.lineTo(x - halfBase, y + height / 2)   // Bottom left
+      ctx.closePath()
+      break
+    }
+  }
+}
 
 const UMAPScatter: React.FC<UMAPScatterProps> = ({
   featureIds,
@@ -44,18 +163,10 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
 
-  // Fixed width, flexible height
-  const fixedWidth = propWidth || 400
-  const [containerHeight, setContainerHeight] = useState(propHeight || 350)
+  // Measure container height and use for square dimensions
+  const [measuredHeight, setMeasuredHeight] = useState(0)
 
-  // ResizeObserver for flexible height
   useEffect(() => {
-    // If fixed height provided, use that
-    if (propHeight) {
-      setContainerHeight(propHeight)
-      return
-    }
-
     const container = containerRef.current
     if (!container) return
 
@@ -64,20 +175,29 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       if (entry) {
         const { height } = entry.contentRect
         if (height > 0) {
-          setContainerHeight(height)
+          setMeasuredHeight(height)
         }
       }
     })
 
     observer.observe(container)
     return () => observer.disconnect()
-  }, [propHeight])
+  }, [])
+
+  // Square proportion: use container height for both dimensions
+  const size = measuredHeight || propHeight || propWidth || 400
+
+  // Selection mode state
+  const [selectionMode, setSelectionMode] = useState<SelectionMode>('cells')
 
   // Lasso state
   const [isDrawing, setIsDrawing] = useState(false)
   const [lassoPath, setLassoPath] = useState<[number, number][]>([])
   const justFinishedDrawing = useRef(false)
   const isDrawingRef = useRef(false)  // Ref for immediate access in handlers
+
+  // Cell grid state
+  const [hoveredCellKey, setHoveredCellKey] = useState<string | null>(null)
 
   // Track previous featureIds to avoid unnecessary refetches
   const prevFeatureIdsRef = useRef<string>('')
@@ -117,8 +237,8 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   }, [causeSelectionStates, causeSelectionSources])
 
   // Chart dimensions
-  const chartWidth = fixedWidth - MARGIN.left - MARGIN.right
-  const chartHeight = containerHeight - MARGIN.top - MARGIN.bottom
+  const chartWidth = size - MARGIN.left - MARGIN.right
+  const chartHeight = size - MARGIN.top - MARGIN.bottom
 
   // Track manual tags for refetch
   const prevManualTagsRef = useRef<string>('')
@@ -171,11 +291,66 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     return getTrianglePathString(scales)
   }, [scales])
 
-  // Transform points to spread across triangle (uniform scaling from centroid)
+  // Transform points to spread across triangle (stretch to fill bounding box)
   const spreadPoints = useMemo(() => {
     if (!umapProjection || umapProjection.length === 0) return null
-    return spreadBarycentricPoints(umapProjection)
+    return spreadBarycentricPoints(umapProjection, 'stretch')
   }, [umapProjection])
+
+  // Compute triangle grid for cell-based selection (with dynamic threshold)
+  const gridState = useMemo(() => {
+    if (!spreadPoints || spreadPoints.length === 0) return null
+    const threshold = Math.max(1, Math.ceil(spreadPoints.length / THRESHOLD_DIVISOR))
+    return computeTriangleGrid(spreadPoints, threshold)
+  }, [spreadPoints])
+
+  // Compute cell category info for SVM visualization (majority category + purity)
+  const cellCategoryInfo = useMemo(() => {
+    if (!gridState) return new Map<string, CellCategoryInfo>()
+
+    const info = new Map<string, CellCategoryInfo>()
+
+    for (const cellKey of gridState.leafCells) {
+      const cell = gridState.cells.get(cellKey)
+      if (!cell || cell.featureIds.size === 0) {
+        info.set(cellKey, { majorityCategory: null, purity: 0, totalFeatures: 0 })
+        continue
+      }
+
+      // Count features by category
+      const categoryCounts = new Map<CauseCategory, number>()
+      let totalCategorized = 0
+
+      for (const featureId of cell.featureIds) {
+        const category = causeSelectionStates.get(featureId) as CauseCategory | undefined
+        if (category) {
+          categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1)
+          totalCategorized++
+        }
+      }
+
+      // Find majority category
+      let majorityCategory: CauseCategory | null = null
+      let maxCount = 0
+      for (const [cat, count] of categoryCounts) {
+        if (count > maxCount) {
+          maxCount = count
+          majorityCategory = cat
+        }
+      }
+
+      // Calculate purity (percentage with majority category)
+      const purity = totalCategorized > 0 ? maxCount / totalCategorized : 0
+
+      info.set(cellKey, {
+        majorityCategory,
+        purity,
+        totalFeatures: cell.featureIds.size
+      })
+    }
+
+    return info
+  }, [gridState, causeSelectionStates])
 
   // Compute density contours per category (using spread points)
   const categoryContours = useMemo(() => {
@@ -193,16 +368,23 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     )
   }, [spreadPoints, causeSelectionStates, chartWidth, chartHeight, scales])
 
-  // Get mouse position relative to SVG
-  const getMousePosition = useCallback((e: React.MouseEvent<SVGSVGElement>): [number, number] => {
+  // Get mouse position relative to SVG (works with both React and native events)
+  const getMousePosition = useCallback((e: MouseEvent | React.MouseEvent): [number, number] => {
     const svg = svgRef.current
     if (!svg) return [0, 0]
     const rect = svg.getBoundingClientRect()
     return [e.clientX - rect.left, e.clientY - rect.top]
   }, [])
 
-  // Lasso mouse handlers
+  // Cell click handler (for cell mode)
+  const handleCellClick = useCallback((cell: TriangleCell) => {
+    setUmapBrushedFeatureIds(cell.featureIds)
+  }, [setUmapBrushedFeatureIds])
+
+  // Lasso mouse handlers (only active in lasso mode)
   const handleMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    // Only active in lasso mode
+    if (selectionMode !== 'lasso') return
     // Only respond to left mouse button
     if (e.button !== 0) return
 
@@ -212,9 +394,9 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     setIsDrawing(true)
     setLassoPath([pos])
     setUmapBrushedFeatureIds(new Set())
-  }, [getMousePosition, setUmapBrushedFeatureIds])
+  }, [selectionMode, getMousePosition, setUmapBrushedFeatureIds])
 
-  const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+  const handleMouseMove = useCallback((e: MouseEvent) => {
     // Use ref for immediate check (avoids stale closure issues)
     if (!isDrawingRef.current) return
 
@@ -231,6 +413,12 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     isDrawingRef.current = false
     setIsDrawing(false)
     justFinishedDrawing.current = true
+  }, [])
+
+  // Finalize lasso selection when drawing ends (separate from mouseup handler)
+  useEffect(() => {
+    // Only run when we just finished drawing (isDrawing went from true to false)
+    if (isDrawing || !justFinishedDrawing.current) return
 
     if (!scales || !spreadPoints) {
       return
@@ -254,10 +442,28 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
 
     setUmapBrushedFeatureIds(selectedIds)
     // Keep the lasso path visible after selection
-  }, [lassoPath, scales, spreadPoints, setUmapBrushedFeatureIds])
+  }, [isDrawing, lassoPath, scales, spreadPoints, setUmapBrushedFeatureIds])
 
-  // Clear selection on click outside
+  // Attach global mouse handlers when drawing to continue lasso outside SVG
+  // Also disable pointer events on other elements to prevent hover effects
+  useEffect(() => {
+    if (!isDrawing) return
+
+    document.body.classList.add('umap-lasso-drawing')
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      document.body.classList.remove('umap-lasso-drawing')
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDrawing, handleMouseMove, handleMouseUp])
+
+  // Clear selection on click outside (lasso mode only)
   const handleClick = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    // Only active in lasso mode
+    if (selectionMode !== 'lasso') return
     // Only respond to left mouse button
     if (e.button !== 0) return
 
@@ -272,7 +478,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       setLassoPath([])
       setUmapBrushedFeatureIds(new Set())
     }
-  }, [lassoPath, setUmapBrushedFeatureIds])
+  }, [selectionMode, lassoPath, setUmapBrushedFeatureIds])
 
   // Convert lasso path to SVG path string
   const lassoPathString = useMemo(() => {
@@ -301,8 +507,15 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    // Always clear canvas first
-    ctx.clearRect(0, 0, chartWidth, chartHeight)
+    // Handle high-DPI displays for crisp rendering
+    const dpr = window.devicePixelRatio || 1
+
+    // Reset transform and clear canvas
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.clearRect(0, 0, chartWidth * dpr, chartHeight * dpr)
+
+    // Scale context for high-DPI
+    ctx.scale(dpr, dpr)
 
     // Point styling
     const manualPointRadius = 4
@@ -381,19 +594,16 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
 
         ctx.setLineDash([])
 
-        // Draw explainer points (blue with white border)
+        // Draw explainer points (blue, different shapes per explainer)
         for (const ep of selectedPoint.explainer_positions) {
           const epX = scales.xScale(ep.x)
           const epY = scales.yScale(ep.y)
+          const shape = EXPLAINER_SHAPES[ep.explainer] || 'square'
 
-          ctx.beginPath()
-          ctx.arc(epX, epY, 4, 0, Math.PI * 2)
+          drawShape(ctx, epX, epY, 4, shape)
           ctx.fillStyle = selectionBlue
           ctx.globalAlpha = 1
           ctx.fill()
-          ctx.strokeStyle = '#fff'
-          ctx.lineWidth = 1.5
-          ctx.stroke()
         }
       }
 
@@ -424,10 +634,8 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   // RENDER
   // ============================================================================
 
-  // Container style - fixed width, flexible height via CSS
-  const containerStyle = propHeight
-    ? { width: fixedWidth, height: propHeight }
-    : { width: fixedWidth }
+  // Container style - fill height from flex parent, width matches height for square
+  const containerStyle = { width: size, height: '100%' }
 
   // Loading state - only block on position loading, not classification
   // Classification loading shows as overlay indicator instead
@@ -475,9 +683,6 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
           width={chartWidth}
           height={chartHeight}
           onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
           onClick={handleClick}
         >
           {/* Triangle outline */}
@@ -491,33 +696,87 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
             />
           )}
 
-          {/* Density contours per category */}
-          <g className="umap-scatter__contours">
-            {categoryContours.map(({ category, color, paths }) => (
-              <g key={category} className={`umap-scatter__contour-group umap-scatter__contour-group--${category}`}>
-                {paths.map((path, i) => {
-                  // Outer contours are more transparent
-                  const levelOpacity = CONTOUR_CONFIG.levelOpacities[
-                    Math.min(i, CONTOUR_CONFIG.levelOpacities.length - 1)
-                  ]
-                  return (
-                    <path
-                      key={i}
-                      d={path}
-                      fill={color}
-                      fillOpacity={CONTOUR_CONFIG.fillOpacity * levelOpacity}
-                      stroke={color}
-                      strokeOpacity={CONTOUR_CONFIG.strokeOpacity * levelOpacity}
-                      strokeWidth={CONTOUR_CONFIG.strokeWidth}
-                    />
-                  )
-                })}
-              </g>
-            ))}
-          </g>
+          {/* Density contours per category (lasso mode only) */}
+          {selectionMode === 'lasso' && (
+            <g className="umap-scatter__contours">
+              {categoryContours.map(({ category, color, paths }) => (
+                <g key={category} className={`umap-scatter__contour-group umap-scatter__contour-group--${category}`}>
+                  {paths.map((path, i) => {
+                    // Outer contours are more transparent
+                    const levelOpacity = CONTOUR_CONFIG.levelOpacities[
+                      Math.min(i, CONTOUR_CONFIG.levelOpacities.length - 1)
+                    ]
+                    return (
+                      <path
+                        key={i}
+                        d={path}
+                        fill={color}
+                        fillOpacity={CONTOUR_CONFIG.fillOpacity * levelOpacity}
+                        stroke={color}
+                        strokeOpacity={CONTOUR_CONFIG.strokeOpacity * levelOpacity}
+                        strokeWidth={CONTOUR_CONFIG.strokeWidth}
+                      />
+                    )
+                  })}
+                </g>
+              ))}
+            </g>
+          )}
 
-          {/* Lasso selection path */}
-          {lassoPathString && (
+          {/* Triangle cell grid (cell mode only) */}
+          {selectionMode === 'cells' && gridState && scales && (
+            <g className="umap-scatter__cell-grid">
+              {Array.from(gridState.leafCells).map(key => {
+                const cell = gridState.cells.get(key)
+                if (!cell) return null
+                const isHovered = hoveredCellKey === key
+                const hasSelection = umapBrushedFeatureIds.size > 0
+                const isSelected = hasSelection &&
+                  Array.from(cell.featureIds).some(fid => umapBrushedFeatureIds.has(fid))
+
+                // Get category info for SVM visualization
+                const catInfo = cellCategoryInfo.get(key)
+                const hasCategoryData = catInfo?.majorityCategory != null
+
+                // Compute brightness-adjusted color based on purity
+                let adjustedColor: string | undefined
+                if (hasCategoryData) {
+                  const baseColor = getCauseCategoryColor(catInfo!.majorityCategory!)
+                  const purity = catInfo!.purity
+                  // On hover, boost purity slightly for visual feedback
+                  const effectivePurity = isHovered ? Math.min(purity + 0.15, 1) : purity
+                  adjustedColor = adjustColorByPurity(baseColor, effectivePurity)
+                }
+
+                // Build inline style for category coloring
+                const cellStyle: React.CSSProperties | undefined = hasCategoryData && !isSelected
+                  ? {
+                      fill: adjustedColor,
+                      stroke: isHovered ? 'rgba(59, 130, 246, 0.6)' : undefined,
+                      strokeWidth: isHovered ? 1 : undefined
+                    }
+                  : undefined
+
+                return (
+                  <polygon
+                    key={key}
+                    points={cellToSvgPoints(cell, scales.xScale, scales.yScale)}
+                    className={`umap-scatter__cell ${isHovered && !hasCategoryData ? 'umap-scatter__cell--hovered' : ''} ${isSelected ? 'umap-scatter__cell--selected' : ''}`}
+                    style={cellStyle}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleCellClick(cell)
+                    }}
+                    onMouseEnter={() => setHoveredCellKey(key)}
+                    onMouseLeave={() => setHoveredCellKey(null)}
+                  />
+                )
+              })}
+            </g>
+          )}
+
+          {/* Lasso selection path (lasso mode only) */}
+          {selectionMode === 'lasso' && lassoPathString && (
             <>
               {/* Outer glow/shadow */}
               <path
@@ -559,10 +818,100 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
         {/* Canvas for brushed points (overlays SVG) */}
         <canvas
           ref={canvasRef}
-          width={chartWidth}
-          height={chartHeight}
+          width={chartWidth * (window.devicePixelRatio || 1)}
+          height={chartHeight * (window.devicePixelRatio || 1)}
           className="umap-scatter__canvas"
+          style={{ width: chartWidth, height: chartHeight }}
         />
+
+        {/* Vertex labels (positioned at triangle corners) */}
+        {scales && (
+          <>
+            {/* Top vertex: Noisy Activation */}
+            <div
+              className="umap-scatter__vertex-label"
+              style={{
+                left: scales.xScale(BARYCENTRIC_TRIANGLE.vertices.noisyActivation[0]),
+                top: scales.yScale(BARYCENTRIC_TRIANGLE.vertices.noisyActivation[1]),
+                transform: 'translate(-50%, -100%) translateY(-10px)',
+                '--tag-color': getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#9ca3af'
+              } as React.CSSProperties}
+            >
+              Noisy Activation
+            </div>
+            {/* Bottom-left vertex: Missed N-gram */}
+            <div
+              className="umap-scatter__vertex-label"
+              style={{
+                left: scales.xScale(BARYCENTRIC_TRIANGLE.vertices.missedNgram[0]),
+                top: scales.yScale(BARYCENTRIC_TRIANGLE.vertices.missedNgram[1]),
+                transform: 'translate(-10px, 10px)',
+                '--tag-color': getTagColor(TAG_CATEGORY_CAUSE, 'Missed N-gram') || '#9ca3af'
+              } as React.CSSProperties}
+            >
+              Missed N-gram
+            </div>
+            {/* Bottom-right vertex: Missed Context */}
+            <div
+              className="umap-scatter__vertex-label"
+              style={{
+                left: scales.xScale(BARYCENTRIC_TRIANGLE.vertices.missedContext[0]),
+                top: scales.yScale(BARYCENTRIC_TRIANGLE.vertices.missedContext[1]),
+                transform: 'translate(calc(-100% + 10px), 10px)',
+                '--tag-color': getTagColor(TAG_CATEGORY_CAUSE, 'Missed Context') || '#9ca3af'
+              } as React.CSSProperties}
+            >
+              Missed Context
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Mode toggle + Explainer legend (stacked vertically) */}
+      <div className="umap-scatter__controls">
+        <div className="umap-scatter__mode-toggle">
+          <button
+            className={`umap-scatter__mode-btn ${selectionMode === 'cells' ? 'umap-scatter__mode-btn--active' : ''}`}
+            onClick={() => {
+              setSelectionMode('cells')
+              setLassoPath([])  // Clear lasso when switching
+            }}
+            title="Cell selection"
+          >
+            Cells
+          </button>
+          <button
+            className={`umap-scatter__mode-btn ${selectionMode === 'lasso' ? 'umap-scatter__mode-btn--active' : ''}`}
+            onClick={() => {
+              setSelectionMode('lasso')
+              setHoveredCellKey(null)  // Clear hover when switching
+            }}
+            title="Lasso selection"
+          >
+            Lasso
+          </button>
+        </div>
+
+        <div className="umap-scatter__explainer-legend">
+          <div className="umap-scatter__legend-item">
+            <svg width="14" height="14" viewBox="0 0 14 14">
+              <rect x="3" y="3" width="8" height="8" fill="#3b82f6"/>
+            </svg>
+            <span>Llama</span>
+          </div>
+          <div className="umap-scatter__legend-item">
+            <svg width="14" height="14" viewBox="0 0 14 14">
+              <polygon points="7,0.5 13,7 7,13.5 1,7" fill="#3b82f6"/>
+            </svg>
+            <span>Gemini</span>
+          </div>
+          <div className="umap-scatter__legend-item">
+            <svg width="14" height="14" viewBox="0 0 14 14">
+              <polygon points="7,1 13,12 1,12" fill="#3b82f6"/>
+            </svg>
+            <span>OpenAI</span>
+          </div>
+        </div>
       </div>
 
       {/* Classification loading indicator (subtle overlay) */}
@@ -573,12 +922,6 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
         </div>
       )}
 
-      {/* Selection count */}
-      {umapBrushedFeatureIds.size > 0 && (
-        <div className="umap-scatter__selection-count">
-          {umapBrushedFeatureIds.size} features selected
-        </div>
-      )}
     </div>
   )
 }

@@ -365,3 +365,16 @@ body {
   height: 100%;
   white-space: nowrap;
 }
+
+/* ============================================================================
+   UMAP LASSO DRAWING - Disable hover effects globally during lasso selection
+   ============================================================================ */
+
+body.umap-lasso-drawing * {
+  pointer-events: none !important;
+}
+
+/* Keep pointer events on UMAP scatter SVG for lasso to continue working */
+body.umap-lasso-drawing .umap-scatter__svg {
+  pointer-events: auto !important;
+}

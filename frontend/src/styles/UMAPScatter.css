@@ -10,8 +10,6 @@
   display: flex;
   flex-direction: column;
   background: #ffffff;
-  border: 2px dashed #d1d5db;
-  border-radius: 4px;
   overflow: hidden;
 }
 
@@ -135,7 +133,6 @@
   position: relative;
   flex: 1;
   min-height: 0;
-  margin: 0 10px 10px 10px;  /* Match MARGIN config */
 }
 
 /* SVG for contours and lasso (base layer) */
@@ -167,19 +164,6 @@
   pointer-events: none;  /* Allow lasso events to pass through */
 }
 
-/* Selection count badge */
-.umap-scatter__selection-count {
-  position: absolute;
-  bottom: 8px;
-  right: 8px;
-  padding: 4px 8px;
-  background: rgba(0, 0, 0, 0.7);
-  color: #fff;
-  font-size: 11px;
-  border-radius: 4px;
-  pointer-events: none;
-}
-
 /* Classification loading indicator (subtle overlay) */
 .umap-scatter__classification-loading {
   position: absolute;
@@ -200,4 +184,136 @@
 .umap-scatter__spinner--small {
   width: 12px;
   height: 12px;
+}
+
+/* ============================================================================
+   MODE TOGGLE
+   ============================================================================ */
+
+/* Controls container - holds mode toggle and legend */
+.umap-scatter__controls {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 10;
+}
+
+.umap-scatter__mode-toggle {
+  display: flex;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 6px;
+  padding: 2px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.umap-scatter__mode-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary, #6b7280);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.umap-scatter__mode-btn:hover {
+  color: var(--text-primary, #374151);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.umap-scatter__mode-btn--active {
+  color: #fff;
+  background: var(--color-primary, #3b82f6);
+}
+
+.umap-scatter__mode-btn--active:hover {
+  color: #fff;
+  background: var(--color-primary-dark, #2563eb);
+}
+
+/* ============================================================================
+   TRIANGLE CELL GRID
+   ============================================================================ */
+
+.umap-scatter__cell-grid {
+  pointer-events: auto;
+}
+
+.umap-scatter__cell {
+  fill: transparent;
+  stroke: rgba(0, 0, 0, 0.25);
+  stroke-width: 0.75;
+  cursor: pointer;
+  transition: fill 0.12s ease, stroke 0.12s ease, stroke-width 0.12s ease;
+}
+
+.umap-scatter__cell:hover,
+.umap-scatter__cell--hovered {
+  fill: rgba(59, 130, 246, 0.12);
+  stroke: rgba(59, 130, 246, 0.6);
+  stroke-width: 1;
+}
+
+.umap-scatter__cell--selected {
+  fill: rgba(59, 130, 246, 0.18);
+  stroke: var(--color-primary, #3b82f6);
+  stroke-width: 1.5;
+}
+
+.umap-scatter__cell--selected:hover,
+.umap-scatter__cell--selected.umap-scatter__cell--hovered {
+  fill: rgba(59, 130, 246, 0.25);
+  stroke: var(--color-primary-dark, #2563eb);
+  stroke-width: 2;
+}
+
+/* ============================================================================
+   VERTEX LABELS - Tag-styled labels at triangle corners
+   ============================================================================ */
+
+.umap-scatter__vertex-label {
+  position: absolute;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #000;
+  background-color: var(--tag-color, #9ca3af);
+  border: 1px solid var(--tag-color, #9ca3af);
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* ============================================================================
+   EXPLAINER SHAPE LEGEND
+   ============================================================================ */
+
+.umap-scatter__explainer-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  font-size: 11px;
+}
+
+.umap-scatter__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-secondary, #6b7280);
+}
+
+.umap-scatter__legend-item svg {
+  flex-shrink: 0;
 }

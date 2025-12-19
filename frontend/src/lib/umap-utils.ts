@@ -26,6 +26,8 @@ export const BARYCENTRIC_TRIANGLE = {
     missedContext: [1.0, 0.0] as [number, number],
     noisyActivation: [0.5, 0.866] as [number, number]
   },
+  // Centroid of the triangle (average of vertices)
+  centroid: [0.5, 0.866 / 3] as [number, number],  // (0.5, ~0.289)
   // Bounds for the triangle coordinate space
   xMin: 0,
   xMax: 1,
@@ -40,76 +42,178 @@ export const BARYCENTRIC_TRIANGLE = {
 export type CauseCategory = 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'
 
 // ============================================================================
-// BARYCENTRIC SPREAD TRANSFORMATION
+// RADIAL SPREAD TRANSFORMATION
 // ============================================================================
 
-/**
- * Convert 2D position to barycentric weights.
- * For triangle with vertices: (0,0), (1,0), (0.5, 0.866)
- */
-function positionToBarycentric(x: number, y: number): [number, number, number] {
-  const yMax = BARYCENTRIC_TRIANGLE.yMax
-  const w3 = y / yMax  // noisy_activation weight
-  const w2 = x - 0.5 * w3  // missed_context weight
-  const w1 = 1 - w2 - w3  // missed_ngram weight
-  return [w1, w2, w3]
-}
+/** Spread method for barycentric points */
+export type SpreadMethod = 'radial' | 'minmax' | 'stretch'
 
 /**
- * Convert barycentric weights to 2D position.
- * Note: w1 is not used directly since position only depends on w2 and w3
- * (w1 = 1 - w2 - w3 is implicit)
+ * Compute where a ray from origin in given direction intersects the triangle boundary.
+ * Returns the parameter t such that origin + t * direction is on the edge.
+ *
+ * Triangle edges:
+ * - Edge 1: (0,0) to (1,0) - bottom edge (y = 0)
+ * - Edge 2: (1,0) to (0.5,0.866) - right edge
+ * - Edge 3: (0.5,0.866) to (0,0) - left edge
  */
-function barycentricToPosition(_w1: number, w2: number, w3: number): { x: number, y: number } {
-  const yMax = BARYCENTRIC_TRIANGLE.yMax
-  return {
-    x: w2 + 0.5 * w3,
-    y: yMax * w3
+function rayTriangleIntersectionT(
+  ox: number, oy: number,  // origin
+  dx: number, dy: number   // direction (not normalized)
+): number {
+  const { vertices } = BARYCENTRIC_TRIANGLE
+  const v0 = vertices.missedNgram      // (0, 0)
+  const v1 = vertices.missedContext    // (1, 0)
+  const v2 = vertices.noisyActivation  // (0.5, 0.866)
+
+  // Check intersection with each edge, find minimum positive t
+  let minT = Infinity
+
+  // Helper: intersect ray with line segment (p1, p2)
+  // Ray: P = O + t * D
+  // Segment: Q = P1 + s * (P2 - P1), s in [0, 1]
+  const intersectSegment = (p1: [number, number], p2: [number, number]): number | null => {
+    const ex = p2[0] - p1[0]
+    const ey = p2[1] - p1[1]
+
+    // Solve: O + t*D = P1 + s*E
+    // Cross product method: t = (P1 - O) x E / (D x E)
+    const dCrossE = dx * ey - dy * ex
+    if (Math.abs(dCrossE) < 1e-10) return null  // Parallel
+
+    const px = p1[0] - ox
+    const py = p1[1] - oy
+
+    const t = (px * ey - py * ex) / dCrossE
+    const s = (px * dy - py * dx) / dCrossE
+
+    // Check t > 0 (forward direction) and s in [0, 1] (on segment)
+    if (t > 1e-10 && s >= 0 && s <= 1) {
+      return t
+    }
+    return null
   }
+
+  // Edge 1: bottom (v0 to v1)
+  const t1 = intersectSegment(v0, v1)
+  if (t1 !== null && t1 < minT) minT = t1
+
+  // Edge 2: right (v1 to v2)
+  const t2 = intersectSegment(v1, v2)
+  if (t2 !== null && t2 < minT) minT = t2
+
+  // Edge 3: left (v2 to v0)
+  const t3 = intersectSegment(v2, v0)
+  if (t3 !== null && t3 < minT) minT = t3
+
+  return minT
 }
 
 /**
- * Spread barycentric points using power transformation on weights.
- * This is mathematically principled:
- * - Works in the natural barycentric coordinate system
- * - Same transformation applied uniformly to all weights
- * - Guaranteed to stay inside the triangle
- * - Preserves ordinal relationships (if w1 > w2 before, still w1 > w2 after)
+ * Compute normalized radial coordinate for a point.
+ * r = 0 at centroid, r = 1 at triangle edge.
+ *
+ * Math: r = d / D where d = distance to centroid, D = distance to edge
+ * Since D = tEdge * d, we have r = 1 / tEdge
+ */
+function computeNormalizedRadius(
+  x: number, y: number,
+  cx: number, cy: number
+): { r: number; dx: number; dy: number; tEdge: number } {
+  const dx = x - cx
+  const dy = y - cy
+  const dist = Math.sqrt(dx * dx + dy * dy)
+
+  if (dist < 1e-10) {
+    return { r: 0, dx: 0, dy: 0, tEdge: 1 }
+  }
+
+  const tEdge = rayTriangleIntersectionT(cx, cy, dx, dy)
+  const r = 1 / tEdge  // normalized radial distance
+
+  return { r, dx, dy, tEdge }
+}
+
+/**
+ * Spread barycentric points using various scaling methods.
+ *
+ * Three methods available:
+ *
+ * 'radial' (uniform scaling):
+ *   - Computes a single scale factor so the outermost point just reaches the edge
+ *   - All points scaled by the same factor
+ *   - Preserves relative distances from centroid
+ *
+ * 'minmax' (radial min-max normalization):
+ *   - Normalizes radial distances so points span from near-centroid to edge
+ *   - Each point's normalized radius r ∈ [rMin, rMax] is mapped to [0.02, 1]
+ *   - Points spread to fill the full radial range
+ *   - Preserves angular relationships (direction from centroid)
+ *
+ * 'stretch' (independent axis scaling):
+ *   - Scales X and Y independently to fill the triangle bounding box
+ *   - Maximizes spread but distorts aspect ratios
+ *   - Some points may end up outside triangle edges (in bounding box corners)
  *
  * @param points - Array of UMAP points with barycentric coordinates
- * @param power - Power for transformation (> 1 spreads toward vertices, < 1 concentrates toward center)
+ * @param method - 'radial', 'minmax', or 'stretch'
  * @returns Transformed points with spread coordinates
  */
 export function spreadBarycentricPoints(
   points: UmapPoint[],
-  power: number = 2.5  // > 1 pushes toward vertices, < 1 pushes toward center
+  method: SpreadMethod = 'radial'
 ): UmapPoint[] {
   if (points.length === 0) return points
 
+  const [cx, cy] = BARYCENTRIC_TRIANGLE.centroid
+
+  if (method === 'minmax') {
+    return spreadMinMax(points, cx, cy)
+  } else if (method === 'stretch') {
+    return spreadStretch(points)
+  } else {
+    return spreadRadial(points, cx, cy)
+  }
+}
+
+/**
+ * Uniform radial scaling - all points scaled by same factor.
+ */
+function spreadRadial(points: UmapPoint[], cx: number, cy: number): UmapPoint[] {
+  // First pass: find the maximum uniform scale factor
+  let globalMaxScale = Infinity
+
+  for (const point of points) {
+    const dx = point.x - cx
+    const dy = point.y - cy
+    const currentDist = Math.sqrt(dx * dx + dy * dy)
+
+    // Skip points at or very near the centroid
+    if (currentDist < 1e-10) continue
+
+    // Find where ray from centroid through this point hits the triangle edge
+    const tToEdge = rayTriangleIntersectionT(cx, cy, dx, dy)
+    if (tToEdge === Infinity) continue
+
+    // Max scale for this point = tToEdge (distance to edge / current distance)
+    if (tToEdge < globalMaxScale) {
+      globalMaxScale = tToEdge
+    }
+  }
+
+  // If all points are at centroid or no valid scale found, return unchanged
+  if (globalMaxScale === Infinity || globalMaxScale <= 1) {
+    return points
+  }
+
+  // Second pass: apply the uniform scale to all points
   const transformPoint = (x: number, y: number): { x: number, y: number } => {
-    // Convert to barycentric weights
-    let [w1, w2, w3] = positionToBarycentric(x, y)
-
-    // Clamp weights to valid range (handle numerical errors)
-    w1 = Math.max(0, Math.min(1, w1))
-    w2 = Math.max(0, Math.min(1, w2))
-    w3 = Math.max(0, Math.min(1, w3))
-
-    // Apply power transformation (spreads toward vertices when power > 1)
-    const w1p = Math.pow(w1, power)
-    const w2p = Math.pow(w2, power)
-    const w3p = Math.pow(w3, power)
-
-    // Re-normalize so weights sum to 1
-    const sum = w1p + w2p + w3p
-    if (sum === 0) return { x, y }  // Edge case: all weights were 0
-
-    const w1n = w1p / sum
-    const w2n = w2p / sum
-    const w3n = w3p / sum
-
-    // Convert back to 2D position
-    return barycentricToPosition(w1n, w2n, w3n)
+    const dx = x - cx
+    const dy = y - cy
+    return {
+      x: cx + globalMaxScale * dx,
+      y: cy + globalMaxScale * dy
+    }
   }
 
   return points.map(p => {
@@ -120,11 +224,147 @@ export function spreadBarycentricPoints(
       y: newPos.y,
       explainer_positions: p.explainer_positions?.map(ep => {
         const epPos = transformPoint(ep.x, ep.y)
-        return {
-          ...ep,
-          x: epPos.x,
-          y: epPos.y
-        }
+        return { ...ep, x: epPos.x, y: epPos.y }
+      })
+    }
+  })
+}
+
+/**
+ * Radial min-max normalization - spread radii to fill [rMin_target, 1].
+ *
+ * For each point:
+ *   r = normalized radial distance (0 at centroid, 1 at edge)
+ *   r' = (r - rMin) / (rMax - rMin)  -- normalized to [0, 1]
+ *   r'' = rMin_target + r' * (1 - rMin_target)  -- mapped to [rMin_target, 1]
+ *   newPos = centroid + r'' * tEdge * direction
+ *
+ * This ensures:
+ *   - Innermost point moves to rMin_target (not collapsed to centroid)
+ *   - Outermost point moves to edge (r'' = 1)
+ *   - Angular relationships preserved
+ */
+function spreadMinMax(points: UmapPoint[], cx: number, cy: number): UmapPoint[] {
+  // Small margin to prevent innermost point from collapsing to centroid
+  const rMinTarget = 0.02
+
+  // First pass: find min and max normalized radii across all points
+  let rMin = Infinity
+  let rMax = -Infinity
+
+  for (const point of points) {
+    const { r } = computeNormalizedRadius(point.x, point.y, cx, cy)
+    if (r > 1e-10) {  // Skip points exactly at centroid
+      if (r < rMin) rMin = r
+      if (r > rMax) rMax = r
+    }
+  }
+
+  // Edge cases: all points at centroid, or all at same radius
+  if (rMin === Infinity || rMax === -Infinity || rMax - rMin < 1e-10) {
+    return points
+  }
+
+  // Transform function: normalize radius to [rMinTarget, 1]
+  const transformPoint = (x: number, y: number): { x: number, y: number } => {
+    const { r, dx, dy, tEdge } = computeNormalizedRadius(x, y, cx, cy)
+
+    // Points at centroid stay at centroid
+    if (r < 1e-10) {
+      return { x: cx, y: cy }
+    }
+
+    // Normalize r from [rMin, rMax] to [0, 1], then map to [rMinTarget, 1]
+    const rNorm = (r - rMin) / (rMax - rMin)
+    const rNew = rMinTarget + rNorm * (1 - rMinTarget)
+
+    // New position: move to rNew fraction of the way to the edge
+    // Current position is at r = 1/tEdge fraction of the way to edge
+    // New distance = rNew * distToEdge = rNew * tEdge * currentDist
+    // Scale = rNew * tEdge / 1 = rNew * tEdge (relative to direction vector)
+    const scale = rNew * tEdge
+
+    return {
+      x: cx + scale * dx,
+      y: cy + scale * dy
+    }
+  }
+
+  return points.map(p => {
+    const newPos = transformPoint(p.x, p.y)
+    return {
+      ...p,
+      x: newPos.x,
+      y: newPos.y,
+      explainer_positions: p.explainer_positions?.map(ep => {
+        const epPos = transformPoint(ep.x, ep.y)
+        return { ...ep, x: epPos.x, y: epPos.y }
+      })
+    }
+  })
+}
+
+/**
+ * Independent axis scaling - stretch X and Y to fill triangle bounding box.
+ *
+ * Simple min-max normalization on each axis independently:
+ *   x' = (x - xMin) / (xMax - xMin) * targetWidth + targetXMin
+ *   y' = (y - yMin) / (yMax - yMin) * targetHeight + targetYMin
+ *
+ * This maximizes spread but:
+ *   - Distorts aspect ratios (circles become ellipses)
+ *   - Points in corners of bounding box may fall outside triangle edges
+ */
+function spreadStretch(points: UmapPoint[]): UmapPoint[] {
+  // Find data extent
+  let xMin = Infinity, xMax = -Infinity
+  let yMin = Infinity, yMax = -Infinity
+
+  for (const point of points) {
+    if (point.x < xMin) xMin = point.x
+    if (point.x > xMax) xMax = point.x
+    if (point.y < yMin) yMin = point.y
+    if (point.y > yMax) yMax = point.y
+  }
+
+  // Handle edge cases
+  const xRange = xMax - xMin
+  const yRange = yMax - yMin
+  if (xRange < 1e-10 && yRange < 1e-10) {
+    return points  // All points at same location
+  }
+
+  // Target bounds (triangle bounding box with small margin)
+  const margin = 0.02
+  const targetXMin = BARYCENTRIC_TRIANGLE.xMin + margin
+  const targetXMax = BARYCENTRIC_TRIANGLE.xMax - margin
+  const targetYMin = BARYCENTRIC_TRIANGLE.yMin + margin
+  const targetYMax = BARYCENTRIC_TRIANGLE.yMax - margin
+
+  const targetXRange = targetXMax - targetXMin
+  const targetYRange = targetYMax - targetYMin
+
+  // Compute scales (handle zero range by centering)
+  const xScale = xRange > 1e-10 ? targetXRange / xRange : 0
+  const yScale = yRange > 1e-10 ? targetYRange / yRange : 0
+  const xOffset = xRange > 1e-10 ? targetXMin - xMin * xScale : (targetXMin + targetXMax) / 2
+  const yOffset = yRange > 1e-10 ? targetYMin - yMin * yScale : (targetYMin + targetYMax) / 2
+
+  // Transform function
+  const transformPoint = (x: number, y: number): { x: number, y: number } => ({
+    x: xScale > 0 ? x * xScale + xOffset : xOffset,
+    y: yScale > 0 ? y * yScale + yOffset : yOffset
+  })
+
+  return points.map(p => {
+    const newPos = transformPoint(p.x, p.y)
+    return {
+      ...p,
+      x: newPos.x,
+      y: newPos.y,
+      explainer_positions: p.explainer_positions?.map(ep => {
+        const epPos = transformPoint(ep.x, ep.y)
+        return { ...ep, x: epPos.x, y: epPos.y }
       })
     }
   })

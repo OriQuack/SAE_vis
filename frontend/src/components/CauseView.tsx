@@ -4,7 +4,7 @@ import type { SelectionCategory, FeatureTableRow } from '../types'
 import SelectionPanel from './SelectionPanel'
 import UMAPScatter from './UMAPScatter'
 import { ScrollableItemList } from './ScrollableItemList'
-import { TagBadge, TagButton } from './Indicators'
+import { TagBadge, TagButton, CauseMetricBars } from './Indicators'
 import ActivationExample from './ActivationExamplePanel'
 import { HighlightedExplanation } from './ExplanationPanel'
 import ModalityIndicator from './ModalityIndicator'
@@ -42,6 +42,9 @@ const CAUSE_TAG_NAMES: Record<CauseCategory, string> = {
   'missed-context': 'Missed Context',
   'well-explained': 'Well-Explained'
 }
+
+// Pagination for feature list
+const ITEMS_PER_PAGE = 10
 
 interface CauseViewProps {
   className?: string
@@ -92,7 +95,9 @@ const CauseView: React.FC<CauseViewProps> = ({
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0)
   const [currentBrushedIndex, setCurrentBrushedIndex] = useState(0)
   const [activeListSource, setActiveListSource] = useState<'all' | 'brushed'>('all')
+  const [currentPage, setCurrentPage] = useState(0)
   const [brushedSortDirection, setBrushedSortDirection] = useState<'asc' | 'desc'>('asc')
+  const [featuresSortDirection, setFeaturesSortDirection] = useState<'asc' | 'desc'>('asc')
   const [containerWidth, setContainerWidth] = useState(600)
   const rightPanelRef = useRef<HTMLDivElement>(null)
   const hasAutoTaggedRef = useRef(false)
@@ -285,6 +290,24 @@ const CauseView: React.FC<CauseViewProps> = ({
       .filter(item => item.row !== null)
   }, [tableData, selectedFeatureIds])
 
+  // Sort features by decision margin and paginate
+  const sortedFeatureList = useMemo(() => {
+    if (decisionMarginMap.size === 0) return featureListWithMetadata
+    return [...featureListWithMetadata].sort((a, b) => {
+      const marginA = decisionMarginMap.get(a.featureId) ?? 0
+      const marginB = decisionMarginMap.get(b.featureId) ?? 0
+      return featuresSortDirection === 'asc' ? marginA - marginB : marginB - marginA
+    })
+  }, [featureListWithMetadata, decisionMarginMap, featuresSortDirection])
+
+  const totalPages = Math.ceil(sortedFeatureList.length / ITEMS_PER_PAGE)
+  const currentPageFeatures = useMemo(() => {
+    return sortedFeatureList.slice(
+      currentPage * ITEMS_PER_PAGE,
+      (currentPage + 1) * ITEMS_PER_PAGE
+    )
+  }, [sortedFeatureList, currentPage])
+
   // Check if all features are manually tagged (for enabling next stage button)
   const allTagged = useMemo(() => {
     if (!selectedFeatureIds || selectedFeatureIds.size === 0) return false
@@ -378,9 +401,43 @@ const CauseView: React.FC<CauseViewProps> = ({
     setActiveListSource('brushed')
   }, [])
 
+  // Handle click on feature in feature list (left panel)
+  const handleFeatureListClick = useCallback((index: number) => {
+    const globalIndex = currentPage * ITEMS_PER_PAGE + index
+    setCurrentFeatureIndex(globalIndex)
+    setActiveListSource('all')
+  }, [currentPage])
+
+  // Render feature item for feature list ScrollableItemList
+  const renderFeatureListItem = useCallback((feature: typeof featureListWithMetadata[0], index: number) => {
+    const causeCategory = causeSelectionStates.get(feature.featureId)
+    const causeSource = causeSelectionSources.get(feature.featureId)
+    const scores = causeMetricScores.get(feature.featureId)
+    const tagName = causeCategory ? CAUSE_TAG_NAMES[causeCategory] : 'Unsure'
+
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
+        <TagBadge
+          featureId={feature.featureId}
+          tagName={tagName}
+          tagCategoryId={TAG_CATEGORY_CAUSE}
+          onClick={() => handleFeatureListClick(index)}
+          fullWidth={true}
+          isAuto={causeSource === 'auto'}
+        />
+        <CauseMetricBars scores={scores ?? null} selectedCategory={causeCategory} />
+      </div>
+    )
+  }, [causeSelectionStates, causeSelectionSources, causeMetricScores, handleFeatureListClick])
+
   // Toggle sort direction for brushed features list
   const toggleBrushedSortDirection = useCallback(() => {
     setBrushedSortDirection(dir => dir === 'asc' ? 'desc' : 'asc')
+  }, [])
+
+  // Toggle sort direction for features list
+  const toggleFeaturesSortDirection = useCallback(() => {
+    setFeaturesSortDirection(dir => dir === 'asc' ? 'desc' : 'asc')
   }, [])
 
   // ============================================================================
@@ -657,7 +714,6 @@ const CauseView: React.FC<CauseViewProps> = ({
           <div className="cause-view__row-top">
             <UMAPScatter
               featureIds={selectedFeatureIds ? Array.from(selectedFeatureIds) : []}
-              width={500}
               className="cause-view__umap"
               selectedFeatureId={selectedFeatureData?.featureId ?? null}
             />
@@ -803,9 +859,43 @@ const CauseView: React.FC<CauseViewProps> = ({
             </div>
           </div>
 
-          {/* Bottom row: Activation/Explanation panel */}
+          {/* Bottom row: Feature list + Activation/Explanation panel */}
           <div className="cause-view__row-bottom">
-            {/* Activation examples and explanations */}
+            {/* Left: All features from segment */}
+            <ScrollableItemList
+              variant="cause"
+              badges={[{ label: 'Features', count: featureListWithMetadata.length }]}
+              columnHeader={{
+                label: 'Decision Margin',
+                sortDirection: featuresSortDirection,
+                onClick: toggleFeaturesSortDirection
+              }}
+              sortConfig={{
+                getDisplayScore: (item: typeof featureListWithMetadata[0]) => decisionMarginMap.get(item.featureId)
+              }}
+              items={currentPageFeatures}
+              renderItem={renderFeatureListItem}
+              currentIndex={activeListSource === 'all' ? currentFeatureIndex % ITEMS_PER_PAGE : -1}
+              isActive={activeListSource === 'all'}
+              pageNavigation={{
+                currentPage,
+                totalPages,
+                onPreviousPage: () => {
+                  if (currentPage > 0) {
+                    setCurrentPage(currentPage - 1)
+                    setCurrentFeatureIndex((currentPage - 1) * ITEMS_PER_PAGE)
+                  }
+                },
+                onNextPage: () => {
+                  if (currentPage < totalPages - 1) {
+                    setCurrentPage(currentPage + 1)
+                    setCurrentFeatureIndex((currentPage + 1) * ITEMS_PER_PAGE)
+                  }
+                }
+              }}
+            />
+
+            {/* Right: Activation examples and explanations */}
             <div className="cause-view__right-panel" ref={rightPanelRef}>
               {selectedFeatureData ? (
                 <>
